@@ -229,7 +229,7 @@ export async function fetchScheduleEventsForMonth(
 
   const privateEvents: ScheduleEvent[] = []
   if (privateRequests) {
-    ;(privateRequests as unknown as PrivateRequestData[]).forEach(request => {
+    (privateRequests as unknown as PrivateRequestData[]).forEach(request => {
       if (!request.candidate_datetimes?.candidates) return
 
       let gmNames: string[] = []

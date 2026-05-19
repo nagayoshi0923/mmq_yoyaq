@@ -2,7 +2,6 @@
  * 組織固有のFAQ設定
  */
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -14,6 +13,8 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { COMMON_FAQ_DATA } from '@/pages/static/FAQPage'
 import type { FAQItem } from '@/types'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 
 export function FAQSettings() {
   const { organization, isLicenseManager, isLoading, refetch: refetchOrg } = useOrganization()
@@ -28,7 +29,7 @@ export function FAQSettings() {
     if (organization) {
       // 組織固有FAQ（nullでも空配列として扱う）
       setFaqItems(organization.faq_items || [])
-      
+
       // MMQ共通FAQ（ライセンス管理者の場合）
       if (isLicenseManager) {
         if (organization.common_faq_items && organization.common_faq_items.length > 0) {
@@ -37,7 +38,7 @@ export function FAQSettings() {
           setCommonFaqItems(COMMON_FAQ_DATA)
         }
       }
-      
+
       setDataLoaded(true)
     }
   }, [organization, isLicenseManager])
@@ -132,37 +133,32 @@ export function FAQSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-4">
-            <p className="text-sm text-blue-800">
-              <strong>このページでできること：</strong>
-              予約サイトのFAQページに表示される質問と回答を設定します。
-              {isLicenseManager && 'MMQ共通FAQと組織固有FAQの両方を編集できます。'}
-            </p>
-            <Button variant="ghost" size="sm" onClick={handleRefresh} className="shrink-0">
-              <Loader2 className="w-4 h-4 mr-1" />
-              再読込
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      <PageHeader title="よくある質問" description="予約サイトのFAQページ（/{slug}/faq）に表示される質問と回答を管理します">
+        <Button variant="ghost" size="sm" onClick={handleRefresh} className="shrink-0">
+          <Loader2 className="w-4 h-4 mr-1" />
+          再読込
+        </Button>
+        <Button onClick={handleSave} disabled={saving || !dataLoaded}>
+          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          <Save className="w-4 h-4 mr-2" />
+          保存
+        </Button>
+      </PageHeader>
 
       {/* ライセンス管理者のみ：MMQ共通FAQ編集 */}
       {isLicenseManager && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-blue-600" />
-              MMQ共通FAQ
-              <Badge variant="secondary" className="ml-2">全組織共通</Badge>
-            </CardTitle>
-            <CardDescription>
-              全ての組織のFAQページに表示される共通の質問と回答です。
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <section className="bg-white rounded-xl border p-6">
+          <SectionTitle
+            icon={Globe}
+            label="MMQ共通FAQ"
+            description="全ての組織のFAQページに表示される共通の質問と回答です。"
+          />
+          <div className="flex items-center gap-2 mb-4">
+            <Badge variant="secondary">全組織共通</Badge>
+          </div>
+
+          <div className="space-y-4">
             {commonFaqItems.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Globe className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -241,23 +237,22 @@ export function FAQSettings() {
               <Plus className="w-4 h-4 mr-2" />
               共通FAQ項目を追加
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       {/* 組織固有FAQ */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            組織固有FAQ
-            <Badge variant="outline" className="ml-2">{organization?.name}</Badge>
-          </CardTitle>
-          <CardDescription>
-            この組織のFAQページにのみ表示される質問と回答です。
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Building2}
+          label="組織固有FAQ"
+          description="この組織のFAQページにのみ表示される質問と回答です。"
+        />
+        <div className="flex items-center gap-2 mb-4">
+          <Badge variant="outline">{organization?.name}</Badge>
+        </div>
+
+        <div className="space-y-4">
           {faqItems.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <HelpCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -337,47 +332,35 @@ export function FAQSettings() {
             <Plus className="w-4 h-4 mr-2" />
             項目を追加
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* MMQ共通FAQの参照表示（ライセンス管理者以外） */}
       {!isLicenseManager && (
-        <Card className="border-gray-200 bg-gray-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-gray-600">
-              <Globe className="h-5 w-5" />
-              MMQ共通FAQ
-              <Badge variant="secondary" className="ml-2">参照のみ</Badge>
-            </CardTitle>
-            <CardDescription>
-              全ての組織のFAQページに自動で表示される共通の質問です（編集不可）
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {COMMON_FAQ_DATA.map((item, index) => (
-                <div key={index} className="p-3 bg-white rounded border text-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    {item.category && (
-                      <Badge variant="outline" className="text-xs">{item.category}</Badge>
-                    )}
-                  </div>
-                  <p className="font-medium text-gray-900">Q. {item.question}</p>
-                  <p className="text-gray-600 mt-1">A. {item.answer}</p>
+        <section className="bg-white rounded-xl border p-6">
+          <SectionTitle
+            icon={Globe}
+            label="MMQ共通FAQ"
+            description="全ての組織のFAQページに自動で表示される共通の質問です（編集不可）"
+          />
+          <div className="flex items-center gap-2 mb-4">
+            <Badge variant="secondary">参照のみ</Badge>
+          </div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {COMMON_FAQ_DATA.map((item, index) => (
+              <div key={index} className="p-3 bg-gray-50 rounded border text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  {item.category && (
+                    <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <p className="font-medium text-gray-900">Q. {item.question}</p>
+                <p className="text-gray-600 mt-1">A. {item.answer}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
-
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving || !dataLoaded}>
-          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          <Save className="w-4 h-4 mr-2" />
-          保存
-        </Button>
-      </div>
     </div>
   )
 }

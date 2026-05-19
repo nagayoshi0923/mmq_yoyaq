@@ -304,15 +304,11 @@ ${content.organizationName || '店舗'}
         const names = new Set<string>()
 
         // 1. customers テーブルから取得
-        let customerQuery = supabase
+        const { data: customers, error: custError } = await supabase
           .from('customers')
           .select('name')
           .not('name', 'is', null)
           .not('name', 'eq', '')
-        if (orgId) {
-          customerQuery = customerQuery.eq('organization_id', orgId)
-        }
-        const { data: customers, error: custError } = await customerQuery
         if (custError) {
           logger.error('顧客テーブル取得エラー:', custError)
         } else {

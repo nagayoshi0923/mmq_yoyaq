@@ -8,7 +8,7 @@ import type { Organization, Staff } from '@/types'
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 /** 古いDBでも必ず存在する列のみ（マイグレーション未適用時のフォールバック用） */
 export const ORGANIZATION_SELECT_CORE =
-  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
+  'id, name, slug, plan, booking_site_status, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
 
 /** 公開予約・ヘッダー等で使う標準セット */
 export const ORGANIZATION_SELECT_STANDARD =

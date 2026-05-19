@@ -25,6 +25,7 @@ import { ReportCreateDialog } from './components/ReportCreateDialog'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { AppLayout } from '@/components/layout/AppLayout'
 
 export default function ExternalReports() {
   const { organization, staff, isLoading: orgLoading } = useOrganization()
@@ -65,14 +66,15 @@ export default function ExternalReports() {
   }
 
   return (
+    <AppLayout
+      currentPage="external-reports"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      stickyLayout={true}
+    >
     <div className="space-y-6">
       <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">公演報告</span>
-        </div>
-        }
+        title={<><FileText className="h-5 w-5 text-primary" />公演報告</>}
         description="管理シナリオの公演実績を報告"
       >
         <Button onClick={() => setIsCreateDialogOpen(true)}>
@@ -188,6 +190,7 @@ export default function ExternalReports() {
         }}
       />
     </div>
+    </AppLayout>
   )
 }
 

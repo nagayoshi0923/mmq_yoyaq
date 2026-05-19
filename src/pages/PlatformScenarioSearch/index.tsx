@@ -123,10 +123,16 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
 
   if (scenariosResult.error) throw scenariosResult.error
   
-  // 店舗IDから名前へのマップを作成
+  // 店舗IDから名前へのマップ、および組織IDから店舗ID一覧へのマップを作成
   const storeMap = new Map<string, string>()
+  const orgToStoreIdsMap = new Map<string, string[]>()
   ;(storesResult.data || []).forEach((store: any) => {
     storeMap.set(store.id, store.short_name || store.name)
+    if (store.organization_id) {
+      const ids = orgToStoreIdsMap.get(store.organization_id) || []
+      ids.push(store.id)
+      orgToStoreIdsMap.set(store.organization_id, ids)
+    }
   })
   
   // 組織IDから組織名へのマップを作成（シナリオデータから）
@@ -139,7 +145,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
   })
 
   // 組織の公開ステータスで絞り込み
-  const filteredScenarios = (scenariosResult.data || [])
+  const mapped = (scenariosResult.data || [])
     .filter(s => {
       if (!shouldFilterByOrgStatus) {
         return s.status === 'available'
@@ -149,8 +155,11 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
     })
     .map(s => {
       const org = s.organizations as { slug?: string; name?: string } | null
-      const storeIds = s.available_stores || []
-      // available_storesのIDを店舗名に変換
+      const rawStoreIds: string[] = s.available_stores || []
+      // available_stores が空 = その組織の全店舗対応
+      const storeIds = rawStoreIds.length > 0
+        ? rawStoreIds
+        : (orgToStoreIdsMap.get(s.organization_id) || [])
       const storeNames = storeIds
         .map((storeId: string) => storeMap.get(storeId))
         .filter((name: string | undefined): name is string => !!name)
@@ -163,6 +172,30 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         available_store_ids: storeIds,
       }
     })
+
+  // scenario_master_id で重複排除（同シナリオが複数組織にある場合は1件に統合）
+  const seenMasterIds = new Map<string, typeof mapped[number]>()
+  const filteredScenarios = mapped.filter(s => {
+    const key = s.scenario_master_id || s.id
+    if (seenMasterIds.has(key)) {
+      // 既存エントリに店舗を追加・最安値価格に更新
+      const existing = seenMasterIds.get(key)!
+      const mergedStores = [...new Set([...existing.available_stores, ...s.available_stores])]
+      const minPrice = Math.min(
+        existing.participation_fee ?? Infinity,
+        s.participation_fee ?? Infinity
+      )
+      seenMasterIds.set(key, {
+        ...existing,
+        available_stores: mergedStores,
+        participation_fee: isFinite(minPrice) ? minPrice : existing.participation_fee,
+        // key_visual_urlは最初の非nullを優先（既存が既に入っている）
+      })
+      return false
+    }
+    seenMasterIds.set(key, s)
+    return true
+  }).map(s => seenMasterIds.get(s.scenario_master_id || s.id) ?? s)
   
   // 店舗データに組織名を補完（RPCから取得できない場合のフォールバック）
   const storesWithOrgName = (storesResult.data || []).map((store: any) => ({
@@ -357,8 +390,10 @@ export function PlatformScenarioSearch() {
       }
       
       // 店舗フィルター
+      // available_store_ids が空 = その組織の全店舗対応 → どの店舗でもマッチ
       if (selectedStore !== 'all') {
-        if (!scenario.available_store_ids?.includes(selectedStore)) return false
+        const ids = scenario.available_store_ids
+        if (ids && ids.length > 0 && !ids.includes(selectedStore)) return false
       }
       
       return true
@@ -656,11 +691,11 @@ export function PlatformScenarioSearch() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {filteredScenarios.map((scenario, index) => (
+            {filteredScenarios.map((scenario) => (
               <div
-                key={scenario.id}
+                key={scenario.org_scenario_id || scenario.id}
                 className="group cursor-pointer"
-                onClick={() => handleCardClick(scenario.slug || scenario.id)}
+                onClick={() => handleCardClick(scenario.slug || scenario.org_scenario_id || scenario.id)}
               >
                 <div 
                   className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex md:flex-col hover:scale-[1.02]"
@@ -712,14 +747,14 @@ export function PlatformScenarioSearch() {
 
                   {/* コンテンツ */}
                   <div className="p-2 sm:p-3 flex-1 min-w-0">
-                    {/* 店舗名 + お気に入りボタン */}
-                    <div className="flex items-center justify-between mb-1">
-                      {scenario.organization_name && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <Building2 className="w-3 h-3" />
-                          <span className="truncate">{scenario.organization_name}</span>
-                        </div>
-                      )}
+                    {/* 著者 */}
+                    <p className="text-xs text-gray-500 mb-1">{scenario.author}</p>
+
+                    {/* タイトル + お気に入りボタン */}
+                    <div className="flex items-start justify-between gap-1 mb-2">
+                      <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2">
+                        {scenario.title}
+                      </h3>
                       <button
                         onClick={(e) => handleToggleFavorite(scenario.id, e)}
                         className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
@@ -729,14 +764,6 @@ export function PlatformScenarioSearch() {
                         }`} />
                       </button>
                     </div>
-                    
-                    {/* 著者 */}
-                    <p className="text-xs text-gray-500 mb-1">{scenario.author}</p>
-                    
-                    {/* タイトル */}
-                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2">
-                      {scenario.title}
-                    </h3>
 
                     {/* 人数・時間・参加費 */}
                     <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
@@ -752,8 +779,8 @@ export function PlatformScenarioSearch() {
                           ? `${Math.floor(scenario.duration / 60)}h${scenario.duration % 60 > 0 ? `${scenario.duration % 60}m` : ''}`
                           : `${scenario.duration}分`}
                       </span>
-                      {scenario.participation_fee && (
-                        <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
+                      {scenario.participation_fee != null && scenario.participation_fee !== undefined && Number.isFinite(Number(scenario.participation_fee)) && (
+                        <span>¥{Number(scenario.participation_fee).toLocaleString()}〜</span>
                       )}
                     </div>
 

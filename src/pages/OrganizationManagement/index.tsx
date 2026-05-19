@@ -6,21 +6,24 @@
  * @access ライセンス管理者のみ
  * @organization ライセンス管理組織のみ
  */
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Building2, 
-  Plus, 
-  Search, 
-  Users, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Building2,
+  Plus,
+  Search,
+  Users,
   Mail,
   CheckCircle,
   XCircle,
   Loader2,
-  Pencil
+  Pencil,
+  Clock,
+  Globe
 } from 'lucide-react'
 import { useOrganization, useOrganizations } from '@/hooks/useOrganization'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
@@ -29,7 +32,18 @@ import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
 import { OrganizationEditDialog } from './components/OrganizationEditDialog'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import type { Organization } from '@/types'
+
+type PendingApplication = {
+  id: string
+  name: string
+  slug: string
+  contact_email: string | null
+  created_at: string
+  updated_at: string
+}
 
 export default function OrganizationManagement() {
   const { isLicenseManager, isLoading: orgLoading } = useOrganization()
@@ -38,6 +52,34 @@ export default function OrganizationManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [inviteTargetOrg, setInviteTargetOrg] = useState<Organization | null>(null)
   const [editTargetOrg, setEditTargetOrg] = useState<Organization | null>(null)
+  const [pendingApps, setPendingApps] = useState<PendingApplication[]>([])
+  const [isLoadingPending, setIsLoadingPending] = useState(false)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+
+  const fetchPendingApplications = useCallback(async () => {
+    setIsLoadingPending(true)
+    const { data } = await supabase.rpc('get_pending_booking_site_applications')
+    setPendingApps((data as PendingApplication[]) ?? [])
+    setIsLoadingPending(false)
+  }, [])
+
+  useEffect(() => {
+    if (isLicenseManager) fetchPendingApplications()
+  }, [isLicenseManager, fetchPendingApplications])
+
+  const handleApprove = async (orgId: string) => {
+    setApprovingId(orgId)
+    try {
+      const { error: approveError } = await supabase.rpc('approve_booking_site', { p_org_id: orgId })
+      if (approveError) throw approveError
+      toast.success('承認しました。プランが pro に変更されました。')
+      await Promise.all([fetchPendingApplications(), refetch()])
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : '承認に失敗しました')
+    } finally {
+      setApprovingId(null)
+    }
+  }
 
   // 検索フィルター
   const filteredOrganizations = organizations.filter(org =>
@@ -99,12 +141,7 @@ export default function OrganizationManagement() {
     <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
       <div className="space-y-6">
       <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">テナント管理</span>
-        </div>
-        }
+        title={<><Building2 className="h-5 w-5 text-primary" />テナント管理</>}
         description="MMQシステムを利用する加盟店（組織）の一覧管理"
       >
         <Button onClick={() => setIsCreateDialogOpen(true)}>
@@ -157,6 +194,78 @@ export default function OrganizationManagement() {
           </CardContent>
         </Card>
       </div>
+
+      <Tabs defaultValue="organizations">
+        <TabsList>
+          <TabsTrigger value="organizations" className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            組織一覧
+          </TabsTrigger>
+          <TabsTrigger value="applications" className="flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            予約サイト申請
+            {pendingApps.length > 0 && (
+              <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                {pendingApps.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── 申請一覧タブ ── */}
+        <TabsContent value="applications" className="mt-4">
+          {isLoadingPending ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : pendingApps.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                申請中の組織はありません
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {pendingApps.map(app => (
+                <Card key={app.id}>
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{app.name}</p>
+                        <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 flex-shrink-0">
+                          <Clock className="w-3 h-3 mr-1" />
+                          申請中
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">/{app.slug}</p>
+                      {app.contact_email && (
+                        <p className="text-xs text-muted-foreground">{app.contact_email}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        申請日: {new Date(app.updated_at).toLocaleDateString('ja-JP')}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(app.id)}
+                      disabled={approvingId === app.id}
+                      className="flex-shrink-0"
+                    >
+                      {approvingId === app.id
+                        ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        : <CheckCircle className="w-4 h-4 mr-2" />
+                      }
+                      承認する
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── 組織一覧タブ ── */}
+        <TabsContent value="organizations" className="mt-4 space-y-4">
 
       {/* 検索 */}
       <div className="relative">
@@ -263,6 +372,8 @@ export default function OrganizationManagement() {
           refetch()
         }}
       />
+        </TabsContent>
+      </Tabs>
       </div>
     </AppLayout>
   )

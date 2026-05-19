@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Gamepad2, Tag } from 'lucide-react'
 
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
@@ -116,280 +115,141 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
   }
 
   return (
-    <div className="space-y-4">
-      {/* プレイ情報 */}
-      <Card>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-2 gap-5">
-            {/* 所要時間 */}
-            <div>
-              <Label className={labelStyle}>所要時間（平日）</Label>
-              <p className={hintStyle}>公演の目安時間。スケジュール枠の計算に使用されます</p>
-              <div className="relative mt-1.5">
-                <Input
-                  id="duration"
-                  type="text"
-                  inputMode="numeric"
-                  value={formData.duration === 0 ? '' : String(formData.duration ?? '')}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, '')
-                    setFormData(prev => ({ ...prev, duration: val === '' ? 0 : parseInt(val, 10) }))
-                  }}
-                  className={`${inputStyle} pr-8`}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
-              </div>
-            </div>
+    <div className="space-y-3">
+      {/* ── プレイ情報 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Gamepad2 className="h-3.5 w-3.5" />プレイ情報
+        </p>
 
-            {/* 土日公演時間 */}
-            <div>
-              <Label className={labelStyle}>土日公演時間</Label>
-              <p className={hintStyle}>土日・祝日に公演時間が変わる場合のみ設定</p>
-              <div className="relative mt-1.5">
-                <Input
-                  id="weekend_duration"
-                  type="number"
-                  min="30"
-                  max="480"
-                  value={formData.weekend_duration ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, weekend_duration: e.target.value ? parseInt(e.target.value) : null }))}
-                  placeholder="未設定"
-                  className={`${inputStyle} pr-8`}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
-              </div>
+        {/* 所要時間 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">所要時間</span>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="relative w-24">
+              <Input id="duration" type="text" inputMode="numeric"
+                value={formData.duration === 0 ? '' : String(formData.duration ?? '')}
+                onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setFormData(prev => ({ ...prev, duration: val === '' ? 0 : parseInt(val, 10) })) }}
+                className="h-7 text-xs pr-7" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">分</span>
             </div>
+            <span className="text-xs text-muted-foreground">平日</span>
+            <div className="relative w-24">
+              <Input id="weekend_duration" type="number" min="30" max="480"
+                value={formData.weekend_duration ?? ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, weekend_duration: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="同じ" className="h-7 text-xs pr-7" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">分</span>
+            </div>
+            <span className="text-xs text-muted-foreground">土日祝</span>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-5">
-            {/* 追加準備時間 */}
-            <div>
-              <Label className={labelStyle}>追加準備時間</Label>
-              <p className={hintStyle}>通常60分に加算。90分準備が必要な場合は30を入力</p>
-              <div className="relative mt-1.5">
-                <Input
-                  id="extra_preparation_time"
-                  type="text"
-                  inputMode="numeric"
-                  value={formData.extra_preparation_time ? String(formData.extra_preparation_time) : ''}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, '')
-                    const num = val === '' ? undefined : parseInt(val, 10)
-                    setFormData(prev => ({ ...prev, extra_preparation_time: num || undefined }))
-                  }}
-                  className={`${inputStyle} pr-8`}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
-              </div>
-            </div>
-
-            {/* 人数 */}
-            <div>
-              <Label className={labelStyle}>プレイ人数</Label>
-              <p className={hintStyle}>予約受付可能な参加人数。この範囲外は予約不可になります</p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <Input
-                  id="player_count_min"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={formData.player_count_min}
-                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 4) }))}
-                  className={inputStyle}
-                />
-                <span className="text-muted-foreground shrink-0">〜</span>
-                <Input
-                  id="player_count_max"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={formData.player_count_max}
-                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 8) }))}
-                  className={inputStyle}
-                />
-                <span className="text-sm text-muted-foreground shrink-0">人</span>
-              </div>
-            </div>
-
-            {/* 男女比 */}
-            <div>
-              <Label className={labelStyle}>男女比</Label>
-              <p className={hintStyle}>未設定の場合は男女問わず。設定する場合は男女それぞれの人数を入力</p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-sm text-muted-foreground shrink-0">男</span>
-                <Input
-                  id="male_count"
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={formData.male_count ?? ''}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    male_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
-                  }))}
-                  placeholder="未設定"
-                  className={inputStyle}
-                />
-                <span className="text-muted-foreground shrink-0">:</span>
-                <span className="text-sm text-muted-foreground shrink-0">女</span>
-                <Input
-                  id="female_count"
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={formData.female_count ?? ''}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    female_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
-                  }))}
-                  placeholder="未設定"
-                  className={inputStyle}
-                />
-                <span className="text-muted-foreground shrink-0">:</span>
-                <span className="text-sm text-muted-foreground shrink-0">他</span>
-                <Input
-                  id="other_count"
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={formData.other_count ?? ''}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    other_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
-                  }))}
-                  placeholder="未設定"
-                  className={inputStyle}
-                />
-              </div>
-              {(formData.male_count != null || formData.female_count != null || formData.other_count != null) && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formData.male_count != null && `男${formData.male_count}`}
-                  {formData.male_count != null && (formData.female_count != null || formData.other_count != null) && ':'}
-                  {formData.female_count != null && `女${formData.female_count}`}
-                  {formData.female_count != null && formData.other_count != null && ':'}
-                  {formData.other_count != null && `他${formData.other_count}`}
-                  （合計{(formData.male_count ?? 0) + (formData.female_count ?? 0) + (formData.other_count ?? 0)}人）
-                </p>
-              )}
-            </div>
-
-            {/* 難易度 */}
-            <div>
-              <Label className={labelStyle}>難易度</Label>
-              <p className={hintStyle}>お客様向けの難易度表示。予約サイトで参考情報として表示されます</p>
-              <Select
-                value={String(formData.difficulty)}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: parseInt(value) || 3 }))}
-              >
-                <SelectTrigger className={`${inputStyle} mt-1.5`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">★☆☆☆☆ 初心者向け</SelectItem>
-                  <SelectItem value="2">★★☆☆☆ 易しい</SelectItem>
-                  <SelectItem value="3">★★★☆☆ 普通</SelectItem>
-                  <SelectItem value="4">★★★★☆ 難しい</SelectItem>
-                  <SelectItem value="5">★★★★★ 上級者向け</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 評価 */}
-            <div>
-              <Label className={labelStyle}>評価</Label>
-              <p className={hintStyle}>運営側の内部評価。シナリオの優先度判断などに使用します</p>
-              <Input
-                id="rating"
-                type="number"
-                min="1"
-                max="5"
-                step="0.1"
-                value={formData.rating || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, rating: e.target.value ? parseFloat(e.target.value) : undefined }))}
-                placeholder="未評価"
-                className={`${inputStyle} mt-1.5`}
-              />
-            </div>
+        {/* 追加準備時間 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">追加準備</span>
+          <div className="relative w-24">
+            <Input id="extra_preparation_time" type="text" inputMode="numeric"
+              value={formData.extra_preparation_time ? String(formData.extra_preparation_time) : ''}
+              onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setFormData(prev => ({ ...prev, extra_preparation_time: val === '' ? undefined : parseInt(val, 10) || undefined })) }}
+              className="h-7 text-xs pr-7" />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">分</span>
           </div>
-        </CardContent>
-      </Card>
+          <span className="text-[11px] text-muted-foreground">通常60分に加算</span>
+        </div>
 
-      {/* カテゴリ・ステータス */}
-      <Card>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-2 gap-5">
-            <div>
-              <Label className={labelStyle}>カテゴリ</Label>
-              <p className={hintStyle}>シナリオの分類タグ。検索・フィルター機能で使用されます</p>
-              <MultiSelect
-                options={allGenreOptions}
-                selectedValues={formData.genre || []}
-                onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
-                placeholder="カテゴリを選択"
-                showBadges={true}
-                emptyText="カテゴリが見つかりません"
-                emptyActionLabel="+ カテゴリを追加"
-                onEmptyAction={() => { setEditingOldCategoryName(null); setNewCategoryName(''); setIsAddCategoryDialogOpen(true) }}
-                onEditOption={(value) => {
-                  setEditingOldCategoryName(value)
-                  setNewCategoryName(value)
-                  setIsAddCategoryDialogOpen(true)
-                }}
-                className="mt-1.5"
-              />
-            </div>
-
-            <div>
-              <Label className={labelStyle}>ステータス</Label>
-              <p className={hintStyle}>「準備中」は予約不可、「公開中」は予約可、「引退」は非表示</p>
-              <Select 
-                value={formData.status} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'draft' | 'active' | 'retired' }))}
-              >
-                <SelectTrigger className={`${inputStyle} mt-1.5`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* プレイ人数 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">プレイ人数</span>
+          <div className="flex items-center gap-2">
+            <Input id="player_count_min" type="number" min="1" max="20" value={formData.player_count_min}
+              onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 4) }))}
+              className="h-7 text-xs w-14" />
+            <span className="text-xs text-muted-foreground">〜</span>
+            <Input id="player_count_max" type="number" min="1" max="20" value={formData.player_count_max}
+              onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 8) }))}
+              className="h-7 text-xs w-14" />
+            <span className="text-xs text-muted-foreground">人</span>
           </div>
+        </div>
 
-          {/* 貸切受付不可時間帯 */}
-          <div className="mt-5 pt-4 border-t">
-            <Label className={labelStyle}>貸切受付不可時間帯</Label>
-            <p className={hintStyle}>チェックした時間帯は貸切予約を受け付けません</p>
-            <div className="flex gap-4 mt-2">
-              {['午前', '午後', '夜'].map((slot) => (
-                <div key={slot} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`blocked-slot-${slot}`}
-                    checked={(formData.private_booking_blocked_slots || []).includes(slot)}
-                    onCheckedChange={(checked) => {
-                      setFormData(prev => {
-                        const current = prev.private_booking_blocked_slots || []
-                        if (checked) {
-                          return { ...prev, private_booking_blocked_slots: [...current, slot] }
-                        } else {
-                          return { ...prev, private_booking_blocked_slots: current.filter(s => s !== slot) }
-                        }
-                      })
-                    }}
-                  />
-                  <Label htmlFor={`blocked-slot-${slot}`} className="text-sm cursor-pointer">
-                    {slot}
-                  </Label>
-                </div>
-              ))}
-            </div>
+        {/* 男女比 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">男女比</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">男</span>
+            <Input id="male_count" type="number" min="0" max="20" value={formData.male_count ?? ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, male_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) }))}
+              placeholder="-" className="h-7 text-xs w-12" />
+            <span className="text-xs text-muted-foreground">女</span>
+            <Input id="female_count" type="number" min="0" max="20" value={formData.female_count ?? ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, female_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) }))}
+              placeholder="-" className="h-7 text-xs w-12" />
+            <span className="text-xs text-muted-foreground">他</span>
+            <Input id="other_count" type="number" min="0" max="20" value={formData.other_count ?? ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, other_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) }))}
+              placeholder="-" className="h-7 text-xs w-12" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* 難易度 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">難易度</span>
+          <div className="w-48">
+            <Select value={String(formData.difficulty)} onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: parseInt(value) || 3 }))}>
+              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">★☆☆☆☆ 初心者向け</SelectItem>
+                <SelectItem value="2">★★☆☆☆ 易しい</SelectItem>
+                <SelectItem value="3">★★★☆☆ 普通</SelectItem>
+                <SelectItem value="4">★★★★☆ 難しい</SelectItem>
+                <SelectItem value="5">★★★★★ 上級者向け</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 評価 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">評価</span>
+          <Input id="rating" type="number" min="1" max="5" step="0.1"
+            value={formData.rating || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, rating: e.target.value ? parseFloat(e.target.value) : undefined }))}
+            placeholder="未評価" className="h-7 text-xs w-20" />
+          <span className="text-[11px] text-muted-foreground">内部評価（1〜5）</span>
+        </div>
+      </div>
+
+      {/* ── カテゴリ・ステータス ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Tag className="h-3.5 w-3.5" />カテゴリ・ステータス
+        </p>
+
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right pt-1.5">カテゴリ</span>
+          <div className="flex-1">
+            <MultiSelect options={allGenreOptions} selectedValues={formData.genre || []}
+              onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
+              placeholder="カテゴリを選択" showBadges={true} emptyText="カテゴリが見つかりません"
+              emptyActionLabel="+ カテゴリを追加"
+              onEmptyAction={() => { setEditingOldCategoryName(null); setNewCategoryName(''); setIsAddCategoryDialogOpen(true) }}
+              onEditOption={(value) => { setEditingOldCategoryName(value); setNewCategoryName(value); setIsAddCategoryDialogOpen(true) }} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">ステータス</span>
+          <div className="w-40">
+            <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'draft' | 'active' | 'retired' }))}>
+              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {statusOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {/* カテゴリ追加・編集ダイアログ */}
       <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingOldCategoryName(null) } setIsAddCategoryDialogOpen(open) }}>

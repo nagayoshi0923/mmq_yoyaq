@@ -34,12 +34,7 @@ export const ScenarioPerformanceHeader: React.FC<ScenarioPerformanceHeaderProps>
   return (
     <div className="space-y-6">
       <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">シナリオ分析</span>
-          </div>
-        }
+        title={<><BarChart3 className="h-5 w-5 text-primary" />シナリオ分析</>}
         description="シナリオ別の公演実績と収益分析"
       >
         <Select value={period} onValueChange={onPeriodChange}>

@@ -40,7 +40,6 @@ export function RequestCard({
   onCancelEdit
 }: RequestCardProps) {
   const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
-  const canEdit = isResponded && !isEditing
   const isConfirmed = request.reservation_status === 'confirmed'
   const isGMConfirmed = request.reservation_status === 'gm_confirmed'
   const elapsedTime = getElapsedTime(request.created_at)
@@ -49,83 +48,44 @@ export function RequestCard({
 
   return (
     <Card className="shadow-none border">
-      <CardHeader className="bg-purple-50 border-b">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-base text-purple-900">
-              {request.scenario_title}
-            </CardTitle>
-            <div className="mt-2 space-y-1 text-xs text-purple-700">
-              <div>お客様: {request.customer_name}</div>
-              <div>予約番号: {request.reservation_number}</div>
-            </div>
-            {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap mt-2">
-                <span className="text-sm text-purple-700">希望店舗:</span>
-                {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                  <Badge key={index} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
-                    {store.storeName}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <Badge
-              variant="secondary"
-              className={
-                isConfirmed
-                  ? 'bg-green-100 text-green-800'
-                  : isGMConfirmed
-                    ? 'bg-purple-100 text-purple-800'
-                    : isResponded
-                      ? 'bg-green-100 text-green-800'
-                      : request.has_other_gm_response
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-purple-100 text-purple-800'
-              }
-            >
-              {isConfirmed
-                ? '確定済み'
-                : isGMConfirmed
-                  ? 'GM確認済み（店側確認待ち）'
-                  : isResponded
-                    ? '回答済み'
-                    : request.has_other_gm_response
-                      ? '他GM回答済み'
-                      : '未回答'}
-            </Badge>
-            <span className={`text-xs ${elapsedTimeColor}`}>{elapsedTime}の申込</span>
-          </div>
+      <CardHeader className="pt-3 pb-2 space-y-0">
+        {/* タイトル + ステータスバッジ */}
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
+          <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal shrink-0">
+            {isConfirmed
+              ? '確定済み'
+              : isGMConfirmed
+                ? 'GM確認済み'
+                : isResponded
+                  ? '回答済み'
+                  : request.has_other_gm_response
+                    ? '他GM回答済み'
+                    : '未回答'}
+          </Badge>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4">
-        <div className="space-y-3">
-          {/* 開催予定店舗 */}
-          <div className="mb-4">
-            <div className="text-xs text-muted-foreground mb-1">開催予定店舗</div>
-            {request.candidate_datetimes?.confirmedStore ? (
-              <div className="">{request.candidate_datetimes.confirmedStore.storeName}</div>
-            ) : request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 ? (
-              <>
-                <div className="flex gap-2 flex-wrap">
-                  {request.candidate_datetimes?.requestedStores?.map((store: any, index: number) => (
-                    <span key={index} className="">
-                      {store.storeName}{index < (request.candidate_datetimes?.requestedStores?.length || 0) - 1 ? ' / ' : ''}
-                    </span>
-                  ))}
-                </div>
-                {(request.candidate_datetimes?.requestedStores?.length || 0) > 1 && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    ※ 最終店舗は店舗管理者が決定します
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-muted-foreground">店舗未定（店舗管理者が決定します）</div>
-            )}
-          </div>
 
+        {/* サマリー1行 */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-muted-foreground">
+          <span>#{request.reservation_number}</span>
+          <span>{request.customer_name}</span>
+          <span className={elapsedTimeColor}>{elapsedTime}</span>
+        </div>
+
+        {/* 希望店舗 */}
+        {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mt-1">
+            <span className="text-xs text-muted-foreground shrink-0">希望店舗:</span>
+            {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
+              <span key={index} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200 whitespace-nowrap">
+                {store.storeName}
+              </span>
+            ))}
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="md:pt-0">
+        <div className="space-y-3">
           {/* 候補日時選択 */}
           <CandidateSelector
             candidates={request.candidate_datetimes?.candidates || []}

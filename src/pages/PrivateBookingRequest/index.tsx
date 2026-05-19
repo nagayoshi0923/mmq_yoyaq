@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -134,66 +135,42 @@ export function PrivateBookingRequest({
     return eligible.map((s: { id: string }) => s.id)
   }, [displayStores, scenarioAvailableSet, selectedStoreIds])
 
-  const [businessHoursByStore, setBusinessHoursByStore] = useState<
-    Map<string, BusinessHoursSettingRow>
-  >(new Map())
-  const [storeEvents, setStoreEvents] = useState<any[]>([])
+  const storeIdsKey = storeIdsForSlotResolution.join(',')
 
-  useEffect(() => {
-    const ids = storeIdsForSlotResolution
-    if (ids.length === 0) {
-      setBusinessHoursByStore(new Map())
-      setStoreEvents([])
-      return
-    }
-    let cancelled = false
-
-    const loadBusinessHours = async () => {
+  const { data: businessHoursData } = useQuery({
+    queryKey: ['private-booking-request', 'business-hours', storeIdsKey],
+    enabled: storeIdsForSlotResolution.length > 0,
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('business_hours_settings')
         .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
-        .in('store_id', ids)
-      if (cancelled) return
-      if (error) {
-        logger.error('貸切確認: 営業時間取得エラー', error)
-        setBusinessHoursByStore(new Map())
-        return
-      }
+        .in('store_id', storeIdsForSlotResolution)
+      if (error) { logger.error('貸切確認: 営業時間取得エラー', error); return new Map<string, BusinessHoursSettingRow>() }
       const map = new Map<string, BusinessHoursSettingRow>()
-      for (const row of data || []) {
-        map.set(row.store_id as string, row as BusinessHoursSettingRow)
-      }
-      setBusinessHoursByStore(map)
-    }
+      for (const row of data || []) map.set(row.store_id as string, row as BusinessHoursSettingRow)
+      return map
+    },
+  })
+  const businessHoursByStore = businessHoursData ?? new Map<string, BusinessHoursSettingRow>()
 
-    const loadEvents = async () => {
+  const { data: storeEvents = [] } = useQuery({
+    queryKey: ['private-booking-request', 'store-events', storeIdsKey],
+    enabled: storeIdsForSlotResolution.length > 0,
+    queryFn: async () => {
       const today = new Date()
       const windowEnd = new Date(today)
       windowEnd.setDate(today.getDate() + 180)
-      // 公開用ビューを使用（PII/財務情報を除外）
       const { data, error } = await supabase
         .from('schedule_events_public')
         .select('id, date, start_time, end_time, store_id, scenario, category, is_cancelled')
-        .in('store_id', ids)
+        .in('store_id', storeIdsForSlotResolution)
         .gte('date', today.toISOString().split('T')[0])
         .lte('date', windowEnd.toISOString().split('T')[0])
         .eq('is_cancelled', false)
-      if (cancelled) return
-      if (error) {
-        logger.error('貸切確認: イベント取得エラー', error)
-        setStoreEvents([])
-        return
-      }
-      setStoreEvents(data || [])
-    }
-
-    loadBusinessHours()
-    loadEvents()
-
-    return () => {
-      cancelled = true
-    }
-  }, [storeIdsForSlotResolution.join(',')])
+      if (error) { logger.error('貸切確認: イベント取得エラー', error); return [] }
+      return data || []
+    },
+  })
 
   const pickerDate = newDate || dateRange.minDate
   const candidateSlotsForPicker = useMemo(() => {

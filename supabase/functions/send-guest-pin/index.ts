@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, errorResponse, maskEmail, sanitizeErrorMessage, getServiceRoleKey } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface SendPinRequest {
   groupId: string
@@ -99,6 +100,16 @@ ${inviteUrl}
       scenarioName: scenarioName?.substring(0, 30),
     })
 
+    const emailSubject = `【${scenarioName}】グループ参加のアクセスPINのご案内`
+
+    const emailLogId = await insertEmailLog(serviceClient, {
+      email_type: 'guest_pin',
+      to_email:   email,
+      to_name:    guestName ?? null,
+      subject:    emailSubject,
+      status:     'queued',
+    })
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -108,7 +119,7 @@ ${inviteUrl}
       body: JSON.stringify({
         from: `${senderName} <${senderEmail}>`,
         to: [email],
-        subject: `【${scenarioName}】グループ参加のアクセスPINのご案内`,
+        subject: emailSubject,
         text: emailBody,
       }),
     })
@@ -116,6 +127,10 @@ ${inviteUrl}
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       throw new Error(`メール送信に失敗しました`)
     }
 
@@ -123,6 +138,11 @@ ${inviteUrl}
     console.log('✅ PIN email sent successfully:', {
       messageId: result.id,
       recipient: maskEmail(email),
+    })
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
     })
 
     return new Response(

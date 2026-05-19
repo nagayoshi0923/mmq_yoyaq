@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -92,9 +93,18 @@ export function PrivateGroupInvite() {
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
   
   // クーポン関連
-  const [coupons, setCoupons] = useState<Coupon[]>([])
   const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
-  const [couponLoading, setCouponLoading] = useState(false)
+  const { data: coupons = [], isLoading: couponLoading } = useQuery({
+    queryKey: ['private-group-invite', 'coupons', user?.id, group?.organization_id],
+    enabled: !!user && !!group?.organization_id,
+    queryFn: async (): Promise<Coupon[]> => {
+      const { data: customer } = await supabase.from('customers').select('id').eq('user_id', user!.id).maybeSingle()
+      if (!customer) return []
+      const { data: couponData, error } = await supabase.from('customer_coupons').select(`id, expires_at, status, uses_remaining, coupon_campaigns (id, name, discount_amount)`).eq('customer_id', customer.id).eq('status', 'active').gt('uses_remaining', 0).or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
+      if (error) throw error
+      return (couponData || []).map((cc: any) => ({ id: cc.id, name: cc.coupon_campaigns?.name || 'クーポン', discount_amount: cc.coupon_campaigns?.discount_amount || 0, expires_at: cc.expires_at, status: cc.status }))
+    },
+  })
 
   // PIN認証関連
   const [pinEmail, setPinEmail] = useState('')
@@ -149,7 +159,15 @@ export function PrivateGroupInvite() {
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
 
   // 希望店舗関連
-  const [preferredStoreNames, setPreferredStoreNames] = useState<Array<{ id: string; name: string }>>([])
+  const { data: preferredStoreNames = [] } = useQuery({
+    queryKey: ['private-group-invite', 'preferred-stores', group?.preferred_store_ids],
+    enabled: !!(group?.preferred_store_ids?.length),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('stores').select('id, name').in('id', group!.preferred_store_ids!)
+      if (error) throw error
+      return data || []
+    },
+  })
   const [allStores, setAllStores] = useState<Array<{ id: string; name: string; short_name: string }>>([])
   const [isFilteredByScenario, setIsFilteredByScenario] = useState(false)
   const [loadingStoresForEdit, setLoadingStoresForEdit] = useState(false)
@@ -291,98 +309,6 @@ export function PrivateGroupInvite() {
     }
   }, [group, user])
 
-  // ログインユーザーの利用可能クーポンを取得
-  useEffect(() => {
-    const fetchCoupons = async () => {
-      if (!user) {
-        setCoupons([])
-        return
-      }
-      if (!group?.organization_id) {
-        setCoupons([])
-        return
-      }
-
-      setCouponLoading(true)
-      try {
-        // 顧客IDを取得（グループ所属組織の顧客行に限定）
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('organization_id', group.organization_id)
-          .maybeSingle()
-
-        if (!customer) {
-          setCoupons([])
-          return
-        }
-
-        // 利用可能なクーポンを取得
-        const { data: couponData, error } = await supabase
-          .from('customer_coupons')
-          .select(`
-            id,
-            expires_at,
-            status,
-            uses_remaining,
-            coupon_campaigns (
-              id,
-              name,
-              discount_amount
-            )
-          `)
-          .eq('customer_id', customer.id)
-          .eq('status', 'active')
-          .gt('uses_remaining', 0)
-          .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
-
-        if (error) throw error
-        
-        // customer_coupons のデータを Coupon 形式に変換
-        const transformedCoupons: Coupon[] = (couponData || []).map((cc: any) => ({
-          id: cc.id,
-          name: cc.coupon_campaigns?.name || 'クーポン',
-          discount_amount: cc.coupon_campaigns?.discount_amount || 0,
-          expires_at: cc.expires_at,
-          status: cc.status,
-        }))
-        setCoupons(transformedCoupons)
-      } catch (err) {
-        logger.error('クーポン取得エラー:', err)
-        setCoupons([])
-      } finally {
-        setCouponLoading(false)
-      }
-    }
-
-    fetchCoupons()
-  }, [user, group?.organization_id])
-
-  // 希望店舗の名前を取得
-  useEffect(() => {
-    const fetchStoreNames = async () => {
-      if (!group?.preferred_store_ids?.length) {
-        setPreferredStoreNames([])
-        return
-      }
-      
-      try {
-        const { data, error } = await supabase
-          .from('stores')
-          .select('id, name')
-          .in('id', group.preferred_store_ids)
-        
-        if (error) throw error
-        setPreferredStoreNames(data || [])
-      } catch (err) {
-        logger.error('店舗名取得エラー:', err)
-        setPreferredStoreNames([])
-      }
-    }
-    
-    fetchStoreNames()
-  }, [group?.preferred_store_ids])
 
   // 店舗編集用: シナリオの available_stores に基づいて選択可能な店舗を取得
   const fetchAllStores = async () => {

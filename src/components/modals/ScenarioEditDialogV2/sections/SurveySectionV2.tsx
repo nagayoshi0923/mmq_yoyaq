@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -202,18 +201,13 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
   }, [setFormData])
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ClipboardList className="w-4 h-4" />
-            公演前アンケート
-          </CardTitle>
-          <CardDescription className="text-xs">
-            貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="space-y-3">
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <ClipboardList className="h-3.5 w-3.5" />公演前アンケート
+        </p>
+        <p className="text-[11px] text-muted-foreground -mt-1">貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します</p>
+        <div className="space-y-3">
           <div className="flex items-center gap-3">
             <Switch
               id="survey_enabled"
@@ -338,45 +332,31 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <MessageSquare className="w-4 h-4" />
-            個別お知らせ定型文
-          </CardTitle>
-          <CardDescription className="text-xs">
-            アンケート回答確認時に、メンバーへ個別お知らせを送る際に添付できる定型文です
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0 space-y-2">
-          <Textarea
-            value={formData.individual_notice_template || ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              individual_notice_template: e.target.value || null,
-            }))}
-            placeholder="例: アンケートの回答ありがとうございます。以下の資料を公演前にご確認ください。"
-            rows={3}
-            className="text-sm resize-none"
-          />
-          <p className={hintStyle}>
-            資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。
-          </p>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <MessageSquare className="h-3.5 w-3.5" />個別お知らせ定型文
+        </p>
+        <p className="text-[11px] text-muted-foreground -mt-1">アンケート回答確認時に、メンバーへ個別お知らせを送る際に添付できる定型文です</p>
+        <Textarea
+          value={formData.individual_notice_template || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, individual_notice_template: e.target.value || null }))}
+          placeholder="例: アンケートの回答ありがとうございます。以下の資料を公演前にご確認ください。"
+          rows={3}
+          className="text-sm resize-none"
+        />
+        <p className={hintStyle}>資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。</p>
+      </div>
 
-      <Card className="border-amber-200 bg-amber-50/50">
-        <CardContent className="p-4">
-          <p className="text-sm text-amber-800">
-            <span className="font-medium">💡 公演後アンケートについて</span>
-            <br />
-            公演後のアンケート（満足度調査など）は、設定 &gt; 組織情報 で組織全体に共通のURLを設定できます。
-          </p>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+        <p className="text-sm text-amber-800">
+          <span className="font-medium">💡 公演後アンケートについて</span>
+          <br />
+          公演後のアンケート（満足度調査など）は、設定 &gt; 組織情報 で組織全体に共通のURLを設定できます。
+        </p>
+      </div>
 
       <ImportQuestionsDialog
         open={importDialogOpen}

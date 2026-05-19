@@ -17,6 +17,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface QueueEntry {
   id: string
@@ -435,6 +436,16 @@ MMQ
 このメールは自動送信されています
   `
 
+  const pWqEmailSubject = `【空席のお知らせ】${queueEntry.scenario_title} - ${formatDate(queueEntry.event_date)}`
+  const pWqEmailLogId = await insertEmailLog(serviceClient, {
+    organization_id: queueEntry.organization_id ?? null,
+    email_type:      'waitlist_confirmed',
+    to_email:        waitlistEntry.customer_email,
+    to_name:         waitlistEntry.customer_name ?? null,
+    subject:         pWqEmailSubject,
+    status:          'queued',
+  })
+
   try {
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -445,7 +456,7 @@ MMQ
       body: JSON.stringify({
         from: `${senderName} <${senderEmail}>`,
         to: [waitlistEntry.customer_email],
-        subject: `【空席のお知らせ】${queueEntry.scenario_title} - ${formatDate(queueEntry.event_date)}`,
+        subject: pWqEmailSubject,
         html: emailHtml,
         text: emailText,
       }),
@@ -454,14 +465,25 @@ MMQ
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error for', maskEmail(waitlistEntry.customer_email), ':', errorData)
+      await updateEmailLog(serviceClient, pWqEmailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       return { success: false, entryId: waitlistEntry.id, error: JSON.stringify(errorData) }
     }
+
+    const pWqEmailResult = await resendResponse.json()
+    await updateEmailLog(serviceClient, pWqEmailLogId, {
+      status: 'sent',
+      provider_message_id: pWqEmailResult?.id ?? null,
+      sent_at: new Date().toISOString(),
+    })
 
     // ステータスを「notified」に更新し、期限を設定
     const { error: updateError } = await serviceClient
       .from('waitlist')
-      .update({ 
-        status: 'notified', 
+      .update({
+        status: 'notified',
         notified_at: new Date().toISOString(),
         expires_at: expiresAt
       })
@@ -475,6 +497,10 @@ MMQ
     return { success: true, entryId: waitlistEntry.id }
   } catch (err) {
     console.error('❌ Email send error for', maskEmail(waitlistEntry.customer_email), ':', err)
+    await updateEmailLog(serviceClient, pWqEmailLogId, {
+      status: 'failed',
+      error_message: sanitizeErrorMessage(err?.message ?? String(err)),
+    })
     return { success: false, entryId: waitlistEntry.id, error: err.message }
   }
 }

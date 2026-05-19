@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { X, ExternalLink, UserCog } from 'lucide-react'
+import { X, ExternalLink, UserCog, Calendar, Clock, BookOpen, Users } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
@@ -146,6 +146,9 @@ export function PerformanceModal({
     afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
     evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
   })
+
+  // 店舗のデフォルト公演時間（分）- performance_schedule_settings から取得
+  const [defaultDuration, setDefaultDuration] = useState(180)
 
   // 営業時間制限（開始時刻・終了時刻）
   const [businessHours, setBusinessHours] = useState<{ openTime: string; closeTime: string } | null>(null)
@@ -387,6 +390,27 @@ export function PerformanceModal({
     return store?.id || null
   }
 
+  // デフォルト公演時間を読み込む（performance_schedule_settings から）
+  useEffect(() => {
+    const loadDefaultDuration = async () => {
+      try {
+        const venueValue = formData.venue || ''
+        const storeId = resolveStoreId(venueValue) || stores[0]?.id
+        if (!storeId) return
+        const { data } = await supabase
+          .from('performance_schedule_settings')
+          .select('default_duration')
+          .eq('store_id', storeId)
+          .maybeSingle()
+        if (data?.default_duration) {
+          setDefaultDuration(data.default_duration)
+        }
+      } catch { /* ignore */ }
+    }
+    loadDefaultDuration()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.venue, stores])
+
   // 営業時間設定を読み込む（公演時間設定は useTimeSlotSettings で取得）
   useEffect(() => {
     const loadBusinessHoursSettings = async () => {
@@ -579,7 +603,18 @@ export function PerformanceModal({
   // 開始時間変更時の自動設定
   // ※開始時間を変更しても時間帯（朝/昼/夜）は変更されない
   const handleStartTimeChange = (startTime: string) => {
-    const endTime = formData.scenario ? calculateEndTime(startTime, formData.scenario) : startTime
+    // シナリオが選択されている場合はシナリオのdurationで計算
+    // 未選択の場合は公演スケジュール設定のdefault_durationで計算
+    let endTime: string
+    if (formData.scenario) {
+      endTime = calculateEndTime(startTime, formData.scenario)
+    } else {
+      const [h, m] = startTime.split(':').map(Number)
+      const totalMinutes = h * 60 + m + defaultDuration
+      const endH = Math.floor(totalMinutes / 60)
+      const endM = totalMinutes % 60
+      endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+    }
     
     setFormData((prev: EventFormData) => ({
       ...prev,
@@ -781,573 +816,422 @@ export function PerformanceModal({
           </div>
           
           <TabsContent value="edit" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <div className="space-y-2 sm:space-y-2.5 pb-2 sm:pb-0">
-          {/* 基本情報 */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="date" className="text-xs">日付</Label>
-              <SingleDatePopover
-                date={formData.date}
-                onDateChange={(date) => {
-                  setFormData((prev: any) => ({ ...prev, date: date || '' }))
-                }}
-                placeholder="日付を選択"
-                buttonClassName="h-7 text-xs"
-              />
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="venue" className="text-xs">店舗</Label>
-              <Select 
-                value={formData.venue} 
-                onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="店舗を選択">
-                    <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">
-                      {getStoreName(formData.venue)}
-                    </Badge>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map(store => (
-                    <SelectItem key={store.id} value={store.id} className="text-xs py-1">
-                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">
-                        {store.name}
-                      </Badge>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            <div className="space-y-3 pb-2 sm:pb-0">
 
-          {/* シナリオ */}
-          <div className="space-y-0.5">
-            <Label htmlFor="scenario" className="text-xs">シナリオタイトル</Label>
-            <SearchableSelect
-              value={formData.scenario}
-              onValueChange={(scenarioTitle) => {
-                // 参加者がいる場合はシナリオ変更前に確認を取る
-                const hasParticipants = localCurrentParticipants > 0
-                const isScenarioChanged = scenarioTitle !== formData.scenario
-                if (mode === 'edit' && hasParticipants && isScenarioChanged) {
-                  setPendingScenarioTitle(scenarioTitle)
-                  return
-                }
-                applyScenarioChange(scenarioTitle)
-              }}
-              options={scenarioOptions}
-              placeholder="シナリオ"
-              searchPlaceholder="検索..."
-              emptyText="シナリオが見つかりません"
-              emptyActionLabel="シナリオを作成"
-              onEmptyAction={() => setIsScenarioDialogOpen(true)}
-              className="h-7 text-xs"
-              allowClear={!formData.is_private_request}
-              headerContent={
-                <span className="flex gap-1 text-[9px] text-muted-foreground">
-                  <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
-                  <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
-                  <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">出勤</span>
-                </span>
-              }
-            />
-            {formData.is_private_request && (
-              <p className="text-[11px] text-purple-600 mt-0.5">
-                ※ 貸切のシナリオ変更不可
-              </p>
-            )}
-            {/* 未紐付けシナリオの警告表示 */}
-            {formData.scenario && !scenarios.find(s => s.title === formData.scenario) && (
-              <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[11px]">
-                <div className="flex items-center gap-1 text-orange-700">
-                  <span className="font-semibold">⚠️ 未登録:</span>
-                  <span className="font-mono break-all">{formData.scenario}</span>
-                </div>
-                <p className="mt-0.5 text-orange-500">
-                  プルダウンから選択してください
-                </p>
+          {/* ── セクション1: 日時・場所 ── */}
+          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+            <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <Calendar className="h-3.5 w-3.5" />日時・場所
+            </p>
+
+            {/* 日付 */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">日付</Label>
+              <div className="flex-1">
+                <SingleDatePopover
+                  date={formData.date}
+                  onDateChange={(date) => setFormData((prev: any) => ({ ...prev, date: date || '' }))}
+                  placeholder="日付を選択"
+                  buttonClassName="h-7 text-xs w-full"
+                />
               </div>
+            </div>
+
+            {/* 店舗 */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">店舗</Label>
+              <div className="flex-1">
+                <Select value={formData.venue} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="店舗を選択">
+                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">
+                        {getStoreName(formData.venue)}
+                      </Badge>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stores.map(store => (
+                      <SelectItem key={store.id} value={store.id} className="text-xs py-1">
+                        <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">{store.name}</Badge>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* 時間帯 */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">時間帯</Label>
+              <div className="flex-1">
+                <Select value={timeSlot} onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="morning" className="text-xs py-1">{timeSlotDefaults.morning.label}</SelectItem>
+                    <SelectItem value="afternoon" className="text-xs py-1">{timeSlotDefaults.afternoon.label}</SelectItem>
+                    <SelectItem value="evening" className="text-xs py-1">{timeSlotDefaults.evening.label}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* 開始〜終了 */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">開始〜終了</Label>
+              <div className="flex items-center gap-2 flex-1">
+                <Select value={formData.start_time?.slice(0, 5)} onValueChange={handleStartTimeChange} disabled={formData.is_private_request}>
+                  <SelectTrigger className="h-7 text-xs flex-1">
+                    <SelectValue placeholder="開始" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map(time => <SelectItem key={time} value={time} className="text-xs py-1">{time}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground shrink-0">〜</span>
+                <Select value={formData.end_time?.slice(0, 5)} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))} disabled={formData.is_private_request}>
+                  <SelectTrigger className="h-7 text-xs flex-1">
+                    <SelectValue placeholder="終了" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map(time => <SelectItem key={time} value={time} className="text-xs py-1">{time}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {formData.is_private_request && (
+              <p className="text-[11px] text-purple-600 pl-[84px]">※ 貸切の日時変更不可</p>
             )}
-            {/* 公演不可店舗の警告表示 */}
-            {formData.scenario && formData.venue && (() => {
-              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-              if (selectedScenario && !isScenarioAvailableAtVenue(selectedScenario)) {
-                const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
-                return (
+          </div>{/* /セクション1 */}
+
+          {/* ── セクション2: 公演内容 ── */}
+          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+            <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <BookOpen className="h-3.5 w-3.5" />公演内容
+            </p>
+
+            {/* シナリオ */}
+            <div className="flex items-start gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">シナリオ</Label>
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
+                  value={formData.scenario}
+                  onValueChange={(scenarioTitle) => {
+                    const hasParticipants = localCurrentParticipants > 0
+                    const isScenarioChanged = scenarioTitle !== formData.scenario
+                    if (mode === 'edit' && hasParticipants && isScenarioChanged) {
+                      setPendingScenarioTitle(scenarioTitle)
+                      return
+                    }
+                    applyScenarioChange(scenarioTitle)
+                  }}
+                  options={scenarioOptions}
+                  placeholder="シナリオ"
+                  searchPlaceholder="検索..."
+                  emptyText="シナリオが見つかりません"
+                  emptyActionLabel="シナリオを作成"
+                  onEmptyAction={() => setIsScenarioDialogOpen(true)}
+                  className="h-7 text-xs"
+                  allowClear={!formData.is_private_request}
+                  headerContent={
+                    <span className="flex gap-1 text-[9px] text-muted-foreground">
+                      <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
+                      <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
+                      <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">出勤</span>
+                    </span>
+                  }
+                />
+                {formData.is_private_request && <p className="text-[11px] text-purple-600 mt-0.5">※ 貸切のシナリオ変更不可</p>}
+                {formData.scenario && !scenarios.find(s => s.title === formData.scenario) && (
                   <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[11px]">
                     <div className="flex items-center gap-1 text-orange-700">
-                      <span className="font-semibold">⚠️ 公演不可店舗:</span>
-                      <span>{storeName}</span>
+                      <span className="font-semibold">⚠️ 未登録:</span>
+                      <span className="font-mono break-all">{formData.scenario}</span>
                     </div>
-                    <p className="mt-0.5 text-orange-500">
-                      このシナリオは選択中の店舗では公演できません
-                    </p>
+                    <p className="mt-0.5 text-orange-500">プルダウンから選択してください</p>
                   </div>
-                )
-              }
-              return null
-            })()}
-            {/* シナリオ編集へのリンク */}
-            {formData.scenario && (() => {
-              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-              if (selectedScenario) {
-                return (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="mt-1 h-auto p-0 text-xs"
-                    onClick={() => {
-                      setEditingScenarioId(selectedScenario.id)
-                      setIsScenarioDialogOpen(true)
-                    }}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    シナリオを編集
-                  </Button>
-                )
-              }
-              return null
-            })()}
-          </div>
-
-          {/* 時間帯選択とGM選択 */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="timeSlot" className="text-xs">時間帯</Label>
-              <Select 
-                value={timeSlot} 
-                onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="morning" className="text-xs py-1">{timeSlotDefaults.morning.label}</SelectItem>
-                  <SelectItem value="afternoon" className="text-xs py-1">{timeSlotDefaults.afternoon.label}</SelectItem>
-                  <SelectItem value="evening" className="text-xs py-1">{timeSlotDefaults.evening.label}</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                時間帯で開始・終了時間を自動設定
-              </p>
-            </div>
-
-            {/* GM管理 */}
-            <div className="space-y-0.5">
-              <Label htmlFor="gms" className="text-xs">GM</Label>
-              <MultiSelect
-                options={(() => {
-                  const options = staff
-                    .filter(s => s.status === 'active')
-                    .map(staffMember => {
-                      // このシナリオの担当GMかチェック（special_scenarios は scenario_master_id を格納）
-                      const matchedScenario = formData.scenario ? scenarios.find(sc => sc.title === formData.scenario) : null
-                      const isAssignedGM = formData.scenario && matchedScenario && 
-                        (staffMember.special_scenarios?.includes(matchedScenario.scenario_master_id || matchedScenario.id) ||
-                         staffMember.special_scenarios?.includes(matchedScenario.id))
-                      
-                      // 出勤可能かチェック（その日時に出勤している全GMから判定）
-                      const isAvailable = allAvailableStaff.some(gm => gm.id === staffMember.id)
-                      
-                      // バッジ形式で表示情報を構築
-                      const badges: React.ReactNode[] = []
-                      if (isAvailable) {
-                        badges.push(
-                          <span key="shift" className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-700 border border-green-200">
-                            シフト済
-                          </span>
-                        )
-                      }
-                      if (isAssignedGM) {
-                        badges.push(
-                          <span key="gm" className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
-                            担当
-                          </span>
-                        )
-                      }
-                      
-                      // 検索用テキスト（出勤かつ担当の人だけ検索でヒット）
-                      const searchText = (isAvailable && isAssignedGM) ? 'シフト提出済 担当GM' : ''
-                      
-                      // sortOrder: 担当+出勤(0) > 担当のみ(1) > 出勤のみ(2) > その他(3)
-                      let sortOrder = 3
-                      if (isAvailable && isAssignedGM) sortOrder = 0
-                      else if (isAssignedGM) sortOrder = 1
-                      else if (isAvailable) sortOrder = 2
-                      
-                      return {
-                        id: staffMember.id,
-                        name: staffMember.name,
-                        displayInfo: badges.length > 0 ? (
-                          <span className="flex gap-1">{badges}</span>
-                        ) : undefined,
-                        displayInfoSearchText: searchText || undefined,
-                        sortOrder
-                      }
-                    })
-                    .sort((a, b) => {
-                      // sortOrderで優先順位を決定（担当+出勤を最上位に）
-                      if (a.sortOrder !== b.sortOrder) {
-                        return a.sortOrder - b.sortOrder
-                      }
-                      // 同じ優先順位の場合は名前順
-                      return a.name.localeCompare(b.name, 'ja')
-                    })
-                    .map(({ id, name, displayInfo, displayInfoSearchText }) => ({ id, name, displayInfo, displayInfoSearchText }))
-                  
-                  return options
-                })()}
-                selectedValues={formData.gms}
-                onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
-                placeholder="GM"
-                closeOnSelect={false}
-                emptyText="GMが見つかりません"
-                emptyActionLabel="+ GMを作成"
-                onEmptyAction={() => setIsStaffModalOpen(true)}
-                className="h-7 text-xs"
-              />
-              {/* GM選択バッジ表示 */}
-              {/* メインGM/サブGM: formData.gmsから表示 */}
-              {/* スタッフ参加: 予約データから動的表示（DBがシングルソース） */}
-              {(formData.gms.length > 0 || staffParticipantsFromDB.length > 0) && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {/* メインGM/サブGM/スタッフ参加/見学 */}
-                  {formData.gms
-                    .map((gm: string, index: number) => {
-                    const role = formData.gmRoles?.[gm] || 'main'
-                    const isBackedByStaffReservation =
-                      role === 'staff' && staffParticipantsFromDB.includes(gm)
-
-                    const badgeStyle = role === 'observer'
-                      ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200'
-                      : role === 'reception'
-                        ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
-                        : role === 'staff'
-                          ? (isBackedByStaffReservation
-                              ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
-                              : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200')
-                          : role === 'sub' 
-                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
-                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
-                    
+                )}
+                {formData.scenario && formData.venue && (() => {
+                  const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+                  if (selectedScenario && !isScenarioAvailableAtVenue(selectedScenario)) {
+                    const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
                     return (
-                      <Popover key={`gm-${index}`}>
-                        <PopoverTrigger asChild>
-                          <div 
-                            className={cn(
-                              badgeVariants({ variant: "outline" }),
-                              "flex items-center gap-0.5 font-normal border cursor-pointer rounded-[3px] pr-0.5 text-[11px] py-0 h-5",
-                              badgeStyle
-                            )}
-                            role="button"
-                          >
-                            <span className="flex items-center">
-                              <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
-                              {gm}
-                              {role === 'sub' && <span className="text-[11px] ml-0.5 font-bold">(サブ)</span>}
-                              {role === 'reception' && <span className="text-[11px] ml-0.5 font-bold">(受付)</span>}
-                              {role === 'staff' && (
-                                <span className="text-[11px] ml-0.5 font-bold">
-                                  {isBackedByStaffReservation ? '(参加)' : '(参加予定)'}
-                                </span>
-                              )}
-                              {role === 'observer' && <span className="text-[11px] ml-0.5 font-bold">(見学)</span>}
-                            </span>
-                            <div
-                              role="button"
-                              className="h-3 w-3 flex items-center justify-center rounded-full hover:bg-black/10 ml-0.5"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const newGms = formData.gms.filter((g: string) => g !== gm)
-                                const newRoles = { ...formData.gmRoles }
-                                delete newRoles[gm]
-                                setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
-                              }}
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </div>
-                          </div>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-40 p-2" align="start">
-                          <div className="space-y-1.5">
-                            <div className="space-y-0.5">
-                              <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
-                              <RadioGroup 
-                                value={role} 
-                                onValueChange={(value) => setFormData((prev: any) => ({
-                                  ...prev,
-                                  gmRoles: { ...prev.gmRoles, [gm]: value }
-                                }))}
-                                className="gap-0.5"
-                              >
-                                <div className="flex items-center space-x-1.5 py-0.5">
-                                  <RadioGroupItem value="main" id={`role-main-${index}`} className="h-3 w-3" />
-                                  <Label htmlFor={`role-main-${index}`} className="text-xs cursor-pointer">メインGM</Label>
-                                </div>
-                                <div className="flex items-center space-x-1.5 py-0.5">
-                                  <RadioGroupItem value="sub" id={`role-sub-${index}`} className="h-3 w-3" />
-                                  <Label htmlFor={`role-sub-${index}`} className="text-xs cursor-pointer">サブGM</Label>
-                                </div>
-                                <div className="flex items-center space-x-1.5 py-0.5">
-                                  <RadioGroupItem value="reception" id={`role-reception-${index}`} className="h-3 w-3" />
-                                  <Label htmlFor={`role-reception-${index}`} className="text-xs cursor-pointer">受付</Label>
-                                </div>
-                                <div className="flex items-center space-x-1.5 py-0.5">
-                                  <RadioGroupItem value="staff" id={`role-staff-${index}`} className="h-3 w-3" />
-                                  <Label htmlFor={`role-staff-${index}`} className="text-xs cursor-pointer">スタッフ参加</Label>
-                                </div>
-                                <div className="flex items-center space-x-1.5 py-0.5">
-                                  <RadioGroupItem value="observer" id={`role-observer-${index}`} className="h-3 w-3" />
-                                  <Label htmlFor={`role-observer-${index}`} className="text-xs cursor-pointer">スタッフ見学</Label>
-                                </div>
-                              </RadioGroup>
-                            </div>
-                            
-                            {role === 'sub' && (
-                              <p className="text-[11px] text-blue-600 bg-blue-50 p-0.5 rounded">
-                                ※サブGM給与適用
-                              </p>
-                            )}
-                            {role === 'reception' && (
-                              <p className="text-[11px] text-orange-600 bg-orange-50 p-0.5 rounded">
-                                ※受付（2,000円）
-                              </p>
-                            )}
-                            {role === 'staff' && (
-                              <p
-                                className={cn(
-                                  'text-[11px] p-0.5 rounded',
-                                  isBackedByStaffReservation
-                                    ? 'text-green-600 bg-green-50'
-                                    : 'text-yellow-700 bg-yellow-50'
-                                )}
-                              >
-                                {isBackedByStaffReservation
-                                  ? '※ 予約タブ（スタッフ予約）に紐づく参加'
-                                  : '※ GM欄で「スタッフ参加」として設定されているだけ（予約タブに実体がない）'}
-                              </p>
-                            )}
-                            {role === 'observer' && (
-                              <p className="text-[11px] text-indigo-600 bg-indigo-50 p-0.5 rounded">
-                                ※見学のみ
-                              </p>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                      <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[11px]">
+                        <div className="flex items-center gap-1 text-orange-700">
+                          <span className="font-semibold">⚠️ 公演不可店舗:</span>
+                          <span>{storeName}</span>
+                        </div>
+                        <p className="mt-0.5 text-orange-500">このシナリオは選択中の店舗では公演できません</p>
+                      </div>
                     )
-                  })}
-                  
-                  {/* スタッフ参加者（予約データから動的表示・読み取り専用） */}
-                  {/* GM欄でスタッフ参加として設定されているスタッフは除外（重複防止） */}
-                  {staffParticipantsFromDB
-                    .filter((staffName: string) => !formData.gms.includes(staffName) || formData.gmRoles?.[staffName] !== 'staff')
-                    .map((staffName: string, index: number) => (
-                    <div 
-                      key={`staff-${index}`}
-                      className={cn(
-                        badgeVariants({ variant: "outline" }),
-                        "flex items-center gap-0.5 font-normal border rounded-[3px] text-[11px] py-0 h-5",
-                        "bg-green-100 text-green-800 border-green-200"
-                      )}
-                      title="予約タブで編集できます"
-                    >
-                      <span className="flex items-center">
-                        <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
-                        {staffName}
-                        <span className="text-[11px] ml-0.5 font-bold">(参加)</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                  }
+                  return null
+                })()}
+                {formData.scenario && (() => {
+                  const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+                  if (selectedScenario) {
+                    return (
+                      <Button type="button" variant="link" size="sm" className="mt-0.5 h-auto p-0 text-xs"
+                        onClick={() => { setEditingScenarioId(selectedScenario.id); setIsScenarioDialogOpen(true) }}>
+                        <ExternalLink className="h-3 w-3 mr-1" />シナリオを編集
+                      </Button>
+                    )
+                  }
+                  return null
+                })()}
+              </div>
             </div>
-          </div>
 
-          {/* 時間設定 */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="start_time" className="text-xs">開始時間</Label>
-              <Select 
-                value={formData.start_time?.slice(0, 5)} 
-                onValueChange={handleStartTimeChange}
-                disabled={formData.is_private_request}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="開始時間" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map(time => (
-                    <SelectItem key={time} value={time} className="text-xs py-1">{time}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {mode === 'edit' && formData.start_time && !formData.is_private_request && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  現在: {formData.start_time.slice(0, 5)}
-                </p>
-              )}
-              {formData.is_private_request && (
-                <p className="text-[11px] text-purple-600 mt-0.5">
-                  ※ 貸切の日時変更不可
-                </p>
-              )}
+            {/* カテゴリ */}
+            <div className="flex items-start gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">カテゴリ</Label>
+              <div className="flex-1">
+                <Select value={formData.category} onValueChange={(value: string) => {
+                  setFormData((prev: EventFormData) => ({ ...prev, category: value, scenario: prev.scenario, gms: prev.gms, gmRoles: prev.gmRoles }))
+                }} disabled={formData.is_private_request}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="カテゴリ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open" className="text-xs py-1">オープン公演</SelectItem>
+                    <SelectItem value="private" className="text-xs py-1">貸切公演</SelectItem>
+                    <SelectItem value="gmtest" className="text-xs py-1">GMテスト</SelectItem>
+                    <SelectItem value="testplay" className="text-xs py-1">テストプレイ</SelectItem>
+                    <SelectItem value="offsite" className="text-xs py-1">出張公演</SelectItem>
+                    <SelectItem value="venue_rental" className="text-xs py-1">場所貸し</SelectItem>
+                    <SelectItem value="venue_rental_free" className="text-xs py-1">場所貸無料</SelectItem>
+                    <SelectItem value="package" className="text-xs py-1">パッケージ会</SelectItem>
+                    <SelectItem value="mtg" className="text-xs py-1">MTG</SelectItem>
+                    <SelectItem value="memo" className="text-xs py-1">メモに変換</SelectItem>
+                    <SelectItem value="__custom__" className="text-xs py-1">カスタム…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(formData.category === '__custom__' || !['open','private','gmtest','testplay','offsite','venue_rental','venue_rental_free','package','mtg','memo'].includes(formData.category)) && !formData.is_private_request && (
+                  <Input value={['__custom__'].includes(formData.category) ? '' : formData.category}
+                    onChange={(e) => setFormData((prev: any) => ({ ...prev, category: e.target.value || '__custom__' }))}
+                    placeholder="カスタム種別名（例: 体験公演）" className="h-7 text-xs mt-1" />
+                )}
+                {formData.is_private_request && <p className="text-[11px] text-purple-600 mt-0.5">※ 貸切のため変更不可</p>}
+              </div>
             </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="end_time" className="text-xs">終了時間</Label>
-              <Select 
-                value={formData.end_time?.slice(0, 5)} 
-                onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}
-                disabled={formData.is_private_request}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="終了時間" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map(time => (
-                    <SelectItem key={time} value={time} className="text-xs py-1">{time}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {mode === 'edit' && formData.end_time && !formData.is_private_request && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  現在: {formData.end_time.slice(0, 5)}
-                </p>
-              )}
-            </div>
-          </div>
 
-          {/* カテゴリと参加者数 */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="category" className="text-xs">公演カテゴリ</Label>
-              <Select 
-                value={formData.category} 
-                onValueChange={(value: string) => {
-                  // カテゴリ変更時もシナリオを維持
-                  setFormData((prev: EventFormData) => ({ 
-                    ...prev, 
-                    category: value,
-                    // 既存のシナリオ選択を明示的に保持
-                    scenario: prev.scenario,
-                    gms: prev.gms,
-                    gmRoles: prev.gmRoles
-                  }))
-                }}
-                disabled={formData.is_private_request}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="カテゴリ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="open" className="text-xs py-1">オープン公演</SelectItem>
-                  <SelectItem value="private" className="text-xs py-1">貸切公演</SelectItem>
-                  <SelectItem value="gmtest" className="text-xs py-1">GMテスト</SelectItem>
-                  <SelectItem value="testplay" className="text-xs py-1">テストプレイ</SelectItem>
-                  <SelectItem value="offsite" className="text-xs py-1">出張公演</SelectItem>
-                  <SelectItem value="venue_rental" className="text-xs py-1">場所貸し</SelectItem>
-                  <SelectItem value="venue_rental_free" className="text-xs py-1">場所貸無料</SelectItem>
-                  <SelectItem value="package" className="text-xs py-1">パッケージ会</SelectItem>
-                  <SelectItem value="mtg" className="text-xs py-1">MTG</SelectItem>
-                  <SelectItem value="memo" className="text-xs py-1">メモに変換</SelectItem>
-                  <SelectItem value="__custom__" className="text-xs py-1">カスタム…</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* カスタムカテゴリの入力欄 */}
-              {(formData.category === '__custom__' || !['open','private','gmtest','testplay','offsite','venue_rental','venue_rental_free','package','mtg','memo'].includes(formData.category)) && !formData.is_private_request && (
-                <Input
-                  value={['__custom__'].includes(formData.category) ? '' : formData.category}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, category: e.target.value || '__custom__' }))}
-                  placeholder="カスタム種別名（例: 体験公演）"
-                  className="h-7 text-xs mt-1"
-                />
-              )}
-              {formData.is_private_request && (
-                <p className="text-[11px] text-purple-600 mt-0.5">
-                  ※ 貸切のため変更不可
-                </p>
-              )}
+            {/* 最大参加者数 */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">最大定員</Label>
+              <div className="w-24">
+                <Input id="max_participants" type="number" min="1" max="20"
+                  value={formData.max_participants}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
+                  disabled={formData.is_private_request} className="h-7 text-xs" />
+              </div>
+              {formData.scenario && <span className="text-[11px] text-muted-foreground">※ シナリオから自動設定</span>}
             </div>
-            
-            {/* 場所貸しの場合、公演料金フィールドを表示 */}
+
+            {/* 公演料金（場所貸しのみ） */}
             {(formData.category === 'venue_rental' || formData.category === 'venue_rental_free') && (
-              <div className="space-y-0.5">
-                <Label htmlFor="venue_rental_fee" className="text-xs">公演料金</Label>
-                <Input
-                  id="venue_rental_fee"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  placeholder="12000"
-                  value={formData.venue_rental_fee ?? ''}
-                  onChange={(e) => setFormData((prev: any) => ({ 
-                    ...prev, 
-                    venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined 
-                  }))}
-                  className="h-7 text-xs"
-                />
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  ※ 未入力時は12,000円
-                </p>
+              <div className="flex items-center gap-3">
+                <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">公演料金</Label>
+                <div className="w-32">
+                  <Input id="venue_rental_fee" type="number" min="0" step="1000" placeholder="12000"
+                    value={formData.venue_rental_fee ?? ''}
+                    onChange={(e) => setFormData((prev: any) => ({ ...prev, venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined }))}
+                    className="h-7 text-xs" />
+                </div>
+                <span className="text-[11px] text-muted-foreground">※ 未入力時は12,000円</span>
               </div>
             )}
-            
-            <div className="space-y-0.5">
-              <Label htmlFor="max_participants" className="text-xs">最大参加者数</Label>
-              <Input
-                id="max_participants"
-                type="number"
-                min="1"
-                max="20"
-                value={formData.max_participants}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
-                disabled={formData.is_private_request}
-                className="h-7 text-xs"
-              />
-              {formData.scenario && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  ※ シナリオから自動設定
-                </p>
-              )}
-              {formData.is_private_request && (
-                <p className="text-[11px] text-purple-600 mt-0.5">
-                  ※ 貸切は固定
-                </p>
-              )}
+          </div>{/* /セクション2 */}
+
+          {/* ── セクション3: スタッフ・備考 ── */}
+          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+            <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <Users className="h-3.5 w-3.5" />スタッフ・備考
+            </p>
+
+          {/* GM */}
+          <div className="flex items-start gap-3">
+            <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">GM</Label>
+            <div className="flex-1 min-w-0">
+            <MultiSelect
+              options={(() => {
+                const options = staff
+                  .filter(s => s.status === 'active')
+                  .map(staffMember => {
+                    const matchedScenario = formData.scenario ? scenarios.find(sc => sc.title === formData.scenario) : null
+                    const isAssignedGM = formData.scenario && matchedScenario &&
+                      (staffMember.special_scenarios?.includes(matchedScenario.scenario_master_id || matchedScenario.id) ||
+                       staffMember.special_scenarios?.includes(matchedScenario.id))
+                    const isAvailable = allAvailableStaff.some(gm => gm.id === staffMember.id)
+                    const badges: React.ReactNode[] = []
+                    if (isAvailable) {
+                      badges.push(
+                        <span key="shift" className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-700 border border-green-200">シフト済</span>
+                      )
+                    }
+                    if (isAssignedGM) {
+                      badges.push(
+                        <span key="gm" className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-200">担当</span>
+                      )
+                    }
+                    const searchText = (isAvailable && isAssignedGM) ? 'シフト提出済 担当GM' : ''
+                    let sortOrder = 3
+                    if (isAvailable && isAssignedGM) sortOrder = 0
+                    else if (isAssignedGM) sortOrder = 1
+                    else if (isAvailable) sortOrder = 2
+                    return {
+                      id: staffMember.id,
+                      name: staffMember.name,
+                      displayInfo: badges.length > 0 ? <span className="flex gap-1">{badges}</span> : undefined,
+                      displayInfoSearchText: searchText || undefined,
+                      sortOrder
+                    }
+                  })
+                  .sort((a, b) => a.sortOrder !== b.sortOrder ? a.sortOrder - b.sortOrder : a.name.localeCompare(b.name, 'ja'))
+                  .map(({ id, name, displayInfo, displayInfoSearchText }) => ({ id, name, displayInfo, displayInfoSearchText }))
+                return options
+              })()}
+              selectedValues={formData.gms}
+              onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
+              placeholder="GM"
+              closeOnSelect={false}
+              emptyText="GMが見つかりません"
+              emptyActionLabel="+ GMを作成"
+              onEmptyAction={() => setIsStaffModalOpen(true)}
+              className="h-7 text-xs"
+            />
+            {(formData.gms.length > 0 || staffParticipantsFromDB.length > 0) && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {formData.gms.map((gm: string, index: number) => {
+                  const role = formData.gmRoles?.[gm] || 'main'
+                  const isBackedByStaffReservation = role === 'staff' && staffParticipantsFromDB.includes(gm)
+                  const badgeStyle = role === 'observer'
+                    ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200'
+                    : role === 'reception'
+                      ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
+                      : role === 'staff'
+                        ? (isBackedByStaffReservation
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200')
+                        : role === 'sub'
+                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200'
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                  return (
+                    <Popover key={`gm-${index}`}>
+                      <PopoverTrigger asChild>
+                        <div
+                          className={cn(badgeVariants({ variant: "outline" }), "flex items-center gap-0.5 font-normal border cursor-pointer rounded-[3px] pr-0.5 text-[11px] py-0 h-5", badgeStyle)}
+                          role="button"
+                        >
+                          <span className="flex items-center">
+                            <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
+                            {gm}
+                            {role === 'sub' && <span className="text-[11px] ml-0.5 font-bold">(サブ)</span>}
+                            {role === 'reception' && <span className="text-[11px] ml-0.5 font-bold">(受付)</span>}
+                            {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">{isBackedByStaffReservation ? '(参加)' : '(参加予定)'}</span>}
+                            {role === 'observer' && <span className="text-[11px] ml-0.5 font-bold">(見学)</span>}
+                          </span>
+                          <div
+                            role="button"
+                            className="h-3 w-3 flex items-center justify-center rounded-full hover:bg-black/10 ml-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const newGms = formData.gms.filter((g: string) => g !== gm)
+                              const newRoles = { ...formData.gmRoles }
+                              delete newRoles[gm]
+                              setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
+                            }}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </div>
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-40 p-2" align="start">
+                        <div className="space-y-1.5">
+                          <div className="space-y-0.5">
+                            <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
+                            <RadioGroup
+                              value={role}
+                              onValueChange={(value) => setFormData((prev: any) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))}
+                              className="gap-0.5"
+                            >
+                              <div className="flex items-center space-x-1.5 py-0.5">
+                                <RadioGroupItem value="main" id={`role-main-${index}`} className="h-3 w-3" />
+                                <Label htmlFor={`role-main-${index}`} className="text-xs cursor-pointer">メインGM</Label>
+                              </div>
+                              <div className="flex items-center space-x-1.5 py-0.5">
+                                <RadioGroupItem value="sub" id={`role-sub-${index}`} className="h-3 w-3" />
+                                <Label htmlFor={`role-sub-${index}`} className="text-xs cursor-pointer">サブGM</Label>
+                              </div>
+                              <div className="flex items-center space-x-1.5 py-0.5">
+                                <RadioGroupItem value="reception" id={`role-reception-${index}`} className="h-3 w-3" />
+                                <Label htmlFor={`role-reception-${index}`} className="text-xs cursor-pointer">受付</Label>
+                              </div>
+                              <div className="flex items-center space-x-1.5 py-0.5">
+                                <RadioGroupItem value="staff" id={`role-staff-${index}`} className="h-3 w-3" />
+                                <Label htmlFor={`role-staff-${index}`} className="text-xs cursor-pointer">スタッフ参加</Label>
+                              </div>
+                              <div className="flex items-center space-x-1.5 py-0.5">
+                                <RadioGroupItem value="observer" id={`role-observer-${index}`} className="h-3 w-3" />
+                                <Label htmlFor={`role-observer-${index}`} className="text-xs cursor-pointer">スタッフ見学</Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+                          {role === 'sub' && <p className="text-[11px] text-blue-600 bg-blue-50 p-0.5 rounded">※サブGM給与適用</p>}
+                          {role === 'reception' && <p className="text-[11px] text-orange-600 bg-orange-50 p-0.5 rounded">※受付（2,000円）</p>}
+                          {role === 'staff' && (
+                            <p className={cn('text-[11px] p-0.5 rounded', isBackedByStaffReservation ? 'text-green-600 bg-green-50' : 'text-yellow-700 bg-yellow-50')}>
+                              {isBackedByStaffReservation ? '※ 予約タブ（スタッフ予約）に紐づく参加' : '※ GM欄で「スタッフ参加」として設定されているだけ（予約タブに実体がない）'}
+                            </p>
+                          )}
+                          {role === 'observer' && <p className="text-[11px] text-indigo-600 bg-indigo-50 p-0.5 rounded">※見学のみ</p>}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )
+                })}
+                {staffParticipantsFromDB
+                  .filter((staffName: string) => !formData.gms.includes(staffName) || formData.gmRoles?.[staffName] !== 'staff')
+                  .map((staffName: string, index: number) => (
+                  <div
+                    key={`staff-${index}`}
+                    className={cn(badgeVariants({ variant: "outline" }), "flex items-center gap-0.5 font-normal border rounded-[3px] text-[11px] py-0 h-5", "bg-green-100 text-green-800 border-green-200")}
+                    title="予約タブで編集できます"
+                  >
+                    <span className="flex items-center">
+                      <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
+                      {staffName}
+                      <span className="text-[11px] ml-0.5 font-bold">(参加)</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             </div>
           </div>
 
           {/* 予約者名（貸切の場合のみ表示） */}
           {(formData.category === 'private' || formData.is_private_request) && (
-            <div className="space-y-0.5">
-              <Label htmlFor="reservation_name" className="text-xs">予約者名</Label>
-              <Input
-                id="reservation_name"
-                value={formData.reservation_name || ''}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, reservation_name: e.target.value }))}
-                placeholder="予約者名"
-                className="h-7 text-xs"
-              />
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                ※ MMQ予約は自動設定
-              </p>
+            <div className="flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">予約者名</Label>
+              <div className="flex-1">
+                <Input id="reservation_name" value={formData.reservation_name || ''}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, reservation_name: e.target.value }))}
+                  placeholder="予約者名（MMQ予約は自動設定）" className="h-7 text-xs" />
+              </div>
             </div>
           )}
 
           {/* 備考 */}
-          <div className="space-y-0.5">
-            <Label htmlFor="notes" className="text-xs">備考</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData((prev: any) => ({ ...prev, notes: e.target.value }))}
-              placeholder="備考"
-              rows={2}
-              className="text-xs min-h-[40px] py-1"
-            />
+          <div className="flex items-start gap-3">
+            <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">備考</Label>
+            <div className="flex-1">
+              <Textarea id="notes" value={formData.notes}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, notes: e.target.value }))}
+                placeholder="備考" rows={2} className="text-xs min-h-[40px] py-1" />
+            </div>
           </div>
+          </div>{/* /セクション3 */}
         </div>
 
           {/* アクションボタン削除 */}

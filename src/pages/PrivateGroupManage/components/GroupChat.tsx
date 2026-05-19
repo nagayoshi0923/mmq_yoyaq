@@ -151,14 +151,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       const customerNicknames: Record<string, string> = {}
       
       if (userIds.length > 0) {
-        let customerQuery = supabase
+        const { data: customers } = await supabase
           .from('customers')
           .select('user_id, nickname, name')
           .in('user_id', userIds)
-        if (organizationId) {
-          customerQuery = customerQuery.eq('organization_id', organizationId)
-        }
-        const { data: customers } = await customerQuery
 
         if (customers) {
           customers.forEach((c: { user_id: string; nickname: string | null; name: string | null }) => {

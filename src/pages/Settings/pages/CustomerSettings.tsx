@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save } from 'lucide-react'
+import { Save, Star, Gift } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -150,161 +150,150 @@ export function CustomerSettings({ storeId }: CustomerSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="顧客管理設定"
         description="顧客情報と会員管理設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* 会員ランク制度 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>会員ランク制度</CardTitle>
-          <CardDescription>顧客を来店回数や実績でランク分けします</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>会員ランク制度を有効にする</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                ブロンズ、シルバー、ゴールドなどのランク分け
-              </p>
+      {/* 会員ランク・ポイント */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Star}
+          label="会員ランク・ポイント"
+          description="顧客のランク制度・ポイント機能の有効化を設定します。有効にすると顧客詳細画面でランクやポイント残高が表示されます。"
+        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">会員ランク制度を有効にする</Label>
+              </div>
+              <Switch
+                checked={formData.member_rank_enabled}
+                onCheckedChange={(checked) =>
+                  setFormData(prev => ({ ...prev, member_rank_enabled: checked }))
+                }
+              />
             </div>
-            <Switch
-              checked={formData.member_rank_enabled}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, member_rank_enabled: checked }))
-              }
-            />
+            <p className="text-xs text-muted-foreground">ブロンズ・シルバー・ゴールドなど、来店実績によるランク分けが有効になります。</p>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* ポイント制度 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>ポイント制度</CardTitle>
-          <CardDescription>来店や予約でポイントを付与します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>ポイント制度を有効にする</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                100円で1ポイント、次回利用時に1ポイント=1円で使用可能
-              </p>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">ポイント制度を有効にする</Label>
+              </div>
+              <Switch
+                checked={formData.points_enabled}
+                onCheckedChange={(checked) =>
+                  setFormData(prev => ({ ...prev, points_enabled: checked }))
+                }
+              />
             </div>
-            <Switch
-              checked={formData.points_enabled}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, points_enabled: checked }))
-              }
-            />
+            <p className="text-xs text-muted-foreground">来店・予約でポイントを付与します。100円で1ポイント、次回利用時に1ポイント＝1円で使用できます。</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* リピーター割引 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>リピーター割引</CardTitle>
-          <CardDescription>一定回数来店した顧客への割引を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>リピーター割引を有効にする</Label>
-            <Switch
-              checked={formData.repeat_customer_discount.enabled}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({
-                  ...prev,
-                  repeat_customer_discount: { ...prev.repeat_customer_discount, enabled: checked }
-                }))
-              }
-            />
+      {/* 特典設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Gift}
+          label="特典設定"
+          description="リピーター割引・誕生日特典を設定します。有効にすると対象顧客の予約画面に特典が自動適用されます。"
+        />
+        <div className="space-y-4">
+          {/* リピーター割引 */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">リピーター割引を有効にする</Label>
+              <Switch
+                checked={formData.repeat_customer_discount.enabled}
+                onCheckedChange={(checked) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    repeat_customer_discount: { ...prev.repeat_customer_discount, enabled: checked }
+                  }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">一定回数以上来店した顧客に対して自動的に割引を適用します。</p>
           </div>
 
           {formData.repeat_customer_discount.enabled && (
             <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div>
-                <Label>必要来店回数</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">必要来店回数</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
                     value={formData.repeat_customer_discount.visits}
-                    onChange={(e) => 
+                    onChange={(e) =>
                       setFormData(prev => ({
                         ...prev,
-                        repeat_customer_discount: { 
-                          ...prev.repeat_customer_discount, 
-                          visits: parseInt(e.target.value) || 0 
+                        repeat_customer_discount: {
+                          ...prev.repeat_customer_discount,
+                          visits: parseInt(e.target.value) || 0
                         }
                       }))
                     }
                     min="1"
                     max="100"
+                    className="w-24"
                   />
-                  <span className="text-xs text-muted-foreground">回</span>
+                  <span className="text-sm text-muted-foreground">回</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formData.repeat_customer_discount.visits}回目以降の来店で割引適用
-                </p>
+                <p className="text-xs text-muted-foreground">{formData.repeat_customer_discount.visits}回目以降の来店から割引が適用されます。</p>
               </div>
-              <div>
-                <Label>割引額</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">割引額</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
                     value={formData.repeat_customer_discount.discount}
-                    onChange={(e) => 
+                    onChange={(e) =>
                       setFormData(prev => ({
                         ...prev,
-                        repeat_customer_discount: { 
-                          ...prev.repeat_customer_discount, 
-                          discount: parseInt(e.target.value) || 0 
+                        repeat_customer_discount: {
+                          ...prev.repeat_customer_discount,
+                          discount: parseInt(e.target.value) || 0
                         }
                       }))
                     }
                     min="0"
                     step="100"
+                    className="w-24"
                   />
-                  <span className="text-xs text-muted-foreground">円</span>
+                  <span className="text-sm text-muted-foreground">円</span>
                 </div>
+                <p className="text-xs text-muted-foreground">予約時の合計金額から差し引かれます。</p>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* 誕生日特典 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>誕生日特典</CardTitle>
-          <CardDescription>誕生日月の顧客への特典を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>誕生日特典を有効にする</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                誕生日月に特別割引やプレゼントを提供
-              </p>
+          {/* 誕生日特典 */}
+          <div className="space-y-1.5 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">誕生日特典を有効にする</Label>
+              </div>
+              <Switch
+                checked={formData.birthday_benefit_enabled}
+                onCheckedChange={(checked) =>
+                  setFormData(prev => ({ ...prev, birthday_benefit_enabled: checked }))
+                }
+              />
             </div>
-            <Switch
-              checked={formData.birthday_benefit_enabled}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, birthday_benefit_enabled: checked }))
-              }
-            />
+            <p className="text-xs text-muted-foreground">誕生日月に特別割引やプレゼントを提供します。顧客詳細に誕生日が登録されている場合に有効です。</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }
-

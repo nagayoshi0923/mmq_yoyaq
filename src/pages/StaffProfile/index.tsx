@@ -336,12 +336,7 @@ export function StaffProfile() {
     <AppLayout currentPage="staff-profile" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <UserCircle className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">担当作品</span>
-            </div>
-          }
+          title={<><UserCircle className="h-5 w-5 text-primary" />担当作品</>}
           description={`${staffName}さんの体験リストとGM可否を管理。シナリオ編集の「GM」タブで必要GM数が2人以上の作品だけ、ここでメイン／サブを分けて設定できます`}
         >
           <Button onClick={handleSave} disabled={saving}>

@@ -87,6 +87,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
 
     try {
       // 顧客レコードを取得または作成
+      // platform customers は organization_id = NULL なので user_id のみで検索
       let customerId: string | null = null
       const organizationId = await resolveOrgId()
       if (!organizationId) throw new Error('組織情報が取得できません')
@@ -96,12 +97,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           .from('customers')
           .select('id')
           .eq('user_id', props.userId)
-          .eq('organization_id', organizationId)
           .maybeSingle()
-        
+
         if (existingCustomer) {
           customerId = existingCustomer.id
-          
+
           await supabase
             .from('customers')
             .update({
@@ -112,7 +112,6 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             })
             .eq('id', customerId)
             .eq('user_id', props.userId)
-            .eq('organization_id', organizationId)
         } else {
           const { data: newCustomer, error: customerError } = await supabase
             .from('customers')
@@ -122,11 +121,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               nickname: customerNickname || null,
               phone: customerPhone,
               email: customerEmail,
-              organization_id: organizationId,
+              organization_id: null,
             })
             .select('id')
             .single()
-          
+
           if (!customerError && newCustomer) {
             customerId = newCustomer.id
           }
@@ -144,7 +143,6 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         .select('phone')
         .eq('id', customerId)
         .eq('user_id', props.userId)
-        .eq('organization_id', organizationId)
         .maybeSingle()
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)

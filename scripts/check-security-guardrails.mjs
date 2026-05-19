@@ -208,6 +208,44 @@ function checkFunctionOverwrite() {
 }
 
 // ===================================================================
+// API ハンドラ (service role) でスタッフビューを使っていないか
+// `*_staff_view` は WHERE is_staff_or_admin() でフィルタするため、
+// auth.uid() が NULL の service role からは常に 0 件しか返らない。
+// 過去事故: PR #155 → #168 / #170 で sales / scenarios / schedule の
+// 各 API が空配列を返してイベント表示不能を引き起こした。
+// 同じ仕組みの再発を防ぐため、api/ ディレクトリで `*_staff_view` の
+// 直接参照を CI で禁止する。
+// ===================================================================
+function checkServiceRoleStaffView() {
+  const apiDir = path.join(REPO_ROOT, 'api')
+  if (!isDirectory(apiDir)) return []
+
+  const files = []
+  walk(apiDir, files)
+
+  const hits = []
+  // .from('xxx_staff_view') / .from("xxx_staff_view") / .from(`xxx_staff_view`)
+  const pattern = /\.from\(\s*[`'"]([a-zA-Z0-9_]+_staff_view)[`'"]\s*\)/g
+
+  for (const file of files) {
+    let text
+    try {
+      text = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    pattern.lastIndex = 0
+    let m
+    while ((m = pattern.exec(text)) !== null) {
+      const line = getLineNumberFromIndex(text, m.index)
+      hits.push({ file, line, view: m[1] })
+    }
+  }
+
+  return hits
+}
+
+// ===================================================================
 // RLS ポリシー危険パターン検出
 // ===================================================================
 function checkDangerousRlsPatterns() {
@@ -331,6 +369,18 @@ function main() {
     for (const w of rlsWarnings) {
       console.error(`  ⚠️  ${w}`)
     }
+    exitCode = 1
+  }
+
+  // api/* で *_staff_view 参照を検出（fail）
+  const staffViewHits = checkServiceRoleStaffView()
+  if (staffViewHits.length > 0) {
+    console.error(`[SERVICE_ROLE_STAFF_VIEW] api/* で *_staff_view を参照（service role + auth.uid()=null で常に 0 件）: ${staffViewHits.length}`)
+    for (const h of staffViewHits) {
+      console.error(`  ❌ ${path.relative(REPO_ROOT, h.file)}:${h.line} — .from('${h.view}')`)
+    }
+    console.error(`  → api/ ハンドラは raw テーブル (例: 'schedule_events') を直接参照すること。`)
+    console.error(`  → 過去事故: PR #168 / #170 参照。`)
     exitCode = 1
   }
 

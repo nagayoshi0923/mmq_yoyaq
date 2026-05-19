@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList, UserCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -384,6 +387,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // 新規作成後のシナリオIDを追跡（2回目以降の保存で update にするため）
   const [createdScenarioId, setCreatedScenarioId] = useState<string | null>(null)
   
+  // 保存オプションダイアログ
+  const [saveOptionsOpen, setSaveOptionsOpen] = useState(false)
+  const [savePublishChoice, setSavePublishChoice] = useState<'available' | 'unavailable'>('available')
+  const [submitToMMQ, setSubmitToMMQ] = useState(false)
+  const [isSubmittingToMMQ, setIsSubmittingToMMQ] = useState(false)
+
   // マスタ選択ダイアログ
   const [masterSelectOpen, setMasterSelectOpen] = useState(false)
   
@@ -752,6 +761,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           available_stores: scenario.available_stores || [],
           extra_preparation_time: scenario.extra_preparation_time || undefined,
           private_booking_time_slots: scenario.private_booking_time_slots || [],
+          private_booking_time_slots_weekend: scenario.private_booking_time_slots_weekend ?? null,
           caution: '',
           characters: [],  // organization_scenariosから後で取得
         })
@@ -963,8 +973,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         })),
         // 公演可能店舗
         available_stores: formData.available_stores || [],
-        // 貸切受付時間枠
+        // 貸切受付時間枠（平日/土日祝）
         private_booking_time_slots: formData.private_booking_time_slots || null,
+        private_booking_time_slots_weekend: formData.private_booking_time_slots_weekend ?? null,
         updated_at: new Date().toISOString()
       }
 
@@ -1545,12 +1556,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   >
                     <Icon className="h-3 w-3" />
                     <span className="hidden sm:inline">{tab.label}</span>
-                    {/* マスターとの相違件数バッジ */}
-                    {diffCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-                        {diffCount}
-                      </span>
-                    )}
                   </TabsTrigger>
                 )
               })}
@@ -1573,7 +1578,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
         {/* フッター（固定） */}
         <div className="flex justify-between items-center gap-1.5 px-2 sm:px-3 py-1.5 border-t bg-muted/30 shrink-0">
-          {/* 現在の設定サマリー（小さい画面では非表示） */}
+          {/* フッター左：サマリー＋マスター差分 */}
           <div className="hidden md:flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
             <span className="font-medium text-foreground truncate max-w-[100px]">
               {formData.title || '(未設定)'}
@@ -1582,7 +1587,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <span>{formData.duration}分</span>
             <span className="text-muted-foreground/50">|</span>
             <span>
-              {formData.player_count_min === formData.player_count_max 
+              {formData.player_count_min === formData.player_count_max
                 ? `${formData.player_count_min}人`
                 : `${formData.player_count_min}〜${formData.player_count_max}人`
               }
@@ -1591,6 +1596,21 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <span>
               ¥{(formData.participation_costs?.find(c => c.time_slot === 'normal')?.amount || formData.participation_fee || 0).toLocaleString()}
             </span>
+            {/* マスターとの差分タブ表示 */}
+            {currentMasterId && masterDiffs.count > 0 && (
+              <>
+                <span className="text-muted-foreground/50">|</span>
+                <span className="text-yellow-600 font-medium flex items-center gap-1">
+                  マスターと差分:
+                  {TABS.filter(t => (masterDiffs.byTab[t.id] || 0) > 0).map(t => (
+                    <span key={t.id} className="inline-flex items-center gap-0.5 bg-yellow-100 text-yellow-700 px-1.5 py-0 rounded-full">
+                      {t.label}
+                      <span className="font-bold">{masterDiffs.byTab[t.id]}</span>
+                    </span>
+                  ))}
+                </span>
+              </>
+            )}
           </div>
 
           {/* アクションボタン */}
@@ -1652,13 +1672,135 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 マスタ反映
               </Button>
             )}
-            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} size="sm">
+            {/* MMQへ申請ボタン（保存不要・draft マスタのみ表示） */}
+            {currentMasterId && currentScenario?.master_status === 'draft' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-300 hover:bg-blue-50 hidden sm:inline-flex gap-0.5"
+                disabled={isSubmittingToMMQ}
+                onClick={async () => {
+                  setIsSubmittingToMMQ(true)
+                  try {
+                    await scenarioMasterApi.publish(currentMasterId)
+                    showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
+                    queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
+                    queryClient.invalidateQueries({ queryKey: ['scenarios'] })
+                  } catch {
+                    showToast.error('申請に失敗しました', '時間をおいて再試行してください')
+                  } finally {
+                    setIsSubmittingToMMQ(false)
+                  }
+                }}
+              >
+                {isSubmittingToMMQ
+                  ? <RefreshCw className="h-3 w-3 animate-spin" />
+                  : <Shield className="h-3 w-3" />
+                }
+                MMQへ申請
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                const currentStatus = formData.status === 'draft' ? 'available' : (formData.status as 'available' | 'unavailable')
+                setSavePublishChoice(currentStatus === 'available' ? 'available' : 'unavailable')
+                setSubmitToMMQ(false)
+                setSaveOptionsOpen(true)
+              }}
+              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              size="sm"
+            >
               <Save className="h-3 w-3 mr-0.5" />
               保存
             </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* 保存オプションダイアログ */}
+      <Dialog open={saveOptionsOpen} onOpenChange={setSaveOptionsOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">保存オプション</DialogTitle>
+            <DialogDescription className="text-xs">
+              自組織の予約サイトへの表示設定を選択してください
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* 公開 / 非公開 */}
+            <RadioGroup
+              value={savePublishChoice}
+              onValueChange={(v) => setSavePublishChoice(v as 'available' | 'unavailable')}
+              className="space-y-2"
+            >
+              <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
+                onClick={() => setSavePublishChoice('available')}>
+                <RadioGroupItem value="available" id="opt-available" className="mt-0.5" />
+                <div>
+                  <Label htmlFor="opt-available" className="font-medium text-sm cursor-pointer">公開して保存</Label>
+                  <p className="text-xs text-muted-foreground">予約サイトのシナリオ一覧に表示されます</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
+                onClick={() => setSavePublishChoice('unavailable')}>
+                <RadioGroupItem value="unavailable" id="opt-unavailable" className="mt-0.5" />
+                <div>
+                  <Label htmlFor="opt-unavailable" className="font-medium text-sm cursor-pointer">非公開で保存</Label>
+                  <p className="text-xs text-muted-foreground">管理者のみ確認できます（予約サイトには表示されません）</p>
+                </div>
+              </div>
+            </RadioGroup>
+
+            {/* MMQ申請（公開選択 + draft マスタのときのみ） */}
+            {savePublishChoice === 'available' && currentScenario?.master_status === 'draft' && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="submit-to-mmq"
+                    checked={submitToMMQ}
+                    onCheckedChange={(checked) => setSubmitToMMQ(!!checked)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <Label htmlFor="submit-to-mmq" className="font-medium text-sm cursor-pointer text-blue-800">
+                      MMQプラットフォームへの掲載を申請する
+                    </Label>
+                    <p className="text-xs text-blue-600 mt-0.5">
+                      MMQ運営が審査します。承認後、MMQ全体の検索に表示されます。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSaveOptionsOpen(false)}>
+              キャンセル
+            </Button>
+            <Button
+              size="sm"
+              disabled={scenarioMutation.isPending}
+              onClick={async () => {
+                setSaveOptionsOpen(false)
+                await handleSave(savePublishChoice)
+                if (submitToMMQ && currentMasterId) {
+                  try {
+                    await scenarioMasterApi.publish(currentMasterId)
+                    showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
+                  } catch {
+                    showToast.error('MMQへの申請に失敗しました', '後ほどシナリオ一覧から申請してください')
+                  }
+                }
+              }}
+            >
+              <Save className="h-3 w-3 mr-1" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* マスタ選択ダイアログ */}
       <MasterSelectDialog

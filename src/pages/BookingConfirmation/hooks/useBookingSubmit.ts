@@ -463,21 +463,18 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       let customerId: string | null = null
       
       try {
-        // 公演の organization_id と一致する顧客行のみ（同一 user_id の複数組織行の取り違え防止）
-        let findCustomer = supabase
+        // user_id でプラットフォーム共通の顧客レコードを検索
+        const { data: existingCustomer } = await supabase
           .from('customers')
           .select('id')
           .eq('user_id', props.userId)
-        if (organizationId) {
-          findCustomer = findCustomer.eq('organization_id', organizationId)
-        }
-        const { data: existingCustomer } = await findCustomer.maybeSingle()
-        
+          .maybeSingle()
+
         if (existingCustomer) {
           customerId = existingCustomer.id
-          
+
           // 顧客情報を更新
-          let upd = supabase
+          await supabase
             .from('customers')
             .update({
               name: customerName,
@@ -487,10 +484,6 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             })
             .eq('id', customerId)
             .eq('user_id', props.userId)
-          if (organizationId) {
-            upd = upd.eq('organization_id', organizationId)
-          }
-          await upd
         } else {
           // 新規顧客レコードを作成
           const { data: newCustomer, error: customerError } = await supabase
@@ -518,15 +511,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      let phoneVerifyQuery = supabase
+      const { data: phoneRow, error: phoneVerifyError } = await supabase
         .from('customers')
         .select('phone')
         .eq('id', customerId)
         .eq('user_id', props.userId)
-      if (organizationId) {
-        phoneVerifyQuery = phoneVerifyQuery.eq('organization_id', organizationId)
-      }
-      const { data: phoneRow, error: phoneVerifyError } = await phoneVerifyQuery.maybeSingle()
+        .maybeSingle()
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }

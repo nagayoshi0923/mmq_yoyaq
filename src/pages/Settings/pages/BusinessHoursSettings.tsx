@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/layout/PageHeader"
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Plus, X, Save } from 'lucide-react'
+import { Clock, CalendarCheck, CalendarX, Plus, X, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -383,72 +383,70 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="営業時間設定"
-        description="店舗ごとの曜日別営業時間と特別営業日を設定"
+        description="店舗ごとの曜日別営業時間と特別営業日を設定します"
       >
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleSave(true)} disabled={saving}>
+          <Button variant="outline" size="sm" onClick={() => handleSave(true)} disabled={saving}>
             全店舗に適用
           </Button>
-          <Button onClick={() => handleSave(false)} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
+          <Button size="sm" onClick={() => handleSave(false)} disabled={saving}>
+            <Save className="w-3.5 h-3.5 mr-1.5" />
             {saving ? '保存中...' : '保存'}
           </Button>
         </div>
       </PageHeader>
 
-      {/* 曜日ごとの営業時間 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>曜日ごとの営業時間</CardTitle>
-          <CardDescription>
-            平日（月〜金）と週末（土日）で異なる営業時間を設定できます
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 営業時間帯 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Clock}
+          label="営業時間帯"
+          description="曜日ごとに公演枠の受付可否を設定します。ここで有効にした枠のみ予約カレンダーに表示され、貸切リクエストでも選択可能になります。"
+        />
+        <div className="space-y-3">
           {weekdays.map(day => {
             const dayHours = formData.opening_hours?.[day.value as keyof OpeningHours] || defaultWeekdayHours
             const isWeekend = day.value === 'saturday' || day.value === 'sunday'
             const availableSlots = dayHours.available_slots || (isWeekend ? ['morning', 'afternoon', 'evening'] : ['afternoon', 'evening'])
-            
+
             return (
-              <div 
-                key={day.value} 
+              <div
+                key={day.value}
                 className={`p-3 rounded-lg ${isWeekend ? 'bg-blue-50' : 'bg-gray-50'}`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 font-medium">
+                  <div className="w-12 font-medium text-sm">
                     <span className={isWeekend ? 'text-blue-600' : ''}>{day.short}</span>
                   </div>
-                  
+
                   <Switch
                     checked={dayHours.is_open}
                     onCheckedChange={(checked) => updateDayHours(day.value as keyof OpeningHours, 'is_open', checked)}
                   />
-                  
+
                   <span className={`text-sm w-10 ${dayHours.is_open ? '' : 'text-muted-foreground'}`}>
                     {dayHours.is_open ? '営業' : '休業'}
                   </span>
-                  
+
                   {dayHours.is_open && (
                     <div className="flex-1">
-                      {/* 公演枠選択と開始時間 */}
                       <div className="flex gap-2">
                         {slotOptions.map(slot => {
                           const isActive = availableSlots.includes(slot.value)
                           const slotTimes = dayHours.slot_start_times || (isWeekend ? defaultSlotTimes : weekdaySlotTimes)
                           const startTime = slotTimes[slot.value] || slot.defaultTime
-                          
+
                           return (
                             <div key={slot.value} className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => toggleSlot(day.value as keyof OpeningHours, slot.value)}
                                 className={`px-2 py-1 text-xs rounded-l border transition-colors ${
-                                  isActive 
-                                    ? 'bg-purple-500 text-white border-purple-500' 
+                                  isActive
+                                    ? 'bg-purple-500 text-white border-purple-500'
                                     : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
                                 }`}
                               >
@@ -472,29 +470,26 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
               </div>
             )
           })}
-          
-          <div className="text-sm text-muted-foreground mt-4 p-3 bg-amber-50 rounded-lg">
-            <p className="font-medium text-amber-800">💡 公演枠と貸切リクエストの関係</p>
-            <ul className="mt-2 space-y-1 text-amber-700">
+
+          <div className="text-sm text-muted-foreground mt-2 p-3 bg-amber-50 rounded-lg">
+            <p className="font-medium text-amber-800 text-xs">公演枠と貸切リクエストの関係</p>
+            <ul className="mt-1.5 space-y-1 text-amber-700 text-xs">
               <li>• 選択した公演枠のみ貸切リクエストで選択可能になります</li>
               <li>• 例：平日は昼・夜のみ → 朝公演は選択不可</li>
               <li>• 特別営業日に登録した日は、平日でも土日の設定を適用</li>
             </ul>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* 特別営業日（祝日など） */}
-      <Card>
-        <CardHeader>
-          <CardTitle>特別営業日（土日営業）</CardTitle>
-          <CardDescription>
-            平日でも土日と同じ営業時間を適用する日（祝日、年末年始、お盆など）
-            <br />
-            <span className="text-xs">→ 朝公演10:00〜、昼公演14:00〜、夜公演18:00〜 が選択可能に</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 特別営業日 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={CalendarCheck}
+          label="特別営業日（土日営業）"
+          description="平日でも土日と同じ営業時間を適用する日を登録します。祝日・年末年始・お盆など、朝公演を含む全公演枠が予約カレンダーに表示されます。"
+        />
+        <div className="space-y-4">
           <div className="flex gap-2">
             <Input
               type="date"
@@ -507,17 +502,17 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
               onChange={(e) => setNewOpenDay(prev => ({ ...prev, note: e.target.value }))}
               placeholder="備考（例：成人の日）"
             />
-            <Button onClick={addSpecialOpenDay} variant="outline">
-              <Plus className="h-4 w-4" />
+            <Button onClick={addSpecialOpenDay} variant="outline" size="sm">
+              <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
 
           {formData.special_open_days.length > 0 && (
             <div className="space-y-2">
               {formData.special_open_days.map((day, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded bg-green-50">
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-green-50">
                   <div>
-                    <span className="font-medium">{day.date}</span>
+                    <span className="font-medium text-sm">{day.date}</span>
                     {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
@@ -531,16 +526,21 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          {formData.special_open_days.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-3">特別営業日が登録されていません</p>
+          )}
+        </div>
+      </section>
 
       {/* 特別休業日 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>特別休業日</CardTitle>
-          <CardDescription>営業日でもお休みする日</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={CalendarX}
+          label="特別休業日"
+          description="通常は営業日でも、この日は予約を受け付けない日として登録します。登録した日は予約カレンダーに「休業」と表示されます。"
+        />
+        <div className="space-y-4">
           <div className="flex gap-2">
             <Input
               type="date"
@@ -553,17 +553,17 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
               onChange={(e) => setNewClosedDay(prev => ({ ...prev, note: e.target.value }))}
               placeholder="備考（例：店舗メンテナンス）"
             />
-            <Button onClick={addSpecialClosedDay} variant="outline">
-              <Plus className="h-4 w-4" />
+            <Button onClick={addSpecialClosedDay} variant="outline" size="sm">
+              <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
 
           {formData.special_closed_days.length > 0 && (
             <div className="space-y-2">
               {formData.special_closed_days.map((day, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded bg-red-50">
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-red-50">
                   <div>
-                    <span className="font-medium">{day.date}</span>
+                    <span className="font-medium text-sm">{day.date}</span>
                     {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
@@ -577,8 +577,12 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          {formData.special_closed_days.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-3">特別休業日が登録されていません</p>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

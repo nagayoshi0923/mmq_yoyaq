@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
   /**
@@ -7,9 +8,9 @@ interface PageHeaderProps {
    */
   title: ReactNode
   /**
-   * ページの説明文
+   * ページの説明文（省略可）
    */
-  description: string
+  description?: string
   /**
    * ヘッダー右側に配置する要素（ボタンなど）
    */
@@ -42,13 +43,15 @@ export function PageHeader({
   className = ''
 }: PageHeaderProps) {
   return (
-    <div className={`mb-6 ${className}`}>
+    <div className={cn('mb-6', className)}>
       <div className="flex flex-row items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold tracking-tight break-words flex items-center gap-2">{title}</h1>
-          <p className="text-xs text-muted-foreground mt-1.5 break-words leading-normal">
-            {description}
-          </p>
+          {description && (
+            <p className="text-xs text-muted-foreground mt-1.5 break-words leading-normal">
+              {description}
+            </p>
+          )}
         </div>
         {children && (
           <div className="flex gap-2 flex-shrink-0 items-start">

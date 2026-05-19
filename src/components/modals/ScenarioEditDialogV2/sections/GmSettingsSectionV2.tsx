@@ -1,12 +1,11 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Users, Award } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import type { Staff } from '@/types'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
@@ -111,35 +110,27 @@ export function GmSettingsSectionV2({
 
   return (
     <div className="space-y-4">
-      {/* 必要GM数 */}
-      <Card>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-2 gap-5">
-            <div>
-              <Label className={labelStyle}>必要GM数</Label>
-              <p className={hintStyle}>1公演に必要なGM人数。シフト調整時の人員計算に使用されます</p>
-              <div className="relative mt-1.5">
-                <Input
-                  id="gm_count"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={formData.gm_count}
-                  onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseIntSafe(e.target.value, 1) }))}
-                  className={`${inputStyle} pr-8`}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">人</span>
-              </div>
-            </div>
+      {/* ── GM設定 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Users className="h-3.5 w-3.5" />GM設定
+        </p>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">必要GM数</span>
+          <div className="relative w-20">
+            <Input id="gm_count" type="number" min="1" max="10" value={formData.gm_count}
+              onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseIntSafe(e.target.value, 1) }))}
+              className="h-7 text-xs pr-7" />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">人</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* 担当GM */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>担当GM</Label>
-          <p className={hintStyle}>このシナリオのGMを担当できるスタッフ。メイン/サブの可否を個別に設定できます</p>
+      {/* ── 担当GM ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Users className="h-3.5 w-3.5" />担当GM
+        </p>
           {loadingStaff ? (
             <div className="flex items-center justify-center p-4 text-sm text-muted-foreground bg-muted/30 rounded mt-1.5">
               スタッフデータを読み込み中...
@@ -205,13 +196,13 @@ export function GmSettingsSectionV2({
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* GM報酬 */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>GM報酬</Label>
+      {/* ── GM報酬 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Award className="h-3.5 w-3.5" />GM報酬
+        </p>
           
           {/* 個別設定がない場合：デフォルトを使用 */}
           {(!formData.gm_assignments || formData.gm_assignments.length === 0) ? (
@@ -355,8 +346,7 @@ export function GmSettingsSectionV2({
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
     </div>
   )
 }

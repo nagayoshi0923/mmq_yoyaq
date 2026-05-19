@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/layout/PageHeader"
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, ChevronDown, ChevronRight, Mail } from 'lucide-react'
+import { Save, ChevronDown, ChevronRight, Mail, Building2, Bell } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -1071,146 +1071,60 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   const otherTemplates = TEMPLATE_CONFIGS.filter(c => c.category === 'other')
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="メール設定"
         description="メールテンプレートと送信設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* 基本設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>基本設定</CardTitle>
-          <CardDescription>メールの署名・返信先に使用される情報</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="company_name">会社名 *</Label>
-              <Input
-                id="company_name"
-                value={formData.company_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-                placeholder="クイーンズワルツ"
-              />
-            </div>
-            <div>
-              <Label htmlFor="company_email">メールアドレス *</Label>
-              <Input
-                id="company_email"
-                type="email"
-                value={formData.company_email}
-                onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
-                placeholder="info@example.com"
-              />
-              <p className="text-xs text-muted-foreground mt-1">署名表示 / 返信先</p>
-            </div>
-            <div>
-              <Label htmlFor="company_phone">電話番号</Label>
-              <Input
-                id="company_phone"
-                value={formData.company_phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, company_phone: e.target.value }))}
-                placeholder="03-XXXX-XXXX"
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            返信先: 上記メールアドレス
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* 予約関連メールテンプレート */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-green-600" />
-            <div>
-              <CardTitle>予約関連メール</CardTitle>
-              <CardDescription>予約・キャンセル・リマインドに関するメールテンプレート</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {reservationTemplates.map(config => (
-            <AccordionItem
-              key={config.key}
-              config={config}
-              value={formData[config.key]}
-              onChange={(value) => updateTemplate(config.key, value)}
-              onReset={() => resetTemplate(config)}
-              isOpen={openAccordions.has(config.key)}
-              onToggle={() => toggleAccordion(config.key)}
+      {/* 送信者情報 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Building2} label="送信者情報" description="メールの署名・返信先に使用される情報" />
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="company_name">会社名 *</Label>
+            <Input
+              id="company_name"
+              value={formData.company_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
+              placeholder="クイーンズワルツ"
             />
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* 貸切予約関連メールテンプレート */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-blue-600" />
-            <div>
-              <CardTitle>貸切予約関連メール</CardTitle>
-              <CardDescription>貸切予約のリクエスト・承認・却下に関するメールテンプレート</CardDescription>
-            </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {privateTemplates.map(config => (
-            <AccordionItem
-              key={config.key}
-              config={config}
-              value={formData[config.key]}
-              onChange={(value) => updateTemplate(config.key, value)}
-              onReset={() => resetTemplate(config)}
-              isOpen={openAccordions.has(config.key)}
-              onToggle={() => toggleAccordion(config.key)}
+          <div>
+            <Label htmlFor="company_email">メールアドレス *</Label>
+            <Input
+              id="company_email"
+              type="email"
+              value={formData.company_email}
+              onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
+              placeholder="info@example.com"
             />
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* その他のメールテンプレート */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-yellow-600" />
-            <div>
-              <CardTitle>その他のメール</CardTitle>
-              <CardDescription>キャンセル待ち通知などのメールテンプレート</CardDescription>
-            </div>
+            <p className="text-xs text-muted-foreground mt-1">署名表示 / 返信先</p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {otherTemplates.map(config => (
-            <AccordionItem
-              key={config.key}
-              config={config}
-              value={formData[config.key]}
-              onChange={(value) => updateTemplate(config.key, value)}
-              onReset={() => resetTemplate(config)}
-              isOpen={openAccordions.has(config.key)}
-              onToggle={() => toggleAccordion(config.key)}
+          <div>
+            <Label htmlFor="company_phone">電話番号</Label>
+            <Input
+              id="company_phone"
+              value={formData.company_phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, company_phone: e.target.value }))}
+              placeholder="03-XXXX-XXXX"
             />
-          ))}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          返信先: 上記メールアドレス
+        </p>
+      </section>
 
-      {/* リマインドメール設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>リマインドメール設定</CardTitle>
-          <CardDescription>公演前に送信されるリマインドメールの設定</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      {/* リマインダー設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Bell} label="リマインダー設定" description="公演前に送信される自動リマインドメールの設定" />
+        <div className="space-y-6">
           {/* リマインド有効/無効 */}
           <div className="flex items-center justify-between">
             <div>
@@ -1242,7 +1156,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                     + 追加
                   </Button>
                 </div>
-                
+
                 <div className="space-y-4">
                   {formData.reminder_schedule.map((schedule, index) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
@@ -1256,7 +1170,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                         </div>
-                        
+
                         <div className="flex-1 grid grid-cols-2 gap-3">
                           <div>
                             <Label className="text-sm">送信タイミング</Label>
@@ -1273,7 +1187,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                               <option value={30}>1ヶ月前</option>
                             </select>
                           </div>
-                          
+
                           <div>
                             <Label className="text-sm">送信時刻</Label>
                             <Input
@@ -1284,7 +1198,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                             />
                           </div>
                         </div>
-                        
+
                         <Button
                           type="button"
                           variant="ghost"
@@ -1319,7 +1233,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                             デフォルトに戻す
                           </Button>
                         </div>
-                        
+
                         <Textarea
                           value={schedule.template || getDefaultReminderTemplate(
                             formData.company_name,
@@ -1333,7 +1247,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                           className="text-sm font-mono"
                           disabled={!schedule.enabled}
                         />
-                        
+
                         <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
                           <p className="font-medium mb-1">使用可能な変数:</p>
                           {['customer_name', 'scenario_title', 'date', 'time', 'venue', 'venue_address', 'participants', 'total_price'].map(v => (
@@ -1347,7 +1261,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                     </div>
                   ))}
                 </div>
-                
+
                 <p className="text-xs text-muted-foreground mt-2">
                   複数のリマインドを設定できます。例：1週間前と前日の両方に送信
                 </p>
@@ -1394,8 +1308,79 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
+
+      {/* メールテンプレート一覧 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Mail} label="メールテンプレート一覧" description="各イベントで自動送信されるメールの本文テンプレート" />
+
+        {/* 予約関連メール */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <h4 className="text-sm font-medium text-gray-700">予約関連メール</h4>
+            <span className="text-xs text-muted-foreground">予約・キャンセル・リマインドに関するメールテンプレート</span>
+          </div>
+          <div className="space-y-3">
+            {reservationTemplates.map(config => (
+              <AccordionItem
+                key={config.key}
+                config={config}
+                value={formData[config.key]}
+                onChange={(value) => updateTemplate(config.key, value)}
+                onReset={() => resetTemplate(config)}
+                isOpen={openAccordions.has(config.key)}
+                onToggle={() => toggleAccordion(config.key)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 貸切予約関連メール */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+            <h4 className="text-sm font-medium text-gray-700">貸切予約関連メール</h4>
+            <span className="text-xs text-muted-foreground">貸切予約のリクエスト・承認・却下に関するメールテンプレート</span>
+          </div>
+          <div className="space-y-3">
+            {privateTemplates.map(config => (
+              <AccordionItem
+                key={config.key}
+                config={config}
+                value={formData[config.key]}
+                onChange={(value) => updateTemplate(config.key, value)}
+                onReset={() => resetTemplate(config)}
+                isOpen={openAccordions.has(config.key)}
+                onToggle={() => toggleAccordion(config.key)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* その他のメール */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+            <h4 className="text-sm font-medium text-gray-700">その他のメール</h4>
+            <span className="text-xs text-muted-foreground">キャンセル待ち通知などのメールテンプレート</span>
+          </div>
+          <div className="space-y-3">
+            {otherTemplates.map(config => (
+              <AccordionItem
+                key={config.key}
+                config={config}
+                value={formData[config.key]}
+                onChange={(value) => updateTemplate(config.key, value)}
+                onReset={() => resetTemplate(config)}
+                isOpen={openAccordions.has(config.key)}
+                onToggle={() => toggleAccordion(config.key)}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
 
     </div>
   )

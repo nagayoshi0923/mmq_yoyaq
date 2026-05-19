@@ -4,48 +4,23 @@
  * @purpose ライセンス管理の統合ページ（報告受付・公演報告・作者レポート・集計）
  * @access admin, staff（一部機能はライセンス管理組織のみ）
  */
-
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
-import { 
-  FileCheck, 
-  Send, 
-  BarChart3,
-  Loader2,
-  AlertCircle
-} from 'lucide-react'
+import { Loader2, AlertCircle, FileCheck } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
-import { useSessionState } from '@/hooks/useSessionState'
-
-// 既存コンポーネントをインポート
 import { ReportsReceived } from './tabs/ReportsReceived'
 import { SendReports } from './tabs/SendReports'
 import { LicenseSummary } from './tabs/LicenseSummary'
 
-// サイドバーのメニュー項目定義（ライセンス管理組織用）
-const LICENSE_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'received', label: '受信', icon: FileCheck, description: '加盟店からの公演報告を確認' },
-  { id: 'send', label: '送信', icon: Send, description: '作者・版元へライセンス料報告' },
-  { id: 'summary', label: '集計', icon: BarChart3, description: '月別・作品別の集計' },
-]
-
-// 一般組織用のメニュー
-const LICENSE_MENU_ITEMS_EXTERNAL: SidebarMenuItem[] = [
-  { id: 'send', label: '公演報告', icon: Send, description: 'MMQへ公演実績を報告' },
-]
-
 export default function LicenseManagement() {
   const { organization, staff, isLicenseManager, isLoading } = useOrganization()
-  const [activeTab, setActiveTab] = useSessionState('licenseManagementTab', 'received')
+  const [searchParams] = useSearchParams()
+  const rawTab = searchParams.get('tab') || 'send'
+  // ライセンス管理組織以外は send 固定
+  const effectiveTab = isLicenseManager ? rawTab : 'send'
 
-  // メニュー項目を権限に応じて選択
-  const menuItems = isLicenseManager ? LICENSE_MENU_ITEMS : LICENSE_MENU_ITEMS_EXTERNAL
-
-  // ライセンス管理組織以外の場合、sendタブに強制
-  const effectiveTab = isLicenseManager ? activeTab : 'send'
-
-  // コンテンツの条件分岐表示
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -54,7 +29,6 @@ export default function LicenseManagement() {
         </div>
       )
     }
-
     if (!organization || !staff) {
       return (
         <div className="p-4">
@@ -67,42 +41,24 @@ export default function LicenseManagement() {
         </div>
       )
     }
-
     switch (effectiveTab) {
-      case 'received':
-        return isLicenseManager ? <ReportsReceived staffId={staff.id} /> : null
-      case 'send':
-        return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />
-      case 'summary':
-        return isLicenseManager ? <LicenseSummary /> : null
-      default:
-        return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />
+      case 'received': return isLicenseManager ? <ReportsReceived staffId={staff.id} /> : null
+      case 'summary':  return isLicenseManager ? <LicenseSummary /> : null
+      default:         return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />
     }
   }
-
-  // サイドバーのタイトルと説明
-  const sidebarTitle = isLicenseManager ? 'ライセンス管理' : '公演報告'
-  const sidebarDescription = isLicenseManager 
-    ? '加盟店からの報告受付・作者への報告' 
-    : '公演実績をMMQに報告'
 
   return (
     <AppLayout
       currentPage="license-management"
-      sidebar={
-        <UnifiedSidebar
-          title={sidebarTitle}
-          description={sidebarDescription}
-          mode="list"
-          menuItems={menuItems}
-          activeTab={effectiveTab}
-          onTabChange={setActiveTab}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
+      <PageHeader
+        title={<><FileCheck className="h-5 w-5" />ライセンス管理</>}
+        description="公演報告の送信・受信・ライセンス料の集計"
+      />
       {renderContent()}
     </AppLayout>
   )

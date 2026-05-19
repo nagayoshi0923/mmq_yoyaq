@@ -1,15 +1,17 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
+import { useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save } from 'lucide-react'
+import { Save, UserPlus, Mail, User, Loader2, Coins, Clock, GraduationCap, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { toast } from 'sonner'
 
 interface StaffSettings {
   id: string
@@ -40,10 +42,65 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // スタッフ招待
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '' })
+  const [isInviting, setIsInviting] = useState(false)
+
+  const handleInvite = async () => {
+    if (!inviteForm.name.trim()) { toast.error('名前を入力してください'); return }
+    if (!inviteForm.email.trim()) { toast.error('メールアドレスを入力してください'); return }
+
+    setIsInviting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { toast.error('ログインが必要です'); return }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', session.user.id)
+        .single()
+
+      const response = await supabase.functions.invoke('invite-staff', {
+        body: {
+          name: inviteForm.name.trim(),
+          email: inviteForm.email.trim(),
+          role: ['スタッフ'],
+          organization_id: userData?.organization_id,
+        },
+      })
+
+      if (response.error) throw response.error
+      const result = response.data
+      if (!result.success) {
+        if (result.error?.includes('既に')) { toast.error('このメールアドレスは既に登録されています'); return }
+        throw new Error(result.error || '招待に失敗しました')
+      }
+
+      toast.success(`${inviteForm.name} さんに招待メールを送信しました`)
+      setInviteOpen(false)
+      setInviteForm({ name: '', email: '' })
+    } catch (error) {
+      logger.error('Failed to invite staff:', error)
+      toast.error('招待に失敗しました')
+    } finally {
+      setIsInviting(false)
+    }
+  }
+
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
+
+  useEffect(() => {
+    if (storeId && stores.length > 0 && storeId !== selectedStoreId) {
+      setSelectedStoreId(storeId)
+      fetchSettings(storeId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storeId変更時のみ実行
+  }, [storeId, stores.length])
 
   const fetchData = async () => {
     setLoading(true)
@@ -53,8 +110,9 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
 
       if (storesData && storesData.length > 0) {
         setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
+        const targetStoreId = storeId || storesData[0].id
+        setSelectedStoreId(targetStoreId)
+        await fetchSettings(targetStoreId)
       }
     } catch (error) {
       logger.error('データ取得エラー:', error)
@@ -149,28 +207,33 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="スタッフ設定"
         description="スタッフの権限と報酬設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? '保存中...' : '保存'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-3.5 w-3.5 mr-1.5" />スタッフを招待
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Save className="w-3.5 h-3.5 mr-1.5" />{saving ? '保存中...' : '保存'}
+          </Button>
+        </div>
       </PageHeader>
 
       {/* GM報酬デフォルト値 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>GM報酬デフォルト値</CardTitle>
-          <CardDescription>新しいシナリオを作成する際のデフォルト報酬額</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Coins}
+          label="GM報酬デフォルト値"
+          description="新しいシナリオを作成する際のデフォルト報酬額。シナリオ編集のGM設定に反映される"
+        />
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>メインGM報酬</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1.5">
                 <Input
                   type="number"
                   value={formData.default_main_gm_reward}
@@ -183,7 +246,7 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
             </div>
             <div>
               <Label>サブGM報酬</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1.5">
                 <Input
                   type="number"
                   value={formData.default_sub_gm_reward}
@@ -195,16 +258,17 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* シフト提出期限 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>シフト提出期限</CardTitle>
-          <CardDescription>スタッフがシフトを提出する期限を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Clock}
+          label="シフト提出期限"
+          description="公演日の何日前まで提出が必要か。シフト提出画面の期限判定に使用"
+        />
+        <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Label className="w-32">提出期限</Label>
             <div className="flex items-center gap-2">
@@ -220,19 +284,20 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
               <span className="text-xs text-muted-foreground">日前まで</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 ml-36">
+          <p className="text-xs text-muted-foreground ml-36">
             例: 14日前の場合、2週間前までにシフト提出が必要
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* スタッフランク制度 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>スタッフランク制度</CardTitle>
-          <CardDescription>スタッフのランク分けを有効にします</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={GraduationCap}
+          label="スタッフランク制度"
+          description="経験・実績によるランク分けを有効化"
+        />
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <Label>スタッフランク制度を有効にする</Label>
@@ -242,21 +307,22 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
             </div>
             <Switch
               checked={formData.staff_rank_enabled}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 setFormData(prev => ({ ...prev, staff_rank_enabled: checked }))
               }
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* 研修期間 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>研修期間</CardTitle>
-          <CardDescription>新人スタッフの研修期間を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={BookOpen}
+          label="研修期間"
+          description="入社から何日間を研修期間とするか"
+        />
+        <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Label className="w-32">研修期間</Label>
             <div className="flex items-center gap-2">
@@ -271,11 +337,61 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
               <span className="text-xs text-muted-foreground">日間</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 ml-36">
+          <p className="text-xs text-muted-foreground ml-36">
             入社から{formData.training_period_days}日間は研修期間として扱われます
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
+
+      {/* スタッフ招待ダイアログ */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>スタッフを招待</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              招待メールを送信します。受信者はリンクからスタッフアカウントを作成できます。
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-staff-name" className="text-sm font-medium">名前 <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="invite-staff-name"
+                  value={inviteForm.name}
+                  onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="例: 山田太郎"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-staff-email" className="text-sm font-medium">メールアドレス <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="invite-staff-email"
+                  type="email"
+                  value={inviteForm.email}
+                  onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="例: staff@example.com"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setInviteOpen(false); setInviteForm({ name: '', email: '' }) }}>
+              キャンセル
+            </Button>
+            <Button onClick={handleInvite} disabled={isInviting}>
+              {isInviting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 mr-1.5" />}
+              招待メールを送信
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

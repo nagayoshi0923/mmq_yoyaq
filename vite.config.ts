@@ -30,6 +30,8 @@ export default defineConfig({
     ],
   },
   build: {
+    target: 'esnext',
+    reportCompressedSize: false,
     // チャンクサイズ警告のしきい値を上げる（KB単位）
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
@@ -63,10 +65,25 @@ export default defineConfig({
   server: {
     // 既定 127.0.0.1（起動安定）。スマホ等から繋ぐときは VITE_DEV_HOST=all npm run dev
     host: devHost,
-    port: 5173,
-    strictPort: true, // 5173固定（別ポートに逃がさない）
+    // `vercel dev` 経由で起動された場合は PORT env が渡されるのでそれに従う。
+    // 単独 `npm run dev` 時は 5173 固定（別ポートに逃がさない）。
+    port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
+    strictPort: !process.env.PORT,
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
+    // /api/* をステージング Vercel deploy に転送する
+    // 理由: macOS 上で vercel dev が spawn EBADF で関数を実行できないため、
+    // ローカルからは staging deploy の /api を叩く方式に切り替えた。
+    // ローカルで API 自体を編集したい場合は staging へ push して反映を待つ
+    // （UI のみのローカル開発であれば npm run dev のみで完結する）。
+    // 環境変数 VITE_API_TARGET で別 URL を指定可能（例: 本番確認、preview deploy 確認）
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_TARGET || 'https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
     hmr: {
       overlay: true,
       ...(devLan ? { clientPort: 5173 } : {}),

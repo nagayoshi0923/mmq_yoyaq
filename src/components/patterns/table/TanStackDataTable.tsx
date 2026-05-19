@@ -1,4 +1,4 @@
-import { ReactNode, memo, useMemo, useState, useEffect, useCallback } from 'react'
+import { ReactNode, memo, useMemo, useCallback } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -6,7 +6,7 @@ import {
   SortingState,
   ColumnDef,
   flexRender,
-  ColumnOrderState,
+  VisibilityState,
 } from '@tanstack/react-table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HelpCircle, GripVertical } from 'lucide-react'
@@ -27,6 +27,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useTablePreferences, type TablePreferences } from '@/hooks/useTablePreferences'
 
 // TanStack Table のカスタム meta 型
 interface ColumnMetaCustom {
@@ -37,106 +38,48 @@ interface ColumnMetaCustom {
 }
 
 export interface Column<T> {
-  /**
-   * 列のキー
-   */
   key: string
-  /**
-   * 列のヘッダーラベル
-   */
   header: string
-  /**
-   * 列の幅（Tailwindクラス、オプション）
-   */
   width?: string
-  /**
-   * ソート可能か
-   */
   sortable?: boolean
-  /**
-   * テキスト配置
-   */
   align?: 'left' | 'center' | 'right'
-  /**
-   * セルのレンダリング関数
-   */
   render: (item: T) => ReactNode
-  /**
-   * ソート用の値を返す関数（オプション、指定しない場合はkeyで取得）
-   */
   sortValue?: (item: T) => string | number | null | undefined
-  /**
-   * ヘッダーのカスタムレンダリング（オプション）
-   */
   renderHeader?: () => ReactNode
-  /**
-   * ヘッダーのクラス名
-   */
   headerClassName?: string
-  /**
-   * セルのクラス名
-   */
   cellClassName?: string
-  /**
-   * カラムのヘルプテキスト（ホバーでツールチップ表示）
-   */
   helpText?: string
+  /** trueにするとカラム設定パネルで非表示にできない */
+  required?: boolean
 }
 
 export interface DataTableProps<T> {
-  /**
-   * 表示するデータ
-   */
   data: T[]
-  /**
-   * 列定義
-   */
   columns: Column<T>[]
-  /**
-   * 行のキーを取得する関数
-   */
   getRowKey: (item: T) => string
-  /**
-   * ソート状態
-   */
   sortState?: {
     field: string
     direction: 'asc' | 'desc'
   }
-  /**
-   * ソート変更ハンドラ
-   */
   onSort?: (sortState: { field: string; direction: 'asc' | 'desc' } | undefined) => void
-  /**
-   * データがない場合のメッセージ
-   */
   emptyMessage?: string
-  /**
-   * ローディング中か
-   */
   loading?: boolean
-  /**
-   * ヘッダーをスティッキーにするか
-   */
   stickyHeader?: boolean
-  /**
-   * スティッキーヘッダーの右側に表示するコンテンツ
-   */
   stickyHeaderContent?: ReactNode
-  /**
-   * ドラッグ&ドロップでカラム並び替えを有効にするか
-   */
+  /** ドラッグ&ドロップでヘッダーのカラム並び替えを有効にするか */
   enableColumnReorder?: boolean
   /**
-   * カラム順序をlocalStorageに保存するためのキー
-   * 指定するとリロード後もカラム順序が維持される
+   * 外部から管理するカラム設定（表示/非表示・並び順）。
+   * useTablePreferences と ColumnSettingsPanel と組み合わせて使う。
    */
+  columnPreferences?: TablePreferences
+  autoRowHeight?: boolean
+  /** @deprecated columnPreferences を使用してください */
+  columnSettingsKey?: string
+  /** @deprecated columnPreferences を使用してください */
   columnOrderKey?: string
 }
 
-/**
- * ドラッグ可能なヘッダーセル
- */
 interface SortableHeaderProps {
   id: string
   children: ReactNode
@@ -184,35 +127,6 @@ function SortableHeader({ id, children, className, onClick, enableReorder }: Sor
   )
 }
 
-/**
- * TanStackDataTable - TanStack Tableを使用した高性能テーブルコンポーネント
- * 
- * 既存のDataTableと同じインターフェースを維持しつつ、
- * 内部でTanStack Tableを使用してパフォーマンスと拡張性を向上
- * 
- * @example
- * ```tsx
- * const columns: Column<Scenario>[] = [
- *   {
- *     key: 'title',
- *     label: 'タイトル',
- *     width: 'w-40',
- *     sortable: true,
- *     render: (item) => <p>{item.title}</p>
- *   }
- * ]
- * 
- * <TanStackDataTable
- *   data={scenarios}
- *   columns={columns}
- *   getRowKey={(item) => item.id}
- *   sortState={sortState}
- *   onSort={handleSort}
- *   enableColumnReorder={true}
- *   columnOrderKey="my-table-columns"
- * />
- * ```
- */
 export const TanStackDataTable = memo(function TanStackDataTable<T>({
   data,
   columns,
@@ -224,14 +138,39 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   stickyHeader = false,
   stickyHeaderContent,
   enableColumnReorder = false,
-  columnOrderKey
+  columnPreferences,
+  autoRowHeight = false,
+  columnSettingsKey, // deprecated
+  columnOrderKey,    // deprecated
 }: DataTableProps<T>) {
-  // ヘルプテキスト付きヘッダーをレンダリングする関数
+  const defaultColumnKeys = useMemo(() => columns.map(c => c.key), [columns])
+
+  // deprecated: columnSettingsKey/columnOrderKey のフォールバック用（外部から prefs が来ない場合）
+  const legacyKey = columnSettingsKey ?? columnOrderKey
+  const [internalPrefs] = useTablePreferences(
+    columnPreferences ? undefined : legacyKey,
+    defaultColumnKeys
+  )
+  const prefs = columnPreferences ?? internalPrefs
+
+  // カラム順序に基づいてカラムを並び替え＋非表示フィルタ
+  const visibleOrderedColumns = useMemo(() => {
+    const order = prefs.columnOrder.length > 0 ? prefs.columnOrder : defaultColumnKeys
+    const colMap = new Map(columns.map(c => [c.key, c]))
+    const ordered = order
+      .map(k => colMap.get(k))
+      .filter((c): c is Column<T> => c !== undefined)
+    const inOrder = new Set(order)
+    const extras = columns.filter(c => !inOrder.has(c.key))
+    return [...ordered, ...extras].filter(c => {
+      if (c.required) return true
+      return prefs.columnVisibility[c.key] ?? true
+    })
+  }, [columns, prefs, defaultColumnKeys])
+
+  // ヘルプテキスト付きヘッダー
   const renderHeaderWithHelp = (col: Column<T>) => {
-    if (col.renderHeader) {
-      return col.renderHeader()
-    }
-    
+    if (col.renderHeader) return col.renderHeader()
     if (col.helpText) {
       return (
         <TooltipProvider delayDuration={0}>
@@ -241,8 +180,8 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 {col.header}
               </span>
             </TooltipTrigger>
-            <TooltipContent 
-              side="bottom" 
+            <TooltipContent
+              side="bottom"
               align="start"
               sideOffset={8}
               className="z-[100] max-w-xs p-3 text-xs bg-white text-gray-700 border border-gray-200 rounded-lg shadow-lg"
@@ -256,102 +195,34 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
         </TooltipProvider>
       )
     }
-    
     return col.header
   }
 
-  // カラム順序の初期値を取得（localStorageから復元）
-  const getInitialColumnOrder = useCallback((): string[] => {
-    const defaultOrder = columns.map(col => col.key)
-    if (!columnOrderKey) return defaultOrder
-    
-    try {
-      const saved = localStorage.getItem(`column-order-${columnOrderKey}`)
-      if (saved) {
-        const parsed = JSON.parse(saved) as string[]
-        // 保存されたカラムが現在のカラムと一致するか確認
-        const currentKeys = new Set(defaultOrder)
-        const savedKeys = new Set(parsed)
-        
-        // 全てのカラムが含まれているか確認
-        if (parsed.length === defaultOrder.length && 
-            parsed.every(key => currentKeys.has(key))) {
-          return parsed
-        }
-      }
-    } catch (e) {
-      // パースエラー時はデフォルト
-    }
-    return defaultOrder
-  }, [columns, columnOrderKey])
-
-  // カラム順序の状態
-  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(getInitialColumnOrder)
-
-  // columnsが変わった時にカラム順序をリセット（新しいカラムが追加された場合など）
-  useEffect(() => {
-    const currentKeys = columns.map(col => col.key)
-    const hasNewColumns = currentKeys.some(key => !columnOrder.includes(key))
-    const hasMissingColumns = columnOrder.some(key => !currentKeys.includes(key))
-    
-    if (hasNewColumns || hasMissingColumns) {
-      setColumnOrder(getInitialColumnOrder())
-    }
-  }, [columns, columnOrder, getInitialColumnOrder])
-
-  // カラム順序をlocalStorageに保存
-  useEffect(() => {
-    if (columnOrderKey && columnOrder.length > 0) {
-      localStorage.setItem(`column-order-${columnOrderKey}`, JSON.stringify(columnOrder))
-    }
-  }, [columnOrder, columnOrderKey])
-
-  // dnd-kitセンサー
+  // dnd-kitセンサー（ヘッダードラッグ用）
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5, // 5px動かしてからドラッグ開始
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  // ドラッグ終了時のハンドラ
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const handleHeaderDragEnd = useCallback((event: DragEndEvent) => {
+    // ヘッダーDnDは enableColumnReorder かつ外部から onColumnConfigChange が渡された場合のみ動作
+    if (!enableColumnReorder) return
     const { active, over } = event
-    
-    if (over && active.id !== over.id) {
-      setColumnOrder((current) => {
-        const oldIndex = current.indexOf(active.id as string)
-        const newIndex = current.indexOf(over.id as string)
-        return arrayMove(current, oldIndex, newIndex)
-      })
-    }
-  }, [])
+    if (!over || active.id === over.id) return
 
-  // カラム順序に基づいてカラムを並び替え
-  const orderedColumns = useMemo(() => {
-    if (!enableColumnReorder) return columns
-    
-    const columnMap = new Map(columns.map(col => [col.key, col]))
-    return columnOrder
-      .map(key => columnMap.get(key))
-      .filter((col): col is Column<T> => col !== undefined)
-  }, [columns, columnOrder, enableColumnReorder])
+    const currentOrder = prefs.columnOrder.length > 0 ? prefs.columnOrder : defaultColumnKeys
+    const oldIndex = currentOrder.indexOf(active.id as string)
+    const newIndex = currentOrder.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+  }, [prefs, defaultColumnKeys, enableColumnReorder])
 
-  // Column定義をTanStack Table形式に変換（順序適用済み）
+  // TanStack Table 用カラム定義
   const tanStackColumns = useMemo<ColumnDef<T>[]>(
     () =>
-      orderedColumns.map((col) => ({
+      visibleOrderedColumns.map((col) => ({
         id: col.key,
-        // sortValueがある場合はソート用の値を返す、なければ行のkeyプロパティを使用
         accessorFn: (row) => {
-          if (col.sortValue) {
-            return col.sortValue(row)
-          }
-          // デフォルトはkeyでプロパティを取得
+          if (col.sortValue) return col.sortValue(row)
           return (row as Record<string, unknown>)[col.key]
         },
         header: () => renderHeaderWithHelp(col),
@@ -365,54 +236,41 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           cellClassName: col.cellClassName,
         },
       })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- orderedColumnsのみ依存
-    [orderedColumns]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleOrderedColumns]
   )
 
-  // ソート状態をTanStack Table形式に変換
   const sorting: SortingState = useMemo(
     () =>
       sortState
-        ? [
-            {
-              id: sortState.field,
-              desc: sortState.direction === 'desc',
-            },
-          ]
+        ? [{ id: sortState.field, desc: sortState.direction === 'desc' }]
         : [],
     [sortState]
   )
 
-  // TanStack Tableインスタンスを作成
+  // TanStack Table 用の visibility state（TanStack 側ではなく上位で管理しているため空）
+  const columnVisibility: VisibilityState = {}
+
   const table = useReactTable({
     data,
     columns: tanStackColumns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    state: {
-      sorting,
-    },
+    state: { sorting, columnVisibility },
     onSortingChange: (updaterOrValue) => {
       if (!onSort) return
-
       const newSorting =
-        typeof updaterOrValue === 'function'
-          ? updaterOrValue(sorting)
-          : updaterOrValue
-
+        typeof updaterOrValue === 'function' ? updaterOrValue(sorting) : updaterOrValue
       if (newSorting.length > 0) {
-        onSort({
-          field: newSorting[0].id,
-          direction: newSorting[0].desc ? 'desc' : 'asc'
-        })
+        onSort({ field: newSorting[0].id, direction: newSorting[0].desc ? 'desc' : 'asc' })
       } else {
         onSort(undefined)
       }
     },
-    manualSorting: !!onSort, // 外部でソートを管理する場合
-    debugTable: false, // デバッグモードを無効化
-    debugHeaders: false, // ヘッダーデバッグを無効化
-    debugColumns: false, // カラムデバッグを無効化
+    manualSorting: !!onSort,
+    debugTable: false,
+    debugHeaders: false,
+    debugColumns: false,
   })
 
   const getSortIcon = (columnId: string) => {
@@ -420,44 +278,33 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
     return sortState.direction === 'asc' ? ' ↑' : ' ↓'
   }
 
-  if (loading) {
-    return (
-      <div>
-        <div className="py-12 text-center text-muted-foreground">
-          読み込み中...
-        </div>
-      </div>
-    )
-  }
-
-  // カラム幅クラスを計算する共通関数（ヘッダーとデータ行で完全に同じロジック）
-  const getWidthClass = (meta: any): string => {
+  const getWidthClass = (meta: ColumnMetaCustom | undefined): string => {
     if (meta?.width) {
-      if (meta.width === 'flex-1') {
-        return 'flex-1 min-w-[120px]'
-      } else {
-        return `flex-shrink-0 ${meta.width}`
-      }
-    } else {
-      return 'flex-1 min-w-[120px]'
+      return meta.width === 'flex-1' ? 'flex-1 min-w-[120px]' : `flex-shrink-0 ${meta.width}`
     }
+    return 'flex-1 min-w-[120px]'
   }
 
-  // ヘッダー行のコンテンツをレンダリング
-  const renderHeaders = () => {
-    return table.getHeaderGroups().map((headerGroup) =>
+  const visibleColumnOrder = useMemo(
+    () => visibleOrderedColumns.map(c => c.key),
+    [visibleOrderedColumns]
+  )
+
+  const renderHeaders = () =>
+    table.getHeaderGroups().map((headerGroup) =>
       headerGroup.headers.map((header, headerIndex) => {
         const meta = header.column.columnDef.meta as ColumnMetaCustom | undefined
         const isSortable = header.column.getCanSort()
-        const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+        const alignClass =
+          meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
         const widthClass = getWidthClass(meta)
         const isLastHeader = headerIndex === headerGroup.headers.length - 1
-        const shouldShowBorder = !isLastHeader || stickyHeaderContent
-        
+        const shouldShowBorder = !isLastHeader || !!stickyHeaderContent
+
         const headerClassName = `${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
           isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
         } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'text-center' ? 'justify-center' : alignClass === 'text-right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`
-        
+
         if (enableColumnReorder) {
           return (
             <SortableHeader
@@ -472,7 +319,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
             </SortableHeader>
           )
         }
-        
+
         return (
           <div
             key={header.id}
@@ -485,24 +332,25 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
         )
       })
     )
+
+  if (loading) {
+    return (
+      <div className="py-12 text-center text-muted-foreground">読み込み中...</div>
+    )
   }
 
   return (
     <div className="-mx-2 sm:mx-0">
-      {/* 横スクロール可能なコンテナ */}
       <div className="overflow-x-auto overflow-y-hidden">
-        {/* ヘッダー行 */}
+        {/* ヘッダー */}
         <div className={stickyHeader ? 'sm:sticky sm:top-0 z-40' : ''}>
           {enableColumnReorder ? (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
+              onDragEnd={handleHeaderDragEnd}
             >
-              <SortableContext
-                items={columnOrder}
-                strategy={horizontalListSortingStrategy}
-              >
+              <SortableContext items={visibleColumnOrder} strategy={horizontalListSortingStrategy}>
                 <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-200 min-w-max">
                   {renderHeaders()}
                   {stickyHeaderContent && (
@@ -529,18 +377,19 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
         {table.getRowModel().rows.length > 0 ? (
           <div>
             {table.getRowModel().rows.map((row, index) => (
-              <div 
+              <div
                 key={getRowKey(row.original)}
-                className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 last:border-b-0 hover:bg-gray-50 min-w-max ${
+                className={`flex items-stretch ${autoRowHeight ? 'min-h-[40px] sm:min-h-[45px] md:min-h-[50px]' : 'h-[40px] sm:h-[45px] md:h-[50px]'} border-b border-gray-200 last:border-b-0 hover:bg-gray-50 min-w-max ${
                   index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                 }`}
               >
                 {row.getVisibleCells().map((cell, cellIndex) => {
                   const meta = cell.column.columnDef.meta as ColumnMetaCustom | undefined
-                  const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+                  const alignClass =
+                    meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                   const widthClass = getWidthClass(meta)
                   const isLastCell = cellIndex === row.getVisibleCells().length - 1
-                  const shouldShowBorder = !isLastCell || stickyHeaderContent
+                  const shouldShowBorder = !isLastCell || !!stickyHeaderContent
                   return (
                     <div
                       key={cell.id}
@@ -548,10 +397,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                         meta?.cellClassName || ''
                       } flex items-center ${alignClass === 'text-center' ? 'justify-center' : alignClass === 'text-right' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </div>
                   )
                 })}
@@ -559,12 +405,9 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
             ))}
           </div>
         ) : (
-          <div className="py-12 text-center text-muted-foreground">
-            {emptyMessage}
-          </div>
+          <div className="py-12 text-center text-muted-foreground">{emptyMessage}</div>
         )}
       </div>
     </div>
   )
 }) as <T>(props: DataTableProps<T>) => JSX.Element
-

@@ -8,6 +8,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface ContactInquiryRequest {
   organizationId?: string
@@ -248,6 +249,20 @@ ${message}
     `
 
     // Resend APIでメール送信（組織の問い合わせ先へ）
+    const inquiryEmailSubject = `【お問い合わせ】${typeLabel}${subject ? `: ${subject}` : ''}`
+    const emailLogServiceClient = serviceRoleKey && supabaseUrl
+      ? createClient(supabaseUrl, serviceRoleKey)
+      : null
+    const emailLogId = emailLogServiceClient
+      ? await insertEmailLog(emailLogServiceClient, {
+          organization_id: organizationId ?? null,
+          email_type:      'contact_inquiry',
+          to_email:        toEmail,
+          subject:         inquiryEmailSubject,
+          status:          'queued',
+        })
+      : null
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -258,7 +273,7 @@ ${message}
         from: `MMQ予約システム <${fromEmail}>`,
         to: [toEmail],
         reply_to: email,
-        subject: `【お問い合わせ】${typeLabel}${subject ? `: ${subject}` : ''}`,
+        subject: inquiryEmailSubject,
         html: emailHtml,
         text: emailText,
       }),
@@ -267,7 +282,12 @@ ${message}
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
-
+      if (emailLogServiceClient) {
+        await updateEmailLog(emailLogServiceClient, emailLogId, {
+          status: 'failed',
+          error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+        })
+      }
       if (inquiryId && serviceRoleKey && supabaseUrl) {
         const serviceClient = createClient(supabaseUrl, serviceRoleKey)
         await serviceClient
@@ -287,6 +307,13 @@ ${message}
       messageId: result.id,
       from: maskEmail(email),
     })
+    if (emailLogServiceClient) {
+      await updateEmailLog(emailLogServiceClient, emailLogId, {
+        status: 'sent',
+        provider_message_id: result.id,
+        sent_at: new Date().toISOString(),
+      })
+    }
 
     // ユーザー本人への確認メール送信
     const confirmationHtml = `

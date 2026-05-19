@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea'
 import { Plus, Edit2, Trash2, ShoppingBag, Store, Calendar } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { showToast } from '@/utils/toast'
@@ -248,23 +249,16 @@ export const ExternalSales: React.FC = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* ヘッダー */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">外部売上管理</span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">BOOTH売上・他店公演を管理</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
-          <Button onClick={handleOpenAdd} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            新規登録
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={<><ShoppingBag className="h-5 w-5 text-primary" />外部売上管理</>}
+        description="BOOTH売上・他店公演を管理"
+      >
+        <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
+        <Button onClick={handleOpenAdd} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          新規登録
+        </Button>
+      </PageHeader>
 
       {/* サマリーカード */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
