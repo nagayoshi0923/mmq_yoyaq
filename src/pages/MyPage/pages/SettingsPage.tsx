@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
@@ -52,7 +51,6 @@ export function SettingsPage() {
     phone: '',
     address: '',
     lineId: '',
-    notes: '',
   })
   const [emailFormData, setEmailFormData] = useState({
     newEmail: '',
@@ -168,7 +166,6 @@ export function SettingsPage() {
           phone: data.phone || '',
           address: data.address || '',
           lineId: data.line_id || '',
-          notes: '',
         })
         // 通知設定を読み込み
         if (data.notification_settings) {
@@ -251,7 +248,6 @@ export function SettingsPage() {
                 phone: formData.phone.trim() || null,
                 address: formData.address || null,
                 line_id: formData.lineId || null,
-                notes: formData.notes || null,
                 email: user.email || null,
                 organization_id: orgId,
                 updated_at: new Date().toISOString(),
@@ -267,10 +263,7 @@ export function SettingsPage() {
                 phone: formData.phone.trim() || null,
                 address: formData.address || null,
                 line_id: formData.lineId || null,
-                notes: formData.notes || null,
                 email: user.email || null,
-                visit_count: 0,
-                total_spent: 0,
                 organization_id: orgId,
               })
 
@@ -700,17 +693,6 @@ export function SettingsPage() {
                 value={formData.lineId}
                 onChange={(e) => setFormData({ ...formData, lineId: e.target.value })}
                 placeholder="@your_line_id"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="notes">備考</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="特記事項"
-                rows={2}
                 className="mt-1"
               />
             </div>
