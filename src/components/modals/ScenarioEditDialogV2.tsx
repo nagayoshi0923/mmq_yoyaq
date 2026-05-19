@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList, UserCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -384,6 +387,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // 新規作成後のシナリオIDを追跡（2回目以降の保存で update にするため）
   const [createdScenarioId, setCreatedScenarioId] = useState<string | null>(null)
   
+  // 保存オプションダイアログ
+  const [saveOptionsOpen, setSaveOptionsOpen] = useState(false)
+  const [savePublishChoice, setSavePublishChoice] = useState<'available' | 'unavailable'>('available')
+  const [submitToMMQ, setSubmitToMMQ] = useState(false)
+
   // マスタ選択ダイアログ
   const [masterSelectOpen, setMasterSelectOpen] = useState(false)
   
@@ -1652,13 +1660,107 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 マスタ反映
               </Button>
             )}
-            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} size="sm">
+            <Button
+              onClick={() => {
+                const currentStatus = formData.status === 'draft' ? 'available' : (formData.status as 'available' | 'unavailable')
+                setSavePublishChoice(currentStatus === 'available' ? 'available' : 'unavailable')
+                setSubmitToMMQ(false)
+                setSaveOptionsOpen(true)
+              }}
+              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              size="sm"
+            >
               <Save className="h-3 w-3 mr-0.5" />
               保存
             </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* 保存オプションダイアログ */}
+      <Dialog open={saveOptionsOpen} onOpenChange={setSaveOptionsOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">保存オプション</DialogTitle>
+            <DialogDescription className="text-xs">
+              自組織の予約サイトへの表示設定を選択してください
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* 公開 / 非公開 */}
+            <RadioGroup
+              value={savePublishChoice}
+              onValueChange={(v) => setSavePublishChoice(v as 'available' | 'unavailable')}
+              className="space-y-2"
+            >
+              <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
+                onClick={() => setSavePublishChoice('available')}>
+                <RadioGroupItem value="available" id="opt-available" className="mt-0.5" />
+                <div>
+                  <Label htmlFor="opt-available" className="font-medium text-sm cursor-pointer">公開して保存</Label>
+                  <p className="text-xs text-muted-foreground">予約サイトのシナリオ一覧に表示されます</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
+                onClick={() => setSavePublishChoice('unavailable')}>
+                <RadioGroupItem value="unavailable" id="opt-unavailable" className="mt-0.5" />
+                <div>
+                  <Label htmlFor="opt-unavailable" className="font-medium text-sm cursor-pointer">非公開で保存</Label>
+                  <p className="text-xs text-muted-foreground">管理者のみ確認できます（予約サイトには表示されません）</p>
+                </div>
+              </div>
+            </RadioGroup>
+
+            {/* MMQ申請（公開選択 + draft マスタのときのみ） */}
+            {savePublishChoice === 'available' && currentScenario?.master_status === 'draft' && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="submit-to-mmq"
+                    checked={submitToMMQ}
+                    onCheckedChange={(checked) => setSubmitToMMQ(!!checked)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <Label htmlFor="submit-to-mmq" className="font-medium text-sm cursor-pointer text-blue-800">
+                      MMQプラットフォームへの掲載を申請する
+                    </Label>
+                    <p className="text-xs text-blue-600 mt-0.5">
+                      MMQ運営が審査します。承認後、MMQ全体の検索に表示されます。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSaveOptionsOpen(false)}>
+              キャンセル
+            </Button>
+            <Button
+              size="sm"
+              disabled={scenarioMutation.isPending}
+              onClick={async () => {
+                setSaveOptionsOpen(false)
+                await handleSave(savePublishChoice)
+                if (submitToMMQ && currentMasterId) {
+                  try {
+                    await scenarioMasterApi.publish(currentMasterId)
+                    showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
+                  } catch {
+                    showToast.error('MMQへの申請に失敗しました', '後ほどシナリオ一覧から申請してください')
+                  }
+                }
+              }}
+            >
+              <Save className="h-3 w-3 mr-1" />
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* マスタ選択ダイアログ */}
       <MasterSelectDialog
