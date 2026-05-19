@@ -8,23 +8,19 @@
 
 ### ブランチ戦略
 
-**main・staging への直接コミット・プッシュは絶対禁止。**
+**staging で直接作業する。main への直接コミット・プッシュは絶対禁止。**
 
 作業開始前に必ず以下を確認・実行すること：
 
 ```bash
 git branch --show-current   # 現在のブランチを確認
-# main または staging にいたら↓
-git checkout -b feature/xxx  # または fix/xxx
+git checkout staging && git pull origin staging  # 常に staging の最新から作業
 ```
-
-**PRの向き先は常に staging ブランチ**（staging → main のマージはユーザーが判断する）。
 
 ### デプロイフロー
 
 ```
-feature/* で実装
-  → staging へ PR 作成（AI の作業はここで止める）
+staging で直接実装・コミット・プッシュ
   → ユーザーがステージング確認
   → ユーザーが staging → main にマージ（本番デプロイ）
 ```
