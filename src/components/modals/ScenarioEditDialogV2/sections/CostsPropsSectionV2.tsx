@@ -127,10 +127,12 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
 
   return (
     <div className="space-y-4">
-      {/* 1. 公演実績・収益 */}
+      {/* ── 公演実績・収益 ── */}
       <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="flex items-center justify-between">
-            <Label className={labelStyle}>公演実績</Label>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" />公演実績
+          </p>
             {period && (
               <span className="text-xs text-muted-foreground">
                 {period.startStr}〜（{period.durationStr}）
@@ -303,13 +305,15 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
           )}
               </div>
 
-      {/* 2. 制作費・減価償却 */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="p-2 space-y-2">
+      {/* ── 制作費・減価償却 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Package className="h-3.5 w-3.5" />制作費・減価償却
+        </p>
           {/* 制作費入力 */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className={labelStyle}>制作費</Label>
+              <span className="text-xs text-muted-foreground font-medium">制作費</span>
               {totalProductionCost > 0 && (
                 <span className="text-sm font-medium">
                   合計 ¥{totalProductionCost.toLocaleString()}
@@ -456,12 +460,13 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               )}
             </div>
           )}
-        </div>
       </div>
 
-      {/* 3. 必要小道具 */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <Label className={labelStyle}>必要小道具</Label>
+      {/* ── 必要小道具 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Package className="h-3.5 w-3.5" />必要小道具
+        </p>
           <div className="space-y-2 mt-2">
             {formData.required_props.filter(prop => prop != null).map((prop, index) => (
               <div key={index} className={rowStyle}>
