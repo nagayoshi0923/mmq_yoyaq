@@ -150,20 +150,28 @@ async function authenticate(
     .eq('id', user.id)
     .single()
 
-  if (profileError || !profile?.organization_id) {
+  if (profileError || !profile) {
     res.status(403).json({ error: 'ユーザー情報が取得できません' })
     return null
   }
 
-  if (!['admin', 'staff', 'license_admin'].includes(profile.role as string)) {
+  const role = profile.role as string
+
+  // GET リクエストは customer ロールも許可（シナリオ詳細は顧客も閲覧可）
+  // 書き込み操作（POST/PATCH/DELETE）は staff 以上が必要
+  if (req.method !== 'GET' && !['admin', 'staff', 'license_admin'].includes(role)) {
     res.status(403).json({ error: 'スタッフ以上の権限が必要です' })
     return null
   }
 
+  // org_id: クエリパラメータ優先 → users.organization_id にフォールバック
+  const queryOrgId = (req.query.org_id ?? req.body?.org_id) as string | undefined
+  const orgId = queryOrgId || (profile.organization_id as string | null) || ''
+
   return {
     userId: user.id,
-    orgId: profile.organization_id as string,
-    role: profile.role as string,
+    orgId,
+    role,
   }
 }
 
