@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import type { Customer } from '@/types'
@@ -32,7 +31,6 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
     email: '',
     phone: '',
     line_id: '',
-    notes: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -43,7 +41,6 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
         email: customer.email || '',
         phone: customer.phone || '',
         line_id: customer.line_id || '',
-        notes: customer.notes || '',
       })
     } else {
       setFormData({
@@ -51,7 +48,6 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
         email: '',
         phone: '',
         line_id: '',
-        notes: '',
       })
     }
   }, [customer, isOpen])
@@ -92,9 +88,6 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
             email: formData.email || null,
             phone: formData.phone || null,
             line_id: formData.line_id || null,
-            notes: formData.notes || null,
-            visit_count: 0,
-            total_spent: 0,
             organization_id: organizationId,
           })
 
@@ -159,17 +152,6 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
               value={formData.line_id}
               onChange={(e) => setFormData({ ...formData, line_id: e.target.value })}
               placeholder="@line_id"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="notes">メモ</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="顧客に関するメモを入力..."
-              rows={4}
             />
           </div>
         </div>
