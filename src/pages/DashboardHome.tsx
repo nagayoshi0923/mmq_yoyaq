@@ -326,22 +326,22 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
 
       {/* 直近の出勤予定 と マイスケジュール を2カラム（PC時） */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 1. 直近の出勤予定 */}
-        <section className="grid grid-rows-[auto_1fr]">
-          <div className="flex items-center gap-2 mb-4">
+        {/* 1. 直近の出勤予定 — カード全体がグリッドアイテム */}
+        <div className="rounded-2xl border border-border/60 bg-card flex flex-col overflow-hidden">
+          {/* カード内ヘッダー */}
+          <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-border/40">
             <div className="p-1.5 rounded-xl bg-primary/10">
               <Clock className="h-4 w-4 text-primary" />
             </div>
             <h2 className="text-base font-semibold">直近の出勤予定</h2>
             {upcomingEvents.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                （{upcomingEvents.length}件）
-              </span>
+              <span className="text-xs text-muted-foreground">（{upcomingEvents.length}件）</span>
             )}
           </div>
 
+          {/* コンテンツ */}
           {loading && staffName === '' ? (
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+            <div className="flex-1 divide-y divide-border/40">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="px-4 py-3 flex items-center gap-3">
                   <div className="w-12 shrink-0 space-y-1">
@@ -357,7 +357,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : upcomingEvents.length > 0 ? (
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+            <div className="flex-1 divide-y divide-border/40">
               {upcomingEvents.map(event => (
                 <div
                   key={event.id}
@@ -389,37 +389,37 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-border/60 bg-muted/20 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">直近の予定はありません</p>
             </div>
           )}
-        </section>
-
-        {/* 2. 今月のスケジュール（カレンダー） */}
-        <section className="grid grid-rows-[auto_1fr]">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-xl bg-primary/10">
-              <CalendarIcon className="h-4 w-4 text-primary" />
-            </div>
-            <h2 className="text-base font-semibold">マイスケジュール</h2>
-          </div>
-          <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium w-20 text-center">
-              {format(currentMonth, 'yyyy年M月')}
-            </span>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
-        <Card className="rounded-2xl border border-border/60 bg-card">
-          <CardContent className="p-4">
-            {/* 曜日ヘッダー */}
+        {/* 2. マイスケジュール — カード全体がグリッドアイテム */}
+        <div className="rounded-2xl border border-border/60 bg-card flex flex-col overflow-hidden">
+          {/* カード内ヘッダー */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border/40">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-xl bg-primary/10">
+                <CalendarIcon className="h-4 w-4 text-primary" />
+              </div>
+              <h2 className="text-base font-semibold">マイスケジュール</h2>
+            </div>
+            <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium w-20 text-center">
+                {format(currentMonth, 'yyyy年M月')}
+              </span>
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* カレンダーコンテンツ */}
+          <div className="flex-1 p-4">
             <div className="grid grid-cols-7 mb-2 text-center text-xs text-muted-foreground font-medium">
               <div className="text-red-400">日</div>
               <div>月</div>
@@ -429,24 +429,18 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               <div>金</div>
               <div className="text-blue-400">土</div>
             </div>
-
-            {/* 日付グリッド */}
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day, index) => {
                 if (!day) return <div key={`blank-${index}`} className="aspect-square" />
-
                 const dateStr = format(day, 'yyyy-MM-dd')
                 const dayEvents = getEventsForDate(day)
                 const hasEvent = dayEvents.length > 0
-
                 return (
                   <div
                     key={dateStr}
                     className={`
-                      aspect-square rounded-xl flex flex-col items-center justify-start pt-1.5 relative cursor-pointer transition-all
-                      ${isToday(day)
-                        ? 'bg-primary/10 ring-1 ring-primary/30 font-bold'
-                        : 'hover:bg-muted/60'}
+                      aspect-square rounded-xl flex flex-col items-center justify-start pt-1.5 cursor-pointer transition-all
+                      ${isToday(day) ? 'bg-primary/10 ring-1 ring-primary/30 font-bold' : 'hover:bg-muted/60'}
                       ${hasEvent && !isToday(day) ? 'bg-primary/5' : ''}
                     `}
                     onClick={() => handleDateClick(day)}
@@ -454,8 +448,6 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                     <span className={`text-xs sm:text-sm leading-none ${getDay(day) === 0 ? 'text-red-400' : getDay(day) === 6 ? 'text-blue-400' : isToday(day) ? 'text-primary' : ''}`}>
                       {format(day, 'd')}
                     </span>
-
-                    {/* イベントドット */}
                     {hasEvent && (
                       <div className="flex gap-0.5 mt-1 flex-wrap justify-center px-1">
                         {dayEvents.slice(0, 3).map((_, i) => (
@@ -467,9 +459,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                 )
               })}
             </div>
-          </CardContent>
-        </Card>
-        </section>
+          </div>
+        </div>
       </div>
 
       {/* 3. クイックリンク */}
