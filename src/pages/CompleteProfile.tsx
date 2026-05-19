@@ -856,7 +856,13 @@ export function CompleteProfile() {
             <Button
               type="button"
               onClick={async () => {
-                await supabase.auth.signOut()
+                // scope:'local' でローカルセッションだけクリア（OAuth refresh token の revoke で
+                // ハングする/エラーを投げるケースがあり、その場合に遷移しなくなるのを避ける）。
+                try {
+                  await supabase.auth.signOut({ scope: 'local' })
+                } catch (err) {
+                  logger.warn('signOut error (continuing anyway):', err)
+                }
                 sessionStorage.removeItem('oauth_mode')
                 navigate('/login', { replace: true })
               }}
@@ -1139,7 +1145,13 @@ export function CompleteProfile() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await supabase.auth.signOut()
+                    // scope:'local' でローカルセッションだけクリア（OAuth refresh token の revoke で
+                    // ハングする/エラーを投げるケースがあり、その場合に遷移しなくなるのを避ける）。
+                    try {
+                      await supabase.auth.signOut({ scope: 'local' })
+                    } catch (err) {
+                      logger.warn('signOut error (continuing anyway):', err)
+                    }
                     window.location.href = '/'
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 underline"
