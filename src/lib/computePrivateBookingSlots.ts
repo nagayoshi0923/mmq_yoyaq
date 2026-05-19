@@ -41,6 +41,7 @@ export interface ComputePrivateBookingSlotsParams {
   allStoreEvents: ScheduleEventLike[]
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
+  privateBookingTimeSlotsWeekend?: string[] | null
 }
 
 export interface PrivateBookingSlot {
@@ -174,6 +175,7 @@ export function computePrivateBookingSlots(
     allStoreEvents,
     isCustomHoliday,
     privateBookingTimeSlots,
+    privateBookingTimeSlotsWeekend,
   } = params
 
   if (storeIds.length === 0) return []
@@ -325,10 +327,15 @@ export function computePrivateBookingSlots(
     })
   }
 
+  // 土日祝は weekend 設定を優先、なければ平日設定にフォールバック
+  const effectiveTimeSlots = isWeekendOrHoliday && privateBookingTimeSlotsWeekend != null
+    ? privateBookingTimeSlotsWeekend
+    : privateBookingTimeSlots
+
   const filtered = results.filter((slot) =>
     isPrivateBookingSlotAllowedByScenarioSettings(
       slot.label,
-      privateBookingTimeSlots,
+      effectiveTimeSlots,
     ),
   )
 

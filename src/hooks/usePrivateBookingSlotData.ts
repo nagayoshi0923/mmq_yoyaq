@@ -185,6 +185,7 @@ export function usePrivateBookingSlotData({
   const loading = fallbackLoading || eventsLoading || !eventsLoaded || !businessHoursLoaded || !scenarioTimingLoaded
 
   const resolvedTimeSlots = privateBookingTimeSlots ?? scenarioTiming?.private_booking_time_slots ?? undefined
+  const resolvedTimeSlotsWeekend = scenarioTiming?.private_booking_time_slots_weekend ?? null
 
   const computeSlotsByDate = useMemo(() => {
     return (dates: string[]): Record<string, PrivateBookingSlot[]> => {
@@ -199,11 +200,12 @@ export function usePrivateBookingSlotData({
           allStoreEvents,
           isCustomHoliday,
           privateBookingTimeSlots: resolvedTimeSlots,
+          privateBookingTimeSlotsWeekend: resolvedTimeSlotsWeekend,
         })
       }
       return map
     }
-  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots])
+  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots, resolvedTimeSlotsWeekend])
 
   return {
     effectiveStoreIds,

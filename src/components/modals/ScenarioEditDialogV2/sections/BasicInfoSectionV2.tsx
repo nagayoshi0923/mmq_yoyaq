@@ -326,26 +326,54 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
           </div>
         </div>
 
-        {/* 貸切受付時間枠 */}
+        {/* 貸切受付時間枠（平日/土日祝） */}
         <div className="flex items-start gap-3">
           <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">貸切時間枠</span>
-          <div className="flex-1">
-            <div className="flex gap-2">
-              {['朝公演', '昼公演', '夜公演'].map((slot) => {
-                const isSelected = (formData.private_booking_time_slots || []).includes(slot)
-                return (
-                  <button key={slot} type="button"
-                    onClick={() => setFormData(prev => {
-                      const currentSlots = prev.private_booking_time_slots || []
-                      return { ...prev, private_booking_time_slots: isSelected ? currentSlots.filter(s => s !== slot) : [...currentSlots, slot] }
+          <div className="flex-1 space-y-2">
+            {([
+              { label: '平日', key: 'weekday' as const, field: 'private_booking_time_slots' as const },
+              { label: '土日・祝日', key: 'weekend' as const, field: 'private_booking_time_slots_weekend' as const },
+            ] as const).map(({ label, field }) => {
+              const slots: string[] = field === 'private_booking_time_slots'
+                ? (formData.private_booking_time_slots || [])
+                : (formData.private_booking_time_slots_weekend || [])
+              const isEmpty = slots.length === 0
+              return (
+                <div key={field}>
+                  <p className="text-[11px] text-slate-500 font-medium mb-1">{label}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {['朝公演', '昼公演', '夜公演'].map((slot) => {
+                      const isSelected = slots.includes(slot)
+                      return (
+                        <button key={slot} type="button"
+                          onClick={() => setFormData(prev => {
+                            const current: string[] = field === 'private_booking_time_slots'
+                              ? (prev.private_booking_time_slots || [])
+                              : (prev.private_booking_time_slots_weekend || [])
+                            const next = isSelected ? current.filter(s => s !== slot) : [...current, slot]
+                            return { ...prev, [field]: next }
+                          })}
+                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}>
+                          {slot}
+                        </button>
+                      )
                     })}
-                    className={`px-3 py-1 text-xs rounded-md border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}>
-                    {slot}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">未選択で全時間枠を受付</p>
+                    {field === 'private_booking_time_slots_weekend' && !isEmpty && (
+                      <button type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, private_booking_time_slots_weekend: [] }))}
+                        className="px-2 py-1 text-[11px] text-red-500 hover:text-red-700">
+                        クリア（平日と同じにする）
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {field === 'private_booking_time_slots_weekend' && isEmpty
+                      ? '未選択のため平日設定を流用'
+                      : isEmpty ? '全枠受付' : ''}
+                  </p>
+                </div>
+              )
+            })}
           </div>
         </div>
 
