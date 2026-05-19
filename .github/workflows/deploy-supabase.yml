@@ -141,7 +141,7 @@ jobs:
       - name: Run Database Migrations
         run: |
           echo "📦 Running database migrations on production..."
-          supabase db push
+          supabase db push --include-all
 
       - name: Deploy Edge Functions
         run: |

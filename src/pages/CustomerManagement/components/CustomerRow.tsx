@@ -159,7 +159,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
           <Badge variant="secondary" className="font-normal" {...devDb('customers.visit_count')}>{customer.visit_count}回</Badge>
         </div>
         <div className="col-span-1 text-right font-medium text-sm" {...devDb('customers.total_spent')}>
-          {formatCurrency(customer.total_spent)}
+          {formatCurrency(customer.total_spent ?? 0)}
         </div>
         <div className="col-span-1 text-xs text-muted-foreground truncate">
           {formatDate(customer.last_visit ?? null)}
@@ -200,7 +200,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
         </div>
 
         <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed">
-          <div className="font-bold">{formatCurrency(customer.total_spent)}</div>
+          <div className="font-bold">{formatCurrency(customer.total_spent ?? 0)}</div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{formatDate(customer.last_visit ?? null)}</span>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
