@@ -137,21 +137,24 @@ async function processUnavailable(interaction: any, requestId: string) {
     const gmUserId = interaction.member?.user?.id
     const gmUserName = interaction.member?.nick || interaction.member?.user?.global_name || interaction.member?.user?.username || 'Unknown GM'
     
+    // 1 人の Discord ユーザーが複数組織で staff として登録されることを許容するため、
+    // この予約の organization_id に限定して引く（同一 discord_user_id でも組織内 1 行に絞られる）。
     let staffId = null
     let staffNameForConflict: string | null = null
     const { data: staffData } = await supabase
       .from('staff')
       .select('id, name')
       .eq('discord_user_id', gmUserId)
-      .single()
-    
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
     if (staffData) {
       staffId = staffData.id
       staffNameForConflict = staffData.name || null
     }
 
     if (!staffId) {
-      console.error('❌ Staff not found for Discord user ID:', gmUserId)
+      console.error('❌ Staff not found for Discord user ID:', gmUserId, 'org:', organizationId)
       const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
       await fetch(webhookUrl, {
         method: 'PATCH',
@@ -285,16 +288,19 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     console.log('👤 GM User:', { id: gmUserId, name: gmUserName })
     
     // Discord IDからstaff_idを取得
+    // 1 人の Discord ユーザーが複数組織で staff として登録されることを許容するため、
+    // この予約の organization_id に限定して引く。
     let staffId = null
     let staffNameForConflict: string | null = null
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
       .select('id, name')
       .eq('discord_user_id', gmUserId)
-      .single()
-    
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
     if (staffError || !staffData) {
-      console.error('❌ Staff not found for Discord user ID:', gmUserId, staffError)
+      console.error('❌ Staff not found for Discord user ID:', gmUserId, 'org:', organizationId, staffError)
       const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
       await fetch(webhookUrl, {
         method: 'PATCH',
