@@ -6,7 +6,7 @@ export type ApiRole = 'admin' | 'staff' | 'customer' | 'license_admin'
 
 export type AuthUser = {
   userId: string
-  orgId: string
+  orgId: string | null  // platform customer は organization_id = NULL
   role: ApiRole
   /**
    * 元の JWT。SECURITY DEFINER な RPC で auth.uid() を必要とする場合、
@@ -59,13 +59,14 @@ export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
     throw new ApiError(403, 'ユーザープロフィールが見つかりません')
   }
 
-  if (!profile.organization_id) {
+  // platform customer（role='customer' かつ organization_id=NULL）は許可
+  if (!profile.organization_id && profile.role !== 'customer') {
     throw new ApiError(403, 'このユーザーは組織に属していません')
   }
 
   return {
     userId: user.id,
-    orgId: profile.organization_id as string,
+    orgId: (profile.organization_id as string | null) ?? null,
     role: profile.role as ApiRole,
     jwt,
   }
