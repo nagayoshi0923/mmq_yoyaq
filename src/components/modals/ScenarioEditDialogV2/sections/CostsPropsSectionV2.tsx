@@ -128,8 +128,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
   return (
     <div className="space-y-4">
       {/* 1. 公演実績・収益 */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        
           <div className="flex items-center justify-between">
             <Label className={labelStyle}>公演実績</Label>
             {period && (
@@ -302,12 +302,12 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               まだ公演実績がありません
             </p>
           )}
-        </CardContent>
-      </Card>
+        
+      </div>
 
       {/* 2. 制作費・減価償却 */}
-      <Card>
-        <CardContent className="p-2 space-y-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="space-y-2">
           {/* 制作費入力 */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -458,12 +458,12 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        
+      </div>
 
       {/* 3. 必要小道具 */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        
           <Label className={labelStyle}>必要小道具</Label>
           <div className="space-y-2 mt-2">
             {formData.required_props.filter(prop => prop != null).map((prop, index) => (
@@ -515,8 +515,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               追加
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        
+      </div>
     </div>
   )
 }

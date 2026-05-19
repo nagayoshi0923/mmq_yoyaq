@@ -280,15 +280,15 @@ export function PerformancesSectionV2({
   if (performanceDates.length === 0) {
     return (
       <div className="space-y-4">
-        <Card>
+        <div className="rounded-lg border bg-slate-50/70 p-3">
           <CardContent className="pt-2">
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">公演実績がありません</p>
               <p className="text-sm">このシナリオはまだ公演されていません</p>
             </div>
-          </CardContent>
-        </Card>
+          
+        </div>
       </div>
     )
   }
@@ -296,7 +296,7 @@ export function PerformancesSectionV2({
   return (
     <div className="space-y-4">
       {/* ダウンロード設定とボタン */}
-      <Card>
+      <div className="rounded-lg border bg-slate-50/70 p-3">
         <CardContent className="pt-2 pb-2 space-y-3">
           {/* 期間指定 */}
           <div className="flex items-center gap-3">
@@ -368,11 +368,11 @@ export function PerformancesSectionV2({
               クリップボードにコピー
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        
+      </div>
 
       {/* サマリー（中止公演を除外） */}
-      <Card>
+      <div className="rounded-lg border bg-slate-50/70 p-3">
         <CardContent className="pt-2 pb-2">
           <div className="flex items-center gap-6 text-sm flex-wrap">
             <div className="flex items-center gap-2">
@@ -410,8 +410,8 @@ export function PerformancesSectionV2({
               </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        
+      </div>
 
       {/* 年ごとの公演リスト */}
       {sortedYears.map((year) => {
@@ -550,8 +550,8 @@ export function PerformancesSectionV2({
                 )
               })}
               </div>
-            </CardContent>
-          </Card>
+            
+          </div>
         )
       })}
     </div>

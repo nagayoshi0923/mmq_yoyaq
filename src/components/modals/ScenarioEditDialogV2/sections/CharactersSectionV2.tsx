@@ -160,8 +160,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
               <Plus className="w-4 h-4 mr-1" />
               キャラクターを追加
             </Button>
-          </CardContent>
-        </Card>
+          
+        </div>
       ) : (
         <div className="space-y-3">
           {characters.map((character, index) => (
@@ -546,8 +546,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              
+            </div>
           ))}
         </div>
       )}
