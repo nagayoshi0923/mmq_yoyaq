@@ -151,23 +151,18 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
 
       {/* キャラクター一覧 */}
       {characters.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-8 text-center">
-            <User className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">
-              キャラクターが登録されていません
-            </p>
-            <Button onClick={addCharacter} size="sm" variant="outline" className="mt-3">
-              <Plus className="w-4 h-4 mr-1" />
-              キャラクターを追加
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <User className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">キャラクターが登録されていません</p>
+          <Button onClick={addCharacter} size="sm" variant="outline" className="mt-3">
+            <Plus className="w-4 h-4 mr-1" />キャラクターを追加
+          </Button>
+        </div>
       ) : (
         <div className="space-y-3">
           {characters.map((character, index) => (
-            <Card key={character.id}>
-              <CardContent className="p-3">
+            <div key={character.id} className="rounded-lg border bg-white p-3">
+              <div>
                 <div className="flex gap-2">
                   {/* 並び替えハンドル */}
                   <div className="flex flex-col justify-center gap-1">
@@ -547,8 +542,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       )}
