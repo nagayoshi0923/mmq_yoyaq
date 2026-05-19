@@ -81,18 +81,14 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const organizationNotFound = false
   
   if (organizationSlug) {
-    const requireActive = await requireActiveOrgForPublicBookingUrl()
-    const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
-      requireActive,
-    })
+    // 認証チェックと org 解決を並列実行（直列だと 2 往復分のレイテンシ）
+    const [requireActive, orgData] = await Promise.all([
+      requireActiveOrgForPublicBookingUrl(),
+      resolveOrganizationFromPathSegment(organizationSlug, { requireActive: false }),
+    ])
 
-    if (orgData) {
-      orgId = orgData.id
-      orgName = orgData.name
-      orgHeaderImageUrl = orgData.header_image_url ?? null
-      orgThemeColor = orgData.theme_color ?? null
-      orgPublicBookingHeroDescription = orgData.public_booking_hero_description ?? null
-    } else {
+    // requireActive = true のとき非アクティブ org は 404 扱い
+    if (!orgData || (requireActive && !orgData.is_active)) {
       return {
         scenarios: [],
         allEvents: [],
@@ -107,6 +103,12 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         organizationNotFound: true
       }
     }
+
+    orgId = orgData.id
+    orgName = orgData.name
+    orgHeaderImageUrl = orgData.header_image_url ?? null
+    orgThemeColor = orgData.theme_color ?? null
+    orgPublicBookingHeroDescription = orgData.public_booking_hero_description ?? null
   }
   
   // 今日から3ヶ月分のデータを取得

@@ -1,12 +1,11 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Coins, Building2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { parseIntSafe } from '@/utils/number'
 
@@ -133,170 +132,124 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
 
   return (
     <div className="space-y-4">
-      {/* 参加費 */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>参加費</Label>
-          <p className={hintStyle}>時間帯別のお客様参加料金。期間を設定すると、その期間のみ適用されます（価格改定対応）</p>
-          <div className="space-y-4 mt-3">
+      {/* ── 参加費 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Coins className="h-3.5 w-3.5" />参加費
+        </p>
+        <p className="text-[11px] text-muted-foreground -mt-1">時間帯別のお客様参加料金。期間を設定すると価格改定に対応できます</p>
+          <div className="space-y-1.5">
             {(formData.participation_costs || []).map((cost, index) => {
               const status = getPeriodStatus(cost.startDate, cost.endDate)
               const isCustom = !PRESET_SLOTS.includes(cost.time_slot as typeof PRESET_SLOTS[number])
               return (
-                <div key={index} className="p-3 border rounded-lg bg-muted/20 space-y-3">
-                  {/* 1行目: 種別・金額・削除 */}
-                  <div className={rowStyle}>
-                    {isCustom ? (
-                      /* カスタム種別: テキスト入力 */
-                      <Input
-                        value={cost.time_slot}
-                        onChange={(e) => handleUpdateParticipationCost(index, 'time_slot', e.target.value)}
-                        placeholder="項目名を入力"
-                        className={`${inputStyle} w-36`}
-                      />
-                    ) : (
-                      <Select
-                        value={cost.time_slot}
-                        onValueChange={(value) => {
-                          if (value === '__custom__') {
-                            handleUpdateParticipationCost(index, 'time_slot', '')
-                          } else {
-                            handleUpdateParticipationCost(index, 'time_slot', value)
-                          }
-                        }}
-                      >
-                        <SelectTrigger className={`${inputStyle} w-36`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">通常公演</SelectItem>
-                          <SelectItem value="gmtest">GMテスト</SelectItem>
-                          <SelectItem value="weekend">土日祝</SelectItem>
-                          <SelectItem value="holiday">祝日</SelectItem>
-                          <SelectItem value="late_night">深夜</SelectItem>
-                          <SelectItem value="__custom__">カスタム…</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <div className="flex-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                      <Input
-                        type="number"
-                        value={cost.amount}
-                        onChange={(e) => handleUpdateParticipationCost(index, 'amount', parseIntSafe(e.target.value, 0))}
-                        className={`${inputStyle} !pl-7`}
-                      />
-                    </div>
-                    <Badge className={`${getStatusColor(status)} text-xs shrink-0`}>
-                      {getStatusLabel(status)}
-                    </Badge>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveParticipationCost(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                <div key={index} className="flex items-center gap-2 py-1.5 border-b last:border-0">
+                  {/* 種別 */}
+                  {isCustom ? (
+                    <Input value={cost.time_slot}
+                      onChange={(e) => handleUpdateParticipationCost(index, 'time_slot', e.target.value)}
+                      placeholder="項目名" className="h-7 text-xs w-28" />
+                  ) : (
+                    <Select value={cost.time_slot} onValueChange={(value) => {
+                      handleUpdateParticipationCost(index, 'time_slot', value === '__custom__' ? '' : value)
+                    }}>
+                      <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">通常公演</SelectItem>
+                        <SelectItem value="gmtest">GMテスト</SelectItem>
+                        <SelectItem value="weekend">土日祝</SelectItem>
+                        <SelectItem value="holiday">祝日</SelectItem>
+                        <SelectItem value="late_night">深夜</SelectItem>
+                        <SelectItem value="__custom__">カスタム…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {/* 金額 */}
+                  <div className="relative w-28">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                    <Input type="number" value={cost.amount}
+                      onChange={(e) => handleUpdateParticipationCost(index, 'amount', parseIntSafe(e.target.value, 0))}
+                      className="h-7 text-xs pl-5" />
                   </div>
-                  
-                  {/* 2行目: 期間設定 */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <DateRangePopover
-                      startDate={cost.startDate}
-                      endDate={cost.endDate}
-                      onDateChange={(start, end) => {
-                        handleUpdateParticipationCost(index, 'startDate', start)
-                        handleUpdateParticipationCost(index, 'endDate', end)
-                      }}
-                      label={
-                        cost.startDate || cost.endDate
-                          ? `${cost.startDate || ''}〜${cost.endDate || ''}`
-                          : '期間設定（任意）'
-                      }
-                      buttonClassName="w-auto"
-                    />
-                    {!cost.startDate && !cost.endDate && (
-                      <span className="text-xs text-muted-foreground">(無期限=常に適用)</span>
-                    )}
-                  </div>
+                  {/* 期間 */}
+                  <DateRangePopover startDate={cost.startDate} endDate={cost.endDate}
+                    onDateChange={(start, end) => {
+                      handleUpdateParticipationCost(index, 'startDate', start)
+                      handleUpdateParticipationCost(index, 'endDate', end)
+                    }}
+                    label={cost.startDate || cost.endDate ? `${cost.startDate || ''}〜${cost.endDate || ''}` : '期間（任意）'}
+                    buttonClassName="h-7 text-xs" />
+                  {/* ステータス */}
+                  <Badge className={`${getStatusColor(status)} text-[10px] px-1.5 py-0 shrink-0`}>
+                    {getStatusLabel(status)}
+                  </Badge>
+                  {/* 削除 */}
+                  <Button type="button" variant="ghost" size="icon"
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive ml-auto"
+                    onClick={() => handleRemoveParticipationCost(index)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               )
             })}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-10"
-              onClick={handleAddParticipationCost}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              参加費を追加
+            <Button type="button" variant="outline" className="w-full h-7 text-xs mt-1"
+              onClick={handleAddParticipationCost}>
+              <Plus className="h-3.5 w-3.5 mr-1" />参加費を追加
             </Button>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* ライセンス料（自店用） */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>ライセンス料（自店用）</Label>
-          <p className={hintStyle}>自店で公演した場合に作者に支払う金額</p>
-          <div className="grid grid-cols-2 gap-5 mt-1.5">
+      {/* ── ライセンス料（自店用） ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Coins className="h-3.5 w-3.5" />ライセンス料（自店用）
+        </p>
+        <p className="text-[11px] text-muted-foreground -mt-1">自店で公演した場合に作者に支払う金額</p>
+          <div className="space-y-2">
             {/* プリセット（通常・GMテスト）*/}
             {(formData.license_rewards || [])
               .filter(r => PRESET_SLOTS.includes(r.item as typeof PRESET_SLOTS[number]))
               .map((reward, _) => {
                 const idx = (formData.license_rewards || []).indexOf(reward)
                 return (
-                  <div key={reward.item} className={rowStyle}>
-                    <span className="text-sm w-20 shrink-0">{getSlotLabel(reward.item)}</span>
-                    <div className="flex-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                      <Input
-                        type="number"
-                        value={reward.amount}
+                  <div key={reward.item} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">{getSlotLabel(reward.item)}</span>
+                    <div className="relative w-32">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                      <Input type="number" value={reward.amount}
                         onChange={(e) => handleUpdateLicenseReward(idx, 'amount', parseIntSafe(e.target.value, 0))}
-                        className={`${inputStyle} !pl-7`}
-                      />
+                        className="h-7 text-xs pl-5" />
                     </div>
                   </div>
                 )
               })
             }
-            {/* カスタム種別（participation_costsに存在するカスタム項目を表示）
-                licenseAmount は participation_costs エントリに直接保存（license_rewards は保存されない） */}
             {(formData.participation_costs || [])
               .filter((c, i, arr) =>
                 c.time_slot &&
                 !PRESET_SLOTS.includes(c.time_slot as typeof PRESET_SLOTS[number]) &&
-                // 同じ time_slot の最初のエントリのみ表示（重複を除去）
                 arr.findIndex(x => x.time_slot === c.time_slot) === i
               )
               .map(c => (
-                <div key={c.time_slot} className={rowStyle}>
-                  <span className="text-sm w-20 shrink-0 truncate" title={c.time_slot}>{c.time_slot}</span>
-                  <div className="flex-1 relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                    <Input
-                      type="number"
-                      value={c.licenseAmount ?? 0}
+                <div key={c.time_slot} className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right truncate" title={c.time_slot}>{c.time_slot}</span>
+                  <div className="relative w-32">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                    <Input type="number" value={c.licenseAmount ?? 0}
                       onChange={(e) => handleUpdateCustomLicenseAmount(c.time_slot, parseIntSafe(e.target.value, 0))}
-                      className={`${inputStyle} !pl-7`}
-                    />
+                      className="h-7 text-xs pl-5" />
                   </div>
                 </div>
               ))
             }
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* 他店公演時 */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>他店公演時</Label>
-          
+      {/* ── 他店公演時 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Building2 className="h-3.5 w-3.5" />他店公演時
+        </p>
           {/* テーブル形式で表示 */}
           <div className="mt-3 border rounded-lg overflow-hidden">
             {/* ヘッダー */}
@@ -515,8 +468,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               })()}
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   )
 }

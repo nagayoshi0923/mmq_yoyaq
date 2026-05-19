@@ -296,11 +296,13 @@ export function PerformancesSectionV2({
   return (
     <div className="space-y-4">
       {/* ダウンロード設定とボタン */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="pt-2 pb-2 space-y-3">
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <CalendarDays className="h-3.5 w-3.5" />公演実績フィルター
+        </p>
           {/* 期間指定 */}
           <div className="flex items-center gap-3">
-            <Label className="text-sm font-medium min-w-[60px]">期間指定:</Label>
+            <span className="text-xs text-muted-foreground w-[56px] shrink-0 text-right">期間</span>
             <div className="flex items-center gap-2">
               <Input
                 type="date"
@@ -368,12 +370,13 @@ export function PerformancesSectionV2({
               クリップボードにコピー
             </Button>
           </div>
-        </div>
       </div>
 
-      {/* サマリー（中止公演を除外） */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="pt-2 pb-2">
+      {/* ── サマリー ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Users className="h-3.5 w-3.5" />サマリー
+        </p>
           <div className="flex items-center gap-6 text-sm flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-muted-foreground" />
@@ -410,7 +413,6 @@ export function PerformancesSectionV2({
               </span>
             </div>
           </div>
-        </div>
       </div>
 
       {/* 年ごとの公演リスト */}
@@ -437,14 +439,11 @@ export function PerformancesSectionV2({
         })
 
         return (
-          <Card key={year}>
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm text-muted-foreground">
-                  {year}年 ({groupedByYear[year].length}回)
-                </h3>
-              </div>
-              
+          <div key={year} className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+            <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <CalendarDays className="h-3.5 w-3.5" />{year}年（{groupedByYear[year].length}回）
+            </p>
+            <div>
               {/* 月毎の集計 */}
               {sortedMonths.length > 0 && (
                 <div className="mb-3 pb-2 border-b text-xs">
