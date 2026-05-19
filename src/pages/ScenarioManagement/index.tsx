@@ -132,12 +132,12 @@ export function ScenarioManagement() {
   // OrganizationScenarioList と同一クエリキーを使うため重複フェッチなし
   const {
     data: orgScenariosData,
-    isLoading: scenariosLoading,
+    isPending: scenariosPending,
     error: queryError,
   } = useOrganizationScenariosQuery(organization?.id)
 
-  // データが届くまでローディング扱い（org未解決・クエリ有効化直後の一瞬も含む）
-  const loading = !organization?.id || (orgScenariosData === undefined && !queryError)
+  // isPending: disabled時・初回fetch中・retry中すべて true。data受信またはretry上限でfalse
+  const loading = scenariosPending
 
   const allScenarios = (orgScenariosData?.scenarios ?? []) as unknown as Scenario[]
   const scenarioStats = {} // 新UIは play_count をビューから直接使用
