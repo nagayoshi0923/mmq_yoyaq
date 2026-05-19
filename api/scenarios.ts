@@ -294,10 +294,15 @@ async function handleGetById(res: VercelResponse, orgId: string, id: string) {
   return res.status(200).json(r4.data?.[0] ?? null)
 }
 
-// slug で単一シナリオ取得（自組織 → 共有シナリオの順）
+// slug で単一シナリオ取得
+// 1. 自組織の slug で直接検索
+// 2. 他組織の slug からマスターIDを取得 → 自組織でそのマスターIDを検索
+//    （マスターのslugを複数組織で共有する場合の正しい引き当て）
+// 3. is_shared=true の共有シナリオから検索（フォールバック）
 async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
+  // Step 1: 自組織の org_slug で検索
   const r1 = await db
     .from('organization_scenarios_with_master')
     .select(SELECT_FIELDS)
@@ -309,6 +314,27 @@ async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string)
     console.error('[scenarios:getBySlug] step1 error:', r1.error)
   }
 
+  // Step 2: slug を持つ任意組織のシナリオからマスターIDを取得し、自組織で同マスターを検索
+  // （マスター共有シナリオ：aaa が slug 未設定でも queens-waltz の slug 'factor' で引き当て可能）
+  if (orgId) {
+    const rMaster = await db
+      .from('organization_scenarios_with_master')
+      .select('scenario_master_id')
+      .eq('slug', slug)
+      .limit(1)
+    const masterIdFromSlug = rMaster.data?.[0]?.scenario_master_id
+    if (masterIdFromSlug) {
+      const rOrg = await db
+        .from('organization_scenarios_with_master')
+        .select(SELECT_FIELDS)
+        .eq('scenario_master_id', masterIdFromSlug)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      if (rOrg.data) return res.status(200).json(rOrg.data)
+    }
+  }
+
+  // Step 3: is_shared=true の共有シナリオから（フォールバック）
   const r2 = await db
     .from('organization_scenarios_with_master')
     .select(SELECT_FIELDS)
