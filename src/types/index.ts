@@ -346,8 +346,9 @@ export interface Scenario {
   available_stores?: string[] // 公演可能店舗ID
   gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
   extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
-  private_booking_time_slots?: string[] // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）。未設定の場合は全て受付
-  private_booking_blocked_slots?: string[] // 貸切ブロック済み時間枠
+  private_booking_time_slots?: string[] // 貸切受付可能時間枠・平日（'朝公演', '昼公演', '夜公演'）
+  private_booking_time_slots_weekend?: string[] | null // 貸切受付可能時間枠・土日祝（未設定の場合は平日設定を流用）
+  private_booking_blocked_slots?: string[] // 貸切ブロック済み時間枠（廃止予定）
   booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
   booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし
   individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文

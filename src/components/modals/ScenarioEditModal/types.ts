@@ -106,9 +106,11 @@ export interface ScenarioFormData {
   kit_count?: number
   // 追加準備時間（分）- 通常の60分に加算される
   extra_preparation_time?: number
-  // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）
+  // 貸切受付可能時間枠・平日（'朝公演', '昼公演', '夜公演'）
   private_booking_time_slots?: string[]
-  // 貸切受付不可時間帯（'午前', '午後', '夜'）
+  // 貸切受付可能時間枠・土日祝（未設定の場合は平日設定を流用）
+  private_booking_time_slots_weekend?: string[] | null
+  // 貸切受付不可時間帯（廃止予定）
   private_booking_blocked_slots?: string[]
   // 貸切募集期間
   booking_start_date?: string | null

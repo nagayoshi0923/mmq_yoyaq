@@ -761,6 +761,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           available_stores: scenario.available_stores || [],
           extra_preparation_time: scenario.extra_preparation_time || undefined,
           private_booking_time_slots: scenario.private_booking_time_slots || [],
+          private_booking_time_slots_weekend: scenario.private_booking_time_slots_weekend ?? null,
           caution: '',
           characters: [],  // organization_scenariosから後で取得
         })
@@ -972,8 +973,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         })),
         // 公演可能店舗
         available_stores: formData.available_stores || [],
-        // 貸切受付時間枠
+        // 貸切受付時間枠（平日/土日祝）
         private_booking_time_slots: formData.private_booking_time_slots || null,
+        private_booking_time_slots_weekend: formData.private_booking_time_slots_weekend ?? null,
         updated_at: new Date().toISOString()
       }
 
