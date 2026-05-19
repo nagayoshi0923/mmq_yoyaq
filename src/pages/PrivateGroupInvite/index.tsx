@@ -39,8 +39,7 @@ type ResponseValue = DateResponse | null
 export function PrivateGroupInvite() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
-  
+
   // URLから招待コードを抽出: /group/invite/{code}
   const code = useMemo(() => {
     const segments = location.pathname.split('/').filter(Boolean)
@@ -49,10 +48,12 @@ export function PrivateGroupInvite() {
     }
     return null
   }, [location.pathname])
-  
+
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null)
   const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
+  // group が宣言された後で呼ぶ（organization_id を参照するため）
+  const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
 
   /** 店舗承認後はチャットに「日程確定」が出ても、グループ行の status が未同期のことがあるため予約 status も見る */
   const isScheduleConfirmedUi = useMemo(
