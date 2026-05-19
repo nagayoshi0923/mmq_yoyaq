@@ -276,7 +276,8 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     queryKey: enabled ? privateBookingKeys.list(userId!, userRole!) : ['private-bookings-disabled'],
     queryFn: () => fetchRawBookingRequests(userId!, userRole!),
     enabled,
-    staleTime: 2 * 60 * 1000, // 2分
+    staleTime: 60 * 1000, // 1分
+    refetchInterval: 3 * 60 * 1000, // 3分ごとに自動更新（GM回答をリアルタイムに反映）
   })
 
   // endTime を isCustomHoliday で補正（サーバーデータと分離してキャッシュを壊さない）

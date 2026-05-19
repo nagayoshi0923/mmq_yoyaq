@@ -39,7 +39,7 @@ type ResponseValue = DateResponse | null
 export function PrivateGroupInvite() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isCustomHoliday } = useCustomHolidays()
+  const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
   
   // URLから招待コードを抽出: /group/invite/{code}
   const code = useMemo(() => {
@@ -1015,13 +1015,13 @@ export function PrivateGroupInvite() {
       const customerEmail = organizerMember?.guest_email || user.email || ''
       const customerPhone = bookingPhone.trim()
       
+      // Phase 1 以降、ログイン済み顧客の organization_id = NULL（プラットフォーム共通）
       const { data: existingCustomer } = await supabase
         .from('customers')
         .select('id')
         .eq('user_id', user.id)
-        .eq('organization_id', orgId)
         .maybeSingle()
-      
+
       if (existingCustomer) {
         customerId = existingCustomer.id
         await supabase
@@ -1029,7 +1029,6 @@ export function PrivateGroupInvite() {
           .update({ name: customerName, phone: customerPhone, email: customerEmail })
           .eq('id', customerId)
           .eq('user_id', user.id)
-          .eq('organization_id', orgId)
       } else {
         const { data: newCustomer } = await supabase
           .from('customers')
@@ -1038,7 +1037,7 @@ export function PrivateGroupInvite() {
             name: customerName,
             phone: customerPhone,
             email: customerEmail,
-            organization_id: orgId
+            organization_id: null,  // Phase 1: ログイン済み顧客は org 不問
           })
           .select('id')
           .single()
@@ -1057,7 +1056,6 @@ export function PrivateGroupInvite() {
         .select('phone')
         .eq('id', customerId)
         .eq('user_id', user.id)
-        .eq('organization_id', orgId)
         .maybeSingle()
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)

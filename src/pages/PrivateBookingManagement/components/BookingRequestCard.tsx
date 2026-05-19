@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   CheckCircle2, CircleDashed, XCircle, Clock,
-  RefreshCw, Copy, Check, Mail, Phone
+  RefreshCw, Copy, Check, Mail, Phone, PlusCircle
 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import {
@@ -64,6 +63,11 @@ interface BookingRequest {
   gm_responses?: GMResponse[]
 }
 
+interface GMStaff {
+  id: string
+  name: string
+}
+
 interface BookingRequestCardProps {
   request: BookingRequest
   onResendDiscordNotification?: (request: { id: string; scenario_title: string }) => Promise<void>
@@ -74,6 +78,9 @@ interface BookingRequestCardProps {
   cardActionsContent?: React.ReactNode
   // 候補ごとの空き店舗（承認モード時のみ渡す）
   storesPerCandidate?: Record<number, Array<{ id: string; name: string; short_name?: string }>>
+  // GM手動入力
+  gmList?: GMStaff[]
+  onGMResponseSave?: (requestId: string, staffId: string, availableCandidates: number[]) => Promise<void>
 }
 
 export const BookingRequestCard = ({
@@ -84,9 +91,15 @@ export const BookingRequestCard = ({
   inlineApprovalContent,
   cardActionsContent,
   storesPerCandidate,
+  gmList = [],
+  onGMResponseSave,
 }: BookingRequestCardProps) => {
   const [resending, setResending] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [showGMEntry, setShowGMEntry] = useState(false)
+  const [manualStaffId, setManualStaffId] = useState('')
+  const [manualCandidates, setManualCandidates] = useState<Set<number>>(new Set())
+  const [savingGM, setSavingGM] = useState(false)
 
   const elapsedDays = getElapsedDays(request.created_at)
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
@@ -186,42 +199,116 @@ export const BookingRequestCard = ({
       <CardContent className="md:pt-0">
         <div className="space-y-3">
           {/* ── GM回答状況 ── */}
-          {request.gm_responses && request.gm_responses.length > 0 && (
+          {(request.gm_responses && request.gm_responses.length > 0 || onGMResponseSave) && (
             <div className="bg-purple-50 px-3 py-2 rounded-lg">
               <div className="flex items-center justify-between mb-1.5">
                 <h4 className="text-xs font-semibold text-purple-800 uppercase tracking-wide">GM回答状況</h4>
-                {onResendDiscordNotification && hasUnrespondedGMs && isWaitingStatus && (
-                  <Button variant="ghost" size="sm"
-                    className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
-                    onClick={handleResend} disabled={resending}
-                  >
-                    <RefreshCw className={cn('w-3 h-3 mr-1', resending && 'animate-spin')} />
-                    {resending ? '送信中...' : 'Discord再通知'}
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  {onResendDiscordNotification && hasUnrespondedGMs && isWaitingStatus && (
+                    <Button variant="ghost" size="sm"
+                      className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
+                      onClick={handleResend} disabled={resending}
+                    >
+                      <RefreshCw className={cn('w-3 h-3 mr-1', resending && 'animate-spin')} />
+                      {resending ? '送信中...' : 'Discord再通知'}
+                    </Button>
+                  )}
+                  {onGMResponseSave && (
+                    <Button variant="ghost" size="sm"
+                      className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
+                      onClick={() => {
+                        setShowGMEntry(v => !v)
+                        setManualStaffId('')
+                        setManualCandidates(new Set())
+                      }}
+                    >
+                      <PlusCircle className="w-3 h-3 mr-1" />
+                      出欠を記録
+                    </Button>
+                  )}
+                </div>
               </div>
-              <ul className="space-y-1">
-                {request.gm_responses.map((response, index) => {
-                  const responded = hasGmResponded(response)
-                  const available = isGmMarkedAvailable(response)
-                  const candidates = response.available_candidates
-                  return (
-                    <li key={index} className={`text-xs flex items-center gap-1 ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
-                      {!responded
-                        ? <Clock className="w-3 h-3 shrink-0" />
-                        : available
-                          ? <CheckCircle2 className="w-3 h-3 shrink-0 text-green-600" />
-                          : <XCircle className="w-3 h-3 shrink-0 text-gray-400" />
-                      }
-                      {response.gm_name || 'GM名不明'}
-                      {!responded && <span className="text-gray-400">未回答</span>}
-                      {responded && available && (candidates?.length ?? 0) > 0 && (
-                        <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
+
+              {request.gm_responses && request.gm_responses.length > 0 && (
+                <ul className="space-y-1">
+                  {request.gm_responses.map((response, index) => {
+                    const responded = hasGmResponded(response)
+                    const available = isGmMarkedAvailable(response)
+                    const candidates = response.available_candidates
+                    return (
+                      <li key={index} className={`text-xs flex items-center gap-1 ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
+                        {!responded
+                          ? <Clock className="w-3 h-3 shrink-0" />
+                          : available
+                            ? <CheckCircle2 className="w-3 h-3 shrink-0 text-green-600" />
+                            : <XCircle className="w-3 h-3 shrink-0 text-gray-400" />
+                        }
+                        {response.gm_name || 'GM名不明'}
+                        {!responded && <span className="text-gray-400">未回答</span>}
+                        {responded && available && (candidates?.length ?? 0) > 0 && (
+                          <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+
+              {/* 手動入力フォーム */}
+              {showGMEntry && onGMResponseSave && (
+                <div className="mt-2 pt-2 border-t border-purple-200 space-y-2">
+                  <select
+                    className="w-full h-7 rounded border border-input bg-background px-2 text-xs"
+                    value={manualStaffId}
+                    onChange={e => setManualStaffId(e.target.value)}
+                  >
+                    <option value="">GMを選択...</option>
+                    {gmList.map(gm => (
+                      <option key={gm.id} value={gm.id}>{gm.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {request.candidate_datetimes?.candidates?.map((c, idx) => (
+                      <label key={idx} className="flex items-center gap-1 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-3 h-3"
+                          checked={manualCandidates.has(idx)}
+                          onChange={e => {
+                            const next = new Set(manualCandidates)
+                            if (e.target.checked) next.add(idx); else next.delete(idx)
+                            setManualCandidates(next)
+                          }}
+                        />
+                        候補{c.order}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs"
+                      onClick={() => setShowGMEntry(false)}>
+                      キャンセル
+                    </Button>
+                    <Button size="sm" className="h-6 px-2 text-xs"
+                      disabled={!manualStaffId || savingGM}
+                      onClick={async () => {
+                        if (!manualStaffId || !onGMResponseSave) return
+                        setSavingGM(true)
+                        try {
+                          await onGMResponseSave(request.id, manualStaffId, [...manualCandidates])
+                          setShowGMEntry(false)
+                          setManualStaffId('')
+                          setManualCandidates(new Set())
+                        } finally {
+                          setSavingGM(false)
+                        }
+                      }}
+                    >
+                      {savingGM ? '保存中...' : '保存'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
