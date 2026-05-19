@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Coins, Building2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { parseIntSafe } from '@/utils/number'
 
@@ -132,9 +132,11 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
 
   return (
     <div className="space-y-4">
-      {/* 参加費 */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="p-2">
+      {/* ── 参加費 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Coins className="h-3.5 w-3.5" />参加費
+        </p>
           <Label className={labelStyle}>参加費</Label>
           <p className={hintStyle}>時間帯別のお客様参加料金。期間を設定すると、その期間のみ適用されます（価格改定対応）</p>
           <div className="space-y-4 mt-3">
@@ -233,12 +235,13 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               参加費を追加
             </Button>
           </div>
-        </div>
       </div>
 
-      {/* ライセンス料（自店用） */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="p-2">
+      {/* ── ライセンス料（自店用） ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Coins className="h-3.5 w-3.5" />ライセンス料（自店用）
+        </p>
           <Label className={labelStyle}>ライセンス料（自店用）</Label>
           <p className={hintStyle}>自店で公演した場合に作者に支払う金額</p>
           <div className="grid grid-cols-2 gap-5 mt-1.5">
@@ -288,12 +291,13 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               ))
             }
           </div>
-        </div>
       </div>
 
-      {/* 他店公演時 */}
-      <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="p-2">
+      {/* ── 他店公演時 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Building2 className="h-3.5 w-3.5" />他店公演時
+        </p>
           <Label className={labelStyle}>他店公演時</Label>
           
           {/* テーブル形式で表示 */}
@@ -514,7 +518,6 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               })()}
             </div>
           </div>
-        </div>
       </div>
     </div>
   )

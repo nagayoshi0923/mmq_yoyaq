@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, Package } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { parseIntSafe } from '@/utils/number'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
@@ -129,8 +129,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
     <div className="space-y-4">
       {/* 1. 公演実績・収益 */}
       <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="p-2">
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
             <Label className={labelStyle}>公演実績</Label>
             {period && (
               <span className="text-xs text-muted-foreground">
@@ -302,8 +301,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               まだ公演実績がありません
             </p>
           )}
-        </div>
-      </div>
+              </div>
 
       {/* 2. 制作費・減価償却 */}
       <div className="rounded-lg border bg-slate-50/70 p-3">
@@ -463,8 +461,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
 
       {/* 3. 必要小道具 */}
       <div className="rounded-lg border bg-slate-50/70 p-3">
-        <div className="p-2">
-          <Label className={labelStyle}>必要小道具</Label>
+        <Label className={labelStyle}>必要小道具</Label>
           <div className="space-y-2 mt-2">
             {formData.required_props.filter(prop => prop != null).map((prop, index) => (
               <div key={index} className={rowStyle}>
@@ -515,8 +512,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               追加
             </Button>
           </div>
-        </div>
-      </div>
+              </div>
     </div>
   )
 }
