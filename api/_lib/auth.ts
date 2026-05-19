@@ -43,8 +43,11 @@ export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
   if (envError || !db) throw new ApiError(500, `環境変数が未設定です: ${envError}`)
 
   // Supabase 側で署名検証・有効期限チェック
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  console.log('[auth] supabase_url:', supabaseUrl?.slice(0, 50))
   const { data: { user }, error: authError } = await db.auth.getUser(jwt)
   if (authError || !user) {
+    console.log('[auth] getUser error:', authError?.message)
     throw new ApiError(401, 'トークンが無効または期限切れです')
   }
 
