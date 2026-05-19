@@ -443,31 +443,42 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
   const today = new Date().toISOString().split('T')[0]
 
   // ── シナリオの料金・GM報酬等のメタ情報を取得（自組織） ───────────────────
-  const { data: scenarioData } = await db
+  const { data: _scenarioRaw } = await db
     .from('organization_scenarios_with_master')
     .select(STATS_SCENARIO_FIELDS)
     .eq('id', scenarioId)
     .eq('organization_id', orgId)
     .maybeSingle()
+  const scenarioData = _scenarioRaw as {
+    player_count_max?: number
+    license_amount?: number
+    gm_test_license_amount?: number
+    license_rewards?: Array<{ item: string; amount: number }>
+    participation_fee?: number
+    gm_test_participation_fee?: number
+    participation_costs?: Array<{ time_slot: string; amount: number }>
+    gm_costs?: Array<{ category?: string; reward?: number }>
+    duration?: number
+  } | null
 
-  const maxParticipants = (scenarioData?.player_count_max as number | undefined) ?? 99
-  const defaultLicenseAmount = (scenarioData?.license_amount as number | undefined) ?? 0
-  const defaultGmTestLicenseAmount = (scenarioData?.gm_test_license_amount as number | undefined) ?? 0
-  const licenseRewards = scenarioData?.license_rewards as Array<{ item: string; amount: number }> | undefined
+  const maxParticipants = scenarioData?.player_count_max ?? 99
+  const defaultLicenseAmount = scenarioData?.license_amount ?? 0
+  const defaultGmTestLicenseAmount = scenarioData?.gm_test_license_amount ?? 0
+  const licenseRewards = scenarioData?.license_rewards
   const normalLicenseFromRewards = licenseRewards?.find((r) => r.item === 'normal')?.amount
   const gmTestLicenseFromRewards = licenseRewards?.find((r) => r.item === 'gmtest')?.amount
   const normalLicenseAmount = normalLicenseFromRewards ?? defaultLicenseAmount
   const gmTestLicenseAmount = gmTestLicenseFromRewards ?? defaultGmTestLicenseAmount
 
-  const participationCosts = scenarioData?.participation_costs as Array<{ time_slot: string; amount: number }> | undefined
+  const participationCosts = scenarioData?.participation_costs
   const normalParticipationFee =
     participationCosts?.find((c) => c.time_slot === 'normal')?.amount ??
-    ((scenarioData?.participation_fee as number | undefined) ?? 0)
+    (scenarioData?.participation_fee ?? 0)
   const gmTestParticipationFee =
     participationCosts?.find((c) => c.time_slot === 'gmtest')?.amount ??
-    ((scenarioData?.gm_test_participation_fee as number | undefined) ?? 0)
+    (scenarioData?.gm_test_participation_fee ?? 0)
 
-  const gmAssignments = scenarioData?.gm_costs as Array<{ category?: string; reward?: number }> | undefined
+  const gmAssignments = scenarioData?.gm_costs
   const hasCustomGmCosts = !!gmAssignments && gmAssignments.length > 0
   let normalGmReward = 0
   let gmTestGmReward = 0
