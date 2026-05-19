@@ -342,7 +342,12 @@ export default function OrgSignup() {
     } catch (err: unknown) {
       logger.error('Registration failed:', err)
       const msg = err instanceof Error ? err.message : '登録に失敗しました'
-      if (msg.includes('already registered')) {
+      if (msg.includes('already_in_org')) {
+        // ログイン中のアカウントが既に別組織に所属しているため新組織を作れない
+        setError(
+          'このアカウントは既に別の組織に所属しているため、新しい組織を作成できません。一度ログアウトしてから新規アカウントで登録してください。',
+        )
+      } else if (msg.includes('already registered')) {
         setError('このメールアドレスは既に登録されています')
       } else if (msg.includes('slug_already_exists')) {
         setError('この識別子は既に使用されています')
