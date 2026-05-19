@@ -55,17 +55,11 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { ...headers, ...options?.headers },
   })
 
-  // 401 の場合は refreshSession() で強制リフレッシュしてリトライ。
-  // getSession() のキャッシュが古い可能性があるため、必ず新トークンを取得する。
+  // 401 の場合は再度 getAuthHeaders() を呼んでリトライ（プロアクティブリフレッシュが
+  // タイミングにより間に合わなかった場合のセーフネット。この時点では _recoverAndRefresh
+  // が完了しているためリフレッシュ競合は発生しない）
   if (res.status === 401) {
-    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
-    if (refreshError || !refreshed.session) {
-      throw new ApiClientError(401, 'セッションの更新に失敗しました。再ログインしてください')
-    }
-    const retryHeaders = {
-      'Authorization': `Bearer ${refreshed.session.access_token}`,
-      'Content-Type': 'application/json',
-    }
+    const retryHeaders = await getAuthHeaders()
     const retryRes = await fetch(path, {
       ...options,
       headers: { ...retryHeaders, ...options?.headers },
