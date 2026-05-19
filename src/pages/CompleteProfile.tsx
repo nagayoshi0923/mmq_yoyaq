@@ -532,8 +532,6 @@ export function CompleteProfile() {
             phone: phone.trim(),
             prefecture: prefecture,
             birth_date: birthDateForDB,
-            visit_count: 0,
-            total_spent: 0,
             organization_id: organizationId,
             notification_settings: notificationSettings,
             created_at: new Date().toISOString(),
