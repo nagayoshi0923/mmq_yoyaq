@@ -316,9 +316,10 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       .eq('staff_id', staffId)
       .single()
     
-    // 既存の選択済み日程を取得
-    let availableCandidates = existingResponse?.available_candidates || []
-    
+    // 既存の選択済み日程を取得（候補数が減った場合に備え範囲外インデックスを除去）
+    let availableCandidates = (existingResponse?.available_candidates || [])
+      .filter((idx: number) => idx < candidates.length)
+
     // 既に選択されているかチェック
     const isAlreadySelected = availableCandidates.includes(dateIndex)
     
@@ -491,18 +492,15 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     console.log('📅 Date selection recorded and saved:', selectedDates)
     
   } catch (error) {
-    console.error('🚨 Error processing date selection:', error)
-    
-    // エラー時もWebhook APIで更新
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('🚨 Error processing date selection:', errMsg, error)
+
     const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
-    
     await fetch(webhookUrl, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        content: 'エラー: 日程の記録に失敗しました'
+        content: `エラー: 日程の記録に失敗しました（${errMsg}）\n再度ボタンを押すか、管理者に連絡してください。`
       })
     }).catch(e => console.error('Failed to send error message:', e))
   }
