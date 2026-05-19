@@ -16,7 +16,7 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import {
   Search, Plus, Edit, Trash2, Clock, Users, JapaneseYen,
-  AlertTriangle, Filter, X
+  AlertTriangle, Filter, X, Send, CheckCircle, XCircle, Loader2
 } from 'lucide-react'
 import {
   Select,
@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
+import { scenarioMasterApi } from '@/lib/api/scenarioMasterApi'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
 import type { Column } from '@/components/patterns/table'
@@ -78,6 +79,24 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
   const [experiencedFilter, setExperiencedFilter] = useState<string>('all')
   const [playerCountFilter, setPlayerCountFilter] = useState<string>('all')
   const [durationFilter, setDurationFilter] = useState<string>('all')
+
+  // MMQへの申請中マスタID
+  const [submittingMasterId, setSubmittingMasterId] = useState<string | null>(null)
+
+  // MMQプラットフォームへ申請（draft → pending）
+  const handleSubmitToMMQ = useCallback(async (scenario: OrganizationScenarioWithMaster) => {
+    if (!scenario.scenario_master_id) return
+    setSubmittingMasterId(scenario.scenario_master_id)
+    try {
+      await scenarioMasterApi.publish(scenario.scenario_master_id)
+      toast.success(`「${scenario.title}」をMMQに申請しました。審査後に掲載されます。`)
+      queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
+    } catch (err) {
+      toast.error('申請に失敗しました。時間をおいて再試行してください。')
+    } finally {
+      setSubmittingMasterId(null)
+    }
+  }, [queryClient])
 
   // マスタ追加ダイアログ
   const [addDialogOpen, setAddDialogOpen] = useState(false)
@@ -358,13 +377,58 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
     },
     {
       key: 'master_status',
-      header: 'マスタ',
-      helpText: 'シナリオマスタの承認状態。承認済みのみ一般公開可能',
-      width: 'w-16',
+      header: 'MMQ掲載',
+      helpText: 'MMQプラットフォームへの掲載状態。承認済みのみ全体検索に表示されます',
+      width: 'w-24',
       headerClassName: MASTER_HEADER_CLASS,
       render: (scenario) => {
-        if (scenario.master_status === 'approved') return <span className="text-[10px] text-green-600">承認済</span>
-        return <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-300 px-1 py-0">未承認</Badge>
+        if (scenario.master_status === 'approved') {
+          return (
+            <span className="flex items-center gap-0.5 text-[10px] text-green-600">
+              <CheckCircle className="h-3 w-3" />掲載中
+            </span>
+          )
+        }
+        if (scenario.master_status === 'pending') {
+          return (
+            <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-300 px-1 py-0">
+              審査中
+            </Badge>
+          )
+        }
+        if (scenario.master_status === 'rejected') {
+          return (
+            <span className="flex items-center gap-0.5 text-[10px] text-red-500">
+              <XCircle className="h-3 w-3" />却下
+            </span>
+          )
+        }
+        // draft: 申請ボタン（canEdit 時のみ）
+        if (canEdit) {
+          const isSubmitting = submittingMasterId === scenario.scenario_master_id
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-5 px-1.5 text-[10px] text-blue-600 border-blue-300 hover:bg-blue-50"
+                  onClick={(e) => { e.stopPropagation(); handleSubmitToMMQ(scenario) }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <><Send className="h-3 w-3 mr-0.5" />申請</>
+                  }
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs max-w-[200px]">
+                MMQプラットフォームに掲載申請します。承認後、全体検索に表示されます。
+              </TooltipContent>
+            </Tooltip>
+          )
+        }
+        return <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-200 px-1 py-0">未申請</Badge>
       }
     },
     {
@@ -598,7 +662,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
           <span className="text-xs text-muted-foreground">-</span>
         )
     }
-  ], [canEdit, onEdit, handleStatusChange, storeMap])
+  ], [canEdit, onEdit, handleStatusChange, storeMap, submittingMasterId, handleSubmitToMMQ])
 
   const defaultOrgColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
   const [orgColumnPrefs, setOrgColumnPrefs] = useTablePreferences('org-scenario-list', defaultOrgColumnKeys)
