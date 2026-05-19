@@ -100,14 +100,28 @@ async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMReq
   const otherGMResponses = new Set<string>()
 
   if (reservationIds.length > 0) {
-    const { data: allResponsesData } = await supabase
-      .from('gm_availability_responses')
-      .select('reservation_id, response_status, staff_id')
-      .in('reservation_id', reservationIds)
-      .neq('staff_id', staffId)
-      .in('response_status', ['available', 'all_unavailable'])
+    // ⚠️ PostgREST の max_rows (1000) 制限を回避するため、reservation_id を
+    //    100 件ずつチャンク化して並列フェッチする。
+    //    一括 .in() のままだと予約数が多いとき後半の reservation が拾えず、
+    //    「他 GM が回答済み」判定が落ちて UI 上で重複表示される（PR #235 と同パターン）。
+    const chunkSize = 100
+    const chunks: string[][] = []
+    for (let i = 0; i < reservationIds.length; i += chunkSize) {
+      chunks.push(reservationIds.slice(i, i + chunkSize))
+    }
+    const results = await Promise.all(
+      chunks.map(chunk =>
+        supabase
+          .from('gm_availability_responses')
+          .select('reservation_id, response_status, staff_id')
+          .in('reservation_id', chunk)
+          .neq('staff_id', staffId)
+          .in('response_status', ['available', 'all_unavailable']),
+      ),
+    )
+    const allResponsesData = results.flatMap(r => r.data || [])
 
-    allResponsesData?.forEach((r: any) => {
+    allResponsesData.forEach((r: any) => {
       if (r.response_status && r.response_status !== 'pending') {
         otherGMResponses.add(r.reservation_id)
       }
