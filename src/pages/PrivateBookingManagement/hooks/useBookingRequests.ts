@@ -142,12 +142,27 @@ async function fetchRawBookingRequests(
             .in('scenario_master_id', masterIds)
         : Promise.resolve({ data: [], error: null })
     })(),
-    reservationsList.length > 0
-      ? supabase
-          .from('gm_availability_responses')
-          .select('reservation_id, staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)')
-          .in('reservation_id', reservationsList.map((r: any) => r.id))
-      : Promise.resolve({ data: [], error: null }),
+    // ⚠️ 一括 .in() は PostgREST の max_rows (1000) で結果が切られて貸切リクエストの
+    //    最初の方の予約しか GM 回答が UI に表示されなくなる。
+    //    予約 ID を 100 件ずつチャンク化して並列フェッチし、最後に concat する。
+    (async () => {
+      if (reservationsList.length === 0) return { data: [] as any[], error: null }
+      const ids = reservationsList.map((r: any) => r.id)
+      const chunkSize = 100
+      const chunks: string[][] = []
+      for (let i = 0; i < ids.length; i += chunkSize) chunks.push(ids.slice(i, i + chunkSize))
+      const results = await Promise.all(
+        chunks.map(chunk =>
+          supabase
+            .from('gm_availability_responses')
+            .select('reservation_id, staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)')
+            .in('reservation_id', chunk),
+        ),
+      )
+      const firstError = results.find(r => r.error)?.error ?? null
+      const data = results.flatMap(r => r.data || [])
+      return { data, error: firstError }
+    })(),
     privateGroupIds.length > 0
       ? supabase
           .from('private_group_candidate_dates')
