@@ -79,15 +79,11 @@ export function CouponPresent() {
           return
         }
 
-        const orgForCustomer = await getCurrentOrganizationId()
-        let customerQuery = supabase
+        const { data: customer } = await supabase
           .from('customers')
           .select('id, name')
           .eq('user_id', session.user.id)
-        if (orgForCustomer) {
-          customerQuery = customerQuery.eq('organization_id', orgForCustomer)
-        }
-        const { data: customer } = await customerQuery.maybeSingle()
+          .maybeSingle()
 
         if (customer) {
           setUserName(customer.name || '')

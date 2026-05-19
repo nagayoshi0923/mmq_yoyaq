@@ -66,22 +66,16 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
     try {
       if (customer) {
         // 更新（組織境界の二重指定: 改ざんされた id でも他組織行に当たらないよう RLS と併用）
-        const orgScope = customer.organization_id ?? organizationId
-        let updateQuery = supabase
+        const { error } = await supabase
           .from('customers')
           .update({
             name: formData.name,
             email: formData.email || null,
             phone: formData.phone || null,
             line_id: formData.line_id || null,
-            notes: formData.notes || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', customer.id)
-        if (orgScope) {
-          updateQuery = updateQuery.eq('organization_id', orgScope)
-        }
-        const { error } = await updateQuery
 
         if (error) throw error
         logger.log('顧客情報更新成功:', customer.id)
