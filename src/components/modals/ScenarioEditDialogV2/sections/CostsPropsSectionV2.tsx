@@ -401,8 +401,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
           {/* 減価償却（制作費がある場合のみ） */}
           {totalProductionCost > 0 && (
             <div className="pt-4 border-t">
-              <Label className={labelStyle}>減価償却設定</Label>
-              <div className="flex items-center gap-3 mt-2">
+              <p className="text-xs text-muted-foreground font-medium mb-2">減価償却設定</p>
+              <div className="flex items-center gap-3">
                 <Select
                   value={depreciationPerPerformance > 0 
                     ? String(Math.round(totalProductionCost / depreciationPerPerformance))

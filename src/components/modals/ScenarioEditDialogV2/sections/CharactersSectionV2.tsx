@@ -133,18 +133,17 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
   }
 
   return (
-    <div className="space-y-4">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-3">
+      {/* ── ヘッダー ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium">キャラクター一覧</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            シナリオ詳細ページに表示されるキャラクター情報を設定します
+          <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+            <ClipboardList className="h-3.5 w-3.5" />キャラクター一覧
           </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">シナリオ詳細ページに表示されるキャラクター情報</p>
         </div>
         <Button onClick={addCharacter} size="sm" variant="outline">
-          <Plus className="w-4 h-4 mr-1" />
-          追加
+          <Plus className="w-4 h-4 mr-1" />追加
         </Button>
       </div>
 
@@ -382,139 +381,76 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                   </div>
 
                   {/* メインコンテンツ */}
-                  <div className="flex-1 space-y-2">
-                    {/* 1行目: 名前・性別 */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className={labelStyle}>名前 *</Label>
-                        <Input
-                          value={character.name}
-                          onChange={(e) => updateCharacter(character.id, { name: e.target.value })}
-                          placeholder="キャラクター名"
-                          className={inputStyle}
-                        />
-                      </div>
-                      <div>
-                        <Label className={labelStyle}>性別</Label>
-                        <Select
-                          value={character.gender}
-                          onValueChange={(value: ScenarioCharacter['gender']) => 
-                            updateCharacter(character.id, { gender: value })
-                          }
-                        >
-                          <SelectTrigger className={inputStyle}>
-                            <SelectValue />
-                          </SelectTrigger>
+                  <div className="flex-1 space-y-1.5">
+                    {/* 名前 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-[52px] shrink-0 text-right">名前 *</span>
+                      <Input value={character.name}
+                        onChange={(e) => updateCharacter(character.id, { name: e.target.value })}
+                        placeholder="キャラクター名" className="h-7 text-xs flex-1" />
+                    </div>
+
+                    {/* 性別 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-[52px] shrink-0 text-right">性別</span>
+                      <div className="w-32">
+                        <Select value={character.gender}
+                          onValueChange={(value: ScenarioCharacter['gender']) => updateCharacter(character.id, { gender: value })}>
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {genderOptions.map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
+                            {genderOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
 
-                    {/* 2行目: 年齢・職業・一人称 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label className={labelStyle}>年齢（任意）</Label>
-                        <Input
-                          value={character.age || ''}
-                          onChange={(e) => updateCharacter(character.id, { 
-                            age: e.target.value || null 
-                          })}
-                          placeholder="例: 25歳"
-                          className={inputStyle}
-                        />
-                      </div>
-                      <div>
-                        <Label className={labelStyle}>職業（任意）</Label>
-                        <Input
-                          value={character.occupation || ''}
-                          onChange={(e) => updateCharacter(character.id, { 
-                            occupation: e.target.value || null 
-                          })}
-                          placeholder="例: 探偵"
-                          className={inputStyle}
-                        />
-                      </div>
-                      <div>
-                        <Label className={labelStyle}>一人称（任意）</Label>
-                        <Input
-                          value={character.first_person || ''}
-                          onChange={(e) => updateCharacter(character.id, { 
-                            first_person: e.target.value || null 
-                          })}
-                          placeholder="例: 私、僕、俺"
-                          className={inputStyle}
-                        />
-                      </div>
+                    {/* 年齢・職業・一人称 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-[52px] shrink-0 text-right">年齢</span>
+                      <Input value={character.age || ''}
+                        onChange={(e) => updateCharacter(character.id, { age: e.target.value || null })}
+                        placeholder="例: 25歳" className="h-7 text-xs w-20" />
+                      <span className="text-xs text-muted-foreground shrink-0">職業</span>
+                      <Input value={character.occupation || ''}
+                        onChange={(e) => updateCharacter(character.id, { occupation: e.target.value || null })}
+                        placeholder="例: 探偵" className="h-7 text-xs flex-1" />
+                      <span className="text-xs text-muted-foreground shrink-0">一人称</span>
+                      <Input value={character.first_person || ''}
+                        onChange={(e) => updateCharacter(character.id, { first_person: e.target.value || null })}
+                        placeholder="私、僕" className="h-7 text-xs w-20" />
                     </div>
 
-                    {/* 3行目: 説明 */}
-                    <div>
-                      <Label className={labelStyle}>説明（任意）</Label>
-                      <Textarea
-                        value={character.description || ''}
-                        onChange={(e) => updateCharacter(character.id, { 
-                          description: e.target.value || null 
-                        })}
-                        placeholder="キャラクターの簡単な説明..."
-                        rows={2}
-                        className="text-sm"
-                      />
+                    {/* 説明 */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-muted-foreground w-[52px] shrink-0 text-right pt-1.5">説明</span>
+                      <Textarea value={character.description || ''}
+                        onChange={(e) => updateCharacter(character.id, { description: e.target.value || null })}
+                        placeholder="キャラクターの簡単な説明..." rows={2} className="text-xs flex-1 min-h-[56px]" />
                     </div>
 
-                    {/* 4行目: URL */}
-                    <div>
-                      <Label className={labelStyle}>
-                        <span className="flex items-center gap-1">
-                          <Link className="w-3 h-3" />
-                          関連URL（任意）
-                        </span>
-                      </Label>
-                      <Input
-                        value={character.url || ''}
-                        onChange={(e) => updateCharacter(character.id, { 
-                          url: e.target.value || null 
-                        })}
-                        placeholder="https://example.com/character-sheet"
-                        className={inputStyle}
-                        type="url"
-                      />
+                    {/* URL */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-[52px] shrink-0 text-right">URL</span>
+                      <Input value={character.url || ''}
+                        onChange={(e) => updateCharacter(character.id, { url: e.target.value || null })}
+                        placeholder="https://..." className="h-7 text-xs flex-1" type="url" />
                     </div>
 
-                    {/* 5行目: 事前アンケート用説明文 */}
-                    <div>
-                      <Label className={labelStyle}>
-                        <span className="flex items-center gap-1">
-                          <ClipboardList className="w-3 h-3" />
-                          アンケート用説明文（任意）
-                        </span>
-                      </Label>
-                      <Textarea
-                        value={character.survey_description || ''}
-                        onChange={(e) => updateCharacter(character.id, {
-                          survey_description: e.target.value || null
-                        })}
-                        placeholder="例: このキャラクターを担当される方へ。事前に以下の資料をお読みください。"
-                        className="text-sm min-h-[48px] resize-none"
-                        rows={2}
-                      />
+                    {/* アンケート用説明文 */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-muted-foreground w-[52px] shrink-0 text-right pt-1.5">アンケート</span>
+                      <Textarea value={character.survey_description || ''}
+                        onChange={(e) => updateCharacter(character.id, { survey_description: e.target.value || null })}
+                        placeholder="例: 事前に以下の資料をお読みください。"
+                        className="text-xs flex-1 min-h-[48px] resize-none" rows={2} />
                     </div>
 
-                    {/* 6行目: NPCフラグ */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Switch
-                        id={`npc-${character.id}`}
-                        checked={character.is_npc || false}
-                        onCheckedChange={(checked) => updateCharacter(character.id, { is_npc: checked })}
-                      />
+                    {/* NPC */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Switch id={`npc-${character.id}`} checked={character.is_npc || false}
+                        onCheckedChange={(checked) => updateCharacter(character.id, { is_npc: checked })} />
                       <Label htmlFor={`npc-${character.id}`} className="text-xs flex items-center gap-1 cursor-pointer">
-                        <Bot className="w-3 h-3" />
-                        NPC（プレイ人数にカウントしない）
+                        <Bot className="w-3 h-3" />NPC（プレイ人数にカウントしない）
                       </Label>
                     </div>
                   </div>
