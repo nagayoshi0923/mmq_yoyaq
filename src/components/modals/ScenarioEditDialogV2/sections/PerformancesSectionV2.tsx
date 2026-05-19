@@ -1,6 +1,5 @@
 import { logger } from '@/utils/logger'
 import React, { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -281,15 +280,15 @@ export function PerformancesSectionV2({
   if (performanceDates.length === 0) {
     return (
       <div className="space-y-4">
-        <Card>
-          <CardContent className="pt-2">
+        <div className="rounded-lg border bg-slate-50/70 p-3">
+          <div className="pt-2">
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">公演実績がありません</p>
               <p className="text-sm">このシナリオはまだ公演されていません</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     )
   }
@@ -297,8 +296,8 @@ export function PerformancesSectionV2({
   return (
     <div className="space-y-4">
       {/* ダウンロード設定とボタン */}
-      <Card>
-        <CardContent className="pt-2 pb-2 space-y-3">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="pt-2 pb-2 space-y-3">
           {/* 期間指定 */}
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium min-w-[60px]">期間指定:</Label>
@@ -369,12 +368,12 @@ export function PerformancesSectionV2({
               クリップボードにコピー
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* サマリー（中止公演を除外） */}
-      <Card>
-        <CardContent className="pt-2 pb-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="pt-2 pb-2">
           <div className="flex items-center gap-6 text-sm flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-muted-foreground" />
@@ -411,8 +410,8 @@ export function PerformancesSectionV2({
               </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* 年ごとの公演リスト */}
       {sortedYears.map((year) => {
@@ -439,7 +438,7 @@ export function PerformancesSectionV2({
 
         return (
           <Card key={year}>
-            <CardContent className="pt-2">
+            <div className="pt-2">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-sm text-muted-foreground">
                   {year}年 ({groupedByYear[year].length}回)
@@ -551,8 +550,8 @@ export function PerformancesSectionV2({
                 )
               })}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
       })}
     </div>
