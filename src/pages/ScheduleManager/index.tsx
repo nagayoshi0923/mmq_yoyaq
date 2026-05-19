@@ -1063,86 +1063,78 @@ export function ScheduleManager() {
           
           {/* フィルター - 連結グループ */}
           <div className="hidden sm:flex items-center h-9 border border-input rounded-lg bg-background flex-1">
-            {gmList.length > 0 && (
-              <div className="flex-1 border-r border-input">
-                <MultiSelect
-                  options={(() => {
-                    const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-                    const staffWithShift = new Set<string>()
-                    Object.values(shiftData).forEach((staffList: Staff[]) => {
-                      staffList.forEach(s => staffWithShift.add(s.id))
+            <div className="flex-1 border-r border-input">
+              <MultiSelect
+                options={(() => {
+                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                  const staffWithShift = new Set<string>()
+                  Object.values(shiftData).forEach((staffList: Staff[]) => {
+                    staffList.forEach(s => staffWithShift.add(s.id))
+                  })
+                  return [...gmList]
+                    .sort((a, b) => {
+                      const aHasShift = staffWithShift.has(a.id)
+                      const bHasShift = staffWithShift.has(b.id)
+                      if (aHasShift && !bHasShift) return -1
+                      if (!aHasShift && bHasShift) return 1
+                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
                     })
-                    return [...gmList]
-                      .sort((a, b) => {
-                        const aHasShift = staffWithShift.has(a.id)
-                        const bHasShift = staffWithShift.has(b.id)
-                        if (aHasShift && !bHasShift) return -1
-                        if (!aHasShift && bHasShift) return 1
-                        return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
-                      })
-                      .map((staff) => {
-                        const hasShift = staffWithShift.has(staff.id)
-                        return {
-                          id: staff.id,
-                          name: staff.display_name || staff.name,
-                          displayInfo: hasShift ? (
-                            <span className="text-[9px] text-green-600">●</span>
-                          ) : undefined,
-                          displayInfoSearchText: hasShift ? '提出済' : undefined
-                        }
-                      })
-                  })()}
-                  selectedValues={selectedGMs}
-                  onSelectionChange={setSelectedGMs}
-                  placeholder="スタッフ"
-                  closeOnSelect={false}
-                  useIdAsValue={true}
-                  className="h-9 w-full border-0 rounded-none shadow-none"
-                />
-              </div>
-            )}
-            
-            {scheduleTableProps.viewConfig.stores.length > 0 && (
-              <div className="flex-1 border-r border-input">
-                <StoreMultiSelect
-                  stores={scheduleTableProps.viewConfig.stores}
-                  selectedStoreIds={selectedStores}
-                  onStoreIdsChange={setSelectedStores}
-                  hideLabel={true}
-                  placeholder="店舗"
-                  className="h-9 w-full border-0 rounded-none shadow-none"
-                />
-              </div>
-            )}
+                    .map((staff) => {
+                      const hasShift = staffWithShift.has(staff.id)
+                      return {
+                        id: staff.id,
+                        name: staff.display_name || staff.name,
+                        displayInfo: hasShift ? (
+                          <span className="text-[9px] text-green-600">●</span>
+                        ) : undefined,
+                        displayInfoSearchText: hasShift ? '提出済' : undefined
+                      }
+                    })
+                })()}
+                selectedValues={selectedGMs}
+                onSelectionChange={setSelectedGMs}
+                placeholder="スタッフ"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-9 w-full border-0 rounded-none shadow-none"
+              />
+            </div>
 
-            {scenarioOptions.length > 0 && (
-              <div className="flex-1 border-r border-input">
-                <MultiSelect
-                  options={scenarioOptions}
-                  selectedValues={selectedScenarioIds}
-                  onSelectionChange={(values) => setSelectedScenarioIds(values.slice(-1))}
-                  placeholder="シナリオ"
-                  searchPlaceholder="シナリオ検索..."
-                  closeOnSelect={true}
-                  useIdAsValue={true}
-                  className="h-9 w-full border-0 rounded-none shadow-none"
-                />
-              </div>
-            )}
-            
-            {shiftStaffOptions.length > 0 && (
-              <div className="flex-1 border-r border-input">
-                <MultiSelect
-                  options={shiftStaffOptions}
-                  selectedValues={selectedShiftStaff}
-                  onSelectionChange={setSelectedShiftStaff}
-                  placeholder="出勤者"
-                  closeOnSelect={false}
-                  useIdAsValue={true}
-                  className="h-9 w-full border-0 rounded-none shadow-none"
-                />
-              </div>
-            )}
+            <div className="flex-1 border-r border-input">
+              <StoreMultiSelect
+                stores={scheduleTableProps.viewConfig.stores}
+                selectedStoreIds={selectedStores}
+                onStoreIdsChange={setSelectedStores}
+                hideLabel={true}
+                placeholder="店舗"
+                className="h-9 w-full border-0 rounded-none shadow-none"
+              />
+            </div>
+
+            <div className="flex-1 border-r border-input">
+              <MultiSelect
+                options={scenarioOptions}
+                selectedValues={selectedScenarioIds}
+                onSelectionChange={(values) => setSelectedScenarioIds(values.slice(-1))}
+                placeholder="シナリオ"
+                searchPlaceholder="シナリオ検索..."
+                closeOnSelect={true}
+                useIdAsValue={true}
+                className="h-9 w-full border-0 rounded-none shadow-none"
+              />
+            </div>
+
+            <div className="flex-1 border-r border-input">
+              <MultiSelect
+                options={shiftStaffOptions}
+                selectedValues={selectedShiftStaff}
+                onSelectionChange={setSelectedShiftStaff}
+                placeholder="出勤者"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-9 w-full border-0 rounded-none shadow-none"
+              />
+            </div>
 
             {/* カテゴリフィルター */}
             <div className="flex-1">
