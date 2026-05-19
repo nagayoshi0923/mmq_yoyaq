@@ -110,11 +110,8 @@ BEGIN
       IF v_caller_org_id != v_event_org_id THEN
         RAISE EXCEPTION 'FORBIDDEN_ORG' USING ERRCODE = 'P0010';
       END IF;
-    ELSIF v_caller_org_id IS NOT NULL THEN
-      IF v_caller_org_id != v_event_org_id THEN
-        RAISE EXCEPTION 'FORBIDDEN_ORG' USING ERRCODE = 'P0010';
-      END IF;
     ELSE
+      -- customer ロール: 自分自身の予約のみ許可（platform customer は org を問わない）
       IF v_customer_user_id IS DISTINCT FROM auth.uid() THEN
         RAISE EXCEPTION 'FORBIDDEN_CUSTOMER' USING ERRCODE = 'P0011';
       END IF;
