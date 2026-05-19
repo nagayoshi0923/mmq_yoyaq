@@ -735,8 +735,14 @@ export function PlatformScenarioSearch() {
 
                   {/* コンテンツ */}
                   <div className="p-2 sm:p-3 flex-1 min-w-0">
-                    {/* お気に入りボタン（組織名は詳細の「遊べる店舗」に表示） */}
-                    <div className="flex items-center justify-end mb-1">
+                    {/* 著者 */}
+                    <p className="text-xs text-gray-500 mb-1">{scenario.author}</p>
+
+                    {/* タイトル + お気に入りボタン */}
+                    <div className="flex items-start justify-between gap-1 mb-2">
+                      <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2">
+                        {scenario.title}
+                      </h3>
                       <button
                         onClick={(e) => handleToggleFavorite(scenario.id, e)}
                         className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
@@ -746,14 +752,6 @@ export function PlatformScenarioSearch() {
                         }`} />
                       </button>
                     </div>
-                    
-                    {/* 著者 */}
-                    <p className="text-xs text-gray-500 mb-1">{scenario.author}</p>
-                    
-                    {/* タイトル */}
-                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2">
-                      {scenario.title}
-                    </h3>
 
                     {/* 人数・時間・参加費 */}
                     <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
@@ -769,7 +767,7 @@ export function PlatformScenarioSearch() {
                           ? `${Math.floor(scenario.duration / 60)}h${scenario.duration % 60 > 0 ? `${scenario.duration % 60}m` : ''}`
                           : `${scenario.duration}分`}
                       </span>
-                      {scenario.participation_fee && (
+                      {scenario.participation_fee != null && (
                         <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
                       )}
                     </div>
