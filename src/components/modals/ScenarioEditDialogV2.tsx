@@ -391,6 +391,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [saveOptionsOpen, setSaveOptionsOpen] = useState(false)
   const [savePublishChoice, setSavePublishChoice] = useState<'available' | 'unavailable'>('available')
   const [submitToMMQ, setSubmitToMMQ] = useState(false)
+  const [isSubmittingToMMQ, setIsSubmittingToMMQ] = useState(false)
 
   // マスタ選択ダイアログ
   const [masterSelectOpen, setMasterSelectOpen] = useState(false)
@@ -1667,6 +1668,34 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               >
                 <ArrowUp className="h-2.5 w-2.5" />
                 マスタ反映
+              </Button>
+            )}
+            {/* MMQへ申請ボタン（保存不要・draft マスタのみ表示） */}
+            {currentMasterId && currentScenario?.master_status === 'draft' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-300 hover:bg-blue-50 hidden sm:inline-flex gap-0.5"
+                disabled={isSubmittingToMMQ}
+                onClick={async () => {
+                  setIsSubmittingToMMQ(true)
+                  try {
+                    await scenarioMasterApi.publish(currentMasterId)
+                    showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
+                    queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
+                    queryClient.invalidateQueries({ queryKey: ['scenarios'] })
+                  } catch {
+                    showToast.error('申請に失敗しました', '時間をおいて再試行してください')
+                  } finally {
+                    setIsSubmittingToMMQ(false)
+                  }
+                }}
+              >
+                {isSubmittingToMMQ
+                  ? <RefreshCw className="h-3 w-3 animate-spin" />
+                  : <Shield className="h-3 w-3" />
+                }
+                MMQへ申請
               </Button>
             )}
             <Button
