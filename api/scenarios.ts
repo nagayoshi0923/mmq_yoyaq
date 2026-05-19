@@ -158,9 +158,9 @@ async function authenticate(
   const role = profile.role as string
 
   // GET リクエストは customer ロールも許可（シナリオ詳細は顧客も閲覧可）
-  // 書き込み操作（POST/PATCH/DELETE）は staff 以上が必要
-  if (req.method !== 'GET' && !['admin', 'staff', 'license_admin'].includes(role)) {
-    res.status(403).json({ error: 'スタッフ以上の権限が必要です' })
+  // 書き込み操作（POST/PATCH/DELETE）は admin 以上が必要（DB RLS と統一）
+  if (req.method !== 'GET' && !['admin', 'license_admin'].includes(role)) {
+    res.status(403).json({ error: '管理者権限が必要です' })
     return null
   }
 
