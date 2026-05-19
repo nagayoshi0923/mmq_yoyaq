@@ -46,7 +46,11 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
 
-      const scenarioAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+      const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+      // slug が未設定の場合、別組織のシナリオが返ることがある。
+      // その場合 available_stores は参照組織のものなので無視する（全店舗対応扱い）
+      const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
+      const scenarioAvailableStores = isCrossOrg ? [] : rawAvailableStores
       const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
 
       const validStores = stores.filter(s =>
@@ -158,7 +162,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   }, [selectedTimeSlots])
 
   const availableStores = useMemo(() => {
-    const scenarioAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+    const rawAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+    const isCrossOrg = organizationId && scenario?.organization_id && scenario.organization_id !== organizationId
+    const scenarioAvailableStores = isCrossOrg ? [] : rawAvailableStores
     const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
 
     return stores.filter(s =>
@@ -169,7 +175,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
         ? scenarioAvailableStores.includes(s.id)
         : true)
     )
-  }, [scenario, stores])
+  }, [scenario, stores, organizationId])
 
   const isNextMonthDisabled = useMemo(() => {
     const today = new Date()
