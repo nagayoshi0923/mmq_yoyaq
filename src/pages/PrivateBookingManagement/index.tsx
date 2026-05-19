@@ -118,6 +118,34 @@ export function PrivateBookingManagement() {
   // 全リクエストの候補日に対するグローバル競合マップ（カード表示時点から店舗バッジを出すため）
   const [globalStoreDateConflicts, setGlobalStoreDateConflicts] = useState<Set<string>>(new Set())
 
+  // GM出欠手動記録ハンドラー
+  const handleGMResponseSave = async (requestId: string, staffId: string, availableCandidates: number[]) => {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) { showToast.error('組織情報を取得できません'); return }
+    const req = requests.find(r => r.id === requestId)
+    const gm = allGMs.find(g => g.id === staffId)
+    const responseStatus = availableCandidates.length === 0 ? 'all_unavailable' : 'available'
+    const { error } = await supabase
+      .from('gm_availability_responses')
+      .upsert({
+        organization_id: orgId,
+        reservation_id: requestId,
+        staff_id: staffId,
+        gm_name: gm?.name || '',
+        response_status: responseStatus,
+        available_candidates: availableCandidates,
+        responded_at: new Date().toISOString(),
+        notes: '管理画面から手動入力',
+      }, { onConflict: 'reservation_id,staff_id' })
+    if (error) {
+      logger.error('GM出欠保存エラー:', error)
+      showToast.error('保存に失敗しました')
+      throw error
+    }
+    showToast.success(`${gm?.name || 'GM'}の出欠を記録しました`)
+    loadRequests(true)
+  }
+
   // Discord通知再送信ハンドラー
   const handleResendDiscordNotification = async (cardRequest: { id: string; scenario_title: string }) => {
     const request = requests.find(r => r.id === cardRequest.id)
@@ -540,6 +568,8 @@ export function PrivateBookingManagement() {
                     key={req.id}
                     request={req}
                     onResendDiscordNotification={handleResendDiscordNotification}
+                    gmList={allGMs}
+                    onGMResponseSave={handleGMResponseSave}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
                     storesPerCandidate={(() => {
                       // カードのバッジ表示は常に globalStoreDateConflicts を使用（切り替えによるちらつきを防ぐ）
