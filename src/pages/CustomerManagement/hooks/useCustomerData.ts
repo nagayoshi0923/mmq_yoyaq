@@ -28,7 +28,7 @@ async function fetchCustomersWithStats(): Promise<CustomerDataResult> {
   let allCustomers: any[] = []
   let from = 0
   for (;;) {
-    let query = supabase
+    const query = supabase
       .from('customers')
       .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, avatar_url, birth_date, prefecture, preferences, notification_settings, created_at, updated_at')
       .order('created_at', { ascending: false })
