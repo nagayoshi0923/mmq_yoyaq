@@ -136,8 +136,8 @@ export function ScenarioManagement() {
     error: queryError,
   } = useOrganizationScenariosQuery(organization?.id)
 
-  // organization が未解決の間もローディング扱い（0件チラつき防止）
-  const loading = !organization?.id || scenariosLoading
+  // データが届くまでローディング扱い（org未解決・クエリ有効化直後の一瞬も含む）
+  const loading = !organization?.id || (orgScenariosData === undefined && !queryError)
 
   const allScenarios = (orgScenariosData?.scenarios ?? []) as unknown as Scenario[]
   const scenarioStats = {} // 新UIは play_count をビューから直接使用
