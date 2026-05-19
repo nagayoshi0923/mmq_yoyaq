@@ -101,9 +101,22 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       }
       
       setScenario(foundScenario)
-      
+
       // 店舗データを取得
-      const storesData = await storeApi.getAll()
+      // 顧客は /api/stores（requireStaff）にアクセスできないため
+      // scenario.organization_id がわかった時点で stores_public 経由で取得
+      let storesData: any[] = []
+      const orgIdForStores = foundScenario.organization_id
+      if (orgIdForStores) {
+        try {
+          storesData = await storeApi.getAllPublic(orgIdForStores)
+        } catch {
+          // フォールバック: スタッフとしてログイン中ならバックエンド API も試みる
+          try { storesData = await storeApi.getAll() } catch { /* ignore */ }
+        }
+      } else {
+        try { storesData = await storeApi.getAll() } catch { /* ignore */ }
+      }
       setStores(storesData)
       
       // URLパラメータから選択済み店舗を設定（カンマ区切り対応）
