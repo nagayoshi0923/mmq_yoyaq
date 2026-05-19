@@ -62,7 +62,12 @@ export const scenarioApi = {
   async getById(_id: string, _organizationId?: string): Promise<Scenario | null> {
     try {
       const params = new URLSearchParams({ id: _id })
-      const result = await apiClient.get<Scenario | null>(`/api/scenarios?${params}`)
+      // org_id が分かっていれば anon でも呼べるよう付与（顧客向けシナリオ詳細用）
+      if (_organizationId) params.set('org_id', _organizationId)
+      const result = await apiClient.get<Scenario | null>(
+        `/api/scenarios?${params}`,
+        { allowAnon: Boolean(_organizationId) },
+      )
       return result
     } catch (err) {
       logger.error('[scenarioApi.getById] エラー:', err)
@@ -106,7 +111,11 @@ export const scenarioApi = {
     try {
       const params = new URLSearchParams({ slug })
       if (organizationId) params.set('org_id', organizationId)
-      const result = await apiClient.get<Scenario | null>(`/api/scenarios?${params}`)
+      // org_id が分かっていれば anon でも呼べるよう許可（顧客向けシナリオ詳細用）
+      const result = await apiClient.get<Scenario | null>(
+        `/api/scenarios?${params}`,
+        { allowAnon: Boolean(organizationId) },
+      )
       return result
     } catch (err) {
       logger.error('[scenarioApi.getBySlug] エラー:', err)

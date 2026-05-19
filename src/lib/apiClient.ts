@@ -24,16 +24,23 @@ export class ApiClientError extends Error {
  * Supabase 初期化時（_recoverAndRefresh）にも同じ問題が起きるため、
  * リクエスト前に expires_at を確認し、期限切れなら先にリフレッシュする。
  * SDK 内部のロックにより _recoverAndRefresh との競合は自動的に直列化される。
+ *
+ * allowAnon=true のとき、セッションが無くてもエラーにせず Authorization ヘッダ
+ * を付けずに返す（公開エンドポイント用）。
  */
-async function getAuthHeaders(): Promise<Record<string, string>> {
+async function getAuthHeaders(allowAnon = false): Promise<Record<string, string>> {
   const { data: { session }, error } = await supabase.auth.getSession()
-  if (error || !session) throw new ApiClientError(401, 'ログインが必要です')
+  if (error || !session) {
+    if (allowAnon) return { 'Content-Type': 'application/json' }
+    throw new ApiClientError(401, 'ログインが必要です')
+  }
 
   // トークンが期限切れ（または60秒以内に期限切れ）の場合はリフレッシュ
   const now = Math.floor(Date.now() / 1000)
   if ((session.expires_at ?? 0) < now + 60) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
     if (refreshError || !refreshed.session) {
+      if (allowAnon) return { 'Content-Type': 'application/json' }
       throw new ApiClientError(401, 'セッションの更新に失敗しました。再ログインしてください')
     }
     return {
@@ -48,21 +55,31 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = await getAuthHeaders()
+type ApiFetchOptions = RequestInit & { allowAnon?: boolean }
+
+async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> {
+  const { allowAnon, ...fetchOptions } = options ?? {}
+  const headers = await getAuthHeaders(allowAnon)
   const res = await fetch(path, {
-    ...options,
-    headers: { ...headers, ...options?.headers },
+    ...fetchOptions,
+    headers: { ...headers, ...fetchOptions.headers },
   })
 
-  // 401 の場合は再度 getAuthHeaders() を呼んでリトライ（プロアクティブリフレッシュが
-  // タイミングにより間に合わなかった場合のセーフネット。この時点では _recoverAndRefresh
-  // が完了しているためリフレッシュ競合は発生しない）
-  if (res.status === 401) {
-    const retryHeaders = await getAuthHeaders()
+  // 401 の場合は refreshSession() で強制リフレッシュしてリトライ。
+  // getSession() のキャッシュが古い可能性があるため、必ず新トークンを取得する。
+  // ただし allowAnon の場合は 401 が「未ログイン顧客への正当な拒否」なのでリトライしない。
+  if (res.status === 401 && !allowAnon) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+    if (refreshError || !refreshed.session) {
+      throw new ApiClientError(401, 'セッションの更新に失敗しました。再ログインしてください')
+    }
+    const retryHeaders = {
+      'Authorization': `Bearer ${refreshed.session.access_token}`,
+      'Content-Type': 'application/json',
+    }
     const retryRes = await fetch(path, {
-      ...options,
-      headers: { ...retryHeaders, ...options?.headers },
+      ...fetchOptions,
+      headers: { ...retryHeaders, ...fetchOptions.headers },
     })
     if (!retryRes.ok) {
       const body = await retryRes.json().catch(() => ({ error: `HTTP ${retryRes.status}` }))
@@ -80,7 +97,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const apiClient = {
-  get: <T>(path: string) => apiFetch<T>(path),
+  get: <T>(path: string, options?: { allowAnon?: boolean }) =>
+    apiFetch<T>(path, options),
   post: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
