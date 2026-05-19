@@ -12,10 +12,16 @@ export interface GmResponseLike {
 
 /**
  * GM が実際に回答済みか。
- * responded_at のみで判定する（response_datetime はレコード作成時に自動設定されるため不正確）。
+ * responded_at を優先し、旧レコード（responded_at = NULL）は response_status / available_candidates で判定する。
  */
 export function hasGmResponded(gm: GmResponseLike): boolean {
-  return !!gm.responded_at
+  if (gm.responded_at) return true
+  // 旧レコード: responded_at が NULL でも status が pending/null 以外なら回答済み
+  const st = String(gm.response_status ?? '').trim().toLowerCase()
+  if (st && st !== 'pending') return true
+  // available_candidates が設定されていれば回答済み
+  if (Array.isArray(gm.available_candidates) && gm.available_candidates.length > 0) return true
+  return false
 }
 
 /** 担当GM選択の [対応可能] や候補バッジで「出勤可能扱い」にするか */
