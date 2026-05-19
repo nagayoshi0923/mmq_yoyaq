@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { usePrefetch } from '@/hooks/usePrefetch'
-import { supabase } from '@/lib/supabase'
 import { 
   Store, 
   Calendar, 
@@ -279,10 +278,7 @@ export function AdminDashboard() {
   // requestIdleCallback でダッシュボード自身の描画・データ取得を優先させる
   useEffect(() => {
     if (!isStaff || !isInitialized || currentPage === 'schedule') return
-    const run = async () => {
-      // prefetch前にトークンを強制リフレッシュし、有効なセッションが確認できた場合のみ実行
-      const { data, error } = await supabase.auth.refreshSession()
-      if (error || !data.session) return
+    const run = () => {
       const now = new Date()
       prefetchSchedule(now)
       prefetchSchedule(new Date(now.getFullYear(), now.getMonth() - 1, 1))
@@ -290,10 +286,10 @@ export function AdminDashboard() {
       prefetchAdminPages()
     }
     if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(() => { void run() }, { timeout: 5000 })
+      const id = requestIdleCallback(run, { timeout: 5000 })
       return () => cancelIdleCallback(id)
     }
-    const id = setTimeout(() => { void run() }, 2000)
+    const id = setTimeout(run, 2000)
     return () => clearTimeout(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStaff, isInitialized])

@@ -10,9 +10,6 @@ const supabaseKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// 一時デバッグ: フロントエンドがどのSupabaseプロジェクトに繋いでいるか確認
-console.warn('[DEBUG] VITE_SUPABASE_URL:', supabaseUrl)
-
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
     '⚠️ Supabase環境変数が設定されていません。\n' +
