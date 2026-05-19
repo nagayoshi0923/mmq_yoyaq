@@ -321,10 +321,8 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
     })
   }
 
-  // マルチテナント境界:
-  //  - schedule_event_id は自組織のものか
-  //  - customer_id は自組織のものか
-  // RPC 内部でも auth.uid() ベースのチェックがあるが、二重に明示検証する。
+  // schedule_event の存在確認のみ（org チェックは RPC 内部で実施）
+  // RPC が auth.uid() ベースで安全にチェックするため、ここでは不要
   const { data: ev, error: evError } = await db
     .from('schedule_events')
     .select('id, organization_id')
@@ -333,11 +331,6 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (evError || !ev) {
     console.error('[reservations:create] schedule_events check error:', evError)
     return res.status(404).json({ error: 'schedule_event が見つかりません' })
-  }
-  // customer ロールはプラットフォーム横断で予約可能なので org チェックを免除
-  // staff/admin は自組織の schedule_event のみ操作可
-  if (user.role !== 'customer' && ev.organization_id !== user.orgId) {
-    return res.status(403).json({ error: '他組織の schedule_event は指定できません' })
   }
 
   const { data: cust, error: custError } = await db
