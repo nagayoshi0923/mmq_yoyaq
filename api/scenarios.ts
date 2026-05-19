@@ -158,9 +158,9 @@ async function authenticate(
   const role = profile.role as string
 
   // GET リクエストは customer ロールも許可（シナリオ詳細は顧客も閲覧可）
-  // 書き込み操作（POST/PATCH/DELETE）は staff 以上が必要
-  if (req.method !== 'GET' && !['admin', 'staff', 'license_admin'].includes(role)) {
-    res.status(403).json({ error: 'スタッフ以上の権限が必要です' })
+  // 書き込み操作（POST/PATCH/DELETE）は admin 以上が必要（DB RLS と統一）
+  if (req.method !== 'GET' && !['admin', 'license_admin'].includes(role)) {
+    res.status(403).json({ error: '管理者権限が必要です' })
     return null
   }
 
@@ -1090,14 +1090,12 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, orgId: strin
     console.error('[scenarios:delete] staff_scenario_assignments delete error:', assignmentError)
   }
 
-  // 4. performance_kits を削除
-  // NOTE: performance_kits は organization_id を持たない（または別構造）ため
-  // scenario_master_id のみで削除する。旧実装と同じ挙動。
-  // TODO: performance_kits が org_id を持つようになったら orgId でも絞り込む。
+  // 4. performance_kits を削除（自組織分のみ）
   const { error: kitsError } = await db
     .from('performance_kits')
     .delete()
     .eq('scenario_master_id', id)
+    .eq('organization_id', orgId)
   if (kitsError) {
     console.error('[scenarios:delete] performance_kits delete error:', kitsError)
   }
