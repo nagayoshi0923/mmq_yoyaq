@@ -1553,12 +1553,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   >
                     <Icon className="h-3 w-3" />
                     <span className="hidden sm:inline">{tab.label}</span>
-                    {/* マスターとの相違件数バッジ */}
-                    {diffCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-                        {diffCount}
-                      </span>
-                    )}
                   </TabsTrigger>
                 )
               })}
@@ -1581,7 +1575,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
         {/* フッター（固定） */}
         <div className="flex justify-between items-center gap-1.5 px-2 sm:px-3 py-1.5 border-t bg-muted/30 shrink-0">
-          {/* 現在の設定サマリー（小さい画面では非表示） */}
+          {/* フッター左：サマリー＋マスター差分 */}
           <div className="hidden md:flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
             <span className="font-medium text-foreground truncate max-w-[100px]">
               {formData.title || '(未設定)'}
@@ -1590,7 +1584,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <span>{formData.duration}分</span>
             <span className="text-muted-foreground/50">|</span>
             <span>
-              {formData.player_count_min === formData.player_count_max 
+              {formData.player_count_min === formData.player_count_max
                 ? `${formData.player_count_min}人`
                 : `${formData.player_count_min}〜${formData.player_count_max}人`
               }
@@ -1599,6 +1593,21 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <span>
               ¥{(formData.participation_costs?.find(c => c.time_slot === 'normal')?.amount || formData.participation_fee || 0).toLocaleString()}
             </span>
+            {/* マスターとの差分タブ表示 */}
+            {currentMasterId && masterDiffs.count > 0 && (
+              <>
+                <span className="text-muted-foreground/50">|</span>
+                <span className="text-yellow-600 font-medium flex items-center gap-1">
+                  マスターと差分:
+                  {TABS.filter(t => (masterDiffs.byTab[t.id] || 0) > 0).map(t => (
+                    <span key={t.id} className="inline-flex items-center gap-0.5 bg-yellow-100 text-yellow-700 px-1.5 py-0 rounded-full">
+                      {t.label}
+                      <span className="font-bold">{masterDiffs.byTab[t.id]}</span>
+                    </span>
+                  ))}
+                </span>
+              </>
+            )}
           </div>
 
           {/* アクションボタン */}
