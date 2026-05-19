@@ -123,10 +123,16 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
 
   if (scenariosResult.error) throw scenariosResult.error
   
-  // 店舗IDから名前へのマップを作成
+  // 店舗IDから名前へのマップ、および組織IDから店舗ID一覧へのマップを作成
   const storeMap = new Map<string, string>()
+  const orgToStoreIdsMap = new Map<string, string[]>()
   ;(storesResult.data || []).forEach((store: any) => {
     storeMap.set(store.id, store.short_name || store.name)
+    if (store.organization_id) {
+      const ids = orgToStoreIdsMap.get(store.organization_id) || []
+      ids.push(store.id)
+      orgToStoreIdsMap.set(store.organization_id, ids)
+    }
   })
   
   // 組織IDから組織名へのマップを作成（シナリオデータから）
@@ -149,7 +155,11 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
     })
     .map(s => {
       const org = s.organizations as { slug?: string; name?: string } | null
-      const storeIds = s.available_stores || []
+      const rawStoreIds: string[] = s.available_stores || []
+      // available_stores が空 = その組織の全店舗対応
+      const storeIds = rawStoreIds.length > 0
+        ? rawStoreIds
+        : (orgToStoreIdsMap.get(s.organization_id) || [])
       const storeNames = storeIds
         .map((storeId: string) => storeMap.get(storeId))
         .filter((name: string | undefined): name is string => !!name)
@@ -380,8 +390,10 @@ export function PlatformScenarioSearch() {
       }
       
       // 店舗フィルター
+      // available_store_ids が空 = その組織の全店舗対応 → どの店舗でもマッチ
       if (selectedStore !== 'all') {
-        if (!scenario.available_store_ids?.includes(selectedStore)) return false
+        const ids = scenario.available_store_ids
+        if (ids && ids.length > 0 && !ids.includes(selectedStore)) return false
       }
       
       return true
