@@ -137,7 +137,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           .neq('scenario_type', 'gm_test')
         
         if (orgId) {
-          query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+          query = query.eq('organization_id', orgId)
         }
         
         return await query.order('title', { ascending: true })
