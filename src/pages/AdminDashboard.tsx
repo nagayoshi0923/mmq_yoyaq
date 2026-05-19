@@ -277,7 +277,7 @@ export function AdminDashboard() {
   // スタッフ確定後、ブラウザがアイドル状態になってから前月・当月・次月を先読み
   // requestIdleCallback でダッシュボード自身の描画・データ取得を優先させる
   useEffect(() => {
-    if (!isStaff || currentPage === 'schedule') return
+    if (!isStaff || !isInitialized || currentPage === 'schedule') return
     const run = () => {
       const now = new Date()
       prefetchSchedule(now)
@@ -293,7 +293,7 @@ export function AdminDashboard() {
     const id = setTimeout(run, 2000)
     return () => clearTimeout(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStaff])
+  }, [isStaff, isInitialized])
 
   // ユーザーロールが確定したときに初回リダイレクト
   useEffect(() => {
