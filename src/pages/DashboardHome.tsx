@@ -327,7 +327,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       {/* 直近の出勤予定 と マイスケジュール を2カラム（PC時） */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. 直近の出勤予定 */}
-        <section>
+        <section className="flex flex-col">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-1.5 rounded-xl bg-primary/10">
               <Clock className="h-4 w-4 text-primary" />
@@ -341,7 +341,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
 
           {loading && staffName === '' ? (
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+            <div className="flex-1 rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="px-4 py-3 flex items-center gap-3">
                   <div className="w-12 shrink-0 space-y-1">
@@ -357,7 +357,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : upcomingEvents.length > 0 ? (
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+            <div className="flex-1 rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
               {upcomingEvents.map(event => (
                 <div
                   key={event.id}
@@ -389,14 +389,14 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-8 text-center">
+            <div className="flex-1 rounded-2xl border border-border/60 bg-muted/20 px-4 py-8 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">直近の予定はありません</p>
             </div>
           )}
         </section>
 
         {/* 2. 今月のスケジュール（カレンダー） */}
-        <section>
+        <section className="flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-primary/10">
@@ -417,7 +417,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
         </div>
 
-        <Card className="rounded-2xl border border-border/60 bg-card">
+        <Card className="flex-1 rounded-2xl border border-border/60 bg-card">
           <CardContent className="p-4">
             {/* 曜日ヘッダー */}
             <div className="grid grid-cols-7 mb-2 text-center text-xs text-muted-foreground font-medium">
