@@ -137,9 +137,8 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
           <Coins className="h-3.5 w-3.5" />参加費
         </p>
-          <Label className={labelStyle}>参加費</Label>
-          <p className={hintStyle}>時間帯別のお客様参加料金。期間を設定すると、その期間のみ適用されます（価格改定対応）</p>
-          <div className="space-y-4 mt-3">
+        <p className="text-[11px] text-muted-foreground -mt-1">時間帯別のお客様参加料金。期間を設定すると価格改定に対応できます</p>
+          <div className="space-y-2">
             {(formData.participation_costs || []).map((cost, index) => {
               const status = getPeriodStatus(cost.startDate, cost.endDate)
               const isCustom = !PRESET_SLOTS.includes(cost.time_slot as typeof PRESET_SLOTS[number])
@@ -242,9 +241,8 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
           <Coins className="h-3.5 w-3.5" />ライセンス料（自店用）
         </p>
-          <Label className={labelStyle}>ライセンス料（自店用）</Label>
-          <p className={hintStyle}>自店で公演した場合に作者に支払う金額</p>
-          <div className="grid grid-cols-2 gap-5 mt-1.5">
+        <p className="text-[11px] text-muted-foreground -mt-1">自店で公演した場合に作者に支払う金額</p>
+          <div className="space-y-2">
             {/* プリセット（通常・GMテスト）*/}
             {(formData.license_rewards || [])
               .filter(r => PRESET_SLOTS.includes(r.item as typeof PRESET_SLOTS[number]))
@@ -298,8 +296,6 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
           <Building2 className="h-3.5 w-3.5" />他店公演時
         </p>
-          <Label className={labelStyle}>他店公演時</Label>
-          
           {/* テーブル形式で表示 */}
           <div className="mt-3 border rounded-lg overflow-hidden">
             {/* ヘッダー */}

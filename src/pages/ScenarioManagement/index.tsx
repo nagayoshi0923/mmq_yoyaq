@@ -132,9 +132,12 @@ export function ScenarioManagement() {
   // OrganizationScenarioList と同一クエリキーを使うため重複フェッチなし
   const {
     data: orgScenariosData,
-    isLoading: loading,
+    isLoading: scenariosLoading,
     error: queryError,
   } = useOrganizationScenariosQuery(organization?.id)
+
+  // organization が未解決の間もローディング扱い（0件チラつき防止）
+  const loading = !organization?.id || scenariosLoading
 
   const allScenarios = (orgScenariosData?.scenarios ?? []) as unknown as Scenario[]
   const scenarioStats = {} // 新UIは play_count をビューから直接使用
