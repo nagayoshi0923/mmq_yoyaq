@@ -38,6 +38,7 @@ interface ScenarioData {
   organization_slug?: string
   organization_name?: string
   scenario_master_id?: string | null
+  org_scenario_id?: string | null
   available_stores?: string[] // 公演可能店舗名リスト
   available_store_ids?: string[] // 公演可能店舗IDリスト（フィルタ用）
   is_recommended?: boolean
