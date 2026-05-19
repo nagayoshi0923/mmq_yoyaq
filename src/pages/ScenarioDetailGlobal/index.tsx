@@ -174,45 +174,35 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
     if (orgScenarioRows?.[0]?.characters && Array.isArray(orgScenarioRows[0].characters)) characters = orgScenarioRows[0].characters as ScenarioCharacter[]
   }
 
-  // 組織マップ構築
+  // 組織マップ構築（useLegacyTable に関わらず全組織を取得）
   const orgMap: Record<string, { slug: string; name: string }> = {}
-  if (useLegacyTable) {
-    if (masterData.organization_id) {
-      const { data: orgData } = await supabase.from('organizations').select('id, slug, name').eq('id', masterData.organization_id).single()
-      if (orgData) orgMap[orgData.id] = { slug: orgData.slug, name: orgData.name }
-    }
-  } else {
-    const { data: relatedScenarios } = await supabase.from('organization_scenarios').select('organization_id').eq('scenario_master_id', masterId)
-    const orgIds = [...new Set(relatedScenarios?.map(s => s.organization_id).filter(Boolean) || [])]
-    if (orgIds.length > 0) {
-      const { data: orgsData } = await supabase.from('organizations').select('id, slug, name').in('id', orgIds)
-      orgsData?.forEach((org: any) => { orgMap[org.id] = { slug: org.slug, name: org.name } })
-    }
+  const { data: relatedOrgIds } = await supabase.from('organization_scenarios').select('organization_id').eq('scenario_master_id', masterId)
+  const orgIds = [...new Set(relatedOrgIds?.map((s: any) => s.organization_id).filter(Boolean) || [])]
+  if (orgIds.length > 0) {
+    const { data: orgsData } = await supabase.from('organizations').select('id, slug, name').in('id', orgIds)
+    orgsData?.forEach((org: any) => { orgMap[org.id] = { slug: org.slug, name: org.name } })
+  }
+  if (!useLegacyTable) {
     const { data: availableOrgScenarios } = await supabase.from('organization_scenarios').select('id, organization_id, organizations!inner (id, slug, name)').eq('scenario_master_id', masterId).eq('org_status', 'available')
     availableOrgScenarios?.forEach((os: any) => {
       if (os.organizations && !orgMap[os.organization_id]) orgMap[os.organization_id] = { slug: os.organizations.slug, name: os.organizations.name }
     })
   }
 
-  // 貸切可能組織リスト・リダイレクトslug
+  // 貸切可能組織リスト・リダイレクトslug（useLegacyTable に関わらず全組織を表示）
   let redirectSlug: string | null = null
   const availableOrgs: Array<{ id: string; slug: string; name: string; scenarioId: string }> = []
 
-  if (!useLegacyTable) {
-    const { data: relatedScenarios } = await supabase.from('organization_scenarios').select('id, organization_id, slug').eq('scenario_master_id', masterId).eq('org_status', 'available')
-    if (relatedScenarios?.length) {
-      const firstWithSlug = relatedScenarios.find(s => s.slug)
-      if (firstWithSlug) redirectSlug = firstWithSlug.slug
-      relatedScenarios.forEach(s => {
-        const org = s.organization_id ? orgMap[s.organization_id] : null
-        if (org && !availableOrgs.some(o => o.id === s.organization_id)) {
-          availableOrgs.push({ id: s.organization_id, slug: org.slug, name: org.name, scenarioId: s.id })
-        }
-      })
-    }
-  } else if (masterData.organization_id && orgMap[masterData.organization_id]) {
-    const org = orgMap[masterData.organization_id]
-    availableOrgs.push({ id: masterData.organization_id, slug: org.slug, name: org.name, scenarioId: masterId })
+  const { data: allAvailableScenarios } = await supabase.from('organization_scenarios').select('id, organization_id, slug').eq('scenario_master_id', masterId).eq('org_status', 'available')
+  if (allAvailableScenarios?.length) {
+    const firstWithSlug = allAvailableScenarios.find((s: any) => s.slug)
+    if (firstWithSlug) redirectSlug = firstWithSlug.slug
+    allAvailableScenarios.forEach((s: any) => {
+      const org = s.organization_id ? orgMap[s.organization_id] : null
+      if (org && !availableOrgs.some(o => o.id === s.organization_id)) {
+        availableOrgs.push({ id: s.organization_id, slug: org.slug, name: org.name, scenarioId: s.id })
+      }
+    })
   }
 
   // 公演取得
