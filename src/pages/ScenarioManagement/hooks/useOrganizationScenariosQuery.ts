@@ -144,58 +144,56 @@ async function fetchOrgScenariosData(organizationId: string): Promise<OrgScenari
 
   const data = scenariosResult.data || []
 
-  // available_stores が空のシナリオを organization_scenarios から補完
+  // available_stores 補完 と GM バッジ取得を並列実行
   const scenarioMasterIds = data.map(s => s.scenario_master_id).filter(Boolean) as string[]
-  const availableStoresMap = new Map<string, string[]>()
+  const uniqueMasterIds = [...new Set(scenarioMasterIds)]
+  const missingIds = data
+    .filter(s => !s.available_stores || s.available_stores.length === 0)
+    .map(s => s.scenario_master_id)
+    .filter(Boolean) as string[]
 
-  if (scenarioMasterIds.length > 0) {
-    const missingIds = data
-      .filter(s => !s.available_stores || s.available_stores.length === 0)
-      .map(s => s.scenario_master_id)
-      .filter(Boolean) as string[]
-
-    if (missingIds.length > 0) {
-      const { data: orgScenariosStores } = await supabase
+  const [availableStoresMap, gmBadgeMap] = await Promise.all([
+    // Step 2: available_stores 補完（ビューで空だった場合のみ）
+    (async (): Promise<Map<string, string[]>> => {
+      const map = new Map<string, string[]>()
+      if (missingIds.length === 0) return map
+      const { data: rows } = await supabase
         .from('organization_scenarios')
         .select('scenario_master_id, available_stores')
         .eq('organization_id', organizationId)
         .in('scenario_master_id', missingIds)
+      rows?.forEach(os => {
+        if (os.scenario_master_id && os.available_stores?.length > 0) {
+          map.set(os.scenario_master_id, os.available_stores)
+        }
+      })
+      return map
+    })(),
 
-      if (orgScenariosStores) {
-        orgScenariosStores.forEach(os => {
-          if (os.scenario_master_id && os.available_stores && os.available_stores.length > 0) {
-            availableStoresMap.set(os.scenario_master_id, os.available_stores)
-          }
-        })
+    // Step 3: GM バッジ（メイン/サブ）を一括取得
+    (async (): Promise<Map<string, GmListBadgeEntry[]> | null> => {
+      if (uniqueMasterIds.length === 0) return null
+      const map = new Map<string, GmListBadgeEntry[]>()
+      const chunkSize = 120
+      try {
+        for (let i = 0; i < uniqueMasterIds.length; i += chunkSize) {
+          const chunk = uniqueMasterIds.slice(i, i + chunkSize)
+          const { data: gmRows, error: gmErr } = await supabase
+            .from('staff_scenario_assignments')
+            .select('scenario_master_id, can_main_gm, can_sub_gm, staff:staff_id ( name )')
+            .eq('organization_id', organizationId)
+            .in('scenario_master_id', chunk)
+            .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+          if (gmErr) throw gmErr
+          buildGmListBadgeMap(gmRows || []).forEach((entries, sid) => map.set(sid, entries))
+        }
+        return map
+      } catch (gmFetchErr) {
+        logger.warn('担当GMのメイン／サブ情報取得に失敗。従来表示にフォールバックします', gmFetchErr)
+        return null
       }
-    }
-  }
-
-  // 担当GMのメイン／サブバッジデータを一括取得
-  const uniqueMasterIds = [...new Set(scenarioMasterIds)]
-  let gmBadgeMap: Map<string, GmListBadgeEntry[]> | null = null
-  if (uniqueMasterIds.length > 0) {
-    gmBadgeMap = new Map()
-    const chunkSize = 120
-    try {
-      for (let i = 0; i < uniqueMasterIds.length; i += chunkSize) {
-        const chunk = uniqueMasterIds.slice(i, i + chunkSize)
-        const { data: gmRows, error: gmErr } = await supabase
-          .from('staff_scenario_assignments')
-          .select('scenario_master_id, can_main_gm, can_sub_gm, staff:staff_id ( name )')
-          .eq('organization_id', organizationId)
-          .in('scenario_master_id', chunk)
-          .or('can_main_gm.eq.true,can_sub_gm.eq.true')
-        if (gmErr) throw gmErr
-        buildGmListBadgeMap(gmRows || []).forEach((entries, sid) => {
-          gmBadgeMap!.set(sid, entries)
-        })
-      }
-    } catch (gmFetchErr) {
-      logger.warn('担当GMのメイン／サブ情報取得に失敗。担当GM列は従来表示にフォールバックします', gmFetchErr)
-      gmBadgeMap = null
-    }
-  }
+    })(),
+  ])
 
   const scenarios = data.map((scenario: OrganizationScenarioWithMaster) => {
     const viewStores = scenario.available_stores && scenario.available_stores.length > 0 ? scenario.available_stores : null

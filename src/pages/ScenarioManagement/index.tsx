@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import type { Scenario, Store } from '@/types'
-import { storeApi } from '@/lib/api'
-import { 
+import type { Scenario } from '@/types'
+import {
   Plus, 
   AlertTriangle,
   Users,
@@ -30,11 +29,10 @@ import { CsvImportExport } from '@/components/features/CsvImportExport'
 // 分離されたフック
 import { useScenarioFilters } from './hooks/useScenarioFilters'
 import {
-  useScenariosQuery,
   useDeleteScenarioMutation,
   useImportScenariosMutation,
-  useAllScenarioStatsQuery
 } from './hooks/useScenarioQuery'
+import { useOrganizationScenariosQuery } from './hooks/useOrganizationScenariosQuery'
 import { useQueryClient } from '@tanstack/react-query'
 
 // テーブル列定義
@@ -130,46 +128,19 @@ export function ScenarioManagement() {
 
   // React Query でデータ管理
   const queryClient = useQueryClient()
-  
-  // 全件取得版（ダイアログ内の作者・カテゴリ選択やマスター比較で使用）
-  // レガシーUI無効時はダイアログが開かれるまで遅延ロード
+
+  // OrganizationScenarioList と同一クエリキーを使うため重複フェッチなし
   const {
-    data: allScenarios = [],
+    data: orgScenariosData,
     isLoading: loading,
-    error: queryError
-  } = useScenariosQuery()
-  
-  // 全シナリオの統計情報（公演回数、売上など）
-  // レガシーUI無効時はスキップ（新UIはビューの play_count を使用）
-  const { data: scenarioStats = {} } = useAllScenarioStatsQuery(ENABLE_LEGACY_SCENARIO_UI)
-  
+    error: queryError,
+  } = useOrganizationScenariosQuery(organization?.id)
+
+  const allScenarios = (orgScenariosData?.scenarios ?? []) as unknown as Scenario[]
+  const scenarioStats = {} // 新UIは play_count をビューから直接使用
+
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()
-  
-  // 店舗データ（対応店舗表示用）
-  const [stores, setStores] = useState<Store[]>([])
-  
-  // 店舗データ取得
-  useEffect(() => {
-    const loadStores = async () => {
-      try {
-        const data = await storeApi.getAll()
-        setStores(data)
-      } catch (error) {
-        logger.error('店舗データ取得エラー:', error)
-      }
-    }
-    loadStores()
-  }, [])
-  
-  // 店舗マップ（IDから店舗情報を取得）
-  const storeMap = useMemo(() => {
-    const map = new Map<string, { id: string; short_name: string }>()
-    stores.forEach(store => {
-      map.set(store.id, { id: store.id, short_name: store.short_name })
-    })
-    return map
-  }, [stores])
   
   // 表示用：段階的に表示する件数を管理
   const [displayCount, setDisplayCount] = useState(20)
@@ -350,15 +321,16 @@ export function ScenarioManagement() {
     }
   }
   
-  // テーブル列定義（useMemoは常に呼ばれる位置に）
+  // テーブル列定義（新UIでは storeMap 不使用のため空 Map を渡す）
+  const emptyStoreMap = useMemo(() => new Map<string, { id: string; short_name: string }>(), [])
   const tableColumns = useMemo(() => createScenarioColumns(displayMode, {
     onEdit: handleEditScenario,
     onDelete: openDeleteDialog,
     onImageUpload: handleImageUpload,
     onImageRemove: handleImageRemove
-  }, storeMap, scenarioStats),
+  }, emptyStoreMap, scenarioStats),
   // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
-  [displayMode, storeMap, scenarioStats])
+  [displayMode, emptyStoreMap, scenarioStats])
 
   const defaultColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
   const [columnPrefs, setColumnPrefs] = useTablePreferences('scenario-management', defaultColumnKeys)
