@@ -1090,14 +1090,12 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, orgId: strin
     console.error('[scenarios:delete] staff_scenario_assignments delete error:', assignmentError)
   }
 
-  // 4. performance_kits を削除
-  // NOTE: performance_kits は organization_id を持たない（または別構造）ため
-  // scenario_master_id のみで削除する。旧実装と同じ挙動。
-  // TODO: performance_kits が org_id を持つようになったら orgId でも絞り込む。
+  // 4. performance_kits を削除（自組織分のみ）
   const { error: kitsError } = await db
     .from('performance_kits')
     .delete()
     .eq('scenario_master_id', id)
+    .eq('organization_id', orgId)
   if (kitsError) {
     console.error('[scenarios:delete] performance_kits delete error:', kitsError)
   }
