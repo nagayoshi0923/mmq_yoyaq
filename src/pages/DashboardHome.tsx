@@ -341,7 +341,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
 
           {loading && staffName === '' ? (
-            <div className="rounded-2xl shadow-sm bg-card overflow-hidden divide-y divide-muted">
+            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="px-4 py-3 flex items-center gap-3">
                   <div className="w-12 shrink-0 space-y-1">
@@ -357,7 +357,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : upcomingEvents.length > 0 ? (
-            <div className="rounded-2xl shadow-sm bg-card overflow-hidden divide-y divide-muted/60">
+            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
               {upcomingEvents.map(event => (
                 <div
                   key={event.id}
@@ -389,7 +389,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl bg-muted/30 px-4 py-8 text-center">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-8 text-center">
               <p className="text-sm text-muted-foreground">直近の予定はありません</p>
             </div>
           )}
@@ -417,7 +417,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
         </div>
 
-        <Card className="rounded-2xl shadow-sm border-0 bg-card">
+        <Card className="rounded-2xl border border-border/60 bg-card">
           <CardContent className="p-4">
             {/* 曜日ヘッダー */}
             <div className="grid grid-cols-7 mb-2 text-center text-xs text-muted-foreground font-medium">
@@ -482,7 +482,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
             return (
               <button
                 key={tab.id}
-                className="group rounded-2xl bg-card shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 p-4 flex flex-col items-center justify-center text-center gap-2.5 cursor-pointer focus:outline-none"
+                className="group rounded-2xl border border-border/60 bg-card hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 p-4 flex flex-col items-center justify-center text-center gap-2.5 cursor-pointer focus:outline-none"
                 onClick={() => onPageChange(tab.id)}
               >
                 <div className={`p-3 rounded-2xl ${bgColor} transition-transform group-hover:scale-105`}>
@@ -499,11 +499,11 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       <section>
         <h2 className="text-base font-semibold mb-4">今月の実績（概算）</h2>
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-card rounded-2xl shadow-sm p-4 text-center">
+          <div className="bg-card rounded-2xl border border-border/60 p-4 text-center">
             <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
             <div className="font-bold text-2xl text-primary" {...devDb('schedule_events.filter(gm).count()')}>{myStats.count}<span className="text-sm font-normal text-muted-foreground ml-1">回</span></div>
           </div>
-          <div className="bg-card rounded-2xl shadow-sm p-4 text-center">
+          <div className="bg-card rounded-2xl border border-border/60 p-4 text-center">
             <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
             <div className="font-bold text-2xl text-primary" {...devDb('schedule_events.sum(gm_costs)')}>¥{myStats.salary.toLocaleString()}</div>
           </div>
@@ -515,19 +515,19 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         <section>
           <h2 className="text-base font-semibold mb-4">管理者用データ</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
               <div className="text-xs text-muted-foreground mb-1">今月の売上</div>
               <div className="font-bold" {...devDb('reservations.sum(total_amount)')}>¥{stats.revenue.toLocaleString()}</div>
             </div>
-            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
               <div className="text-xs text-muted-foreground mb-1">予約件数</div>
               <div className="font-bold" {...devDb('reservations.count()')}>{stats.reservations}件</div>
             </div>
-            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
               <div className="text-xs text-muted-foreground mb-1">公演数</div>
               <div className="font-bold" {...devDb('schedule_events.count()')}>{stats.performances}回</div>
             </div>
-            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
               <div className="text-xs text-muted-foreground mb-1">稼働店舗</div>
               <div className="font-bold" {...devDb('stores.count()')}>{stats.stores}店</div>
             </div>
