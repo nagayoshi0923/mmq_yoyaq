@@ -407,25 +407,27 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
         if (canEdit) {
           const isSubmitting = submittingMasterId === scenario.scenario_master_id
           return (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-5 px-1.5 text-[10px] text-blue-600 border-blue-300 hover:bg-blue-50"
-                  onClick={(e) => { e.stopPropagation(); handleSubmitToMMQ(scenario) }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting
-                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                    : <><Send className="h-3 w-3 mr-0.5" />申請</>
-                  }
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="text-xs max-w-[200px]">
-                MMQプラットフォームに掲載申請します。承認後、全体検索に表示されます。
-              </TooltipContent>
-            </Tooltip>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] text-blue-600 border-blue-300 hover:bg-blue-50"
+                    onClick={(e) => { e.stopPropagation(); handleSubmitToMMQ(scenario) }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <><Send className="h-3 w-3 mr-0.5" />申請</>
+                    }
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs max-w-[200px]">
+                  MMQプラットフォームに掲載申請します。承認後、全体検索に表示されます。
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         }
         return <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-200 px-1 py-0">未申請</Badge>
