@@ -1,7 +1,6 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
@@ -112,8 +111,8 @@ export function GmSettingsSectionV2({
   return (
     <div className="space-y-4">
       {/* 必要GM数 */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="p-2">
           <div className="grid grid-cols-2 gap-5">
             <div>
               <Label className={labelStyle}>必要GM数</Label>
@@ -132,12 +131,12 @@ export function GmSettingsSectionV2({
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* 担当GM */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="p-2">
           <Label className={labelStyle}>担当GM</Label>
           <p className={hintStyle}>このシナリオのGMを担当できるスタッフ。メイン/サブの可否を個別に設定できます</p>
           {loadingStaff ? (
@@ -205,12 +204,12 @@ export function GmSettingsSectionV2({
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* GM報酬 */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="p-2">
           <Label className={labelStyle}>GM報酬</Label>
           
           {/* 個別設定がない場合：デフォルトを使用 */}
@@ -355,8 +354,8 @@ export function GmSettingsSectionV2({
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

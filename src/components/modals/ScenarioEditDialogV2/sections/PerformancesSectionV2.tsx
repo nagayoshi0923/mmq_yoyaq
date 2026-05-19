@@ -437,7 +437,7 @@ export function PerformancesSectionV2({
         })
 
         return (
-          <Card key={year}>
+          <div key={year} className="rounded-lg border bg-slate-50/70 p-3">
             <div className="pt-2">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-sm text-muted-foreground">

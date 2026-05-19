@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -118,8 +117,8 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
   return (
     <div className="space-y-4">
       {/* プレイ情報 */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="p-2">
           <div className="grid grid-cols-2 gap-5">
             {/* 所要時間 */}
             <div>
@@ -311,12 +310,12 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* カテゴリ・ステータス */}
-      <Card>
-        <CardContent className="p-2">
+      <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="p-2">
           <div className="grid grid-cols-2 gap-5">
             <div>
               <Label className={labelStyle}>カテゴリ</Label>
@@ -388,8 +387,8 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* カテゴリ追加・編集ダイアログ */}
       <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingOldCategoryName(null) } setIsAddCategoryDialogOpen(open) }}>
