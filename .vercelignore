@@ -1,0 +1,54 @@
+# ビルドに不要なファイルをVercelアップロード対象から除外
+
+# SQLファイル
+*.sql
+
+# Pythonスクリプト
+*.py
+
+# シェルスクリプト（ルート直下）
+*.sh
+
+# テスト・E2E
+tests/
+e2e/
+playwright.config.ts
+
+# ドキュメント・メモ
+docs/
+*.md
+!README.md
+
+# HTMLユーティリティ
+add-demo-participants.html
+test-*.html
+test-*.ts
+
+# テキスト・データファイル
+*.txt
+gm_data.txt
+price_data_corrected.txt
+name_mapping.txt
+
+# DB関連
+database/
+supabase/migrations/
+supabase/seed.sql
+
+# スクリプト（ビルド不要なもの）
+scripts/
+
+# General・Reference（ドキュメントフォルダ）
+General/
+Reference/
+rules/
+
+# 開発用設定
+.cursorrules
+CLAUDE.md
+DEPLOY_CHECKLIST.md
+BOOKING_FIX_SUMMARY.md
+SUPABASE_DEPLOY_GUIDE.md
+
+# distはビルド後に生成されるのでignore不要だが念のため
+dist/

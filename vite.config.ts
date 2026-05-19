@@ -30,6 +30,7 @@ export default defineConfig({
     ],
   },
   build: {
+    target: 'esnext',
     // チャンクサイズ警告のしきい値を上げる（KB単位）
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
