@@ -275,13 +275,13 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const needsOnboarding = isAdmin && storeCount === 0
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-8 pb-20">
       {/* オンボーディングバナー */}
       {needsOnboarding && (
-        <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 rounded-2xl shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-full bg-primary/20">
+              <div className="p-3 rounded-2xl bg-primary/15">
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
               <div className="flex-1">
@@ -290,8 +290,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                   MMQを始めるために、まずは基本設定を行いましょう。
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => onPageChange('stores')}
                     className="gap-2"
                   >
@@ -299,18 +299,18 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                     店舗を登録する
                     <ArrowRight className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => onPageChange('scenarios')}
                     className="gap-2"
                   >
                     <BookOpen className="h-4 w-4" />
                     シナリオを登録する
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => onPageChange('organization-settings')}
                     className="gap-2"
                   >
@@ -328,20 +328,22 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. 直近の出勤予定 */}
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold">直近の出勤予定</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-xl bg-primary/10">
+              <Clock className="h-4 w-4 text-primary" />
+            </div>
+            <h2 className="text-base font-semibold">直近の出勤予定</h2>
             {upcomingEvents.length > 0 && (
               <span className="text-xs text-muted-foreground">
                 （{upcomingEvents.length}件）
               </span>
             )}
           </div>
-          
+
           {loading && staffName === '' ? (
-            <div className="border rounded-lg divide-y divide-border bg-background">
+            <div className="rounded-2xl shadow-sm bg-card overflow-hidden divide-y divide-muted">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="px-3 py-2 flex items-center gap-3">
+                <div key={i} className="px-4 py-3 flex items-center gap-3">
                   <div className="w-12 shrink-0 space-y-1">
                     <Skeleton className="h-3 w-8 mx-auto" />
                     <Skeleton className="h-3 w-6 mx-auto" />
@@ -355,18 +357,18 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
               ))}
             </div>
           ) : upcomingEvents.length > 0 ? (
-            <div className="border rounded-lg divide-y divide-border bg-background">
+            <div className="rounded-2xl shadow-sm bg-card overflow-hidden divide-y divide-muted/60">
               {upcomingEvents.map(event => (
                 <div
                   key={event.id}
-                  className="px-3 py-2 flex items-center gap-3 cursor-pointer hover:bg-accent/40 transition-colors"
+                  className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-primary/5 transition-colors"
                   onClick={() => handleEventClick(event)}
                 >
-                  <div className="text-center flex-shrink-0 w-12">
-                    <div className="text-xs text-muted-foreground">
+                  <div className="text-center flex-shrink-0 w-11 bg-primary/10 rounded-xl py-1.5">
+                    <div className="text-sm font-semibold text-primary leading-tight">
                       {format(parseISO(event.date), 'M/d')}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">
+                    <div className="text-[10px] text-primary/60">
                       {format(parseISO(event.date), 'EEE', { locale: ja })}
                     </div>
                   </div>
@@ -376,98 +378,91 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                         ? 'MTG'
                         : event.scenarios?.title || event.scenario || 'タイトル未定'}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {event.start_time?.slice(0, 5) || ''}〜 @ {(event as any).stores?.name || event.venue}
                     </div>
                   </div>
-                  <div className="flex-shrink-0 text-xs text-muted-foreground">
+                  <div className="flex-shrink-0 text-xs text-muted-foreground tabular-nums">
                     {event.current_participants}/{(event as any).max_participants ?? (event as any).capacity ?? 8}名
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground py-2">
-              直近の予定はありません
+            <div className="rounded-2xl bg-muted/30 px-4 py-8 text-center">
+              <p className="text-sm text-muted-foreground">直近の予定はありません</p>
             </div>
           )}
         </section>
 
         {/* 2. 今月のスケジュール（カレンダー） */}
         <section>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold">マイスケジュール</h2>
+            <div className="p-1.5 rounded-xl bg-primary/10">
+              <CalendarIcon className="h-4 w-4 text-primary" />
+            </div>
+            <h2 className="text-base font-semibold">マイスケジュール</h2>
           </div>
-          <div className="flex items-center gap-1 bg-accent/30 rounded-md p-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
+          <div className="flex items-center gap-0.5 bg-muted/50 rounded-xl p-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm font-medium w-20 text-center">
               {format(currentMonth, 'yyyy年M月')}
             </span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <Card>
-          <CardContent className="p-3 sm:p-4">
+        <Card className="rounded-2xl shadow-sm border-0 bg-card">
+          <CardContent className="p-4">
             {/* 曜日ヘッダー */}
             <div className="grid grid-cols-7 mb-2 text-center text-xs text-muted-foreground font-medium">
-              <div className="text-red-500">日</div>
+              <div className="text-red-400">日</div>
               <div>月</div>
               <div>火</div>
               <div>水</div>
               <div>木</div>
               <div>金</div>
-              <div className="text-blue-500">土</div>
+              <div className="text-blue-400">土</div>
             </div>
-            
+
             {/* 日付グリッド */}
-            <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day, index) => {
                 if (!day) return <div key={`blank-${index}`} className="aspect-square" />
-                
+
                 const dateStr = format(day, 'yyyy-MM-dd')
                 const dayEvents = getEventsForDate(day)
                 const hasEvent = dayEvents.length > 0
-                
+
                 return (
-                  <div 
+                  <div
                     key={dateStr}
                     className={`
-                      aspect-square rounded-md flex flex-col items-center justify-start pt-1 sm:pt-2 relative border cursor-pointer transition-colors
-                      ${isToday(day) ? 'bg-primary/5 border-primary font-bold' : 'border-transparent hover:bg-accent'}
-                      ${hasEvent ? 'bg-accent/30' : ''}
+                      aspect-square rounded-xl flex flex-col items-center justify-start pt-1.5 relative cursor-pointer transition-all
+                      ${isToday(day)
+                        ? 'bg-primary/10 ring-1 ring-primary/30 font-bold'
+                        : 'hover:bg-muted/60'}
+                      ${hasEvent && !isToday(day) ? 'bg-primary/5' : ''}
                     `}
                     onClick={() => handleDateClick(day)}
                   >
-                    <span className={`text-xs sm:text-sm ${getDay(day) === 0 ? 'text-red-500' : getDay(day) === 6 ? 'text-blue-500' : ''}`}>
+                    <span className={`text-xs sm:text-sm leading-none ${getDay(day) === 0 ? 'text-red-400' : getDay(day) === 6 ? 'text-blue-400' : isToday(day) ? 'text-primary' : ''}`}>
                       {format(day, 'd')}
                     </span>
-                    
-                    {/* イベントタイトル */}
-                    <div className="flex flex-col gap-0.5 mt-0.5 w-full px-0.5 overflow-hidden">
-                      {dayEvents.slice(0, 2).map((e, i) => {
-                        // タイトル表示ロジック: MTGカテゴリ → シナリオタイトル → 「タイトル未定」
-                        const displayTitle = e.category === 'mtg'
-                          ? 'MTG'
-                          : e.scenarios?.title || e.scenario || 'タイトル未定'
-                        const startTime = e.start_time?.slice(0, 5) || ''
-                        return (
-                          <div key={i} className="text-[8px] sm:text-[10px] leading-tight truncate text-primary w-full text-center">
-                            {startTime && <span className="text-muted-foreground">{startTime} </span>}
-                            {displayTitle}
-                          </div>
-                        )
-                      })}
-                      {dayEvents.length > 2 && (
-                        <div className="text-[8px] text-muted-foreground text-center">+{dayEvents.length - 2}</div>
-                      )}
-                    </div>
+
+                    {/* イベントドット */}
+                    {hasEvent && (
+                      <div className="flex gap-0.5 mt-1 flex-wrap justify-center px-1">
+                        {dayEvents.slice(0, 3).map((_, i) => (
+                          <div key={i} className="w-1 h-1 rounded-full bg-primary/50 shrink-0" />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -479,66 +474,61 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
 
       {/* 3. クイックリンク */}
       <section>
-        <h2 className="text-lg font-bold mb-3">クイックメニュー</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <h2 className="text-base font-semibold mb-4">クイックメニュー</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
+            const [bgColor, textColor] = tab.color.split(' ')
             return (
-              <Card 
-                key={tab.id} 
-                className="hover:bg-accent cursor-pointer transition-colors"
+              <button
+                key={tab.id}
+                className="group rounded-2xl bg-card shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 p-4 flex flex-col items-center justify-center text-center gap-2.5 cursor-pointer focus:outline-none"
                 onClick={() => onPageChange(tab.id)}
               >
-                <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
-                  <div className={`p-2 rounded-full ${tab.color.split(' ')[0]} bg-opacity-20`}>
-                    <Icon className={`h-5 w-5 ${tab.color.split(' ')[1]}`} />
-                  </div>
-                  <span className="text-sm font-medium">{tab.label}</span>
-                </CardContent>
-              </Card>
+                <div className={`p-3 rounded-2xl ${bgColor} transition-transform group-hover:scale-105`}>
+                  <Icon className={`h-5 w-5 ${textColor}`} />
+                </div>
+                <span className="text-sm font-medium text-foreground">{tab.label}</span>
+              </button>
             )
           })}
         </div>
       </section>
 
       {/* 4. スタッフ向け統計情報（出勤数・給与概算）- 全員に表示 */}
-      <section className="pt-4 border-t border-border">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-bold">今月の実績（概算）</h2>
-        </div>
+      <section>
+        <h2 className="text-base font-semibold mb-4">今月の実績（概算）</h2>
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-muted/50 p-3 rounded text-center">
+          <div className="bg-card rounded-2xl shadow-sm p-4 text-center">
             <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
-            <div className="font-bold text-xl" {...devDb('schedule_events.filter(gm).count()')}>{myStats.count}回</div>
+            <div className="font-bold text-2xl text-primary" {...devDb('schedule_events.filter(gm).count()')}>{myStats.count}<span className="text-sm font-normal text-muted-foreground ml-1">回</span></div>
           </div>
-          <div className="bg-muted/50 p-3 rounded text-center">
+          <div className="bg-card rounded-2xl shadow-sm p-4 text-center">
             <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
-            <div className="font-bold text-xl" {...devDb('schedule_events.sum(gm_costs)')}>¥{myStats.salary.toLocaleString()}</div>
+            <div className="font-bold text-2xl text-primary" {...devDb('schedule_events.sum(gm_costs)')}>¥{myStats.salary.toLocaleString()}</div>
           </div>
         </div>
       </section>
 
       {/* 5. 管理者向け統計情報（控えめに表示） */}
       {isAdmin && (
-        <section className="pt-4 border-t border-border">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-bold">管理者用データ</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="bg-muted/50 p-2 rounded text-center">
-              <div className="text-xs text-muted-foreground">今月の売上</div>
+        <section>
+          <h2 className="text-base font-semibold mb-4">管理者用データ</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">今月の売上</div>
               <div className="font-bold" {...devDb('reservations.sum(total_amount)')}>¥{stats.revenue.toLocaleString()}</div>
             </div>
-            <div className="bg-muted/50 p-2 rounded text-center">
-              <div className="text-xs text-muted-foreground">予約件数</div>
+            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">予約件数</div>
               <div className="font-bold" {...devDb('reservations.count()')}>{stats.reservations}件</div>
             </div>
-            <div className="bg-muted/50 p-2 rounded text-center">
-              <div className="text-xs text-muted-foreground">公演数</div>
+            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">公演数</div>
               <div className="font-bold" {...devDb('schedule_events.count()')}>{stats.performances}回</div>
             </div>
-            <div className="bg-muted/50 p-2 rounded text-center">
-              <div className="text-xs text-muted-foreground">稼働店舗</div>
+            <div className="bg-card rounded-2xl shadow-sm p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">稼働店舗</div>
               <div className="font-bold" {...devDb('stores.count()')}>{stats.stores}店</div>
             </div>
           </div>
