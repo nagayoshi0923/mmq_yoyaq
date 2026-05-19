@@ -767,8 +767,8 @@ export function PlatformScenarioSearch() {
                           ? `${Math.floor(scenario.duration / 60)}h${scenario.duration % 60 > 0 ? `${scenario.duration % 60}m` : ''}`
                           : `${scenario.duration}分`}
                       </span>
-                      {scenario.participation_fee != null && (
-                        <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
+                      {scenario.participation_fee != null && scenario.participation_fee !== undefined && Number.isFinite(Number(scenario.participation_fee)) && (
+                        <span>¥{Number(scenario.participation_fee).toLocaleString()}〜</span>
                       )}
                     </div>
 
