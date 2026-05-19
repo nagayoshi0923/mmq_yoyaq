@@ -102,9 +102,10 @@ export const scenarioApi = {
   // slugでシナリオを取得（バックエンド経由）。
   // organizationId 引数は後方互換のため残すが、サーバー側で JWT から org_id を取得するため使われない。
   // 自組織で見つからない場合は is_shared=true の共有シナリオから検索（サーバー側でフィルタ）。
-  async getBySlug(slug: string, _organizationId?: string): Promise<Scenario | null> {
+  async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
     try {
       const params = new URLSearchParams({ slug })
+      if (organizationId) params.set('org_id', organizationId)
       const result = await apiClient.get<Scenario | null>(`/api/scenarios?${params}`)
       return result
     } catch (err) {
