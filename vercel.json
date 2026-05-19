@@ -2,7 +2,7 @@
   "buildCommand": "npm run build:fast",
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
-  "installCommand": "npm ci",
+  "installCommand": "npm ci --no-audit --no-fund",
   "framework": "vite",
   "cleanUrls": false,
   "trailingSlash": false,
