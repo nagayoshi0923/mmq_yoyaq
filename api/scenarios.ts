@@ -81,6 +81,24 @@ const PUBLIC_FIELDS = [
   'status', 'participation_fee', 'scenario_type', 'organization_id',
 ].join(', ')
 
+// 未ログイン顧客がシナリオ詳細ページで参照する公開フィールド。
+// 営業/制作系のカラム（gm_costs, license_amount, gm_assignments, notes 等）は含めない。
+const PUBLIC_DETAIL_FIELDS = [
+  'id', 'org_scenario_id', 'organization_id', 'scenario_master_id', 'slug',
+  'status', 'title', 'author', 'key_visual_url',
+  'description', 'synopsis', 'caution',
+  'player_count_min', 'player_count_max', 'male_count', 'female_count', 'other_count',
+  'duration', 'weekend_duration', 'extra_preparation_time',
+  'genre', 'difficulty', 'has_pre_reading',
+  'release_date', 'official_site_url',
+  'participation_fee', 'participation_costs',
+  'available_stores',
+  'is_shared', 'scenario_type', 'rating',
+  'characters',
+  'booking_start_date', 'booking_end_date',
+  'private_booking_time_slots', 'private_booking_blocked_slots',
+].join(', ')
+
 // 統計集計用に getScenarioStats が必要とする最小カラム
 const STATS_SCENARIO_FIELDS = [
   'player_count_max', 'license_amount', 'gm_test_license_amount',
@@ -115,7 +133,7 @@ const DEMO_RESERVATION_SOURCES = new Set<string>([
 ])
 
 // ─── 認証ヘルパー ─────────────────────────────────────────────────────────────
-type AuthResult = { orgId: string; userId: string; role: string }
+type AuthResult = { orgId: string; userId: string; role: string; isAnon: boolean }
 
 async function authenticate(
   req: VercelRequest,
@@ -132,6 +150,19 @@ async function authenticate(
   }
 
   const authHeader = req.headers['authorization'] as string | undefined
+
+  // 未ログイン GET: 公開シナリオ詳細（id / slug 単発取得）のみ許可。
+  // org_id クエリ必須（どの組織のラインナップを引くかを特定する）。
+  // 一覧系・統計系・書き込み系は引き続き Authorization 必須。
+  if (req.method === 'GET' && !authHeader?.startsWith('Bearer ')) {
+    const queryOrgId = req.query.org_id as string | undefined
+    if (!queryOrgId) {
+      res.status(401).json({ error: 'Authorization ヘッダが必要です' })
+      return null
+    }
+    return { orgId: queryOrgId, userId: '', role: 'anon', isAnon: true }
+  }
+
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Authorization ヘッダが必要です' })
     return null
@@ -172,6 +203,7 @@ async function authenticate(
     userId: user.id,
     orgId,
     role,
+    isAnon: false,
   }
 }
 
@@ -188,10 +220,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await authenticate(req, res)
   if (!auth) return // authenticate がレスポンスを返している
 
-  const { orgId } = auth
+  const { orgId, isAnon } = auth
 
   try {
-    if (method === 'GET') return await routeGet(req, res, orgId)
+    if (method === 'GET') return await routeGet(req, res, orgId, isAnon)
     if (method === 'POST') return await routePost(req, res, orgId)
     if (method === 'PATCH') return await routePatch(req, res, orgId)
     if (method === 'DELETE') return await routeDelete(req, res, orgId)
@@ -205,15 +237,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 // ─── GET ルーティング ─────────────────────────────────────────────────────────
-async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) {
+async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string, isAnon: boolean) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
   const id = req.query.id as string | undefined
   const slug = req.query.slug as string | undefined
   const type = req.query.type as string | undefined
 
-  if (id) return await handleGetById(res, orgId, id)
-  if (slug) return await handleGetBySlug(res, orgId, slug)
+  if (id) return await handleGetById(res, orgId, id, isAnon)
+  if (slug) return await handleGetBySlug(res, orgId, slug, isAnon)
+
+  // anon でアクセス可能なのは id / slug 単発取得のみ（一覧・統計は admin/staff 専用）
+  if (isAnon) {
+    return res.status(401).json({ error: 'Authorization ヘッダが必要です' })
+  }
 
   if (type === 'legacy') return await handleGetAllLegacy(res, orgId)
   if (type === 'public') return await handleGetPublic(res, orgId)
@@ -239,40 +276,46 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
 
 // 単一シナリオ取得: master_id または org_scenario_id で、まず自組織を、ダメなら共有シナリオを検索。
 // 他組織の非共有シナリオを返さないよう is_shared=true で明示フィルタする（RLS に依存しない）。
-async function handleGetById(res: VercelResponse, orgId: string, id: string) {
+// anon の場合は公開フィールド + status='available' で絞り込む。
+async function handleGetById(res: VercelResponse, orgId: string, id: string, isAnon: boolean) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
+  const fields = isAnon ? PUBLIC_DETAIL_FIELDS : SELECT_FIELDS
+
   // 1. 自組織で id (= scenario_master_id) で検索
-  const r1 = await db
+  let q1 = db
     .from('organization_scenarios_with_master')
-    .select(SELECT_FIELDS)
+    .select(fields)
     .eq('id', id)
     .eq('organization_id', orgId)
-    .maybeSingle()
+  if (isAnon) q1 = q1.eq('status', 'available')
+  const r1 = await q1.maybeSingle()
   if (r1.data) return res.status(200).json(r1.data)
   if (r1.error && r1.error.code !== 'PGRST116') {
     console.error('[scenarios:getById] step1 error:', r1.error)
   }
 
   // 2. 自組織で org_scenario_id でも検索
-  const r2 = await db
+  let q2 = db
     .from('organization_scenarios_with_master')
-    .select(SELECT_FIELDS)
+    .select(fields)
     .eq('org_scenario_id', id)
     .eq('organization_id', orgId)
-    .maybeSingle()
+  if (isAnon) q2 = q2.eq('status', 'available')
+  const r2 = await q2.maybeSingle()
   if (r2.data) return res.status(200).json(r2.data)
   if (r2.error && r2.error.code !== 'PGRST116') {
     console.error('[scenarios:getById] step2 error:', r2.error)
   }
 
   // 3. 共有シナリオ（他組織でも is_shared=true なら可）から id 検索
-  const r3 = await db
+  let q3 = db
     .from('organization_scenarios_with_master')
-    .select(SELECT_FIELDS)
+    .select(fields)
     .eq('id', id)
     .eq('is_shared', true)
-    .limit(1)
+  if (isAnon) q3 = q3.eq('status', 'available')
+  const r3 = await q3.limit(1)
   if (r3.error) {
     console.error('[scenarios:getById] step3 error:', r3.error)
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: r3.error.message })
@@ -280,12 +323,13 @@ async function handleGetById(res: VercelResponse, orgId: string, id: string) {
   if (r3.data?.[0]) return res.status(200).json(r3.data[0])
 
   // 4. 共有シナリオから org_scenario_id でも検索
-  const r4 = await db
+  let q4 = db
     .from('organization_scenarios_with_master')
-    .select(SELECT_FIELDS)
+    .select(fields)
     .eq('org_scenario_id', id)
     .eq('is_shared', true)
-    .limit(1)
+  if (isAnon) q4 = q4.eq('status', 'available')
+  const r4 = await q4.limit(1)
   if (r4.error) {
     console.error('[scenarios:getById] step4 error:', r4.error)
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: r4.error.message })
@@ -299,16 +343,19 @@ async function handleGetById(res: VercelResponse, orgId: string, id: string) {
 // 2. 他組織の slug からマスターIDを取得 → 自組織でそのマスターIDを検索
 //    （マスターのslugを複数組織で共有する場合の正しい引き当て）
 // 3. is_shared=true の共有シナリオから検索（フォールバック）
-async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string) {
+async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string, isAnon: boolean) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
+  const fields = isAnon ? PUBLIC_DETAIL_FIELDS : SELECT_FIELDS
+
   // Step 1: 自組織の org_slug で検索
-  const r1 = await db
+  let q1 = db
     .from('organization_scenarios_with_master')
-    .select(SELECT_FIELDS)
+    .select(fields)
     .eq('slug', slug)
     .eq('organization_id', orgId)
-    .maybeSingle()
+  if (isAnon) q1 = q1.eq('status', 'available')
+  const r1 = await q1.maybeSingle()
   if (r1.data) return res.status(200).json(r1.data)
   if (r1.error && r1.error.code !== 'PGRST116') {
     console.error('[scenarios:getBySlug] step1 error:', r1.error)
@@ -324,23 +371,25 @@ async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string)
       .limit(1)
     const masterIdFromSlug = rMaster.data?.[0]?.scenario_master_id
     if (masterIdFromSlug) {
-      const rOrg = await db
+      let qOrg = db
         .from('organization_scenarios_with_master')
-        .select(SELECT_FIELDS)
+        .select(fields)
         .eq('scenario_master_id', masterIdFromSlug)
         .eq('organization_id', orgId)
-        .maybeSingle()
+      if (isAnon) qOrg = qOrg.eq('status', 'available')
+      const rOrg = await qOrg.maybeSingle()
       if (rOrg.data) return res.status(200).json(rOrg.data)
     }
   }
 
   // Step 3: is_shared=true の共有シナリオから（フォールバック）
-  const r2 = await db
+  let q2 = db
     .from('organization_scenarios_with_master')
-    .select(SELECT_FIELDS)
+    .select(fields)
     .eq('slug', slug)
     .eq('is_shared', true)
-    .limit(1)
+  if (isAnon) q2 = q2.eq('status', 'available')
+  const r2 = await q2.limit(1)
   if (r2.error) {
     console.error('[scenarios:getBySlug] step2 error:', r2.error)
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: r2.error.message })
