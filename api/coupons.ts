@@ -63,19 +63,23 @@ const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   )
 `
 
-// JWT user.id から customer 行を1件取得（重複行があっても order + limit(1) で安全）
+// JWT user.id から customer 行を1件取得。
+// platform_customers_phase1 マイグレーション以降、ログイン済み顧客の customers 行は
+// organization_id = NULL（プラットフォーム共通）になっているため、user_id だけで一意に引く。
+// organizationId 引数は呼び出し側互換のため残すが使わない（customers の org フィルタは外す）。
 async function findCustomerByUserId(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   database: any,
   userId: string,
-  organizationId: string | null,
+  _organizationId: string | null,
   selectFields = 'id'
 ): Promise<Record<string, unknown> | null> {
-  let query = database.from('customers').select(selectFields).eq('user_id', userId)
-  if (organizationId) {
-    query = query.eq('organization_id', organizationId)
-  }
-  const { data } = await query.order('created_at', { ascending: true }).limit(1)
+  const { data } = await database
+    .from('customers')
+    .select(selectFields)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
   return (data?.[0] as Record<string, unknown>) ?? null
 }
 
