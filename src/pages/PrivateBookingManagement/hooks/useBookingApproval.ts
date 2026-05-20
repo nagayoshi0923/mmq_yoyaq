@@ -327,7 +327,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 logger.error('GM確定通知エラー:', { gmName: row.name, error: notifyFnError })
                 showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
               } else if (notifyResult?.results?.discord === 'failed') {
-                showToast.warning(`${row.name} へのDiscord通知が失敗しました。メール通知または手動連絡をご確認ください。`)
+                showToast.warning(`${row.name} へのDiscord通知が失敗しました。チャンネル設定またはBot権限をご確認ください。`)
               }
             }))
           })(),
