@@ -224,14 +224,17 @@ async function handleAvailable(
   const customer = await findCustomerByUserId(database, userId, organizationId)
   if (!customer) return res.status(200).json([])
 
-  const { data, error } = await database
+  // platform customer (organizationId='') では .eq('organization_id', '') が一致しないため
+  // org フィルタを条件付きに（customer_id 一致で本人特定済み）。
+  let availableQuery = database
     .from('customer_coupons')
     .select(CUSTOMER_COUPON_FIELDS)
     .eq('customer_id', customer.id)
-    .eq('organization_id', organizationId)
     .eq('status', 'active')
     .gt('uses_remaining', 0)
     .order('created_at', { ascending: false })
+  if (organizationId) availableQuery = availableQuery.eq('organization_id', organizationId)
+  const { data, error } = await availableQuery
 
   if (error) {
     console.error('[coupons:available] DB error:', error)
