@@ -248,12 +248,13 @@ async function handleGetAvailability(req: VercelRequest, res: VercelResponse, or
   }
 
   // マルチテナント境界: schedule_event が自組織のものか
-  const { data: ev, error: evError } = await db
+  // platform customer (orgId='') では org 一致を要求しない（schedule_event_id 単独で検証）
+  let evQ = db
     .from('schedule_events')
     .select('id')
     .eq('id', scheduleEventId)
-    .eq('organization_id', orgId)
-    .maybeSingle()
+  if (orgId) evQ = evQ.eq('organization_id', orgId)
+  const { data: ev, error: evError } = await evQ.maybeSingle()
   if (evError) {
     console.error('[reservations:availability] schedule_events check error:', evError)
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: evError.message })
