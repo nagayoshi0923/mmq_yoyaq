@@ -468,15 +468,19 @@ async function handleCurrentReservations(
   const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
 
   // 1. 通常予約（自分が customer_id の予約 / 組織スコープも検証）
+  // ⚠️ platform customer (user.orgId='') の場合、reservations.organization_id は実際の
+  //    予約先 org の UUID なので .eq(organization_id, '') では一致せず 0 件になる。
+  //    user.orgId が空のときは org フィルタを掛けず、customer_id 一致だけで安全に絞る。
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let directReservations: any[] = []
   if (customer) {
-    const { data, error } = await database
+    let q = database
       .from('reservations')
       .select('id, schedule_event_id, organization_id')
       .eq('customer_id', customer.id)
-      .eq('organization_id', user.orgId)
       .eq('status', 'confirmed')
+    if (user.orgId) q = q.eq('organization_id', user.orgId)
+    const { data, error } = await q
     if (error) console.error('[coupons:current-reservations] direct error:', error)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     directReservations = (data as any[]) ?? []
@@ -497,12 +501,14 @@ async function handleCurrentReservations(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupIds = ((members as any[]) ?? []).map((m: any) => m.group_id).filter(Boolean)
     if (groupIds.length > 0) {
-      const { data: groups } = await database
+      // platform customer は user.orgId='' なので org フィルタを条件付きに
+      let groupsQ = database
         .from('private_groups')
         .select('id, reservation_id, status, organization_id')
         .in('id', groupIds)
         .not('reservation_id', 'is', null)
-        .eq('organization_id', user.orgId)
+      if (user.orgId) groupsQ = groupsQ.eq('organization_id', user.orgId)
+      const { data: groups } = await groupsQ
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reservationIds = ((groups as any[]) ?? [])
@@ -513,11 +519,12 @@ async function handleCurrentReservations(
       const groupStatusByRes = new Map<string, string>(((groups as any[]) ?? []).map((g: any) => [g.reservation_id, g.status]))
 
       if (reservationIds.length > 0) {
-        const { data: reservationRows } = await database
+        let resQ = database
           .from('reservations')
           .select('id, schedule_event_id, status, organization_id')
           .in('id', reservationIds)
-          .eq('organization_id', user.orgId)
+        if (user.orgId) resQ = resQ.eq('organization_id', user.orgId)
+        const { data: reservationRows } = await resQ
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const r of ((reservationRows as any[]) ?? [])) {
@@ -533,9 +540,10 @@ async function handleCurrentReservations(
   }
 
   // 3. スタッフ予約（payment_method='staff' or reservation_source='staff_entry'/'staff_participation'）— 組織スコープ
+  // platform customer (staffRecord 無し / user.orgId 空) はそもそも staff 予約を持たないのでスキップ
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let staffReservations: any[] = []
-  {
+  if (staffRecord && user.orgId) {
     const { data, error } = await database
       .from('reservations')
       .select('id, participant_names, schedule_event_id, organization_id')
@@ -556,11 +564,14 @@ async function handleCurrentReservations(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const eventsMap: Record<string, any> = {}
   if (eventIds.size > 0) {
-    const { data: events } = await database
+    // platform customer (user.orgId='') の場合、reservation 自体は他組織のものを
+    // 既に許可しているので、events 取得時の org フィルタも条件付きにする。
+    let evQ = database
       .from('schedule_events')
       .select('id, date, start_time, end_time, scenario, venue, organization_id, stores (name)')
       .in('id', Array.from(eventIds))
-      .eq('organization_id', user.orgId)
+    if (user.orgId) evQ = evQ.eq('organization_id', user.orgId)
+    const { data: events } = await evQ
     if (events) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const ev of events as any[]) {
@@ -894,16 +905,16 @@ async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: Au
     return res.status(404).json({ success: false, error: 'クーポンが見つかりません' })
   }
 
-  // 本人検証: customer_id が JWT user_id ⇒ customers から引いた本人のもので、
-  // かつ coupon の organization_id と一致することを保証する。
-  let ownerQuery = database
+  // 本人検証: customer_id が JWT user_id の顧客 (customers から引いた本人) であることを保証する。
+  // platform_customers_phase1 以降ログイン済み顧客の customers.organization_id は NULL
+  // なので、coupon.organization_id との一致チェックを行うと platform 顧客は常に
+  // owner 検証で 0 行になり「クーポンが見つかりません」と返ってしまう。
+  // customers.id は PK で id + user_id だけで本人特定として十分なので org 一致は要求しない。
+  const ownerQuery = database
     .from('customers')
     .select('id, organization_id')
     .eq('id', coupon.customer_id)
     .eq('user_id', user.userId)
-  if (coupon.organization_id) {
-    ownerQuery = ownerQuery.eq('organization_id', coupon.organization_id)
-  }
   const { data: ownerRows } = await ownerQuery.limit(1)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const customer = ((ownerRows as any[]) ?? [])[0]
