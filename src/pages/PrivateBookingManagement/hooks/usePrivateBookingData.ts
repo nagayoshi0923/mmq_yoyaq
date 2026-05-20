@@ -46,6 +46,10 @@ export interface PrivateBookingRequest {
   scenario_player_count_range?: { min: number; max: number } | null
   notes: string
   status: string
+  /** 承認者（confirmed_by → staff.name） */
+  approver_name?: string
+  /** 承認日時（confirmed のときに updated_at を流用） */
+  approved_at?: string
   gm_responses?: Array<{
     staff_id?: string
     gm_name?: string
@@ -123,7 +127,8 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         .select(`
           *,
           scenario_masters:scenario_master_id(title),
-          customers:customer_id(name, phone)
+          customers:customer_id(name, phone),
+          confirmer:confirmed_by(name)
         `)
         .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .order('created_at', { ascending: false })
@@ -186,6 +191,8 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         customer_notes?: string
         status: string
         created_at: string
+        updated_at?: string
+        confirmer?: { name: string } | null
       }
 
       const formattedData: PrivateBookingRequest[] = await Promise.all(
@@ -231,6 +238,8 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
             participant_count: req.participant_count || 0,
             notes: req.customer_notes || '',
             status: req.status,
+            approver_name: req.confirmer?.name,
+            approved_at: req.status === 'confirmed' ? req.updated_at : undefined,
             gm_responses: transformedGMResponses,
             created_at: req.created_at
           }

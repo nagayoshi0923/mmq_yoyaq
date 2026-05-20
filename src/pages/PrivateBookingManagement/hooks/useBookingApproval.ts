@@ -25,7 +25,7 @@ function addMinutesToTime(time: string, minutes: number): string {
 }
 
 interface UseBookingApprovalProps {
-  onSuccess: () => void
+  onSuccess: () => void | Promise<void>
 }
 
 /**
@@ -244,7 +244,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
-      onSuccess()
+      // onSuccess の完了（一覧再フェッチなど）まで await して、submitting=true を保つ。
+      // これにより承認ボタンの再活性化前にリストが最新化され、二度押しでの重複承認を防ぐ。
+      await onSuccess()
 
       // バックグラウンド処理（awaitしない）
       ;(async () => {
