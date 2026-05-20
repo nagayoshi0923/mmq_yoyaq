@@ -9,6 +9,7 @@ import {
 import { StatusBadge } from './StatusBadge'
 import {
   formatDate,
+  formatDateTime,
   getElapsedTime,
   getElapsedDays,
   getCardClassName,
@@ -416,21 +417,13 @@ export const BookingRequestCard = ({
                 <span className="text-purple-800">開催店舗: </span>
                 <span className="text-purple-900 font-medium">{request.candidate_datetimes.confirmedStore.storeName}</span>
               </div>
-              {request.status === 'confirmed' && (request.approver_name || request.approved_at) && (
+              {request.status === 'confirmed' && (
                 <div className="text-xs text-purple-700">
-                  {request.approver_name && (
-                    <>
-                      <span>承認者: </span>
-                      <span className="font-medium">{request.approver_name}</span>
-                    </>
-                  )}
-                  {request.approver_name && request.approved_at && <span className="mx-1">・</span>}
-                  {request.approved_at && (
-                    <>
-                      <span>承認日: </span>
-                      <span className="font-medium">{formatDate(request.approved_at)}</span>
-                    </>
-                  )}
+                  <span>承認者: </span>
+                  <span className="font-medium">{request.approver_name || '不明'}</span>
+                  <span className="mx-1">・</span>
+                  <span>承認日時: </span>
+                  <span className="font-medium">{request.approved_at ? formatDateTime(request.approved_at) : '不明'}</span>
                 </div>
               )}
             </div>
