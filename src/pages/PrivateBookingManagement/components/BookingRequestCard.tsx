@@ -53,6 +53,8 @@ interface BookingRequest {
   scenario_player_count_range?: { min: number; max: number } | null
   status: string
   created_at: string
+  approver_name?: string
+  approved_at?: string
   notes?: string
   invite_code?: string
   candidate_datetimes?: {
@@ -321,7 +323,9 @@ export const BookingRequestCard = ({
               {request.candidate_datetimes?.candidates?.map((candidate) => {
                 const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
                 const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
-                const isConfirmed = request.status === 'confirmed'
+                const isReservationConfirmed = request.status === 'confirmed'
+                const isThisCandidateChosen = candidate.status === 'confirmed'
+                const isThisDimmed = isReservationConfirmed && !isThisCandidateChosen
                 const isThisSelected = selectedCandidateOrder === candidate.order
                 const clickable = !!onSelectCandidate
 
@@ -337,7 +341,11 @@ export const BookingRequestCard = ({
                         clickable ? 'cursor-pointer' : '',
                         isThisSelected
                           ? 'border-purple-400 bg-purple-50 rounded-b-none'
-                          : isConfirmed && isGMAvailable
+                          : isReservationConfirmed && isThisCandidateChosen
+                          ? 'border-green-400 bg-green-50 ring-2 ring-green-300 font-medium'
+                          : isThisDimmed
+                          ? 'border-gray-200 bg-gray-50/60 text-gray-400 opacity-60'
+                          : isReservationConfirmed && isGMAvailable
                           ? 'border-green-200 bg-green-50'
                           : clickable
                           ? 'border-gray-200 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40'
@@ -346,13 +354,20 @@ export const BookingRequestCard = ({
                     >
                       {/* 1行目：アイコン + 日付 + 時間 + 店舗バッジ */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        {isConfirmed && isGMAvailable
+                        {isReservationConfirmed && isThisCandidateChosen
+                          ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          : isThisDimmed
+                          ? <XCircle className="w-4 h-4 text-gray-300 shrink-0" />
+                          : isReservationConfirmed && isGMAvailable
                           ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
                           : isThisSelected
                           ? <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
                           : <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />}
-                        <span className="font-medium">{formatDate(candidate.date)}</span>
+                        <span className={cn('font-medium', isThisDimmed && 'line-through')}>{formatDate(candidate.date)}</span>
                         <span className="text-muted-foreground text-xs whitespace-nowrap">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
+                        {isReservationConfirmed && isThisCandidateChosen && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-green-600 text-white font-semibold">確定</span>
+                        )}
                         {availableStores && availableStores.length === 0 && (
                           <span className="text-xs text-red-500">空き店舗なし</span>
                         )}
@@ -396,9 +411,28 @@ export const BookingRequestCard = ({
 
           {/* ── 確定済み店舗 ── */}
           {request.candidate_datetimes?.confirmedStore && (
-            <div className="p-3 rounded border bg-purple-50 border-purple-200 text-sm">
-              <span className="text-purple-800">開催店舗: </span>
-              <span className="text-purple-900 font-medium">{request.candidate_datetimes.confirmedStore.storeName}</span>
+            <div className="p-3 rounded border bg-purple-50 border-purple-200 text-sm space-y-1">
+              <div>
+                <span className="text-purple-800">開催店舗: </span>
+                <span className="text-purple-900 font-medium">{request.candidate_datetimes.confirmedStore.storeName}</span>
+              </div>
+              {request.status === 'confirmed' && (request.approver_name || request.approved_at) && (
+                <div className="text-xs text-purple-700">
+                  {request.approver_name && (
+                    <>
+                      <span>承認者: </span>
+                      <span className="font-medium">{request.approver_name}</span>
+                    </>
+                  )}
+                  {request.approver_name && request.approved_at && <span className="mx-1">・</span>}
+                  {request.approved_at && (
+                    <>
+                      <span>承認日: </span>
+                      <span className="font-medium">{formatDate(request.approved_at)}</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

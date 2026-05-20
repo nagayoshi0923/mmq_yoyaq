@@ -99,7 +99,7 @@ export function PrivateBookingManagement() {
       setSelectedSubGmId('')
       setSelectedStoreId('')
       setSelectedCandidateOrder(null)
-      loadRequests()
+      return loadRequests()
     }
   })
 
