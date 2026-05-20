@@ -41,6 +41,10 @@ export async function updatePrivateGroupStatus(
   if (fetchError) throw fetchError
 
   const currentStatus = current.status as PrivateGroupStatus
+  if (currentStatus === status) {
+    logger.log(`Private group status already ${status}, skipping update (groupId: ${groupId})`)
+    return
+  }
   if (!isValidTransition(currentStatus, status)) {
     const msg = `Invalid private group status transition: ${currentStatus} → ${status} (groupId: ${groupId})`
     logger.error(msg)
