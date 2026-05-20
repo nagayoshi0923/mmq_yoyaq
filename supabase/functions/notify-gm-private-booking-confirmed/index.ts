@@ -163,12 +163,15 @@ serve(async (req) => {
     // Discord通知（個人チャンネル → DM → 組織の貸切用チャンネル＋メンション の順）
     // discordSent は try ブロック外で宣言し、結果集計時に参照できるようにする
     let discordSent = false
+    let discordConfigured = false
     try {
       const discordSettings = await getDiscordSettings(supabase, data.organizationId)
       const botToken = discordSettings?.botToken || Deno.env.get('DISCORD_BOT_TOKEN')
       const personalCh = (data.gmDiscordChannelId || '').trim()
       const discordUserId = (data.gmDiscordUserId || '').trim()
       const fallbackPrivateBookingCh = (discordSettings?.privateBookingChannelId || '').trim()
+
+      discordConfigured = !!(botToken && (personalCh || discordUserId || fallbackPrivateBookingCh))
 
       if (botToken) {
         const embed = {
@@ -416,7 +419,7 @@ ${data.gmName} さん
 
     // 通知結果の詳細をレスポンスに含める
     const notificationResults = {
-      discord: discordSent ? 'sent' : 'failed',
+      discord: discordSent ? 'sent' : (discordConfigured ? 'failed' : 'skipped'),
       email: data.gmEmail ? 'attempted' : 'skipped_no_email'
     }
 

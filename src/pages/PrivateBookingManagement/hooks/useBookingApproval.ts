@@ -25,7 +25,7 @@ function addMinutesToTime(time: string, minutes: number): string {
 }
 
 interface UseBookingApprovalProps {
-  onSuccess: () => void
+  onSuccess: () => void | Promise<void>
 }
 
 /**
@@ -244,7 +244,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
-      onSuccess()
+      // onSuccess の完了（一覧再フェッチなど）まで await して、submitting=true を保つ。
+      // これにより承認ボタンの再活性化前にリストが最新化され、二度押しでの重複承認を防ぐ。
+      await onSuccess()
 
       // バックグラウンド処理（awaitしない）
       ;(async () => {
@@ -327,7 +329,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 logger.error('GM確定通知エラー:', { gmName: row.name, error: notifyFnError })
                 showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
               } else if (notifyResult?.results?.discord === 'failed') {
-                showToast.warning(`${row.name} へのDiscord通知が失敗しました。メール通知または手動連絡をご確認ください。`)
+                showToast.warning(`${row.name} へのDiscord通知が失敗しました。チャンネル設定またはBot権限をご確認ください。`)
               }
             }))
           })(),
