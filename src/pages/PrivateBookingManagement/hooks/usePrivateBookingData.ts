@@ -128,7 +128,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           *,
           scenario_masters:scenario_master_id(title),
           customers:customer_id(name, phone),
-          confirmer:confirmed_by(name)
+          confirmer:staff!reservations_confirmed_by_fkey(name)
         `)
         .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .order('created_at', { ascending: false })
