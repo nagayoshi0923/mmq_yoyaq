@@ -535,10 +535,14 @@ async function routePatch(req: VercelRequest, res: VercelResponse, user: AuthUse
   }
 }
 
-// 自組織が所有する予約か確認するヘルパ
+// 自組織が所有する予約か確認するヘルパ。
+// platform customer (role='customer' かつ orgId='') の場合は API 層で org 不一致を
+// 許容し、後段の RPC (cancel_reservation_with_lock 等) 内部の auth.uid() ベースの
+// ownership チェックに委ねる（顧客の users.organization_id は NULL なので
+// 厳密な org 一致を要求すると常に 403 になる）。
 async function ensureReservationOwnedByOrg(
   reservationId: string,
-  orgId: string,
+  user: AuthUser,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ ok: true; reservation: any } | { ok: false; status: number; error: string }> {
   if (!db) return { ok: false, status: 500, error: 'db unavailable' }
@@ -553,8 +557,12 @@ async function ensureReservationOwnedByOrg(
   if (!data) {
     return { ok: false, status: 404, error: '予約が見つかりません' }
   }
-  if (data.organization_id !== orgId) {
-    return { ok: false, status: 403, error: '他組織の予約は操作できません' }
+  if (data.organization_id !== user.orgId) {
+    // platform customer は org 不一致でも許容（RPC 側で auth.uid() ownership 検証）
+    const isPlatformCustomer = user.role === 'customer' && !user.orgId
+    if (!isPlatformCustomer) {
+      return { ok: false, status: 403, error: '他組織の予約は操作できません' }
+    }
   }
   return { ok: true, reservation: data }
 }
@@ -571,7 +579,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   // 1) 自組織所有チェック
-  const own = await ensureReservationOwnedByOrg(id, user.orgId)
+  const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   // 2) RPC (admin_update_reservation_fields) は SECURITY DEFINER で auth.uid() ベースの追加チェックを行う。
@@ -615,7 +623,7 @@ async function handleCancelWithLock(req: VercelRequest, res: VercelResponse, use
   const reason = (body.cancellation_reason as string | null | undefined) ?? null
 
   // 自組織所有チェック
-  const own = await ensureReservationOwnedByOrg(id, user.orgId)
+  const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   // user-scoped で RPC を呼ぶ（RPC 側で auth.uid() による顧客/スタッフ判定）
@@ -645,7 +653,7 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
   const customerId = body.customer_id as string | null | undefined
   const reason = (body.cancellation_reason as string | null | undefined) ?? null
 
-  const own = await ensureReservationOwnedByOrg(id, user.orgId)
+  const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   const userClient = createUserScopedClient(user.jwt)
@@ -704,7 +712,13 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     return res.status(404).json({ error: '予約が見つかりません' })
   }
   if (reservation.organization_id !== user.orgId) {
-    return res.status(403).json({ error: '他組織の予約は操作できません' })
+    // platform customer (role='customer' かつ orgId='') は org 不一致を許容
+    // RPC (cancel_reservation_with_lock / cancel_reservation_and_group_with_lock) 側で
+    // auth.uid() ベースの ownership チェックが走るためここでは弾かない。
+    const isPlatformCustomer = user.role === 'customer' && !user.orgId
+    if (!isPlatformCustomer) {
+      return res.status(403).json({ error: '他組織の予約は操作できません' })
+    }
   }
 
   // 2) RPC でキャンセル
@@ -817,7 +831,7 @@ async function handleUpdateParticipantsWithLock(
     return res.status(400).json({ error: 'new_count が必要です' })
   }
 
-  const own = await ensureReservationOwnedByOrg(id, user.orgId)
+  const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   const userClient = createUserScopedClient(user.jwt)
@@ -854,7 +868,7 @@ async function handleRecalculatePrices(req: VercelRequest, res: VercelResponse, 
   const body = (req.body ?? {}) as Record<string, unknown>
   const participantNames = (body.participant_names as string[] | null | undefined) ?? null
 
-  const own = await ensureReservationOwnedByOrg(id, user.orgId)
+  const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   const userClient = createUserScopedClient(user.jwt)
@@ -926,7 +940,7 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, user: AuthUs
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
-  const own = await ensureReservationOwnedByOrg(id, user.orgId)
+  const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   // RPC: admin_delete_reservations_by_ids は SECURITY DEFINER + 内部で auth.uid() による org/role チェック
