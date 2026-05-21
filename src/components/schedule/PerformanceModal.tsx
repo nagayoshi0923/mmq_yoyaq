@@ -764,7 +764,14 @@ export function PerformanceModal({
         onClose()
       }
     }}>
-      <DialogContent size="md" className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0">
+      <DialogContent
+        size="md"
+        className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0"
+        // 保存後、events 再フェッチでトリガー要素が一時的に消えると Radix の focus
+        // 復元先がなくなり body にフォールバックしてページ最上部までスクロールするため、
+        // close 時の auto-focus 復元を無効化する。
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
