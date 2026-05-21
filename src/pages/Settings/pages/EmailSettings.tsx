@@ -12,7 +12,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
 const EMAIL_SETTINGS_SELECT_FIELDS =
-  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_cancellation_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template' as const
+  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_cancellation_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template, store_cancellation_template' as const
 
 // ========== デフォルトテンプレート ==========
 
@@ -501,6 +501,42 @@ ${emailLine}
 ─────────────────────────`
 }
 
+function getDefaultStoreCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+
+  return `{customer_name} 様
+
+誠に申し訳ございませんが、以下のご予約をキャンセルさせていただくこととなりました。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ キャンセルされた予約
+━━━━━━━━━━━━━━━━━━━━━━
+
+予約番号: {reservation_number}
+シナリオ: {scenario_title}
+日時: {date} {time} - {end_time}
+会場: {venue}
+参加人数: {participants}名
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ キャンセル理由
+━━━━━━━━━━━━━━━━━━━━━━
+
+{cancellation_reason}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+この度は大変ご迷惑をおかけし、誠に申し訳ございませんでした。
+またのご利用を心よりお待ちしております。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
 // ========== 型定義 ==========
 
 interface EmailTemplates {
@@ -517,6 +553,7 @@ interface EmailTemplates {
   performance_cancellation_template: string
   event_cancellation_template: string
   performance_extension_template: string
+  store_cancellation_template: string
 }
 
 interface EmailSettings extends EmailTemplates {
@@ -717,6 +754,13 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     category: 'other',
     additionalVariables: ADDITIONAL_VARIABLES.extension,
     getDefault: getDefaultPerformanceExtensionTemplate
+  },
+  {
+    key: 'store_cancellation_template',
+    title: '店舗都合キャンセルメール',
+    description: '管理者が公演ダイアログから参加者の予約をキャンセルした際に送信',
+    category: 'other',
+    getDefault: getDefaultStoreCancellationTemplate
   }
 ]
 
@@ -836,6 +880,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     performance_cancellation_template: '',
     event_cancellation_template: '',
     performance_extension_template: '',
+    store_cancellation_template: '',
     reminder_enabled: true,
     reminder_schedule: [
       { days_before: 7, time: '10:00', enabled: true },
@@ -915,7 +960,8 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           waitlist_registration_template: data.waitlist_registration_template || getDefaultWaitlistRegistrationTemplate(companyName, companyPhone, companyEmail),
           performance_cancellation_template: data.performance_cancellation_template || getDefaultPerformanceCancellationTemplate(companyName, companyPhone, companyEmail),
           event_cancellation_template: data.event_cancellation_template || getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail),
-          performance_extension_template: data.performance_extension_template || getDefaultPerformanceExtensionTemplate(companyName, companyPhone, companyEmail)
+          performance_extension_template: data.performance_extension_template || getDefaultPerformanceExtensionTemplate(companyName, companyPhone, companyEmail),
+          store_cancellation_template: data.store_cancellation_template || getDefaultStoreCancellationTemplate(companyName, companyPhone, companyEmail)
         } as EmailSettings)
       } else {
         // 新規作成時はデフォルト値を設定
@@ -941,6 +987,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           performance_cancellation_template: getDefaultPerformanceCancellationTemplate(),
           event_cancellation_template: getDefaultEventCancellationTemplate(),
           performance_extension_template: getDefaultPerformanceExtensionTemplate(),
+          store_cancellation_template: getDefaultStoreCancellationTemplate(),
           reminder_enabled: false,
           reminder_schedule: [],
           reminder_time: '10:00',
@@ -980,6 +1027,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       performance_cancellation_template: formData.performance_cancellation_template,
       event_cancellation_template: formData.event_cancellation_template,
       performance_extension_template: formData.performance_extension_template,
+      store_cancellation_template: formData.store_cancellation_template,
       reminder_enabled: formData.reminder_enabled,
       reminder_schedule: formData.reminder_schedule,
       reminder_time: formData.reminder_time,
