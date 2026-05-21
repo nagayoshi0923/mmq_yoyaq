@@ -519,7 +519,7 @@ ${content.organizationName || '店舗'}
         try {
           const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
             supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
-            supabase.from('email_settings').select('cancellation_template, company_name').eq('store_id', storeId).maybeSingle(),
+            supabase.from('email_settings').select('event_cancellation_template, company_name').eq('store_id', storeId).maybeSingle(),
             supabase.from('stores').select('organization_id, organizations(name)').eq('id', storeId).single(),
           ])
 
@@ -527,8 +527,8 @@ ${content.organizationName || '店舗'}
             cancellationPolicy = settingsResult.data.cancellation_policy || ''
           }
 
-          if (emailSettingsResult.data?.cancellation_template) {
-            cancellationEmailTemplate = emailSettingsResult.data.cancellation_template
+          if (emailSettingsResult.data?.event_cancellation_template) {
+            cancellationEmailTemplate = emailSettingsResult.data.event_cancellation_template
           }
 
           if (storeResult.data?.organizations) {
