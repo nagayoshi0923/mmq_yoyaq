@@ -234,7 +234,21 @@ async function sendCancellationNotifications(
   }
 
   // 4. 各予約者にメール送信（APIキーが設定されている場合のみ）
-  if (reservations && reservations.length > 0 && emailSettings.resendApiKey) {
+  // ⚠️ getEmailSettings は内部で env フォールバックしているが、戻り値が null のときに
+  //    短絡してしまうケースの保険として、ここでも env を直接フォールバック確認する。
+  //    send-cancellation-confirmation と同じ二重フォールバック方式に揃える。
+  const resolvedResendApiKey = emailSettings.resendApiKey || Deno.env.get('RESEND_API_KEY') || null
+  if (!resolvedResendApiKey) {
+    console.error('❌ Resend API キー未設定のため中止メール送信をスキップ:', {
+      eventId: event.event_id,
+      reservationsCount: reservations?.length || 0,
+      envHasKey: !!Deno.env.get('RESEND_API_KEY'),
+      settingsHasKey: !!emailSettings.resendApiKey
+    })
+  }
+  if (reservations && reservations.length > 0 && resolvedResendApiKey) {
+    // emailSettings を mutating せず、resolvedResendApiKey で上書きしたコピーを渡す
+    const effectiveEmailSettings = { ...emailSettings, resendApiKey: resolvedResendApiKey }
     for (const reservation of reservations) {
       // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
       let emailToSend = reservation.customer_email
@@ -253,7 +267,7 @@ async function sendCancellationNotifications(
 
       try {
         await sendCancellationEmail(
-          emailSettings,
+          effectiveEmailSettings,
           emailToSend,
           reservation.customer_name || 'お客様',
           event,
