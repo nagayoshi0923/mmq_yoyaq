@@ -26,7 +26,6 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { createEventHistory } from '@/lib/api/eventHistoryApi'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
-import { EmailPreview } from './EmailPreview'
 import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES } from '@/lib/constants'
 
 interface ReservationListProps {
@@ -96,8 +95,8 @@ export function ReservationList({
     emailBody: '' // メール本文全体
   })
   
-  // メール本文を生成
-  const generateEmailBody = (content: typeof emailContent) => {
+  // メール本文を生成（email_settings の cancellation_template を優先、なければフォールバック）
+  const generateEmailBody = (content: typeof emailContent, template?: string) => {
     const formatDate = (dateStr: string): string => {
       if (!dateStr) return ''
       try {
@@ -109,18 +108,32 @@ export function ReservationList({
       }
     }
     const formatTime = (t: string) => t?.slice(0, 5) || ''
-    
-    // 支払い方法によって文言を変える
+
+    if (template) {
+      return template
+        .replace(/{customer_name}/g, content.customerName)
+        .replace(/{reservation_number}/g, content.reservationNumber)
+        .replace(/{scenario_title}/g, content.scenarioTitle)
+        .replace(/{date}/g, formatDate(content.eventDate))
+        .replace(/{time}/g, formatTime(content.startTime))
+        .replace(/{end_time}/g, formatTime(content.endTime))
+        .replace(/{venue}/g, content.storeName)
+        .replace(/{participants}/g, String(content.participantCount))
+        .replace(/{cancellation_fee}/g, content.cancellationFee.toLocaleString())
+        .replace(/{cancellation_reason}/g, content.cancellationReason)
+        .replace(/{company_name}/g, content.organizationName || '店舗')
+        .replace(/{total_price}/g, content.totalPrice.toLocaleString())
+    }
+
+    // フォールバック: email_settings 未設定時のデフォルト文面
     const isOnsitePayment = content.paymentMethod === 'onsite'
     const refundMessage = isOnsitePayment
       ? 'お支払いは不要となりました。'
       : 'お支払いいただいた料金は全額返金させていただきます。'
-    
-    // キャンセルポリシーがあれば追加
-    const policySection = content.cancellationPolicy 
+    const policySection = content.cancellationPolicy
       ? `\n【キャンセルポリシー】\n${content.cancellationPolicy}\n`
       : ''
-    
+
     return `${content.customerName} 様
 
 いつもご利用いただきありがとうございます。
@@ -495,40 +508,40 @@ ${content.organizationName || '店舗'}
       // 店舗のキャンセル設定と組織名を取得
       let cancellationPolicy = ''
       let organizationName = ''
+      let cancellationEmailTemplate = ''
       const totalPrice = reservation.total_price || reservation.final_price || 0
-      
+
       // 店舗都合のキャンセルなのでキャンセル料は0
       // ※顧客都合のキャンセルの場合のみキャンセル料が発生する
       const cancellationFee = 0
-      
+
       if (storeId) {
         try {
-          // キャンセル設定を取得（ポリシー文章のみ使用）
-          const { data: settings } = await supabase
-            .from('reservation_settings')
-            .select('cancellation_policy')
-            .eq('store_id', storeId)
-            .maybeSingle()
-          
-          if (settings) {
-            cancellationPolicy = settings.cancellation_policy || ''
+          const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
+            supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
+            supabase.from('email_settings').select('cancellation_template, company_name').eq('store_id', storeId).maybeSingle(),
+            supabase.from('stores').select('organization_id, organizations(name)').eq('id', storeId).single(),
+          ])
+
+          if (settingsResult.data) {
+            cancellationPolicy = settingsResult.data.cancellation_policy || ''
           }
-          
-          // 組織名を取得
-          const { data: storeData } = await supabase
-            .from('stores')
-            .select('organization_id, organizations(name)')
-            .eq('id', storeId)
-            .single()
-          
-          if (storeData?.organizations) {
+
+          if (emailSettingsResult.data?.cancellation_template) {
+            cancellationEmailTemplate = emailSettingsResult.data.cancellation_template
+          }
+
+          if (storeResult.data?.organizations) {
             // リレーション結果がオブジェクトか配列かを判定
-            const org = storeData.organizations as { name: string } | { name: string }[]
+            const org = storeResult.data.organizations as { name: string } | { name: string }[]
             if (Array.isArray(org)) {
               organizationName = org[0]?.name || ''
             } else {
               organizationName = org.name || ''
             }
+          }
+          if (!organizationName && emailSettingsResult.data?.company_name) {
+            organizationName = emailSettingsResult.data.company_name
           }
         } catch (settingsError) {
           logger.warn('キャンセル設定取得エラー:', settingsError)
@@ -553,8 +566,8 @@ ${content.organizationName || '店舗'}
         organizationName,
         emailBody: ''
       }
-      // メール本文を生成
-      newEmailContent.emailBody = generateEmailBody(newEmailContent)
+      // メール本文を生成（email_settings のテンプレートを優先）
+      newEmailContent.emailBody = generateEmailBody(newEmailContent, cancellationEmailTemplate || undefined)
       setEmailContent(newEmailContent)
       
       // メールアドレスがある場合はデフォルトでメール送信ON
