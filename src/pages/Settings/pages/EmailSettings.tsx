@@ -757,7 +757,7 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
   },
   {
     key: 'store_cancellation_template',
-    title: '店舗都合キャンセルメール',
+    title: 'キャンセル操作メール',
     description: '管理者が公演ダイアログから参加者の予約をキャンセルした際に送信',
     category: 'other',
     getDefault: getDefaultStoreCancellationTemplate
