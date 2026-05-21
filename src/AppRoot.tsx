@@ -197,6 +197,22 @@ function BookingShellLazyFallback() {
 // - 初回マウント（リロード・新規タブの直リンク）: トップへ飛ばさない
 //   → さもないと navType が POP 以外になり、scrollTo(0,0) が sessionStorage 復元より後に効いて潰す
 // - それ以外の同一タブ内のパス変更（PUSH/REPLACE）: トップへ
+//
+// ⚠️ ダイアログ状態用の query param（event=xxx 等）はナビゲーションと見なさない。
+//    setSearchParams で ?event=xxx を付けるとここで scroll=0 が走り、スケジュール
+//    画面で公演ダイアログを開いた瞬間に最上部に飛ぶ問題があったため。
+const DIALOG_QUERY_PARAMS = ['event']
+
+function stripDialogParams(search: string): string {
+  if (!search) return ''
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  for (const key of DIALOG_QUERY_PARAMS) {
+    params.delete(key)
+  }
+  const result = params.toString()
+  return result ? `?${result}` : ''
+}
+
 function ScrollToTop() {
   const { pathname, search } = useLocation()
   const navType = useNavigationType()
@@ -204,7 +220,8 @@ function ScrollToTop() {
 
   useLayoutEffect(() => {
     // pathname + search で同一ページ判定（tab切替もここで検出）
-    const currentKey = `${pathname}${search}`
+    // ただしダイアログ系の query param は除外して比較する
+    const currentKey = `${pathname}${stripDialogParams(search)}`
     if (navType === 'POP') {
       prevKeyRef.current = currentKey
       return
