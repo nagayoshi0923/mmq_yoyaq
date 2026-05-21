@@ -866,6 +866,7 @@ ${content.organizationName || '店舗'}
       // 参加者名から顧客を検索して customer_id を設定
       // マイページで予約を表示するために必要
       let customerId: string | null = null
+      let customerInfo: { name: string | null; email: string | null; phone: string | null } | null = null
       const organizationId =
         (await getCurrentOrganizationId()) || event?.organization_id || undefined
       
@@ -892,20 +893,25 @@ ${content.organizationName || '店舗'}
         }
       } else {
         // 参加者名で顧客を検索（スタッフ参加・当日飛び込み共通）
+        // platform customer (organization_id = NULL) も拾うため `eq` ではなく `or` で
+        // 自組織 OR platform-level を許容する。
         try {
           let query = supabase
             .from('customers')
-            .select('id')
+            .select('id, name, email, phone')
             .eq('name', participantName)
-          
+
           if (organizationId) {
-            query = query.eq('organization_id', organizationId)
+            query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`)
           }
-          
+
           const { data: customer } = await query.limit(1).maybeSingle()
-          
+
           if (customer) {
             customerId = customer.id
+            // walk_in / staff_participation でも customer 行の連絡先を reservation にコピーし、
+            // 公演中止メール等の自動通知で取得できるようにする。
+            customerInfo = { name: customer.name, email: customer.email, phone: customer.phone }
             logger.log(`顧客を設定（名前一致）: ${customer.id} (${participantName})`)
           } else {
             logger.log(`顧客が見つかりませんでした: ${participantName}`)
@@ -934,6 +940,10 @@ ${content.organizationName || '店舗'}
           scenario_master_id: scenarioObj?.id || null,
           store_id: storeObj?.id || null,
           customer_id: customerId,
+          // 顧客が見つかった場合は連絡先を reservation 行にコピー（中止メール送信等で参照される）
+          customer_name: customerInfo?.name ?? null,
+          customer_email: customerInfo?.email ?? null,
+          customer_phone: customerInfo?.phone ?? null,
           customer_notes: participantName,
           reservation_number: reservationNumber,
           requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
