@@ -490,6 +490,11 @@ export function CompleteProfile() {
         campaign_notifications: acceptNewsletter
       }
 
+      // customers.organization_id は platform customer (role='customer') では NULL に固定する。
+      // 予約は org をまたいで可能なので、customer 行は組織非依存にする必要がある。
+      // staff/admin が自分用に customer 行を作る場合は所属組織に紐付ける。
+      const customerOrganizationId = role === 'customer' ? null : organizationId
+
       const customerProfilePayload = {
         name: name.trim(),
         nickname: nickname.trim() || null,
@@ -497,7 +502,7 @@ export function CompleteProfile() {
         phone: phone.trim(),
         prefecture: prefecture,
         birth_date: birthDateForDB,
-        organization_id: organizationId,
+        organization_id: customerOrganizationId,
         notification_settings: notificationSettings,
         updated_at: new Date().toISOString()
       }
@@ -532,7 +537,7 @@ export function CompleteProfile() {
             phone: phone.trim(),
             prefecture: prefecture,
             birth_date: birthDateForDB,
-            organization_id: organizationId,
+            organization_id: customerOrganizationId,
             notification_settings: notificationSettings,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()

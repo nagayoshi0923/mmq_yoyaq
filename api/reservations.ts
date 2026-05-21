@@ -344,8 +344,14 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(404).json({ error: 'customer が見つかりません' })
   }
   // platform customer (organization_id = NULL) は全組織で利用可
-  // guest customer は自組織のみ
-  if (cust.organization_id !== null && cust.organization_id !== user.orgId) {
+  // 本人 (cust.user_id === user.userId) は自分の customer 行で全組織のイベントに予約可
+  //   ※ サインアップ経路の差で customers.organization_id が org に張り付いた行があるため
+  // それ以外（guest customer 等）は自組織のみ
+  if (
+    cust.organization_id !== null &&
+    cust.organization_id !== user.orgId &&
+    cust.user_id !== user.userId
+  ) {
     return res.status(403).json({ error: '他組織の customer は指定できません' })
   }
   // 顧客ロールの場合は自分自身の customers 行のみ作成可
