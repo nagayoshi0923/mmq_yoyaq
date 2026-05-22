@@ -884,20 +884,32 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
       let resStatus: string | null = null
       let confirmedBy: string | null = null
       if (data?.reservation_id) {
-        const { data: resRow } = await supabase
-          .from('reservations')
-          .select('status, confirmed_by')
-          .eq('id', data.reservation_id)
-          .maybeSingle()
-        resStatus = resRow?.status ?? null
-        
-        if (resRow?.confirmed_by) {
-          const { data: staffRow } = await supabase
-            .from('staff')
-            .select('name')
-            .eq('id', resRow.confirmed_by)
+        // 招待ページは anon (ゲスト) からもアクセスされるため、reservations / staff の RLS で
+        // permission denied になっても招待表示自体は壊さない。
+        try {
+          const { data: resRow } = await supabase
+            .from('reservations')
+            .select('status, confirmed_by')
+            .eq('id', data.reservation_id)
             .maybeSingle()
-          confirmedBy = staffRow?.name ?? null
+          resStatus = resRow?.status ?? null
+
+          if (resRow?.confirmed_by) {
+            try {
+              const { data: staffRow } = await supabase
+                .from('staff')
+                .select('name')
+                .eq('id', resRow.confirmed_by)
+                .maybeSingle()
+              confirmedBy = staffRow?.name ?? null
+            } catch {
+              // staff RLS は anon を弾くので、確認者名はゲストでは表示できない
+              confirmedBy = null
+            }
+          }
+        } catch {
+          resStatus = null
+          confirmedBy = null
         }
       }
       setLinkedReservationStatus(resStatus)
