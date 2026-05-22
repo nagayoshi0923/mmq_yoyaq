@@ -149,14 +149,20 @@ export function ScenarioMasterAdmin() {
     fetchMasters()
   }
 
-  // ワンクリック承認
+  // ワンクリック承認（楽観的更新）
   const handleQuickApprove = async (masterId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    
+
+    // 楽観的更新: 先にローカル状態を変更
+    const previousMasters = masters
+    setMasters(prev => prev.map(m =>
+      m.id === masterId ? { ...m, master_status: 'approved' } : m
+    ))
+
     try {
       const { error } = await supabase
         .from('scenario_masters')
-        .update({ 
+        .update({
           master_status: 'approved',
           approved_by: user?.id,
           approved_at: new Date().toISOString()
@@ -164,47 +170,65 @@ export function ScenarioMasterAdmin() {
         .eq('id', masterId)
 
       if (error) throw error
-
       toast.success('承認しました')
-      fetchMasters()
     } catch (err) {
       logger.error('Quick approve error:', err)
       toast.error('承認に失敗しました')
+      // 失敗時はロールバック
+      setMasters(previousMasters)
     }
   }
 
   // テーブルカラム定義
   const tableColumns: Column<ScenarioMaster>[] = useMemo(() => [
     {
+      key: 'image',
+      header: '画像',
+      helpText: 'シナリオのキービジュアル画像',
+      width: 'w-16',
+      align: 'center',
+      cellClassName: 'p-1',
+      render: (master) => (
+        <div className="flex items-center justify-center">
+          {master.key_visual_url ? (
+            <div className="w-10 h-12 bg-gray-200 rounded overflow-hidden">
+              <img src={master.key_visual_url} alt={master.title} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-10 h-12 border border-dashed border-gray-300 rounded flex items-center justify-center">
+              <span className="text-[8px] text-gray-400">No img</span>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
       key: 'title',
-      header: 'シナリオ',
-      helpText: 'シナリオのタイトルとキービジュアル画像。クリックで詳細編集。',
+      header: 'タイトル',
+      helpText: 'シナリオのタイトル。クリックで詳細編集',
+      width: 'w-48',
       sortable: true,
       required: true,
       render: (master) => (
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-10 h-14 bg-gray-100 rounded overflow-hidden border">
-            {master.key_visual_url ? (
-              <img src={master.key_visual_url} alt={master.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-300">
-                <span className="text-[8px]">No img</span>
-              </div>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="font-medium text-gray-900 truncate" {...devDb('scenario_masters.title')}>{master.title}</p>
-            {master.genre && master.genre.length > 0 && (
-              <div className="flex gap-1 mt-1 flex-wrap">
-                {master.genre.slice(0, 3).map((g, i) => (
-                  <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{g}</Badge>
-                ))}
-                {master.genre.length > 3 && (
-                  <span className="text-[10px] text-muted-foreground">+{master.genre.length - 3}</span>
-                )}
-              </div>
-            )}
-          </div>
+        <div className="min-w-0">
+          <button
+            onClick={() => handleEdit(master)}
+            className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+            title={master.title}
+            {...devDb('scenario_masters.title')}
+          >
+            {master.title}
+          </button>
+          {master.genre && master.genre.length > 0 && (
+            <div className="flex gap-1 mt-0.5 flex-wrap">
+              {master.genre.slice(0, 3).map((g, i) => (
+                <Badge key={i} variant="secondary" className="text-[10px] px-1 py-0">{g}</Badge>
+              ))}
+              {master.genre.length > 3 && (
+                <span className="text-[10px] text-muted-foreground">+{master.genre.length - 3}</span>
+              )}
+            </div>
+          )}
         </div>
       ),
       sortValue: (master) => master.title.toLowerCase()
@@ -469,6 +493,7 @@ export function ScenarioMasterAdmin() {
               sortState={sortState}
               onSort={setSortState}
               columnPreferences={columnPrefs}
+              autoRowHeight
               emptyMessage={
                 searchTerm || statusFilter !== 'all'
                   ? '検索条件に一致するマスタが見つかりません'
