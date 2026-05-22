@@ -19,8 +19,10 @@ import { logger } from '@/utils/logger'
 import { ScenarioMasterEditDialog } from '@/components/modals/ScenarioMasterEditDialog'
 import {
   Search, Plus, Edit, CheckCircle, XCircle, Clock, FileText, Users,
-  AlertTriangle, Shield
+  AlertTriangle, Shield, Filter, X, Download
 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { devDb } from '@/components/ui/DevField'
 import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
@@ -63,7 +65,13 @@ export function ScenarioMasterAdmin() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [genreFilter, setGenreFilter] = useState<string>('all')
+  const [authorFilter, setAuthorFilter] = useState<string>('all')
+  const [orgUsageFilter, setOrgUsageFilter] = useState<string>('all') // all / used / unused
+  const [playerCountFilter, setPlayerCountFilter] = useState<string>('all')
+  const [durationFilter, setDurationFilter] = useState<string>('all')
   const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>({ field: 'updated_at', direction: 'desc' })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // 編集ダイアログ
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -121,13 +129,48 @@ export function ScenarioMasterAdmin() {
   // フィルタリング
   const filteredMasters = useMemo(() => {
     return masters.filter(m => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (m.author && m.author.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesStatus = statusFilter === 'all' || m.master_status === statusFilter
-      return matchesSearch && matchesStatus
+      const matchesGenre = genreFilter === 'all' || (m.genre || []).includes(genreFilter)
+      const matchesAuthor = authorFilter === 'all' || m.author === authorFilter
+      const matchesOrgUsage =
+        orgUsageFilter === 'all' ||
+        (orgUsageFilter === 'used' && (m.organization_count || 0) > 0) ||
+        (orgUsageFilter === 'unused' && (m.organization_count || 0) === 0)
+      const matchesPlayers = playerCountFilter === 'all' || (
+        m.player_count_min <= parseInt(playerCountFilter) && parseInt(playerCountFilter) <= m.player_count_max
+      )
+      const matchesDuration = durationFilter === 'all' || m.official_duration <= parseInt(durationFilter)
+      return matchesSearch && matchesStatus && matchesGenre && matchesAuthor && matchesOrgUsage && matchesPlayers && matchesDuration
     })
-  }, [masters, searchTerm, statusFilter])
+  }, [masters, searchTerm, statusFilter, genreFilter, authorFilter, orgUsageFilter, playerCountFilter, durationFilter])
+
+  // フィルタオプション用の一覧
+  const allGenres = useMemo(() => {
+    const set = new Set<string>()
+    masters.forEach(m => (m.genre || []).forEach(g => set.add(g)))
+    return Array.from(set).sort()
+  }, [masters])
+
+  const allAuthors = useMemo(() => {
+    const set = new Set<string>()
+    masters.forEach(m => { if (m.author) set.add(m.author) })
+    return Array.from(set).sort()
+  }, [masters])
+
+  const hasActiveFilters =
+    genreFilter !== 'all' || authorFilter !== 'all' || orgUsageFilter !== 'all' ||
+    playerCountFilter !== 'all' || durationFilter !== 'all'
+
+  const resetFilters = () => {
+    setGenreFilter('all')
+    setAuthorFilter('all')
+    setOrgUsageFilter('all')
+    setPlayerCountFilter('all')
+    setDurationFilter('all')
+  }
 
   // 統計
   const stats = useMemo(() => ({
@@ -154,6 +197,77 @@ export function ScenarioMasterAdmin() {
 
   const handleSaved = () => {
     fetchMasters()
+  }
+
+  // 一括ステータス変更（楽観的更新）
+  const handleBulkStatusChange = async (newStatus: ScenarioMaster['master_status']) => {
+    const targetIds = Array.from(selectedIds)
+    if (targetIds.length === 0) return
+
+    const previousMasters = masters
+    setMasters(prev => prev.map(m =>
+      selectedIds.has(m.id) ? { ...m, master_status: newStatus } : m
+    ))
+
+    try {
+      const updatePayload: Record<string, unknown> = { master_status: newStatus }
+      if (newStatus === 'approved') {
+        updatePayload.approved_by = user?.id
+        updatePayload.approved_at = new Date().toISOString()
+      }
+      const { error } = await supabase
+        .from('scenario_masters')
+        .update(updatePayload)
+        .in('id', targetIds)
+
+      if (error) throw error
+      toast.success(`${targetIds.length}件を${STATUS_CONFIG[newStatus].label}に変更しました`)
+      setSelectedIds(new Set())
+    } catch (err) {
+      logger.error('Bulk status change error:', err)
+      toast.error('一括変更に失敗しました')
+      setMasters(previousMasters)
+    }
+  }
+
+  // CSV エクスポート（フィルタ後の一覧 or 選択行のみ）
+  const handleCsvExport = () => {
+    const targets = selectedIds.size > 0
+      ? filteredMasters.filter(m => selectedIds.has(m.id))
+      : filteredMasters
+    if (targets.length === 0) {
+      toast.error('エクスポート対象がありません')
+      return
+    }
+    const headers = ['ID', 'タイトル', '作者', '人数(最小)', '人数(最大)', '時間(分)', 'ジャンル', 'ステータス', '利用組織数', '更新日']
+    const rows = targets.map(m => [
+      m.id,
+      m.title,
+      m.author || '',
+      m.player_count_min,
+      m.player_count_max,
+      m.official_duration,
+      (m.genre || []).join(';'),
+      STATUS_CONFIG[m.master_status].label,
+      m.organization_count || 0,
+      m.updated_at,
+    ])
+    const csv = [headers, ...rows].map(row =>
+      row.map(cell => {
+        const s = String(cell ?? '')
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+      }).join(',')
+    ).join('\n')
+    // UTF-8 BOM 付きで Excel での文字化けを防ぐ
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const today = new Date().toISOString().slice(0, 10)
+    a.download = `scenario_masters_${today}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`${targets.length}件をエクスポートしました`)
   }
 
   // ステータス変更（楽観的更新）
@@ -187,6 +301,48 @@ export function ScenarioMasterAdmin() {
 
   // テーブルカラム定義
   const tableColumns: Column<ScenarioMaster>[] = useMemo(() => [
+    {
+      key: 'select',
+      header: '',
+      width: 'w-10',
+      align: 'center',
+      required: true,
+      cellClassName: 'p-1',
+      renderHeader: () => {
+        const visibleIds = filteredMasters.map(m => m.id)
+        const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+        const someSelected = visibleIds.some(id => selectedIds.has(id)) && !allSelected
+        return (
+          <Checkbox
+            checked={allSelected || (someSelected ? 'indeterminate' : false)}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                setSelectedIds(new Set(visibleIds))
+              } else {
+                setSelectedIds(new Set())
+              }
+            }}
+            aria-label="全て選択"
+          />
+        )
+      },
+      render: (master) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selectedIds.has(master.id)}
+            onCheckedChange={(checked) => {
+              setSelectedIds(prev => {
+                const next = new Set(prev)
+                if (checked) next.add(master.id)
+                else next.delete(master.id)
+                return next
+              })
+            }}
+            aria-label={`${master.title}を選択`}
+          />
+        </div>
+      )
+    },
     {
       key: 'image',
       header: '画像',
@@ -374,7 +530,7 @@ export function ScenarioMasterAdmin() {
         </div>
       )
     }
-  ], [])
+  ], [filteredMasters, selectedIds])
 
   const defaultColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
   const [columnPrefs, setColumnPrefs] = useTablePreferences('scenario-master-admin', defaultColumnKeys)
@@ -437,30 +593,54 @@ export function ScenarioMasterAdmin() {
 
         {/* 統計情報 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-          <Card className="shadow-none">
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <div className="text-xs text-muted-foreground">全マスタ</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-none border-green-200 bg-green-50">
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold text-green-700">{stats.approved}</div>
-              <div className="text-xs text-green-600">承認済み</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-none border-yellow-200 bg-yellow-50">
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
-              <div className="text-xs text-yellow-600">承認待ち</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow-none border-gray-200 bg-gray-50">
-            <CardContent className="p-3">
-              <div className="text-2xl font-bold text-gray-700">{stats.draft}</div>
-              <div className="text-xs text-gray-600">下書き</div>
-            </CardContent>
-          </Card>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`text-left transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary' : 'hover:opacity-80'} rounded-lg`}
+          >
+            <Card className="shadow-none h-full">
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold">{stats.total}</div>
+                <div className="text-xs text-muted-foreground">全マスタ</div>
+              </CardContent>
+            </Card>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('approved')}
+            className={`text-left transition-all ${statusFilter === 'approved' ? 'ring-2 ring-green-500' : 'hover:opacity-80'} rounded-lg`}
+          >
+            <Card className="shadow-none border-green-200 bg-green-50 h-full">
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold text-green-700">{stats.approved}</div>
+                <div className="text-xs text-green-600">承認済み</div>
+              </CardContent>
+            </Card>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('pending')}
+            className={`text-left transition-all ${statusFilter === 'pending' ? 'ring-2 ring-yellow-500' : 'hover:opacity-80'} rounded-lg`}
+          >
+            <Card className="shadow-none border-yellow-200 bg-yellow-50 h-full">
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+                <div className="text-xs text-yellow-600">承認待ち</div>
+              </CardContent>
+            </Card>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('draft')}
+            className={`text-left transition-all ${statusFilter === 'draft' ? 'ring-2 ring-gray-500' : 'hover:opacity-80'} rounded-lg`}
+          >
+            <Card className="shadow-none border-gray-200 bg-gray-50 h-full">
+              <CardContent className="p-3">
+                <div className="text-2xl font-bold text-gray-700">{stats.draft}</div>
+                <div className="text-xs text-gray-600">下書き</div>
+              </CardContent>
+            </Card>
+          </button>
         </div>
 
         {/* 検索・フィルター */}
@@ -492,7 +672,17 @@ export function ScenarioMasterAdmin() {
                   </Button>
                 ))}
               </div>
-              <div className="hidden md:block ml-auto">
+              <div className="hidden md:flex items-center gap-1 ml-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => handleCsvExport()}
+                  title="CSV エクスポート"
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  CSV
+                </Button>
                 <ColumnSettingsPanel
                   columns={tableColumns}
                   preferences={columnPrefs}
@@ -502,7 +692,97 @@ export function ScenarioMasterAdmin() {
               </div>
             </div>
           </div>
+
+          {/* 追加フィルタ行 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+
+            <Select value={genreFilter} onValueChange={setGenreFilter}>
+              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="ジャンル" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ジャンル: 全て</SelectItem>
+                {allGenres.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={authorFilter} onValueChange={setAuthorFilter}>
+              <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="作者" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">作者: 全て</SelectItem>
+                {allAuthors.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={orgUsageFilter} onValueChange={setOrgUsageFilter}>
+              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="利用組織" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">利用組織: 全て</SelectItem>
+                <SelectItem value="used">利用組織あり</SelectItem>
+                <SelectItem value="unused">利用組織なし</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={playerCountFilter} onValueChange={setPlayerCountFilter}>
+              <SelectTrigger className="w-[100px] h-8 text-xs"><SelectValue placeholder="人数" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">人数: 全て</SelectItem>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <SelectItem key={n} value={String(n)}>{n}名可</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={durationFilter} onValueChange={setDurationFilter}>
+              <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue placeholder="時間" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">時間: 全て</SelectItem>
+                {[60, 90, 120, 150, 180, 240, 300, 360, 480, 600].map(m => (
+                  <SelectItem key={m} value={String(m)}>{m}分以内</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground"
+                onClick={resetFilters}
+              >
+                <X className="w-3 h-3 mr-1" />
+                リセット
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* 一括操作バー（選択行があるときだけ表示） */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <span className="text-sm font-medium text-blue-900">
+              {selectedIds.size}件 選択中
+            </span>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
+              <X className="w-3 h-3 mr-1" />
+              選択解除
+            </Button>
+            <span className="text-xs text-blue-700 ml-2">一括ステータス変更:</span>
+            <div className="flex items-center gap-1">
+              {(['approved', 'pending', 'draft', 'rejected'] as const).map(s => {
+                const cfg = STATUS_CONFIG[s]
+                const Icon = cfg.icon
+                return (
+                  <Button
+                    key={s}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => handleBulkStatusChange(s)}
+                  >
+                    <Icon className="w-3 h-3 mr-1" />
+                    {cfg.label}
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* PC用: テーブル形式 */}
         <div className="hidden md:block">
