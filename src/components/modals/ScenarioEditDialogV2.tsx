@@ -135,7 +135,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         special_requirements: ''
       }
     },
-    key_visual_url: ''
+    key_visual_url: '',
+    scenario_kind: 'regular',
+    accepts_private_booking: true,
+    available_from: null,
+    available_until: null,
   })
   const [isScenarioLoaded, setIsScenarioLoaded] = useState<boolean>(!scenarioId) // 新規はloaded扱い
 
@@ -648,6 +652,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         key_visual_url: '',
         available_stores: [],
         characters: [],
+        scenario_kind: 'regular',
+        accepts_private_booking: true,
+        available_from: null,
+        available_until: null,
       })
       return
     }
@@ -776,7 +784,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -830,6 +838,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     // 貸切募集期間
                     booking_start_date: osData.booking_start_date || null,
                     booking_end_date: osData.booking_end_date || null,
+                    // シナリオ種別・貸切受付フラグ・公演期間
+                    scenario_kind: (osData as any).scenario_kind || 'regular',
+                    accepts_private_booking: (osData as any).accepts_private_booking ?? true,
+                    available_from: (osData as any).available_from || null,
+                    available_until: (osData as any).available_until || null,
                   }))
 
                   // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
@@ -1126,6 +1139,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               // 貸切募集期間
               booking_start_date: formData.booking_start_date || null,
               booking_end_date: formData.booking_end_date || null,
+              // シナリオ種別・貸切受付フラグ・公演期間
+              scenario_kind: formData.scenario_kind || 'regular',
+              accepts_private_booking: formData.accepts_private_booking ?? true,
+              available_from: formData.available_from || null,
+              available_until: formData.available_until || null,
             }
 
             let orgScenarioId: string | null = existingOrgScenario?.id || null

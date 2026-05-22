@@ -285,6 +285,31 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
           <Settings className="h-3.5 w-3.5" />設定
         </p>
 
+        {/* シナリオ種別 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">種別</span>
+          <div className="w-56">
+            <Select
+              value={formData.scenario_kind || 'regular'}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_kind: value as 'regular' | 'online_item' | 'offsite_only' }))}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="regular">通常シナリオ</SelectItem>
+                <SelectItem value="online_item">オンライン販売アイテム</SelectItem>
+                <SelectItem value="offsite_only">出張公演限定</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {formData.scenario_kind === 'online_item' && '予約サイト非掲載（ライセンス報告でのみ使用）'}
+            {formData.scenario_kind === 'offsite_only' && '予約サイト掲載・貸切受付なし'}
+            {(!formData.scenario_kind || formData.scenario_kind === 'regular') && '予約・貸切ともに受付'}
+          </span>
+        </div>
+
         {/* キット数 */}
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">キット数</span>
@@ -408,6 +433,44 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </p>
               )
             })()}
+          </div>
+        </div>
+
+        {/* 貸切受付フラグ */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">貸切受付</span>
+          <div className="flex-1 flex items-center gap-2">
+            <Switch
+              checked={formData.accepts_private_booking ?? true}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, accepts_private_booking: checked }))}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {formData.accepts_private_booking === false ? 'OFF（貸切休止中）' : 'ON（受付中）'}
+            </span>
+          </div>
+        </div>
+
+        {/* シナリオ全体の公演期間（期間限定公演用） */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">公演期間</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Input type="date" value={formData.available_from || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, available_from: e.target.value || null }))}
+                className="w-36 text-xs h-7" />
+              <span className="text-xs text-muted-foreground">〜</span>
+              <Input type="date" value={formData.available_until || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, available_until: e.target.value || null }))}
+                className="w-36 text-xs h-7" />
+              {(formData.available_from || formData.available_until) && (
+                <button type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, available_from: null, available_until: null }))}
+                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              期間限定公演用。設定すると掲載・通常公演・貸切すべて期間内のみ。詳細ページとラインナップカードに期間表示
+            </p>
           </div>
         </div>
       </div>
