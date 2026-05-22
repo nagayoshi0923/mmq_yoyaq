@@ -863,7 +863,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <p className="text-xs text-gray-600 mt-2">
+                          <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap">
                             {systemMsg.body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'}
                           </p>
                           {systemMsg.rejectionReason && (

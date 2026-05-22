@@ -540,7 +540,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
             { key: 'group_created', label: 'グループ作成時', color: 'purple', hasNote: true },
             { key: 'booking_requested', label: '予約申込時', color: 'blue', hasNote: false },
             { key: 'schedule_confirmed', label: '日程確定時', color: 'green', hasNote: false },
-            { key: 'booking_rejected', label: 'リクエスト却下時', color: 'red', hasNote: false },
+            // 「リクエスト却下時」はメール設定の private_rejection_template に統合（同じ本文を両方に使用）
             { key: 'booking_cancelled', label: '予約キャンセル時', color: 'gray', hasNote: false },
           ].map(({ key, label, color, hasNote }) => (
             <div key={key} className={`space-y-3 p-4 bg-${color}-50 rounded-lg`}>
