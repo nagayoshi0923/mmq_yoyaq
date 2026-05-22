@@ -99,16 +99,18 @@ export function ScenarioMasterAdmin() {
         return
       }
 
-      const masterIds = (data || []).map(m => m.id)
+      const masterIds = new Set((data || []).map(m => m.id))
 
       // 利用組織を一括取得（埋め込み構文を避け、2クエリで取得→JS側で結合）
+      // 注: masterIds が700件超で .in() の URL が長すぎて落ちるため、全件取得して JS 側でフィルタ
       const { data: orgScenarios } = await supabase
         .from('organization_scenarios')
         .select('scenario_master_id, organization_id')
-        .in('scenario_master_id', masterIds)
 
       // 利用組織と申請組織の ID を集めて一括で organizations を引く
-      const usingOrgIds = Array.from(new Set((orgScenarios || []).map(r => r.organization_id).filter((v): v is string => !!v)))
+      // 表示中マスタの分だけに絞る
+      const filteredOrgScenarios = (orgScenarios || []).filter(r => masterIds.has(r.scenario_master_id))
+      const usingOrgIds = Array.from(new Set(filteredOrgScenarios.map(r => r.organization_id).filter((v): v is string => !!v)))
       const submitterIds = Array.from(new Set((data || []).map(m => m.submitted_by_organization_id).filter((v): v is string => !!v)))
       const allOrgIds = Array.from(new Set([...usingOrgIds, ...submitterIds]))
 
@@ -122,7 +124,7 @@ export function ScenarioMasterAdmin() {
       }
 
       const usingOrgsByMaster = new Map<string, { id: string; name: string }[]>()
-      ;(orgScenarios || []).forEach(row => {
+      filteredOrgScenarios.forEach(row => {
         if (!row.organization_id) return
         const name = orgNameMap.get(row.organization_id)
         if (!name) return
