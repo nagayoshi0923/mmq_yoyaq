@@ -64,9 +64,9 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const filteredScenarios = useMemo(() => {
     if (!searchTerm) return scenarios
     const term = searchTerm.toLowerCase()
-    return scenarios.filter(s => 
-      s.title.toLowerCase().includes(term) ||
-      s.author.toLowerCase().includes(term)
+    return scenarios.filter(s =>
+      (s.title ?? '').toLowerCase().includes(term) ||
+      (s.author ?? '').toLowerCase().includes(term)
     )
   }, [scenarios, searchTerm])
   
