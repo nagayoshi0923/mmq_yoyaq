@@ -306,7 +306,7 @@ export function ScenarioMatcher() {
                                   {allScenarios
                                     .filter(s => {
                                       const searchTerm = popoverSearchTerms[event.scenario] || ''
-                                      return s.title.toLowerCase().includes(searchTerm.toLowerCase())
+                                      return (s.title ?? '').toLowerCase().includes(searchTerm.toLowerCase())
                                     })
                                     .map((scenario) => {
                                       const isSelected = selectedMatches[event.scenario] === scenario.id
@@ -338,7 +338,7 @@ export function ScenarioMatcher() {
                                     })}
                                   {allScenarios.filter(s => {
                                     const searchTerm = popoverSearchTerms[event.scenario] || ''
-                                    return s.title.toLowerCase().includes(searchTerm.toLowerCase())
+                                    return (s.title ?? '').toLowerCase().includes(searchTerm.toLowerCase())
                                   }).length === 0 && (
                                     <div className="py-6 text-center text-sm text-gray-500">
                                       シナリオが見つかりません
