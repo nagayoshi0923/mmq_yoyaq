@@ -321,8 +321,8 @@ export function AuthorReports() {
   }
 
   // フィルタリング
-  const filteredData = authorData.filter(a => 
-    a.author.toLowerCase().includes(searchAuthor.toLowerCase())
+  const filteredData = authorData.filter(a =>
+    (a.author ?? '').toLowerCase().includes(searchAuthor.toLowerCase())
   )
 
   // 統計

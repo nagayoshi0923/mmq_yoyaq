@@ -731,7 +731,7 @@ function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMa
   }
 
   const filteredScenarios = searchTerm
-    ? scenarios.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    ? scenarios.filter(s => (s.title ?? '').toLowerCase().includes(searchTerm.toLowerCase()))
     : scenarios
 
   const getTypeLabel = (type: string) =>

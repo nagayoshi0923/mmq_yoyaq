@@ -38,7 +38,7 @@ export function useReportFilters(monthlyData: MonthlyAuthorData[]) {
     return monthlyData.map(monthData => ({
       ...monthData,
       authors: monthData.authors.filter(author =>
-        author.author.toLowerCase().includes(searchAuthor.toLowerCase())
+        (author.author ?? '').toLowerCase().includes(searchAuthor.toLowerCase())
       )
     }))
   }, [monthlyData, searchAuthor])
