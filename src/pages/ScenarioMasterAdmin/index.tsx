@@ -17,13 +17,15 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { ScenarioMasterEditDialog } from '@/components/modals/ScenarioMasterEditDialog'
-import { 
+import {
   Search, Plus, Edit, CheckCircle, XCircle, Clock, FileText, Users,
-  BookOpen, AlertTriangle, Shield, HelpCircle, Check
+  AlertTriangle, Shield, Check
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { devDb } from '@/components/ui/DevField'
+import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
+import type { Column } from '@/components/patterns/table'
+import { useTablePreferences } from '@/hooks/useTablePreferences'
 
 interface ScenarioMaster {
   id: string
@@ -46,47 +48,6 @@ const STATUS_CONFIG = {
   rejected: { label: '却下', color: 'bg-red-100 text-red-700', icon: XCircle },
 }
 
-// カラムヘッダーのヘルプテキスト
-const COLUMN_HELP = {
-  scenario: 'シナリオのタイトルとキービジュアル画像。クリックで詳細編集。',
-  author: 'シナリオの制作者名（作者ポータルと連携）',
-  player_count: 'このシナリオをプレイできる参加者の人数範囲',
-  duration: 'シナリオの公式所要時間（準備・片付け時間は含まない）',
-  status: '下書き→承認待ち→承認済み/却下の順で進行。承認済みのみ組織が利用可能',
-  org_count: 'このシナリオマスタを使用している組織の数',
-  actions: '編集・削除などの操作',
-}
-
-// ヘルプ付きテーブルヘッダーコンポーネント
-const TableHeaderWithHelp: React.FC<{
-  children: React.ReactNode
-  helpText: string
-  className?: string
-}> = ({ children, helpText, className = '' }) => (
-  <th className={className}>
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-help border-b border-dotted border-gray-400">
-            {children}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent 
-          side="bottom" 
-          align="start"
-          sideOffset={8}
-          className="z-[100] max-w-xs p-3 text-xs bg-white text-gray-700 border border-gray-200 rounded-lg shadow-lg"
-        >
-          <div className="flex items-start gap-2">
-            <HelpCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-            <p className="leading-relaxed">{helpText}</p>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  </th>
-)
-
 export function ScenarioMasterAdmin() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -95,7 +56,8 @@ export function ScenarioMasterAdmin() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  
+  const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>({ field: 'updated_at', direction: 'desc' })
+
   // 編集ダイアログ
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingMasterId, setEditingMasterId] = useState<string | null>(null)
@@ -211,6 +173,167 @@ export function ScenarioMasterAdmin() {
     }
   }
 
+  // テーブルカラム定義
+  const tableColumns: Column<ScenarioMaster>[] = useMemo(() => [
+    {
+      key: 'title',
+      header: 'シナリオ',
+      helpText: 'シナリオのタイトルとキービジュアル画像。クリックで詳細編集。',
+      sortable: true,
+      required: true,
+      render: (master) => (
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-10 h-14 bg-gray-100 rounded overflow-hidden border">
+            {master.key_visual_url ? (
+              <img src={master.key_visual_url} alt={master.title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-300">
+                <span className="text-[8px]">No img</span>
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-gray-900 truncate" {...devDb('scenario_masters.title')}>{master.title}</p>
+            {master.genre && master.genre.length > 0 && (
+              <div className="flex gap-1 mt-1 flex-wrap">
+                {master.genre.slice(0, 3).map((g, i) => (
+                  <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{g}</Badge>
+                ))}
+                {master.genre.length > 3 && (
+                  <span className="text-[10px] text-muted-foreground">+{master.genre.length - 3}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+      sortValue: (master) => master.title.toLowerCase()
+    },
+    {
+      key: 'author',
+      header: '作者',
+      helpText: 'シナリオの制作者名（作者ポータルと連携）',
+      width: 'w-32',
+      sortable: true,
+      render: (master) => (
+        <p className="text-sm text-gray-600 truncate" {...devDb('scenario_masters.author')}>
+          {master.author || '-'}
+        </p>
+      ),
+      sortValue: (master) => (master.author || '').toLowerCase()
+    },
+    {
+      key: 'player_count',
+      header: '人数',
+      helpText: 'このシナリオをプレイできる参加者の人数範囲',
+      width: 'w-20',
+      align: 'center',
+      sortable: true,
+      render: (master) => (
+        <div className="flex items-center justify-center gap-1 text-sm text-gray-600" {...devDb('scenario_masters.player_count_min/max')}>
+          <Users className="w-3 h-3" />
+          {master.player_count_min === master.player_count_max
+            ? `${master.player_count_max}人`
+            : `${master.player_count_min}-${master.player_count_max}人`}
+        </div>
+      ),
+      sortValue: (master) => master.player_count_max
+    },
+    {
+      key: 'duration',
+      header: '時間',
+      helpText: 'シナリオの公式所要時間（準備・片付け時間は含まない）',
+      width: 'w-20',
+      align: 'center',
+      sortable: true,
+      render: (master) => (
+        <div className="flex items-center justify-center gap-1 text-sm text-gray-600" {...devDb('scenario_masters.official_duration')}>
+          <Clock className="w-3 h-3" />
+          {Math.floor(master.official_duration / 60)}h
+          {master.official_duration % 60 > 0 && `${master.official_duration % 60}m`}
+        </div>
+      ),
+      sortValue: (master) => master.official_duration
+    },
+    {
+      key: 'master_status',
+      header: 'ステータス',
+      helpText: '下書き→承認待ち→承認済み/却下の順で進行。承認済みのみ組織が利用可能',
+      width: 'w-28',
+      align: 'center',
+      sortable: true,
+      render: (master) => {
+        const statusConfig = STATUS_CONFIG[master.master_status]
+        const StatusIcon = statusConfig.icon
+        return (
+          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`} {...devDb('scenario_masters.master_status')}>
+            <StatusIcon className="w-3 h-3" />
+            {statusConfig.label}
+          </span>
+        )
+      },
+      sortValue: (master) => master.master_status
+    },
+    {
+      key: 'organization_count',
+      header: '利用組織',
+      helpText: 'このシナリオマスタを使用している組織の数',
+      width: 'w-20',
+      align: 'center',
+      sortable: true,
+      render: (master) => <p className="text-sm text-gray-600">{master.organization_count || 0}</p>,
+      sortValue: (master) => master.organization_count || 0
+    },
+    {
+      key: 'updated_at',
+      header: '更新日',
+      helpText: '最終更新日時',
+      width: 'w-24',
+      align: 'center',
+      sortable: true,
+      render: (master) => (
+        <p className="text-xs text-gray-500">
+          {new Date(master.updated_at).toLocaleDateString('ja-JP', { year: '2-digit', month: '2-digit', day: '2-digit' })}
+        </p>
+      ),
+      sortValue: (master) => master.updated_at
+    },
+    {
+      key: 'actions',
+      header: '操作',
+      width: 'w-24',
+      align: 'right',
+      required: true,
+      render: (master) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {(master.master_status === 'draft' || master.master_status === 'pending') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+              onClick={(e) => handleQuickApprove(master.id, e)}
+              title="承認"
+            >
+              <Check className="w-4 h-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={(e) => { e.stopPropagation(); handleEdit(master) }}
+            title="編集"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    }
+  ], [])
+
+  const defaultColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
+  const [columnPrefs, setColumnPrefs] = useTablePreferences('scenario-master-admin', defaultColumnKeys)
+
   if (!isLicenseAdmin) {
     return (
       <AppLayout currentPage="scenario-masters" maxWidth="max-w-[1440px]">
@@ -296,181 +419,64 @@ export function ScenarioMasterAdmin() {
         </div>
 
         {/* 検索・フィルター */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="タイトル・作者で検索..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto">
-            {['all', 'approved', 'pending', 'draft', 'rejected'].map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter(status)}
-                className="text-xs sm:text-sm whitespace-nowrap"
-              >
-                {status === 'all' ? '全て' : STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.label}
-              </Button>
-            ))}
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <span className="hidden sm:flex items-center text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">
+                {filteredMasters.length}件
+              </span>
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="タイトル・作者で検索..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {(['all', 'approved', 'pending', 'draft', 'rejected'] as const).map((status) => (
+                  <Button
+                    key={status}
+                    variant={statusFilter === status ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter(status)}
+                    className="text-xs whitespace-nowrap"
+                  >
+                    {status === 'all' ? '全て' : STATUS_CONFIG[status]?.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="hidden md:block ml-auto">
+                <ColumnSettingsPanel
+                  columns={tableColumns}
+                  preferences={columnPrefs}
+                  onPreferencesChange={setColumnPrefs}
+                  defaultColumnKeys={defaultColumnKeys}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* PC用: テーブル形式 */}
-        <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <TableHeaderWithHelp 
-                  helpText={COLUMN_HELP.scenario}
-                  className="px-4 py-3 text-left text-sm font-medium text-gray-600"
-                >
-                  シナリオ
-                </TableHeaderWithHelp>
-                <TableHeaderWithHelp 
-                  helpText={COLUMN_HELP.author}
-                  className="px-4 py-3 text-left text-sm font-medium text-gray-600"
-                >
-                  作者
-                </TableHeaderWithHelp>
-                <TableHeaderWithHelp 
-                  helpText={COLUMN_HELP.player_count}
-                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
-                >
-                  人数
-                </TableHeaderWithHelp>
-                <TableHeaderWithHelp 
-                  helpText={COLUMN_HELP.duration}
-                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
-                >
-                  時間
-                </TableHeaderWithHelp>
-                <TableHeaderWithHelp 
-                  helpText={COLUMN_HELP.status}
-                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
-                >
-                  ステータス
-                </TableHeaderWithHelp>
-                <TableHeaderWithHelp 
-                  helpText={COLUMN_HELP.org_count}
-                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
-                >
-                  利用組織
-                </TableHeaderWithHelp>
-                <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredMasters.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                    {searchTerm || statusFilter !== 'all' 
-                      ? '検索条件に一致するマスタが見つかりません' 
-                      : 'シナリオマスタが登録されていません'}
-                  </td>
-                </tr>
-              ) : (
-                filteredMasters.map((master) => {
-                  const statusConfig = STATUS_CONFIG[master.master_status]
-                  const StatusIcon = statusConfig.icon
-
-                  return (
-                    <tr 
-                      key={master.id} 
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleEdit(master)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-10 h-14 bg-gray-100 rounded overflow-hidden border">
-                            {master.key_visual_url ? (
-                              <img
-                                src={master.key_visual_url}
-                                alt={master.title}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                <span className="text-[8px]">No img</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-900 truncate" {...devDb('scenario_masters.title')}>{master.title}</p>
-                            {master.genre && master.genre.length > 0 && (
-                              <div className="flex gap-1 mt-1">
-                                {master.genre.slice(0, 2).map((g, i) => (
-                                  <Badge key={i} variant="secondary" className="text-xs">{g}</Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600" {...devDb('scenario_masters.author')}>
-                        {master.author || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-600">
-                        <div className="flex items-center justify-center gap-1" {...devDb('scenario_masters.player_count_min/max')}>
-                          <Users className="w-3 h-3" />
-                          {master.player_count_min === master.player_count_max
-                            ? `${master.player_count_max}人`
-                            : `${master.player_count_min}-${master.player_count_max}人`}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-600">
-                        <div className="flex items-center justify-center gap-1" {...devDb('scenario_masters.official_duration')}>
-                          <Clock className="w-3 h-3" />
-                          {Math.floor(master.official_duration / 60)}h
-                          {master.official_duration % 60 > 0 && `${master.official_duration % 60}m`}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`} {...devDb('scenario_masters.master_status')}>
-                          <StatusIcon className="w-3 h-3" />
-                          {statusConfig.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-600">
-                        {master.organization_count || 0}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* ワンクリック承認ボタン（draft/pendingのみ表示） */}
-                          {(master.master_status === 'draft' || master.master_status === 'pending') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={(e) => handleQuickApprove(master.id, e)}
-                              title="承認"
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEdit(master)
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+        <div className="hidden md:block">
+          <div className="bg-white border rounded-lg overflow-hidden">
+            <TanStackDataTable
+              data={filteredMasters}
+              columns={tableColumns}
+              getRowKey={(master) => master.id}
+              sortState={sortState}
+              onSort={setSortState}
+              columnPreferences={columnPrefs}
+              emptyMessage={
+                searchTerm || statusFilter !== 'all'
+                  ? '検索条件に一致するマスタが見つかりません'
+                  : 'シナリオマスタが登録されていません'
+              }
+              loading={loading}
+            />
+          </div>
         </div>
 
         {/* モバイル用: リスト形式（ScenarioManagementと同じスタイル） */}
