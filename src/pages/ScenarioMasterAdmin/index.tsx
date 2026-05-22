@@ -662,54 +662,54 @@ export function ScenarioMasterAdmin() {
 
         {/* 統計情報 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-          <button
-            type="button"
+          <Card
+            role="button"
+            tabIndex={0}
             onClick={() => setStatusFilter('all')}
-            className={`text-left transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary' : 'hover:opacity-80'} rounded-lg`}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusFilter('all') } }}
+            className={`shadow-none cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary border-primary' : 'hover:opacity-80'}`}
           >
-            <Card className="shadow-none h-full">
-              <CardContent className="p-3">
-                <div className="text-2xl font-bold">{stats.total}</div>
-                <div className="text-xs text-muted-foreground">全マスタ</div>
-              </CardContent>
-            </Card>
-          </button>
-          <button
-            type="button"
+            <CardContent className="p-3">
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <div className="text-xs text-muted-foreground">全マスタ</div>
+            </CardContent>
+          </Card>
+          <Card
+            role="button"
+            tabIndex={0}
             onClick={() => setStatusFilter('approved')}
-            className={`text-left transition-all ${statusFilter === 'approved' ? 'ring-2 ring-green-500' : 'hover:opacity-80'} rounded-lg`}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusFilter('approved') } }}
+            className={`shadow-none border-green-200 bg-green-50 cursor-pointer transition-all ${statusFilter === 'approved' ? 'ring-2 ring-green-500' : 'hover:opacity-80'}`}
           >
-            <Card className="shadow-none border-green-200 bg-green-50 h-full">
-              <CardContent className="p-3">
-                <div className="text-2xl font-bold text-green-700">{stats.approved}</div>
-                <div className="text-xs text-green-600">承認済み</div>
-              </CardContent>
-            </Card>
-          </button>
-          <button
-            type="button"
+            <CardContent className="p-3">
+              <div className="text-2xl font-bold text-green-700">{stats.approved}</div>
+              <div className="text-xs text-green-600">承認済み</div>
+            </CardContent>
+          </Card>
+          <Card
+            role="button"
+            tabIndex={0}
             onClick={() => setStatusFilter('pending')}
-            className={`text-left transition-all ${statusFilter === 'pending' ? 'ring-2 ring-yellow-500' : 'hover:opacity-80'} rounded-lg`}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusFilter('pending') } }}
+            className={`shadow-none border-yellow-200 bg-yellow-50 cursor-pointer transition-all ${statusFilter === 'pending' ? 'ring-2 ring-yellow-500' : 'hover:opacity-80'}`}
           >
-            <Card className="shadow-none border-yellow-200 bg-yellow-50 h-full">
-              <CardContent className="p-3">
-                <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
-                <div className="text-xs text-yellow-600">承認待ち</div>
-              </CardContent>
-            </Card>
-          </button>
-          <button
-            type="button"
+            <CardContent className="p-3">
+              <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+              <div className="text-xs text-yellow-600">承認待ち</div>
+            </CardContent>
+          </Card>
+          <Card
+            role="button"
+            tabIndex={0}
             onClick={() => setStatusFilter('draft')}
-            className={`text-left transition-all ${statusFilter === 'draft' ? 'ring-2 ring-gray-500' : 'hover:opacity-80'} rounded-lg`}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusFilter('draft') } }}
+            className={`shadow-none border-gray-200 bg-gray-50 cursor-pointer transition-all ${statusFilter === 'draft' ? 'ring-2 ring-gray-500' : 'hover:opacity-80'}`}
           >
-            <Card className="shadow-none border-gray-200 bg-gray-50 h-full">
-              <CardContent className="p-3">
-                <div className="text-2xl font-bold text-gray-700">{stats.draft}</div>
-                <div className="text-xs text-gray-600">下書き</div>
-              </CardContent>
-            </Card>
-          </button>
+            <CardContent className="p-3">
+              <div className="text-2xl font-bold text-gray-700">{stats.draft}</div>
+              <div className="text-xs text-gray-600">下書き</div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* 検索・フィルター */}
