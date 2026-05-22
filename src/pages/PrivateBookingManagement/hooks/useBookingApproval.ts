@@ -461,16 +461,59 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         
         // 却下通知を送信
         {
-          // システムメッセージ設定を取得
-          const { data: settings } = await supabase
-            .from('global_settings')
-            .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REJECTED)
-            .eq('organization_id', organizationId)
-            .maybeSingle()
-          
-          const title = settings?.system_msg_booking_rejected_title || '日程の再調整をお願いします'
-          const body = settings?.system_msg_booking_rejected_body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
-          
+          // 候補日時を取得（メール・チャットメッセージ両方で使用）
+          const candidateDates = reservation?.candidate_datetimes?.candidates?.map((c: any) => ({
+            date: c.date,
+            startTime: c.startTime,
+            endTime: c.endTime
+          })) || []
+
+          // 却下メール（貸切専用）を送信し、その内容と同じ文章をチャットにも投稿する。
+          // → email_settings.private_rejection_template を取得して変数置換し、グループチャットの body として共有。
+          const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
+          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
+          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
+
+          // store_id から email_settings.private_rejection_template を取得
+          const storeId = reservation?.store_id as string | undefined
+          let rejectionTemplate = ''
+          let companyName = ''
+          if (storeId) {
+            const { data: emailSettings } = await supabase
+              .from('email_settings')
+              .select('private_rejection_template, company_name')
+              .eq('store_id', storeId)
+              .maybeSingle()
+            rejectionTemplate = emailSettings?.private_rejection_template || ''
+            companyName = emailSettings?.company_name || ''
+          }
+
+          const formatDateForBody = (dateStr: string): string => {
+            if (!dateStr) return ''
+            try {
+              const d = new Date(`${dateStr}T12:00:00+09:00`)
+              const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+              return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${weekdays[d.getDay()]})`
+            } catch {
+              return dateStr
+            }
+          }
+          const candidatesText = candidateDates.length > 0
+            ? candidateDates.map((c: { date: string; startTime: string; endTime: string }, i: number) =>
+                `候補${i + 1}: ${formatDateForBody(c.date)} ${c.startTime?.slice(0, 5) || ''} - ${c.endTime?.slice(0, 5) || ''}`
+              ).join('\n')
+            : ''
+
+          // 変数置換して body を生成
+          const sharedBody = rejectionTemplate
+            ? rejectionTemplate
+                .replace(/{customer_name}/g, rejectCustomerName || '')
+                .replace(/{scenario_title}/g, reservation?.title || '')
+                .replace(/{rejection_reason}/g, rejectionReason)
+                .replace(/{candidate_dates}/g, candidatesText)
+                .replace(/{company_name}/g, companyName)
+            : ''
+
           // グループチャットにシステムメッセージを送信
           const { error: msgInsertError } = await supabase
             .from('private_group_messages')
@@ -480,9 +523,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               message: JSON.stringify({
                 type: 'system',
                 action: 'booking_rejected',
-                title,
-                body,
-                rejectionReason: rejectionReason
+                title: '貸切リクエストが却下されました',
+                body: sharedBody
               })
             })
           if (msgInsertError) {
@@ -490,18 +532,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           }
 
           // 却下メール（貸切専用）を送信
-          const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
-          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
-          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
           if (reservation && rejectCustomerEmail && rejectCustomerName) {
             try {
-              // 候補日時を取得
-              const candidateDates = reservation.candidate_datetimes?.candidates?.map((c: any) => ({
-                date: c.date,
-                startTime: c.startTime,
-                endTime: c.endTime
-              })) || []
-
               const { error: rejectMailError } = await supabase.functions.invoke('send-private-booking-rejection', {
                 body: {
                   organizationId,

@@ -712,7 +712,7 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
   {
     key: 'private_rejection_template',
     title: '貸切リクエスト却下メール',
-    description: '貸切予約を受け付けられない場合に送信',
+    description: '貸切予約を受け付けられない場合に送信（グループチャットの却下メッセージにも同じ本文が使われます）',
     category: 'private',
     additionalVariables: ADDITIONAL_VARIABLES.rejection,
     getDefault: getDefaultPrivateRejectionTemplate
