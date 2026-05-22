@@ -407,7 +407,7 @@ export function ScenarioMasterAdmin() {
         <div className="min-w-0">
           <button
             onClick={() => handleEdit(master)}
-            className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+            className="text-xs truncate text-left hover:text-blue-600 hover:underline w-full font-medium"
             title={master.title}
             {...devDb('scenario_masters.title')}
           >
@@ -464,7 +464,7 @@ export function ScenarioMasterAdmin() {
       sortable: true,
       cellClassName: COMPACT_CELL,
       render: (master) => (
-        <div className="flex items-center justify-center gap-1 text-sm text-gray-600" {...devDb('scenario_masters.player_count_min/max')}>
+        <div className="flex items-center justify-center gap-1 text-xs text-gray-600" {...devDb('scenario_masters.player_count_min/max')}>
           <Users className="w-3 h-3" />
           {master.player_count_min === master.player_count_max
             ? `${master.player_count_max}人`
@@ -482,7 +482,7 @@ export function ScenarioMasterAdmin() {
       sortable: true,
       cellClassName: COMPACT_CELL,
       render: (master) => (
-        <div className="flex items-center justify-center gap-1 text-sm text-gray-600" {...devDb('scenario_masters.official_duration')}>
+        <div className="flex items-center justify-center gap-1 text-xs text-gray-600" {...devDb('scenario_masters.official_duration')}>
           <Clock className="w-3 h-3" />
           {Math.floor(master.official_duration / 60)}h
           {master.official_duration % 60 > 0 && `${master.official_duration % 60}m`}
@@ -572,7 +572,7 @@ export function ScenarioMasterAdmin() {
       sortable: true,
       cellClassName: COMPACT_CELL,
       render: (master) => (
-        <p className="text-[10px] text-gray-500">
+        <p className="text-xs text-gray-500">
           {new Date(master.updated_at).toLocaleDateString('ja-JP', { year: '2-digit', month: '2-digit', day: '2-digit' })}
         </p>
       ),
