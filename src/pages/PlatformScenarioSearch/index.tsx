@@ -366,7 +366,7 @@ export function PlatformScenarioSearch() {
       // 検索
       if (searchTerm) {
         const term = searchTerm.toLowerCase()
-        const matchTitle = scenario.title.toLowerCase().includes(term)
+        const matchTitle = (scenario.title ?? '').toLowerCase().includes(term)
         const matchAuthor = scenario.author?.toLowerCase().includes(term)
         const matchGenre = scenario.genre?.some(g => g.toLowerCase().includes(term))
         const matchOrg = scenario.organization_name?.toLowerCase().includes(term)
