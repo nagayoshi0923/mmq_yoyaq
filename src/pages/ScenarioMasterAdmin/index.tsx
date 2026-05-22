@@ -19,13 +19,20 @@ import { logger } from '@/utils/logger'
 import { ScenarioMasterEditDialog } from '@/components/modals/ScenarioMasterEditDialog'
 import {
   Search, Plus, Edit, CheckCircle, XCircle, Clock, FileText, Users,
-  AlertTriangle, Shield, Check
+  AlertTriangle, Shield
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { devDb } from '@/components/ui/DevField'
 import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
 import type { Column } from '@/components/patterns/table'
 import { useTablePreferences } from '@/hooks/useTablePreferences'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { ChevronDown } from 'lucide-react'
 
 interface ScenarioMaster {
   id: string
@@ -149,31 +156,30 @@ export function ScenarioMasterAdmin() {
     fetchMasters()
   }
 
-  // ワンクリック承認（楽観的更新）
-  const handleQuickApprove = async (masterId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-
+  // ステータス変更（楽観的更新）
+  const handleStatusChange = async (masterId: string, newStatus: ScenarioMaster['master_status']) => {
     // 楽観的更新: 先にローカル状態を変更
     const previousMasters = masters
     setMasters(prev => prev.map(m =>
-      m.id === masterId ? { ...m, master_status: 'approved' } : m
+      m.id === masterId ? { ...m, master_status: newStatus } : m
     ))
 
     try {
+      const updatePayload: Record<string, unknown> = { master_status: newStatus }
+      if (newStatus === 'approved') {
+        updatePayload.approved_by = user?.id
+        updatePayload.approved_at = new Date().toISOString()
+      }
       const { error } = await supabase
         .from('scenario_masters')
-        .update({
-          master_status: 'approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', masterId)
 
       if (error) throw error
-      toast.success('承認しました')
+      toast.success(`${STATUS_CONFIG[newStatus].label}に変更しました`)
     } catch (err) {
-      logger.error('Quick approve error:', err)
-      toast.error('承認に失敗しました')
+      logger.error('Status change error:', err)
+      toast.error('ステータス変更に失敗しました')
       // 失敗時はロールバック
       setMasters(previousMasters)
     }
@@ -282,18 +288,44 @@ export function ScenarioMasterAdmin() {
     {
       key: 'master_status',
       header: 'ステータス',
-      helpText: '下書き→承認待ち→承認済み/却下の順で進行。承認済みのみ組織が利用可能',
-      width: 'w-28',
+      helpText: 'クリックで変更可。下書き→承認待ち→承認済み/却下の順で進行。承認済みのみ組織が利用可能',
+      width: 'w-32',
       align: 'center',
       sortable: true,
       render: (master) => {
         const statusConfig = STATUS_CONFIG[master.master_status]
         const StatusIcon = statusConfig.icon
+        const otherStatuses = (['approved', 'pending', 'draft', 'rejected'] as const)
+          .filter(s => s !== master.master_status)
         return (
-          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`} {...devDb('scenario_masters.master_status')}>
-            <StatusIcon className="w-3 h-3" />
-            {statusConfig.label}
-          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium hover:opacity-80 transition-opacity ${statusConfig.color}`}
+                {...devDb('scenario_masters.master_status')}
+              >
+                <StatusIcon className="w-3 h-3" />
+                {statusConfig.label}
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-36">
+              {otherStatuses.map(s => {
+                const cfg = STATUS_CONFIG[s]
+                const Icon = cfg.icon
+                return (
+                  <DropdownMenuItem
+                    key={s}
+                    onClick={() => handleStatusChange(master.id, s)}
+                    className="text-xs cursor-pointer"
+                  >
+                    <Icon className="w-3 h-3 mr-2" />
+                    {cfg.label}に変更
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       },
       sortValue: (master) => master.master_status
@@ -325,22 +357,11 @@ export function ScenarioMasterAdmin() {
     {
       key: 'actions',
       header: '操作',
-      width: 'w-24',
+      width: 'w-16',
       align: 'right',
       required: true,
       render: (master) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {(master.master_status === 'draft' || master.master_status === 'pending') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-              onClick={(e) => handleQuickApprove(master.id, e)}
-              title="承認"
-            >
-              <Check className="w-4 h-4" />
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="sm"
@@ -539,10 +560,34 @@ export function ScenarioMasterAdmin() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="font-bold text-sm truncate pr-2">{master.title}</h3>
-                        {/* @ts-ignore */}
-                        <Badge variant={master.master_status === 'approved' ? 'success' : 'warning'} size="sm" className="shrink-0 text-[10px] px-1.5 py-0">
-                          {statusConfig.label}
-                        </Badge>
+                        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className={`inline-flex items-center gap-1 px-1.5 py-0 rounded-full text-[10px] font-medium hover:opacity-80 transition-opacity ${statusConfig.color}`}>
+                                {statusConfig.label}
+                                <ChevronDown className="w-2.5 h-2.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36">
+                              {(['approved', 'pending', 'draft', 'rejected'] as const)
+                                .filter(s => s !== master.master_status)
+                                .map(s => {
+                                  const cfg = STATUS_CONFIG[s]
+                                  const Icon = cfg.icon
+                                  return (
+                                    <DropdownMenuItem
+                                      key={s}
+                                      onClick={() => handleStatusChange(master.id, s)}
+                                      className="text-xs cursor-pointer"
+                                    >
+                                      <Icon className="w-3 h-3 mr-2" />
+                                      {cfg.label}に変更
+                                    </DropdownMenuItem>
+                                  )
+                                })}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                       
                       <div className="text-xs text-muted-foreground mb-1.5 truncate">
@@ -589,16 +634,6 @@ export function ScenarioMasterAdmin() {
                       <span className="text-blue-600">利用: {master.organization_count || 0}組織</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* ワンクリック承認ボタン */}
-                      {(master.master_status === 'draft' || master.master_status === 'pending') && (
-                        <button
-                          className="text-green-600 font-medium flex items-center gap-0.5"
-                          onClick={(e) => handleQuickApprove(master.id, e)}
-                        >
-                          <Check className="w-3 h-3" />
-                          承認
-                        </button>
-                      )}
                       <span className="text-primary">編集 →</span>
                     </div>
                   </div>
