@@ -285,6 +285,31 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
           <Settings className="h-3.5 w-3.5" />設定
         </p>
 
+        {/* 公開ステータス */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">公開</span>
+          <div className="w-40">
+            <Select
+              value={formData.status || 'available'}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="available">公開中</SelectItem>
+                <SelectItem value="draft">近日公開</SelectItem>
+                <SelectItem value="unavailable">非公開</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {formData.status === 'draft' && '一覧に「まもなく」表示・予約不可'}
+            {formData.status === 'unavailable' && '予約サイト非表示'}
+            {(formData.status === 'available' || !formData.status) && '予約サイトに掲載'}
+          </span>
+        </div>
+
         {/* シナリオ種別 */}
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">種別</span>
