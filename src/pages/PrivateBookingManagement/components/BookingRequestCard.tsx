@@ -106,7 +106,6 @@ export const BookingRequestCard = ({
 
   const elapsedDays = getElapsedDays(request.created_at)
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
-  const hasUnrespondedGMs = request.gm_responses?.some(r => !hasGmResponded(r))
   const isWaitingStatus = ['pending', 'pending_gm', 'pending_store'].includes(request.status)
 
   const handleResend = async () => {
@@ -137,7 +136,9 @@ export const BookingRequestCard = ({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-muted-foreground">
           <span>#{request.reservation_number}</span>
           <span>{request.customer_name}・{formatPrivateBookingParticipantLabel(request.participant_count, request.joined_member_count)}</span>
-          <span className={elapsedTimeColor}>{getElapsedTime(request.created_at)}</span>
+          <span className={elapsedTimeColor} title={formatDateTime(request.created_at)}>
+            {getElapsedTime(request.created_at)}（{formatDateTime(request.created_at)}）
+          </span>
         </div>
 
         {/* ── 連絡先・招待コード ── */}
@@ -207,7 +208,7 @@ export const BookingRequestCard = ({
               <div className="flex items-center justify-between mb-1.5">
                 <h4 className="text-xs font-semibold text-purple-800 uppercase tracking-wide">GM回答状況</h4>
                 <div className="flex items-center gap-1">
-                  {onResendDiscordNotification && hasUnrespondedGMs && isWaitingStatus && (
+                  {onResendDiscordNotification && isWaitingStatus && (
                     <Button variant="ghost" size="sm"
                       className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
                       onClick={handleResend} disabled={resending}
