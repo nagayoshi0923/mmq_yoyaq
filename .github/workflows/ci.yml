@@ -33,6 +33,16 @@ jobs:
       - name: Security guardrails
         run: npm run check:security-guardrails
 
+      - name: Install PostgreSQL client (for anon RLS / GRANT audit)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Audit anon RLS / GRANT consistency
+        env:
+          SUPABASE_DB_STAGING_PASSWORD: ${{ secrets.SUPABASE_DB_STAGING_PASSWORD }}
+        run: npm run check:anon-rls-grants
+
       - name: Build
         run: npm run build:fast
 
