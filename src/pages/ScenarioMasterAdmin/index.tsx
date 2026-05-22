@@ -101,31 +101,37 @@ export function ScenarioMasterAdmin() {
 
       const masterIds = (data || []).map(m => m.id)
 
-      // 利用組織を一括取得（master_id ごとに groupBy）
+      // 利用組織を一括取得（埋め込み構文を避け、2クエリで取得→JS側で結合）
       const { data: orgScenarios } = await supabase
         .from('organization_scenarios')
-        .select('scenario_master_id, organization:organizations(id, name)')
+        .select('scenario_master_id, organization_id')
         .in('scenario_master_id', masterIds)
 
-      const usingOrgsByMaster = new Map<string, { id: string; name: string }[]>()
-      ;(orgScenarios || []).forEach((row: { scenario_master_id: string; organization: { id: string; name: string } | { id: string; name: string }[] | null }) => {
-        const org = Array.isArray(row.organization) ? row.organization[0] : row.organization
-        if (!org) return
-        const list = usingOrgsByMaster.get(row.scenario_master_id) || []
-        if (!list.some(o => o.id === org.id)) list.push({ id: org.id, name: org.name })
-        usingOrgsByMaster.set(row.scenario_master_id, list)
-      })
-
-      // 申請組織を一括取得（submitted_by_organization_id の集合）
+      // 利用組織と申請組織の ID を集めて一括で organizations を引く
+      const usingOrgIds = Array.from(new Set((orgScenarios || []).map(r => r.organization_id).filter((v): v is string => !!v)))
       const submitterIds = Array.from(new Set((data || []).map(m => m.submitted_by_organization_id).filter((v): v is string => !!v)))
-      let submitterMap = new Map<string, string>()
-      if (submitterIds.length > 0) {
+      const allOrgIds = Array.from(new Set([...usingOrgIds, ...submitterIds]))
+
+      const orgNameMap = new Map<string, string>()
+      if (allOrgIds.length > 0) {
         const { data: orgs } = await supabase
           .from('organizations')
           .select('id, name')
-          .in('id', submitterIds)
-        ;(orgs || []).forEach(o => submitterMap.set(o.id, o.name))
+          .in('id', allOrgIds)
+        ;(orgs || []).forEach(o => orgNameMap.set(o.id, o.name))
       }
+
+      const usingOrgsByMaster = new Map<string, { id: string; name: string }[]>()
+      ;(orgScenarios || []).forEach(row => {
+        if (!row.organization_id) return
+        const name = orgNameMap.get(row.organization_id)
+        if (!name) return
+        const list = usingOrgsByMaster.get(row.scenario_master_id) || []
+        if (!list.some(o => o.id === row.organization_id)) list.push({ id: row.organization_id, name })
+        usingOrgsByMaster.set(row.scenario_master_id, list)
+      })
+
+      const submitterMap = orgNameMap
 
       const mastersWithMeta = (data || []).map(master => {
         const usingOrgs = usingOrgsByMaster.get(master.id) || []
