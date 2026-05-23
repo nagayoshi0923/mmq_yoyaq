@@ -133,7 +133,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
     },
     {
       id: 'customers',
-      label: 'アカウント・顧客',
+      label: '顧客・クーポン',
       icon: UserCog,
       items: [
         { id: 'customers', label: '顧客', icon: UserCog, path: `/${slug}/accounts?tab=customers`, roles: ['admin', 'license_admin'] },
