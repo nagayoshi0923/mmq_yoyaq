@@ -1107,6 +1107,25 @@ async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: Au
   return res.status(200).json({ success: true })
 }
 
+/**
+ * 付与通知メールを fire-and-forget で送信する。
+ * 失敗してもクーポン付与処理はブロックしない。
+ * Edge Function 側でフラグチェックするので、ここでは notify_on_grant=true のみ呼び出す。
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fireCouponGrantedEmail(database: any, customerCouponId: string): void {
+  database.functions
+    .invoke('send-coupon-granted', { body: { customerCouponId } })
+    .then((r: { error?: unknown }) => {
+      if (r?.error) {
+        console.warn('[coupons:notify] send-coupon-granted error (non-blocking):', r.error)
+      }
+    })
+    .catch((err: unknown) => {
+      console.warn('[coupons:notify] send-coupon-granted exception (non-blocking):', err)
+    })
+}
+
 // =========================================
 // 顧客向け: 新規登録クーポンを付与
 // =========================================
@@ -1183,7 +1202,7 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
       expiresAt = expiry.toISOString()
     }
 
-    const { error: insertError } = await database
+    const { data: newCC, error: insertError } = await database
       .from('customer_coupons')
       .insert({
         campaign_id: campaign.id,
@@ -1193,11 +1212,16 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
         expires_at: expiresAt,
         status: 'active',
       })
+      .select('id')
+      .single()
 
     if (insertError) {
       console.error('[coupons:grant-registration] insert error:', insertError)
     } else {
       grantedCount++
+      if (campaign.notify_on_grant && newCC?.id) {
+        fireCouponGrantedEmail(database, newCC.id)
+      }
     }
   }
 
@@ -1400,6 +1424,10 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
     return res.status(500).json({ success: false, error: error.message })
   }
 
+  if (campaign.notify_on_grant) {
+    fireCouponGrantedEmail(database, data.id)
+  }
+
   return res.status(200).json({ success: true, couponId: data.id })
 }
 
@@ -1497,6 +1525,10 @@ async function handleRedeemCouponByCode(req: VercelRequest, res: VercelResponse,
   if (error) {
     console.error('[coupons:redeem-code] insert error:', error)
     return res.status(500).json({ success: false, error: error.message })
+  }
+
+  if (campaign.notify_on_grant) {
+    fireCouponGrantedEmail(database, data.id)
   }
 
   return res.status(200).json({ success: true, couponId: data.id, campaignName: campaign.name })
