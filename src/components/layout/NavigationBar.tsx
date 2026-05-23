@@ -73,7 +73,6 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'sales', path: `/${bookingSlug}/sales`, label: '売上', icon: TrendingUp, roles: ['admin', 'license_admin'] },
     { id: 'license-management', path: `/${bookingSlug}/license-management`, label: '公演報告', icon: FileCheck, roles: ['admin', 'staff', 'license_admin'] },
     { id: 'settings', path: `/${bookingSlug}/settings`, label: '設定', icon: Settings, roles: ['admin', 'license_admin'] },
-    { id: 'email-history', path: `/${bookingSlug}/settings?tab=email-history`, label: 'メール配信履歴', icon: Mail, roles: ['admin', 'license_admin'] },
     { id: 'manual', path: `/${bookingSlug}/manual`, label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff', 'license_admin'] },
     // MMQ運営用メニュー（license_adminのみ）
     { id: 'scenario-masters', path: '/admin/scenario-masters', label: 'マスタ管理', icon: Shield, roles: ['license_admin'] }
@@ -97,9 +96,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   // アクティブ判定
   const isTabActive = useCallback((tab: typeof allTabs[0]) => {
     const pathname = location.pathname
-    const searchParams = new URLSearchParams(location.search)
-    const activeSettingsTab = searchParams.get('tab')
-    
+
     // 予約サイトは特別処理：/{slug} のみの場合
     if (tab.id === 'booking') {
       // パスが /{slug} のみで、他の管理パスがない場合
@@ -111,17 +108,13 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
       return pathname === `/${bookingSlug}` || (pathname.startsWith(`/${bookingSlug}/`) && !isAdminPage)
     }
 
-    if (tab.id === 'email-history') {
-      return pathname === `/${bookingSlug}/settings` && activeSettingsTab === 'email-history'
-    }
-
     if (tab.id === 'settings') {
-      return (pathname === `/${bookingSlug}/settings` || pathname.startsWith(`/${bookingSlug}/settings/`)) && activeSettingsTab !== 'email-history'
+      return pathname === `/${bookingSlug}/settings` || pathname.startsWith(`/${bookingSlug}/settings/`)
     }
     
     // 通常のパスマッチング
     return pathname === tab.path || pathname.startsWith(tab.path + '/')
-  }, [location.pathname, location.search, bookingSlug])
+  }, [location.pathname, bookingSlug])
 
   // タブクリックハンドラ
   const handleTabClick = useCallback((tab: typeof allTabs[0], e: React.MouseEvent) => {

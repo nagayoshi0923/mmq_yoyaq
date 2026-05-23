@@ -145,8 +145,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: 'メール',
       icon: Mail,
       items: [
-        { id: 'email-history', label: 'メール配信履歴', icon: Mail, path: `/${slug}/settings?tab=email-history`, roles: ['admin', 'license_admin'] },
-        { id: 'email-logs',    label: 'メール送信ログ', icon: Mail, path: `/${slug}/settings?tab=email-logs`,    roles: ['admin', 'license_admin'] },
+        { id: 'email-logs', label: 'メール送信ログ', icon: Mail, path: `/${slug}/settings?tab=email-logs`, roles: ['admin', 'license_admin'] },
       ],
     },
     {
