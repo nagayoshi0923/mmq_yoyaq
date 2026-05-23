@@ -845,10 +845,13 @@ async function handleSearchCustomers(req: VercelRequest, res: VercelResponse, us
   const escaped = trimmed.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
   const searchTerm = `%${escaped}%`
 
+  // 自組織の customer + platform customer (organization_id IS NULL) を検索対象に
+  // PR #251 以降 platform customer は org=NULL に統一されているため、
+  // org_id 縛りだと MMQ 横断のユーザーがヒットしなくなる (Issue #252)
   const { data, error } = await database
     .from('customers')
     .select('id, name, email, phone, organization_id')
-    .eq('organization_id', user.orgId)
+    .or(`organization_id.eq.${user.orgId},organization_id.is.null`)
     .or(`name.ilike.${searchTerm},email.ilike.${searchTerm},phone.ilike.${searchTerm}`)
     .limit(20)
 
