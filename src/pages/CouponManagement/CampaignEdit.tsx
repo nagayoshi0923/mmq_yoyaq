@@ -64,7 +64,6 @@ const defaultFormData: CampaignFormData = {
   display_image_url: null,
   customer_terms: null,
   internal_memo: null,
-  on_cancel: 'restore',
   is_active: true,
 }
 
@@ -103,7 +102,6 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         display_image_url: campaign.display_image_url || null,
         customer_terms: campaign.customer_terms || null,
         internal_memo: campaign.internal_memo || null,
-        on_cancel: campaign.on_cancel || 'restore',
         is_active: campaign.is_active,
       })
     } else {
@@ -458,26 +456,6 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         </CardContent>
       </Card>
 
-      {/* ⑦ 運用 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">⑦ 運用</CardTitle>
-          <CardDescription>キャンセル時の挙動など</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>予約キャンセル時の挙動</Label>
-            <Select value={formData.on_cancel ?? 'restore'}
-              onValueChange={(v: 'restore' | 'forfeit') => setFormData(p => ({ ...p, on_cancel: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="restore">クーポン返却（再利用可）</SelectItem>
-                <SelectItem value="forfeit">失効（再利用不可）</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
     </form>
   )
 }
