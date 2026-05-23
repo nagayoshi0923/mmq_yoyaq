@@ -109,23 +109,38 @@ function mapStatus(lastEvent) {
 }
 
 async function lookupCustomer(toEmail) {
-  // customers テーブルを優先（予約に紐づくため）
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('id, organization_id, name')
-    .eq('email', toEmail)
-    .limit(1)
-    .maybeSingle()
-  if (customer) return { customerId: customer.id, organizationId: customer.organization_id, name: customer.name }
-
-  // staff 招待などのため users も見る
+  // email_logs.customer_id は users(id) を参照する FK のため、users.id を取得する
   const { data: user } = await supabase
     .from('users')
-    .select('id, organization_id, full_name')
+    .select('id, organization_id, display_name')
     .eq('email', toEmail)
     .limit(1)
     .maybeSingle()
-  if (user) return { customerId: null, organizationId: user.organization_id, name: user.full_name }
+  if (user) {
+    // organization_id が NULL でも customers から補完を試みる
+    let orgId = user.organization_id
+    let name  = user.display_name
+    if (!orgId || !name) {
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('organization_id, name')
+        .eq('email', toEmail)
+        .limit(1)
+        .maybeSingle()
+      orgId = orgId ?? customer?.organization_id ?? null
+      name  = name  ?? customer?.name ?? null
+    }
+    return { customerId: user.id, organizationId: orgId, name }
+  }
+
+  // users に居なくても customers のみのケース（古いデータ）は customer_id を埋めない
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('organization_id, name')
+    .eq('email', toEmail)
+    .limit(1)
+    .maybeSingle()
+  if (customer) return { customerId: null, organizationId: customer.organization_id, name: customer.name }
 
   return { customerId: null, organizationId: null, name: null }
 }
@@ -253,14 +268,22 @@ async function main() {
       const results = await Promise.all(slice.map(processOne))
       for (const r of results) if (r) rows.push(r)
     }
-    // バッチで insert
+    // per-row insert（FK 違反等で 1件失敗しても他は通す）
     if (!DRY_RUN && rows.length > 0) {
-      const { error } = await supabase.from('email_logs').insert(rows)
-      if (error) {
-        console.warn(`  ❌ batch insert error:`, error.message)
-        failed += rows.length
-      } else {
-        inserted += rows.length
+      for (let k = 0; k < rows.length; k += 10) {
+        const slice = rows.slice(k, k + 10)
+        const results = await Promise.all(
+          slice.map((row) => supabase.from('email_logs').insert(row).select('id').then((r) => r))
+        )
+        for (let idx = 0; idx < results.length; idx++) {
+          const { error } = results[idx]
+          if (error) {
+            console.warn(`  ❌ insert ${slice[idx].provider_message_id}:`, error.message.slice(0, 120))
+            failed++
+          } else {
+            inserted++
+          }
+        }
       }
     }
     console.log(`  ${Math.min(i+BATCH, newOnes.length)}/${newOnes.length} processed (inserted: ${inserted}, failed: ${failed})`)
