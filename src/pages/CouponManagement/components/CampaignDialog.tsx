@@ -37,6 +37,7 @@ export function CampaignDialog({
   onSubmit
 }: CampaignDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [usageMode, setUsageMode] = useState<'relative' | 'absolute'>('relative')
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
     description: '',
@@ -49,11 +50,15 @@ export function CampaignDialog({
     valid_from: null,
     valid_until: null,
     coupon_expiry_days: null,
+    usage_valid_from: null,
+    usage_valid_until: null,
     is_active: true
   })
 
   useEffect(() => {
     if (campaign) {
+      const hasAbsolute = !!(campaign.usage_valid_from || campaign.usage_valid_until)
+      setUsageMode(hasAbsolute ? 'absolute' : 'relative')
       setFormData({
         name: campaign.name,
         description: campaign.description || '',
@@ -66,9 +71,12 @@ export function CampaignDialog({
         valid_from: campaign.valid_from ? campaign.valid_from.slice(0, 10) : null,
         valid_until: campaign.valid_until ? campaign.valid_until.slice(0, 10) : null,
         coupon_expiry_days: campaign.coupon_expiry_days || null,
+        usage_valid_from: campaign.usage_valid_from ? campaign.usage_valid_from.slice(0, 10) : null,
+        usage_valid_until: campaign.usage_valid_until ? campaign.usage_valid_until.slice(0, 10) : null,
         is_active: campaign.is_active
       })
     } else {
+      setUsageMode('relative')
       setFormData({
         name: '',
         description: '',
@@ -81,6 +89,8 @@ export function CampaignDialog({
         valid_from: null,
         valid_until: null,
         coupon_expiry_days: null,
+        usage_valid_from: null,
+        usage_valid_until: null,
         is_active: true
       })
     }
@@ -90,10 +100,16 @@ export function CampaignDialog({
     e.preventDefault()
     setIsSubmitting(true)
     try {
-      const submitData = {
+      // 排他: 選択されてない側はクリア
+      const submitData: CampaignFormData = {
         ...formData,
         valid_from: formData.valid_from ? `${formData.valid_from}T00:00:00+09:00` : null,
-        valid_until: formData.valid_until ? `${formData.valid_until}T23:59:59+09:00` : null
+        valid_until: formData.valid_until ? `${formData.valid_until}T23:59:59+09:00` : null,
+        coupon_expiry_days: usageMode === 'relative' ? formData.coupon_expiry_days : null,
+        usage_valid_from: usageMode === 'absolute' && formData.usage_valid_from
+          ? `${formData.usage_valid_from}T00:00:00+09:00` : null,
+        usage_valid_until: usageMode === 'absolute' && formData.usage_valid_until
+          ? `${formData.usage_valid_until}T23:59:59+09:00` : null,
       }
       await onSubmit(submitData)
       onOpenChange(false)
@@ -179,36 +195,19 @@ export function CampaignDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="max_uses">使用回数上限 *</Label>
-              <Input
-                id="max_uses"
-                type="number"
-                min={1}
-                value={formData.max_uses_per_customer}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  max_uses_per_customer: parseInt(e.target.value) || 1 
-                }))}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="expiry_days">有効日数（付与から）</Label>
-              <Input
-                id="expiry_days"
-                type="number"
-                min={1}
-                value={formData.coupon_expiry_days || ''}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  coupon_expiry_days: e.target.value ? parseInt(e.target.value) : null 
-                }))}
-                placeholder="無制限"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="max_uses">使用回数上限 *</Label>
+            <Input
+              id="max_uses"
+              type="number"
+              min={1}
+              value={formData.max_uses_per_customer}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                max_uses_per_customer: parseInt(e.target.value) || 1
+              }))}
+              required
+            />
           </div>
 
           <div className="space-y-2">
@@ -248,32 +247,121 @@ export function CampaignDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="valid_from">キャンペーン開始日</Label>
-              <Input
-                id="valid_from"
-                type="date"
-                value={formData.valid_from || ''}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  valid_from: e.target.value || null 
-                }))}
-              />
+          {/* 配布期間 */}
+          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">配布期間</p>
+              <p className="text-xs text-muted-foreground">この期間中に対象の顧客へクーポンを配布できます</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="valid_from">配布開始日</Label>
+                <Input
+                  id="valid_from"
+                  type="date"
+                  value={formData.valid_from || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    valid_from: e.target.value || null
+                  }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="valid_until">配布終了日</Label>
+                <Input
+                  id="valid_until"
+                  type="date"
+                  value={formData.valid_until || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    valid_until: e.target.value || null
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 使用期間 */}
+          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">使用期間</p>
+              <p className="text-xs text-muted-foreground">配布後、顧客がクーポンを使える期間を指定します</p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="valid_until">キャンペーン終了日</Label>
-              <Input
-                id="valid_until"
-                type="date"
-                value={formData.valid_until || ''}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  valid_until: e.target.value || null 
-                }))}
-              />
+            <div className="flex items-center gap-4 text-sm">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="usage_mode"
+                  value="relative"
+                  checked={usageMode === 'relative'}
+                  onChange={() => setUsageMode('relative')}
+                />
+                配布から N 日間
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="usage_mode"
+                  value="absolute"
+                  checked={usageMode === 'absolute'}
+                  onChange={() => setUsageMode('absolute')}
+                />
+                絶対日付で指定
+              </label>
             </div>
+
+            {usageMode === 'relative' && (
+              <div className="space-y-2">
+                <Label htmlFor="expiry_days">有効日数（付与から）</Label>
+                <Input
+                  id="expiry_days"
+                  type="number"
+                  min={1}
+                  value={formData.coupon_expiry_days || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    coupon_expiry_days: e.target.value ? parseInt(e.target.value) : null
+                  }))}
+                  placeholder="無制限"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  例: 30 を設定すると、配布日から30日後までクーポン使用可能
+                </p>
+              </div>
+            )}
+
+            {usageMode === 'absolute' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="usage_valid_from">使用開始日</Label>
+                  <Input
+                    id="usage_valid_from"
+                    type="date"
+                    value={formData.usage_valid_from || ''}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      usage_valid_from: e.target.value || null
+                    }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="usage_valid_until">使用終了日</Label>
+                  <Input
+                    id="usage_valid_until"
+                    type="date"
+                    value={formData.usage_valid_until || ''}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      usage_valid_until: e.target.value || null
+                    }))}
+                  />
+                </div>
+                <p className="col-span-2 text-[11px] text-muted-foreground">
+                  ※ 配布日に関わらず、この期間中のみクーポンが使えます
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-2">

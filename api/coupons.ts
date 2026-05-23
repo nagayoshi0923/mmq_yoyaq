@@ -45,7 +45,7 @@ const CUSTOMER_COUPON_FIELDS = `
 `
 
 const COUPON_CAMPAIGN_FIELDS =
-  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, is_active, created_at, updated_at'
+  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, usage_valid_from, usage_valid_until, is_active, created_at, updated_at'
 
 const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   id,
@@ -248,8 +248,12 @@ async function handleAvailable(
     const campaign = coupon.coupon_campaigns
     if (campaign) {
       if (!campaign.is_active) return false
+      // 配布期間（顧客が新規に受け取れる期間）
       if (campaign.valid_from && new Date(campaign.valid_from) > now) return false
       if (campaign.valid_until && new Date(campaign.valid_until) < now) return false
+      // 使用期間（絶対日付）: 配布済みでも期間外は使えない
+      if (campaign.usage_valid_from && new Date(campaign.usage_valid_from) > now) return false
+      if (campaign.usage_valid_until && new Date(campaign.usage_valid_until) < now) return false
     }
     return true
   })
@@ -1098,7 +1102,9 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const campaign of campaigns as any[]) {
     let expiresAt: string | null = null
-    if (campaign.coupon_expiry_days) {
+    if (campaign.usage_valid_until) {
+      expiresAt = new Date(campaign.usage_valid_until).toISOString()
+    } else if (campaign.coupon_expiry_days) {
       const expiry = new Date()
       expiry.setDate(expiry.getDate() + campaign.coupon_expiry_days)
       expiresAt = expiry.toISOString()
@@ -1274,8 +1280,11 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
     return res.status(404).json({ success: false, error: '顧客が見つかりません' })
   }
 
+  // expires_at の決定: 絶対 usage_valid_until が優先、なければ相対 coupon_expiry_days
   let expiresAt: string | null = null
-  if (campaign.coupon_expiry_days) {
+  if (campaign.usage_valid_until) {
+    expiresAt = new Date(campaign.usage_valid_until).toISOString()
+  } else if (campaign.coupon_expiry_days) {
     const expiry = new Date()
     expiry.setDate(expiry.getDate() + campaign.coupon_expiry_days)
     expiresAt = expiry.toISOString()

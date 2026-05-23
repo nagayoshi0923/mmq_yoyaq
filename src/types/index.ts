@@ -824,6 +824,8 @@ export interface CouponCampaign {
   valid_from?: string | null
   valid_until?: string | null
   coupon_expiry_days?: number | null
+  usage_valid_from?: string | null
+  usage_valid_until?: string | null
   is_active: boolean
   created_at: string
   updated_at: string
