@@ -45,7 +45,7 @@ const CUSTOMER_COUPON_FIELDS = `
 `
 
 const COUPON_CAMPAIGN_FIELDS =
-  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, usage_valid_from, usage_valid_until, is_active, created_at, updated_at'
+  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, on_cancel, is_active, created_at, updated_at'
 
 const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   id,

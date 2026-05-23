@@ -15,7 +15,7 @@ import {
 } from '@/lib/api/couponApi'
 import type { CouponCampaign } from '@/types'
 import { CampaignList } from './components/CampaignList'
-import { CampaignDialog } from './components/CampaignDialog'
+import { CampaignEdit } from './CampaignEdit'
 import { GrantCouponDialog } from './components/GrantCouponDialog'
 import { CampaignStats } from './components/CampaignStats'
 import { useCouponCampaigns } from './hooks/useCouponCampaigns'
@@ -29,7 +29,7 @@ export function CouponManagement() {
   const { campaigns, isLoading, refetch: loadCampaigns } = useCouponCampaigns()
   const [toggleLoading, setToggleLoading] = useState<string | null>(null)
 
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
   const [selectedCampaign, setSelectedCampaign] = useState<CouponCampaign | null>(null)
 
   const [grantDialogOpen, setGrantDialogOpen] = useState(false)
@@ -49,12 +49,17 @@ export function CouponManagement() {
 
   const handleCreateNew = () => {
     setSelectedCampaign(null)
-    setEditDialogOpen(true)
+    setEditMode(true)
   }
 
   const handleEdit = (campaign: CouponCampaign) => {
     setSelectedCampaign(campaign)
-    setEditDialogOpen(true)
+    setEditMode(true)
+  }
+
+  const handleCancelEdit = () => {
+    setEditMode(false)
+    setSelectedCampaign(null)
   }
 
   const handleSubmitCampaign = async (data: CampaignFormData) => {
@@ -63,6 +68,8 @@ export function CouponManagement() {
       if (result.success) {
         toast.success('キャンペーンを更新しました')
         loadCampaigns()
+        setEditMode(false)
+        setSelectedCampaign(null)
       } else {
         toast.error(result.error || '更新に失敗しました')
         throw new Error(result.error)
@@ -72,6 +79,8 @@ export function CouponManagement() {
       if (result.success) {
         toast.success('キャンペーンを作成しました')
         loadCampaigns()
+        setEditMode(false)
+        setSelectedCampaign(null)
       } else {
         toast.error(result.error || '作成に失敗しました')
         throw new Error(result.error)
@@ -116,42 +125,45 @@ export function CouponManagement() {
       <div className="flex flex-1">
         {shouldShowNavigation && <AdminSidebar />}
         <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-        <PageHeader
-          title={<><Ticket className="h-5 w-5" />クーポン管理</>}
-          description="クーポンキャンペーンの作成・配布・利用状況を管理"
-        >
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={loadCampaigns}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button onClick={handleCreateNew}>
-            <Plus className="h-4 w-4 mr-2" />
-            新規キャンペーン
-          </Button>
-        </PageHeader>
+        {editMode ? (
+          <CampaignEdit
+            campaign={selectedCampaign}
+            onSave={handleSubmitCampaign}
+            onCancel={handleCancelEdit}
+          />
+        ) : (
+          <>
+            <PageHeader
+              title={<><Ticket className="h-5 w-5" />クーポン管理</>}
+              description="クーポンキャンペーンの作成・配布・利用状況を管理"
+            >
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={loadCampaigns}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button onClick={handleCreateNew}>
+                <Plus className="h-4 w-4 mr-2" />
+                新規キャンペーン
+              </Button>
+            </PageHeader>
 
-        <CampaignList
-          campaigns={campaigns}
-          isLoading={isLoading}
-          onEdit={handleEdit}
-          onToggleActive={handleToggleActive}
-          onGrant={handleGrant}
-          onViewStats={handleViewStats}
-          toggleLoading={toggleLoading}
-        />
+            <CampaignList
+              campaigns={campaigns}
+              isLoading={isLoading}
+              onEdit={handleEdit}
+              onToggleActive={handleToggleActive}
+              onGrant={handleGrant}
+              onViewStats={handleViewStats}
+              toggleLoading={toggleLoading}
+            />
+          </>
+        )}
         </main>
       </div>
-
-      <CampaignDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        campaign={selectedCampaign}
-        onSubmit={handleSubmitCampaign}
-      />
 
       <GrantCouponDialog
         open={grantDialogOpen}
