@@ -210,7 +210,17 @@ export function SurveyResponsesTab({
           return
         }
 
-        setNoticeTemplate(orgScenario.individual_notice_template || null)
+        // シナリオごとの template が優先、なければ組織のデフォルト本文を使う
+        if (orgScenario.individual_notice_template) {
+          setNoticeTemplate(orgScenario.individual_notice_template)
+        } else {
+          const { data: gs } = await supabase
+            .from('global_settings')
+            .select('individual_notice_default_body')
+            .eq('organization_id', organizationId)
+            .maybeSingle()
+          setNoticeTemplate((gs as { individual_notice_default_body?: string | null } | null)?.individual_notice_default_body || null)
+        }
 
         if (orgScenario.characters) {
           setCharacters(orgScenario.characters.map((c: any) => ({

@@ -129,13 +129,25 @@ export async function updateEmailLog(
 }
 
 /**
- * Resend Webhook 用: provider_message_id でレコードを特定して更新する。
- * 該当レコードが存在しない場合は警告ログを残すが、エラーはスローしない。
+ * Resend Webhook 用: provider_message_id でレコードを特定して update or insert する。
+ *
+ * 既存レコードがあれば update、無ければ fallback の最小情報で insert する。
+ * これにより「send-* 関数が insertEmailLog 到達前に失敗した」「他のコードパスから
+ * Resend に直接送った」等のケースでも、Resend が一度でも受理したメールは
+ * 必ず email_logs に残る。
+ *
+ * fallback insert は webhook payload にある情報のみ使うため、organization_id /
+ * customer_id / reservation_id 等は NULL になる。email_type は 'other' で記録。
  */
-export async function updateEmailLogByProviderId(
+export async function upsertEmailLogByProviderId(
   supabase: SupabaseClient,
   providerId: string,
   updates: EmailLogUpdate,
+  fallbackInsert: {
+    to_email: string
+    subject: string
+    email_type?: EmailLogType
+  },
 ): Promise<void> {
   try {
     const { data: rows, error } = await supabase
@@ -145,17 +157,38 @@ export async function updateEmailLogByProviderId(
       .select('id')
 
     if (error) {
-      console.warn('⚠️ email_logs updateByProviderId failed:', error.message)
+      console.warn('⚠️ email_logs upsertByProviderId update failed:', error.message)
       return
     }
 
-    if (!rows || rows.length === 0) {
-      // ログ未作成（古い送信など）は警告のみ
-      console.warn('⚠️ email_logs: no record found for provider_message_id', providerId)
+    if (rows && rows.length > 0) return
+
+    // 既存レコード無し → fallback insert
+    const { error: insertError } = await supabase
+      .from('email_logs')
+      .insert({
+        provider:            'resend',
+        provider_message_id: providerId,
+        to_email:            fallbackInsert.to_email,
+        subject:             fallbackInsert.subject,
+        email_type:          fallbackInsert.email_type ?? 'other',
+        status:              updates.status ?? 'sent',
+        sent_at:              updates.sent_at      ?? null,
+        delivered_at:         updates.delivered_at ?? null,
+        opened_at:            updates.opened_at    ?? null,
+        bounced_at:           updates.bounced_at   ?? null,
+        complained_at:        updates.complained_at?? null,
+        error_message:        updates.error_message?? null,
+      })
+
+    if (insertError) {
+      console.warn('⚠️ email_logs upsertByProviderId fallback insert failed:', insertError.message)
+    } else {
+      console.log('📬 email_logs fallback insert from webhook:', providerId)
     }
   } catch (err: unknown) {
     console.warn(
-      '⚠️ email_logs updateByProviderId exception (non-blocking):',
+      '⚠️ email_logs upsertByProviderId exception (non-blocking):',
       (err as Error).message,
     )
   }

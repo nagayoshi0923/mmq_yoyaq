@@ -16,7 +16,6 @@ import { SalesReportSettings } from './pages/SalesReportSettings'
 import { NotificationSettings } from './pages/NotificationSettings'
 import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
-import { EmailDeliveryHistorySettings } from './pages/EmailDeliveryHistorySettings'
 import { EmailLogsSettings } from './pages/EmailLogsSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
@@ -33,7 +32,7 @@ export function Settings() {
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -71,8 +70,6 @@ export function Settings() {
         return <SystemSettings storeId={storeId} />
       case 'email':
         return <EmailSettings storeId={storeId} />
-      case 'email-history':
-        return <EmailDeliveryHistorySettings />
       case 'email-logs':
         return <EmailLogsSettings />
       case 'data':

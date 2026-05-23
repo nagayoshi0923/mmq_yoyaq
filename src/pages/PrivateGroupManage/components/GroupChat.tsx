@@ -102,6 +102,51 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [charDecisions, setCharDecisions] = useState<Record<string, string>>({})
   const [charSubmitting, setCharSubmitting] = useState(false)
   const [deadlineText, setDeadlineText] = useState<string | null>(null)
+  const [chatEnabled, setChatEnabled] = useState(true)
+  const [chatGuestAllowed, setChatGuestAllowed] = useState(true)
+  const [systemMsgTitles, setSystemMsgTitles] = useState<{
+    candidate_dates_added: string
+    pre_reading_notice: string
+    survey_notice: string
+    performance_cancelled: string
+  }>({
+    candidate_dates_added: '候補日程が追加されました',
+    pre_reading_notice: '事前読み込みについて',
+    survey_notice: 'アンケートのご協力のお願い',
+    performance_cancelled: '公演中止のお知らせ',
+  })
+  const isGuest = !user
+
+  // 組織のチャット設定を取得
+  useEffect(() => {
+    if (!organizationId) return
+    ;(async () => {
+      const { data } = await supabase
+        .from('global_settings')
+        .select('chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_title, system_msg_pre_reading_notice_title, system_msg_survey_notice_title, system_msg_performance_cancelled_title')
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+      if (data) {
+        const d = data as Record<string, unknown>
+        setChatEnabled((d.chat_enabled as boolean | undefined) ?? true)
+        setChatGuestAllowed((d.chat_guest_allowed as boolean | undefined) ?? true)
+        setSystemMsgTitles(prev => ({
+          candidate_dates_added: (d.system_msg_candidate_dates_added_title as string) || prev.candidate_dates_added,
+          pre_reading_notice:    (d.system_msg_pre_reading_notice_title as string)    || prev.pre_reading_notice,
+          survey_notice:         (d.system_msg_survey_notice_title as string)         || prev.survey_notice,
+          performance_cancelled: (d.system_msg_performance_cancelled_title as string) || prev.performance_cancelled,
+        }))
+      }
+    })()
+  }, [organizationId])
+
+  const chatBlockedForGuest = isGuest && !chatGuestAllowed
+  const sendDisabled = !chatEnabled || chatBlockedForGuest
+  const sendBlockMessage = !chatEnabled
+    ? 'チャット機能はこの店舗で無効化されています'
+    : chatBlockedForGuest
+      ? 'ゲストの投稿は許可されていません（MMQアカウントでログインしてください）'
+      : null
 
   // 回答期限を取得
   useEffect(() => {
@@ -629,7 +674,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                             <div>
                               <p className="text-sm font-medium text-purple-800">
-                                候補日程が追加されました（{systemMsg.count}件）
+                                {systemMsgTitles.candidate_dates_added}（{systemMsg.count}件）
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {getMemberName(msg.member_id)} • {formatDateTime(msg.created_at)}
@@ -715,7 +760,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                             <div>
                               <p className="text-sm font-medium text-amber-800">
-                                事前読み込みについて
+                                {systemMsgTitles.pre_reading_notice}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -743,7 +788,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                             <div>
                               <p className="text-sm font-medium text-blue-800">
-                                アンケートのご協力のお願い
+                                {systemMsgTitles.survey_notice}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -1112,7 +1157,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
                       <ClipboardList className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <span className="font-semibold text-sm text-blue-800">アンケートのご協力のお願い</span>
+                    <span className="font-semibold text-sm text-blue-800">{systemMsgTitles.survey_notice}</span>
                   </div>
                   {isOrganizer && onResetCharAssignmentMethod && (
                     <button
@@ -1390,18 +1435,21 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
         </div>
 
         <div className="border-t p-3">
+          {sendBlockMessage && (
+            <p className="text-xs text-muted-foreground mb-2 px-1">{sendBlockMessage}</p>
+          )}
           <div className="flex gap-2">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="メッセージを入力..."
-              disabled={!currentMemberId || sending}
+              placeholder={sendDisabled ? '送信できません' : 'メッセージを入力...'}
+              disabled={!currentMemberId || sending || sendDisabled}
               className="flex-1"
             />
             <Button
               onClick={handleSend}
-              disabled={!newMessage.trim() || !currentMemberId || sending}
+              disabled={!newMessage.trim() || !currentMemberId || sending || sendDisabled}
               size="icon"
               className="bg-purple-600 hover:bg-purple-700"
             >

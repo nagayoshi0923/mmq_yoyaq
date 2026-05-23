@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'npm:svix@1.61.0'
 import { getServiceRoleKey } from '../_shared/security.ts'
-import { updateEmailLogByProviderId, type EmailLogStatus, type EmailLogUpdate } from '../_shared/email-logs.ts'
+import { upsertEmailLogByProviderId, type EmailLogStatus, type EmailLogUpdate } from '../_shared/email-logs.ts'
 
 type ResendEventPayload = {
   type?: string
@@ -16,6 +16,10 @@ type ResendEventPayload = {
 }
 
 // Resend イベント種別 → email_logs ステータス/タイムスタンプへのマッピング
+// 注意: 既存レコードの status を後退させないため、後段（delivered → sent 等）には
+// 上書きを抑止する分岐を upsertEmailLogByProviderId 側に持たせている前提ではなく、
+// ここでは「最新イベントを正」とする。Resend は順序を保証しないことに注意する
+// （並列で複数 webhook が届いた場合に開封→配信 の順で来ても許容する）
 function buildLogUpdate(
   eventType: string,
   eventTime: string | undefined,
@@ -23,6 +27,8 @@ function buildLogUpdate(
   const ts = eventTime ?? new Date().toISOString()
 
   switch (eventType) {
+    case 'email.sent':
+      return { status: 'sent' as EmailLogStatus, sent_at: ts }
     case 'email.delivered':
       return { status: 'delivered' as EmailLogStatus, delivered_at: ts }
     case 'email.opened':
@@ -38,9 +44,14 @@ function buildLogUpdate(
     case 'email.failed':
       return { status: 'failed' as EmailLogStatus }
     default:
-      // sent など未マップのイベントは更新しない
       return null
   }
+}
+
+function firstRecipient(to: string[] | string | undefined): string {
+  if (Array.isArray(to)) return String(to[0] ?? '')
+  if (typeof to === 'string') return to
+  return ''
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
@@ -94,7 +105,7 @@ serve(async (req: Request) => {
         : event?.data?.to ? 1 : 0,
     })
 
-    // email_logs を更新
+    // email_logs を upsert（既存なら update、無ければ fallback insert）
     if (emailId) {
       const logUpdate = buildLogUpdate(eventType, event?.created_at)
       if (logUpdate) {
@@ -102,7 +113,10 @@ serve(async (req: Request) => {
           Deno.env.get('SUPABASE_URL') ?? '',
           getServiceRoleKey(),
         )
-        await updateEmailLogByProviderId(supabase, emailId, logUpdate)
+        await upsertEmailLogByProviderId(supabase, emailId, logUpdate, {
+          to_email: firstRecipient(event?.data?.to),
+          subject:  event?.data?.subject ?? '',
+        })
       }
     } else {
       // email_id が取れない場合は警告のみ（ペイロード全体は保存しない）

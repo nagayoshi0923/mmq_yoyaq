@@ -824,6 +824,25 @@ export interface CouponCampaign {
   valid_from?: string | null
   valid_until?: string | null
   coupon_expiry_days?: number | null
+  usage_valid_from?: string | null
+  usage_valid_until?: string | null
+  // 配布拡張
+  max_total_grants?: number | null
+  max_grants_per_customer?: number | null
+  coupon_code?: string | null
+  notify_on_grant?: boolean
+  // 使用拡張
+  min_order_amount?: number | null
+  combinable?: boolean
+  allowed_weekdays?: number[] | null
+  allowed_time_slots?: string[] | null
+  // 顧客向け表示
+  display_name?: string | null
+  display_image_url?: string | null
+  customer_terms?: string | null
+  internal_memo?: string | null
+  // 運用
+  on_cancel?: 'restore' | 'forfeit'
   is_active: boolean
   created_at: string
   updated_at: string

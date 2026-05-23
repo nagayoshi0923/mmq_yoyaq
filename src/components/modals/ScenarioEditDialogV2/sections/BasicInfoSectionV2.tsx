@@ -279,15 +279,91 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
         </div>
       </div>
 
-      {/* ── 設定 ── */}
+      {/* ── 公開状態 ── */}
       <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
         <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
-          <Settings className="h-3.5 w-3.5" />設定
+          <Settings className="h-3.5 w-3.5" />公開状態
+        </p>
+
+        {/* サイト表示 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right">サイト表示</span>
+          <div className="flex-1 flex items-center gap-2">
+            <Switch
+              checked={formData.status !== 'unavailable'}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, status: checked ? 'available' : 'unavailable' }))}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {formData.status === 'unavailable' ? 'OFF（予約サイト非表示）' : 'ON（予約サイトに掲載）'}
+            </span>
+          </div>
+        </div>
+
+        {/* 近日公開モード（サイト表示 ON のときだけ） */}
+        {formData.status !== 'unavailable' && (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right">近日公開</span>
+            <div className="flex-1 flex items-center gap-2">
+              <Switch
+                checked={formData.status === 'draft'}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, status: checked ? 'draft' : 'available' }))}
+              />
+              <span className="text-[11px] text-muted-foreground">
+                {formData.status === 'draft' ? 'ON（一覧に「まもなく」表示・予約不可）' : 'OFF（通常公開）'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 貸切受付 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right">貸切受付</span>
+          <div className="flex-1 flex items-center gap-2">
+            <Switch
+              checked={formData.accepts_private_booking ?? true}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, accepts_private_booking: checked }))}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {formData.accepts_private_booking === false ? 'OFF（貸切休止中）' : 'ON（受付中）'}
+            </span>
+          </div>
+        </div>
+
+        {/* シナリオ種別 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right">種別</span>
+          <div className="w-56">
+            <Select
+              value={formData.scenario_kind || 'regular'}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_kind: value as 'regular' | 'online_item' | 'offsite_only' }))}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="regular">通常シナリオ</SelectItem>
+                <SelectItem value="online_item">オンライン販売アイテム</SelectItem>
+                <SelectItem value="offsite_only">出張公演限定</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {formData.scenario_kind === 'online_item' && '予約サイト非掲載（ライセンス報告でのみ使用）'}
+            {formData.scenario_kind === 'offsite_only' && '予約サイト掲載・貸切受付なし'}
+            {(!formData.scenario_kind || formData.scenario_kind === 'regular') && '予約・貸切ともに受付'}
+          </span>
+        </div>
+      </div>
+
+      {/* ── シナリオ属性 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Settings className="h-3.5 w-3.5" />シナリオ属性
         </p>
 
         {/* キット数 */}
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">キット数</span>
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right">キット数</span>
           <div className="w-20">
             <Select value={String(formData.kit_count || 1)} onValueChange={(value) => {
               const kitCount = parseInt(value)
@@ -318,17 +394,82 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
         {/* 公演可能店舗 */}
         <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">公演可能店舗</span>
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">公演可能店舗</span>
           <div className="flex-1">
             <StoreMultiSelect stores={stores} selectedStoreIds={formData.available_stores || []}
               onStoreIdsChange={(storeIds) => setFormData(prev => ({ ...prev, available_stores: storeIds }))}
               hideLabel={true} placeholder="全店舗で公演可能" />
           </div>
         </div>
+      </div>
+
+      {/* ── 期間・時間枠 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Settings className="h-3.5 w-3.5" />期間・時間枠
+        </p>
+
+        {/* シナリオ全体の公演期間（期間限定公演用） */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">公演期間</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Input type="date" value={formData.available_from || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, available_from: e.target.value || null }))}
+                className="w-36 text-xs h-7" />
+              <span className="text-xs text-muted-foreground">〜</span>
+              <Input type="date" value={formData.available_until || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, available_until: e.target.value || null }))}
+                className="w-36 text-xs h-7" />
+              {(formData.available_from || formData.available_until) && (
+                <button type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, available_from: null, available_until: null }))}
+                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              期間限定公演用。設定すると掲載・通常公演・貸切すべて期間内のみ。詳細ページとラインナップカードに期間表示
+            </p>
+          </div>
+        </div>
+
+        {/* 貸切募集期間 */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">貸切募集期間</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Input type="date" value={formData.booking_start_date || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, booking_start_date: e.target.value || null }))}
+                className="w-36 text-xs h-7" />
+              <span className="text-xs text-muted-foreground">〜</span>
+              <Input type="date" value={formData.booking_end_date || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, booking_end_date: e.target.value || null }))}
+                className="w-36 text-xs h-7" />
+              {(formData.booking_start_date || formData.booking_end_date) && (
+                <button type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, booking_start_date: null, booking_end_date: null }))}
+                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">貸切受付だけの期間。未設定で常時受付</p>
+            {(formData.booking_start_date || formData.booking_end_date) && (() => {
+              const now = new Date()
+              const jstOffset = 9 * 60
+              const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+              const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+              const isOutOfPeriod = (formData.booking_start_date && todayStr < formData.booking_start_date) || (formData.booking_end_date && todayStr > formData.booking_end_date)
+              return (
+                <p className={`text-[11px] mt-0.5 ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
+                  {isOutOfPeriod ? '※ 現在は募集期間外です' : '※ 現在は募集期間中です'}
+                </p>
+              )
+            })()}
+          </div>
+        </div>
 
         {/* 貸切受付時間枠（平日/土日祝） */}
         <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">貸切時間枠</span>
+          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">貸切時間枠</span>
           <div className="flex-1 space-y-2">
             {([
               { label: '平日', field: 'private_booking_time_slots' as const },
@@ -374,40 +515,6 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
               )
             })}
-          </div>
-        </div>
-
-        {/* 貸切募集期間 */}
-        <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">貸切募集期間</span>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Input type="date" value={formData.booking_start_date || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, booking_start_date: e.target.value || null }))}
-                className="w-36 text-xs h-7" />
-              <span className="text-xs text-muted-foreground">〜</span>
-              <Input type="date" value={formData.booking_end_date || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, booking_end_date: e.target.value || null }))}
-                className="w-36 text-xs h-7" />
-              {(formData.booking_start_date || formData.booking_end_date) && (
-                <button type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, booking_start_date: null, booking_end_date: null }))}
-                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">未設定で常時受付</p>
-            {(formData.booking_start_date || formData.booking_end_date) && (() => {
-              const now = new Date()
-              const jstOffset = 9 * 60
-              const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
-              const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
-              const isOutOfPeriod = (formData.booking_start_date && todayStr < formData.booking_start_date) || (formData.booking_end_date && todayStr > formData.booking_end_date)
-              return (
-                <p className={`text-[11px] mt-0.5 ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
-                  {isOutOfPeriod ? '※ 現在は募集期間外です' : '※ 現在は募集期間中です'}
-                </p>
-              )
-            })()}
           </div>
         </div>
       </div>

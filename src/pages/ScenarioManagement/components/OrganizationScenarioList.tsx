@@ -196,59 +196,6 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
 
   const existingMasterIds = useMemo(() => scenarios.map(s => s.scenario_master_id), [scenarios])
 
-  // ステータス変更（楽観的更新）
-  const handleStatusChange = useCallback(async (scenario: OrganizationScenarioWithMaster, newStatus: string) => {
-    if (!organizationId) return
-    const previousStatus = scenario.org_status
-    const queryKey = orgScenariosKeys.list(organizationId)
-
-    queryClient.setQueryData<OrgScenariosData>(queryKey, old => {
-      if (!old) return old
-      return {
-        ...old,
-        scenarios: old.scenarios.map(s =>
-          s.id === scenario.id ? { ...s, org_status: newStatus as OrganizationScenarioWithMaster['org_status'] } : s
-        ),
-      }
-    })
-
-    try {
-      const { data, error } = await supabase.rpc('update_org_scenario_status', {
-        p_scenario_id: scenario.org_scenario_id,
-        p_new_status: newStatus
-      })
-
-      if (error) {
-        logger.error('Failed to update status:', error)
-        toast.error(`ステータス更新に失敗しました: ${error.message}`)
-        queryClient.setQueryData<OrgScenariosData>(queryKey, old => {
-          if (!old) return old
-          return { ...old, scenarios: old.scenarios.map(s => s.id === scenario.id ? { ...s, org_status: previousStatus } : s) }
-        })
-        return
-      }
-
-      if (!data?.success) {
-        logger.error('Update failed:', data)
-        toast.error(data?.error || 'ステータス更新に失敗しました')
-        queryClient.setQueryData<OrgScenariosData>(queryKey, old => {
-          if (!old) return old
-          return { ...old, scenarios: old.scenarios.map(s => s.id === scenario.id ? { ...s, org_status: previousStatus } : s) }
-        })
-        return
-      }
-
-      toast.success(`「${scenario.title}」を${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}に変更しました`)
-    } catch (err) {
-      logger.error('Error updating status:', err)
-      toast.error('エラーが発生しました')
-      queryClient.setQueryData<OrgScenariosData>(queryKey, old => {
-        if (!old) return old
-        return { ...old, scenarios: old.scenarios.map(s => s.id === scenario.id ? { ...s, org_status: previousStatus } : s) }
-      })
-    }
-  }, [organizationId, queryClient])
-
   // シナリオ解除
   const handleUnlink = async () => {
     if (!scenarioToDelete || !organizationId) return
@@ -616,21 +563,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
       cellClassName: ORG_CELL_CLASS,
       render: (scenario) => {
         const statusConfig = STATUS_LABELS[scenario.org_status]
-        if (!canEdit) {
-          return <Badge className={`text-[10px] px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
-        }
-        return (
-          <select
-            value={scenario.org_status}
-            onChange={(e) => { e.stopPropagation(); handleStatusChange(scenario, e.target.value) }}
-            className={`text-xs border rounded px-1 py-0.5 bg-white cursor-pointer ${statusConfig.color}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <option value="available">公開中</option>
-            <option value="coming_soon">近日公開</option>
-            <option value="unavailable">非公開</option>
-          </select>
-        )
+        return <Badge className={`text-[10px] px-1.5 py-0 ${statusConfig.color}`}>{statusConfig.label}</Badge>
       }
     },
     {
@@ -664,7 +597,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
           <span className="text-xs text-muted-foreground">-</span>
         )
     }
-  ], [canEdit, onEdit, handleStatusChange, storeMap, submittingMasterId, handleSubmitToMMQ])
+  ], [canEdit, onEdit, storeMap, submittingMasterId, handleSubmitToMMQ])
 
   const defaultOrgColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
   const [orgColumnPrefs, setOrgColumnPrefs] = useTablePreferences('org-scenario-list', defaultOrgColumnKeys)
