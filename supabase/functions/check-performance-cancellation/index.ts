@@ -238,6 +238,14 @@ async function sendCancellationNotifications(
   //    短絡してしまうケースの保険として、ここでも env を直接フォールバック確認する。
   //    send-cancellation-confirmation と同じ二重フォールバック方式に揃える。
   const resolvedResendApiKey = emailSettings.resendApiKey || Deno.env.get('RESEND_API_KEY') || null
+  console.log('🔍 [DEBUG] email送信前チェック:', {
+    eventId: event.event_id,
+    reservationsCount: reservations?.length ?? 0,
+    reservationsWithEmail: (reservations || []).filter(r => !!r.customer_email).length,
+    resolvedResendApiKey: resolvedResendApiKey ? `set (len=${resolvedResendApiKey.length})` : 'NULL',
+    envHasKey: !!Deno.env.get('RESEND_API_KEY'),
+    settingsHasKey: !!emailSettings.resendApiKey
+  })
   if (!resolvedResendApiKey) {
     console.error('❌ Resend API キー未設定のため中止メール送信をスキップ:', {
       eventId: event.event_id,
@@ -254,7 +262,7 @@ async function sendCancellationNotifications(
       let emailToSend = reservation.customer_email
       if (!emailToSend && reservation.customer_name && staffList) {
         const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
-        const matchedStaff = staffList.find(s => 
+        const matchedStaff = staffList.find(s =>
           s.name === normalizedName || s.display_name === normalizedName
         )
         if (matchedStaff?.email) {
@@ -262,10 +270,19 @@ async function sendCancellationNotifications(
           console.log('📧 スタッフテーブルからメール取得:', normalizedName)
         }
       }
-      
-      if (!emailToSend) continue
+
+      if (!emailToSend) {
+        console.warn('⚠️ [DEBUG] emailToSend が空のためスキップ:', {
+          reservationId: reservation.id,
+          reservationNumber: reservation.reservation_number,
+          hasCustomerEmail: !!reservation.customer_email,
+          hasCustomerName: !!reservation.customer_name
+        })
+        continue
+      }
 
       try {
+        console.log('📮 [DEBUG] sendCancellationEmail 呼び出し開始:', maskEmail(emailToSend), 'reservationNumber=', reservation.reservation_number)
         await sendCancellationEmail(
           effectiveEmailSettings,
           emailToSend,
@@ -282,7 +299,7 @@ async function sendCancellationNotifications(
         )
         console.log('✅ 中止メール送信:', maskEmail(emailToSend))
       } catch (emailError) {
-        console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError)
+        console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError instanceof Error ? emailError.message : emailError, emailError instanceof Error ? emailError.stack : undefined)
       }
     }
   }
