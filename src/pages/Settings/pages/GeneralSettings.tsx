@@ -37,6 +37,20 @@ interface GlobalSettings {
   system_msg_booking_rejected_body: string | null
   system_msg_booking_cancelled_title: string | null
   system_msg_booking_cancelled_body: string | null
+  // チャット機能
+  chat_enabled: boolean
+  chat_guest_allowed: boolean
+  // 個別お知らせのデフォルト本文
+  individual_notice_default_body: string | null
+  // 追加システムメッセージ
+  system_msg_candidate_dates_added_title: string | null
+  system_msg_candidate_dates_added_body: string | null
+  system_msg_pre_reading_notice_title: string | null
+  system_msg_pre_reading_notice_body: string | null
+  system_msg_survey_notice_title: string | null
+  system_msg_survey_notice_body: string | null
+  system_msg_performance_cancelled_title: string | null
+  system_msg_performance_cancelled_body: string | null
 }
 
 /**
@@ -69,7 +83,21 @@ export function GeneralSettings() {
     system_msg_booking_rejected_title: '日程リクエストが却下されました',
     system_msg_booking_rejected_body: '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。',
     system_msg_booking_cancelled_title: 'ご予約がキャンセルされました',
-    system_msg_booking_cancelled_body: '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'
+    system_msg_booking_cancelled_body: '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。',
+    // チャット機能
+    chat_enabled: true,
+    chat_guest_allowed: true,
+    // 個別お知らせのデフォルト本文
+    individual_notice_default_body: '',
+    // 追加システムメッセージ
+    system_msg_candidate_dates_added_title: '候補日程が追加されました',
+    system_msg_candidate_dates_added_body: '日程を確認して回答してください。',
+    system_msg_pre_reading_notice_title: '事前読み込みについて',
+    system_msg_pre_reading_notice_body: '',
+    system_msg_survey_notice_title: 'アンケートのご協力のお願い',
+    system_msg_survey_notice_body: '',
+    system_msg_performance_cancelled_title: '公演中止のお知らせ',
+    system_msg_performance_cancelled_body: ''
   })
 
   // 設定を取得
@@ -91,7 +119,7 @@ export function GeneralSettings() {
       
       const { data, error } = await supabase
         .from('global_settings')
-        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body, system_msg_booking_rejected_title, system_msg_booking_rejected_body, system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
+        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body, system_msg_booking_rejected_title, system_msg_booking_rejected_body, system_msg_booking_cancelled_title, system_msg_booking_cancelled_body, chat_enabled, chat_guest_allowed, individual_notice_default_body, system_msg_candidate_dates_added_title, system_msg_candidate_dates_added_body, system_msg_pre_reading_notice_title, system_msg_pre_reading_notice_body, system_msg_survey_notice_title, system_msg_survey_notice_body, system_msg_performance_cancelled_title, system_msg_performance_cancelled_body')
         .eq('organization_id', orgId)
         .single()
 
@@ -125,7 +153,18 @@ export function GeneralSettings() {
           system_msg_booking_rejected_title: data.system_msg_booking_rejected_title || '日程リクエストが却下されました',
           system_msg_booking_rejected_body: data.system_msg_booking_rejected_body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。',
           system_msg_booking_cancelled_title: data.system_msg_booking_cancelled_title || 'ご予約がキャンセルされました',
-          system_msg_booking_cancelled_body: data.system_msg_booking_cancelled_body || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'
+          system_msg_booking_cancelled_body: data.system_msg_booking_cancelled_body || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。',
+          chat_enabled: data.chat_enabled ?? true,
+          chat_guest_allowed: data.chat_guest_allowed ?? true,
+          individual_notice_default_body: data.individual_notice_default_body || '',
+          system_msg_candidate_dates_added_title: data.system_msg_candidate_dates_added_title || '候補日程が追加されました',
+          system_msg_candidate_dates_added_body: data.system_msg_candidate_dates_added_body || '日程を確認して回答してください。',
+          system_msg_pre_reading_notice_title: data.system_msg_pre_reading_notice_title || '事前読み込みについて',
+          system_msg_pre_reading_notice_body: data.system_msg_pre_reading_notice_body || '',
+          system_msg_survey_notice_title: data.system_msg_survey_notice_title || 'アンケートのご協力のお願い',
+          system_msg_survey_notice_body: data.system_msg_survey_notice_body || '',
+          system_msg_performance_cancelled_title: data.system_msg_performance_cancelled_title || '公演中止のお知らせ',
+          system_msg_performance_cancelled_body: data.system_msg_performance_cancelled_body || ''
         })
       }
     } catch (error) {
@@ -165,7 +204,21 @@ export function GeneralSettings() {
           system_msg_booking_rejected_title: formData.system_msg_booking_rejected_title || null,
           system_msg_booking_rejected_body: formData.system_msg_booking_rejected_body || null,
           system_msg_booking_cancelled_title: formData.system_msg_booking_cancelled_title || null,
-          system_msg_booking_cancelled_body: formData.system_msg_booking_cancelled_body || null
+          system_msg_booking_cancelled_body: formData.system_msg_booking_cancelled_body || null,
+          // チャット機能
+          chat_enabled: formData.chat_enabled,
+          chat_guest_allowed: formData.chat_guest_allowed,
+          // 個別お知らせデフォルト本文
+          individual_notice_default_body: formData.individual_notice_default_body || null,
+          // 追加システムメッセージ
+          system_msg_candidate_dates_added_title: formData.system_msg_candidate_dates_added_title || null,
+          system_msg_candidate_dates_added_body: formData.system_msg_candidate_dates_added_body || null,
+          system_msg_pre_reading_notice_title: formData.system_msg_pre_reading_notice_title || null,
+          system_msg_pre_reading_notice_body: formData.system_msg_pre_reading_notice_body || null,
+          system_msg_survey_notice_title: formData.system_msg_survey_notice_title || null,
+          system_msg_survey_notice_body: formData.system_msg_survey_notice_body || null,
+          system_msg_performance_cancelled_title: formData.system_msg_performance_cancelled_title || null,
+          system_msg_performance_cancelled_body: formData.system_msg_performance_cancelled_body || null
         })
         .eq('id', settings.id)
 
@@ -400,6 +453,63 @@ export function GeneralSettings() {
         </CardContent>
       </Card>
 
+      {/* 貸切グループチャット設定 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-cyan-600" />
+            <CardTitle>貸切グループチャット設定</CardTitle>
+          </div>
+          <CardDescription>
+            貸切グループ内チャット機能の有効化と、個別お知らせのデフォルト本文を設定します
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label htmlFor="chat_enabled">チャット機能を有効化</Label>
+              <p className="text-xs text-muted-foreground">
+                OFFにすると、貸切グループのチャットUIが非表示になり、新規メッセージも送信できなくなります
+              </p>
+            </div>
+            <Switch
+              id="chat_enabled"
+              checked={formData.chat_enabled}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, chat_enabled: checked }))}
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label htmlFor="chat_guest_allowed">ゲスト（MMQアカウント未登録）の投稿を許可</Label>
+              <p className="text-xs text-muted-foreground">
+                OFFにすると、招待リンクで入室したゲストはメッセージを閲覧のみ可能になります
+              </p>
+            </div>
+            <Switch
+              id="chat_guest_allowed"
+              checked={formData.chat_guest_allowed}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, chat_guest_allowed: checked }))}
+              disabled={!formData.chat_enabled}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="individual_notice_default_body">個別お知らせのデフォルト本文</Label>
+            <Textarea
+              id="individual_notice_default_body"
+              value={formData.individual_notice_default_body}
+              onChange={(e) => setFormData(prev => ({ ...prev, individual_notice_default_body: e.target.value }))}
+              placeholder="個別お知らせを送る際の初期表示文を設定..."
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">
+              個別お知らせフォームで初期値として表示されます。シナリオごとの定型文（シナリオ編集の「個別お知らせ定型文」）が設定されている場合はそちらが優先されます。
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* システムアナウンス設定 */}
       <Card>
         <CardHeader>
@@ -558,6 +668,122 @@ export function GeneralSettings() {
                   onChange={(e) => setFormData(prev => ({ ...prev, system_msg_booking_cancelled_body: e.target.value }))}
                   placeholder="誠に申し訳ございませんが..."
                   rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 候補日程追加 */}
+          <div className="border-t pt-6">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <span className="w-1 h-4 bg-purple-500 rounded"></span>
+              候補日程追加時のメッセージ
+            </h4>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_candidate_dates_added_title">タイトル</Label>
+                <Input
+                  id="system_msg_candidate_dates_added_title"
+                  value={formData.system_msg_candidate_dates_added_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_candidate_dates_added_title: e.target.value }))}
+                  placeholder="候補日程が追加されました"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_candidate_dates_added_body">本文</Label>
+                <Textarea
+                  id="system_msg_candidate_dates_added_body"
+                  value={formData.system_msg_candidate_dates_added_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_candidate_dates_added_body: e.target.value }))}
+                  placeholder="日程を確認して回答してください。"
+                  rows={2}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 事前読み込み通知 */}
+          <div className="border-t pt-6">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <span className="w-1 h-4 bg-amber-500 rounded"></span>
+              事前読み込み通知のメッセージ
+            </h4>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_pre_reading_notice_title">タイトル</Label>
+                <Input
+                  id="system_msg_pre_reading_notice_title"
+                  value={formData.system_msg_pre_reading_notice_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_pre_reading_notice_title: e.target.value }))}
+                  placeholder="事前読み込みについて"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_pre_reading_notice_body">本文（任意）</Label>
+                <Textarea
+                  id="system_msg_pre_reading_notice_body"
+                  value={formData.system_msg_pre_reading_notice_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_pre_reading_notice_body: e.target.value }))}
+                  placeholder="（未設定の場合は下記「事前読み込み通知設定」が使われます）"
+                  rows={2}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* アンケート依頼 */}
+          <div className="border-t pt-6">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <span className="w-1 h-4 bg-blue-500 rounded"></span>
+              アンケート依頼のメッセージ
+            </h4>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_survey_notice_title">タイトル</Label>
+                <Input
+                  id="system_msg_survey_notice_title"
+                  value={formData.system_msg_survey_notice_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_survey_notice_title: e.target.value }))}
+                  placeholder="アンケートのご協力のお願い"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_survey_notice_body">本文（任意）</Label>
+                <Textarea
+                  id="system_msg_survey_notice_body"
+                  value={formData.system_msg_survey_notice_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_survey_notice_body: e.target.value }))}
+                  placeholder="（未設定の場合は送信時に都度入力したメッセージが表示されます）"
+                  rows={2}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 公演中止通知 */}
+          <div className="border-t pt-6">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <span className="w-1 h-4 bg-red-500 rounded"></span>
+              公演中止通知のメッセージ
+            </h4>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_performance_cancelled_title">タイトル</Label>
+                <Input
+                  id="system_msg_performance_cancelled_title"
+                  value={formData.system_msg_performance_cancelled_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_performance_cancelled_title: e.target.value }))}
+                  placeholder="公演中止のお知らせ"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_performance_cancelled_body">本文（任意）</Label>
+                <Textarea
+                  id="system_msg_performance_cancelled_body"
+                  value={formData.system_msg_performance_cancelled_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_performance_cancelled_body: e.target.value }))}
+                  placeholder="（未設定の場合は送信時に都度入力したメッセージが表示されます）"
+                  rows={2}
                 />
               </div>
             </div>
