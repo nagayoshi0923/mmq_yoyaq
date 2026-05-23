@@ -44,6 +44,18 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // 環境変数の状態を必ず出力（auth より前 - root cause 調査用）
+  const resendKey = Deno.env.get('RESEND_API_KEY')
+  const serviceRoleKeyEnv = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY')
+  console.log('🔍 [DEBUG] env state on entry:', {
+    RESEND_API_KEY: resendKey ? `set (len=${resendKey.length}, prefix=${resendKey.slice(0, 6)})` : 'NULL',
+    SUPABASE_SERVICE_ROLE_KEY: serviceRoleKeyEnv ? `set (len=${serviceRoleKeyEnv.length}, prefix=${serviceRoleKeyEnv.slice(0, 6)})` : 'NULL',
+    SUPABASE_URL: Deno.env.get('SUPABASE_URL') ? 'set' : 'NULL',
+    SENDER_EMAIL: Deno.env.get('SENDER_EMAIL') ? `set (${Deno.env.get('SENDER_EMAIL')})` : 'NULL',
+    SENDER_NAME: Deno.env.get('SENDER_NAME') ? `set` : 'NULL',
+    CRON_SECRET: Deno.env.get('CRON_SECRET') ? `set (len=${(Deno.env.get('CRON_SECRET') || '').length})` : 'NULL',
+  })
+
   try {
     // 認証チェック: Cron/システム または管理者のみ
     if (!isSystemCall(req)) {
@@ -284,6 +296,7 @@ async function sendCancellationNotifications(
       try {
         console.log('📮 [DEBUG] sendCancellationEmail 呼び出し開始:', maskEmail(emailToSend), 'reservationNumber=', reservation.reservation_number)
         await sendCancellationEmail(
+          supabase,
           effectiveEmailSettings,
           emailToSend,
           reservation.customer_name || 'お客様',
@@ -336,6 +349,7 @@ async function sendCancellationNotifications(
  * 中止メールを送信
  */
 async function sendCancellationEmail(
+  supabase: ReturnType<typeof createClient>,
   emailSettings: Awaited<ReturnType<typeof getEmailSettings>>,
   customerEmail: string,
   customerName: string,
