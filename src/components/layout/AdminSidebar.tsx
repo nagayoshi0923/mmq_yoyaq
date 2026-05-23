@@ -141,6 +141,15 @@ export const AdminSidebar = memo(function AdminSidebar() {
       ],
     },
     {
+      id: 'email-category',
+      label: 'メール',
+      icon: Mail,
+      items: [
+        { id: 'email-history', label: 'メール配信履歴', icon: Mail, path: `/${slug}/settings?tab=email-history`, roles: ['admin', 'license_admin'] },
+        { id: 'email-logs',    label: 'メール送信ログ', icon: Mail, path: `/${slug}/settings?tab=email-logs`,    roles: ['admin', 'license_admin'] },
+      ],
+    },
+    {
       id: 'content',
       label: 'コンテンツ',
       icon: BookOpen,
@@ -251,8 +260,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
           roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
             { id: 'email',         label: 'メール設定',    path: `/${slug}/settings?tab=email` },
-            { id: 'email-history', label: 'メール配信履歴', path: `/${slug}/settings?tab=email-history` },
-            { id: 'email-logs',    label: 'メール送信ログ', path: `/${slug}/settings?tab=email-logs` },
             { id: 'notifications', label: '通知設定',      path: `/${slug}/settings?tab=notifications` },
           ],
         },
