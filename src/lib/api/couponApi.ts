@@ -281,6 +281,23 @@ export async function getCampaignStats(
 }
 
 /**
+ * 顧客がコード入力でクーポンを取得
+ */
+export async function redeemCouponByCode(
+  code: string
+): Promise<{ success: boolean; couponId?: string; campaignName?: string; error?: string }> {
+  try {
+    return await apiClient.post<{ success: boolean; couponId?: string; campaignName?: string; error?: string }>(
+      '/api/coupons?action=redeem-code',
+      { code }
+    )
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'コードの引き換えに失敗しました'
+    return { success: false, error: message }
+  }
+}
+
+/**
  * 顧客一覧を検索（クーポン付与用）
  */
 export async function searchCustomers(

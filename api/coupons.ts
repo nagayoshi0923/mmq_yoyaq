@@ -165,6 +165,9 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (action === 'grant-registration') {
     return handleGrantRegistrationCoupon(req, res, user)
   }
+  if (action === 'redeem-code') {
+    return handleRedeemCouponByCode(req, res, user)
+  }
 
   // 管理者向け write（requireStaff）
   if (action === 'create-campaign') {
@@ -901,7 +904,10 @@ async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: Au
       expires_at,
       coupon_campaigns (
         discount_type,
-        discount_amount
+        discount_amount,
+        min_order_amount,
+        allowed_weekdays,
+        allowed_time_slots
       )
     `)
     .eq('id', customerCouponId)
@@ -1021,7 +1027,51 @@ async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: Au
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const campaign = coupon.coupon_campaigns as any
-  const discountAmount = (Array.isArray(campaign) ? campaign[0]?.discount_amount : campaign?.discount_amount) ?? 0
+  const campaignObj = Array.isArray(campaign) ? campaign[0] : campaign
+  const discountAmount = campaignObj?.discount_amount ?? 0
+
+  // 利用条件チェック: 最低利用金額・利用可能曜日・時間帯
+  if (reservationId && campaignObj) {
+    const minOrder: number | null = campaignObj.min_order_amount ?? null
+    const allowedWeekdays: number[] | null = campaignObj.allowed_weekdays ?? null
+    const allowedTimeSlots: string[] | null = campaignObj.allowed_time_slots ?? null
+
+    if (minOrder != null || allowedWeekdays || allowedTimeSlots) {
+      const { data: r } = await database
+        .from('reservations')
+        .select('total_amount, schedule_event_id')
+        .eq('id', reservationId)
+        .maybeSingle()
+      if (r) {
+        if (minOrder != null && (r.total_amount ?? 0) < minOrder) {
+          return res.status(400).json({ success: false, error: `このクーポンは ¥${minOrder.toLocaleString()} 以上の予約で利用できます` })
+        }
+        if (r.schedule_event_id && (allowedWeekdays || allowedTimeSlots)) {
+          const { data: ev } = await database
+            .from('schedule_events')
+            .select('date, time_slot')
+            .eq('id', r.schedule_event_id)
+            .maybeSingle()
+          if (ev) {
+            if (allowedWeekdays && allowedWeekdays.length > 0 && ev.date) {
+              // ev.date は 'YYYY-MM-DD' 形式 — 日本ローカルの曜日として扱う
+              const [y, m, d] = ev.date.split('-').map(Number)
+              const dt = new Date(Date.UTC(y, m - 1, d))
+              const wd = dt.getUTCDay()
+              if (!allowedWeekdays.includes(wd)) {
+                return res.status(400).json({ success: false, error: 'このクーポンはご利用可能な曜日ではありません' })
+              }
+            }
+            if (allowedTimeSlots && allowedTimeSlots.length > 0 && ev.time_slot) {
+              if (!allowedTimeSlots.includes(ev.time_slot)) {
+                return res.status(400).json({ success: false, error: 'このクーポンはご利用可能な時間帯ではありません' })
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   // coupon_usages に記録（DB トリガーが uses_remaining と status を更新）
   const usageData: Record<string, unknown> = {
@@ -1280,6 +1330,17 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
     return res.status(404).json({ success: false, error: '顧客が見つかりません' })
   }
 
+  // 配布数上限チェック
+  if (campaign.max_total_grants != null) {
+    const { count: grantedCount } = await database
+      .from('customer_coupons')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId)
+    if ((grantedCount ?? 0) >= campaign.max_total_grants) {
+      return res.status(400).json({ success: false, error: `配布数の上限 (${campaign.max_total_grants}) に達しています` })
+    }
+  }
+
   // expires_at の決定: 絶対 usage_valid_until が優先、なければ相対 coupon_expiry_days
   let expiresAt: string | null = null
   if (campaign.usage_valid_until) {
@@ -1312,6 +1373,96 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
   }
 
   return res.status(200).json({ success: true, couponId: data.id })
+}
+
+// =========================================
+// 顧客向け: コード入力でクーポンを取得（コード制キャンペーン）
+// =========================================
+async function handleRedeemCouponByCode(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const body = (req.body ?? {}) as { code?: string }
+  const code = (body.code ?? '').trim()
+  if (!code) {
+    return res.status(400).json({ success: false, error: 'コードを入力してください' })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+
+  // コードに一致する有効キャンペーン（user.orgId で絞らない: コード自体が組織横断のキーになりうる）
+  // ただし配布期間内・有効でなければならない
+  const now = new Date().toISOString()
+  const { data: campaign, error: campaignError } = await database
+    .from('coupon_campaigns')
+    .select(COUPON_CAMPAIGN_FIELDS)
+    .eq('coupon_code', code)
+    .eq('is_active', true)
+    .or(`valid_from.is.null,valid_from.lte.${now}`)
+    .or(`valid_until.is.null,valid_until.gte.${now}`)
+    .limit(1)
+    .maybeSingle()
+
+  if (campaignError) {
+    console.error('[coupons:redeem-code] campaign fetch error:', campaignError)
+    return res.status(500).json({ success: false, error: 'コードの照合に失敗しました' })
+  }
+  if (!campaign) {
+    return res.status(404).json({ success: false, error: 'コードが無効か、配布期間外です' })
+  }
+
+  // 配布数上限チェック
+  if (campaign.max_total_grants != null) {
+    const { count: grantedCount } = await database
+      .from('customer_coupons')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaign.id)
+    if ((grantedCount ?? 0) >= campaign.max_total_grants) {
+      return res.status(400).json({ success: false, error: '配布数の上限に達しています' })
+    }
+  }
+
+  // ログインユーザーの customer 行（自分自身のみ）
+  const { data: customer } = await database
+    .from('customers')
+    .select('id')
+    .eq('user_id', user.userId)
+    .limit(1)
+    .maybeSingle()
+  if (!customer) {
+    return res.status(404).json({ success: false, error: '顧客情報が見つかりません' })
+  }
+
+  // expires_at 決定
+  let expiresAt: string | null = null
+  if (campaign.usage_valid_until) {
+    expiresAt = new Date(campaign.usage_valid_until).toISOString()
+  } else if (campaign.coupon_expiry_days) {
+    const expiry = new Date()
+    expiry.setDate(expiry.getDate() + campaign.coupon_expiry_days)
+    expiresAt = expiry.toISOString()
+  }
+
+  const { data, error } = await database
+    .from('customer_coupons')
+    .insert({
+      campaign_id: campaign.id,
+      customer_id: customer.id,
+      organization_id: campaign.organization_id,
+      uses_remaining: campaign.max_uses_per_customer,
+      expires_at: expiresAt,
+      status: 'active',
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ success: false, error: 'このクーポンは既に取得済みです' })
+    }
+    console.error('[coupons:redeem-code] insert error:', error)
+    return res.status(500).json({ success: false, error: error.message })
+  }
+
+  return res.status(200).json({ success: true, couponId: data.id, campaignName: campaign.name })
 }
 
 // =========================================
