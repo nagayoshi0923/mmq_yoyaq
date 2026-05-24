@@ -884,8 +884,8 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
             ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
             : (scenarioInfo?.participation_fee ?? 0)
           const price = r.final_price ?? (fallbackFee * count)
-          if (r.payment_method === 'onsite') onsiteAmount += price
-          else if (r.payment_method === 'online') onlineAmount += price
+          if (r.payment_method === 'online') onlineAmount += price
+          else onsiteAmount += price
         }
       })
     }
