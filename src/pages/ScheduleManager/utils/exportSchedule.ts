@@ -20,6 +20,7 @@ type ExportRow = {
   store_name: string
   scenario: string
   category: string
+  is_cancelled: boolean
   gms: string
   capacity: number
   total_participants: number
@@ -41,6 +42,7 @@ export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
     '会場',
     'シナリオ',
     'カテゴリ',
+    '中止',
     'GM',
     '定員',
     '参加者数合計',
@@ -61,6 +63,7 @@ export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
     r.store_name,
     r.scenario,
     CATEGORY_LABELS[r.category] ?? r.category,
+    r.is_cancelled ? '中止' : '',
     r.gms,
     r.capacity,
     r.total_participants,

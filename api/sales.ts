@@ -623,7 +623,6 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     .eq('organization_id', orgId)
     .gte('date', start)
     .lte('date', end)
-    .eq('is_cancelled', false)
     .order('date', { ascending: true })
     .order('start_time', { ascending: true })
 
@@ -803,6 +802,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       store_name: store?.short_name || store?.name || event.venue || '',
       scenario: event.scenario || '',
       category: event.category,
+      is_cancelled: event.is_cancelled ?? false,
       gms: Array.isArray(event.gms) ? event.gms.join('・') : String(event.gms || ''),
       capacity: event.max_participants || event.capacity || 0,
       total_participants: totalParticipants,
