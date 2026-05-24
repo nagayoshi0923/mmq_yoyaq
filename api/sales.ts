@@ -826,13 +826,16 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
       : (scenarioInfo?.license_amount || 0)
 
-    // gm_roles で 'staff' 以外（main/sub/gm3/gm4）のみ実GMとして集計
+    // gm_roles でロール未設定または main/sub/gm3/gm4 のみ実GMとして集計
+    // staff / observer / その他は GM 給与対象外
+    const ACTIVE_GM_ROLES = new Set(['main', 'sub', 'gm3', 'gm4'])
     const gmRoles = event.gm_roles ?? {}
     const activeGmNames = new Set(
       Array.isArray(event.gms)
         ? event.gms.filter(name => {
             const role = gmRoles[name]?.toLowerCase()
-            return !role || role !== 'staff'
+            // ロール未設定はメイン GM 相当として残す（後方互換）
+            return !role || ACTIVE_GM_ROLES.has(role)
           })
         : []
     )
