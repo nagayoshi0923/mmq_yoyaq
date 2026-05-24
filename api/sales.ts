@@ -555,6 +555,41 @@ async function handleScenarioPerformance(req: VercelRequest, res: VercelResponse
   return res.status(200).json(result)
 }
 
+// ─── 給与計算ヘルパー ────────────────────────────────────────────────────────
+function calcDurationMinutes(startTime: string | null, endTime: string | null): number {
+  if (!startTime || !endTime) return 90
+  const [sh, sm] = startTime.split(':').map(Number)
+  const [eh, em] = endTime.split(':').map(Number)
+  const diff = (eh * 60 + em) - (sh * 60 + sm)
+  return diff > 0 ? diff : 90
+}
+
+type SalarySettingsLike = {
+  gm_base_pay: number; gm_hourly_rate: number
+  gm_test_base_pay: number; gm_test_hourly_rate: number
+  use_hourly_table: boolean
+  hourly_rates: Array<{ hours: number; amount: number }> | null
+  gm_test_hourly_rates: Array<{ hours: number; amount: number }> | null
+}
+
+function calcGmWageFromSettings(durationMinutes: number, isGmTest: boolean, s: SalarySettingsLike): number {
+  const hours = durationMinutes / 60
+  if (s.use_hourly_table) {
+    const rates = (isGmTest ? s.gm_test_hourly_rates : s.hourly_rates) ?? []
+    const fallbackRate = isGmTest ? s.gm_test_hourly_rate : s.gm_hourly_rate
+    const fallbackBase = isGmTest ? s.gm_test_base_pay : s.gm_base_pay
+    const roundedHours = Math.ceil(hours * 2) / 2
+    const sorted = [...rates].sort((a, b) => a.hours - b.hours)
+    const match = sorted.find(r => r.hours >= roundedHours)
+    if (match) return match.amount
+    const maxRate = sorted[sorted.length - 1]
+    if (maxRate) return maxRate.amount + Math.round(fallbackRate * (roundedHours - maxRate.hours))
+    return fallbackBase + Math.round(fallbackRate * hours)
+  }
+  if (isGmTest) return s.gm_test_base_pay + Math.round(s.gm_test_hourly_rate * hours)
+  return s.gm_base_pay + Math.round(s.gm_hourly_rate * hours)
+}
+
 // ─── オープン公演分析 (getOpenEventAnalysis 相当) ───────────────────────────
 async function handleOpenEventAnalysis(req: VercelRequest, res: VercelResponse, orgId: string) {
   const range = getStartEnd(req)
@@ -639,6 +674,19 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     .select('name')
     .eq('organization_id', orgId)
   const staffNames = new Set((staffData as { name: string }[] | null | undefined)?.map(s => s.name) || [])
+
+  // 給与設定（gm_costs 未設定時のフォールバック用）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: salaryData } = await (db as any)
+    .from('global_settings')
+    .select('gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, use_hourly_table, hourly_rates, gm_test_hourly_rates')
+    .eq('organization_id', orgId)
+    .single()
+  const salarySettings = salaryData ?? {
+    gm_base_pay: 2000, gm_hourly_rate: 1300,
+    gm_test_base_pay: 0, gm_test_hourly_rate: 1300,
+    use_hourly_table: false, hourly_rates: [], gm_test_hourly_rates: [],
+  }
 
   // 店舗
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -736,7 +784,9 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     const isGmTest = event.category === 'gmtest'
     const store = storeMap.get(event.store_id ?? '')
 
-    let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.organization_scenario_id ?? '') ?? null
+    // 1. ビューから scenario_master_id でシナリオ情報を取得
+    let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.scenario_master_id ?? '') ?? null
+    // 2. organization_scenario_id があれば org 固有設定で上書き
     if (event.organization_scenario_id) {
       const override = orgScenarioById.get(event.organization_scenario_id)
       if (override) {
@@ -763,6 +813,11 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
         .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
       const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
       gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
+    } else if (actualGmCount > 0 && !isVenueRental) {
+      // gm_costs 未設定の場合は global_settings の給与設定からフォールバック計算
+      const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
+      const wagePerGm = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings)
+      gmCost = wagePerGm * actualGmCount
     }
 
     let totalParticipants = 0
