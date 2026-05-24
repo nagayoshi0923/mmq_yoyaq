@@ -173,12 +173,13 @@ export const AdminSidebar = memo(function AdminSidebar() {
         },
         {
           id: 'manual-admin', label: '運営', icon: HelpCircle,
-          path: `/${slug}/manual?tab=reservation`, roles: ['admin', 'license_admin'],
+          path: `/${slug}/manual?tab=site-overview`, roles: ['admin', 'license_admin'],
           subItems: [
-            { id: 'manual-reservation', label: '予約管理',             path: `/${slug}/manual?tab=reservation` },
-            { id: 'manual-staff-item',  label: 'スタッフ管理',         path: `/${slug}/manual?tab=staff` },
-            { id: 'manual-schedule',    label: 'シフト・スケジュール', path: `/${slug}/manual?tab=schedule` },
-            { id: 'manual-coupon',      label: 'クーポン管理',         path: `/${slug}/manual?tab=coupon` },
+            { id: 'manual-site-overview', label: 'サイト概要・全体ガイド', path: `/${slug}/manual?tab=site-overview` },
+            { id: 'manual-reservation',   label: '予約管理',               path: `/${slug}/manual?tab=reservation` },
+            { id: 'manual-staff-item',    label: 'スタッフ管理',           path: `/${slug}/manual?tab=staff` },
+            { id: 'manual-schedule',      label: 'シフト・スケジュール',   path: `/${slug}/manual?tab=schedule` },
+            { id: 'manual-coupon',        label: 'クーポン管理',           path: `/${slug}/manual?tab=coupon` },
           ],
         },
         { id: 'manual-new', label: '新規作成', icon: Plus, path: `/${slug}/manual?action=new`, roles: ['admin'] },

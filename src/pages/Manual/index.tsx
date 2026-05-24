@@ -10,6 +10,7 @@ import { CouponReceptionManual } from './CouponReceptionManual'
 import { CouponTypeManual } from './CouponTypeManual'
 import { CheckinManual } from './CheckinManual'
 import { PreReadingSurveyManual } from './PreReadingSurveyManual'
+import { SiteOverviewManual } from './SiteOverviewManual'
 import { ManualEditor } from './editor/ManualEditor'
 import { HardcodedPageEditor } from './editor/HardcodedPageEditor'
 import { BlockListRenderer } from './renderer/BlockRenderer'
@@ -20,7 +21,7 @@ import type { HardcodedPageContent, CouponTypePageContent } from '@/types/hardco
 import {
   BookOpen, Users, CalendarDays, FileText, Ticket, Scissors,
   ClipboardCheck, ClipboardList, ChevronDown, ChevronRight,
-  Menu, X, Plus, Pencil, LayoutTemplate,
+  Menu, X, Plus, Pencil, LayoutTemplate, Compass,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -36,10 +37,11 @@ const ALL_HARDCODED_STAFF_ITEMS = [
 ]
 
 const ALL_HARDCODED_ADMIN_ITEMS = [
-  { id: 'reservation', label: '予約管理',          icon: CalendarDays },
-  { id: 'staff',       label: 'スタッフ管理',       icon: Users },
-  { id: 'schedule',    label: 'シフト・スケジュール', icon: FileText },
-  { id: 'coupon',      label: 'クーポン管理',        icon: Ticket },
+  { id: 'site-overview', label: 'サイト概要・全体ガイド', icon: Compass },
+  { id: 'reservation',   label: '予約管理',              icon: CalendarDays },
+  { id: 'staff',         label: 'スタッフ管理',           icon: Users },
+  { id: 'schedule',      label: 'シフト・スケジュール',    icon: FileText },
+  { id: 'coupon',        label: 'クーポン管理',           icon: Ticket },
 ]
 
 type HardcodedContentMap = Record<string, HardcodedPageContent | CouponTypePageContent>
@@ -47,6 +49,8 @@ type HardcodedContentMap = Record<string, HardcodedPageContent | CouponTypePageC
 function renderHardcoded(id: string, contentMap?: HardcodedContentMap) {
   const content = contentMap?.[id]
   switch (id) {
+    case 'site-overview':
+      return <SiteOverviewManual content={content as HardcodedPageContent | undefined} />
     case 'staff':
       return <StaffManual content={content as HardcodedPageContent | undefined} />
     case 'reservation':
