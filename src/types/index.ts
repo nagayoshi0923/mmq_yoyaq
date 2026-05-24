@@ -841,8 +841,6 @@ export interface CouponCampaign {
   display_image_url?: string | null
   customer_terms?: string | null
   internal_memo?: string | null
-  // 運用
-  on_cancel?: 'restore' | 'forfeit'
   is_active: boolean
   created_at: string
   updated_at: string

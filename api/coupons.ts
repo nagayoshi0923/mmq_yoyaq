@@ -45,7 +45,7 @@ const CUSTOMER_COUPON_FIELDS = `
 `
 
 const COUPON_CAMPAIGN_FIELDS =
-  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, on_cancel, is_active, created_at, updated_at'
+  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, is_active, created_at, updated_at'
 
 const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   id,
@@ -1107,6 +1107,25 @@ async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: Au
   return res.status(200).json({ success: true })
 }
 
+/**
+ * 付与通知メールを fire-and-forget で送信する。
+ * 失敗してもクーポン付与処理はブロックしない。
+ * Edge Function 側でフラグチェックするので、ここでは notify_on_grant=true のみ呼び出す。
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fireCouponGrantedEmail(database: any, customerCouponId: string): void {
+  database.functions
+    .invoke('send-coupon-granted', { body: { customerCouponId } })
+    .then((r: { error?: unknown }) => {
+      if (r?.error) {
+        console.warn('[coupons:notify] send-coupon-granted error (non-blocking):', r.error)
+      }
+    })
+    .catch((err: unknown) => {
+      console.warn('[coupons:notify] send-coupon-granted exception (non-blocking):', err)
+    })
+}
+
 // =========================================
 // 顧客向け: 新規登録クーポンを付与
 // =========================================
@@ -1151,6 +1170,29 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const campaign of campaigns as any[]) {
+    // 1人あたり配布上限チェック（NULL = 無制限）
+    if (campaign.max_grants_per_customer != null) {
+      const { count: customerGrantCount } = await database
+        .from('customer_coupons')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', campaign.id)
+        .eq('customer_id', customerId)
+      if ((customerGrantCount ?? 0) >= campaign.max_grants_per_customer) {
+        continue // この顧客は既に上限到達、次のキャンペーンへ
+      }
+    }
+
+    // 全体配布上限チェック（NULL = 無制限）
+    if (campaign.max_total_grants != null) {
+      const { count: totalGrantCount } = await database
+        .from('customer_coupons')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', campaign.id)
+      if ((totalGrantCount ?? 0) >= campaign.max_total_grants) {
+        continue
+      }
+    }
+
     let expiresAt: string | null = null
     if (campaign.usage_valid_until) {
       expiresAt = new Date(campaign.usage_valid_until).toISOString()
@@ -1160,7 +1202,7 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
       expiresAt = expiry.toISOString()
     }
 
-    const { error: insertError } = await database
+    const { data: newCC, error: insertError } = await database
       .from('customer_coupons')
       .insert({
         campaign_id: campaign.id,
@@ -1170,15 +1212,16 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
         expires_at: expiresAt,
         status: 'active',
       })
+      .select('id')
+      .single()
 
     if (insertError) {
-      if (insertError.code === '23505') {
-        // 既に付与済み（UNIQUE 制約）
-      } else {
-        console.error('[coupons:grant-registration] insert error:', insertError)
-      }
+      console.error('[coupons:grant-registration] insert error:', insertError)
     } else {
       grantedCount++
+      if (campaign.notify_on_grant && newCC?.id) {
+        fireCouponGrantedEmail(database, newCC.id)
+      }
     }
   }
 
@@ -1330,7 +1373,19 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
     return res.status(404).json({ success: false, error: '顧客が見つかりません' })
   }
 
-  // 配布数上限チェック
+  // 1人あたり配布上限チェック（NULL = 無制限）
+  if (campaign.max_grants_per_customer != null) {
+    const { count: customerGrantCount } = await database
+      .from('customer_coupons')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId)
+      .eq('customer_id', customerId)
+    if ((customerGrantCount ?? 0) >= campaign.max_grants_per_customer) {
+      return res.status(409).json({ success: false, error: `この顧客への配布上限 (${campaign.max_grants_per_customer}) に達しています` })
+    }
+  }
+
+  // 全体配布数上限チェック（NULL = 無制限）
   if (campaign.max_total_grants != null) {
     const { count: grantedCount } = await database
       .from('customer_coupons')
@@ -1365,11 +1420,12 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
     .single()
 
   if (error) {
-    if (error.code === '23505') {
-      return res.status(409).json({ success: false, error: 'この顧客には既にこのクーポンが付与されています' })
-    }
     console.error('[coupons:grant-to-customer] insert error:', error)
     return res.status(500).json({ success: false, error: error.message })
+  }
+
+  if (campaign.notify_on_grant) {
+    fireCouponGrantedEmail(database, data.id)
   }
 
   return res.status(200).json({ success: true, couponId: data.id })
@@ -1409,7 +1465,7 @@ async function handleRedeemCouponByCode(req: VercelRequest, res: VercelResponse,
     return res.status(404).json({ success: false, error: 'コードが無効か、配布期間外です' })
   }
 
-  // 配布数上限チェック
+  // 全体配布数上限チェック（NULL = 無制限）
   if (campaign.max_total_grants != null) {
     const { count: grantedCount } = await database
       .from('customer_coupons')
@@ -1429,6 +1485,18 @@ async function handleRedeemCouponByCode(req: VercelRequest, res: VercelResponse,
     .maybeSingle()
   if (!customer) {
     return res.status(404).json({ success: false, error: '顧客情報が見つかりません' })
+  }
+
+  // 1人あたり配布上限チェック（NULL = 無制限、customer.id 確定後に実施）
+  if (campaign.max_grants_per_customer != null) {
+    const { count: customerGrantCount } = await database
+      .from('customer_coupons')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaign.id)
+      .eq('customer_id', customer.id)
+    if ((customerGrantCount ?? 0) >= campaign.max_grants_per_customer) {
+      return res.status(409).json({ success: false, error: 'このクーポンの取得上限に達しています' })
+    }
   }
 
   // expires_at 決定
@@ -1455,11 +1523,12 @@ async function handleRedeemCouponByCode(req: VercelRequest, res: VercelResponse,
     .single()
 
   if (error) {
-    if (error.code === '23505') {
-      return res.status(409).json({ success: false, error: 'このクーポンは既に取得済みです' })
-    }
     console.error('[coupons:redeem-code] insert error:', error)
     return res.status(500).json({ success: false, error: error.message })
+  }
+
+  if (campaign.notify_on_grant) {
+    fireCouponGrantedEmail(database, data.id)
   }
 
   return res.status(200).json({ success: true, couponId: data.id, campaignName: campaign.name })

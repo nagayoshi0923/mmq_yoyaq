@@ -26,7 +26,7 @@ type EmailLogType =
   | 'reservation_confirmed' | 'reservation_cancelled' | 'reservation_changed'
   | 'reservation_request'  | 'reminder' | 'gm_notification' | 'staff_invitation'
   | 'waitlist_confirmed'   | 'guest_pin' | 'performance_cancellation'
-  | 'license_report'       | 'contact_inquiry' | 'other'
+  | 'license_report'       | 'contact_inquiry' | 'coupon_granted' | 'other'
 
 interface EmailLog {
   id: string
@@ -78,6 +78,7 @@ const TYPE_LABELS: Record<EmailLogType, string> = {
   performance_cancellation: '公演中止',
   license_report:           'ライセンスレポート',
   contact_inquiry:          'お問い合わせ',
+  coupon_granted:           'クーポン付与',
   other:                    'その他',
 }
 

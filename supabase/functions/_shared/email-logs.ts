@@ -35,6 +35,7 @@ export type EmailLogType =
   | 'performance_cancellation'
   | 'license_report'
   | 'contact_inquiry'
+  | 'coupon_granted'
   | 'other'
 
 export interface EmailLogInsert {
