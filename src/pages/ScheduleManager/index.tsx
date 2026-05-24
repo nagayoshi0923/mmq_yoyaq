@@ -60,7 +60,8 @@ import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, Eye
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
-import { exportScheduleToCSV } from './utils/exportSchedule'
+import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSchedule'
+import { ExportRangeModal } from './components/ExportRangeModal'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -125,6 +126,7 @@ export function ScheduleManager() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isKitManagementOpen, setIsKitManagementOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [isCleaningDemo, setIsCleaningDemo] = useState(false)
@@ -255,19 +257,38 @@ export function ScheduleManager() {
   
   const currentHoliday = currentVisibleDate ? getJapaneseHoliday(currentVisibleDate) : null
 
-  // スケジュールCSVエクスポート
-  const handleExportCSV = async () => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth() + 1
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const lastDay = new Date(year, month, 0).getDate()
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    const yearMonth = `${year}${String(month).padStart(2, '0')}`
-
+  // スケジュールCSVエクスポート（期間指定）
+  const handleExportRange = async (startYM: string, endYM: string) => {
     setIsExporting(true)
     try {
-      const rows = await salesApi.getScheduleExportData(startDate, endDate)
-      exportScheduleToCSV(rows, yearMonth)
+      const [sy, sm] = startYM.split('-').map(Number)
+      const [ey, em] = endYM.split('-').map(Number)
+      const totalMonths = (ey - sy) * 12 + (em - sm) + 1
+
+      if (totalMonths === 1) {
+        const lastDay = new Date(sy, sm, 0).getDate()
+        const startDate = `${startYM}-01`
+        const endDate = `${startYM}-${String(lastDay).padStart(2, '0')}`
+        const rows = await salesApi.getScheduleExportData(startDate, endDate)
+        exportScheduleToCSV(rows, startYM.replace('-', ''))
+      } else {
+        const monthlyData: { yearMonth: string; rows: Awaited<ReturnType<typeof salesApi.getScheduleExportData>> }[] = []
+        for (let i = 0; i < totalMonths; i++) {
+          const d = new Date(sy, sm - 1 + i, 1)
+          const y = d.getFullYear()
+          const m = d.getMonth() + 1
+          const ym = `${y}-${String(m).padStart(2, '0')}`
+          const lastDay = new Date(y, m, 0).getDate()
+          const startDate = `${ym}-01`
+          const endDate = `${ym}-${String(lastDay).padStart(2, '0')}`
+          const rows = await salesApi.getScheduleExportData(startDate, endDate)
+          monthlyData.push({ yearMonth: ym.replace('-', ''), rows })
+        }
+        const rangeLabel = `${startYM.replace('-', '')}-${endYM.replace('-', '')}`
+        await exportScheduleRangeToZip(monthlyData, rangeLabel)
+      }
+
+      setIsExportModalOpen(false)
     } catch (e) {
       showToast.error('CSVエクスポートに失敗しました')
     } finally {
@@ -1264,9 +1285,9 @@ export function ScheduleManager() {
               <Package className="h-4 w-4" />
             </button>
             <button
-              onClick={handleExportCSV}
+              onClick={() => setIsExportModalOpen(true)}
               disabled={isExporting}
-              title={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月のスケジュールをCSVエクスポート`}
+              title="スケジュールをCSVエクスポート"
               className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input disabled:opacity-50"
             >
               {isExporting ? (
@@ -1498,6 +1519,15 @@ export function ScheduleManager() {
         allAvailableStaff={modals.performanceModal.allAvailableStaff}
         onParticipantChange={modals.performanceModal.onParticipantChange}
         onDeleteEvent={modals.performanceModal.onDeleteEvent}
+      />
+
+      <ExportRangeModal
+        open={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExportRange}
+        isExporting={isExporting}
+        defaultYear={currentDate.getFullYear()}
+        defaultMonth={currentDate.getMonth() + 1}
       />
 
       <ImportScheduleModal

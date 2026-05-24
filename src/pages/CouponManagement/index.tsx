@@ -1,12 +1,8 @@
-import { useState, useCallback } from 'react'
-import { Header } from '@/components/layout/Header'
-import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { useState } from 'react'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Plus, RefreshCw, Ticket } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import { useOrganization } from '@/hooks/useOrganization'
 import {
   createCampaign,
   updateCampaign,
@@ -22,10 +18,6 @@ import { useCouponCampaigns } from './hooks/useCouponCampaigns'
 import { toast } from 'sonner'
 
 export function CouponManagement() {
-  const { user, isStaff } = useAuth()
-  const navigate = useNavigate()
-  const { organization } = useOrganization()
-
   const { campaigns, isLoading, refetch: loadCampaigns } = useCouponCampaigns()
   const [toggleLoading, setToggleLoading] = useState<string | null>(null)
 
@@ -37,15 +29,6 @@ export function CouponManagement() {
 
   const [statsDialogOpen, setStatsDialogOpen] = useState(false)
   const [statsCampaign, setStatsCampaign] = useState<CouponCampaign | null>(null)
-
-  const handlePageChange = useCallback((pageId: string) => {
-    const slug = organization?.slug || ''
-    if (pageId === 'mypage' || pageId === 'my-page') {
-      navigate('/mypage')
-    } else {
-      navigate(`/${slug}/${pageId}`)
-    }
-  }, [navigate, organization?.slug])
 
   const handleCreateNew = () => {
     setSelectedCampaign(null)
@@ -117,53 +100,49 @@ export function CouponManagement() {
     loadCampaigns()
   }
 
-  const shouldShowNavigation = isStaff
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header onPageChange={handlePageChange} />
-      <div className="flex flex-1">
-        {shouldShowNavigation && <AdminSidebar />}
-        <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-        {editMode ? (
-          <CampaignEdit
-            campaign={selectedCampaign}
-            onSave={handleSubmitCampaign}
-            onCancel={handleCancelEdit}
-          />
-        ) : (
-          <>
-            <PageHeader
-              title={<><Ticket className="h-5 w-5" />クーポン管理</>}
-              description="クーポンキャンペーンの作成・配布・利用状況を管理"
+    <AppLayout
+      currentPage="coupons"
+      maxWidth="max-w-[1440px]"
+      stickyLayout={true}
+    >
+      {editMode ? (
+        <CampaignEdit
+          campaign={selectedCampaign}
+          onSave={handleSubmitCampaign}
+          onCancel={handleCancelEdit}
+        />
+      ) : (
+        <>
+          <PageHeader
+            title={<><Ticket className="h-5 w-5" />クーポン管理</>}
+            description="クーポンキャンペーンの作成・配布・利用状況を管理"
+          >
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadCampaigns}
+              disabled={isLoading}
             >
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={loadCampaigns}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button onClick={handleCreateNew}>
-                <Plus className="h-4 w-4 mr-2" />
-                新規キャンペーン
-              </Button>
-            </PageHeader>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={handleCreateNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              新規キャンペーン
+            </Button>
+          </PageHeader>
 
-            <CampaignList
-              campaigns={campaigns}
-              isLoading={isLoading}
-              onEdit={handleEdit}
-              onToggleActive={handleToggleActive}
-              onGrant={handleGrant}
-              onViewStats={handleViewStats}
-              toggleLoading={toggleLoading}
-            />
-          </>
-        )}
-        </main>
-      </div>
+          <CampaignList
+            campaigns={campaigns}
+            isLoading={isLoading}
+            onEdit={handleEdit}
+            onToggleActive={handleToggleActive}
+            onGrant={handleGrant}
+            onViewStats={handleViewStats}
+            toggleLoading={toggleLoading}
+          />
+        </>
+      )}
 
       <GrantCouponDialog
         open={grantDialogOpen}
@@ -177,7 +156,7 @@ export function CouponManagement() {
         onOpenChange={setStatsDialogOpen}
         campaign={statsCampaign}
       />
-    </div>
+    </AppLayout>
   )
 }
 
