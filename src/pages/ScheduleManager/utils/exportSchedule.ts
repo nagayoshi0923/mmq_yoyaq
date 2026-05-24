@@ -1,4 +1,5 @@
 import { saveAs } from 'file-saver'
+import JSZip from 'jszip'
 
 const CATEGORY_LABELS: Record<string, string> = {
   open: 'オープン公演',
@@ -35,27 +36,17 @@ type ExportRow = {
 }
 
 export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
-  const headers = [
-    '日付',
-    '開始時間',
-    '終了時間',
-    '会場',
-    'シナリオ',
-    'カテゴリ',
-    '中止',
-    'GM',
-    '定員',
-    '参加者数合計',
-    '一般参加者数',
-    'スタッフ参加者数',
-    '予想現地決済額',
-    'オンライン決済済み額',
-    '売上合計',
-    'ライセンス金額',
-    'GM代金合計',
-    '純利益',
-  ]
+  const bom = '﻿'
+  const blob = new Blob([bom + buildCsvContent(rows)], { type: 'text/csv;charset=utf-8;' })
+  saveAs(blob, `スケジュール_${yearMonth}.csv`)
+}
 
+function buildCsvContent(rows: ExportRow[]): string {
+  const headers = [
+    '日付', '開始時間', '終了時間', '会場', 'シナリオ', 'カテゴリ', '中止', 'GM',
+    '定員', '参加者数合計', '一般参加者数', 'スタッフ参加者数',
+    '予想現地決済額', 'オンライン決済済み額', '売上合計', 'ライセンス金額', 'GM代金合計', '純利益',
+  ]
   const dataRows = rows.map(r => [
     r.date,
     r.start_time?.slice(0, 5) ?? '',
@@ -76,16 +67,24 @@ export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
     r.gm_cost,
     r.net_profit,
   ])
-
-  const csvContent = [headers, ...dataRows]
+  return [headers, ...dataRows]
     .map(row => row.map(cell => {
       const s = String(cell ?? '')
       return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
     }).join(','))
     .join('\n')
+}
 
-  // BOM付きUTF-8でExcelが文字化けしないようにする
+export async function exportScheduleRangeToZip(
+  monthlyData: { yearMonth: string; rows: ExportRow[] }[],
+  rangeLabel: string,
+) {
+  const zip = new JSZip()
   const bom = '﻿'
-  const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
-  saveAs(blob, `スケジュール_${yearMonth}.csv`)
+  for (const { yearMonth, rows } of monthlyData) {
+    const csv = bom + buildCsvContent(rows)
+    zip.file(`スケジュール_${yearMonth}.csv`, csv)
+  }
+  const content = await zip.generateAsync({ type: 'blob' })
+  saveAs(content, `スケジュール_${rangeLabel}.zip`)
 }
