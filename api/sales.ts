@@ -811,13 +811,19 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       const applicable = scenarioInfo.gm_costs
         .filter(g => (g.category || 'normal') === (isGmTest ? 'gmtest' : 'normal'))
         .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
-      const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
-      gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
+      if (applicable.length > 0) {
+        const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
+        gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
+      } else if (actualGmCount > 0 && !isVenueRental) {
+        // 該当カテゴリの gm_costs エントリがない場合（例: normal のみ設定でGMテスト公演）
+        // → 給与設定からフォールバック
+        const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
+        gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
+      }
     } else if (actualGmCount > 0 && !isVenueRental) {
       // gm_costs 未設定の場合は global_settings の給与設定からフォールバック計算
       const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
-      const wagePerGm = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings)
-      gmCost = wagePerGm * actualGmCount
+      gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
     }
 
     let totalParticipants = 0
