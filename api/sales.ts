@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
+import { getParticipationFee, getLicenseAmount, sumGmCosts, type ScenarioPricing } from '../src/lib/pricing.js'
 
 // NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
 // 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
@@ -750,15 +751,6 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     (orgScenariosData as OrgScenarioOverride[] | null | undefined)?.map(s => [s.id, s]) || []
   )
 
-  // participation_costs 配列から time_slot にマッチする金額を取得（status='active' 優先）
-  function extractFeeFromCosts(costs: ParticipationCost[] | null | undefined, slot: 'normal' | 'gmtest'): number | null {
-    if (!Array.isArray(costs) || costs.length === 0) return null
-    const matched = costs.filter(c => c.time_slot === slot)
-    if (matched.length === 0) return null
-    const active = matched.find(c => (c.status ?? 'active') === 'active')
-    return (active ?? matched[0]).amount ?? null
-  }
-
   // 予約をバッチ取得
   type ScheduleEventExport = {
     id: string
@@ -835,9 +827,8 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       }
     }
 
-    const licenseAmount = isGmTest
-      ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
-      : (scenarioInfo?.license_amount || 0)
+    const cat = isGmTest ? 'gmtest' : 'normal'
+    const licenseAmount = getLicenseAmount(scenarioInfo as ScenarioPricing | null, cat)
 
     // gm_roles でロール未設定または main/sub のみ実GMとして集計
     // reception / staff / observer / その他は GM 給与対象外
@@ -855,18 +846,9 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     const actualGmCount = activeGmNames.size
 
     let gmCost = 0
-    if (scenarioInfo?.gm_costs && scenarioInfo.gm_costs.length > 0) {
-      const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-      const applicable = scenarioInfo.gm_costs
-        .filter(g => (g.category || 'normal') === (isGmTest ? 'gmtest' : 'normal'))
-        .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
-      if (applicable.length > 0) {
-        const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
-        gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
-      } else if (actualGmCount > 0 && !isVenueRental) {
-        const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
-        gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
-      }
+    const hasGmCostsForCat = scenarioInfo?.gm_costs?.some(g => (g.category || 'normal') === cat) ?? false
+    if (hasGmCostsForCat) {
+      gmCost = sumGmCosts(scenarioInfo as ScenarioPricing | null, cat, actualGmCount)
     } else if (actualGmCount > 0 && !isVenueRental) {
       const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
       gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
@@ -899,14 +881,8 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           }
         } else {
           regularParticipants += count
-          // GMテスト公演はシナリオ側に設定された gm_test 用参加費を強制適用する。
-          // UI は participation_costs 配列に保存（time_slot='gmtest'）するので最優先、
-          // 旧データ互換で gm_test_participation_fee カラム → participation_fee の順にフォールバック。
-          const normalFeeFromCosts = extractFeeFromCosts(scenarioInfo?.participation_costs, 'normal')
-          const gmtestFeeFromCosts = extractFeeFromCosts(scenarioInfo?.participation_costs, 'gmtest')
-          const unitFee = isGmTest
-            ? (gmtestFeeFromCosts ?? scenarioInfo?.gm_test_participation_fee ?? normalFeeFromCosts ?? scenarioInfo?.participation_fee ?? 0)
-            : (normalFeeFromCosts ?? scenarioInfo?.participation_fee ?? 0)
+          // GMテスト公演は participation_costs.gmtest を最優先で適用（旧カラム/通常料金へフォールバック）
+          const unitFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, cat)
           const price = isGmTest
             ? unitFee * count
             : (r.final_price ?? unitFee * count)

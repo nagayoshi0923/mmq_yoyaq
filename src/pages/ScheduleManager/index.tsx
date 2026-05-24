@@ -63,6 +63,7 @@ import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSchedule'
 import { ExportRangeModal } from './components/ExportRangeModal'
 import { FillSeatsModal, type FillSeatsCategory } from './components/FillSeatsModal'
+import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 
 // Types
 import type { ScheduleEvent } from '@/types/schedule'
@@ -338,11 +339,11 @@ export function ScheduleManager() {
           .filter(Boolean)
       )]
       
-      const scenarioInfoMap = new Map<string, { duration: number; participation_fee: number; gm_test_participation_fee: number | null }>()
+      const scenarioInfoMap = new Map<string, { duration: number; pricing: ScenarioPricing }>()
       if (scenarioMasterIds.length > 0) {
         const { data: scenarioInfos } = await supabase
           .from('organization_scenarios_with_master')
-          .select('scenario_master_id, duration, participation_fee, gm_test_participation_fee')
+          .select('scenario_master_id, duration, participation_fee, gm_test_participation_fee, participation_costs')
           .eq('organization_id', orgId)
           .in('scenario_master_id', scenarioMasterIds)
 
@@ -350,8 +351,11 @@ export function ScheduleManager() {
           if (s.scenario_master_id) {
             scenarioInfoMap.set(s.scenario_master_id, {
               duration: s.duration || 120,
-              participation_fee: s.participation_fee || 0,
-              gm_test_participation_fee: s.gm_test_participation_fee ?? null
+              pricing: {
+                participation_fee: s.participation_fee ?? null,
+                gm_test_participation_fee: s.gm_test_participation_fee ?? null,
+                participation_costs: s.participation_costs ?? null,
+              },
             })
           }
         })
@@ -441,9 +445,7 @@ export function ScheduleManager() {
           const scenarioMasterId = event.scenario_master_id || event.scenario_id
           const scenarioInfo = scenarioMasterId ? scenarioInfoMap.get(scenarioMasterId) : null
           const isGmTest = (event as { category?: string }).category === 'gmtest'
-          const participationFee = isGmTest
-            ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
-            : (scenarioInfo?.participation_fee ?? 0)
+          const participationFee = getParticipationFee(scenarioInfo?.pricing, isGmTest ? 'gmtest' : 'normal')
           const duration = scenarioInfo?.duration || 120
           
           // 予約番号を生成（ユニークにするためインデックスを含める）
@@ -581,15 +583,13 @@ export function ScheduleManager() {
       if (scenarioMasterId) {
         const { data: scenarioInfo } = await supabase
           .from('organization_scenarios_with_master')
-          .select('duration, participation_fee, gm_test_participation_fee')
+          .select('duration, participation_fee, gm_test_participation_fee, participation_costs')
           .eq('organization_id', orgId)
           .eq('scenario_master_id', scenarioMasterId)
           .maybeSingle()
         if (scenarioInfo) {
           const isGmTest = ev.category === 'gmtest'
-          participationFee = isGmTest
-            ? (scenarioInfo.gm_test_participation_fee ?? scenarioInfo.participation_fee ?? 0)
-            : (scenarioInfo.participation_fee ?? 0)
+          participationFee = getParticipationFee(scenarioInfo as ScenarioPricing, isGmTest ? 'gmtest' : 'normal')
           duration = scenarioInfo.duration || 120
         }
       }
@@ -732,7 +732,7 @@ export function ScheduleManager() {
           const scenarioMasterIds = [...new Set(gmtestEvents.map(e => e.scenario_master_id).filter(Boolean))]
           const { data: orgScenarios } = await supabase
             .from('organization_scenarios_with_master')
-            .select('scenario_master_id, participation_fee, gm_test_participation_fee')
+            .select('scenario_master_id, participation_fee, gm_test_participation_fee, participation_costs')
             .eq('organization_id', orgId)
             .in('scenario_master_id', scenarioMasterIds)
 
@@ -742,7 +742,7 @@ export function ScheduleManager() {
             demoReservations.map(async (r) => {
               const scenarioMasterId = eventScenarioMap.get(r.schedule_event_id)
               const scenarioInfo = scenarioMasterId ? feeMap.get(scenarioMasterId) : null
-              const correctFee = scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0
+              const correctFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, 'gmtest')
               const totalPrice = correctFee * (r.participant_count || 1)
 
               // eslint-disable-next-line no-restricted-syntax
