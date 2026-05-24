@@ -11,6 +11,12 @@ import { CouponTypeManual } from './CouponTypeManual'
 import { CheckinManual } from './CheckinManual'
 import { PreReadingSurveyManual } from './PreReadingSurveyManual'
 import { SiteOverviewManual } from './SiteOverviewManual'
+import { SystemOverviewManual } from './SystemOverviewManual'
+import { GettingStartedManual } from './GettingStartedManual'
+import { ScheduleGuideManual } from './ScheduleGuideManual'
+import { BookingGuideManual } from './BookingGuideManual'
+import { ScenarioGuideManual } from './ScenarioGuideManual'
+import { SalesGuideManual } from './SalesGuideManual'
 import { ManualEditor } from './editor/ManualEditor'
 import { HardcodedPageEditor } from './editor/HardcodedPageEditor'
 import { BlockListRenderer } from './renderer/BlockRenderer'
@@ -22,6 +28,7 @@ import {
   BookOpen, Users, CalendarDays, FileText, Ticket, Scissors,
   ClipboardCheck, ClipboardList, ChevronDown, ChevronRight,
   Menu, X, Plus, Pencil, LayoutTemplate, Compass,
+  Globe, PlayCircle, TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -42,6 +49,15 @@ const ALL_HARDCODED_ADMIN_ITEMS = [
   { id: 'staff',         label: 'スタッフ管理',           icon: Users },
   { id: 'schedule',      label: 'シフト・スケジュール',    icon: FileText },
   { id: 'coupon',        label: 'クーポン管理',           icon: Ticket },
+]
+
+const ALL_HARDCODED_GUIDE_ITEMS = [
+  { id: 'system-overview',   label: 'システム概要',      icon: Globe },
+  { id: 'getting-started',   label: 'はじめ方',          icon: PlayCircle },
+  { id: 'schedule-guide',    label: 'スケジュール管理',   icon: CalendarDays },
+  { id: 'booking-guide',     label: '貸切・予約管理',     icon: ClipboardCheck },
+  { id: 'scenario-guide',    label: 'シナリオ管理',       icon: BookOpen },
+  { id: 'sales-guide',       label: '売上・レポート',     icon: TrendingUp },
 ]
 
 type HardcodedContentMap = Record<string, HardcodedPageContent | CouponTypePageContent>
@@ -67,6 +83,18 @@ function renderHardcoded(id: string, contentMap?: HardcodedContentMap) {
       return <CouponTypeManual content={content as CouponTypePageContent | undefined} />
     case 'coupon':
       return <CouponManual content={content as HardcodedPageContent | undefined} />
+    case 'system-overview':
+      return <SystemOverviewManual />
+    case 'getting-started':
+      return <GettingStartedManual />
+    case 'schedule-guide':
+      return <ScheduleGuideManual />
+    case 'booking-guide':
+      return <BookingGuideManual />
+    case 'scenario-guide':
+      return <ScenarioGuideManual />
+    case 'sales-guide':
+      return <SalesGuideManual />
     default:
       return null
   }
@@ -99,6 +127,10 @@ function ManualSidebarContent({
   const allAdminIds = [...hardcodedAdminItems.map(i => i.id), ...dbAdminPages.map(p => p.id)]
   const isAdminActive = allAdminIds.includes(activeTab)
   const [adminOpen, setAdminOpen] = useState(isAdminActive)
+
+  const allGuideIds = ALL_HARDCODED_GUIDE_ITEMS.map(i => i.id)
+  const isGuideActive = allGuideIds.includes(activeTab)
+  const [guideOpen, setGuideOpen] = useState(isGuideActive)
 
   const handleClick = (id: string) => {
     onTabChange(id)
@@ -148,7 +180,33 @@ function ManualSidebarContent({
       </div>
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        {/* 機能ガイドセクション（折りたたみ） */}
+        <div className="pt-1">
+          <button
+            onClick={() => setGuideOpen(o => !o)}
+            className="w-full text-left px-4 py-1.5 flex items-center justify-between text-[11px] font-semibold text-slate-400 uppercase tracking-wide hover:text-slate-600 transition-colors"
+          >
+            <span>機能ガイド</span>
+            {guideOpen
+              ? <ChevronDown className="h-3.5 w-3.5" />
+              : <ChevronRight className="h-3.5 w-3.5" />
+            }
+          </button>
+          {guideOpen && (
+            <div className="space-y-0 mt-1">
+              {ALL_HARDCODED_GUIDE_ITEMS.map(item => (
+                <div key={item.id} className="pl-2">
+                  <SidebarItem id={item.id} label={item.label} Icon={item.icon} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mx-2 my-2 border-t border-slate-100" />
+
         {/* スタッフ向け: ハードコード（block-based DB未移行分のみ） */}
+        <div className="px-4 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">スタッフ向け</div>
         {hardcodedStaffItems.map(item => (
           <SidebarItem key={item.id} id={item.id} label={item.label} Icon={item.icon} />
         ))}
@@ -370,9 +428,10 @@ export function ManualPage() {
   const allHardcodedIds = [
     ...ALL_HARDCODED_STAFF_ITEMS.map(i => i.id),
     ...ALL_HARDCODED_ADMIN_ITEMS.map(i => i.id),
+    ...ALL_HARDCODED_GUIDE_ITEMS.map(i => i.id),
   ]
   const tabParam = searchParams.get('tab')
-  const defaultTab = ALL_HARDCODED_STAFF_ITEMS[0]?.id ?? ''
+  const defaultTab = ALL_HARDCODED_GUIDE_ITEMS[0]?.id ?? ALL_HARDCODED_STAFF_ITEMS[0]?.id ?? ''
   const resolveTab = (raw: string | null): string => {
     if (!raw) return defaultTab
     if (dbPages.some(p => p.id === raw && p.page_content == null)) return raw   // DB block page UUID
@@ -481,20 +540,27 @@ export function ManualPage() {
     )
   }
 
+  const sidebar = (
+    <ManualSidebar
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+      dbStaffPages={dbStaffPages}
+      dbAdminPages={dbAdminPages}
+      isAdmin={isAdmin}
+      onNewPage={() => setEditorMode({ type: 'new' })}
+      onEditPage={(pageId) => setEditorMode({ type: 'edit', pageId })}
+      blockBasedSlugs={blockBasedSlugs}
+    />
+  )
+
   return (
     <AppLayout
       currentPage="manual"
-      maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      sidebar={sidebar}
+      containerPadding="px-6 py-4 sm:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-6">
-        <PageHeader
-          title={<><BookOpen className="h-5 w-5 text-primary" />操作マニュアル</>}
-          description="システムの操作方法と使用シーンについてのガイド"
-        />
-        {renderContent()}
-      </div>
+      {renderContent()}
     </AppLayout>
   )
 }
