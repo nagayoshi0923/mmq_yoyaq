@@ -62,6 +62,7 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSchedule'
 import { ExportRangeModal } from './components/ExportRangeModal'
+import { FillSeatsModal, type FillSeatsCategory } from './components/FillSeatsModal'
 
 // Types
 import type { ScheduleEvent } from '@/types/schedule'
@@ -129,6 +130,7 @@ export function ScheduleManager() {
   const [isExporting, setIsExporting] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
+  const [isFillSeatsModalOpen, setIsFillSeatsModalOpen] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [isCleaningDemo, setIsCleaningDemo] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -298,19 +300,13 @@ export function ScheduleManager() {
   }
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
-  const handleFillAllSeats = async () => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth() + 1
-    
-    if (!confirm(`${year}年${month}月の中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
-    
+  const handleFillAllSeats = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => {
+    const { startDate, endDate, categories } = params
+
+    if (!confirm(`${startDate} 〜 ${endDate} の対象カテゴリ (${categories.join(', ')}) で中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
+
     setIsFillingSeats(true)
     try {
-      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-      // 月末日を正しく計算（翌月の0日 = 当月の最終日）
-      const lastDay = new Date(year, month, 0).getDate()
-      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-      
       // 組織IDを最初に取得
       const orgId = await getCurrentOrganizationId()
       if (!orgId) {
@@ -319,7 +315,6 @@ export function ScheduleManager() {
       }
 
       // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
-      // testplay / venue_rental / venue_rental_free / mtg は対象外
       const { data: events, error: fetchError } = await supabase
         .from('schedule_events_staff_view')
         .select('id, scenario, category, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
@@ -327,14 +322,14 @@ export function ScheduleManager() {
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_cancelled', false)
-        .in('category', ['open', 'private', 'gmtest', 'trip', 'package'])
+        .in('category', categories)
       
       if (fetchError) {
         showToast.error(getSafeErrorMessage(fetchError, 'データの取得に失敗しました'))
         return
       }
       
-      logger.log(`📊 満席処理対象: ${year}年${month}月 ${events?.length || 0}件`)
+      logger.log(`📊 満席処理対象: ${startDate} 〜 ${endDate} (${categories.join(',')}) ${events?.length || 0}件`)
       
       // シナリオ情報を一括取得（参加費・所要時間）
       const scenarioMasterIds = [...new Set(
@@ -1372,7 +1367,7 @@ export function ScheduleManager() {
                   )}
                 </button>
                 <button
-                  onClick={handleFillAllSeats}
+                  onClick={() => setIsFillSeatsModalOpen(true)}
                   disabled={isFillingSeats}
                   title="中止以外を満席にする"
                   className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
@@ -1440,7 +1435,7 @@ export function ScheduleManager() {
                   )}
                 </button>
                 <button
-                  onClick={handleFillAllSeats}
+                  onClick={() => setIsFillSeatsModalOpen(true)}
                   disabled={isFillingSeats}
                   title="中止以外を満席にする（デモ参加者を追加）"
                   className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
@@ -1648,6 +1643,18 @@ export function ScheduleManager() {
         onClose={() => setIsExportModalOpen(false)}
         onExport={handleExportRange}
         isExporting={isExporting}
+        defaultYear={currentDate.getFullYear()}
+        defaultMonth={currentDate.getMonth() + 1}
+      />
+
+      <FillSeatsModal
+        open={isFillSeatsModalOpen}
+        onClose={() => setIsFillSeatsModalOpen(false)}
+        onConfirm={async (params) => {
+          setIsFillSeatsModalOpen(false)
+          await handleFillAllSeats(params)
+        }}
+        isProcessing={isFillingSeats}
         defaultYear={currentDate.getFullYear()}
         defaultMonth={currentDate.getMonth() + 1}
       />
