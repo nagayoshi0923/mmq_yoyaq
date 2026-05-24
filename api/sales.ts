@@ -736,7 +736,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     const isGmTest = event.category === 'gmtest'
     const store = storeMap.get(event.store_id ?? '')
 
-    let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.scenario_master_id ?? '') ?? null
+    let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.organization_scenario_id ?? '') ?? null
     if (event.organization_scenario_id) {
       const override = orgScenarioById.get(event.organization_scenario_id)
       if (override) {
