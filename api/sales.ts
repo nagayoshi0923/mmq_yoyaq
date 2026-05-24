@@ -682,10 +682,25 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     .select('gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, use_hourly_table, hourly_rates, gm_test_hourly_rates')
     .eq('organization_id', orgId)
     .single()
-  const salarySettings = salaryData ?? {
-    gm_base_pay: 2000, gm_hourly_rate: 1300,
-    gm_test_base_pay: 0, gm_test_hourly_rate: 1300,
-    use_hourly_table: false, hourly_rates: [], gm_test_hourly_rates: [],
+  // フロントエンドの DEFAULT_SETTINGS と同じデフォルト値を使用し、フィールド単位でフォールバック
+  const DEFAULT_HOURLY_RATES: Array<{ hours: number; amount: number }> = [
+    { hours: 1, amount: 3300 }, { hours: 1.5, amount: 3950 }, { hours: 2, amount: 4600 },
+    { hours: 2.5, amount: 5250 }, { hours: 3, amount: 5900 }, { hours: 3.5, amount: 6550 },
+    { hours: 4, amount: 7200 },
+  ]
+  const DEFAULT_GM_TEST_HOURLY_RATES: Array<{ hours: number; amount: number }> = [
+    { hours: 1, amount: 1300 }, { hours: 1.5, amount: 1950 }, { hours: 2, amount: 2600 },
+    { hours: 2.5, amount: 3250 }, { hours: 3, amount: 3900 }, { hours: 3.5, amount: 4550 },
+    { hours: 4, amount: 5200 },
+  ]
+  const salarySettings: SalarySettingsLike = {
+    gm_base_pay: salaryData?.gm_base_pay ?? 2000,
+    gm_hourly_rate: salaryData?.gm_hourly_rate ?? 1300,
+    gm_test_base_pay: salaryData?.gm_test_base_pay ?? 0,
+    gm_test_hourly_rate: salaryData?.gm_test_hourly_rate ?? 1300,
+    use_hourly_table: salaryData?.use_hourly_table ?? false,
+    hourly_rates: (salaryData?.hourly_rates as Array<{ hours: number; amount: number }> | null) ?? DEFAULT_HOURLY_RATES,
+    gm_test_hourly_rates: (salaryData?.gm_test_hourly_rates as Array<{ hours: number; amount: number }> | null) ?? DEFAULT_GM_TEST_HOURLY_RATES,
   }
 
   // 店舗
@@ -702,11 +717,13 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
     license_amount: number | null
     gm_test_license_amount: number | null
+    participation_fee: number | null
+    gm_test_participation_fee: number | null
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenariosData } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, gm_costs, license_amount, gm_test_license_amount')
+    .select('id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee')
     .eq('organization_id', orgId)
   const scenarioByMasterId = new Map<string, ScenarioInfo>(
     (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.id, s]) || []
@@ -718,11 +735,13 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
     license_amount: number | null
     gm_test_license_amount: number | null
+    participation_fee: number | null
+    gm_test_participation_fee: number | null
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenariosData } = await (db as any)
     .from('organization_scenarios')
-    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount')
+    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee')
     .eq('organization_id', orgId)
   const orgScenarioById = new Map<string, OrgScenarioOverride>(
     (orgScenariosData as OrgScenarioOverride[] | null | undefined)?.map(s => [s.id, s]) || []
@@ -797,6 +816,8 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           gm_costs: ((override.gm_costs?.length ?? 0) > 0 ? override.gm_costs : scenarioInfo?.gm_costs) ?? null,
           license_amount: override.license_amount ?? scenarioInfo?.license_amount ?? null,
           gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
+          participation_fee: override.participation_fee ?? scenarioInfo?.participation_fee ?? null,
+          gm_test_participation_fee: override.gm_test_participation_fee ?? scenarioInfo?.gm_test_participation_fee ?? null,
         }
       }
     }
@@ -858,7 +879,11 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           staffParticipants += count
         } else {
           regularParticipants += count
-          const price = r.final_price || 0
+          // final_price が null の場合はシナリオの参加費（GMテストは gm_test_participation_fee）で補完
+          const fallbackFee = isGmTest
+            ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
+            : (scenarioInfo?.participation_fee ?? 0)
+          const price = r.final_price ?? (fallbackFee * count)
           if (r.payment_method === 'onsite') onsiteAmount += price
           else if (r.payment_method === 'online') onlineAmount += price
         }
