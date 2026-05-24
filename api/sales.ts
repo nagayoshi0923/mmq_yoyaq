@@ -712,6 +712,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     (stores as Array<{ id: string; name: string; short_name: string | null }> | null | undefined)?.map(s => [s.id, s]) || []
   )
 
+  type ParticipationCost = { time_slot?: string; amount: number; status?: string }
   type ScenarioInfo = {
     id: string
     gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
@@ -719,11 +720,12 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     gm_test_license_amount: number | null
     participation_fee: number | null
     gm_test_participation_fee: number | null
+    participation_costs: ParticipationCost[] | null
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenariosData } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    .select('id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
     .eq('organization_id', orgId)
   const scenarioByMasterId = new Map<string, ScenarioInfo>(
     (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.id, s]) || []
@@ -737,15 +739,25 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     gm_test_license_amount: number | null
     participation_fee: number | null
     gm_test_participation_fee: number | null
+    participation_costs: ParticipationCost[] | null
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenariosData } = await (db as any)
     .from('organization_scenarios')
-    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
     .eq('organization_id', orgId)
   const orgScenarioById = new Map<string, OrgScenarioOverride>(
     (orgScenariosData as OrgScenarioOverride[] | null | undefined)?.map(s => [s.id, s]) || []
   )
+
+  // participation_costs 配列から time_slot にマッチする金額を取得（status='active' 優先）
+  function extractFeeFromCosts(costs: ParticipationCost[] | null | undefined, slot: 'normal' | 'gmtest'): number | null {
+    if (!Array.isArray(costs) || costs.length === 0) return null
+    const matched = costs.filter(c => c.time_slot === slot)
+    if (matched.length === 0) return null
+    const active = matched.find(c => (c.status ?? 'active') === 'active')
+    return (active ?? matched[0]).amount ?? null
+  }
 
   // 予約をバッチ取得
   type ScheduleEventExport = {
@@ -818,6 +830,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
           participation_fee: override.participation_fee ?? scenarioInfo?.participation_fee ?? null,
           gm_test_participation_fee: override.gm_test_participation_fee ?? scenarioInfo?.gm_test_participation_fee ?? null,
+          participation_costs: ((override.participation_costs?.length ?? 0) > 0 ? override.participation_costs : scenarioInfo?.participation_costs) ?? null,
         }
       }
     }
@@ -886,11 +899,14 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           }
         } else {
           regularParticipants += count
-          // GMテスト公演はシナリオ側に設定された gm_test_participation_fee を強制適用する
-          // （final_price が通常価格で予約されたケースで CSV に通常料金で出てしまう不具合の対策）
+          // GMテスト公演はシナリオ側に設定された gm_test 用参加費を強制適用する。
+          // UI は participation_costs 配列に保存（time_slot='gmtest'）するので最優先、
+          // 旧データ互換で gm_test_participation_fee カラム → participation_fee の順にフォールバック。
+          const normalFeeFromCosts = extractFeeFromCosts(scenarioInfo?.participation_costs, 'normal')
+          const gmtestFeeFromCosts = extractFeeFromCosts(scenarioInfo?.participation_costs, 'gmtest')
           const unitFee = isGmTest
-            ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
-            : (scenarioInfo?.participation_fee ?? 0)
+            ? (gmtestFeeFromCosts ?? scenarioInfo?.gm_test_participation_fee ?? normalFeeFromCosts ?? scenarioInfo?.participation_fee ?? 0)
+            : (normalFeeFromCosts ?? scenarioInfo?.participation_fee ?? 0)
           const price = isGmTest
             ? unitFee * count
             : (r.final_price ?? unitFee * count)
