@@ -116,6 +116,7 @@ export interface ScheduleExportRow {
   store_name: string
   scenario: string
   category: string
+  is_cancelled: boolean
   gms: string
   capacity: number
   total_participants: number
