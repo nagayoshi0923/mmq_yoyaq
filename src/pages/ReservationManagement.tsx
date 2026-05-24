@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,9 +10,7 @@ import { HelpButton } from '@/components/ui/help-button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
-} from '@/components/ui/table'
+import { TanStackDataTable, type Column } from '@/components/patterns/table'
 import { Badge } from '@/components/ui/badge'
 import { 
   Ticket, Search, Filter, Download, FileText, X, Mail, ExternalLink
@@ -170,6 +168,143 @@ export function ReservationManagement() {
 
   const isLoading = isListLoading || isStatsLoading
 
+  // テーブルカラム定義
+  const tableColumns: Column<ReservationWithDetails>[] = useMemo(() => [
+    {
+      key: 'reservation_number',
+      header: '予約番号',
+      width: 'w-[110px]',
+      render: (r) => (
+        <span className="font-mono text-xs text-gray-600" {...devDb('reservations.reservation_number')}>
+          {r.reservation_number || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: '受付日時',
+      width: 'w-[120px]',
+      sortable: true,
+      render: (r) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-gray-900 text-sm">
+            {/* @ts-ignore */}
+            {r.created_at ? format(new Date(r.created_at), 'yyyy/MM/dd') : '-'}
+          </span>
+          <span className="text-xs text-gray-500 font-mono">
+            {/* @ts-ignore */}
+            {r.created_at ? format(new Date(r.created_at), 'HH:mm') : ''}
+          </span>
+        </div>
+      ),
+      sortValue: (r) => r.created_at ?? '',
+    },
+    {
+      key: 'event_date',
+      header: '公演日時',
+      width: 'w-[130px]',
+      sortable: true,
+      render: (r) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-gray-900">
+            {r.event_date ? format(new Date(r.event_date), 'yyyy/MM/dd') : '未定'}
+          </span>
+          <span className="text-xs text-gray-500 font-mono">{r.event_time || '--:--'}</span>
+        </div>
+      ),
+      sortValue: (r) => `${r.event_date ?? ''} ${r.event_time ?? ''}`,
+    },
+    {
+      key: 'status',
+      header: 'ステータス',
+      width: 'w-[110px]',
+      render: (r) => (
+        <div className="flex flex-col">
+          {getStatusBadge(r.status)}
+          {r.status === 'cancelled' && (r.cancelled_at || r.updated_at) && (
+            <span className="text-[10px] text-gray-400 mt-0.5">
+              {/* @ts-ignore */}
+              {format(new Date(r.cancelled_at || r.updated_at), 'MM/dd HH:mm')}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'customer_name',
+      header: '顧客名',
+      width: 'w-[140px]',
+      render: (r) => (
+        <div className="font-medium text-blue-600 truncate" {...devDb('reservations.customer_name')}>
+          {r.customer_name}
+        </div>
+      ),
+    },
+    {
+      key: 'scenario_title',
+      header: '予約ページ',
+      width: 'w-[180px]',
+      render: (r) => (
+        <div className="text-sm text-blue-600 font-medium truncate" title={r.scenario_title}>
+          【{r.scenario_title}】
+        </div>
+      ),
+    },
+    {
+      key: 'staff',
+      header: 'スタッフ',
+      width: 'w-[80px]',
+      render: () => <span className="text-gray-400">-</span>,
+    },
+    {
+      key: 'payment',
+      header: 'お支払い',
+      width: 'w-[110px]',
+      render: (r) => (
+        <div className="flex flex-col text-xs">
+          <span className="text-gray-900" {...devDb('reservations.payment_method')}>
+            {formatPaymentMethod(r.payment_method)}
+          </span>
+          <span
+            className={r.payment_status === 'unpaid' ? 'text-red-600 font-bold' : 'text-gray-500'}
+            {...devDb('reservations.total_amount')}
+          >
+            ¥{(r.total_amount || 0).toLocaleString()}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'notes',
+      header: '予約メモ',
+      width: 'w-[70px]',
+      align: 'center',
+      render: (r) =>
+        r.customer_notes ? (
+          <FileText className="h-4 w-4 text-gray-400 mx-auto" />
+        ) : (
+          <span className="text-gray-300">-</span>
+        ),
+    },
+    {
+      key: 'detail',
+      header: '詳細',
+      width: 'w-[100px]',
+      align: 'right',
+      render: (r) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-blue-600 hover:text-blue-800 h-8 text-xs"
+          onClick={() => setSelectedReservation(r)}
+        >
+          予約詳細
+        </Button>
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [])
+
   const totalPages = Math.max(1, Math.ceil((totalCount || 0) / PAGE_SIZE))
   const clampedPage = Math.min(Math.max(1, page), totalPages)
   const startIndex = totalCount === 0 ? 0 : (clampedPage - 1) * PAGE_SIZE + 1
@@ -326,92 +461,15 @@ export function ReservationManagement() {
         )}
 
         {/* ========================================================================
-            PC表示: テーブル形式
+            PC表示: TanStackDataTable
            ======================================================================== */}
-        <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader className="bg-gray-50">
-              <TableRow>
-                <TableHead className="w-[50px] text-center"></TableHead>
-                <TableHead className="w-[100px]">予約番号</TableHead>
-                <TableHead className="w-[160px]">受付日時</TableHead>
-                <TableHead className="w-[180px]">公演日時</TableHead>
-                <TableHead className="w-[120px]">ステータス</TableHead>
-                <TableHead>顧客名</TableHead>
-                <TableHead>予約ページ</TableHead>
-                <TableHead>スタッフ</TableHead>
-                <TableHead>お支払い</TableHead>
-                <TableHead>予約メモ</TableHead>
-                <TableHead className="text-right">詳細</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedReservations.map((reservation) => (
-                <TableRow key={reservation.id} className="hover:bg-gray-50/50 cursor-pointer h-16" onClick={() => setSelectedReservation(reservation)}>
-                  <TableCell className="text-center"><input type="checkbox" className="rounded border-gray-300" onClick={(e) => e.stopPropagation()} /></TableCell>
-                  <TableCell>
-                    <span className="font-mono text-xs text-gray-600" {...devDb('reservations.reservation_number')}>{reservation.reservation_number || '-'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-gray-900 text-sm">
-                        {/* @ts-ignore */}
-                        {reservation.created_at ? format(new Date(reservation.created_at), 'yyyy/MM/dd') : '-'}
-                      </span>
-                      <span className="text-xs text-gray-500 font-mono">
-                        {/* @ts-ignore */}
-                        {reservation.created_at ? format(new Date(reservation.created_at), 'HH:mm') : ''}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-gray-900">{reservation.event_date ? format(new Date(reservation.event_date), 'yyyy/MM/dd') : '未定'}</span>
-                      <span className="text-xs text-gray-500 font-mono">{reservation.event_time || '--:--'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      {getStatusBadge(reservation.status)}
-                      {reservation.status === 'cancelled' && (reservation.cancelled_at || reservation.updated_at) && (
-                        <span className="text-[10px] text-gray-400 mt-0.5">
-                          {/* @ts-ignore */}
-                          {format(new Date(reservation.cancelled_at || reservation.updated_at), 'MM/dd HH:mm')}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-blue-600 hover:underline" {...devDb('reservations.customer_name')}>{reservation.customer_name}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-blue-600 font-medium truncate max-w-[150px]" title={reservation.scenario_title}>
-                      【{reservation.scenario_title}】
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-gray-500">-</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col text-xs">
-                      <span className="text-gray-900" {...devDb('reservations.payment_method')}>{formatPaymentMethod(reservation.payment_method)}</span>
-                      <span className={reservation.payment_status === 'unpaid' ? 'text-red-600 font-bold' : 'text-gray-500'} {...devDb('reservations.total_amount')}>
-                        ¥{(reservation.total_amount || 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {reservation.customer_notes ? <FileText className="h-4 w-4 text-gray-400" /> : <span className="text-gray-300">-</span>}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 h-8 text-xs">
-                      予約詳細
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="hidden md:block">
+          <TanStackDataTable
+            data={sortedReservations}
+            columns={tableColumns}
+            getRowKey={(r) => r.id}
+            emptyMessage="該当する予約がありません"
+          />
         </div>
 
         {/* ========================================================================
