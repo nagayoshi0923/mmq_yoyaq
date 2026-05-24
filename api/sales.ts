@@ -879,11 +879,14 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           staffParticipants += count
         } else {
           regularParticipants += count
-          // final_price が null の場合はシナリオの参加費（GMテストは gm_test_participation_fee）で補完
-          const fallbackFee = isGmTest
+          // GMテスト公演はシナリオ側に設定された gm_test_participation_fee を強制適用する
+          // （final_price が通常価格で予約されたケースで CSV に通常料金で出てしまう不具合の対策）
+          const unitFee = isGmTest
             ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
             : (scenarioInfo?.participation_fee ?? 0)
-          const price = r.final_price ?? (fallbackFee * count)
+          const price = isGmTest
+            ? unitFee * count
+            : (r.final_price ?? unitFee * count)
           if (r.payment_method === 'online') onlineAmount += price
           else onsiteAmount += price
         }

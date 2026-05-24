@@ -162,18 +162,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
       icon: HelpCircle,
       items: [
         {
-          id: 'manual-guide', label: '機能ガイド', icon: HelpCircle,
-          path: `/${slug}/manual?tab=system-overview`, roles: ['admin', 'staff', 'license_admin'],
-          subItems: [
-            { id: 'manual-system-overview', label: 'システム概要',    path: `/${slug}/manual?tab=system-overview` },
-            { id: 'manual-getting-started', label: 'はじめ方',        path: `/${slug}/manual?tab=getting-started` },
-            { id: 'manual-schedule-guide',  label: 'スケジュール管理', path: `/${slug}/manual?tab=schedule-guide` },
-            { id: 'manual-booking-guide',   label: '貸切・予約管理',   path: `/${slug}/manual?tab=booking-guide` },
-            { id: 'manual-scenario-guide',  label: 'シナリオ管理',     path: `/${slug}/manual?tab=scenario-guide` },
-            { id: 'manual-sales-guide',     label: '売上・レポート',   path: `/${slug}/manual?tab=sales-guide` },
-          ],
-        },
-        {
           id: 'manual-common', label: '共通マニュアル', icon: HelpCircle,
           path: `/${slug}/manual?tab=checkin`, roles: ['admin', 'staff', 'license_admin'],
           subItems: [
