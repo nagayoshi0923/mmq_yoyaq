@@ -193,7 +193,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                     <p className="text-red-600">{formatCurrency(event.franchise_fee || 0)}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground">純利益</p>
+                    <p className="text-xs text-muted-foreground">粗利益</p>
                     <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
                     </p>
@@ -269,7 +269,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                     <p className="text-red-600">{formatCurrency(event.franchise_fee || 0)}</p>
                   </div>
                   <div className="min-w-[80px]">
-                    <p className="text-xs text-muted-foreground">純利益</p>
+                    <p className="text-xs text-muted-foreground">粗利益</p>
                     <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
                     </p>
@@ -327,7 +327,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
         {/* 純利益（正確な計算） */}
         <div className="border-t pt-2">
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">総純利益</p>
+            <p className="text-xs text-muted-foreground">総粗利益</p>
             <p className={`text-lg font-bold ${(totalNetProfit ?? totals.profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(totalNetProfit ?? totals.profit)}
             </p>

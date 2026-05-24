@@ -864,6 +864,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     let regularParticipants = 0
     let onsiteAmount = 0
     let onlineAmount = 0
+    const staffParticipantNames: string[] = []
 
     if (isVenueRental) {
       onsiteAmount = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
@@ -880,6 +881,9 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
 
         if (isStaff) {
           staffParticipants += count
+          for (const n of names) {
+            if (n && !staffParticipantNames.includes(n)) staffParticipantNames.push(n)
+          }
         } else {
           regularParticipants += count
           // GMテスト公演はシナリオ側に設定された gm_test_participation_fee を強制適用する
@@ -912,6 +916,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       total_participants: totalParticipants,
       regular_participants: regularParticipants,
       staff_participants: staffParticipants,
+      staff_participant_names: staffParticipantNames.join('・'),
       onsite_amount: onsiteAmount,
       online_amount: onlineAmount,
       total_revenue: totalRevenue,
