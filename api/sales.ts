@@ -826,9 +826,9 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
       : (scenarioInfo?.license_amount || 0)
 
-    // gm_roles でロール未設定または main/sub/gm3/gm4 のみ実GMとして集計
-    // staff / observer / その他は GM 給与対象外
-    const ACTIVE_GM_ROLES = new Set(['main', 'sub', 'gm3', 'gm4'])
+    // gm_roles でロール未設定または main/sub のみ実GMとして集計
+    // reception / staff / observer / その他は GM 給与対象外
+    const ACTIVE_GM_ROLES = new Set(['main', 'sub'])
     const gmRoles = event.gm_roles ?? {}
     const activeGmNames = new Set(
       Array.isArray(event.gms)
@@ -907,7 +907,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       scenario: event.scenario || '',
       category: event.category,
       is_cancelled: event.is_cancelled ?? false,
-      gms: Array.isArray(event.gms) ? event.gms.join('・') : String(event.gms || ''),
+      gms: Array.from(activeGmNames).join('・'),
       capacity: event.max_participants || event.capacity || 0,
       total_participants: totalParticipants,
       regular_participants: regularParticipants,
