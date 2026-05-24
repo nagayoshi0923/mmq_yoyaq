@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { salesApi, scenarioApi, storeApi } from '@/lib/api'
+import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
 import { logger } from '@/utils/logger'
 import type { MonthlyAuthorData, AuthorPerformance } from '../types'
@@ -85,9 +86,7 @@ export function useAuthorReportData(year: number, month: number, storeIds: strin
         const events = perf.events as number
         const isGMTest = perf.category === 'gmtest'
         const avgParticipants = 6
-        const participationFee = isGMTest 
-          ? (scenario.gm_test_participation_fee || scenario.participation_fee || 0)
-          : (scenario.participation_fee || 0)
+        const participationFee = getParticipationFee(scenario as ScenarioPricing, isGMTest ? 'gmtest' : 'normal')
         const revenue = participationFee * avgParticipants * events
         const duration = scenario.duration || 0
         const totalDuration = duration * events
