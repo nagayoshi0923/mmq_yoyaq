@@ -654,7 +654,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: events, error } = await (db as any)
     .from('schedule_events')
-    .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
+    .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
     .eq('organization_id', orgId)
     .gte('date', start)
     .lte('date', end)
@@ -741,6 +741,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     organization_scenario_id: string | null
     category: string | null
     gms: string[] | null
+    gm_roles: Record<string, string> | null
     capacity: number | null
     max_participants: number | null
     venue_rental_fee: number | null
@@ -804,7 +805,18 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
       : (scenarioInfo?.license_amount || 0)
 
-    const actualGmCount = Array.isArray(event.gms) ? event.gms.length : 0
+    // gm_roles で 'staff' 以外（main/sub/gm3/gm4）のみ実GMとして集計
+    const gmRoles = event.gm_roles ?? {}
+    const activeGmNames = new Set(
+      Array.isArray(event.gms)
+        ? event.gms.filter(name => {
+            const role = gmRoles[name]?.toLowerCase()
+            return !role || role !== 'staff'
+          })
+        : []
+    )
+    const actualGmCount = activeGmNames.size
+
     let gmCost = 0
     if (scenarioInfo?.gm_costs && scenarioInfo.gm_costs.length > 0) {
       const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
@@ -815,13 +827,10 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
         const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
         gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
       } else if (actualGmCount > 0 && !isVenueRental) {
-        // 該当カテゴリの gm_costs エントリがない場合（例: normal のみ設定でGMテスト公演）
-        // → 給与設定からフォールバック
         const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
         gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
       }
     } else if (actualGmCount > 0 && !isVenueRental) {
-      // gm_costs 未設定の場合は global_settings の給与設定からフォールバック計算
       const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
       gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
     }
@@ -840,7 +849,10 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
         totalParticipants += count
 
         const names = r.participant_names || []
-        const isStaff = r.payment_method === 'staff' || names.some((n: string) => staffNames.has(n))
+        // GM（activeGmNames）またはスタッフ名に一致、またはstaff支払いはスタッフ参加扱い
+        const isStaff = r.payment_method === 'staff'
+          || names.some((n: string) => staffNames.has(n))
+          || names.some((n: string) => activeGmNames.has(n))
 
         if (isStaff) {
           staffParticipants += count
