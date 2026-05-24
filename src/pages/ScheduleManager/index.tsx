@@ -54,7 +54,7 @@ const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -64,7 +64,8 @@ import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSch
 import { ExportRangeModal } from './components/ExportRangeModal'
 
 // Types
-export type { ScheduleEvent } from '@/types/schedule'
+import type { ScheduleEvent } from '@/types/schedule'
+export type { ScheduleEvent }
 
 export function ScheduleManager() {
   // 認証情報（権限チェック用）
@@ -523,6 +524,127 @@ export function ScheduleManager() {
       showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     } finally {
       setIsFillingSeats(false)
+    }
+  }
+
+  // 単体イベントを満席にする（デモ参加者で埋める）
+  const handleFillSeatsForEvent = async (event: ScheduleEvent) => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        showToast.error('組織情報が取得できません')
+        return
+      }
+
+      // 最新の event 情報と既存予約を取得
+      const { data: ev, error: evError } = await supabase
+        .from('schedule_events_staff_view')
+        .select('id, scenario, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, category, scenario_masters:scenario_master_id(player_count_max)')
+        .eq('id', event.id)
+        .single()
+      if (evError || !ev) {
+        showToast.error(getSafeErrorMessage(evError, 'イベント情報の取得に失敗しました'))
+        return
+      }
+
+      const scenarioMax = (ev.scenario_masters as { player_count_max?: number } | null)?.player_count_max
+      const baseMax = scenarioMax || ev.max_participants || ev.capacity || 8
+      const maxParticipants = ev.capacity ? Math.min(baseMax, ev.capacity) : baseMax
+
+      if ((ev.current_participants || 0) >= maxParticipants) {
+        showToast.info('既に満席です')
+        return
+      }
+
+      const { data: reservations } = await supabase
+        .from('reservations')
+        .select('participant_count, participant_names')
+        .eq('schedule_event_id', ev.id)
+        .in('status', ['confirmed', 'pending'])
+
+      const currentReservedCount = (reservations || []).reduce((sum, r) => sum + (r.participant_count || 0), 0)
+      const neededParticipants = maxParticipants - currentReservedCount
+      const hasDemoParticipant = (reservations || []).some(r =>
+        r.participant_names?.includes('デモ参加者') ||
+        r.participant_names?.some((name: string) => name.includes('デモ'))
+      )
+
+      if (neededParticipants <= 0 || hasDemoParticipant) {
+        // current_participants だけ揃える
+        await supabase
+          .from('schedule_events')
+          .update({ current_participants: maxParticipants })
+          .eq('id', ev.id)
+        showToast.success('満席に設定しました')
+        return
+      }
+
+      // シナリオ情報取得（参加費・所要時間）
+      const scenarioMasterId = ev.scenario_master_id || ev.scenario_id
+      let participationFee = 0
+      let duration = 120
+      if (scenarioMasterId) {
+        const { data: scenarioInfo } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('duration, participation_fee, gm_test_participation_fee')
+          .eq('organization_id', orgId)
+          .eq('scenario_master_id', scenarioMasterId)
+          .maybeSingle()
+        if (scenarioInfo) {
+          const isGmTest = ev.category === 'gmtest'
+          participationFee = isGmTest
+            ? (scenarioInfo.gm_test_participation_fee ?? scenarioInfo.participation_fee ?? 0)
+            : (scenarioInfo.participation_fee ?? 0)
+          duration = scenarioInfo.duration || 120
+        }
+      }
+
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const reservationNumber = `${dateStr}-${randomStr}`
+
+      const { error: insertError } = await supabase
+        .from('reservations')
+        .insert({
+          schedule_event_id: ev.id,
+          organization_id: orgId,
+          title: ev.scenario || '',
+          scenario_master_id: ev.scenario_master_id || ev.scenario_id || null,
+          store_id: ev.store_id || null,
+          customer_id: null,
+          customer_notes: `デモ参加者${neededParticipants}名`,
+          requested_datetime: `${ev.date}T${ev.start_time}+09:00`,
+          duration,
+          participant_count: neededParticipants,
+          participant_names: Array(neededParticipants).fill(null).map((_, i) =>
+            neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
+          ),
+          assigned_staff: ev.gms || [],
+          base_price: participationFee * neededParticipants,
+          options_price: 0,
+          total_price: participationFee * neededParticipants,
+          discount_amount: 0,
+          final_price: participationFee * neededParticipants,
+          payment_method: 'onsite',
+          payment_status: 'paid',
+          status: 'confirmed',
+          reservation_source: RESERVATION_SOURCE.DEMO,
+          reservation_number: reservationNumber,
+        })
+      if (insertError) {
+        showToast.error(getSafeErrorMessage(insertError, 'デモ参加者の作成に失敗しました'))
+        return
+      }
+
+      await supabase
+        .from('schedule_events')
+        .update({ current_participants: maxParticipants })
+        .eq('id', ev.id)
+
+      showToast.success(`満席に設定しました（デモ参加者 ${neededParticipants}名追加）`)
+    } catch (err) {
+      showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     }
   }
 
@@ -1660,7 +1782,17 @@ export function ScheduleManager() {
                       scheduleTableProps.eventHandlers.onCancelConfirm(event)
                       modals.contextMenu.setContextMenu(null)
                     }
-                  }
+                  },
+                  ...((['open', 'private', 'gmtest', 'trip', 'package'] as string[]).includes(event.category) ? [
+                    {
+                      label: '満席にする',
+                      icon: <UsersRound className="w-4 h-4" />,
+                      onClick: async () => {
+                        modals.contextMenu.setContextMenu(null)
+                        await handleFillSeatsForEvent(event)
+                      }
+                    }
+                  ] : []),
                 ]),
                 // 仮状態切替
                 {
