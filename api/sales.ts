@@ -95,6 +95,12 @@ type ScenarioForPeriod = {
   gm_test_license_amount: number | null
   franchise_license_amount: number | null
   franchise_gm_test_license_amount: number | null
+  external_license_amount: number | null
+  external_gm_test_license_amount: number | null
+  fc_receive_license_amount: number | null
+  fc_receive_gm_test_license_amount: number | null
+  fc_author_license_amount: number | null
+  fc_author_gm_test_license_amount: number | null
   scenario_type: string | null
   gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
   production_costs: unknown
@@ -216,7 +222,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenarios, error: scenariosError } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
+    .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, fc_receive_license_amount, fc_receive_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
     .eq('organization_id', orgId)
 
   if (scenariosError) {
@@ -293,10 +299,10 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
           franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount ?? scenarioInfo.franchise_gm_test_license_amount ?? null,
           external_license_amount: orgScenario.external_license_amount ?? scenarioInfo.external_license_amount ?? null,
           external_gm_test_license_amount: orgScenario.external_gm_test_license_amount ?? scenarioInfo.external_gm_test_license_amount ?? null,
-          fc_receive_license_amount: orgScenario.fc_receive_license_amount,
-          fc_receive_gm_test_license_amount: orgScenario.fc_receive_gm_test_license_amount,
-          fc_author_license_amount: orgScenario.fc_author_license_amount,
-          fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
+          fc_receive_license_amount: orgScenario.fc_receive_license_amount ?? scenarioInfo.fc_receive_license_amount ?? null,
+          fc_receive_gm_test_license_amount: orgScenario.fc_receive_gm_test_license_amount ?? scenarioInfo.fc_receive_gm_test_license_amount ?? null,
+          fc_author_license_amount: orgScenario.fc_author_license_amount ?? scenarioInfo.fc_author_license_amount ?? null,
+          fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount ?? scenarioInfo.fc_author_gm_test_license_amount ?? null,
         }
       } else {
         scenarioInfo = {
