@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
+import { getParticipationFee, getLicenseAmount, sumGmCosts, type ScenarioPricing } from '../src/lib/pricing.js'
 
 // ─── DB（service_role）────────────────────────────────────────────────────────
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
@@ -512,32 +513,21 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
 
   const maxParticipants = scenarioData?.player_count_max ?? 99
   const defaultLicenseAmount = scenarioData?.license_amount ?? 0
-  const defaultGmTestLicenseAmount = scenarioData?.gm_test_license_amount ?? 0
-  const licenseRewards = scenarioData?.license_rewards
-  const normalLicenseFromRewards = licenseRewards?.find((r) => r.item === 'normal')?.amount
-  const gmTestLicenseFromRewards = licenseRewards?.find((r) => r.item === 'gmtest')?.amount
-  const normalLicenseAmount = normalLicenseFromRewards ?? defaultLicenseAmount
-  const gmTestLicenseAmount = gmTestLicenseFromRewards ?? defaultGmTestLicenseAmount
-
-  const participationCosts = scenarioData?.participation_costs
-  const normalParticipationFee =
-    participationCosts?.find((c) => c.time_slot === 'normal')?.amount ??
-    (scenarioData?.participation_fee ?? 0)
-  const gmTestParticipationFee =
-    participationCosts?.find((c) => c.time_slot === 'gmtest')?.amount ??
-    (scenarioData?.gm_test_participation_fee ?? 0)
+  const pricing = scenarioData as ScenarioPricing | null
+  const normalLicenseAmount = getLicenseAmount(pricing, 'normal')
+  const gmTestLicenseAmount = getLicenseAmount(pricing, 'gmtest')
+  const normalParticipationFee = getParticipationFee(pricing, 'normal')
+  const gmTestParticipationFee = getParticipationFee(pricing, 'gmtest')
 
   const gmAssignments = scenarioData?.gm_costs
   const hasCustomGmCosts = !!gmAssignments && gmAssignments.length > 0
   let normalGmReward = 0
   let gmTestGmReward = 0
-  if (hasCustomGmCosts && gmAssignments) {
-    normalGmReward = gmAssignments
-      .filter((a) => (a.category || 'normal') === 'normal')
-      .reduce((sum, a) => sum + (a.reward || 0), 0)
-    gmTestGmReward = gmAssignments
-      .filter((a) => a.category === 'gmtest')
-      .reduce((sum, a) => sum + (a.reward || 0), 0) || Math.max(0, normalGmReward - 2000)
+  if (hasCustomGmCosts) {
+    normalGmReward = sumGmCosts(pricing, 'normal')
+    // GMテスト固有設定がない場合は normalGmReward から 2000 を引いた値を旧来挙動として残す
+    const gmTestFromCosts = sumGmCosts(pricing, 'gmtest')
+    gmTestGmReward = gmTestFromCosts || Math.max(0, normalGmReward - 2000)
   }
   // NOTE: 旧実装ではフロントの useSalarySettings を使ってカスタム GM コストが無い場合に
   // 給与設定から動的計算していた。サーバ側からは fetchSalarySettings を呼べないため、

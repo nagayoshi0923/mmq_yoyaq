@@ -57,12 +57,29 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
   const authHeader = (req.headers.get('Authorization') || '').trim()
   const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
   const serviceRoleKey = getServiceRoleKey().trim()
-  
+
   // 1. キーが完全一致する場合（旧JWT形式）
   if (serviceRoleKey && bearer && timingSafeEqualString(bearer, serviceRoleKey)) {
     return true
   }
-  
+
+  // 1b. 新形式 (sb_secret_*) の secret key と完全一致する場合。
+  // Supabase platform は publishable/secret 移行後も SUPABASE_SERVICE_ROLE_KEY に
+  // 旧 JWT を自動注入し続けるため、getServiceRoleKey() は JWT を返す。
+  // 一方で Vercel 等の外部から呼ぶ場合は sb_secret_* を Bearer に乗せるケースが多いので、
+  // 別途文字列比較する。
+  // Edge Function Secrets では SUPABASE_ 接頭辞が禁止されているため、
+  // MMQ_SB_SECRET_KEY または SB_SECRET_KEY のどちらかを使う。
+  const secretKey = (
+    Deno.env.get('MMQ_SB_SECRET_KEY') ??
+    Deno.env.get('SB_SECRET_KEY') ??
+    ''
+  ).trim()
+  if (secretKey && bearer && timingSafeEqualString(bearer, secretKey)) {
+    console.log('✅ sb_secret_* キー一致')
+    return true
+  }
+
   // 2. bearerがJWTの場合、デコードしてroleを確認
   if (bearer && bearer.startsWith('eyJ')) {
     try {
@@ -78,7 +95,7 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
       // JWT解析失敗は無視
     }
   }
-  
+
   return false
 }
 

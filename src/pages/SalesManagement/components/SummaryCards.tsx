@@ -123,7 +123,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card className={`bg-gradient-to-br border-2 shadow-none ${netProfit >= 0 ? 'from-green-50 to-green-100 border-green-300' : 'from-gray-50 to-gray-100 border-gray-300'} sm:col-span-2 md:col-span-1`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 md:p-6">
-            <CardTitle className={`text-xs ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>純利益</CardTitle>
+            <CardTitle className={`text-xs ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>粗利益</CardTitle>
             <DollarSign className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 ${netProfit >= 0 ? 'text-green-600' : 'text-gray-600'} flex-shrink-0`} />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 md:p-6 pt-0">

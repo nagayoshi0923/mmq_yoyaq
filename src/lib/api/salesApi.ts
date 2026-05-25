@@ -122,6 +122,7 @@ export interface ScheduleExportRow {
   total_participants: number
   regular_participants: number
   staff_participants: number
+  staff_participant_names: string
   onsite_amount: number
   online_amount: number
   total_revenue: number

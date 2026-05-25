@@ -5,6 +5,7 @@ import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -119,7 +120,7 @@ export function AddDemoParticipants() {
       log('シナリオマスタを取得中...', 'info')
       let scenariosQuery = supabase
         .from('organization_scenarios_with_master')
-        .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
+        .select('id, title, duration, participation_fee, gm_test_participation_fee, participation_costs, player_count_max, player_count_min')
       if (organizationId) {
         scenariosQuery = scenariosQuery.eq('organization_id', organizationId)
       }
@@ -196,7 +197,7 @@ export function AddDemoParticipants() {
           // ビューの id は scenario_master_id と同一
           let idQuery = supabase
             .from('organization_scenarios_with_master')
-            .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
+            .select('id, title, duration, participation_fee, gm_test_participation_fee, participation_costs, player_count_max, player_count_min')
             .eq('id', event.scenario_master_id)
           if (organizationId) {
             idQuery = idQuery.eq('organization_id', organizationId)
@@ -334,18 +335,11 @@ export function AddDemoParticipants() {
           continue
         }
         
-        // カテゴリに応じて参加費を計算
-        let participationFee = 0
-        if (event.category === 'gmtest') {
-          // GMテスト：GM用参加費または通常参加費
-          participationFee = scenario.gm_test_participation_fee || scenario.participation_fee || 0
-        } else if (event.category === 'private') {
-          // 貸切：通常参加費（貸切料金は別計算）
-          participationFee = scenario.participation_fee || 0
-        } else {
-          // open, enterprise, その他：通常参加費
-          participationFee = scenario.participation_fee || 0
-        }
+        // カテゴリに応じて参加費を計算（participation_costs 配列を優先）
+        const pricing = scenario as ScenarioPricing
+        const participationFee = event.category === 'gmtest'
+          ? getParticipationFee(pricing, 'gmtest')
+          : getParticipationFee(pricing, 'normal')
         
         const safeVenue = sanitizeForPostgRestFilter(event.venue)
         const { data: store } = await supabase

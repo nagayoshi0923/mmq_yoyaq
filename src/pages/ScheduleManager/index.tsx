@@ -54,7 +54,7 @@ const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -62,9 +62,12 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSchedule'
 import { ExportRangeModal } from './components/ExportRangeModal'
+import { FillSeatsModal, type FillSeatsCategory } from './components/FillSeatsModal'
+import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 
 // Types
-export type { ScheduleEvent } from '@/types/schedule'
+import type { ScheduleEvent } from '@/types/schedule'
+export type { ScheduleEvent }
 
 export function ScheduleManager() {
   // 認証情報（権限チェック用）
@@ -128,6 +131,7 @@ export function ScheduleManager() {
   const [isExporting, setIsExporting] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
+  const [isFillSeatsModalOpen, setIsFillSeatsModalOpen] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [isCleaningDemo, setIsCleaningDemo] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -297,19 +301,13 @@ export function ScheduleManager() {
   }
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
-  const handleFillAllSeats = async () => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth() + 1
-    
-    if (!confirm(`${year}年${month}月の中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
-    
+  const handleFillAllSeats = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => {
+    const { startDate, endDate, categories } = params
+
+    if (!confirm(`${startDate} 〜 ${endDate} の対象カテゴリ (${categories.join(', ')}) で中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
+
     setIsFillingSeats(true)
     try {
-      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-      // 月末日を正しく計算（翌月の0日 = 当月の最終日）
-      const lastDay = new Date(year, month, 0).getDate()
-      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-      
       // 組織IDを最初に取得
       const orgId = await getCurrentOrganizationId()
       if (!orgId) {
@@ -318,7 +316,6 @@ export function ScheduleManager() {
       }
 
       // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
-      // testplay / venue_rental / venue_rental_free / mtg は対象外
       const { data: events, error: fetchError } = await supabase
         .from('schedule_events_staff_view')
         .select('id, scenario, category, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
@@ -326,14 +323,14 @@ export function ScheduleManager() {
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_cancelled', false)
-        .in('category', ['open', 'private', 'gmtest', 'trip', 'package'])
+        .in('category', categories)
       
       if (fetchError) {
         showToast.error(getSafeErrorMessage(fetchError, 'データの取得に失敗しました'))
         return
       }
       
-      logger.log(`📊 満席処理対象: ${year}年${month}月 ${events?.length || 0}件`)
+      logger.log(`📊 満席処理対象: ${startDate} 〜 ${endDate} (${categories.join(',')}) ${events?.length || 0}件`)
       
       // シナリオ情報を一括取得（参加費・所要時間）
       const scenarioMasterIds = [...new Set(
@@ -342,11 +339,11 @@ export function ScheduleManager() {
           .filter(Boolean)
       )]
       
-      const scenarioInfoMap = new Map<string, { duration: number; participation_fee: number; gm_test_participation_fee: number | null }>()
+      const scenarioInfoMap = new Map<string, { duration: number; pricing: ScenarioPricing }>()
       if (scenarioMasterIds.length > 0) {
         const { data: scenarioInfos } = await supabase
           .from('organization_scenarios_with_master')
-          .select('scenario_master_id, duration, participation_fee, gm_test_participation_fee')
+          .select('scenario_master_id, duration, participation_fee, gm_test_participation_fee, participation_costs')
           .eq('organization_id', orgId)
           .in('scenario_master_id', scenarioMasterIds)
 
@@ -354,8 +351,11 @@ export function ScheduleManager() {
           if (s.scenario_master_id) {
             scenarioInfoMap.set(s.scenario_master_id, {
               duration: s.duration || 120,
-              participation_fee: s.participation_fee || 0,
-              gm_test_participation_fee: s.gm_test_participation_fee ?? null
+              pricing: {
+                participation_fee: s.participation_fee ?? null,
+                gm_test_participation_fee: s.gm_test_participation_fee ?? null,
+                participation_costs: s.participation_costs ?? null,
+              },
             })
           }
         })
@@ -445,9 +445,7 @@ export function ScheduleManager() {
           const scenarioMasterId = event.scenario_master_id || event.scenario_id
           const scenarioInfo = scenarioMasterId ? scenarioInfoMap.get(scenarioMasterId) : null
           const isGmTest = (event as { category?: string }).category === 'gmtest'
-          const participationFee = isGmTest
-            ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
-            : (scenarioInfo?.participation_fee ?? 0)
+          const participationFee = getParticipationFee(scenarioInfo?.pricing, isGmTest ? 'gmtest' : 'normal')
           const duration = scenarioInfo?.duration || 120
           
           // 予約番号を生成（ユニークにするためインデックスを含める）
@@ -523,6 +521,125 @@ export function ScheduleManager() {
       showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     } finally {
       setIsFillingSeats(false)
+    }
+  }
+
+  // 単体イベントを満席にする（デモ参加者で埋める）
+  const handleFillSeatsForEvent = async (event: ScheduleEvent) => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        showToast.error('組織情報が取得できません')
+        return
+      }
+
+      // 最新の event 情報と既存予約を取得
+      const { data: ev, error: evError } = await supabase
+        .from('schedule_events_staff_view')
+        .select('id, scenario, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, category, scenario_masters:scenario_master_id(player_count_max)')
+        .eq('id', event.id)
+        .single()
+      if (evError || !ev) {
+        showToast.error(getSafeErrorMessage(evError, 'イベント情報の取得に失敗しました'))
+        return
+      }
+
+      const scenarioMax = (ev.scenario_masters as { player_count_max?: number } | null)?.player_count_max
+      const baseMax = scenarioMax || ev.max_participants || ev.capacity || 8
+      const maxParticipants = ev.capacity ? Math.min(baseMax, ev.capacity) : baseMax
+
+      if ((ev.current_participants || 0) >= maxParticipants) {
+        showToast.info('既に満席です')
+        return
+      }
+
+      const { data: reservations } = await supabase
+        .from('reservations')
+        .select('participant_count, participant_names')
+        .eq('schedule_event_id', ev.id)
+        .in('status', ['confirmed', 'pending'])
+
+      const currentReservedCount = (reservations || []).reduce((sum, r) => sum + (r.participant_count || 0), 0)
+      const neededParticipants = maxParticipants - currentReservedCount
+      const hasDemoParticipant = (reservations || []).some(r =>
+        r.participant_names?.includes('デモ参加者') ||
+        r.participant_names?.some((name: string) => name.includes('デモ'))
+      )
+
+      if (neededParticipants <= 0 || hasDemoParticipant) {
+        // current_participants だけ揃える
+        await supabase
+          .from('schedule_events')
+          .update({ current_participants: maxParticipants })
+          .eq('id', ev.id)
+        showToast.success('満席に設定しました')
+        return
+      }
+
+      // シナリオ情報取得（参加費・所要時間）
+      const scenarioMasterId = ev.scenario_master_id || ev.scenario_id
+      let participationFee = 0
+      let duration = 120
+      if (scenarioMasterId) {
+        const { data: scenarioInfo } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('duration, participation_fee, gm_test_participation_fee, participation_costs')
+          .eq('organization_id', orgId)
+          .eq('scenario_master_id', scenarioMasterId)
+          .maybeSingle()
+        if (scenarioInfo) {
+          const isGmTest = ev.category === 'gmtest'
+          participationFee = getParticipationFee(scenarioInfo as ScenarioPricing, isGmTest ? 'gmtest' : 'normal')
+          duration = scenarioInfo.duration || 120
+        }
+      }
+
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const reservationNumber = `${dateStr}-${randomStr}`
+
+      const { error: insertError } = await supabase
+        .from('reservations')
+        .insert({
+          schedule_event_id: ev.id,
+          organization_id: orgId,
+          title: ev.scenario || '',
+          scenario_master_id: ev.scenario_master_id || ev.scenario_id || null,
+          store_id: ev.store_id || null,
+          customer_id: null,
+          customer_notes: `デモ参加者${neededParticipants}名`,
+          requested_datetime: `${ev.date}T${ev.start_time}+09:00`,
+          duration,
+          participant_count: neededParticipants,
+          participant_names: Array(neededParticipants).fill(null).map((_, i) =>
+            neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
+          ),
+          assigned_staff: ev.gms || [],
+          base_price: participationFee * neededParticipants,
+          options_price: 0,
+          total_price: participationFee * neededParticipants,
+          discount_amount: 0,
+          final_price: participationFee * neededParticipants,
+          payment_method: 'onsite',
+          payment_status: 'paid',
+          status: 'confirmed',
+          reservation_source: RESERVATION_SOURCE.DEMO,
+          reservation_number: reservationNumber,
+        })
+      if (insertError) {
+        showToast.error(getSafeErrorMessage(insertError, 'デモ参加者の作成に失敗しました'))
+        return
+      }
+
+      await supabase
+        .from('schedule_events')
+        .update({ current_participants: maxParticipants })
+        .eq('id', ev.id)
+
+      showToast.success(`満席に設定しました（デモ参加者 ${neededParticipants}名追加）`)
+    } catch (err) {
+      showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     }
   }
 
@@ -615,7 +732,7 @@ export function ScheduleManager() {
           const scenarioMasterIds = [...new Set(gmtestEvents.map(e => e.scenario_master_id).filter(Boolean))]
           const { data: orgScenarios } = await supabase
             .from('organization_scenarios_with_master')
-            .select('scenario_master_id, participation_fee, gm_test_participation_fee')
+            .select('scenario_master_id, participation_fee, gm_test_participation_fee, participation_costs')
             .eq('organization_id', orgId)
             .in('scenario_master_id', scenarioMasterIds)
 
@@ -625,7 +742,7 @@ export function ScheduleManager() {
             demoReservations.map(async (r) => {
               const scenarioMasterId = eventScenarioMap.get(r.schedule_event_id)
               const scenarioInfo = scenarioMasterId ? feeMap.get(scenarioMasterId) : null
-              const correctFee = scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0
+              const correctFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, 'gmtest')
               const totalPrice = correctFee * (r.participant_count || 1)
 
               // eslint-disable-next-line no-restricted-syntax
@@ -1250,7 +1367,7 @@ export function ScheduleManager() {
                   )}
                 </button>
                 <button
-                  onClick={handleFillAllSeats}
+                  onClick={() => setIsFillSeatsModalOpen(true)}
                   disabled={isFillingSeats}
                   title="中止以外を満席にする"
                   className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
@@ -1318,7 +1435,7 @@ export function ScheduleManager() {
                   )}
                 </button>
                 <button
-                  onClick={handleFillAllSeats}
+                  onClick={() => setIsFillSeatsModalOpen(true)}
                   disabled={isFillingSeats}
                   title="中止以外を満席にする（デモ参加者を追加）"
                   className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
@@ -1530,6 +1647,18 @@ export function ScheduleManager() {
         defaultMonth={currentDate.getMonth() + 1}
       />
 
+      <FillSeatsModal
+        open={isFillSeatsModalOpen}
+        onClose={() => setIsFillSeatsModalOpen(false)}
+        onConfirm={async (params) => {
+          setIsFillSeatsModalOpen(false)
+          await handleFillAllSeats(params)
+        }}
+        isProcessing={isFillingSeats}
+        defaultYear={currentDate.getFullYear()}
+        defaultMonth={currentDate.getMonth() + 1}
+      />
+
       <ImportScheduleModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
@@ -1660,7 +1789,17 @@ export function ScheduleManager() {
                       scheduleTableProps.eventHandlers.onCancelConfirm(event)
                       modals.contextMenu.setContextMenu(null)
                     }
-                  }
+                  },
+                  ...((['open', 'private', 'gmtest', 'trip', 'package'] as string[]).includes(event.category) ? [
+                    {
+                      label: '満席にする',
+                      icon: <UsersRound className="w-4 h-4" />,
+                      onClick: async () => {
+                        modals.contextMenu.setContextMenu(null)
+                        await handleFillSeatsForEvent(event)
+                      }
+                    }
+                  ] : []),
                 ]),
                 // 仮状態切替
                 {

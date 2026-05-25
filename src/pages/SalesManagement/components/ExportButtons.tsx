@@ -55,9 +55,9 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
   lines.push(`  変動費合計: ${formatCurrency(salesData.totalVariableCost || 0)}`)
   lines.push('')
   
-  // 純利益
-  lines.push('【 純利益 】')
-  lines.push(`  純利益: ${formatCurrency(salesData.netProfit)}`)
+  // 粗利益
+  lines.push('【 粗利益 】')
+  lines.push(`  粗利益: ${formatCurrency(salesData.netProfit)}`)
   const profitRate = salesData.totalRevenue > 0 
     ? ((salesData.netProfit / salesData.totalRevenue) * 100).toFixed(1)
     : '0'
@@ -74,7 +74,7 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
       lines.push(`${index + 1}. ${date} ${event.store_name}`)
       lines.push(`   ${event.scenario_title}`)
       lines.push(`   売上: ${formatCurrency(event.revenue)} / ライセンス: ${formatCurrency(event.license_cost)} / GM: ${formatCurrency(event.gm_cost)}${event.franchise_fee > 0 ? ` / FC: ${formatCurrency(event.franchise_fee)}` : ''}`)
-      lines.push(`   → 純利益: ${formatCurrency(event.net_profit)}`)
+      lines.push(`   → 粗利益: ${formatCurrency(event.net_profit)}`)
       lines.push('')
     })
   }

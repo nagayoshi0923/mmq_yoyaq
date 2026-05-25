@@ -27,6 +27,7 @@ type ExportRow = {
   total_participants: number
   regular_participants: number
   staff_participants: number
+  staff_participant_names: string
   onsite_amount: number
   online_amount: number
   total_revenue: number
@@ -44,8 +45,8 @@ export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
 function buildCsvContent(rows: ExportRow[]): string {
   const headers = [
     '日付', '開始時間', '終了時間', '会場', 'シナリオ', 'カテゴリ', '中止', 'GM',
-    '定員', '参加者数合計', '一般参加者数', 'スタッフ参加者数',
-    '予想現地決済額', 'オンライン決済済み額', '売上合計', 'ライセンス金額', 'GM代金合計', '純利益',
+    '定員', '参加者数合計', '一般参加者数', 'スタッフ参加者数', 'スタッフ参加者名',
+    '予想現地決済額', 'オンライン決済済み額', '売上合計', 'ライセンス金額', 'GM代金合計', '粗利益',
   ]
   const dataRows = rows.map(r => [
     r.date,
@@ -60,6 +61,7 @@ function buildCsvContent(rows: ExportRow[]): string {
     r.total_participants,
     r.regular_participants,
     r.staff_participants,
+    r.staff_participant_names,
     r.onsite_amount,
     r.online_amount,
     r.total_revenue,

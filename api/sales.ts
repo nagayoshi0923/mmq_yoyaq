@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
+import { getParticipationFee, getLicenseAmount, sumGmCosts, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
 
 // NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
 // 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
@@ -94,6 +95,12 @@ type ScenarioForPeriod = {
   gm_test_license_amount: number | null
   franchise_license_amount: number | null
   franchise_gm_test_license_amount: number | null
+  external_license_amount: number | null
+  external_gm_test_license_amount: number | null
+  fc_receive_license_amount: number | null
+  fc_receive_gm_test_license_amount: number | null
+  fc_author_license_amount: number | null
+  fc_author_gm_test_license_amount: number | null
   scenario_type: string | null
   gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
   production_costs: unknown
@@ -215,7 +222,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenarios, error: scenariosError } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
+    .select(`id, title, author, duration, scenario_type, production_costs, required_props, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
 
   if (scenariosError) {
@@ -226,7 +233,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenarios, error: orgScenariosError } = await (db as any)
     .from('organization_scenarios')
-    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, fc_receive_license_amount, fc_receive_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    .select(`id, scenario_master_id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
 
   if (orgScenariosError) {
@@ -251,14 +258,49 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
 
   const staffNames = new Set((staff as { name: string }[] | null | undefined)?.map(s => s.name) || [])
 
-  // シナリオ名マップ
+  // シナリオマップ (id, title 両方)
   const scenarioMap = new Map<string, ScenarioForPeriod>()
+  const scenarioByIdMap = new Map<string, ScenarioForPeriod>()
   ;(scenarios as ScenarioForPeriod[] | null | undefined)?.forEach(s => {
     scenarioMap.set(s.title, s)
+    scenarioByIdMap.set(s.id, s)
   })
 
-  // 各イベントを enrich
-  const enriched = await Promise.all((events as ScheduleEvent[]).map(async (event) => {
+  // 予約をバッチで一括取得（N+1 防止: 以前はイベント1件ごとにクエリしていた）
+  const eventList = events as ScheduleEvent[]
+  const eventIds = eventList.map(e => e.id)
+  const BATCH_SIZE = 100
+  const allReservations: Array<{
+    schedule_event_id: string
+    participant_count: number | null
+    participant_names: string[] | null
+    payment_method: string | null
+    final_price: number | null
+  }> = []
+  for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+    const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: batch, error: batchError } = await (db as any)
+      .from('reservations')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
+      .eq('organization_id', orgId)
+      .in('schedule_event_id', batchIds)
+      .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+    if (batchError && batchError.code !== 'PGRST116') {
+      console.warn('[sales] by-period reservation batch error:', batchError.message)
+    } else if (batch) {
+      allReservations.push(...batch)
+    }
+  }
+  const reservationsByEvent = new Map<string, typeof allReservations>()
+  allReservations.forEach(r => {
+    const list = reservationsByEvent.get(r.schedule_event_id) || []
+    list.push(r)
+    reservationsByEvent.set(r.schedule_event_id, list)
+  })
+
+  // 各イベントを enrich（同期処理、DB クエリは行わない）
+  const enriched = eventList.map((event) => {
     let scenarioInfo: Partial<ScenarioForPeriod> & {
       id?: string
       title?: string
@@ -271,10 +313,10 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     } | null = null
 
     const scenarioKey = event.scenario_master_id
-    if (scenarioKey && scenarios) {
-      const found = (scenarios as ScenarioForPeriod[]).find(s => s.id === scenarioKey)
-      scenarioInfo = found ?? null
-    } else if (event.scenario) {
+    if (scenarioKey) {
+      scenarioInfo = scenarioByIdMap.get(scenarioKey) ?? null
+    }
+    if (!scenarioInfo && event.scenario) {
       scenarioInfo = scenarioMap.get(event.scenario) ?? null
     }
 
@@ -292,10 +334,10 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
           franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount ?? scenarioInfo.franchise_gm_test_license_amount ?? null,
           external_license_amount: orgScenario.external_license_amount ?? scenarioInfo.external_license_amount ?? null,
           external_gm_test_license_amount: orgScenario.external_gm_test_license_amount ?? scenarioInfo.external_gm_test_license_amount ?? null,
-          fc_receive_license_amount: orgScenario.fc_receive_license_amount,
-          fc_receive_gm_test_license_amount: orgScenario.fc_receive_gm_test_license_amount,
-          fc_author_license_amount: orgScenario.fc_author_license_amount,
-          fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
+          fc_receive_license_amount: orgScenario.fc_receive_license_amount ?? scenarioInfo.fc_receive_license_amount ?? null,
+          fc_receive_gm_test_license_amount: orgScenario.fc_receive_gm_test_license_amount ?? scenarioInfo.fc_receive_gm_test_license_amount ?? null,
+          fc_author_license_amount: orgScenario.fc_author_license_amount ?? scenarioInfo.fc_author_license_amount ?? null,
+          fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount ?? scenarioInfo.fc_author_gm_test_license_amount ?? null,
         }
       } else {
         scenarioInfo = {
@@ -316,22 +358,8 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
       }
     }
 
-    // 予約取得
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: reservations, error: reservationError } = await (db as any)
-      .from('reservations')
-      .select('participant_count, participant_names, payment_method, final_price')
-      .eq('organization_id', orgId)
-      .eq('schedule_event_id', event.id)
-      .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-
-    if (reservationError && reservationError.code !== 'PGRST116') {
-      console.warn('[sales] by-period reservation error:', {
-        eventId: event.id,
-        code: reservationError.code,
-        message: reservationError.message,
-      })
-    }
+    // 予約は事前にバッチ取得した reservationsByEvent から引く
+    const reservations = reservationsByEvent.get(event.id) || []
 
     let totalParticipants = 0
     let totalRevenue = 0
@@ -340,7 +368,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     if (isVenueRental) {
       totalRevenue = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
     } else {
-      (reservations as Array<Omit<ReservationRow, 'schedule_event_id'>> | null | undefined)?.forEach(r => {
+      reservations.forEach(r => {
         const participantCount = r.participant_count || 0
         totalParticipants += participantCount
 
@@ -362,7 +390,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
       actual_participants: totalParticipants,
       has_demo_participant: totalParticipants >= (event.max_participants || event.capacity || 0),
     }
-  }))
+  })
 
   return res.status(200).json(enriched)
 }
@@ -712,36 +740,22 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     (stores as Array<{ id: string; name: string; short_name: string | null }> | null | undefined)?.map(s => [s.id, s]) || []
   )
 
-  type ScenarioInfo = {
-    id: string
-    gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
-    license_amount: number | null
-    gm_test_license_amount: number | null
-    participation_fee: number | null
-    gm_test_participation_fee: number | null
-  }
+  // ScenarioInfo は ScenarioPricing を継承し、id を必須にしただけ
+  type ScenarioInfo = ScenarioPricing & { id: string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenariosData } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    .select(`id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
   const scenarioByMasterId = new Map<string, ScenarioInfo>(
     (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.id, s]) || []
   )
 
-  type OrgScenarioOverride = {
-    id: string
-    scenario_master_id: string | null
-    gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
-    license_amount: number | null
-    gm_test_license_amount: number | null
-    participation_fee: number | null
-    gm_test_participation_fee: number | null
-  }
+  type OrgScenarioOverride = ScenarioPricing & { id: string; scenario_master_id: string | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenariosData } = await (db as any)
     .from('organization_scenarios')
-    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    .select(`id, scenario_master_id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
   const orgScenarioById = new Map<string, OrgScenarioOverride>(
     (orgScenariosData as OrgScenarioOverride[] | null | undefined)?.map(s => [s.id, s]) || []
@@ -818,39 +832,33 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
           participation_fee: override.participation_fee ?? scenarioInfo?.participation_fee ?? null,
           gm_test_participation_fee: override.gm_test_participation_fee ?? scenarioInfo?.gm_test_participation_fee ?? null,
+          participation_costs: ((override.participation_costs?.length ?? 0) > 0 ? override.participation_costs : scenarioInfo?.participation_costs) ?? null,
         }
       }
     }
 
-    const licenseAmount = isGmTest
-      ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
-      : (scenarioInfo?.license_amount || 0)
+    const cat = isGmTest ? 'gmtest' : 'normal'
+    const licenseAmount = getLicenseAmount(scenarioInfo as ScenarioPricing | null, cat)
 
-    // gm_roles で 'staff' 以外（main/sub/gm3/gm4）のみ実GMとして集計
+    // gm_roles でロール未設定または main/sub のみ実GMとして集計
+    // reception / staff / observer / その他は GM 給与対象外
+    const ACTIVE_GM_ROLES = new Set(['main', 'sub'])
     const gmRoles = event.gm_roles ?? {}
     const activeGmNames = new Set(
       Array.isArray(event.gms)
         ? event.gms.filter(name => {
             const role = gmRoles[name]?.toLowerCase()
-            return !role || role !== 'staff'
+            // ロール未設定はメイン GM 相当として残す（後方互換）
+            return !role || ACTIVE_GM_ROLES.has(role)
           })
         : []
     )
     const actualGmCount = activeGmNames.size
 
     let gmCost = 0
-    if (scenarioInfo?.gm_costs && scenarioInfo.gm_costs.length > 0) {
-      const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-      const applicable = scenarioInfo.gm_costs
-        .filter(g => (g.category || 'normal') === (isGmTest ? 'gmtest' : 'normal'))
-        .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
-      if (applicable.length > 0) {
-        const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
-        gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
-      } else if (actualGmCount > 0 && !isVenueRental) {
-        const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
-        gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
-      }
+    const hasGmCostsForCat = scenarioInfo?.gm_costs?.some(g => (g.category || 'normal') === cat) ?? false
+    if (hasGmCostsForCat) {
+      gmCost = sumGmCosts(scenarioInfo as ScenarioPricing | null, cat, actualGmCount)
     } else if (actualGmCount > 0 && !isVenueRental) {
       const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
       gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
@@ -861,6 +869,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     let regularParticipants = 0
     let onsiteAmount = 0
     let onlineAmount = 0
+    const staffParticipantNames: string[] = []
 
     if (isVenueRental) {
       onsiteAmount = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
@@ -877,13 +886,16 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
 
         if (isStaff) {
           staffParticipants += count
+          for (const n of names) {
+            if (n && !staffParticipantNames.includes(n)) staffParticipantNames.push(n)
+          }
         } else {
           regularParticipants += count
-          // final_price が null の場合はシナリオの参加費（GMテストは gm_test_participation_fee）で補完
-          const fallbackFee = isGmTest
-            ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
-            : (scenarioInfo?.participation_fee ?? 0)
-          const price = r.final_price ?? (fallbackFee * count)
+          // GMテスト公演は participation_costs.gmtest を最優先で適用（旧カラム/通常料金へフォールバック）
+          const unitFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, cat)
+          const price = isGmTest
+            ? unitFee * count
+            : (r.final_price ?? unitFee * count)
           if (r.payment_method === 'online') onlineAmount += price
           else onsiteAmount += price
         }
@@ -901,11 +913,12 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       scenario: event.scenario || '',
       category: event.category,
       is_cancelled: event.is_cancelled ?? false,
-      gms: Array.isArray(event.gms) ? event.gms.join('・') : String(event.gms || ''),
+      gms: Array.from(activeGmNames).join('・'),
       capacity: event.max_participants || event.capacity || 0,
       total_participants: totalParticipants,
       regular_participants: regularParticipants,
       staff_participants: staffParticipants,
+      staff_participant_names: staffParticipantNames.join('・'),
       onsite_amount: onsiteAmount,
       online_amount: onlineAmount,
       total_revenue: totalRevenue,

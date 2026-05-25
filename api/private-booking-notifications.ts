@@ -124,10 +124,13 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
     if (!fnRes.ok) {
       const text = await fnRes.text().catch(() => '')
       console.error('[pb-notifications:resend] edge fn error:', fnRes.status, text)
+      // detail には Edge Function の HTTP ステータス + 生レスポンスを含める
+      // （クライアント側で console / toast に出して原因特定を容易にする）
+      const truncatedText = (text || '').slice(0, 500)
       return res.status(502).json({
         success: false,
         error: 'Discord通知の再送信に失敗しました',
-        detail: text || `HTTP ${fnRes.status}`,
+        detail: `Edge Function HTTP ${fnRes.status}${truncatedText ? `: ${truncatedText}` : ''}`,
       })
     }
 

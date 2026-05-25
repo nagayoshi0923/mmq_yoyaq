@@ -5,7 +5,7 @@
  * - サーバ側で予約の organization_id がユーザの所属組織と一致するか検証
  * - 検証後、Edge Function (notify-private-booking-discord) を service_role で invoke
  */
-import { apiClient } from '@/lib/apiClient'
+import { apiClient, ApiClientError } from '@/lib/apiClient'
 import { logger } from '@/utils/logger'
 
 interface ResendBookingData {
@@ -58,6 +58,18 @@ export async function resendPrivateBookingDiscordNotification(
     }
     return { success: false, error: 'Discord通知の再送信に失敗しました' }
   } catch (err) {
+    if (err instanceof ApiClientError) {
+      logger.error(
+        `Discord通知再送信失敗 [status=${err.status}] ${err.message}` +
+          (err.detail ? ` | detail: ${err.detail}` : ''),
+      )
+      return {
+        success: false,
+        error: err.detail
+          ? `${err.message}: ${err.detail}`
+          : err.message,
+      }
+    }
     logger.error('Discord通知再送信例外:', err)
     return {
       success: false,
