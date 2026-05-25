@@ -47,21 +47,26 @@ async function fetchCustomersWithStats(): Promise<CustomerDataResult> {
   const couponStats: Record<string, CustomerCouponStats> = {}
 
   if (customerIds.length > 0) {
-    // 予約統計をページネーションで全件取得
-    let allReservations: any[] = []
-    let resFrom = 0
-    for (;;) {
-      let resQuery = supabase
-        .from('reservations')
-        .select('customer_id, total_price, status, requested_datetime')
-        .in('customer_id', customerIds)
-        .in('status', ['confirmed', 'gm_confirmed', 'completed'])
-        .range(resFrom, resFrom + PAGE_SIZE - 1)
-      if (orgId) resQuery = resQuery.eq('organization_id', orgId)
-      const { data: resPage } = await resQuery
-      allReservations = allReservations.concat(resPage || [])
-      if ((resPage || []).length < PAGE_SIZE) break
-      resFrom += PAGE_SIZE
+    // customer_id を 100件ごとにチャンクして .in() の URL 長制限 (414 URI Too Long) を回避
+    // 各チャンクごとに range ページネーションで全件取得
+    const IN_CHUNK = 100
+    const allReservations: any[] = []
+    for (let i = 0; i < customerIds.length; i += IN_CHUNK) {
+      const idChunk = customerIds.slice(i, i + IN_CHUNK)
+      let resFrom = 0
+      for (;;) {
+        let resQuery = supabase
+          .from('reservations')
+          .select('customer_id, total_price, status, requested_datetime')
+          .in('customer_id', idChunk)
+          .in('status', ['confirmed', 'gm_confirmed', 'completed'])
+          .range(resFrom, resFrom + PAGE_SIZE - 1)
+        if (orgId) resQuery = resQuery.eq('organization_id', orgId)
+        const { data: resPage } = await resQuery
+        allReservations.push(...(resPage || []))
+        if ((resPage || []).length < PAGE_SIZE) break
+        resFrom += PAGE_SIZE
+      }
     }
 
     allReservations.forEach(res => {
@@ -82,12 +87,21 @@ async function fetchCustomersWithStats(): Promise<CustomerDataResult> {
       }
     })
 
-    // クーポン統計
-    const { data: coupons, error: couponError } = await supabase
-      .from('customer_coupons')
-      .select('id, customer_id, uses_remaining, status, coupon_campaigns (max_uses_per_customer)')
-      .in('customer_id', customerIds)
-    if (couponError) logger.error('クーポン取得エラー:', couponError)
+    // クーポン統計（同じく .in() の URL 長対策でチャンク化）
+    const allCoupons: any[] = []
+    for (let i = 0; i < customerIds.length; i += IN_CHUNK) {
+      const idChunk = customerIds.slice(i, i + IN_CHUNK)
+      const { data: chunkCoupons, error: couponError } = await supabase
+        .from('customer_coupons')
+        .select('id, customer_id, uses_remaining, status, coupon_campaigns (max_uses_per_customer)')
+        .in('customer_id', idChunk)
+      if (couponError) {
+        logger.error('クーポン取得エラー:', couponError)
+        continue
+      }
+      allCoupons.push(...(chunkCoupons || []))
+    }
+    const coupons = allCoupons
 
     coupons?.forEach((coupon: any) => {
       if (!coupon.customer_id) return
