@@ -258,14 +258,49 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
 
   const staffNames = new Set((staff as { name: string }[] | null | undefined)?.map(s => s.name) || [])
 
-  // シナリオ名マップ
+  // シナリオマップ (id, title 両方)
   const scenarioMap = new Map<string, ScenarioForPeriod>()
+  const scenarioByIdMap = new Map<string, ScenarioForPeriod>()
   ;(scenarios as ScenarioForPeriod[] | null | undefined)?.forEach(s => {
     scenarioMap.set(s.title, s)
+    scenarioByIdMap.set(s.id, s)
   })
 
-  // 各イベントを enrich
-  const enriched = await Promise.all((events as ScheduleEvent[]).map(async (event) => {
+  // 予約をバッチで一括取得（N+1 防止: 以前はイベント1件ごとにクエリしていた）
+  const eventList = events as ScheduleEvent[]
+  const eventIds = eventList.map(e => e.id)
+  const BATCH_SIZE = 100
+  const allReservations: Array<{
+    schedule_event_id: string
+    participant_count: number | null
+    participant_names: string[] | null
+    payment_method: string | null
+    final_price: number | null
+  }> = []
+  for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+    const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: batch, error: batchError } = await (db as any)
+      .from('reservations')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
+      .eq('organization_id', orgId)
+      .in('schedule_event_id', batchIds)
+      .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+    if (batchError && batchError.code !== 'PGRST116') {
+      console.warn('[sales] by-period reservation batch error:', batchError.message)
+    } else if (batch) {
+      allReservations.push(...batch)
+    }
+  }
+  const reservationsByEvent = new Map<string, typeof allReservations>()
+  allReservations.forEach(r => {
+    const list = reservationsByEvent.get(r.schedule_event_id) || []
+    list.push(r)
+    reservationsByEvent.set(r.schedule_event_id, list)
+  })
+
+  // 各イベントを enrich（同期処理、DB クエリは行わない）
+  const enriched = eventList.map((event) => {
     let scenarioInfo: Partial<ScenarioForPeriod> & {
       id?: string
       title?: string
@@ -278,10 +313,10 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     } | null = null
 
     const scenarioKey = event.scenario_master_id
-    if (scenarioKey && scenarios) {
-      const found = (scenarios as ScenarioForPeriod[]).find(s => s.id === scenarioKey)
-      scenarioInfo = found ?? null
-    } else if (event.scenario) {
+    if (scenarioKey) {
+      scenarioInfo = scenarioByIdMap.get(scenarioKey) ?? null
+    }
+    if (!scenarioInfo && event.scenario) {
       scenarioInfo = scenarioMap.get(event.scenario) ?? null
     }
 
@@ -323,22 +358,8 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
       }
     }
 
-    // 予約取得
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: reservations, error: reservationError } = await (db as any)
-      .from('reservations')
-      .select('participant_count, participant_names, payment_method, final_price')
-      .eq('organization_id', orgId)
-      .eq('schedule_event_id', event.id)
-      .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-
-    if (reservationError && reservationError.code !== 'PGRST116') {
-      console.warn('[sales] by-period reservation error:', {
-        eventId: event.id,
-        code: reservationError.code,
-        message: reservationError.message,
-      })
-    }
+    // 予約は事前にバッチ取得した reservationsByEvent から引く
+    const reservations = reservationsByEvent.get(event.id) || []
 
     let totalParticipants = 0
     let totalRevenue = 0
@@ -347,7 +368,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     if (isVenueRental) {
       totalRevenue = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
     } else {
-      (reservations as Array<Omit<ReservationRow, 'schedule_event_id'>> | null | undefined)?.forEach(r => {
+      reservations.forEach(r => {
         const participantCount = r.participant_count || 0
         totalParticipants += participantCount
 
@@ -369,7 +390,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
       actual_participants: totalParticipants,
       has_demo_participant: totalParticipants >= (event.max_participants || event.capacity || 0),
     }
-  }))
+  })
 
   return res.status(200).json(enriched)
 }
