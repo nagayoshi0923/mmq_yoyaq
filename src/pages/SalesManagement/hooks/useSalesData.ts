@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { SalesData } from '@/types'
 import { logger } from '@/utils/logger'
 import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
+import { getLicenseAmountForStore, type ScenarioPricing, type StoreOwnershipType } from '@/lib/pricing'
 import {
   getThisMonthRangeJST,
   getLastMonthRangeJST,
@@ -258,46 +259,9 @@ export function useSalesData() {
   }
 }
 
-/**
- * フランチャイズ店舗が本店に支払うライセンス金額（受取金額）を取得
- * 優先順位：FC専用受取 → 他店受取 → 自店用ライセンス
- */
-function getFranchiseLicenseAmount(
-  scenario: {
-    // フランチャイズ専用受取金額（最優先）
-    fc_receive_license_amount?: number | null;
-    fc_receive_gm_test_license_amount?: number | null;
-    // 他店公演時受取金額（次の優先）
-    external_license_amount?: number | null;
-    external_gm_test_license_amount?: number | null;
-    // 自店用（フォールバック）
-    license_amount?: number | null;
-    gm_test_license_amount?: number | null;
-  },
-  isGmTest: boolean
-): number {
-  if (isGmTest) {
-    // FC専用GMテスト受取 → 他店GMテスト受取 → 自店GMテスト → 自店通常
-    return (
-      (scenario.fc_receive_gm_test_license_amount != null && scenario.fc_receive_gm_test_license_amount !== 0)
-        ? scenario.fc_receive_gm_test_license_amount
-        : (scenario.external_gm_test_license_amount != null && scenario.external_gm_test_license_amount !== 0) 
-          ? scenario.external_gm_test_license_amount 
-          : (scenario.gm_test_license_amount != null && scenario.gm_test_license_amount !== 0)
-            ? scenario.gm_test_license_amount
-            : (scenario.license_amount ?? 0)
-    )
-  } else {
-    // FC専用通常受取 → 他店通常受取 → 自店通常
-    return (
-      (scenario.fc_receive_license_amount != null && scenario.fc_receive_license_amount !== 0)
-        ? scenario.fc_receive_license_amount
-        : (scenario.external_license_amount != null && scenario.external_license_amount !== 0)
-          ? scenario.external_license_amount
-          : (scenario.license_amount ?? 0)
-    )
-  }
-}
+// NOTE: フランチャイズ店舗のライセンス計算は @/lib/pricing.ts の
+// getLicenseAmountForStore に統合しました。SELECT 漏れ防止のため
+// SCENARIO_PRICING_COLUMNS 定数を SELECT に使うこと。
 
 /**
  * GM給与を計算（新方式）
@@ -374,23 +338,13 @@ function calculateSalesData(
     if (scenario && isPastEvent) {
       // 店舗を検索（フランチャイズ判定用）
       const store = stores.find(s => s.id === event.store_id)
-      const isFranchiseStore = store?.ownership_type === 'franchise'
-      
-      // ライセンス金額の計算（開催済み公演のみ）
-      // 優先順位: 他店用 → 他店GMテスト用 → 通常
       const isGmTest = event.category === 'gmtest'
-      let licenseAmount = 0
+      const licenseAmount = getLicenseAmountForStore(
+        scenario as ScenarioPricing,
+        store?.ownership_type as StoreOwnershipType,
+        isGmTest ? 'gmtest' : 'normal',
+      )
 
-      if (isFranchiseStore) {
-        // フランチャイズ店舗の場合（フランチャイズ料金が設定されていない場合は内部用を使用）
-        licenseAmount = getFranchiseLicenseAmount(scenario, isGmTest)
-      } else {
-        // 直営店舗の場合（従来通り）
-        licenseAmount = isGmTest 
-          ? (scenario.gm_test_license_amount || 0)
-          : (scenario.license_amount || 0)
-      }
-      
       totalLicenseCost += licenseAmount
 
       // GM給与の計算（時給ベース）
@@ -501,21 +455,12 @@ function calculateSalesData(
     const scenario = event.scenarios
     if (scenario && isPastEvent) {
       const isGmTest = event.category === 'gmtest'
-      const isFranchiseStore = store?.ownership_type === 'franchise'
-      
-      // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
-      let licenseAmount = 0
-      
-      if (isFranchiseStore) {
-        // フランチャイズ店舗の場合（フランチャイズ料金が設定されていない場合は内部用を使用）
-        licenseAmount = getFranchiseLicenseAmount(scenario, isGmTest)
-      } else {
-        // 直営店舗の場合（従来通り）
-        licenseAmount = isGmTest 
-          ? (scenario.gm_test_license_amount || 0)
-          : (scenario.license_amount || 0)
-      }
-      
+      const licenseAmount = getLicenseAmountForStore(
+        scenario as ScenarioPricing,
+        store?.ownership_type as StoreOwnershipType,
+        isGmTest ? 'gmtest' : 'normal',
+      )
+
       storeData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
@@ -603,22 +548,13 @@ function calculateSalesData(
     const scenario = event.scenarios
     if (scenario && isPastEvent) {
       const store = stores.find(s => s.id === event.store_id)
-      const isFranchiseStore = store?.ownership_type === 'franchise'
       const isGmTest = event.category === 'gmtest'
-      
-      // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
-      let licenseAmount = 0
-      
-      if (isFranchiseStore) {
-        // フランチャイズ店舗の場合（フランチャイズ料金が設定されていない場合は内部用を使用）
-        licenseAmount = getFranchiseLicenseAmount(scenario, isGmTest)
-      } else {
-        // 直営店舗の場合（従来通り）
-        licenseAmount = isGmTest 
-          ? (scenario.gm_test_license_amount || 0)
-          : (scenario.license_amount || 0)
-      }
-      
+      const licenseAmount = getLicenseAmountForStore(
+        scenario as ScenarioPricing,
+        store?.ownership_type as StoreOwnershipType,
+        isGmTest ? 'gmtest' : 'normal',
+      )
+
       scenarioData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
@@ -670,22 +606,13 @@ function calculateSalesData(
     const scenario = event.scenarios
     if (scenario) {
       const store = stores.find(s => s.id === event.store_id)
-      const isFranchiseStore = store?.ownership_type === 'franchise'
       const isGmTest = event.category === 'gmtest'
-      
-      // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
-      let licenseAmount = 0
-      
-      if (isFranchiseStore) {
-        // フランチャイズ店舗の場合（フランチャイズ料金が設定されていない場合は内部用を使用）
-        licenseAmount = getFranchiseLicenseAmount(scenario, isGmTest)
-      } else {
-        // 直営店舗の場合（従来通り）
-        licenseAmount = isGmTest 
-          ? (scenario.gm_test_license_amount || 0)
-          : (scenario.license_amount || 0)
-      }
-      
+      const licenseAmount = getLicenseAmountForStore(
+        scenario as ScenarioPricing,
+        store?.ownership_type as StoreOwnershipType,
+        isGmTest ? 'gmtest' : 'normal',
+      )
+
       current.licenseCost += licenseAmount
 
       // GM給与計算
@@ -780,16 +707,11 @@ function calculateSalesData(
 
     // ライセンス金額を取得（シナリオがある場合のみ）
     if (scenario && isPastEvent) {
-      // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
-      if (isFranchiseStore) {
-        // フランチャイズ店舗の場合（フランチャイズ料金が設定されていない場合は内部用を使用）
-        licenseCost = getFranchiseLicenseAmount(scenario, isGmTest)
-      } else {
-        // 直営店舗の場合（従来通り）
-        licenseCost = isGmTest 
-          ? (scenario.gm_test_license_amount || 0)
-          : (scenario.license_amount || 0)
-      }
+      licenseCost = getLicenseAmountForStore(
+        scenario as ScenarioPricing,
+        eventStore?.ownership_type as StoreOwnershipType,
+        isGmTest ? 'gmtest' : 'normal',
+      )
     }
 
     // GM給与計算: 個別GMの役割(gm_roles)を考慮

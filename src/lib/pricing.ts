@@ -41,7 +41,36 @@ export interface ScenarioPricing {
   gm_test_participation_fee?: number | null
   license_amount?: number | null
   gm_test_license_amount?: number | null
+  // フランチャイズ系ライセンス料（store_ownership_type に応じて使い分け）
+  franchise_license_amount?: number | null
+  franchise_gm_test_license_amount?: number | null
+  external_license_amount?: number | null
+  external_gm_test_license_amount?: number | null
+  fc_receive_license_amount?: number | null
+  fc_receive_gm_test_license_amount?: number | null
+  fc_author_license_amount?: number | null
+  fc_author_gm_test_license_amount?: number | null
 }
+
+export type StoreOwnershipType = 'corporate' | 'franchise' | 'office' | null | undefined
+
+/**
+ * organization_scenarios_with_master / organization_scenarios の SELECT 文字列。
+ * 料金計算で必要なカラムを全て含む（旧カラム + 新JSONB配列 + フランチャイズ系）。
+ *
+ * 使い方:
+ *   .select(`id, scenario_master_id, title, ${SCENARIO_PRICING_COLUMNS}`)
+ *
+ * 新カラムが増えたらここを更新すれば全箇所に伝播する。
+ */
+export const SCENARIO_PRICING_COLUMNS =
+  'participation_fee, gm_test_participation_fee, participation_costs, ' +
+  'license_amount, gm_test_license_amount, license_rewards, ' +
+  'franchise_license_amount, franchise_gm_test_license_amount, ' +
+  'external_license_amount, external_gm_test_license_amount, ' +
+  'fc_receive_license_amount, fc_receive_gm_test_license_amount, ' +
+  'fc_author_license_amount, fc_author_gm_test_license_amount, ' +
+  'gm_costs'
 
 function pickActiveAmount<T extends { amount?: number | null; status?: string }>(
   entries: T[] | null | undefined,
@@ -95,6 +124,44 @@ export function getLicenseAmount(
   const fromRewards = pickActiveAmount(scenario.license_rewards, r => r.item === 'normal')
   if (fromRewards != null) return fromRewards
   return scenario.license_amount ?? 0
+}
+
+/**
+ * 店舗の ownership_type を加味したライセンス料取得 (**本社/FC受取の視点**)。
+ *
+ * フランチャイズ店舗で公演する場合 (本社がFC店から受け取る金額):
+ *   fc_receive_* → external_* → 自店ライセンス → 通常へフォールバック
+ *
+ * 直営/オフィス店舗:
+ *   通常の自店ライセンス (getLicenseAmount と同じ)
+ *
+ * 注: ライセンスには「本社受取」と「作者支払い」など複数視点がDBに混在する。
+ *   本社受取 → このヘルパ (fc_receive_*)
+ *   作者支払い (フランチャイズ店公演時) → franchise_* / fc_author_* (現状は useAuthorReportData.ts に直書き)
+ */
+export function getLicenseAmountForStore(
+  scenario: ScenarioPricing | null | undefined,
+  storeOwnershipType: StoreOwnershipType,
+  category: PricingCategory,
+): number {
+  if (!scenario) return 0
+  const isFranchise = storeOwnershipType === 'franchise'
+  if (!isFranchise) {
+    return getLicenseAmount(scenario, category)
+  }
+  // フランチャイズ: FC受取 → 他店受取 → 自店ライセンスへフォールバック
+  if (category === 'gmtest') {
+    const fcReceive = scenario.fc_receive_gm_test_license_amount
+    if (fcReceive != null && fcReceive !== 0) return fcReceive
+    const external = scenario.external_gm_test_license_amount
+    if (external != null && external !== 0) return external
+    return getLicenseAmount(scenario, 'gmtest')
+  }
+  const fcReceive = scenario.fc_receive_license_amount
+  if (fcReceive != null && fcReceive !== 0) return fcReceive
+  const external = scenario.external_license_amount
+  if (external != null && external !== 0) return external
+  return getLicenseAmount(scenario, 'normal')
 }
 
 /**
