@@ -139,7 +139,9 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     const dateStr = dateRange ? `${dateRange.startDate}_${dateRange.endDate}` : new Date().toISOString().split('T')[0]
     link.download = `売上レポート_${dateStr}.csv`
     link.href = url
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
     URL.revokeObjectURL(url)
     showToast.success('CSVをダウンロードしました')
   }
