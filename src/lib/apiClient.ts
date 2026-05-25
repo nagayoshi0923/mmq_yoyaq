@@ -11,6 +11,7 @@ export class ApiClientError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly detail?: string,
   ) {
     super(message)
     this.name = 'ApiClientError'
@@ -83,14 +84,14 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
     })
     if (!retryRes.ok) {
       const body = await retryRes.json().catch(() => ({ error: `HTTP ${retryRes.status}` }))
-      throw new ApiClientError(retryRes.status, body?.error ?? `API エラー: ${retryRes.status}`)
+      throw new ApiClientError(retryRes.status, body?.error ?? `API エラー: ${retryRes.status}`, body?.detail)
     }
     return retryRes.json() as Promise<T>
   }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new ApiClientError(res.status, body?.error ?? `API エラー: ${res.status}`)
+    throw new ApiClientError(res.status, body?.error ?? `API エラー: ${res.status}`, body?.detail)
   }
 
   return res.json() as Promise<T>
