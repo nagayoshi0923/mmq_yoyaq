@@ -67,8 +67,14 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
   // Supabase platform は publishable/secret 移行後も SUPABASE_SERVICE_ROLE_KEY に
   // 旧 JWT を自動注入し続けるため、getServiceRoleKey() は JWT を返す。
   // 一方で Vercel 等の外部から呼ぶ場合は sb_secret_* を Bearer に乗せるケースが多いので、
-  // SUPABASE_SECRET_KEY 環境変数で別途文字列比較する。
-  const secretKey = (Deno.env.get('SUPABASE_SECRET_KEY') ?? '').trim()
+  // 別途文字列比較する。
+  // Edge Function Secrets では SUPABASE_ 接頭辞が禁止されているため、
+  // MMQ_SB_SECRET_KEY または SB_SECRET_KEY のどちらかを使う。
+  const secretKey = (
+    Deno.env.get('MMQ_SB_SECRET_KEY') ??
+    Deno.env.get('SB_SECRET_KEY') ??
+    ''
+  ).trim()
   if (secretKey && bearer && timingSafeEqualString(bearer, secretKey)) {
     console.log('✅ sb_secret_* キー一致')
     return true
