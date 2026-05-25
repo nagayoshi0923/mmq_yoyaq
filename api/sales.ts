@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
-import { getParticipationFee, getLicenseAmount, sumGmCosts, type ScenarioPricing } from '../src/lib/pricing.js'
+import { getParticipationFee, getLicenseAmount, sumGmCosts, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
 
 // NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
 // 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
@@ -222,7 +222,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenarios, error: scenariosError } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, fc_receive_license_amount, fc_receive_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
+    .select(`id, title, author, duration, scenario_type, production_costs, required_props, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
 
   if (scenariosError) {
@@ -233,7 +233,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenarios, error: orgScenariosError } = await (db as any)
     .from('organization_scenarios')
-    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, fc_receive_license_amount, fc_receive_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    .select(`id, scenario_master_id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
 
   if (orgScenariosError) {
@@ -719,39 +719,22 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     (stores as Array<{ id: string; name: string; short_name: string | null }> | null | undefined)?.map(s => [s.id, s]) || []
   )
 
-  type ParticipationCost = { time_slot?: string; amount: number; status?: string }
-  type ScenarioInfo = {
-    id: string
-    gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
-    license_amount: number | null
-    gm_test_license_amount: number | null
-    participation_fee: number | null
-    gm_test_participation_fee: number | null
-    participation_costs: ParticipationCost[] | null
-  }
+  // ScenarioInfo は ScenarioPricing を継承し、id を必須にしただけ
+  type ScenarioInfo = ScenarioPricing & { id: string }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenariosData } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
+    .select(`id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
   const scenarioByMasterId = new Map<string, ScenarioInfo>(
     (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.id, s]) || []
   )
 
-  type OrgScenarioOverride = {
-    id: string
-    scenario_master_id: string | null
-    gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
-    license_amount: number | null
-    gm_test_license_amount: number | null
-    participation_fee: number | null
-    gm_test_participation_fee: number | null
-    participation_costs: ParticipationCost[] | null
-  }
+  type OrgScenarioOverride = ScenarioPricing & { id: string; scenario_master_id: string | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenariosData } = await (db as any)
     .from('organization_scenarios')
-    .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
+    .select(`id, scenario_master_id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
   const orgScenarioById = new Map<string, OrgScenarioOverride>(
     (orgScenariosData as OrgScenarioOverride[] | null | undefined)?.map(s => [s.id, s]) || []
