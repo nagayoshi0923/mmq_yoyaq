@@ -97,8 +97,51 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleExportCSV = () => {
     if (!salesData) return
-    // CSVエクスポート処理
-    logger.log('CSV export')
+
+    const CATEGORY_LABELS: Record<string, string> = {
+      gmtest: 'GMテスト',
+      private: '貸切',
+      open: '公開',
+      enterprise: '企業',
+      testplay: 'テストプレイ',
+      offsite: '出張',
+      venue_rental: '会場貸切',
+      venue_rental_free: '会場貸切（無料）',
+      package: 'パッケージ',
+    }
+
+    const headers = ['日付', '店舗', 'シナリオ', '種別', '参加者数', 'GM', '売上', 'ライセンス', 'GM給与', 'FC料金', '粗利益']
+
+    const rows = (salesData.eventList ?? []).map((e: any) => [
+      e.date ?? '',
+      e.store_name ?? '',
+      e.scenario_title ?? '',
+      CATEGORY_LABELS[e.category] ?? e.category ?? '',
+      e.participant_count ?? 0,
+      Array.isArray(e.gms) ? e.gms.join(' / ') : '',
+      e.revenue ?? 0,
+      e.license_cost ?? 0,
+      e.gm_cost ?? 0,
+      e.franchise_fee ?? 0,
+      e.net_profit ?? 0,
+    ])
+
+    const escape = (v: unknown) => {
+      const s = String(v)
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+    }
+
+    const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n')
+    const bom = '﻿'
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const dateStr = dateRange ? `${dateRange.startDate}_${dateRange.endDate}` : new Date().toISOString().split('T')[0]
+    link.download = `売上レポート_${dateStr}.csv`
+    link.href = url
+    link.click()
+    URL.revokeObjectURL(url)
+    showToast.success('CSVをダウンロードしました')
   }
 
   const handleExportExcel = () => {
