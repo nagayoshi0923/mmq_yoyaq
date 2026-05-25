@@ -4,7 +4,7 @@
  * シナリオキットの現在位置確認、週間需要の可視化、移動計画の作成を行う
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -113,6 +113,24 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 移動日（実際の日付文字列、デフォルトは空 - weekDatesが決まってから初期化）
   const [transferDates, setTransferDates] = useState<string[]>([])
+  // 週先頭からのオフセットで曜日パターンを記憶（週が変わっても維持・組織全員で共有）
+  const [selectedOffsets, setSelectedOffsets] = useState<number[]>([0, 4]) // デフォルト: 月曜・金曜
+  const selectedOffsetsRef = useRef<number[]>([0, 4])
+  selectedOffsetsRef.current = selectedOffsets
+
+  // オフセット変更時に global_settings へ保存
+  const saveOffsets = useCallback(async (offsets: number[]) => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+      await supabase
+        .from('global_settings')
+        .update({ kit_transfer_offsets: offsets })
+        .eq('organization_id', orgId)
+    } catch (e) {
+      console.warn('kit_transfer_offsets の保存に失敗:', e)
+    }
+  }, [])
   
   // 移動完了状態（DBから取得）
   const [completions, setCompletions] = useState<KitTransferCompletion[]>([])
@@ -168,14 +186,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return weekEnd < today
   }, [selectedWeekStart])
   
-  // 週が変わったらデフォルトの移動日を設定（月曜と金曜）
+  // 週が変わったら記憶した曜日オフセットから移動日を再構成
   useEffect(() => {
     if (weekDates.length > 0) {
-      // 月曜 (index 0) と金曜 (index 4)
-      const defaultDates: string[] = []
-      if (weekDates[0]) defaultDates.push(weekDates[0]) // 月曜
-      if (weekDates[4]) defaultDates.push(weekDates[4]) // 金曜
-      setTransferDates(defaultDates)
+      const dates = selectedOffsetsRef.current
+        .filter(i => i >= 0 && i < weekDates.length)
+        .map(i => weekDates[i])
+        .filter((d): d is string => Boolean(d))
+      setTransferDates(dates)
     }
   }, [weekDates])
   
@@ -742,6 +760,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         }
       }
       
+      // 組織共有の移動曜日設定を読み込み
+      const orgId = await getCurrentOrganizationId()
+      if (orgId) {
+        const { data: gs } = await supabase
+          .from('global_settings')
+          .select('kit_transfer_offsets')
+          .eq('organization_id', orgId)
+          .single()
+        if (gs?.kit_transfer_offsets && Array.isArray(gs.kit_transfer_offsets)) {
+          const offsets = gs.kit_transfer_offsets as number[]
+          setSelectedOffsets(offsets)
+          selectedOffsetsRef.current = offsets
+        }
+      }
+
       const [locationsData, storesData, scenariosData] = await Promise.all([
         kitApi.getKitLocations(),
         storeApi.getAll(),
@@ -1939,10 +1972,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       <button
                         key={dateStr}
                         onClick={() => {
+                          const offset = weekDates.indexOf(dateStr)
                           if (isSelected) {
                             setTransferDates(prev => prev.filter(d => d !== dateStr))
+                            setSelectedOffsets(prev => {
+                              const next = prev.filter(i => i !== offset)
+                              saveOffsets(next)
+                              return next
+                            })
                           } else {
                             setTransferDates(prev => [...prev, dateStr].sort())
+                            setSelectedOffsets(prev => {
+                              const next = [...new Set([...prev, offset])].sort((a, b) => a - b)
+                              saveOffsets(next)
+                              return next
+                            })
                           }
                         }}
                         className={`px-2 py-1 text-xs rounded-md border transition-colors ${
