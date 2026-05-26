@@ -51,14 +51,37 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
   lines.push('【 費用内訳 】')
   lines.push(`  ライセンス: ${formatCurrency(salesData.totalLicenseCost || 0)}`)
   lines.push(`  GM給与: ${formatCurrency(salesData.totalGmCost || 0)}`)
-  lines.push(`  FC料金: ${formatCurrency(salesData.totalFranchiseFee || 0)}`)
+  if ((salesData.totalFranchiseFee || 0) > 0) {
+    lines.push(`  FC料金: ${formatCurrency(salesData.totalFranchiseFee || 0)}`)
+  }
+  if ((salesData.totalProductionCost || 0) > 0) {
+    lines.push(`  制作費: ${formatCurrency(salesData.totalProductionCost || 0)}`)
+    const breakdown = salesData.productionCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+    if (breakdown && breakdown.length > 0) {
+      breakdown.forEach(b => {
+        lines.push(`    - ${b.item}（${b.scenario}）: ${formatCurrency(b.amount)}`)
+      })
+    }
+  }
+  if ((salesData.totalPropsCost || 0) > 0) {
+    lines.push(`  道具費用: ${formatCurrency(salesData.totalPropsCost || 0)}`)
+    const propBreakdown = salesData.propsCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+    if (propBreakdown && propBreakdown.length > 0) {
+      propBreakdown.forEach(b => {
+        lines.push(`    - ${b.item}（${b.scenario}）: ${formatCurrency(b.amount)}`)
+      })
+    }
+  }
+  if ((salesData.totalFixedCost || 0) > 0) {
+    lines.push(`  固定費: ${formatCurrency(salesData.totalFixedCost || 0)}`)
+  }
   lines.push(`  変動費合計: ${formatCurrency(salesData.totalVariableCost || 0)}`)
   lines.push('')
-  
+
   // 粗利益
   lines.push('【 粗利益 】')
   lines.push(`  粗利益: ${formatCurrency(salesData.netProfit)}`)
-  const profitRate = salesData.totalRevenue > 0 
+  const profitRate = salesData.totalRevenue > 0
     ? ((salesData.netProfit / salesData.totalRevenue) * 100).toFixed(1)
     : '0'
   lines.push(`  利益率: ${profitRate}%`)
@@ -96,8 +119,12 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   const [textReport, setTextReport] = useState('')
 
   const handleExportCSV = () => {
-    if (!salesData) return
+    if (!salesData) {
+      showToast.error('データがまだ読み込まれていません')
+      return
+    }
 
+    try {
     const CATEGORY_LABELS: Record<string, string> = {
       gmtest: 'GMテスト',
       private: '貸切',
@@ -144,6 +171,10 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
     showToast.success('CSVをダウンロードしました')
+    } catch (e) {
+      logger.error('CSVエクスポートエラー:', e)
+      showToast.error('CSVのエクスポートに失敗しました')
+    }
   }
 
   const handleExportExcel = () => {
