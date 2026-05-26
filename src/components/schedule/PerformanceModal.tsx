@@ -117,6 +117,7 @@ export function PerformanceModal({
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
+  const [deleteConfirming, setDeleteConfirming] = useState(false)
   // ローカルで参加者数を管理（リアルタイム表示用）
   const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(event?.current_participants || 0)
   const [formData, setFormData] = useState<EventFormData>({
@@ -1416,6 +1417,15 @@ export function PerformanceModal({
           
           {/* 右側：ボタン */}
           <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
+            {mode === 'edit' && onDeleteEvent && (
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirming(true)}
+                className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground mr-auto"
+              >
+                この予定を削除
+              </Button>
+            )}
             <Button variant="outline" onClick={onClose} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
               キャンセル
             </Button>
@@ -1452,6 +1462,36 @@ export function PerformanceModal({
               }}
             >
               変更する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 公演削除確認ダイアログ */}
+      <Dialog open={deleteConfirming} onOpenChange={setDeleteConfirming}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">この予定を削除しますか？</DialogTitle>
+            <DialogDescription className="text-sm pt-1">
+              削除すると元に戻せません。関連する予約もすべて削除されます。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="text-sm" onClick={() => setDeleteConfirming(false)}>
+              キャンセル
+            </Button>
+            <Button
+              variant="destructive"
+              className="text-sm"
+              onClick={async () => {
+                setDeleteConfirming(false)
+                if (event && onDeleteEvent) {
+                  await onDeleteEvent(event)
+                  onClose()
+                }
+              }}
+            >
+              削除する
             </Button>
           </DialogFooter>
         </DialogContent>
