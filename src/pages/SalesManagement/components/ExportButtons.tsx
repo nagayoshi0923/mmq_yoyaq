@@ -51,14 +51,37 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
   lines.push('【 費用内訳 】')
   lines.push(`  ライセンス: ${formatCurrency(salesData.totalLicenseCost || 0)}`)
   lines.push(`  GM給与: ${formatCurrency(salesData.totalGmCost || 0)}`)
-  lines.push(`  FC料金: ${formatCurrency(salesData.totalFranchiseFee || 0)}`)
+  if ((salesData.totalFranchiseFee || 0) > 0) {
+    lines.push(`  FC料金: ${formatCurrency(salesData.totalFranchiseFee || 0)}`)
+  }
+  if ((salesData.totalProductionCost || 0) > 0) {
+    lines.push(`  制作費: ${formatCurrency(salesData.totalProductionCost || 0)}`)
+    const breakdown = salesData.productionCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+    if (breakdown && breakdown.length > 0) {
+      breakdown.forEach(b => {
+        lines.push(`    - ${b.item}（${b.scenario}）: ${formatCurrency(b.amount)}`)
+      })
+    }
+  }
+  if ((salesData.totalPropsCost || 0) > 0) {
+    lines.push(`  道具費用: ${formatCurrency(salesData.totalPropsCost || 0)}`)
+    const propBreakdown = salesData.propsCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+    if (propBreakdown && propBreakdown.length > 0) {
+      propBreakdown.forEach(b => {
+        lines.push(`    - ${b.item}（${b.scenario}）: ${formatCurrency(b.amount)}`)
+      })
+    }
+  }
+  if ((salesData.totalFixedCost || 0) > 0) {
+    lines.push(`  固定費: ${formatCurrency(salesData.totalFixedCost || 0)}`)
+  }
   lines.push(`  変動費合計: ${formatCurrency(salesData.totalVariableCost || 0)}`)
   lines.push('')
-  
+
   // 粗利益
   lines.push('【 粗利益 】')
   lines.push(`  粗利益: ${formatCurrency(salesData.netProfit)}`)
-  const profitRate = salesData.totalRevenue > 0 
+  const profitRate = salesData.totalRevenue > 0
     ? ((salesData.netProfit / salesData.totalRevenue) * 100).toFixed(1)
     : '0'
   lines.push(`  利益率: ${profitRate}%`)
@@ -96,9 +119,62 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   const [textReport, setTextReport] = useState('')
 
   const handleExportCSV = () => {
-    if (!salesData) return
-    // CSVエクスポート処理
-    logger.log('CSV export')
+    if (!salesData) {
+      showToast.error('データがまだ読み込まれていません')
+      return
+    }
+
+    try {
+    const CATEGORY_LABELS: Record<string, string> = {
+      gmtest: 'GMテスト',
+      private: '貸切',
+      open: '公開',
+      enterprise: '企業',
+      testplay: 'テストプレイ',
+      offsite: '出張',
+      venue_rental: '会場貸切',
+      venue_rental_free: '会場貸切（無料）',
+      package: 'パッケージ',
+    }
+
+    const headers = ['日付', '店舗', 'シナリオ', '種別', '参加者数', 'GM', '売上', 'ライセンス', 'GM給与', 'FC料金', '粗利益']
+
+    const rows = (salesData.eventList ?? []).map((e: any) => [
+      e.date ?? '',
+      e.store_name ?? '',
+      e.scenario_title ?? '',
+      CATEGORY_LABELS[e.category] ?? e.category ?? '',
+      e.participant_count ?? 0,
+      Array.isArray(e.gms) ? e.gms.join(' / ') : '',
+      e.revenue ?? 0,
+      e.license_cost ?? 0,
+      e.gm_cost ?? 0,
+      e.franchise_fee ?? 0,
+      e.net_profit ?? 0,
+    ])
+
+    const escape = (v: unknown) => {
+      const s = String(v)
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+    }
+
+    const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n')
+    const bom = '﻿'
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const dateStr = dateRange ? `${dateRange.startDate}_${dateRange.endDate}` : new Date().toISOString().split('T')[0]
+    link.download = `売上レポート_${dateStr}.csv`
+    link.href = url
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    showToast.success('CSVをダウンロードしました')
+    } catch (e) {
+      logger.error('CSVエクスポートエラー:', e)
+      showToast.error('CSVのエクスポートに失敗しました')
+    }
   }
 
   const handleExportExcel = () => {

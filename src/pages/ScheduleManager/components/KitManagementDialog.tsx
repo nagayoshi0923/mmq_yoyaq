@@ -33,7 +33,7 @@ import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, HelpCircle } from 'lucide-react'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, HelpCircle, Lock, LockOpen } from 'lucide-react'
 
 // ドラッグ中のキット情報
 interface DraggedKit {
@@ -1311,6 +1311,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
   }
   
+  // 店舗固定ステータスをトグル
+  const handleToggleKitFixed = async (store: Store) => {
+    const newValue = !store.kit_fixed
+    try {
+      await storeApi.update(store.id, { kit_fixed: newValue })
+      setStores(prev => prev.map(s => s.id === store.id ? { ...s, kit_fixed: newValue } : s))
+      showToast.success(newValue ? `${store.short_name || store.name} を固定しました（移動元にならない）` : `${store.short_name || store.name} の固定を解除しました`)
+    } catch (e) {
+      console.error('Failed to toggle kit_fixed:', e)
+      showToast.error('設定の更新に失敗しました')
+    }
+  }
+
   // キット状態を更新
   const handleUpdateCondition = async (
     scenarioId: string,
@@ -1751,14 +1764,26 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     onDrop={(e) => handleDrop(e, store.id)}
                   >
                     {/* カラムヘッダー */}
-                    <div className="p-2 border-b bg-muted/50 rounded-t-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">
+                    <div className={`p-2 border-b rounded-t-lg ${store.kit_fixed ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200' : 'bg-muted/50'}`}>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-medium text-sm truncate">
                           {store.short_name || store.name}
                         </span>
-                        <Badge variant="secondary" className="text-xs h-5">
-                          {totalKits}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge variant="secondary" className="text-xs h-5">
+                            {totalKits}
+                          </Badge>
+                          <button
+                            onClick={() => handleToggleKitFixed(store)}
+                            title={store.kit_fixed ? '固定中（クリックで解除）' : '固定なし（クリックで固定）'}
+                            className={`h-5 w-5 flex items-center justify-center rounded transition-colors ${store.kit_fixed ? 'text-orange-500 hover:text-orange-700' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
+                          >
+                            {store.kit_fixed
+                              ? <Lock className="h-3.5 w-3.5" />
+                              : <LockOpen className="h-3.5 w-3.5" />
+                            }
+                          </button>
+                        </div>
                       </div>
                     </div>
                     

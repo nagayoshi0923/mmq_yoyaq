@@ -302,7 +302,6 @@ export function ReservationManagement() {
         </Button>
       ),
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [])
 
   const totalPages = Math.max(1, Math.ceil((totalCount || 0) / PAGE_SIZE))

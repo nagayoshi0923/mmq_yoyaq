@@ -195,6 +195,9 @@ export function calculateKitTransfers(
             const currentLocation = scenarioState[kitNum]
             // 同じグループの店舗は移動不要
             if (currentLocation && !isSameGroup(currentLocation, storeId)) {
+              // 固定店舗からは移動しない
+              const fromStoreData = storeMap.get(currentLocation)
+              if (fromStoreData?.kit_fixed) continue
               // このキットが公演日当日、移動元店舗（またはそのグループ）で使われるか確認
               let fromGroupNeedCount = 0
               for (const [checkStoreId, checkNeeds] of storeNeeds) {
