@@ -41,50 +41,78 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
   lines.push('')
   
   // サマリー
-  lines.push('【 サマリー 】')
-  lines.push(`  総売上: ${formatCurrency(salesData.totalRevenue)}`)
-  lines.push(`  総公演数: ${salesData.totalEvents}回`)
-  lines.push(`  平均売上/公演: ${formatCurrency(salesData.averageRevenuePerEvent)}`)
-  lines.push('')
-  
-  // 費用内訳
-  lines.push('【 費用内訳 】')
-  lines.push(`  ライセンス: ${formatCurrency(salesData.totalLicenseCost || 0)}`)
-  lines.push(`  GM給与: ${formatCurrency(salesData.totalGmCost || 0)}`)
-  if ((salesData.totalFranchiseFee || 0) > 0) {
-    lines.push(`  FC料金: ${formatCurrency(salesData.totalFranchiseFee || 0)}`)
-  }
-  if ((salesData.totalProductionCost || 0) > 0) {
-    lines.push(`  制作費: ${formatCurrency(salesData.totalProductionCost || 0)}`)
-    const breakdown = salesData.productionCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
-    if (breakdown && breakdown.length > 0) {
-      breakdown.forEach(b => {
-        lines.push(`    - ${b.item}（${b.scenario}）: ${formatCurrency(b.amount)}`)
-      })
-    }
-  }
-  if ((salesData.totalPropsCost || 0) > 0) {
-    lines.push(`  道具費用: ${formatCurrency(salesData.totalPropsCost || 0)}`)
-    const propBreakdown = salesData.propsCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
-    if (propBreakdown && propBreakdown.length > 0) {
-      propBreakdown.forEach(b => {
-        lines.push(`    - ${b.item}（${b.scenario}）: ${formatCurrency(b.amount)}`)
-      })
-    }
-  }
-  if ((salesData.totalFixedCost || 0) > 0) {
-    lines.push(`  固定費: ${formatCurrency(salesData.totalFixedCost || 0)}`)
-  }
-  lines.push(`  変動費合計: ${formatCurrency(salesData.totalVariableCost || 0)}`)
-  lines.push('')
-
-  // 粗利益
-  lines.push('【 粗利益 】')
-  lines.push(`  粗利益: ${formatCurrency(salesData.netProfit)}`)
+  const totalCost = (salesData.totalVariableCost || 0) + (salesData.totalFixedCost || 0)
   const profitRate = salesData.totalRevenue > 0
     ? ((salesData.netProfit / salesData.totalRevenue) * 100).toFixed(1)
     : '0'
-  lines.push(`  利益率: ${profitRate}%`)
+  lines.push('【 サマリー 】')
+  lines.push(`  総売上: ${formatCurrency(salesData.totalRevenue)}（${salesData.totalEvents}公演・平均 ${formatCurrency(salesData.averageRevenuePerEvent)}）`)
+  lines.push(`  支出合計: ${formatCurrency(totalCost)}（変動費 ${formatCurrency(salesData.totalVariableCost || 0)} + 固定費 ${formatCurrency(salesData.totalFixedCost || 0)}）`)
+  lines.push(`  粗利益: ${formatCurrency(salesData.netProfit)}（利益率 ${profitRate}%）`)
+  lines.push('')
+
+  // 費用内訳（カード別）
+  const vcBreakdown = salesData.variableCostBreakdown as Array<{ category: string; amount: number }> | undefined
+  const prodBreakdown = salesData.productionCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+  const propsBreakdown = salesData.propsCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+  const fixedBreakdown = salesData.fixedCostBreakdown as Array<{ item: string; amount: number; store: string }> | undefined
+
+  lines.push('【 費用内訳 】')
+
+  // 変動費カード
+  lines.push(`  ◆ 変動費: ${formatCurrency(salesData.totalVariableCost || 0)}`)
+  if (vcBreakdown && vcBreakdown.length > 0) {
+    vcBreakdown.forEach(item => lines.push(`    ${item.category}: ${formatCurrency(item.amount)}`))
+  }
+  lines.push('')
+
+  // GM報酬カード
+  lines.push(`  ◆ GM報酬: ${formatCurrency(salesData.totalGmCost || 0)}`)
+  lines.push(`    GMへの支払い`)
+  lines.push('')
+
+  // FC料金カード（公演ごとのFC料金）
+  const fcFee = vcBreakdown?.find(v => v.category === 'FC料金')?.amount ?? 0
+  if (fcFee > 0) {
+    lines.push(`  ◆ FC料金: ${formatCurrency(fcFee)}`)
+    lines.push(`    ${salesData.totalEvents}公演 × ¥1,000`)
+    lines.push('')
+  }
+
+  // 事務手数料カード（フランチャイズ手数料）
+  const adminFee = vcBreakdown?.find(v => v.category === '事務手数料')?.amount ?? 0
+  if (adminFee > 0) {
+    lines.push(`  ◆ 事務手数料: ${formatCurrency(adminFee)}`)
+    lines.push('')
+  }
+
+  // ライセンスカード
+  lines.push(`  ◆ ライセンス: ${formatCurrency(salesData.totalLicenseCost || 0)}`)
+  lines.push(`    作者への支払い`)
+  lines.push('')
+
+  // 制作費カード
+  const prodTotal = (salesData.totalProductionCost || 0) + (salesData.totalPropsCost || 0)
+  lines.push(`  ◆ 制作費: ${formatCurrency(prodTotal)}`)
+  if (prodBreakdown && prodBreakdown.length > 0) {
+    prodBreakdown.forEach(b => lines.push(`    ${b.scenario} / ${b.item}: ${formatCurrency(b.amount)}`))
+  }
+  if (propsBreakdown && propsBreakdown.length > 0) {
+    propsBreakdown.forEach(b => lines.push(`    ${b.scenario} / ${b.item}: ${formatCurrency(b.amount)}`))
+  }
+  if (prodTotal === 0) lines.push(`    制作費なし`)
+  lines.push('')
+
+  // 固定費カード
+  lines.push(`  ◆ 固定費: ${formatCurrency(salesData.totalFixedCost || 0)}`)
+  if (fixedBreakdown && fixedBreakdown.length > 0) {
+    const itemTotals: Record<string, number> = {}
+    fixedBreakdown.forEach(b => { itemTotals[b.item] = (itemTotals[b.item] || 0) + b.amount })
+    Object.entries(itemTotals).forEach(([item, total]) => lines.push(`    ${item}: ${formatCurrency(total)}`))
+  }
+  lines.push('')
+
+  lines.push(`  支出合計: ${formatCurrency(totalCost)}`)
   lines.push('')
   
   // 公演リスト
@@ -137,6 +165,46 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       package: 'パッケージ',
     }
 
+    const escape = (v: unknown) => {
+      const s = String(v)
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const row = (...cols: unknown[]) => cols.map(escape).join(',')
+
+    const profitRateCsv = salesData.totalRevenue > 0
+      ? ((salesData.netProfit / salesData.totalRevenue) * 100).toFixed(1)
+      : '0'
+    const totalCostCsv = (salesData.totalVariableCost || 0) + (salesData.totalFixedCost || 0)
+    const vcBd = salesData.variableCostBreakdown as Array<{ category: string; amount: number }> | undefined
+    const prodBd = salesData.productionCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+    const propsBd = salesData.propsCostBreakdown as Array<{ item: string; amount: number; scenario: string }> | undefined
+    const fixedBd = salesData.fixedCostBreakdown as Array<{ item: string; amount: number; store: string }> | undefined
+
+    const summarySection = [
+      row('## サマリー', ''),
+      row('項目', '値'),
+      row('総売上', salesData.totalRevenue),
+      row('公演数', salesData.totalEvents),
+      row('平均売上/公演', salesData.averageRevenuePerEvent),
+      row('支出合計', totalCostCsv),
+      row('変動費', salesData.totalVariableCost || 0),
+      row('固定費', salesData.totalFixedCost || 0),
+      row('粗利益', salesData.netProfit),
+      row('利益率(%)', profitRateCsv),
+      '',
+      row('## 費用内訳', ''),
+      row('項目', '金額'),
+      ...(vcBd ?? []).map(v => row(v.category, v.amount)),
+      ...(prodBd ?? []).map(b => row(`制作費 / ${b.scenario} / ${b.item}`, b.amount)),
+      ...(propsBd ?? []).map(b => row(`道具費 / ${b.scenario} / ${b.item}`, b.amount)),
+      ...(fixedBd ?? []).map(b => row(`固定費 / ${b.item}（${b.store}）`, b.amount)),
+      row('変動費合計', salesData.totalVariableCost || 0),
+      row('固定費合計', salesData.totalFixedCost || 0),
+      row('支出合計', totalCostCsv),
+      '',
+      row('## 公演一覧', ''),
+    ]
+
     const headers = ['日付', '店舗', 'シナリオ', '種別', '参加者数', 'GM', '売上', 'ライセンス', 'GM給与', 'FC料金', '粗利益']
 
     const rows = (salesData.eventList ?? []).map((e: any) => [
@@ -153,12 +221,8 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       e.net_profit ?? 0,
     ])
 
-    const escape = (v: unknown) => {
-      const s = String(v)
-      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
-    }
-
-    const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n')
+    const eventRows = [headers, ...rows].map(r => r.map(escape).join(','))
+    const csv = [...summarySection, ...eventRows].join('\n')
     const bom = '﻿'
     const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
