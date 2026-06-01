@@ -325,24 +325,10 @@ export function computePrivateBookingSlots(
     })
   }
 
-  const filtered = results.filter((slot) =>
+  return results.filter((slot) =>
     isPrivateBookingSlotAllowedByScenarioSettings(
       slot.label,
       privateBookingTimeSlots,
     ),
   )
-
-  // 午後と夜が重複する場合は午後を除外
-  // （週末に午後スロットが夜スロットの開始時刻をまたぐケースへの対処）
-  const eveningSlot = filtered.find(s => s.key === 'evening')
-  if (eveningSlot) {
-    const eveningStartMin = timeStrToMinutes(eveningSlot.startTime) ?? (19 * 60)
-    return filtered.filter(s => {
-      if (s.key !== 'afternoon') return true
-      const afternoonEndMin = timeStrToMinutes(s.endTime) ?? 0
-      return afternoonEndMin + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES <= eveningStartMin
-    })
-  }
-
-  return filtered
 }
