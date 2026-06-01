@@ -85,6 +85,7 @@ jobs:
             "notify-kit-transfer-plan"
             "sync-resend-email-logs"
             "test-resend-webhook"
+            "resend-webhook"
           )
           
           # すべての関数をデプロイ
@@ -180,6 +181,7 @@ jobs:
             "notify-kit-transfer-plan"
             "sync-resend-email-logs"
             "test-resend-webhook"
+            "resend-webhook"
           )
           
           # すべての関数をデプロイ
