@@ -118,7 +118,19 @@ Deno.serve(async (req) => {
         const bodyText = data.text ?? null
 
         if (!bodyHtml && !bodyText) {
-          skipped++
+          // Resend にメタ情報は残っているが本文は既に消去されている (1ヶ月超過)
+          // 次回以降の sync 対象から外すため body_text にプレースホルダを入れる
+          const placeholder = '(Resend のメール保持期間 (約1ヶ月) を過ぎたため本文を取得できませんでした)'
+          const { error: markError } = await supabase
+            .from('email_logs')
+            .update({ body_text: placeholder })
+            .eq('id', row.id)
+          if (markError) {
+            console.warn('email_logs placeholder update failed:', row.id, markError.message)
+            failed++
+          } else {
+            skipped++
+          }
         } else {
           const { error: updateError } = await supabase
             .from('email_logs')
