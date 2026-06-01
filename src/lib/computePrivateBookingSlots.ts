@@ -119,6 +119,45 @@ function getBestSlotCandidateAcrossStores(
         if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
       }
       startForFeasibility = Math.max(reverseStart, latestPriorEnd)
+    } else if (slotKey === 'afternoon') {
+      // 午後: configured start (14:00) で開始すると次予約に干渉する場合のみ
+      // 「次予約 - 60min - duration」から逆算して前倒し開始する
+      const configuredStart = f.minAllowedStart
+      const configuredEnd = configuredStart + durationMinutes + extraPrepTime
+      let endLimitFromNextEvent = f.slotBandEnd
+      for (const ev of allStoreEvents) {
+        const ed = ev.date ? String(ev.date).split('T')[0] : ''
+        if (ed !== targetDate) continue
+        const sid = ev.store_id ?? ev.stores?.id ?? null
+        if (sid !== storeId) continue
+        if (!ev.start_time) continue
+        const eStart = timeStrToMinutes(String(ev.start_time))
+        if (eStart === null) continue
+        if (eStart < f.slotBandStart) continue
+        const candidate = eStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+        if (candidate < endLimitFromNextEvent) endLimitFromNextEvent = candidate
+      }
+      if (configuredEnd > endLimitFromNextEvent) {
+        const reverseStart = endLimitFromNextEvent - durationMinutes - extraPrepTime
+        let latestPriorEnd = 0
+        for (const ev of allStoreEvents) {
+          const ed = ev.date ? String(ev.date).split('T')[0] : ''
+          if (ed !== targetDate) continue
+          const sid = ev.store_id ?? ev.stores?.id ?? null
+          if (sid !== storeId) continue
+          if (!ev.start_time) continue
+          const eStart = timeStrToMinutes(String(ev.start_time))
+          if (eStart === null || eStart > reverseStart) continue
+          const eEnd = ev.end_time
+            ? (timeStrToMinutes(String(ev.end_time)) ?? eStart + 240)
+            : eStart + 240
+          const endBuf = eEnd + 60
+          if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
+        }
+        startForFeasibility = Math.max(reverseStart, latestPriorEnd)
+      } else {
+        startForFeasibility = configuredStart
+      }
     } else {
       startForFeasibility = f.minAllowedStart
     }
