@@ -12,7 +12,9 @@
  *     -H "Content-Type: application/json" \
  *     -d '{"to": "mai.nagayoshi@gmail.com"}'
  */
-import { getCorsHeaders, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get('origin'))
@@ -49,6 +51,17 @@ Deno.serve(async (req) => {
 
   const senderEmail = Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
   const senderName  = Deno.env.get('SENDER_NAME')  || 'クインズワルツ'
+  const subject = '[テスト] Resend webhook 動作確認'
+  const text = 'これは Resend webhook 復活確認用のテストメールです。\n\n受信後、 Resend Dashboard で email.delivered イベントが 200 で通れば webhook 復活成功です。'
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', getServiceRoleKey())
+  const emailLogId = await insertEmailLog(supabase, {
+    email_type: 'other',
+    to_email:   to,
+    subject,
+    body_text:  text,
+    status:     'queued',
+  })
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -59,14 +72,29 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: `${senderName} <${senderEmail}>`,
       to: [to],
-      subject: '[テスト] Resend webhook 動作確認',
-      text: 'これは Resend webhook 復活確認用のテストメールです。\n\n受信後、 Resend Dashboard で email.delivered イベントが 200 で通れば webhook 復活成功です。',
+      subject,
+      text,
     }),
   })
 
   const resendBody = await res.json().catch(() => ({}))
+  const providerMessageId = (resendBody as { id?: string })?.id ?? null
+
+  if (res.ok && providerMessageId) {
+    await updateEmailLog(supabase, emailLogId, {
+      provider_message_id: providerMessageId,
+      status:              'sent',
+      sent_at:             new Date().toISOString(),
+    })
+  } else if (!res.ok) {
+    await updateEmailLog(supabase, emailLogId, {
+      status:        'failed',
+      error_message: JSON.stringify(resendBody).slice(0, 500),
+    })
+  }
+
   return new Response(
-    JSON.stringify({ success: res.ok, status: res.status, to, resend: resendBody }),
+    JSON.stringify({ success: res.ok, status: res.status, to, email_log_id: emailLogId, resend: resendBody }),
     { status: res.ok ? 200 : 500, headers: corsHeaders },
   )
 })
