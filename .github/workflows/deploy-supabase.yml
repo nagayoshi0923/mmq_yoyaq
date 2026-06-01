@@ -83,6 +83,7 @@ jobs:
             "send-contact-inquiry"
             "send-author-report"
             "notify-kit-transfer-plan"
+            "sync-resend-email-logs"
           )
           
           # すべての関数をデプロイ
@@ -176,6 +177,7 @@ jobs:
             "send-contact-inquiry"
             "send-author-report"
             "notify-kit-transfer-plan"
+            "sync-resend-email-logs"
           )
           
           # すべての関数をデプロイ
