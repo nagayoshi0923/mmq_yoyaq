@@ -1,0 +1,2 @@
+[functions.sync-resend-email-logs]
+verify_jwt = false
