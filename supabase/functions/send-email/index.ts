@@ -111,6 +111,7 @@ serve(async (req) => {
       email_type: 'other',
       to_email: recipients[0],
       subject,
+      body_text: body,
       status: 'queued',
     })
 

@@ -468,6 +468,7 @@ serve(async (req) => {
         to_email:        email,
         to_name:         name ?? null,
         subject:         emailSubject,
+        body_html:       html,
         status:          'queued',
       })
 

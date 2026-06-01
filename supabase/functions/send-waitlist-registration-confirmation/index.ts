@@ -281,6 +281,8 @@ ${emailTemplates.footer}
       to_email:        data.customerEmail,
       to_name:         data.customerName ?? null,
       subject:         emailSubject,
+      body_html:       finalHtml,
+      body_text:       finalText,
       status:          'queued',
     })
 

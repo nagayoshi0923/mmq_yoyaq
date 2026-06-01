@@ -522,6 +522,8 @@ ${emailSettings.senderName}
     email_type:      'performance_cancellation',
     to_email:        customerEmail,
     subject:         emailSubject,
+    body_html:       finalHtml,
+    body_text:       finalText,
     status:          'queued',
   })
 

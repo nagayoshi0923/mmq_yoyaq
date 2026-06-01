@@ -373,6 +373,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       to_email:        changeData.customerEmail,
       to_name:         changeData.customerName ?? null,
       subject:         emailSubject,
+      body_html:       finalHtml,
+      body_text:       finalText,
       status:          'queued',
     })
 

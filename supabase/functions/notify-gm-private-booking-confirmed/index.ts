@@ -377,6 +377,8 @@ ${data.gmName} さん
             to_email:        data.gmEmail,
             to_name:         data.gmName ?? null,
             subject:         gmEmailSubject,
+            body_html:       emailHtml,
+            body_text:       emailText,
             status:          'queued',
           })
 

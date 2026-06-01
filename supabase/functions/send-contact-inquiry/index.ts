@@ -259,6 +259,8 @@ ${message}
           email_type:      'contact_inquiry',
           to_email:        toEmail,
           subject:         inquiryEmailSubject,
+          body_html:       emailHtml,
+          body_text:       emailText,
           status:          'queued',
         })
       : null

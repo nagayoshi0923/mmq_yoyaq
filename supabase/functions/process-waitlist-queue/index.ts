@@ -443,6 +443,8 @@ MMQ
     to_email:        waitlistEntry.customer_email,
     to_name:         waitlistEntry.customer_name ?? null,
     subject:         pWqEmailSubject,
+    body_html:       emailHtml,
+    body_text:       emailText,
     status:          'queued',
   })
 

@@ -352,6 +352,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       to_email:        bookingData.customerEmail,
       to_name:         bookingData.customerName ?? null,
       subject:         emailSubject,
+      body_html:       finalHtml,
+      body_text:       finalText,
       status:          'queued',
     })
 

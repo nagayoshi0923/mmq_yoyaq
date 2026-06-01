@@ -107,6 +107,7 @@ ${inviteUrl}
       to_email:   email,
       to_name:    guestName ?? null,
       subject:    emailSubject,
+      body_text:  emailBody,
       status:     'queued',
     })
 

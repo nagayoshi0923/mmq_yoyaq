@@ -161,6 +161,7 @@ MMQ
       to_email:        to,
       to_name:         authorName ?? null,
       subject:         emailSubject,
+      body_text:       emailText,
       status:          'queued',
     })
 

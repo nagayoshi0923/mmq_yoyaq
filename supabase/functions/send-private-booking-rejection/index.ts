@@ -263,6 +263,8 @@ MMQ
       to_email:        rejectionData.customerEmail,
       to_name:         rejectionData.customerName ?? null,
       subject:         emailSubject,
+      body_html:       finalHtml,
+      body_text:       finalText,
       status:          'queued',
     })
 

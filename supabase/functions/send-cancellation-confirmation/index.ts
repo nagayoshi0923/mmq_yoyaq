@@ -400,6 +400,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       to_email:        cancellationData.customerEmail,
       to_name:         cancellationData.customerName ?? null,
       subject:         emailSubject,
+      body_html:       finalHtml,
+      body_text:       finalText,
       status:          'queued',
     })
 

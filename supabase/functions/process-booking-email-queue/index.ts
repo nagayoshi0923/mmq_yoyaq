@@ -329,6 +329,8 @@ MMQ
       to_email:        item.customer_email,
       to_name:         item.customer_name ?? null,
       subject:         queueEmailSubject,
+      body_html:       emailHtml,
+      body_text:       emailText,
       status:          'queued',
     })
 

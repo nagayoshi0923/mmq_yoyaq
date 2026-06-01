@@ -204,6 +204,8 @@ serve(async (req) => {
       to_email:        reminderData.customerEmail,
       to_name:         reminderData.customerName ?? null,
       subject:         emailSubject,
+      body_html:       emailHtml,
+      body_text:       emailText,
       status:          'queued',
     })
 

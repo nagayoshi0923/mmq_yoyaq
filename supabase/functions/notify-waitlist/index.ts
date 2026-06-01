@@ -499,6 +499,8 @@ ${emailTemplates.footer}
         to_email:          entry.customer_email,
         to_name:           entry.customer_name ?? null,
         subject:           waitlistEmailSubject,
+        body_html:         finalHtml,
+        body_text:         finalText,
         status:            'queued',
       })
 

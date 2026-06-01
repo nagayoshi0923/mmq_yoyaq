@@ -326,6 +326,8 @@ MMQ
       to_email:        requestData.customerEmail,
       to_name:         requestData.customerName ?? null,
       subject:         emailSubject,
+      body_html:       finalHtml,
+      body_text:       finalText,
       status:          'queued',
     })
 
