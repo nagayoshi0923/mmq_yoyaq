@@ -1,5 +1,5 @@
 /**
- * Resend に残っている過去のメール本文を email_logs に同期する
+ * Resend に残っているメール本文 + ステータスを email_logs に同期する
  *
  * 経緯:
  *   Resend はダッシュボード/API 上のメールログを送信から 1 ヶ月で削除する。
@@ -7,11 +7,16 @@
  *   過去送信分や送信時保存に失敗したケースを救うため、定期的に Resend から
  *   本文を取得して email_logs に backfill する。
  *
+ *   さらに、 resend-webhook が機能していなかった時期 (2026-04〜06 初頭) の
+ *   メールは status='sent' のまま delivered/opened が反映されていないので、
+ *   Resend GET /emails/:id のレスポンスに含まれる last_event を見て status
+ *   と関連タイムスタンプも update する。
+ *
  * 動作:
- *   1. email_logs から provider_message_id がある かつ
- *      body_html / body_text が両方 NULL のレコードを最大 BATCH_SIZE 件取得
- *   2. 各レコードについて Resend GET /emails/:id を呼び出して本文取得
- *   3. レスポンスの html / text を email_logs に update
+ *   1. provider_message_id がある かつ
+ *      (body 未取得 OR status が確定前 sent/queued) のレコードを取得
+ *   2. 各レコードについて Resend GET /emails/:id を呼び出し
+ *   3. レスポンスの html / text / last_event を email_logs に update
  *   4. Resend rate limit (10 req/s) を考慮し 100ms 間隔で実行
  *
  * 認証:
@@ -32,12 +37,55 @@ const RATE_LIMIT_INTERVAL_MS = 100 // 10 req/s
 interface EmailLogRow {
   id: string
   provider_message_id: string | null
+  status: string | null
+  body_html: string | null
+  body_text: string | null
 }
 
 interface ResendEmailResponse {
   id?: string
   html?: string | null
   text?: string | null
+  created_at?: string | null
+  last_event?: string | null
+}
+
+type EmailLogStatusUpdate = {
+  status?: string
+  sent_at?: string | null
+  delivered_at?: string | null
+  opened_at?: string | null
+  bounced_at?: string | null
+  complained_at?: string | null
+}
+
+/**
+ * Resend の last_event から email_logs の status と関連タイムスタンプを決定する。
+ * Resend API は個別イベントの timestamp を返さないので created_at で代用する。
+ * delivered/opened/clicked などは「先に sent/delivered している」前提で
+ * その時刻も併せて埋める（顧客視点でステータスが正しく見えれば十分）。
+ */
+function statusFromLastEvent(lastEvent: string | null | undefined, ts: string): EmailLogStatusUpdate | null {
+  switch (lastEvent) {
+    case 'sent':
+      return { status: 'sent', sent_at: ts }
+    case 'delivered':
+      return { status: 'delivered', sent_at: ts, delivered_at: ts }
+    case 'opened':
+      return { status: 'opened', sent_at: ts, delivered_at: ts, opened_at: ts }
+    case 'clicked':
+      return { status: 'clicked', sent_at: ts, delivered_at: ts, opened_at: ts }
+    case 'bounced':
+      return { status: 'bounced', sent_at: ts, bounced_at: ts }
+    case 'complained':
+      return { status: 'complained', sent_at: ts, complained_at: ts }
+    case 'delivery_delayed':
+      return { status: 'delivery_delayed', sent_at: ts }
+    case 'failed':
+      return { status: 'failed' }
+    default:
+      return null
+  }
 }
 
 Deno.serve(async (req) => {
@@ -72,12 +120,12 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const supabase = createClient(SUPABASE_URL, getServiceRoleKey())
 
+  // body 未取得 もしくは status が確定前 (queued/sent) のものを対象にする。
   const { data: rows, error: selectError } = await supabase
     .from('email_logs')
-    .select('id, provider_message_id')
+    .select('id, provider_message_id, status, body_html, body_text')
     .not('provider_message_id', 'is', null)
-    .is('body_html', null)
-    .is('body_text', null)
+    .or('and(body_html.is.null,body_text.is.null),status.eq.queued,status.eq.sent')
     .order('created_at', { ascending: false })
     .limit(BATCH_SIZE)
 
@@ -90,16 +138,14 @@ Deno.serve(async (req) => {
   }
 
   const targets = (rows ?? []) as EmailLogRow[]
-  let updated = 0
+  let bodyUpdated = 0
+  let statusUpdated = 0
   let notFound = 0
   let failed = 0
-  let skipped = 0
+  let bodyPlaceholder = 0
 
   for (const row of targets) {
-    if (!row.provider_message_id) {
-      skipped++
-      continue
-    }
+    if (!row.provider_message_id) continue
     try {
       const res = await fetch(`${RESEND_API_BASE}/emails/${row.provider_message_id}`, {
         method: 'GET',
@@ -116,33 +162,39 @@ Deno.serve(async (req) => {
         const data = (await res.json()) as ResendEmailResponse
         const bodyHtml = data.html ?? null
         const bodyText = data.text ?? null
+        const ts = data.created_at ?? new Date().toISOString()
+        const statusPatch = statusFromLastEvent(data.last_event, ts)
 
-        if (!bodyHtml && !bodyText) {
-          // Resend にメタ情報は残っているが本文は既に消去されている (1ヶ月超過)
-          // 次回以降の sync 対象から外すため body_text にプレースホルダを入れる
-          const placeholder = '(Resend のメール保持期間 (約1ヶ月) を過ぎたため本文を取得できませんでした)'
-          const { error: markError } = await supabase
-            .from('email_logs')
-            .update({ body_text: placeholder })
-            .eq('id', row.id)
-          if (markError) {
-            console.warn('email_logs placeholder update failed:', row.id, markError.message)
-            failed++
+        // 1) body 部分の patch を組み立て (まだ取得していない場合のみ)
+        const bodyPatch: Record<string, string | null> = {}
+        const needsBody = row.body_html === null && row.body_text === null
+        if (needsBody) {
+          if (!bodyHtml && !bodyText) {
+            // 本文は Resend から消去済み → プレースホルダで sync 対象から外す
+            bodyPatch.body_text = '(Resend のメール保持期間 (約1ヶ月) を過ぎたため本文を取得できませんでした)'
           } else {
-            skipped++
+            bodyPatch.body_html = bodyHtml
+            bodyPatch.body_text = bodyText
           }
+        }
+
+        const combinedPatch = { ...bodyPatch, ...(statusPatch ?? {}) }
+        if (Object.keys(combinedPatch).length === 0) continue
+
+        const { error: updateError } = await supabase
+          .from('email_logs')
+          .update(combinedPatch)
+          .eq('id', row.id)
+
+        if (updateError) {
+          console.warn('email_logs update failed:', row.id, updateError.message)
+          failed++
         } else {
-          const { error: updateError } = await supabase
-            .from('email_logs')
-            .update({ body_html: bodyHtml, body_text: bodyText })
-            .eq('id', row.id)
-
-          if (updateError) {
-            console.warn('email_logs update failed:', row.id, updateError.message)
-            failed++
-          } else {
-            updated++
+          if (needsBody) {
+            if (bodyPatch.body_text && !bodyPatch.body_html) bodyPlaceholder++
+            else bodyUpdated++
           }
+          if (statusPatch && statusPatch.status !== row.status) statusUpdated++
         }
       }
     } catch (err: unknown) {
@@ -156,10 +208,11 @@ Deno.serve(async (req) => {
   const summary = {
     success: true,
     fetched: targets.length,
-    updated,
+    bodyUpdated,
+    statusUpdated,
+    bodyPlaceholder,
     notFound,
     failed,
-    skipped,
   }
   console.log('📬 sync-resend-email-logs summary:', summary)
 
