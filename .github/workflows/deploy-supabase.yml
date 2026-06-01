@@ -84,6 +84,7 @@ jobs:
             "send-author-report"
             "notify-kit-transfer-plan"
             "sync-resend-email-logs"
+            "test-resend-webhook"
           )
           
           # すべての関数をデプロイ
@@ -178,6 +179,7 @@ jobs:
             "send-author-report"
             "notify-kit-transfer-plan"
             "sync-resend-email-logs"
+            "test-resend-webhook"
           )
           
           # すべての関数をデプロイ
