@@ -331,27 +331,43 @@ export function computePrivateBookingSlots(
     if (endMinutes > HARD_DAY_LIMIT) continue
 
     // Boundary extension: end exceeds slot limit but may still fit in the day
+    //
+    // 複数店舗選択時は「いずれか 1 店舗でも収まればOK」(OR判定) にする必要がある。
+    // 各店舗ごとに「自店で startMinutes 以降の最早イベント」を集めて、
+    // - イベント無しの店舗が 1 つでもあれば → 制約なし (HARD_DAY_LIMIT - extraPrep)
+    // - 全店イベントあり → 各店の最早 next event のうち「最も後ろ」の店舗で判定
+    //   (どこかでは収まる、を取る)
     if (endMinutes > effectiveSlotEndLimit) {
-      let nextEventStart: number | null = null
-      for (const ev of allStoreEvents) {
-        const evDate = ev.date ? String(ev.date).split('T')[0] : ''
-        if (evDate !== targetDate) continue
-        const sid = ev.store_id ?? ev.stores?.id ?? null
-        if (!sid || !storeIds.includes(sid)) continue
-        if (!ev.start_time) continue
-        const evStart = timeStrToMinutes(String(ev.start_time))
-        if (evStart !== null && evStart > startMinutes) {
-          if (nextEventStart === null || evStart < nextEventStart) {
-            nextEventStart = evStart
+      let anyStoreWithoutNext = false
+      let bestNextEventStart: number | null = null
+      for (const storeId of storeIds) {
+        let storeNextEventStart: number | null = null
+        for (const ev of allStoreEvents) {
+          const evDate = ev.date ? String(ev.date).split('T')[0] : ''
+          if (evDate !== targetDate) continue
+          const sid = ev.store_id ?? ev.stores?.id ?? null
+          if (sid !== storeId) continue
+          if (!ev.start_time) continue
+          const evStart = timeStrToMinutes(String(ev.start_time))
+          if (evStart !== null && evStart > startMinutes) {
+            if (storeNextEventStart === null || evStart < storeNextEventStart) {
+              storeNextEventStart = evStart
+            }
           }
+        }
+        if (storeNextEventStart === null) {
+          anyStoreWithoutNext = true
+          break
+        }
+        if (bestNextEventStart === null || storeNextEventStart > bestNextEventStart) {
+          bestNextEventStart = storeNextEventStart
         }
       }
 
       const bufferNeeded = 60 + extraPrepTime
-      const effectiveEndLimit =
-        nextEventStart !== null
-          ? nextEventStart - bufferNeeded
-          : HARD_DAY_LIMIT - extraPrepTime
+      const effectiveEndLimit = anyStoreWithoutNext
+        ? HARD_DAY_LIMIT - extraPrepTime
+        : (bestNextEventStart ?? HARD_DAY_LIMIT) - bufferNeeded
 
       if (endMinutes > effectiveEndLimit) continue
     }
