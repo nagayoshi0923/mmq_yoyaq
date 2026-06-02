@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw, Search, ChevronDown, ChevronUp, ExternalLink, FileText, Filter } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
@@ -119,18 +119,29 @@ function statusBadgeClass(status: EmailLogStatus): string {
 
 // ─── メインコンポーネント ──────────────────────────────────────────────────────
 
+const PAGE_SIZE = 50
+
 export function EmailLogsSettings() {
   const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [logs, setLogs]             = useState<EmailLog[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [page, setPage]             = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
   // フィルター
   const [keyword, setKeyword]         = useState('')
+  const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [filterType, setFilterType]   = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [dateFrom, setDateFrom]       = useState('')
   const [dateTo, setDateTo]           = useState('')
+
+  // キーワード入力は 300ms debounce してから fetch に反映
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedKeyword(keyword.trim()), 300)
+    return () => clearTimeout(t)
+  }, [keyword])
 
   const fetchLogs = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
@@ -141,9 +152,10 @@ export function EmailLogsSettings() {
         .from('email_logs')
         .select(
           'id, organization_id, reservation_id, schedule_event_id, email_type, to_email, to_name, subject, body_text, body_html, provider, provider_message_id, status, error_message, sent_at, delivered_at, opened_at, bounced_at, complained_at, created_at',
+          { count: 'exact' },
         )
         .order('created_at', { ascending: false })
-        .limit(200)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus)
@@ -157,10 +169,17 @@ export function EmailLogsSettings() {
       if (dateTo) {
         query = query.lte('created_at', `${dateTo}T23:59:59+09:00`)
       }
+      if (debouncedKeyword) {
+        const q = debouncedKeyword.replace(/([%_,])/g, '\\$1')
+        query = query.or(
+          `to_email.ilike.%${q}%,to_name.ilike.%${q}%,subject.ilike.%${q}%,provider_message_id.ilike.%${q}%`,
+        )
+      }
 
-      const { data, error } = await query
+      const { data, count, error } = await query
       if (error) throw error
       setLogs((data ?? []) as EmailLog[])
+      setTotalCount(count ?? 0)
     } catch (error) {
       logger.error('メールログの取得エラー:', error)
       showToast.error('メールログの取得に失敗しました')
@@ -168,22 +187,23 @@ export function EmailLogsSettings() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [filterStatus, filterType, dateFrom, dateTo])
+  }, [filterStatus, filterType, dateFrom, dateTo, debouncedKeyword, page])
 
   useEffect(() => {
     fetchLogs()
   }, [fetchLogs])
 
-  const filteredLogs = useMemo(() => {
-    if (!keyword.trim()) return logs
-    const q = keyword.trim().toLowerCase()
-    return logs.filter((l) =>
-      l.to_email.toLowerCase().includes(q) ||
-      l.subject.toLowerCase().includes(q) ||
-      (l.to_name ?? '').toLowerCase().includes(q) ||
-      (l.provider_message_id ?? '').toLowerCase().includes(q)
-    )
-  }, [logs, keyword])
+  // フィルター変更時は 1 ページ目に戻す
+  useEffect(() => {
+    setPage(0)
+  }, [filterStatus, filterType, dateFrom, dateTo, debouncedKeyword])
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+
+  // キーワード絞り込みはサーバ側 (debouncedKeyword) に移譲したため、 ここでは
+  // logs をそのまま返す。 旧バージョンの「現在ページ内のみクライアント絞り込み」
+  // 挙動は全件絞り込みに置き換わっている。
+  const filteredLogs = logs
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
@@ -262,7 +282,7 @@ export function EmailLogsSettings() {
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle
           icon={FileText}
-          label="送信ログ（最新200件）"
+          label={`送信ログ（全 ${totalCount.toLocaleString()} 件 / ${PAGE_SIZE} 件ずつ表示）`}
           description="宛先は部分マスク表示。詳細を開くと件名・本文・エラー内容を確認できます。"
         />
         {loading ? (
@@ -383,6 +403,36 @@ export function EmailLogsSettings() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ページネーション */}
+        {!loading && totalCount > PAGE_SIZE && (
+          <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t">
+            <div className="text-xs text-muted-foreground">
+              {page * PAGE_SIZE + 1}〜{Math.min((page + 1) * PAGE_SIZE, totalCount)} / {totalCount.toLocaleString()} 件
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0 || loading}
+              >
+                前へ
+              </Button>
+              <span className="text-xs tabular-nums">
+                {page + 1} / {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1 || loading}
+              >
+                次へ
+              </Button>
+            </div>
           </div>
         )}
       </section>
