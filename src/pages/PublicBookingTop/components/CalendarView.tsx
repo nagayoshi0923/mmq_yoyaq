@@ -305,7 +305,7 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="w-full text-xs py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex items-center justify-between"
+                            className="w-full text-[10px] leading-tight py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex items-center justify-between"
                           >
                             <span>{event.start_time?.slice(0, 5)}</span>
                             <span>貸切満席</span>
@@ -317,7 +317,7 @@ export const CalendarView = memo(function CalendarView({
                         <div
                           key={`${event.id || idx}`}
                           onClick={() => scenario && onCardClick(scenario.scenario_id)}
-                          className="text-xs transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
+                          className="text-[10px] transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
                           style={{
                             borderLeftColor: isFull ? '#9CA3AF' : storeColor,
                             backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
@@ -356,19 +356,19 @@ export const CalendarView = memo(function CalendarView({
 
                             {/* 右カラム: 情報 */}
                             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-                              <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                              <div className="text-[10px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                 {event.start_time?.slice(0, 5)}
                               </div>
-                              <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                              <div className="text-[10px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                 {storeName}
                               </div>
-                              <div 
-                                className="text-xs leading-tight text-gray-800 overflow-hidden whitespace-nowrap"
+                              <div
+                                className="text-[10px] leading-tight text-gray-800 overflow-hidden whitespace-nowrap"
                                 style={{ textOverflow: 'clip' }}
                               >
                                 {event.scenario || event.scenarios?.title}
                               </div>
-                              <div className={`text-xs leading-tight flex items-center gap-1`}>
+                              <div className={`text-[10px] leading-tight flex items-center gap-1`}>
                                 {isConfirmed && (
                                   <span className="text-[8px] font-bold px-0.5 py-0.5 bg-blue-100 text-blue-700">
                                     開催決定
@@ -417,14 +417,14 @@ export const CalendarView = memo(function CalendarView({
                             <div key={slot}>
                               {renderedEvents}
                               <button
-                                className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                                className="w-full text-[10px] leading-tight py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                                 onClick={() => {
                                   const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                   const storeParam = selectedStoreIds.join(',')
                                   navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}&time=${suggestedTime}`)
                                 }}
                               >
-                                {suggestedTime}〜 貸切申込
+                                <span className="whitespace-nowrap">{suggestedTime}〜</span> <span className="whitespace-nowrap">貸切申込</span>
                               </button>
                             </div>
                           )
@@ -435,7 +435,7 @@ export const CalendarView = memo(function CalendarView({
                           return (
                             <button
                               key={slot}
-                              className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                              className="w-full text-[10px] leading-tight py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                 const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : selectedStore.id
