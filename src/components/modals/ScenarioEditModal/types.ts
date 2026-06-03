@@ -115,8 +115,8 @@ export interface ScenarioFormData {
   // 貸切募集期間
   booking_start_date?: string | null
   booking_end_date?: string | null
-  // シナリオ種別 (regular=通常 / online_item=オンライン販売アイテム / offsite_only=出張公演限定)
-  scenario_kind?: 'regular' | 'online_item' | 'offsite_only'
+  // シナリオ種別 (regular=通常 / online_item=オンライン販売アイテム / offsite_only=出張公演限定 / package=パッケージ販売)
+  scenario_kind?: 'regular' | 'online_item' | 'offsite_only' | 'package'
   // 貸切受付フラグ（false=貸切休止中）
   accepts_private_booking?: boolean
   // シナリオ全体の公演期間（NULL=制限なし。掲載・通常公演・貸切すべてに影響）

@@ -335,7 +335,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
           <div className="w-56">
             <Select
               value={formData.scenario_kind || 'regular'}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_kind: value as 'regular' | 'online_item' | 'offsite_only' }))}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_kind: value as 'regular' | 'online_item' | 'offsite_only' | 'package' }))}
             >
               <SelectTrigger className="h-7 text-xs">
                 <SelectValue />
@@ -344,12 +344,14 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 <SelectItem value="regular">通常シナリオ</SelectItem>
                 <SelectItem value="online_item">オンライン販売アイテム</SelectItem>
                 <SelectItem value="offsite_only">出張公演限定</SelectItem>
+                <SelectItem value="package">パッケージ販売</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <span className="text-[11px] text-muted-foreground">
             {formData.scenario_kind === 'online_item' && '予約サイト非掲載（ライセンス報告でのみ使用）'}
             {formData.scenario_kind === 'offsite_only' && '予約サイト掲載・貸切受付なし'}
+            {formData.scenario_kind === 'package' && 'パッケージ販売（担当作品ページに表示しない）'}
             {(!formData.scenario_kind || formData.scenario_kind === 'regular') && '予約・貸切ともに受付'}
           </span>
         </div>
