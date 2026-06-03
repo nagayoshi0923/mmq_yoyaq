@@ -4,7 +4,6 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -442,24 +441,24 @@ export function StaffProfile() {
                         {twoGm ? (
                           <div className="flex items-start justify-center gap-2 sm:gap-3">
                             <div className="flex flex-col items-center gap-0.5">
-                              <Checkbox
+                              <CircleCheck
                                 checked={Boolean(assignment?.can_main_gm)}
-                                onCheckedChange={(v) =>
-                                  setGmRole(scenario.id, 'main', v === true)
+                                onChange={() =>
+                                  setGmRole(scenario.id, 'main', !Boolean(assignment?.can_main_gm))
                                 }
-                                aria-label={`${scenario.title} メインGM可`}
+                                color="blue"
                               />
                               <span className="text-[10px] text-muted-foreground leading-none">
                                 メイン
                               </span>
                             </div>
                             <div className="flex flex-col items-center gap-0.5">
-                              <Checkbox
+                              <CircleCheck
                                 checked={Boolean(assignment?.can_sub_gm)}
-                                onCheckedChange={(v) =>
-                                  setGmRole(scenario.id, 'sub', v === true)
+                                onChange={() =>
+                                  setGmRole(scenario.id, 'sub', !Boolean(assignment?.can_sub_gm))
                                 }
-                                aria-label={`${scenario.title} サブGM可`}
+                                color="blue"
                               />
                               <span className="text-[10px] text-muted-foreground leading-none">
                                 サブ
@@ -467,12 +466,12 @@ export function StaffProfile() {
                             </div>
                           </div>
                         ) : (
-                          <Checkbox
+                          <CircleCheck
                             checked={hasGmRole}
-                            onCheckedChange={(v) =>
-                              setSingleGmCapability(scenario.id, v === true)
+                            onChange={() =>
+                              setSingleGmCapability(scenario.id, !hasGmRole)
                             }
-                            aria-label={`${scenario.title} GM可`}
+                            color="blue"
                           />
                         )}
                       </div>
