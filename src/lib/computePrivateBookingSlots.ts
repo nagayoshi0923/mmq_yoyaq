@@ -326,6 +326,14 @@ export function computePrivateBookingSlots(
       startMinutes = def.candidate.earliestStart
     }
 
+    // 「午後」スロットが実時刻として午前帯 (slotBaselineStart 未満) に逆算された場合、
+    // それは午前スロットと同じ時刻になる重複表示なので午後としては出さない。
+    // 例: 大塚で 14:00-18:00 が埋まっている時、逆算で午後 09:00-13:00 が生成されるが
+    //   午前 09:00-13:00 と被るため UI で混乱の元になる。
+    if (def.key === 'afternoon' && startMinutes < def.candidate.slotBaselineStart) {
+      continue
+    }
+
     const endMinutes = startMinutes + durationMinutes
     if (startMinutes >= effectiveSlotEndLimit) continue
     if (endMinutes > HARD_DAY_LIMIT) continue
