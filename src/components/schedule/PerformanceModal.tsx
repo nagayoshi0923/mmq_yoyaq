@@ -1588,6 +1588,15 @@ export function PerformanceModal({
               pendingParticipants={pendingParticipants}
               onPendingAdd={(p) => setPendingParticipants(prev => [...prev, p])}
               onPendingRemove={(idx) => setPendingParticipants(prev => prev.filter((_, i) => i !== idx))}
+              // GM タブで「スタッフ参加」役割を付けたが、まだ DB 予約として未登録の名前
+              pendingStaffGmNames={(formData.gms || []).filter(n => (formData.gmRoles?.[n] === 'staff') && !staffParticipantsFromDB.includes(n))}
+              onPendingStaffGmRemove={(name) => {
+                // 予約者タブから消すと、GM 側の役割をメインに戻す
+                setFormData((prev: EventFormData) => ({
+                  ...prev,
+                  gmRoles: { ...prev.gmRoles, [name]: 'main' }
+                }))
+              }}
               onDeleteEvent={event && onDeleteEvent ? async () => {
                 await onDeleteEvent(event)
                 onClose()
