@@ -86,6 +86,7 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
       const body = await retryRes.json().catch(() => ({ error: `HTTP ${retryRes.status}` }))
       throw new ApiClientError(retryRes.status, body?.error ?? `API エラー: ${retryRes.status}`, body?.detail)
     }
+    if (retryRes.status === 204) return undefined as T
     return retryRes.json() as Promise<T>
   }
 
@@ -94,6 +95,7 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
     throw new ApiClientError(res.status, body?.error ?? `API エラー: ${res.status}`, body?.detail)
   }
 
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
