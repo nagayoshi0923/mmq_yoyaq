@@ -259,6 +259,22 @@ export function StaffProfile() {
   // 保存
   const handleSave = async () => {
     if (!staffId) return
+    if (loading) {
+      showToast.error('読み込み中です。少し待ってから保存してください')
+      return
+    }
+
+    // 🛡 空保存ガード: 全件解除になる場合は明示的に確認
+    let confirmClear = false
+    if (assignments.length === 0) {
+      const ok = window.confirm(
+        '現在「担当 0 件」の状態で保存しようとしています。\n' +
+        '保存すると、過去に登録されていた担当・体験済みの記録がすべて削除されます。\n\n' +
+        '本当に全件解除しますか？'
+      )
+      if (!ok) return
+      confirmClear = true
+    }
 
     try {
       setSaving(true)
@@ -278,7 +294,7 @@ export function StaffProfile() {
         is_experienced: a.is_experienced
       }))
 
-      await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId)
+      await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId, { confirmClear })
 
       // NOTE: staff.special_scenarios への同期は廃止
       // staff_scenario_assignments が唯一のデータソース

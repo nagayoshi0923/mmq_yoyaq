@@ -188,7 +188,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (action === 'update_staff_assignments') {
     // スタッフの担当シナリオを一括更新
     // assignments: Array<{ scenarioId, can_main_gm, can_sub_gm, is_experienced, notes? }>
-    const { staff_id, assignments } = body as {
+    const { staff_id, assignments, confirm_clear } = body as {
       staff_id?: string
       assignments?: Array<{
         scenarioId: string
@@ -197,11 +197,28 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
         is_experienced: boolean
         notes?: string | null
       }>
+      confirm_clear?: boolean
     }
     if (!staff_id || !Array.isArray(assignments)) {
       return res.status(400).json({ error: 'staff_id / assignments が必要です' })
     }
     await assertStaffOwnedByOrg(staff_id, user.orgId)
+
+    // 🛡 空配列での一括クリアは、明示的な confirm_clear: true なしには受理しない
+    // (ロード失敗やクライアント不具合で空配列が送られて全消失する事故を防止)
+    if (assignments.length === 0 && confirm_clear !== true) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (db as any)
+        .from('staff_scenario_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('staff_id', staff_id)
+        .eq('organization_id', user.orgId)
+      return res.status(409).json({
+        error: 'EMPTY_PAYLOAD_REJECTED',
+        message: '担当 0 件での一括更新を拒否しました。本当に全件解除する場合は confirm_clear: true を指定してください。',
+        existing_count: count ?? 0,
+      })
+    }
 
     // 既存を全削除（自組織分のみ）
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
