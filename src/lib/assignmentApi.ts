@@ -96,7 +96,8 @@ export const assignmentApi = {
       status?: 'want_to_learn' | 'experienced' | 'can_gm'
       notes?: string
     }>,
-    _organizationId?: string
+    _organizationId?: string,
+    options?: { confirmClear?: boolean }
   ) {
     const isStringArray = assignments.length === 0 || typeof assignments[0] === 'string'
 
@@ -140,6 +141,9 @@ export const assignmentApi = {
       await apiClient.post('/api/assignments?action=update_staff_assignments', {
         staff_id: staffId,
         assignments: Array.from(combinedMap.values()),
+        // string[] 経路 (旧スタッフ管理モーダル) は意図的に全件入れ替えるケースなので
+        // 空配列でも全削除を許可（GM個人ページからの保存は別経路で confirmClear を制御）
+        confirm_clear: true,
       })
     } else {
       // 詳細オブジェクト配列の場合: 全レコードを置き換え
@@ -155,6 +159,7 @@ export const assignmentApi = {
       await apiClient.post('/api/assignments?action=update_staff_assignments', {
         staff_id: staffId,
         assignments: records,
+        confirm_clear: options?.confirmClear === true,
       })
     }
   },
