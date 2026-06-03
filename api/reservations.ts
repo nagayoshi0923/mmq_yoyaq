@@ -457,12 +457,17 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
   }
 
   // マルチテナント境界: schedule_event が自組織のものか
+  // NOTE: schedule_events に `duration` カラムは存在しない (start_time/end_time から算出)
   const { data: ev, error: evError } = await db
     .from('schedule_events')
-    .select('id, organization_id, date, start_time, scenario, scenario_master_id, store_id, duration')
+    .select('id, organization_id, date, start_time, end_time, scenario, scenario_master_id, store_id')
     .eq('id', scheduleEventId)
     .maybeSingle()
-  if (evError || !ev) {
+  if (evError) {
+    console.error('[reservations:create-staff-entry] schedule_events select error:', evError)
+    return res.status(500).json({ error: 'schedule_event の取得に失敗しました', detail: evError.message })
+  }
+  if (!ev) {
     return res.status(404).json({ error: 'schedule_event が見つかりません' })
   }
   if (ev.organization_id !== user.orgId) {
@@ -472,6 +477,17 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
   const reservationNumber = generateReservationNumber()
   const date = eventDetails.date || ev.date
   const startTime = eventDetails.start_time || ev.start_time
+  // start_time / end_time から duration (分) を算出。失敗時は eventDetails か 120 にフォールバック
+  const computedDuration: number = (() => {
+    if (eventDetails.duration && eventDetails.duration > 0) return eventDetails.duration
+    if (ev.start_time && ev.end_time) {
+      const [sh, sm] = String(ev.start_time).split(':').map(Number)
+      const [eh, em] = String(ev.end_time).split(':').map(Number)
+      const diff = (eh * 60 + em) - (sh * 60 + sm)
+      if (diff > 0) return diff
+    }
+    return 120
+  })()
 
   const payload = {
     organization_id: user.orgId,
@@ -483,7 +499,7 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
     customer_id: null,
     customer_notes: staffName,
     requested_datetime: `${date}T${startTime}+09:00`,
-    duration: eventDetails.duration ?? ev.duration ?? 120,
+    duration: computedDuration,
     participant_count: 1,
     participant_names: [staffName],
     assigned_staff: [],
