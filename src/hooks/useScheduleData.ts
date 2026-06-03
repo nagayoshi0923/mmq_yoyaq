@@ -253,22 +253,6 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
   }
 }
 
-/** スタッフ×担当シナリオ取得の同時リクエスト数（大量並列でブラウザ／DBが詰まるのを防ぐ） */
-const STAFF_ASSIGNMENT_CHUNK = 8
-
-async function mapInChunks<T, R>(
-  items: readonly T[],
-  chunkSize: number,
-  mapper: (item: T) => Promise<R>
-): Promise<R[]> {
-  const out: R[] = []
-  for (let i = 0; i < items.length; i += chunkSize) {
-    const chunk = items.slice(i, i + chunkSize)
-    out.push(...(await Promise.all(chunk.map(mapper))))
-  }
-  return out
-}
-
 interface Store {
   id: string
   name: string
@@ -510,26 +494,24 @@ export function useScheduleData(currentDate: Date) {
         staffRef.current = staffData
         setStaff(staffData)
 
-        // スタッフの担当シナリオをチャンク並列で取得（数十人同時だと接続・CPUが重くなるのを緩和）
-        const staffWithScenarios = await mapInChunks(
-          staffData,
-          STAFF_ASSIGNMENT_CHUNK,
-          async (staffMember) => {
-            try {
-              const assignments = await assignmentApi.getStaffAssignments(staffMember.id, orgId || undefined)
-              const scenarioIds = assignments.map((a: { scenario_id: string }) => a.scenario_id)
-              return {
-                ...staffMember,
-                special_scenarios: scenarioIds
-              }
-            } catch {
-              return {
-                ...staffMember,
-                special_scenarios: []
-              }
-            }
-          }
-        )
+        // スタッフの担当シナリオを 1 リクエスト (最大 50 件) で一括取得
+        // 旧実装は staff ごとの N+1 リクエストでチャンク並列していたが、
+        // 数十人いるとブラウザ→Edge Function 間のラウンドトリップが詰まるため
+        // バッチエンドポイント (/api/assignments?staff_ids=...) に集約
+        let staffWithScenarios = staffData
+        try {
+          const batch = await assignmentApi.getBatchStaffAssignments(
+            staffData.map((s) => s.id),
+            orgId || undefined
+          )
+          staffWithScenarios = staffData.map((staffMember) => ({
+            ...staffMember,
+            special_scenarios: batch.get(staffMember.id)?.gmScenarios ?? [],
+          }))
+        } catch (err) {
+          logger.error('スタッフ担当シナリオ一括取得エラー:', err)
+          staffWithScenarios = staffData.map((s) => ({ ...s, special_scenarios: [] }))
+        }
 
         staffRef.current = staffWithScenarios
         setStaff(staffWithScenarios)
