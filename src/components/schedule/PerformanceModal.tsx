@@ -210,6 +210,10 @@ export function PerformanceModal({
   const [activeTab, setActiveTab] = useState<string>('edit')
   // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
+  // add モードで「+ 参加者を追加」した時のバッファ (event 未保存のため DB INSERT できないので一時保持)
+  // 保存時に handleSave で一括 INSERT する
+  type PendingParticipant = { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }
+  const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
   const [deleteConfirming, setDeleteConfirming] = useState(false)
@@ -840,6 +844,68 @@ export function PerformanceModal({
         }
       } catch (err) {
         logger.error('保存後のスタッフ参加予約同期に失敗:', err)
+      }
+
+      // バッファされた一般参加者 (+ 参加者を追加で追加された分) も保存後に INSERT
+      try {
+        if (pendingParticipants.length > 0) {
+          const orgId = await getCurrentOrganizationId()
+          let targetEventId: string | undefined = event?.id
+          if (!targetEventId) {
+            const { data: matched } = await supabase
+              .from('schedule_events')
+              .select('id')
+              .eq('organization_id', orgId)
+              .eq('date', saveData.date)
+              .eq('start_time', saveData.start_time)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (matched) targetEventId = matched.id
+          }
+          if (targetEventId) {
+            const scenarioObj = scenarios.find(s => s.title === saveData.scenario)
+            const storeId = event?.store_id ?? (stores.find(s => s.id === saveData.venue || s.name === saveData.venue)?.id ?? null)
+            const isGmTest = saveData.category === 'gmtest'
+            const baseFee = isGmTest
+              ? (scenarioObj?.gm_test_participation_fee ?? scenarioObj?.participation_fee ?? 0)
+              : (scenarioObj?.participation_fee ?? 0)
+            for (const p of pendingParticipants) {
+              const isStaffPay = p.paymentMethod === 'staff'
+              const unitPrice = isStaffPay ? 0 : baseFee
+              const total = unitPrice * p.count
+              const now = new Date()
+              const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+              const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+              const reservationNumber = `${dateStr}-${randomStr}`
+              await supabase.from('reservations').insert({
+                reservation_number: reservationNumber,
+                schedule_event_id: targetEventId,
+                organization_id: orgId,
+                title: saveData.scenario || '',
+                scenario_master_id: scenarioObj?.id ?? null,
+                store_id: storeId,
+                customer_name: p.name,
+                participant_names: [p.name],
+                participant_count: p.count,
+                base_price: unitPrice * p.count,
+                unit_price: unitPrice,
+                total_price: total,
+                final_price: total,
+                discount_amount: 0,
+                duration: 240,
+                requested_datetime: new Date().toISOString(),
+                payment_method: p.paymentMethod,
+                payment_status: (p.paymentMethod === 'online' || isStaffPay) ? 'paid' : 'pending',
+                status: 'confirmed',
+                reservation_source: isStaffPay ? 'staff_participation' : 'walk_in',
+              })
+            }
+            setPendingParticipants([])
+          }
+        }
+      } catch (err) {
+        logger.error('保存後の参加者バッファ同期に失敗:', err)
       }
       onClose()
     }
@@ -1519,6 +1585,9 @@ export function PerformanceModal({
               }}
               onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
               onStaffParticipantsChange={setStaffParticipantsFromDB}
+              pendingParticipants={pendingParticipants}
+              onPendingAdd={(p) => setPendingParticipants(prev => [...prev, p])}
+              onPendingRemove={(idx) => setPendingParticipants(prev => prev.filter((_, i) => i !== idx))}
               onDeleteEvent={event && onDeleteEvent ? async () => {
                 await onDeleteEvent(event)
                 onClose()
