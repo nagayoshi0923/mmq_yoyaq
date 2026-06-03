@@ -64,6 +64,21 @@ const generateTimeOptions = () => {
 
 const timeOptions = generateTimeOptions()
 
+// 公演カテゴリ別のトーン（bg=ダイアログ背景, section=内側カード/フッター/タブ, border=枠線）
+// イベント枠の categoryConfig と同じ系統だが、内側に階調をつけるため 3 段階で持つ
+const CATEGORY_TONE: Record<string, { bg: string; section: string; border: string }> = {
+  open:              { bg: '#eff6ff', section: '#dbeafe', border: '#bfdbfe' }, // blue-50/100/200
+  private:           { bg: '#faf5ff', section: '#f3e8ff', border: '#e9d5ff' }, // purple
+  gmtest:            { bg: '#fff7ed', section: '#ffedd5', border: '#fed7aa' }, // orange
+  testplay:          { bg: '#fefce8', section: '#fef9c3', border: '#fef08a' }, // yellow
+  offsite:           { bg: '#f0fdf4', section: '#dcfce7', border: '#bbf7d0' }, // green
+  venue_rental:      { bg: '#ecfeff', section: '#cffafe', border: '#a5f3fc' }, // cyan
+  venue_rental_free: { bg: '#f0fdfa', section: '#ccfbf1', border: '#99f6e4' }, // teal
+  package:           { bg: '#fdf2f8', section: '#fce7f3', border: '#fbcfe8' }, // pink
+  mtg:               { bg: '#ecfeff', section: '#cffafe', border: '#a5f3fc' }, // cyan
+  memo:              { bg: '#f9fafb', section: '#f3f4f6', border: '#e5e7eb' }, // gray
+}
+
 // スタッフの背景色から文字色を取得するマッピング
 const COLOR_MAP: Record<string, string> = {
   '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
@@ -767,12 +782,52 @@ export function PerformanceModal({
     }}>
       <DialogContent
         size="md"
-        className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0"
+        data-perf-modal=""
+        className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0 transition-colors"
+        // 編集中のカテゴリ把握用に、ダイアログ全体の背景・枠を該当カテゴリ色で着色
+        style={(() => {
+          const tone = CATEGORY_TONE[formData.category]
+          return tone
+            ? ({ backgroundColor: tone.bg, borderColor: tone.border, ['--input-bg' as string]: tone.bg } as React.CSSProperties)
+            : undefined
+        })()}
         // 保存後、events 再フェッチでトリガー要素が一時的に消えると Radix の focus
         // 復元先がなくなり body にフォールバックしてページ最上部までスクロールするため、
         // close 時の auto-focus 復元を無効化する。
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
+        {/* カテゴリ別 tone.bg を Select/Input/Textarea/PopoverTrigger/タブ/白系ボタン に適用 */}
+        {CATEGORY_TONE[formData.category] && (
+          <style>{`
+            [data-perf-modal] [role="combobox"],
+            [data-perf-modal] button[aria-haspopup="dialog"],
+            [data-perf-modal] input:not([type="checkbox"]):not([type="radio"]),
+            [data-perf-modal] textarea,
+            [data-perf-modal] button.bg-white,
+            [data-perf-modal] button.bg-background {
+              background-color: ${CATEGORY_TONE[formData.category].bg} !important;
+              border-color: ${CATEGORY_TONE[formData.category].border} !important;
+            }
+            [data-perf-modal] [role="combobox"]:focus,
+            [data-perf-modal] input:not([type="checkbox"]):not([type="radio"]):focus,
+            [data-perf-modal] textarea:focus {
+              background-color: #ffffff !important;
+            }
+            /* アクティブタブの白背景を tone.bg に上書き (shadcn デフォルトは bg-background) */
+            [data-perf-modal] [role="tab"][data-state="active"] {
+              background-color: ${CATEGORY_TONE[formData.category].bg} !important;
+            }
+            /* outline 系の Button (キャンセル等) も tone.bg に */
+            [data-perf-modal] button[class*="border-input"]:not([data-state="active"]):not(.bg-slate-900):not(.bg-primary) {
+              background-color: ${CATEGORY_TONE[formData.category].bg} !important;
+              border-color: ${CATEGORY_TONE[formData.category].border} !important;
+            }
+            /* Badge 系 (bg-gray-100 等) は tone.section で内側に少し色がつくように */
+            [data-perf-modal] .bg-gray-100 {
+              background-color: ${CATEGORY_TONE[formData.category].section} !important;
+            }
+          `}</style>
+        )}
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
@@ -795,7 +850,10 @@ export function PerformanceModal({
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0">
-            <TabsList className="grid w-full grid-cols-4 h-7 sm:h-8">
+            <TabsList
+              className="grid w-full grid-cols-4 h-7 sm:h-8"
+              style={CATEGORY_TONE[formData.category] ? { backgroundColor: CATEGORY_TONE[formData.category].section } : undefined}
+            >
               <TabsTrigger value="edit" className="text-[11px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>
               <TabsTrigger value="reservations" className="text-[11px] sm:text-xs h-6 sm:h-7">
                 予約者
@@ -826,8 +884,84 @@ export function PerformanceModal({
           <TabsContent value="edit" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
             <div className="space-y-3 pb-2 sm:pb-0">
 
+          {/* ── カテゴリ（クイック選択） ── */}
+          {(() => {
+            const PRIMARY_CATS: { value: string; label: string }[] = [
+              { value: 'open',     label: 'オープン' },
+              { value: 'private',  label: '貸切' },
+              { value: 'offsite',  label: '出張' },
+              { value: 'testplay', label: 'テストプレイ' },
+            ]
+            const OTHER_CATS: { value: string; label: string }[] = [
+              { value: 'gmtest',            label: 'GMテスト' },
+              { value: 'venue_rental',      label: '場所貸し' },
+              { value: 'venue_rental_free', label: '場所貸無料' },
+              { value: 'package',           label: 'パッケージ会' },
+              { value: 'mtg',               label: 'MTG' },
+              { value: 'memo',              label: 'メモに変換' },
+              { value: '__custom__',       label: 'カスタム…' },
+            ]
+            const isPrimary = PRIMARY_CATS.some(c => c.value === formData.category)
+            const otherMatch = OTHER_CATS.find(c => c.value === formData.category)
+            const otherTriggerLabel = otherMatch?.label
+              ?? (formData.category && !isPrimary ? formData.category : 'その他')
+            return (
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {PRIMARY_CATS.map(c => {
+                    const active = formData.category === c.value
+                    return (
+                      <button
+                        key={c.value}
+                        type="button"
+                        disabled={formData.is_private_request}
+                        onClick={() => setFormData((prev: EventFormData) => ({ ...prev, category: c.value }))}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          active
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    )
+                  })}
+                  <Select
+                    value={isPrimary ? '' : (formData.category || '')}
+                    onValueChange={(value: string) => setFormData((prev: EventFormData) => ({ ...prev, category: value }))}
+                    disabled={formData.is_private_request}
+                  >
+                    <SelectTrigger
+                      className={`h-7 w-auto px-2.5 text-xs rounded-full gap-1 bg-white ${
+                        isPrimary
+                          ? 'text-gray-700 border-gray-300'
+                          : 'text-slate-900 border-slate-900 border-2 font-medium'
+                      }`}
+                    >
+                      <SelectValue placeholder="その他">{otherTriggerLabel}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OTHER_CATS.map(c => (
+                        <SelectItem key={c.value} value={c.value} className="text-xs py-1">{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(formData.category === '__custom__' || (formData.category && !isPrimary && !otherMatch)) && !formData.is_private_request && (
+                  <Input
+                    value={formData.category === '__custom__' ? '' : formData.category}
+                    onChange={(e) => setFormData((prev: EventFormData) => ({ ...prev, category: e.target.value || '__custom__' }))}
+                    placeholder="カスタム種別名（例: 体験公演）"
+                    className="h-7 text-xs"
+                  />
+                )}
+                {formData.is_private_request && <p className="text-[11px] text-purple-600">※ 貸切のためカテゴリ変更不可</p>}
+              </div>
+            )
+          })()}
+
           {/* ── セクション1: 日時・場所 ── */}
-          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+          <div className="rounded-lg border p-3 space-y-2" style={CATEGORY_TONE[formData.category] ? { backgroundColor: CATEGORY_TONE[formData.category].section, borderColor: CATEGORY_TONE[formData.category].border } : { backgroundColor: "rgb(248 250 252 / 0.7)" }}>
             <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
               <Calendar className="h-3.5 w-3.5" />日時・場所
             </p>
@@ -914,7 +1048,7 @@ export function PerformanceModal({
           </div>{/* /セクション1 */}
 
           {/* ── セクション2: 公演内容 ── */}
-          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+          <div className="rounded-lg border p-3 space-y-2" style={CATEGORY_TONE[formData.category] ? { backgroundColor: CATEGORY_TONE[formData.category].section, borderColor: CATEGORY_TONE[formData.category].border } : { backgroundColor: "rgb(248 250 252 / 0.7)" }}>
             <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
               <BookOpen className="h-3.5 w-3.5" />公演内容
             </p>
@@ -991,39 +1125,6 @@ export function PerformanceModal({
               </div>
             </div>
 
-            {/* カテゴリ */}
-            <div className="flex items-start gap-3">
-              <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">カテゴリ</Label>
-              <div className="flex-1">
-                <Select value={formData.category} onValueChange={(value: string) => {
-                  setFormData((prev: EventFormData) => ({ ...prev, category: value, scenario: prev.scenario, gms: prev.gms, gmRoles: prev.gmRoles }))
-                }} disabled={formData.is_private_request}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue placeholder="カテゴリ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open" className="text-xs py-1">オープン公演</SelectItem>
-                    <SelectItem value="private" className="text-xs py-1">貸切公演</SelectItem>
-                    <SelectItem value="gmtest" className="text-xs py-1">GMテスト</SelectItem>
-                    <SelectItem value="testplay" className="text-xs py-1">テストプレイ</SelectItem>
-                    <SelectItem value="offsite" className="text-xs py-1">出張公演</SelectItem>
-                    <SelectItem value="venue_rental" className="text-xs py-1">場所貸し</SelectItem>
-                    <SelectItem value="venue_rental_free" className="text-xs py-1">場所貸無料</SelectItem>
-                    <SelectItem value="package" className="text-xs py-1">パッケージ会</SelectItem>
-                    <SelectItem value="mtg" className="text-xs py-1">MTG</SelectItem>
-                    <SelectItem value="memo" className="text-xs py-1">メモに変換</SelectItem>
-                    <SelectItem value="__custom__" className="text-xs py-1">カスタム…</SelectItem>
-                  </SelectContent>
-                </Select>
-                {(formData.category === '__custom__' || !['open','private','gmtest','testplay','offsite','venue_rental','venue_rental_free','package','mtg','memo'].includes(formData.category)) && !formData.is_private_request && (
-                  <Input value={['__custom__'].includes(formData.category) ? '' : formData.category}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, category: e.target.value || '__custom__' }))}
-                    placeholder="カスタム種別名（例: 体験公演）" className="h-7 text-xs mt-1" />
-                )}
-                {formData.is_private_request && <p className="text-[11px] text-purple-600 mt-0.5">※ 貸切のため変更不可</p>}
-              </div>
-            </div>
-
             {/* 最大参加者数 */}
             <div className="flex items-center gap-3">
               <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">最大定員</Label>
@@ -1052,7 +1153,7 @@ export function PerformanceModal({
           </div>{/* /セクション2 */}
 
           {/* ── セクション3: スタッフ・備考 ── */}
-          <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+          <div className="rounded-lg border p-3 space-y-2" style={CATEGORY_TONE[formData.category] ? { backgroundColor: CATEGORY_TONE[formData.category].section, borderColor: CATEGORY_TONE[formData.category].border } : { backgroundColor: "rgb(248 250 252 / 0.7)" }}>
             <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
               <Users className="h-3.5 w-3.5" />スタッフ・備考
             </p>
@@ -1290,7 +1391,12 @@ export function PerformanceModal({
         </Tabs>
 
         {/* フッターアクションボタン */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 p-1.5 sm:p-2 border-t bg-background shrink-0">
+        <div
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 p-1.5 sm:p-2 border-t shrink-0"
+          style={CATEGORY_TONE[formData.category]
+            ? { backgroundColor: CATEGORY_TONE[formData.category].bg, borderTopColor: CATEGORY_TONE[formData.category].border }
+            : undefined}
+        >
           {/* 左側：シナリオ情報（省スペース表示） */}
           <div className="flex-1 min-w-0 hidden sm:block">
             {(() => {
@@ -1386,31 +1492,106 @@ export function PerformanceModal({
               const categoryFee = getCategoryFee()
               
               // シナリオ情報がある場合はシナリオ情報＋料金を表示
+              const hasGms = formData.gms && formData.gms.length > 0
+              const CATEGORY_LABEL_MAP: Record<string, string> = {
+                open: 'オープン',
+                private: '貸切',
+                offsite: '出張',
+                testplay: 'テストプレイ',
+                gmtest: 'GMテスト',
+                venue_rental: '場所貸し',
+                venue_rental_free: '場所貸無料',
+                package: 'パッケージ',
+                mtg: 'MTG',
+                memo: 'メモ',
+              }
+              const categoryLabel = CATEGORY_LABEL_MAP[category] || category
+              const tone = CATEGORY_TONE[category]
+
+              // 役割バッジ: フォーム GM チップのカラー (line 1217-1227) と揃える
+              // staff は DB に予約実体がある場合は green、無い場合 (=「参加予定」) は yellow
+              const getRoleBadge = (name: string): { label: string; bg: string; text: string } => {
+                const role = formData.gmRoles?.[name] || 'main'
+                const isBackedByStaffReservation = role === 'staff' && staffParticipantsFromDB.includes(name)
+                if (role === 'observer') return { label: '見学', bg: '#e0e7ff', text: '#3730a3' } // indigo-100/800
+                if (role === 'reception') return { label: '受付', bg: '#ffedd5', text: '#9a3412' } // orange-100/800
+                if (role === 'staff') {
+                  return isBackedByStaffReservation
+                    ? { label: '参加',     bg: '#dcfce7', text: '#166534' } // green-100/800
+                    : { label: '参加予定', bg: '#fef9c3', text: '#854d0e' } // yellow-100/800
+                }
+                if (role === 'sub') return { label: 'サブ', bg: '#dbeafe', text: '#1e40af' } // blue-100/800
+                return { label: 'メイン', bg: '#f3f4f6', text: '#1f2937' } // gray-100/800
+              }
+
+              const Dot = () => <span className="text-muted-foreground/60">·</span>
+
+              const categoryBadge = categoryLabel ? (
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+                  style={tone ? { backgroundColor: tone.border, color: '#1f2937' } : { backgroundColor: '#f3f4f6', color: '#374151' }}
+                >
+                  {categoryLabel}
+                </span>
+              ) : null
+
+              const gmList = hasGms ? (
+                <span className="flex items-center gap-1 flex-wrap">
+                  <UserCog className="w-3 h-3 shrink-0 text-muted-foreground" />
+                  {formData.gms.map((name, idx) => {
+                    const badge = getRoleBadge(name)
+                    return (
+                      <span
+                        key={`${name}-${idx}`}
+                        className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{ backgroundColor: badge.bg, color: badge.text }}
+                        title={badge.label}
+                      >
+                        {name}
+                      </span>
+                    )
+                  })}
+                </span>
+              ) : null
+
               if (selectedScenario) {
                 return (
-                  <div className="flex items-center gap-2 text-[11px] sm:text-xs font-medium">
-                    <span>{selectedScenario.duration}h</span>
-                    <span className="text-muted-foreground">|</span>
-                    <span>最大{selectedScenario.player_count_max}名</span>
-                    {categoryFee && (
-                      <>
-                        <span className="text-muted-foreground">|</span>
-                        <span>{categoryFee.label ? `${categoryFee.label} ` : ''}{categoryFee.fee}</span>
-                      </>
-                    )}
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
+                    {categoryBadge}
+                    <span className="font-semibold truncate max-w-[180px]" title={selectedScenario.title}>{selectedScenario.title}</span>
+                    <span className="flex items-center gap-0.5 text-muted-foreground">
+                      <Clock className="w-3 h-3" />{selectedScenario.duration}h
+                    </span>
+                    <Dot />
+                    <span className="flex items-center gap-0.5 text-muted-foreground">
+                      <Users className="w-3 h-3" />最大{selectedScenario.player_count_max}
+                    </span>
+                    {categoryFee && (<>
+                      <Dot />
+                      <span className="font-medium">{categoryFee.fee}</span>
+                    </>)}
+                    {gmList && (<>
+                      <Dot />
+                      {gmList}
+                    </>)}
                   </div>
                 )
               }
-              
+
               // シナリオなしでも料金表示があるカテゴリ（場所貸しなど）
-              if (categoryFee) {
+              if (categoryFee || hasGms || categoryLabel) {
                 return (
-                  <div className="flex items-center gap-2 text-[11px] sm:text-xs font-medium">
-                    <span>{categoryFee.label ? `${categoryFee.label} ` : ''}{categoryFee.fee}</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
+                    {categoryBadge}
+                    {categoryFee && <span className="font-medium">{categoryFee.fee}</span>}
+                    {gmList && (<>
+                      {categoryFee && <Dot />}
+                      {gmList}
+                    </>)}
                   </div>
                 )
               }
-              
+
               return null
             })()}
           </div>
