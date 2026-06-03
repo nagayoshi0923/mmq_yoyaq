@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
-import { Mail, ChevronDown, ChevronUp } from 'lucide-react'
+import { Mail, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   reservationApi,
@@ -41,6 +41,10 @@ interface ReservationListProps {
   onGmsChange?: (gms: string[], gmRoles: Record<string, string>) => void
   // 予約データから取得したスタッフ参加者を親に通知（DBの情報を直接反映）
   onStaffParticipantsChange?: (staffParticipants: string[]) => void
+  // add モードで「+ 参加者を追加」した時のバッファ (event 未保存のため INSERT できない)
+  pendingParticipants?: Array<{ name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }>
+  onPendingAdd?: (p: { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }) => void
+  onPendingRemove?: (idx: number) => void
   // イベント削除時のコールバック（貸切参加者全員キャンセル時）
   onDeleteEvent?: () => Promise<void>
 }
@@ -56,6 +60,9 @@ export function ReservationList({
   onLocalParticipantUpdate,
   onGmsChange,
   onStaffParticipantsChange,
+  pendingParticipants = [],
+  onPendingAdd,
+  onPendingRemove,
   onDeleteEvent
 }: ReservationListProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -854,7 +861,28 @@ ${content.organizationName || '店舗'}
   const handleAddParticipant = async () => {
     const participantName = newParticipant.customer_name.trim() || 'デモ参加者'
 
-    if (!event?.id) return
+    if (!event?.id) {
+      // add モード: event 未保存のため、parent (PerformanceModal) でバッファリングする
+      if (onPendingAdd) {
+        // staff 名と一致するかでスタッフ判定 → 自動で payment_method=staff にする
+        const isStaff = staff.some(s => s.name === participantName.trim())
+        const pm = isStaff ? 'staff' : newParticipant.payment_method
+        onPendingAdd({
+          name: participantName,
+          count: newParticipant.participant_count,
+          paymentMethod: pm,
+        })
+        // 入力欄をリセット
+        setNewParticipant({
+          customer_name: '',
+          participant_count: 1,
+          payment_method: 'onsite',
+          notes: ''
+        })
+        setIsAddingParticipant(false)
+      }
+      return
+    }
 
     try {
       const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)
@@ -1292,11 +1320,35 @@ ${content.organizationName || '店舗'}
             )}
           </div>
 
-          {reservations.length === 0 ? (
+          {/* 保存後追加予定 (add モードでバッファされた参加者) */}
+          {pendingParticipants.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              <p className="text-[11px] font-medium text-amber-700">保存後に追加されます ({pendingParticipants.length}件)</p>
+              {pendingParticipants.map((p, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded border border-dashed border-amber-300 bg-amber-50/60">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">追加予定</span>
+                    <span className="font-medium">{p.name}</span>
+                    <span className="text-muted-foreground">×{p.count}</span>
+                    {p.paymentMethod === 'staff' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800">スタッフ</span>
+                    )}
+                  </div>
+                  {onPendingRemove && (
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onPendingRemove(idx)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reservations.length === 0 && pendingParticipants.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               予約はありません
             </div>
-          ) : (
+          ) : reservations.length === 0 ? null : (
             <div>
               {selectedReservations.size > 0 && (
                 <div className="mb-3 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
