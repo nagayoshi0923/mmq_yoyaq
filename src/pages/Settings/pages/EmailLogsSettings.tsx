@@ -84,13 +84,6 @@ const TYPE_LABELS: Record<EmailLogType, string> = {
 
 // ─── ヘルパー ────────────────────────────────────────────────────────────────
 
-function maskEmail(email: string): string {
-  if (!email.includes('@')) return '***'
-  const [local, domain] = email.split('@')
-  const masked = local.length > 2 ? local.slice(0, 2) + '***' : '***'
-  return `${masked}@${domain}`
-}
-
 function formatJst(value: string | null): string {
   if (!value) return '-'
   const d = new Date(value)
@@ -283,7 +276,7 @@ export function EmailLogsSettings() {
         <SectionTitle
           icon={FileText}
           label={`送信ログ（全 ${totalCount.toLocaleString()} 件 / ${PAGE_SIZE} 件ずつ表示）`}
-          description="宛先は部分マスク表示。詳細を開くと件名・本文・エラー内容を確認できます。"
+          description="詳細を開くと送信日時・本文・エラー内容を確認できます。"
         />
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
@@ -306,6 +299,12 @@ export function EmailLogsSettings() {
                     <Badge variant="outline" className="text-xs">
                       {TYPE_LABELS[log.email_type] ?? log.email_type}
                     </Badge>
+                    <span className="text-sm">
+                      {log.to_email}
+                      {log.to_name && (
+                        <span className="text-muted-foreground"> ({log.to_name})</span>
+                      )}
+                    </span>
                     <span className="text-xs text-muted-foreground ml-auto">
                       {formatJst(log.created_at)}
                     </span>
@@ -313,16 +312,7 @@ export function EmailLogsSettings() {
                       ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
                       : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                   </div>
-                  <div className="space-y-0.5">
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">To:</span>{' '}
-                      {maskEmail(log.to_email)}
-                      {log.to_name && (
-                        <span className="text-muted-foreground"> ({log.to_name})</span>
-                      )}
-                    </div>
-                    <div className="text-sm font-medium truncate">{log.subject}</div>
-                  </div>
+                  <div className="text-sm font-medium truncate">{log.subject}</div>
                 </button>
 
                 {/* 詳細展開 */}
@@ -376,29 +366,24 @@ export function EmailLogsSettings() {
                       )}
                     </div>
 
-                    {/* 本文プレビュー */}
-                    {log.body_text && (
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                          テキスト本文を表示
-                        </summary>
-                        <pre className="mt-2 p-3 bg-white border rounded text-xs whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
-                          {log.body_text}
-                        </pre>
-                      </details>
-                    )}
-                    {log.body_html && (
-                      <details className="mt-2">
-                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                          HTML本文を表示
-                        </summary>
+                    {/* 本文プレビュー（HTML 優先、無ければテキスト） */}
+                    {log.body_html ? (
+                      <div>
+                        <div className="text-xs text-muted-foreground font-medium mb-1">本文 (HTML)</div>
                         <div
-                          className="mt-2 p-3 bg-white border rounded text-xs max-h-80 overflow-y-auto"
+                          className="p-3 bg-white border rounded text-xs max-h-96 overflow-y-auto"
                           // biome-ignore lint/security/noDangerouslySetInnerHtml: 管理者のみが閲覧するため許容
                           dangerouslySetInnerHTML={{ __html: log.body_html }}
                         />
-                      </details>
-                    )}
+                      </div>
+                    ) : log.body_text ? (
+                      <div>
+                        <div className="text-xs text-muted-foreground font-medium mb-1">本文</div>
+                        <pre className="p-3 bg-white border rounded text-xs whitespace-pre-wrap break-all max-h-96 overflow-y-auto">
+                          {log.body_text}
+                        </pre>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
