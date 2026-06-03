@@ -45,6 +45,9 @@ interface ReservationListProps {
   pendingParticipants?: Array<{ name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }>
   onPendingAdd?: (p: { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }) => void
   onPendingRemove?: (idx: number) => void
+  // GM タブで「スタッフ参加」役割を付けたが DB 予約として未登録の名前 (公演情報タブ ⇔ 予約者タブの双方向同期用)
+  pendingStaffGmNames?: string[]
+  onPendingStaffGmRemove?: (name: string) => void
   // イベント削除時のコールバック（貸切参加者全員キャンセル時）
   onDeleteEvent?: () => Promise<void>
 }
@@ -63,6 +66,8 @@ export function ReservationList({
   pendingParticipants = [],
   onPendingAdd,
   onPendingRemove,
+  pendingStaffGmNames = [],
+  onPendingStaffGmRemove,
   onDeleteEvent
 }: ReservationListProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -1320,12 +1325,29 @@ ${content.organizationName || '店舗'}
             )}
           </div>
 
-          {/* 保存後追加予定 (add モードでバッファされた参加者) */}
-          {pendingParticipants.length > 0 && (
+          {/* 保存後追加予定 (add モードでバッファされた参加者 + GM タブの staff 役割で未保存) */}
+          {(pendingParticipants.length > 0 || pendingStaffGmNames.length > 0) && (
             <div className="mb-3 space-y-1.5">
-              <p className="text-[11px] font-medium text-amber-700">保存後に追加されます ({pendingParticipants.length}件)</p>
+              <p className="text-[11px] font-medium text-amber-700">
+                保存後に追加されます ({pendingParticipants.length + pendingStaffGmNames.length}件)
+              </p>
+              {pendingStaffGmNames.map((name) => (
+                <div key={`staff-${name}`} className="flex items-center justify-between gap-2 p-2 rounded border border-dashed border-amber-300 bg-amber-50/60">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">追加予定</span>
+                    <span className="font-medium">{name}</span>
+                    <span className="text-muted-foreground">×1</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800">スタッフ (GMタブから)</span>
+                  </div>
+                  {onPendingStaffGmRemove && (
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onPendingStaffGmRemove(name)} title="GM 側の役割をメインに戻して、ここからも消します">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
               {pendingParticipants.map((p, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded border border-dashed border-amber-300 bg-amber-50/60">
+                <div key={`buf-${idx}`} className="flex items-center justify-between gap-2 p-2 rounded border border-dashed border-amber-300 bg-amber-50/60">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">追加予定</span>
                     <span className="font-medium">{p.name}</span>
@@ -1344,7 +1366,7 @@ ${content.organizationName || '店舗'}
             </div>
           )}
 
-          {reservations.length === 0 && pendingParticipants.length === 0 ? (
+          {reservations.length === 0 && pendingParticipants.length === 0 && pendingStaffGmNames.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               予約はありません
             </div>
