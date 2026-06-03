@@ -835,48 +835,10 @@ export function PerformanceModal({
     const success = await onSave(saveData)
     // 保存成功時のみダイアログを閉じる
     if (success) {
-      // staff 役割が付いている GM について reservations を同期 (主に add モード後の整合)
-      // edit モードでは role 変更時に即時同期しているが、保存タイミングでも reconcile しておく
-      try {
-        const staffNames = (saveData.gms || []).filter(name => saveData.gm_roles?.[name] === 'staff')
-        if (staffNames.length > 0) {
-          const orgId = await getCurrentOrganizationId()
-          let targetEventId: string | undefined = event?.id
-          if (!targetEventId) {
-            // add モード: 直前に作成した event を date + venue + start_time で引き当て
-            const { data: matched } = await supabase
-              .from('schedule_events')
-              .select('id, store_id')
-              .eq('organization_id', orgId)
-              .eq('date', saveData.date)
-              .eq('start_time', saveData.start_time)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-            if (matched) {
-              targetEventId = matched.id
-            }
-          }
-          if (targetEventId) {
-            const scenarioObj = scenarios.find(s => s.title === saveData.scenario)
-            const storeId = event?.store_id ?? (stores.find(s => s.id === saveData.venue || s.name === saveData.venue)?.id ?? null)
-            for (const name of staffNames) {
-              await ensureStaffReservation({
-                eventId: targetEventId,
-                staffName: name,
-                organizationId: orgId,
-                scenarioTitle: saveData.scenario || '',
-                scenarioMasterId: scenarioObj?.id ?? null,
-                storeId,
-              })
-            }
-          }
-        }
-      } catch (err) {
-        logger.error('保存後のスタッフ参加予約同期に失敗:', err)
-      }
+      // NOTE: スタッフ役割の予約同期は useEventOperations 側の syncStaffReservations で
+      // 既に処理されているため、ここでは何もしない (重複 INSERT は無駄なクエリ)
 
-      // バッファされた一般参加者 (+ 参加者を追加で追加された分) も保存後に INSERT
+      // バッファされた一般参加者 (+ 参加者を追加で追加された分) を並列 INSERT
       try {
         if (pendingParticipants.length > 0) {
           const orgId = await getCurrentOrganizationId()
@@ -900,7 +862,7 @@ export function PerformanceModal({
             const baseFee = isGmTest
               ? (scenarioObj?.gm_test_participation_fee ?? scenarioObj?.participation_fee ?? 0)
               : (scenarioObj?.participation_fee ?? 0)
-            for (const p of pendingParticipants) {
+            await Promise.all(pendingParticipants.map((p) => {
               const isStaffPay = p.paymentMethod === 'staff'
               const unitPrice = isStaffPay ? 0 : baseFee
               const total = unitPrice * p.count
@@ -908,7 +870,7 @@ export function PerformanceModal({
               const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
               const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
               const reservationNumber = `${dateStr}-${randomStr}`
-              await supabase.from('reservations').insert({
+              return supabase.from('reservations').insert({
                 reservation_number: reservationNumber,
                 schedule_event_id: targetEventId,
                 organization_id: orgId,
@@ -930,7 +892,7 @@ export function PerformanceModal({
                 status: 'confirmed',
                 reservation_source: isStaffPay ? 'staff_participation' : 'walk_in',
               })
-            }
+            }))
             setPendingParticipants([])
           }
         }
