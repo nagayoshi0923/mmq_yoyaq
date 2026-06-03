@@ -305,10 +305,10 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="w-full text-[10px] leading-tight py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex items-center justify-between"
+                            className="w-full text-[10px] leading-tight py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex flex-col items-start gap-0"
                           >
-                            <span>{event.start_time?.slice(0, 5)}</span>
-                            <span>貸切満席</span>
+                            <span className="whitespace-nowrap">{event.start_time?.slice(0, 5)}</span>
+                            <span className="whitespace-nowrap">貸切満席</span>
                           </div>
                         )
                       }
@@ -368,18 +368,18 @@ export const CalendarView = memo(function CalendarView({
                               >
                                 {event.scenario || event.scenarios?.title}
                               </div>
-                              <div className={`text-[10px] leading-tight flex items-center gap-1`}>
+                              <div className={`text-[10px] leading-tight flex flex-col items-start gap-0.5`}>
                                 {isConfirmed && (
-                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-blue-100 text-blue-700">
+                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-blue-100 text-blue-700 whitespace-nowrap">
                                     開催決定
                                   </span>
                                 )}
                                 {isNearlyFull && (
-                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-orange-100 text-orange-600">
+                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-orange-100 text-orange-600 whitespace-nowrap">
                                     残りわずか
                                   </span>
                                 )}
-                                <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
+                                <span className={`whitespace-nowrap ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                   {isFull ? '満席' : `${currentParticipants}/${maxParticipants}`}
                                 </span>
                               </div>
