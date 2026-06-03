@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { VenueAccess } from './VenueAccess'
 import { BookingNotice } from './BookingNotice'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import type { EventSchedule } from '../utils/types'
 import { isWeekendOrHoliday } from '../utils/pricingUtils'
 
@@ -34,7 +35,8 @@ export const BookingPanel = memo(function BookingPanel({
   hasPreReading
 }: BookingPanelProps) {
   const navigate = useNavigate()
-  
+  const preset = useOrgThemePreset()
+
   // 選択した公演の残席数を取得
   const selectedEvent = selectedEventId ? events.find(e => e.event_id === selectedEventId) : null
   const availableSeats = selectedEvent 
@@ -50,16 +52,16 @@ export const BookingPanel = memo(function BookingPanel({
   }, [selectedEvent?.date])
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* 人数を選択 */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-2">人数を選択</h3>
+        <h3 className="ts-label">人数を選択</h3>
         <Card>
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm">予約人数</span>
-              <select 
-                className="border px-3 py-1.5 text-sm"
+              <span className="ts-muted">予約人数</span>
+              <select
+                className="border px-3 py-1.5 ts-body"
                 value={participantCount}
                 onChange={(e) => onParticipantCountChange(Number(e.target.value))}
               >
@@ -76,7 +78,7 @@ export const BookingPanel = memo(function BookingPanel({
             </div>
             {/* 残席表示 */}
             {selectedEventId && availableSeats > 0 && (
-              <p className="text-xs text-muted-foreground mt-1.5">
+              <p className="ts-caption mt-1.5">
                 残り{availableSeats}席
               </p>
             )}
@@ -95,23 +97,23 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 料金情報 */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-2">料金</h3>
+        <h3 className="ts-label">料金</h3>
         <Card>
           <CardContent className="p-3 space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">
+            <div className="flex justify-between">
+              <span className="ts-muted">
                 参加費（1名{isWeekendOrHolidayDate ? '・土日祝' : ''}）
               </span>
-              <span className="font-medium">¥{participationFee.toLocaleString()}</span>
+              <span className="ts-body font-medium">¥{participationFee.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">人数</span>
-              <span className="font-medium">{participantCount}名</span>
+            <div className="flex justify-between">
+              <span className="ts-muted">人数</span>
+              <span className="ts-body font-medium">{participantCount}名</span>
             </div>
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">合計</span>
-                <span className="text-base font-bold text-primary">
+                <span className="ts-muted">合計</span>
+                <span className="ts-emph" style={{ color: preset.primary }}>
                   ¥{(participationFee * participantCount).toLocaleString()}
                 </span>
               </div>
@@ -143,7 +145,7 @@ export const BookingPanel = memo(function BookingPanel({
           onBooking()
         }}
         disabled={!selectedEventId}
-        style={selectedEventId ? { backgroundColor: selectableMax <= 0 ? '#d97706' : THEME.primary } : {}}
+        style={selectedEventId ? { backgroundColor: selectableMax <= 0 ? '#d97706' : preset.primary } : {}}
       >
         {!isLoggedIn 
           ? 'ログインして予約する' 

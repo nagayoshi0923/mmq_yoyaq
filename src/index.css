@@ -29,9 +29,21 @@ html, body {
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
-    
+
     /* MMQデザインシステム：統一入力エリア背景色 */
     --input-bg: #F6F9FB;
+  }
+
+  /* 予約サイト (booking-shell スコープ): シャープデザイン統一
+     - shadcn 系の --radius を 0 に上書き
+     - 各種 rounded-* クラスを border-radius:0 で上書き
+     - ただし rounded-full (アバター・アイコン円) は維持 */
+  .booking-shell {
+    --radius: 0px;
+  }
+  .booking-shell [class*="rounded-"]:not([class*="rounded-full"]),
+  .booking-shell .rounded {
+    border-radius: 0 !important;
   }
 
   .dark {
@@ -224,6 +236,17 @@ html, body {
     @apply disabled:cursor-not-allowed disabled:opacity-50;
     background-color: var(--input-bg);
   }
+
+  /* タイポスケール (集約) — グローバル
+     - サイズを変えたい時はここを 1 箇所変えるだけで反映される
+     - 各ページのコンポーネントは ts-* クラスだけ使う
+     - モバイル: 視認性優先で大きめ
+     - PC (md 以上, 768px+): 情報密度を上げて 2px 小さく */
+  .ts-label   { @apply text-base md:text-sm font-medium text-gray-900 mb-1.5 block; }
+  .ts-body    { @apply text-base md:text-sm; }
+  .ts-muted   { @apply text-base md:text-sm text-muted-foreground; }
+  .ts-caption { @apply text-xs text-muted-foreground; }
+  .ts-emph    { @apply text-base font-bold; }
 }
 
 /* ============================================================

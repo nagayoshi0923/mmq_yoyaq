@@ -195,7 +195,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         placeholder="店舗を選択してください"
       />
 
-      <h3 className="text-sm font-medium text-muted-foreground mt-4 mb-1.5">希望日程を選択</h3>
+      <h3 className="ts-label mt-4">希望日程を選択</h3>
 
       <PrivateBookingSlotGrid
         currentMonth={currentMonth}
