@@ -1340,7 +1340,7 @@ ${content.organizationName || '店舗'}
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800">スタッフ (GMタブから)</span>
                   </div>
                   {onPendingStaffGmRemove && (
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onPendingStaffGmRemove(name)} title="GM 側の役割をメインに戻して、ここからも消します">
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onPendingStaffGmRemove(name)} title="GM タブからも完全に削除します">
                       <X className="h-3 w-3" />
                     </Button>
                   )}

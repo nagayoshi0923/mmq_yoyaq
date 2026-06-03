@@ -1591,11 +1591,13 @@ export function PerformanceModal({
               // GM タブで「スタッフ参加」役割を付けたが、まだ DB 予約として未登録の名前
               pendingStaffGmNames={(formData.gms || []).filter(n => (formData.gmRoles?.[n] === 'staff') && !staffParticipantsFromDB.includes(n))}
               onPendingStaffGmRemove={(name) => {
-                // 予約者タブから消すと、GM 側の役割をメインに戻す
-                setFormData((prev: EventFormData) => ({
-                  ...prev,
-                  gmRoles: { ...prev.gmRoles, [name]: 'main' }
-                }))
+                // 予約者タブから消すと、GM 側からも完全削除 (gms と gmRoles の両方)
+                setFormData((prev: EventFormData) => {
+                  const newGms = (prev.gms || []).filter(g => g !== name)
+                  const newRoles = { ...prev.gmRoles }
+                  delete newRoles[name]
+                  return { ...prev, gms: newGms, gmRoles: newRoles }
+                })
               }}
               onDeleteEvent={event && onDeleteEvent ? async () => {
                 await onDeleteEvent(event)
