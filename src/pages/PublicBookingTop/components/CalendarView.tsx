@@ -417,7 +417,7 @@ export const CalendarView = memo(function CalendarView({
                             <div key={slot}>
                               {renderedEvents}
                               <button
-                                className="w-full text-[10px] leading-tight py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                                className="w-full text-[10px] leading-tight py-1 px-1 bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                                 onClick={() => {
                                   const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                   const storeParam = selectedStoreIds.join(',')
@@ -435,7 +435,7 @@ export const CalendarView = memo(function CalendarView({
                           return (
                             <button
                               key={slot}
-                              className="w-full text-[10px] leading-tight py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                              className="w-full text-[10px] leading-tight py-1 px-1 bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 hover:border-gray-300 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                 const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : selectedStore.id
