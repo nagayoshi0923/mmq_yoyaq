@@ -623,11 +623,11 @@ export function PrivateBookingRequest({
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">ご要望・備考（任意）</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">備考</Label>
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="開催日時や店舗のご希望などがあればご記入ください"
+                      placeholder="伝達事項があればご記入ください。"
                       rows={4}
                       className="text-sm"
                     />
