@@ -132,10 +132,6 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (!ACTION_TYPES.has(action_type)) {
     return res.status(400).json({ error: `不明な action_type: ${action_type}` })
   }
-  await assertStoreOwnedByOrg(store_id, user.orgId)
-  if (schedule_event_id) {
-    await assertScheduleEventOwnedByOrg(schedule_event_id, user.orgId)
-  }
 
   // 認証ユーザー以外のスタッフ ID は受け付けない（なりすまし防止）
   const safeChangedByUserId = changed_by_user_id ?? user.userId
@@ -143,20 +139,32 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     return res.status(403).json({ error: 'changed_by_user_id は認証ユーザーと一致する必要があります' })
   }
 
-  // changed_by_staff_id が指定された場合、自組織のスタッフか確認
+  // 全 ownership/権限チェックを並列化 (sequential 3 クエリ → 1 ラウンドトリップ分に短縮)
+  const checks: Promise<void>[] = [assertStoreOwnedByOrg(store_id, user.orgId)]
+  if (schedule_event_id) {
+    checks.push(assertScheduleEventOwnedByOrg(schedule_event_id, user.orgId))
+  }
   if (changed_by_staff_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: staffRow, error: staffErr } = await (db as any)
-      .from('staff')
-      .select('id, organization_id')
-      .eq('id', changed_by_staff_id)
-      .maybeSingle()
-    if (staffErr) {
-      return res.status(500).json({ error: 'staff 取得失敗', detail: staffErr.message })
+    checks.push((async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: staffRow, error: staffErr } = await (db as any)
+        .from('staff')
+        .select('id, organization_id')
+        .eq('id', changed_by_staff_id)
+        .maybeSingle()
+      if (staffErr) throw new ApiError(500, `staff 取得失敗: ${staffErr.message}`)
+      if (!staffRow || staffRow.organization_id !== user.orgId) {
+        throw new ApiError(403, 'changed_by_staff_id は自組織のスタッフである必要があります')
+      }
+    })())
+  }
+  try {
+    await Promise.all(checks)
+  } catch (e) {
+    if (e instanceof ApiError) {
+      return res.status(e.status).json({ error: e.message })
     }
-    if (!staffRow || staffRow.organization_id !== user.orgId) {
-      return res.status(403).json({ error: 'changed_by_staff_id は自組織のスタッフである必要があります' })
-    }
+    throw e
   }
 
   const entry = {

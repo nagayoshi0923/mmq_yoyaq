@@ -754,8 +754,9 @@ export const reservationApi = {
       // 追加: 専用エンドポイント /api/reservations?action=create-staff-entry を呼ぶ
       // （通常の create_reservation_with_lock_v2 RPC は payment_method='staff' /
       //   reservation_source='staff_entry' / participant_names をサポートしないため）
+      // スタッフ複数人いる時のラウンドトリップを減らすため Promise.all で並列化
       if (eventDetails && toAdd.length > 0) {
-        for (const staffName of toAdd) {
+        await Promise.all(toAdd.map(async (staffName) => {
           logger.log('📝 スタッフ予約を作成:', { staffName })
           try {
             await apiClient.post('/api/reservations?action=create-staff-entry', {
@@ -773,7 +774,7 @@ export const reservationApi = {
           } catch (insertError) {
             logger.error('スタッフ予約作成エラー:', insertError)
           }
-        }
+        }))
       }
 
       // 削除（キャンセル）- staff_entry が対象

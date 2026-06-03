@@ -23,6 +23,7 @@ import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { toast } from 'sonner'
 import { ReservationList } from './modal/ReservationList'
 import { EventHistoryTab } from './modal/EventHistoryTab'
 import { SurveyResponsesTab } from './modal/SurveyResponsesTab'
@@ -230,7 +231,7 @@ export function PerformanceModal({
     gmRoles: {}, // 初期値
     start_time: '10:00',
     end_time: '14:00',
-    category: 'private',
+    category: 'open',
     max_participants: DEFAULT_MAX_PARTICIPANTS,
     capacity: 0,
     notes: ''
@@ -708,7 +709,7 @@ export function PerformanceModal({
         gmRoles: {},
         start_time: startTime,
         end_time: endTime,
-        category: 'private',
+        category: 'open',
         max_participants: DEFAULT_MAX_PARTICIPANTS,
         capacity: 0,
         notes: slotMemo,  // スロットメモを備考に引き継ぎ
@@ -832,11 +833,19 @@ export function PerformanceModal({
       void clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
     }
     
-    const success = await onSave(saveData)
-    // 保存成功時のみダイアログを閉じる
-    if (success) {
-      // NOTE: スタッフ役割の予約同期は useEventOperations 側の syncStaffReservations で
-      // 既に処理されているため、ここでは何もしない (重複 INSERT は無駄なクエリ)
+    // 楽観的クローズ: onSave の完了を待たずにダイアログを閉じて体感速度を上げる。
+    // 重複/通信エラー時は useEventOperations 側で toast 表示されるので、ユーザは
+    // toast を見て必要に応じてモーダルを開き直す。
+    // 保存中の体感フィードバックとして loading toast を出し、完了で dismiss する。
+    const loadingToastId = toast.loading('保存中...')
+    const savePromise = onSave(saveData)
+    onClose()
+
+    // 残りの post-save 処理 (pending 参加者 INSERT) はバックグラウンドで実行
+    void (async () => {
+      const success = await savePromise
+      toast.dismiss(loadingToastId)
+      if (!success) return // error toast は useEventOperations 側で出る
 
       // バッファされた一般参加者 (+ 参加者を追加で追加された分) を並列 INSERT
       try {
@@ -899,8 +908,7 @@ export function PerformanceModal({
       } catch (err) {
         logger.error('保存後の参加者バッファ同期に失敗:', err)
       }
-      onClose()
-    }
+    })()
   }
 
   const handleScenarioSaved = async () => {
@@ -950,6 +958,164 @@ export function PerformanceModal({
 
   const modalTitle = mode === 'add' ? '新しい公演を追加' : '公演を編集'
   const modalDescription = mode === 'add' ? '新しい公演の詳細情報を入力してください。' : '公演の詳細情報を編集してください。'
+
+  // ヘッダー右側に出すサマリー (旧フッターの内容)
+  const renderPerformanceSummary = () => {
+    const category = formData.category
+
+    // シナリオの通常参加費（1名あたり）を取得するヘルパー
+    const getNormalFeeAmount = (scenario: Scenario): number | null => {
+      if (scenario.participation_costs && scenario.participation_costs.length > 0) {
+        const normalCosts = scenario.participation_costs.filter(
+          c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
+        )
+        if (normalCosts.length >= 1) return normalCosts[0].amount
+      }
+      return scenario.participation_fee || null
+    }
+
+    const getCategoryFee = (): { label: string; fee: string } | null => {
+      if (category === 'mtg' || category === 'memo') return null
+      if (category === 'venue_rental') {
+        const fee = formData.venue_rental_fee ?? 12000
+        return { label: '場所貸し', fee: `¥${fee.toLocaleString()}` }
+      }
+      if (category === 'venue_rental_free') return { label: '場所貸し', fee: '¥0' }
+      if (category === 'testplay') return { label: 'テストプレイ', fee: '¥0' }
+      const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+      if (!formData.scenario || !selectedScenario) return null
+      if (category === 'gmtest') {
+        if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
+          const gmtestCost = selectedScenario.participation_costs.find(
+            c => c.time_slot === 'gmtest' && (c.status === 'active' || !c.status)
+          )
+          if (gmtestCost) return { label: 'GMテスト', fee: `¥${gmtestCost.amount.toLocaleString()}` }
+        }
+        if (selectedScenario.gm_test_participation_fee) {
+          return { label: 'GMテスト', fee: `¥${selectedScenario.gm_test_participation_fee.toLocaleString()}` }
+        }
+        return { label: 'GMテスト', fee: '¥0' }
+      }
+      if (category === 'private') {
+        const perPerson = getNormalFeeAmount(selectedScenario)
+        if (perPerson) {
+          const maxP = selectedScenario.player_count_max || formData.max_participants || 1
+          const total = perPerson * maxP
+          return { label: '貸切', fee: `¥${perPerson.toLocaleString()}×${maxP}名=¥${total.toLocaleString()}` }
+        }
+        return null
+      }
+      if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
+        const normalCosts = selectedScenario.participation_costs.filter(
+          c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
+        )
+        if (normalCosts.length === 1) return { label: '', fee: `¥${normalCosts[0].amount.toLocaleString()}` }
+        if (normalCosts.length > 1) {
+          const amounts = normalCosts.map(c => c.amount)
+          const min = Math.min(...amounts)
+          const max = Math.max(...amounts)
+          return { label: '', fee: min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜` }
+        }
+      }
+      if (selectedScenario.participation_fee) {
+        return { label: '', fee: `¥${selectedScenario.participation_fee.toLocaleString()}` }
+      }
+      return null
+    }
+
+    const selectedScenario = formData.scenario ? scenarios.find(s => s.title === formData.scenario) : null
+    const categoryFee = getCategoryFee()
+    const hasGms = formData.gms && formData.gms.length > 0
+    const CATEGORY_LABEL_MAP: Record<string, string> = {
+      open: 'オープン', private: '貸切', offsite: '出張', testplay: 'テストプレイ',
+      gmtest: 'GMテスト', venue_rental: '場所貸し', venue_rental_free: '場所貸無料',
+      package: 'パッケージ', mtg: 'MTG', memo: 'メモ',
+    }
+    const categoryLabel = CATEGORY_LABEL_MAP[category] || category
+    const tone = CATEGORY_TONE[category]
+
+    const getRoleBadge = (name: string): { label: string; bg: string; text: string } => {
+      const role = formData.gmRoles?.[name] || 'main'
+      if (role === 'observer') return { label: '見学', bg: '#e0e7ff', text: '#3730a3' }
+      if (role === 'reception') return { label: '受付', bg: '#ffedd5', text: '#9a3412' }
+      if (role === 'staff') {
+        const isBacked = staffParticipantsFromDB.includes(name)
+        return { label: isBacked ? '参加' : '参加予定', bg: '#dcfce7', text: '#166534' }
+      }
+      if (role === 'sub') return { label: 'サブ', bg: '#dbeafe', text: '#1e40af' }
+      // main: カテゴリ色 (CATEGORY_TONE) を使用
+      return { label: 'メイン', bg: tone?.section ?? '#f3f4f6', text: '#1f2937' }
+    }
+
+    const categoryBadge = categoryLabel ? (
+      <span
+        className="inline-flex items-center shrink-0 px-2 py-0.5 rounded text-[10px] font-bold shadow-sm whitespace-nowrap"
+        style={tone ? { backgroundColor: tone.border, color: '#1f2937' } : { backgroundColor: '#f3f4f6', color: '#374151' }}
+      >
+        {categoryLabel}
+      </span>
+    ) : null
+
+    const gmList = hasGms ? (
+      <span className="inline-flex items-center gap-1 flex-wrap">
+        {formData.gms.map((name, idx) => {
+          const badge = getRoleBadge(name)
+          return (
+            <span
+              key={`${name}-${idx}`}
+              className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+              style={{ backgroundColor: badge.bg, color: badge.text }}
+              title={badge.label}
+            >
+              {name}
+            </span>
+          )
+        })}
+      </span>
+    ) : null
+
+    if (selectedScenario) {
+      const playerMax = selectedScenario.player_count_max || formData.max_participants || 8
+      const showParticipants = mode === 'edit' && event && !event.is_private_request && !event.is_private_booking
+      return (
+        <div className="flex flex-col items-end gap-1 min-w-0 max-w-[260px] sm:max-w-[340px]">
+          <div className="flex items-center gap-2 min-w-0 w-full justify-end text-xs">
+            {categoryBadge}
+            <span className="font-semibold truncate min-w-0" title={selectedScenario.title}>{selectedScenario.title}</span>
+            {categoryFee && (
+              <span className="shrink-0 font-bold whitespace-nowrap pl-2 border-l border-muted-foreground/20">
+                {categoryFee.fee}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground justify-end w-full">
+            <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{selectedScenario.duration}h</span>
+            <span className="flex items-center gap-0.5">
+              <Users className="w-3 h-3" />
+              {showParticipants ? `${localCurrentParticipants}/${playerMax}` : `最大${playerMax}`}
+            </span>
+            {gmList && (<span className="flex items-center gap-1"><UserCog className="w-3 h-3" />{gmList}</span>)}
+          </div>
+        </div>
+      )
+    }
+
+    if (categoryFee || hasGms || categoryLabel) {
+      return (
+        <div className="flex items-center gap-2 flex-wrap text-[11px] sm:text-xs justify-end max-w-[260px] sm:max-w-[320px]">
+          {categoryBadge}
+          {categoryFee && <span className="text-xs font-bold pl-2 border-l border-muted-foreground/20">{categoryFee.fee}</span>}
+          {gmList && (
+            <span className="flex items-center gap-1 ml-1">
+              <UserCog className="w-3 h-3 text-muted-foreground" />
+              {gmList}
+            </span>
+          )}
+        </div>
+      )
+    }
+    return null
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -1007,23 +1173,18 @@ export function PerformanceModal({
           `}</style>
         )}
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
-            {mode === 'edit' && event && !event.is_private_request && !event.is_private_booking && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
-                localCurrentParticipants >= (event.scenarios?.player_count_max || event.max_participants || 8)
-                  ? 'bg-green-100 text-green-700'
-                  : localCurrentParticipants >= Math.ceil((event.scenarios?.player_count_max || event.max_participants || 8) / 2)
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-gray-100 text-gray-600'
-              }`}>
-                {localCurrentParticipants}/{event.scenarios?.player_count_max || event.max_participants || 8}名
-              </span>
-            )}
+          <div className="flex items-start justify-between gap-3 pr-6 sm:pr-8">
+            <div className="flex flex-col min-w-0 shrink-0">
+              <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
+              <DialogDescription className="text-[11px] sm:text-xs">
+                {modalDescription}
+              </DialogDescription>
+            </div>
+            {/* 公演情報サマリー (右上、旧フッターから移動) */}
+            <div className="ml-auto">
+              {renderPerformanceSummary()}
+            </div>
           </div>
-          <DialogDescription className="text-[11px] sm:text-xs">
-            {modalDescription}
-          </DialogDescription>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
@@ -1067,11 +1228,11 @@ export function PerformanceModal({
             const PRIMARY_CATS: { value: string; label: string }[] = [
               { value: 'open',     label: 'オープン' },
               { value: 'private',  label: '貸切' },
-              { value: 'offsite',  label: '出張' },
+              { value: 'gmtest',   label: 'GMテスト' },
               { value: 'testplay', label: 'テストプレイ' },
+              { value: 'offsite',  label: '出張' },
             ]
             const OTHER_CATS: { value: string; label: string }[] = [
-              { value: 'gmtest',            label: 'GMテスト' },
               { value: 'venue_rental',      label: '場所貸し' },
               { value: 'venue_rental_free', label: '場所貸無料' },
               { value: 'package',           label: 'パッケージ会' },
@@ -1412,20 +1573,27 @@ export function PerformanceModal({
                 {formData.gms.map((gm: string, index: number) => {
                   const role = formData.gmRoles?.[gm] || 'main'
                   // staff 役割は常に「参加 (緑)」に統一 (保存時 or role 変更時に予約も自動同期される)
+                  // ボーダーは -400 系で背景 (薄色 dialog tone) からはっきり浮き上がるようにする
+                  // main 役割はカテゴリ色 (CATEGORY_TONE) を inline style で適用
+                  const catTone = CATEGORY_TONE[formData.category]
                   const badgeStyle = role === 'observer'
-                    ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200'
+                    ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-400'
                     : role === 'reception'
-                      ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
+                      ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-400'
                       : role === 'staff'
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-400'
                         : role === 'sub'
-                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-400'
+                          : '' // main はインライン style で適用
+                  const badgeInlineStyle = role === 'main' && catTone
+                    ? { backgroundColor: catTone.section, borderColor: catTone.border, color: '#1f2937' }
+                    : undefined
                   return (
                     <Popover key={`gm-${index}`}>
                       <PopoverTrigger asChild>
                         <div
                           className={cn(badgeVariants({ variant: "outline" }), "flex items-center gap-0.5 font-normal border cursor-pointer rounded-[3px] pr-0.5 text-[11px] py-0 h-5", badgeStyle)}
+                          style={badgeInlineStyle}
                           role="button"
                         >
                           <span className="flex items-center">
@@ -1640,208 +1808,11 @@ export function PerformanceModal({
 
         {/* フッターアクションボタン */}
         <div
-          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 p-1.5 sm:p-2 border-t shrink-0"
+          className="flex items-center justify-end gap-1.5 p-1.5 sm:p-2 border-t shrink-0"
           style={CATEGORY_TONE[formData.category]
             ? { backgroundColor: CATEGORY_TONE[formData.category].bg, borderTopColor: CATEGORY_TONE[formData.category].border }
             : undefined}
         >
-          {/* 左側：シナリオ情報（省スペース表示） */}
-          <div className="flex-1 min-w-0 hidden sm:block">
-            {(() => {
-              const category = formData.category
-              
-              // シナリオの通常参加費（1名あたり）を取得するヘルパー
-              const getNormalFeeAmount = (scenario: Scenario): number | null => {
-                if (scenario.participation_costs && scenario.participation_costs.length > 0) {
-                  const normalCosts = scenario.participation_costs.filter(
-                    c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
-                  )
-                  if (normalCosts.length >= 1) {
-                    return normalCosts[0].amount
-                  }
-                }
-                return scenario.participation_fee || null
-              }
-
-              // カテゴリに準じた料金を取得
-              const getCategoryFee = (): { label: string; fee: string } | null => {
-                // MTG・メモは料金表示なし
-                if (category === 'mtg' || category === 'memo') return null
-                
-                // 場所貸し：formData の venue_rental_fee を使用
-                if (category === 'venue_rental') {
-                  const fee = formData.venue_rental_fee ?? 12000
-                  return { label: '場所貸し', fee: `¥${fee.toLocaleString()}` }
-                }
-                
-                // 場所貸無料
-                if (category === 'venue_rental_free') {
-                  return { label: '場所貸し', fee: '¥0' }
-                }
-                
-                // テストプレイ：無料
-                if (category === 'testplay') {
-                  return { label: 'テストプレイ', fee: '¥0' }
-                }
-                
-                // シナリオが選択されていない場合はここで終了
-                const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-                if (!formData.scenario || !selectedScenario) return null
-                
-                // GMテスト：GMテスト用料金を使用
-                if (category === 'gmtest') {
-                  if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
-                    const gmtestCost = selectedScenario.participation_costs.find(
-                      c => c.time_slot === 'gmtest' && (c.status === 'active' || !c.status)
-                    )
-                    if (gmtestCost) {
-                      return { label: 'GMテスト', fee: `¥${gmtestCost.amount.toLocaleString()}` }
-                    }
-                  }
-                  if (selectedScenario.gm_test_participation_fee) {
-                    return { label: 'GMテスト', fee: `¥${selectedScenario.gm_test_participation_fee.toLocaleString()}` }
-                  }
-                  return { label: 'GMテスト', fee: '¥0' }
-                }
-                
-                // 貸切公演：1名あたり × 最大人数 = 合計金額
-                if (category === 'private') {
-                  const perPerson = getNormalFeeAmount(selectedScenario)
-                  if (perPerson) {
-                    const maxP = selectedScenario.player_count_max || formData.max_participants || 1
-                    const total = perPerson * maxP
-                    return { label: '貸切', fee: `¥${perPerson.toLocaleString()}×${maxP}名=¥${total.toLocaleString()}` }
-                  }
-                  return null
-                }
-                
-                // open, offsite, package, その他：通常料金（1名あたり）
-                if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
-                  const normalCosts = selectedScenario.participation_costs.filter(
-                    c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
-                  )
-                  if (normalCosts.length === 1) {
-                    return { label: '', fee: `¥${normalCosts[0].amount.toLocaleString()}` }
-                  } else if (normalCosts.length > 1) {
-                    const amounts = normalCosts.map(c => c.amount)
-                    const min = Math.min(...amounts)
-                    const max = Math.max(...amounts)
-                    const feeStr = min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜`
-                    return { label: '', fee: feeStr }
-                  }
-                }
-                if (selectedScenario.participation_fee) {
-                  return { label: '', fee: `¥${selectedScenario.participation_fee.toLocaleString()}` }
-                }
-                return null
-              }
-              
-              const selectedScenario = formData.scenario ? scenarios.find(s => s.title === formData.scenario) : null
-              const categoryFee = getCategoryFee()
-              
-              // シナリオ情報がある場合はシナリオ情報＋料金を表示
-              const hasGms = formData.gms && formData.gms.length > 0
-              const CATEGORY_LABEL_MAP: Record<string, string> = {
-                open: 'オープン',
-                private: '貸切',
-                offsite: '出張',
-                testplay: 'テストプレイ',
-                gmtest: 'GMテスト',
-                venue_rental: '場所貸し',
-                venue_rental_free: '場所貸無料',
-                package: 'パッケージ',
-                mtg: 'MTG',
-                memo: 'メモ',
-              }
-              const categoryLabel = CATEGORY_LABEL_MAP[category] || category
-              const tone = CATEGORY_TONE[category]
-
-              // 役割バッジ: staff は常に緑 だが DB 未追加なら「参加予定」ラベル
-              const getRoleBadge = (name: string): { label: string; bg: string; text: string } => {
-                const role = formData.gmRoles?.[name] || 'main'
-                if (role === 'observer') return { label: '見学', bg: '#e0e7ff', text: '#3730a3' } // indigo-100/800
-                if (role === 'reception') return { label: '受付', bg: '#ffedd5', text: '#9a3412' } // orange-100/800
-                if (role === 'staff') {
-                  const isBacked = staffParticipantsFromDB.includes(name)
-                  return { label: isBacked ? '参加' : '参加予定', bg: '#dcfce7', text: '#166534' } // 緑のまま
-                }
-                if (role === 'sub') return { label: 'サブ', bg: '#dbeafe', text: '#1e40af' } // blue-100/800
-                return { label: 'メイン', bg: '#f3f4f6', text: '#1f2937' } // gray-100/800
-              }
-
-              const Dot = () => <span className="text-muted-foreground/60">·</span>
-
-              const categoryBadge = categoryLabel ? (
-                <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
-                  style={tone ? { backgroundColor: tone.border, color: '#1f2937' } : { backgroundColor: '#f3f4f6', color: '#374151' }}
-                >
-                  {categoryLabel}
-                </span>
-              ) : null
-
-              const gmList = hasGms ? (
-                <span className="flex items-center gap-1 flex-wrap">
-                  <UserCog className="w-3 h-3 shrink-0 text-muted-foreground" />
-                  {formData.gms.map((name, idx) => {
-                    const badge = getRoleBadge(name)
-                    return (
-                      <span
-                        key={`${name}-${idx}`}
-                        className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                        style={{ backgroundColor: badge.bg, color: badge.text }}
-                        title={badge.label}
-                      >
-                        {name}
-                      </span>
-                    )
-                  })}
-                </span>
-              ) : null
-
-              if (selectedScenario) {
-                return (
-                  <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
-                    {categoryBadge}
-                    <span className="font-semibold truncate max-w-[180px]" title={selectedScenario.title}>{selectedScenario.title}</span>
-                    <span className="flex items-center gap-0.5 text-muted-foreground">
-                      <Clock className="w-3 h-3" />{selectedScenario.duration}h
-                    </span>
-                    <Dot />
-                    <span className="flex items-center gap-0.5 text-muted-foreground">
-                      <Users className="w-3 h-3" />最大{selectedScenario.player_count_max}
-                    </span>
-                    {categoryFee && (<>
-                      <Dot />
-                      <span className="font-medium">{categoryFee.fee}</span>
-                    </>)}
-                    {gmList && (<>
-                      <Dot />
-                      {gmList}
-                    </>)}
-                  </div>
-                )
-              }
-
-              // シナリオなしでも料金表示があるカテゴリ（場所貸しなど）
-              if (categoryFee || hasGms || categoryLabel) {
-                return (
-                  <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs flex-wrap">
-                    {categoryBadge}
-                    {categoryFee && <span className="font-medium">{categoryFee.fee}</span>}
-                    {gmList && (<>
-                      {categoryFee && <Dot />}
-                      {gmList}
-                    </>)}
-                  </div>
-                )
-              }
-
-              return null
-            })()}
-          </div>
-          
-          {/* 右側：ボタン */}
           <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
             {mode === 'edit' && onDeleteEvent && (
               <Button
