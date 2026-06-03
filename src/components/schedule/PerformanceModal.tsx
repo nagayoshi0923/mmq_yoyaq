@@ -974,6 +974,10 @@ export function PerformanceModal({
       return scenario.participation_fee || null
     }
 
+    // 「¥per / ¥total」形式で返す (total は per × player_count_max を満員想定で計算)
+    const formatFee = (per: number, max: number): string =>
+      `¥${per.toLocaleString()} / ¥${(per * max).toLocaleString()}`
+
     const getCategoryFee = (): { label: string; fee: string } | null => {
       if (category === 'mtg' || category === 'memo') return null
       if (category === 'venue_rental') {
@@ -984,41 +988,39 @@ export function PerformanceModal({
       if (category === 'testplay') return { label: 'テストプレイ', fee: '¥0' }
       const selectedScenario = scenarios.find(s => s.title === formData.scenario)
       if (!formData.scenario || !selectedScenario) return null
+      const maxP = selectedScenario.player_count_max || formData.max_participants || 1
       if (category === 'gmtest') {
+        let per = 0
         if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
           const gmtestCost = selectedScenario.participation_costs.find(
             c => c.time_slot === 'gmtest' && (c.status === 'active' || !c.status)
           )
-          if (gmtestCost) return { label: 'GMテスト', fee: `¥${gmtestCost.amount.toLocaleString()}` }
+          if (gmtestCost) per = gmtestCost.amount
         }
-        if (selectedScenario.gm_test_participation_fee) {
-          return { label: 'GMテスト', fee: `¥${selectedScenario.gm_test_participation_fee.toLocaleString()}` }
-        }
-        return { label: 'GMテスト', fee: '¥0' }
+        if (!per && selectedScenario.gm_test_participation_fee) per = selectedScenario.gm_test_participation_fee
+        return { label: 'GMテスト', fee: per > 0 ? formatFee(per, maxP) : '¥0' }
       }
       if (category === 'private') {
         const perPerson = getNormalFeeAmount(selectedScenario)
-        if (perPerson) {
-          const maxP = selectedScenario.player_count_max || formData.max_participants || 1
-          const total = perPerson * maxP
-          return { label: '貸切', fee: `¥${perPerson.toLocaleString()}×${maxP}名=¥${total.toLocaleString()}` }
-        }
+        if (perPerson) return { label: '貸切', fee: formatFee(perPerson, maxP) }
         return null
       }
+      // open / offsite / package など
       if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
         const normalCosts = selectedScenario.participation_costs.filter(
           c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
         )
-        if (normalCosts.length === 1) return { label: '', fee: `¥${normalCosts[0].amount.toLocaleString()}` }
+        if (normalCosts.length === 1) return { label: '', fee: formatFee(normalCosts[0].amount, maxP) }
         if (normalCosts.length > 1) {
           const amounts = normalCosts.map(c => c.amount)
           const min = Math.min(...amounts)
           const max = Math.max(...amounts)
-          return { label: '', fee: min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜` }
+          if (min === max) return { label: '', fee: formatFee(min, maxP) }
+          return { label: '', fee: `¥${min.toLocaleString()}〜 / ¥${(max * maxP).toLocaleString()}` }
         }
       }
       if (selectedScenario.participation_fee) {
-        return { label: '', fee: `¥${selectedScenario.participation_fee.toLocaleString()}` }
+        return { label: '', fee: formatFee(selectedScenario.participation_fee, maxP) }
       }
       return null
     }
