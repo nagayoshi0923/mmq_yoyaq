@@ -1,11 +1,13 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { storeApi, scenarioApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import type { Store, Scenario } from '@/types'
 
 export const storeScenarioKeys = {
   stores: ['staff-page-stores'] as const,
   scenarios: ['staff-page-scenarios'] as const,
+  masterTitles: ['scenario-master-titles'] as const,
 }
 
 export function useStoresAndScenarios() {
@@ -21,13 +23,37 @@ export function useStoresAndScenarios() {
     staleTime: 30 * 60 * 1000,
   })
 
+  // 組織カタログに無い master_id の fallback タイトル用 (orphan 担当履歴の表示)
+  const { data: allMasterTitles = [] } = useQuery<Array<{ id: string; title: string }>>({
+    queryKey: storeScenarioKeys.masterTitles,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('scenario_masters')
+        .select('id, title')
+      if (error) throw error
+      return (data ?? []) as Array<{ id: string; title: string }>
+    },
+    staleTime: 30 * 60 * 1000,
+  })
+
+  const masterTitleMap = useMemo(() => {
+    const map = new Map<string, string>()
+    allMasterTitles.forEach(m => map.set(m.id, m.title))
+    return map
+  }, [allMasterTitles])
+
   const getScenario = useCallback((scenarioId: string): Scenario | undefined => {
     return scenarios.find(s => s.id === scenarioId) ?? scenarios.find(s => s.scenario_master_id === scenarioId)
   }, [scenarios])
 
   const getScenarioName = useCallback((scenarioId: string) => {
-    return getScenario(scenarioId)?.title || '不明なシナリオ'
-  }, [getScenario])
+    const fromOrg = getScenario(scenarioId)?.title
+    if (fromOrg) return fromOrg
+    // 組織カタログに無いが scenario_masters にはある場合は「[利用外] タイトル」形式で表示
+    const fromMaster = masterTitleMap.get(scenarioId)
+    if (fromMaster) return `[利用外] ${fromMaster}`
+    return '不明なシナリオ'
+  }, [getScenario, masterTitleMap])
 
   const getScenarioNames = useCallback((scenarioIds: string[]) => {
     return scenarioIds
