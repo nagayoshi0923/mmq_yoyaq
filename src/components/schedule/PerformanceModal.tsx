@@ -30,6 +30,86 @@ import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useOrganization } from '@/hooks/useOrganization'
 import { scheduleTimeSlotToEn, timeSlotEnToSchedule } from '@/lib/timeSlot'
+import { getCurrentOrganizationId } from '@/lib/organization'
+
+// ============================================================================
+// スタッフ参加予約 同期ヘルパー (edit mode 用)
+//
+// GM 役割を「スタッフ参加 (staff)」にした瞬間に reservations へ 1 件 INSERT、
+// 役割を外したり名前を消した時に対応する予約を DELETE する。
+// add mode (event 未保存) では使えないため、handleSave で別途同期する。
+// ============================================================================
+async function ensureStaffReservation(params: {
+  eventId: string
+  staffName: string
+  organizationId: string | null
+  scenarioTitle: string
+  scenarioMasterId: string | null | undefined
+  storeId: string | null
+}): Promise<void> {
+  const { eventId, staffName, organizationId, scenarioTitle, scenarioMasterId, storeId } = params
+  // 既に staff_participation の予約が存在するかチェック
+  const { data: existing } = await supabase
+    .from('reservations')
+    .select('id, participant_names')
+    .eq('schedule_event_id', eventId)
+    .eq('reservation_source', 'staff_participation')
+  if (existing?.some(r => Array.isArray(r.participant_names) && r.participant_names.includes(staffName))) {
+    return // すでに同名で staff_participation があるので何もしない
+  }
+
+  // 顧客検索 (staff の name 一致)
+  let customerId: string | null = null
+  try {
+    let q = supabase.from('customers').select('id').eq('name', staffName)
+    if (organizationId) q = q.or(`organization_id.eq.${organizationId},organization_id.is.null`)
+    const { data: cust } = await q.limit(1).maybeSingle()
+    if (cust) customerId = cust.id
+  } catch {/* 顧客なくても予約は作る */}
+
+  const now = new Date()
+  const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+  const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+  const reservationNumber = `${dateStr}-${randomStr}`
+
+  await supabase.from('reservations').insert({
+    reservation_number: reservationNumber,
+    schedule_event_id: eventId,
+    organization_id: organizationId,
+    title: scenarioTitle || '',
+    scenario_master_id: scenarioMasterId ?? null,
+    store_id: storeId,
+    customer_id: customerId,
+    customer_name: staffName,
+    participant_names: [staffName],
+    participant_count: 1,
+    base_price: 0,
+    unit_price: 0,
+    total_price: 0,
+    final_price: 0,
+    discount_amount: 0,
+    duration: 240,
+    requested_datetime: new Date().toISOString(),
+    payment_method: 'staff',
+    payment_status: 'paid',
+    status: 'confirmed',
+    reservation_source: 'staff_participation',
+  })
+}
+
+async function removeStaffReservation(eventId: string, staffName: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('reservations')
+    .select('id, participant_names')
+    .eq('schedule_event_id', eventId)
+    .eq('reservation_source', 'staff_participation')
+  const target = existing?.find(r =>
+    Array.isArray(r.participant_names) && r.participant_names.includes(staffName)
+  )
+  if (target) {
+    await supabase.from('reservations').delete().eq('id', target.id)
+  }
+}
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -721,6 +801,46 @@ export function PerformanceModal({
     const success = await onSave(saveData)
     // 保存成功時のみダイアログを閉じる
     if (success) {
+      // staff 役割が付いている GM について reservations を同期 (主に add モード後の整合)
+      // edit モードでは role 変更時に即時同期しているが、保存タイミングでも reconcile しておく
+      try {
+        const staffNames = (saveData.gms || []).filter(name => saveData.gm_roles?.[name] === 'staff')
+        if (staffNames.length > 0) {
+          const orgId = await getCurrentOrganizationId()
+          let targetEventId: string | undefined = event?.id
+          if (!targetEventId) {
+            // add モード: 直前に作成した event を date + venue + start_time で引き当て
+            const { data: matched } = await supabase
+              .from('schedule_events')
+              .select('id, store_id')
+              .eq('organization_id', orgId)
+              .eq('date', saveData.date)
+              .eq('start_time', saveData.start_time)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (matched) {
+              targetEventId = matched.id
+            }
+          }
+          if (targetEventId) {
+            const scenarioObj = scenarios.find(s => s.title === saveData.scenario)
+            const storeId = event?.store_id ?? (stores.find(s => s.id === saveData.venue || s.name === saveData.venue)?.id ?? null)
+            for (const name of staffNames) {
+              await ensureStaffReservation({
+                eventId: targetEventId,
+                staffName: name,
+                organizationId: orgId,
+                scenarioTitle: saveData.scenario || '',
+                scenarioMasterId: scenarioObj?.id ?? null,
+                storeId,
+              })
+            }
+          }
+        }
+      } catch (err) {
+        logger.error('保存後のスタッフ参加予約同期に失敗:', err)
+      }
       onClose()
     }
   }
@@ -1243,12 +1363,23 @@ export function PerformanceModal({
                           <div
                             role="button"
                             className="h-3 w-3 flex items-center justify-center rounded-full hover:bg-black/10 ml-0.5"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation()
-                              const newGms = formData.gms.filter((g: string) => g !== gm)
+                              const removedGm = gm
+                              const removedRole = formData.gmRoles?.[removedGm]
+                              const newGms = formData.gms.filter((g: string) => g !== removedGm)
                               const newRoles = { ...formData.gmRoles }
-                              delete newRoles[gm]
+                              delete newRoles[removedGm]
                               setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
+                              // role が staff だったなら、対応する予約を削除
+                              if (mode === 'edit' && event?.id && removedRole === 'staff') {
+                                try {
+                                  await removeStaffReservation(event.id, removedGm)
+                                  setStaffParticipantsFromDB(prev => prev.filter(n => n !== removedGm))
+                                } catch (err) {
+                                  logger.error('スタッフ参加予約の削除に失敗:', err)
+                                }
+                              }
                             }}
                           >
                             <X className="h-2.5 w-2.5" />
@@ -1261,7 +1392,34 @@ export function PerformanceModal({
                             <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
                             <RadioGroup
                               value={role}
-                              onValueChange={(value) => setFormData((prev: any) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))}
+                              onValueChange={async (value) => {
+                                const prevRole = formData.gmRoles?.[gm] || 'main'
+                                setFormData((prev: any) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))
+                                // 役割が staff になった瞬間に reservations へ INSERT
+                                // 役割が staff から外れた瞬間に対応する予約を DELETE
+                                if (mode === 'edit' && event?.id) {
+                                  try {
+                                    const orgId = await getCurrentOrganizationId()
+                                    const scenarioObj = scenarios.find(s => s.title === formData.scenario)
+                                    if (value === 'staff' && prevRole !== 'staff') {
+                                      await ensureStaffReservation({
+                                        eventId: event.id,
+                                        staffName: gm,
+                                        organizationId: orgId,
+                                        scenarioTitle: formData.scenario || '',
+                                        scenarioMasterId: scenarioObj?.id ?? null,
+                                        storeId: event.store_id ?? null,
+                                      })
+                                      setStaffParticipantsFromDB(prev => prev.includes(gm) ? prev : [...prev, gm])
+                                    } else if (prevRole === 'staff' && value !== 'staff') {
+                                      await removeStaffReservation(event.id, gm)
+                                      setStaffParticipantsFromDB(prev => prev.filter(n => n !== gm))
+                                    }
+                                  } catch (err) {
+                                    logger.error('スタッフ参加予約の同期に失敗:', err)
+                                  }
+                                }
+                              }}
                               className="gap-0.5"
                             >
                               <div className="flex items-center space-x-1.5 py-0.5">
