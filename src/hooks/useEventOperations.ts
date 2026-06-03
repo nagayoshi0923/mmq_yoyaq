@@ -600,14 +600,14 @@ export function useEventOperations({
             const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
             const dstStoreName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
             // 移動元セル
-            await createEventHistory(
+            void createEventHistory(
               savedEvent.id, organizationId, 'move_out',
               draggedEvent as unknown as Record<string, unknown>, newEventData,
               { date: draggedEvent.date, storeId: draggedEvent.store_id || draggedEvent.venue, timeSlot: draggedEvent.time_slot || null },
               { notes: `→ ${dropTarget.date} ${dstStoreName}` }
             )
             // 移動先セル
-            await createEventHistory(
+            void createEventHistory(
               savedEvent.id, organizationId, 'move_in',
               draggedEvent as unknown as Record<string, unknown>, newEventData,
               { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
@@ -645,13 +645,13 @@ export function useEventOperations({
           try {
             const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
             const dstStoreName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-            await createEventHistory(
+            void createEventHistory(
               null, organizationId, 'move_out',
               draggedEvent as unknown as Record<string, unknown>, newEventData,
               { date: draggedEvent.date, storeId: draggedEvent.store_id || draggedEvent.venue, timeSlot: draggedEvent.time_slot || null },
               { notes: `→ ${dropTarget.date} ${dstStoreName}` }
             )
-            await createEventHistory(
+            void createEventHistory(
               savedEvent.id, organizationId, 'move_in',
               draggedEvent as unknown as Record<string, unknown>, newEventData,
               { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
@@ -780,7 +780,7 @@ export function useEventOperations({
       if (organizationId) {
         try {
           const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
-          await createEventHistory(
+          void createEventHistory(
             savedEvent.id, organizationId, 'copy',
             null, newEventData,
             { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
@@ -1061,13 +1061,46 @@ export function useEventOperations({
           reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
           is_reservation_name_overwritten: !!performanceData.reservation_name // 手動入力は上書きとみなす
         }
-        
+
+        // 楽観的 insert: 保存完了前にセルへ表示し、ユーザの不安感を解消する
+        // 失敗時は finally ブロックで除外、成功時は real id に置き換える
+        const matchedScenarioForOptimistic = scenarios.find(s => s.title === performanceData.scenario)
+        const tempEventId = `temp-${crypto.randomUUID()}`
+        const optimisticEvent: ScheduleEvent = {
+          id: tempEventId,
+          date: performanceData.date,
+          venue: storeData.id,
+          scenario: performanceData.scenario || '',
+          scenarios: matchedScenarioForOptimistic ? {
+            id: matchedScenarioForOptimistic.id,
+            title: matchedScenarioForOptimistic.title,
+            player_count_max: matchedScenarioForOptimistic.player_count_max ?? 8
+          } : undefined,
+          gms: performanceData.gms || [],
+          gm_roles: performanceData.gm_roles || {},
+          start_time: performanceData.start_time,
+          end_time: performanceData.end_time,
+          category: performanceData.category as ScheduleEvent['category'],
+          is_cancelled: false,
+          current_participants: 0,
+          max_participants: performanceData.max_participants,
+          notes: performanceData.notes || ''
+        }
+        setEvents(prev => [...prev, optimisticEvent])
+
         // Supabaseに保存
-        const savedEvent = await scheduleApi.create(eventData)
+        let savedEvent
+        try {
+          savedEvent = await scheduleApi.create(eventData)
+        } catch (saveError) {
+          // 楽観的 insert を rollback
+          setEvents(prev => prev.filter(e => e.id !== tempEventId))
+          throw saveError
+        }
         
         // 履歴を記録（新規作成）
         try {
-          await createEventHistory(
+          void createEventHistory(
             savedEvent.id,
             organizationId,
             'create',
@@ -1126,7 +1159,8 @@ export function useEventOperations({
           notes: savedEvent.notes || ''
         }
         
-        setEvents(prev => [...prev, formattedEvent])
+        // 楽観的 insert で追加した temp event を real event に置き換える
+        setEvents(prev => prev.map(e => e.id === tempEventId ? formattedEvent : e))
       } else {
         // 編集更新
         
@@ -1430,7 +1464,7 @@ export function useEventOperations({
           // 履歴を記録（更新）
           if (organizationId) {
             try {
-              await createEventHistory(
+              void createEventHistory(
                 performanceData.id!,
                 organizationId,
                 'update',
@@ -1565,7 +1599,7 @@ export function useEventOperations({
           // 履歴を記録（貸切予約削除）
           if (organizationId && eventToDelete) {
             try {
-              await createEventHistory(
+              void createEventHistory(
                 null,  // 削除後なのでnull
                 organizationId,
                 'delete',
@@ -1641,7 +1675,7 @@ export function useEventOperations({
         // 履歴を記録（削除）
         if (organizationId && eventToDelete) {
           try {
-            await createEventHistory(
+            void createEventHistory(
               null,  // 削除後なのでnull
               organizationId,
               'delete',
@@ -1750,7 +1784,7 @@ export function useEventOperations({
           // 履歴を記録（貸切予約削除）
           if (organizationId && scheduleEventToDelete) {
             try {
-              await createEventHistory(
+              void createEventHistory(
                 null,
                 organizationId,
                 'delete',
@@ -1791,7 +1825,7 @@ export function useEventOperations({
         // 履歴を記録（削除）
         if (organizationId) {
           try {
-            await createEventHistory(
+            void createEventHistory(
               null,
               organizationId,
               'delete',
@@ -1867,7 +1901,7 @@ export function useEventOperations({
         // 履歴を記録（中止）
         if (organizationId) {
           try {
-            await createEventHistory(
+            void createEventHistory(
               cancellingEvent.id,
               organizationId,
               'cancel',
@@ -1992,7 +2026,7 @@ export function useEventOperations({
       // 履歴を記録（復活）
       if (organizationId) {
         try {
-          await createEventHistory(
+          void createEventHistory(
             event.id,
             organizationId,
             'restore',
@@ -2028,7 +2062,7 @@ export function useEventOperations({
       // 履歴を記録
       if (organizationId) {
         try {
-          await createEventHistory(
+          void createEventHistory(
             event.id, organizationId, 'update',
             { is_tentative: event.is_tentative },
             { is_tentative: newStatus },
@@ -2072,7 +2106,7 @@ export function useEventOperations({
       // 履歴を記録
       if (organizationId) {
         try {
-          await createEventHistory(
+          void createEventHistory(
             event.id, organizationId, newStatus ? 'publish' : 'unpublish',
             { is_reservation_enabled: event.is_reservation_enabled },
             { is_reservation_enabled: newStatus },
@@ -2228,7 +2262,7 @@ export function useEventOperations({
       // 履歴を記録
       if (organizationId) {
         try {
-          await createEventHistory(
+          void createEventHistory(
             null, organizationId, 'delete',
             event as unknown as Record<string, unknown>, {},
             { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null },
