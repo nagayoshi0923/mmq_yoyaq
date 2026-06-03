@@ -1355,7 +1355,7 @@ export function PerformanceModal({
                             {gm}
                             {role === 'sub' && <span className="text-[11px] ml-0.5 font-bold">(サブ)</span>}
                             {role === 'reception' && <span className="text-[11px] ml-0.5 font-bold">(受付)</span>}
-                            {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">(参加)</span>}
+                            {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">{staffParticipantsFromDB.includes(gm) ? '(参加)' : '(参加予定)'}</span>}
                             {role === 'observer' && <span className="text-[11px] ml-0.5 font-bold">(見学)</span>}
                           </span>
                           <div
@@ -1664,12 +1664,15 @@ export function PerformanceModal({
               const categoryLabel = CATEGORY_LABEL_MAP[category] || category
               const tone = CATEGORY_TONE[category]
 
-              // 役割バッジ: staff は常に「参加 (緑)」に統一
+              // 役割バッジ: staff は常に緑 だが DB 未追加なら「参加予定」ラベル
               const getRoleBadge = (name: string): { label: string; bg: string; text: string } => {
                 const role = formData.gmRoles?.[name] || 'main'
                 if (role === 'observer') return { label: '見学', bg: '#e0e7ff', text: '#3730a3' } // indigo-100/800
                 if (role === 'reception') return { label: '受付', bg: '#ffedd5', text: '#9a3412' } // orange-100/800
-                if (role === 'staff') return { label: '参加', bg: '#dcfce7', text: '#166534' } // green-100/800
+                if (role === 'staff') {
+                  const isBacked = staffParticipantsFromDB.includes(name)
+                  return { label: isBacked ? '参加' : '参加予定', bg: '#dcfce7', text: '#166534' } // 緑のまま
+                }
                 if (role === 'sub') return { label: 'サブ', bg: '#dbeafe', text: '#1e40af' } // blue-100/800
                 return { label: 'メイン', bg: '#f3f4f6', text: '#1f2937' } // gray-100/800
               }
