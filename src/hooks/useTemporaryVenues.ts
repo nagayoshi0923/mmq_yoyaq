@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { TemporaryVenue } from '@/types'
@@ -35,19 +36,31 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
 
   // Supabaseから臨時会場を読み込む + Realtime購読
   useEffect(() => {
+    let currentOrgId: string | null = null
+
     const loadTemporaryVenues = async () => {
       setLoading(true)
       try {
-        // 臨時1〜5をすべて取得
+        // 自組織の臨時1〜5をすべて取得（他組織の同名 venue を拾わないよう org で絞る）
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) {
+          logger.error('臨時会場読み込み: 組織IDが取得できません')
+          setTemporaryVenues([])
+          return
+        }
+        currentOrgId = orgId
+
         const { data, error } = await supabase
           .from('stores')
           .select(TEMP_VENUE_SELECT_FIELDS)
           .eq('is_temporary', true)
+          .eq('organization_id', orgId)
           .order('name', { ascending: true })
-        
+
         if (error) throw error
-        
+
         logger.log('📍 臨時会場データ読み込み:', {
+          orgId,
           取得件数: data?.length || 0,
           データ: data?.map(v => ({
             id: v.id,
@@ -55,7 +68,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
             temporary_dates: v.temporary_dates
           }))
         })
-        
+
         setTemporaryVenues((data as TemporaryVenue[]) || [])
       } catch (error) {
         logger.error('臨時会場データの読み込みに失敗:', error)
@@ -64,7 +77,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         setLoading(false)
       }
     }
-    
+
     loadTemporaryVenues()
 
     // Realtime購読（臨時会場のみ）
@@ -76,19 +89,25 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           event: '*',
           schema: 'public',
           table: 'stores'
-          // フィルターなし: クライアント側で is_temporary をチェック
+          // フィルターなし: クライアント側で is_temporary と organization_id をチェック
         },
         (payload) => {
           // Realtimeのペイロードを適切な型にキャスト
-          const newData = payload.new as Partial<TemporaryVenue> | null
-          const oldData = payload.old as Partial<TemporaryVenue> | null
-          
+          const newData = payload.new as (Partial<TemporaryVenue> & { organization_id?: string }) | null
+          const oldData = payload.old as (Partial<TemporaryVenue> & { organization_id?: string }) | null
+
           // 臨時会場以外は無視
           const isTemporary = newData?.is_temporary || oldData?.is_temporary
           if (!isTemporary) {
             return
           }
-          
+
+          // 別組織のイベントは無視（RLS と二重防御）
+          const eventOrgId = newData?.organization_id || oldData?.organization_id
+          if (eventOrgId && currentOrgId && eventOrgId !== currentOrgId) {
+            return
+          }
+
           logger.log('🔔 臨時会場Realtimeイベント受信:', {
             type: payload.eventType,
             venue: newData?.name || oldData?.name,
