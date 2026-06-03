@@ -380,17 +380,7 @@ export const CalendarView = memo(function CalendarView({
                                   </span>
                                 )}
                                 <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
-                                  {isFull ? '満席' : (() => {
-                                    const dur = scenario?.duration
-                                      ?? (event.end_time && event.start_time
-                                        ? (() => {
-                                            const [sh, sm] = event.start_time.split(':').map(Number)
-                                            const [eh, em] = event.end_time.split(':').map(Number)
-                                            return (eh * 60 + em) - (sh * 60 + sm)
-                                          })()
-                                        : null)
-                                    return dur ? `${dur}分` : ''
-                                  })()}
+                                  {isFull ? '満席' : `${currentParticipants}/${maxParticipants}`}
                                 </span>
                               </div>
                             </div>
