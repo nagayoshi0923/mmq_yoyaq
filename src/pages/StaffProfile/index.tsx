@@ -112,14 +112,17 @@ export function StaffProfile() {
         const organizationId = await getCurrentOrganizationId()
         const { data: orgScenarios, error: orgError } = await supabase
           .from('organization_scenarios_with_master')
-          .select('scenario_master_id, title, author, gm_count')
+          .select('scenario_master_id, title, author, gm_count, scenario_kind')
           .eq('organization_id', organizationId!)
           .order('title', { ascending: true })
-        
+
         if (orgError) throw orgError
-        
+
+        // 出張公演限定・オンライン販売・パッケージ販売は GM が担当する種別ではないので除外
+        const EXCLUDED_KINDS = new Set(['offsite_only', 'online_item', 'package'])
         const scenariosList: Scenario[] = (orgScenarios || [])
           .filter(s => s.scenario_master_id)
+          .filter(s => !EXCLUDED_KINDS.has(s.scenario_kind || 'regular'))
           .map(s => ({
             id: s.scenario_master_id,
             title: s.title || '',
