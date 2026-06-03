@@ -1333,15 +1333,13 @@ export function PerformanceModal({
               <div className="flex flex-wrap gap-1 mt-1">
                 {formData.gms.map((gm: string, index: number) => {
                   const role = formData.gmRoles?.[gm] || 'main'
-                  const isBackedByStaffReservation = role === 'staff' && staffParticipantsFromDB.includes(gm)
+                  // staff 役割は常に「参加 (緑)」に統一 (保存時 or role 変更時に予約も自動同期される)
                   const badgeStyle = role === 'observer'
                     ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200'
                     : role === 'reception'
                       ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
                       : role === 'staff'
-                        ? (isBackedByStaffReservation
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
-                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200')
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
                         : role === 'sub'
                           ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200'
                           : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
@@ -1357,7 +1355,7 @@ export function PerformanceModal({
                             {gm}
                             {role === 'sub' && <span className="text-[11px] ml-0.5 font-bold">(サブ)</span>}
                             {role === 'reception' && <span className="text-[11px] ml-0.5 font-bold">(受付)</span>}
-                            {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">{isBackedByStaffReservation ? '(参加)' : '(参加予定)'}</span>}
+                            {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">(参加)</span>}
                             {role === 'observer' && <span className="text-[11px] ml-0.5 font-bold">(見学)</span>}
                           </span>
                           <div
@@ -1447,8 +1445,8 @@ export function PerformanceModal({
                           {role === 'sub' && <p className="text-[11px] text-blue-600 bg-blue-50 p-0.5 rounded">※サブGM給与適用</p>}
                           {role === 'reception' && <p className="text-[11px] text-orange-600 bg-orange-50 p-0.5 rounded">※受付（2,000円）</p>}
                           {role === 'staff' && (
-                            <p className={cn('text-[11px] p-0.5 rounded', isBackedByStaffReservation ? 'text-green-600 bg-green-50' : 'text-yellow-700 bg-yellow-50')}>
-                              {isBackedByStaffReservation ? '※ 予約タブ（スタッフ予約）に紐づく参加' : '※ GM欄で「スタッフ参加」として設定されているだけ（予約タブに実体がない）'}
+                            <p className="text-[11px] p-0.5 rounded text-green-600 bg-green-50">
+                              ※ 予約タブのスタッフ予約として自動追加されます
                             </p>
                           )}
                           {role === 'observer' && <p className="text-[11px] text-indigo-600 bg-indigo-50 p-0.5 rounded">※見学のみ</p>}
@@ -1666,18 +1664,12 @@ export function PerformanceModal({
               const categoryLabel = CATEGORY_LABEL_MAP[category] || category
               const tone = CATEGORY_TONE[category]
 
-              // 役割バッジ: フォーム GM チップのカラー (line 1217-1227) と揃える
-              // staff は DB に予約実体がある場合は green、無い場合 (=「参加予定」) は yellow
+              // 役割バッジ: staff は常に「参加 (緑)」に統一
               const getRoleBadge = (name: string): { label: string; bg: string; text: string } => {
                 const role = formData.gmRoles?.[name] || 'main'
-                const isBackedByStaffReservation = role === 'staff' && staffParticipantsFromDB.includes(name)
                 if (role === 'observer') return { label: '見学', bg: '#e0e7ff', text: '#3730a3' } // indigo-100/800
                 if (role === 'reception') return { label: '受付', bg: '#ffedd5', text: '#9a3412' } // orange-100/800
-                if (role === 'staff') {
-                  return isBackedByStaffReservation
-                    ? { label: '参加',     bg: '#dcfce7', text: '#166534' } // green-100/800
-                    : { label: '参加予定', bg: '#fef9c3', text: '#854d0e' } // yellow-100/800
-                }
+                if (role === 'staff') return { label: '参加', bg: '#dcfce7', text: '#166534' } // green-100/800
                 if (role === 'sub') return { label: 'サブ', bg: '#dbeafe', text: '#1e40af' } // blue-100/800
                 return { label: 'メイン', bg: '#f3f4f6', text: '#1f2937' } // gray-100/800
               }
