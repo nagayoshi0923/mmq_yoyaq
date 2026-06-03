@@ -55,18 +55,29 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   if (staffIdsRaw) {
     const ids = staffIdsRaw.split(',').map((s) => s.trim()).filter(Boolean)
     if (ids.length === 0) return res.status(200).json([])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
-      .from('staff_scenario_assignments')
-      .select('staff_id, scenario_master_id, can_main_gm, can_sub_gm, is_experienced')
-      .eq('organization_id', user.orgId)
-      .in('staff_id', ids)
-      .limit(50000)
-    if (error) {
-      console.error('[assignments] batch staff DB error:', error)
-      return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+    // PostgREST の max-rows (Supabase デフォルト 1000) で打ち切られるのを避けるため
+    // range() でページネーション。担当データが欠落すると公演ダイアログで GM の
+    // 「担当」バッジが消える（過去にこれで じの 等が表示されない事故あり）。
+    const PAGE_SIZE = 1000
+    const allRows: Array<Record<string, unknown>> = []
+    for (let from = 0; ; from += PAGE_SIZE) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (db as any)
+        .from('staff_scenario_assignments')
+        .select('staff_id, scenario_master_id, can_main_gm, can_sub_gm, is_experienced')
+        .eq('organization_id', user.orgId)
+        .in('staff_id', ids)
+        .order('staff_id')
+        .range(from, from + PAGE_SIZE - 1)
+      if (error) {
+        console.error('[assignments] batch staff DB error:', error)
+        return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+      }
+      if (!data || data.length === 0) break
+      allRows.push(...data)
+      if (data.length < PAGE_SIZE) break
     }
-    return res.status(200).json(data ?? [])
+    return res.status(200).json(allRows)
   }
 
   // ─── 一括取得: ?scenario_ids=a,b,c ──────────────────────────────────────
