@@ -214,6 +214,8 @@ export function PerformanceModal({
   // 保存時に handleSave で一括 INSERT する
   type PendingParticipant = { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }
   const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
+  // 選択中シナリオのキット配置店舗一覧 (scenario_master_id 単位)
+  const [kitStoreIds, setKitStoreIds] = useState<string[]>([])
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
   const [deleteConfirming, setDeleteConfirming] = useState(false)
@@ -590,6 +592,34 @@ export function PerformanceModal({
     void initForm()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
+
+  // シナリオ変更時にキット配置店舗を取得
+  useEffect(() => {
+    const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+    const masterId = selectedScenario?.scenario_master_id || selectedScenario?.id
+    if (!masterId) {
+      setKitStoreIds([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) return
+        const { data, error } = await supabase
+          .from('scenario_kit_locations')
+          .select('store_id')
+          .eq('scenario_master_id', masterId)
+          .eq('organization_id', orgId)
+        if (error || cancelled) return
+        const ids = Array.from(new Set((data || []).map(r => r.store_id).filter(Boolean) as string[]))
+        setKitStoreIds(ids)
+      } catch (err) {
+        logger.error('キット配置店舗の取得エラー:', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [formData.scenario, scenarios])
 
   const initForm = async () => {
     
@@ -1295,6 +1325,26 @@ export function PerformanceModal({
                     )
                   }
                   return null
+                })()}
+                {/* キット配置警告: シナリオに紐づくキットが選択中の店舗に無い時に出す
+                   (kitStoreIds が空 = キット未登録のシナリオは判定スキップ) */}
+                {formData.scenario && formData.venue && kitStoreIds.length > 0 && !kitStoreIds.includes(formData.venue) && (() => {
+                  const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
+                  const kitStoreNames = kitStoreIds
+                    .map(id => stores.find(s => s.id === id)?.short_name || stores.find(s => s.id === id)?.name)
+                    .filter(Boolean)
+                    .join(', ')
+                  return (
+                    <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px]">
+                      <div className="flex items-center gap-1 text-amber-700">
+                        <span className="font-semibold">⚠️ キット未配置:</span>
+                        <span>{storeName}</span>
+                      </div>
+                      <p className="mt-0.5 text-amber-600">
+                        この店舗には{kitStoreNames ? `キットが置かれていません (現在の配置: ${kitStoreNames})` : 'キットが置かれていません'}
+                      </p>
+                    </div>
+                  )
                 })()}
                 {formData.scenario && (() => {
                   const selectedScenario = scenarios.find(s => s.title === formData.scenario)
