@@ -63,7 +63,7 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-muted-foreground mb-1">
+      <h3 className="ts-label">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
       {mode === 'private' && displayVenues.length > 1 && (

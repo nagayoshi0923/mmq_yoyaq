@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Users, ChevronDown, BookOpen, AlertTriangle, User } from 'lucide-react'
 import type { ScenarioDetail, ScenarioCharacter } from '../utils/types'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface ScenarioAboutProps {
@@ -56,7 +57,7 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
 
         {/* NPC バッジ（左上） */}
         {isNpc && (
-          <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow z-[1]">
+          <span className="absolute top-1.5 left-1.5 text-xs font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow z-[1]">
             NPC
           </span>
         )}
@@ -72,7 +73,7 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
               <span className="ml-1 font-normal text-white/70">（{character.first_person}）</span>
             )}
           </p>
-          <div className="text-[10px] text-white/80 mt-0.5 leading-tight">
+          <div className="text-xs text-white/80 mt-0.5 leading-tight">
             {(character.gender !== 'unknown' || character.age) && (
               <p>
                 {genderLabel[character.gender]}
@@ -87,7 +88,7 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
 
       {character.description && (
         <div className="px-2 py-2 bg-zinc-900 border-t border-zinc-800">
-          <p className="text-[10px] text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
+          <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
             {character.description}
           </p>
         </div>
@@ -100,22 +101,24 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
   const [isExpanded, setIsExpanded] = useState(false)
   const synopsisLength = scenario.synopsis?.length || 0
   const shouldTruncate = synopsisLength > 200
+  const preset = useOrgThemePreset()
+  const headingTextColor = preset.onPrimary === 'black' ? '#000' : '#fff'
 
   return (
     <div className="space-y-4">
       {/* あらすじセクション */}
       {scenario.synopsis && (
         <div className="bg-gray-50 border border-gray-200">
-          <div 
+          <div
             className="px-4 py-3 border-b border-gray-200 flex items-center gap-2"
-            style={{ backgroundColor: THEME.primary }}
+            style={{ backgroundColor: preset.primary, color: headingTextColor }}
           >
-            <BookOpen className="w-4 h-4 text-white" />
-            <h3 className="font-semibold text-white text-sm">あらすじ</h3>
+            <BookOpen className="w-4 h-4" />
+            <h3 className="font-semibold text-base">あらすじ</h3>
           </div>
           <div className="p-4">
             <div className={`relative ${!isExpanded && shouldTruncate ? 'max-h-32 overflow-hidden' : ''}`}>
-              <p className="leading-relaxed whitespace-pre-wrap text-sm text-gray-700">
+              <p className="leading-relaxed whitespace-pre-wrap text-base md:text-xs text-gray-700">
                 {scenario.synopsis}
               </p>
               {/* グラデーションオーバーレイ */}
@@ -126,8 +129,8 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
             {shouldTruncate && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-2 flex items-center gap-1 text-sm font-medium transition-colors"
-                style={{ color: THEME.primary }}
+                className="mt-2 flex items-center gap-1 text-xs font-medium transition-colors"
+                style={{ color: preset.primary }}
               >
                 {isExpanded ? '閉じる' : '続きを読む'}
                 <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -140,12 +143,12 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
       {/* キャラクターセクション */}
       {scenario.characters && scenario.characters.length > 0 && (
         <div className="bg-white border border-gray-200">
-          <div 
+          <div
             className="px-4 py-3 border-b border-gray-200 flex items-center gap-2"
-            style={{ backgroundColor: THEME.primary }}
+            style={{ backgroundColor: preset.primary, color: headingTextColor }}
           >
-            <Users className="w-4 h-4 text-white" />
-            <h3 className="font-semibold text-white text-sm">キャラクター</h3>
+            <Users className="w-4 h-4" />
+            <h3 className="font-semibold text-base">キャラクター</h3>
           </div>
           <div className="p-4">
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -164,10 +167,10 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
         <div className="bg-white border border-gray-200 rounded">
           <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-200">
             <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">シナリオ特記事項</h3>
+            <h3 className="font-semibold text-gray-900 text-base">シナリオ特記事項</h3>
           </div>
           <div className="px-4 py-3">
-            <p className="leading-relaxed whitespace-pre-wrap text-sm text-gray-700">
+            <p className="leading-relaxed whitespace-pre-wrap text-base md:text-xs text-gray-700">
               {scenario.caution}
             </p>
           </div>

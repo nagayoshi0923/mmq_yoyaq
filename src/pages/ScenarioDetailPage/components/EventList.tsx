@@ -27,7 +27,7 @@ export const EventList = memo(function EventList({
   if (events.length === 0) {
     return (
       <Card>
-        <CardContent className="p-4 text-center text-muted-foreground">
+        <CardContent className="p-4 text-center text-xs text-muted-foreground">
           現在予約可能な公演はありません
         </CardContent>
       </Card>
@@ -66,13 +66,13 @@ export const EventList = memo(function EventList({
               {/* 左：日付（縦並び） */}
               <div className="flex-shrink-0 w-12 text-center">
                 <div className="text-base font-semibold leading-tight">{month}/{day}</div>
-                <div className={`text-sm ${weekdayColor}`}>({weekday})</div>
+                <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
               </div>
               
               {/* 中央：時間 + 店舗 + タイトル */}
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm">
+                  <span className="text-xs">
                     {formatTime(event.start_time)}〜
                   </span>
                   <span 
@@ -116,14 +116,14 @@ export const EventList = memo(function EventList({
                           開催決定
                         </Badge>
                       )}
-                      <div className="text-sm text-muted-foreground whitespace-nowrap">
+                      <div className="text-xs text-muted-foreground whitespace-nowrap">
                         残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
                       </div>
                     </div>
                     <Button
                       variant={isSelected ? "default" : "outline"}
                       size="sm"
-                      className={`h-8 px-4 text-sm touch-manipulation ${
+                      className={`h-8 px-4 text-xs touch-manipulation ${
                         isSelected ? "bg-blue-500 hover:bg-blue-600" : ""
                       }`}
                     >

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
+import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
@@ -52,11 +53,14 @@ interface CategoryData {
   sort_order: number
 }
 
-// バッジ種類を判定するヘルパー関数
-function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: string; textColor: string } | null {
+// バッジ種類を判定するヘルパー関数 (色は呼び出し側のテーマに合わせて差し替えるため引数で受ける)
+function getScenarioBadge(
+  scenario: ScenarioData,
+  themeColors: { primary: string; accent: string },
+): { label: string; bgColor: string; textColor: string } | null {
   // おすすめ（管理者設定）- 最優先
   if (scenario.is_recommended) {
-    return { label: 'おすすめ', bgColor: THEME.primary, textColor: '#fff' }
+    return { label: 'おすすめ', bgColor: themeColors.primary, textColor: '#fff' }
   }
   // ロングセラー（リリースから1年以上）
   if (scenario.release_date) {
@@ -64,7 +68,7 @@ function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: str
     const oneYearAgo = new Date()
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
     if (releaseDate <= oneYearAgo) {
-      return { label: 'ロングセラー', bgColor: THEME.accent, textColor: '#000' }
+      return { label: 'ロングセラー', bgColor: themeColors.accent, textColor: '#fff' }
     }
   }
   return null
@@ -132,6 +136,7 @@ async function fetchScenarioCatalogBundle(): Promise<{
 export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const { isStaff } = useAuth()
   const { organization } = useOrganization()
+  const preset = useOrgThemePreset(organizationSlug)
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -352,28 +357,28 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     selectedStore !== 'all'
 
   return (
-    <div className="min-h-screen overflow-x-clip" style={{ backgroundColor: THEME.background }}>
+    <div className="booking-shell min-h-screen overflow-x-clip" style={{ backgroundColor: THEME.background }}>
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={bookingBasePath} />
       )}
 
       {/* ヒーローセクション - シャープデザイン */}
-      <section 
+      <section
         className="relative overflow-hidden"
-        style={{ backgroundColor: THEME.primary }}
+        style={{ backgroundColor: preset.primary }}
       >
-        {/* アクセント装飾 */}
-        <div 
+        {/* アクセント装飾 (テーマカラー連動) */}
+        <div
           className="absolute top-0 right-0 w-48 h-48 opacity-20"
-          style={{ 
-            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+          style={{
+            background: `radial-gradient(circle at center, ${preset.accent} 0%, transparent 70%)`,
             transform: 'translate(30%, -30%)'
           }}
         />
-        <div 
+        <div
           className="absolute bottom-0 left-0 w-1 h-12"
-          style={{ backgroundColor: THEME.accent }}
+          style={{ backgroundColor: preset.accent }}
         />
         
         <div className="container mx-auto max-w-7xl px-4 py-4 md:py-6 relative">
@@ -391,7 +396,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
               {/* アクセントバッジ */}
               <div 
                 className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-1"
-                style={{ backgroundColor: THEME.accent, color: '#000' }}
+                style={{ backgroundColor: preset.accent, color: '#fff' }}
               >
                 <BookOpen className="w-2.5 h-2.5" />
                 SCENARIO CATALOG
@@ -422,7 +427,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
               className="h-10 px-3"
-              style={showFilters ? { backgroundColor: THEME.primary } : { borderColor: THEME.primary, color: THEME.primary }}
+              style={showFilters ? { backgroundColor: preset.primary } : { borderColor: preset.primary, color: preset.primary }}
             >
               <Filter className="w-4 h-4" />
             </Button>
@@ -578,7 +583,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
           <div className="flex justify-center py-12">
             <div 
               className="animate-spin h-8 w-8 border-4 border-t-transparent"
-              style={{ borderColor: `${THEME.primary} transparent ${THEME.primary} ${THEME.primary}` }}
+              style={{ borderColor: `${preset.primary} transparent ${preset.primary} ${preset.primary}` }}
             />
           </div>
         ) : filteredScenarios.length === 0 ? (
@@ -627,7 +632,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                     )}
                     {/* バッジ表示: おすすめ > ロングセラー */}
                     {(() => {
-                      const badge = getScenarioBadge(scenario)
+                      const badge = getScenarioBadge(scenario, { primary: preset.primary, accent: preset.accent })
                       if (badge) {
                         return (
                           <div 

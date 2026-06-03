@@ -19,6 +19,7 @@ import { useScenarioDetail } from './hooks/useScenarioDetail'
 import { usePrivateBooking } from './hooks/usePrivateBooking'
 import { useBookingActions } from './hooks/useBookingActions'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 
 // 分離されたコンポーネント
 import { ScenarioHero } from './components/ScenarioHero'
@@ -46,6 +47,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const { user, isStaff } = useAuth()
   const navigate = useNavigate()
   const shouldShowNavigation = isStaff
+  const preset = useOrgThemePreset(organizationSlug)
+  const heroBgColor = preset.primary
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   /** ?tab=private&date&store&slot の枠を getTimeSlotsForDate で解決するまで保持 */
   const [privateBookingUrlPending, setPrivateBookingUrlPending] = useState<{
@@ -304,12 +307,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background overflow-x-clip">
+      <div className="booking-shell min-h-screen bg-background overflow-x-clip">
         <Header />
         {shouldShowNavigation && (
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
-        <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+        <div className="text-white relative overflow-hidden" style={{ backgroundColor: heroBgColor }}>
           <div className="container mx-auto max-w-7xl px-4 py-2 relative">
             <div className="flex items-center gap-3">
               <Button
@@ -370,17 +373,17 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   if (!scenario) {
     return (
-      <div className="min-h-screen bg-background overflow-x-clip">
+      <div className="booking-shell min-h-screen bg-background overflow-x-clip">
         <Header />
         {shouldShowNavigation && (
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
-        <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+        <div className="text-white relative overflow-hidden" style={{ backgroundColor: heroBgColor }}>
           {/* アクセント装飾 */}
-          <div 
+          <div
             className="absolute top-0 right-0 w-24 h-24 opacity-20"
-            style={{ 
-              background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            style={{
+              background: `radial-gradient(circle at center, ${preset.accent} 0%, transparent 70%)`,
               transform: 'translate(30%, -30%)'
             }}
           />
@@ -405,19 +408,19 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-clip">
+    <div className="booking-shell min-h-screen bg-background overflow-x-clip">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
       {/* ヒーローセクション（トップページと統一） */}
-      <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
-        {/* アクセント装飾 */}
-        <div 
+      <div className="text-white relative overflow-hidden" style={{ backgroundColor: heroBgColor }}>
+        {/* アクセント装飾 (テーマカラー連動) */}
+        <div
           className="absolute top-0 right-0 w-24 h-24 opacity-20"
-          style={{ 
-            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+          style={{
+            background: `radial-gradient(circle at center, ${preset.accent} 0%, transparent 70%)`,
             transform: 'translate(30%, -30%)'
           }}
         />
@@ -515,7 +518,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
-                  <div>
+                  <div className="space-y-4">
                     {/* 店舗フィルタ（実際にスケジュールに存在する店舗のみ表示） */}
                     <StoreSelector
                       stores={scheduleStores}
@@ -524,47 +527,36 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       label="店舗で絞り込み"
                       placeholder="店舗を選択"
                     />
-                    
-                    {/* 日程未選択時のガイダンス（選択後と同じスタイル） */}
-                    {!selectedEventId && (
-                      <div 
-                        className="mb-3 px-3 py-2 border-l-4 text-sm"
-                        style={{ 
-                          borderColor: THEME.primary,
-                          backgroundColor: THEME.primaryLight,
-                          color: THEME.primary
-                        }}
-                      >
-                        参加したい日程を選択してください
-                      </div>
-                    )}
-                    
-                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">日付を選択</h3>
-                    <EventList
-                      events={scheduleStoreFilter.length > 0 
-                        ? events.filter(
-                            (e) =>
-                              scheduleStoreFilter.includes(e.store_id) ||
-                              // 店舗未紐付け（出張公演など）は店舗絞り込みしても表示を維持
-                              !e.store_id
-                          )
-                        : events}
-                      selectedEventId={selectedEventId}
-                      scenarioTitle={scenario.scenario_title}
-                      onEventSelect={setSelectedEventId}
-                      minParticipants={scenario.player_count_min}
-                    />
+
+                    <div>
+                      <h3 className="ts-label">日付を選択</h3>
+                      <EventList
+                        events={scheduleStoreFilter.length > 0
+                          ? events.filter(
+                              (e) =>
+                                scheduleStoreFilter.includes(e.store_id) ||
+                                // 店舗未紐付け（出張公演など）は店舗絞り込みしても表示を維持
+                                !e.store_id
+                            )
+                          : events}
+                        selectedEventId={selectedEventId}
+                        scenarioTitle={scenario.scenario_title}
+                        onEventSelect={setSelectedEventId}
+                        minParticipants={scenario.player_count_min}
+                      />
+                    </div>
                   </div>
                 </TabsContent>
                 
                 {/* 貸切リクエストタブ */}
                 <TabsContent value="private">
+                  <div className="space-y-4">
                   {/* 日程を決めないで作成するボタン（一番上） */}
-                  <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                    <p className="text-sm text-purple-800 mb-2">
+                  <div className="p-3 bg-purple-50 border border-purple-200">
+                    <p className="text-xs text-purple-800 mb-2">
                       日程やメンバーが決まっていない場合
                     </p>
-                    <Button 
+                    <Button
                       variant="outline"
                       className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
                       onClick={() => {
@@ -608,8 +600,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200">
-                      <div className="text-xs sm:text-sm text-purple-900 mb-2">
+                    <div className="p-3 bg-purple-50 border border-purple-200">
+                      <div className="text-xs text-purple-900 mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -619,9 +611,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           const day = dateObj.getDate()
                           const weekdays = ['日', '月', '火', '水', '木', '金', '土']
                           const weekday = weekdays[dateObj.getDay()]
-                          
+
                           return (
-                            <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
+                            <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
                               <span className="text-purple-900 flex-1 min-w-0 pr-2">
                                 {index + 1}. {month}/{day}({weekday}) {item.slot.label}{' '}
                                 {item.slot.startTime}〜{item.slot.endTime}
@@ -640,12 +632,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       </div>
                     </div>
                   )}
+                  </div>
                 </TabsContent>
               </Tabs>
 
 
               {/* タブの内容に応じて表示を切り替え */}
-              <div>
+              <div className="mt-4">
                 {activeTab === 'schedule' && (
                   <BookingPanel
                     participantCount={participantCount}

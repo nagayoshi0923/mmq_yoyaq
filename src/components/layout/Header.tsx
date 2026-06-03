@@ -2,6 +2,7 @@ import { useCallback, memo, useEffect, useState, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
+import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogOut, User, Building2, ChevronRight, LayoutDashboard, Search } from 'lucide-react'
@@ -143,8 +144,25 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
     return !adminSegments.includes(match[1])
   }, [location.pathname])
 
+  // URL から組織 slug を即時取得し、 localStorage キャッシュからテーマカラーを取得
+  // (displayOrganization の非同期 fetch を待たないことでチラつきを防ぐ)
+  const urlSlug = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const match = window.location.pathname.match(/^\/([^/]+)/)
+    if (!match) return null
+    const exclude = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+      'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
+      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
+      'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
+      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
+      'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
+      'license-reports', 'customer-management']
+    return exclude.includes(match[1]) ? null : match[1]
+  }, [location.pathname])
+  const themePreset = useOrgThemePreset(urlSlug)
+
   // 組織の公開ページのみテーマカラーを適用、管理ページはデフォルト
-  const headerBgColor = backgroundColor ?? (isPublicOrgPage ? (displayOrganization?.theme_color ?? THEME.primary) : THEME.primary)
+  const headerBgColor = backgroundColor ?? (isPublicOrgPage ? themePreset.primary : THEME.primary)
 
   return (
     <header

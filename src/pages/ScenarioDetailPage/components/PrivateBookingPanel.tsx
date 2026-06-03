@@ -48,12 +48,12 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 日程を決めないで作成するボタン（上部） */}
       {scenarioId && (
         <Card className="border-purple-200 bg-purple-50/50">
           <CardContent className="p-4">
-            <p className="text-sm text-purple-800 mb-3">
+            <p className="text-xs text-purple-800 mb-3">
               日程やメンバーが決まっていない場合
             </p>
             <Button 
@@ -70,25 +70,25 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
 
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">料金</h3>
+        <h3 className="ts-label">料金</h3>
         <Card>
           <CardContent className="p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">参加費（1名）</span>
-              <span className="font-medium">¥{participationFee.toLocaleString()}</span>
+            <div className="flex justify-between">
+              <span className="ts-muted">参加費（1名）</span>
+              <span className="ts-body font-medium">¥{participationFee.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">人数</span>
-              <span className="font-medium">{maxParticipants}名</span>
+            <div className="flex justify-between">
+              <span className="ts-muted">人数</span>
+              <span className="ts-body font-medium">{maxParticipants}名</span>
             </div>
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">合計</span>
-                <span className="text-base font-bold text-[#E60012]">
+                <span className="ts-muted">合計</span>
+                <span className="ts-emph text-purple-600">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="ts-caption mt-1">
                 ※ 実際の料金は店舗との調整により変動する場合があります
               </p>
             </div>
@@ -104,8 +104,8 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
       />
 
       {/* 貸切リクエスト送信ボタン */}
-      <Button 
-        className="w-full h-10 text-base bg-[#E60012] hover:bg-[#CC0010]"
+      <Button
+        className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
         onClick={onRequestBooking}
         disabled={isLoggedIn && selectedTimeSlotsCount === 0}
       >

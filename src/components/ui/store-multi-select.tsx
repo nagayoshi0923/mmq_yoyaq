@@ -1,5 +1,6 @@
-import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,18 +44,11 @@ interface StoreMultiSelectProps {
 }
 
 /**
- * 店舗複数選択コンポーネント（折りたたみ式ドロップダウン、地域グループ化）
- * 
- * 使い方:
- * ```tsx
- * <StoreMultiSelect
- *   stores={stores}
- *   selectedStoreIds={selectedIds}
- *   onStoreIdsChange={setSelectedIds}
- *   label="公演可能店舗"
- *   placeholder="全店舗で公演可能"
- * />
- * ```
+ * 店舗複数選択コンポーネント (Radix Popover ベース、地域グループ化)
+ *
+ * Popover.Portal で body 直下に render するため、 親要素の overflow:hidden
+ * に影響されず、 画面端で自動的に位置調整される。 a11y / キーボード対応も
+ * Radix 側に任せる。
  */
 export const StoreMultiSelect = memo(function StoreMultiSelect({
   stores,
@@ -66,26 +60,11 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
   className = ''
 }: StoreMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // 外側クリックで閉じる
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
 
   // 店舗を地域ごとにグループ化
   const storesByRegion = useMemo(() => {
     const grouped: Record<string, Store[]> = {}
-    
+
     stores.forEach(store => {
       const region = store.region || '未分類'
       if (!grouped[region]) {
@@ -93,7 +72,7 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       }
       grouped[region].push(store)
     })
-    
+
     const sortedRegions = Object.keys(grouped).sort((a, b) => {
       const indexA = REGION_ORDER.indexOf(a)
       const indexB = REGION_ORDER.indexOf(b)
@@ -102,42 +81,16 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       if (indexB === -1) return -1
       return indexA - indexB
     })
-    
+
     return { grouped, sortedRegions }
   }, [stores])
-
-  // 選択中の店舗の地域ごとの内訳を取得
-  const selectedRegionSummary = useMemo(() => {
-    if (selectedStoreIds.length === 0) return ''
-    
-    const counts: Record<string, number> = {}
-    selectedStoreIds.forEach(id => {
-      const store = stores.find(s => s.id === id)
-      if (store) {
-        const region = store.region || '未分類'
-        counts[region] = (counts[region] || 0) + 1
-      }
-    })
-    
-    // REGION_ORDERに従ってソート
-    const sortedRegions = Object.keys(counts).sort((a, b) => {
-      const indexA = REGION_ORDER.indexOf(a)
-      const indexB = REGION_ORDER.indexOf(b)
-      if (indexA === -1 && indexB === -1) return a.localeCompare(b)
-      if (indexA === -1) return 1
-      if (indexB === -1) return -1
-      return indexA - indexB
-    })
-    
-    return sortedRegions.map(r => `${r}${counts[r]}`).join('/')
-  }, [selectedStoreIds, stores])
 
   // 地域一括選択
   const handleSelectRegion = (region: string) => {
     const regionStores = storesByRegion.grouped[region] || []
     const regionStoreIds = regionStores.map(s => s.id)
     const allSelected = regionStoreIds.every(id => selectedStoreIds.includes(id))
-    
+
     if (allSelected) {
       onStoreIdsChange(selectedStoreIds.filter(id => !regionStoreIds.includes(id)))
     } else {
@@ -146,46 +99,54 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
     }
   }
 
+  // 選択中ラベル
+  const triggerLabel = useMemo(() => {
+    const selectedStores = stores.filter(s => selectedStoreIds.includes(s.id))
+    const validCount = selectedStores.length
+    if (validCount === 0) return placeholder
+    if (validCount <= 5) {
+      return selectedStores.map(s => s.short_name || s.name).join(', ')
+    }
+    return `${validCount}店舗選択中`
+  }, [stores, selectedStoreIds, placeholder])
+
   return (
-    <div ref={containerRef} className="relative">
+    <div className={className}>
       {!hideLabel && (
-        <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
-          {label}
-        </label>
+        <div className="ts-label">{label}</div>
       )}
-      
-      {/* ドロップダウントリガー - MultiSelectと完全に同じButtonコンポーネント */}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn("w-full justify-between font-normal bg-white", className)}
-      >
-        <span className="truncate">
-          {(() => {
-            // 実際に存在する店舗のみフィルタ
-            const selectedStores = stores.filter(s => selectedStoreIds.includes(s.id))
-            const validCount = selectedStores.length
-            if (validCount === 0) return placeholder
-            // 5店舗以下なら店舗名を表示
-            if (validCount <= 5) {
-              return selectedStores.map(s => s.short_name || s.name).join(', ')
-            }
-            return `${validCount}店舗選択中`
-          })()}
-        </span>
-        <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-      </Button>
-      
-      {/* 展開時のチェックリスト */}
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-50 border border-t-0 max-h-[200px] overflow-y-auto bg-white shadow-lg">
+
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn("w-full justify-between font-normal bg-white")}
+          >
+            <span className="truncate">{triggerLabel}</span>
+            <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent
+          align="start"
+          sideOffset={4}
+          collisionPadding={8}
+          style={{ width: 'var(--radix-popover-trigger-width)', minWidth: 240, maxHeight: '60vh' }}
+          className="p-0 overflow-y-auto z-[100] bg-white border border-gray-200 shadow-lg"
+        >
+          {storesByRegion.sortedRegions.length === 0 && (
+            <div className="px-3 py-4 text-center ts-caption">
+              店舗が登録されていません
+            </div>
+          )}
+
           {storesByRegion.sortedRegions.map((region, regionIndex) => {
             const regionStores = storesByRegion.grouped[region] || []
             const selectedCount = regionStores.filter(s => selectedStoreIds.includes(s.id)).length
             const isAllSelected = selectedCount === regionStores.length && regionStores.length > 0
             const isPartialSelected = selectedCount > 0 && selectedCount < regionStores.length
-            
+
             return (
               <div key={region} className={regionIndex > 0 ? 'border-t' : ''}>
                 {/* 地域ヘッダー（クリックで全選択/解除） */}
@@ -194,22 +155,21 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
                   onClick={() => handleSelectRegion(region)}
                   className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
                 >
-                  <span className={`w-4 h-4 border flex items-center justify-center text-xs ${
-                    isAllSelected 
-                      ? 'bg-primary border-primary text-white' 
-                      : isPartialSelected
-                      ? 'bg-red-200 border-red-400'
+                  <span className={cn(
+                    "w-4 h-4 border flex items-center justify-center text-xs",
+                    isAllSelected ? 'bg-primary border-primary text-white'
+                      : isPartialSelected ? 'bg-red-200 border-red-400'
                       : 'border-gray-300'
-                  }`}>
+                  )}>
                     {isAllSelected && '✓'}
                     {isPartialSelected && '−'}
                   </span>
-                  <span className="text-sm font-medium flex-1">{region}</span>
-                  <span className="text-xs text-gray-500">
+                  <span className="ts-body font-medium flex-1">{region}</span>
+                  <span className="ts-caption">
                     {selectedCount > 0 && `${selectedCount}/`}{regionStores.length}店舗
                   </span>
                 </button>
-                
+
                 {/* 個別店舗 */}
                 <div className="pl-4">
                   {regionStores.map((store) => {
@@ -227,14 +187,13 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
                         }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 transition-colors text-left"
                       >
-                        <span className={`w-4 h-4 border flex items-center justify-center text-xs ${
-                          isSelected 
-                            ? 'bg-primary border-primary text-white' 
-                            : 'border-gray-300'
-                        }`}>
+                        <span className={cn(
+                          "w-4 h-4 border flex items-center justify-center text-xs",
+                          isSelected ? 'bg-primary border-primary text-white' : 'border-gray-300'
+                        )}>
                           {isSelected && '✓'}
                         </span>
-                        <span className="text-sm">{store.name}</span>
+                        <span className="ts-body">{store.name}</span>
                       </button>
                     )
                   })}
@@ -242,22 +201,21 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
               </div>
             )
           })}
-          
+
           {/* クリアボタン（選択時のみ表示） */}
           {selectedStoreIds.length > 0 && (
             <div className="border-t p-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => onStoreIdsChange([])}
-                className="text-xs text-gray-500 hover:text-red-600"
+                className="ts-caption hover:text-red-600"
               >
                 選択をクリア
               </button>
             </div>
           )}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   )
 })
-
