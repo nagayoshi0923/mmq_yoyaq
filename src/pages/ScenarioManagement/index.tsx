@@ -502,6 +502,8 @@ export function ScenarioManagement() {
               onSearchChange={setSearchTerm}
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
+              sortState={sortState}
+              onSortChange={handleSort}
             />
             
             {/* 表示切り替えボタン */}
