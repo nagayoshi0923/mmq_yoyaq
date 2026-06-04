@@ -34,6 +34,7 @@ import { useStaffModals } from './hooks/useStaffModals'
 import { useStaffInvitation } from './hooks/useStaffInvitation'
 import { useStaffQuery, useStaffMutation } from './hooks/useStaffQuery'
 import { useStaffAuthStatus } from './hooks/useStaffAuthStatus'
+import { useStaffPerformanceCounts } from './hooks/useStaffPerformanceCounts'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOrganization } from '@/hooks/useOrganization'
 
@@ -223,10 +224,13 @@ export function StaffManagement() {
     await handleUnlinkUser(staffToUnlink)
   }
 
+  // 公演回数集計 (React Query で非同期取得・5分キャッシュ。初回 empty マップで描画ブロックしない)
+  const { getPerformanceCount } = useStaffPerformanceCounts()
+
   // テーブル列定義（メモ化）
   const tableColumns = useMemo(
     () => createStaffColumns(
-      { stores, getScenario, getScenarioName, getAuthStatus },
+      { stores, getScenario, getScenarioName, getAuthStatus, getPerformanceCount },
       {
         onEdit: handleEditStaff,
         onLink: openLinkModal,
@@ -235,7 +239,7 @@ export function StaffManagement() {
       }
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
-    [stores, getScenario, getScenarioName, getAuthStatus, handleReinviteStaff]
+    [stores, getScenario, getScenarioName, getAuthStatus, getPerformanceCount, handleReinviteStaff]
   )
 
   const defaultStaffColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])

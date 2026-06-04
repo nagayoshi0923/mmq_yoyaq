@@ -25,6 +25,7 @@ interface StaffTableContext {
   getScenario: (scenarioId: string) => Scenario | undefined
   getScenarioName: (scenarioId: string) => string
   getAuthStatus?: (userId: string | null) => StaffAuthStatus
+  getPerformanceCount?: (staffName: string) => { gmCount: number; staffCount: number }
 }
 
 /**
@@ -71,7 +72,7 @@ export function createStaffColumns(
   context: StaffTableContext,
   actions: StaffTableActions
 ): Column<Staff>[] {
-  const { stores, getScenario, getScenarioName, getAuthStatus } = context
+  const { stores, getScenario, getScenarioName, getAuthStatus, getPerformanceCount } = context
   const { onEdit, onLink, onUnlink, onReinvite } = actions
 
   return [
@@ -316,6 +317,28 @@ export function createStaffColumns(
               </div>
             </TooltipContent>
           </Tooltip>
+        )
+      }
+    },
+    {
+      key: 'performance_count',
+      header: '公演回数',
+      helpText: '過去 12 ヶ月の公演 (open/private/offsite/gmtest) で GM (メイン/サブ) として担当した回数 / スタッフ参加した回数。中止公演・未来公演は除外。',
+      sortable: false,
+      width: 'w-20',
+      render: (staff) => {
+        const c = getPerformanceCount?.(staff.name) ?? { gmCount: 0, staffCount: 0 }
+        return (
+          <div className="flex flex-col items-start gap-0.5 leading-tight">
+            <span className="text-[10px] flex items-center gap-1">
+              <span className="text-muted-foreground">GM</span>
+              <span className="font-semibold tabular-nums">{c.gmCount}</span>
+            </span>
+            <span className="text-[10px] flex items-center gap-1">
+              <span className="text-muted-foreground">参加</span>
+              <span className="font-semibold tabular-nums">{c.staffCount}</span>
+            </span>
+          </div>
         )
       }
     },
