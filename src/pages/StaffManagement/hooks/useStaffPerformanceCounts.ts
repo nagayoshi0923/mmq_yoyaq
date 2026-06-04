@@ -6,7 +6,8 @@
  *
  * - GM 回数: schedule_events.gms[] に名前が含まれ、gm_roles[name] が 'main' / 'sub' / 未指定
  *   (= 通常 GM とみなす)、かつ category が実公演 (open/private/offsite/gmtest)、is_cancelled=false
- * - スタッフ参加回数: schedule_events.gm_roles[name] === 'staff' のもの
+ * - スタッフ参加回数: reservations.reservation_source IN ('staff_entry', 'staff_participation') の
+ *   participant_names[] を集計 (実際の参加レコードを根拠にする)
  *
  * パフォーマンス: 過去 12 ヶ月のみを対象 (全期間だと数千件で重くなる)。
  */
@@ -35,6 +36,10 @@ function dateAgo(monthsAgo: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+type ReservationRow = {
+  participant_names: string[] | null
+}
+
 async function fetchCounts(): Promise<Map<string, StaffPerformanceCount>> {
   const orgId = await getCurrentOrganizationId()
   if (!orgId) return new Map()
@@ -42,17 +47,29 @@ async function fetchCounts(): Promise<Map<string, StaffPerformanceCount>> {
   const since = dateAgo(12) // 過去 12 ヶ月
   const until = new Date().toISOString().slice(0, 10) // 今日まで (未来公演は除外)
 
-  const { data, error } = await supabase
-    .from('schedule_events')
-    .select('gms, gm_roles, category')
-    .eq('organization_id', orgId)
-    .eq('is_cancelled', false)
-    .gte('date', since)
-    .lte('date', until)
+  // GM 回数とスタッフ参加回数を並列取得
+  const [eventsRes, reservationsRes] = await Promise.all([
+    supabase
+      .from('schedule_events')
+      .select('gms, gm_roles, category')
+      .eq('organization_id', orgId)
+      .eq('is_cancelled', false)
+      .gte('date', since)
+      .lte('date', until),
+    supabase
+      .from('reservations')
+      .select('participant_names')
+      .eq('organization_id', orgId)
+      .in('reservation_source', ['staff_entry', 'staff_participation'])
+      .gte('requested_datetime', since)
+      .lte('requested_datetime', `${until}T23:59:59+09:00`),
+  ])
 
-  if (error) {
-    logger.error('useStaffPerformanceCounts: query error', error)
-    return new Map()
+  if (eventsRes.error) {
+    logger.error('useStaffPerformanceCounts: events query error', eventsRes.error)
+  }
+  if (reservationsRes.error) {
+    logger.error('useStaffPerformanceCounts: reservations query error', reservationsRes.error)
   }
 
   const map = new Map<string, StaffPerformanceCount>()
@@ -62,7 +79,8 @@ async function fetchCounts(): Promise<Map<string, StaffPerformanceCount>> {
     map.set(name, cur)
   }
 
-  for (const row of (data ?? []) as Row[]) {
+  // GM 回数: schedule_events.gms[] を集計
+  for (const row of (eventsRes.data ?? []) as Row[]) {
     const gms = row.gms ?? []
     if (gms.length === 0) continue
     const isRealPerf = REAL_PERF_CATEGORIES.has(row.category ?? '')
@@ -70,16 +88,24 @@ async function fetchCounts(): Promise<Map<string, StaffPerformanceCount>> {
     for (const name of gms) {
       if (!name || typeof name !== 'string') continue
       const role = roles[name]
-      if (role === 'staff') {
-        inc(name, 'staffCount')
-      } else if (role === 'observer' || role === 'reception') {
-        // どちらにもカウントしない
+      if (role === 'staff' || role === 'observer' || role === 'reception') {
+        // GM カウントには含めない (staff は reservations 側で計上)
       } else if (isRealPerf) {
         // main / sub / 未指定 (= デフォルト main 扱い)
         inc(name, 'gmCount')
       }
     }
   }
+
+  // スタッフ参加回数: reservations.participant_names[] を集計
+  for (const row of (reservationsRes.data ?? []) as ReservationRow[]) {
+    const names = row.participant_names ?? []
+    for (const name of names) {
+      if (!name || typeof name !== 'string') continue
+      inc(name, 'staffCount')
+    }
+  }
+
   return map
 }
 
