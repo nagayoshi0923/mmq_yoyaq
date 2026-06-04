@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { useCallback, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { Sentry } from '@/lib/sentry'
 import type { Organization, Staff } from '@/types'
 import {
   QUEENS_WALTZ_ORG_ID,
@@ -36,7 +37,13 @@ export const organizationKeys = {
  * 組織情報を取得する関数（React Query用）
  */
 async function fetchOrganizationData(): Promise<{ organization: Organization | null; staff: Staff | null }> {
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError) {
+    Sentry.captureException(authError, {
+      level: 'warning',
+      tags: { source: 'useOrganization', kind: 'auth-error' },
+    })
+  }
   if (!user) {
     return { organization: null, staff: null }
   }
@@ -49,6 +56,11 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     .maybeSingle()
 
   if (staffError && staffError.code !== 'PGRST116') {
+    Sentry.captureException(staffError, {
+      level: 'warning',
+      tags: { source: 'useOrganization', kind: 'staff-query-error' },
+      extra: { userId: user.id },
+    })
     throw staffError
   }
 
@@ -85,7 +97,9 @@ export function useOrganization(): UseOrganizationResult {
     queryFn: fetchOrganizationData,
     staleTime: 10 * 60 * 1000, // 10分間はfreshとみなす（再取得しない）
     gcTime: 30 * 60 * 1000, // 30分間メモリに保持
-    refetchOnMount: false, // マウント時に再取得しない（キャッシュを使う）
+    // 通常はキャッシュを使うが、staff が null の場合は auth 一時失敗等の可能性があるので
+    // ページ遷移ごとに再取得して回復チャンスを作る
+    refetchOnMount: (query) => !query.state.data?.staff,
     refetchOnWindowFocus: false, // タブ復帰時も再取得しない
     retry: 1,
   })
