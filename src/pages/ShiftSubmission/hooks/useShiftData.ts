@@ -4,6 +4,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { shiftApi } from '@/lib/shiftApi'
 import { useOrganization } from '@/hooks/useOrganization'
+import { Sentry } from '@/lib/sentry'
 import type { ShiftSubmission, DayInfo } from '../types'
 
 interface UseShiftDataProps {
@@ -95,6 +96,16 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
         'スタッフ情報が見つかりません',
         'このアカウントはスタッフとして登録されていません。管理者に連絡してスタッフ登録を依頼してください。'
       )
+      // シフト提出ページに到達した時点でスタッフ扱いされてる前提なのに、
+      // staff レコードが取れないのは異常（auth レース or DB 不整合の可能性）。
+      // Sentry に通知して GitHub Issue で追跡できるようにする。
+      Sentry.captureMessage('shift-page: staff record missing', {
+        level: 'warning',
+        tags: { issue: 'staff-record-missing', page: 'shift-submission' },
+        extra: {
+          staffIsNull: staff === null,
+        },
+      })
     }
   }, [currentStaffId, staff, shiftQuery.isLoading])
 

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { Scenario } from '@/types'
 
-type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre' | 'performance_count'
+type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre' | 'performance_count' | 'created_at'
 
 interface ScenarioStats {
   performanceCount: number
@@ -111,6 +111,10 @@ export function useScenarioFilters(scenarios: Scenario[], scenarioStats?: Record
         case 'performance_count':
           aValue = scenarioStats?.[a.id]?.performanceCount ?? 0
           bValue = scenarioStats?.[b.id]?.performanceCount ?? 0
+          break
+        case 'created_at':
+          aValue = a.created_at || ''
+          bValue = b.created_at || ''
           break
         default:
           return 0
