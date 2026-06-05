@@ -331,16 +331,6 @@ export function computePrivateBookingSlots(
       startMinutes = def.candidate.earliestStart
     }
 
-    // 午後候補が前の予約で押し出されて「夜帯の開始時刻」以降になった場合は、
-    // 実質夜スロットなので午後候補としては表示しない (evening 側で重複表示される)
-    if (
-      def.key === 'afternoon' &&
-      eveningCandidate &&
-      startMinutes >= eveningCandidate.slotBaselineStart
-    ) {
-      continue
-    }
-
     const endMinutes = startMinutes + durationMinutes
     if (startMinutes >= effectiveSlotEndLimit) continue
     if (endMinutes > HARD_DAY_LIMIT) continue
@@ -395,7 +385,20 @@ export function computePrivateBookingSlots(
     })
   }
 
-  return results.filter((slot) =>
+  // 同じ時刻のスロットが複数あったら優先度の高い方 (夜 > 午後 > 午前) を残す。
+  // 夜が逆算で 18:30 になり、午後候補も同じ前提で 18:30 に押し出された結果、
+  // 「午後」と「夜」が同じ時刻で重複表示されるケースを潰す。
+  const slotPriority: Record<SlotKey, number> = { morning: 1, afternoon: 2, evening: 3 }
+  const dedupedByTime = new Map<string, PrivateBookingSlot>()
+  for (const slot of results) {
+    const key = `${slot.startTime}-${slot.endTime}`
+    const existing = dedupedByTime.get(key)
+    if (!existing || slotPriority[slot.key] > slotPriority[existing.key]) {
+      dedupedByTime.set(key, slot)
+    }
+  }
+
+  return Array.from(dedupedByTime.values()).filter((slot) =>
     isPrivateBookingSlotAllowedByScenarioSettings(
       slot.label,
       privateBookingTimeSlots,
