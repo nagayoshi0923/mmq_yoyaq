@@ -331,6 +331,16 @@ export function computePrivateBookingSlots(
       startMinutes = def.candidate.earliestStart
     }
 
+    // 午後候補が前の予約で押し出されて「夜帯の開始時刻」以降になった場合は、
+    // 実質夜スロットなので午後候補としては表示しない (evening 側で重複表示される)
+    if (
+      def.key === 'afternoon' &&
+      eveningCandidate &&
+      startMinutes >= eveningCandidate.slotBaselineStart
+    ) {
+      continue
+    }
+
     const endMinutes = startMinutes + durationMinutes
     if (startMinutes >= effectiveSlotEndLimit) continue
     if (endMinutes > HARD_DAY_LIMIT) continue
