@@ -853,6 +853,41 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     return res.status(500).json({ error: 'キャンセル後の予約取得に失敗しました' })
   }
 
+  // schedule_event_history に remove_participant を記録（失敗してもキャンセルは成功させる）
+  try {
+    const scheduleEventId = reservation.schedule_event_id as string | null | undefined
+    if (scheduleEventId && reservation.organization_id) {
+      const snapshot = await fetchEventSnapshotServer(db, scheduleEventId)
+      const cellDate = String(snapshot?.date ?? '')
+      const cellStoreId = String(snapshot?.store_id ?? '')
+      const cellTimeSlot = (snapshot?.time_slot as string | null | undefined) ?? null
+      if (cellDate && cellStoreId) {
+        const customerName =
+          (reservation.customer_name as string | undefined)?.trim() ||
+          '(お客様)'
+        const participantCount = (reservation.participant_count as number | undefined) ?? 0
+        await recordEventHistory(db, {
+          scheduleEventId,
+          organizationId: reservation.organization_id as string,
+          actionType: 'remove_participant',
+          oldValues: {
+            participant_name: customerName,
+            participant_count: participantCount,
+            reservation_id: id,
+          },
+          newValues: null,
+          cellInfo: { date: cellDate, storeId: cellStoreId, timeSlot: cellTimeSlot },
+          changedByUserId: user.userId,
+          changedByStaffId: null,
+          changedByName: `${customerName}（お客様）`,
+          notes: `${customerName}（${participantCount}名）が予約サイトから予約をキャンセル`,
+        })
+      }
+    }
+  } catch (historyError) {
+    console.error('[reservations:cancel] history record error:', historyError)
+  }
+
   // 組織 slug は通知メール本文の URL 生成用にサーバ側で取得（クライアントは表示用に保持してもよい）
   let orgSlug: string | null = null
   try {
