@@ -60,6 +60,8 @@ interface TimeSlotCellProps {
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
   // 募集中止状態（グレーアウト表示用）
   isBlocked?: boolean
+  // 同日同店舗で前後の公演と間隔が 60 分未満の公演 ID
+  intervalWarningEventIds?: Set<string>
 }
 
 function TimeSlotCellBase({
@@ -79,7 +81,8 @@ function TimeSlotCellBase({
   onDrop,
   onContextMenuCell,
   onContextMenuEvent,
-  isBlocked = false
+  isBlocked = false,
+  intervalWarningEventIds,
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -181,7 +184,7 @@ function TimeSlotCellBase({
               ⚠️ 重複 {events.length}件
             </div>
           )}
-          {events.map((event, idx) => (
+          {events.map((event) => (
             <PerformanceCard
               key={event.id}
               event={event}
@@ -194,6 +197,7 @@ function TimeSlotCellBase({
               onClick={onEdit}
               onToggleReservation={onToggleReservation}
               onContextMenu={onContextMenuEvent}
+              hasIntervalWarning={intervalWarningEventIds?.has(event.id) ?? false}
             />
           ))}
         </div>

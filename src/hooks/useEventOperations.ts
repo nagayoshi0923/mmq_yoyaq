@@ -17,6 +17,7 @@ import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 import {
   diffScheduleSnapshotsForCustomerEmail,
   sendPrivateBookingCustomerChangeEmail,
@@ -63,15 +64,18 @@ function calcEndTime(startTime: string, durationMinutes: number): string {
 }
 
 /**
- * 2つの時間帯が重複しているかチェック（準備時間を考慮）
- * 準備時間は「次の公演が始まる前に必要な時間」として扱う
- * 
+ * 2つの時間帯が重複しているかチェック（インターバル + 準備時間を考慮）
+ *
+ * - 標準インターバル: PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES (60分)。
+ *   設営・撤収時間として常に必要。
+ * - extra_preparation_time: シナリオごとの「追加準備時間（分）」。標準60分に加算される。
+ *
  * @param start1 既存公演の開始時間
  * @param end1 既存公演の終了時間
  * @param start2 新規公演の開始時間
  * @param end2 新規公演の終了時間
- * @param prepMinutes1 既存公演の準備時間（分）- 既存公演の前に必要な時間
- * @param prepMinutes2 新規公演の準備時間（分）- 新規公演の前に必要な時間
+ * @param prepMinutes1 既存公演の extra_preparation_time（分）
+ * @param prepMinutes2 新規公演の extra_preparation_time（分）
  * @returns { overlap: boolean, reason?: string } 重複情報
  */
 function checkTimeOverlap(
@@ -86,26 +90,26 @@ function checkTimeOverlap(
   const e1 = timeToMinutes(end1)
   const s2 = timeToMinutes(start2)
   const e2 = timeToMinutes(end2)
-  
+
+  // 必要な間隔 = 標準60分 + シナリオの追加準備時間
+  const buffer1 = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES + prepMinutes1
+  const buffer2 = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES + prepMinutes2
+
   // 1. 純粋な時間の重複チェック
   if (!(e1 <= s2 || e2 <= s1)) {
     return { overlap: true, reason: '時間が重複' }
   }
-  
-  // 2. 既存公演の後に新規公演がある場合：
-  //    既存公演終了 + 新規公演の準備時間 > 新規公演開始
-  //    （新規公演の前に準備時間が必要）
-  if (e1 <= s2 && e1 + prepMinutes2 > s2) {
-    return { overlap: true, reason: `準備時間不足（次の公演の前に${prepMinutes2}分必要）` }
+
+  // 2. 既存公演 → 新規公演 の順：既存終了 + 新規の必要間隔 > 新規開始 → 不足
+  if (e1 <= s2 && e1 + buffer2 > s2) {
+    return { overlap: true, reason: `間隔不足（次の公演の前に${buffer2}分必要）` }
   }
-  
-  // 3. 新規公演の後に既存公演がある場合：
-  //    新規公演終了 + 既存公演の準備時間 > 既存公演開始
-  //    （既存公演の前に準備時間が必要）
-  if (e2 <= s1 && e2 + prepMinutes1 > s1) {
-    return { overlap: true, reason: `準備時間不足（次の公演の前に${prepMinutes1}分必要）` }
+
+  // 3. 新規公演 → 既存公演 の順：新規終了 + 既存の必要間隔 > 既存開始 → 不足
+  if (e2 <= s1 && e2 + buffer1 > s1) {
+    return { overlap: true, reason: `間隔不足（次の公演の前に${buffer1}分必要）` }
   }
-  
+
   return { overlap: false }
 }
 

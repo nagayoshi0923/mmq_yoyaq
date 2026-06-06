@@ -52,6 +52,8 @@ interface PerformanceCardProps {
   onClick?: (event: ScheduleEvent) => void
   onToggleReservation?: (event: ScheduleEvent) => void
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
+  /** 同日同店舗の前後公演と間隔が 60 分未満 (赤ボーダー警告) */
+  hasIntervalWarning?: boolean
 }
 
 function PerformanceCardBase({
@@ -64,7 +66,8 @@ function PerformanceCardBase({
   onDelete,
   onClick,
   onToggleReservation,
-  onContextMenu
+  onContextMenu,
+  hasIntervalWarning = false,
 }: PerformanceCardProps) {
   const reservationCount = event.current_participants || 0
   // シナリオのplayer_count_maxを最優先
@@ -107,6 +110,9 @@ function PerformanceCardBase({
   
   // 完了状態の判定（シナリオなし、GMなし、またはメインGMなし）
   const isIncomplete = !event.scenario || event.gms.length === 0 || mainGms.length === 0
+
+  // 赤ボーダー警告: 未完了 or 前後の公演と間隔 60 分未満
+  const showAlertBorder = isIncomplete || hasIntervalWarning
   
   // 実際に表示するカテゴリを判定（MTGなど特殊ケースに対応）
   const effectiveCategory = getEffectiveCategory(event.category, event.scenario)
@@ -124,8 +130,8 @@ function PerformanceCardBase({
     : (categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.badgeColor?.split(' ').find(cls => cls.startsWith('text-')) ?? 'text-gray-800')
   
   // 左ボーダーの色を決定（濃いめのカラー）
-  const leftBorderColor = isIncomplete 
-    ? 'border-l-red-600'  // アラート時は赤
+  const leftBorderColor = showAlertBorder
+    ? 'border-l-red-600'  // アラート時は赤 (未完了 or 間隔不足)
     : event.is_cancelled
       ? 'border-l-gray-500'
       : event.is_tentative
