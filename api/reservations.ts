@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
+import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistory.js'
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
@@ -429,6 +430,43 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (fetchError || !created) {
     console.error('[reservations:create] fetch after insert error:', fetchError)
     return res.status(500).json({ error: '作成後の予約取得に失敗しました' })
+  }
+
+  // schedule_event_history に add_participant を記録（失敗しても予約作成は成功させる）
+  try {
+    const snapshot = await fetchEventSnapshotServer(db, scheduleEventId)
+    if (snapshot && ev.organization_id) {
+      const customerName =
+        (reservation.customer_name as string | undefined)?.trim() ||
+        '(お客様)'
+      const reservationSource =
+        (reservation.reservation_source as string | undefined) ?? 'web'
+      const cellTimeSlot = (snapshot.time_slot as string | null | undefined) ?? null
+      const cellDate = String(snapshot.date ?? '')
+      const cellStoreId = String(snapshot.store_id ?? '')
+      if (cellDate && cellStoreId) {
+        await recordEventHistory(db, {
+          scheduleEventId,
+          organizationId: ev.organization_id as string,
+          actionType: 'add_participant',
+          oldValues: null,
+          newValues: {
+            participant_name: customerName,
+            participant_count: participantCount,
+            reservation_source: reservationSource,
+            reservation_id: reservationId,
+          },
+          cellInfo: { date: cellDate, storeId: cellStoreId, timeSlot: cellTimeSlot },
+          changedByUserId: user.userId,
+          changedByStaffId: null,
+          changedByName: `${customerName}（お客様）`,
+          notes: `${customerName}（${participantCount}名）が予約サイトから予約`,
+        })
+      }
+    }
+  } catch (historyError) {
+    console.error('[reservations:create] history record error:', historyError)
+    // 履歴記録の失敗は予約成功に影響させない
   }
 
   return res.status(201).json(created)
