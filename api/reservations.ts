@@ -906,6 +906,30 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
           (reservation.customer_name as string | undefined)?.trim() ||
           '(お客様)'
         const participantCount = (reservation.participant_count as number | undefined) ?? 0
+        // 顧客自身のキャンセルか、スタッフによるキャンセル（貸切拒否含む）かで表示を分ける
+        const isCustomerCancel = user.role === 'customer'
+        let displayName: string
+        let changedByStaffId: string | null = null
+        let notes: string
+        if (isCustomerCancel) {
+          displayName = `${customerName}（お客様）`
+          notes = `${customerName}（${participantCount}名）が予約サイトから予約をキャンセル`
+        } else {
+          // スタッフが API 経由でキャンセル → 操作者の staff 名を取得
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: staffRow } = await (db as any)
+            .from('staff')
+            .select('id, name')
+            .eq('user_id', user.userId)
+            .eq('organization_id', user.orgId)
+            .maybeSingle()
+          const actorName = (staffRow?.name as string | undefined) ?? '(スタッフ)'
+          changedByStaffId = (staffRow?.id as string | undefined) ?? null
+          // 貸切グループの拒否フロー（skipGroupCancel）は「貸切管理」タグ
+          const source = skipGroupCancel ? '貸切管理' : 'スタッフ操作'
+          displayName = `${actorName}（${source}）`
+          notes = `${customerName}（${participantCount}名）の予約をキャンセル`
+        }
         await recordEventHistory(db, {
           scheduleEventId,
           organizationId: reservation.organization_id as string,
@@ -918,9 +942,9 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
           newValues: null,
           cellInfo: { date: cellDate, storeId: cellStoreId, timeSlot: cellTimeSlot },
           changedByUserId: user.userId,
-          changedByStaffId: null,
-          changedByName: `${customerName}（お客様）`,
-          notes: `${customerName}（${participantCount}名）が予約サイトから予約をキャンセル`,
+          changedByStaffId,
+          changedByName: displayName,
+          notes,
         })
       }
     }

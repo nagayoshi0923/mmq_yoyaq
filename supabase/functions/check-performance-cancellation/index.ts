@@ -318,17 +318,68 @@ async function sendCancellationNotifications(
   }
 
   // 5. イベント自体を中止状態に更新
+  //    履歴用にスナップショットを前後で取得 → schedule_event_history に cancel 行を残す
+  const SNAPSHOT_COLUMNS = 'id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, current_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, is_private_request, reservation_name, time_slot, venue_rental_fee'
+  const { data: cancelOldSnapshot } = await supabase
+    .from('schedule_events_staff_view')
+    .select(SNAPSHOT_COLUMNS)
+    .eq('id', event.event_id)
+    .maybeSingle()
+
   const { error: eventUpdateError } = await supabase
     .from('schedule_events')
     .update({
       is_cancelled: true
     })
     .eq('id', event.event_id)
-  
+
   if (eventUpdateError) {
     console.error('❌ イベント中止フラグ更新エラー:', eventUpdateError)
   } else {
     console.log('✅ イベント中止フラグ更新完了:', event.event_id)
+  }
+
+  // 5b. schedule_event_history に system 中止行を残す（失敗してもメインの中止処理は成功扱い）
+  if (!eventUpdateError) {
+    try {
+      const { data: cancelNewSnapshot } = await supabase
+        .from('schedule_events_staff_view')
+        .select(SNAPSHOT_COLUMNS)
+        .eq('id', event.event_id)
+        .maybeSingle()
+      const cellDate = String(cancelOldSnapshot?.date ?? event.date)
+      const cellStoreId = (cancelOldSnapshot?.store_id as string | undefined) ?? null
+      const cellTimeSlot = (cancelOldSnapshot?.time_slot as string | null | undefined) ?? null
+      if (cellDate && cellStoreId) {
+        const cancelReason = checkType === 'day_before'
+          ? '人数未達による公演中止（前日判定）'
+          : '人数未達による公演中止（4時間前判定）'
+        const { error: historyError } = await supabase
+          .from('schedule_event_history')
+          .insert({
+            schedule_event_id: event.event_id,
+            organization_id: event.organization_id,
+            event_date: cellDate,
+            store_id: cellStoreId,
+            time_slot: cellTimeSlot,
+            changed_by_user_id: null,
+            changed_by_staff_id: null,
+            changed_by_name: 'システム（自動中止）',
+            action_type: 'cancel',
+            changes: { is_cancelled: { old: false, new: true } },
+            old_values: cancelOldSnapshot ?? null,
+            new_values: cancelNewSnapshot ?? null,
+            notes: cancelReason,
+          })
+        if (historyError) {
+          console.error('❌ schedule_event_history insert error:', historyError)
+        } else {
+          console.log('✅ schedule_event_history に自動中止行を記録:', event.event_id)
+        }
+      }
+    } catch (historyErr) {
+      console.error('❌ schedule_event_history 記録中の例外:', historyErr)
+    }
   }
 
   // 6. Discord個別通知は廃止（サマリー通知に統一）
