@@ -33,6 +33,7 @@ const ACTION_TYPES = new Set([
   'move_out',
   'move_in',
   'copy',
+  'email_sent',
 ])
 
 // ─── ヘルパ ─────────────────────────────────────────────────────────────────

@@ -2040,7 +2040,9 @@ export function ScheduleManager() {
         cellInfo={historyModal.cellInfo}
         organizationId={organizationId || undefined}
         title={historyModal.title}
-        stores={scheduleTableProps.viewConfig.stores}
+        stores={modals.performanceModal.stores}
+        scenarios={modals.performanceModal.scenarios}
+        staff={modals.performanceModal.staff}
       />
 
       {/* キット配置管理ダイアログ */}

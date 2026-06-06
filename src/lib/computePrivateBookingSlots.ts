@@ -160,6 +160,14 @@ function getBestSlotCandidateAcrossStores(
         if (startForFeasibility < f.slotBandStart) {
           continue
         }
+        // 逆算した開始でも次予約までに本編 + 準備時間が収まらなければ枠不成立。
+        // 例: 朝公演 09:00-13:00 (+60分バッファで 14:00 まで) があり、午後公演が 14:00 開始の場合、
+        // 逆算開始は 14:00 になるが 14:00 から 150分 走ると次予約と直接 collide する。
+        if (
+          startForFeasibility + durationMinutes + extraPrepTime > endLimitFromNextEvent
+        ) {
+          continue
+        }
       } else {
         startForFeasibility = configuredStart
       }

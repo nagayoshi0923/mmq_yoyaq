@@ -129,6 +129,8 @@ interface PerformanceModalProps {
   onStaffUpdate?: () => void  // スタッフ作成後の更新用コールバック
   onParticipantChange?: (eventId: string, newCount: number) => void  // 参加者数変更時のコールバック
   onDeleteEvent?: (event: ScheduleEvent) => Promise<void>  // イベント削除時のコールバック（貸切参加者全員キャンセル時）
+  /** 履歴スナップショット表示用: 全フィールド disabled・保存/削除非表示・他タブ非表示にして「その時点の見た目」だけを再現する */
+  readOnly?: boolean
 }
 
 // 30分間隔の時間オプションを生成
@@ -201,7 +203,8 @@ export function PerformanceModal({
   onScenariosUpdate,
   onStaffUpdate,
   onParticipantChange,
-  onDeleteEvent
+  onDeleteEvent,
+  readOnly = false
 }: PerformanceModalProps) {
   const [isScenarioDialogOpen, setIsScenarioDialogOpen] = useState(false)
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
@@ -1190,7 +1193,7 @@ export function PerformanceModal({
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0">
+          <div className={`px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0 ${readOnly ? 'hidden' : ''}`}>
             <TabsList
               className="grid w-full grid-cols-4 h-7 sm:h-8"
               style={CATEGORY_TONE[formData.category] ? { backgroundColor: CATEGORY_TONE[formData.category].section } : undefined}
@@ -1223,6 +1226,7 @@ export function PerformanceModal({
           </div>
           
           <TabsContent value="edit" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
+            <fieldset disabled={readOnly} className="min-w-0 p-0 m-0 border-0" style={readOnly ? { display: 'contents' } : undefined}>
             <div className="space-y-3 pb-2 sm:pb-0">
 
           {/* ── カテゴリ（クイック選択） ── */}
@@ -1748,6 +1752,7 @@ export function PerformanceModal({
         </div>
 
           {/* アクションボタン削除 */}
+            </fieldset>
           </TabsContent>
           
           <TabsContent value="reservations" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
@@ -1804,6 +1809,8 @@ export function PerformanceModal({
               } : undefined}
               organizationId={organizationId || undefined}
               stores={stores}
+              scenarios={scenarios}
+              staff={staff}
             />
           </TabsContent>
         </Tabs>
@@ -1816,7 +1823,7 @@ export function PerformanceModal({
             : undefined}
         >
           <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
-            {mode === 'edit' && onDeleteEvent && (
+            {!readOnly && mode === 'edit' && onDeleteEvent && (
               <Button
                 variant="outline"
                 onClick={() => setDeleteConfirming(true)}
@@ -1826,11 +1833,13 @@ export function PerformanceModal({
               </Button>
             )}
             <Button variant="outline" onClick={onClose} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
-              キャンセル
+              {readOnly ? '閉じる' : 'キャンセル'}
             </Button>
-            <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
-              {mode === 'add' ? '追加' : '保存'}
-            </Button>
+            {!readOnly && (
+              <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
+                {mode === 'add' ? '追加' : '保存'}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

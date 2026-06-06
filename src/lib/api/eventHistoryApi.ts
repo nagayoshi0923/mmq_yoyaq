@@ -20,6 +20,7 @@ export type ActionType =
   | 'move_out'            // 移動（移動元セル）
   | 'move_in'             // 移動（移動先セル）
   | 'copy'                // 複製・ペースト（複製先セル）
+  | 'email_sent'          // モーダル経由の手動メール送信
 
 // 履歴エントリの型定義
 export interface EventHistory {
@@ -84,6 +85,43 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   move_out: '移動（移動元）',
   move_in: '移動（移動先）',
   copy: '複製',
+  email_sent: 'メール送信',
+}
+
+// セルプレビュー描画 + 差分計算に必要な全カラム
+// 履歴の old_values / new_values にこの列構成で DB の実状態スナップショットを保存する
+const SNAPSHOT_COLUMNS =
+  'id, organization_id, date, venue, store_id, scenario, scenario_master_id, ' +
+  'gms, gm_roles, start_time, end_time, category, capacity, max_participants, ' +
+  'current_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, ' +
+  'is_private_request, reservation_name, time_slot, venue_rental_fee'
+
+/**
+ * 公演 1 行のフル状態スナップショットを schedule_events_staff_view から取得する。
+ * 履歴の old_values / new_values 用。失敗時は null。
+ */
+export async function fetchEventSnapshot(
+  eventId: string,
+  organizationId?: string | null
+): Promise<Record<string, unknown> | null> {
+  try {
+    let query = supabase
+      .from('schedule_events_staff_view')
+      .select(SNAPSHOT_COLUMNS)
+      .eq('id', eventId)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+    const { data, error } = await query.single()
+    if (error) {
+      logger.error('fetchEventSnapshot エラー:', error)
+      return null
+    }
+    return data as unknown as Record<string, unknown>
+  } catch (err) {
+    logger.error('fetchEventSnapshot 例外:', err)
+    return null
+  }
 }
 
 /**
@@ -135,6 +173,8 @@ export async function createEventHistory(
   options?: {
     notes?: string
     deletedEventScenario?: string
+    /** 操作元の表示タグ。指定すると changed_by_name が "{staff名}（{source}）" になる（例: '貸切管理'） */
+    source?: string
   }
 ): Promise<void> {
   try {
@@ -143,19 +183,21 @@ export async function createEventHistory(
     const { data: { user } } = await supabase.auth.getUser()
 
     // 変更差分を計算
-    // 作成・移動・複製は差分ではなく「操作の事実」を記録するため changes は空にする
-    const noDiffActions: ActionType[] = ['create', 'move_out', 'move_in', 'copy']
+    // 作成・移動・複製・参加者追加削除・メール送信は差分ではなく「操作の事実」を記録するため changes は空にする
+    const noDiffActions: ActionType[] = ['create', 'move_out', 'move_in', 'copy', 'add_participant', 'remove_participant', 'email_sent']
     const changes = noDiffActions.includes(actionType)
       ? {}
       : calculateChanges(oldValues, newValues)
 
     // 変更がない場合はスキップ（操作の事実自体を記録するアクションは除外）
-    const alwaysRecord: ActionType[] = ['create', 'delete', 'move_out', 'move_in', 'copy']
+    const alwaysRecord: ActionType[] = ['create', 'delete', 'move_out', 'move_in', 'copy', 'add_participant', 'remove_participant', 'email_sent']
     if (!alwaysRecord.includes(actionType) && Object.keys(changes).length === 0) {
       logger.log('変更がないため履歴をスキップ')
       return
     }
 
+    const baseName = currentStaff?.name || user?.email || '不明'
+    const changedByName = options?.source ? `${baseName}（${options.source}）` : baseName
     await apiClient.post('/api/event-history', {
       schedule_event_id: scheduleEventId,
       event_date: cellInfo.date,
@@ -163,7 +205,7 @@ export async function createEventHistory(
       time_slot: cellInfo.timeSlot,
       changed_by_user_id: user?.id ?? null,
       changed_by_staff_id: currentStaff?.id ?? null,
-      changed_by_name: currentStaff?.name || user?.email || '不明',
+      changed_by_name: changedByName,
       action_type: actionType,
       changes,
       old_values: oldValues,

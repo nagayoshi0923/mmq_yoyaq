@@ -23,7 +23,7 @@ import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/
 import { showToast } from '@/utils/toast'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES } from '@/lib/constants'
@@ -718,6 +718,12 @@ ${content.organizationName || '店舗'}
               cancellingReservation.customer_notes || 
               emailContent.customerName ||
               '不明'
+            const eventSnapshot = await fetchEventSnapshot(event.id, organizationId)
+            const cellTimeSlot =
+              (eventSnapshot?.time_slot as string | null | undefined) ??
+              currentEventData.time_slot ??
+              event.time_slot ??
+              null
             await createEventHistory(
               event.id,
               organizationId,
@@ -730,7 +736,7 @@ ${content.organizationName || '店舗'}
               {
                 date: currentEventData.date || event.date,
                 storeId: storeObj.id,
-                timeSlot: currentEventData.time_slot || null
+                timeSlot: cellTimeSlot
               },
               {
                 notes: `${participantName}（${cancellingReservation.participant_count}名）をキャンセル`
@@ -1030,6 +1036,12 @@ ${content.organizationName || '店舗'}
         try {
           const organizationId = await getCurrentOrganizationId()
           if (organizationId) {
+            const eventSnapshot = await fetchEventSnapshot(event.id, organizationId)
+            const cellTimeSlot =
+              (eventSnapshot?.time_slot as string | null | undefined) ??
+              currentEventData.time_slot ??
+              event.time_slot ??
+              null
             await createEventHistory(
               event.id,
               organizationId,
@@ -1044,7 +1056,7 @@ ${content.organizationName || '店舗'}
               {
                 date: currentEventData.date,
                 storeId: storeObj.id,
-                timeSlot: currentEventData.time_slot || null
+                timeSlot: cellTimeSlot
               },
               {
                 notes: `${participantName}（${newParticipant.participant_count}名）を追加`
@@ -1958,9 +1970,47 @@ ${content.organizationName || '店舗'}
                         body: emailBody
                       }
                     })
-                    
+
                     if (error) {
                       throw error
+                    }
+
+                    // 履歴を記録（モーダル経由の手動メール送信）
+                    if (event?.id) {
+                      try {
+                        const organizationId = await getCurrentOrganizationId()
+                        const storeObj = stores.find(s => s.id === currentEventData.venue || s.name === event.venue)
+                        if (organizationId && storeObj?.id) {
+                          const snapshot = await fetchEventSnapshot(event.id, organizationId)
+                          const cellTimeSlot =
+                            (snapshot?.time_slot as string | null | undefined) ??
+                            currentEventData.time_slot ??
+                            event.time_slot ??
+                            null
+                          await createEventHistory(
+                            event.id,
+                            organizationId,
+                            'email_sent',
+                            null,
+                            {
+                              subject: emailSubject,
+                              body: emailBody,
+                              recipient_count: selectedEmails.length,
+                              recipient_emails: selectedEmails,
+                            },
+                            {
+                              date: currentEventData.date || event.date,
+                              storeId: storeObj.id,
+                              timeSlot: cellTimeSlot,
+                            },
+                            {
+                              notes: `${selectedEmails.length}名に「${emailSubject}」を送信`,
+                            }
+                          )
+                        }
+                      } catch (historyError) {
+                        logger.error('メール送信履歴の記録に失敗:', historyError)
+                      }
                     }
 
                     showToast.success(`${selectedEmails.length}件のメールを送信しました`)

@@ -16,7 +16,7 @@ import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
-import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -603,17 +603,20 @@ export function useEventOperations({
           try {
             const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
             const dstStoreName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+            const movedSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
+            const newSnapshot = movedSnapshot ?? (newEventData as unknown as Record<string, unknown>)
+            const oldSnapshot = draggedEvent as unknown as Record<string, unknown>
             // 移動元セル
             void createEventHistory(
               savedEvent.id, organizationId, 'move_out',
-              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              oldSnapshot, newSnapshot,
               { date: draggedEvent.date, storeId: draggedEvent.store_id || draggedEvent.venue, timeSlot: draggedEvent.time_slot || null },
               { notes: `→ ${dropTarget.date} ${dstStoreName}` }
             )
             // 移動先セル
             void createEventHistory(
               savedEvent.id, organizationId, 'move_in',
-              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              oldSnapshot, newSnapshot,
               { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
               { notes: `← ${draggedEvent.date} ${srcStoreName}` }
             )
@@ -649,15 +652,18 @@ export function useEventOperations({
           try {
             const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
             const dstStoreName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+            const movedSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
+            const newSnapshot = movedSnapshot ?? (newEventData as unknown as Record<string, unknown>)
+            const oldSnapshot = draggedEvent as unknown as Record<string, unknown>
             void createEventHistory(
               null, organizationId, 'move_out',
-              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              oldSnapshot, newSnapshot,
               { date: draggedEvent.date, storeId: draggedEvent.store_id || draggedEvent.venue, timeSlot: draggedEvent.time_slot || null },
               { notes: `→ ${dropTarget.date} ${dstStoreName}` }
             )
             void createEventHistory(
               savedEvent.id, organizationId, 'move_in',
-              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              oldSnapshot, newSnapshot,
               { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
               { notes: `← ${draggedEvent.date} ${srcStoreName}` }
             )
@@ -784,9 +790,10 @@ export function useEventOperations({
       if (organizationId) {
         try {
           const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
+          const copiedSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
           void createEventHistory(
             savedEvent.id, organizationId, 'copy',
-            null, newEventData,
+            null, copiedSnapshot ?? (newEventData as unknown as Record<string, unknown>),
             { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
             { notes: `← ${draggedEvent.date} ${srcStoreName} から複製` }
           )
@@ -1104,12 +1111,13 @@ export function useEventOperations({
         
         // 履歴を記録（新規作成）
         try {
+          const createdSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
           void createEventHistory(
             savedEvent.id,
             organizationId,
             'create',
             null,
-            eventData,
+            createdSnapshot ?? eventData,
             {
               date: eventData.date,
               storeId: eventData.store_id,
@@ -1468,12 +1476,13 @@ export function useEventOperations({
           // 履歴を記録（更新）
           if (organizationId) {
             try {
+              const updatedSnapshot = await fetchEventSnapshot(performanceData.id!, organizationId)
               void createEventHistory(
                 performanceData.id!,
                 organizationId,
                 'update',
                 oldEventData || null,
-                updateData,
+                updatedSnapshot ?? updateData,
                 {
                   date: updateData.date,
                   storeId: updateData.store_id,
@@ -1824,8 +1833,13 @@ export function useEventOperations({
         }))
       } else {
         // 通常の公演の場合
+        // 削除前にフル状態スナップショットを取得（履歴用）
+        const eventToDeleteSnapshot = organizationId
+          ? await fetchEventSnapshot(eventToDelete.id, organizationId)
+          : null
+
         await scheduleApi.delete(eventToDelete.id)
-        
+
         // 履歴を記録（削除）
         if (organizationId) {
           try {
@@ -1833,7 +1847,7 @@ export function useEventOperations({
               null,
               organizationId,
               'delete',
-              eventToDelete as unknown as Record<string, unknown>,
+              eventToDeleteSnapshot ?? (eventToDelete as unknown as Record<string, unknown>),
               {},
               {
                 date: eventToDelete.date,
@@ -1896,25 +1910,36 @@ export function useEventOperations({
         // キャンセル確認メールは reservationApi.cancel() 内で送信済み
       } else {
         // 通常公演の中止処理
+        // 中止前にフル状態スナップショットを取得（履歴用）
+        const cancelOldSnapshot = organizationId
+          ? await fetchEventSnapshot(cancellingEvent.id, organizationId)
+          : null
+
         const reason = cancellationReason || '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
         await scheduleApi.toggleCancel(cancellingEvent.id, true, reason)
-        setEvents(prev => prev.map(e => 
+        setEvents(prev => prev.map(e =>
           e.id === cancellingEvent.id ? { ...e, is_cancelled: true, cancellation_reason: reason } : e
         ))
-        
+
         // 履歴を記録（中止）
         if (organizationId) {
           try {
+            const cancelNewSnapshot = await fetchEventSnapshot(cancellingEvent.id, organizationId)
+            const cellTimeSlot =
+              (cancelNewSnapshot?.time_slot as string | null | undefined) ??
+              (cancelOldSnapshot?.time_slot as string | null | undefined) ??
+              cancellingEvent.time_slot ??
+              null
             void createEventHistory(
               cancellingEvent.id,
               organizationId,
               'cancel',
-              { is_cancelled: false },
-              { is_cancelled: true },
+              cancelOldSnapshot ?? { is_cancelled: false },
+              cancelNewSnapshot ?? { is_cancelled: true },
               {
                 date: cancellingEvent.date,
                 storeId: cancellingEvent.venue,
-                timeSlot: cancellingEvent.time_slot || null
+                timeSlot: cellTimeSlot
               }
             )
           } catch (historyError) {
@@ -1999,9 +2024,14 @@ export function useEventOperations({
   // 公演をキャンセル解除
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {
     try {
+      // 復活前にフル状態スナップショットを取得（履歴用）
+      const restoreOldSnapshot = organizationId
+        ? await fetchEventSnapshot(event.id, organizationId)
+        : null
+
       // schedule_events.is_cancelled を必ず false に更新
       await scheduleApi.toggleCancel(event.id, false)
-      
+
       // 貸切予約の場合は予約ステータスも更新
       if (event.is_private_request && event.reservation_id) {
         const uncancelParams: RpcAdminUpdateReservationFieldsParams = {
@@ -2009,13 +2039,13 @@ export function useEventOperations({
           p_updates: { status: 'gm_confirmed' },
         }
         const { error } = await supabase.rpc('admin_update_reservation_fields', uncancelParams)
-        
+
         if (error) {
           logger.error('予約ステータス更新エラー:', error)
           // エラーでも公演自体は復活済みなので続行
         }
       }
-      
+
       // ローカル状態を更新
       setEvents(prev => prev.map(e => {
         if (event.reservation_id && e.reservation_id === event.reservation_id) {
@@ -2026,20 +2056,26 @@ export function useEventOperations({
         }
         return e
       }))
-      
+
       // 履歴を記録（復活）
       if (organizationId) {
         try {
+          const restoreNewSnapshot = await fetchEventSnapshot(event.id, organizationId)
+          const cellTimeSlot =
+            (restoreNewSnapshot?.time_slot as string | null | undefined) ??
+            (restoreOldSnapshot?.time_slot as string | null | undefined) ??
+            event.time_slot ??
+            null
           void createEventHistory(
             event.id,
             organizationId,
             'restore',
-            { is_cancelled: true },
-            { is_cancelled: false },
+            restoreOldSnapshot ?? { is_cancelled: true },
+            restoreNewSnapshot ?? { is_cancelled: false },
             {
               date: event.date,
               storeId: event.venue,
-              timeSlot: event.time_slot || null
+              timeSlot: cellTimeSlot
             }
           )
         } catch (historyError) {
@@ -2059,6 +2095,11 @@ export function useEventOperations({
     try {
       const newStatus = !event.is_tentative
 
+      // 切替前にフル状態スナップショットを取得（履歴用）
+      const tentativeOldSnapshot = organizationId
+        ? await fetchEventSnapshot(event.id, organizationId)
+        : null
+
       await scheduleApi.update(event.id, {
         is_tentative: newStatus
       })
@@ -2066,11 +2107,17 @@ export function useEventOperations({
       // 履歴を記録
       if (organizationId) {
         try {
+          const tentativeNewSnapshot = await fetchEventSnapshot(event.id, organizationId)
+          const cellTimeSlot =
+            (tentativeNewSnapshot?.time_slot as string | null | undefined) ??
+            (tentativeOldSnapshot?.time_slot as string | null | undefined) ??
+            event.time_slot ??
+            null
           void createEventHistory(
             event.id, organizationId, 'update',
-            { is_tentative: event.is_tentative },
-            { is_tentative: newStatus },
-            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null }
+            tentativeOldSnapshot ?? { is_tentative: event.is_tentative },
+            tentativeNewSnapshot ?? { is_tentative: newStatus },
+            { date: event.date, storeId: event.store_id || event.venue, timeSlot: cellTimeSlot }
           )
         } catch (historyError) {
           logger.error('履歴記録エラー（仮状態）:', historyError)
@@ -2103,6 +2150,11 @@ export function useEventOperations({
     try {
       const newStatus = !event.is_reservation_enabled
 
+      // 切替前にフル状態スナップショットを取得（履歴用）
+      const reservationOldSnapshot = organizationId
+        ? await fetchEventSnapshot(event.id, organizationId)
+        : null
+
       await scheduleApi.update(event.id, {
         is_reservation_enabled: newStatus
       })
@@ -2110,11 +2162,19 @@ export function useEventOperations({
       // 履歴を記録
       if (organizationId) {
         try {
+          const reservationNewSnapshot = await fetchEventSnapshot(event.id, organizationId)
+          // cellInfo の time_slot は in-memory event より DB スナップショットを優先
+          // （event.time_slot が欠落していると履歴タブの絞り込みに乗らない）
+          const cellTimeSlot =
+            (reservationNewSnapshot?.time_slot as string | null | undefined) ??
+            (reservationOldSnapshot?.time_slot as string | null | undefined) ??
+            event.time_slot ??
+            null
           void createEventHistory(
             event.id, organizationId, newStatus ? 'publish' : 'unpublish',
-            { is_reservation_enabled: event.is_reservation_enabled },
-            { is_reservation_enabled: newStatus },
-            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null }
+            reservationOldSnapshot ?? { is_reservation_enabled: event.is_reservation_enabled },
+            reservationNewSnapshot ?? { is_reservation_enabled: newStatus },
+            { date: event.date, storeId: event.store_id || event.venue, timeSlot: cellTimeSlot }
           )
         } catch (historyError) {
           logger.error('履歴記録エラー（予約受付）:', historyError)
@@ -2260,6 +2320,11 @@ export function useEventOperations({
       void saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
       logger.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
       
+      // 削除前にフル状態スナップショットを取得（履歴用）
+      const memoConvertSnapshot = organizationId
+        ? await fetchEventSnapshot(event.id, organizationId)
+        : null
+
       // 公演を削除
       await scheduleApi.delete(event.id)
 
@@ -2268,7 +2333,7 @@ export function useEventOperations({
         try {
           void createEventHistory(
             null, organizationId, 'delete',
-            event as unknown as Record<string, unknown>, {},
+            memoConvertSnapshot ?? (event as unknown as Record<string, unknown>), {},
             { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null },
             { notes: 'メモに変換', deletedEventScenario: event.scenario }
           )

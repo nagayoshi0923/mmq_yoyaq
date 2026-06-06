@@ -4,6 +4,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EventHistoryTab } from './EventHistoryTab'
 import type { CellInfo } from '@/lib/api/eventHistoryApi'
+import type { Scenario, Staff as StaffType, Store } from '@/types'
 
 interface HistoryModalProps {
   isOpen: boolean
@@ -11,7 +12,9 @@ interface HistoryModalProps {
   cellInfo?: CellInfo       // セル情報（日付＋会場＋時間帯）
   organizationId?: string   // 組織ID
   title?: string            // モーダルのタイトル
-  stores?: Array<{ id: string; name: string }>  // 店舗一覧（UUID→名前解決用）
+  stores?: Store[]          // 店舗一覧（UUID→名前解決 + スナップショットモーダル用）
+  scenarios?: Scenario[]    // スナップショットモーダルに渡す
+  staff?: StaffType[]       // スナップショットモーダルに渡す
 }
 
 export function HistoryModal({
@@ -20,7 +23,9 @@ export function HistoryModal({
   cellInfo,
   organizationId,
   title = '更新履歴',
-  stores
+  stores,
+  scenarios,
+  staff
 }: HistoryModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -33,6 +38,8 @@ export function HistoryModal({
             cellInfo={cellInfo}
             organizationId={organizationId}
             stores={stores}
+            scenarios={scenarios}
+            staff={staff}
           />
         </div>
       </DialogContent>
