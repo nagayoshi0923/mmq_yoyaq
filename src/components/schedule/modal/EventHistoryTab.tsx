@@ -277,8 +277,12 @@ function HistoryEntry({
   // セルプレビュー: アクション直後のセルの見た目を復元する
   const previewSnapshot = pickPreviewSnapshot(entry)
   const previewEvent = previewSnapshot ? reconstructEventFromSnapshot(previewSnapshot, scenarios) : null
-  // 描画に最低限必要なフィールドが揃っているかチェック（古い履歴は部分データなのでスキップ）
-  const canRenderPreview = !!previewEvent && !!previewEvent.scenario && !!previewEvent.start_time && !!previewEvent.end_time
+  // PerformanceCard が落ちずに描画できる最低条件: start_time / end_time が文字列
+  // （scenario 未設定でもカード側で「未定」表示するので OK）
+  const canRenderPreview =
+    !!previewEvent &&
+    typeof previewEvent.start_time === 'string' && previewEvent.start_time.length >= 5 &&
+    typeof previewEvent.end_time === 'string' && previewEvent.end_time.length >= 5
 
   return (
     <div className={cn(
