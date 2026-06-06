@@ -171,6 +171,8 @@ export async function createEventHistory(
   options?: {
     notes?: string
     deletedEventScenario?: string
+    /** 操作元の表示タグ。指定すると changed_by_name が "{staff名}（{source}）" になる（例: '貸切管理'） */
+    source?: string
   }
 ): Promise<void> {
   try {
@@ -192,6 +194,8 @@ export async function createEventHistory(
       return
     }
 
+    const baseName = currentStaff?.name || user?.email || '不明'
+    const changedByName = options?.source ? `${baseName}（${options.source}）` : baseName
     await apiClient.post('/api/event-history', {
       schedule_event_id: scheduleEventId,
       event_date: cellInfo.date,
@@ -199,7 +203,7 @@ export async function createEventHistory(
       time_slot: cellInfo.timeSlot,
       changed_by_user_id: user?.id ?? null,
       changed_by_staff_id: currentStaff?.id ?? null,
-      changed_by_name: currentStaff?.name || user?.email || '不明',
+      changed_by_name: changedByName,
       action_type: actionType,
       changes,
       old_values: oldValues,

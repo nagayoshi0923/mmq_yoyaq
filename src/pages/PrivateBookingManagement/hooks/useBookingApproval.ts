@@ -15,7 +15,7 @@ import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
-import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { showToast } from '@/utils/toast'
 
 function addMinutesToTime(time: string, minutes: number): string {
@@ -274,14 +274,26 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
         // イベント履歴・確定メール・GM通知・グループ処理を並列実行
         await Promise.all([
-          // イベント履歴
+          // イベント履歴: フル状態スナップショットを取得して new_values に保存、
+          // changed_by_name には「（貸切管理）」サフィックスを付ける
           scheduleEventId && organizationId
-            ? createEventHistory(scheduleEventId as string, organizationId, 'create', null, {
-                scenario: cleanScenarioTitle, date: selectedDateYmd, store_id: selectedStoreId,
-                start_time: selectedCandidate.startTime, end_time: selectedEndTime, gms: gmIds,
-                reservation_name: selectedRequest?.customer_name || '',
-              }, { date: selectedDateYmd, storeId: selectedStoreId, timeSlot: selectedCandidate.timeSlot || null },
-              { notes: '貸切予約承認により作成' }).catch(e => logger.error('createEventHistory error:', e))
+            ? (async () => {
+                const createdSnapshot = await fetchEventSnapshot(scheduleEventId as string, organizationId)
+                const fallback = {
+                  scenario: cleanScenarioTitle, date: selectedDateYmd, store_id: selectedStoreId,
+                  start_time: selectedCandidate.startTime, end_time: selectedEndTime, gms: gmIds,
+                  reservation_name: selectedRequest?.customer_name || '',
+                }
+                const cellTimeSlot =
+                  (createdSnapshot?.time_slot as string | null | undefined) ??
+                  selectedCandidate.timeSlot ?? null
+                await createEventHistory(
+                  scheduleEventId as string, organizationId, 'create', null,
+                  createdSnapshot ?? fallback,
+                  { date: selectedDateYmd, storeId: selectedStoreId, timeSlot: cellTimeSlot },
+                  { notes: '貸切予約承認により作成', source: '貸切管理' }
+                )
+              })().catch(e => logger.error('createEventHistory error:', e))
             : Promise.resolve(),
 
           // カスタマー確定メール
