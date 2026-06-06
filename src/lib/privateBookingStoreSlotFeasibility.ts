@@ -133,7 +133,9 @@ export function isProposedPrivateBookingStartFeasible(
       const st = e.start_time || ''
       if (!st) continue
       const eventStart = timeToMinutes(st)
-      if (eventStart > proposedStartMin) {
+      // 提案開始と同時刻にスタートする予約も「直接 collide」として枠を狭める。
+      // strict > にしていると、たとえば 14:00 に既存予約があるとき 14:00 開始を許してしまう。
+      if (eventStart >= proposedStartMin) {
         effectiveOccupancyEndLimit = Math.min(
           effectiveOccupancyEndLimit,
           eventStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
