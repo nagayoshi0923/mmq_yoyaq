@@ -20,6 +20,7 @@ export type ActionType =
   | 'move_out'            // 移動（移動元セル）
   | 'move_in'             // 移動（移動先セル）
   | 'copy'                // 複製・ペースト（複製先セル）
+  | 'email_sent'          // モーダル経由の手動メール送信
 
 // 履歴エントリの型定義
 export interface EventHistory {
@@ -84,6 +85,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   move_out: '移動（移動元）',
   move_in: '移動（移動先）',
   copy: '複製',
+  email_sent: 'メール送信',
 }
 
 // セルプレビュー描画 + 差分計算に必要な全カラム
@@ -181,14 +183,14 @@ export async function createEventHistory(
     const { data: { user } } = await supabase.auth.getUser()
 
     // 変更差分を計算
-    // 作成・移動・複製・参加者追加削除は差分ではなく「操作の事実」を記録するため changes は空にする
-    const noDiffActions: ActionType[] = ['create', 'move_out', 'move_in', 'copy', 'add_participant', 'remove_participant']
+    // 作成・移動・複製・参加者追加削除・メール送信は差分ではなく「操作の事実」を記録するため changes は空にする
+    const noDiffActions: ActionType[] = ['create', 'move_out', 'move_in', 'copy', 'add_participant', 'remove_participant', 'email_sent']
     const changes = noDiffActions.includes(actionType)
       ? {}
       : calculateChanges(oldValues, newValues)
 
     // 変更がない場合はスキップ（操作の事実自体を記録するアクションは除外）
-    const alwaysRecord: ActionType[] = ['create', 'delete', 'move_out', 'move_in', 'copy', 'add_participant', 'remove_participant']
+    const alwaysRecord: ActionType[] = ['create', 'delete', 'move_out', 'move_in', 'copy', 'add_participant', 'remove_participant', 'email_sent']
     if (!alwaysRecord.includes(actionType) && Object.keys(changes).length === 0) {
       logger.log('変更がないため履歴をスキップ')
       return

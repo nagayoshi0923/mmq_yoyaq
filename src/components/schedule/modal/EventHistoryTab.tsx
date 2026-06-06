@@ -4,7 +4,7 @@ import { logger } from '@/utils/logger'
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
-import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus, MoveRight, MoveLeft, Copy } from 'lucide-react'
+import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus, MoveRight, MoveLeft, Copy, Mail } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   getEventHistory,
@@ -134,6 +134,8 @@ function getActionIcon(actionType: ActionType) {
       return <MoveLeft className="h-4 w-4 text-purple-600" />
     case 'copy':
       return <Copy className="h-4 w-4 text-indigo-600" />
+    case 'email_sent':
+      return <Mail className="h-4 w-4 text-sky-600" />
     default:
       return <Clock className="h-4 w-4 text-gray-600" />
   }
@@ -165,6 +167,8 @@ function getActionBadgeStyle(actionType: ActionType): string {
       return 'bg-purple-100 text-purple-800 border-purple-200'
     case 'copy':
       return 'bg-indigo-100 text-indigo-800 border-indigo-200'
+    case 'email_sent':
+      return 'bg-sky-100 text-sky-800 border-sky-200'
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200'
   }
