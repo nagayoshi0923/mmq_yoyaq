@@ -564,6 +564,46 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
     return res.status(500).json({ error: 'スタッフ予約の作成に失敗しました', detail: insertError.message })
   }
 
+  // schedule_event_history に add_participant を記録（スタッフ参加同期として）
+  try {
+    const snapshot = await fetchEventSnapshotServer(db, scheduleEventId)
+    if (snapshot) {
+      const cellDate = String(snapshot.date ?? '')
+      const cellStoreId = String(snapshot.store_id ?? '')
+      const cellTimeSlot = (snapshot.time_slot as string | null | undefined) ?? null
+      if (cellDate && cellStoreId) {
+        // 操作者の staff 名（user は GM 欄を更新したスタッフ）
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: staffRow } = await (db as any)
+          .from('staff')
+          .select('id, name')
+          .eq('user_id', user.userId)
+          .eq('organization_id', user.orgId)
+          .maybeSingle()
+        const actorName = (staffRow?.name as string | undefined) ?? '(スタッフ)'
+        await recordEventHistory(db, {
+          scheduleEventId,
+          organizationId: user.orgId,
+          actionType: 'add_participant',
+          oldValues: null,
+          newValues: {
+            participant_name: staffName,
+            participant_count: 1,
+            reservation_source: 'staff_entry',
+            reservation_id: (inserted as { id?: string }).id ?? null,
+          },
+          cellInfo: { date: cellDate, storeId: cellStoreId, timeSlot: cellTimeSlot },
+          changedByUserId: user.userId,
+          changedByStaffId: (staffRow?.id as string | undefined) ?? null,
+          changedByName: `${actorName}（スタッフ参加同期）`,
+          notes: `${staffName} をスタッフ参加で同期`,
+        })
+      }
+    }
+  } catch (historyError) {
+    console.error('[reservations:create-staff-entry] history record error:', historyError)
+  }
+
   return res.status(201).json(inserted)
 }
 
@@ -996,19 +1036,26 @@ async function handleSyncStaffReservationStatuses(
     return res.status(400).json({ error: 'reservation_ids（配列）が必要です' })
   }
 
-  // 全 ID が自組織のものか確認
+  // 全 ID が自組織のものか確認 + 履歴記録用のメタデータも一緒に取得
   const { data: owned, error: ownedError } = await db
     .from('reservations')
-    .select('id, organization_id')
+    .select('id, organization_id, schedule_event_id, participant_names, participant_count, reservation_source')
     .in('id', ids)
   if (ownedError) {
     console.error('[reservations:sync-staff] owned check error:', ownedError)
     return res.status(500).json({ error: '所有確認に失敗しました', detail: ownedError.message })
   }
-  const ownedIds = new Set((owned ?? []).filter(
-    (r: { organization_id: string }) => r.organization_id === user.orgId,
-  ).map((r: { id: string }) => r.id))
-  const safeIds = ids.filter(id => ownedIds.has(id))
+  type OwnedRow = {
+    id: string
+    organization_id: string
+    schedule_event_id: string | null
+    participant_names: string[] | null
+    participant_count: number | null
+    reservation_source: string | null
+  }
+  const ownedRows = (owned ?? []) as OwnedRow[]
+  const safeRows = ownedRows.filter(r => r.organization_id === user.orgId)
+  const safeIds = safeRows.map(r => r.id)
   if (safeIds.length === 0) {
     return res.status(403).json({ error: '対象予約が見つからない、または他組織の予約です' })
   }
@@ -1026,6 +1073,61 @@ async function handleSyncStaffReservationStatuses(
     console.error('[reservations:sync-staff] update error:', updateError)
     return res.status(500).json({ error: '一括ステータス更新に失敗しました', detail: updateError.message })
   }
+
+  // newStatus が 'cancelled' のときだけ remove_participant 履歴を記録（スタッフ参加同期）
+  if (newStatus === 'cancelled') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: staffRow } = await (db as any)
+        .from('staff')
+        .select('id, name')
+        .eq('user_id', user.userId)
+        .eq('organization_id', user.orgId)
+        .maybeSingle()
+      const actorName = (staffRow?.name as string | undefined) ?? '(スタッフ)'
+      const actorStaffId = (staffRow?.id as string | undefined) ?? null
+
+      // schedule_event_id 単位でスナップショットをキャッシュして N+1 を回避
+      const snapshotCache = new Map<string, Record<string, unknown> | null>()
+      await Promise.all(
+        safeRows
+          .filter(r => r.schedule_event_id)
+          .map(async (r) => {
+            const eventId = r.schedule_event_id as string
+            if (!snapshotCache.has(eventId)) {
+              snapshotCache.set(eventId, await fetchEventSnapshotServer(db, eventId))
+            }
+            const snapshot = snapshotCache.get(eventId)
+            if (!snapshot) return
+            const cellDate = String(snapshot.date ?? '')
+            const cellStoreId = String(snapshot.store_id ?? '')
+            const cellTimeSlot = (snapshot.time_slot as string | null | undefined) ?? null
+            if (!cellDate || !cellStoreId) return
+            const targetName = r.participant_names?.[0] ?? '(スタッフ)'
+            await recordEventHistory(db, {
+              scheduleEventId: eventId,
+              organizationId: user.orgId,
+              actionType: 'remove_participant',
+              oldValues: {
+                participant_name: targetName,
+                participant_count: r.participant_count ?? 1,
+                reservation_source: r.reservation_source ?? 'staff_entry',
+                reservation_id: r.id,
+              },
+              newValues: null,
+              cellInfo: { date: cellDate, storeId: cellStoreId, timeSlot: cellTimeSlot },
+              changedByUserId: user.userId,
+              changedByStaffId: actorStaffId,
+              changedByName: `${actorName}（スタッフ参加同期）`,
+              notes: `${targetName} をスタッフ参加同期で解除`,
+            })
+          })
+      )
+    } catch (historyError) {
+      console.error('[reservations:sync-staff] history record error:', historyError)
+    }
+  }
+
   return res.status(200).json({ success: true, updatedCount: safeIds.length })
 }
 
