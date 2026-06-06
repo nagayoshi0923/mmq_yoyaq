@@ -14,6 +14,7 @@ import { useContextMenuActions } from './useContextMenuActions'
 import { useScheduleEvents } from '@/pages/ScheduleManager/hooks/useScheduleEvents'
 import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
 import { generateMonthDays } from '@/utils/scheduleUtils'
+import { computeIntervalWarningEventIds } from '@/utils/intervalWarning'
 import type {
   ScheduleTableViewConfig,
   ScheduleTableDataProvider,
@@ -91,13 +92,20 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     stores
   }), [currentDate, monthDays, stores])
 
+  // 同日同店舗で間隔 60 分未満の公演 ID セット（赤ボーダー警告用）
+  const intervalWarningEventIds = useMemo(
+    () => computeIntervalWarningEventIds(events),
+    [events]
+  )
+
   // DataProvider
   const dataProvider: ScheduleTableDataProvider = useMemo(() => ({
     getEventsForSlot,
     shiftData,
     getMemo,
-    onSaveMemo: handleSaveMemo
-  }), [getEventsForSlot, shiftData, getMemo, handleSaveMemo])
+    onSaveMemo: handleSaveMemo,
+    intervalWarningEventIds,
+  }), [getEventsForSlot, shiftData, getMemo, handleSaveMemo, intervalWarningEventIds])
 
   // EventHandlers
   const eventHandlers: ScheduleTableEventHandlers = useMemo(() => ({

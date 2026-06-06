@@ -28,6 +28,8 @@ export interface ScheduleTableDataProvider {
   shiftData: Record<string, Array<Staff & { timeSlot: string }>>
   getMemo: (date: string, venue: string) => string
   onSaveMemo: (date: string, venue: string, memo: string) => Promise<void>
+  /** 同日同店舗で前後の公演と間隔が 60 分未満の公演 ID。セル左ボーダー赤警告に使う */
+  intervalWarningEventIds?: Set<string>
 }
 
 export interface ScheduleTableEventHandlers {
@@ -133,7 +135,7 @@ export function ScheduleTable({
   isCustomHoliday
 }: ScheduleTableProps) {
   const { monthDays, stores, temporaryVenues = [], getVenueNameForDate } = viewConfig
-  const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
+  const { getEventsForSlot, shiftData, getMemo, onSaveMemo, intervalWarningEventIds } = dataProvider
   const {
     onAddPerformance,
     onEditPerformance,
@@ -276,6 +278,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'morning')}
+                    intervalWarningEventIds={intervalWarningEventIds}
                   />
                   
                   {/* 午後セル */}
@@ -297,6 +300,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'afternoon')}
+                    intervalWarningEventIds={intervalWarningEventIds}
                   />
                   
                   {/* 夜セル */}
@@ -318,6 +322,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'evening')}
+                    intervalWarningEventIds={intervalWarningEventIds}
                   />
                   
                   {/* メモセル */}
