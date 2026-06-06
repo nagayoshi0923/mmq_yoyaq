@@ -36,14 +36,29 @@ interface EventHistoryTabProps {
   staff?: StaffType[]
 }
 
-// アクション別に表示する「セルプレビューの元データ」を選択する
-function pickPreviewSnapshot(entry: EventHistory): Record<string, unknown> | null {
-  // 削除・移動元はその時の old_values を見せる、それ以外は new_values（変更後の状態）を見せる
-  const useOldValues: ActionType[] = ['delete', 'move_out']
-  const source = useOldValues.includes(entry.action_type as ActionType)
-    ? entry.old_values
-    : entry.new_values
-  return source ?? null
+// スナップショットが「セル描画に足る」内容を持つか判定
+function isRenderableSnapshot(snapshot: Record<string, unknown> | null | undefined): boolean {
+  if (!snapshot) return false
+  const startTime = snapshot.start_time
+  const endTime = snapshot.end_time
+  return (
+    typeof startTime === 'string' && startTime.length >= 5 &&
+    typeof endTime === 'string' && endTime.length >= 5
+  )
+}
+
+// アクション種別に応じて、ない側のプレースホルダーに出すラベル
+function getPlaceholderLabel(side: 'before' | 'after', actionType: ActionType): string {
+  if (side === 'before') {
+    if (actionType === 'create' || actionType === 'copy' || actionType === 'move_in') {
+      return '（作成前）'
+    }
+    return '（情報なし）'
+  }
+  // after
+  if (actionType === 'delete') return '（削除）'
+  if (actionType === 'move_out') return '（このセルから移動）'
+  return '（情報なし）'
 }
 
 // snapshot レコードから PerformanceCard / PerformanceModal に渡せる ScheduleEvent を組み立てる
@@ -198,11 +213,11 @@ function ChangeItem({ field, oldValue, newValue, allOldValues, allNewValues, sto
   }
   
   return (
-    <div className="flex items-start gap-2 text-xs py-1">
-      <span className="text-muted-foreground shrink-0 w-20">{label}:</span>
-      <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-start gap-1 text-[10px] py-0.5 leading-tight">
+      <span className="text-muted-foreground shrink-0 w-16">{label}:</span>
+      <div className="flex items-center gap-1 flex-wrap">
         <span className="text-red-600 line-through">{oldStr}</span>
-        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        <ArrowRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
         <span className="text-green-700 font-medium">{newStr}</span>
       </div>
     </div>
@@ -274,15 +289,17 @@ function HistoryEntry({
     ? getCreateSummary(entry.old_values)
     : []
 
-  // セルプレビュー: アクション直後のセルの見た目を復元する
-  const previewSnapshot = pickPreviewSnapshot(entry)
-  const previewEvent = previewSnapshot ? reconstructEventFromSnapshot(previewSnapshot, scenarios) : null
-  // PerformanceCard が落ちずに描画できる最低条件: start_time / end_time が文字列
-  // （scenario 未設定でもカード側で「未定」表示するので OK）
-  const canRenderPreview =
-    !!previewEvent &&
-    typeof previewEvent.start_time === 'string' && previewEvent.start_time.length >= 5 &&
-    typeof previewEvent.end_time === 'string' && previewEvent.end_time.length >= 5
+  // 操作前 / 操作後の両セルを並べて比較する
+  const beforeSnapshot = entry.old_values
+  const afterSnapshot = entry.new_values
+  const beforeEvent = isRenderableSnapshot(beforeSnapshot)
+    ? reconstructEventFromSnapshot(beforeSnapshot!, scenarios)
+    : null
+  const afterEvent = isRenderableSnapshot(afterSnapshot)
+    ? reconstructEventFromSnapshot(afterSnapshot!, scenarios)
+    : null
+  // 両側とも描画できないなら比較セクション自体を出さない
+  const showComparison = !!beforeEvent || !!afterEvent
 
   return (
     <div className={cn(
@@ -325,20 +342,49 @@ function HistoryEntry({
         <span>{entry.changed_by_name || '不明'}</span>
       </div>
 
-      {/* セルプレビュー: その時点でのセルの見た目（クリックで詳細モーダル） */}
-      {canRenderPreview && previewEvent && previewSnapshot && (
+      {/* 操作前 / 操作後のセル比較（左右に並べる、クリックで詳細モーダル） */}
+      {showComparison && (
         <div className="border-t pt-2 mb-2">
-          <div className="text-[10px] text-muted-foreground mb-1">
-            {isDeleted || entry.action_type === 'move_out' ? '操作直前のセル:' : '操作直後のセル:'}
-          </div>
-          <div className="border rounded">
-            <PerformanceCard
-              event={previewEvent}
-              categoryConfig={CATEGORY_CONFIG}
-              getReservationBadgeClass={getReservationBadgeClass}
-              previewMode
-              onClick={onPreviewClick ? () => onPreviewClick(previewSnapshot) : undefined}
-            />
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center">
+            {/* 操作前 */}
+            <div className="min-w-0">
+              <div className="text-[10px] text-muted-foreground mb-1">操作前</div>
+              {beforeEvent && beforeSnapshot ? (
+                <div className="border rounded">
+                  <PerformanceCard
+                    event={beforeEvent}
+                    categoryConfig={CATEGORY_CONFIG}
+                    getReservationBadgeClass={getReservationBadgeClass}
+                    previewMode
+                    onClick={onPreviewClick ? () => onPreviewClick(beforeSnapshot) : undefined}
+                  />
+                </div>
+              ) : (
+                <div className="border border-dashed rounded p-3 text-center text-[10px] text-muted-foreground bg-muted/30">
+                  {getPlaceholderLabel('before', entry.action_type as ActionType)}
+                </div>
+              )}
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {/* 操作後 */}
+            <div className="min-w-0">
+              <div className="text-[10px] text-muted-foreground mb-1">操作後</div>
+              {afterEvent && afterSnapshot ? (
+                <div className="border rounded">
+                  <PerformanceCard
+                    event={afterEvent}
+                    categoryConfig={CATEGORY_CONFIG}
+                    getReservationBadgeClass={getReservationBadgeClass}
+                    previewMode
+                    onClick={onPreviewClick ? () => onPreviewClick(afterSnapshot) : undefined}
+                  />
+                </div>
+              ) : (
+                <div className="border border-dashed rounded p-3 text-center text-[10px] text-muted-foreground bg-muted/30">
+                  {getPlaceholderLabel('after', entry.action_type as ActionType)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -364,13 +410,13 @@ function HistoryEntry({
           ))}
         </div>
       ) : contentSummary.length > 0 ? (
-        <div className="border-t pt-2 mt-2 space-y-1">
+        <div className="border-t pt-1.5 mt-1.5 space-y-0">
           {entry.action_type === 'move_out' && (
-            <p className="text-xs text-red-600 mb-1">このセルから移動しました</p>
+            <p className="text-[10px] text-red-600 mb-0.5 leading-tight">このセルから移動しました</p>
           )}
           {contentSummary.map(({ field, value }) => (
-            <div key={field} className="flex items-start gap-2 text-xs">
-              <span className="text-muted-foreground shrink-0 w-20">{field}:</span>
+            <div key={field} className="flex items-start gap-1 text-[10px] py-0.5 leading-tight">
+              <span className="text-muted-foreground shrink-0 w-16">{field}:</span>
               <span className={entry.action_type === 'move_out' ? 'text-red-400 line-through' : 'text-green-700 font-medium'}>{value}</span>
             </div>
           ))}
