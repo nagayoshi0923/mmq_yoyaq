@@ -2,8 +2,10 @@
 
 import { memo, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronUp, Users } from 'lucide-react'
+import { ChevronDown, ChevronUp, Users, AlertTriangle } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import type { GmStatsData, GmStatsItem } from '@/pages/ScheduleManager/hooks/useGmStats'
+import type { ScheduleWarning } from '@/utils/scheduleWarnings'
 
 interface CategoryGmStatsBarProps {
   // カテゴリフィルター
@@ -14,6 +16,14 @@ interface CategoryGmStatsBarProps {
   gmStats: GmStatsData
   selectedStaffIds?: string[]
   onStaffClick?: (staffId: string) => void
+  // 警告対象公演 (シナリオ/GM未定 + 60分未満インターバル)
+  warnings?: ScheduleWarning[]
+  onWarningClick?: (warning: ScheduleWarning) => void
+}
+
+const WARNING_REASON_LABEL: Record<string, string> = {
+  incomplete: '未定',
+  interval: '間隔<60分',
 }
 
 // カテゴリ定義（公演カテゴリ + 役割）
@@ -47,7 +57,9 @@ export const CategoryGmStatsBar = memo(function CategoryGmStatsBar({
   onCategoryChange,
   gmStats,
   selectedStaffIds = [],
-  onStaffClick
+  onStaffClick,
+  warnings = [],
+  onWarningClick,
 }: CategoryGmStatsBarProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -139,8 +151,51 @@ export const CategoryGmStatsBar = memo(function CategoryGmStatsBar({
 
         {/* 警告・GM数 */}
         <span className="text-[10px] text-muted-foreground ml-auto shrink-0 flex items-center gap-1">
-          {categoryCounts.alerts > 0 && (
-            <span className="text-red-500">警告:{categoryCounts.alerts}</span>
+          {warnings.length > 0 ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-0.5 text-red-500 hover:underline focus:outline-none"
+                >
+                  <AlertTriangle className="h-3 w-3" />警告:{warnings.length}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-[min(420px,90vw)] max-h-[60vh] overflow-auto p-2 text-[11px]"
+              >
+                <div className="font-semibold mb-1 text-red-600">
+                  警告対象公演 ({warnings.length}件)
+                </div>
+                <ul className="space-y-1">
+                  {warnings.map((w) => (
+                    <li key={w.eventId}>
+                      <button
+                        type="button"
+                        onClick={() => onWarningClick?.(w)}
+                        className="w-full text-left rounded px-1 py-0.5 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
+                      >
+                        <span className="tabular-nums text-muted-foreground">
+                          {w.date} {w.startTime.slice(0, 5)}-{w.endTime.slice(0, 5)}
+                        </span>
+                        <span className="mx-1">·</span>
+                        <span className="font-medium">{w.storeName}</span>
+                        <span className="mx-1">·</span>
+                        <span>{w.scenario || <span className="italic text-muted-foreground">(シナリオ未定)</span>}</span>
+                        <span className="ml-1 text-red-500">
+                          [{w.reasons.map((r) => WARNING_REASON_LABEL[r] || r).join(', ')}]
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            categoryCounts.alerts > 0 && (
+              <span className="text-red-500">警告:{categoryCounts.alerts}</span>
+            )
           )}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
