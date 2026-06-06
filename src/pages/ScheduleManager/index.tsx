@@ -42,6 +42,7 @@ import { MonthSwitcher } from '@/components/patterns/calendar'
 // Schedule Components（常時表示）
 import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { CategoryGmStatsBar } from '@/components/schedule/CategoryGmStatsBar'
+import { computeScheduleWarnings } from '@/utils/scheduleWarnings'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
@@ -871,6 +872,16 @@ export function ScheduleManager() {
   )
   const { selectedCategories, setSelectedCategories, categoryCounts } = useCategoryFilter(allEventsForMonth)
 
+  // 警告対象公演リスト (シナリオ/GM未定 + 60分未満インターバル)
+  const scheduleWarnings = useMemo(
+    () => computeScheduleWarnings(
+      allEventsForMonth,
+      scheduleTableProps.dataProvider.intervalWarningEventIds ?? new Set<string>(),
+      scheduleTableProps.viewConfig.stores,
+    ),
+    [allEventsForMonth, scheduleTableProps.dataProvider.intervalWarningEventIds, scheduleTableProps.viewConfig.stores]
+  )
+
   // カテゴリオプション（開催予定数・中止数付き）
   const categoryOptions = useMemo(() => {
     const defs = [
@@ -1547,6 +1558,11 @@ export function ScheduleManager() {
                   ? prev.filter(id => id !== staffId)
                   : [...prev, staffId]
               )
+            }}
+            warnings={scheduleWarnings}
+            onWarningClick={(w) => {
+              const target = allEventsForMonth.find(e => e.id === w.eventId)
+              if (target) scheduleTableProps.eventHandlers.onEditPerformance(target)
             }}
           />
         </div>
