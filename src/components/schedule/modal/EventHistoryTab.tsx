@@ -1,27 +1,95 @@
 // 公演の更新履歴を表示するタブコンポーネント
 
 import { logger } from '@/utils/logger'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus, MoveRight, MoveLeft, Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { 
-  getEventHistory, 
-  EventHistory, 
+import {
+  getEventHistory,
+  EventHistory,
   ActionType,
-  ACTION_LABELS, 
-  FIELD_LABELS, 
+  ACTION_LABELS,
+  FIELD_LABELS,
   formatValue,
   formatGMsWithRoles,
   CellInfo
 } from '@/lib/api/eventHistoryApi'
 import { cn } from '@/lib/utils'
+import { PerformanceCard } from '@/components/schedule/PerformanceCard'
+import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
+import type { ScheduleEvent } from '@/types/schedule'
+import type { Scenario, Staff as StaffType, Store } from '@/types'
+
+// 循環依存回避のため lazy で読み込む（PerformanceModal は EventHistoryTab を含むため）
+const PerformanceModalLazy = lazy(() =>
+  import('@/components/schedule/PerformanceModal').then(m => ({ default: m.PerformanceModal }))
+)
 
 interface EventHistoryTabProps {
   cellInfo?: CellInfo           // セル情報（日付＋会場＋時間帯）
   organizationId?: string       // 組織ID
-  stores?: Array<{ id: string; name: string }>  // 店舗一覧（UUID→名前解決用）
+  stores?: Store[]              // 店舗一覧（UUID→名前解決 + スナップショットモーダル用）
+  // スナップショットクリック → 読み取り専用 PerformanceModal を開くのに必要
+  scenarios?: Scenario[]
+  staff?: StaffType[]
+}
+
+// アクション別に表示する「セルプレビューの元データ」を選択する
+function pickPreviewSnapshot(entry: EventHistory): Record<string, unknown> | null {
+  // 削除・移動元はその時の old_values を見せる、それ以外は new_values（変更後の状態）を見せる
+  const useOldValues: ActionType[] = ['delete', 'move_out']
+  const source = useOldValues.includes(entry.action_type as ActionType)
+    ? entry.old_values
+    : entry.new_values
+  return source ?? null
+}
+
+// snapshot レコードから PerformanceCard / PerformanceModal に渡せる ScheduleEvent を組み立てる
+function reconstructEventFromSnapshot(
+  snapshot: Record<string, unknown>,
+  scenarios?: Scenario[]
+): ScheduleEvent | null {
+  if (!snapshot || typeof snapshot !== 'object') return null
+  const scenarioMasterId = (snapshot.scenario_master_id as string | undefined) ?? undefined
+  const scenarioMaster = scenarioMasterId
+    ? scenarios?.find(s => s.id === scenarioMasterId)
+    : undefined
+  const maxParticipants =
+    (snapshot.max_participants as number | undefined) ??
+    (snapshot.capacity as number | undefined) ??
+    undefined
+  return {
+    id: String(snapshot.id ?? ''),
+    date: String(snapshot.date ?? ''),
+    venue: String(snapshot.store_id ?? snapshot.venue ?? ''),
+    store_id: snapshot.store_id ? String(snapshot.store_id) : undefined,
+    scenario: String(snapshot.scenario ?? ''),
+    scenario_master_id: scenarioMasterId,
+    gms: Array.isArray(snapshot.gms) ? (snapshot.gms as string[]) : [],
+    gm_roles: (snapshot.gm_roles as Record<string, string> | undefined) ?? {},
+    start_time: String(snapshot.start_time ?? ''),
+    end_time: String(snapshot.end_time ?? ''),
+    category: (snapshot.category as ScheduleEvent['category']) ?? 'open',
+    is_cancelled: Boolean(snapshot.is_cancelled),
+    is_tentative: Boolean(snapshot.is_tentative),
+    current_participants: (snapshot.current_participants as number | undefined) ?? 0,
+    max_participants: maxParticipants,
+    notes: (snapshot.notes as string | undefined) ?? undefined,
+    is_reservation_enabled: Boolean(snapshot.is_reservation_enabled),
+    is_private_request: Boolean(snapshot.is_private_request),
+    reservation_name: (snapshot.reservation_name as string | undefined) ?? undefined,
+    time_slot: (snapshot.time_slot as string | undefined) ?? undefined,
+    venue_rental_fee: (snapshot.venue_rental_fee as number | undefined) ?? undefined,
+    scenarios: scenarioMaster
+      ? {
+          id: scenarioMaster.id,
+          title: scenarioMaster.title,
+          player_count_max: scenarioMaster.player_count_max ?? 8,
+        }
+      : undefined,
+  }
 }
 
 // アクションタイプに応じたアイコンを取得
@@ -89,7 +157,7 @@ function getActionBadgeStyle(actionType: ActionType): string {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function resolveStoreName(value: unknown, stores?: Array<{ id: string; name: string }>): string {
+function resolveStoreName(value: unknown, stores?: Store[]): string {
   if (!stores || value === null || value === undefined) return formatValue('', value)
   const str = String(value)
   if (UUID_PATTERN.test(str)) {
@@ -105,7 +173,7 @@ function ChangeItem({ field, oldValue, newValue, allOldValues, allNewValues, sto
   newValue: unknown
   allOldValues?: Record<string, unknown> | null
   allNewValues?: Record<string, unknown> | null
-  stores?: Array<{ id: string; name: string }>
+  stores?: Store[]
 }) {
   const label = FIELD_LABELS[field] || field
 
@@ -182,7 +250,17 @@ function getCreateSummary(newValues: Record<string, unknown> | null): { field: s
 }
 
 // 履歴エントリを表示するコンポーネント
-function HistoryEntry({ entry, stores }: { entry: EventHistory; stores?: Array<{ id: string; name: string }> }) {
+function HistoryEntry({
+  entry,
+  stores,
+  scenarios,
+  onPreviewClick
+}: {
+  entry: EventHistory
+  stores?: Store[]
+  scenarios?: Scenario[]
+  onPreviewClick?: (snapshot: Record<string, unknown>) => void
+}) {
   const date = new Date(entry.created_at)
   const formattedDate = format(date, 'M/d(E) HH:mm', { locale: ja })
   const changes = entry.changes as Record<string, { old: unknown; new: unknown }>
@@ -195,7 +273,13 @@ function HistoryEntry({ entry, stores }: { entry: EventHistory; stores?: Array<{
     : entry.action_type === 'move_out'
     ? getCreateSummary(entry.old_values)
     : []
-  
+
+  // セルプレビュー: アクション直後のセルの見た目を復元する
+  const previewSnapshot = pickPreviewSnapshot(entry)
+  const previewEvent = previewSnapshot ? reconstructEventFromSnapshot(previewSnapshot, scenarios) : null
+  // 描画に最低限必要なフィールドが揃っているかチェック（古い履歴は部分データなのでスキップ）
+  const canRenderPreview = !!previewEvent && !!previewEvent.scenario && !!previewEvent.start_time && !!previewEvent.end_time
+
   return (
     <div className={cn(
       "border rounded-lg p-3",
@@ -236,6 +320,24 @@ function HistoryEntry({ entry, stores }: { entry: EventHistory; stores?: Array<{
         <User className="h-3 w-3" />
         <span>{entry.changed_by_name || '不明'}</span>
       </div>
+
+      {/* セルプレビュー: その時点でのセルの見た目（クリックで詳細モーダル） */}
+      {canRenderPreview && previewEvent && previewSnapshot && (
+        <div className="border-t pt-2 mb-2">
+          <div className="text-[10px] text-muted-foreground mb-1">
+            {isDeleted || entry.action_type === 'move_out' ? '操作直前のセル:' : '操作直後のセル:'}
+          </div>
+          <div className="border rounded">
+            <PerformanceCard
+              event={previewEvent}
+              categoryConfig={CATEGORY_CONFIG}
+              getReservationBadgeClass={getReservationBadgeClass}
+              previewMode
+              onClick={onPreviewClick ? () => onPreviewClick(previewSnapshot) : undefined}
+            />
+          </div>
+        </div>
+      )}
       
       {/* 変更内容（詳細） */}
       {changeKeys.length > 0 ? (
@@ -292,10 +394,21 @@ function HistoryEntry({ entry, stores }: { entry: EventHistory; stores?: Array<{
   )
 }
 
-export function EventHistoryTab({ cellInfo, organizationId, stores }: EventHistoryTabProps) {
+export function EventHistoryTab({ cellInfo, organizationId, stores, scenarios, staff }: EventHistoryTabProps) {
   const [history, setHistory] = useState<EventHistory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // クリックされたスナップショットを読み取り専用 PerformanceModal で開く
+  const [snapshotEvent, setSnapshotEvent] = useState<ScheduleEvent | null>(null)
+
+  // スナップショットクリック時に ScheduleEvent を組み立てて読み取り専用モーダルを開く
+  // scenarios が無いと PerformanceModal が満足に動かないので、scenarios プロップが渡されているときのみ有効
+  const handlePreviewClick = scenarios
+    ? (snapshot: Record<string, unknown>) => {
+        const event = reconstructEventFromSnapshot(snapshot, scenarios)
+        if (event) setSnapshotEvent(event)
+      }
+    : undefined
 
   useEffect(() => {
     async function fetchHistory() {
@@ -357,11 +470,36 @@ export function EventHistoryTab({ cellInfo, organizationId, stores }: EventHisto
   }
   
   return (
-    <div className="space-y-3">
-      {history.map((entry) => (
-        <HistoryEntry key={entry.id} entry={entry} stores={stores} />
-      ))}
-    </div>
+    <>
+      <div className="space-y-3">
+        {history.map((entry) => (
+          <HistoryEntry
+            key={entry.id}
+            entry={entry}
+            stores={stores}
+            scenarios={scenarios}
+            onPreviewClick={handlePreviewClick}
+          />
+        ))}
+      </div>
+
+      {/* スナップショットの読み取り専用モーダル（クリック時のみ表示） */}
+      {snapshotEvent && scenarios && (
+        <Suspense fallback={null}>
+          <PerformanceModalLazy
+            isOpen={!!snapshotEvent}
+            onClose={() => setSnapshotEvent(null)}
+            onSave={async () => false}
+            mode="edit"
+            event={snapshotEvent}
+            stores={stores ?? []}
+            scenarios={scenarios}
+            staff={staff ?? []}
+            readOnly
+          />
+        </Suspense>
+      )}
+    </>
   )
 }
 

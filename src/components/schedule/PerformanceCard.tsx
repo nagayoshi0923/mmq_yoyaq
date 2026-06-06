@@ -54,6 +54,8 @@ interface PerformanceCardProps {
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
   /** 同日同店舗の前後公演と間隔が 60 分未満 (赤ボーダー警告) */
   hasIntervalWarning?: boolean
+  /** 履歴プレビュー用: ドラッグ・長押し・公開トグル・コンテキストメニューを無効化し、カード全体を 1 クリックで onClick に渡す */
+  previewMode?: boolean
 }
 
 function PerformanceCardBase({
@@ -68,6 +70,7 @@ function PerformanceCardBase({
   onToggleReservation,
   onContextMenu,
   hasIntervalWarning = false,
+  previewMode = false,
 }: PerformanceCardProps) {
   const reservationCount = event.current_participants || 0
   // シナリオのplayer_count_maxを最優先
@@ -170,7 +173,7 @@ function PerformanceCardBase({
 
   // 長押し時は onClick をスキップ
   const handleClick = () => {
-    if (isLongPressTriggered()) {
+    if (!previewMode && isLongPressTriggered()) {
       return // 長押しが成立していたら onClick をスキップ
     }
     onClick?.(event)
@@ -178,18 +181,20 @@ function PerformanceCardBase({
 
   return (
     <div
-      draggable={!event.is_cancelled}
+      draggable={!previewMode && !event.is_cancelled}
       onDragStart={(e) => {
-        if (event.is_cancelled) return
+        if (previewMode || event.is_cancelled) return
         e.dataTransfer.effectAllowed = 'move'
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
-      onContextMenu={handleContextMenu}
-      {...longPressHandlers}
+      onContextMenu={previewMode ? undefined : handleContextMenu}
+      {...(previewMode ? {} : longPressHandlers)}
       className={`p-1 border-l-2 ${leftBorderColor} hover:bg-gray-50/80 transition-colors relative ${
-        event.is_cancelled 
-          ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
-          : 'cursor-move'
+        previewMode
+          ? 'cursor-pointer'
+          : event.is_cancelled
+            ? 'bg-gray-100 opacity-75 cursor-not-allowed'
+            : 'cursor-move'
       } ${categoryColors}`}
       style={{ margin: '0px' }}
       onClick={handleClick}
@@ -224,38 +229,43 @@ function PerformanceCardBase({
           {/* 公開状況バッジ */}
           {!event.is_cancelled && (() => {
             const isPublished = event.is_private_request || event.is_reservation_enabled
-            const handleClick = (e: React.MouseEvent) => {
-              e.stopPropagation();
-              if (!event.is_private_request) {
-                onToggleReservation?.(event);
-              }
-            }
-            const title = event.is_private_request 
-              ? '貸切公演は常に公開中です' 
-              : event.is_reservation_enabled 
-                ? '予約サイトに公開中（クリックで非公開）' 
-                : '予約サイトに非公開（クリックで公開）'
+            const handleBadgeClick = previewMode
+              ? undefined
+              : (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  if (!event.is_private_request) {
+                    onToggleReservation?.(event);
+                  }
+                }
+            const title = previewMode
+              ? (isPublished ? '予約サイトに公開中' : '予約サイトに非公開')
+              : event.is_private_request
+                ? '貸切公演は常に公開中です'
+                : event.is_reservation_enabled
+                  ? '予約サイトに公開中（クリックで非公開）'
+                  : '予約サイトに非公開（クリックで公開）'
+            const badgeCursor = previewMode ? '' : 'cursor-pointer'
             return (
               <>
                 {/* モバイル：ドット表示 */}
                 <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 transition-all cursor-pointer sm:hidden ${
+                  className={`w-2 h-2 rounded-full flex-shrink-0 transition-all sm:hidden ${badgeCursor} ${
                     isPublished ? 'bg-green-400' : 'bg-gray-400'
                   }`}
                   title={title}
-                  onClick={handleClick}
+                  onClick={handleBadgeClick}
                 />
                 {/* PC：バッジ表示 */}
-                <Badge 
-                  variant="outline" 
-                  size="sm" 
-                  className={`font-normal text-[10px] px-1.5 py-0 h-4 rounded-full whitespace-nowrap hidden sm:inline-flex items-center cursor-pointer transition-all ${
-                    isPublished 
-                      ? 'bg-green-50 text-green-700 border-green-300 hover:bg-green-100' 
+                <Badge
+                  variant="outline"
+                  size="sm"
+                  className={`font-normal text-[10px] px-1.5 py-0 h-4 rounded-full whitespace-nowrap hidden sm:inline-flex items-center transition-all ${badgeCursor} ${
+                    isPublished
+                      ? 'bg-green-50 text-green-700 border-green-300 hover:bg-green-100'
                       : 'bg-gray-50 text-gray-500 border-gray-300 hover:bg-gray-100'
                   }`}
                   title={title}
-                  onClick={handleClick}
+                  onClick={handleBadgeClick}
                 >
                   {isPublished ? '公開' : '非公開'}
                 </Badge>

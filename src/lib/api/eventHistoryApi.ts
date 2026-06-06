@@ -91,8 +91,8 @@ export const ACTION_LABELS: Record<ActionType, string> = {
 const SNAPSHOT_COLUMNS =
   'id, organization_id, date, venue, store_id, scenario, scenario_master_id, ' +
   'gms, gm_roles, start_time, end_time, category, capacity, max_participants, ' +
-  'notes, is_cancelled, is_tentative, is_reservation_enabled, ' +
-  'reservation_name, time_slot, venue_rental_fee'
+  'current_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, ' +
+  'is_private_request, reservation_name, time_slot, venue_rental_fee'
 
 /**
  * 公演 1 行のフル状態スナップショットを schedule_events_staff_view から取得する。
