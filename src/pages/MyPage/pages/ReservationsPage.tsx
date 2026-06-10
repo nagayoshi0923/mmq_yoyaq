@@ -110,28 +110,43 @@ export function ReservationsPage() {
   const cancelWaitlistMutation = useCancelWaitlistMutation(user?.id, user?.email)
   const changeDateMutation = useChangeDateMutation(user?.id, user?.email)
 
+  // ── 日付/時刻を必ず日本時間(JST)で扱うヘルパー ──
+  // requested_datetime はオフセット付き(+09:00) / UTC(Z) / オフセット無し(naive) /
+  // 日付のみ(YYYY-MM-DD) が混在しうる。ブラウザのローカルTZに依存すると、
+  // 非JST環境の利用者には日付が1日ずれて表示される（公演予約タブで 30日→29日 になる事故）。
+  const parseAsJst = (value: string): Date => {
+    const s = String(value ?? '').trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T00:00:00+09:00`)
+    const hasTz = /([zZ]|[+-]\d{2}:?\d{2})$/.test(s)
+    return new Date(hasTz ? s : `${s}+09:00`)
+  }
+  const jstParts = (value: string) => {
+    const d = parseAsJst(value)
+    if (Number.isNaN(d.getTime())) return null
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tokyo',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d)
+    const g = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+    return { y: g('year'), mo: g('month'), d: g('day'), h: g('hour'), mi: g('minute') }
+  }
+  const jstWeekday = (value: string): string => {
+    const d = parseAsJst(value)
+    if (Number.isNaN(d.getTime())) return ''
+    return new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', weekday: 'short' }).format(d)
+  }
+
   // 時間のみ表示（タイトルに日付が含まれているため）
   const formatTime = (dateString: string) => {
-    // ISO文字列から直接時間を抽出（タイムゾーン変換を避ける）
-    // 形式: 2026-01-11T13:00:00 or 2026-01-11T13:00:00+09:00
-    const timeMatch = dateString.match(/T(\d{2}):(\d{2})/)
-    if (timeMatch) {
-      return `${timeMatch[1]}:${timeMatch[2]}`
-    }
-    // フォールバック
-    const d = new Date(dateString)
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    const t = jstParts(dateString)
+    return t ? `${t.h}:${t.mi}` : ''
   }
 
   // 日付と時間を表示（タイトルに日付がない場合用）
   const formatDateTime = (dateString: string) => {
-    // ISO文字列から直接抽出
-    const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
-    if (match) {
-      return `${match[1]}/${match[2]}/${match[3]} ${match[4]}:${match[5]}`
-    }
-    const d = new Date(dateString)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    const t = jstParts(dateString)
+    return t ? `${t.y}/${t.mo}/${t.d} ${t.h}:${t.mi}` : String(dateString ?? '')
   }
 
   // タイトルに日付が含まれているかチェック
@@ -392,11 +407,11 @@ export function ReservationsPage() {
     }
   }
 
-  // 日付をフォーマット
+  // 日付をフォーマット（JST 固定）
   const formatEventDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+    const t = jstParts(dateStr)
+    if (!t) return String(dateStr ?? '')
+    return `${Number(t.mo)}/${Number(t.d)}(${jstWeekday(dateStr)})`
   }
 
   // 人数変更可能な最大値を計算
@@ -886,7 +901,7 @@ export function ReservationsPage() {
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {event ? new Date(event.date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' }) : '-'}
+                            {event ? `${jstParts(event.date)?.mo ? Number(jstParts(event.date)!.mo) : ''}月${jstParts(event.date)?.d ? Number(jstParts(event.date)!.d) : ''}日(${jstWeekday(event.date)})` : '-'}
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
@@ -903,7 +918,7 @@ export function ReservationsPage() {
                         </div>
                         {entry.status === 'notified' && entry.expires_at && (
                           <div className="mt-2 text-xs text-amber-700 font-medium">
-                            ⏰ {new Date(entry.expires_at).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで有効
+                            ⏰ {new Date(entry.expires_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで有効
                           </div>
                         )}
                       </div>
@@ -1115,11 +1130,7 @@ export function ReservationsPage() {
                     <>
                       <div className="font-medium text-foreground">{event.scenario}</div>
                       <div className="text-sm text-muted-foreground">
-                        {(() => {
-                          const d = new Date(event.date)
-                          const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                          return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]}) ${event.start_time?.slice(0, 5) || ''}`
-                        })()}
+                        {`${formatEventDate(event.date)} ${event.start_time?.slice(0, 5) || ''}`}
                       </div>
                     </>
                   ) : null
