@@ -15,20 +15,32 @@ export const formatDate = (dateStr: string | undefined | null): string => {
     return '日付未定'
   }
   
-  const date = new Date(dateStr)
-  
+  // 日本時間(JST)固定で扱う。
+  // new Date(...) + getDate() はブラウザのローカルTZ依存のため、非JST環境の顧客が
+  // 「2026-11-30」を選んでも枠ラベルが「11/29」と1日前に見え、申込日を誤認していた。
+  const s = String(dateStr).trim()
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(s)
+    ? `${s}T00:00:00+09:00`
+    : /([zZ]|[+-]\d{2}:?\d{2})$/.test(s)
+      ? s
+      : `${s}+09:00`
+  const date = new Date(iso)
+
   // 無効な日付の場合
   if (isNaN(date.getTime())) {
     return '日付未定'
   }
-  
-  const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-  const year = date.getFullYear()
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const weekday = weekdays[date.getDay()]
-  
-  return `${year}年${month}月${day}日(${weekday})`
+
+  const parts = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+  }).formatToParts(date)
+  const g = (t: string) => parts.find((p) => p.type === t)?.value ?? ''
+
+  return `${g('year')}年${g('month')}月${g('day')}日(${g('weekday')})`
 }
 
 /**
