@@ -7,10 +7,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { usePlayedScenariosQuery, useLikedScenarioIdsQuery, useToggleLikeMutation } from '../hooks/usePlayedScenariosQuery'
+import { formatJstYmd } from '@/utils/jstDate'
 
 const formatDate = (date: string) => {
-  const d = new Date(date)
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  return formatJstYmd(date)
 }
 
 export function PlayedScenariosPage() {

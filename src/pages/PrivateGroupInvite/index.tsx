@@ -25,6 +25,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
+import { formatJstDateJa, getJstParts } from '@/utils/jstDate'
 
 interface Coupon {
   id: string
@@ -564,6 +565,12 @@ export function PrivateGroupInvite() {
     const d = parts.find(p => p.type === 'day')?.value ?? ''
     const wd = parts.find(p => p.type === 'weekday')?.value ?? ''
     return `${m}/${d}(${wd})`
+  }
+
+  // "11月30日(月)" 形式（候補日サマリー表示用）
+  const formatDateJaMd = (dateStr: string) => {
+    const p = getJstParts(dateStr)
+    return p ? `${Number(p.mo)}月${Number(p.d)}日(${p.weekday})` : ''
   }
 
   const handleResponseChange = (candidateDateId: string, response: DateResponse) => {
@@ -1545,7 +1552,7 @@ export function PrivateGroupInvite() {
                                     </span>
                                   )}
                                   <span className={`font-medium text-xs ${isRejected ? 'line-through text-muted-foreground' : ''}`}>
-                                    {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                                    {formatDateJaMd(cd.date)}
                                   </span>
                                 </div>
                                 <div className={`text-[10px] text-muted-foreground mt-0.5 ${isRejected ? 'line-through' : ''}`}>
@@ -2247,7 +2254,7 @@ export function PrivateGroupInvite() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-sm">
-                                  {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                                  {formatDateJaMd(cd.date)}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {cd.time_slot} {cd.start_time}-{cd.end_time}
@@ -2494,7 +2501,7 @@ export function PrivateGroupInvite() {
                   <div className="space-y-2">
                     {group.candidate_dates.slice(0, 3).map((cd) => (
                       <div key={cd.id} className="text-xs">
-                        <div className="font-medium">{new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}</div>
+                        <div className="font-medium">{formatDateJaMd(cd.date)}</div>
                         <div className="text-muted-foreground">{cd.time_slot}</div>
                       </div>
                     ))}
@@ -3213,7 +3220,7 @@ export function PrivateGroupInvite() {
                             {coupon.name} - ¥{coupon.discount_amount.toLocaleString()}OFF
                             {coupon.expires_at && (
                               <span className="text-xs text-muted-foreground ml-1">
-                                ({new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで)
+                                ({formatJstDateJa(coupon.expires_at)}まで)
                               </span>
                             )}
                           </SelectItem>

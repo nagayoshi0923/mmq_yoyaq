@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Bell } from 'lucide-react'
 import type { EventSchedule } from '../utils/types'
 import { formatTime } from '../utils/formatters'
+import { formatJstMonthDay, formatJstWeekday, getJstWeekdayIndex } from '@/utils/jstDate'
 
 interface EventListProps {
   events: EventSchedule[]
@@ -38,12 +39,9 @@ export const EventList = memo(function EventList({
     <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
       {events.map((event) => {
         const isSelected = selectedEventId === event.event_id
-        const eventDate = new Date(event.date)
-        const month = eventDate.getMonth() + 1
-        const day = eventDate.getDate()
-        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-        const weekday = weekdays[eventDate.getDay()]
-        const dayOfWeek = eventDate.getDay()
+        const monthDay = formatJstMonthDay(event.date)
+        const weekday = formatJstWeekday(event.date)
+        const dayOfWeek = getJstWeekdayIndex(event.date) ?? 0
         const weekdayColor = dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-gray-500'
         const storeColor = event.store_color || '#6B7280'
         
@@ -65,7 +63,7 @@ export const EventList = memo(function EventList({
             <div className="flex items-center gap-2 p-2 touch-manipulation">
               {/* 左：日付（縦並び） */}
               <div className="flex-shrink-0 w-12 text-center">
-                <div className="text-base font-semibold leading-tight">{month}/{day}</div>
+                <div className="text-base font-semibold leading-tight">{monthDay}</div>
                 <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
               </div>
               

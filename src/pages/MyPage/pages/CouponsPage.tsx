@@ -9,6 +9,7 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
+import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 
 function cleanScenarioTitleForCoupon(title?: string | null): string {
   if (!title) return '（タイトル不明）'
@@ -29,8 +30,7 @@ function formatCouponUsagePerformance(usage: CustomerCouponUsageWithReservation)
   const dt = res.requested_datetime
   let when = ''
   if (dt) {
-    const d = new Date(dt)
-    const datePart = d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })
+    const datePart = formatJstDateJa(dt)
     const hm = dt.match(/T(\d{2}:\d{2})/)
     const timePart = hm ? hm[1] : ''
     when = timePart ? `${datePart} ${timePart}〜` : datePart
@@ -204,7 +204,7 @@ export function CouponsPage() {
                       {coupon.expires_at && (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで
+                          {formatJstDateJa(coupon.expires_at)}まで
                         </span>
                       )}
                     </div>
@@ -252,7 +252,7 @@ export function CouponsPage() {
                 : `${campaign.discount_amount}% OFF`
 
               const usedAt = coupon.updated_at
-                ? new Date(coupon.updated_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                ? formatJstDateTime(coupon.updated_at)
                 : null
 
               const usageRows = (coupon.coupon_usages ?? [])

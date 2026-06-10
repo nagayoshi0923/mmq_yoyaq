@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatJstDateJa } from "@/utils/jstDate"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -101,14 +102,9 @@ export function getCategoryColors(category: string) {
   return categoryColorMap[category as keyof typeof categoryColorMap] || categoryColorMap.open
 }
 
-// 日付フォーマット
+// 日付フォーマット（日本時間固定。ブラウザTZ依存で日付がずれないように）
 export function formatDate(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+  return formatJstDateJa(date)
 }
 
 // 時間フォーマット

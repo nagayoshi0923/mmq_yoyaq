@@ -10,6 +10,7 @@ import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
+import { formatJstMonthDay, toJstYmd } from '@/utils/jstDate'
 
 // 分離された型定義
 import { calculateParticipationFee } from './utils/pricingUtils'
@@ -606,16 +607,10 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       </div>
                       <div className="space-y-1">
                         {selectedTimeSlots.map((item, index) => {
-                          const dateObj = new Date(item.date)
-                          const month = dateObj.getMonth() + 1
-                          const day = dateObj.getDate()
-                          const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                          const weekday = weekdays[dateObj.getDay()]
-
                           return (
                             <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
                               <span className="text-purple-900 flex-1 min-w-0 pr-2">
-                                {index + 1}. {month}/{day}({weekday}) {item.slot.label}{' '}
+                                {index + 1}. {formatJstMonthDay(item.date, true)} {item.slot.label}{' '}
                                 {item.slot.startTime}〜{item.slot.endTime}
                               </span>
                               <Button
@@ -655,10 +650,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 )}
 
                 {activeTab === 'private' && (() => {
-                  const now = new Date()
-                  const jstOffset = 9 * 60
-                  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
-                  const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+                  const todayStr = toJstYmd(new Date())
                   const startDate = scenario.booking_start_date
                   const endDate = scenario.booking_end_date
                   const hasPeriod = !!(startDate || endDate)

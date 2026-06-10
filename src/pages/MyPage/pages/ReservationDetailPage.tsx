@@ -20,6 +20,7 @@ import {
   useReservationDetailQuery, useCurrentSeatsQuery,
   useCancelReservationMutation, useUpdateParticipantCountMutation,
 } from '../hooks/useReservationDetailQuery'
+import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 
 const THEME = { primary: '#dc2626', primaryLight: '#fef2f2', primaryHover: '#b91c1c' }
 const DEFAULT_CANCEL_DEADLINE_HOURS = 24
@@ -82,17 +83,14 @@ export function ReservationDetailPage() {
   const getPerformanceDateTime = () => {
     if (reservation?.schedule_events?.date) return { date: reservation.schedule_events.date, time: reservation.schedule_events.start_time }
     if (reservation?.requested_datetime) {
-      const d = new Date(reservation.requested_datetime)
-      return { date: d.toISOString().split('T')[0], time: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}` }
+      return { date: toJstYmd(reservation.requested_datetime), time: formatJstTime(reservation.requested_datetime) }
     }
     return { date: '', time: '' }
   }
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return ''
-    const d = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`
+    return formatJstDateJa(dateStr, true)
   }
 
   const getStatusDisplay = (status: string, isPrivateBooking: boolean = false) => {
@@ -230,9 +228,7 @@ export function ReservationDetailPage() {
                 <p className="text-sm font-medium text-amber-700 mb-2">希望日時（{reservation.candidate_datetimes.candidates.length}件）</p>
                 <div className="space-y-2">
                   {reservation.candidate_datetimes.candidates.map((candidate: any, index: number) => {
-                    const d = new Date(candidate.date)
-                    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                    const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`
+                    const dateStr = formatJstDateJa(candidate.date, true)
                     return (
                       <div key={index} className="flex items-center gap-3 bg-white p-3 border border-amber-100" style={{ borderRadius: 0 }}>
                         <span className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 text-sm font-bold" style={{ borderRadius: 0 }}>{candidate.order || index + 1}</span>
@@ -257,7 +253,7 @@ export function ReservationDetailPage() {
             )}
             <div className="pt-3 border-t border-amber-200 space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-amber-700">参加人数</span><span className="font-medium text-gray-900">{reservation.participant_count}名</span></div>
-              <div className="flex justify-between"><span className="text-amber-700">申込日時</span><span className="text-gray-600">{new Date(reservation.created_at).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+              <div className="flex justify-between"><span className="text-amber-700">申込日時</span><span className="text-gray-600">{formatJstDateTime(reservation.created_at)}</span></div>
               {reservation.customer_name && <div className="flex justify-between"><span className="text-amber-700">申込者名</span><span className="text-gray-900">{reservation.customer_name}</span></div>}
             </div>
             <div className="pt-3 border-t border-amber-200">
@@ -366,7 +362,7 @@ export function ReservationDetailPage() {
               )}
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">予約日</span>
-                <span className="text-sm text-gray-600">{new Date(reservation.created_at).toLocaleDateString('ja-JP')}</span>
+                <span className="text-sm text-gray-600">{formatJstDateJa(reservation.created_at)}</span>
               </div>
               {reservation.status === 'confirmed' && !reservation.schedule_events?.is_private_booking && (
                 <div className="pt-3 mt-2">
@@ -400,7 +396,7 @@ export function ReservationDetailPage() {
           <div className="mt-4">
             <InviteShareButton
               scenarioTitle={scenario.title} scenarioId={scenario.id} scenarioSlug={scenario.slug}
-              eventDate={reservation?.schedule_events?.date ? new Date(reservation.schedule_events.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP') : undefined}
+              eventDate={reservation?.schedule_events?.date ? formatJstDateJa(reservation.schedule_events.date) : undefined}
               eventTime={reservation?.schedule_events?.start_time || undefined}
               storeName={store?.name} organizationSlug={organization?.slug} reservationId={reservation?.id} className="w-full"
             />

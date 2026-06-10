@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { formatJstMonthDay, getJstWeekdayIndex } from '@/utils/jstDate'
 import { Footer } from '@/components/layout/Footer'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
@@ -334,10 +335,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const eventsAfterMonth = events.slice(10)
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    const dayOfWeek = d.getDay()
-    return { full: `${d.getMonth() + 1}/${d.getDate()}(${weekdays[dayOfWeek]})`, isSunday: dayOfWeek === 0, isSaturday: dayOfWeek === 6 }
+    const dayOfWeek = getJstWeekdayIndex(dateStr) ?? 0
+    return { full: formatJstMonthDay(dateStr, true), isSunday: dayOfWeek === 0, isSaturday: dayOfWeek === 6 }
   }
 
   const formatDuration = (minutes: number) => {

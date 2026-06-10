@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { formatJstMonthDay, getJstWeekdayIndex, toJstYmd } from '@/utils/jstDate'
 
 interface PublicEvent {
   id: string
@@ -90,7 +91,7 @@ const isWithinBusinessHours = async (date: string, startTime: string, storeId: s
     if (!data) return true
     if (data.holidays && data.holidays.includes(date)) return false
     if (data.opening_hours) {
-      const dayOfWeek = new Date(date).getDay()
+      const dayOfWeek = getJstWeekdayIndex(date) ?? new Date(date).getDay()
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
       const dayHours = data.opening_hours[dayNames[dayOfWeek]]
       if (!dayHours || !dayHours.is_open) return false
@@ -110,11 +111,7 @@ const calculateDuration = (startTime: string, endTime: string): number => {
   return (endHour * 60 + endMin) - (startHour * 60 + startMin)
 }
 
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-  return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
-}
+const formatDate = (dateStr: string): string => formatJstMonthDay(dateStr, true)
 
 const formatTime = (timeStr: string): string => timeStr.slice(0, 5)
 
@@ -229,7 +226,7 @@ export function CustomerBookingPage() {
       result = result.filter(event => event.store_short_name === storeFilter)
     }
     if (dateFilter === 'today') {
-      const todayStr = today.toISOString().split('T')[0]
+      const todayStr = toJstYmd(today)
       result = result.filter(event => event.date === todayStr)
     } else if (dateFilter === 'week') {
       const weekLater = new Date(today)

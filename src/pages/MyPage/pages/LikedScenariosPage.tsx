@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { useLikedScenariosQuery, useRemoveLikeMutation } from '../hooks/useLikedScenariosQuery'
+import { formatJstYmd } from '@/utils/jstDate'
 
 interface WantToPlayScenario {
   id: string
@@ -29,8 +30,7 @@ interface WantToPlayScenario {
 }
 
 const formatDate = (date: string) => {
-  const d = new Date(date)
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  return formatJstYmd(date)
 }
 
 const getDifficultyLabel = (difficulty: number) => {
