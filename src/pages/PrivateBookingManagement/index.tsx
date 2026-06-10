@@ -19,7 +19,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
-import { resendPrivateBookingDiscordNotification } from '@/lib/api/privateBookingNotificationApi'
+import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNotificationForGm } from '@/lib/api/privateBookingNotificationApi'
 
 // 分離されたコンポーネント
 import { BookingRequestCard } from './components/BookingRequestCard'
@@ -173,6 +173,36 @@ export function PrivateBookingManagement() {
       showToast.success('Discord通知を再送信しました')
     } else {
       showToast.error(result.error || 'Discord通知の再送信に失敗しました')
+    }
+  }
+
+  // GM個別の通知/再通知ハンドラー（未送信→送信、未回答→再送）
+  const handleResendDiscordGm = async (
+    cardRequest: { id: string; scenario_title: string },
+    staffId: string,
+    gmName: string,
+  ) => {
+    const request = requests.find(r => r.id === cardRequest.id)
+    if (!request) return
+    const result = await resendPrivateBookingDiscordNotificationForGm(
+      {
+        id: request.id,
+        scenario_master_id: request.scenario_master_id,
+        scenario_title: request.scenario_title,
+        customer_name: request.customer_name,
+        customer_email: request.customer_email,
+        customer_phone: request.customer_phone,
+        participant_count: request.participant_count,
+        candidate_datetimes: request.candidate_datetimes,
+        notes: request.notes,
+        created_at: request.created_at,
+      },
+      staffId,
+    )
+    if (result.success) {
+      showToast.success(`${gmName || 'GM'} にDiscord通知を送信しました`)
+    } else {
+      showToast.error(result.error || 'Discord通知の送信に失敗しました')
     }
   }
 
@@ -568,6 +598,7 @@ export function PrivateBookingManagement() {
                     key={req.id}
                     request={req}
                     onResendDiscordNotification={handleResendDiscordNotification}
+                    onResendDiscordGm={handleResendDiscordGm}
                     gmList={allGMs}
                     onGMResponseSave={handleGMResponseSave}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}

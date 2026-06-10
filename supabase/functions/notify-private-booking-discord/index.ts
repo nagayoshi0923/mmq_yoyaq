@@ -95,6 +95,8 @@ async function computeConflictCandidateOrders(
 interface PrivateBookingNotification {
   type: 'insert' | 'resend'
   table: string
+  // 個別再通知: 指定した場合、この staff_id の GM 1人だけに送る（一括ではなく個別ボタン用）
+  target_staff_id?: string
   record: {
     id: string
     organization_id?: string  // マルチテナント対応
@@ -144,8 +146,8 @@ async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
 }
 
 // 個別チャンネルに通知をキューへ積む
-async function sendNotificationToGMChannels(booking: any) {
-  console.log('📤 Sending notifications to individual GM channels...')
+async function sendNotificationToGMChannels(booking: any, targetStaffId?: string) {
+  console.log('📤 Sending notifications to individual GM channels...' + (targetStaffId ? ` (single GM: ${targetStaffId})` : ''))
   console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
   // reservations.scenario_id には scenario_master_id が格納されている
@@ -202,11 +204,20 @@ async function sendNotificationToGMChannels(booking: any) {
     }
   }
 
+  // 個別再通知の場合は対象の1人だけに絞る（担当に含まれない場合は何もしない）
+  const sendStaffIds = targetStaffId
+    ? assignedStaffIds.filter((id: string) => id === targetStaffId)
+    : assignedStaffIds
+  if (sendStaffIds.length === 0) {
+    console.log('⚠️ 送信対象GMなし（個別指定が担当外、または担当0）')
+    return
+  }
+
   // 担当GMのDiscordチャンネル情報を取得
   const { data: gmStaff, error: staffError } = await supabase
     .from('staff')
     .select('id, name, discord_channel_id, discord_user_id')
-    .in('id', assignedStaffIds)
+    .in('id', sendStaffIds)
     .eq('status', 'active')
     .not('discord_channel_id', 'is', null)
   
@@ -223,21 +234,23 @@ async function sendNotificationToGMChannels(booking: any) {
   console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels:`, gmStaff.map(g => g.name).join(', '))
   
   // チャンネルIDの重複を除外（同じチャンネルに複数回送信しないため）
-  const uniqueChannels = new Map<string, { channelId: string, gmNames: string[], userIds: string[] }>()
+  const uniqueChannels = new Map<string, { channelId: string, gmNames: string[], userIds: string[], staffIds: string[] }>()
   gmStaff.forEach(gm => {
     const channelId = gm.discord_channel_id?.trim()
     if (channelId) {
       if (uniqueChannels.has(channelId)) {
         const channel = uniqueChannels.get(channelId)!
         channel.gmNames.push(gm.name)
+        channel.staffIds.push(gm.id)
         if (gm.discord_user_id) {
           channel.userIds.push(gm.discord_user_id)
         }
       } else {
-        uniqueChannels.set(channelId, { 
-          channelId, 
+        uniqueChannels.set(channelId, {
+          channelId,
           gmNames: [gm.name],
-          userIds: gm.discord_user_id ? [gm.discord_user_id] : []
+          userIds: gm.discord_user_id ? [gm.discord_user_id] : [],
+          staffIds: [gm.id]
         })
       }
     }
@@ -254,16 +267,32 @@ async function sendNotificationToGMChannels(booking: any) {
   // 全ての通知を並行送信
   const results = await Promise.allSettled(notificationPromises)
   
-  // 結果をログ出力
-  const channelEntries = Array.from(uniqueChannels.entries())
+  // 結果をログ出力 + 送信成功したGMの notified_at をセット（未送信→未回答へ）
+  const channelEntries = Array.from(uniqueChannels.values())
+  const sentStaffIds: string[] = []
   results.forEach((result, index) => {
-    const [channelId, { gmNames }] = channelEntries[index]
+    const { channelId, gmNames, staffIds } = channelEntries[index]
     if (result.status === 'fulfilled') {
-        console.log(`✅ Notification queued to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
+      console.log(`✅ Notification queued to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
+      sentStaffIds.push(...staffIds)
     } else {
       console.error(`❌ Failed to queue notification to channel ${channelId}:`, result.reason)
     }
   })
+
+  // 送信できたGMは「送信済み(notified_at)」にする → 貸切管理で「未送信」から「未回答」に変わる
+  if (booking.id && sentStaffIds.length > 0) {
+    const { error: notifiedErr } = await supabase
+      .from('gm_availability_responses')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('reservation_id', booking.id)
+      .in('staff_id', sentStaffIds)
+    if (notifiedErr) {
+      console.error('⚠️ notified_at の更新に失敗:', notifiedErr)
+    } else {
+      console.log(`🕓 notified_at をセット: ${sentStaffIds.length} GM`)
+    }
+  }
 }
 
 // 曜日を取得するヘルパー関数（JST固定）
@@ -555,7 +584,7 @@ serve(async (req) => {
     }
     
     // 各GMの個別チャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
-    await sendNotificationToGMChannels(booking)
+    await sendNotificationToGMChannels(booking, payload.target_staff_id)
 
     return new Response(
       JSON.stringify({ 
