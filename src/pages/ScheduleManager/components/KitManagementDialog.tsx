@@ -34,6 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
 import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, HelpCircle, Lock, LockOpen } from 'lucide-react'
+import { formatJstMonthDay } from '@/utils/jstDate'
 
 // ドラッグ中のキット情報
 interface DraggedKit {
@@ -71,11 +72,7 @@ const WEEKDAYS = [
 // 日時を「M/D(曜)」形式でフォーマット
 const formatCompletionDate = (dateStr: string | null): string => {
   if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const dayOfWeek = WEEKDAYS.find(w => w.value === date.getDay())?.short || ''
-  return `${month}/${day}(${dayOfWeek})`
+  return formatJstMonthDay(dateStr, true)
 }
 
 export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProps) {
@@ -1412,13 +1409,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }
 
   // 日付フォーマット
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const month = date.getMonth() + 1
-    const day = date.getDate()
-    const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()]
-    return `${month}/${day}(${dayOfWeek})`
-  }
+  const formatDate = (dateStr: string) => formatJstMonthDay(dateStr, true)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

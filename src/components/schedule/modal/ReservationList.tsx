@@ -21,6 +21,7 @@ import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
+import { formatJstDateJa } from '@/utils/jstDate'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
@@ -111,13 +112,7 @@ export function ReservationList({
   const generateEmailBody = (content: typeof emailContent, template?: string) => {
     const formatDate = (dateStr: string): string => {
       if (!dateStr) return ''
-      try {
-        const date = new Date(dateStr)
-        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-        return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
-      } catch {
-        return dateStr
-      }
+      return formatJstDateJa(dateStr, true) || dateStr
     }
     const formatTime = (t: string) => t?.slice(0, 5) || ''
 

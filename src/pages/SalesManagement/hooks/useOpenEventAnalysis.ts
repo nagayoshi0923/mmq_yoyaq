@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useLocalState } from '@/hooks/useLocalState'
 import { salesApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
+import { getJstWeekdayIndex } from '@/utils/jstDate'
 import {
   getThisMonthRangeJST,
   getLastMonthRangeJST,
@@ -282,7 +283,7 @@ export function useOpenEventAnalysis() {
     for (let i = 0; i < 7; i++) map.set(i, { total: 0, full: 0 })
 
     for (const event of events) {
-      const dow = new Date(`${event.date}T12:00:00+09:00`).getDay()
+      const dow = getJstWeekdayIndex(event.date) ?? 0
       const entry = map.get(dow)!
       entry.total += 1
       if (isEventFullByCount(event, actualCountByEvent.get(event.id) || 0)) entry.full += 1
@@ -347,7 +348,7 @@ export function useOpenEventAnalysis() {
       entry.total += 1
 
       // 曜日判定（JST）
-      const dow = new Date(`${event.date}T12:00:00+09:00`).getDay()
+      const dow = getJstWeekdayIndex(event.date) ?? 0
       const isWeekend = dow === 0 || dow === 6
 
       // 時間帯判定

@@ -33,6 +33,7 @@ import { showToast } from '@/utils/toast'
 // API関連
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { formatJstYmd } from '@/utils/jstDate'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -1522,9 +1523,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <span className="truncate">{formData.title ? `${formData.title}を編集` : '情報を入力'}</span>
             {scenarioStats.firstPerformanceDate && (
               <span className="text-[11px] bg-muted px-1 py-0 rounded shrink-0">
-                {new Date(scenarioStats.firstPerformanceDate).getFullYear()}.
-                {String(new Date(scenarioStats.firstPerformanceDate).getMonth() + 1).padStart(2, '0')}.
-                {String(new Date(scenarioStats.firstPerformanceDate).getDate()).padStart(2, '0')}〜
+                {formatJstYmd(scenarioStats.firstPerformanceDate, '.')}〜
               </span>
             )}
           </DialogDescription>

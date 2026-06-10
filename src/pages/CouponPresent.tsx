@@ -16,6 +16,7 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useSearchParams } from 'react-router-dom'
 import { safeRedirectAfterProfileCompletion } from '@/lib/utils'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 interface CouponInfo {
   id: string
@@ -141,8 +142,7 @@ export function CouponPresent() {
   }
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+    return formatJstDateJa(dateStr)
   }
 
   if (loading) {

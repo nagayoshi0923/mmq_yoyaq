@@ -60,6 +60,23 @@ for (const file of walk(ROOT)) {
 
     violations.push({ file, lineNo, method, text: callLine.trim() })
   }
+
+  // パターン2: new Date(値).getDate()/getMonth()/getDay()/getFullYear()/getHours()/getMinutes()
+  // 単一引数の new Date(...) をローカルTZのゲッターで読む＝保存値表示でのズレ要因。
+  // 多引数 new Date(y,m,d)（グリッド構築）と new Date()（現在時刻）は除外。
+  const getterRe = /new Date\(\s*[^),\s][^),]*\)\.(getDate|getMonth|getDay|getFullYear|getHours|getMinutes)\(\)/g
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    // コメント行・除外指定はスキップ
+    if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue
+    if (line.includes(IGNORE) || (lines[i - 1] ?? '').includes(IGNORE)) continue
+    let g
+    getterRe.lastIndex = 0
+    while ((g = getterRe.exec(line)) !== null) {
+      violations.push({ file, lineNo: i + 1, method: `new Date(...).${g[1]}`, text: trimmed })
+    }
+  }
 }
 
 if (violations.length === 0) {
