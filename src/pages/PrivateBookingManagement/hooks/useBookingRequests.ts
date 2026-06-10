@@ -155,7 +155,7 @@ async function fetchRawBookingRequests(
         chunks.map(chunk =>
           supabase
             .from('gm_availability_responses')
-            .select('reservation_id, staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)')
+            .select('reservation_id, staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, notified_at, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)')
             .in('reservation_id', chunk),
         ),
       )

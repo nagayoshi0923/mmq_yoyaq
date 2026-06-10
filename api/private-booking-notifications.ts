@@ -29,7 +29,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
       const action = (req.query.action as string | undefined) ?? 'resend-discord'
-      if (action === 'resend-discord') return await handleResendDiscord(req, res, user)
+      // resend-discord: 予約の担当GM全員に再送（一括）
+      // resend-discord-gm: body.staff_id の GM 1人だけに再送（個別）
+      if (action === 'resend-discord') return await handleResendDiscord(req, res, user, false)
+      if (action === 'resend-discord-gm') return await handleResendDiscord(req, res, user, true)
       return res.status(400).json({ error: `unknown action: ${action}` })
     }
 
@@ -45,11 +48,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // マルチテナント境界:
 // - reservation の organization_id をサーバ側で取得し、ユーザの所属組織と一致を検証
 // - 検証後、service_role 経由で Edge Function (notify-private-booking-discord) を invoke する
-async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user: AuthUser, singleGm: boolean) {
   requireStaff(user)
 
   const body = req.body as {
     id?: string
+    staff_id?: string
     scenario_master_id?: string
     scenario_title?: string
     customer_name?: string
@@ -64,6 +68,9 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
   const bookingId = body.id
   if (!bookingId) {
     return res.status(400).json({ error: 'id（予約ID）は必須です' })
+  }
+  if (singleGm && !body.staff_id) {
+    return res.status(400).json({ error: 'staff_id（GMのスタッフID）は必須です' })
   }
 
   // 予約の組織を検証（フロントから受け取った record はマルチテナント境界の根拠にしない）
@@ -84,6 +91,24 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
     return res.status(403).json({ error: '他組織の予約は操作できません' })
   }
 
+  // 個別再通知: 対象スタッフが自組織のものか検証
+  if (singleGm) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: staffRow, error: staffErr } = await (db as any)
+      .from('staff')
+      .select('id')
+      .eq('id', body.staff_id)
+      .eq('organization_id', user.orgId)
+      .maybeSingle()
+    if (staffErr) {
+      console.error('[pb-notifications:resend-gm] staff lookup error:', staffErr)
+      return res.status(500).json({ error: 'スタッフ情報の取得に失敗しました' })
+    }
+    if (!staffRow) {
+      return res.status(403).json({ error: '指定のスタッフは自組織のものではありません' })
+    }
+  }
+
   // Edge Function に転送（DB から取得した正規の organization_id / scenario_master_id を付与）
   // SUPABASE_URL は db.ts と同じ参照
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
@@ -95,6 +120,8 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
   const payload = {
     type: 'resend',
     table: 'reservations',
+    // 個別再通知ならこの1人だけに送る
+    ...(singleGm ? { target_staff_id: body.staff_id } : {}),
     record: {
       id: bookingId,
       organization_id: reservation.organization_id,

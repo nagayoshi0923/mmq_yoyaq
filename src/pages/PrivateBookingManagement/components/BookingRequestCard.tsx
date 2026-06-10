@@ -30,11 +30,13 @@ interface Candidate {
 }
 
 interface GMResponse {
+  staff_id?: string
   gm_name?: string
   response_status: string
   available_candidates?: number[]
   selected_candidate_index?: number
   notes?: string
+  notified_at?: string | null
   response_datetime?: string | null
   responded_at?: string | null
   updated_at?: string | null
@@ -74,6 +76,8 @@ interface GMStaff {
 interface BookingRequestCardProps {
   request: BookingRequest
   onResendDiscordNotification?: (request: { id: string; scenario_title: string }) => Promise<void>
+  // GM個別の通知/再通知（未送信→送信、未回答→再送）
+  onResendDiscordGm?: (request: { id: string; scenario_title: string }, staffId: string, gmName: string) => Promise<void>
   // 候補日クリックで承認モードへ
   selectedCandidateOrder?: number | null
   onSelectCandidate?: (req: BookingRequest, order: number) => void
@@ -89,6 +93,7 @@ interface BookingRequestCardProps {
 export const BookingRequestCard = ({
   request,
   onResendDiscordNotification,
+  onResendDiscordGm,
   selectedCandidateOrder,
   onSelectCandidate,
   inlineApprovalContent,
@@ -114,6 +119,14 @@ export const BookingRequestCard = ({
     await new Promise(resolve => setTimeout(resolve, 0))
     try { await onResendDiscordNotification(request) }
     finally { setResending(false) }
+  }
+
+  const [resendingGmId, setResendingGmId] = useState<string | null>(null)
+  const handleResendGm = async (staffId?: string, gmName?: string) => {
+    if (!onResendDiscordGm || !staffId || resendingGmId) return
+    setResendingGmId(staffId)
+    try { await onResendDiscordGm(request, staffId, gmName || '') }
+    finally { setResendingGmId(null) }
   }
 
   const handleCopyCode = async () => {
@@ -239,18 +252,38 @@ export const BookingRequestCard = ({
                     const responded = hasGmResponded(response)
                     const available = isGmMarkedAvailable(response)
                     const candidates = response.available_candidates
+                    const isUnsent = !responded && !response.notified_at   // 未送信
+                    const isUnanswered = !responded && !!response.notified_at // 未回答（送信済）
+                    const rowColor = responded
+                      ? (available ? 'text-purple-800' : 'text-gray-400 line-through')
+                      : isUnsent ? 'text-red-500' : 'text-amber-600'
+                    const sending = resendingGmId === response.staff_id
                     return (
-                      <li key={index} className={`text-xs flex items-center gap-1 ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
-                        {!responded
-                          ? <Clock className="w-3 h-3 shrink-0" />
-                          : available
-                            ? <CheckCircle2 className="w-3 h-3 shrink-0 text-green-600" />
-                            : <XCircle className="w-3 h-3 shrink-0 text-gray-400" />
+                      <li key={index} className={`text-xs flex items-center gap-1 ${rowColor}`}>
+                        {responded
+                          ? (available
+                              ? <CheckCircle2 className="w-3 h-3 shrink-0 text-green-600" />
+                              : <XCircle className="w-3 h-3 shrink-0 text-gray-400" />)
+                          : isUnsent
+                            ? <CircleDashed className="w-3 h-3 shrink-0 text-red-500" />
+                            : <Clock className="w-3 h-3 shrink-0 text-amber-500" />
                         }
                         {response.gm_name || 'GM名不明'}
-                        {!responded && <span className="text-gray-400">未回答</span>}
+                        {isUnsent && <span className="text-red-500 font-medium">未送信</span>}
+                        {isUnanswered && <span className="text-amber-600">未回答</span>}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
                           <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
+                        )}
+                        {/* 個別通知ボタン: 未送信→「通知」/ 未回答→「再通知」 */}
+                        {onResendDiscordGm && isWaitingStatus && !responded && response.staff_id && (
+                          <Button variant="ghost" size="sm"
+                            className={`h-5 px-1.5 ml-auto text-[10px] ${isUnsent ? 'text-red-600 hover:text-red-800 hover:bg-red-50' : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50'}`}
+                            onClick={() => handleResendGm(response.staff_id, response.gm_name)}
+                            disabled={sending}
+                          >
+                            <RefreshCw className={cn('w-2.5 h-2.5 mr-0.5', sending && 'animate-spin')} />
+                            {sending ? '送信中' : isUnsent ? '通知' : '再通知'}
+                          </Button>
                         )}
                       </li>
                     )
