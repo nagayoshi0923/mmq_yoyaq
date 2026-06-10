@@ -119,9 +119,11 @@ export function PrivateBookingRequest({
 
   // 追加可能な日付の範囲（今日から60日後まで）
   const dateRange = useMemo(() => {
+    const fmtJst = (d: Date) =>
+      new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
     const today = new Date()
-    const minDate = today.toISOString().split('T')[0]
-    const maxDate = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const minDate = fmtJst(today)
+    const maxDate = fmtJst(new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000))
     return { minDate, maxDate }
   }, [])
 
@@ -157,6 +159,8 @@ export function PrivateBookingRequest({
     queryKey: ['private-booking-request', 'store-events', storeIdsKey],
     enabled: storeIdsForSlotResolution.length > 0,
     queryFn: async () => {
+      const fmtJst = (d: Date) =>
+        new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
       const today = new Date()
       const windowEnd = new Date(today)
       windowEnd.setDate(today.getDate() + 180)
@@ -164,8 +168,8 @@ export function PrivateBookingRequest({
         .from('schedule_events_public')
         .select('id, date, start_time, end_time, store_id, scenario, category, is_cancelled')
         .in('store_id', storeIdsForSlotResolution)
-        .gte('date', today.toISOString().split('T')[0])
-        .lte('date', windowEnd.toISOString().split('T')[0])
+        .gte('date', fmtJst(today))
+        .lte('date', fmtJst(windowEnd))
         .eq('is_cancelled', false)
       if (error) { logger.error('貸切確認: イベント取得エラー', error); return [] }
       return data || []

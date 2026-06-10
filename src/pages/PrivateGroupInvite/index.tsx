@@ -554,7 +554,16 @@ export function PrivateGroupInvite() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00+09:00')
     const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+    const parts = new Intl.DateTimeFormat('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+      month: 'numeric',
+      day: 'numeric',
+      weekday: 'narrow',
+    }).formatToParts(date)
+    const m = parts.find(p => p.type === 'month')?.value ?? ''
+    const d = parts.find(p => p.type === 'day')?.value ?? ''
+    const wd = parts.find(p => p.type === 'weekday')?.value ?? ''
+    return `${m}/${d}(${wd})`
   }
 
   const handleResponseChange = (candidateDateId: string, response: DateResponse) => {

@@ -231,7 +231,34 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       })
     }
 
-    // 既存を全削除（自組織分のみ）
+    const valid = assignments.filter((a) => a.scenarioId && typeof a.scenarioId === 'string')
+
+    // ⚠️ 破壊的な delete の「前」にアクセス可否を一括検証する。
+    // 自組織で扱えない scenario_master_id（organization_scenarios から外れた孤児など）は
+    // throw せず除外する。これを delete の後に throw 方式でやると、孤児行が 1 つでも
+    // 混ざっていた場合に「全削除済みだが再挿入されず全消失」する事故になる（過去に発生）。
+    const accessibleScenarioIds = new Set<string>()
+    if (valid.length > 0) {
+      const uniqueIds = Array.from(new Set(valid.map((a) => a.scenarioId)))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: accRows, error: accError } = await (db as any)
+        .from('organization_scenarios')
+        .select('scenario_master_id')
+        .eq('organization_id', user.orgId)
+        .in('scenario_master_id', uniqueIds)
+      if (accError) {
+        return res.status(500).json({ error: 'シナリオ所有検証に失敗', detail: accError.message })
+      }
+      for (const r of accRows ?? []) accessibleScenarioIds.add(r.scenario_master_id)
+    }
+
+    const insertable = valid.filter((a) => accessibleScenarioIds.has(a.scenarioId))
+    const skipped = valid.filter((a) => !accessibleScenarioIds.has(a.scenarioId)).map((a) => a.scenarioId)
+    if (skipped.length > 0) {
+      console.warn('[assignments] update_staff_assignments: 自組織で扱えないシナリオを除外:', skipped)
+    }
+
+    // 既存を全削除（自組織分のみ）— 検証を通過した後にのみ実行する
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: deleteError } = await (db as any)
       .from('staff_scenario_assignments')
@@ -243,15 +270,9 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       return res.status(500).json({ error: '既存担当の削除に失敗しました', detail: deleteError.message })
     }
 
-    const valid = assignments.filter((a) => a.scenarioId && typeof a.scenarioId === 'string')
-    if (valid.length === 0) return res.status(200).json({ ok: true, inserted: 0 })
+    if (insertable.length === 0) return res.status(200).json({ ok: true, inserted: 0, skipped })
 
-    // 各 scenario_master_id を組織所有チェック
-    for (const a of valid) {
-      await assertScenarioMasterAccessible(a.scenarioId, user.orgId)
-    }
-
-    const records = valid.map((a) => ({
+    const records = insertable.map((a) => ({
       staff_id,
       scenario_master_id: a.scenarioId,
       can_main_gm: a.can_main_gm,
@@ -269,7 +290,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       console.error('[assignments] insert error:', insertError)
       return res.status(500).json({ error: '担当の保存に失敗しました', detail: insertError.message })
     }
-    return res.status(200).json({ ok: true, inserted: records.length })
+    return res.status(200).json({ ok: true, inserted: records.length, skipped })
   }
 
   if (action === 'update_scenario_assignments') {
