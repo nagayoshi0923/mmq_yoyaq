@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 interface SingleDatePopoverProps {
   date?: string  // YYYY-MM-DD 形式
@@ -47,13 +48,7 @@ export function SingleDatePopover({
   const getDisplayValue = () => {
     if (label) return label
     if (!date) return placeholder
-    const d = new Date(date + 'T00:00:00')
-    return d.toLocaleDateString('ja-JP', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      weekday: 'short'
-    })
+    return formatJstDateJa(date, true)
   }
 
   // カレンダーUI
@@ -202,12 +197,7 @@ export function SingleDatePopover({
           {/* プレビュー */}
           {tempDate && (
             <div className="border bg-muted/30 px-2 py-1.5 text-xs text-center">
-              {new Date(tempDate + 'T00:00:00').toLocaleDateString('ja-JP', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'short'
-              })}
+              {formatJstDateJa(tempDate, true)}
             </div>
           )}
 

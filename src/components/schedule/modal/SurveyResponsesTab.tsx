@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { SurveyQuestion } from '@/types'
+import { formatJstMonthDay, formatJstTime } from '@/utils/jstDate'
 
 interface SurveyResponsesTabProps {
   reservationId?: string
@@ -684,9 +685,9 @@ export function SurveyResponsesTab({
                             .map(n => (
                               <div key={n.id} className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
                                 <span className="shrink-0">
-                                  {new Date(n.created_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                                  {formatJstMonthDay(n.created_at)}
                                   {' '}
-                                  {new Date(n.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                  {formatJstTime(n.created_at)}
                                 </span>
                                 {n.sent_by && (
                                   <span className="shrink-0">{n.sent_by}</span>

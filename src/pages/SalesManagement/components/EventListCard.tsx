@@ -2,6 +2,7 @@ import React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, MapPin, Users, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { formatJstYmd } from '@/utils/jstDate'
 
 interface EventItem {
   id: string
@@ -47,12 +48,7 @@ const formatCurrency = (amount: number): string =>
     minimumFractionDigits: 0
   }).format(amount)
 
-const formatDate = (dateStr: string): string =>
-  new Date(dateStr).toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
+const formatDate = (dateStr: string): string => formatJstYmd(dateStr)
 
 const CATEGORY_STYLES: Record<
   NonNullable<EventItem['category']>,

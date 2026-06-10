@@ -315,6 +315,7 @@ export function UserSearchInvite({
                     <p className="text-sm font-medium">{invitation.invited_email}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(invitation.created_at).toLocaleDateString('ja-JP', {
+                        timeZone: 'Asia/Tokyo',
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',

@@ -1,6 +1,7 @@
 // スケジュール管理用のユーティリティ関数
 
 import type { ScheduleEvent } from '@/types/schedule'
+import { formatJstWeekday } from '@/utils/jstDate'
 
 /**
  * 月間の日付リストを生成
@@ -12,11 +13,10 @@ export function generateMonthDays(currentDate: Date) {
   const days = [] as Array<{ date: string; dayOfWeek: string; day: number; displayDate: string }>
   
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day)
     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     days.push({
       date: dateString,
-      dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
+      dayOfWeek: formatJstWeekday(dateString),
       day,
       displayDate: `${month + 1}/${day}`
     })

@@ -13,6 +13,7 @@ import {
   DEFAULT_OPEN_CANCELLATION_FEES,
   DEFAULT_PRIVATE_CANCELLATION_FEES,
 } from '@/constants/cancellationPolicyDefaults'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 interface CancellationFee {
   hours_before: number
@@ -226,8 +227,8 @@ export function CancelPolicyPage() {
     policy.private_cancellation_fees,
     '公演価格全額'
   )
-  const formattedDate = policy.policy_updated_at 
-    ? new Date(policy.policy_updated_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+  const formattedDate = policy.policy_updated_at
+    ? formatJstDateJa(policy.policy_updated_at)
     : ''
 
   // ルールをタイミングでグループ化

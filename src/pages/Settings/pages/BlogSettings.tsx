@@ -31,6 +31,7 @@ import { uploadBlogCoverImage, deleteBlogCoverImage, validateImageFile } from '@
 import type { BlogPost } from '@/types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 /** 自前アップロード（blog-covers）の公開URLからストレージパスを復元 */
 function storagePathFromBlogCoverPublicUrl(url: string): string | null {
@@ -297,11 +298,7 @@ export function BlogSettings() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    return formatJstDateJa(dateStr)
   }
 
   return (

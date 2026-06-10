@@ -1494,6 +1494,7 @@ ${content.organizationName || '店舗'}
                                   {(reservation.cancelled_at || reservation.updated_at) && (
                                     <span className="text-[10px] text-gray-400 shrink-0">
                                       {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
+                                        timeZone: 'Asia/Tokyo',
                                         month: 'numeric',
                                         day: 'numeric',
                                         hour: '2-digit',
@@ -1648,6 +1649,7 @@ ${content.organizationName || '店舗'}
                               {isCancelled && reservation.cancelled_at ? (
                                 <span title="キャンセル日時">
                                   {new Date(reservation.cancelled_at).toLocaleString('ja-JP', {
+                                    timeZone: 'Asia/Tokyo',
                                     month: 'numeric',
                                     day: 'numeric',
                                     hour: '2-digit',
@@ -1656,6 +1658,7 @@ ${content.organizationName || '店舗'}
                                 </span>
                               ) : reservation.created_at ? (
                                 new Date(reservation.created_at).toLocaleString('ja-JP', {
+                                  timeZone: 'Asia/Tokyo',
                                   month: 'numeric',
                                   day: 'numeric',
                                   hour: '2-digit',
@@ -1685,7 +1688,7 @@ ${content.organizationName || '店舗'}
                                       {(reservation.cancelled_at || reservation.updated_at) && (
                                         <span className={`text-[10px] leading-tight ${colorClass}`}>
                                           {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
-                                            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                            timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
                                           })}
                                         </span>
                                       )}

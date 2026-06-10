@@ -3,6 +3,7 @@ import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Download, Image, Loader2, Copy, Check } from 'lucide-react'
 import { showToast } from '@/utils/toast'
+import { formatJstMonthDay } from '@/utils/jstDate'
 import {
   Dialog,
   DialogContent,
@@ -121,7 +122,7 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
     lines.push('─────────────────────────────')
     
     salesData.eventList.forEach((event: any, index: number) => {
-      const date = new Date(event.date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })
+      const date = formatJstMonthDay(event.date)
       lines.push(`${index + 1}. ${date} ${event.store_name}`)
       lines.push(`   ${event.scenario_title}`)
       lines.push(`   売上: ${formatCurrency(event.revenue)} / ライセンス: ${formatCurrency(event.license_cost)} / GM: ${formatCurrency(event.gm_cost)}${event.franchise_fee > 0 ? ` / FC: ${formatCurrency(event.franchise_fee)}` : ''}`)

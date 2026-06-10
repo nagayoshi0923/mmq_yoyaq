@@ -11,6 +11,7 @@ import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { formatJstDateTime, formatJstYmd } from '@/utils/jstDate'
 import { saveAs } from 'file-saver'
 
 interface DataManagementData {
@@ -136,7 +137,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
       const rows = (data ?? []).map((r: any) => [
         r.reservation_number ?? '',
         r.status ?? '',
-        r.actual_datetime ? new Date(r.actual_datetime).toLocaleString('ja-JP') : '',
+        r.actual_datetime ? formatJstDateTime(r.actual_datetime) : '',
         String(r.duration ?? ''),
         String(r.participant_count ?? ''),
         String(r.final_price ?? ''),
@@ -184,7 +185,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
         s.phone ?? '',
         s.status ?? '',
         Array.isArray(s.role) ? s.role.join(', ') : (s.role ?? ''),
-        s.created_at ? new Date(s.created_at).toLocaleDateString('ja-JP') : '',
+        s.created_at ? formatJstYmd(s.created_at) : '',
       ])
 
       const fileName = `スタッフデータ_${new Date().toISOString().split('T')[0]}`
@@ -232,7 +233,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
         s.has_pre_reading ? 'あり' : 'なし',
         s.release_date ?? '',
         s.notes ?? '',
-        s.created_at ? new Date(s.created_at).toLocaleDateString('ja-JP') : '',
+        s.created_at ? formatJstYmd(s.created_at) : '',
       ])
 
       const fileName = `シナリオデータ_${new Date().toISOString().split('T')[0]}`

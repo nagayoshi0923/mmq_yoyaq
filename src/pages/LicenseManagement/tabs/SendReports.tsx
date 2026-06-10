@@ -55,6 +55,7 @@ import { StickyNote } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { formatJstMonthDay } from '@/utils/jstDate'
 
 interface SendReportsProps {
   organizationId: string
@@ -2000,7 +2001,7 @@ ${normalText}${externalText}
                               }}
                               title="クリックしてメール内容を確認・編集"
                             >
-                              ✓ 送信済 {new Date(sentHistory.get(group.authorName)!.sentAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                              ✓ 送信済 {formatJstMonthDay(sentHistory.get(group.authorName)!.sentAt)}
                             </Badge>
                           )}
                           {group.authorEmail ? (

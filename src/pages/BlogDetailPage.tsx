@@ -13,6 +13,7 @@ import {
   normalizeArticleSlug,
 } from '@/lib/blogPublicFetch'
 import { logger } from '@/utils/logger'
+import { formatJstDateJa } from '@/utils/jstDate'
 import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { BlogPost } from '@/types'
@@ -60,11 +61,7 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    return formatJstDateJa(dateStr)
   }
 
   // Markdownをシンプルに変換（改行とリンク）

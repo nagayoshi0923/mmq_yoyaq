@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Trash2, Users, Award } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import type { Staff } from '@/types'
+import { formatJstYmd } from '@/utils/jstDate'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
 import { parseIntSafe } from '@/utils/number'
 
@@ -230,9 +231,9 @@ export function GmSettingsSectionV2({
                     公演時間 {formatDurationDisplay(formData.duration)} に基づく
                     {salarySettings.effective_from && (
                       <span className="ml-2">
-                        ・有効期間: {new Date(salarySettings.effective_from).toLocaleDateString('ja-JP')}
-                        〜{salarySettings.effective_until 
-                          ? new Date(salarySettings.effective_until).toLocaleDateString('ja-JP')
+                        ・有効期間: {formatJstYmd(salarySettings.effective_from)}
+                        〜{salarySettings.effective_until
+                          ? formatJstYmd(salarySettings.effective_until)
                           : '現在'}
                       </span>
                     )}
@@ -334,9 +335,9 @@ export function GmSettingsSectionV2({
                       {formatDurationDisplay(formData.duration)}・{salarySettings.use_hourly_table ? 'テーブル方式' : '計算式方式'}
                       {salarySettings.effective_from && (
                         <span>
-                          ・{new Date(salarySettings.effective_from).toLocaleDateString('ja-JP')}
-                          〜{salarySettings.effective_until 
-                            ? new Date(salarySettings.effective_until).toLocaleDateString('ja-JP')
+                          ・{formatJstYmd(salarySettings.effective_from)}
+                          〜{salarySettings.effective_until
+                            ? formatJstYmd(salarySettings.effective_until)
                             : '現在'}
                         </span>
                       )}

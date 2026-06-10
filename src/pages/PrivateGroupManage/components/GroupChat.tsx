@@ -12,7 +12,7 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
-import { formatJstMonthDay, getJstParts } from '@/utils/jstDate'
+import { formatJstMonthDay, getJstParts, formatJstTime } from '@/utils/jstDate'
 
 interface SystemMessage {
   type: 'system'
@@ -552,8 +552,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   }
 
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+    return formatJstTime(dateStr)
   }
 
   const formatDate = (dateStr: string) => {

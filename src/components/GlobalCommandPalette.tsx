@@ -13,6 +13,7 @@ import {
   CommandShortcut,
 } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { formatJstMonthDay } from '@/utils/jstDate'
 import {
   Calendar, Users, BookOpen, LayoutDashboard,
   Store, UserCheck, Settings, BarChart3, Tag, Keyboard,
@@ -299,7 +300,7 @@ export function GlobalCommandPalette() {
                   </span>
                   {r.actual_datetime && (
                     <CommandShortcut>
-                      {new Date(r.actual_datetime).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                      {formatJstMonthDay(r.actual_datetime)}
                     </CommandShortcut>
                   )}
                 </CommandItem>
