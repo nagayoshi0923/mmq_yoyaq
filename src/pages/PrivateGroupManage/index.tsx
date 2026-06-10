@@ -32,6 +32,7 @@ import { GroupChat } from './components/GroupChat'
 import { UserSearchInvite } from './components/UserSearchInvite'
 import { AddCandidateDates } from './components/AddCandidateDates'
 import { logger } from '@/utils/logger'
+import { formatJstMonthDay, getJstParts } from '@/utils/jstDate'
 
 export function PrivateGroupManage() {
   const navigate = useNavigate()
@@ -65,9 +66,7 @@ export function PrivateGroupManage() {
   const [activeTab, setActiveTab] = useState('chat')
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00+09:00')
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+    return formatJstMonthDay(dateStr, true)
   }
 
   const getInviteUrl = () => {
@@ -402,7 +401,7 @@ export function PrivateGroupManage() {
                       const summary = responseSummary.find(s => s.candidateDate.id === cd.id)
                       return (
                         <div key={cd.id} className="text-xs">
-                          <div className="font-medium">{new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}</div>
+                          <div className="font-medium">{(() => { const p = getJstParts(cd.date); return p ? `${Number(p.mo)}月${Number(p.d)}日(${p.weekday})` : '' })()}</div>
                           <div className="text-muted-foreground flex gap-2">
                             <span className="text-green-600">○{summary?.okCount || 0}</span>
                             <span className="text-amber-600">△{summary?.maybeCount || 0}</span>

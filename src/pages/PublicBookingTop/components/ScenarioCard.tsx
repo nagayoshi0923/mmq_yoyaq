@@ -5,6 +5,7 @@ import { getColorFromName } from '@/lib/utils'
 import { devDb } from '@/components/ui/DevField'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
+import { formatJstMonthDay, formatJstWeekday, getJstWeekdayIndex } from '@/utils/jstDate'
 
 /**
  * シナリオカード用の汎用型定義
@@ -152,13 +153,10 @@ export const ScenarioCard = memo(function ScenarioCard({
   
   const formatDate = (dateStr?: string): { date: string, weekday: string, dayOfWeek: number } => {
     if (!dateStr) return { date: '', weekday: '', dayOfWeek: 0 }
-    const date = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    const dayOfWeek = date.getDay()
     return {
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      weekday: weekdays[dayOfWeek],
-      dayOfWeek: dayOfWeek
+      date: formatJstMonthDay(dateStr),
+      weekday: formatJstWeekday(dateStr),
+      dayOfWeek: getJstWeekdayIndex(dateStr) ?? 0
     }
   }
 

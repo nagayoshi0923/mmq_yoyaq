@@ -20,6 +20,7 @@ import type { Reservation, Store } from '@/types'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import { formatJstDateJa, formatJstMonthDay, formatJstYmd } from '@/utils/jstDate'
 
 const SettingsPage = lazyWithRetry(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
@@ -491,9 +492,7 @@ export default function MyPage() {
 
   // 日付フォーマット
   const formatDate = (dateString: string) => {
-    const d = new Date(dateString)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`
+    return formatJstDateJa(dateString, true)
   }
 
   const formatTime = (dateString: string) => {
@@ -567,9 +566,7 @@ export default function MyPage() {
 
   // 公演日をフォーマット
   const formatPerformanceDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`
+    return formatJstDateJa(dateStr, true)
   }
 
   // 日数計算
@@ -970,9 +967,7 @@ export default function MyPage() {
                       
                       // 候補日をフォーマット（最初の3件まで表示）
                       const formatCandidateDate = (date: string, timeSlot: string) => {
-                        const d = new Date(date)
-                        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                        return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]}) ${timeSlot}`
+                        return `${formatJstMonthDay(date, true)} ${timeSlot}`
                       }
                       const candidates = candidateDatetimes?.candidates || []
                       const displayCandidates = candidates.slice(0, 3)
@@ -1069,10 +1064,7 @@ export default function MyPage() {
                                 <span>{reservation.participant_count}名</span>
                                 <span>•</span>
                                 <span>
-                                  {(() => {
-                                    const d = new Date(reservation.created_at)
-                                    return `${d.getMonth() + 1}/${d.getDate()} 申込`
-                                  })()}
+                                  {`${formatJstMonthDay(reservation.created_at)} 申込`}
                                 </span>
                               </div>
                             </div>
@@ -1118,11 +1110,7 @@ export default function MyPage() {
                       const isPrivate = eventId ? scheduleEvents[eventId]?.category === 'private' : false
                       
                       // 日付を短くフォーマット（1/11(日)）
-                      const shortDate = (() => {
-                        const d = new Date(perf.date)
-                        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                        return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]})`
-                      })()
+                      const shortDate = formatJstMonthDay(perf.date, true)
                       
                       return (
                         <div 
@@ -1485,7 +1473,7 @@ export default function MyPage() {
                                   {scenario.scenario || '（タイトル不明）'}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  {scenario.date ? new Date(scenario.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明'}
+                                  {scenario.date ? formatJstDateJa(scenario.date) : '日付不明'}
                                 </p>
                                 {scenario.venue && scenario.venue !== '店舗情報なし' && (
                                   <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
@@ -1643,7 +1631,7 @@ export default function MyPage() {
                           ) : (
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-gray-700">
-                                {editingScenario.date ? new Date(editingScenario.date).toLocaleDateString('ja-JP') : '日付不明'}
+                                {editingScenario.date ? formatJstYmd(editingScenario.date) : '日付不明'}
                               </span>
                               <Button
                                 size="sm"

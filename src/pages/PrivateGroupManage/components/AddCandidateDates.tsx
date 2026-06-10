@@ -13,6 +13,7 @@ import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
+import { formatJstMonthDay } from '@/utils/jstDate'
 
 const MIN_ADVANCE_DAYS = 14
 
@@ -267,9 +268,7 @@ export function AddCandidateDates({
   }
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00+09:00')
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+    return formatJstMonthDay(dateStr, true)
   }
 
   const noStoresSelected = storeIds.length === 0

@@ -416,7 +416,7 @@ async function sendCancellationEmail(
 ): Promise<void> {
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric' })
   }
 
   const formatTime = (timeStr: string): string => {
@@ -804,7 +804,7 @@ async function sendExtensionEmail(
 ): Promise<void> {
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric' })
   }
 
   const formatTime = (timeStr: string): string => {

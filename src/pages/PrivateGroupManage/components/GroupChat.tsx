@@ -12,6 +12,7 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
+import { formatJstMonthDay, getJstParts } from '@/utils/jstDate'
 
 interface SystemMessage {
   type: 'system'
@@ -161,7 +162,8 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       if (data?.survey_deadline_days !== undefined && data.survey_deadline_days !== null) {
         const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
         perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
-        setDeadlineText(`${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`)
+        const p = getJstParts(perfDate)
+        if (p) setDeadlineText(`${Number(p.mo)}月${Number(p.d)}日まで`)
       }
     })()
   }, [scenarioId, organizationId, performanceDate])
@@ -565,7 +567,8 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     } else if (date.toDateString() === yesterday.toDateString()) {
       return '昨日'
     } else {
-      return date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })
+      const p = getJstParts(dateStr)
+      return p ? `${Number(p.mo)}月${Number(p.d)}日` : ''
     }
   }
 
@@ -620,9 +623,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
   // 候補日を見やすい形式に整形
   const formatCandidateDate = (dateStr: string, timeSlot: string) => {
-    const date = new Date(dateStr + 'T00:00:00+09:00')
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]}) ${timeSlot}`
+    return `${formatJstMonthDay(dateStr, true)} ${timeSlot}`
   }
 
   if (loading) {
