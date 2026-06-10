@@ -92,9 +92,12 @@ function calculateAddressProximity(a1: string, a2: string): number {
   return c1 && c2 && c1 === c2 ? 3 : 2
 }
 
+// NOTE: new Date("YYYY-MM-DD") は常に UTC 深夜としてパースされる（TZ非依存）。
+// 読み書きを getUTC*/setUTC* に統一することで、ランタイムのTZ（UTC/JST/他）に
+// 一切依存せず常に同じ暦日を返す。
 function getPreviousDay(dateStr: string): string {
   const d = new Date(dateStr)
-  d.setDate(d.getDate() - 1)
+  d.setUTCDate(d.getUTCDate() - 1)
   return d.toISOString().split('T')[0]
 }
 
@@ -103,15 +106,15 @@ function findNearestTransferDay(targetDateStr: string, allowedDays: number[]): s
   const target = new Date(targetDateStr)
   for (let back = 1; back <= 7; back++) {
     const check = new Date(target)
-    check.setDate(target.getDate() - back)
-    if (allowedDays.includes(check.getDay())) return check.toISOString().split('T')[0]
+    check.setUTCDate(target.getUTCDate() - back)
+    if (allowedDays.includes(check.getUTCDay())) return check.toISOString().split('T')[0]
   }
   return getPreviousDay(targetDateStr)
 }
 
 function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
 }
 
 function calculateKitTransfers(
