@@ -27,6 +27,7 @@
     "test:e2e:ui": "playwright test --ui",
     "check:multi-tenant": "./scripts/check-multi-tenant.sh",
     "check:anon-rls-grants": "./scripts/audit-anon-rls-grants.sh",
+    "check:jst-date": "node scripts/check-jst-date.mjs",
     "pre-commit": "npm run check:security-guardrails && npm run check:cancellation-rpcs && npm run check:multi-tenant && npm run typecheck",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { formatJstWeekday } from '@/utils/jstDate'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CalendarClock } from 'lucide-react'
@@ -31,11 +32,10 @@ export function ShiftSubmission() {
     
     const days: DayInfo[] = []
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
       const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       days.push({
         date: dateString,
-        dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
+        dayOfWeek: formatJstWeekday(dateString),
         day: day,
         displayDate: `${month + 1}/${day}`
       })
