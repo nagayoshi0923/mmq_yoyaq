@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { showToast } from '@/utils/toast'
 import { format } from '@/lib/dateFns'
-import { ja } from 'date-fns/locale'
+import { formatJstMonthDay } from '@/utils/jstDate'
 
 // 外部売上の種類
 type ExternalSaleType = 'booth' | 'other_store'
@@ -329,7 +329,7 @@ export const ExternalSales: React.FC = () => {
               <TableBody>
                 {sales.map(sale => (
                   <TableRow key={sale.id}>
-                    <TableCell>{format(new Date(sale.date), 'M/d(E)', { locale: ja })}</TableCell>
+                    <TableCell>{formatJstMonthDay(sale.date, true)}</TableCell>
                     <TableCell>
                       <Badge variant={sale.type === 'booth' ? 'default' : 'secondary'}>
                         {sale.type === 'booth' ? 'BOOTH' : '他店公演'}

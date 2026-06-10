@@ -17,6 +17,7 @@ import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { showToast } from '@/utils/toast'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -502,13 +503,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
           const formatDateForBody = (dateStr: string): string => {
             if (!dateStr) return ''
-            try {
-              const d = new Date(`${dateStr}T12:00:00+09:00`)
-              const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-              return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${weekdays[d.getDay()]})`
-            } catch {
-              return dateStr
-            }
+            return formatJstDateJa(dateStr, true) || dateStr
           }
           const candidatesText = candidateDates.length > 0
             ? candidateDates.map((c: { date: string; startTime: string; endTime: string }, i: number) =>

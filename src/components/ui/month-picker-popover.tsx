@@ -41,6 +41,7 @@ export function MonthPickerPopover({
     '7月', '8月', '9月', '10月', '11月', '12月'
   ]
 
+  // jst-ignore: 月選択UIの内部ハイライト用。value は本コンポーネントが読み書きする月値で一貫
   const selectedMonth = value ? new Date(value).getMonth() : -1
 
   return (
@@ -86,6 +87,7 @@ export function MonthPickerPopover({
           {/* 月選択グリッド */}
           <div className="grid grid-cols-3 gap-2">
             {months.map((month, index) => {
+              // jst-ignore: 月選択UIの内部ハイライト用（value は本コンポーネント内で一貫）
               const isSelected = viewYear === new Date(value || '').getFullYear() && selectedMonth === index
               return (
                 <Button

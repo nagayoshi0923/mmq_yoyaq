@@ -91,7 +91,7 @@ const isWithinBusinessHours = async (date: string, startTime: string, storeId: s
     if (!data) return true
     if (data.holidays && data.holidays.includes(date)) return false
     if (data.opening_hours) {
-      const dayOfWeek = getJstWeekdayIndex(date) ?? new Date(date).getDay()
+      const dayOfWeek = getJstWeekdayIndex(date) ?? 0
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
       const dayHours = data.opening_hours[dayNames[dayOfWeek]]
       if (!dayHours || !dayHours.is_open) return false

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar, Ticket } from 'lucide-react'
 import type { Customer, Reservation } from '@/types'
 import { supabase } from '@/lib/supabase'
+import { formatJstYmd, formatJstDateTime } from '@/utils/jstDate'
 import { devDb } from '@/components/ui/DevField'
 import type { CustomerCouponStats } from '../hooks/useCustomerData'
 
@@ -104,13 +105,11 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
 
   const formatDate = (date: string | null) => {
     if (!date) return '未設定'
-    const d = new Date(date)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    return formatJstYmd(date)
   }
 
   const formatDateTime = (date: string) => {
-    const d = new Date(date)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return formatJstDateTime(date)
   }
 
   const formatCurrency = (amount: number) => {

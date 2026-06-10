@@ -28,6 +28,7 @@ import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePriv
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
 import { useLocalState } from '@/hooks/useLocalState'
 import { sendEmail } from '@/lib/emailApi'
+import { formatJstYmd } from '@/utils/jstDate'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   'draft': { label: '下書き', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
@@ -39,8 +40,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 }
 
 function formatDate(dateStr: string) {
-  const date = new Date(dateStr)
-  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
+  return formatJstYmd(dateStr)
 }
 
 function formatRelativeDate(dateStr: string) {
