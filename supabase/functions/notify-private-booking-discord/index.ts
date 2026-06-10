@@ -177,7 +177,31 @@ async function sendNotificationToGMChannels(booking: any) {
   
   const assignedStaffIds = assignments.map(a => a.staff_id)
   console.log(`📋 Found ${assignedStaffIds.length} GM(s) assigned to this scenario`)
-  
+
+  // 「未回答(pending)」行を担当GM全員に確保する。
+  // pending 行は通常 create_private_booking_request RPC が予約作成時の担当GMに対して作るが、
+  // 予約後に担当になったGM（例: 担当データ復旧後の松井）には行が無く、Discordは届いても
+  // 貸切管理ページの GM回答状況に「未回答」として出てこない。再通知のたびに現在の担当GMへ
+  // pending 行を upsert（既存は触らない）することで、後から担当になったGMも一覧に表示される。
+  const orgIdForRows = await getOrgIdForBooking(booking)
+  if (orgIdForRows && booking.id && assignedStaffIds.length > 0) {
+    const pendingRows = assignedStaffIds.map((sid: string) => ({
+      organization_id: orgIdForRows,
+      reservation_id: booking.id,
+      staff_id: sid,
+      response_status: 'pending',
+      available_candidates: null,
+    }))
+    const { error: pendingErr } = await supabase
+      .from('gm_availability_responses')
+      .upsert(pendingRows, { onConflict: 'reservation_id,staff_id', ignoreDuplicates: true })
+    if (pendingErr) {
+      console.error('⚠️ GM未回答行の確保に失敗:', pendingErr)
+    } else {
+      console.log(`📝 未回答行を確保: ${pendingRows.length} 件（既存は維持）`)
+    }
+  }
+
   // 担当GMのDiscordチャンネル情報を取得
   const { data: gmStaff, error: staffError } = await supabase
     .from('staff')
