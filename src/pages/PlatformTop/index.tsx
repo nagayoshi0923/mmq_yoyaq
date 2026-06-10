@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
+import { formatJstDateJa } from '@/utils/jstDate'
 import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, FileText, X, RefreshCw, HelpCircle } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
@@ -542,7 +543,7 @@ export function PlatformTop() {
                 <div className="p-4">
                   <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
                     <Calendar className="w-3 h-3" />
-                    {new Date(post.published_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    {formatJstDateJa(post.published_at)}
                     {post.organization_name && <><span>•</span><span>{post.organization_name}</span></>}
                   </div>
                   <h3 className="font-bold text-gray-900 line-clamp-2 mb-2">{post.title}</h3>

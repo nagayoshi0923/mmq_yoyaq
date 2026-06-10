@@ -34,6 +34,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { formatJstYmd } from '@/utils/jstDate'
 import type { Organization } from '@/types'
 
 type PendingApplication = {
@@ -242,7 +243,7 @@ export default function OrganizationManagement() {
                         <p className="text-xs text-muted-foreground">{app.contact_email}</p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        申請日: {new Date(app.updated_at).toLocaleDateString('ja-JP')}
+                        申請日: {formatJstYmd(app.updated_at)}
                       </p>
                     </div>
                     <Button

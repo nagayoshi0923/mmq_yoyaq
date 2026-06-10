@@ -10,6 +10,7 @@ import { HelpButton } from '@/components/ui/help-button'
 import { Users, Shield, AlertCircle, Search, UserCog, User as UserIcon } from 'lucide-react'
 import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
+import { formatJstDateTime } from '@/utils/jstDate'
 
 export function UserManagement() {
   const { user, isAdmin } = useAuth()
@@ -226,8 +227,8 @@ export function UserManagement() {
           </div>
 
           <div className="pt-3 border-t text-xs text-gray-500">
-            <p>作成日: {new Date(userData.created_at).toLocaleString('ja-JP')}</p>
-            <p>更新日: {new Date(userData.updated_at).toLocaleString('ja-JP')}</p>
+            <p>作成日: {formatJstDateTime(userData.created_at)}</p>
+            <p>更新日: {formatJstDateTime(userData.updated_at)}</p>
           </div>
         </div>
       </CardContent>

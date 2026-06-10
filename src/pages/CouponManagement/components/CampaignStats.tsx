@@ -37,6 +37,7 @@ import {
 } from '@/lib/api/couponApi'
 import type { CouponCampaign, CustomerCoupon } from '@/types'
 import { toast } from 'sonner'
+import { formatJstYmd, formatJstDateTime } from '@/utils/jstDate'
 
 interface CampaignStatsProps {
   open: boolean
@@ -134,25 +135,9 @@ export function CampaignStats({
 
   if (!campaign) return null
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
-  }
+  const formatDate = (dateStr: string) => formatJstYmd(dateStr)
 
-  const formatDateTime = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  const formatDateTime = (dateStr: string) => formatJstDateTime(dateStr)
 
   const getStatusBadge = (status: string) => {
     switch (status) {

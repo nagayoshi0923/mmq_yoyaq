@@ -35,6 +35,7 @@ import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from 'sonner'
+import { formatJstYmd } from '@/utils/jstDate'
 import type { OrganizationInvitation } from '@/types'
 
 export default function OrganizationSettings() {
@@ -372,7 +373,7 @@ export default function OrganizationSettings() {
                             <div className="font-medium">{invitation.name}</div>
                             <div className="text-sm text-muted-foreground">{invitation.email}</div>
                             <div className="text-xs text-muted-foreground">
-                              期限: {new Date(invitation.expires_at).toLocaleDateString('ja-JP')}
+                              期限: {formatJstYmd(invitation.expires_at)}
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -419,7 +420,7 @@ export default function OrganizationSettings() {
                               <div className="text-sm text-muted-foreground">{invitation.email}</div>
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {new Date(invitation.accepted_at!).toLocaleDateString('ja-JP')}
+                              {formatJstYmd(invitation.accepted_at!)}
                             </div>
                           </div>
                         ))}

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { formatJstYmd } from '@/utils/jstDate'
 
 export interface Notification {
   id: string
@@ -178,7 +179,7 @@ export function useNotifications() {
 
       cancelledReservations?.forEach(res => {
         const notifId = `reservation_cancelled_${res.id}`
-        const eventDate = res.requested_datetime ? new Date(res.requested_datetime).toLocaleDateString('ja-JP') : ''
+        const eventDate = res.requested_datetime ? formatJstYmd(res.requested_datetime) : ''
         newNotifications.push({
           id: notifId,
           type: 'reservation_cancelled',

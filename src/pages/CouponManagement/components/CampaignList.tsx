@@ -20,6 +20,7 @@ import {
   Users
 } from 'lucide-react'
 import type { CouponCampaign } from '@/types'
+import { formatJstYmd } from '@/utils/jstDate'
 
 interface CampaignListProps {
   campaigns: CouponCampaign[]
@@ -62,12 +63,7 @@ export function CampaignList({
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '-'
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
+    return formatJstYmd(dateStr)
   }
 
   const getDiscountDisplay = (campaign: CouponCampaign) => {

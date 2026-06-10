@@ -9,6 +9,7 @@ import {
 import { Loader2, MessageSquare, CheckCircle2, X, Calendar, Users, ClipboardList, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { formatJstDateTime, formatJstDateJa } from '@/utils/jstDate'
 
 export type GroupMessageRow = {
   id: string
@@ -18,28 +19,11 @@ export type GroupMessageRow = {
 }
 
 function formatDateTimeJa(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('ja-JP', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
+  return formatJstDateTime(iso) || iso
 }
 
 function formatDateJa(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
-  } catch {
-    return iso
-  }
+  return formatJstDateJa(iso) || iso
 }
 
 function toDateKey(iso: string) {

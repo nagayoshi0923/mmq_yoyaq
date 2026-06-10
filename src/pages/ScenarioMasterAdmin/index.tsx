@@ -581,7 +581,7 @@ export function ScenarioMasterAdmin() {
       cellClassName: COMPACT_CELL,
       render: (master) => (
         <p className="text-xs text-gray-500">
-          {new Date(master.updated_at).toLocaleDateString('ja-JP', { year: '2-digit', month: '2-digit', day: '2-digit' })}
+          {new Date(master.updated_at).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: '2-digit', month: '2-digit', day: '2-digit' })}
         </p>
       ),
       sortValue: (master) => master.updated_at

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { storeApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import type { Store } from '@/types'
+import { formatJstDateTime } from '@/utils/jstDate'
 
 interface PerformanceDate {
   date: string
@@ -195,7 +196,7 @@ export function PerformancesSectionV2({
       const endStr = endDate ? endDate.replace(/-/g, '/') : '終了'
       lines.push(`期間: ${startStr} 〜 ${endStr}`)
     }
-    lines.push(`生成日時: ${new Date().toLocaleString('ja-JP')}`)
+    lines.push(`生成日時: ${formatJstDateTime(new Date())}`)
     lines.push('')
     lines.push(`公演回数: ${filteredPerformances.length}回`)
     if (includeParticipants) {
