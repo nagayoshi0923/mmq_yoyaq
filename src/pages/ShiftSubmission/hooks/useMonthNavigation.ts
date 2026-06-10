@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import type { DayInfo } from '../types'
+import { formatJstWeekday } from '@/utils/jstDate'
 
 /**
  * 月ナビゲーションフック
@@ -32,11 +33,10 @@ export function useMonthNavigation() {
     
     const days: DayInfo[] = []
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
       const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       days.push({
         date: dateString,
-        dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
+        dayOfWeek: formatJstWeekday(dateString),
         day: day,
         displayDate: `${month + 1}/${day}`
       })

@@ -33,6 +33,9 @@ jobs:
       - name: Security guardrails
         run: npm run check:security-guardrails
 
+      - name: JST date guard
+        run: npm run check:jst-date
+
       - name: Audit anon RLS / GRANT consistency
         # Supabase Management API (HTTPS) 経由で staging に対して監査クエリを投げる。
         # 直接 DB 接続 (db.<ref>.supabase.co) は GitHub Actions runner の IPv6 不通で使えない。
