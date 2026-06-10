@@ -94,6 +94,8 @@ export function usePrivateBookingSlotData({
       setEventsLoading(true)
       setEventsLoaded(false)
       try {
+        const fmtJst = (d: Date) =>
+          new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
         const today = new Date()
         const windowEnd = new Date(today)
         windowEnd.setDate(today.getDate() + 180)
@@ -102,8 +104,8 @@ export function usePrivateBookingSlotData({
           .from('schedule_events_public')
           .select('id, date, store_id, start_time, end_time, is_cancelled')
           .in('store_id', effectiveStoreIds)
-          .gte('date', today.toISOString().split('T')[0])
-          .lte('date', windowEnd.toISOString().split('T')[0])
+          .gte('date', fmtJst(today))
+          .lte('date', fmtJst(windowEnd))
           .eq('is_cancelled', false)
 
         if (error) throw error
