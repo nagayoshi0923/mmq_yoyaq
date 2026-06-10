@@ -295,10 +295,11 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
   if (action === 'update_scenario_assignments') {
     // シナリオの担当スタッフを差分更新（GM レコードのみ）
-    const { scenario_master_id, staff_ids, notes } = body as {
+    const { scenario_master_id, staff_ids, notes, confirm_clear } = body as {
       scenario_master_id?: string
       staff_ids?: string[]
       notes?: string | null
+      confirm_clear?: boolean
     }
     if (!scenario_master_id || !Array.isArray(staff_ids)) {
       return res.status(400).json({ error: 'scenario_master_id / staff_ids が必要です' })
@@ -306,6 +307,23 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     await assertScenarioMasterAccessible(scenario_master_id, user.orgId)
     for (const id of staff_ids) {
       await assertStaffOwnedByOrg(id, user.orgId)
+    }
+
+    // 🛡 空 staff_ids は既存 GM を全員降格させる。ロード失敗やレースで空配列が
+    // 送られて全 GM が消える事故を防ぐため、明示的な confirm_clear なしには拒否する。
+    if (staff_ids.length === 0 && confirm_clear !== true) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (db as any)
+        .from('staff_scenario_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('scenario_master_id', scenario_master_id)
+        .eq('organization_id', user.orgId)
+        .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+      return res.status(409).json({
+        error: 'EMPTY_PAYLOAD_REJECTED',
+        message: '担当GM 0 件での更新を拒否しました。本当に全員を降格する場合は confirm_clear: true を指定してください。',
+        existing_gm_count: count ?? 0,
+      })
     }
 
     // 現在の GM 担当を取得
