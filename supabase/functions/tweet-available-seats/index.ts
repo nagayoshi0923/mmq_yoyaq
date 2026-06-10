@@ -341,7 +341,10 @@ function getPromoMessage(availableSeats: number): string {
 
 // 時間帯に応じた挨拶
 function getTimeGreeting(): string {
-  const hour = new Date().getHours()
+  // Edge Function は UTC 実行のため getHours() は使えない。必ず JST の時刻で判定する。
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tokyo', hour: '2-digit', hour12: false }).format(new Date())
+  ) % 24
   if (hour >= 5 && hour < 12) {
     return randomPick(['おはようございます☀️', ''])
   } else if (hour >= 12 && hour < 17) {

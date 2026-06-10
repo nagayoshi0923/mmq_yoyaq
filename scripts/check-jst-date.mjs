@@ -16,7 +16,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOT = 'src'
+// フロント(src)に加え、Edge Function(supabase/functions・Deno=UTC実行)も対象にする。
+// Edge Function は常に UTC で動くため、timeZone 無しの整形は全受信者でズレる。
+const ROOTS = ['src', 'supabase/functions']
 const DATE_OPT_KEYS = /\b(year|month|day|weekday|hour|minute|second)\b/
 const IGNORE = 'jst-ignore'
 
@@ -34,7 +36,8 @@ function walk(dir) {
 
 const violations = []
 
-for (const file of walk(ROOT)) {
+const allFiles = ROOTS.flatMap((r) => walk(r))
+for (const file of allFiles) {
   const src = readFileSync(file, 'utf8')
   const lines = src.split('\n')
   const re = /\.(toLocaleDateString|toLocaleTimeString|toLocaleString)\(\s*['"]ja-JP['"]/g
