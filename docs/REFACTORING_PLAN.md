@@ -61,8 +61,12 @@
 
 リスク: 低 / 規模: 小〜中（3〜5コミット）
 
-- [ ] 2-1 `types/index.ts`（1,082行）をドメイン分割
-      （organization / scenario / reservation / schedule / staff / auth。index.ts は re-export バレルとして残す）
+- [x] 2-1 `types/index.ts`（1,082行）をドメイン分割（**完了**: 15ドメインファイル + 21行のバレル）
+      organization / license / store / staff / scenario / scheduleEvent / user / sales /
+      customer / reservation / kit / coupon / privateGroup / survey / blog。
+      既存 import は無変更で動作（バレル re-export 方式）。
+      ⚠️ 発見: `ScheduleEvent` が二重定義（旧index由来の簡易版 → scheduleEvent.ts /
+      既存 types/schedule.ts の詳細版）。同名別定義の統合は Phase 4 で扱う。
 - [ ] 2-2 分割過程で見えたドメイン間の不自然な依存をメモ化（Phase 4 以降の指針）
 - [ ] 2-3 散在する status / option 系定数の置き場統一
 
