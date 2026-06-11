@@ -16,7 +16,6 @@ import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { useFavicon } from '@/hooks/useFavicon'
 import { GlobalCommandPalette } from '@/components/GlobalCommandPalette'
 
-export { getOrganizationSlugFromPath }
 
 // コード分割：初期ロードを軽くする（リトライ付き）
 const LoginForm = lazyWithRetry(() =>

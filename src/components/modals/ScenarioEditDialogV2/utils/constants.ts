@@ -7,29 +7,3 @@ export const statusOptions = [
   { value: 'maintenance', label: 'メンテナンス中' },
   { value: 'retired', label: '引退済み' }
 ]
-
-export const genreOptions = [
-  'ホラー',
-  'ミステリー',
-  'クラシック',
-  'コメディ',
-  'SF',
-  'ファンタジー',
-  'サスペンス',
-  'アクション',
-  'ドラマ',
-  'ロマンス'
-].map(genre => ({ id: genre, name: genre }))
-
-export const TIME_SLOTS = [
-  '平日昼',
-  '平日夜',
-  '休日昼',
-  '休日夜'
-]
-
-export const GM_ROLES = [
-  'main',
-  'sub'
-]
-
