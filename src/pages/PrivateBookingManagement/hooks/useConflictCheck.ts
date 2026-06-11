@@ -33,6 +33,7 @@ export interface ExistingEventInfo {
   endTime: string
   storeId: string
   date: string
+  gms: string[]  // この公演に割り当て済みのGM名（GM競合チェック用）
 }
 
 /**
@@ -66,7 +67,7 @@ export const useConflictCheck = () => {
       // 貸切リクエストの情報を取得（reservationsテーブルから）
       const { data: requestData, error: requestError } = await supabase
         .from('reservations')
-        .select('candidate_datetimes, scenario_master_id')
+        .select('candidate_datetimes, scenario_master_id, organization_id')
         .eq('id', reservationId)
         .single()
 
@@ -104,11 +105,16 @@ export const useConflictCheck = () => {
       // 🚨 CRITICAL: 2つのテーブルから競合をチェック
       // 1. schedule_events テーブル（手動追加・インポートされた全公演）
       // ただし、この予約に紐づくイベントは除外する（再承認時のため）
-      const { data: allEvents, error: eventsError } = await supabase
-        .from('schedule_events_staff_view')
-        .select('id, scenario, date, start_time, end_time, store_id, reservation_id')
+      // gms（割当GM名）は staff_view ではマスクされ空になるため、生 schedule_events を
+      // org スコープで読む（RPC の GM 競合判定 schedule_events.gms と一致させる）。
+      const orgId = requestData.organization_id as string | null
+      let eventsQuery = supabase
+        .from('schedule_events')
+        .select('id, scenario, date, start_time, end_time, store_id, reservation_id, gms')
         .in('date', candidateDates)
         .eq('is_cancelled', false)
+      if (orgId) eventsQuery = eventsQuery.eq('organization_id', orgId)
+      const { data: allEvents, error: eventsError } = await eventsQuery
       
       if (eventsError) {
         logger.error('既存イベント取得エラー:', eventsError)
@@ -127,7 +133,8 @@ export const useConflictCheck = () => {
             startTime: event.start_time?.substring(0, 5) || '',
             endTime: event.end_time?.substring(0, 5) || '',
             storeId: event.store_id || '',
-            date: event.date
+            date: event.date,
+            gms: Array.isArray(event.gms) ? event.gms : []
           })
         })
       } else {
@@ -171,7 +178,8 @@ export const useConflictCheck = () => {
             startTime,
             endTime,
             storeId: reservation.store_id,
-            date
+            date,
+            gms: []  // 確定貸切は承認時に schedule_events 化され gms 付きで競合判定されるため空でよい
           })
         })
         logger.log(`競合チェック対象（イベント+予約）: ${existingEventsList.length}件`)

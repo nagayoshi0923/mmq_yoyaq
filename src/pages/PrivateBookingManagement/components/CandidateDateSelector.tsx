@@ -17,7 +17,7 @@ interface Candidate {
 interface ConflictInfo {
   storeDateConflicts: Set<string>
   gmDateConflicts: Set<string>
-  existingEvents?: Array<{ storeId: string; date: string; startTime: string; endTime: string; scenario: string }>
+  existingEvents?: Array<{ storeId: string; date: string; startTime: string; endTime: string; scenario: string; gms?: string[] }>
 }
 
 interface GMResponse {
@@ -245,12 +245,18 @@ export const CandidateDateSelector = ({
                       }}
                     >
                       <option value="">選択してください</option>
-                      {gmOptionsToShow.map(({ gm, isGMDisabled, label }) => (
-                        <option key={gm.id} value={gm.id}
-                          disabled={isGMDisabled || (requiredGmCount >= 2 && gm.id === selectedSubGmId)}>
-                          {label}
-                        </option>
-                      ))}
+                      {gmOptionsToShow.map(({ gm, isGMDisabled, label }) => {
+                        const conflictEv = (conflictInfo.existingEvents || []).find(e =>
+                          e.date === candidate.date && (e.gms || []).includes(gm.name || '') &&
+                          candidate.startTime < e.endTime && candidate.endTime > e.startTime
+                        )
+                        return (
+                          <option key={gm.id} value={gm.id}
+                            disabled={isGMDisabled || !!conflictEv || (requiredGmCount >= 2 && gm.id === selectedSubGmId)}>
+                            {label}{conflictEv ? `（${conflictEv.startTime}–${conflictEv.endTime}「${conflictEv.scenario}」と重複）` : ''}
+                          </option>
+                        )
+                      })}
                     </select>
                   </div>
 
@@ -264,12 +270,18 @@ export const CandidateDateSelector = ({
                         onChange={e => onSelectSubGM?.(e.target.value)}
                       >
                         <option value="">選択してください</option>
-                        {gmOptionsToShow.map(({ gm, isGMDisabled, label }) => (
-                          <option key={gm.id} value={gm.id}
-                            disabled={isGMDisabled || gm.id === selectedGMId}>
-                            {label}
-                          </option>
-                        ))}
+                        {gmOptionsToShow.map(({ gm, isGMDisabled, label }) => {
+                          const conflictEv = (conflictInfo.existingEvents || []).find(e =>
+                            e.date === candidate.date && (e.gms || []).includes(gm.name || '') &&
+                            candidate.startTime < e.endTime && candidate.endTime > e.startTime
+                          )
+                          return (
+                            <option key={gm.id} value={gm.id}
+                              disabled={isGMDisabled || !!conflictEv || gm.id === selectedGMId}>
+                              {label}{conflictEv ? `（${conflictEv.startTime}–${conflictEv.endTime}「${conflictEv.scenario}」と重複）` : ''}
+                            </option>
+                          )
+                        })}
                       </select>
                     </div>
                   )}
