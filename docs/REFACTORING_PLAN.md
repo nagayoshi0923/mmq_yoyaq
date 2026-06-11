@@ -40,7 +40,13 @@
       （`tableColumns.tsx` / `ScenarioTableRow.tsx` / `ScenarioTableHeader.tsx` / `useScenarioData.ts` /
       `ScenarioStats.tsx` / `ScenarioFilters.tsx` / `scenarioFormatters.ts` ＋ `index.tsx` の分岐除去 722→280行。
       ※ `useScenarioFilters` フックは編集ダイアログの前後ナビゲーション用に存続）
-- [ ] 1-3 重複クエリフックの監査（`useScenarioQuery.ts` 内 deprecated `useScenariosQuery` 等）
+- [x] 1-3 重複クエリフックの監査（**完了**）
+      `useScenariosQuery` は現役（編集ダイアログ・useScheduleData・AuthorReport が使用）のため存続、
+      誤誘導の @deprecated コメントを除去。未使用の `useAllScenarioStatsQuery` /
+      `useScenariosInfiniteQuery` と孤児化した `scenarioApi.getPaginated` / `getAllScenarioStats`、
+      未使用 queryKey (paginated/detail/stats) を削除。
+      ※ バックエンド `api/scenarios.ts` の `type=paginated` / `type=all-stats` ハンドラは
+      フロント参照が消え到達不能になったが、API面のため削除は別途判断（候補としてメモ）
 - [ ] 1-4 knip 検出分の削除（1領域=1コミット）
 - [ ] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住し、
       旧ディレクトリを完全消滅（import パス書き換えのみ）
@@ -137,3 +143,6 @@ Phase 7 (仕上げ)      小   リスク中
 | 日付 | コミット | 内容 |
 |---|---|---|
 | 2026-06-11 | ec3c219a | 1-1: シナリオ編集 V0/V1 + pages/ScenarioEdit 削除（-5,490行） |
+| 2026-06-11 | a33b7561 | 0-2: knip 導入＋未使用コードベースライン記録 |
+| 2026-06-11 | b5f69fc8 | 1-2: 旧シナリオ管理UI削除（-1,814行、index.tsx 722→280行） |
+| 2026-06-11 | (下記) | 1-3: 未使用クエリフック・孤児API メソッド削除 |
