@@ -739,7 +739,11 @@ export function PrivateBookingManagement() {
                           }
                           const needTwo = (req.required_gm_count ?? 1) >= 2
                           const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
-                          if (result && !result.success && result.error) showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
+                          if (result?.success) {
+                            showToast.success('貸切予約を確定しました。確定メールとGM通知を送信します。')
+                          } else if (result?.error) {
+                            showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
+                          }
                         }}
                         onReject={() => handleRejectClick(req.id)}
                         disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder || ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId)}
