@@ -54,8 +54,8 @@
       knip 再実行で未使用ファイル 0件。
       ※ 既存 lint error 3件（PerformanceModal の直接delete / StaffProfile の冗長Boolean×2）は
       今回のスコープ外として残置 — 別作業で修正すること
-- [ ] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住し、
-      旧ディレクトリを完全消滅（import パス書き換えのみ）
+- [x] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住（**完了**）
+      旧 ScenarioEditModal ディレクトリは完全消滅。未使用の ScenarioEditModalProps も削除。
 
 ## Phase 2: 型と定数の整理
 

@@ -41,7 +41,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import type { ScenarioFormData, SurveyQuestionFormData } from '@/components/modals/ScenarioEditModal/types'
+import type { ScenarioFormData, SurveyQuestionFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 
 const labelStyle = "text-xs font-medium mb-0.5 block"
 const hintStyle = "text-[11px] text-muted-foreground mt-0.5"

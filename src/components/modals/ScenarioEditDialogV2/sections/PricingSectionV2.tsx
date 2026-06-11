@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { Plus, Trash2, Coins, Building2 } from 'lucide-react'
-import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { parseIntSafe } from '@/utils/number'
 
 interface PricingSectionV2Props {

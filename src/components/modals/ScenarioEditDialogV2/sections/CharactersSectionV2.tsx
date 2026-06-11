@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { showToast } from '@/utils/toast'
-import type { ScenarioFormData, ScenarioCharacter } from '@/components/modals/ScenarioEditModal/types'
+import type { ScenarioFormData, ScenarioCharacter } from '@/components/modals/ScenarioEditDialogV2/types'
 
 const labelStyle = "text-xs font-medium mb-0.5 block"
 const inputStyle = "h-8 text-sm"

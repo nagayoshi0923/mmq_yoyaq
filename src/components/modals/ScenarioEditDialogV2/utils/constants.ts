@@ -1,5 +1,5 @@
 /**
- * ScenarioEditModal で使用する定数
+ * ScenarioEditDialogV2 で使用する定数
  */
 
 export const statusOptions = [

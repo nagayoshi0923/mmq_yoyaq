@@ -25,7 +25,7 @@ import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsS
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
 import { CharactersSectionV2 } from './ScenarioEditDialogV2/sections/CharactersSectionV2'
-import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'

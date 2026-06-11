@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Trash2, Users, Award } from 'lucide-react'
-import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import type { Staff } from '@/types'
 import { formatJstYmd } from '@/utils/jstDate'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
