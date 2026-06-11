@@ -148,18 +148,11 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     )
   }, [scenario, selectedEventId, events, isCustomHoliday])
 
-  // 公演日程タブ用の店舗リスト（実際にスケジュールに存在する店舗から抽出）
-  // scenario.available_storesではなく、eventsに実際に存在する店舗を使用
-  const scheduleStores = useMemo(() => {
-    // eventsに存在する店舗IDを収集
-    const eventStoreIds = new Set(events.map(e => e.store_id).filter(Boolean))
-    // 店舗リストからフィルタリング（オフィス除外、営業中のみ）
-    return stores.filter(s => 
-      eventStoreIds.has(s.id) &&
-      s.ownership_type !== 'office' &&
-      s.status === 'active'
-    )
-  }, [events, stores])
+  // 公演日程タブ用の店舗リスト
+  // シナリオが公演可能な店舗（available_stores）を基準にする。
+  // イベントが存在する店舗だけに絞ると、公演可能なのに予定がない店舗が
+  // ドロップダウンから消えてしまい、お客様が選択できなくなるため。
+  const scheduleStores = availableStores
 
   // 公演日程タブの店舗フィルタ: 1店舗の場合は自動選択
   // 出張公演など store_id が無い枠があるときは自動選択しない（そのままだと出張が一覧から消える）
