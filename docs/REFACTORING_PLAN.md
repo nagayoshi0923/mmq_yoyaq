@@ -47,7 +47,13 @@
       未使用 queryKey (paginated/detail/stats) を削除。
       ※ バックエンド `api/scenarios.ts` の `type=paginated` / `type=all-stats` ハンドラは
       フロント参照が消え到達不能になったが、API面のため削除は別途判断（候補としてメモ）
-- [ ] 1-4 knip 検出分の削除（1領域=1コミット）
+- [x] 1-4 knip 検出分の削除（**完了**: 共有層25 + ページ層41 = 66ファイル、約 -12,400行）
+      検証: knip + ベース名grep + ルーティング(parsePath)突き合わせ + tsc/build。
+      特記: `lib/api/index.ts` は `@/lib/api` がファイル優先で `lib/api.ts` に解決されるため死んでいた
+      （api.ts のコメントは死んでいる側を推奨していた）。AuthorReport ページ一式は未ルートで全滅。
+      knip 再実行で未使用ファイル 0件。
+      ※ 既存 lint error 3件（PerformanceModal の直接delete / StaffProfile の冗長Boolean×2）は
+      今回のスコープ外として残置 — 別作業で修正すること
 - [ ] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住し、
       旧ディレクトリを完全消滅（import パス書き換えのみ）
 
@@ -145,4 +151,6 @@ Phase 7 (仕上げ)      小   リスク中
 | 2026-06-11 | ec3c219a | 1-1: シナリオ編集 V0/V1 + pages/ScenarioEdit 削除（-5,490行） |
 | 2026-06-11 | a33b7561 | 0-2: knip 導入＋未使用コードベースライン記録 |
 | 2026-06-11 | b5f69fc8 | 1-2: 旧シナリオ管理UI削除（-1,814行、index.tsx 722→280行） |
-| 2026-06-11 | (下記) | 1-3: 未使用クエリフック・孤児API メソッド削除 |
+| 2026-06-11 | 64f2898d | 1-3: 未使用クエリフック・孤児APIメソッド削除（-92行） |
+| 2026-06-11 | 16895ad3 | 1-4a: 共有層の未使用ファイル25点削除 |
+| 2026-06-11 | 6089844e | 1-4b: ページ層の未使用ファイル41点削除（-10,382行） |
