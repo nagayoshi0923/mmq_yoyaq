@@ -57,6 +57,12 @@ staging_psql() {
     -t -A "$@"
 }
 
+# staging 固有設定の退避。
+# app_config（supabase_url / supabase_anon_key / trigger_secret）はミラーで本番値に
+# 上書きされ、staging のDBトリガーが「本番の」Edge Function を呼ぶ事故になる
+# （2026-06-11 に実発生: staging の貸切申込が本番Bot経由でDiscord通知された）。
+APP_CONFIG_BACKUP=$(staging_psql -c "SELECT COALESCE(json_agg(json_build_object('key', key, 'value', value))::text, '') FROM app_config;" 2>/dev/null || echo "")
+
 # pg_dump で本番データをダンプ（public スキーマのみ）
 echo ""
 echo "[2/5] 本番DBからデータをダンプ中..."
@@ -189,6 +195,17 @@ fi
 rm -f "$ERROR_LOG"
 
 echo "  OK"
+
+# staging 固有設定の復元（app_config が本番値のままだと環境越え事故になる）
+if [ -n "$APP_CONFIG_BACKUP" ] && [ "$APP_CONFIG_BACKUP" != "null" ]; then
+  staging_psql -c "
+    UPDATE app_config a SET value = b.value
+    FROM json_to_recordset('${APP_CONFIG_BACKUP}'::json) AS b(key text, value text)
+    WHERE a.key = b.key;" > /dev/null
+  echo "  app_config を staging 値に復元しました"
+else
+  echo "  ⚠️ app_config の退避データなし: supabase_url / trigger_secret を手動で staging 値に戻すこと"
+fi
 
 # クリーンアップ
 echo ""
