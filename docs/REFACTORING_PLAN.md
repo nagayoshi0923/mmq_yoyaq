@@ -78,9 +78,15 @@
 
 リスク: 中 / 規模: 中（4〜6コミット）
 
-- [ ] 3-1 全 localStorage / sessionStorage キーの棚卸し
-- [ ] 3-2 `useUIPreferences` への集約（**キー名と保存形式は変えない** — 既存ユーザー設定を壊さない）
-- [ ] 3-3 スクロール復元の統一（`RouteScrollRestorationContext` と各ページ独自実装の重複解消）
+- [x] 3-1 全キーの棚卸し（**完了**: `docs/STATE_MANAGEMENT.md` に一覧化）
+- [x] 3-2 集約方針（**完了・計画変更**）: 調査の結果、既存5フック
+      （useLocalState / useSessionState / useUserPreference / usePageState / useTablePreferences）は
+      役割分担が妥当で、新たな統一フックを作るより使い分けの文書化が低リスク・高効果と判断。
+      `docs/STATE_MANAGEMENT.md` に「どの状態をどこに保存するか」のガイドを整備。
+      生キー直書き（認証フロー・チャンクリロード等の特殊用途）は現状維持、
+      スケジュール画面の表示状態キー群のみ Phase 4 でフック化を検討
+- [x] 3-3 スクロール復元の統一（**完了**）: 唯一の手書き残骸だった ScenarioManagement の
+      独自実装（55行・標準Providerと二重動作）を useReportRouteScrollRestoration 1行に置換
 
 ## Phase 4: 巨大フックの分割 ★最重要・最も慎重に
 
