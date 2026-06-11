@@ -158,13 +158,23 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
     console.log('⚠️ scenario_id (scenario_master_id) not found in booking')
     return
   }
-  
+
   console.log(`📋 Scenario Master ID: ${scenarioMasterId}`)
-  
+
+  // 🚨 マルチテナント: 担当GM検索は必ず予約の組織で絞る。
+  // scenario_master_id は組織間で共有されるため、組織フィルタなしだと
+  // 同じマスタを登録している他組織のGMにも通知・pending行が飛んでしまう。
+  const orgIdForBooking = await getOrgIdForBooking(booking)
+  if (!orgIdForBooking) {
+    console.error('❌ organization_id を特定できないため通知を中止します（他組織への誤通知防止）')
+    return
+  }
+
   const { data: assignments, error: assignmentError } = await supabase
     .from('staff_scenario_assignments')
     .select('staff_id')
     .eq('scenario_master_id', scenarioMasterId)
+    .eq('organization_id', orgIdForBooking)
     .or('can_main_gm.eq.true,can_sub_gm.eq.true')
   
   if (assignmentError) {
@@ -185,7 +195,7 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
   // 予約後に担当になったGM（例: 担当データ復旧後の松井）には行が無く、Discordは届いても
   // 貸切管理ページの GM回答状況に「未回答」として出てこない。再通知のたびに現在の担当GMへ
   // pending 行を upsert（既存は触らない）することで、後から担当になったGMも一覧に表示される。
-  const orgIdForRows = await getOrgIdForBooking(booking)
+  const orgIdForRows = orgIdForBooking
   if (orgIdForRows && booking.id && assignedStaffIds.length > 0) {
     const pendingRows = assignedStaffIds.map((sid: string) => ({
       organization_id: orgIdForRows,

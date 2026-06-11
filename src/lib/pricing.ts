@@ -137,7 +137,8 @@ export function getLicenseAmount(
  *
  * 注: ライセンスには「本社受取」と「作者支払い」など複数視点がDBに混在する。
  *   本社受取 → このヘルパ (fc_receive_*)
- *   作者支払い (フランチャイズ店公演時) → franchise_* / fc_author_* (現状は useAuthorReportData.ts に直書き)
+ *   作者支払い (フランチャイズ店公演時) → franchise_* / fc_author_*
+ *   (旧実装は AuthorReport ページの useAuthorReportData.ts に直書きだったが、未使用のため 2026-06 に削除)
  */
 export function getLicenseAmountForStore(
   scenario: ScenarioPricing | null | undefined,

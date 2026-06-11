@@ -1,6 +1,27 @@
--- 正規ソース: create_private_booking_request
--- 最終更新: 20260611220000_fix_private_booking_org_resolution.sql（組織解決バグ修正）
--- このファイルと migrations 内の最新定義は常に同内容に保つこと
+-- =============================================================================
+-- 20260611220000: create_private_booking_request の組織解決バグ修正（マルチテナント）
+-- =============================================================================
+-- 問題:
+--   シナリオ検索が `os.id = p_scenario_id OR os.scenario_master_id = p_scenario_id`
+--   だったため、scenario_master_id を渡された場合に同一マスタを複数組織が登録して
+--   いると複数行マッチし、SELECT INTO（ORDER BY なし）が不定の1行を採用。
+--   → 予約が無関係な組織に紐づき、申込元組織の貸切管理に表示されない。
+--      グループ(private_groups)は正しい組織、予約(reservations)は別組織という
+--      分裂状態が実際に発生した（staging 2026-06-11、reservation 85a034e7）。
+--   さらに料金・所要時間も他組織の override 値が使われ得る。
+--   GM 確認レコード生成も組織フィルタがなく、他組織の GM に pending 行が作られ得る。
+--
+-- 修正:
+--   1. p_private_group_id があればグループの組織を最優先で確定
+--      （グループは申込ページの組織コンテキストで作られるため最も信頼できる）
+--   2. シナリオ検索を「org固有ID一致」→「master_id + 確定済み組織」→
+--      「master_id 単独（登録が1組織のみの場合に限る）」の順に変更。
+--      複数組織に登録された master_id で組織が確定できない場合は P0031 エラー
+--      （不定な組織選択を絶対にしない）
+--   3. GM 確認レコード生成を v_org_id 所属スタッフに限定
+--
+-- 正規ソース: supabase/rpcs/create_private_booking_request.sql（同内容に更新済み）
+-- =============================================================================
 
 CREATE OR REPLACE FUNCTION create_private_booking_request(
   p_scenario_id UUID,

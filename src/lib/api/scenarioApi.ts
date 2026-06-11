@@ -2,8 +2,8 @@
  * シナリオ関連API
  *
  * write 系 (create/update/delete/updateAvailableGms/updateAvailableGmsWithSync) と、
- * 残り read 系 (getAllLegacy/getPublic/getPaginated/getPerformanceCount/
- * getScenarioStats/getAllScenarioStats) はバックエンド API (/api/scenarios) 経由で実行する。
+ * 残り read 系 (getAllLegacy/getPublic/getPerformanceCount/getScenarioStats) は
+ * バックエンド API (/api/scenarios) 経由で実行する。
  *
  * org_id はフロントから渡さず、サーバー側で JWT から取得する（マルチテナント境界）。
  * organizationId 引数は後方互換のため残してあるが、値はサーバー側で無視される。
@@ -12,7 +12,6 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { apiClient } from '@/lib/apiClient'
 import type { Scenario } from '@/types'
-import type { PaginatedResponse } from './types'
 import { logger } from '@/utils/logger'
 
 // organization_scenarios_with_master ビュー用のSELECTフィールド
@@ -138,20 +137,6 @@ export const scenarioApi = {
     return this.getById(idOrSlug, organizationId)
   },
 
-  // ページネーション対応：シナリオを取得（バックエンド経由）
-  async getPaginated(
-    page: number = 0,
-    pageSize: number = 20,
-    _organizationId?: string,
-  ): Promise<PaginatedResponse<Scenario>> {
-    const params = new URLSearchParams({
-      type: 'paginated',
-      page: String(page),
-      pageSize: String(pageSize),
-    })
-    return apiClient.get<PaginatedResponse<Scenario>>(`/api/scenarios?${params}`)
-  },
-
   // シナリオを作成（バックエンド経由）。org_id は JWT から取得される。
   async create(scenario: Omit<Scenario, 'id' | 'created_at' | 'updated_at'>): Promise<Scenario> {
     return apiClient.post<Scenario>('/api/scenarios', { scenario })
@@ -210,15 +195,6 @@ export const scenarioApi = {
   }> {
     const params = new URLSearchParams({ type: 'stats', scenarioId })
     return apiClient.get(`/api/scenarios?${params}`)
-  },
-
-  // 全シナリオの統計情報を一括取得（バックエンド経由）
-  async getAllScenarioStats(): Promise<Record<string, {
-    performanceCount: number
-    cancelledCount: number
-    totalRevenue: number
-  }>> {
-    return apiClient.get('/api/scenarios?type=all-stats')
   },
 
   // シナリオの担当GMを更新（バックエンド経由）

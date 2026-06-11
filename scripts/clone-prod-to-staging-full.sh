@@ -187,6 +187,22 @@ phase5_verify() {
   echo "  prod=$PROD_MIG staging=$STG_MIG"
 
   echo
+  echo "--- app_config 環境越えチェック ---"
+  # 本番からの複製で app_config が本番値のままだと、staging のDBトリガーが
+  # 本番の Edge Function を呼ぶ（2026-06-11 に実発生: staging の貸切申込が本番Bot経由で通知）
+  EXPECTED_URL="https://$(echo "$STAGING_HOST" | sed 's/^db\.//')"
+  CFG_URL=$(staging_psql -tA -c "SELECT value FROM app_config WHERE key='supabase_url'" 2>/dev/null || echo "")
+  if [ "$CFG_URL" = "$EXPECTED_URL" ]; then
+    echo "  OK (supabase_url = staging)"
+  else
+    echo "  🚨 app_config.supabase_url が staging を向いていません: $CFG_URL"
+    echo "     以下を staging 値に更新すること:"
+    echo "       UPDATE app_config SET value='$EXPECTED_URL' WHERE key='supabase_url';"
+    echo "       UPDATE app_config SET value='<staging anon key>' WHERE key='supabase_anon_key';"
+    echo "       UPDATE app_config SET value='<staging CRON_SECRET>' WHERE key='trigger_secret';"
+  fi
+
+  echo
   echo "✅ Phase 5 完了"
 }
 

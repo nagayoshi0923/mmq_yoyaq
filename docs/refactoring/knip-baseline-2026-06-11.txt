@@ -1,0 +1,338 @@
+Unused files (69)
+src/App.tsx                                                        
+src/components/layout/SidebarLayout.tsx                            
+src/components/layout/UnifiedSidebar.stories.tsx                   
+src/components/layout/UnifiedSidebar.tsx                           
+src/components/modals/CustomDatePicker.tsx                         
+src/components/modals/DateRangeModal.tsx                           
+src/components/patterns/index.ts                                   
+src/components/schedule/CategoryTabs.tsx                           
+src/components/schedule/GmStatsPanel.tsx                           
+src/components/schedule/modal/EmailPreview.tsx                     
+src/components/ui/combobox.tsx                                     
+src/components/ui/conditional-settings.tsx                         
+src/components/ui/delete-confirmation-dialog.tsx                   
+src/components/ui/error-display.tsx                                
+src/components/ui/image-carousel.tsx                               
+src/components/ui/itemized-settings.tsx                            
+src/components/ui/master-diff-indicator.tsx                        
+src/components/ui/migration-confirmation-dialog.tsx                
+src/components/ui/sortable-table-header.tsx                        
+src/hooks/useSortableTable.ts                                      
+src/hooks/useStaffOperations.ts                                    
+src/lib/api/index.ts                                               
+src/lib/featureFlags.ts                                            
+src/pages/AuthorReport/components/AuthorEmailDialog.tsx            
+src/pages/AuthorReport/components/AuthorLicenseEmailDialog.tsx     
+src/pages/AuthorReport/components/AuthorLicenseEmailPreview.tsx    
+src/pages/AuthorReport/hooks/useAuthorReportData.ts                
+src/pages/AuthorReport/hooks/useReportFilters.ts                   
+src/pages/AuthorReport/index.tsx                                   
+src/pages/AuthorReport/types.ts                                    
+src/pages/AuthorReport/utils/reportFormatters.ts                   
+src/pages/AuthorReport/utils/tableColumns.tsx                      
+src/pages/CustomerBookingPage.tsx                                  
+src/pages/LicenseManagement/tabs/AuthorReports.tsx                 
+src/pages/LicenseManagement/tabs/MyReports.tsx                     
+src/pages/MyPage/components/Sidebar.tsx                            
+src/pages/MyPage/hooks/useAlbumQuery.ts                            
+src/pages/MyPage/hooks/useGmHistoryQuery.ts                        
+src/pages/MyPage/hooks/usePlayedScenariosQuery.ts                  
+src/pages/MyPage/hooks/useReservationsQuery.ts                     
+src/pages/MyPage/pages/AlbumPage.tsx                               
+src/pages/MyPage/pages/GmHistoryPage.tsx                           
+src/pages/MyPage/pages/PlayedScenariosPage.tsx                     
+src/pages/MyPage/pages/ReservationsPage.tsx                        
+src/pages/PrivateBookingManagement/components/GMSelector.tsx       
+src/pages/PrivateBookingManagement/components/StoreSelector.tsx    
+src/pages/PrivateBookingManagement/hooks/useConflictCheck.ts       
+src/pages/PrivateBookingManagement/hooks/useGMSelection.ts         
+src/pages/PrivateGroupCreate/components/GroupCalendarSelector.tsx  
+src/pages/PrivateGroupInvite/components/CharacterAssignmentForm.tsx
+src/pages/PublicBookingTop/components/HowToUseGuide.tsx            
+src/pages/SalesManagement/components/RankingCards.tsx              
+src/pages/SalesManagement/utils/exportUtils.ts                     
+src/pages/ScenarioDetailPage/components/OrganizerInfo.tsx          
+src/pages/ScenarioDetailPage/components/ScenarioInfo.tsx           
+src/pages/ScenarioManagement/components/ScenarioTableHeader.tsx    
+src/pages/ScenarioManagement/components/ScenarioTableRow.tsx       
+src/pages/ScenarioManagement/hooks/useScenarioData.ts              
+src/pages/Settings/pages/CustomerSettings.tsx                      
+src/pages/Settings/pages/GeneralSettings.tsx                       
+src/pages/Settings/pages/StaffSettings.tsx                         
+src/pages/Settings/pages/StoreBasicSettings.tsx                    
+src/pages/Settings/pages/TenantManagementSettings.tsx              
+src/pages/ShiftSubmission/components/NotificationSettings.tsx      
+src/pages/ShiftSubmission/hooks/useMonthNavigation.ts              
+src/pages/StaffManagement/hooks/useStaffData.ts                    
+src/pages/StaffManagement/hooks/useStaffOperations.ts              
+src/types/sortable.ts                                              
+src/utils/supabaseErrors.ts                                        
+Unused dependencies (8)
+@tailwindcss/typography         package.json:73:6 
+@tanstack/react-query-devtools  package.json:76:6 
+@types/jszip                    package.json:79:6 
+hono                            package.json:88:6 
+tailwindcss-animate             package.json:99:6 
+vite-plugin-pwa                 package.json:100:6
+workbox-window                  package.json:101:6
+zod                             package.json:102:6
+Unlisted binaries (7)
+lsof      package.json
+wait      package.json
+supabase  package.json
+psql      package.json
+jq        package.json
+awk       package.json
+security  package.json
+Unused exports (149)
+getOrganizationSlugFromPath                                  src/AppRoot.tsx:19:10                                      
+genreOptions                                                 …mponents/modals/ScenarioEditModal/utils/constants.ts:11:14
+TIME_SLOTS                                                   …mponents/modals/ScenarioEditModal/utils/constants.ts:24:14
+GM_ROLES                                                     …mponents/modals/ScenarioEditModal/utils/constants.ts:31:14
+BaseModal                                                    src/components/patterns/modal/index.ts:7:10                
+DataTable                                                    src/components/patterns/table/DataTable.tsx:98:14          
+DataTable                                                    src/components/patterns/table/index.ts:7:10                
+MobileResponsiveTable                                        src/components/patterns/table/index.ts:9:10                
+MobileResponsiveTable                                        …components/patterns/table/MobileResponsiveTable.tsx:116:14
+useScheduleSlotMemos                               function  src/components/schedule/SlotMemoInput.tsx:51:17            
+migrateLocalStorageSlotMemos                       function  src/components/schedule/SlotMemoInput.tsx:63:23            
+AlertDialogPortal                                            src/components/ui/alert-dialog.tsx:130:3                   
+AlertDialogOverlay                                           src/components/ui/alert-dialog.tsx:131:3                   
+AlertDialogTrigger                                           src/components/ui/alert-dialog.tsx:132:3                   
+buttonVariants                                               src/components/ui/button.tsx:57:18                         
+Command                                                      src/components/ui/command.tsx:144:3                        
+devDbFields                                        function  src/components/ui/DevField.tsx:27:17                       
+createTableHelper                                  function  src/components/ui/DevField.tsx:45:17                       
+DialogPortal                                                 src/components/ui/dialog.tsx:160:3                         
+DialogOverlay                                                src/components/ui/dialog.tsx:161:3                         
+DialogClose                                                  src/components/ui/dialog.tsx:162:3                         
+DropdownMenuSeparator                                        src/components/ui/dropdown-menu.tsx:64:3                   
+default                                            variable  src/components/ui/optimized-image.tsx:321:16               
+ScrollBar                                                    src/components/ui/scroll-area.tsx:46:22                    
+SelectSeparator                                              src/components/ui/select.tsx:157:3                         
+SelectScrollUpButton                                         src/components/ui/select.tsx:158:3                         
+SelectScrollDownButton                                       src/components/ui/select.tsx:159:3                         
+SheetPortal                                                  src/components/ui/sheet.tsx:131:3                          
+SheetOverlay                                                 src/components/ui/sheet.tsx:132:3                          
+TableFooter                                                  src/components/ui/table.tsx:112:3                          
+TableCaption                                                 src/components/ui/table.tsx:116:3                          
+TIME_SLOTS                                                   src/constants/game.ts:11:14                                
+EVENT_CATEGORIES                                             src/constants/game.ts:22:14                                
+EVENT_STATUS                                                 src/constants/game.ts:38:14                                
+STAFF_STATUS                                                 src/constants/game.ts:49:14                                
+USER_ROLES                                                   src/constants/game.ts:60:14                                
+memoKeys                                                     src/hooks/useMemoManager.ts:15:14                          
+organizationKeys                                             src/hooks/useOrganization.ts:32:14                         
+isQueensWaltz                                      function  src/hooks/useOrganization.ts:166:17                        
+useScrollRestoration                               function  src/hooks/usePageState.ts:154:17                           
+fetchSalarySettingsForDate                         function  src/hooks/useSalarySettings.ts:310:23                      
+calculateGmWageForDate                             function  src/hooks/useSalarySettings.ts:356:23                      
+addDemoParticipantsToPastUnderfullEvents           function  src/hooks/useScheduleData.ts:18:23                         
+useScheduleTableModals                             function  src/hooks/useScheduleTable.ts:200:17                       
+saveScrollPositionForPage                          function  src/hooks/useScrollRestoration.ts:28:17                    
+shiftKeys                                                    src/hooks/useShiftData.ts:9:14                             
+isHoliday                                          function  src/hooks/useTimeSlotSettings.ts:29:17                     
+useUserPreference                                  function  src/hooks/useUserPreference.ts:10:17                       
+getAvailableCoupons                                function  src/lib/api/couponApi.ts:62:23                             
+getCouponUsageHistory                              function  src/lib/api/couponApi.ts:165:23                            
+redeemCouponByCode                                 function  src/lib/api/couponApi.ts:284:23                            
+updateExternalReport                               function  src/lib/api/externalReportsApi.ts:119:23                   
+deleteExternalReport                               function  src/lib/api/externalReportsApi.ts:143:23                   
+createInvitation                                   function  src/lib/api/invitationsApi.ts:38:23                        
+clearScenarioAliasCache                            function  src/lib/api/scenarioAliasApi.ts:39:17                      
+scenarioAliasApi                                             src/lib/api/scenarioAliasApi.ts:52:14                      
+organizationScenarioApi                                      src/lib/api/scenarioMasterApi.ts:219:14                    
+ApiError                                           class     src/lib/apiErrorHandler.ts:23:14                           
+handleSupabaseError                                function  src/lib/apiErrorHandler.ts:50:17                           
+getUserFriendlyMessage                             function  src/lib/apiErrorHandler.ts:158:17                          
+logApiError                                        function  src/lib/apiErrorHandler.ts:209:17                          
+DEMO_RESERVATION_SOURCES                                     src/lib/constants.ts:63:14                                 
+addDays                                                      src/lib/dateFns.ts:34:14                                   
+ORGANIZATION_SELECT_CORE                                     src/lib/organization.ts:10:14                              
+ORGANIZATION_SELECT_STANDARD                                 src/lib/organization.ts:14:14                              
+ORGANIZATION_SELECT_STAFF_APP                                src/lib/organization.ts:18:14                              
+isLicenseManager                                   function  src/lib/organization.ts:192:23                             
+getCurrentParticipantsCount                        function  src/lib/participantUtils.ts:120:23                         
+getGmCostEntries                                   function  src/lib/pricing.ts:171:17                                  
+formatScheduleDateForEmailLabel                    function  src/lib/privateBookingCustomerChangeEmail.ts:22:17         
+addMinutesToHHmm                                   function  src/lib/privateBookingScenarioTime.ts:14:17                
+performanceConflictsWithScheduledEvent             function  src/lib/privateBookingScenarioTime.ts:71:17                
+isPrivateBookingSlotAvailableForStore              function  src/lib/privateBookingSlotAvailability.ts:43:17            
+isPrivateBookingSlotAvailableOnAnyStore            function  src/lib/privateBookingSlotAvailability.ts:103:17           
+getPrivateGroupCandidateSlotsForDate               function  src/lib/privateGroupCandidateSlots.ts:355:17               
+isValidTransition                                  function  src/lib/privateGroupStatus.ts:25:17                        
+RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS            src/lib/reservationApi.ts:48:14                            
+RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS                   src/lib/reservationApi.ts:55:14                            
+customerApi                                                  src/lib/reservationApi.ts:80:14                            
+timeSlotEnToCandidate                              function  src/lib/timeSlot.ts:63:17                                  
+compressImage                                      function  src/lib/uploadImage.ts:10:23                               
+deleteImage                                        function  src/lib/uploadImage.ts:169:23                              
+uploadVideo                                        function  src/lib/uploadImage.ts:284:23                              
+getAllAuthUsers                                    function  src/lib/userApi.ts:66:23                                   
+upsertUser                                         function  src/lib/userApi.ts:75:23                                   
+getStoreColors                                     function  src/lib/utils.ts:10:17                                     
+getCategoryColors                                  function  src/lib/utils.ts:68:17                                     
+formatDate                                         function  src/lib/utils.ts:106:17                                    
+formatTime                                         function  src/lib/utils.ts:111:17                                    
+getStoreName                                       function  src/lib/utils.ts:116:17                                    
+isValidExternalUrl                                 function  src/lib/utils.ts:197:17                                    
+getCategoryName                                    function  src/lib/utils.ts:208:17                                    
+couponKeys                                                   src/pages/CouponManagement/hooks/useCouponCampaigns.ts:5:14
+customerKeys                                                 src/pages/CustomerManagement/hooks/useCustomerData.ts:18:14
+externalReportKeys                                           src/pages/ExternalReports/hooks/useExternalReports.ts:8:14 
+gmRequestKeys                                                src/pages/GMAvailabilityCheck/hooks/useGMRequests.ts:44:14 
+formatDateTime                                               src/pages/GMAvailabilityCheck/utils/gmFormatters.ts:48:14  
+CHECKIN_DEFAULT                                              src/pages/Manual/CheckinManual.tsx:11:14                   
+COUPON_DEFAULT                                               src/pages/Manual/CouponManual.tsx:9:14                     
+COUPON_RECEPTION_DEFAULT                                     src/pages/Manual/CouponReceptionManual.tsx:9:14            
+COUPON_TYPES_DEFAULT                                         src/pages/Manual/CouponTypeManual.tsx:8:14                 
+PRE_READING_SURVEY_DEFAULT                                   src/pages/Manual/PreReadingSurveyManual.tsx:12:14          
+RESERVATION_DEFAULT                                          src/pages/Manual/ReservationManual.tsx:7:14                
+SHIFT_DEFAULT                                                src/pages/Manual/ShiftManual.tsx:6:14                      
+SITE_OVERVIEW_DEFAULT                                        src/pages/Manual/SiteOverviewManual.tsx:6:14               
+STAFF_DEFAULT                                                src/pages/Manual/StaffManual.tsx:8:14                      
+couponsKeys                                                  src/pages/MyPage/hooks/useCouponsQuery.ts:4:14             
+likedScenariosKeys                                           src/pages/MyPage/hooks/useLikedScenariosQuery.ts:6:14      
+myPageKeys                                                   src/pages/MyPage/hooks/useMyPageDataQuery.ts:65:14         
+reservationDetailKeys                                        src/pages/MyPage/hooks/useReservationDetailQuery.ts:6:14   
+privateBookingKeys                                           …PrivateBookingManagement/hooks/useBookingRequests.ts:31:14
+usePrivateBookingData                                        …vateBookingManagement/hooks/usePrivateBookingData.ts:78:14
+formatMonthYear                                              …/PrivateBookingManagement/utils/bookingFormatters.ts:68:14
+pickGmReplyIsoString                               function  …/PrivateBookingManagement/utils/bookingFormatters.ts:77:17
+formatGmReplyReceivedAt                            function  …/PrivateBookingManagement/utils/bookingFormatters.ts:89:17
+formatTime                                                   …vateBookingRequest/utils/privateBookingFormatters.ts:49:14
+salesDataKeys                                                src/pages/SalesManagement/hooks/useSalesData.ts:63:14      
+getDifficultyStars                                 function  src/pages/ScenarioDetailPage/utils/formatters.ts:16:17     
+formatParticipationFee                             function  src/pages/ScenarioDetailPage/utils/formatters.ts:23:17     
+getPricingLabel                                    function  src/pages/ScenarioDetailPage/utils/pricingUtils.ts:122:17  
+TIME_SLOTS                                                   src/pages/ScenarioDetailPage/utils/types.ts:92:14          
+useInvalidateOrgScenarios                          function  …ioManagement/hooks/useOrganizationScenariosQuery.ts:229:17
+orgOptionsKeys                                               …cenarioManagement/hooks/useOrgScenariosForOptions.ts:14:14
+useAllScenarioStatsQuery                           function  …c/pages/ScenarioManagement/hooks/useScenarioQuery.ts:60:17
+useScenariosInfiniteQuery                          function  …c/pages/ScenarioManagement/hooks/useScenarioQuery.ts:82:17
+getStatusVariant                                   function  …pages/ScenarioManagement/utils/scenarioFormatters.ts:19:17
+formatLicenseFee                                   function  …pages/ScenarioManagement/utils/scenarioFormatters.ts:50:17
+formatGMReward                                     function  …pages/ScenarioManagement/utils/scenarioFormatters.ts:67:17
+formatGenres                                       function  …pages/ScenarioManagement/utils/scenarioFormatters.ts:78:17
+getDisplayGMs                                      function  …pages/ScenarioManagement/utils/scenarioFormatters.ts:95:17
+storeScenarioKeys                                            …/pages/StaffManagement/hooks/useStoresAndScenarios.ts:7:14
+storeKeys                                                    src/pages/StoreManagement/hooks/useStoreQuery.ts:5:14      
+getMonthRangeJST                                   function  src/utils/dateUtils.ts:48:17                               
+supportsWebP                                       function  src/utils/imageUtils.ts:87:23                              
+hiraganaToKatakana                                 function  src/utils/kanaUtils.ts:8:17                                
+katakanaToHiragana                                 function  src/utils/kanaUtils.ts:18:17                               
+normalizeForSearch                                 function  src/utils/kanaUtils.ts:29:17                               
+matchScenario                                      function  src/utils/kanaUtils.ts:63:17                               
+optimizeWeeklyTransfers                            function  src/utils/kitOptimizer.ts:404:17                           
+validateTransferPlan                               function  src/utils/kitOptimizer.ts:432:17                           
+debug                                                        src/utils/logger.ts:155:14                                 
+parseIntOrUndefined                                          src/utils/number.ts:27:14                                  
+TIME_SLOT_DEFAULTS                                           src/utils/scheduleUtils.ts:82:14                           
+maskPhone                                          function  src/utils/security.ts:26:17                                
+maskUserId                                         function  src/utils/security.ts:42:17                                
+isStaffParticipant                                 function  src/utils/staffUtils.ts:49:17                              
+extractStaffFromParticipants                       function  src/utils/staffUtils.ts:60:17                              
+toast                                                        src/utils/toast.ts:69:10                                   
+toRomaji                                           function  src/utils/toRomaji.ts:639:17                               
+Unused exported types (84)
+ScenarioEditModalProps                                interface  src/components/modals/ScenarioEditModal/types.ts:7:18  
+Column                                                interface  src/components/patterns/table/DataTable.tsx:3:18       
+DataTableProps                                        interface  src/components/patterns/table/DataTable.tsx:38:18      
+DataTableProps                                        type       src/components/patterns/table/index.ts:11:23           
+MobileColumn                                          type       src/components/patterns/table/index.ts:12:15           
+MobileResponsiveTableProps                            type       src/components/patterns/table/index.ts:12:29           
+MobileColumn                                          interface  …mponents/patterns/table/MobileResponsiveTable.tsx:3:18
+MobileResponsiveTableProps                            interface  …ponents/patterns/table/MobileResponsiveTable.tsx:46:18
+ScheduleTableModals                                   interface  src/components/schedule/ScheduleTable.tsx:56:18        
+BadgeProps                                            interface  src/components/ui/badge.tsx:39:18                      
+ButtonProps                                           interface  src/components/ui/button.tsx:37:18                     
+InputProps                                            interface  src/components/ui/input.tsx:5:18                       
+TextareaProps                                         interface  src/components/ui/textarea.tsx:5:18                    
+TimeSlot                                              type       src/constants/game.ts:17:13                            
+EventCategory                                         type       src/constants/game.ts:33:13                            
+EventStatus                                           type       src/constants/game.ts:44:13                            
+StaffStatus                                           type       src/constants/game.ts:55:13                            
+UserRole                                              type       src/constants/game.ts:66:13                            
+HourlyRate                                            interface  src/hooks/useSalarySettings.ts:6:18                    
+Author                                      storeApi  type       src/lib/api.ts:9:26                                    
+CandidateDateTime                           storeApi  type       src/lib/api.ts:17:15                                   
+GMAvailabilityResponse                      storeApi  type       src/lib/api.ts:17:34                                   
+PaginatedResponse                           storeApi  type       src/lib/api.ts:17:58                                   
+ScheduleEvent                               storeApi  type       src/lib/api.ts:18:15                                   
+TimeSlotSetting                                       interface  src/lib/api/organizationSettingsApi.ts:19:18           
+ScenarioAlias                                         interface  src/lib/api/scenarioAliasApi.ts:45:18                  
+OrganizationScenario                                  interface  src/lib/api/scenarioMasterApi.ts:42:18                 
+OrganizationScenarioWithMaster                        interface  src/lib/api/scenarioMasterApi.ts:65:18                 
+CandidateDateTime                           storeApi  interface  src/lib/api/types.ts:6:18                              
+GMAvailabilityResponse                      storeApi  interface  src/lib/api/types.ts:15:18                             
+ScheduleEvent                               storeApi  interface  src/lib/api/types.ts:23:18                             
+ApiErrorType                                          enum       src/lib/apiErrorHandler.ts:8:13                        
+ReservationSource                                     type       src/lib/constants.ts:29:13                             
+ParticipationCost                                     interface  src/lib/pricing.ts:14:18                               
+LicenseReward                                         interface  src/lib/pricing.ts:22:18                               
+GmCostEntry                                           interface  src/lib/pricing.ts:30:18                               
+PrivateBookingSlotKey                                 type       src/lib/privateBookingSlotAvailability.ts:22:15        
+PrivateBookingScenarioTimingSlice                     type       src/lib/privateBookingSlotAvailability.ts:33:13        
+PrivateGroupCandidateTimeSlot                         type       src/lib/privateGroupCandidateSlots.ts:25:13            
+PrivateGroupCandidateTimeSlotDb                       type       src/lib/privateGroupTimeSlot.ts:5:13                   
+BlockingWithdrawalReservationStatus                   type       src/lib/reservationWithdrawalGuard.ts:13:13            
+RpcCreateReservationParams                            interface  src/lib/rpcTypes.ts:14:18                              
+RpcCancelReservationParams                            interface  src/lib/rpcTypes.ts:27:18                              
+RpcCancelReservationAndGroupParams                    interface  src/lib/rpcTypes.ts:34:18                              
+RpcUpdateReservationParticipantsParams                interface  src/lib/rpcTypes.ts:40:18                              
+RpcRecalculateReservationPricesParams                 interface  src/lib/rpcTypes.ts:46:18                              
+RpcAdminDeleteReservationsBySourceParams              interface  src/lib/rpcTypes.ts:60:18                              
+RpcAdminRecalculateReservationPricesParams            interface  src/lib/rpcTypes.ts:68:18                              
+RpcChangeReservationScheduleParams                    interface  src/lib/rpcTypes.ts:73:18                              
+RpcAuthenticateGuestByPinParams                       interface  src/lib/rpcTypes.ts:111:18                             
+RpcSaveGuestAccessPinParams                           interface  src/lib/rpcTypes.ts:117:18                             
+RpcApplyCouponToGroupMemberParams                     interface  src/lib/rpcTypes.ts:122:18                             
+RpcRemoveCouponFromGroupMemberParams                  interface  src/lib/rpcTypes.ts:127:18                             
+RpcDeleteGuestMemberParams                            interface  src/lib/rpcTypes.ts:131:18                             
+RpcClearCharacterSelectionFromSurveyParams            interface  src/lib/rpcTypes.ts:136:18                             
+RpcGetGroupMembersByInviteCodeParams                  interface  src/lib/rpcTypes.ts:157:18                             
+RpcGetGroupMembersByGroupIdParams                     interface  src/lib/rpcTypes.ts:161:18                             
+RpcCheckMemberExistsParams                            interface  src/lib/rpcTypes.ts:165:18                             
+RpcGetGroupMemberCountParams                          interface  src/lib/rpcTypes.ts:171:18                             
+RpcGetAuthorByNameParams                              interface  src/lib/rpcTypes.ts:182:18                             
+RpcUpsertAuthorParams                                 interface  src/lib/rpcTypes.ts:186:18                             
+CustomerInfo                                          interface  src/pages/BookingConfirmation/types.ts:25:18           
+ProductionCostItem                                    interface  …esManagement/components/ProductionCostDialog.tsx:33:18
+AnnualData                                            interface  …/pages/SalesManagement/hooks/useAnnualAnalysis.ts:6:18
+ScenarioBadge                                         interface  …es/SalesManagement/hooks/useOpenEventAnalysis.ts:72:18
+StaffPerformanceCount                                 interface  …affManagement/hooks/useStaffPerformanceCounts.ts:20:18
+PricingModifier                                       interface  src/types/index.ts:233:18                              
+GMConfiguration                                       interface  src/types/index.ts:248:18                              
+ScheduleEvent                                         interface  src/types/index.ts:368:18                              
+User                                                  interface  src/types/index.ts:388:18                              
+StoreColorTheme                                       type       src/types/index.ts:397:13                              
+CategoryColorTheme                                    type       src/types/index.ts:405:13                              
+CustomerNotificationSettings                          interface  src/types/index.ts:535:18                              
+CandidateDatetimes                                    interface  src/types/index.ts:623:18                              
+Waitlist                                              interface  src/types/index.ts:658:18                              
+ScheduleEventWithReservations                         interface  src/types/index.ts:678:18                              
+KitDemand                                             interface  src/types/index.ts:779:18                              
+PrivateGroupMemberStatus                              type       src/types/index.ts:902:13                              
+InvitationStatus                                      type       src/types/index.ts:1002:13                             
+SurveyQuestionType                                    type       src/types/index.ts:1031:13                             
+SurveyQuestionOption                                  interface  src/types/index.ts:1034:18                             
+SurveyResponse                                        interface  src/types/index.ts:1053:18                             
+DividerContent                                        type       src/types/manual.ts:79:13                              
+ScheduleWarningReason                                 type       src/utils/scheduleWarnings.ts:13:13                    
+Duplicate exports (11)
+OptimizedImage|default       src/components/ui/optimized-image.tsx               
+AccountManagement|default    src/pages/AccountManagement/index.tsx               
+CouponManagement|default     src/pages/CouponManagement/index.tsx                
+ComponentGallery|default     src/pages/dev/ComponentGallery.tsx                  
+DesignPreview|default        src/pages/dev/DesignPreview.tsx                     
+ForBusinessPage|default      src/pages/ForBusiness/index.tsx                     
+LandingPage|default          src/pages/LandingPage/index.tsx                     
+NotFoundPage|default         src/pages/NotFoundPage.tsx                          
+ScenarioMasterAdmin|default  src/pages/ScenarioMasterAdmin/index.tsx             
+ScenarioMasterEdit|default   src/pages/ScenarioMasterAdmin/ScenarioMasterEdit.tsx
+Settings|default             src/pages/Settings/index.tsx                        
+Configuration hints (3)
+. (root)        knip.json  Add entry and/or refine project files (69 unused files)
+src/dev/**      knip.json  Remove from ignore                                     
+src/main.tsx    knip.json  Remove redundant entry pattern                         

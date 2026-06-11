@@ -1,27 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
-import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { resolveOrgIdFromPageContext } from '@/lib/organization'
 
-async function resolveOrgId(): Promise<string | null> {
-  const orgId = await getCurrentOrganizationId()
-  if (orgId) return orgId
-  // 1. パスの先頭セグメント（例: /queens-waltz/private-booking-request）
-  const slug = getOrganizationSlugFromPath()
-  if (slug) {
-    const org = await getOrganizationBySlug(slug)
-    if (org?.id) return org.id
-  }
-  // 2. ?org= クエリパラメータ（例: /group/create?org=queens-waltz）
-  const orgParam = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('org')
-    : null
-  if (orgParam) {
-    const org = await getOrganizationBySlug(orgParam)
-    if (org?.id) return org.id
-  }
-  return null
-}
+// ページの組織コンテキスト（URLスラッグ / ?org=）を最優先で解決する。
+// ログインユーザーの所属組織を優先すると、組織スタッフが他組織のページから
+// 申し込んだ際に自組織へ紐づいてしまうため必ずこちらを使う。
+const resolveOrgId = resolveOrgIdFromPageContext
 import { logger } from '@/utils/logger'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
