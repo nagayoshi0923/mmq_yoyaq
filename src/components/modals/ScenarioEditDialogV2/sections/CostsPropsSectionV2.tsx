@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2, TrendingUp, Package } from 'lucide-react'
-import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { parseIntSafe } from '@/utils/number'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
 

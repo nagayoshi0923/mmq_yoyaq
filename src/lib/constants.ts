@@ -59,8 +59,3 @@ export const STAFF_RESERVATION_SOURCES = [
 /** 自動管理されるスタッフ予約（GMスタッフ欄から自動作成・削除される） */
 export const AUTO_MANAGED_STAFF_SOURCES = [RESERVATION_SOURCE.STAFF_ENTRY] as const
 
-/** デモ系予約ソース */
-export const DEMO_RESERVATION_SOURCES = [
-  RESERVATION_SOURCE.DEMO,
-  RESERVATION_SOURCE.DEMO_AUTO,
-] as const

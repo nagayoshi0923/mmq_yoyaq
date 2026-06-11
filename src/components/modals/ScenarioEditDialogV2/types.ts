@@ -1,15 +1,8 @@
 /**
- * ScenarioEditModal で使用する型定義
+ * ScenarioEditDialogV2 で使用する型定義
  */
 
 import type { Scenario, FlexiblePricing } from '@/types'
-
-export interface ScenarioEditModalProps {
-  scenario: Scenario | null
-  isOpen: boolean
-  onClose: () => void
-  onSave: (scenario: Scenario) => void
-}
 
 export interface ScenarioFormData {
   title: string

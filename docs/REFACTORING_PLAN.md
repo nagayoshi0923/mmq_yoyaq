@@ -54,17 +54,25 @@
       knip 再実行で未使用ファイル 0件。
       ※ 既存 lint error 3件（PerformanceModal の直接delete / StaffProfile の冗長Boolean×2）は
       今回のスコープ外として残置 — 別作業で修正すること
-- [ ] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住し、
-      旧ディレクトリを完全消滅（import パス書き換えのみ）
+- [x] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住（**完了**）
+      旧 ScenarioEditModal ディレクトリは完全消滅。未使用の ScenarioEditModalProps も削除。
 
 ## Phase 2: 型と定数の整理
 
 リスク: 低 / 規模: 小〜中（3〜5コミット）
 
-- [ ] 2-1 `types/index.ts`（1,082行）をドメイン分割
-      （organization / scenario / reservation / schedule / staff / auth。index.ts は re-export バレルとして残す）
-- [ ] 2-2 分割過程で見えたドメイン間の不自然な依存をメモ化（Phase 4 以降の指針）
-- [ ] 2-3 散在する status / option 系定数の置き場統一
+- [x] 2-1 `types/index.ts`（1,082行）をドメイン分割（**完了**: 15ドメインファイル + 21行のバレル）
+      organization / license / store / staff / scenario / scheduleEvent / user / sales /
+      customer / reservation / kit / coupon / privateGroup / survey / blog。
+      既存 import は無変更で動作（バレル re-export 方式）。
+      ⚠️ 発見: `ScheduleEvent` が二重定義（旧index由来の簡易版 → scheduleEvent.ts /
+      既存 types/schedule.ts の詳細版）。同名別定義の統合は Phase 4 で扱う。
+- [x] 2-2 依存メモ（**完了**）: 最大の発見は `ScheduleEvent` の二重定義（2-1参照、Phase 4で統合）。
+      その他のドメイン間参照（coupon→reservation / kit→scenario,store / license→organization,scenario,staff /
+      reservation→customer,scheduleEvent / survey→privateGroup）は自然な依存で問題なし
+- [x] 2-3 定数整理（**完了**）: V1遺物の未使用定数（genreOptions / TIME_SLOTS / GM_ROLES /
+      DEMO_RESERVATION_SOURCES）と AppRoot の迷い再export を削除。
+      shadcn系UIプリミティブの未使用exportは標準ライブラリ面として残置
 
 ## Phase 3: 散在する状態管理の統一
 
