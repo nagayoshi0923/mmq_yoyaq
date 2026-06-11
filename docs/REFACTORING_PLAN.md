@@ -36,9 +36,10 @@
 リスク: 低 / 規模: 中（5〜8コミット、推定 -4,000〜6,000行）
 
 - [x] 1-1 シナリオ編集 V0/V1 + `pages/ScenarioEdit/` 削除（**完了**: ec3c219a, -5,490行）
-- [ ] 1-2 旧シナリオ管理UI削除: `ENABLE_LEGACY_SCENARIO_UI=false` 系統
-      （`tableColumns.tsx` 559行 / `ScenarioTableRow.tsx` 197行 / `ScenarioTableHeader.tsx` 126行 /
-      `useScenarioData.ts` 179行 / `index.tsx` 内の分岐・uiMode 関連）約 -1,200行
+- [x] 1-2 旧シナリオ管理UI削除: `ENABLE_LEGACY_SCENARIO_UI=false` 系統（**完了**）
+      （`tableColumns.tsx` / `ScenarioTableRow.tsx` / `ScenarioTableHeader.tsx` / `useScenarioData.ts` /
+      `ScenarioStats.tsx` / `ScenarioFilters.tsx` / `scenarioFormatters.ts` ＋ `index.tsx` の分岐除去 722→280行。
+      ※ `useScenarioFilters` フックは編集ダイアログの前後ナビゲーション用に存続）
 - [ ] 1-3 重複クエリフックの監査（`useScenarioQuery.ts` 内 deprecated `useScenariosQuery` 等）
 - [ ] 1-4 knip 検出分の削除（1領域=1コミット）
 - [ ] 1-5 `ScenarioEditModal/types.ts`・`utils/constants.ts` を `ScenarioEditDialogV2/` 配下へ移住し、
