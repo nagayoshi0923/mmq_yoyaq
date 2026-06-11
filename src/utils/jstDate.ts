@@ -9,6 +9,12 @@
  *
  * 入力の揺れ（日付のみ / オフセット付きISO / UTC / オフセット無し / Date）を吸収し、
  * 必ず Asia/Tokyo の暦日・時刻で整形する。
+ *
+ * ── 顧客向けページの表示ルール（2026-06 統一） ──────────────
+ *   これからの公演日（一覧・カード）   → formatJstMonthDay(date, true)  例: 7/1(火)
+ *   詳細・確認画面の公演日             → formatJstDateJa(date, true)    例: 2026年7月1日(火)
+ *   履歴・期限・登録日など年が重要な日付 → formatJstDateJa(date)          例: 2026年7月1日
+ *   「2026/07/01」形式(formatJstYmd)は顧客向け画面では使わない（CSV等のデータ用途のみ）
  */
 
 const JST = 'Asia/Tokyo'

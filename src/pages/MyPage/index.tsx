@@ -20,7 +20,7 @@ import type { Reservation, Store } from '@/types'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { RESERVATION_SOURCE } from '@/lib/constants'
-import { formatJstDateJa, formatJstMonthDay, formatJstYmd } from '@/utils/jstDate'
+import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
 
 const SettingsPage = lazyWithRetry(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
@@ -490,11 +490,6 @@ export default function MyPage() {
     setIsEditDialogOpen(true)
   }
 
-  // 日付フォーマット
-  const formatDate = (dateString: string) => {
-    return formatJstDateJa(dateString, true)
-  }
-
   const formatTime = (dateString: string) => {
     const timeMatch = dateString.match(/T(\d{2}):(\d{2})/)
     if (timeMatch) return `${timeMatch[1]}:${timeMatch[2]}`
@@ -562,11 +557,6 @@ export default function MyPage() {
       date: dateMatch ? dateMatch[1] : reservation.requested_datetime.split('T')[0],
       time: timeMatch ? timeMatch[1] : ''
     }
-  }
-
-  // 公演日をフォーマット
-  const formatPerformanceDate = (dateStr: string) => {
-    return formatJstDateJa(dateStr, true)
   }
 
   // 日数計算
@@ -1631,7 +1621,7 @@ export default function MyPage() {
                           ) : (
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-gray-700">
-                                {editingScenario.date ? formatJstYmd(editingScenario.date) : '日付不明'}
+                                {editingScenario.date ? formatJstDateJa(editingScenario.date) : '日付不明'}
                               </span>
                               <Button
                                 size="sm"
