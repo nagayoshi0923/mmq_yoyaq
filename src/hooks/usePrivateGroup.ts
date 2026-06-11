@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
-import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
 import {
@@ -229,25 +228,10 @@ export function usePrivateGroup() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('ログインが必要です')
 
-      let organizationId = await getCurrentOrganizationId()
-      if (!organizationId) {
-        // 1. パスの先頭セグメントからスラッグを解決（例: /queens-waltz/private-booking-request）
-        const slug = getOrganizationSlugFromPath()
-        if (slug) {
-          const org = await getOrganizationBySlug(slug)
-          organizationId = org?.id ?? null
-        }
-      }
-      if (!organizationId) {
-        // 2. ?org= クエリパラメータから解決（例: /group/create?org=queens-waltz）
-        const orgParam = typeof window !== 'undefined'
-          ? new URLSearchParams(window.location.search).get('org')
-          : null
-        if (orgParam) {
-          const org = await getOrganizationBySlug(orgParam)
-          organizationId = org?.id ?? null
-        }
-      }
+      // ページの組織コンテキスト（URLスラッグ / ?org=）を最優先で解決する。
+      // ログインユーザーの所属組織を優先すると、組織スタッフが他組織のページから
+      // グループを作った際に自組織へ紐づいてしまう（予約も同じ組織に作られるため事故になる）。
+      const organizationId = await resolveOrgIdFromPageContext()
       if (!organizationId) throw new Error('組織情報が取得できません')
 
       let inviteCode = await generateInviteCode()

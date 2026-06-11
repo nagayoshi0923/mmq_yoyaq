@@ -3,6 +3,7 @@
  */
 import { logger } from '@/utils/logger'
 import { supabase } from './supabase'
+import { getOrganizationSlugFromPath } from './publicBookingPath'
 import type { Organization, Staff } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
@@ -366,3 +367,30 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
   return org
 }
 
+
+/**
+ * 予約・貸切グループ作成など「ページの組織コンテキスト」で動くべきフローの組織解決。
+ *
+ * ログインユーザーの所属組織より、URL（パス先頭スラッグ / ?org= パラメータ）を優先する。
+ * 優先順位を逆にすると、組織スタッフ・管理者が他組織の公開予約ページから申し込んだ際に
+ * 申込が自組織へ紐づいてしまう（2026-06-11 に staging で実発生したマルチテナント事故）。
+ * 顧客（users.organization_id = NULL のプラットフォーム顧客）はどちらの順でも URL 解決になる。
+ */
+export async function resolveOrgIdFromPageContext(): Promise<string | null> {
+  // 1. パス先頭の組織スラッグ（例: /queens-waltz/private-booking-request）
+  const slug = getOrganizationSlugFromPath()
+  if (slug) {
+    const org = await getOrganizationBySlug(slug)
+    if (org?.id) return org.id
+  }
+  // 2. ?org= クエリパラメータ（例: /group/create?org=queens-waltz）
+  const orgParam = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('org')
+    : null
+  if (orgParam) {
+    const org = await getOrganizationBySlug(orgParam)
+    if (org?.id) return org.id
+  }
+  // 3. フォールバック: ログインユーザーの所属組織
+  return getCurrentOrganizationId()
+}
