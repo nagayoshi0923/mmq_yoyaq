@@ -10,7 +10,7 @@ import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
-import { formatJstMonthDay, toJstYmd } from '@/utils/jstDate'
+import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 
 // 分離された型定義
 import { calculateParticipationFee } from './utils/pricingUtils'
@@ -603,7 +603,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           return (
                             <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
                               <span className="text-purple-900 flex-1 min-w-0 pr-2">
-                                {index + 1}. {formatJstMonthDay(item.date, true)} {item.slot.label}{' '}
+                                {index + 1}. {formatJstDateJa(item.date, true)} {item.slot.label}{' '}
                                 {item.slot.startTime}〜{item.slot.endTime}
                               </span>
                               <Button

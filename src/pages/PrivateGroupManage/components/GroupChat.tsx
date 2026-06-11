@@ -12,7 +12,7 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
-import { formatJstMonthDay, getJstParts, formatJstTime } from '@/utils/jstDate'
+import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
 
 interface SystemMessage {
   type: 'system'
@@ -622,7 +622,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
   // 候補日を見やすい形式に整形
   const formatCandidateDate = (dateStr: string, timeSlot: string) => {
-    return `${formatJstMonthDay(dateStr, true)} ${timeSlot}`
+    return `${formatJstDateJa(dateStr, true)} ${timeSlot}`
   }
 
   if (loading) {
