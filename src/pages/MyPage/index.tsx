@@ -20,7 +20,7 @@ import type { Reservation, Store } from '@/types'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { RESERVATION_SOURCE } from '@/lib/constants'
-import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 const SettingsPage = lazyWithRetry(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
@@ -957,7 +957,7 @@ export default function MyPage() {
                       
                       // 候補日をフォーマット（最初の3件まで表示）
                       const formatCandidateDate = (date: string, timeSlot: string) => {
-                        return `${formatJstMonthDay(date, true)} ${timeSlot}`
+                        return `${formatJstDateJa(date, true)} ${timeSlot}`
                       }
                       const candidates = candidateDatetimes?.candidates || []
                       const displayCandidates = candidates.slice(0, 3)
@@ -1054,7 +1054,7 @@ export default function MyPage() {
                                 <span>{reservation.participant_count}名</span>
                                 <span>•</span>
                                 <span>
-                                  {`${formatJstMonthDay(reservation.created_at)} 申込`}
+                                  {`${formatJstDateJa(reservation.created_at)} 申込`}
                                 </span>
                               </div>
                             </div>
@@ -1100,7 +1100,7 @@ export default function MyPage() {
                       const isPrivate = eventId ? scheduleEvents[eventId]?.category === 'private' : false
                       
                       // 日付を短くフォーマット（1/11(日)）
-                      const shortDate = formatJstMonthDay(perf.date, true)
+                      const shortDate = formatJstDateJa(perf.date, true)
                       
                       return (
                         <div 

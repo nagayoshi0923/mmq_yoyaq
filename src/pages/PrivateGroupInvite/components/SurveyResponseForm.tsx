@@ -11,7 +11,7 @@ import { ClipboardList, Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
-import { formatJstMonthDay } from '@/utils/jstDate'
+import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
 import type { SurveyQuestion } from '@/types'
 
 interface SurveyResponseFormProps {
@@ -174,7 +174,7 @@ export function SurveyResponseForm({
   }, [questions, responses, existingResponseId, groupId, memberId])
 
   const formatDeadline = (date: Date) => {
-    return formatJstMonthDay(date, true)
+    return formatJstDateJa(date, true)
   }
 
   if (loading) {

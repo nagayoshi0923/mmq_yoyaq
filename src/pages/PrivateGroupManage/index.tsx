@@ -32,7 +32,7 @@ import { GroupChat } from './components/GroupChat'
 import { UserSearchInvite } from './components/UserSearchInvite'
 import { AddCandidateDates } from './components/AddCandidateDates'
 import { logger } from '@/utils/logger'
-import { formatJstMonthDay, getJstParts } from '@/utils/jstDate'
+import { formatJstDateJa, getJstParts } from '@/utils/jstDate'
 
 export function PrivateGroupManage() {
   const navigate = useNavigate()
@@ -66,7 +66,7 @@ export function PrivateGroupManage() {
   const [activeTab, setActiveTab] = useState('chat')
 
   const formatDate = (dateStr: string) => {
-    return formatJstMonthDay(dateStr, true)
+    return formatJstDateJa(dateStr, true)
   }
 
   const getInviteUrl = () => {
