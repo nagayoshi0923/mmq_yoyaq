@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "api/**/*.ts",
+    "supabase/functions/*/index.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "api/**/*.ts"
+  ],
+  "ignore": [
+    "src/dev/**",
+    "supabase/functions/**"
+  ],
+  "ignoreDependencies": []
+}
