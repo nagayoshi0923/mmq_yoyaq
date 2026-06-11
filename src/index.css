@@ -280,21 +280,6 @@ html, body {
   body.dev-mode [data-db]:hover::after {
     opacity: 1;
   }
-  
-  body.dev-mode::after {
-    content: "🛠️ DEV";
-    position: fixed;
-    bottom: 8px;
-    right: 8px;
-    padding: 4px 10px;
-    background: #7c3aed;
-    color: white;
-    font-size: 10px;
-    font-weight: 600;
-    border-radius: 4px;
-    z-index: 99999;
-    pointer-events: none;
-  }
 }
 
 @keyframes sidebar-items-in {
