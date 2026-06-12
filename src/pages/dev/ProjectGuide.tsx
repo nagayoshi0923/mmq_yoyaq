@@ -61,16 +61,19 @@ const remaining = [
 ]
 
 export function ProjectGuide() {
-  const { user } = useAuth()
-  const { organizationId } = useOrganization()
+  const { user, loading: authLoading } = useAuth()
+  const { organizationId, isLoading: orgLoading } = useOrganization()
   const navigate = useNavigate()
-  const allowed = checkIsLicenseAdmin(user?.role, organizationId)
+  // 認証・組織情報のロード完了前に判定するとロード中=権限なしと誤判定して
+  // リダイレクトしてしまうため、必ず両方の完了を待つ
+  const ready = !authLoading && !orgLoading
+  const allowed = ready && checkIsLicenseAdmin(user?.role, organizationId)
 
   useEffect(() => {
-    if (user !== undefined && !allowed) navigate('/', { replace: true })
-  }, [user, allowed, navigate])
+    if (ready && !allowed) navigate('/', { replace: true })
+  }, [ready, allowed, navigate])
 
-  if (!allowed) return null
+  if (!ready || !allowed) return null
 
   return (
     <div className="min-h-screen bg-gray-50">
