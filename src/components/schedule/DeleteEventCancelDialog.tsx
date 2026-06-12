@@ -59,7 +59,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
         {step === 'confirm' ? (
           <>
             <DialogHeader>
-              <DialogTitle>公演の削除 — 予約のキャンセル確認</DialogTitle>
+              <DialogTitle>公演の削除（1/2）— 予約のキャンセル確認</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
@@ -79,21 +79,25 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                   ))}
                 </ul>
               </div>
+
+              <p className="text-xs text-muted-foreground">
+                ※ まだ実行されません。次の画面でキャンセルメールを送るかどうかを選んでから実行します。
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => onResolve(null)}>
                 やめる
               </Button>
-              <Button variant="destructive" onClick={() => setStep('mail')}>
-                すべてキャンセルして削除する
+              <Button onClick={() => setStep('mail')}>
+                次へ：メール送信の選択
               </Button>
             </div>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>キャンセルメールの送信確認</DialogTitle>
+              <DialogTitle>公演の削除（2/2）— メール送信の確認</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
@@ -131,6 +135,13 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                 >
                   キャンセル確認メールを送信する
                 </label>
+              </div>
+
+              {/* 実行内容のまとめ（赤いボタンの直前に「何が起きるか」を明示） */}
+              <div className="rounded-md border bg-muted/50 p-2 text-xs text-muted-foreground">
+                実行すると:
+                <br />・予約 {prompt?.count ?? 0} 件をキャンセル（メール送信{sendMail ? 'あり' : 'なし'}・記録は残ります）
+                <br />・この公演を削除（履歴に記録されます）
               </div>
 
               <div className="flex justify-end gap-2">
