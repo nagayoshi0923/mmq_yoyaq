@@ -17,6 +17,7 @@ import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { showToast } from '@/utils/toast'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
 
 function addMinutesToTime(time: string, minutes: number): string {
@@ -471,9 +472,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           throw rejectSyncError
         }
         logger.log('グループを date_adjusting・候補日を rejected に同期:', reservation.private_group_id)
-        
-        // 却下通知を送信
-        {
+
+        // 却下通知（チャット・メール）はバックグラウンドで送信し、画面は即時更新する
+        // （従来は直列で20秒以上かかり、その間UIが無反応で「何も起きていない」ように見えた）
+        ;(async () => {
           // 候補日時を取得（メール・チャットメッセージ両方で使用）
           const candidateDates = reservation?.candidate_datetimes?.candidates?.map((c: any) => ({
             date: c.date,
@@ -563,15 +565,24 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           } else {
             logger.warn('却下メール送信スキップ: メールアドレスまたは顧客名が取得できませんでした', { rejectCustomerEmail, rejectCustomerName })
           }
-        }
+        })().catch(err => {
+          logger.error('却下通知のバックグラウンド処理エラー:', err)
+          showToast.warning('却下は完了しましたが、お客様への通知送信に失敗した可能性があります', '貸切管理から個別にご連絡ください')
+        })
       }
 
       setRejectionReason('')
       setShowRejectDialog(false)
       setRejectRequestId(null)
-      onSuccess()
+      showToast.success('貸切リクエストを却下しました', 'お客様への却下連絡はバックグラウンドで送信されます')
+      await onSuccess()
     } catch (error) {
       logger.error('却下エラー:', error)
+      showToast.error(getSafeErrorMessage(error, '却下処理でエラーが発生しました'))
+      // 部分的に処理が進んでいる可能性があるため、一覧を実態に同期する
+      setShowRejectDialog(false)
+      setRejectRequestId(null)
+      await onSuccess()
     } finally {
       setSubmitting(false)
     }
