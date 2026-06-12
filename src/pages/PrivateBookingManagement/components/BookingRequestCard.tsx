@@ -374,8 +374,10 @@ export const BookingRequestCard = ({
                 const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
                 const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
                 const isReservationConfirmed = request.status === 'confirmed'
+                // 確定後キャンセル: どの日程で確定していたかは candidate.status に残っている
+                const isCancelledAfterConfirm = request.status === 'cancelled' && !!request.approver_name
                 const isThisCandidateChosen = candidate.status === 'confirmed'
-                const isThisDimmed = isReservationConfirmed && !isThisCandidateChosen
+                const isThisDimmed = (isReservationConfirmed || isCancelledAfterConfirm) && !isThisCandidateChosen
                 const isThisSelected = selectedCandidateOrder === candidate.order
                 const clickable = !!onSelectCandidate
 
@@ -393,6 +395,8 @@ export const BookingRequestCard = ({
                           ? 'border-purple-400 bg-purple-50 rounded-b-none'
                           : isReservationConfirmed && isThisCandidateChosen
                           ? 'border-green-400 bg-green-50 ring-2 ring-green-300 font-medium'
+                          : isCancelledAfterConfirm && isThisCandidateChosen
+                          ? 'border-red-300 bg-red-50/60 font-medium'
                           : isThisDimmed
                           ? 'border-gray-200 bg-gray-50/60 text-gray-400 opacity-60'
                           : isReservationConfirmed && isGMAvailable
@@ -406,6 +410,8 @@ export const BookingRequestCard = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         {isReservationConfirmed && isThisCandidateChosen
                           ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          : isCancelledAfterConfirm && isThisCandidateChosen
+                          ? <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                           : isThisDimmed
                           ? <XCircle className="w-4 h-4 text-gray-300 shrink-0" />
                           : isReservationConfirmed && isGMAvailable
@@ -413,10 +419,13 @@ export const BookingRequestCard = ({
                           : isThisSelected
                           ? <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
                           : <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />}
-                        <span className={cn('font-medium', isThisDimmed && 'line-through')}>{formatDate(candidate.date)}</span>
+                        <span className={cn('font-medium', (isThisDimmed || (isCancelledAfterConfirm && isThisCandidateChosen)) && 'line-through')}>{formatDate(candidate.date)}</span>
                         <span className="text-muted-foreground text-xs whitespace-nowrap">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
                         {isReservationConfirmed && isThisCandidateChosen && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-green-600 text-white font-semibold">確定</span>
+                        )}
+                        {isCancelledAfterConfirm && isThisCandidateChosen && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white font-semibold">確定→キャンセル</span>
                         )}
                         {availableStores && availableStores.length === 0 && (
                           <span className="text-xs text-red-500">空き店舗なし</span>
