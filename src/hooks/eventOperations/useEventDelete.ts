@@ -102,6 +102,32 @@ async function deletePrivateBookingEventCore(
     reservation?.schedule_event_id ||
     (isRealScheduleEventId(targetEvent.id) ? targetEvent.id : null)
 
+  // 🛡 安全ガード（F-1統合フロー実装までの暫定）:
+  // 主予約以外に有効な参加予約が残っている場合は削除を拒否する。
+  // ここで削除すると参加予約が公演リンクを失って孤児化し、通知も飛ばないため。
+  if (scheduleEventId) {
+    let participantsQuery = supabase
+      .from('reservations')
+      .select('id')
+      .eq('schedule_event_id', scheduleEventId)
+      .neq('status', 'cancelled')
+      .neq('id', reservationId)
+    if (organizationId) {
+      participantsQuery = participantsQuery.eq('organization_id', organizationId)
+    }
+    const { data: activeParticipants, error: participantsError } = await participantsQuery
+    if (participantsError) {
+      logger.error('参加予約チェックエラー:', participantsError)
+      throw new Error('参加予約の確認に失敗しました')
+    }
+    if (activeParticipants && activeParticipants.length > 0) {
+      throw new Error(
+        `この貸切公演には${activeParticipants.length}件の有効な参加予約が残っています。` +
+        '先に予約一覧（予約者バッジ）から全員をキャンセルしてください。全員キャンセル後に削除確認が表示されます。'
+      )
+    }
+  }
+
   // ① スナップショットは mutation の前に取得（履歴の空振り防止）
   const snapshot = scheduleEventId && organizationId
     ? await fetchEventSnapshot(scheduleEventId, organizationId)
