@@ -238,13 +238,7 @@ export function useEventOperations({
   // 中止ダイアログ状態
   // 中止・復活操作はサブフックへ分割（Phase 4-3）
   const {
-    isCancelDialogOpen,
-    setIsCancelDialogOpen,
-    cancellingEvent,
-    cancellationReason,
-    setCancellationReason,
     handleCancelConfirmPerformance,
-    handleConfirmCancel,
     handleUncancelPerformance,
     cancelEventPrompt,
     resolveCancelEventPrompt,
@@ -1748,12 +1742,6 @@ export function useEventOperations({
     isDeleteDialogOpen,
     deletingEvent,
 
-    // 中止ダイアログ状態
-    isCancelDialogOpen,
-    cancellingEvent,
-    cancellationReason,
-    setCancellationReason,
-    
     // 公開ダイアログ状態
     isPublishDialogOpen,
     publishingEvent,
@@ -1783,7 +1771,6 @@ export function useEventOperations({
     deleteCancelPrompt,
     resolveDeleteCancelPrompt,
     handleCancelConfirmPerformance,
-    handleConfirmCancel,
     handleUncancelPerformance,
     cancelEventPrompt,
     resolveCancelEventPrompt,
@@ -1795,7 +1782,6 @@ export function useEventOperations({
     
     // ダイアログクローズ
     setIsDeleteDialogOpen,
-    setIsCancelDialogOpen,
     setIsPublishDialogOpen,
     setIsConflictWarningOpen,
     setConflictInfo,

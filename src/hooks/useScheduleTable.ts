@@ -165,11 +165,6 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         isDeleteDialogOpen: eventOperations.isDeleteDialogOpen,
         onCloseDeleteDialog: () => eventOperations.setIsDeleteDialogOpen(false),
         onConfirmDelete: eventOperations.handleConfirmDelete,
-        isCancelDialogOpen: eventOperations.isCancelDialogOpen,
-        onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
-        onConfirmCancel: eventOperations.handleConfirmCancel,
-        cancellationReason: eventOperations.cancellationReason,
-        onCancellationReasonChange: eventOperations.setCancellationReason,
         // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
         deleteCancelPrompt: eventOperations.deleteCancelPrompt,
         onResolveDeleteCancelPrompt: eventOperations.resolveDeleteCancelPrompt,
@@ -264,11 +259,6 @@ export function useScheduleTableModals(currentDate: Date) {
       isDeleteDialogOpen: eventOperations.isDeleteDialogOpen,
       onCloseDeleteDialog: () => eventOperations.setIsDeleteDialogOpen(false),
       onConfirmDelete: eventOperations.handleConfirmDelete,
-      isCancelDialogOpen: eventOperations.isCancelDialogOpen,
-      onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
-      onConfirmCancel: eventOperations.handleConfirmCancel,
-      cancellationReason: eventOperations.cancellationReason,
-      onCancellationReasonChange: eventOperations.setCancellationReason,
       // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
       deleteCancelPrompt: eventOperations.deleteCancelPrompt,
       onResolveDeleteCancelPrompt: eventOperations.resolveDeleteCancelPrompt,

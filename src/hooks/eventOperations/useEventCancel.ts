@@ -5,8 +5,7 @@
  *     有効予約あり: F-1 と同じ2ステップダイアログ（①キャンセル確認 → ②メール送信
  *       確認）→ 一括キャンセル＋中止。従来の中止確認モーダルは出さない
  *       （削除フローと作法を統一・オーナー指示 2026-06-13）
- *     有効予約なし: 従来の中止確認モーダル（理由入力つき）を開く
- * - handleConfirmCancel: 中止確認モーダル（予約ゼロ経路）からの実行
+ *     有効予約なし: 確認ダイアログなしで即中止（復活できる操作のため・同日指示）
  * - executeCancelPerformance: 中止の実体
  *     貸切: 予約をキャンセル（メールあり: reservationApi.cancel / なし: cancelWithLock）
  *     通常: scheduleApi.toggleCancel で中止化 + 紐づく予約のキャンセル
@@ -41,10 +40,6 @@ interface UseEventCancelProps {
 }
 
 export function useEventCancel({ setEvents, organizationId, fetchSchedule }: UseEventCancelProps) {
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
-  const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
-  const [cancellationReason, setCancellationReason] = useState('')
-
   // F-1 と同型の2ステップ確認ダイアログ（variant: 'cancel'）。
   // Promise の resolver は ref に保持（useEventDelete と同じパターン）
   const [cancelEventPrompt, setCancelEventPrompt] = useState<DeleteCancelPrompt | null>(null)
@@ -214,17 +209,34 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
   }, [setEvents, organizationId])
 
   // 中止の入口（右クリックメニュー等から）。
-  // 有効予約がある場合は従来の中止確認モーダルを出さず、削除（F-1）と同じ
+  // 有効予約がある場合は削除（F-1）と同じ
   //   ① 予約キャンセルの確認 → ② メール送信の確認 → 一括キャンセル → 中止実行
-  // の2ステップダイアログを通す。予約ゼロのときだけ従来の確認モーダル。
+  // の2ステップダイアログを通す。予約ゼロのときは確認ダイアログなしで即中止
+  // （中止は復活できる操作のため・オーナー指示 2026-06-13）。
   const handleCancelConfirmPerformance = useCallback(async (event: ScheduleEvent) => {
     try {
-      const active = await fetchActiveReservations(event, organizationId)
+      let active = await fetchActiveReservations(event, organizationId)
+
+      // 未承認の貸切リクエスト（実公演がまだ無い擬似イベント）は schedule_event_id
+      // からは予約を辿れないが、申込者本人が有効な予約として存在する。
+      // 数え漏らすと申込者がいるのに無確認・メールなしで中止されてしまう。
+      if (active.length === 0 && event.is_private_request && event.reservation_id) {
+        let mainQuery = supabase
+          .from('reservations')
+          .select('id, customer_name, customer_email')
+          .eq('id', event.reservation_id)
+          .neq('status', 'cancelled')
+        if (organizationId) {
+          mainQuery = mainQuery.eq('organization_id', organizationId)
+        }
+        const { data: mainReservation } = await mainQuery.maybeSingle()
+        if (mainReservation) active = [mainReservation]
+      }
+
       if (active.length === 0) {
-        // 予約なし: 従来どおりの中止確認モーダル（理由入力つき）
-        setCancellingEvent(event)
-        setCancellationReason('')  // リセット
-        setIsCancelDialogOpen(true)
+        // 予約なし: 確認ダイアログなしで即中止（復活可能なので軽い操作でよい）
+        await executeCancelPerformance(event, DEFAULT_CANCELLATION_REASON, false)
+        showToast.success('公演を中止しました')
         return
       }
       // 予約あり: 2ステップダイアログが中止の確定を兼ねる
@@ -245,23 +257,6 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       showToast.error(getSafeErrorMessage(error, '公演の中止処理に失敗しました'))
     }
   }, [organizationId, askCancelDecision, executeCancelPerformance])
-
-  // 中止確認モーダル（予約ゼロ経路）からの実行
-  const handleConfirmCancel = useCallback(async () => {
-    if (!cancellingEvent) return
-
-    try {
-      const reason = cancellationReason || DEFAULT_CANCELLATION_REASON
-      await executeCancelPerformance(cancellingEvent, reason, true)
-      showToast.success('公演を中止しました')
-    } catch (error) {
-      logger.error('公演中止エラー:', error)
-      showToast.error(getSafeErrorMessage(error, '公演の中止処理に失敗しました'))
-    } finally {
-      setIsCancelDialogOpen(false)
-      setCancellingEvent(null)
-    }
-  }, [cancellingEvent, cancellationReason, executeCancelPerformance])
 
   // 公演をキャンセル解除
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {
@@ -333,13 +328,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
   }, [setEvents, organizationId])
 
   return {
-    isCancelDialogOpen,
-    setIsCancelDialogOpen,
-    cancellingEvent,
-    cancellationReason,
-    setCancellationReason,
     handleCancelConfirmPerformance,
-    handleConfirmCancel,
     handleUncancelPerformance,
     // F-1 と同型の2ステップ確認ダイアログ（DeleteEventCancelDialog に渡す）
     cancelEventPrompt,

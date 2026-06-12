@@ -1705,11 +1705,6 @@ export function ScheduleManager() {
         onConfirmDelete={modals.scheduleDialogs.onConfirmDelete}
         deleteCancelPrompt={modals.scheduleDialogs.deleteCancelPrompt}
         onResolveDeleteCancelPrompt={modals.scheduleDialogs.onResolveDeleteCancelPrompt}
-        isCancelDialogOpen={modals.scheduleDialogs.isCancelDialogOpen}
-        onCloseCancelDialog={modals.scheduleDialogs.onCloseCancelDialog}
-        onConfirmCancel={modals.scheduleDialogs.onConfirmCancel}
-        cancellationReason={modals.scheduleDialogs.cancellationReason}
-        onCancellationReasonChange={modals.scheduleDialogs.onCancellationReasonChange}
         cancelEventPrompt={modals.scheduleDialogs.cancelEventPrompt}
         onResolveCancelEventPrompt={modals.scheduleDialogs.onResolveCancelEventPrompt}
         isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen ?? false}
