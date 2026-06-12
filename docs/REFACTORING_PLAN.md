@@ -92,11 +92,14 @@
 
 リスク: 高（スケジュール管理は業務の中核） / 規模: 大（8〜12コミット）
 
-- [ ] 4-1 `useEventOperations.ts`（2,422行）の依存マップ作成（コードを変える前に呼び出し元一覧）
+- [x] 4-1 依存マップ作成（**完了**: `docs/refactoring/useEventOperations-map.md`）
+      呼び出し元は useScheduleTable（2箇所）と DashboardHome（サブセット利用）のみ。
+      最難関は doSavePerformance（577行）と、保存/移動にまたがる conflict フロー
 - [ ] 4-2 純関数の抽出 → `utils/eventOperationUtils.ts`（時間重複判定・バリデーション等。**ここでユニットテストを書く**）
 - [ ] 4-3 操作系統ごとにフック分割: `useAddEvent` / `useEditEvent` / `useCancelRestoreEvent` / `useMoveCopyEvent`
       （1分割=1コミット。旧フックは re-export で互換維持 → 最後に削除）
-- [ ] 4-4 `useScheduleData` と `useScheduleEventsQuery` の役割重複を調査（まず実際の行数を実測）
+- [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
+      （実測済み。当初調査の「26.6K行」はKB誤読と確定）
 - [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
 - [ ] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
 
