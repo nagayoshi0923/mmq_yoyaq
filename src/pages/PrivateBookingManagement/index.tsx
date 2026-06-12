@@ -49,8 +49,8 @@ const normalizeTimeSlot = (timeSlot: string): string => {
   return timeSlot
 }
 
-type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'all'
-const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'all']
+type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'cancelled' | 'all'
+const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'cancelled', 'all']
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
@@ -477,8 +477,10 @@ export function PrivateBookingManagement() {
     r.status === 'gm_confirmed' || r.status === 'pending_store' ||
     ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
   )
-  // 却下済み: cancelled
-  const rejectedRequests = requests.filter(r => r.status === 'cancelled')
+  // 却下済み: cancelled かつ承認実績なし（承認前に断ったもの）
+  const rejectedRequests = requests.filter(r => r.status === 'cancelled' && !r.approver_name)
+  // キャンセル: cancelled かつ承認実績あり（一度確定した後に取りやめたもの）
+  const cancelledRequests = requests.filter(r => r.status === 'cancelled' && !!r.approver_name)
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
   const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
@@ -517,7 +519,9 @@ export function PrivateBookingManagement() {
       ? storePendingRequests 
       : activeTab === 'rejected'
         ? rejectedRequests
-        : requests
+        : activeTab === 'cancelled'
+          ? cancelledRequests
+          : requests
   const dateFilteredRequests = filterByDateRange(baseRequests)
   const filteredRequests = applyLimit(dateFilteredRequests)
 
@@ -555,6 +559,7 @@ export function PrivateBookingManagement() {
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
               <TabsTrigger value="rejected" className="flex-1 sm:flex-initial text-xs sm:text-sm">却下済み ({rejectedRequests.length})</TabsTrigger>
+              <TabsTrigger value="cancelled" className="flex-1 sm:flex-initial text-xs sm:text-sm">確定後キャンセル ({cancelledRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
 
