@@ -43,7 +43,7 @@ const chapters: Chapter[] = [
     sections: [
       {
         heading: 'プログラムの最小単位は「関数」',
-        text: '関数とは「何かを受け取り（入力）、決まった加工をして（処理）、結果を返す（出力）」小さな機械です。大きなシステムも、この小さな機械の組み合わせでできています。下は実際にこのシステムで使われている日付の関数（簡略版）です。',
+        text: '関数（かんすう / function）とは「何かを受け取り、決まった加工をして、結果を返す」コードのまとまりです。受け取るものを「引数（ひきすう / argument）」、返すものを「戻り値（もどりち / return value）」、実行することを「呼び出す（call）」と言います。大きなシステムも、この小さな関数の組み合わせでできています。下は実際にこのシステムで使われている日付の関数（簡略版）です。',
         code: {
           caption: 'src/utils/jstDate.ts より（簡略版）— 日付を「2026年7月1日(水)」にする関数',
           body: `function formatJstDateJa(value, withWeekday = false) {
@@ -53,7 +53,7 @@ const chapters: Chapter[] = [
   return withWeekday ? \`\${base}(\${t.weekday})\` : base  // ④ 曜日付きか選んで出力
 }`,
         },
-        story: 'あなたが見た「7/1」「2026年7月1日」の表記揺れは、ページごとに"違う機械"（formatJstMonthDay と formatJstDateJa）を呼んでいたのが原因でした。機械を統一したら表記も揃った——関数を理解すると、ああいうバグの正体が分かります。',
+        story: 'あなたが見た「7/1」「2026年7月1日」の表記揺れは、ページごとに違う関数（formatJstMonthDay と formatJstDateJa）を呼び出していたのが原因でした。呼び出す関数を formatJstDateJa に統一したら表記も揃った——関数・呼び出し・引数・戻り値という言葉が分かると、ああいうバグの正体を正確に語れます。',
         tryIt: 'VS Code で src/utils/jstDate.ts を開いて、上の関数の「本物」を見つけてください。コメント（/** */ の部分）に表示ルールも書いてあります。',
       },
       {
@@ -346,6 +346,56 @@ export function LearnFromThisSystem() {
                   第{c.no}章 {c.title}
                 </button>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 例え話と正式名称の対応表 */}
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="pt-4 pb-4">
+            <p className="text-sm font-semibold text-purple-900 mb-1">🔤 例え話 ↔ 正式名称 対応表</p>
+            <p className="text-xs text-purple-800 mb-2">
+              このページの例え話は理解の入口です。人と話すとき・検索するときは右の正式名称を使ってください。
+            </p>
+            <div className="overflow-x-auto">
+              <table className="text-xs w-full">
+                <thead>
+                  <tr className="text-left text-purple-900 border-b border-purple-200">
+                    <th className="py-1 pr-3">このページの例え話</th>
+                    <th className="py-1 pr-3">正式名称</th>
+                    <th className="py-1 pr-3">英語</th>
+                  </tr>
+                </thead>
+                <tbody className="text-purple-800">
+                  {[
+                    ['機械・道具', '関数', 'function'],
+                    ['機械に入れるもの', '引数（ひきすう）', 'argument / parameter'],
+                    ['機械から出てくるもの', '戻り値（もどりち）', 'return value'],
+                    ['機械を動かす', '呼び出す', 'call'],
+                    ['画面の部品', 'コンポーネント', 'component'],
+                    ['いまの数・画面が覚えている値', '状態', 'state'],
+                    ['データ取得係（ウェイター）', 'フック（React Query を使ったデータ取得フック）', 'hook'],
+                    ['注文窓口・伝票', 'API（エーピーアイ）／エンドポイント', 'API / endpoint'],
+                    ['厨房と金庫', 'データベース', 'database (DB)'],
+                    ['表・行・列', 'テーブル／レコード（行）／カラム（列）', 'table / record / column'],
+                    ['表への質問文', 'SQL（エスキューエル）クエリ', 'SQL query'],
+                    ['門番', 'RLS（行レベルセキュリティ）', 'Row Level Security'],
+                    ['定型処理のボタン', 'RPC（ストアドプロシージャの呼び出し）', 'RPC / stored procedure'],
+                    ['自動スイッチ', 'トリガー', 'trigger'],
+                    ['出前係', 'Edge Function（サーバーレス関数）', 'edge function'],
+                    ['データの設計図', '型（かた）／型定義', 'type'],
+                    ['鍵・金庫の中の秘密', 'シークレット／環境変数', 'secret / environment variable'],
+                    ['変更の記録単位', 'コミット', 'commit'],
+                    ['リハーサル環境', 'ステージング環境', 'staging environment'],
+                  ].map(([a, b, c]) => (
+                    <tr key={a} className="border-b border-purple-100">
+                      <td className="py-1 pr-3">{a}</td>
+                      <td className="py-1 pr-3 font-semibold">{b}</td>
+                      <td className="py-1 pr-3 font-mono">{c}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
