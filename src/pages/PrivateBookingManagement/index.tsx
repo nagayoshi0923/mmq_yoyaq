@@ -99,7 +99,8 @@ export function PrivateBookingManagement() {
       setSelectedSubGmId('')
       setSelectedStoreId('')
       setSelectedCandidateOrder(null)
-      return loadRequests()
+      // force=true 必須: 引数なしだと loadRequests は何もしない（キャッシュ再取得しない）
+      return loadRequests(true)
     }
   })
 
@@ -270,7 +271,7 @@ export function PrivateBookingManagement() {
     conflictInfo,
   ])
 
-  // 初期データロード
+  // 初期データロード（loadRequests は useQuery が自動取得するため実質 no-op の互換呼び出し）
   useEffect(() => {
     loadRequests()
     loadStores()
