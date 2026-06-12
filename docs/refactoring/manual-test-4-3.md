@@ -1,6 +1,19 @@
 # Phase 4-3 手動テスト手順書
 
-対象環境: **ローカル http://localhost:5173**（staging データ）
+対象環境: **staging**（ローカル http://localhost:5173 でも同じデータで実施可）
+
+## 使うURL（staging）
+
+ベース: `https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app`
+
+| 画面 | URL |
+|---|---|
+| スケジュール管理（D-1〜D-5の主戦場） | `…vercel.app/schedule` |
+| 予約サイト トップ（D-2で予約を入れる用） | `…vercel.app/queens-waltz` |
+| 貸切管理（D-4の確認用） | `…vercel.app/private-booking-management` |
+| マイページ（自分の予約確認） | `…vercel.app/mypage` |
+
+※ 最初にベースURLを開いて管理者ログインしてから各URLへ。
 原則: テスト用の公演は当日〜近日の日付で新規に作って使う（実公演を消さないこと）
 
 進め方: 分割コミットごとに「この分割で動かしたコードの分岐」を1つずつ踏む。
