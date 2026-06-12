@@ -83,7 +83,8 @@ async function fetchRawBookingRequests(
       *,
       scenario_masters:scenario_master_id(title, official_duration),
       customers:customer_id(name, phone),
-      private_groups:private_group_id(invite_code, scenario_master_id)
+      private_groups:private_group_id(invite_code, scenario_master_id),
+      confirmer:staff!reservations_confirmed_by_fkey(name)
     `)
     .eq('organization_id', orgId)
     .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
@@ -275,6 +276,7 @@ async function fetchRawBookingRequests(
       scenario_player_count_range: scenarioMasterId ? playerRangeByMasterId.get(scenarioMasterId) ?? null : null,
       notes: req.customer_notes || '',
       status: req.status,
+      approver_name: req.confirmer?.name,
       gm_responses: transformedGMResponses,
       created_at: req.created_at,
       invite_code: req.private_groups?.invite_code || '',
