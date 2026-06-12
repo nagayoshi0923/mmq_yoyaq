@@ -95,7 +95,9 @@
 - [x] 4-1 依存マップ作成（**完了**: `docs/refactoring/useEventOperations-map.md`）
       呼び出し元は useScheduleTable（2箇所）と DashboardHome（サブセット利用）のみ。
       最難関は doSavePerformance（577行）と、保存/移動にまたがる conflict フロー
-- [ ] 4-2 純関数の抽出 → `utils/eventOperationUtils.ts`（時間重複判定・バリデーション等。**ここでユニットテストを書く**）
+- [x] 4-2 純関数の抽出（**完了**）: getEventTimeSlot / timeToMinutes / calcEndTime /
+      checkTimeOverlap（時間重複判定）を `utils/eventOperationUtils.ts` へ移動。
+      vitest を導入し16ケースのユニットテストを整備（`npm run test:unit`）。挙動不変
 - [ ] 4-3 操作系統ごとにフック分割: `useAddEvent` / `useEditEvent` / `useCancelRestoreEvent` / `useMoveCopyEvent`
       （1分割=1コミット。旧フックは re-export で互換維持 → 最後に削除）
 - [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
