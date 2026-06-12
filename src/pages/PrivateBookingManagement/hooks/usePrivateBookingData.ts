@@ -50,6 +50,9 @@ export interface PrivateBookingRequest {
   approver_name?: string
   /** 承認日時（confirmed のときに updated_at を流用） */
   approved_at?: string
+  /** キャンセル/却下の操作者（cancelled_by → staff.name。顧客自身のキャンセルは undefined） */
+  canceller_name?: string
+  cancelled_at?: string
   gm_responses?: Array<{
     staff_id?: string
     gm_name?: string

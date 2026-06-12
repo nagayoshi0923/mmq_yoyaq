@@ -84,7 +84,8 @@ async function fetchRawBookingRequests(
       scenario_masters:scenario_master_id(title, official_duration),
       customers:customer_id(name, phone),
       private_groups:private_group_id(invite_code, scenario_master_id),
-      confirmer:staff!reservations_confirmed_by_fkey(name)
+      confirmer:staff!reservations_confirmed_by_fkey(name),
+      canceller:staff!reservations_cancelled_by_fkey(name)
     `)
     .eq('organization_id', orgId)
     .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
@@ -280,6 +281,8 @@ async function fetchRawBookingRequests(
       // 承認日時: confirmed_at（2026-06-12追加・キャンセル後も残る）を最優先。
       // 過去データで NULL の場合のみ、confirmed の間に限り updated_at で近似
       approved_at: req.confirmed_at ?? (req.status === 'confirmed' ? req.updated_at : undefined),
+      canceller_name: req.canceller?.name,
+      cancelled_at: req.cancelled_at ?? undefined,
       gm_responses: transformedGMResponses,
       created_at: req.created_at,
       invite_code: req.private_groups?.invite_code || '',

@@ -142,7 +142,20 @@ export const BookingRequestCard = ({
         {/* ── タイトル + ステータス ── */}
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
-          <StatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
+          <div className="flex flex-col items-end gap-0.5 shrink-0">
+            <StatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
+            {request.approver_name && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                承認: {request.approver_name}{request.approved_at ? ` ・ ${formatDateTime(request.approved_at)}` : ''}
+              </span>
+            )}
+            {request.status === 'cancelled' && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {request.approver_name ? 'キャンセル' : '却下'}: {request.canceller_name || '不明'}
+                {request.cancelled_at ? ` ・ ${formatDateTime(request.cancelled_at)}` : ''}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── サマリー1行 ── */}
@@ -451,15 +464,7 @@ export const BookingRequestCard = ({
                 <span className="text-purple-800">開催店舗: </span>
                 <span className="text-purple-900 font-medium">{request.candidate_datetimes.confirmedStore.storeName}</span>
               </div>
-              {(request.status === 'confirmed' || request.approver_name) && (
-                <div className="text-xs text-purple-700">
-                  <span>承認者: </span>
-                  <span className="font-medium">{request.approver_name || '不明'}</span>
-                  <span className="mx-1">・</span>
-                  <span>承認日時: </span>
-                  <span className="font-medium">{request.approved_at ? formatDateTime(request.approved_at) : '不明'}</span>
-                </div>
-              )}
+
             </div>
           )}
 
