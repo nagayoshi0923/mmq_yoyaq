@@ -630,17 +630,17 @@ export function PrivateBookingManagement() {
 
             {/* 検索・絞り込みツールバー（全タブ横断で効く。件数バッジにも反映） */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <div className="relative flex-1 min-w-[280px] max-w-md">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   placeholder="予約番号・名前・メール・シナリオで検索"
-                  className="pl-8 h-9 text-sm"
+                  className="pl-7 h-8 text-xs"
                 />
               </div>
               <Select value={scenarioFilter} onValueChange={setScenarioFilter}>
-                <SelectTrigger className="w-[180px] h-9 text-sm">
+                <SelectTrigger className="w-[150px] h-8 text-xs">
                   <SelectValue placeholder="シナリオ" />
                 </SelectTrigger>
                 <SelectContent>
@@ -651,7 +651,7 @@ export function PrivateBookingManagement() {
                 </SelectContent>
               </Select>
               <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger className="w-[160px] h-9 text-sm">
+                <SelectTrigger className="w-[130px] h-8 text-xs">
                   <SelectValue placeholder="店舗" />
                 </SelectTrigger>
                 <SelectContent>
@@ -668,10 +668,10 @@ export function PrivateBookingManagement() {
                 label={dateRangeStart || dateRangeEnd
                   ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}`
                   : '期間指定'}
-                buttonClassName="w-[160px] !h-9 text-sm input-bg rounded"
+                buttonClassName="!w-auto min-w-[110px] !h-8 text-xs input-bg rounded"
               />
               <Select value={displayLimit} onValueChange={setDisplayLimit}>
-                <SelectTrigger className="w-[120px] h-9 text-sm">
+                <SelectTrigger className="w-[110px] h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -685,7 +685,7 @@ export function PrivateBookingManagement() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-9 text-muted-foreground"
+                  className="h-8 text-xs text-muted-foreground"
                   onClick={() => {
                     setSearchText('')
                     setScenarioFilter('all')
