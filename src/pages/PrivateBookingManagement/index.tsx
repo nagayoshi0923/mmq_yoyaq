@@ -49,15 +49,19 @@ const normalizeTimeSlot = (timeSlot: string): string => {
   return timeSlot
 }
 
-type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'cancelled' | 'all'
-const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'cancelled', 'all']
+type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'approved' | 'all'
+const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'approved', 'all']
+// 旧URL（?tab=cancelled）からの互換: 確定後キャンセルタブは承認済みタブに統合された
+const LEGACY_TAB_MAP: Record<string, TabValue> = { cancelled: 'approved' }
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const rawTab = searchParams.get('tab')
-  const activeTab: TabValue = (VALID_TABS.includes(rawTab as TabValue) ? rawTab : 'store_pending') as TabValue
+  const activeTab: TabValue = VALID_TABS.includes(rawTab as TabValue)
+    ? (rawTab as TabValue)
+    : (rawTab && LEGACY_TAB_MAP[rawTab]) || 'store_pending'
   const setActiveTab = useCallback((tab: TabValue) => {
     setSearchParams({ tab }, { replace: true })
   }, [setSearchParams])
@@ -480,8 +484,12 @@ export function PrivateBookingManagement() {
   )
   // 却下済み: cancelled かつ承認実績なし（承認前に断ったもの）
   const rejectedRequests = requests.filter(r => r.status === 'cancelled' && !r.approver_name)
-  // キャンセル: cancelled かつ承認実績あり（一度確定した後に取りやめたもの）
-  const cancelledRequests = requests.filter(r => r.status === 'cancelled' && !!r.approver_name)
+  // 承認済み: 一度でも承認したもの（確定中＋確定後キャンセルの両方）。
+  // タブは「却下したか／承認したか」の意思決定で分ける（オーナー指示 2026-06-13）。
+  // 確定中かキャンセル済みかはカードのステータスバッジで見分ける
+  const approvedRequests = requests.filter(r =>
+    r.status === 'confirmed' || (r.status === 'cancelled' && !!r.approver_name)
+  )
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
   const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
@@ -520,8 +528,8 @@ export function PrivateBookingManagement() {
       ? storePendingRequests 
       : activeTab === 'rejected'
         ? rejectedRequests
-        : activeTab === 'cancelled'
-          ? cancelledRequests
+        : activeTab === 'approved'
+          ? approvedRequests
           : requests
   const dateFilteredRequests = filterByDateRange(baseRequests)
   const filteredRequests = applyLimit(dateFilteredRequests)
@@ -560,7 +568,7 @@ export function PrivateBookingManagement() {
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
               <TabsTrigger value="rejected" className="flex-1 sm:flex-initial text-xs sm:text-sm">却下済み ({rejectedRequests.length})</TabsTrigger>
-              <TabsTrigger value="cancelled" className="flex-1 sm:flex-initial text-xs sm:text-sm">確定後キャンセル ({cancelledRequests.length})</TabsTrigger>
+              <TabsTrigger value="approved" className="flex-1 sm:flex-initial text-xs sm:text-sm">承認済み ({approvedRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
 
