@@ -451,7 +451,7 @@ export const BookingRequestCard = ({
                 <span className="text-purple-800">開催店舗: </span>
                 <span className="text-purple-900 font-medium">{request.candidate_datetimes.confirmedStore.storeName}</span>
               </div>
-              {request.status === 'confirmed' && (
+              {(request.status === 'confirmed' || request.approver_name) && (
                 <div className="text-xs text-purple-700">
                   <span>承認者: </span>
                   <span className="font-medium">{request.approver_name || '不明'}</span>

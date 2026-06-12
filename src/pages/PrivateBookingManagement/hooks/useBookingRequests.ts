@@ -277,8 +277,9 @@ async function fetchRawBookingRequests(
       notes: req.customer_notes || '',
       status: req.status,
       approver_name: req.confirmer?.name,
-      // 承認日時: 専用カラムが無いため confirmed の間は updated_at を流用（usePrivateBookingData と同じ規約）
-      approved_at: req.status === 'confirmed' ? req.updated_at : undefined,
+      // 承認日時: confirmed_at（2026-06-12追加・キャンセル後も残る）を最優先。
+      // 過去データで NULL の場合のみ、confirmed の間に限り updated_at で近似
+      approved_at: req.confirmed_at ?? (req.status === 'confirmed' ? req.updated_at : undefined),
       gm_responses: transformedGMResponses,
       created_at: req.created_at,
       invite_code: req.private_groups?.invite_code || '',
