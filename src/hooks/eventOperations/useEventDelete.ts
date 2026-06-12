@@ -24,6 +24,8 @@ import { showToast } from '@/utils/toast'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
+import { getEventTimeSlot } from '@/utils/eventOperationUtils'
+import { timeSlotEnToSchedule } from '@/lib/timeSlot'
 
 interface UseEventDeleteProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
@@ -154,7 +156,13 @@ async function deletePrivateBookingEventCore(
         {
           date: targetEvent.date,
           storeId: (snapshot?.store_id as string | undefined) || targetEvent.venue,
-          timeSlot: (snapshot?.time_slot as string | null | undefined) ?? targetEvent.time_slot ?? null,
+          // 承認RPCが作る公演行は time_slot が NULL のことがあり、そのまま記録すると
+          // セル履歴タブ（date+store+time_slot で検索）にヒットしない。
+          // NULL の場合は開始時刻から時間帯（'朝'/'昼'/'夜'）を導出して記録する。
+          timeSlot:
+            (snapshot?.time_slot as string | null | undefined) ??
+            targetEvent.time_slot ??
+            timeSlotEnToSchedule(getEventTimeSlot(targetEvent)),
         },
         {
           deletedEventScenario: (snapshot?.scenario as string | undefined) || targetEvent.scenario,
