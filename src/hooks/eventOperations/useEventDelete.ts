@@ -33,6 +33,7 @@ import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 import { getEventTimeSlot } from '@/utils/eventOperationUtils'
 import { timeSlotEnToSchedule } from '@/lib/timeSlot'
 import type { DeleteCancelPrompt, DeleteCancelDecision } from '@/components/schedule/DeleteEventCancelDialog'
+import { buildCancellationEmailBody, fetchStoreCancellationEmailContext } from '@/lib/cancellationEmail'
 
 interface UseEventDeleteProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
@@ -97,6 +98,10 @@ export interface ActiveReservation {
   id: string
   customer_name: string | null
   customer_email: string | null
+  reservation_number: string | null
+  participant_count: number | null
+  total_price: number | null
+  payment_method: string | null
 }
 
 /** 対象公演に紐づく有効な予約（キャンセル済み以外）を取得する（useEventCancel からも使用） */
@@ -118,7 +123,7 @@ export async function fetchActiveReservations(
 
   let activeQuery = supabase
     .from('reservations')
-    .select('id, customer_name, customer_email')
+    .select('id, customer_name, customer_email, reservation_number, participant_count, total_price, payment_method')
     .eq('schedule_event_id', scheduleEventId)
     .neq('status', 'cancelled')
   if (organizationId) {
@@ -136,6 +141,53 @@ export async function fetchActiveReservations(
 export function formatCustomerLabel(r: ActiveReservation): string {
   const name = r.customer_name || '名前未登録'
   return r.customer_email ? `${name}（${r.customer_email}）` : name
+}
+
+/**
+ * 中止・削除ダイアログ用のキャンセルメール本文コンポーザを組み立てる。
+ * 予約一覧の「予約をキャンセル」と同じ生成ロジック（lib/cancellationEmail）を使い、
+ * 予約者ごとに予約番号・人数などを差し込んだ全文を生成する。
+ * ダイアログ側で全文編集でき、編集結果は customEmailBody としてそのまま送信される。
+ * 取得失敗時は undefined を返し、ダイアログは理由編集のみにフォールバックする。
+ * （useEventCancel からも使用）
+ */
+export async function buildCancelMailComposer(
+  targetEvent: ScheduleEvent,
+  reservations: ActiveReservation[]
+): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody'> | undefined> {
+  try {
+    const storeId = targetEvent.store_id || targetEvent.venue || null
+    const ctx = await fetchStoreCancellationEmailContext(storeId)
+    const recipients = reservations.map(r => ({
+      reservationId: r.id,
+      label: formatCustomerLabel(r),
+      email: r.customer_email,
+    }))
+    const composeBody = (recipientIndex: number, reason: string): string => {
+      const r = reservations[recipientIndex]
+      if (!r) return ''
+      return buildCancellationEmailBody({
+        customerName: r.customer_name || 'お客',
+        cancellationReason: reason,
+        scenarioTitle: targetEvent.scenario || '',
+        eventDate: targetEvent.date || '',
+        startTime: targetEvent.start_time || '',
+        endTime: targetEvent.end_time || '',
+        storeName: ctx.storeName || targetEvent.venue || '',
+        participantCount: r.participant_count ?? 1,
+        totalPrice: r.total_price ?? 0,
+        reservationNumber: r.reservation_number || '',
+        cancellationFee: 0,  // 店舗都合のキャンセルなのでキャンセル料は0（予約一覧と同条件）
+        paymentMethod: r.payment_method || 'onsite',
+        cancellationPolicy: ctx.cancellationPolicy,
+        organizationName: ctx.organizationName,
+      }, ctx.template || undefined)
+    }
+    return { recipients, composeBody }
+  } catch (e) {
+    logger.warn('キャンセルメール本文コンポーザの構築に失敗（理由編集のみで続行）:', e)
+    return undefined
+  }
 }
 
 /**
@@ -164,10 +216,12 @@ async function handleActiveReservationsBeforeDelete(
   const activeReservations = preFetched ?? await fetchActiveReservations(targetEvent, organizationId)
   if (activeReservations.length === 0) return true
 
-  // ① 専用ダイアログで確認（件数・予約者・理由編集・メール送信選択）
+  // ① 専用ダイアログで確認（件数・予約者・理由編集・メール本文編集・送信選択）
+  const composer = await buildCancelMailComposer(targetEvent, activeReservations)
   const decision = await askDecision({
     count: activeReservations.length,
     customers: activeReservations.map(formatCustomerLabel),
+    ...composer,
   })
   if (!decision) return false
   const { sendMail } = decision
@@ -182,7 +236,11 @@ async function handleActiveReservationsBeforeDelete(
   for (const r of activeReservations) {
     try {
       if (sendMail) {
-        await reservationApi.cancel(r.id, reason, { skipGroupCancel: true })
+        await reservationApi.cancel(r.id, reason, {
+          skipGroupCancel: true,
+          // ダイアログで全文編集された本文（あればテンプレート生成より優先）
+          customEmailBody: decision.bodies?.[r.id],
+        })
       } else {
         const params: RpcAdminUpdateReservationFieldsParams = {
           p_reservation_id: r.id,

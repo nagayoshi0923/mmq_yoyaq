@@ -32,6 +32,7 @@ import {
   formatCustomerLabel,
   isPendingSaveEvent,
   PENDING_SAVE_MESSAGE,
+  buildCancelMailComposer,
 } from '@/hooks/eventOperations/useEventDelete'
 import type { DeleteCancelPrompt, DeleteCancelDecision } from '@/components/schedule/DeleteEventCancelDialog'
 
@@ -72,7 +73,8 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
   const executeCancelPerformance = useCallback(async (
     targetEvent: ScheduleEvent,
     reason: string,
-    sendMail: boolean
+    sendMail: boolean,
+    customBodies?: Record<string, string>
   ): Promise<void> => {
     if (targetEvent.is_private_request && targetEvent.reservation_id) {
       // 予約情報を取得（存在＋組織境界の確認）
@@ -89,7 +91,9 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
 
       if (sendMail) {
         // 予約をキャンセル（在庫返却 + システムメッセージ + メール送信まで一括）
-        await reservationApi.cancel(targetEvent.reservation_id, reason)
+        await reservationApi.cancel(targetEvent.reservation_id, reason, {
+          customEmailBody: customBodies?.[targetEvent.reservation_id],
+        })
       } else {
         // メールなし: ロックつきキャンセルのみ（在庫返却あり・通知なし）
         await reservationApi.cancelWithLock(
@@ -192,7 +196,9 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
                   totalPrice: reservation.total_price || 0,
                   reservationNumber: reservation.reservation_number,
                   cancelledBy: 'store',
-                  cancellationReason: reason
+                  cancellationReason: reason,
+                  // ダイアログで全文編集された本文（あればテンプレート生成より優先）
+                  customEmailBody: customBodies?.[reservation.id]
                 }
               })
             } catch (emailErr) {
@@ -229,7 +235,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       if (active.length === 0 && event.is_private_request && event.reservation_id) {
         let mainQuery = supabase
           .from('reservations')
-          .select('id, customer_name, customer_email')
+          .select('id, customer_name, customer_email, reservation_number, participant_count, total_price, payment_method')
           .eq('id', event.reservation_id)
           .neq('status', 'cancelled')
         if (organizationId) {
@@ -246,14 +252,16 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
         return
       }
       // 予約あり: 2ステップダイアログが中止の確定を兼ねる
+      const composer = await buildCancelMailComposer(event, active)
       const decision = await askCancelDecision({
         count: active.length,
         customers: active.map(formatCustomerLabel),
+        ...composer,
       })
       if (!decision) return
       const reason = decision.reason.trim() || DEFAULT_CANCELLATION_REASON
       showToast.info(`${active.length}件の予約をキャンセルしています…`)
-      await executeCancelPerformance(event, reason, decision.sendMail)
+      await executeCancelPerformance(event, reason, decision.sendMail, decision.bodies)
       showToast.success(
         `公演を中止し、${active.length}件の予約をキャンセルしました` +
         (decision.sendMail ? '（メール送信済み）' : '（メール送信なし）')
