@@ -301,6 +301,10 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     enabled,
     staleTime: 60 * 1000, // 1分
     refetchInterval: 3 * 60 * 1000, // 3分ごとに自動更新（GM回答をリアルタイムに反映）
+    // 他画面（スケジュールの中止・削除等）での変更がキャッシュ有効期間内だと
+    // 反映されないため、このページを開くたびに必ず再取得する
+    // （2026-06-13 C-4テストで「中止直後に確定後キャンセルタブに出ない」が発生）
+    refetchOnMount: 'always',
   })
 
   // endTime を isCustomHoliday で補正（サーバーデータと分離してキャッシュを壊さない）
