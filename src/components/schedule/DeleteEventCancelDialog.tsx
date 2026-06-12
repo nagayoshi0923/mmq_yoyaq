@@ -73,7 +73,9 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
               <p className="text-sm">
                 ⚠️ この公演には <span className="font-bold">{prompt?.count ?? 0} 件</span> の有効な予約があります。
                 <br />
-                {actionLabel}するには、先にすべての予約をキャンセルする必要があります。
+                {isCancelVariant
+                  ? '中止するには、先にすべての予約をキャンセルする必要があります。'
+                  : '削除は「中止（すべての予約をキャンセル）」を行った上で、イベントセルを削除します。'}
                 <br />
                 <span className="text-muted-foreground">
                   {isCancelVariant
@@ -155,7 +157,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                 <br />
                 {isCancelVariant
                   ? '・この公演を中止（後から復活できます・履歴に記録されます）'
-                  : '・この公演を削除（履歴に記録されます）'}
+                  : '・この公演を中止の上、イベントセルを削除（履歴に記録されます）'}
               </div>
 
               <div className="flex justify-end gap-2">
