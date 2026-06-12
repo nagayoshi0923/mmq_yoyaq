@@ -75,6 +75,20 @@ function isRealScheduleEventId(id: string): boolean {
   return !id.startsWith('private-') && id.split('-').length === 5
 }
 
+/**
+ * 作成直後の楽観表示（保存完了前の仮ID）かどうか。
+ * この状態の公演はサーバーにまだ存在しない（または ID が確定していない）ため、
+ * 中止・削除を実行すると 400/500 で失敗する。先に分かりやすく弾く。
+ * （useEventCancel からも使用）
+ */
+export function isPendingSaveEvent(event: ScheduleEvent): boolean {
+  return event.id.startsWith('temp-')
+}
+
+/** 保存中の公演を操作しようとしたときの案内（useEventCancel からも使用） */
+export const PENDING_SAVE_MESSAGE =
+  '公演の保存処理がまだ完了していません。数秒待ってから、もう一度お試しください。'
+
 /** 公演中止・削除時のキャンセルメール既定文（useEventCancel からも使用） */
 export const DEFAULT_CANCELLATION_REASON =
   '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
@@ -228,6 +242,16 @@ async function deletePrivateBookingEventCore(
     reservation?.schedule_event_id ||
     (isRealScheduleEventId(targetEvent.id) ? targetEvent.id : null)
 
+  // 申込も公演行も特定できない場合は「削除成功」を装わず必ずエラーにする。
+  // 装うと、ローカルのセル除去＋削除履歴だけが記録されてサーバーの行が残り、
+  // 再取得でセルが復活して「削除したのに残る／2回削除できる」状態になる
+  // （2026-06-13 仮ID(temp-)セルの削除で実際に発生）
+  if (!reservation && !scheduleEventId) {
+    throw new Error(
+      '削除対象の公演データを特定できませんでした。' +
+      '作成直後の場合は保存完了を待ってから、もう一度お試しください。'
+    )
+  }
 
   // ① スナップショットは mutation の前に取得（履歴の空振り防止）
   const snapshot = scheduleEventId && organizationId
@@ -417,6 +441,10 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
   //   ① 予約キャンセルの確認 → ② メール送信の確認 → 一括キャンセル → 削除実行
   // で、F-1 ダイアログが削除の確定を兼ねる。予約ゼロのときだけ従来の確認モーダル。
   const handleDeletePerformance = useCallback(async (event: ScheduleEvent) => {
+    if (isPendingSaveEvent(event)) {
+      showToast.warning(PENDING_SAVE_MESSAGE)
+      return
+    }
     try {
       const active = await fetchActiveReservations(event, organizationId)
       if (active.length === 0) {
@@ -460,6 +488,10 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
 
   // 公演を直接削除（確認モーダルなし - 予約一覧モーダルから呼び出し用）
   const deleteEventDirectly = useCallback(async (eventToDelete: ScheduleEvent) => {
+    if (isPendingSaveEvent(eventToDelete)) {
+      showToast.warning(PENDING_SAVE_MESSAGE)
+      return
+    }
     try {
       // F-1: 有効予約があれば「キャンセル確認 → メール送信確認 → 一括キャンセル」を先に実施
       // （予約一覧の全員キャンセル後ルートでは有効予約0のため確認なしで素通りする）

@@ -30,6 +30,8 @@ import {
   DEFAULT_CANCELLATION_REASON,
   fetchActiveReservations,
   formatCustomerLabel,
+  isPendingSaveEvent,
+  PENDING_SAVE_MESSAGE,
 } from '@/hooks/eventOperations/useEventDelete'
 import type { DeleteCancelPrompt, DeleteCancelDecision } from '@/components/schedule/DeleteEventCancelDialog'
 
@@ -214,6 +216,10 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
   // の2ステップダイアログを通す。予約ゼロのときは確認ダイアログなしで即中止
   // （中止は復活できる操作のため・オーナー指示 2026-06-13）。
   const handleCancelConfirmPerformance = useCallback(async (event: ScheduleEvent) => {
+    if (isPendingSaveEvent(event)) {
+      showToast.warning(PENDING_SAVE_MESSAGE)
+      return
+    }
     try {
       let active = await fetchActiveReservations(event, organizationId)
 

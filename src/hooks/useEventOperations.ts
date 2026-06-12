@@ -1045,7 +1045,35 @@ export function useEventOperations({
           setEvents(prev => prev.filter(e => e.id !== tempEventId))
           throw saveError
         }
-        
+
+        // 楽観的 insert の temp event を即座に real event へ置き換える。
+        // ここを後続処理（履歴記録・スタッフ予約同期＝ネットワーク往復）の後に
+        // 置くと、その間ずっと仮ID（temp-）のセルが見えてしまい、右クリックの
+        // 中止・削除が「存在しないID」で失敗する（2026-06-13 テストで発覚）
+        const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
+        const effectiveMax = matchedScenario?.player_count_max || savedEvent.capacity || 8
+        const formattedEvent: ScheduleEvent = {
+          id: savedEvent.id,
+          date: savedEvent.date,
+          venue: savedEvent.store_id,
+          scenario: savedEvent.scenario || '',
+          scenarios: matchedScenario ? {
+            id: matchedScenario.id,
+            title: matchedScenario.title,
+            player_count_max: matchedScenario.player_count_max ?? 8
+          } : undefined,
+          gms: savedEvent.gms || [],
+          gm_roles: performanceData.gm_roles || {},
+          start_time: savedEvent.start_time,
+          end_time: savedEvent.end_time,
+          category: savedEvent.category,
+          is_cancelled: savedEvent.is_cancelled || false,
+          current_participants: savedEvent.current_participants || 0,
+          max_participants: effectiveMax,
+          notes: savedEvent.notes || ''
+        }
+        setEvents(prev => prev.map(e => e.id === tempEventId ? formattedEvent : e))
+
         // 履歴を記録（新規作成）
         try {
           const createdSnapshot = await fetchEventSnapshot(savedEvent.id, organizationId)
@@ -1082,34 +1110,6 @@ export function useEventOperations({
           )
         }
         
-        // シナリオ情報を取得（シナリオマスタ未登録チェック用）
-        const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
-        
-        // 内部形式に変換して状態に追加
-        const effectiveMax = matchedScenario?.player_count_max || savedEvent.capacity || 8
-        const formattedEvent: ScheduleEvent = {
-          id: savedEvent.id,
-          date: savedEvent.date,
-          venue: savedEvent.store_id,
-          scenario: savedEvent.scenario || '',
-          scenarios: matchedScenario ? {
-            id: matchedScenario.id,
-            title: matchedScenario.title,
-            player_count_max: matchedScenario.player_count_max ?? 8
-          } : undefined,
-          gms: savedEvent.gms || [],
-          gm_roles: performanceData.gm_roles || {},
-          start_time: savedEvent.start_time,
-          end_time: savedEvent.end_time,
-          category: savedEvent.category,
-          is_cancelled: savedEvent.is_cancelled || false,
-          current_participants: savedEvent.current_participants || 0,
-          max_participants: effectiveMax,
-          notes: savedEvent.notes || ''
-        }
-        
-        // 楽観的 insert で追加した temp event を real event に置き換える
-        setEvents(prev => prev.map(e => e.id === tempEventId ? formattedEvent : e))
       } else {
         // 編集更新
         
