@@ -82,6 +82,7 @@ async function deletePrivateBookingEventCore(
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
 ): Promise<void> {
   const reservationId = resolveReservationId(targetEvent)
+  logger.log('🗑 貸切削除 開始:', { eventId: targetEvent.id, reservationId, organizationId })
 
   // 予約情報を取得（schedule_event_id とステータス確認）
   let reservationQuery = supabase
@@ -120,6 +121,8 @@ async function deletePrivateBookingEventCore(
   }
 
   // ③ 公演行を削除
+  // 失敗・0件は沈黙させず必ずエラーにする（沈黙すると「削除したのに残る」が
+  // 原因不明になる。2026-06-13 のD-5デバッグで強化）
   if (scheduleEventId) {
     let deleteQuery = supabase
       .from('schedule_events')
@@ -128,11 +131,18 @@ async function deletePrivateBookingEventCore(
     if (organizationId) {
       deleteQuery = deleteQuery.eq('organization_id', organizationId)
     }
-    const { error: scheduleError } = await deleteQuery
+    const { data: deletedRows, error: scheduleError } = await deleteQuery.select('id')
     if (scheduleError) {
       logger.error('schedule_events削除エラー:', scheduleError)
-      // 申込はキャンセル済みのため処理は続行（公演はリロードで再同期される）
+      throw scheduleError
     }
+    if (!deletedRows || deletedRows.length === 0) {
+      logger.error('schedule_events削除が0件:', { scheduleEventId, organizationId })
+      throw new Error('公演データの削除が0件でした（権限または対象の不一致の可能性があります）')
+    }
+    logger.log('🗑 貸切削除 完了:', { scheduleEventId, deleted: deletedRows.length })
+  } else {
+    logger.warn('🗑 貸切削除: schedule_events の対象IDが解決できませんでした', { eventId: targetEvent.id, reservationId })
   }
 
   // ④ 履歴を記録（スナップショットが取れなかった場合は画面上の情報で代替）
@@ -147,7 +157,7 @@ async function deletePrivateBookingEventCore(
         gms: targetEvent.gms,
         reservation_name: targetEvent.reservation_name || '',
       }
-      void createEventHistory(
+      await createEventHistory(
         null,  // 削除後なのでnull
         organizationId,
         'delete',
