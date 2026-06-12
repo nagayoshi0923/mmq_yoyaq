@@ -75,18 +75,18 @@ function isRealScheduleEventId(id: string): boolean {
   return !id.startsWith('private-') && id.split('-').length === 5
 }
 
-/** 公演中止・削除時のキャンセルメール既定文（useEventCancel と同文） */
-const DEFAULT_CANCELLATION_REASON =
+/** 公演中止・削除時のキャンセルメール既定文（useEventCancel からも使用） */
+export const DEFAULT_CANCELLATION_REASON =
   '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
 
-interface ActiveReservation {
+export interface ActiveReservation {
   id: string
   customer_name: string | null
   customer_email: string | null
 }
 
-/** 対象公演に紐づく有効な予約（キャンセル済み以外）を取得する */
-async function fetchActiveReservations(
+/** 対象公演に紐づく有効な予約（キャンセル済み以外）を取得する（useEventCancel からも使用） */
+export async function fetchActiveReservations(
   targetEvent: ScheduleEvent,
   organizationId: string | null
 ): Promise<ActiveReservation[]> {
@@ -118,8 +118,8 @@ async function fetchActiveReservations(
   return activeReservations ?? []
 }
 
-/** 予約者の表示名（名前＋メール）を組み立てる */
-function formatCustomerLabel(r: ActiveReservation): string {
+/** 予約者の表示名（名前＋メール）を組み立てる（useEventCancel からも使用） */
+export function formatCustomerLabel(r: ActiveReservation): string {
   const name = r.customer_name || '名前未登録'
   return r.customer_email ? `${name}（${r.customer_email}）` : name
 }

@@ -27,6 +27,10 @@ interface ScheduleDialogsProps {
   cancellationReason?: string
   onCancellationReasonChange?: (reason: string) => void
 
+  // 中止: 有効予約がある場合の2ステップ確認ダイアログ（F-1 と同型）
+  cancelEventPrompt?: DeleteCancelPrompt | null
+  onResolveCancelEventPrompt?: (decision: DeleteCancelDecision | null) => void
+
   // 復活ダイアログ
   isRestoreDialogOpen: boolean
   onCloseRestoreDialog: () => void
@@ -44,6 +48,8 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
   onConfirmCancel,
   cancellationReason = '',
   onCancellationReasonChange,
+  cancelEventPrompt,
+  onResolveCancelEventPrompt,
   isRestoreDialogOpen,
   onCloseRestoreDialog,
   onConfirmRestore
@@ -67,6 +73,14 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
         <DeleteEventCancelDialog
           prompt={deleteCancelPrompt ?? null}
           onResolve={onResolveDeleteCancelPrompt}
+        />
+      )}
+
+      {/* 中止も同型の2ステップ確認ダイアログ（variant: 'cancel'） */}
+      {onResolveCancelEventPrompt && (
+        <DeleteEventCancelDialog
+          prompt={cancelEventPrompt ?? null}
+          onResolve={onResolveCancelEventPrompt}
         />
       )}
 

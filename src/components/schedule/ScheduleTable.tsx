@@ -91,8 +91,11 @@ export interface ScheduleTableModals {
     onCloseRestoreDialog?: () => void
     onConfirmRestore?: () => void
     // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
-    deleteCancelPrompt?: { count: number; customers: string[]; defaultReason: string } | null
+    deleteCancelPrompt?: { variant?: 'delete' | 'cancel'; count: number; customers: string[]; defaultReason: string } | null
     onResolveDeleteCancelPrompt?: (decision: { sendMail: boolean; reason: string } | null) => void
+    // 中止も同型の2ステップ確認ダイアログを使用
+    cancelEventPrompt?: { variant?: 'delete' | 'cancel'; count: number; customers: string[]; defaultReason: string } | null
+    onResolveCancelEventPrompt?: (decision: { sendMail: boolean; reason: string } | null) => void
   }
   moveOrCopyDialog: {
     isOpen: boolean

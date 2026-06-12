@@ -1,11 +1,12 @@
 /**
- * F-1: 有効予約のある公演を削除する際の確認ダイアログ（2ステップ）
+ * F-1: 有効予約のある公演を削除/中止する際の確認ダイアログ（2ステップ）
  *
  * モーダルの順序はオーナー指示（2026-06-13）:
- *   通常の「公演を削除しますか？」確定モーダルは出さず（先に出すと確定済みに見える）、
- *   ステップ1: 予約をキャンセルして削除するかの確認（件数＋予約者一覧）
+ *   通常の「公演を削除/中止しますか？」確定モーダルは出さず（先に出すと確定済みに見える）、
+ *   ステップ1: 予約をキャンセルするかの確認（件数＋予約者一覧）
  *   ステップ2: メール送信の確認（キャンセル理由の編集＋送信チェックボックス）
  * の順で確認する。作法は予約一覧モーダルの「予約をキャンセル」ダイアログと統一。
+ * 赤い実行ボタンは最終ステップの1個だけ（途中は「まだ実行されません」を明示）。
  */
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 export interface DeleteCancelPrompt {
+  /** 'delete' = 公演の削除 / 'cancel' = 公演の中止（復活可能）。省略時は delete */
+  variant?: 'delete' | 'cancel'
   /** 有効予約の件数 */
   count: number
   /** 表示用の予約者リスト（名前＋メール） */
@@ -39,6 +42,10 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
   const [reason, setReason] = useState('')
   const [sendMail, setSendMail] = useState(true)
 
+  // 削除/中止で変わる文言
+  const isCancelVariant = prompt?.variant === 'cancel'
+  const actionLabel = isCancelVariant ? '中止' : '削除'
+
   // ダイアログが開くたびに初期値へリセット
   useEffect(() => {
     if (prompt) {
@@ -59,16 +66,20 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
         {step === 'confirm' ? (
           <>
             <DialogHeader>
-              <DialogTitle>公演の削除（1/2）— 予約のキャンセル確認</DialogTitle>
+              <DialogTitle>公演の{actionLabel}（1/2）— 予約のキャンセル確認</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
               <p className="text-sm">
                 ⚠️ この公演には <span className="font-bold">{prompt?.count ?? 0} 件</span> の有効な予約があります。
                 <br />
-                削除するには、先にすべての予約をキャンセルする必要があります。
+                {actionLabel}するには、先にすべての予約をキャンセルする必要があります。
                 <br />
-                <span className="text-muted-foreground">（予約の記録はキャンセル済みとして残ります）</span>
+                <span className="text-muted-foreground">
+                  {isCancelVariant
+                    ? '（予約の記録はキャンセル済みとして残ります。公演は後から復活できます）'
+                    : '（予約の記録はキャンセル済みとして残ります）'}
+                </span>
               </p>
 
               {/* 予約者一覧 */}
@@ -97,7 +108,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>公演の削除（2/2）— メール送信の確認</DialogTitle>
+              <DialogTitle>公演の{actionLabel}（2/2）— メール送信の確認</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
@@ -141,7 +152,10 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
               <div className="rounded-md border bg-muted/50 p-2 text-xs text-muted-foreground">
                 実行すると:
                 <br />・予約 {prompt?.count ?? 0} 件をキャンセル（メール送信{sendMail ? 'あり' : 'なし'}・記録は残ります）
-                <br />・この公演を削除（履歴に記録されます）
+                <br />
+                {isCancelVariant
+                  ? '・この公演を中止（後から復活できます・履歴に記録されます）'
+                  : '・この公演を削除（履歴に記録されます）'}
               </div>
 
               <div className="flex justify-end gap-2">

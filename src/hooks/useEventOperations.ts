@@ -246,6 +246,8 @@ export function useEventOperations({
     handleCancelConfirmPerformance,
     handleConfirmCancel,
     handleUncancelPerformance,
+    cancelEventPrompt,
+    resolveCancelEventPrompt,
   } = useEventCancel({ setEvents, organizationId, fetchSchedule })
   
   // 公開ダイアログ状態
@@ -1783,6 +1785,8 @@ export function useEventOperations({
     handleCancelConfirmPerformance,
     handleConfirmCancel,
     handleUncancelPerformance,
+    cancelEventPrompt,
+    resolveCancelEventPrompt,
     handleToggleTentative,
     handleToggleReservation,
     handleConfirmPublishToggle,
