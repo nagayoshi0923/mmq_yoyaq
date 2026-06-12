@@ -68,6 +68,7 @@ const PlatformScenarioSearch = lazyWithRetry(() => import('./PlatformScenarioSea
 const PlatformTop = lazyWithRetry(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
 const DesignPreview = lazyWithRetry(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
 const ComponentGallery = lazyWithRetry(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
+const ProjectGuide = lazyWithRetry(() => import('./dev/ProjectGuide').then(m => ({ default: m.ProjectGuide })))
 const NotFoundPage = lazyWithRetry(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 const PrivateGroupCreate = lazyWithRetry(() => import('./PrivateGroupCreate').then(m => ({ default: m.PrivateGroupCreate })))
 const PrivateGroupInvite = lazyWithRetry(() => import('./PrivateGroupInvite').then(m => ({ default: m.PrivateGroupInvite })))
@@ -137,6 +138,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /dev/components - UIコンポーネントギャラリー
   if (segments[0] === 'dev' && segments[1] === 'components') {
     return { page: 'dev-components', scenarioId: null, organizationSlug: null }
+  }
+
+  // /dev/project-guide - プロジェクト理解ガイド（運営管理者専用）
+  if (segments[0] === 'dev' && segments[1] === 'project-guide') {
+    return { page: 'dev-project-guide', scenarioId: null, organizationSlug: null }
   }
   
   // /mypage/reservation/{reservationId} - マイページ予約詳細
@@ -705,6 +711,15 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="コンポーネントギャラリーを読み込み中..." />}>
         <ComponentGallery />
+      </Suspense>
+    )
+  }
+
+  // 運営管理者専用：プロジェクト理解ガイド
+  if (currentPage === 'dev-project-guide') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <ProjectGuide />
       </Suspense>
     )
   }
