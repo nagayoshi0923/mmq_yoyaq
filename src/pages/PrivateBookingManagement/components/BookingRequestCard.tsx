@@ -142,7 +142,7 @@ export const BookingRequestCard = ({
         {/* ── タイトル + ステータス ── */}
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
-          <StatusBadge status={request.status} />
+          <StatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
         </div>
 
         {/* ── サマリー1行 ── */}
