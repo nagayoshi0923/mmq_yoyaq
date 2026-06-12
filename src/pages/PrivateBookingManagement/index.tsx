@@ -636,11 +636,11 @@ export function PrivateBookingManagement() {
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   placeholder="予約番号・名前・メール・シナリオで検索"
-                  className="pl-8 text-sm"
+                  className="pl-8 h-9 text-sm"
                 />
               </div>
               <Select value={scenarioFilter} onValueChange={setScenarioFilter}>
-                <SelectTrigger className="w-[180px] text-sm">
+                <SelectTrigger className="w-[180px] h-9 text-sm">
                   <SelectValue placeholder="シナリオ" />
                 </SelectTrigger>
                 <SelectContent>
@@ -651,7 +651,7 @@ export function PrivateBookingManagement() {
                 </SelectContent>
               </Select>
               <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger className="w-[160px] text-sm">
+                <SelectTrigger className="w-[160px] h-9 text-sm">
                   <SelectValue placeholder="店舗" />
                 </SelectTrigger>
                 <SelectContent>
@@ -668,10 +668,10 @@ export function PrivateBookingManagement() {
                 label={dateRangeStart || dateRangeEnd
                   ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}`
                   : '期間指定'}
-                buttonClassName="w-[160px]"
+                buttonClassName="w-[160px] !h-9 text-sm input-bg rounded"
               />
               <Select value={displayLimit} onValueChange={setDisplayLimit}>
-                <SelectTrigger className="w-[120px] text-sm">
+                <SelectTrigger className="w-[120px] h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -685,7 +685,7 @@ export function PrivateBookingManagement() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-muted-foreground"
+                  className="h-9 text-muted-foreground"
                   onClick={() => {
                     setSearchText('')
                     setScenarioFilter('all')
