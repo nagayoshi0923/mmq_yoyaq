@@ -837,7 +837,11 @@ ${content.organizationName || '店舗'}
       })
       
       // 貸切公演の場合、全員キャンセル後にイベント削除を確認
-      if (event?.is_private_request && onDeleteEvent) {
+      // 判定は useEventDelete と同条件: 未承認の擬似イベント（is_private_request）に加え、
+      // 承認済み貸切（category='private' + 予約リンクあり）も対象（2026-06-13修正）
+      const isPrivateBookingEvent = event?.is_private_request ||
+        (event?.category === 'private' && !!event?.reservation_id)
+      if (isPrivateBookingEvent && onDeleteEvent) {
         // 最新の予約リストを取得（UIの状態更新後）
         // setReservations は非同期なので、少し遅延を入れてからチェック
         setTimeout(() => {
