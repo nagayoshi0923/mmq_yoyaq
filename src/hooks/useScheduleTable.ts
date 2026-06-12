@@ -170,6 +170,9 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         onConfirmCancel: eventOperations.handleConfirmCancel,
         cancellationReason: eventOperations.cancellationReason,
         onCancellationReasonChange: eventOperations.setCancellationReason,
+        // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
+        deleteCancelPrompt: eventOperations.deleteCancelPrompt,
+        onResolveDeleteCancelPrompt: eventOperations.resolveDeleteCancelPrompt,
       },
       moveOrCopyDialog: {
         isOpen: eventOperations.isMoveOrCopyDialogOpen,
@@ -263,6 +266,9 @@ export function useScheduleTableModals(currentDate: Date) {
       onConfirmCancel: eventOperations.handleConfirmCancel,
       cancellationReason: eventOperations.cancellationReason,
       onCancellationReasonChange: eventOperations.setCancellationReason,
+      // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
+      deleteCancelPrompt: eventOperations.deleteCancelPrompt,
+      onResolveDeleteCancelPrompt: eventOperations.resolveDeleteCancelPrompt,
       // 復活機能はhandleUncancelPerformanceで直接実行される（ダイアログなし）
       // isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
       // onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),

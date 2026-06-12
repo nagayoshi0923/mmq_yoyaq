@@ -1,11 +1,16 @@
 /**
  * 公演の削除操作（Phase 4-3 で useEventOperations から分割）
  *
- * - handleDeletePerformance: 削除確認ダイアログを開く
- * - handleConfirmDelete: ダイアログからの削除実行
+ * - handleDeletePerformance: 削除の入口。
+ *     有効予約あり: F-1 ダイアログ（①キャンセル確認 → ②メール送信確認）→ 一括
+ *       キャンセル → 削除。通常の削除確認モーダルは出さない（確定が先に見える
+ *       順序が不自然、というオーナー指摘 2026-06-13）
+ *     有効予約なし: 従来の削除確認モーダルを開く
+ * - handleConfirmDelete: 削除確認モーダルからの実行（安全弁として F-1 再チェック）
+ * - performDeleteByKind: 削除の実体
  *     貸切: 公演を削除し、申込（reservations）は**キャンセル状態で保持** + 履歴
- *     通常: 有効予約があれば拒否（中止を案内）/ なければ削除 + 履歴
- * - deleteEventDirectly: 確認ダイアログなしの直接削除（予約一覧モーダルから使用）
+ *     通常: 削除 + 履歴（有効予約の残存は最後の安全弁で拒否）
+ * - deleteEventDirectly: 確認モーダルなしの直接削除（予約一覧モーダルから使用）
  *
  * 2026-06-12 仕様変更（オーナー指示）:
  *   貸切削除時に申込レコードを物理削除（admin_delete_reservations_by_ids）して
@@ -15,7 +20,7 @@
  *   （従来は予約削除→公演参照の順だったため参照が空振りし、削除履歴が
  *   記録されないことがあった）。
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -27,6 +32,7 @@ import type { ScheduleEvent } from '@/types/schedule'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 import { getEventTimeSlot } from '@/utils/eventOperationUtils'
 import { timeSlotEnToSchedule } from '@/lib/timeSlot'
+import type { DeleteCancelPrompt, DeleteCancelDecision } from '@/components/schedule/DeleteEventCancelDialog'
 
 interface UseEventDeleteProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
@@ -73,23 +79,17 @@ function isRealScheduleEventId(id: string): boolean {
 const DEFAULT_CANCELLATION_REASON =
   '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
 
-/**
- * F-1: 削除前に有効予約を処理する統合フロー（2026-06-13 オーナー指示で実装）
- *
- * 対象公演に有効な予約（貸切の主申込・参加者・通常予約すべて）が残っている場合:
- *   ① 件数つきの警告で削除続行を確認
- *   ② キャンセルメールを送信するか選択
- *   ③ 全予約をキャンセル（メールあり: reservationApi.cancel = サーバー側で
- *      キャンセル+システムメッセージ+メール送信まで一括 / メールなし:
- *      admin_update_reservation_fields でステータスのみ更新）
- *
- * @returns true = 削除を続行してよい / false = ユーザーが中断
- * @throws 予約キャンセルに失敗した場合（削除は実行しない）
- */
-async function handleActiveReservationsBeforeDelete(
+interface ActiveReservation {
+  id: string
+  customer_name: string | null
+  customer_email: string | null
+}
+
+/** 対象公演に紐づく有効な予約（キャンセル済み以外）を取得する */
+async function fetchActiveReservations(
   targetEvent: ScheduleEvent,
   organizationId: string | null
-): Promise<boolean> {
+): Promise<ActiveReservation[]> {
   // 対象の schedule_events 行を解決（合成IDの未承認貸切は実公演が無いので対象外）
   let scheduleEventId: string | null = isRealScheduleEventId(targetEvent.id) ? targetEvent.id : null
   if (!scheduleEventId && targetEvent.reservation_id) {
@@ -100,11 +100,11 @@ async function handleActiveReservationsBeforeDelete(
       .maybeSingle()
     scheduleEventId = data?.schedule_event_id ?? null
   }
-  if (!scheduleEventId) return true
+  if (!scheduleEventId) return []
 
   let activeQuery = supabase
     .from('reservations')
-    .select('id, customer_name, reservation_source')
+    .select('id, customer_name, customer_email')
     .eq('schedule_event_id', scheduleEventId)
     .neq('status', 'cancelled')
   if (organizationId) {
@@ -115,32 +115,60 @@ async function handleActiveReservationsBeforeDelete(
     logger.error('有効予約チェックエラー:', activeError)
     throw new Error('予約情報の確認に失敗しました')
   }
-  if (!activeReservations || activeReservations.length === 0) return true
+  return activeReservations ?? []
+}
 
-  // ① 警告
-  const proceed = window.confirm(
-    `⚠️ この公演には ${activeReservations.length} 件の有効な予約があります。\n\n` +
-    `削除を続行すると、すべての予約をキャンセルした上で公演を削除します。\n` +
-    `（予約の記録はキャンセル済みとして残ります）\n\n続行しますか？`
-  )
-  if (!proceed) return false
+/** 予約者の表示名（名前＋メール）を組み立てる */
+function formatCustomerLabel(r: ActiveReservation): string {
+  const name = r.customer_name || '名前未登録'
+  return r.customer_email ? `${name}（${r.customer_email}）` : name
+}
 
-  // ② メール送信の選択
-  const sendMail = window.confirm(
-    `予約者 ${activeReservations.length} 名にキャンセルのご連絡メールを送信しますか？\n\n` +
-    `「OK」= メールを送信してキャンセル\n` +
-    `「キャンセル」= メールを送らずにキャンセル（後から個別連絡する場合）`
-  )
+/**
+ * F-1: 削除前に有効予約を処理する統合フロー（2026-06-13 オーナー指示で実装）
+ *
+ * 対象公演に有効な予約（貸切の主申込・参加者・通常予約すべて）が残っている場合:
+ *   ① 専用ダイアログ（DeleteEventCancelDialog）で件数警告＋キャンセル理由の編集
+ *      ＋メール送信の選択をまとめて確認（予約一覧の「予約をキャンセル」と同じ作法）。
+ *      このダイアログが削除の確定を兼ねるため、通常の削除確認モーダルは出さない
+ *      （確定モーダルが先に出ると順序が不自然、というオーナー指摘 2026-06-13）
+ *   ② 全予約をキャンセル（メールあり: reservationApi.cancel = サーバー側で
+ *      キャンセル+システムメッセージ+メール送信まで一括 / メールなし:
+ *      admin_update_reservation_fields でステータスのみ更新）
+ *
+ * @param askDecision ダイアログを開いてユーザーの決定を待つ（null = 中断）
+ * @param preFetched 取得済みの有効予約（再クエリを避けたい呼び出し元用）
+ * @returns true = 削除を続行してよい / false = ユーザーが中断
+ * @throws 予約キャンセルに失敗した場合（削除は実行しない）
+ */
+async function handleActiveReservationsBeforeDelete(
+  targetEvent: ScheduleEvent,
+  organizationId: string | null,
+  askDecision: (info: Omit<DeleteCancelPrompt, 'defaultReason'>) => Promise<DeleteCancelDecision | null>,
+  preFetched?: ActiveReservation[]
+): Promise<boolean> {
+  const activeReservations = preFetched ?? await fetchActiveReservations(targetEvent, organizationId)
+  if (activeReservations.length === 0) return true
 
-  // ③ 全予約をキャンセル
-  logger.log('🗑 F-1: 削除前の予約一括キャンセル開始', {
-    scheduleEventId, count: activeReservations.length, sendMail,
+  // ① 専用ダイアログで確認（件数・予約者・理由編集・メール送信選択）
+  const decision = await askDecision({
+    count: activeReservations.length,
+    customers: activeReservations.map(formatCustomerLabel),
   })
+  if (!decision) return false
+  const { sendMail } = decision
+  const reason = decision.reason.trim() || DEFAULT_CANCELLATION_REASON
+
+  // ② 全予約をキャンセル
+  logger.log('🗑 F-1: 削除前の予約一括キャンセル開始', {
+    eventId: targetEvent.id, count: activeReservations.length, sendMail,
+  })
+  showToast.info(`${activeReservations.length}件の予約をキャンセルしています…`)
   const failures: string[] = []
   for (const r of activeReservations) {
     try {
       if (sendMail) {
-        await reservationApi.cancel(r.id, DEFAULT_CANCELLATION_REASON, { skipGroupCancel: true })
+        await reservationApi.cancel(r.id, reason, { skipGroupCancel: true })
       } else {
         const params: RpcAdminUpdateReservationFieldsParams = {
           p_reservation_id: r.id,
@@ -294,147 +322,157 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deletingEvent, setDeletingEvent] = useState<ScheduleEvent | null>(null)
 
-  // 削除確認ダイアログを開く
-  const handleDeletePerformance = useCallback(async (event: ScheduleEvent) => {
-    setDeletingEvent(event)
-    setIsDeleteDialogOpen(true)
+  // F-1: 予約キャンセル確認ダイアログ（DeleteEventCancelDialog）の表示状態。
+  // Promise の resolver は state に置くと StrictMode の二重実行で壊れるため ref に保持
+  const [deleteCancelPrompt, setDeleteCancelPrompt] = useState<DeleteCancelPrompt | null>(null)
+  const deleteCancelResolveRef = useRef<((decision: DeleteCancelDecision | null) => void) | null>(null)
+
+  /** ダイアログを開いてユーザーの決定（実行 or 中断）を待つ */
+  const askDeleteCancelDecision = useCallback(
+    (info: Omit<DeleteCancelPrompt, 'defaultReason'>) =>
+      new Promise<DeleteCancelDecision | null>(resolve => {
+        deleteCancelResolveRef.current = resolve
+        setDeleteCancelPrompt({ ...info, defaultReason: DEFAULT_CANCELLATION_REASON })
+      }),
+    []
+  )
+
+  /** ダイアログ側から決定を受け取る（null = やめる） */
+  const resolveDeleteCancelPrompt = useCallback((decision: DeleteCancelDecision | null) => {
+    setDeleteCancelPrompt(null)
+    const resolve = deleteCancelResolveRef.current
+    deleteCancelResolveRef.current = null
+    resolve?.(decision)
   }, [])
 
-  // 公演を削除
+  /**
+   * 公演種別に応じた削除の実体（貸切 or 通常）。
+   * 呼び出し前に有効予約の処理（F-1）が済んでいる前提。
+   * ダイアログの開閉には触らない（呼び出し元が責任を持つ）。
+   */
+  const performDeleteByKind = useCallback(async (targetEvent: ScheduleEvent) => {
+    if (isPrivateBookingEvent(targetEvent)) {
+      await deletePrivateBookingEventCore(targetEvent, organizationId, setEvents)
+      return
+    }
+
+    // 通常公演: 念のため有効予約の残存を再確認（F-1 後は0件のはず。
+    // 万一残っていたら削除せず中止を案内する＝最後の安全弁）
+    let reservationsCheckQuery = supabase
+      .from('reservations')
+      .select('id')
+      .eq('schedule_event_id', targetEvent.id)
+      .neq('status', 'cancelled')
+    if (organizationId) {
+      reservationsCheckQuery = reservationsCheckQuery.eq('organization_id', organizationId)
+    }
+    const { data: reservations, error: checkError } = await reservationsCheckQuery
+
+    if (checkError) {
+      logger.error('予約チェックエラー:', checkError)
+      throw new Error('予約情報の確認に失敗しました')
+    }
+
+    if (reservations && reservations.length > 0) {
+      showToast.warning(`この公演には${reservations.length}件の有効な予約が紐付いているため削除できません`, '代わりに「中止」機能を使用してください。中止にすると、予約者に通知され、公演は非表示になります。')
+      return
+    }
+
+    // 削除前にフル状態スナップショットを取得（履歴用）
+    const snapshot = organizationId
+      ? await fetchEventSnapshot(targetEvent.id, organizationId)
+      : null
+
+    await scheduleApi.delete(targetEvent.id)
+
+    // 履歴を記録（削除）
+    if (organizationId) {
+      try {
+        void createEventHistory(
+          null,  // 削除後なのでnull
+          organizationId,
+          'delete',
+          snapshot ?? (targetEvent as unknown as Record<string, unknown>),
+          {},
+          {
+            date: targetEvent.date,
+            storeId: (snapshot?.store_id as string | undefined) || targetEvent.store_id || targetEvent.venue,
+            timeSlot: (snapshot?.time_slot as string | null | undefined) ?? targetEvent.time_slot ?? null,
+          },
+          {
+            deletedEventScenario: (snapshot?.scenario as string | undefined) || targetEvent.scenario,
+          }
+        )
+      } catch (historyError) {
+        logger.error('履歴記録エラー（削除）:', historyError)
+      }
+    }
+
+    setEvents(prev => prev.filter(event => event.id !== targetEvent.id))
+  }, [setEvents, organizationId])
+
+  // 削除の入口（右クリックメニュー等から）。
+  // 有効予約がある場合は通常の削除確認モーダルを出さない——確定モーダルが先に出ると
+  // 「もう確定した」ように見えるため（オーナー指摘 2026-06-13）。順序は
+  //   ① 予約キャンセルの確認 → ② メール送信の確認 → 一括キャンセル → 削除実行
+  // で、F-1 ダイアログが削除の確定を兼ねる。予約ゼロのときだけ従来の確認モーダル。
+  const handleDeletePerformance = useCallback(async (event: ScheduleEvent) => {
+    try {
+      const active = await fetchActiveReservations(event, organizationId)
+      if (active.length === 0) {
+        // 予約なし: 従来どおりの削除確認モーダル
+        setDeletingEvent(event)
+        setIsDeleteDialogOpen(true)
+        return
+      }
+      // 予約あり: F-1 フロー（確認②つ → 一括キャンセル）→ 削除実行
+      const proceed = await handleActiveReservationsBeforeDelete(
+        event, organizationId, askDeleteCancelDecision, active
+      )
+      if (!proceed) return
+      await performDeleteByKind(event)
+    } catch (error) {
+      logger.error('公演削除エラー:', error)
+      showToast.error(getSafeErrorMessage(error, '公演の削除に失敗しました'))
+    }
+  }, [organizationId, askDeleteCancelDecision, performDeleteByKind])
+
+  // 削除確認モーダル（予約ゼロ経路）からの実行
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingEvent) return
 
     try {
-      // F-1: 有効予約があれば「警告 → メール送信選択 → 一括キャンセル」を先に実施
-      const proceed = await handleActiveReservationsBeforeDelete(deletingEvent, organizationId)
-      if (!proceed) {
-        setIsDeleteDialogOpen(false)
-        setDeletingEvent(null)
-        return
+      // 安全弁: モーダルを開いてから予約が入った場合に備えて F-1 を再チェック
+      const proceed = await handleActiveReservationsBeforeDelete(
+        deletingEvent, organizationId, askDeleteCancelDecision
+      )
+      if (proceed) {
+        await performDeleteByKind(deletingEvent)
       }
-      if (isPrivateBookingEvent(deletingEvent)) {
-        await deletePrivateBookingEventCore(deletingEvent, organizationId, setEvents)
-      } else {
-        // 通常の公演を削除する前に、アクティブな予約の有無をチェック
-        // キャンセル済みの予約は除外して確認
-        let reservationsCheckQuery = supabase
-          .from('reservations')
-          .select('id')
-          .eq('schedule_event_id', deletingEvent.id)
-          .neq('status', 'cancelled')  // キャンセル済みは除外
-        if (organizationId) {
-          reservationsCheckQuery = reservationsCheckQuery.eq('organization_id', organizationId)
-        }
-        const { data: reservations, error: checkError } = await reservationsCheckQuery
-
-        if (checkError) {
-          logger.error('予約チェックエラー:', checkError)
-          throw new Error('予約情報の確認に失敗しました')
-        }
-
-        if (reservations && reservations.length > 0) {
-          // アクティブな予約がある場合は削除を拒否
-          showToast.warning(`この公演には${reservations.length}件の有効な予約が紐付いているため削除できません`, '代わりに「中止」機能を使用してください。中止にすると、予約者に通知され、公演は非表示になります。')
-          setIsDeleteDialogOpen(false)
-          setDeletingEvent(null)
-          return
-        }
-
-        // 予約がない場合のみ削除を実行
-        // 削除前にフル状態スナップショットを取得（履歴用）
-        const snapshot = organizationId
-          ? await fetchEventSnapshot(deletingEvent.id, organizationId)
-          : null
-
-        await scheduleApi.delete(deletingEvent.id)
-
-        // 履歴を記録（削除）
-        if (organizationId) {
-          try {
-            void createEventHistory(
-              null,  // 削除後なのでnull
-              organizationId,
-              'delete',
-              snapshot ?? (deletingEvent as unknown as Record<string, unknown>),
-              {},
-              {
-                date: deletingEvent.date,
-                storeId: (snapshot?.store_id as string | undefined) || deletingEvent.venue,
-                timeSlot: (snapshot?.time_slot as string | null | undefined) ?? deletingEvent.time_slot ?? null,
-              },
-              {
-                deletedEventScenario: (snapshot?.scenario as string | undefined) || deletingEvent.scenario,
-              }
-            )
-          } catch (historyError) {
-            logger.error('履歴記録エラー（削除）:', historyError)
-          }
-        }
-
-        setEvents(prev => prev.filter(event => event.id !== deletingEvent.id))
-      }
-
-      setIsDeleteDialogOpen(false)
-      setDeletingEvent(null)
     } catch (error) {
       logger.error('公演削除エラー:', error)
-
-      // エラーメッセージを詳細化
       showToast.error(getSafeErrorMessage(error, '公演の削除に失敗しました'))
-
+    } finally {
       setIsDeleteDialogOpen(false)
       setDeletingEvent(null)
     }
-  }, [deletingEvent, setEvents, organizationId])
+  }, [deletingEvent, organizationId, askDeleteCancelDecision, performDeleteByKind])
 
-  // 貸切公演を直接削除（確認ダイアログなし - ReservationListから呼び出し用）
+  // 公演を直接削除（確認モーダルなし - 予約一覧モーダルから呼び出し用）
   const deleteEventDirectly = useCallback(async (eventToDelete: ScheduleEvent) => {
     try {
-      // F-1: 有効予約があれば「警告 → メール送信選択 → 一括キャンセル」を先に実施
+      // F-1: 有効予約があれば「キャンセル確認 → メール送信確認 → 一括キャンセル」を先に実施
       // （予約一覧の全員キャンセル後ルートでは有効予約0のため確認なしで素通りする）
-      const proceed = await handleActiveReservationsBeforeDelete(eventToDelete, organizationId)
+      const proceed = await handleActiveReservationsBeforeDelete(
+        eventToDelete, organizationId, askDeleteCancelDecision
+      )
       if (!proceed) return
-      if (isPrivateBookingEvent(eventToDelete)) {
-        await deletePrivateBookingEventCore(eventToDelete, organizationId, setEvents)
-      } else {
-        // 通常の公演の場合
-        // 削除前にフル状態スナップショットを取得（履歴用）
-        const eventToDeleteSnapshot = organizationId
-          ? await fetchEventSnapshot(eventToDelete.id, organizationId)
-          : null
-
-        await scheduleApi.delete(eventToDelete.id)
-
-        // 履歴を記録（削除）
-        if (organizationId) {
-          try {
-            void createEventHistory(
-              null,
-              organizationId,
-              'delete',
-              eventToDeleteSnapshot ?? (eventToDelete as unknown as Record<string, unknown>),
-              {},
-              {
-                date: eventToDelete.date,
-                storeId: eventToDelete.store_id || eventToDelete.venue,
-                timeSlot: eventToDelete.time_slot || null
-              },
-              {
-                deletedEventScenario: eventToDelete.scenario
-              }
-            )
-          } catch (historyError) {
-            logger.error('履歴記録エラー（削除）:', historyError)
-          }
-        }
-
-        setEvents(prev => prev.filter(event => event.id !== eventToDelete.id))
-      }
+      await performDeleteByKind(eventToDelete)
     } catch (error) {
       logger.error('公演削除エラー:', error)
       throw error
     }
-  }, [setEvents, organizationId])
+  }, [organizationId, askDeleteCancelDecision, performDeleteByKind])
 
   return {
     isDeleteDialogOpen,
@@ -443,5 +481,8 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
     handleDeletePerformance,
     handleConfirmDelete,
     deleteEventDirectly,
+    // F-1: 予約キャンセル確認ダイアログ（DeleteEventCancelDialog に渡す）
+    deleteCancelPrompt,
+    resolveDeleteCancelPrompt,
   }
 }

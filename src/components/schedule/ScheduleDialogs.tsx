@@ -4,12 +4,21 @@ import { memo } from 'react'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  DeleteEventCancelDialog,
+  type DeleteCancelPrompt,
+  type DeleteCancelDecision,
+} from '@/components/schedule/DeleteEventCancelDialog'
 
 interface ScheduleDialogsProps {
   // 削除ダイアログ
   isDeleteDialogOpen: boolean
   onCloseDeleteDialog: () => void
   onConfirmDelete: () => void
+
+  // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
+  deleteCancelPrompt?: DeleteCancelPrompt | null
+  onResolveDeleteCancelPrompt?: (decision: DeleteCancelDecision | null) => void
 
   // 中止ダイアログ
   isCancelDialogOpen: boolean
@@ -28,6 +37,8 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
   isDeleteDialogOpen,
   onCloseDeleteDialog,
   onConfirmDelete,
+  deleteCancelPrompt,
+  onResolveDeleteCancelPrompt,
   isCancelDialogOpen,
   onCloseCancelDialog,
   onConfirmCancel,
@@ -49,6 +60,15 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
         variant="danger"
         confirmLabel="削除"
       />
+
+      {/* F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
+          （①キャンセル確認 → ②メール送信確認 の2ステップ） */}
+      {onResolveDeleteCancelPrompt && (
+        <DeleteEventCancelDialog
+          prompt={deleteCancelPrompt ?? null}
+          onResolve={onResolveDeleteCancelPrompt}
+        />
+      )}
 
       {/* 中止確認ダイアログ */}
       <ConfirmModal

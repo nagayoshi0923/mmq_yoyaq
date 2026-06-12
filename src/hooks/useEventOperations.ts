@@ -231,6 +231,8 @@ export function useEventOperations({
     handleDeletePerformance,
     handleConfirmDelete,
     deleteEventDirectly,
+    deleteCancelPrompt,
+    resolveDeleteCancelPrompt,
   } = useEventDelete({ setEvents, organizationId })
 
   // 中止ダイアログ状態
@@ -1776,6 +1778,8 @@ export function useEventOperations({
     handleDeletePerformance,
     handleConfirmDelete,
     deleteEventDirectly,
+    deleteCancelPrompt,
+    resolveDeleteCancelPrompt,
     handleCancelConfirmPerformance,
     handleConfirmCancel,
     handleUncancelPerformance,

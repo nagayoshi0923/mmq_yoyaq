@@ -90,6 +90,9 @@ export interface ScheduleTableModals {
     isRestoreDialogOpen?: boolean
     onCloseRestoreDialog?: () => void
     onConfirmRestore?: () => void
+    // F-1: 有効予約のある公演削除時の予約キャンセル確認ダイアログ
+    deleteCancelPrompt?: { count: number; customers: string[]; defaultReason: string } | null
+    onResolveDeleteCancelPrompt?: (decision: { sendMail: boolean; reason: string } | null) => void
   }
   moveOrCopyDialog: {
     isOpen: boolean
