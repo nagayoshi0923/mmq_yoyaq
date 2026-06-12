@@ -40,10 +40,16 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
     if (!deletingEvent) return
 
     try {
-      // 貸切予約の判定: is_private_requestフラグまたは、IDが`private-`で始まる、または複合ID形式
-      const isPrivateBooking = deletingEvent.is_private_request || 
+      // 貸切予約の判定:
+      // - is_private_request フラグ（未承認の擬似イベント）
+      // - 合成ID（`private-UUID-n` / `UUID-n` 形式）
+      // - 承認済み貸切: category='private' かつ予約リンク(reservation_id)あり
+      //   （承認RPCが作る本物のUUID行は上2つに合致せず、通常公演扱いで
+      //     「有効予約があるため削除不可」に誤って弾かれていた 2026-06-12修正）
+      const isPrivateBooking = deletingEvent.is_private_request ||
                                deletingEvent.id.startsWith('private-') ||
-                               (deletingEvent.id.includes('-') && deletingEvent.id.split('-').length > 5)
+                               (deletingEvent.id.includes('-') && deletingEvent.id.split('-').length > 5) ||
+                               (deletingEvent.category === 'private' && !!deletingEvent.reservation_id)
       
       if (isPrivateBooking) {
         // reservation_idが直接指定されている場合、それを使用
@@ -226,10 +232,11 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
   // 貸切公演を直接削除（確認ダイアログなし - ReservationListから呼び出し用）
   const deleteEventDirectly = useCallback(async (eventToDelete: ScheduleEvent) => {
     try {
-      // 貸切予約の判定: is_private_requestフラグまたは、IDが`private-`で始まる、または複合ID形式
-      const isPrivateBooking = eventToDelete.is_private_request || 
+      // 貸切予約の判定（handleConfirmDelete と同条件。2026-06-12 に承認済み貸切の判定を追加）
+      const isPrivateBooking = eventToDelete.is_private_request ||
                                eventToDelete.id.startsWith('private-') ||
-                               (eventToDelete.id.includes('-') && eventToDelete.id.split('-').length > 5)
+                               (eventToDelete.id.includes('-') && eventToDelete.id.split('-').length > 5) ||
+                               (eventToDelete.category === 'private' && !!eventToDelete.reservation_id)
       
       if (isPrivateBooking) {
         // reservation_idが直接指定されている場合、それを使用
