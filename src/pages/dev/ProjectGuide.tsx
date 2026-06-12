@@ -179,6 +179,19 @@ export function ProjectGuide() {
           </CardContent>
         </Card>
 
+        {/* 学習ページへの導線 */}
+        <a href="/dev/learn" className="block">
+          <Card className="border-green-300 bg-green-50 hover:bg-green-100 transition-colors">
+            <CardContent className="pt-4 pb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-green-900">📚 学習コース: このシステムで学ぶプログラミング＆システム設計</p>
+                <p className="text-xs text-green-800 mt-0.5">全8章。すべて実在のコードと実際に起きたバグで学べます → /dev/learn</p>
+              </div>
+              <span className="text-green-700 text-lg">→</span>
+            </CardContent>
+          </Card>
+        </a>
+
         {/* ① システム全体図 */}
         <Card>
           <CardHeader><CardTitle>① システムの全体図 — 何がどこで動いているか</CardTitle></CardHeader>
