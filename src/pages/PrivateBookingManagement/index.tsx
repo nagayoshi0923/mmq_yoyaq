@@ -482,14 +482,29 @@ export function PrivateBookingManagement() {
     r.status === 'gm_confirmed' || r.status === 'pending_store' ||
     ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
   )
+  // 承認済み・却下済みタブは「動きがあった順」（承認・キャンセルなど直近に処理した
+  // ものが上）に並べる。申込日順だと、古い申込を今処理したときにリストの奥へ
+  // 消えてしまう感覚になるため（オーナー指示 2026-06-13）。
+  // 作業キュー系タブ（GM確認中・店舗承認待ち）は従来どおり申込順。
+  const activityTime = (r: PrivateBookingRequest): number =>
+    Math.max(
+      r.cancelled_at ? new Date(r.cancelled_at).getTime() : 0,
+      r.approved_at ? new Date(r.approved_at).getTime() : 0,
+      r.created_at ? new Date(r.created_at).getTime() : 0
+    )
+  const byActivityDesc = (a: PrivateBookingRequest, b: PrivateBookingRequest) =>
+    activityTime(b) - activityTime(a)
+
   // 却下済み: cancelled かつ承認実績なし（承認前に断ったもの）
-  const rejectedRequests = requests.filter(r => r.status === 'cancelled' && !r.approver_name)
+  const rejectedRequests = requests
+    .filter(r => r.status === 'cancelled' && !r.approver_name)
+    .sort(byActivityDesc)
   // 承認済み: 一度でも承認したもの（確定中＋確定後キャンセルの両方）。
   // タブは「却下したか／承認したか」の意思決定で分ける（オーナー指示 2026-06-13）。
   // 確定中かキャンセル済みかはカードのステータスバッジで見分ける
-  const approvedRequests = requests.filter(r =>
-    r.status === 'confirmed' || (r.status === 'cancelled' && !!r.approver_name)
-  )
+  const approvedRequests = requests
+    .filter(r => r.status === 'confirmed' || (r.status === 'cancelled' && !!r.approver_name))
+    .sort(byActivityDesc)
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
   const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
@@ -509,7 +524,7 @@ export function PrivateBookingManagement() {
     })
   }
   
-  // 表示件数でフィルタリング（created_at降順で既にソート済み）
+  // 表示件数でフィルタリング（作業キュー系は created_at 降順、承認済み/却下済みは動きがあった順でソート済み）
   const applyLimit = (reqs: PrivateBookingRequest[]) => {
     if (displayLimit === 'all') return reqs
     const limit = parseInt(displayLimit, 10)
