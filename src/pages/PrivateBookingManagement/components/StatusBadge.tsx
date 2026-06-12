@@ -2,12 +2,14 @@ import { Badge } from '@/components/ui/badge'
 
 interface StatusBadgeProps {
   status: string
+  /** 一度確定（承認）された後のキャンセルか（承認者の有無で判定） */
+  wasConfirmed?: boolean
 }
 
 /**
  * 貸切予約ステータスバッジ
  */
-export const StatusBadge = ({ status }: StatusBadgeProps) => {
+export const StatusBadge = ({ status, wasConfirmed }: StatusBadgeProps) => {
   switch (status) {
     case 'pending':
     case 'pending_gm':
@@ -30,9 +32,10 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
         </Badge>
       )
     case 'cancelled':
+      // 一度承認された申込のキャンセル（公演削除等）と、承認前の却下を区別する
       return (
         <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
-          却下
+          {wasConfirmed ? '確定後キャンセル' : '却下'}
         </Badge>
       )
     default:

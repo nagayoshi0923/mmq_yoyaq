@@ -314,6 +314,12 @@ export function useScheduleEventsQuery(currentDate: Date) {
     staleTime: Infinity,
     // メモリ上は無期限保持（IndexedDB が14日間を担保）
     gcTime: Infinity,
+    // ⚠️ ページを開いた時は必ず裏で最新を取り直す。
+    // staleTime: Infinity + IndexedDB 永続化のため、これが無いと
+    // 「他画面での変更（貸切承認等）→ スケジュールを開く/リロード」で
+    // 永遠に古いデータが表示される（Realtime はこの画面を開いている間の
+    // 変更しか拾えない。2026-06-12 実発生: 承認した貸切が反映されない）
+    refetchOnMount: 'always',
     // ウィンドウフォーカス時に必ずバックグラウンド再取得
     // → スリープ復帰・長時間離席後に古いデータが残らない
     refetchOnWindowFocus: 'always',

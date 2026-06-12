@@ -33,7 +33,9 @@ export function HistoryModal({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden">
+        {/* overflow-y-auto 必須: EventHistoryTab 自体はスクロールを持たないため、
+            hidden だと2件目以降の履歴が切り捨てられスクロールも不可になる */}
+        <div className="flex-1 overflow-y-auto">
           <EventHistoryTab
             cellInfo={cellInfo}
             organizationId={organizationId}

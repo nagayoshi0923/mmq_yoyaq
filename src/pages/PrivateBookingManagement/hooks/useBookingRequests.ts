@@ -83,7 +83,9 @@ async function fetchRawBookingRequests(
       *,
       scenario_masters:scenario_master_id(title, official_duration),
       customers:customer_id(name, phone),
-      private_groups:private_group_id(invite_code, scenario_master_id)
+      private_groups:private_group_id(invite_code, scenario_master_id),
+      confirmer:staff!reservations_confirmed_by_fkey(name),
+      canceller:staff!reservations_cancelled_by_fkey(name)
     `)
     .eq('organization_id', orgId)
     .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
@@ -275,6 +277,12 @@ async function fetchRawBookingRequests(
       scenario_player_count_range: scenarioMasterId ? playerRangeByMasterId.get(scenarioMasterId) ?? null : null,
       notes: req.customer_notes || '',
       status: req.status,
+      approver_name: req.confirmer?.name,
+      // 承認日時: confirmed_at（2026-06-12追加・キャンセル後も残る）を最優先。
+      // 過去データで NULL の場合のみ、confirmed の間に限り updated_at で近似
+      approved_at: req.confirmed_at ?? (req.status === 'confirmed' ? req.updated_at : undefined),
+      canceller_name: req.canceller?.name,
+      cancelled_at: req.cancelled_at ?? undefined,
       gm_responses: transformedGMResponses,
       created_at: req.created_at,
       invite_code: req.private_groups?.invite_code || '',
@@ -293,6 +301,10 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     enabled,
     staleTime: 60 * 1000, // 1分
     refetchInterval: 3 * 60 * 1000, // 3分ごとに自動更新（GM回答をリアルタイムに反映）
+    // 他画面（スケジュールの中止・削除等）での変更がキャッシュ有効期間内だと
+    // 反映されないため、このページを開くたびに必ず再取得する
+    // （2026-06-13 C-4テストで「中止直後に確定後キャンセルタブに出ない」が発生）
+    refetchOnMount: 'always',
   })
 
   // endTime を isCustomHoliday で補正（サーバーデータと分離してキャッシュを壊さない）

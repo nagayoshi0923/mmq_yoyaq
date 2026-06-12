@@ -21,7 +21,7 @@ import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
@@ -108,64 +108,8 @@ export function ReservationList({
     emailBody: '' // メール本文全体
   })
   
-  // メール本文を生成（email_settings の cancellation_template を優先、なければフォールバック）
-  const generateEmailBody = (content: typeof emailContent, template?: string) => {
-    const formatDate = (dateStr: string): string => {
-      if (!dateStr) return ''
-      return formatJstDateJa(dateStr, true) || dateStr
-    }
-    const formatTime = (t: string) => t?.slice(0, 5) || ''
-
-    if (template) {
-      return template
-        .replace(/{customer_name}/g, content.customerName)
-        .replace(/{reservation_number}/g, content.reservationNumber)
-        .replace(/{scenario_title}/g, content.scenarioTitle)
-        .replace(/{date}/g, formatDate(content.eventDate))
-        .replace(/{time}/g, formatTime(content.startTime))
-        .replace(/{end_time}/g, formatTime(content.endTime))
-        .replace(/{venue}/g, content.storeName)
-        .replace(/{participants}/g, String(content.participantCount))
-        .replace(/{cancellation_fee}/g, content.cancellationFee.toLocaleString())
-        .replace(/{cancellation_reason}/g, content.cancellationReason)
-        .replace(/{company_name}/g, content.organizationName || '店舗')
-        .replace(/{total_price}/g, content.totalPrice.toLocaleString())
-    }
-
-    // フォールバック: email_settings 未設定時のデフォルト文面
-    const isOnsitePayment = content.paymentMethod === 'onsite'
-    const refundMessage = isOnsitePayment
-      ? 'お支払いは不要となりました。'
-      : 'お支払いいただいた料金は全額返金させていただきます。'
-    const policySection = content.cancellationPolicy
-      ? `\n【キャンセルポリシー】\n${content.cancellationPolicy}\n`
-      : ''
-
-    return `${content.customerName} 様
-
-いつもご利用いただきありがとうございます。
-
-誠に申し訳ございませんが、以下のご予約をキャンセルさせていただくこととなりました。
-
-【予約情報】
-予約番号: ${content.reservationNumber}
-シナリオ: ${content.scenarioTitle}
-日時: ${formatDate(content.eventDate)} ${formatTime(content.startTime)} - ${formatTime(content.endTime)}
-会場: ${content.storeName}
-参加人数: ${content.participantCount}名
-
-【キャンセル理由】
-${content.cancellationReason}
-
-${content.cancellationFee > 0 ? `【キャンセル料】\n¥${content.cancellationFee.toLocaleString()}\n\n` : ''}${refundMessage}${policySection}
-この度は大変ご迷惑をおかけし、誠に申し訳ございませんでした。
-またのご利用を心よりお待ちしております。
-
----
-${content.organizationName || '店舗'}
-このメールは自動送信されています。
-ご不明な点がございましたら、お気軽にお問い合わせください。`
-  }
+  // メール本文の生成は共通モジュール（lib/cancellationEmail）に移動。
+  // 公演の中止・削除フロー（DeleteEventCancelDialog）と同じロジックを共有する
   const [isAddingParticipant, setIsAddingParticipant] = useState(false)
   const [newParticipant, setNewParticipant] = useState({
     customer_name: '',
@@ -574,7 +518,7 @@ ${content.organizationName || '店舗'}
         emailBody: ''
       }
       // メール本文を生成（email_settings のテンプレートを優先）
-      newEmailContent.emailBody = generateEmailBody(newEmailContent, cancellationEmailTemplate || undefined)
+      newEmailContent.emailBody = buildCancellationEmailBody(newEmailContent, cancellationEmailTemplate || undefined)
       setEmailContent(newEmailContent)
       
       // メールアドレスがある場合はデフォルトでメール送信ON
@@ -837,7 +781,11 @@ ${content.organizationName || '店舗'}
       })
       
       // 貸切公演の場合、全員キャンセル後にイベント削除を確認
-      if (event?.is_private_request && onDeleteEvent) {
+      // 判定は useEventDelete と同条件: 未承認の擬似イベント（is_private_request）に加え、
+      // 承認済み貸切（category='private' + 予約リンクあり）も対象（2026-06-13修正）
+      const isPrivateBookingEvent = event?.is_private_request ||
+        (event?.category === 'private' && !!event?.reservation_id)
+      if (isPrivateBookingEvent && onDeleteEvent) {
         // 最新の予約リストを取得（UIの状態更新後）
         // setReservations は非同期なので、少し遅延を入れてからチェック
         setTimeout(() => {

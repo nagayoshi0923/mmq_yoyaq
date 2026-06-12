@@ -187,6 +187,19 @@ phase5_verify() {
   echo "  prod=$PROD_MIG staging=$STG_MIG"
 
   echo
+  echo "--- Realtime publication チェック ---"
+  # クローンで supabase_realtime publication のテーブル登録が消える。
+  # 消えたままだと staleTime:Infinity のスケジュール画面等が永遠に更新されない
+  # （2026-06-12 実発生: 貸切承認がスケジュールに反映されない）
+  PUB_COUNT=$(staging_psql -tA -c "SELECT COUNT(*) FROM pg_publication_tables WHERE pubname='supabase_realtime'" 2>/dev/null || echo 0)
+  if [ "$PUB_COUNT" -ge 5 ]; then
+    echo "  OK ($PUB_COUNT tables)"
+  else
+    echo "  🚨 supabase_realtime publication が $PUB_COUNT テーブルしかありません。本番に合わせて追加すること:"
+    echo "     ALTER PUBLICATION supabase_realtime ADD TABLE kit_transfer_completions, private_group_messages, reservations, schedule_events, user_notifications;"
+  fi
+
+  echo
   echo "--- app_config 環境越えチェック ---"
   # 本番からの複製で app_config が本番値のままだと、staging のDBトリガーが
   # 本番の Edge Function を呼ぶ（2026-06-11 に実発生: staging の貸切申込が本番Bot経由で通知）

@@ -58,6 +58,8 @@ interface BookingRequest {
   created_at: string
   approver_name?: string
   approved_at?: string
+  canceller_name?: string
+  cancelled_at?: string
   notes?: string
   invite_code?: string
   candidate_datetimes?: {
@@ -142,7 +144,20 @@ export const BookingRequestCard = ({
         {/* ── タイトル + ステータス ── */}
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
-          <StatusBadge status={request.status} />
+          <div className="flex flex-col items-end gap-0.5 shrink-0">
+            <StatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
+            {request.approver_name && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                承認: {request.approver_name}{request.approved_at ? ` ・ ${formatDateTime(request.approved_at)}` : ''}
+              </span>
+            )}
+            {request.status === 'cancelled' && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {request.approver_name ? 'キャンセル' : '却下'}: {request.canceller_name || '不明'}
+                {request.cancelled_at ? ` ・ ${formatDateTime(request.cancelled_at)}` : ''}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── サマリー1行 ── */}
@@ -359,8 +374,10 @@ export const BookingRequestCard = ({
                 const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
                 const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
                 const isReservationConfirmed = request.status === 'confirmed'
+                // 確定後キャンセル: どの日程で確定していたかは candidate.status に残っている
+                const isCancelledAfterConfirm = request.status === 'cancelled' && !!request.approver_name
                 const isThisCandidateChosen = candidate.status === 'confirmed'
-                const isThisDimmed = isReservationConfirmed && !isThisCandidateChosen
+                const isThisDimmed = (isReservationConfirmed || isCancelledAfterConfirm) && !isThisCandidateChosen
                 const isThisSelected = selectedCandidateOrder === candidate.order
                 const clickable = !!onSelectCandidate
 
@@ -378,6 +395,8 @@ export const BookingRequestCard = ({
                           ? 'border-purple-400 bg-purple-50 rounded-b-none'
                           : isReservationConfirmed && isThisCandidateChosen
                           ? 'border-green-400 bg-green-50 ring-2 ring-green-300 font-medium'
+                          : isCancelledAfterConfirm && isThisCandidateChosen
+                          ? 'border-red-300 bg-red-50/60 font-medium'
                           : isThisDimmed
                           ? 'border-gray-200 bg-gray-50/60 text-gray-400 opacity-60'
                           : isReservationConfirmed && isGMAvailable
@@ -391,6 +410,8 @@ export const BookingRequestCard = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         {isReservationConfirmed && isThisCandidateChosen
                           ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          : isCancelledAfterConfirm && isThisCandidateChosen
+                          ? <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                           : isThisDimmed
                           ? <XCircle className="w-4 h-4 text-gray-300 shrink-0" />
                           : isReservationConfirmed && isGMAvailable
@@ -398,10 +419,13 @@ export const BookingRequestCard = ({
                           : isThisSelected
                           ? <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
                           : <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />}
-                        <span className={cn('font-medium', isThisDimmed && 'line-through')}>{formatDate(candidate.date)}</span>
+                        <span className={cn('font-medium', (isThisDimmed || (isCancelledAfterConfirm && isThisCandidateChosen)) && 'line-through')}>{formatDate(candidate.date)}</span>
                         <span className="text-muted-foreground text-xs whitespace-nowrap">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
                         {isReservationConfirmed && isThisCandidateChosen && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-green-600 text-white font-semibold">確定</span>
+                        )}
+                        {isCancelledAfterConfirm && isThisCandidateChosen && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-600 text-white font-semibold">確定→キャンセル</span>
                         )}
                         {availableStores && availableStores.length === 0 && (
                           <span className="text-xs text-red-500">空き店舗なし</span>
@@ -451,15 +475,7 @@ export const BookingRequestCard = ({
                 <span className="text-purple-800">開催店舗: </span>
                 <span className="text-purple-900 font-medium">{request.candidate_datetimes.confirmedStore.storeName}</span>
               </div>
-              {request.status === 'confirmed' && (
-                <div className="text-xs text-purple-700">
-                  <span>承認者: </span>
-                  <span className="font-medium">{request.approver_name || '不明'}</span>
-                  <span className="mx-1">・</span>
-                  <span>承認日時: </span>
-                  <span className="font-medium">{request.approved_at ? formatDateTime(request.approved_at) : '不明'}</span>
-                </div>
-              )}
+
             </div>
           )}
 

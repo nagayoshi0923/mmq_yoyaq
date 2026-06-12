@@ -78,24 +78,57 @@
 
 リスク: 中 / 規模: 中（4〜6コミット）
 
-- [ ] 3-1 全 localStorage / sessionStorage キーの棚卸し
-- [ ] 3-2 `useUIPreferences` への集約（**キー名と保存形式は変えない** — 既存ユーザー設定を壊さない）
-- [ ] 3-3 スクロール復元の統一（`RouteScrollRestorationContext` と各ページ独自実装の重複解消）
+- [x] 3-1 全キーの棚卸し（**完了**: `docs/STATE_MANAGEMENT.md` に一覧化）
+- [x] 3-2 集約方針（**完了・計画変更**）: 調査の結果、既存5フック
+      （useLocalState / useSessionState / useUserPreference / usePageState / useTablePreferences）は
+      役割分担が妥当で、新たな統一フックを作るより使い分けの文書化が低リスク・高効果と判断。
+      `docs/STATE_MANAGEMENT.md` に「どの状態をどこに保存するか」のガイドを整備。
+      生キー直書き（認証フロー・チャンクリロード等の特殊用途）は現状維持、
+      スケジュール画面の表示状態キー群のみ Phase 4 でフック化を検討
+- [x] 3-3 スクロール復元の統一（**完了**）: 唯一の手書き残骸だった ScenarioManagement の
+      独自実装（55行・標準Providerと二重動作）を useReportRouteScrollRestoration 1行に置換
 
 ## Phase 4: 巨大フックの分割 ★最重要・最も慎重に
 
 リスク: 高（スケジュール管理は業務の中核） / 規模: 大（8〜12コミット）
 
-- [ ] 4-1 `useEventOperations.ts`（2,422行）の依存マップ作成（コードを変える前に呼び出し元一覧）
-- [ ] 4-2 純関数の抽出 → `utils/eventOperationUtils.ts`（時間重複判定・バリデーション等。**ここでユニットテストを書く**）
+- [x] 4-1 依存マップ作成（**完了**: `docs/refactoring/useEventOperations-map.md`）
+      呼び出し元は useScheduleTable（2箇所）と DashboardHome（サブセット利用）のみ。
+      最難関は doSavePerformance（577行）と、保存/移動にまたがる conflict フロー
+- [x] 4-2 純関数の抽出（**完了**）: getEventTimeSlot / timeToMinutes / calcEndTime /
+      checkTimeOverlap（時間重複判定）を `utils/eventOperationUtils.ts` へ移動。
+      vitest を導入し16ケースのユニットテストを整備（`npm run test:unit`）。挙動不変
 - [ ] 4-3 操作系統ごとにフック分割: `useAddEvent` / `useEditEvent` / `useCancelRestoreEvent` / `useMoveCopyEvent`
       （1分割=1コミット。旧フックは re-export で互換維持 → 最後に削除）
-- [ ] 4-4 `useScheduleData` と `useScheduleEventsQuery` の役割重複を調査（まず実際の行数を実測）
+- [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
+      （実測済み。当初調査の「26.6K行」はKB誤読と確定）
 - [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
 - [ ] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
 
 ※ このフェーズは各コミット後にステージングでスケジュール画面の動作確認を必ず挟む。
 ※ 並行中の org_scope API 化（セキュリティ案件）と同一ファイルを触る場合、コミットを分離する。
+
+**Phase 4 完了後のフォローアップ（機能改善・2026-06-12 オーナー承認済み。忘れないこと）**
+- [x] F-1 削除フローの統合（**完了** 2026-06-13）: 有効予約のある公演の削除時、
+      「①予約キャンセル確認（件数＋予約者一覧）→ ②メール送信確認（理由編集＋送信
+      チェックボックス）→ 全予約一括キャンセル（記録保持）→ 公演削除＋履歴」の
+      統合フロー。右クリック削除・公演編集モーダルの「この予定を削除」の両方が通る。
+      メール送信は reservationApi.cancel（サーバー側一括オーケストレーション）。
+      UI は専用2ステップモーダル DeleteEventCancelDialog（①キャンセル確認＝件数＋
+      予約者一覧 → ②メール送信確認＝理由編集＋送信選択＋実行まとめ。予約一覧の
+      「予約をキャンセル」と作法を統一。一度1画面に統合したが予約数件で縦に
+      苦しいため2ステップに確定）。有効予約ありの場合は通常の削除確定モーダルを出さず F-1 が確定を
+      兼ねる（確定モーダルが先に出る順序は不自然、というオーナー指摘を反映）。
+      **中止フローも同型に統一（2026-06-13）**: 有効予約ありの中止は同じダイアログ
+      （variant:'cancel'）を通り、メール送信が選択制に（従来は必ず送信・件数も
+      見えなかった）。予約ゼロの中止は確認なしで即実行（復活できる操作のため）。対象予約も in('confirmed','pending') → neq('cancelled') に
+      揃え、gm_confirmed の漏れを解消。成功トーストも追加
+- [ ] F-2 公演作成直後の⚠️誤表示: 楽観表示（保存前の仮カード）にシナリオ情報(scenarios)が
+      添付されないケースがあり、リロードまで「シナリオマスタ未登録」警告が出る。
+      doSavePerformance の optimisticEvent 構築を修正（リロードで消えることは確認済み）。
+- [x] F-3 貸切削除ロジック重複の統合（**完了** 2026-06-12: deletePrivateBookingEventCore に一本化。
+      同時に仕様変更: 貸切削除時に申込を物理削除→「キャンセル状態で保持」に変更（顧客台帳の保全・オーナー指示）。
+      履歴スナップショットを削除前に取得する順序に修正し、削除履歴が残らないバグも解消）
 
 ## Phase 5: 巨大モーダルの解体
 

@@ -21,6 +21,7 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { showToast } from '@/utils/toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { useOrganization } from '@/hooks/useOrganization'
 
 export function ScenarioManagement() {
@@ -88,9 +89,6 @@ export function ScenarioManagement() {
 
   const importScenariosMutation = useImportScenariosMutation()
 
-  // 初回ロード完了フラグ（スクロール復元用）
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
-
   // フィルタとソート（編集ダイアログの前後ナビゲーション順序に使用）
   const { filteredAndSortedScenarios } = useScenarioFilters(allScenarios, {})
 
@@ -122,63 +120,9 @@ export function ScenarioManagement() {
     }
   }
   
-  // スクロール位置の保存と復元
-  useEffect(() => {
-    // ブラウザのデフォルトスクロール復元を無効化
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('scenarioScrollY', window.scrollY.toString())
-        sessionStorage.setItem('scenarioScrollTime', Date.now().toString())
-      }, 100)
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      clearTimeout(scrollTimer)
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  // 初回レンダリング時のスクロール位置復元（早期）
-  useEffect(() => {
-    let timer: NodeJS.Timeout | undefined
-    const savedY = sessionStorage.getItem('scenarioScrollY')
-    const savedTime = sessionStorage.getItem('scenarioScrollTime')
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      if (timeSinceScroll < 10000) {
-        timer = setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-    return () => { if (timer) clearTimeout(timer) }
-  }, [])
-
-  // 初回データロード後のスクロール位置復元（初回のみ）
-  useEffect(() => {
-    let timer: NodeJS.Timeout | undefined
-    if (!loading && !initialLoadComplete) {
-      setInitialLoadComplete(true)
-      const savedY = sessionStorage.getItem('scenarioScrollY')
-      const savedTime = sessionStorage.getItem('scenarioScrollTime')
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        if (timeSinceScroll < 10000) {
-          timer = setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-    return () => { if (timer) clearTimeout(timer) }
-  }, [loading, initialLoadComplete, setInitialLoadComplete])
+  // スクロール復元はアプリ標準の RouteScrollRestorationProvider に委譲
+  // （データロード完了まで復元を遅延させるための報告のみ行う）
+  useReportRouteScrollRestoration('scenario-management', { isLoading: loading })
 
   if (loading) {
     return (
