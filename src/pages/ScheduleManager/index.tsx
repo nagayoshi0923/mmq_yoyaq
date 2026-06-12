@@ -1,5 +1,7 @@
 // React
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react'
+import { getEventTimeSlot } from '@/utils/eventOperationUtils'
+import { timeSlotEnToSchedule } from '@/lib/timeSlot'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -1778,11 +1780,14 @@ export function ScheduleManager() {
                     const stores = scheduleTableProps.viewConfig.stores
                     const storeId = event.store_id || event.venue
                     const storeName = stores.find(s => s.id === storeId)?.name || event.venue
-                    const timeSlotLabel = event.time_slot || ''
+                    // 承認済み貸切などは time_slot が NULL のため、履歴の書き込み側と
+                    // 同じ導出（開始時刻→朝/昼/夜）で検索キーを揃える（揃えないと
+                    // 「夜」で記録された履歴が「時間帯なし」検索でヒットしない）
+                    const derivedTimeSlot = event.time_slot || timeSlotEnToSchedule(getEventTimeSlot(event))
                     setHistoryModal({
                       isOpen: true,
-                      cellInfo: { date: event.date, storeId, timeSlot: event.time_slot || null },
-                      title: `${event.date} ${storeName}${timeSlotLabel ? ' ' + timeSlotLabel : ''} の更新履歴`
+                      cellInfo: { date: event.date, storeId, timeSlot: derivedTimeSlot },
+                      title: `${event.date} ${storeName}${derivedTimeSlot ? ' ' + derivedTimeSlot : ''} の更新履歴`
                     })
                     modals.contextMenu.setContextMenu(null)
                   },
