@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users } from 'lucide-react'
+import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 import { useAuth } from '@/contexts/AuthContext'
@@ -73,6 +74,9 @@ export function PrivateBookingManagement() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
+  const [searchText, setSearchText] = useState('')  // フリーワード検索
+  const [scenarioFilter, setScenarioFilter] = useState<string>('all')  // シナリオ絞り込み
+  const [storeFilter, setStoreFilter] = useState<string>('all')  // 店舗絞り込み（確定店舗または希望店舗）
   const [dateRangeStart, setDateRangeStart] = useState<string | undefined>(undefined)  // 期間フィルター開始日
   const [dateRangeEnd, setDateRangeEnd] = useState<string | undefined>(undefined)  // 期間フィルター終了日
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
@@ -472,13 +476,69 @@ export function PrivateBookingManagement() {
     return r.gm_responses.some((response) => isGmMarkedAvailable(response))
   }
   
-  // フィルタリング
+  // ── 検索・絞り込み ─────────────────────────────────────
+  // タブ分けの前に適用する＝各タブの件数バッジも絞り込み後の数になり、
+  // 「探しているものがどのタブにいるか」が検索だけで分かる
+  const normalizedSearch = searchText.trim().toLowerCase()
+  const matchesFilters = (req: PrivateBookingRequest): boolean => {
+    // フリーワード（予約番号・顧客名・メール・電話・シナリオ名・招待コード）
+    if (normalizedSearch) {
+      const hit = [
+        req.reservation_number,
+        req.customer_name,
+        req.customer_email,
+        req.customer_phone,
+        req.scenario_title,
+        req.invite_code,
+      ].some(v => (v || '').toLowerCase().includes(normalizedSearch))
+      if (!hit) return false
+    }
+    // シナリオ
+    if (scenarioFilter !== 'all' && req.scenario_title !== scenarioFilter) return false
+    // 店舗（確定店舗または希望店舗のいずれかに一致）
+    if (storeFilter !== 'all') {
+      const cd = req.candidate_datetimes
+      const storeNames = [
+        cd?.confirmedStore?.storeName,
+        ...(cd?.requestedStores || []).map(s => s.storeName),
+      ].filter(Boolean) as string[]
+      if (!storeNames.includes(storeFilter)) return false
+    }
+    // 期間（候補日の最初の日付）
+    if (dateRangeStart || dateRangeEnd) {
+      const firstDate = req.candidate_datetimes?.candidates?.[0]?.date
+      if (!firstDate) return false
+      if (dateRangeStart && firstDate < dateRangeStart) return false
+      if (dateRangeEnd && firstDate > dateRangeEnd) return false
+    }
+    return true
+  }
+  const visibleRequests = requests.filter(matchesFilters)
+  const hasActiveFilters =
+    !!normalizedSearch || scenarioFilter !== 'all' || storeFilter !== 'all' || !!dateRangeStart || !!dateRangeEnd
+
+  // 絞り込みプルダウンの選択肢（全データから生成、絞り込み状態に左右されない）
+  const scenarioOptions = useMemo(
+    () => Array.from(new Set(requests.map(r => r.scenario_title).filter(Boolean))).sort(),
+    [requests]
+  )
+  const storeOptions = useMemo(() => {
+    const names = new Set<string>()
+    requests.forEach(r => {
+      const cd = r.candidate_datetimes
+      if (cd?.confirmedStore?.storeName) names.add(cd.confirmedStore.storeName)
+      cd?.requestedStores?.forEach(s => { if (s.storeName) names.add(s.storeName) })
+    })
+    return Array.from(names).sort()
+  }, [requests])
+
+  // タブ分け
   // GM確認中: pending/pending_gm かつ GM回答がまだない
-  const gmPendingRequests = requests.filter(r => 
+  const gmPendingRequests = visibleRequests.filter(r =>
     (r.status === 'pending' || r.status === 'pending_gm') && !isGMConfirmed(r)
   )
   // 店舗承認待ち: gm_confirmed/pending_store、または pending/pending_gm でGM回答済み
-  const storePendingRequests = requests.filter(r => 
+  const storePendingRequests = visibleRequests.filter(r =>
     r.status === 'gm_confirmed' || r.status === 'pending_store' ||
     ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
   )
@@ -496,34 +556,16 @@ export function PrivateBookingManagement() {
     activityTime(b) - activityTime(a)
 
   // 却下済み: cancelled かつ承認実績なし（承認前に断ったもの）
-  const rejectedRequests = requests
+  const rejectedRequests = visibleRequests
     .filter(r => r.status === 'cancelled' && !r.approver_name)
     .sort(byActivityDesc)
   // 承認済み: 一度でも承認したもの（確定中＋確定後キャンセルの両方）。
   // タブは「却下したか／承認したか」の意思決定で分ける（オーナー指示 2026-06-13）。
   // 確定中かキャンセル済みかはカードのステータスバッジで見分ける
-  const approvedRequests = requests
+  const approvedRequests = visibleRequests
     .filter(r => r.status === 'confirmed' || (r.status === 'cancelled' && !!r.approver_name))
     .sort(byActivityDesc)
-  
-  // 期間でフィルタリング（候補日の最初の日付でフィルター）
-  const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
-    if (!dateRangeStart && !dateRangeEnd) return reqs
-    return reqs.filter(req => {
-      const candidates = req.candidate_datetimes?.candidates
-      if (!candidates || candidates.length === 0) return false
-      const firstDate = candidates[0].date
-      if (!firstDate) return false
-      
-      // 開始日チェック
-      if (dateRangeStart && firstDate < dateRangeStart) return false
-      // 終了日チェック
-      if (dateRangeEnd && firstDate > dateRangeEnd) return false
-      
-      return true
-    })
-  }
-  
+
   // 表示件数でフィルタリング（作業キュー系は created_at 降順、承認済み/却下済みは動きがあった順でソート済み）
   const applyLimit = (reqs: PrivateBookingRequest[]) => {
     if (displayLimit === 'all') return reqs
@@ -537,17 +579,16 @@ export function PrivateBookingManagement() {
     setDateRangeEnd(end)
   }
   
-  const baseRequests = activeTab === 'gm_pending' 
-    ? gmPendingRequests 
-    : activeTab === 'store_pending' 
-      ? storePendingRequests 
+  const baseRequests = activeTab === 'gm_pending'
+    ? gmPendingRequests
+    : activeTab === 'store_pending'
+      ? storePendingRequests
       : activeTab === 'rejected'
         ? rejectedRequests
         : activeTab === 'approved'
           ? approvedRequests
-          : requests
-  const dateFilteredRequests = filterByDateRange(baseRequests)
-  const filteredRequests = applyLimit(dateFilteredRequests)
+          : visibleRequests
+  const filteredRequests = applyLimit(baseRequests)
 
   if (loading) {
     return (
@@ -578,37 +619,85 @@ export function PrivateBookingManagement() {
         />
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)}>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
-            <TabsList className="w-full sm:w-auto flex-wrap">
+          <div className="flex flex-col gap-3 mb-4">
+            <TabsList className="w-full sm:w-auto flex-wrap self-start">
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
               <TabsTrigger value="rejected" className="flex-1 sm:flex-initial text-xs sm:text-sm">却下済み ({rejectedRequests.length})</TabsTrigger>
               <TabsTrigger value="approved" className="flex-1 sm:flex-initial text-xs sm:text-sm">承認済み ({approvedRequests.length})</TabsTrigger>
-              <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
+              <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({visibleRequests.length})</TabsTrigger>
             </TabsList>
 
-            <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
-                <DateRangePopover
-                  startDate={dateRangeStart}
-                  endDate={dateRangeEnd}
-                  onDateChange={handleDateRangeChange}
-                  label={dateRangeStart || dateRangeEnd 
-                    ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}` 
-                    : '期間指定'}
-                  buttonClassName="w-[160px]"
+            {/* 検索・絞り込みツールバー（全タブ横断で効く。件数バッジにも反映） */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[280px] max-w-md">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="予約番号・名前・メール・シナリオで検索"
+                  className="pl-7 h-8 text-xs"
                 />
-                <Select value={displayLimit} onValueChange={setDisplayLimit}>
-                  <SelectTrigger className="w-[120px] text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="20">最新20件</SelectItem>
-                    <SelectItem value="50">最新50件</SelectItem>
-                    <SelectItem value="100">最新100件</SelectItem>
-                    <SelectItem value="all">全件表示</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
+              <Select value={scenarioFilter} onValueChange={setScenarioFilter}>
+                <SelectTrigger className="w-[150px] h-8 text-xs">
+                  <SelectValue placeholder="シナリオ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">シナリオ: 全て</SelectItem>
+                  {scenarioOptions.map(title => (
+                    <SelectItem key={title} value={title}>{title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={storeFilter} onValueChange={setStoreFilter}>
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <SelectValue placeholder="店舗" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">店舗: 全て</SelectItem>
+                  {storeOptions.map(name => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DateRangePopover
+                startDate={dateRangeStart}
+                endDate={dateRangeEnd}
+                onDateChange={handleDateRangeChange}
+                label={dateRangeStart || dateRangeEnd
+                  ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}`
+                  : '期間指定'}
+                buttonClassName="!w-auto min-w-[110px] !h-8 text-xs input-bg rounded"
+              />
+              <Select value={displayLimit} onValueChange={setDisplayLimit}>
+                <SelectTrigger className="w-[110px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">最新20件</SelectItem>
+                  <SelectItem value="50">最新50件</SelectItem>
+                  <SelectItem value="100">最新100件</SelectItem>
+                  <SelectItem value="all">全件表示</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground"
+                  onClick={() => {
+                    setSearchText('')
+                    setScenarioFilter('all')
+                    setStoreFilter('all')
+                    setDateRangeStart(undefined)
+                    setDateRangeEnd(undefined)
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />クリア
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* 予約リクエストタブ */}
