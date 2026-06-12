@@ -58,6 +58,8 @@ interface BookingRequest {
   created_at: string
   approver_name?: string
   approved_at?: string
+  canceller_name?: string
+  cancelled_at?: string
   notes?: string
   invite_code?: string
   candidate_datetimes?: {
