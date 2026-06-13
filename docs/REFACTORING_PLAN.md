@@ -136,6 +136,17 @@
 - [x] F-3 貸切削除ロジック重複の統合（**完了** 2026-06-12: deletePrivateBookingEventCore に一本化。
       同時に仕様変更: 貸切削除時に申込を物理削除→「キャンセル状態で保持」に変更（顧客台帳の保全・オーナー指示）。
       履歴スナップショットを削除前に取得する順序に修正し、削除履歴が残らないバグも解消）
+- [ ] F-4 手動貸切公演の変更通知メール（**要件未確定**・2026-06-13 切り分け）:
+      手動作成の貸切公演（schedule_events.category='private' かつ reservation_id NULL）には
+      通知先メールが存在しない。staging 実測: private 公演143件中 reservation_id 有りは3件のみ
+      （全て cancelled）、reservation_id NULL の140件で「メール有り予約」に紐づくものはゼロ。
+      変更通知メール sendPrivateBookingCustomerChangeEmail は reservations.customer_email 宛のため、
+      送るにはまず「誰の・どのアドレスに送るか」を持たせる必要がある。候補: ①モーダルに顧客メール欄を
+      追加（手入力）②顧客マスタから顧客を紐づけ ③予約タブのメール有り予約へ送信。
+      Edge Function send-booking-change-confirmation も reservationId 前提なので、宛先の持たせ方次第で
+      送信経路の追加が要る。リファクタ／既存バグとは別件の新機能。**要件を詰めてから着手**。
+      （元の発見: 「貸切公演を編集して日時変更してもメール確認が出ない」→ 退行ではなく、
+      手動貸切に通知先が無いだけ。Web貸切で顧客紐づき・確定済みなら従来どおり出る）
 
 ## Phase 5: 巨大モーダルの解体
 
