@@ -6,14 +6,11 @@
  * 参加者数の即時反映を扱う。
  */
 import { useCallback, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { scheduleApi } from '@/lib/api'
-import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import type { ScheduleEvent } from '@/types/schedule'
-import { getEventTimeSlot } from '@/utils/eventOperationUtils'
 
 interface UseEventMiscProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
@@ -22,7 +19,6 @@ interface UseEventMiscProps {
 }
 
 export function useEventMisc({ setEvents, organizationId, fetchSchedule }: UseEventMiscProps) {
-  const queryClient = useQueryClient()
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
   const [publishingEvent, setPublishingEvent] = useState<ScheduleEvent | null>(null)
 
@@ -150,61 +146,6 @@ export function useEventMisc({ setEvents, organizationId, fetchSchedule }: UseEv
     }
   }, [publishingEvent, setEvents])
 
-  const handleConvertToMemo = useCallback(async (event: ScheduleEvent) => {
-    try {
-      const memoLines: string[] = []
-      if (event.scenario) {
-        memoLines.push(`【${event.scenario}】`)
-      }
-      if (event.gms && event.gms.length > 0) {
-        const gmNames = event.gms.filter((gm: string) => gm.trim() !== '')
-        if (gmNames.length > 0) {
-          memoLines.push(`GM: ${gmNames.join(', ')}`)
-        }
-      }
-      if (event.notes) {
-        memoLines.push(event.notes)
-      }
-      const memoText = memoLines.join('\n')
-
-      const storeId = event.venue
-      const timeSlotKey = getEventTimeSlot(event)
-
-      await saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText, organizationId ?? undefined)
-      logger.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
-      // 表示用のスロットメモキャッシュを再取得（変換直後にメモセルを出す）
-      void queryClient.invalidateQueries({ queryKey: ['schedule-slot-memos'] })
-
-      const memoConvertSnapshot = organizationId
-        ? await fetchEventSnapshot(event.id, organizationId)
-        : null
-
-      await scheduleApi.delete(event.id)
-
-      if (organizationId) {
-        try {
-          void createEventHistory(
-            null, organizationId, 'delete',
-            memoConvertSnapshot ?? (event as unknown as Record<string, unknown>), {},
-            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null },
-            { notes: 'メモに変換', deletedEventScenario: event.scenario }
-          )
-        } catch (historyError) {
-          logger.error('履歴記録エラー（メモ変換）:', historyError)
-        }
-      }
-
-      showToast.success('公演をメモに変換しました')
-
-      if (fetchSchedule) {
-        await fetchSchedule()
-      }
-    } catch (error) {
-      logger.error('メモ変換エラー:', error)
-      showToast.error('メモへの変換に失敗しました')
-    }
-  }, [fetchSchedule, organizationId, queryClient])
-
   const handleParticipantChange = useCallback((eventId: string, newCount: number) => {
     setEvents(prevEvents =>
       prevEvents.map(event =>
@@ -223,7 +164,6 @@ export function useEventMisc({ setEvents, organizationId, fetchSchedule }: UseEv
     handleToggleTentative,
     handleToggleReservation,
     handleConfirmPublishToggle,
-    handleConvertToMemo,
     handleParticipantChange,
   }
 }

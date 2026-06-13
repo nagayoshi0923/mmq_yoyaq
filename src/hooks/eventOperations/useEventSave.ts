@@ -15,11 +15,9 @@
  * pendingPerformanceData）もこのフックが保持する。
  */
 import { useState, useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { scheduleApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
-import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getEventTimeSlot, checkTimeOverlap } from '@/utils/eventOperationUtils'
@@ -83,9 +81,6 @@ interface UseEventSaveProps {
   scenarios: Scenario[]
   modalMode: 'add' | 'edit'
   organizationId: string | null
-  fetchSchedule?: () => Promise<void> | void
-  setEditingEvent: React.Dispatch<React.SetStateAction<ScheduleEvent | null>>
-  setIsPerformanceModalOpen: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 export function useEventSave({
@@ -95,12 +90,7 @@ export function useEventSave({
   scenarios,
   modalMode,
   organizationId,
-  fetchSchedule,
-  setEditingEvent,
-  setIsPerformanceModalOpen,
 }: UseEventSaveProps) {
-  const queryClient = useQueryClient()
-
   // 重複警告ダイアログ状態
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
@@ -243,55 +233,6 @@ export function useEventSave({
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
     try {
-      // メモに変換する場合の特別処理
-      if (performanceData.category === 'memo') {
-        // シナリオ名とGM名をテキストに変換
-        const memoLines: string[] = []
-        if (performanceData.scenario) {
-          memoLines.push(`【${performanceData.scenario}】`)
-        }
-        if (performanceData.gms && performanceData.gms.length > 0) {
-          const gmNames = performanceData.gms.filter((gm: string) => gm.trim() !== '')
-          if (gmNames.length > 0) {
-            memoLines.push(`GM: ${gmNames.join(', ')}`)
-          }
-        }
-        if (performanceData.notes) {
-          memoLines.push(performanceData.notes)
-        }
-        const memoText = memoLines.join('\n')
-        
-        // 店舗IDを取得
-        const storeId = performanceData.venue
-        
-        // スロットメモとして保存（localStorage）
-        // time_slotを英語形式に変換（'朝'→'morning', '昼'→'afternoon', '夜'→'evening'）
-        const timeSlotKey: 'morning' | 'afternoon' | 'evening' = scheduleTimeSlotToEn(performanceData.time_slot) ?? 'afternoon'
-
-        await saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText, organizationId ?? undefined)
-        logger.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
-        // 表示用のスロットメモキャッシュを再取得（変換直後にメモセルを出す）
-        void queryClient.invalidateQueries({ queryKey: ['schedule-slot-memos'] })
-
-        // 編集モードの場合、元の公演を削除
-        if (modalMode === 'edit' && performanceData.id) {
-          await scheduleApi.delete(performanceData.id)
-          showToast.success('公演をメモに変換しました')
-        } else {
-          showToast.success('メモを保存しました')
-        }
-        
-        // モーダルを閉じる
-        setIsPerformanceModalOpen(false)
-        setEditingEvent(null)
-        
-        // スケジュールを再読み込み（fetchScheduleがsetEventsを行うので重複を避ける）
-        if (fetchSchedule) {
-          await fetchSchedule()
-        }
-        return true
-      }
-      
       if (modalMode === 'add') {
         // 新規追加
         // performanceData.venueは店舗ID（UUID）
@@ -817,7 +758,7 @@ export function useEventSave({
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
       return false
     }
-  }, [modalMode, stores, scenarios, setEvents, setEditingEvent, setIsPerformanceModalOpen, organizationId, fetchSchedule, queryClient])
+  }, [modalMode, stores, scenarios, setEvents, organizationId])
 
   // 重複警告からの続行処理
   const handleConflictContinue = useCallback(async () => {

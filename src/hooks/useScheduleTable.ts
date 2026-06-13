@@ -116,7 +116,6 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     onUncancel: eventOperations.handleUncancelPerformance,
     onToggleTentative: eventOperations.handleToggleTentative,
     onToggleReservation: eventOperations.handleToggleReservation,
-    onConvertToMemo: eventOperations.handleConvertToMemo,
     onDrop: eventOperations.handleDrop,
     onContextMenuCell: contextMenuActions.handleCellContextMenu,
     onContextMenuEvent: contextMenuActions.handleEventContextMenu,

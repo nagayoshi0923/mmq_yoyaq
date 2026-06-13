@@ -1243,7 +1243,6 @@ export function PerformanceModal({
               { value: 'venue_rental_free', label: '場所貸無料' },
               { value: 'package',           label: 'パッケージ会' },
               { value: 'mtg',               label: 'MTG' },
-              { value: 'memo',              label: 'メモに変換' },
               { value: '__custom__',       label: 'カスタム…' },
             ]
             const isPrimary = PRIMARY_CATS.some(c => c.value === formData.category)

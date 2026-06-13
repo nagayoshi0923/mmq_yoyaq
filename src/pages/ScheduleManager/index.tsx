@@ -57,7 +57,7 @@ const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -1840,15 +1840,6 @@ export function ScheduleManager() {
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
                     scheduleTableProps.eventHandlers.onDeletePerformance(event)
-                    modals.contextMenu.setContextMenu(null)
-                  }
-                },
-                {
-                  label: 'メモに変換',
-                  icon: <FileText className="w-4 h-4" />,
-                  onClick: () => {
-                    // 直接メモに変換（モーダルなし）
-                    scheduleTableProps.eventHandlers.onConvertToMemo(event)
                     modals.contextMenu.setContextMenu(null)
                   },
                   separator: true

@@ -49,11 +49,9 @@ export function useEventOperations({
 
   const {
     isPerformanceModalOpen,
-    setIsPerformanceModalOpen,
     modalMode,
     modalInitialData,
     editingEvent,
-    setEditingEvent,
     draggedEvent,
     setDraggedEvent,
     dropTarget,
@@ -95,7 +93,6 @@ export function useEventOperations({
     handleToggleTentative,
     handleToggleReservation,
     handleConfirmPublishToggle,
-    handleConvertToMemo,
     handleParticipantChange,
   } = useEventMisc({ setEvents, organizationId, fetchSchedule })
   
@@ -133,9 +130,6 @@ export function useEventOperations({
     scenarios,
     modalMode,
     organizationId,
-    fetchSchedule,
-    setEditingEvent,
-    setIsPerformanceModalOpen,
   })
 
   return {
@@ -185,8 +179,7 @@ export function useEventOperations({
     handleToggleReservation,
     handleConfirmPublishToggle,
     handleConflictContinue,
-    handleConvertToMemo,
-    
+
     // ダイアログクローズ
     setIsDeleteDialogOpen,
     setIsPublishDialogOpen,
