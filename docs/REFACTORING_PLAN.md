@@ -102,8 +102,11 @@
       （1分割=1コミット。旧フックは re-export で互換維持 → 最後に削除）
       進行中: `useEventDelete` / `useEventCancel` / `useEventMisc` /
       `useEventModalState`（公開・仮状態・予約受付・メモ変換・参加者数即時反映・
-      公演モーダル状態・URL復元・ドラッグ開始）まで分離済み。
-      次は `useEventMoveCopy`。`doSavePerformance` は高リスクのため最後寄せ。
+      公演モーダル状態・URL復元・ドラッグ開始）/ `useEventMoveCopy`（移動・複製・
+      移動複製先の重複判定 checkConflict）まで分離済み。移動/複製と保存が共有する
+      `confirmSendPrivateBookingChangeEmail` / `syncRelatedDataOnEventDateChange` は
+      `eventSyncHelpers.ts` へ切り出し。useEventOperations 本体は 1473→1002 行。
+      残るは最大リスクの `doSavePerformance`（保存本体・重複チェックフロー）のみ。挙動不変。
 - [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
       （実測済み。当初調査の「26.6K行」はKB誤読と確定）
 - [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
