@@ -74,6 +74,9 @@ export function PrivateBookingManagement() {
   const [selectedSubGmId, setSelectedSubGmId] = useState<string>('')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [confirmTemplateDialogOpen, setConfirmTemplateDialogOpen] = useState(false)  // 確定メールのテンプレ編集
+  const [rejectTemplateOpen, setRejectTemplateOpen] = useState(false)  // 却下メールのテンプレ編集（次回も使う定型文）
+  const [rejectTemplateStoreId, setRejectTemplateStoreId] = useState<string | null>(null)
+  const [resolvingRejectStore, setResolvingRejectStore] = useState(false)
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
   const [searchText, setSearchText] = useState('')  // フリーワード検索
@@ -607,6 +610,32 @@ export function PrivateBookingManagement() {
     )
   }
 
+  // 却下ダイアログから「次回も使う却下メールのテンプレ」を編集する。
+  // 却下メール送信側（useBookingApproval）と同じく reservation.store_id の店舗設定を対象にする。
+  const openRejectTemplateEditor = async () => {
+    const reqId = selectedRequest?.id
+    if (!reqId) return
+    setResolvingRejectStore(true)
+    try {
+      const { data } = await supabase
+        .from('reservations')
+        .select('store_id')
+        .eq('id', reqId)
+        .maybeSingle()
+      if (!data?.store_id) {
+        showToast.error('この貸切リクエストには店舗が紐づいていないため、テンプレートを開けません')
+        return
+      }
+      setRejectTemplateStoreId(data.store_id)
+      setRejectTemplateOpen(true)
+    } catch (e) {
+      logger.error('却下テンプレ店舗の取得エラー:', e)
+      showToast.error('テンプレートを開けませんでした')
+    } finally {
+      setResolvingRejectStore(false)
+    }
+  }
+
   return (
     <AppLayout
       currentPage="private-booking"
@@ -909,7 +938,20 @@ export function PrivateBookingManagement() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm mb-2">却下理由</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm">却下理由</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                    onClick={openRejectTemplateEditor}
+                    disabled={resolvingRejectStore}
+                  >
+                    <Mail className="h-3 w-3 mr-1" />
+                    {resolvingRejectStore ? '読み込み中...' : '却下メールのテンプレを編集'}
+                  </Button>
+                </div>
                 <Textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
@@ -917,6 +959,9 @@ export function PrivateBookingManagement() {
                   placeholder="却下理由を入力してください"
                   className="text-sm"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  この理由は今回の却下メールの本文（{'{rejection_reason}'}）に入ります。次回も使う定型文（テンプレート）は「却下メールのテンプレを編集」から。
+                </p>
               </div>
               
             </div>
@@ -938,6 +983,14 @@ export function PrivateBookingManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* 却下メール（private_rejection_template）のテンプレ編集。却下ダイアログの上に重ねて開く */}
+        <TemplateEditDialog
+          templateKey="private_rejection_template"
+          storeId={rejectTemplateStoreId}
+          open={rejectTemplateOpen}
+          onOpenChange={setRejectTemplateOpen}
+        />
       </div>
     </AppLayout>
   )
