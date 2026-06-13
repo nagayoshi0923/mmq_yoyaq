@@ -100,9 +100,10 @@
       vitest を導入し16ケースのユニットテストを整備（`npm run test:unit`）。挙動不変
 - [ ] 4-3 操作系統ごとにフック分割: `useAddEvent` / `useEditEvent` / `useCancelRestoreEvent` / `useMoveCopyEvent`
       （1分割=1コミット。旧フックは re-export で互換維持 → 最後に削除）
-      進行中: `useEventDelete` / `useEventCancel` / `useEventMisc`
-      （公開・仮状態・予約受付・メモ変換・参加者数即時反映）まで分離済み。
-      次は `useEventMoveCopy` か `useEventModalState`。`doSavePerformance` は高リスクのため最後寄せ。
+      進行中: `useEventDelete` / `useEventCancel` / `useEventMisc` /
+      `useEventModalState`（公開・仮状態・予約受付・メモ変換・参加者数即時反映・
+      公演モーダル状態・URL復元・ドラッグ開始）まで分離済み。
+      次は `useEventMoveCopy`。`doSavePerformance` は高リスクのため最後寄せ。
 - [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
       （実測済み。当初調査の「26.6K行」はKB誤読と確定）
 - [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離

@@ -1,7 +1,6 @@
 // 公演の追加・編集・削除・中止・復活などの操作を管理
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import {
   reservationApi,
@@ -12,13 +11,13 @@ import { supabase } from '@/lib/supabase'
 import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getTimeSlot } from '@/utils/scheduleUtils'
 import { getEventTimeSlot, timeToMinutes, calcEndTime, checkTimeOverlap } from '@/utils/eventOperationUtils'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useEventDelete } from '@/hooks/eventOperations/useEventDelete'
 import { useEventCancel } from '@/hooks/eventOperations/useEventCancel'
 import { useEventMisc } from '@/hooks/eventOperations/useEventMisc'
+import { useEventModalState } from '@/hooks/eventOperations/useEventModalState'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 import {
@@ -190,21 +189,25 @@ export function useEventOperations({
   
   // 公演時間帯設定を取得（組織設定から）
   const { getSlotDefaults } = useTimeSlotSettings()
-  
-  // URL パラメータ（公演ダイアログの状態をURLに保持）
-  const [searchParams, setSearchParams] = useSearchParams()
-  const initializedRef = useRef(false)
-  
-  // モーダル状態
-  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
-  const [modalInitialData, setModalInitialData] = useState<{
-    date: string
-    venue: string
-    time_slot: string  // DBカラム名に統一
-    suggestedStartTime?: string  // 前の公演終了時間から計算した推奨開始時間
-  } | undefined>(undefined)
-  const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null)
+
+  const {
+    isPerformanceModalOpen,
+    setIsPerformanceModalOpen,
+    modalMode,
+    modalInitialData,
+    editingEvent,
+    setEditingEvent,
+    draggedEvent,
+    setDraggedEvent,
+    dropTarget,
+    setDropTarget,
+    isMoveOrCopyDialogOpen,
+    setIsMoveOrCopyDialogOpen,
+    handleAddPerformance,
+    handleEditPerformance,
+    handleCloseModal,
+    handleDrop,
+  } = useEventModalState({ events })
   
   // 削除ダイアログ状態
   // 削除操作はサブフックへ分割（Phase 4-3）
@@ -243,125 +246,6 @@ export function useEventOperations({
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
-
-  // ドラッグ&ドロップ状態
-  const [draggedEvent, setDraggedEvent] = useState<ScheduleEvent | null>(null)
-  const [dropTarget, setDropTarget] = useState<{ date: string, venue: string, timeSlot: string } | null>(null)
-  const [isMoveOrCopyDialogOpen, setIsMoveOrCopyDialogOpen] = useState(false)
-  
-  // URLパラメータから公演ダイアログを復元
-  useEffect(() => {
-    if (initializedRef.current || events.length === 0) return
-    
-    const eventId = searchParams.get('event')
-    if (eventId) {
-      const event = events.find(e => e.id === eventId)
-      if (event) {
-        setModalMode('edit')
-        setEditingEvent(event)
-        setModalInitialData(undefined)
-        setIsPerformanceModalOpen(true)
-        initializedRef.current = true
-        logger.log('📝 URLから公演ダイアログを復元:', eventId)
-      }
-    } else {
-      initializedRef.current = true
-    }
-  }, [events, searchParams])
-
-  // 公演追加モーダルを開く
-  const handleAddPerformance = useCallback((date: string, venue: string, time_slot: 'morning' | 'afternoon' | 'evening') => {
-    setModalMode('add')
-    
-    // 同じ日・同じ店舗・同じ時間帯の前の公演を探して、推奨開始時間を計算
-    let suggestedStartTime: string | undefined = undefined
-    
-    // time_slotを日本語形式に変換（DBに保存されている形式）
-    const timeSlotJa = timeSlotEnToSchedule(time_slot)
-    
-    // 同じ日・同じ店舗・同じ時間帯のイベントのみ取得
-    const sameSlotEvents = events.filter(e => 
-      e.date === date && 
-      e.venue === venue && 
-      !e.is_cancelled &&
-      e.time_slot === timeSlotJa  // 同じ時間帯のみ
-    )
-    
-    if (sameSlotEvents.length > 0) {
-      // 終了時間でソート（遅い順）
-      const sortedEvents = [...sameSlotEvents].sort((a, b) => {
-        const aEnd = a.end_time || '00:00'
-        const bEnd = b.end_time || '00:00'
-        return bEnd.localeCompare(aEnd)
-      })
-      
-      // 最後の公演の終了時間を取得
-      const lastEvent = sortedEvents[0]
-      const lastEndTime = lastEvent.end_time
-      
-      if (lastEndTime) {
-        // 終了時間に1時間（標準準備時間）を加算
-        const [endHour, endMinute] = lastEndTime.split(':').map(Number)
-        const newHour = endHour + 1 // 1時間の準備時間
-        const newMinute = endMinute
-        
-        // 24時を超える場合は調整しない（深夜公演は手動で）
-        if (newHour < 24) {
-          suggestedStartTime = `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}`
-        }
-      }
-    }
-    
-    setModalInitialData({ date, venue, time_slot, suggestedStartTime })
-    setEditingEvent(null)
-    setIsPerformanceModalOpen(true)
-  }, [events])
-
-  // 編集モーダルを開く
-  const handleEditPerformance = useCallback((event: ScheduleEvent) => {
-    setModalMode('edit')
-    setEditingEvent(event)
-    setModalInitialData(undefined)
-    setIsPerformanceModalOpen(true)
-    
-    // URLにイベントIDを追加（リロード時に復元可能に）
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev)
-      newParams.set('event', event.id)
-      return newParams
-    }, { replace: true })
-  }, [setSearchParams])
-
-  // モーダルを閉じる
-  const handleCloseModal = useCallback(async () => {
-    setIsPerformanceModalOpen(false)
-    setModalInitialData(undefined)
-    setEditingEvent(null)
-    
-    // URLからイベントIDを削除
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev)
-      newParams.delete('event')
-      return newParams
-    }, { replace: true })
-    
-    // 🔄 Realtime購読により自動同期されるため、手動でのfetchScheduleは不要
-    // 楽観的更新 + Realtime で二重更新を防ぎ、チカチカを解消
-  }, [setSearchParams])
-
-  // ドラッグ&ドロップハンドラー
-  const handleDrop = useCallback((droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => {
-    // 同じ場所へのドロップは無視
-    const sourceTimeSlot = getTimeSlot(droppedEvent.start_time)
-    if (droppedEvent.date === targetDate && droppedEvent.venue === targetVenue && sourceTimeSlot === targetTimeSlot) {
-      return
-    }
-
-    // ドラッグされた公演と移動先情報を保存
-    setDraggedEvent(droppedEvent)
-    setDropTarget({ date: targetDate, venue: targetVenue, timeSlot: targetTimeSlot })
-    setIsMoveOrCopyDialogOpen(true)
-  }, [])
 
   // 🚨 CRITICAL: 重複チェック関数（移動・複製・ペースト用）
   const checkConflict = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', excludeEventId?: string): ScheduleEvent | null => {
@@ -628,7 +512,7 @@ export function useEventOperations({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults, scenarios])
+  }, [draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -751,7 +635,7 @@ export function useEventOperations({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults, scenarios])
+  }, [draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
@@ -1456,7 +1340,7 @@ export function useEventOperations({
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
       return false
     }
-  }, [modalMode, stores, scenarios, setEvents, organizationId, fetchSchedule])
+  }, [modalMode, stores, scenarios, setEvents, setEditingEvent, setIsPerformanceModalOpen, organizationId, fetchSchedule])
 
   // 重複警告からの続行処理
   const handleConflictContinue = useCallback(async () => {
