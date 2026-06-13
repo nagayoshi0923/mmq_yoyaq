@@ -15,6 +15,7 @@
  * pendingPerformanceData）もこのフックが保持する。
  */
 import { useState, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { scheduleApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
@@ -98,6 +99,8 @@ export function useEventSave({
   setEditingEvent,
   setIsPerformanceModalOpen,
 }: UseEventSaveProps) {
+  const queryClient = useQueryClient()
+
   // 重複警告ダイアログ状態
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
@@ -259,9 +262,11 @@ export function useEventSave({
         // time_slotを英語形式に変換（'朝'→'morning', '昼'→'afternoon', '夜'→'evening'）
         const timeSlotKey: 'morning' | 'afternoon' | 'evening' = scheduleTimeSlotToEn(performanceData.time_slot) ?? 'afternoon'
 
-        void saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText)
+        await saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText, organizationId ?? undefined)
         logger.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
-        
+        // 表示用のスロットメモキャッシュを再取得（変換直後にメモセルを出す）
+        void queryClient.invalidateQueries({ queryKey: ['schedule-slot-memos'] })
+
         // 編集モードの場合、元の公演を削除
         if (modalMode === 'edit' && performanceData.id) {
           await scheduleApi.delete(performanceData.id)
@@ -806,7 +811,7 @@ export function useEventSave({
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
       return false
     }
-  }, [modalMode, stores, scenarios, setEvents, setEditingEvent, setIsPerformanceModalOpen, organizationId, fetchSchedule])
+  }, [modalMode, stores, scenarios, setEvents, setEditingEvent, setIsPerformanceModalOpen, organizationId, fetchSchedule, queryClient])
 
   // 重複警告からの続行処理
   const handleConflictContinue = useCallback(async () => {

@@ -6,6 +6,7 @@
  * 参加者数の即時反映を扱う。
  */
 import { useCallback, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { scheduleApi } from '@/lib/api'
 import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
@@ -21,6 +22,7 @@ interface UseEventMiscProps {
 }
 
 export function useEventMisc({ setEvents, organizationId, fetchSchedule }: UseEventMiscProps) {
+  const queryClient = useQueryClient()
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
   const [publishingEvent, setPublishingEvent] = useState<ScheduleEvent | null>(null)
 
@@ -168,8 +170,10 @@ export function useEventMisc({ setEvents, organizationId, fetchSchedule }: UseEv
       const storeId = event.venue
       const timeSlotKey = getEventTimeSlot(event)
 
-      void saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
+      await saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText, organizationId ?? undefined)
       logger.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
+      // 表示用のスロットメモキャッシュを再取得（変換直後にメモセルを出す）
+      void queryClient.invalidateQueries({ queryKey: ['schedule-slot-memos'] })
 
       const memoConvertSnapshot = organizationId
         ? await fetchEventSnapshot(event.id, organizationId)
@@ -199,7 +203,7 @@ export function useEventMisc({ setEvents, organizationId, fetchSchedule }: UseEv
       logger.error('メモ変換エラー:', error)
       showToast.error('メモへの変換に失敗しました')
     }
-  }, [fetchSchedule, organizationId])
+  }, [fetchSchedule, organizationId, queryClient])
 
   const handleParticipantChange = useCallback((eventId: string, newCount: number) => {
     setEvents(prevEvents =>
