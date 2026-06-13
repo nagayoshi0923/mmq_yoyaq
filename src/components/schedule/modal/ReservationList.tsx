@@ -22,6 +22,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
+import { TemplateEditDialog } from '@/components/settings/TemplateEditDialog'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
@@ -85,6 +86,7 @@ export function ReservationList({
   const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false)
+  const [cancelTemplateOpen, setCancelTemplateOpen] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [shouldSendEmail, setShouldSendEmail] = useState(true) // メール送信するかどうか
   const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
@@ -118,6 +120,9 @@ export function ReservationList({
     notes: ''
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
+  const cancellationTemplateStoreId =
+    currentEventData.venue ||
+    (event?.venue ? stores.find(s => s.id === event.venue || s.name === event.venue)?.id : null)
 
   const sumActiveParticipants = (list: Reservation[]) =>
     list.reduce((sum, r) => {
@@ -2046,7 +2051,25 @@ export function ReservationList({
 
             {/* メール本文 */}
             <div>
-              <Label htmlFor="email-body">メール本文</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email-body">メール本文</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                  onClick={() => {
+                    if (!cancellationTemplateStoreId) {
+                      showToast.error('店舗が未選択のためテンプレートを編集できません')
+                      return
+                    }
+                    setCancelTemplateOpen(true)
+                  }}
+                >
+                  <Mail className="h-3 w-3 mr-1" />
+                  キャンセルメールのテンプレを編集
+                </Button>
+              </div>
               <Textarea
                 id="email-body"
                 value={emailContent.emailBody}
@@ -2115,6 +2138,19 @@ export function ReservationList({
         </DialogContent>
       </Dialog>
 
+      <TemplateEditDialog
+        templateKey="store_cancellation_template"
+        storeId={cancellationTemplateStoreId}
+        open={cancelTemplateOpen}
+        onOpenChange={setCancelTemplateOpen}
+        onSaved={(value) => {
+          setEmailContent(prev => ({
+            ...prev,
+            emailBody: buildCancellationEmailBody(prev, value)
+          }))
+        }}
+      />
+
       {/* 貸切イベント削除確認ダイアログ */}
       <Dialog open={isDeleteEventDialogOpen} onOpenChange={setIsDeleteEventDialogOpen}>
         <DialogContent>
@@ -2163,5 +2199,3 @@ export function ReservationList({
     </>
   )
 }
-
-

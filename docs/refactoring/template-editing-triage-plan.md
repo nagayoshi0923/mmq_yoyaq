@@ -53,7 +53,7 @@
 |---|---|---|---|---|
 | private_confirm_template | 貸切予約確定メール | 貸切を承認した時 | 貸切管理の承認パネル（店舗セレクタ直下） | ✅済 |
 | private_rejection_template | 貸切リクエスト却下メール | 却下ボタンを押した時 | 貸切管理の却下ダイアログ（理由ラベル横） | ✅済 |
-| store_cancellation_template | キャンセル操作メール | スタッフが中止・削除・キャンセルした時 | 削除/中止ダイアログ(2/2)・予約者タブのキャンセルダイアログ | ⏳ |
+| store_cancellation_template | キャンセル操作メール | スタッフが中止・削除・キャンセルした時 | 削除/中止ダイアログ(2/2)・予約者タブのキャンセルダイアログ | 一部済（予約者タブ） |
 | reservation_confirmation_template | 予約確認メール | 客が予約完了（自動） | 公演モーダルの予約者タブ | ⏳ |
 | booking_change_template | 予約変更確認メール | 予約内容を変更した時 | 予約編集ダイアログ | ⏳ |
 | private_request_template | 貸切リクエスト受付メール | 客が申込（自動） | 貸切管理（カード一覧上部） | ⏳ |
@@ -158,8 +158,11 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 - `36051218` 送信プレビューに実際の設定値を反映＋その場編集で即反映
 - `73ce0571` 却下時のキャンセル確認メール二重送信を抑止（skipCancellationEmail）
 - `1e4f282f` スタッフ起点の中止・削除は店舗都合メールにする（cancelledBy:'store'）
+- 2026-06-13 予約者タブのキャンセルメール本文ダイアログに `store_cancellation_template` 編集ボタンを配線
 
-※すべて型チェック・lint・build パス済み。未デプロイ（staging ブランチにコミット・push のみ）。
+※`1e4f282f` までは型チェック・lint・build パス済み。予約者タブ配線は typecheck / 変更ファイル単体 lint /
+build パス済み。全体 lint は既存の別ファイルエラー（PerformanceModal / StaffProfile）で失敗。
+未デプロイ（staging ブランチにコミット・push のみ）。
 
 ## 🚀 デプロイ時の必須作業（順序注意）
 
@@ -172,7 +175,7 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 ## 次の一手（残作業）
 
 1. **ボタン配線の残り**（上の設置マップ ⏳ 行）。`TemplateEditDialog` に `templateKey` と
-   一意な `storeId` を渡すだけ。優先度の高い順: 予約者タブのキャンセル（store_cancellation）→
+   一意な `storeId` を渡すだけ。優先度の高い順: 削除/中止ダイアログのキャンセル操作メール（store_cancellation）→
    予約編集（booking_change）→ 公演モーダル予約者タブ（reservation_confirmation）。
    ※キャンセル系は既に全文編集ダイアログがあるので、テンプレ編集ボタンの要否はUI確認後に判断。
 2. **設定画面のラベル交通整理**（自動送信組）: テンプレ名に「いつ・誰起点で」を明記＋フロー別グループ化。
