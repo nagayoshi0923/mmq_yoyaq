@@ -170,7 +170,7 @@ export function TemplateEditDialog({
                 使用可能な変数:
                 <span className="ml-2 font-normal text-[11px]">（下線付きはクリックで設定画面を開きます）</span>
               </p>
-              <VariableHintChips variables={variables} />
+              <VariableHintChips variables={variables} storeId={storeId} organizationId={organizationId} />
             </div>
 
             <Textarea

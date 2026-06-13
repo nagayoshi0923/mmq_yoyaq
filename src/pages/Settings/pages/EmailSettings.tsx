@@ -87,9 +87,10 @@ interface AccordionItemProps {
   onReset: () => void
   isOpen: boolean
   onToggle: () => void
+  storeId?: string | null
 }
 
-function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: AccordionItemProps) {
+function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle, storeId }: AccordionItemProps) {
   const categoryColors = {
     reservation: 'bg-green-500',
     private: 'bg-blue-500',
@@ -135,11 +136,11 @@ function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: A
                 デフォルトに戻す
               </Button>
             </div>
-            <VariableHintChips variables={BASE_VARIABLES} />
+            <VariableHintChips variables={BASE_VARIABLES} storeId={storeId} />
             {config.additionalVariables && config.additionalVariables.length > 0 && (
               <>
                 <p className="text-xs font-medium text-muted-foreground mt-3">追加変数（このメール専用）:</p>
-                <VariableHintChips variables={config.additionalVariables} accent="additional" />
+                <VariableHintChips variables={config.additionalVariables} accent="additional" storeId={storeId} />
               </>
             )}
           </div>
@@ -683,6 +684,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 onReset={() => resetTemplate(config)}
                 isOpen={openAccordions.has(config.key)}
                 onToggle={() => toggleAccordion(config.key)}
+                storeId={formData.store_id}
               />
             ))}
           </div>
@@ -705,6 +707,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 onReset={() => resetTemplate(config)}
                 isOpen={openAccordions.has(config.key)}
                 onToggle={() => toggleAccordion(config.key)}
+                storeId={formData.store_id}
               />
             ))}
             <div className="rounded-lg border border-gray-200 p-4 space-y-2">
@@ -741,6 +744,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 onReset={() => resetTemplate(config)}
                 isOpen={openAccordions.has(config.key)}
                 onToggle={() => toggleAccordion(config.key)}
+                storeId={formData.store_id}
               />
             ))}
           </div>

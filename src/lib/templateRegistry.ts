@@ -785,8 +785,3 @@ const VARIABLE_SOURCES: Record<string, VariableSource> = {
 export function getVariableSource(variable: string): VariableSource {
   return VARIABLE_SOURCES[variable] ?? { note: '予約・公演データから自動で入ります' }
 }
-
-/** 設定画面の指定タブへのパス */
-export function settingsTabPath(slug: string, tab: NonNullable<VariableSource['settingsTab']>): string {
-  return `/${slug}/settings?tab=${tab}`
-}
