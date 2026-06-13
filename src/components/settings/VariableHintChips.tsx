@@ -2,21 +2,22 @@
  * テンプレ編集の「使える差し込み変数」チップ一覧。
  *
  * 各変数は説明付きで表示し、設定画面で値・選択肢を変えられる変数
- * （会社情報・キャンセル理由など）はクリックでその設定画面を別タブで開ける。
+ * （会社情報・キャンセル理由・却下理由など）はクリックでその設定画面へ遷移できる。
  * EmailSettings と TemplateEditDialog の両方から使う共通部品。
  */
-import { ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '@/hooks/useOrganization'
 import { VARIABLE_DESCRIPTIONS, getVariableSource, settingsTabPath } from '@/lib/templateRegistry'
 
 interface VariableHintChipsProps {
   variables: string[]
-  /** 基本変数（グレー）か追加変数（青）か。色分け用 */
+  /** 基本変数（グレー）か追加変数（青）か。色分け用（リンクは常に青＋下線） */
   accent?: 'base' | 'additional'
 }
 
 export function VariableHintChips({ variables, accent = 'base' }: VariableHintChipsProps) {
   const { organization } = useOrganization()
+  const navigate = useNavigate()
   const slug = organization?.slug
 
   const codeClass = accent === 'additional' ? 'bg-blue-50' : 'bg-gray-100'
@@ -29,21 +30,20 @@ export function VariableHintChips({ variables, accent = 'base' }: VariableHintCh
         const desc = VARIABLE_DESCRIPTIONS[v]
         const code = <code className={`${codeClass} px-1 rounded`}>{`{${v}}`}</code>
 
-        // 設定で変えられる変数はリンクにして、その設定画面を別タブで開く
+        // 設定で変えられる変数はリンク（青＋下線）。クリックでアプリ内遷移して設定画面を開く
         if (source.settingsTab && slug) {
+          const tab = source.settingsTab
           return (
-            <a
+            <button
               key={v}
-              href={settingsTabPath(slug, source.settingsTab)}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
+              onClick={() => navigate(settingsTabPath(slug, tab))}
               title={source.note}
-              className="inline-flex items-center gap-0.5 mr-3 hover:opacity-80"
+              className="inline-block mr-3 align-baseline text-blue-600 underline hover:text-blue-800"
             >
               {code}
-              <span className={`${descClass} underline decoration-dotted`}>{desc}</span>
-              <ExternalLink className="h-3 w-3 opacity-60" />
-            </a>
+              <span className="ml-1">{desc}</span>
+            </button>
           )
         }
 
