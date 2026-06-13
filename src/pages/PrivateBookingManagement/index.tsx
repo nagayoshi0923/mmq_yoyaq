@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, X } from 'lucide-react'
+import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, X, Mail } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
@@ -28,6 +28,7 @@ import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
 import { ActionButtons } from './components/ActionButtons'
 import { SurveyResponsesView } from './components/SurveyResponsesView'
+import { TemplateEditDialog } from '@/components/settings/TemplateEditDialog'
 
 
 // 分離されたフック
@@ -72,6 +73,7 @@ export function PrivateBookingManagement() {
   const [selectedGMId, setSelectedGMId] = useState<string>('')
   const [selectedSubGmId, setSelectedSubGmId] = useState<string>('')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+  const [confirmTemplateDialogOpen, setConfirmTemplateDialogOpen] = useState(false)  // 確定メールのテンプレ編集
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
   const [searchText, setSearchText] = useState('')  // フリーワード検索
@@ -804,6 +806,20 @@ export function PrivateBookingManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
+                              {selectedStoreId && (
+                                <div className="flex justify-end -mt-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                                    onClick={() => setConfirmTemplateDialogOpen(true)}
+                                  >
+                                    <Mail className="h-3 w-3 mr-1" />
+                                    確定メールのテンプレを編集
+                                  </Button>
+                                </div>
+                              )}
                               {/* メインGM */}
                               <div className="flex items-start gap-2">
                                 <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">
@@ -876,6 +892,14 @@ export function PrivateBookingManagement() {
         </Tabs>
 
         {/* 削除：承認ダイアログはカードのインライン展開に移行 */}
+
+        {/* 確定メール（private_confirm_template）のテンプレ編集ダイアログ。承認時に選んだ店舗の設定を編集 */}
+        <TemplateEditDialog
+          templateKey="private_confirm_template"
+          storeId={selectedStoreId}
+          open={confirmTemplateDialogOpen}
+          onOpenChange={setConfirmTemplateDialogOpen}
+        />
 
         {/* 却下ダイアログ */}
         <Dialog open={showRejectDialog} onOpenChange={(open) => !open && handleRejectCancel()}>
