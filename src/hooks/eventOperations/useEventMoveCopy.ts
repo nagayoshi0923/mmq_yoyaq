@@ -12,7 +12,7 @@ import { useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getEventTimeSlot, calcEndTime, computePlacedStartTime } from '@/utils/eventOperationUtils'
+import { getEventTimeSlot, calcEndTime, computePlacedStartTime, timeToMinutes } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -130,8 +130,9 @@ export function useEventMoveCopy({
       const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
       if (!scenarioId) scenarioId = matchingScenario?.id || null
 
-      // 時間帯が同じなら元の時間を保持。違うなら枠デフォルト開始を基準に、
-      // 同店舗・同日の直前公演の終演＋インターバル＋準備時間を考慮して開始時刻を繰り下げる
+      // 移動先セルの直前公演（終演＋60分＋準備時間）を満たすよう開始時刻を決める。
+      // 基準開始は「同枠なら元の開始 / 別枠なら枠デフォルト」。同枠移動でも、移動先に
+      // 長い直前公演（例: 昼まで延びる朝公演）があれば繰り下げて重複を防ぐ。
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
       const newPrepMinutes = matchingScenario?.extra_preparation_time || 0
       const sameStoreDayEvents = events.filter(e =>
@@ -140,10 +141,12 @@ export function useEventMoveCopy({
         !e.is_cancelled &&
         e.id !== draggedEvent.id
       )
-      const placedStart = computePlacedStartTime(defaults.start_time, sameStoreDayEvents, newPrepMinutes)
-      const startTime = isSameTimeSlot ? draggedEvent.start_time : placedStart
+      const baseStart = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
+      const startTime = computePlacedStartTime(baseStart, sameStoreDayEvents, newPrepMinutes)
+      // 公演の長さを保つ（別枠でシナリオ所要時間が分かる場合はそれを優先）
+      const originalDurationMin = timeToMinutes(draggedEvent.end_time) - timeToMinutes(draggedEvent.start_time)
       const endTime = isSameTimeSlot
-        ? draggedEvent.end_time
+        ? calcEndTime(startTime, originalDurationMin)
         : matchingScenario?.duration
           ? calcEndTime(startTime, matchingScenario.duration)
           : defaults.end_time
@@ -387,8 +390,9 @@ export function useEventMoveCopy({
       const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
       if (!scenarioId) scenarioId = matchingScenario?.id || null
 
-      // 時間帯が同じなら元の時間を保持。違うなら枠デフォルト開始を基準に、
-      // 同店舗・同日の直前公演の終演＋インターバル＋準備時間を考慮して開始時刻を繰り下げる
+      // 移動先セルの直前公演（終演＋60分＋準備時間）を満たすよう開始時刻を決める。
+      // 基準開始は「同枠なら元の開始 / 別枠なら枠デフォルト」。同枠移動でも、移動先に
+      // 長い直前公演（例: 昼まで延びる朝公演）があれば繰り下げて重複を防ぐ。
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
       const newPrepMinutes = matchingScenario?.extra_preparation_time || 0
       const sameStoreDayEvents = events.filter(e =>
@@ -397,10 +401,12 @@ export function useEventMoveCopy({
         !e.is_cancelled &&
         e.id !== draggedEvent.id
       )
-      const placedStart = computePlacedStartTime(defaults.start_time, sameStoreDayEvents, newPrepMinutes)
-      const startTime = isSameTimeSlot ? draggedEvent.start_time : placedStart
+      const baseStart = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
+      const startTime = computePlacedStartTime(baseStart, sameStoreDayEvents, newPrepMinutes)
+      // 公演の長さを保つ（別枠でシナリオ所要時間が分かる場合はそれを優先）
+      const originalDurationMin = timeToMinutes(draggedEvent.end_time) - timeToMinutes(draggedEvent.start_time)
       const endTime = isSameTimeSlot
-        ? draggedEvent.end_time
+        ? calcEndTime(startTime, originalDurationMin)
         : matchingScenario?.duration
           ? calcEndTime(startTime, matchingScenario.duration)
           : defaults.end_time
