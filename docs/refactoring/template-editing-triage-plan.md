@@ -89,23 +89,54 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
    を staging→prod の順で適用（`npm run db:push:*` ではなく直接 SQL でOK）。
    ※デプロイ前に DROP すると現行コードの SELECT が落ちるので厳禁。
 
+## 🔁 構造課題: 「テンプレ ≠ 実際に送られる全文」（2026-06-13 オーナー指摘）
+
+却下メールは **テンプレ `private_rejection_template` の `{rejection_reason}` に、却下ダイアログで
+打った文章を差し込む** 方式だった（[send-private-booking-rejection/index.ts](../../supabase/functions/send-private-booking-rejection/index.ts)）。
+管理者は送信時に「理由フラグメント」しか見えず、テンプレ側の定型セクションと内容が重複しても
+全文を把握できなかった（既定理由がフルの丁寧文で「今後のご検討」バレットと二重化していた）。
+
+→ **方針（オーナー決定）: 却下をキャンセルと同じ「全文編集」方式に統一＋ダイアログに全文プレビュー。**
+- キャンセルメールは既に `customEmailBody` で全文を編集→そのまま送信していた（見たまま＝送られる文）。
+  却下も同方式に揃えた。
+- 却下ダイアログを開くと、テンプレ＋既定理由から**実際に送られる全文**を組み立てて表示・編集できる。
+  その全文を `customEmailBody` で送信し、チャット共有本文も同じ全文を使う（再テンプレ化しない）。
+- 既定理由を1文に短縮し、テンプレの定型文との重複を解消。
+- `TemplateEditDialog` に「送信プレビュー（サンプル値）」を追加し、どのテンプレも“送られる全文”を確認可能に。
+
+### ⚠️ デプロイ順
+`send-private-booking-rejection` の `customEmailBody` 対応は**後方互換**（未指定時は従来テンプレ適用）。
+フロントは `customEmailBody`＋フォールバック `rejectionReason` の両方を送るので、Edge Function が
+未更新でも壊れない。とはいえ理想は Edge Function → フロントの順でデプロイ。
+
+### 観測（別件・未対応）
+却下フローの `reservationApi.cancel` は内部でキャンセル確認メールも送る経路を持つ
+（[reservationApi.ts](../../src/lib/reservationApi.ts) L503付近）。貸切リクエストに schedule_event が
+無い場合の挙動は未精査。今回は理由文字列を固定の短文に変えただけで送信有無は変えていない。要確認。
+
 ## 実装ログ（staging, 2026-06-13）
 
 - `94de990c` 未使用テンプレ `private_cancellation_template` を削除
 - `33ff4790` テンプレ台帳 `src/lib/templateRegistry.ts` を抽出（EmailSettings から移管）
 - `54c2daaa` 共通編集ダイアログ `TemplateEditDialog` を追加
 - `a6b7bd92` 承認パネルに確定メール（private_confirm）のテンプレ編集ボタンを配線（第1弾）
+- `17a2f60d` 却下ダイアログに「却下メールのテンプレを編集」ボタン（第2弾）
+- `61df7131` 却下 Edge Function に `customEmailBody` 受け口（後方互換）
+- `8611eae6` 却下メールを全文編集方式に統一（中核）
+- `96ede0f4` TemplateEditDialog に送信プレビュー（サンプル値）
 
-※すべて型チェック・lint パス済み。未デプロイ（staging ブランチにコミットのみ）。
+※すべて型チェック・lint・build パス済み。未デプロイ（staging ブランチにコミットのみ）。
 
 ## 次の一手（残作業）
 
 1. **ボタン配線の残り**（上の設置マップ ⏳ 行）。`TemplateEditDialog` に `templateKey` と
    一意な `storeId` を渡すだけ。優先度の高い順: 予約者タブのキャンセル（store_cancellation）→
-   予約編集（booking_change）→ 公演モーダル予約者タブ（reservation_confirmation）→ 却下（要storeId判断）。
+   予約編集（booking_change）→ 公演モーダル予約者タブ（reservation_confirmation）。
+   ※キャンセル系は既に全文編集ダイアログがあるので、テンプレ編集ボタンの要否はUI確認後に判断。
 2. **設定画面のラベル交通整理**（自動送信組）: テンプレ名に「いつ・誰起点で」を明記＋フロー別グループ化。
    台帳の `description` を充実させれば設定画面とダイアログ両方に効く。
 3. **DBカラム DROP**（デプロイ後、上記参照）。
+4. **観測の精査**: 却下時のキャンセル確認メール二重送信の有無（上記）。
 
 ## 関連ファイル
 
