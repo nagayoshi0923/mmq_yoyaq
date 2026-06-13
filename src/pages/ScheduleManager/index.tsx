@@ -52,6 +52,7 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 const ConflictWarningModal = lazy(() => import('@/components/schedule/ConflictWarningModal').then(m => ({ default: m.ConflictWarningModal })))
 const ImportScheduleModal = lazy(() => import('@/components/schedule/ImportScheduleModal').then(m => ({ default: m.ImportScheduleModal })))
 const MoveOrCopyDialog = lazy(() => import('@/components/schedule/MoveOrCopyDialog').then(m => ({ default: m.MoveOrCopyDialog })))
+const MoveCopyConfirmDialog = lazy(() => import('@/components/schedule/MoveCopyConfirmDialog').then(m => ({ default: m.MoveCopyConfirmDialog })))
 const PerformanceModal = lazy(() => import('@/components/schedule/PerformanceModal').then(m => ({ default: m.PerformanceModal })))
 const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal').then(m => ({ default: m.HistoryModal })))
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
@@ -1728,6 +1729,11 @@ export function ScheduleManager() {
             return 'evening'
           })()
         } : null}
+      />
+
+      <MoveCopyConfirmDialog
+        prompt={modals.moveCopyConfirm.prompt}
+        onResolve={modals.moveCopyConfirm.onResolve}
       />
 
       {modals.contextMenu.contextMenu && (

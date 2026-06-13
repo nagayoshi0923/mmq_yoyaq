@@ -179,6 +179,10 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         selectedEvent: eventOperations.draggedEvent,
         stores
       },
+      moveCopyConfirm: {
+        prompt: eventOperations.moveCopyConfirm,
+        onResolve: eventOperations.resolveMoveCopyConfirm,
+      },
       contextMenu: {
         contextMenu: contextMenuActions.contextMenu,
         setContextMenu: contextMenuActions.setContextMenu,
@@ -277,6 +281,11 @@ export function useScheduleTableModals(currentDate: Date) {
       onCopy: eventOperations.handleCopyEvent,
       selectedEvent: eventOperations.draggedEvent,
       stores  // ScheduleManagerで使用するため含める
+    },
+    // 移動・複製の重複/間隔不足の確認ダイアログ（window.confirm の置き換え）
+    moveCopyConfirm: {
+      prompt: eventOperations.moveCopyConfirm,
+      onResolve: eventOperations.resolveMoveCopyConfirm,
     },
     // ContextMenu用
     contextMenu: {

@@ -99,6 +99,10 @@ export interface ScheduleTableModals {
     selectedEvent: ScheduleEvent | null
     stores: any[]
   }
+  moveCopyConfirm: {
+    prompt: { title: string; message: string; confirmLabel: string; variant: 'destructive' | 'default' } | null
+    onResolve: (ok: boolean) => void
+  }
   contextMenu: {
     contextMenu: any
     setContextMenu: (menu: any) => void

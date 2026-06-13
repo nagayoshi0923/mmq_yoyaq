@@ -100,6 +100,8 @@ export function useEventOperations({
   const {
     handleMoveEvent,
     handleCopyEvent,
+    moveCopyConfirm,
+    resolveMoveCopyConfirm,
   } = useEventMoveCopy({
     events,
     setEvents,
@@ -165,6 +167,8 @@ export function useEventOperations({
     handleDrop,
     handleMoveEvent,
     handleCopyEvent,
+    moveCopyConfirm,
+    resolveMoveCopyConfirm,
     handleSavePerformance,
     handleDeletePerformance,
     handleConfirmDelete,

@@ -8,7 +8,7 @@
  * 挙動は useEventOperations 時代から不変。モーダル/ドラッグ状態（draggedEvent /
  * dropTarget）は useEventModalState 側が持ち、ここには props で渡される。
  */
-import { useCallback } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -47,6 +47,15 @@ interface DropTarget {
   date: string
   venue: string
   timeSlot: string
+}
+
+/** 移動・複製時の重複/間隔不足の確認ダイアログ（window.confirm の置き換え）の表示内容 */
+export interface MoveCopyConfirm {
+  title: string
+  message: string
+  confirmLabel: string
+  /** destructive=既存公演を削除する操作（赤ボタン） / default=このまま実行する警告 */
+  variant: 'destructive' | 'default'
 }
 
 interface UseEventMoveCopyProps {
@@ -93,6 +102,29 @@ export function useEventMoveCopy({
   setDraggedEvent,
   setDropTarget,
 }: UseEventMoveCopyProps) {
+  // 重複/間隔不足の確認ダイアログ（window.confirm の置き換え）。
+  // Promise の resolver を ref に保持し、ダイアログの決定で解決する（useEventDelete と同型）。
+  const [moveCopyConfirm, setMoveCopyConfirm] = useState<MoveCopyConfirm | null>(null)
+  const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null)
+
+  /** styled ダイアログを開いてユーザーの決定（実行 or やめる）を待つ */
+  const askConfirm = useCallback(
+    (opts: MoveCopyConfirm) =>
+      new Promise<boolean>(resolve => {
+        confirmResolveRef.current = resolve
+        setMoveCopyConfirm(opts)
+      }),
+    []
+  )
+
+  /** ダイアログ側から決定を受け取る（true=実行 / false=やめる） */
+  const resolveMoveCopyConfirm = useCallback((ok: boolean) => {
+    setMoveCopyConfirm(null)
+    const resolve = confirmResolveRef.current
+    confirmResolveRef.current = null
+    resolve?.(ok)
+  }, [])
+
   // 🚨 CRITICAL: 重複チェック関数（移動・複製・ペースト用）
   const checkConflict = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', excludeEventId?: string): ScheduleEvent | null => {
     const conflictingEvents = events.filter(event => {
@@ -123,10 +155,13 @@ export function useEventMoveCopy({
         const timeSlotLabel = timeSlotEnToLabel(dropTarget.timeSlot, 'candidate')
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
 
-        if (!confirm(
-          `移動先の${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
-          `既存の公演を削除して移動しますか？`
-        )) {
+        const ok = await askConfirm({
+          title: '移動先に既存の公演があります',
+          message: `${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。既存の公演を削除して移動しますか？`,
+          confirmLabel: '既存を削除して移動',
+          variant: 'destructive',
+        })
+        if (!ok) {
           setDraggedEvent(null)
           setDropTarget(null)
           return
@@ -175,10 +210,13 @@ export function useEventMoveCopy({
       const moveOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
       if (moveOverlap) {
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-        if (!confirm(
-          `移動先の${dropTarget.date} ${storeName}で「${moveOverlap.event.scenario}」（${moveOverlap.event.start_time.slice(0, 5)}〜${moveOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${moveOverlap.reason}）。\n` +
-          `このまま移動しますか？`
-        )) {
+        const ok = await askConfirm({
+          title: '時間が重なります',
+          message: `${dropTarget.date} ${storeName}で「${moveOverlap.event.scenario}」（${moveOverlap.event.start_time.slice(0, 5)}〜${moveOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${moveOverlap.reason}）。このまま移動しますか？`,
+          confirmLabel: 'このまま移動',
+          variant: 'default',
+        })
+        if (!ok) {
           setDraggedEvent(null)
           setDropTarget(null)
           return
@@ -385,7 +423,7 @@ export function useEventMoveCopy({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
+  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios, askConfirm])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -399,10 +437,13 @@ export function useEventMoveCopy({
         const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'candidate')
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
 
-        if (!confirm(
-          `複製先の${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
-          `既存の公演を削除して複製しますか？`
-        )) {
+        const ok = await askConfirm({
+          title: '複製先に既存の公演があります',
+          message: `${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。既存の公演を削除して複製しますか？`,
+          confirmLabel: '既存を削除して複製',
+          variant: 'destructive',
+        })
+        if (!ok) {
           setDraggedEvent(null)
           setDropTarget(null)
           return
@@ -449,10 +490,13 @@ export function useEventMoveCopy({
       const copyOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
       if (copyOverlap) {
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-        if (!confirm(
-          `複製先の${dropTarget.date} ${storeName}で「${copyOverlap.event.scenario}」（${copyOverlap.event.start_time.slice(0, 5)}〜${copyOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${copyOverlap.reason}）。\n` +
-          `このまま複製しますか？`
-        )) {
+        const ok = await askConfirm({
+          title: '時間が重なります',
+          message: `${dropTarget.date} ${storeName}で「${copyOverlap.event.scenario}」（${copyOverlap.event.start_time.slice(0, 5)}〜${copyOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${copyOverlap.reason}）。このまま複製しますか？`,
+          confirmLabel: 'このまま複製',
+          variant: 'default',
+        })
+        if (!ok) {
           setDraggedEvent(null)
           setDropTarget(null)
           return
@@ -534,10 +578,13 @@ export function useEventMoveCopy({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
+  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios, askConfirm])
 
   return {
     handleMoveEvent,
     handleCopyEvent,
+    // 重複/間隔不足の確認ダイアログ（MoveCopyConfirmDialog に渡す）
+    moveCopyConfirm,
+    resolveMoveCopyConfirm,
   }
 }
