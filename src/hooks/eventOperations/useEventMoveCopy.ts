@@ -12,7 +12,7 @@ import { useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getEventTimeSlot, calcEndTime, computePlacedStartTime, timeToMinutes } from '@/utils/eventOperationUtils'
+import { getEventTimeSlot, calcEndTime, computePlacedStartTime, timeToMinutes, checkTimeOverlap } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -60,6 +60,25 @@ interface UseEventMoveCopyProps {
   dropTarget: DropTarget | null
   setDraggedEvent: React.Dispatch<React.SetStateAction<ScheduleEvent | null>>
   setDropTarget: React.Dispatch<React.SetStateAction<DropTarget | null>>
+}
+
+/**
+ * 配置後の時間が同店舗・同日の他公演と重なる/間隔不足になる最初の1件を返す。
+ * 同一時間帯の checkConflict では拾えない「別時間帯への食い込み（間隔不足）」を検知する。
+ */
+function findTimeOverlapConflict(
+  events: ScheduleEvent[],
+  scenarios: Scenario[],
+  startTime: string,
+  endTime: string,
+  newPrepMinutes: number
+): { event: ScheduleEvent; reason: string } | null {
+  for (const e of events) {
+    const existingPrep = scenarios.find(s => s.title === e.scenario)?.extra_preparation_time || 0
+    const r = checkTimeOverlap(e.start_time, e.end_time, startTime, endTime, existingPrep, newPrepMinutes)
+    if (r.overlap) return { event: e, reason: r.reason || '時間が重複' }
+  }
+  return null
 }
 
 export function useEventMoveCopy({
@@ -150,6 +169,21 @@ export function useEventMoveCopy({
         : matchingScenario?.duration
           ? calcEndTime(startTime, matchingScenario.duration)
           : defaults.end_time
+
+      // 繰り下げ後も同店舗・同日の他公演と重なる場合（後続公演への食い込み等）は警告。
+      // 繰り下げでは後続公演との重複は解消できないため、続行可否をユーザーに委ねる。
+      const moveOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
+      if (moveOverlap) {
+        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+        if (!confirm(
+          `移動先の${dropTarget.date} ${storeName}で「${moveOverlap.event.scenario}」（${moveOverlap.event.start_time.slice(0, 5)}〜${moveOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${moveOverlap.reason}）。\n` +
+          `このまま移動しますか？`
+        )) {
+          setDraggedEvent(null)
+          setDropTarget(null)
+          return
+        }
+      }
 
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       const isRealEventId = uuidPattern.test(draggedEvent.id)
@@ -410,6 +444,20 @@ export function useEventMoveCopy({
         : matchingScenario?.duration
           ? calcEndTime(startTime, matchingScenario.duration)
           : defaults.end_time
+
+      // 繰り下げ後も同店舗・同日の他公演と重なる場合（後続公演への食い込み等）は警告
+      const copyOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
+      if (copyOverlap) {
+        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+        if (!confirm(
+          `複製先の${dropTarget.date} ${storeName}で「${copyOverlap.event.scenario}」（${copyOverlap.event.start_time.slice(0, 5)}〜${copyOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${copyOverlap.reason}）。\n` +
+          `このまま複製しますか？`
+        )) {
+          setDraggedEvent(null)
+          setDropTarget(null)
+          return
+        }
+      }
 
       // 新しい位置に公演を作成（元の公演は残す）
       // organization_idが取得できない場合はエラー
