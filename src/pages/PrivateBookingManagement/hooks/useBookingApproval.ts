@@ -19,11 +19,44 @@ import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryAp
 import { showToast } from '@/utils/toast'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
+import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
   const total = h * 60 + m + minutes
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+// 却下ダイアログの初期本文に入れる既定の理由。テンプレ側に「今後のご検討」等の
+// 定型文があるため、ここは具体的な理由1文に留めて重複を避ける。
+const DEFAULT_REJECTION_REASON = 'ご希望の日程では貸切での受付が難しい状況です。'
+// reservationApi.cancel に渡すキャンセル記録用の理由（メール全文とは別物）
+const REJECTION_CANCEL_REASON = '貸切リクエストを却下しました'
+
+function buildRejectionCandidateDatesText(
+  candidates: Array<{ date?: string; startTime?: string; endTime?: string }> | undefined
+): string {
+  if (!candidates || candidates.length === 0) return ''
+  return candidates
+    .map((c, i) => `候補${i + 1}: ${formatJstDateJa(c.date || '', true) || c.date || ''} ${(c.startTime || '').slice(0, 5)} - ${(c.endTime || '').slice(0, 5)}`)
+    .join('\n')
+}
+
+// 却下メールの全文を組み立てる（テンプレの差し込み変数を実値に置換）。
+// 送信側 send-private-booking-rejection / チャット共有本文と同じ置換ルール。
+function buildRejectionEmailBody(template: string, vars: {
+  customerName: string
+  scenarioTitle: string
+  rejectionReason: string
+  candidateDatesText: string
+  companyName: string
+}): string {
+  return template
+    .replace(/{customer_name}/g, vars.customerName || '')
+    .replace(/{scenario_title}/g, vars.scenarioTitle || '')
+    .replace(/{rejection_reason}/g, vars.rejectionReason || '')
+    .replace(/{candidate_dates}/g, vars.candidateDatesText || '')
+    .replace(/{company_name}/g, vars.companyName || '')
 }
 
 interface UseBookingApprovalProps {
@@ -41,7 +74,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
-  const [rejectionReason, setRejectionReason] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')  // 却下メールの全文（編集可能）
+  const [rejectBodyLoading, setRejectBodyLoading] = useState(false)  // 全文の組み立て中
 
   // 承認処理
   const handleApprove = useCallback(async (
@@ -423,17 +457,55 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   }, [onSuccess, organizationId, isCustomHoliday])
 
   // 却下クリック
-  const handleRejectClick = useCallback((requestId: string) => {
-    const defaultMessage = `誠に申し訳ございませんが、ご希望の日程では店舗の空きがなく、貸切での受付が難しい状況です。
-
-別の日程でのご検討をお願いできますでしょうか。
-または、通常公演へのご参加も歓迎しております。
-
-ご不明点等ございましたら、お気軽にお問い合わせください。`
-    
-    setRejectionReason(defaultMessage)
+  // 却下ダイアログを開く。フラグメント（理由）だけでなく、実際に送られる「全文」を
+  // 組み立てて編集できるようにする（テンプレ private_rejection_template ＋既定理由）。
+  const handleRejectClick = useCallback(async (requestId: string, request?: PrivateBookingRequest | null) => {
     setRejectRequestId(requestId)
+    setRejectionReason('')
+    setRejectBodyLoading(true)
     setShowRejectDialog(true)
+    try {
+      // 送信側（下の handleRejectConfirm）と同じ reservation.store_id の設定を使う
+      const { data: reservation } = await supabase
+        .from('reservations')
+        .select('store_id, title, customer_name')
+        .eq('id', requestId)
+        .maybeSingle()
+
+      const storeId = reservation?.store_id as string | undefined
+      let template = ''
+      let companyName = ''
+      let companyPhone = ''
+      let companyEmail = ''
+      if (storeId) {
+        const { data: settings } = await supabase
+          .from('email_settings')
+          .select('private_rejection_template, company_name, company_phone, company_email')
+          .eq('store_id', storeId)
+          .maybeSingle()
+        template = settings?.private_rejection_template || ''
+        companyName = settings?.company_name || ''
+        companyPhone = settings?.company_phone || ''
+        companyEmail = settings?.company_email || ''
+      }
+      if (!template) {
+        template = getDefaultPrivateRejectionTemplate(companyName, companyPhone, companyEmail)
+      }
+
+      const body = buildRejectionEmailBody(template, {
+        customerName: request?.customer_name || reservation?.customer_name || '',
+        scenarioTitle: request?.scenario_title || reservation?.title || '',
+        rejectionReason: DEFAULT_REJECTION_REASON,
+        candidateDatesText: buildRejectionCandidateDatesText(request?.candidate_datetimes?.candidates),
+        companyName,
+      })
+      setRejectionReason(body)
+    } catch (e) {
+      logger.error('却下メール本文の組み立てエラー:', e)
+      setRejectionReason(DEFAULT_REJECTION_REASON)
+    } finally {
+      setRejectBodyLoading(false)
+    }
   }, [])
 
   // 却下確定
@@ -457,7 +529,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // ただしグループはキャンセルせず、候補日選択フェーズに戻す
       // 既にキャンセル済みの場合はスキップ
       if (reservation?.status !== 'cancelled') {
-        await reservationApi.cancel(rejectRequestId, rejectionReason, { skipGroupCancel: true })
+        // 却下メール本文（rejectionReason は全文）はキャンセル記録に流さず、固定の短い理由を渡す
+        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true })
       }
       
       // 関連するグループを候補日選択フェーズに戻し、候補日を rejected にする。
@@ -483,45 +556,12 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             endTime: c.endTime
           })) || []
 
-          // 却下メール（貸切専用）を送信し、その内容と同じ文章をチャットにも投稿する。
-          // → email_settings.private_rejection_template を取得して変数置換し、グループチャットの body として共有。
+          // 管理者が却下ダイアログで編集した「全文」(rejectionReason) を、メールにもチャットにも
+          // そのまま使う（再テンプレ化しない → 見たまま＝送られる文）。
           const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
           const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
           const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
-
-          // store_id から email_settings.private_rejection_template を取得
-          const storeId = reservation?.store_id as string | undefined
-          let rejectionTemplate = ''
-          let companyName = ''
-          if (storeId) {
-            const { data: emailSettings } = await supabase
-              .from('email_settings')
-              .select('private_rejection_template, company_name')
-              .eq('store_id', storeId)
-              .maybeSingle()
-            rejectionTemplate = emailSettings?.private_rejection_template || ''
-            companyName = emailSettings?.company_name || ''
-          }
-
-          const formatDateForBody = (dateStr: string): string => {
-            if (!dateStr) return ''
-            return formatJstDateJa(dateStr, true) || dateStr
-          }
-          const candidatesText = candidateDates.length > 0
-            ? candidateDates.map((c: { date: string; startTime: string; endTime: string }, i: number) =>
-                `候補${i + 1}: ${formatDateForBody(c.date)} ${c.startTime?.slice(0, 5) || ''} - ${c.endTime?.slice(0, 5) || ''}`
-              ).join('\n')
-            : ''
-
-          // 変数置換して body を生成
-          const sharedBody = rejectionTemplate
-            ? rejectionTemplate
-                .replace(/{customer_name}/g, rejectCustomerName || '')
-                .replace(/{scenario_title}/g, reservation?.title || '')
-                .replace(/{rejection_reason}/g, rejectionReason)
-                .replace(/{candidate_dates}/g, candidatesText)
-                .replace(/{company_name}/g, companyName)
-            : ''
+          const sharedBody = rejectionReason
 
           // グループチャットにシステムメッセージを送信
           const { error: msgInsertError } = await supabase
@@ -550,7 +590,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                   customerEmail: rejectCustomerEmail,
                   customerName: rejectCustomerName,
                   scenarioTitle: reservation.title || '',
-                  rejectionReason: rejectionReason,
+                  // 管理者が編集した全文をそのまま送る（最優先）
+                  customEmailBody: rejectionReason,
+                  // 旧Edge Function（customEmailBody 未対応）向けのフォールバック理由
+                  rejectionReason: DEFAULT_REJECTION_REASON,
                   candidateDates: candidateDates.length > 0 ? candidateDates : undefined
                 }
               })
@@ -691,6 +734,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     showRejectDialog,
     rejectionReason,
     setRejectionReason,
+    rejectBodyLoading,
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,

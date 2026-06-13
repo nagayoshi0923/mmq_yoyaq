@@ -100,6 +100,7 @@ export function PrivateBookingManagement() {
     showRejectDialog,
     rejectionReason,
     setRejectionReason,
+    rejectBodyLoading,
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
@@ -908,7 +909,7 @@ export function PrivateBookingManagement() {
                             showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
                           }
                         }}
-                        onReject={() => handleRejectClick(req.id)}
+                        onReject={() => handleRejectClick(req.id, req)}
                         disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder || ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId)}
                         submitting={submitting}
                       />
@@ -939,31 +940,36 @@ export function PrivateBookingManagement() {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm">却下理由</Label>
+                  <Label className="text-sm">却下メール本文（このまま送信されます）</Label>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs text-purple-700 hover:text-purple-900"
                     onClick={openRejectTemplateEditor}
-                    disabled={resolvingRejectStore}
+                    disabled={resolvingRejectStore || rejectBodyLoading}
                   >
                     <Mail className="h-3 w-3 mr-1" />
                     {resolvingRejectStore ? '読み込み中...' : '却下メールのテンプレを編集'}
                   </Button>
                 </div>
-                <Textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  rows={6}
-                  placeholder="却下理由を入力してください"
-                  className="text-sm"
-                />
+                {rejectBodyLoading ? (
+                  <div className="border rounded-md py-12 text-center text-sm text-muted-foreground">
+                    メール本文を読み込み中...
+                  </div>
+                ) : (
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={14}
+                    placeholder="却下メールの本文"
+                    className="text-sm font-mono"
+                  />
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  この理由は今回の却下メールの本文（{'{rejection_reason}'}）に入ります。次回も使う定型文（テンプレート）は「却下メールのテンプレを編集」から。
+                  お客様に送られる却下メールの全文です。この場で自由に編集できます。次回以降の既定文面（テンプレート）を直すには「却下メールのテンプレを編集」から。
                 </p>
               </div>
-              
             </div>
             <DialogFooter>
               <Button
@@ -976,7 +982,7 @@ export function PrivateBookingManagement() {
               <Button
                 variant="destructive"
                 onClick={() => handleRejectConfirm(selectedRequest)}
-                disabled={submitting || !rejectionReason.trim()}
+                disabled={submitting || rejectBodyLoading || !rejectionReason.trim()}
               >
                 {submitting ? '処理中...' : '却下する'}
               </Button>
