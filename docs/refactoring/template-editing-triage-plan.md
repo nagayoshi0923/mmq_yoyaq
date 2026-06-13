@@ -109,10 +109,26 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 フロントは `customEmailBody`＋フォールバック `rejectionReason` の両方を送るので、Edge Function が
 未更新でも壊れない。とはいえ理想は Edge Function → フロントの順でデプロイ。
 
-### 観測（別件・未対応）
-却下フローの `reservationApi.cancel` は内部でキャンセル確認メールも送る経路を持つ
-（[reservationApi.ts](../../src/lib/reservationApi.ts) L503付近）。貸切リクエストに schedule_event が
-無い場合の挙動は未精査。今回は理由文字列を固定の短文に変えただけで送信有無は変えていない。要確認。
+### ✅ 確定・修正済み: 却下時の二重送信＋スタッフ中止/削除の客都合メール（2026-06-13 精査）
+**観測は事実だった。** 却下フローは `reservationApi.cancel`（→ `send-cancellation-confirmation`）と
+`send-private-booking-rejection` の両方を呼び、お客様にキャンセル確認メールと却下メールの**2通**が
+届いていた（別 Edge Function なので idempotency キーでは重複排除されない）。さらに貸切リクエストは
+却下時点で schedule_event 未作成のため、1通目は `店舗不明`・日時なし・`cancelledBy:'customer'`（客都合風）の
+崩れた文面だった。**この二重送信は今回のPRより前から存在する既存挙動**（`reservationApi.cancel` の
+呼び出しは `c670f103`/`d1a6db90` 以前から。今回は理由文字列を変えただけ）。よってデプロイAを先に出しても悪化はしない。
+
+派生で `cancelledBy:'customer'` が全呼び出し元で固定されていたため、**スタッフ起点の公演中止/削除でも
+お客様に「予約キャンセル（客都合）」の件名・文面が届いていた**（本文を全文編集した場合は件名のみズレ、
+未編集なら本文の枠ごとズレる）。`cancelWithLock` 経路（予約者タブ等）はメール送信しないので影響外。
+
+**対応（2コミット）:**
+- `73ce0571` `reservationApi.cancel` に `skipCancellationEmail` を追加し、却下フローから `true`。
+  キャンセル確認メールの invoke だけ抑止（DBキャンセル・在庫返却・キャンセル待ち通知は維持）→ 却下メール1通だけに。
+- `1e4f282f` `reservationApi.cancel` に `cancelledBy` を追加（既定 `'customer'`）。中止（useEventCancel）・
+  削除（useEventDelete）から `'store'` を渡し、公演中止系の件名・文面に。MyPage の顧客自身のキャンセルは既定維持。
+
+※ いずれも**純フロント変更**。`send-cancellation-confirmation` は既に `cancelledBy`/`customEmailBody` 対応済みで
+新規DB変更・新規 Edge Function なし → デプロイ順序の追加制約なし（通常のフロントデプロイに乗る）。型/lint/build パス・staging push 済み。
 
 ## 変数の「出どころ」をその場で編集（2026-06-13 オーナー要望）
 
@@ -140,8 +156,10 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 - `370db3de` 貸切却下メールの既定理由を設定で編集可能に（DB列追加・staging適用済み）
 - `d7ea3806` 変数クリックでその場の編集モーダル（VariableSettingDialog・遷移廃止）
 - `36051218` 送信プレビューに実際の設定値を反映＋その場編集で即反映
+- `73ce0571` 却下時のキャンセル確認メール二重送信を抑止（skipCancellationEmail）
+- `1e4f282f` スタッフ起点の中止・削除は店舗都合メールにする（cancelledBy:'store'）
 
-※すべて型チェック・lint・build パス済み。未デプロイ（staging ブランチにコミットのみ）。
+※すべて型チェック・lint・build パス済み。未デプロイ（staging ブランチにコミット・push のみ）。
 
 ## 🚀 デプロイ時の必須作業（順序注意）
 
@@ -160,7 +178,7 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 2. **設定画面のラベル交通整理**（自動送信組）: テンプレ名に「いつ・誰起点で」を明記＋フロー別グループ化。
    台帳の `description` を充実させれば設定画面とダイアログ両方に効く。
 3. **DBカラム DROP**（デプロイ後、上記参照）。
-4. **観測の精査**: 却下時のキャンセル確認メール二重送信の有無（上記）。
+4. ~~**観測の精査**: 却下時のキャンセル確認メール二重送信の有無~~ → ✅完了（上記「確定・修正済み」参照、`73ce0571`/`1e4f282f`）。
 
 ## 関連ファイル
 
