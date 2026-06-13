@@ -150,10 +150,13 @@ export function useEventSave({
         storeName,
         timeSlot: timeSlotLabel,
         conflictingEvent: {
+          id: conflictingEvent.id,
           scenario: conflictingEvent.scenario,
           gms: conflictingEvent.gms,
           start_time: conflictingEvent.start_time,
-          end_time: conflictingEvent.end_time
+          end_time: conflictingEvent.end_time,
+          is_private_request: conflictingEvent.is_private_request,
+          reservation_id: conflictingEvent.reservation_id
         }
       })
       setPendingPerformanceData(performanceData)
@@ -218,10 +221,13 @@ export function useEventSave({
         storeName,
         timeSlot: `${conflictingEvent.start_time.slice(0, 5)}〜${conflictingEvent.end_time.slice(0, 5)}（${timeConflict.reason}）`,
         conflictingEvent: {
+          id: conflictingEvent.id,
           scenario: conflictingEvent.scenario,
           gms: conflictingEvent.gms,
           start_time: conflictingEvent.start_time,
-          end_time: conflictingEvent.end_time
+          end_time: conflictingEvent.end_time,
+          is_private_request: conflictingEvent.is_private_request,
+          reservation_id: conflictingEvent.reservation_id
         }
       })
       setPendingPerformanceData(performanceData)
@@ -834,20 +840,23 @@ export function useEventSave({
         }
       }
       
-      // 既存の重複公演を削除
+      // 削除対象 = 「新公演と同じ時間帯の既存公演」＋「警告に出している重複公演そのもの」。
+      // 後者は間隔不足(60分)のとき別の時間帯のことがあり、時間帯一致だけでは漏れる
+      // （従来は同枠しか消さず、別枠の重複公演が残ったまま重なって保存されていた）。
+      const conflictingEventId: string | undefined = conflictInfo.conflictingEvent?.id
       const conflictingEvents = events.filter(event => {
         if (modalMode === 'edit' && event.id === pendingPerformanceData.id) {
           return false
         }
-        
+        if (event.is_cancelled) return false
+        if (event.date !== pendingPerformanceData.date || event.venue !== pendingPerformanceData.venue) {
+          return false
+        }
         // 既存イベントの時間帯も保存された枠を優先
         const eventTimeSlot = getEventTimeSlot(event)
-        return event.date === pendingPerformanceData.date &&
-               event.venue === pendingPerformanceData.venue &&
-               eventTimeSlot === timeSlot &&
-               !event.is_cancelled
+        return eventTimeSlot === timeSlot || event.id === conflictingEventId
       })
-      
+
       // 既存公演を削除
       for (const conflictEvent of conflictingEvents) {
         if (conflictEvent.is_private_request && conflictEvent.reservation_id) {
@@ -858,18 +867,10 @@ export function useEventSave({
           await scheduleApi.delete(conflictEvent.id)
         }
       }
-      
+
       // ローカル状態から削除
-      setEvents(prev => prev.filter(event => {
-        // 既存イベントの時間帯も保存された枠を優先
-        const eventTimeSlot = getEventTimeSlot(event)
-        const isConflict = event.date === pendingPerformanceData.date &&
-                          event.venue === pendingPerformanceData.venue &&
-                          eventTimeSlot === timeSlot &&
-                          !event.is_cancelled &&
-                          event.id !== pendingPerformanceData.id
-        return !isConflict
-      }))
+      const deletedIds = new Set(conflictingEvents.map(e => e.id))
+      setEvents(prev => prev.filter(event => !deletedIds.has(event.id)))
       
       // 新しい公演を保存
       await doSavePerformance(pendingPerformanceData)
