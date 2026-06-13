@@ -94,6 +94,11 @@ export const PENDING_SAVE_MESSAGE =
 export const DEFAULT_CANCELLATION_REASON =
   '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
 
+interface OrganizerCancelReason {
+  id: string
+  content: string
+}
+
 export interface ActiveReservation {
   id: string
   customer_name: string | null
@@ -154,10 +159,23 @@ export function formatCustomerLabel(r: ActiveReservation): string {
 export async function buildCancelMailComposer(
   targetEvent: ScheduleEvent,
   reservations: ActiveReservation[]
-): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody'> | undefined> {
+): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody' | 'reasonOptions'> | undefined> {
   try {
     const storeId = targetEvent.store_id || targetEvent.venue || null
-    const ctx = await fetchStoreCancellationEmailContext(storeId)
+    const [ctx, settingsResult] = await Promise.all([
+      fetchStoreCancellationEmailContext(storeId),
+      storeId
+        ? supabase
+            .from('reservation_settings')
+            .select('organizer_cancel_reasons')
+            .eq('store_id', storeId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
+    const rawReasons = (settingsResult.data as { organizer_cancel_reasons?: unknown } | null)?.organizer_cancel_reasons
+    const reasonOptions = Array.isArray(rawReasons)
+      ? (rawReasons as OrganizerCancelReason[]).map(r => r.content).filter(Boolean)
+      : []
     const recipients = reservations.map(r => ({
       reservationId: r.id,
       label: formatCustomerLabel(r),
@@ -183,7 +201,7 @@ export async function buildCancelMailComposer(
         organizationName: ctx.organizationName,
       }, ctx.template || undefined)
     }
-    return { recipients, composeBody }
+    return { recipients, composeBody, reasonOptions }
   } catch (e) {
     logger.warn('キャンセルメール本文コンポーザの構築に失敗（理由編集のみで続行）:', e)
     return undefined

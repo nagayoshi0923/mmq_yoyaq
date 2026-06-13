@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export interface CancelMailRecipient {
   reservationId: string
@@ -34,6 +35,8 @@ export interface DeleteCancelPrompt {
   customers: string[]
   /** キャンセル理由の初期値 */
   defaultReason: string
+  /** 店舗のキャンセル設定に登録された定型理由 */
+  reasonOptions?: string[]
   /** メール本文編集の対象（省略時は理由編集のみのフォールバック表示） */
   recipients?: CancelMailRecipient[]
   /** 予約者ごとのメール本文を生成（予約一覧の「予約をキャンセル」と同じロジック） */
@@ -68,6 +71,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
   const isCancelVariant = prompt?.variant === 'cancel'
   const actionLabel = isCancelVariant ? '中止' : '削除'
   const recipients = prompt?.recipients
+  const reasonOptions = prompt?.reasonOptions?.filter(r => r.trim()) ?? []
   const hasBodyEditor = !!(recipients && recipients.length > 0 && prompt?.composeBody)
 
   // ダイアログが開くたびに初期値へリセット
@@ -174,11 +178,23 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
               {/* キャンセル理由 */}
               <div>
                 <Label htmlFor="delete-cancel-reason">キャンセル理由</Label>
+                {reasonOptions.length > 0 && (
+                  <Select value={reason} onValueChange={handleReasonChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="定型理由から選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reasonOptions.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Textarea
                   id="delete-cancel-reason"
                   value={reason}
                   onChange={(e) => handleReasonChange(e.target.value)}
-                  className="mt-1"
+                  className={reasonOptions.length > 0 ? 'mt-2' : 'mt-1'}
                   rows={3}
                 />
                 <p className="text-xs text-muted-foreground mt-1">

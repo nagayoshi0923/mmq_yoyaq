@@ -159,6 +159,7 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 - `73ce0571` 却下時のキャンセル確認メール二重送信を抑止（skipCancellationEmail）
 - `1e4f282f` スタッフ起点の中止・削除は店舗都合メールにする（cancelledBy:'store'）
 - 2026-06-13 予約者タブのキャンセルメール本文ダイアログに `store_cancellation_template` 編集ボタンを配線
+- 2026-06-13 中止/削除ダイアログのキャンセル理由欄に `organizer_cancel_reasons` の選択肢を配線
 
 ※`1e4f282f` までは型チェック・lint・build パス済み。予約者タブ配線は typecheck / 変更ファイル単体 lint /
 build パス済み。全体 lint は既存の別ファイルエラー（PerformanceModal / StaffProfile）で失敗。
