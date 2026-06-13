@@ -33,6 +33,8 @@ interface TemplateEditDialogProps {
   templateKey: EmailTemplateKey
   /** 対象店舗。email_settings は店舗ごとに1行 */
   storeId: string | null | undefined
+  /** storeId が無い場合のフォールバック。組織の email_settings 行を編集する（貸切リクエスト等） */
+  organizationId?: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
   /** 保存成功後に呼ばれる。呼び出し元のメモリ上の値を更新する用 */
@@ -42,6 +44,7 @@ interface TemplateEditDialogProps {
 export function TemplateEditDialog({
   templateKey,
   storeId,
+  organizationId,
   open,
   onOpenChange,
   onSaved,
@@ -54,18 +57,21 @@ export function TemplateEditDialog({
   const [saving, setSaving] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
-  // ダイアログを開いたら、その店舗の現在値（無ければデフォルト文面）を読み込む
+  // ダイアログを開いたら、対象（店舗 or 組織）の現在値（無ければデフォルト文面）を読み込む
   useEffect(() => {
-    if (!open || !storeId) return
+    if (!open || (!storeId && !organizationId)) return
     let cancelled = false
     setLoading(true)
     ;(async () => {
       try {
-        const { data, error } = await supabase
+        // storeId があれば店舗の行、無ければ組織の行（貸切リクエスト等で店舗未確定の場合）
+        let query = supabase
           .from('email_settings')
           .select(`id, company_name, company_phone, company_email, ${templateKey}`)
-          .eq('store_id', storeId)
-          .maybeSingle()
+        query = storeId
+          ? query.eq('store_id', storeId)
+          : query.eq('organization_id', organizationId as string)
+        const { data, error } = await query.limit(1).maybeSingle()
         if (error && error.code !== 'PGRST116') throw error
         if (cancelled) return
 
@@ -90,14 +96,14 @@ export function TemplateEditDialog({
     return () => {
       cancelled = true
     }
-  }, [open, storeId, templateKey, config])
+  }, [open, storeId, organizationId, templateKey, config])
 
   const handleReset = () => {
     setValue(config.getDefault(company.name, company.phone, company.email))
   }
 
   const handleSave = async () => {
-    if (!storeId) return
+    if (!storeId && !organizationId) return
     setSaving(true)
     try {
       if (rowId) {
@@ -106,7 +112,7 @@ export function TemplateEditDialog({
           .update({ [templateKey]: value })
           .eq('id', rowId)
         if (error) throw error
-      } else {
+      } else if (storeId) {
         // email_settings 行が未作成の店舗 → 組織IDを取得して新規作成
         const { data: store } = await supabase
           .from('stores')
@@ -120,6 +126,19 @@ export function TemplateEditDialog({
           .single()
         if (error) throw error
         setRowId(inserted?.id ?? null)
+      } else if (organizationId) {
+        // 組織に email_settings 行が無い → 組織レベルの行を新規作成（store_id は null）。
+        // 送信側の organization_id フォールバックがこの行を引く。
+        const { data: inserted, error } = await supabase
+          .from('email_settings')
+          .insert({ organization_id: organizationId, [templateKey]: value })
+          .select('id')
+          .single()
+        if (error) throw error
+        setRowId(inserted?.id ?? null)
+      } else {
+        showToast.error('保存先のメール設定が見つかりませんでした')
+        return
       }
       showToast.success('テンプレートを保存しました')
       onSaved?.(value)
@@ -194,7 +213,7 @@ export function TemplateEditDialog({
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
                   キャンセル
                 </Button>
-                <Button type="button" onClick={handleSave} disabled={saving || !storeId}>
+                <Button type="button" onClick={handleSave} disabled={saving || (!storeId && !organizationId)}>
                   {saving ? '保存中...' : '保存'}
                 </Button>
               </div>

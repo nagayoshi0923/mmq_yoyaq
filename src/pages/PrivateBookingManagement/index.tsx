@@ -76,6 +76,7 @@ export function PrivateBookingManagement() {
   const [confirmTemplateDialogOpen, setConfirmTemplateDialogOpen] = useState(false)  // 確定メールのテンプレ編集
   const [rejectTemplateOpen, setRejectTemplateOpen] = useState(false)  // 却下メールのテンプレ編集（次回も使う定型文）
   const [rejectTemplateStoreId, setRejectTemplateStoreId] = useState<string | null>(null)
+  const [rejectTemplateOrgId, setRejectTemplateOrgId] = useState<string | null>(null)  // store_id 無し時の組織フォールバック
   const [resolvingRejectStore, setResolvingRejectStore] = useState(false)
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
@@ -612,7 +613,8 @@ export function PrivateBookingManagement() {
   }
 
   // 却下ダイアログから「次回も使う却下メールのテンプレ」を編集する。
-  // 却下メール送信側（useBookingApproval）と同じく reservation.store_id の店舗設定を対象にする。
+  // 貸切リクエストは store_id が無いことが多いので、その場合は送信側と同じく
+  // organization_id の email_settings 行（＝組織のメール設定）を対象にする。
   const openRejectTemplateEditor = async () => {
     const reqId = selectedRequest?.id
     if (!reqId) return
@@ -620,17 +622,22 @@ export function PrivateBookingManagement() {
     try {
       const { data } = await supabase
         .from('reservations')
-        .select('store_id')
+        .select('store_id, organization_id')
         .eq('id', reqId)
         .maybeSingle()
-      if (!data?.store_id) {
-        showToast.error('この貸切リクエストには店舗が紐づいていないため、テンプレートを開けません')
+      if (data?.store_id) {
+        setRejectTemplateStoreId(data.store_id)
+        setRejectTemplateOrgId(null)
+      } else if (data?.organization_id) {
+        setRejectTemplateStoreId(null)
+        setRejectTemplateOrgId(data.organization_id)
+      } else {
+        showToast.error('店舗・組織が特定できず、テンプレートを開けません')
         return
       }
-      setRejectTemplateStoreId(data.store_id)
       setRejectTemplateOpen(true)
     } catch (e) {
-      logger.error('却下テンプレ店舗の取得エラー:', e)
+      logger.error('却下テンプレ対象の取得エラー:', e)
       showToast.error('テンプレートを開けませんでした')
     } finally {
       setResolvingRejectStore(false)
@@ -990,10 +997,12 @@ export function PrivateBookingManagement() {
           </DialogContent>
         </Dialog>
 
-        {/* 却下メール（private_rejection_template）のテンプレ編集。却下ダイアログの上に重ねて開く */}
+        {/* 却下メール（private_rejection_template）のテンプレ編集。却下ダイアログの上に重ねて開く。
+            貸切リクエストは店舗未確定が多いので、その場合は組織のメール設定を編集する */}
         <TemplateEditDialog
           templateKey="private_rejection_template"
           storeId={rejectTemplateStoreId}
+          organizationId={rejectTemplateOrgId}
           open={rejectTemplateOpen}
           onOpenChange={setRejectTemplateOpen}
         />

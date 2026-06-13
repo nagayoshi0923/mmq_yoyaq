@@ -465,29 +465,32 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     setRejectBodyLoading(true)
     setShowRejectDialog(true)
     try {
-      // 送信側（下の handleRejectConfirm）と同じ reservation.store_id の設定を使う
+      // 貸切リクエストは store_id が無いことが多い。送信側と同じく
+      // store_id → 無ければ organization_id で email_settings を引く。
       const { data: reservation } = await supabase
         .from('reservations')
-        .select('store_id, title, customer_name')
+        .select('store_id, organization_id, title, customer_name')
         .eq('id', requestId)
         .maybeSingle()
 
       const storeId = reservation?.store_id as string | undefined
+      const orgId = reservation?.organization_id as string | undefined
       let template = ''
       let companyName = ''
       let companyPhone = ''
       let companyEmail = ''
+      const settingsSelect = 'private_rejection_template, company_name, company_phone, company_email'
+      let settings: { private_rejection_template?: string | null; company_name?: string | null; company_phone?: string | null; company_email?: string | null } | null = null
       if (storeId) {
-        const { data: settings } = await supabase
-          .from('email_settings')
-          .select('private_rejection_template, company_name, company_phone, company_email')
-          .eq('store_id', storeId)
-          .maybeSingle()
-        template = settings?.private_rejection_template || ''
-        companyName = settings?.company_name || ''
-        companyPhone = settings?.company_phone || ''
-        companyEmail = settings?.company_email || ''
+        settings = (await supabase.from('email_settings').select(settingsSelect).eq('store_id', storeId).maybeSingle()).data
       }
+      if (!settings && orgId) {
+        settings = (await supabase.from('email_settings').select(settingsSelect).eq('organization_id', orgId).limit(1).maybeSingle()).data
+      }
+      template = settings?.private_rejection_template || ''
+      companyName = settings?.company_name || ''
+      companyPhone = settings?.company_phone || ''
+      companyEmail = settings?.company_email || ''
       if (!template) {
         template = getDefaultPrivateRejectionTemplate(companyName, companyPhone, companyEmail)
       }
