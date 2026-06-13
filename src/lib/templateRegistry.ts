@@ -778,7 +778,7 @@ const VARIABLE_SOURCES: Record<string, VariableSource> = {
   company_phone: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
   company_email: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
   cancellation_reason: { note: '中止/キャンセル操作時に入力します。定型理由はキャンセル設定で編集できます', settingsTab: 'cancellation' },
-  rejection_reason: { note: '貸切リクエストの却下ダイアログで本文を直接編集します' },
+  rejection_reason: { note: 'メール設定の「貸切却下メールの既定理由」で編集します（却下時に本文へ差し込まれます）', settingsTab: 'email' },
 }
 
 /** 変数の出どころ情報を返す（未定義は「予約・公演データから自動」） */

@@ -32,7 +32,7 @@ import {
 import { VariableHintChips } from '@/components/settings/VariableHintChips'
 
 const EMAIL_SETTINGS_SELECT_FIELDS =
-  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template, store_cancellation_template' as const
+  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template, store_cancellation_template, private_rejection_reason' as const
 
 // ========== 型定義 ==========
 
@@ -70,6 +70,8 @@ interface EmailSettings extends EmailTemplates {
   }>
   reminder_time: string
   reminder_send_time: 'morning' | 'afternoon' | 'evening'
+  /** 貸切却下メールの既定理由（{rejection_reason} に差し込まれる文） */
+  private_rejection_reason: string
 }
 
 interface EmailSettingsProps {
@@ -187,7 +189,8 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       { days_before: 1, time: '10:00', enabled: true }
     ],
     reminder_time: '10:00',
-    reminder_send_time: 'morning'
+    reminder_send_time: 'morning',
+    private_rejection_reason: ''
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -260,7 +263,8 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           performance_cancellation_template: data.performance_cancellation_template || getDefaultPerformanceCancellationTemplate(companyName, companyPhone, companyEmail),
           event_cancellation_template: data.event_cancellation_template || getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail),
           performance_extension_template: data.performance_extension_template || getDefaultPerformanceExtensionTemplate(companyName, companyPhone, companyEmail),
-          store_cancellation_template: data.store_cancellation_template || getDefaultStoreCancellationTemplate(companyName, companyPhone, companyEmail)
+          store_cancellation_template: data.store_cancellation_template || getDefaultStoreCancellationTemplate(companyName, companyPhone, companyEmail),
+          private_rejection_reason: data.private_rejection_reason || ''
         } as EmailSettings)
       } else {
         // 新規作成時はデフォルト値を設定
@@ -289,7 +293,8 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           reminder_enabled: false,
           reminder_schedule: [],
           reminder_time: '10:00',
-          reminder_send_time: 'morning' as const
+          reminder_send_time: 'morning' as const,
+          private_rejection_reason: ''
         }
         setFormData(defaults)
       }
@@ -328,7 +333,8 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       reminder_enabled: formData.reminder_enabled,
       reminder_schedule: formData.reminder_schedule,
       reminder_time: formData.reminder_time,
-      reminder_send_time: formData.reminder_send_time
+      reminder_send_time: formData.reminder_send_time,
+      private_rejection_reason: formData.private_rejection_reason
     }
 
     setSaving(true)
@@ -701,6 +707,20 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 onToggle={() => toggleAccordion(config.key)}
               />
             ))}
+            <div className="rounded-lg border border-gray-200 p-4 space-y-2">
+              <Label htmlFor="private-rejection-reason" className="text-sm font-medium">貸切却下メールの既定理由</Label>
+              <p className="text-xs text-muted-foreground">
+                却下ダイアログを開いたとき、却下メール本文の <code className="bg-gray-100 px-1 rounded">{'{rejection_reason}'}</code> に最初から入る文です（却下のたびに本文側で上書きもできます）。
+              </p>
+              <Textarea
+                id="private-rejection-reason"
+                value={formData.private_rejection_reason}
+                onChange={(e) => setFormData(prev => ({ ...prev, private_rejection_reason: e.target.value }))}
+                rows={3}
+                className="text-sm"
+                placeholder="例: ご希望の日程では貸切での受付が難しい状況です。"
+              />
+            </div>
           </div>
         </div>
 

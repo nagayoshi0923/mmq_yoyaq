@@ -479,8 +479,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       let companyName = ''
       let companyPhone = ''
       let companyEmail = ''
-      const settingsSelect = 'private_rejection_template, company_name, company_phone, company_email'
-      let settings: { private_rejection_template?: string | null; company_name?: string | null; company_phone?: string | null; company_email?: string | null } | null = null
+      const settingsSelect = 'private_rejection_template, private_rejection_reason, company_name, company_phone, company_email'
+      let settings: { private_rejection_template?: string | null; private_rejection_reason?: string | null; company_name?: string | null; company_phone?: string | null; company_email?: string | null } | null = null
       if (storeId) {
         settings = (await supabase.from('email_settings').select(settingsSelect).eq('store_id', storeId).maybeSingle()).data
       }
@@ -498,7 +498,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       const body = buildRejectionEmailBody(template, {
         customerName: request?.customer_name || reservation?.customer_name || '',
         scenarioTitle: request?.scenario_title || reservation?.title || '',
-        rejectionReason: DEFAULT_REJECTION_REASON,
+        // メール設定で編集できる既定理由。未設定ならアプリの固定既定文。
+        rejectionReason: settings?.private_rejection_reason || DEFAULT_REJECTION_REASON,
         candidateDatesText: buildRejectionCandidateDatesText(request?.candidate_datetimes?.candidates),
         companyName,
       })
