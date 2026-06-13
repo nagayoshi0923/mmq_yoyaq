@@ -56,6 +56,8 @@ export function TemplateEditDialog({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  // プレビューで使う実値（設定済みの会社情報・却下既定理由など）。サンプル値より優先
+  const [previewOverrides, setPreviewOverrides] = useState<Record<string, string>>({})
 
   // ダイアログを開いたら、対象（店舗 or 組織）の現在値（無ければデフォルト文面）を読み込む
   useEffect(() => {
@@ -67,7 +69,7 @@ export function TemplateEditDialog({
         // storeId があれば店舗の行、無ければ組織の行（貸切リクエスト等で店舗未確定の場合）
         let query = supabase
           .from('email_settings')
-          .select(`id, company_name, company_phone, company_email, ${templateKey}`)
+          .select(`id, company_name, company_phone, company_email, private_rejection_reason, ${templateKey}`)
         query = storeId
           ? query.eq('store_id', storeId)
           : query.eq('organization_id', organizationId as string)
@@ -80,6 +82,13 @@ export function TemplateEditDialog({
         const companyEmail = data?.company_email || ''
         setCompany({ name: companyName, phone: companyPhone, email: companyEmail })
         setRowId(data?.id ?? null)
+        // プレビューを実値で上書き（空はサンプル値のまま）
+        setPreviewOverrides({
+          company_name: companyName,
+          company_phone: companyPhone,
+          company_email: companyEmail,
+          rejection_reason: (data?.private_rejection_reason as string | null) || '',
+        })
 
         const current = (data as Record<string, unknown> | null)?.[templateKey] as string | undefined
         setValue(current || config.getDefault(companyName, companyPhone, companyEmail))
@@ -170,7 +179,12 @@ export function TemplateEditDialog({
                 使用可能な変数:
                 <span className="ml-2 font-normal text-[11px]">（下線付きはクリックで設定画面を開きます）</span>
               </p>
-              <VariableHintChips variables={variables} storeId={storeId} organizationId={organizationId} />
+              <VariableHintChips
+                variables={variables}
+                storeId={storeId}
+                organizationId={organizationId}
+                onVariableSaved={(v, val) => setPreviewOverrides(prev => ({ ...prev, [v]: val }))}
+              />
             </div>
 
             <Textarea
@@ -196,7 +210,7 @@ export function TemplateEditDialog({
                   <p className="text-xs text-muted-foreground mb-2">
                     差し込み変数をサンプル値に置き換えた、実際に送られる全文のイメージです。
                   </p>
-                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{renderTemplateWithSamples(value)}</pre>
+                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{renderTemplateWithSamples(value, previewOverrides)}</pre>
                 </div>
               )}
             </div>

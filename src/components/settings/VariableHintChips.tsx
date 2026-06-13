@@ -16,9 +16,11 @@ interface VariableHintChipsProps {
   /** 編集対象の店舗。無ければ組織で解決 */
   storeId?: string | null
   organizationId?: string | null
+  /** 変数の値を保存したときに呼ばれる（プレビュー即時反映用） */
+  onVariableSaved?: (variable: string, value: string) => void
 }
 
-export function VariableHintChips({ variables, accent = 'base', storeId, organizationId }: VariableHintChipsProps) {
+export function VariableHintChips({ variables, accent = 'base', storeId, organizationId, onVariableSaved }: VariableHintChipsProps) {
   const [editVar, setEditVar] = useState<string | null>(null)
 
   const codeClass = accent === 'additional' ? 'bg-blue-50' : 'bg-gray-100'
@@ -61,6 +63,7 @@ export function VariableHintChips({ variables, accent = 'base', storeId, organiz
         organizationId={organizationId}
         open={editVar !== null}
         onOpenChange={(o) => { if (!o) setEditVar(null) }}
+        onSaved={onVariableSaved}
       />
     </div>
   )

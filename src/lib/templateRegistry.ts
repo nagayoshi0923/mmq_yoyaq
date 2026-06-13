@@ -758,9 +758,16 @@ export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
   new_participants: '6',
 }
 
-/** テンプレ本文の差し込み変数をサンプル値で置換し、送られる全文のプレビューを作る */
-export function renderTemplateWithSamples(text: string): string {
-  return text.replace(/\{(\w+)\}/g, (match, key) => TEMPLATE_PREVIEW_SAMPLE_VALUES[key] ?? match)
+/**
+ * テンプレ本文の差し込み変数を置換し、送られる全文のプレビューを作る。
+ * overrides に実際の設定値（会社情報・却下既定理由など）を渡すとサンプル値より優先する。
+ */
+export function renderTemplateWithSamples(text: string, overrides?: Record<string, string>): string {
+  return text.replace(/\{(\w+)\}/g, (match, key) => {
+    const override = overrides?.[key]
+    if (override !== undefined && override !== '') return override
+    return TEMPLATE_PREVIEW_SAMPLE_VALUES[key] ?? match
+  })
 }
 
 // ========== 変数の出どころ（どこで値が決まるか） ==========

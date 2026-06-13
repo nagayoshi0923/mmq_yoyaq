@@ -52,9 +52,11 @@ interface VariableSettingDialogProps {
   organizationId?: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 保存成功後に呼ばれる。テキスト系のみ新しい値を渡す（プレビュー即時反映用） */
+  onSaved?: (variable: string, value: string) => void
 }
 
-export function VariableSettingDialog({ variable, storeId, organizationId, open, onOpenChange }: VariableSettingDialogProps) {
+export function VariableSettingDialog({ variable, storeId, organizationId, open, onOpenChange, onSaved }: VariableSettingDialogProps) {
   const spec = variable ? EDITORS[variable] : undefined
   const [rowId, setRowId] = useState<string | null>(null)
   const [text, setText] = useState('')
@@ -119,6 +121,7 @@ export function VariableSettingDialog({ variable, storeId, organizationId, open,
         setRowId(inserted?.id ?? null)
       }
       showToast.success(`${spec.label}を保存しました`)
+      if (variable && spec.kind !== 'reasonList') onSaved?.(variable, text)
       onOpenChange(false)
     } catch (e) {
       logger.error('設定値の保存エラー:', e)
