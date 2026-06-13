@@ -762,3 +762,31 @@ export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
 export function renderTemplateWithSamples(text: string): string {
   return text.replace(/\{(\w+)\}/g, (match, key) => TEMPLATE_PREVIEW_SAMPLE_VALUES[key] ?? match)
 }
+
+// ========== 変数の出どころ（どこで値が決まるか） ==========
+
+export interface VariableSource {
+  /** その変数の値がどこから入るかの説明 */
+  note: string
+  /** 設定で値（や選択肢）を変えられる場合の設定タブ。クリックでその画面を開く */
+  settingsTab?: 'email' | 'cancellation'
+}
+
+// 設定画面で値・選択肢を変えられる変数だけ定義。未定義の変数は「データから自動」扱い。
+const VARIABLE_SOURCES: Record<string, VariableSource> = {
+  company_name: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
+  company_phone: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
+  company_email: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
+  cancellation_reason: { note: '中止/キャンセル操作時に入力します。定型理由はキャンセル設定で編集できます', settingsTab: 'cancellation' },
+  rejection_reason: { note: '貸切リクエストの却下ダイアログで本文を直接編集します' },
+}
+
+/** 変数の出どころ情報を返す（未定義は「予約・公演データから自動」） */
+export function getVariableSource(variable: string): VariableSource {
+  return VARIABLE_SOURCES[variable] ?? { note: '予約・公演データから自動で入ります' }
+}
+
+/** 設定画面の指定タブへのパス */
+export function settingsTabPath(slug: string, tab: NonNullable<VariableSource['settingsTab']>): string {
+  return `/${slug}/settings?tab=${tab}`
+}

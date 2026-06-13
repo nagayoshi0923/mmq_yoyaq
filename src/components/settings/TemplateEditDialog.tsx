@@ -25,8 +25,8 @@ import {
   getTemplateConfig,
   getTemplateVariables,
   renderTemplateWithSamples,
-  VARIABLE_DESCRIPTIONS,
 } from '@/lib/templateRegistry'
+import { VariableHintChips } from '@/components/settings/VariableHintChips'
 
 interface TemplateEditDialogProps {
   /** 編集するテンプレ（= email_settings の列名） */
@@ -166,15 +166,11 @@ export function TemplateEditDialog({
         ) : (
           <div className="space-y-3">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">使用可能な変数:</p>
-              <div className="text-xs text-muted-foreground leading-relaxed space-y-0.5">
-                {variables.map(v => (
-                  <span key={v} className="inline-block mr-3">
-                    <code className="bg-gray-100 px-1 rounded">{`{${v}}`}</code>
-                    <span className="text-gray-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>
-                  </span>
-                ))}
-              </div>
+              <p className="text-xs font-medium text-muted-foreground">
+                使用可能な変数:
+                <span className="ml-2 font-normal text-[11px]">（下線付きはクリックで設定画面を開きます）</span>
+              </p>
+              <VariableHintChips variables={variables} />
             </div>
 
             <Textarea

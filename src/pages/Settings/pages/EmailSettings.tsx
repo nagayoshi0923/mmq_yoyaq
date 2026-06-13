@@ -29,6 +29,7 @@ import {
   getDefaultPerformanceExtensionTemplate,
   getDefaultStoreCancellationTemplate,
 } from '@/lib/templateRegistry'
+import { VariableHintChips } from '@/components/settings/VariableHintChips'
 
 const EMAIL_SETTINGS_SELECT_FIELDS =
   'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template, store_cancellation_template' as const
@@ -118,7 +119,10 @@ function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: A
         <div className="p-4 border-t border-gray-200 space-y-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">基本変数（全メール共通）:</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                基本変数（全メール共通）:
+                <span className="ml-2 font-normal text-[11px]">（下線付きはクリックで設定画面を開きます）</span>
+              </p>
               <Button
                 type="button"
                 variant="outline"
@@ -129,25 +133,11 @@ function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: A
                 デフォルトに戻す
               </Button>
             </div>
-            <div className="text-xs text-muted-foreground leading-relaxed space-y-0.5">
-              {BASE_VARIABLES.map(v => (
-                <span key={v} className="inline-block mr-3">
-                  <code className="bg-gray-100 px-1 rounded">{`{${v}}`}</code>
-                  <span className="text-gray-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>
-                </span>
-              ))}
-            </div>
+            <VariableHintChips variables={BASE_VARIABLES} />
             {config.additionalVariables && config.additionalVariables.length > 0 && (
               <>
                 <p className="text-xs font-medium text-muted-foreground mt-3">追加変数（このメール専用）:</p>
-                <div className="text-xs text-blue-600 leading-relaxed space-y-0.5">
-                  {config.additionalVariables.map(v => (
-                    <span key={v} className="inline-block mr-3">
-                      <code className="bg-blue-50 px-1 rounded">{`{${v}}`}</code>
-                      <span className="text-blue-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>
-                    </span>
-                  ))}
-                </div>
+                <VariableHintChips variables={config.additionalVariables} accent="additional" />
               </>
             )}
           </div>
