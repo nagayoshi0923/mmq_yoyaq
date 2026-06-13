@@ -183,6 +183,10 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         prompt: eventOperations.moveCopyConfirm,
         onResolve: eventOperations.resolveMoveCopyConfirm,
       },
+      pasteConfirm: {
+        prompt: contextMenuActions.moveCopyConfirm,
+        onResolve: contextMenuActions.resolveMoveCopyConfirm,
+      },
       contextMenu: {
         contextMenu: contextMenuActions.contextMenu,
         setContextMenu: contextMenuActions.setContextMenu,
@@ -286,6 +290,11 @@ export function useScheduleTableModals(currentDate: Date) {
     moveCopyConfirm: {
       prompt: eventOperations.moveCopyConfirm,
       onResolve: eventOperations.resolveMoveCopyConfirm,
+    },
+    // ペースト先の重複確認ダイアログ
+    pasteConfirm: {
+      prompt: contextMenuActions.moveCopyConfirm,
+      onResolve: contextMenuActions.resolveMoveCopyConfirm,
     },
     // ContextMenu用
     contextMenu: {

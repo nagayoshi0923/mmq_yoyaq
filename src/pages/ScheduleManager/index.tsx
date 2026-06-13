@@ -1736,6 +1736,11 @@ export function ScheduleManager() {
         onResolve={modals.moveCopyConfirm.onResolve}
       />
 
+      <MoveCopyConfirmDialog
+        prompt={modals.pasteConfirm.prompt}
+        onResolve={modals.pasteConfirm.onResolve}
+      />
+
       {modals.contextMenu.contextMenu && (
         <ContextMenu
           x={modals.contextMenu.contextMenu.x}

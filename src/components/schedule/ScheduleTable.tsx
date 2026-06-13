@@ -103,6 +103,10 @@ export interface ScheduleTableModals {
     prompt: { title: string; message: string; confirmLabel: string; variant: 'destructive' | 'default' } | null
     onResolve: (ok: boolean) => void
   }
+  pasteConfirm: {
+    prompt: { title: string; message: string; confirmLabel: string; variant: 'destructive' | 'default' } | null
+    onResolve: (ok: boolean) => void
+  }
   contextMenu: {
     contextMenu: any
     setContextMenu: (menu: any) => void
