@@ -160,6 +160,32 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 - `1e4f282f` スタッフ起点の中止・削除は店舗都合メールにする（cancelledBy:'store'）
 - 2026-06-13 予約者タブのキャンセルメール本文ダイアログに `store_cancellation_template` 編集ボタンを配線
 - 2026-06-13 中止/削除ダイアログのキャンセル理由欄に `organizer_cancel_reasons` の選択肢を配線
+- 2026-06-13 中止/削除ダイアログのテンプレ編集ボタン整理（「公演中止メール」に一本化）
+
+### 中止/削除ダイアログのテンプレ整合（2026-06-13、オーナー判断: 案A）
+
+中止/削除ダイアログに「キャンセル操作メール / 公演中止メール」の編集ボタンが2つ
+並んでおり、**「いまどちらが送られるのか」が判別不能**という指摘（オーナー、screenshot）。
+コードを精査した結果、状態が矛盾していた:
+
+- **件名**: Edge Function `send-cancellation-confirmation/index.ts:392` で
+  `cancelledBy:'store'` のとき「【公演中止】〜」とハードコード。テンプレ無関係。
+- **本文プレビュー**: `cancellationEmail.ts` の `fetchStoreCancellationEmailContext` が
+  `store_cancellation_template` を読んで組み立てる（→ ダイアログで全文編集 → `customEmailBody` で送信）。
+- **Edge Function の本文選択**: `customEmailBody` 優先。未指定時のみ
+  `cancelledBy:'store'` で `event_cancellation_template` を参照（プレビューと食い違い）。
+
+**修正方針（オーナー決定: 案A = 公演中止メールに統一）:**
+- プレビュー本文の出元を `store_cancellation_template` → `event_cancellation_template` に切替
+  （`fetchStoreCancellationEmailContext` に `templateKey` 引数を追加・既定は後方互換）
+- 中止/削除ダイアログのボタンは「公演中止メールのテンプレを編集」**1個**に整理
+- Edge Function 側は既に `cancelledBy:'store'` → `event_cancellation_template` を選択するので
+  プレビュー・送信・件名のすべてが「公演中止メール」起源で一貫
+
+⚠️ **挙動の変化（要周知）:** 既存組織が `store_cancellation_template` をカスタマイズしていた場合、
+公演中止/削除ダイアログの**プレビュー初期値が変わる**（編集前に customEmailBody で全文上書きするので
+送信そのものは従来から `customEmailBody` 経由で変えられたが、プレビューの源が変わる）。
+顧客自身のキャンセルや予約者タブからの個別キャンセルは引き続き `store_cancellation_template`/`cancellation_template` を使う。
 
 ※`1e4f282f` までは型チェック・lint・build パス済み。予約者タブ配線は typecheck / 変更ファイル単体 lint /
 build パス済み。全体 lint は既存の別ファイルエラー（PerformanceModal / StaffProfile）で失敗。

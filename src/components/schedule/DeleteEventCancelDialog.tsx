@@ -234,22 +234,13 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Label htmlFor="delete-cancel-mail-body">メール本文</Label>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <TemplateEditButton
-                        templateKey="store_cancellation_template"
-                        storeId={prompt?.templateStoreId}
-                        label="キャンセル操作メール"
-                        className="h-7 text-xs text-purple-700 hover:text-purple-900"
-                        unavailableMessage="店舗が未選択のためテンプレートを編集できません"
-                      />
-                      <TemplateEditButton
-                        templateKey="event_cancellation_template"
-                        storeId={prompt?.templateStoreId}
-                        label="公演中止メール"
-                        className="h-7 text-xs text-purple-700 hover:text-purple-900"
-                        unavailableMessage="店舗が未選択のためテンプレートを編集できません"
-                      />
-                    </div>
+                    <TemplateEditButton
+                      templateKey="event_cancellation_template"
+                      storeId={prompt?.templateStoreId}
+                      label="公演中止メールのテンプレを編集"
+                      className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                      unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+                    />
                   </div>
                   <Textarea
                     id="delete-cancel-mail-body"

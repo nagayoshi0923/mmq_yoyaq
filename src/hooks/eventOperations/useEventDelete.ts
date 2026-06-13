@@ -162,8 +162,11 @@ export async function buildCancelMailComposer(
 ): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody' | 'reasonOptions' | 'templateStoreId'> | undefined> {
   try {
     const storeId = targetEvent.store_id || targetEvent.venue || null
+    // スタッフ起点の公演中止/削除フローなので、本文のテンプレ元も「公演中止メール」
+    // (event_cancellation_template) を読む。Edge Function が cancelledBy:'store' の
+    // ときに使うテンプレ・件名（「【公演中止】〜」）と整合させるため。
     const [ctx, settingsResult] = await Promise.all([
-      fetchStoreCancellationEmailContext(storeId),
+      fetchStoreCancellationEmailContext(storeId, 'event_cancellation_template'),
       storeId
         ? supabase
             .from('reservation_settings')
