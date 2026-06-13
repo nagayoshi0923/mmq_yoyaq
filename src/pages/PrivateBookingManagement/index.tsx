@@ -29,6 +29,7 @@ import { CandidateDateSelector } from './components/CandidateDateSelector'
 import { ActionButtons } from './components/ActionButtons'
 import { SurveyResponsesView } from './components/SurveyResponsesView'
 import { TemplateEditDialog } from '@/components/settings/TemplateEditDialog'
+import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 
 
 // 分離されたフック
@@ -73,6 +74,7 @@ export function PrivateBookingManagement() {
   const [selectedGMId, setSelectedGMId] = useState<string>('')
   const [selectedSubGmId, setSelectedSubGmId] = useState<string>('')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [confirmTemplateDialogOpen, setConfirmTemplateDialogOpen] = useState(false)  // 確定メールのテンプレ編集
   const [rejectTemplateOpen, setRejectTemplateOpen] = useState(false)  // 却下メールのテンプレ編集（次回も使う定型文）
   const [rejectTemplateStoreId, setRejectTemplateStoreId] = useState<string | null>(null)
@@ -88,6 +90,10 @@ export function PrivateBookingManagement() {
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
   const [assignedGMIds, setAssignedGMIds] = useState<string[]>([])  // シナリオ担当GM
+
+  useEffect(() => {
+    getCurrentOrganizationId().then(setOrganizationId).catch(() => setOrganizationId(null))
+  }, [])
 
   // リクエストデータ管理
   const { requests, loading, loadRequests } = useBookingRequests({
@@ -669,6 +675,12 @@ export function PrivateBookingManagement() {
 
             {/* 検索・絞り込みツールバー（全タブ横断で効く。件数バッジにも反映） */}
             <div className="flex flex-wrap items-center gap-2">
+              <TemplateEditButton
+                templateKey="private_request_template"
+                organizationId={organizationId}
+                label="受付メールのテンプレを編集"
+                className="h-8 text-xs text-purple-700 hover:text-purple-900"
+              />
               <div className="relative flex-1 min-w-[280px] max-w-md">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input

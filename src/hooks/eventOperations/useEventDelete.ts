@@ -159,7 +159,7 @@ export function formatCustomerLabel(r: ActiveReservation): string {
 export async function buildCancelMailComposer(
   targetEvent: ScheduleEvent,
   reservations: ActiveReservation[]
-): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody' | 'reasonOptions'> | undefined> {
+): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody' | 'reasonOptions' | 'templateStoreId'> | undefined> {
   try {
     const storeId = targetEvent.store_id || targetEvent.venue || null
     const [ctx, settingsResult] = await Promise.all([
@@ -201,7 +201,7 @@ export async function buildCancelMailComposer(
         organizationName: ctx.organizationName,
       }, ctx.template || undefined)
     }
-    return { recipients, composeBody, reasonOptions }
+    return { recipients, composeBody, reasonOptions, templateStoreId: storeId }
   } catch (e) {
     logger.warn('キャンセルメール本文コンポーザの構築に失敗（理由編集のみで続行）:', e)
     return undefined

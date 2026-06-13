@@ -22,7 +22,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
-import { TemplateEditDialog } from '@/components/settings/TemplateEditDialog'
+import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
@@ -86,7 +86,6 @@ export function ReservationList({
   const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false)
-  const [cancelTemplateOpen, setCancelTemplateOpen] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [shouldSendEmail, setShouldSendEmail] = useState(true) // メール送信するかどうか
   const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
@@ -1074,6 +1073,65 @@ export function ReservationList({
             </div>
           )}
           <div className="mb-4">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border bg-muted/30 px-2 py-2">
+              <span className="text-xs font-medium text-muted-foreground mr-1">関連テンプレ:</span>
+              <TemplateEditButton
+                templateKey="reservation_confirmation_template"
+                storeId={cancellationTemplateStoreId}
+                label="予約確認"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="booking_change_template"
+                storeId={cancellationTemplateStoreId}
+                label="予約変更"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="cancellation_template"
+                storeId={cancellationTemplateStoreId}
+                label="顧客キャンセル"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="reminder_template"
+                storeId={cancellationTemplateStoreId}
+                label="リマインド"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="waitlist_notify_template"
+                storeId={cancellationTemplateStoreId}
+                label="キャンセル待ち通知"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="waitlist_registration_template"
+                storeId={cancellationTemplateStoreId}
+                label="キャンセル待ち登録"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="performance_cancellation_template"
+                storeId={cancellationTemplateStoreId}
+                label="人数未達中止"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="performance_extension_template"
+                storeId={cancellationTemplateStoreId}
+                label="募集延長"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+            </div>
             {!isAddingParticipant ? (
               <div className="flex gap-2">
                 <Button
@@ -2053,22 +2111,19 @@ export function ReservationList({
             <div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-body">メール本文</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
+                <TemplateEditButton
+                  templateKey="store_cancellation_template"
+                  storeId={cancellationTemplateStoreId}
+                  label="キャンセルメールのテンプレを編集"
                   className="h-7 text-xs text-purple-700 hover:text-purple-900"
-                  onClick={() => {
-                    if (!cancellationTemplateStoreId) {
-                      showToast.error('店舗が未選択のためテンプレートを編集できません')
-                      return
-                    }
-                    setCancelTemplateOpen(true)
+                  unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+                  onSaved={(value) => {
+                    setEmailContent(prev => ({
+                      ...prev,
+                      emailBody: buildCancellationEmailBody(prev, value)
+                    }))
                   }}
-                >
-                  <Mail className="h-3 w-3 mr-1" />
-                  キャンセルメールのテンプレを編集
-                </Button>
+                />
               </div>
               <Textarea
                 id="email-body"
@@ -2137,19 +2192,6 @@ export function ReservationList({
           </div>
         </DialogContent>
       </Dialog>
-
-      <TemplateEditDialog
-        templateKey="store_cancellation_template"
-        storeId={cancellationTemplateStoreId}
-        open={cancelTemplateOpen}
-        onOpenChange={setCancelTemplateOpen}
-        onSaved={(value) => {
-          setEmailContent(prev => ({
-            ...prev,
-            emailBody: buildCancellationEmailBody(prev, value)
-          }))
-        }}
-      />
 
       {/* 貸切イベント削除確認ダイアログ */}
       <Dialog open={isDeleteEventDialogOpen} onOpenChange={setIsDeleteEventDialogOpen}>

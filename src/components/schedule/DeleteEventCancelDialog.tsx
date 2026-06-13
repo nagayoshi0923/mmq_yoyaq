@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 
 export interface CancelMailRecipient {
   reservationId: string
@@ -37,6 +38,8 @@ export interface DeleteCancelPrompt {
   defaultReason: string
   /** 店舗のキャンセル設定に登録された定型理由 */
   reasonOptions?: string[]
+  /** キャンセルメールテンプレートを編集する店舗 */
+  templateStoreId?: string | null
   /** メール本文編集の対象（省略時は理由編集のみのフォールバック表示） */
   recipients?: CancelMailRecipient[]
   /** 予約者ごとのメール本文を生成（予約一覧の「予約をキャンセル」と同じロジック） */
@@ -229,7 +232,25 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                       <span className="font-medium">{recipients[0].email || 'メールアドレスなし'}</span>
                     </div>
                   )}
-                  <Label htmlFor="delete-cancel-mail-body">メール本文</Label>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label htmlFor="delete-cancel-mail-body">メール本文</Label>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <TemplateEditButton
+                        templateKey="store_cancellation_template"
+                        storeId={prompt?.templateStoreId}
+                        label="キャンセル操作メール"
+                        className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                        unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+                      />
+                      <TemplateEditButton
+                        templateKey="event_cancellation_template"
+                        storeId={prompt?.templateStoreId}
+                        label="公演中止メール"
+                        className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                        unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+                      />
+                    </div>
+                  </div>
                   <Textarea
                     id="delete-cancel-mail-body"
                     value={bodies[recipientIndex] ?? ''}
