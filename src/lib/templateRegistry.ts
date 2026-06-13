@@ -621,8 +621,8 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   },
   {
     key: 'cancellation_template',
-    title: 'キャンセル確認メール',
-    description: '予約キャンセル時に自動送信',
+    title: 'お客様キャンセル確認メール',
+    description: 'お客様が自分で予約をキャンセルした時に自動送信',
     category: 'reservation',
     getDefault: getDefaultCancellationTemplate
   },
@@ -682,7 +682,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   {
     key: 'event_cancellation_template',
     title: '公演中止メール',
-    description: '管理者が手動で公演を中止した際に送信',
+    description: 'スタッフが公演を中止・削除した時に、有効予約者へ送信',
     category: 'other',
     getDefault: getDefaultEventCancellationTemplate
   },
@@ -696,8 +696,8 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   },
   {
     key: 'store_cancellation_template',
-    title: 'キャンセル操作メール',
-    description: '管理者が公演ダイアログから参加者の予約をキャンセルした際に送信',
+    title: '予約者タブキャンセルメール',
+    description: '公演モーダルの予約者タブから予約をキャンセルするときに、本文を確認して送るメール',
     category: 'other',
     getDefault: getDefaultStoreCancellationTemplate
   }

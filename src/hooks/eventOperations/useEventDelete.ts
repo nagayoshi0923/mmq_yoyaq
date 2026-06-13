@@ -90,7 +90,7 @@ export function isPendingSaveEvent(event: ScheduleEvent): boolean {
 export const PENDING_SAVE_MESSAGE =
   '公演の保存処理がまだ完了していません。数秒待ってから、もう一度お試しください。'
 
-/** 公演中止・削除時のキャンセルメール既定文（useEventCancel からも使用） */
+/** 公演中止・削除時の中止理由既定文（useEventCancel からも使用） */
 export const DEFAULT_CANCELLATION_REASON =
   '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
 
@@ -149,8 +149,9 @@ export function formatCustomerLabel(r: ActiveReservation): string {
 }
 
 /**
- * 中止・削除ダイアログ用のキャンセルメール本文コンポーザを組み立てる。
- * 予約一覧の「予約をキャンセル」と同じ生成ロジック（lib/cancellationEmail）を使い、
+ * 中止・削除ダイアログ用の公演中止メール本文コンポーザを組み立てる。
+ * 予約一覧の「予約をキャンセル」と同じ置換ロジック（lib/cancellationEmail）を使い、
+ * テンプレートは公演操作に合わせて event_cancellation_template を使う。
  * 予約者ごとに予約番号・人数などを差し込んだ全文を生成する。
  * ダイアログ側で全文編集でき、編集結果は customEmailBody としてそのまま送信される。
  * 取得失敗時は undefined を返し、ダイアログは理由編集のみにフォールバックする。
@@ -184,7 +185,7 @@ export async function buildCancelMailComposer(
       label: formatCustomerLabel(r),
       email: r.customer_email,
     }))
-    const composeBody = (recipientIndex: number, reason: string): string => {
+    const composeBody = (recipientIndex: number, reason: string, templateOverride?: string): string => {
       const r = reservations[recipientIndex]
       if (!r) return ''
       return buildCancellationEmailBody({
@@ -202,7 +203,7 @@ export async function buildCancelMailComposer(
         paymentMethod: r.payment_method || 'onsite',
         cancellationPolicy: ctx.cancellationPolicy,
         organizationName: ctx.organizationName,
-      }, ctx.template || undefined)
+      }, (templateOverride ?? ctx.template) || undefined)
     }
     return { recipients, composeBody, reasonOptions, templateStoreId: storeId }
   } catch (e) {

@@ -53,12 +53,12 @@
 |---|---|---|---|---|
 | private_confirm_template | 貸切予約確定メール | 貸切を承認した時 | 貸切管理の承認パネル（店舗セレクタ直下） | ✅済 |
 | private_rejection_template | 貸切リクエスト却下メール | 却下ボタンを押した時 | 貸切管理の却下ダイアログ（理由ラベル横） | ✅済 |
-| store_cancellation_template | キャンセル操作メール | スタッフが中止・削除・キャンセルした時 | 削除/中止ダイアログ(2/2)・予約者タブのキャンセルダイアログ | ✅済 |
+| store_cancellation_template | 予約者タブキャンセルメール | 予約者タブから予約をキャンセルした時 | 予約者タブのキャンセルダイアログ | ✅済 |
 | reservation_confirmation_template | 予約確認メール | 客が予約完了（自動） | 公演モーダルの予約者タブ | ✅済 |
 | booking_change_template | 予約変更確認メール | 予約内容を変更した時 | 公演モーダルの予約者タブ | ✅済 |
 | private_request_template | 貸切リクエスト受付メール | 客が申込（自動） | 貸切管理（カード一覧上部） | ✅済 |
-| event_cancellation_template | 公演中止メール | 手動中止系 | 削除/中止ダイアログ(2/2) | ✅済 |
-| cancellation_template | キャンセル確認メール | **客が自分で**キャンセル（自動） | 公演モーダルの予約者タブ | ✅済 |
+| event_cancellation_template | 公演中止メール | 手動中止・削除時に予約者へ送る | 削除/中止ダイアログ(2/2)・公演モーダルの予約者タブ | ✅済 |
+| cancellation_template | お客様キャンセル確認メール | **客が自分で**キャンセル（自動） | 公演モーダルの予約者タブ | ✅済 |
 | reminder_template | リマインドメール | 前日など自動 | 公演モーダルの予約者タブ | ✅済 |
 | waitlist_notify_template | キャンセル待ち通知メール | 自動 | 公演モーダルの予約者タブ | ✅済 |
 | waitlist_registration_template | キャンセル待ち登録完了メール | 自動 | 公演モーダルの予約者タブ | ✅済 |
@@ -185,7 +185,8 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 ⚠️ **挙動の変化（要周知）:** 既存組織が `store_cancellation_template` をカスタマイズしていた場合、
 公演中止/削除ダイアログの**プレビュー初期値が変わる**（編集前に customEmailBody で全文上書きするので
 送信そのものは従来から `customEmailBody` 経由で変えられたが、プレビューの源が変わる）。
-顧客自身のキャンセルや予約者タブからの個別キャンセルは引き続き `store_cancellation_template`/`cancellation_template` を使う。
+お客様自身のキャンセル（お客様キャンセル確認メール）や予約者タブからのキャンセル（予約者タブキャンセルメール）は
+引き続き `cancellation_template` / `store_cancellation_template` を使う。
 
 ※`1e4f282f` までは型チェック・lint・build パス済み。予約者タブ配線は typecheck / 変更ファイル単体 lint /
 build パス済み。全体 lint は既存の別ファイルエラー（PerformanceModal / StaffProfile）で失敗。

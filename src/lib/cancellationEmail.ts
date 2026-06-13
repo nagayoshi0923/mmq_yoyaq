@@ -129,16 +129,17 @@ export async function fetchStoreCancellationEmailContext(
       supabase.from('stores').select('name, organization_id, organizations(name)').eq('id', storeId).maybeSingle(),
     ])
 
+    const emailSettings = emailSettingsResult.data as Record<string, string | null> | null
     ctx.cancellationPolicy = settingsResult.data?.cancellation_policy || ''
-    ctx.template = (emailSettingsResult.data as Record<string, string | null> | null)?.[templateKey] || ''
+    ctx.template = emailSettings?.[templateKey] || ''
     ctx.storeName = storeResult.data?.name || ''
 
     if (storeResult.data?.organizations) {
       const org = storeResult.data.organizations as { name: string } | { name: string }[]
       ctx.organizationName = Array.isArray(org) ? org[0]?.name || '' : org.name || ''
     }
-    if (!ctx.organizationName && emailSettingsResult.data?.company_name) {
-      ctx.organizationName = emailSettingsResult.data.company_name
+    if (!ctx.organizationName && emailSettings?.company_name) {
+      ctx.organizationName = emailSettings.company_name
     }
   } catch (error) {
     logger.warn('キャンセルメール設定取得エラー:', error)

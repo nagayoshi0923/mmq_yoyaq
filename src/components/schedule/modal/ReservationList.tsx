@@ -1092,7 +1092,7 @@ export function ReservationList({
               <TemplateEditButton
                 templateKey="cancellation_template"
                 storeId={cancellationTemplateStoreId}
-                label="顧客キャンセル"
+                label="お客様キャンセル"
                 className="h-7 text-xs text-purple-700 hover:text-purple-900"
                 unavailableMessage="店舗が未選択のためテンプレートを編集できません"
               />
@@ -1121,6 +1121,13 @@ export function ReservationList({
                 templateKey="performance_cancellation_template"
                 storeId={cancellationTemplateStoreId}
                 label="人数未達中止"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="event_cancellation_template"
+                storeId={cancellationTemplateStoreId}
+                label="公演中止"
                 className="h-7 text-xs text-purple-700 hover:text-purple-900"
                 unavailableMessage="店舗が未選択のためテンプレートを編集できません"
               />
@@ -2114,7 +2121,7 @@ export function ReservationList({
                 <TemplateEditButton
                   templateKey="store_cancellation_template"
                   storeId={cancellationTemplateStoreId}
-                  label="キャンセルメールのテンプレを編集"
+                  label="予約者タブキャンセルメールのテンプレを編集"
                   className="h-7 text-xs text-purple-700 hover:text-purple-900"
                   unavailableMessage="店舗が未選択のためテンプレートを編集できません"
                   onSaved={(value) => {
