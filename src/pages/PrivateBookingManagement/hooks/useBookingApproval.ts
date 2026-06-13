@@ -533,8 +533,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // ただしグループはキャンセルせず、候補日選択フェーズに戻す
       // 既にキャンセル済みの場合はスキップ
       if (reservation?.status !== 'cancelled') {
-        // 却下メール本文（rejectionReason は全文）はキャンセル記録に流さず、固定の短い理由を渡す
-        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true })
+        // 却下メール本文（rejectionReason は全文）はキャンセル記録に流さず、固定の短い理由を渡す。
+        // キャンセル確認メールは送らない（後段で却下専用メールを送るため、二重送信になる）。
+        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true, skipCancellationEmail: true })
       }
       
       // 関連するグループを候補日選択フェーズに戻し、候補日を rejected にする。
