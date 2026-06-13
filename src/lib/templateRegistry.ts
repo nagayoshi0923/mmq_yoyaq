@@ -720,3 +720,45 @@ export function getTemplateConfig(key: EmailTemplateKey): TemplateConfig {
 export function getTemplateVariables(config: TemplateConfig): string[] {
   return [...BASE_VARIABLES, ...(config.additionalVariables ?? [])]
 }
+
+// ========== プレビュー ==========
+
+// プレビュー用のサンプル値。テンプレ編集時に「実際に送られる全文」を確認するために使う。
+export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
+  customer_name: '山田 太郎',
+  customer_email: 'taro@example.com',
+  reservation_number: 'MMQ-20260620-001',
+  scenario_title: '〇〇殺人事件',
+  date: '2026年6月20日(土)',
+  time: '13:00',
+  end_time: '17:00',
+  venue: '高田馬場店',
+  venue_address: '東京都新宿区高田馬場0-0-0',
+  participants: '6',
+  total_price: '24,000',
+  cancellation_fee: '0',
+  cancellation_reason: 'ご都合によるキャンセル',
+  company_name: '会社名',
+  company_phone: '03-0000-0000',
+  company_email: 'info@example.com',
+  booking_url: 'https://example.com/booking/xxxx',
+  freed_seats: '2',
+  current_participants: '4',
+  max_participants: '6',
+  remaining_seats: '2',
+  extension_deadline: '6月20日 9:00',
+  stores: '高田馬場店 / 新宿店',
+  estimated_price: '24,000',
+  candidate_dates: '候補1: 2026年6月20日(土) 13:00 - 17:00\n候補2: 2026年6月21日(日) 13:00 - 17:00',
+  rejection_reason: 'ご希望の日程では貸切での受付が難しい状況です。',
+  changes: '参加人数: 4名 → 6名',
+  old_date: '2026年6月20日(土) 13:00',
+  new_date: '2026年6月21日(日) 13:00',
+  old_participants: '4',
+  new_participants: '6',
+}
+
+/** テンプレ本文の差し込み変数をサンプル値で置換し、送られる全文のプレビューを作る */
+export function renderTemplateWithSamples(text: string): string {
+  return text.replace(/\{(\w+)\}/g, (match, key) => TEMPLATE_PREVIEW_SAMPLE_VALUES[key] ?? match)
+}

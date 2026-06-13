@@ -24,6 +24,7 @@ import {
   type EmailTemplateKey,
   getTemplateConfig,
   getTemplateVariables,
+  renderTemplateWithSamples,
   VARIABLE_DESCRIPTIONS,
 } from '@/lib/templateRegistry'
 
@@ -51,6 +52,7 @@ export function TemplateEditDialog({
   const [company, setCompany] = useState({ name: '', phone: '', email: '' })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   // ダイアログを開いたら、その店舗の現在値（無ければデフォルト文面）を読み込む
   useEffect(() => {
@@ -163,6 +165,26 @@ export function TemplateEditDialog({
               className="font-mono text-sm"
               placeholder="メールテンプレートを編集"
             />
+
+            <div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setShowPreview(v => !v)}
+              >
+                {showPreview ? '▼ 送信プレビューを隠す' : '▶ 送信プレビューを見る（サンプル値）'}
+              </Button>
+              {showPreview && (
+                <div className="mt-1 rounded-md border bg-gray-50 p-3">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    差し込み変数をサンプル値に置き換えた、実際に送られる全文のイメージです。
+                  </p>
+                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{renderTemplateWithSamples(value)}</pre>
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-between pt-2">
               <Button type="button" variant="outline" size="sm" onClick={handleReset} disabled={saving}>
