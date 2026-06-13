@@ -11,7 +11,6 @@ import {
 import { supabase } from '@/lib/supabase'
 import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
-import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { getEventTimeSlot, timeToMinutes, calcEndTime, checkTimeOverlap } from '@/utils/eventOperationUtils'
@@ -19,6 +18,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useEventDelete } from '@/hooks/eventOperations/useEventDelete'
 import { useEventCancel } from '@/hooks/eventOperations/useEventCancel'
+import { useEventMisc } from '@/hooks/eventOperations/useEventMisc'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 import {
@@ -154,22 +154,6 @@ interface UseEventOperationsProps {
   fetchSchedule?: () => Promise<void>
 }
 
-// 参加者数の変更を処理する関数
-const handleParticipantChange = (
-  eventId: string, 
-  newCount: number,
-  setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
-) => {
-  setEvents(prevEvents => 
-    prevEvents.map(event => 
-      event.id === eventId 
-        ? { ...event, current_participants: newCount }
-        : event
-    )
-  )
-  logger.log('イベントの参加者数を即座に更新:', { eventId, newCount })
-}
-
 interface PerformanceData {
   id?: string
   date: string
@@ -244,9 +228,16 @@ export function useEventOperations({
     resolveCancelEventPrompt,
   } = useEventCancel({ setEvents, organizationId, fetchSchedule })
   
-  // 公開ダイアログ状態
-  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
-  const [publishingEvent, setPublishingEvent] = useState<ScheduleEvent | null>(null)
+  const {
+    isPublishDialogOpen,
+    publishingEvent,
+    setIsPublishDialogOpen,
+    handleToggleTentative,
+    handleToggleReservation,
+    handleConfirmPublishToggle,
+    handleConvertToMemo,
+    handleParticipantChange,
+  } = useEventMisc({ setEvents, organizationId, fetchSchedule })
   
   // 重複警告ダイアログ状態
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
@@ -1467,138 +1458,6 @@ export function useEventOperations({
     }
   }, [modalMode, stores, scenarios, setEvents, organizationId, fetchSchedule])
 
-  // 仮状態の切り替え
-  const handleToggleTentative = useCallback(async (event: ScheduleEvent) => {
-    try {
-      const newStatus = !event.is_tentative
-
-      // 切替前にフル状態スナップショットを取得（履歴用）
-      const tentativeOldSnapshot = organizationId
-        ? await fetchEventSnapshot(event.id, organizationId)
-        : null
-
-      await scheduleApi.update(event.id, {
-        is_tentative: newStatus
-      })
-
-      // 履歴を記録
-      if (organizationId) {
-        try {
-          const tentativeNewSnapshot = await fetchEventSnapshot(event.id, organizationId)
-          const cellTimeSlot =
-            (tentativeNewSnapshot?.time_slot as string | null | undefined) ??
-            (tentativeOldSnapshot?.time_slot as string | null | undefined) ??
-            event.time_slot ??
-            null
-          void createEventHistory(
-            event.id, organizationId, 'update',
-            tentativeOldSnapshot ?? { is_tentative: event.is_tentative },
-            tentativeNewSnapshot ?? { is_tentative: newStatus },
-            { date: event.date, storeId: event.store_id || event.venue, timeSlot: cellTimeSlot }
-          )
-        } catch (historyError) {
-          logger.error('履歴記録エラー（仮状態）:', historyError)
-        }
-      }
-
-      setEvents(prev => prev.map(e =>
-        e.id === event.id ? { ...e, is_tentative: newStatus } : e
-      ))
-    } catch (error) {
-      logger.error('仮状態の更新エラー:', error)
-      throw error
-    }
-  }, [setEvents, organizationId])
-
-  // 予約サイト公開/非公開トグル（直接切り替え）
-  const handleToggleReservation = useCallback(async (event: ScheduleEvent) => {
-    if (event.is_private_request) {
-      showToast.warning('貸切公演の公開状態は変更できません')
-      return
-    }
-    
-    const isPrivateBooking = event.id.startsWith('private-') ||
-                            (event.id.includes('-') && event.id.split('-').length > 5)
-    if (isPrivateBooking) {
-      showToast.warning('貸切公演の公開状態は変更できません')
-      return
-    }
-    
-    try {
-      const newStatus = !event.is_reservation_enabled
-
-      // 切替前にフル状態スナップショットを取得（履歴用）
-      const reservationOldSnapshot = organizationId
-        ? await fetchEventSnapshot(event.id, organizationId)
-        : null
-
-      await scheduleApi.update(event.id, {
-        is_reservation_enabled: newStatus
-      })
-
-      // 履歴を記録
-      if (organizationId) {
-        try {
-          const reservationNewSnapshot = await fetchEventSnapshot(event.id, organizationId)
-          // cellInfo の time_slot は in-memory event より DB スナップショットを優先
-          // （event.time_slot が欠落していると履歴タブの絞り込みに乗らない）
-          const cellTimeSlot =
-            (reservationNewSnapshot?.time_slot as string | null | undefined) ??
-            (reservationOldSnapshot?.time_slot as string | null | undefined) ??
-            event.time_slot ??
-            null
-          void createEventHistory(
-            event.id, organizationId, newStatus ? 'publish' : 'unpublish',
-            reservationOldSnapshot ?? { is_reservation_enabled: event.is_reservation_enabled },
-            reservationNewSnapshot ?? { is_reservation_enabled: newStatus },
-            { date: event.date, storeId: event.store_id || event.venue, timeSlot: cellTimeSlot }
-          )
-        } catch (historyError) {
-          logger.error('履歴記録エラー（予約受付）:', historyError)
-        }
-      }
-
-      setEvents(prev => prev.map(e =>
-        e.id === event.id ? { ...e, is_reservation_enabled: newStatus } : e
-      ))
-    } catch (error) {
-      logger.error('予約サイト公開状態の更新エラー:', error)
-      showToast.error('予約サイト公開状態の更新に失敗しました')
-    }
-  }, [setEvents, organizationId])
-  
-  const handleConfirmPublishToggle = useCallback(async () => {
-    if (!publishingEvent) return
-    
-    const isPrivateBooking = publishingEvent.is_private_request || 
-                            publishingEvent.id.startsWith('private-') ||
-                            (publishingEvent.id.includes('-') && publishingEvent.id.split('-').length > 5)
-    if (isPrivateBooking) {
-      showToast.warning('貸切公演の公開状態は変更できません')
-      setIsPublishDialogOpen(false)
-      setPublishingEvent(null)
-      return
-    }
-    
-    try {
-      const newStatus = !publishingEvent.is_reservation_enabled
-      
-      await scheduleApi.update(publishingEvent.id, {
-        is_reservation_enabled: newStatus
-      })
-
-      setEvents(prev => prev.map(e => 
-        e.id === publishingEvent.id ? { ...e, is_reservation_enabled: newStatus } : e
-      ))
-      
-      setIsPublishDialogOpen(false)
-      setPublishingEvent(null)
-    } catch (error) {
-      logger.error('予約サイト公開状態の更新エラー:', error)
-      showToast.error('予約サイト公開状態の更新に失敗しました')
-    }
-  }, [publishingEvent, setEvents])
-
   // 重複警告からの続行処理
   const handleConflictContinue = useCallback(async () => {
     if (!pendingPerformanceData || !conflictInfo) return
@@ -1668,69 +1527,6 @@ export function useEventOperations({
     }
   }, [pendingPerformanceData, conflictInfo, events, modalMode, setEvents, doSavePerformance])
 
-  // 公演をメモに変換（モーダルなしで直接変換）
-  const handleConvertToMemo = useCallback(async (event: ScheduleEvent) => {
-    try {
-      // シナリオ名とGM名をテキストに変換
-      const memoLines: string[] = []
-      if (event.scenario) {
-        memoLines.push(`【${event.scenario}】`)
-      }
-      if (event.gms && event.gms.length > 0) {
-        const gmNames = event.gms.filter((gm: string) => gm.trim() !== '')
-        if (gmNames.length > 0) {
-          memoLines.push(`GM: ${gmNames.join(', ')}`)
-        }
-      }
-      if (event.notes) {
-        memoLines.push(event.notes)
-      }
-      const memoText = memoLines.join('\n')
-      
-      // 店舗IDを取得（venueにstore_idが入っている）
-      const storeId = event.venue
-      
-      // 時間帯を取得
-      const timeSlotKey = getEventTimeSlot(event)
-      
-      // スロットメモとして保存
-      void saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
-      logger.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
-      
-      // 削除前にフル状態スナップショットを取得（履歴用）
-      const memoConvertSnapshot = organizationId
-        ? await fetchEventSnapshot(event.id, organizationId)
-        : null
-
-      // 公演を削除
-      await scheduleApi.delete(event.id)
-
-      // 履歴を記録
-      if (organizationId) {
-        try {
-          void createEventHistory(
-            null, organizationId, 'delete',
-            memoConvertSnapshot ?? (event as unknown as Record<string, unknown>), {},
-            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null },
-            { notes: 'メモに変換', deletedEventScenario: event.scenario }
-          )
-        } catch (historyError) {
-          logger.error('履歴記録エラー（メモ変換）:', historyError)
-        }
-      }
-
-      showToast.success('公演をメモに変換しました')
-
-      // スケジュールを再読み込み
-      if (fetchSchedule) {
-        await fetchSchedule()
-      }
-    } catch (error) {
-      logger.error('メモ変換エラー:', error)
-      showToast.error('メモへの変換に失敗しました')
-    }
-  }, [fetchSchedule, organizationId])
-
   return {
     // モーダル状態
     isPerformanceModalOpen,
@@ -1788,7 +1584,6 @@ export function useEventOperations({
     setPendingPerformanceData,
     
     // 参加者数変更ハンドラー
-    handleParticipantChange: (eventId: string, newCount: number) => 
-      handleParticipantChange(eventId, newCount, setEvents)
+    handleParticipantChange
   }
 }
