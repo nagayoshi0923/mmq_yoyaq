@@ -1247,14 +1247,22 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(403).json({ error: '他組織の公演は削除できません' })
   }
 
-  const { error } = await database
+  const { data: deletedRows, error } = await database
     .from('schedule_events')
     .delete()
     .eq('id', id)
     .eq('organization_id', user.orgId)
+    .select('id')
   if (error) {
     console.error('[schedule:delete] DB error:', error)
     return res.status(500).json({ error: '公演の削除に失敗しました', detail: error.message })
+  }
+  if (!deletedRows || deletedRows.length === 0) {
+    console.error('[schedule:delete] deleted 0 rows:', { id, orgId: user.orgId })
+    return res.status(409).json({
+      error: '公演の削除に失敗しました',
+      detail: '削除対象の公演が見つからない、または削除権限がありません',
+    })
   }
   return res.status(204).end()
 }

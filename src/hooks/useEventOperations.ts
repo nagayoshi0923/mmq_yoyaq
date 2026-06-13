@@ -233,7 +233,7 @@ export function useEventOperations({
     deleteEventDirectly,
     deleteCancelPrompt,
     resolveDeleteCancelPrompt,
-  } = useEventDelete({ setEvents, organizationId })
+  } = useEventDelete({ setEvents, organizationId, fetchSchedule })
 
   // 中止ダイアログ状態
   // 中止・復活操作はサブフックへ分割（Phase 4-3）
@@ -1792,4 +1792,3 @@ export function useEventOperations({
       handleParticipantChange(eventId, newCount, setEvents)
   }
 }
-

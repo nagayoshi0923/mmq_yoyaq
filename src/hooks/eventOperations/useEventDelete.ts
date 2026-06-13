@@ -38,6 +38,7 @@ import { buildCancellationEmailBody, fetchStoreCancellationEmailContext } from '
 interface UseEventDeleteProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
   organizationId: string | null
+  fetchSchedule?: () => Promise<void> | void
 }
 
 /**
@@ -424,7 +425,7 @@ async function deletePrivateBookingEventCore(
   }))
 }
 
-export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProps) {
+export function useEventDelete({ setEvents, organizationId, fetchSchedule }: UseEventDeleteProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deletingEvent, setDeletingEvent] = useState<ScheduleEvent | null>(null)
 
@@ -459,6 +460,7 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
   const performDeleteByKind = useCallback(async (targetEvent: ScheduleEvent) => {
     if (isPrivateBookingEvent(targetEvent)) {
       await deletePrivateBookingEventCore(targetEvent, organizationId, setEvents)
+      await fetchSchedule?.()
       return
     }
 
@@ -515,7 +517,8 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
     }
 
     setEvents(prev => prev.filter(event => event.id !== targetEvent.id))
-  }, [setEvents, organizationId])
+    await fetchSchedule?.()
+  }, [setEvents, organizationId, fetchSchedule])
 
   // 削除の入口（右クリックメニュー等から）。
   // 有効予約がある場合は通常の削除確認モーダルを出さない——確定モーダルが先に出ると

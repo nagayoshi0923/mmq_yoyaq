@@ -150,7 +150,7 @@ export const scheduleApi = {
     return await apiClient.patch<ScheduleEventRow>(`/api/schedule?${params.toString()}`, updates)
   },
 
-  // 公演を削除（関連する予約はCASCADEで自動削除）
+  // 公演を削除（関連する予約はDB側のFK設定に従って処理）
   async delete(id: string) {
     await apiClient.delete<void>(`/api/schedule?id=${encodeURIComponent(id)}`)
   },
