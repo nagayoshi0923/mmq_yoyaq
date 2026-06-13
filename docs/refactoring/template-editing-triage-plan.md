@@ -42,9 +42,9 @@
 `TemplateEditDialog` は **storeId を1つ**受け取って `email_settings`（店舗ごと1行）を読み書きする。
 そのため、ボタンを置く画面で**「どの店舗の設定か」が一意に決まる**必要がある。
 - 承認パネル: `selectedStoreId` が確定している（承認ボタンも store 必須）→ 配線済み・問題なし。
-- **却下ダイアログ: 店舗未確定の場合がある**（リクエストは複数候補店舗を持ち、却下時に店舗を選ばない）。
-  却下メール送信側 `send-private-booking-rejection` は storeId 無しだと organizationId フォールバック。
-  → private_rejection のボタンは「どの店舗のテンプレを見せるか」を決めてから配線する（要オーナー判断 or 組織既定店舗）。
+- 却下ダイアログ: 配線済み。送信側（useBookingApproval）が `reservation.store_id` の
+  `private_rejection_template` を使うので、ボタンも開く時に `reservations.store_id` を引いて
+  **送信側と同じ店舗**を編集対象にした（store_id が無い予約はトーストで弾く）。
 - 自動送信組（予約確認・リマインド等）は予約/公演に紐づく確定店舗があるので一意。
 
 ## 13テンプレの設置マップ（email_settings、すべて店舗スコープ）
@@ -52,8 +52,8 @@
 | カラム | 表示名 | 送られるタイミング | ボタン設置場所（案） | 配線 |
 |---|---|---|---|---|
 | private_confirm_template | 貸切予約確定メール | 貸切を承認した時 | 貸切管理の承認パネル（店舗セレクタ直下） | ✅済 |
+| private_rejection_template | 貸切リクエスト却下メール | 却下ボタンを押した時 | 貸切管理の却下ダイアログ（理由ラベル横） | ✅済 |
 | store_cancellation_template | キャンセル操作メール | スタッフが中止・削除・キャンセルした時 | 削除/中止ダイアログ(2/2)・予約者タブのキャンセルダイアログ | ⏳ |
-| private_rejection_template | 貸切リクエスト却下メール | 却下ボタンを押した時 | 貸切管理の却下ダイアログ（※storeId文脈に注意） | ⏳ |
 | reservation_confirmation_template | 予約確認メール | 客が予約完了（自動） | 公演モーダルの予約者タブ | ⏳ |
 | booking_change_template | 予約変更確認メール | 予約内容を変更した時 | 予約編集ダイアログ | ⏳ |
 | private_request_template | 貸切リクエスト受付メール | 客が申込（自動） | 貸切管理（カード一覧上部） | ⏳ |
