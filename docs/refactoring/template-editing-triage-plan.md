@@ -114,6 +114,16 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 （[reservationApi.ts](../../src/lib/reservationApi.ts) L503付近）。貸切リクエストに schedule_event が
 無い場合の挙動は未精査。今回は理由文字列を固定の短文に変えただけで送信有無は変えていない。要確認。
 
+## 変数の「出どころ」をその場で編集（2026-06-13 オーナー要望）
+
+テンプレ編集画面の差し込み変数を、**設定で値を変えられるものはクリックでその場の編集モーダル**を
+開けるようにした（設定ページに飛んでリストから探す手間をなくす）。
+- `VariableHintChips`（共通）: 変数を青下線リンクで表示。クリックで `VariableSettingDialog` を開く。
+- `VariableSettingDialog`（共通）: 会社情報(email_settings) / 却下既定理由(email_settings.private_rejection_reason) /
+  キャンセル理由リスト(reservation_settings.organizer_cancel_reasons) をその場編集。store→org フォールバックで読み書き。
+- 却下の既定理由は **メール設定 → 貸切予約関連メール**に編集欄を新設＋ `{rejection_reason}` から開ける。
+- 送信プレビューは**実際の設定値**（会社情報・却下既定理由）で上書き表示。その場編集すると即反映。
+
 ## 実装ログ（staging, 2026-06-13）
 
 - `94de990c` 未使用テンプレ `private_cancellation_template` を削除
@@ -124,8 +134,22 @@ organization-settings.ts の型・SELECT 2箇所）。コミット `94de990c`。
 - `61df7131` 却下 Edge Function に `customEmailBody` 受け口（後方互換）
 - `8611eae6` 却下メールを全文編集方式に統一（中核）
 - `96ede0f4` TemplateEditDialog に送信プレビュー（サンプル値）
+- `9224fc91` 却下テンプレを store_id 無しでも organization_id で解決
+- `02aea4aa` 変数を「設定画面リンク付き」チップに（VariableHintChips）
+- `24c67701` 変数リンクをアプリ内遷移＋青下線に
+- `370db3de` 貸切却下メールの既定理由を設定で編集可能に（DB列追加・staging適用済み）
+- `d7ea3806` 変数クリックでその場の編集モーダル（VariableSettingDialog・遷移廃止）
+- `36051218` 送信プレビューに実際の設定値を反映＋その場編集で即反映
 
 ※すべて型チェック・lint・build パス済み。未デプロイ（staging ブランチにコミットのみ）。
+
+## 🚀 デプロイ時の必須作業（順序注意）
+
+1. **DBマイグレーション（prod）**: `npm run db:push:prod` で
+   `20260613000000_add_email_settings_private_rejection_reason.sql`（private_rejection_reason 列追加）を適用。
+   ※staging は適用済み。フロントが参照するので**フロントより先に**。
+2. **Edge Function**: `send-private-booking-rejection`（customEmailBody 対応）は後方互換なのでどちら先でも壊れないが理想は先。
+3. **デプロイ後**: 未使用列 `email_settings.private_cancellation_template` を DROP（コードからは既に削除済み）。
 
 ## 次の一手（残作業）
 
