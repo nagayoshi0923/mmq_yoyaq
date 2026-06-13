@@ -12,7 +12,7 @@ import { useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getEventTimeSlot, calcEndTime } from '@/utils/eventOperationUtils'
+import { getEventTimeSlot, calcEndTime, computePlacedStartTime } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -130,9 +130,18 @@ export function useEventMoveCopy({
       const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
       if (!scenarioId) scenarioId = matchingScenario?.id || null
 
-      // 時間帯が同じなら元の時間を保持、違うならデフォルト開始時刻＋シナリオ所要時間で計算
+      // 時間帯が同じなら元の時間を保持。違うなら枠デフォルト開始を基準に、
+      // 同店舗・同日の直前公演の終演＋インターバル＋準備時間を考慮して開始時刻を繰り下げる
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
-      const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
+      const newPrepMinutes = matchingScenario?.extra_preparation_time || 0
+      const sameStoreDayEvents = events.filter(e =>
+        e.date === dropTarget.date &&
+        e.venue === dropTarget.venue &&
+        !e.is_cancelled &&
+        e.id !== draggedEvent.id
+      )
+      const placedStart = computePlacedStartTime(defaults.start_time, sameStoreDayEvents, newPrepMinutes)
+      const startTime = isSameTimeSlot ? draggedEvent.start_time : placedStart
       const endTime = isSameTimeSlot
         ? draggedEvent.end_time
         : matchingScenario?.duration
@@ -339,7 +348,7 @@ export function useEventMoveCopy({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
+  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -378,9 +387,18 @@ export function useEventMoveCopy({
       const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
       if (!scenarioId) scenarioId = matchingScenario?.id || null
 
-      // 時間帯が同じなら元の時間を保持、違うならデフォルト開始時刻＋シナリオ所要時間で計算
+      // 時間帯が同じなら元の時間を保持。違うなら枠デフォルト開始を基準に、
+      // 同店舗・同日の直前公演の終演＋インターバル＋準備時間を考慮して開始時刻を繰り下げる
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
-      const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
+      const newPrepMinutes = matchingScenario?.extra_preparation_time || 0
+      const sameStoreDayEvents = events.filter(e =>
+        e.date === dropTarget.date &&
+        e.venue === dropTarget.venue &&
+        !e.is_cancelled &&
+        e.id !== draggedEvent.id
+      )
+      const placedStart = computePlacedStartTime(defaults.start_time, sameStoreDayEvents, newPrepMinutes)
+      const startTime = isSameTimeSlot ? draggedEvent.start_time : placedStart
       const endTime = isSameTimeSlot
         ? draggedEvent.end_time
         : matchingScenario?.duration
@@ -462,7 +480,7 @@ export function useEventMoveCopy({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
+  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios])
 
   return {
     handleMoveEvent,

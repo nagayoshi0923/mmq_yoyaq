@@ -42,6 +42,40 @@ export function calcEndTime(startTime: string, durationMinutes: number): string 
 }
 
 /**
+ * 別時間帯への移動/複製時の開始時刻を決める。
+ *
+ * 枠のデフォルト開始時刻を基準に、同店舗・同日で「より早く始まる」既存公演があれば
+ * その終演時刻 + 標準インターバル(60分) + 配置するシナリオの準備時間 を満たすよう
+ * 開始時刻を必要なだけ繰り下げる。checkTimeOverlap の「既存→新規」の境界と同じ基準
+ * なので、配置直後に間隔不足の警告は出ない。後発（より遅く始まる）公演では押し出さない。
+ *
+ * @param defaultStart 枠のデフォルト開始時刻（HH:MM）
+ * @param sameDayStoreEvents 同店舗・同日・未中止・自分以外の公演（時間帯は問わない）
+ * @param newPrepMinutes 配置するシナリオの extra_preparation_time（分）
+ * @returns 繰り下げ後の開始時刻（HH:MM）。繰り下げ不要なら defaultStart のまま
+ */
+export function computePlacedStartTime(
+  defaultStart: string,
+  sameDayStoreEvents: Array<{ start_time: string; end_time?: string | null }>,
+  newPrepMinutes: number = 0
+): string {
+  const defaultStartMin = timeToMinutes(defaultStart)
+  let startMin = defaultStartMin
+
+  for (const e of sameDayStoreEvents) {
+    if (!e.end_time) continue
+    // デフォルト開始より早く始まる公演だけを「直前公演」として考慮する
+    if (timeToMinutes(e.start_time) >= defaultStartMin) continue
+    const required = timeToMinutes(e.end_time) + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES + newPrepMinutes
+    if (required > startMin) startMin = required
+  }
+
+  const h = Math.floor(startMin / 60)
+  const m = startMin % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+}
+
+/**
  * 2つの時間帯が重複しているかチェック（インターバル + 準備時間を考慮）
  *
  * - 標準インターバル: PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES (60分)。

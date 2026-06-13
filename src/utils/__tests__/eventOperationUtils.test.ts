@@ -12,6 +12,7 @@ import {
   timeToMinutes,
   calcEndTime,
   checkTimeOverlap,
+  computePlacedStartTime,
   getEventTimeSlot,
 } from '../eventOperationUtils'
 
@@ -94,6 +95,49 @@ describe('checkTimeOverlap（extra_preparation_time 加算）', () => {
     const r = checkTimeOverlap('15:00', '19:00', '10:00', '14:00', 30, 0)
     expect(r.overlap).toBe(true)
     expect(r.reason).toContain('90分')
+  })
+})
+
+describe('computePlacedStartTime（移動/複製の自動配置）', () => {
+  it('直前公演がなければ枠デフォルト開始のまま', () => {
+    expect(computePlacedStartTime('13:00', [])).toBe('13:00')
+  })
+
+  it('直前公演の終演＋60分が枠デフォルトより遅ければ繰り下げる', () => {
+    // 朝公演 10:00-14:00 → 昼枠デフォルト13:00 だと重なる → 14:00+60分=15:00
+    const events = [{ start_time: '10:00', end_time: '14:00' }]
+    expect(computePlacedStartTime('13:00', events)).toBe('15:00')
+  })
+
+  it('シナリオ準備時間を加算する（終演＋60分＋準備）', () => {
+    // 14:00 終演 + 60分 + 準備30分 = 15:30
+    const events = [{ start_time: '10:00', end_time: '14:00' }]
+    expect(computePlacedStartTime('13:00', events, 30)).toBe('15:30')
+  })
+
+  it('直前公演が早く終わって余裕があれば繰り下げない', () => {
+    // 朝公演 10:00-11:00 → 14:00+60分=12:00 < 13:00 なので 13:00 のまま
+    const events = [{ start_time: '10:00', end_time: '11:00' }]
+    expect(computePlacedStartTime('13:00', events)).toBe('13:00')
+  })
+
+  it('後発（デフォルト開始より遅く始まる）公演では押し出さない', () => {
+    // 夜公演 18:00-22:00 は昼枠13:00より後発 → 無視
+    const events = [{ start_time: '18:00', end_time: '22:00' }]
+    expect(computePlacedStartTime('13:00', events)).toBe('13:00')
+  })
+
+  it('複数の直前公演があれば最も遅い終演を基準にする', () => {
+    const events = [
+      { start_time: '09:00', end_time: '11:00' },
+      { start_time: '10:00', end_time: '14:00' },
+    ]
+    expect(computePlacedStartTime('13:00', events)).toBe('15:00')
+  })
+
+  it('end_time が無い公演は無視する', () => {
+    const events = [{ start_time: '10:00', end_time: null }]
+    expect(computePlacedStartTime('13:00', events)).toBe('13:00')
   })
 })
 
