@@ -1,6 +1,6 @@
 // 右クリックメニューとコピー&ペースト操作を管理
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { createEventHistory } from '@/lib/api/eventHistoryApi'
 import { getTimeSlot } from '@/utils/scheduleUtils'
@@ -10,6 +10,7 @@ import type { ScheduleEvent } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { scheduleTimeSlotToEn, timeSlotEnToSchedule, timeSlotEnToLabel } from '@/lib/timeSlot'
+import type { MoveCopyConfirm } from '@/hooks/eventOperations/useEventMoveCopy'
 
 /**
  * イベントの時間帯を取得（保存された枠を優先）
@@ -51,6 +52,24 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
   
   // クリップボード状態
   const [clipboardEvent, setClipboardEvent] = useState<ScheduleEvent | null>(null)
+
+  // ペースト先の重複確認ダイアログ（window.confirm の置き換え・移動/複製と同型）
+  const [moveCopyConfirm, setMoveCopyConfirm] = useState<MoveCopyConfirm | null>(null)
+  const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null)
+  const askConfirm = useCallback(
+    (opts: MoveCopyConfirm) =>
+      new Promise<boolean>(resolve => {
+        confirmResolveRef.current = resolve
+        setMoveCopyConfirm(opts)
+      }),
+    []
+  )
+  const resolveMoveCopyConfirm = useCallback((ok: boolean) => {
+    setMoveCopyConfirm(null)
+    const resolve = confirmResolveRef.current
+    confirmResolveRef.current = null
+    resolve?.(ok)
+  }, [])
 
   // 公演カードの右クリックメニューを表示
   const handleEventContextMenu = useCallback((event: ScheduleEvent, x: number, y: number) => {
@@ -99,10 +118,13 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
         const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'schedule')
         const storeName = stores.find(s => s.id === targetVenue)?.name || targetVenue
         
-        if (!confirm(
-          `ペースト先の${targetDate} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
-          `既存の公演を削除してペーストしますか？`
-        )) {
+        const ok = await askConfirm({
+          title: 'ペースト先に既存の公演があります',
+          message: `${targetDate} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。既存の公演を削除してペーストしますか？`,
+          confirmLabel: '既存を削除してペースト',
+          variant: 'destructive',
+        })
+        if (!ok) {
           return
         }
         
@@ -193,7 +215,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       logger.error('公演ペーストエラー:', error)
       showToast.error('公演のペーストに失敗しました')
     }
-  }, [clipboardEvent, stores, setEvents, checkConflict, organizationId, getSlotDefaults])
+  }, [clipboardEvent, stores, setEvents, checkConflict, organizationId, getSlotDefaults, askConfirm])
 
   // セルに既存の公演があるかをチェック（右クリックメニューの「公演を追加」グレーアウト用）
   const hasExistingEvent = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening'): boolean => {
@@ -210,7 +232,10 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
     handleCopyToClipboard,
     handlePasteFromClipboard,
     checkConflict,
-    hasExistingEvent
+    hasExistingEvent,
+    // ペースト先の重複確認ダイアログ（MoveCopyConfirmDialog に渡す）
+    moveCopyConfirm,
+    resolveMoveCopyConfirm,
   }
 }
 

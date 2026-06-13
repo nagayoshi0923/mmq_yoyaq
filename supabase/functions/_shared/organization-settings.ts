@@ -218,7 +218,6 @@ export interface StoreEmailSettings {
   booking_change_template: string | null
   private_request_template: string | null
   private_confirm_template: string | null
-  private_cancellation_template: string | null
   private_rejection_template: string | null
   waitlist_notify_template: string | null
   waitlist_registration_template: string | null
@@ -264,7 +263,6 @@ export async function getStoreEmailSettings(
       'booking_change_template',
       'private_request_template',
       'private_confirm_template',
-      'private_cancellation_template',
       'private_rejection_template',
       'waitlist_notify_template',
       'waitlist_registration_template',
@@ -314,7 +312,6 @@ export async function getStoreEmailSettings(
         'booking_change_template',
         'private_request_template',
         'private_confirm_template',
-        'private_cancellation_template',
         'private_rejection_template',
         'waitlist_notify_template',
         'waitlist_registration_template',

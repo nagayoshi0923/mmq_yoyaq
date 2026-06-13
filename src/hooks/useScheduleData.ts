@@ -559,7 +559,7 @@ export function useScheduleData(currentDate: Date) {
 
   // スケジュールデータを再取得する関数（React Queryキャッシュを無効化して再フェッチ）
   const fetchSchedule = useCallback(async () => {
-    invalidateScheduleMonth(queryClient, year, month)
+    await queryClient.invalidateQueries({ queryKey: scheduleEventKeys.month(year, month) })
   }, [queryClient, year, month])
 
   // リアルタイム購読（複数ユーザー対応）
@@ -680,4 +680,3 @@ export function useScheduleData(currentDate: Date) {
     fetchSchedule
   }
 }
-

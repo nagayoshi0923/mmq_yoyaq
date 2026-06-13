@@ -95,11 +95,25 @@ export interface StoreCancellationEmailContext {
 }
 
 /**
+ * 取得対象の本文テンプレート列名。
+ * - 'store_cancellation_template' = キャンセル操作メール（顧客自身のキャンセル等）
+ * - 'event_cancellation_template' = 公演中止メール（スタッフ起点の中止・削除）
+ */
+export type CancellationTemplateKey =
+  | 'store_cancellation_template'
+  | 'event_cancellation_template'
+
+/**
  * 店舗のキャンセルメール設定（テンプレート・ポリシー・組織名・店舗名）を取得。
  * 取得に失敗してもフォールバック文面で進められるよう、常に値を返す。
+ *
+ * `templateKey` で「どのテンプレ列を本文の元として読むか」を選ぶ。スタッフ起点の
+ * 公演中止/削除（cancelledBy:'store'）は 'event_cancellation_template' を渡し、
+ * Edge Function 側の件名・本文選択（isStoreCancellation 分岐）と整合させる。
  */
 export async function fetchStoreCancellationEmailContext(
-  storeId: string | null | undefined
+  storeId: string | null | undefined,
+  templateKey: CancellationTemplateKey = 'store_cancellation_template'
 ): Promise<StoreCancellationEmailContext> {
   const ctx: StoreCancellationEmailContext = {
     storeName: '',
@@ -111,20 +125,21 @@ export async function fetchStoreCancellationEmailContext(
   try {
     const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
       supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
-      supabase.from('email_settings').select('store_cancellation_template, company_name').eq('store_id', storeId).maybeSingle(),
+      supabase.from('email_settings').select(`${templateKey}, company_name`).eq('store_id', storeId).maybeSingle(),
       supabase.from('stores').select('name, organization_id, organizations(name)').eq('id', storeId).maybeSingle(),
     ])
 
+    const emailSettings = emailSettingsResult.data as Record<string, string | null> | null
     ctx.cancellationPolicy = settingsResult.data?.cancellation_policy || ''
-    ctx.template = emailSettingsResult.data?.store_cancellation_template || ''
+    ctx.template = emailSettings?.[templateKey] || ''
     ctx.storeName = storeResult.data?.name || ''
 
     if (storeResult.data?.organizations) {
       const org = storeResult.data.organizations as { name: string } | { name: string }[]
       ctx.organizationName = Array.isArray(org) ? org[0]?.name || '' : org.name || ''
     }
-    if (!ctx.organizationName && emailSettingsResult.data?.company_name) {
-      ctx.organizationName = emailSettingsResult.data.company_name
+    if (!ctx.organizationName && emailSettings?.company_name) {
+      ctx.organizationName = emailSettings.company_name
     }
   } catch (error) {
     logger.warn('キャンセルメール設定取得エラー:', error)

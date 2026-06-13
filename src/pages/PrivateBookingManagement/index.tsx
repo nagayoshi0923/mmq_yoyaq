@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, X } from 'lucide-react'
+import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, X, Mail } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
@@ -28,6 +28,8 @@ import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
 import { ActionButtons } from './components/ActionButtons'
 import { SurveyResponsesView } from './components/SurveyResponsesView'
+import { TemplateEditDialog } from '@/components/settings/TemplateEditDialog'
+import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 
 
 // 分離されたフック
@@ -72,6 +74,12 @@ export function PrivateBookingManagement() {
   const [selectedGMId, setSelectedGMId] = useState<string>('')
   const [selectedSubGmId, setSelectedSubGmId] = useState<string>('')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [confirmTemplateDialogOpen, setConfirmTemplateDialogOpen] = useState(false)  // 確定メールのテンプレ編集
+  const [rejectTemplateOpen, setRejectTemplateOpen] = useState(false)  // 却下メールのテンプレ編集（次回も使う定型文）
+  const [rejectTemplateStoreId, setRejectTemplateStoreId] = useState<string | null>(null)
+  const [rejectTemplateOrgId, setRejectTemplateOrgId] = useState<string | null>(null)  // store_id 無し時の組織フォールバック
+  const [resolvingRejectStore, setResolvingRejectStore] = useState(false)
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
   const [searchText, setSearchText] = useState('')  // フリーワード検索
@@ -82,6 +90,10 @@ export function PrivateBookingManagement() {
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
   const [assignedGMIds, setAssignedGMIds] = useState<string[]>([])  // シナリオ担当GM
+
+  useEffect(() => {
+    getCurrentOrganizationId().then(setOrganizationId).catch(() => setOrganizationId(null))
+  }, [])
 
   // リクエストデータ管理
   const { requests, loading, loadRequests } = useBookingRequests({
@@ -95,6 +107,7 @@ export function PrivateBookingManagement() {
     showRejectDialog,
     rejectionReason,
     setRejectionReason,
+    rejectBodyLoading,
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
@@ -605,6 +618,38 @@ export function PrivateBookingManagement() {
     )
   }
 
+  // 却下ダイアログから「次回も使う却下メールのテンプレ」を編集する。
+  // 貸切リクエストは store_id が無いことが多いので、その場合は送信側と同じく
+  // organization_id の email_settings 行（＝組織のメール設定）を対象にする。
+  const openRejectTemplateEditor = async () => {
+    const reqId = selectedRequest?.id
+    if (!reqId) return
+    setResolvingRejectStore(true)
+    try {
+      const { data } = await supabase
+        .from('reservations')
+        .select('store_id, organization_id')
+        .eq('id', reqId)
+        .maybeSingle()
+      if (data?.store_id) {
+        setRejectTemplateStoreId(data.store_id)
+        setRejectTemplateOrgId(null)
+      } else if (data?.organization_id) {
+        setRejectTemplateStoreId(null)
+        setRejectTemplateOrgId(data.organization_id)
+      } else {
+        showToast.error('店舗・組織が特定できず、テンプレートを開けません')
+        return
+      }
+      setRejectTemplateOpen(true)
+    } catch (e) {
+      logger.error('却下テンプレ対象の取得エラー:', e)
+      showToast.error('テンプレートを開けませんでした')
+    } finally {
+      setResolvingRejectStore(false)
+    }
+  }
+
   return (
     <AppLayout
       currentPage="private-booking"
@@ -630,6 +675,12 @@ export function PrivateBookingManagement() {
 
             {/* 検索・絞り込みツールバー（全タブ横断で効く。件数バッジにも反映） */}
             <div className="flex flex-wrap items-center gap-2">
+              <TemplateEditButton
+                templateKey="private_request_template"
+                organizationId={organizationId}
+                label="受付メールのテンプレを編集"
+                className="h-8 text-xs text-purple-700 hover:text-purple-900"
+              />
               <div className="relative flex-1 min-w-[280px] max-w-md">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -804,6 +855,20 @@ export function PrivateBookingManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
+                              {selectedStoreId && (
+                                <div className="flex justify-end -mt-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                                    onClick={() => setConfirmTemplateDialogOpen(true)}
+                                  >
+                                    <Mail className="h-3 w-3 mr-1" />
+                                    確定メールのテンプレを編集
+                                  </Button>
+                                </div>
+                              )}
                               {/* メインGM */}
                               <div className="flex items-start gap-2">
                                 <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">
@@ -863,7 +928,7 @@ export function PrivateBookingManagement() {
                             showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
                           }
                         }}
-                        onReject={() => handleRejectClick(req.id)}
+                        onReject={() => handleRejectClick(req.id, req)}
                         disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder || ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId)}
                         submitting={submitting}
                       />
@@ -877,6 +942,14 @@ export function PrivateBookingManagement() {
 
         {/* 削除：承認ダイアログはカードのインライン展開に移行 */}
 
+        {/* 確定メール（private_confirm_template）のテンプレ編集ダイアログ。承認時に選んだ店舗の設定を編集 */}
+        <TemplateEditDialog
+          templateKey="private_confirm_template"
+          storeId={selectedStoreId}
+          open={confirmTemplateDialogOpen}
+          onOpenChange={setConfirmTemplateDialogOpen}
+        />
+
         {/* 却下ダイアログ */}
         <Dialog open={showRejectDialog} onOpenChange={(open) => !open && handleRejectCancel()}>
           <DialogContent>
@@ -885,16 +958,37 @@ export function PrivateBookingManagement() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm mb-2">却下理由</Label>
-                <Textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  rows={6}
-                  placeholder="却下理由を入力してください"
-                  className="text-sm"
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm">却下メール本文（このまま送信されます）</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                    onClick={openRejectTemplateEditor}
+                    disabled={resolvingRejectStore || rejectBodyLoading}
+                  >
+                    <Mail className="h-3 w-3 mr-1" />
+                    {resolvingRejectStore ? '読み込み中...' : '却下メールのテンプレを編集'}
+                  </Button>
+                </div>
+                {rejectBodyLoading ? (
+                  <div className="border rounded-md py-12 text-center text-sm text-muted-foreground">
+                    メール本文を読み込み中...
+                  </div>
+                ) : (
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={14}
+                    placeholder="却下メールの本文"
+                    className="text-sm font-mono"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  お客様に送られる却下メールの全文です。この場で自由に編集できます。次回以降の既定文面（テンプレート）を直すには「却下メールのテンプレを編集」から。
+                </p>
               </div>
-              
             </div>
             <DialogFooter>
               <Button
@@ -907,13 +1001,23 @@ export function PrivateBookingManagement() {
               <Button
                 variant="destructive"
                 onClick={() => handleRejectConfirm(selectedRequest)}
-                disabled={submitting || !rejectionReason.trim()}
+                disabled={submitting || rejectBodyLoading || !rejectionReason.trim()}
               >
                 {submitting ? '処理中...' : '却下する'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* 却下メール（private_rejection_template）のテンプレ編集。却下ダイアログの上に重ねて開く。
+            貸切リクエストは店舗未確定が多いので、その場合は組織のメール設定を編集する */}
+        <TemplateEditDialog
+          templateKey="private_rejection_template"
+          storeId={rejectTemplateStoreId}
+          organizationId={rejectTemplateOrgId}
+          open={rejectTemplateOpen}
+          onOpenChange={setRejectTemplateOpen}
+        />
       </div>
     </AppLayout>
   )

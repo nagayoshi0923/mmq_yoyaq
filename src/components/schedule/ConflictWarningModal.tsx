@@ -89,7 +89,7 @@ export function ConflictWarningModal({
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
             <p className="text-sm text-yellow-800">
-              ⚠️ このまま保存すると、既存の公演が削除され、新しい公演で上書きされます。
+              ⚠️ このまま続行すると、重複する既存の公演を削除して新しい公演を保存します。
               本当に続行しますか？
             </p>
           </div>
@@ -104,7 +104,7 @@ export function ConflictWarningModal({
             onClick={handleContinue}
             className="bg-red-600 hover:bg-red-700"
           >
-            既存公演を削除して上書き
+            既存公演を削除して保存
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -40,7 +40,6 @@ export interface ScheduleTableEventHandlers {
   onUncancel: (event: ScheduleEvent) => void
   onToggleTentative: (event: ScheduleEvent) => Promise<void>
   onToggleReservation: (event: ScheduleEvent) => void
-  onConvertToMemo: (event: ScheduleEvent) => void
   onDrop: (event: ScheduleEvent, date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent: (event: ScheduleEvent, x: number, y: number) => void
@@ -99,6 +98,14 @@ export interface ScheduleTableModals {
     onCopy: any
     selectedEvent: ScheduleEvent | null
     stores: any[]
+  }
+  moveCopyConfirm: {
+    prompt: { title: string; message: string; confirmLabel: string; variant: 'destructive' | 'default' } | null
+    onResolve: (ok: boolean) => void
+  }
+  pasteConfirm: {
+    prompt: { title: string; message: string; confirmLabel: string; variant: 'destructive' | 'default' } | null
+    onResolve: (ok: boolean) => void
   }
   contextMenu: {
     contextMenu: any

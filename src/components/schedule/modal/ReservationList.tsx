@@ -22,6 +22,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
+import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
@@ -118,6 +119,9 @@ export function ReservationList({
     notes: ''
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
+  const cancellationTemplateStoreId =
+    currentEventData.venue ||
+    (event?.venue ? stores.find(s => s.id === event.venue || s.name === event.venue)?.id : null)
 
   const sumActiveParticipants = (list: Reservation[]) =>
     list.reduce((sum, r) => {
@@ -1069,6 +1073,72 @@ export function ReservationList({
             </div>
           )}
           <div className="mb-4">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-md border bg-muted/30 px-2 py-2">
+              <span className="text-xs font-medium text-muted-foreground mr-1">関連テンプレ:</span>
+              <TemplateEditButton
+                templateKey="reservation_confirmation_template"
+                storeId={cancellationTemplateStoreId}
+                label="予約確認"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="booking_change_template"
+                storeId={cancellationTemplateStoreId}
+                label="予約変更"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="cancellation_template"
+                storeId={cancellationTemplateStoreId}
+                label="お客様キャンセル"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="reminder_template"
+                storeId={cancellationTemplateStoreId}
+                label="リマインド"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="waitlist_notify_template"
+                storeId={cancellationTemplateStoreId}
+                label="キャンセル待ち通知"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="waitlist_registration_template"
+                storeId={cancellationTemplateStoreId}
+                label="キャンセル待ち登録"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="performance_cancellation_template"
+                storeId={cancellationTemplateStoreId}
+                label="人数未達中止"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="event_cancellation_template"
+                storeId={cancellationTemplateStoreId}
+                label="公演中止"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+              <TemplateEditButton
+                templateKey="performance_extension_template"
+                storeId={cancellationTemplateStoreId}
+                label="募集延長"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+              />
+            </div>
             {!isAddingParticipant ? (
               <div className="flex gap-2">
                 <Button
@@ -2046,7 +2116,22 @@ export function ReservationList({
 
             {/* メール本文 */}
             <div>
-              <Label htmlFor="email-body">メール本文</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email-body">メール本文</Label>
+                <TemplateEditButton
+                  templateKey="store_cancellation_template"
+                  storeId={cancellationTemplateStoreId}
+                  label="予約者タブキャンセルメールのテンプレを編集"
+                  className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                  unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+                  onSaved={(value) => {
+                    setEmailContent(prev => ({
+                      ...prev,
+                      emailBody: buildCancellationEmailBody(prev, value)
+                    }))
+                  }}
+                />
+              </div>
               <Textarea
                 id="email-body"
                 value={emailContent.emailBody}
@@ -2163,5 +2248,3 @@ export function ReservationList({
     </>
   )
 }
-
-

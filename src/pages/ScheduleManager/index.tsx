@@ -52,12 +52,13 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 const ConflictWarningModal = lazy(() => import('@/components/schedule/ConflictWarningModal').then(m => ({ default: m.ConflictWarningModal })))
 const ImportScheduleModal = lazy(() => import('@/components/schedule/ImportScheduleModal').then(m => ({ default: m.ImportScheduleModal })))
 const MoveOrCopyDialog = lazy(() => import('@/components/schedule/MoveOrCopyDialog').then(m => ({ default: m.MoveOrCopyDialog })))
+const MoveCopyConfirmDialog = lazy(() => import('@/components/schedule/MoveCopyConfirmDialog').then(m => ({ default: m.MoveCopyConfirmDialog })))
 const PerformanceModal = lazy(() => import('@/components/schedule/PerformanceModal').then(m => ({ default: m.PerformanceModal })))
 const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal').then(m => ({ default: m.HistoryModal })))
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -1730,6 +1731,16 @@ export function ScheduleManager() {
         } : null}
       />
 
+      <MoveCopyConfirmDialog
+        prompt={modals.moveCopyConfirm.prompt}
+        onResolve={modals.moveCopyConfirm.onResolve}
+      />
+
+      <MoveCopyConfirmDialog
+        prompt={modals.pasteConfirm.prompt}
+        onResolve={modals.pasteConfirm.onResolve}
+      />
+
       {modals.contextMenu.contextMenu && (
         <ContextMenu
           x={modals.contextMenu.contextMenu.x}
@@ -1840,15 +1851,6 @@ export function ScheduleManager() {
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
                     scheduleTableProps.eventHandlers.onDeletePerformance(event)
-                    modals.contextMenu.setContextMenu(null)
-                  }
-                },
-                {
-                  label: 'メモに変換',
-                  icon: <FileText className="w-4 h-4" />,
-                  onClick: () => {
-                    // 直接メモに変換（モーダルなし）
-                    scheduleTableProps.eventHandlers.onConvertToMemo(event)
                     modals.contextMenu.setContextMenu(null)
                   },
                   separator: true

@@ -98,8 +98,16 @@
 - [x] 4-2 純関数の抽出（**完了**）: getEventTimeSlot / timeToMinutes / calcEndTime /
       checkTimeOverlap（時間重複判定）を `utils/eventOperationUtils.ts` へ移動。
       vitest を導入し16ケースのユニットテストを整備（`npm run test:unit`）。挙動不変
-- [ ] 4-3 操作系統ごとにフック分割: `useAddEvent` / `useEditEvent` / `useCancelRestoreEvent` / `useMoveCopyEvent`
-      （1分割=1コミット。旧フックは re-export で互換維持 → 最後に削除）
+- [x] 4-3 操作系統ごとにフック分割（**完了** 2026-06-13）。
+      `useEventDelete` / `useEventCancel` / `useEventMisc` /
+      `useEventModalState`（公開・仮状態・予約受付・メモ変換・参加者数即時反映・
+      公演モーダル状態・URL復元・ドラッグ開始）/ `useEventMoveCopy`（移動・複製・
+      移動複製先の重複判定 checkConflict）/ `useEventSave`（保存本体 doSavePerformance・
+      タイムスロット＋実時間の重複チェック・重複警告ダイアログ state・続行処理）に分離。
+      移動/複製と保存が共有する `confirmSendPrivateBookingChangeEmail` /
+      `syncRelatedDataOnEventDateChange` は `eventSyncHelpers.ts` へ切り出し。
+      **useEventOperations 本体は 1589→201 行**（サブフックを合成するファサードのみ。公開IF不変）。
+      全コミットで eslint / typecheck / build:fast / unit test を確認。挙動不変。
 - [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
       （実測済み。当初調査の「26.6K行」はKB誤読と確定）
 - [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
@@ -129,6 +137,17 @@
 - [x] F-3 貸切削除ロジック重複の統合（**完了** 2026-06-12: deletePrivateBookingEventCore に一本化。
       同時に仕様変更: 貸切削除時に申込を物理削除→「キャンセル状態で保持」に変更（顧客台帳の保全・オーナー指示）。
       履歴スナップショットを削除前に取得する順序に修正し、削除履歴が残らないバグも解消）
+- [ ] F-4 手動貸切公演の変更通知メール（**要件未確定**・2026-06-13 切り分け）:
+      手動作成の貸切公演（schedule_events.category='private' かつ reservation_id NULL）には
+      通知先メールが存在しない。staging 実測: private 公演143件中 reservation_id 有りは3件のみ
+      （全て cancelled）、reservation_id NULL の140件で「メール有り予約」に紐づくものはゼロ。
+      変更通知メール sendPrivateBookingCustomerChangeEmail は reservations.customer_email 宛のため、
+      送るにはまず「誰の・どのアドレスに送るか」を持たせる必要がある。候補: ①モーダルに顧客メール欄を
+      追加（手入力）②顧客マスタから顧客を紐づけ ③予約タブのメール有り予約へ送信。
+      Edge Function send-booking-change-confirmation も reservationId 前提なので、宛先の持たせ方次第で
+      送信経路の追加が要る。リファクタ／既存バグとは別件の新機能。**要件を詰めてから着手**。
+      （元の発見: 「貸切公演を編集して日時変更してもメール確認が出ない」→ 退行ではなく、
+      手動貸切に通知先が無いだけ。Web貸切で顧客紐づき・確定済みなら従来どおり出る）
 
 ## Phase 5: 巨大モーダルの解体
 

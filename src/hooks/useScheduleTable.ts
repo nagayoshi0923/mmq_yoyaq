@@ -116,7 +116,6 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     onUncancel: eventOperations.handleUncancelPerformance,
     onToggleTentative: eventOperations.handleToggleTentative,
     onToggleReservation: eventOperations.handleToggleReservation,
-    onConvertToMemo: eventOperations.handleConvertToMemo,
     onDrop: eventOperations.handleDrop,
     onContextMenuCell: contextMenuActions.handleCellContextMenu,
     onContextMenuEvent: contextMenuActions.handleEventContextMenu,
@@ -179,6 +178,14 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         onCopy: eventOperations.handleCopyEvent,
         selectedEvent: eventOperations.draggedEvent,
         stores
+      },
+      moveCopyConfirm: {
+        prompt: eventOperations.moveCopyConfirm,
+        onResolve: eventOperations.resolveMoveCopyConfirm,
+      },
+      pasteConfirm: {
+        prompt: contextMenuActions.moveCopyConfirm,
+        onResolve: contextMenuActions.resolveMoveCopyConfirm,
       },
       contextMenu: {
         contextMenu: contextMenuActions.contextMenu,
@@ -278,6 +285,16 @@ export function useScheduleTableModals(currentDate: Date) {
       onCopy: eventOperations.handleCopyEvent,
       selectedEvent: eventOperations.draggedEvent,
       stores  // ScheduleManagerで使用するため含める
+    },
+    // 移動・複製の重複/間隔不足の確認ダイアログ（window.confirm の置き換え）
+    moveCopyConfirm: {
+      prompt: eventOperations.moveCopyConfirm,
+      onResolve: eventOperations.resolveMoveCopyConfirm,
+    },
+    // ペースト先の重複確認ダイアログ
+    pasteConfirm: {
+      prompt: contextMenuActions.moveCopyConfirm,
+      onResolve: contextMenuActions.resolveMoveCopyConfirm,
     },
     // ContextMenu用
     contextMenu: {

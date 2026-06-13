@@ -12,6 +12,8 @@ interface PrivateBookingRejectionRequest {
   customerName: string
   scenarioTitle: string
   rejectionReason: string
+  /** 却下ダイアログで全文編集された本文。指定時はテンプレ適用より優先し、そのまま送る */
+  customEmailBody?: string
   candidateDates?: Array<{
     date: string
     startTime: string
@@ -221,8 +223,28 @@ MMQ
     // カスタムテンプレート対応
     let finalHtml = emailHtml
     let finalText = emailText
-    
-    if (customTemplate && customTemplate.trim()) {
+
+    if (rejectionData.customEmailBody && rejectionData.customEmailBody.trim()) {
+      // 管理者が却下ダイアログで全文編集した本文をそのまま送る（テンプレ適用より優先）
+      const body = rejectionData.customEmailBody
+      const htmlContent = body
+        .split('\n')
+        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .join('\n')
+
+      finalHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${htmlContent}
+</body>
+</html>`
+      finalText = body
+      console.log('📧 Using custom email body (full edit)')
+    } else if (customTemplate && customTemplate.trim()) {
       // テンプレート変数
       const templateVariables = {
         customer_name: rejectionData.customerName,

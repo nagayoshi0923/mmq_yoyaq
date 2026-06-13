@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 
 export interface CancelMailRecipient {
   reservationId: string
@@ -34,10 +36,14 @@ export interface DeleteCancelPrompt {
   customers: string[]
   /** キャンセル理由の初期値 */
   defaultReason: string
+  /** 店舗のキャンセル設定に登録された定型理由 */
+  reasonOptions?: string[]
+  /** キャンセルメールテンプレートを編集する店舗 */
+  templateStoreId?: string | null
   /** メール本文編集の対象（省略時は理由編集のみのフォールバック表示） */
   recipients?: CancelMailRecipient[]
   /** 予約者ごとのメール本文を生成（予約一覧の「予約をキャンセル」と同じロジック） */
-  composeBody?: (recipientIndex: number, reason: string) => string
+  composeBody?: (recipientIndex: number, reason: string, templateOverride?: string) => string
 }
 
 export interface DeleteCancelDecision {
@@ -68,14 +74,18 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
   const isCancelVariant = prompt?.variant === 'cancel'
   const actionLabel = isCancelVariant ? '中止' : '削除'
   const recipients = prompt?.recipients
+  const reasonOptions = prompt?.reasonOptions?.filter(r => r.trim()) ?? []
   const hasBodyEditor = !!(recipients && recipients.length > 0 && prompt?.composeBody)
+  const mailRecipientCount = recipients?.filter(r => !!r.email).length ?? 0
+  const missingEmailCount = recipients ? recipients.length - mailRecipientCount : 0
+  const canSendMail = !hasBodyEditor || mailRecipientCount > 0
 
   // ダイアログが開くたびに初期値へリセット
   useEffect(() => {
     if (prompt) {
       setStep('confirm')
       setReason(prompt.defaultReason)
-      setSendMail(true)
+      setSendMail(prompt.recipients ? prompt.recipients.some(r => !!r.email) : true)
       setRecipientIndex(0)
       if (prompt.recipients && prompt.composeBody) {
         setBodies(prompt.recipients.map((_, i) => prompt.composeBody!(i, prompt.defaultReason)))
@@ -100,8 +110,13 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
     setDirtyBodies(prev => prev.map((d, i) => (i === recipientIndex ? true : d)))
   }
 
+  const handleTemplateSaved = (template: string) => {
+    if (!prompt?.recipients || !prompt.composeBody) return
+    setBodies(prev => prev.map((b, i) => dirtyBodies[i] ? b : prompt.composeBody!(i, reason, template)))
+  }
+
   const buildDecision = (): DeleteCancelDecision => ({
-    sendMail,
+    sendMail: sendMail && canSendMail,
     reason,
     bodies: hasBodyEditor && recipients
       ? Object.fromEntries(recipients.map((r, i) => [r.reservationId, bodies[i] ?? '']))
@@ -147,7 +162,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
               </div>
 
               <p className="text-xs text-muted-foreground">
-                ※ まだ実行されません。次の画面でキャンセルメールを送るかどうかを選んでから実行します。
+                ※ まだ実行されません。次の画面で公演中止メールを送るかどうかを選んでから実行します。
               </p>
             </div>
 
@@ -168,23 +183,72 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
 
             <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
               <p className="text-sm">
-                予約者 <span className="font-bold">{prompt?.count ?? 0} 名</span> にキャンセルのご連絡メールを送信できます。
+                対象の予約 <span className="font-bold">{prompt?.count ?? 0} 件</span> をすべてキャンセルします。
+                {hasBodyEditor ? (
+                  <>
+                    <br />
+                    メール送信をONにすると、メールアドレスがある予約者全員
+                    （<span className="font-bold">{mailRecipientCount} 件</span>）へ公演中止メールを送信します。
+                  </>
+                ) : (
+                  <>
+                    <br />
+                    公演中止メールを送信できます。
+                  </>
+                )}
               </p>
 
-              {/* キャンセル理由 */}
+              {hasBodyEditor && recipients && (
+                <div className="rounded-md border bg-muted/40 p-2 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <span className="font-medium">キャンセル対象</span>
+                    <span className="text-xs text-muted-foreground">
+                      全{recipients.length}件 / メール対象{mailRecipientCount}件
+                      {missingEmailCount > 0 ? ` / メールなし${missingEmailCount}件` : ''}
+                    </span>
+                  </div>
+                  <ul className="space-y-1 max-h-28 overflow-y-auto">
+                    {recipients.map((r, i) => (
+                      <li key={r.reservationId} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">{i + 1}. {r.label}</span>
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] ${r.email ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-muted text-muted-foreground border'}`}>
+                          {r.email ? 'メール送信対象' : 'メールなし'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    予約キャンセルはこの一覧の全件に実行されます。下の切替は送信先の選択ではなく、予約者ごとの本文プレビューです。
+                  </p>
+                </div>
+              )}
+
+              {/* 中止理由 */}
               <div>
-                <Label htmlFor="delete-cancel-reason">キャンセル理由</Label>
+                <Label htmlFor="delete-cancel-reason">中止理由</Label>
+                {reasonOptions.length > 0 && (
+                  <Select value={reason} onValueChange={handleReasonChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="定型理由から選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reasonOptions.map(option => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Textarea
                   id="delete-cancel-reason"
                   value={reason}
                   onChange={(e) => handleReasonChange(e.target.value)}
-                  className="mt-1"
+                  className={reasonOptions.length > 0 ? 'mt-2' : 'mt-1'}
                   rows={3}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   {hasBodyEditor
-                    ? '下のメール本文の【キャンセル理由】欄に反映されます（本文を直接編集した場合はそちらが優先）'
-                    : 'メールの【キャンセル理由】欄に記載されます'}
+                    ? '下のメール本文の【中止理由】欄に反映されます（本文を直接編集した場合はそちらが優先）'
+                    : 'メールの【中止理由】欄に記載されます'}
                 </p>
               </div>
 
@@ -193,7 +257,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                 <div>
                   {recipients.length > 1 ? (
                     <div className="flex items-center gap-2 mb-1">
-                      <Label htmlFor="delete-cancel-recipient">送信先</Label>
+                      <Label htmlFor="delete-cancel-recipient">本文プレビュー</Label>
                       <select
                         id="delete-cancel-recipient"
                         value={recipientIndex}
@@ -202,18 +266,28 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                       >
                         {recipients.map((r, i) => (
                           <option key={r.reservationId} value={i}>
-                            {r.label}{dirtyBodies[i] ? '（編集済み）' : ''}
+                            {i + 1}/{recipients.length} {r.label}{dirtyBodies[i] ? '（編集済み）' : ''}
                           </option>
                         ))}
                       </select>
                     </div>
                   ) : (
                     <div className="text-sm mb-1">
-                      <span className="text-muted-foreground">送信先: </span>
-                      <span className="font-medium">{recipients[0].email || 'メールアドレスなし'}</span>
+                      <span className="text-muted-foreground">本文プレビュー: </span>
+                      <span className="font-medium">{recipients[0].label}</span>
                     </div>
                   )}
-                  <Label htmlFor="delete-cancel-mail-body">メール本文</Label>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label htmlFor="delete-cancel-mail-body">メール本文</Label>
+                    <TemplateEditButton
+                      templateKey="event_cancellation_template"
+                      storeId={prompt?.templateStoreId}
+                      label="公演中止メールのテンプレを編集"
+                      className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                      unavailableMessage="店舗が未選択のためテンプレートを編集できません"
+                      onSaved={handleTemplateSaved}
+                    />
+                  </div>
                   <Textarea
                     id="delete-cancel-mail-body"
                     value={bodies[recipientIndex] ?? ''}
@@ -223,7 +297,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                   />
                   {recipients.length > 1 && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      予約番号などは予約者ごとに異なるため、送信先を切り替えてそれぞれの本文を確認・編集できます
+                      予約番号などは予約者ごとに異なるため、プレビューを切り替えてそれぞれの本文を確認・編集できます
                     </p>
                   )}
                 </div>
@@ -235,21 +309,32 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="delete-cancel-send-email"
-                  checked={sendMail}
+                  checked={sendMail && canSendMail}
+                  disabled={!canSendMail}
                   onCheckedChange={(checked) => setSendMail(!!checked)}
                 />
                 <label
                   htmlFor="delete-cancel-send-email"
                   className="text-sm font-medium cursor-pointer"
                 >
-                  キャンセル確認メールを送信する
+                  {hasBodyEditor
+                    ? `公演中止メールをメール対象全員に送信する（${mailRecipientCount}件）`
+                    : '公演中止メールを送信する'}
                 </label>
               </div>
 
               {/* 実行内容のまとめ（赤いボタンの直前に「何が起きるか」を明示） */}
               <div className="rounded-md border bg-muted/50 p-2 text-xs text-muted-foreground">
                 実行すると:
-                <br />・予約 {prompt?.count ?? 0} 件をキャンセル（メール送信{sendMail ? 'あり' : 'なし'}・記録は残ります）
+                <br />・予約 {prompt?.count ?? 0} 件をすべてキャンセル（記録は残ります）
+                <br />・メール: {sendMail && canSendMail
+                  ? hasBodyEditor
+                    ? `メール対象 ${mailRecipientCount} 件すべてに送信`
+                    : '送信あり'
+                  : '送信しません'}
+                {missingEmailCount > 0 && sendMail && canSendMail
+                  ? `（メールなし ${missingEmailCount} 件は送信不可）`
+                  : ''}
                 <br />
                 {isCancelVariant
                   ? '・この公演を中止（後から復活できます・履歴に記録されます）'
@@ -264,7 +349,9 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                   variant="destructive"
                   onClick={() => onResolve(buildDecision())}
                 >
-                  {sendMail ? `メールを送信して${actionLabel}` : `メールを送らずに${actionLabel}`}
+                  {sendMail && canSendMail
+                    ? hasBodyEditor ? `メール対象全員に送信して${actionLabel}` : `メールを送信して${actionLabel}`
+                    : `メールを送らずに${actionLabel}`}
                 </Button>
               </div>
             </div>

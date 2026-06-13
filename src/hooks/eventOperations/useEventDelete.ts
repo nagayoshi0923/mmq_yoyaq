@@ -38,6 +38,7 @@ import { buildCancellationEmailBody, fetchStoreCancellationEmailContext } from '
 interface UseEventDeleteProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
   organizationId: string | null
+  fetchSchedule?: () => Promise<void> | void
 }
 
 /**
@@ -90,9 +91,14 @@ export function isPendingSaveEvent(event: ScheduleEvent): boolean {
 export const PENDING_SAVE_MESSAGE =
   '公演の保存処理がまだ完了していません。数秒待ってから、もう一度お試しください。'
 
-/** 公演中止・削除時のキャンセルメール既定文（useEventCancel からも使用） */
+/** 公演中止・削除時の中止理由既定文（useEventCancel からも使用） */
 export const DEFAULT_CANCELLATION_REASON =
   '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+
+interface OrganizerCancelReason {
+  id: string
+  content: string
+}
 
 export interface ActiveReservation {
   id: string
@@ -144,8 +150,9 @@ export function formatCustomerLabel(r: ActiveReservation): string {
 }
 
 /**
- * 中止・削除ダイアログ用のキャンセルメール本文コンポーザを組み立てる。
- * 予約一覧の「予約をキャンセル」と同じ生成ロジック（lib/cancellationEmail）を使い、
+ * 中止・削除ダイアログ用の公演中止メール本文コンポーザを組み立てる。
+ * 予約一覧の「予約をキャンセル」と同じ置換ロジック（lib/cancellationEmail）を使い、
+ * テンプレートは公演操作に合わせて event_cancellation_template を使う。
  * 予約者ごとに予約番号・人数などを差し込んだ全文を生成する。
  * ダイアログ側で全文編集でき、編集結果は customEmailBody としてそのまま送信される。
  * 取得失敗時は undefined を返し、ダイアログは理由編集のみにフォールバックする。
@@ -154,16 +161,32 @@ export function formatCustomerLabel(r: ActiveReservation): string {
 export async function buildCancelMailComposer(
   targetEvent: ScheduleEvent,
   reservations: ActiveReservation[]
-): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody'> | undefined> {
+): Promise<Pick<DeleteCancelPrompt, 'recipients' | 'composeBody' | 'reasonOptions' | 'templateStoreId'> | undefined> {
   try {
     const storeId = targetEvent.store_id || targetEvent.venue || null
-    const ctx = await fetchStoreCancellationEmailContext(storeId)
+    // スタッフ起点の公演中止/削除フローなので、本文のテンプレ元も「公演中止メール」
+    // (event_cancellation_template) を読む。Edge Function が cancelledBy:'store' の
+    // ときに使うテンプレ・件名（「【公演中止】〜」）と整合させるため。
+    const [ctx, settingsResult] = await Promise.all([
+      fetchStoreCancellationEmailContext(storeId, 'event_cancellation_template'),
+      storeId
+        ? supabase
+            .from('reservation_settings')
+            .select('organizer_cancel_reasons')
+            .eq('store_id', storeId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
+    const rawReasons = (settingsResult.data as { organizer_cancel_reasons?: unknown } | null)?.organizer_cancel_reasons
+    const reasonOptions = Array.isArray(rawReasons)
+      ? (rawReasons as OrganizerCancelReason[]).map(r => r.content).filter(Boolean)
+      : []
     const recipients = reservations.map(r => ({
       reservationId: r.id,
       label: formatCustomerLabel(r),
       email: r.customer_email,
     }))
-    const composeBody = (recipientIndex: number, reason: string): string => {
+    const composeBody = (recipientIndex: number, reason: string, templateOverride?: string): string => {
       const r = reservations[recipientIndex]
       if (!r) return ''
       return buildCancellationEmailBody({
@@ -181,9 +204,9 @@ export async function buildCancelMailComposer(
         paymentMethod: r.payment_method || 'onsite',
         cancellationPolicy: ctx.cancellationPolicy,
         organizationName: ctx.organizationName,
-      }, ctx.template || undefined)
+      }, (templateOverride ?? ctx.template) || undefined)
     }
-    return { recipients, composeBody }
+    return { recipients, composeBody, reasonOptions, templateStoreId: storeId }
   } catch (e) {
     logger.warn('キャンセルメール本文コンポーザの構築に失敗（理由編集のみで続行）:', e)
     return undefined
@@ -240,6 +263,8 @@ async function handleActiveReservationsBeforeDelete(
           skipGroupCancel: true,
           // ダイアログで全文編集された本文（あればテンプレート生成より優先）
           customEmailBody: decision.bodies?.[r.id],
+          // スタッフ起点の公演削除なので店舗都合（件名・文面を「公演中止」系に）
+          cancelledBy: 'store',
         })
       } else {
         const params: RpcAdminUpdateReservationFieldsParams = {
@@ -400,7 +425,7 @@ async function deletePrivateBookingEventCore(
   }))
 }
 
-export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProps) {
+export function useEventDelete({ setEvents, organizationId, fetchSchedule }: UseEventDeleteProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deletingEvent, setDeletingEvent] = useState<ScheduleEvent | null>(null)
 
@@ -435,6 +460,7 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
   const performDeleteByKind = useCallback(async (targetEvent: ScheduleEvent) => {
     if (isPrivateBookingEvent(targetEvent)) {
       await deletePrivateBookingEventCore(targetEvent, organizationId, setEvents)
+      await fetchSchedule?.()
       return
     }
 
@@ -491,7 +517,8 @@ export function useEventDelete({ setEvents, organizationId }: UseEventDeleteProp
     }
 
     setEvents(prev => prev.filter(event => event.id !== targetEvent.id))
-  }, [setEvents, organizationId])
+    await fetchSchedule?.()
+  }, [setEvents, organizationId, fetchSchedule])
 
   // 削除の入口（右クリックメニュー等から）。
   // 有効予約がある場合は通常の削除確認モーダルを出さない——確定モーダルが先に出ると

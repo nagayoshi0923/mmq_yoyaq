@@ -91,8 +91,10 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
 
       if (sendMail) {
         // 予約をキャンセル（在庫返却 + システムメッセージ + メール送信まで一括）
+        // スタッフ起点の公演中止なので店舗都合（件名・文面を「公演中止」系に）
         await reservationApi.cancel(targetEvent.reservation_id, reason, {
           customEmailBody: customBodies?.[targetEvent.reservation_id],
+          cancelledBy: 'store',
         })
       } else {
         // メールなし: ロックつきキャンセルのみ（在庫返却あり・通知なし）

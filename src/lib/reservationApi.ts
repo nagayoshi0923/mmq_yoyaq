@@ -461,7 +461,7 @@ export const reservationApi = {
   // バックエンド API (/api/reservations?action=cancel) で DB 部分を一括処理し、
   // メール送信 / Discord 通知 / waitlist 通知などの Edge Function 呼び出しは
   // 引き続きクライアント側で実行する（既存挙動の維持）。
-  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string }): Promise<Reservation> {
+  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store' }): Promise<Reservation> {
     // ⚠️ P1-12: 相関ID — キャンセル→メール→通知を一つのフローとして追跡
     const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
     clog.info('キャンセル開始', { reservationId: id })
@@ -510,39 +510,44 @@ export const reservationApi = {
         const scheduleEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
         const storeName = scheduleEvent?.venue || '店舗不明'
 
-        // キャンセル料金を計算（ここでは簡易実装: 24時間前以降は100%）
-        const eventDateTime = new Date(`${scheduleEvent?.date}T${scheduleEvent?.start_time}`)
-        const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-        const cancellationFee = hoursUntilEvent < 24 ? (reservation.total_price || 0) : 0
+        // 却下フローなど、別経路で顧客連絡を行うケースはキャンセル確認メールを送らない
+        // （DB キャンセル・在庫返却・キャンセル待ち通知は従来どおり実施する）。
+        if (!options?.skipCancellationEmail) {
+          // キャンセル料金を計算（ここでは簡易実装: 24時間前以降は100%）
+          const eventDateTime = new Date(`${scheduleEvent?.date}T${scheduleEvent?.start_time}`)
+          const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+          const cancellationFee = hoursUntilEvent < 24 ? (reservation.total_price || 0) : 0
 
-        // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
-        const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
-        const orgIdForEmail = reservation.organization_id || scheduleEvent?.organization_id
-        await supabase.functions.invoke('send-cancellation-confirmation', {
-          body: {
-            organizationId: orgIdForEmail,
-            storeId: scheduleEvent?.store_id,
-            reservationId: reservation.id,
-            customerEmail: cancelMailEmail,
-            customerName: cancelMailName,
-            scenarioTitle: reservation.title || scheduleEvent?.scenario,
-            eventDate: scheduleEvent?.date,
-            startTime: scheduleEvent?.start_time,
-            endTime: scheduleEvent?.end_time,
-            storeName,
-            participantCount: reservation.participant_count,
-            totalPrice: reservation.total_price || 0,
-            reservationNumber: reservation.reservation_number,
-            cancelledBy: 'customer',
-            cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル',
-            cancellationFee,
-            // 中止・削除フローのメール編集ダイアログで全文編集された本文（あれば優先）
-            customEmailBody: options?.customEmailBody,
-            idempotencyKey
-          }
-        })
-        logger.log('キャンセル確認メール送信成功')
-        // user_notifications への挿入は send-cancellation-confirmation Edge Function 内で Service Role を使って実行
+          // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
+          const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
+          const orgIdForEmail = reservation.organization_id || scheduleEvent?.organization_id
+          await supabase.functions.invoke('send-cancellation-confirmation', {
+            body: {
+              organizationId: orgIdForEmail,
+              storeId: scheduleEvent?.store_id,
+              reservationId: reservation.id,
+              customerEmail: cancelMailEmail,
+              customerName: cancelMailName,
+              scenarioTitle: reservation.title || scheduleEvent?.scenario,
+              eventDate: scheduleEvent?.date,
+              startTime: scheduleEvent?.start_time,
+              endTime: scheduleEvent?.end_time,
+              storeName,
+              participantCount: reservation.participant_count,
+              totalPrice: reservation.total_price || 0,
+              reservationNumber: reservation.reservation_number,
+              // スタッフ起点の中止・削除は 'store'（公演中止文面・件名）。既定は顧客都合キャンセル。
+              cancelledBy: options?.cancelledBy ?? 'customer',
+              cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル',
+              cancellationFee,
+              // 中止・削除フローのメール編集ダイアログで全文編集された本文（あれば優先）
+              customEmailBody: options?.customEmailBody,
+              idempotencyKey
+            }
+          })
+          logger.log('キャンセル確認メール送信成功')
+          // user_notifications への挿入は send-cancellation-confirmation Edge Function 内で Service Role を使って実行
+        }
 
         // キャンセル待ち通知を送信
         const orgIdForWaitlist = reservation.organization_id || scheduleEvent?.organization_id
