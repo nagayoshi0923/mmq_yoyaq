@@ -240,6 +240,8 @@ async function handleActiveReservationsBeforeDelete(
           skipGroupCancel: true,
           // ダイアログで全文編集された本文（あればテンプレート生成より優先）
           customEmailBody: decision.bodies?.[r.id],
+          // スタッフ起点の公演削除なので店舗都合（件名・文面を「公演中止」系に）
+          cancelledBy: 'store',
         })
       } else {
         const params: RpcAdminUpdateReservationFieldsParams = {
