@@ -108,8 +108,14 @@
       `syncRelatedDataOnEventDateChange` は `eventSyncHelpers.ts` へ切り出し。
       **useEventOperations 本体は 1589→201 行**（サブフックを合成するファサードのみ。公開IF不変）。
       全コミットで eslint / typecheck / build:fast / unit test を確認。挙動不変。
-- [ ] 4-4 `useScheduleData`(683行) と `useScheduleEventsQuery`(357行) の役割重複を調査
-      （実測済み。当初調査の「26.6K行」はKB誤読と確定）
+- [x] 4-4 `useScheduleData` と `useScheduleEventsQuery` の役割重複を調査（**完了** 2026-06-14）。
+      結論: **重複なし**。`useScheduleEventsQuery`=events の React Query フェッチ層
+      （fetch+整形+キャッシュ helper）、`useScheduleData`=それを委譲利用し stores/scenarios/staff・
+      ±3/±6 プリフェッチ・Realtime購読・setEvents/fetchSchedule を束ねるオーケストレーション層、
+      という綺麗な階層構成。当初の「役割重複」仮説は不成立。
+      副産物: `useScheduleData` に同居していた未使用関数
+      `addDemoParticipantsToPastUnderfullEvents`（約235行・参照ゼロ・実体は独立スクリプト
+      scripts/add-demo-participants-now.cjs）を削除（knip 確認済み）。682→444 行。
 - [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
 - [ ] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
 
