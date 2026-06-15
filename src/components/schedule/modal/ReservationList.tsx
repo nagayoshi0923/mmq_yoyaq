@@ -22,6 +22,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
+import { getDefaultStoreCancellationTemplate } from '@/lib/templateRegistry'
 import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -464,6 +465,9 @@ export function ReservationList({
       let cancellationPolicy = ''
       let organizationName = ''
       let cancellationEmailTemplate = ''
+      let companyName = ''
+      let companyPhone = ''
+      let companyEmail = ''
       const totalPrice = reservation.total_price || reservation.final_price || 0
 
       // 店舗都合のキャンセルなのでキャンセル料は0
@@ -474,7 +478,7 @@ export function ReservationList({
         try {
           const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
             supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
-            supabase.from('email_settings').select('store_cancellation_template, company_name').eq('store_id', storeId).maybeSingle(),
+            supabase.from('email_settings').select('store_cancellation_template, company_name, company_phone, company_email').eq('store_id', storeId).maybeSingle(),
             supabase.from('stores').select('organization_id, organizations(name)').eq('id', storeId).single(),
           ])
 
@@ -485,6 +489,10 @@ export function ReservationList({
           if (emailSettingsResult.data?.store_cancellation_template) {
             cancellationEmailTemplate = emailSettingsResult.data.store_cancellation_template
           }
+          // 「テンプレを編集」の registry デフォルトと同じ会社情報を使うため取得
+          companyName = (emailSettingsResult.data as Record<string, string | null> | null)?.company_name || ''
+          companyPhone = (emailSettingsResult.data as Record<string, string | null> | null)?.company_phone || ''
+          companyEmail = (emailSettingsResult.data as Record<string, string | null> | null)?.company_email || ''
 
           if (storeResult.data?.organizations) {
             // リレーション結果がオブジェクトか配列かを判定
@@ -521,8 +529,13 @@ export function ReservationList({
         organizationName,
         emailBody: ''
       }
-      // メール本文を生成（email_settings のテンプレートを優先）
-      newEmailContent.emailBody = buildCancellationEmailBody(newEmailContent, cancellationEmailTemplate || undefined)
+      // メール本文を生成。未保存時は「テンプレを編集」(TemplateEditDialog)と同じ
+      // registry デフォルト(getDefaultStoreCancellationTemplate)を使い、編集画面と
+      // プレビューの文面を一致させる（buildCancellationEmailBody 内の別 fallback を踏まない）
+      const resolvedCancellationTemplate =
+        cancellationEmailTemplate ||
+        getDefaultStoreCancellationTemplate(companyName || organizationName, companyPhone, companyEmail)
+      newEmailContent.emailBody = buildCancellationEmailBody(newEmailContent, resolvedCancellationTemplate)
       setEmailContent(newEmailContent)
       
       // メールアドレスがある場合はデフォルトでメール送信ON
