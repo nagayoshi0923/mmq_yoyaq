@@ -1678,8 +1678,10 @@ ${normalText}${externalText}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => {
                                 const raw = e.target.value
-                                const val = raw === '' ? 0 : (parseInt(raw) || 0)
-                                handleExternalInputChange(item.scenarioKey, val)
+                                setExternalInputs(prev => ({
+                                  ...prev,
+                                  [item.scenarioKey]: raw === '' ? undefined : (parseInt(raw) || 0)
+                                }))
                               }}
                             />
                             <span className="text-muted-foreground">@¥{item.externalLicenseAmount.toLocaleString()}</span>
@@ -2198,8 +2200,10 @@ ${normalText}${externalText}
                                           value={isOverridden ? effectiveInternal : ''}
                                           onChange={(e) => {
                                             const raw = e.target.value
-                                            const val = raw === '' ? undefined : (parseInt(raw) || 0)
-                                            handleInternalInputChange(internalKey, val)
+                                            setInternalInputs(prev => ({
+                                              ...prev,
+                                              [internalKey]: raw === '' ? undefined : (parseInt(raw) || 0)
+                                            }))
                                           }}
                                         />
                                         <span className="text-xs">回</span>
