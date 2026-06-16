@@ -8,6 +8,7 @@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatJstDateJa } from '@/utils/jstDate'
+import { getDefaultStoreCancellationTemplate, getDefaultEventCancellationTemplate } from '@/lib/templateRegistry'
 
 export interface CancellationEmailContent {
   customerName: string
@@ -125,7 +126,7 @@ export async function fetchStoreCancellationEmailContext(
   try {
     const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
       supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
-      supabase.from('email_settings').select(`${templateKey}, company_name`).eq('store_id', storeId).maybeSingle(),
+      supabase.from('email_settings').select(`${templateKey}, company_name, company_phone, company_email`).eq('store_id', storeId).maybeSingle(),
       supabase.from('stores').select('name, organization_id, organizations(name)').eq('id', storeId).maybeSingle(),
     ])
 
@@ -140,6 +141,18 @@ export async function fetchStoreCancellationEmailContext(
     }
     if (!ctx.organizationName && emailSettings?.company_name) {
       ctx.organizationName = emailSettings.company_name
+    }
+
+    // テンプレ未保存のときは「テンプレを編集」(TemplateEditDialog)と同じ registry
+    // デフォルトを使い、編集画面とプレビュー/送信本文の文面構成を一致させる
+    if (!ctx.template) {
+      const companyName = emailSettings?.company_name || ctx.organizationName || ''
+      const companyPhone = emailSettings?.company_phone || ''
+      const companyEmail = emailSettings?.company_email || ''
+      ctx.template =
+        templateKey === 'event_cancellation_template'
+          ? getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail)
+          : getDefaultStoreCancellationTemplate(companyName, companyPhone, companyEmail)
     }
   } catch (error) {
     logger.warn('キャンセルメール設定取得エラー:', error)

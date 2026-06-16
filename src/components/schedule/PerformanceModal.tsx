@@ -17,6 +17,7 @@ import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { staffApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { reservationApi } from '@/lib/reservationApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import { cn } from '@/lib/utils'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
@@ -108,7 +109,8 @@ async function removeStaffReservation(eventId: string, staffName: string): Promi
     Array.isArray(r.participant_names) && r.participant_names.includes(staffName)
   )
   if (target) {
-    await supabase.from('reservations').delete().eq('id', target.id)
+    // 直接 delete は禁止（no-restricted-syntax）。API 層経由で org 境界チェック付きの物理削除にする
+    await reservationApi.delete(target.id)
   }
 }
 

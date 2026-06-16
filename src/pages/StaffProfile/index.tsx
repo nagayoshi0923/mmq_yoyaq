@@ -463,7 +463,7 @@ export function StaffProfile() {
                               <CircleCheck
                                 checked={Boolean(assignment?.can_main_gm)}
                                 onChange={() =>
-                                  setGmRole(scenario.id, 'main', !Boolean(assignment?.can_main_gm))
+                                  setGmRole(scenario.id, 'main', !assignment?.can_main_gm)
                                 }
                                 color="blue"
                               />
@@ -475,7 +475,7 @@ export function StaffProfile() {
                               <CircleCheck
                                 checked={Boolean(assignment?.can_sub_gm)}
                                 onChange={() =>
-                                  setGmRole(scenario.id, 'sub', !Boolean(assignment?.can_sub_gm))
+                                  setGmRole(scenario.id, 'sub', !assignment?.can_sub_gm)
                                 }
                                 color="blue"
                               />

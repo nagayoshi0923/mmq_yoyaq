@@ -120,7 +120,9 @@ export function ScheduleManager() {
   const [selectedGMs, setSelectedGMs] = useLocalState<string[]>('scheduleSelectedGMs', [])
 
   // 店舗フィルター（localStorageで次回以降も同じ店舗を保持）
-  const [selectedStores, setSelectedStores] = useLocalState<string[]>('scheduleSelectedStores', [])
+  // 店舗フィルタは永続させない（基本クリア状態であってほしい・オーナー指示）。
+  // localStorage に残すと全選択状態が復元され、臨時会場が常に隠れる等の原因になる
+  const [selectedStores, setSelectedStores] = useState<string[]>([])
   const storesInitializedRef = React.useRef(false)
 
   // シフト提出者フィルター（空スロットに表示されるシフト提出者を絞り込む）
