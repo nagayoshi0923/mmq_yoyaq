@@ -468,7 +468,9 @@ ${normalText}${externalText}
       // 手動入力値をexternalInputsに設定（キー = scenarioKey: id or id_gmtest）
       const manualInputs: Record<string, number> = {}
       manualExternalData.forEach((item: any) => {
-        if (item.performance_count > 0) {
+        // 0 も「他社公演数=0の上書き」として保存される（7引数版RPC）。内部上書きと同様に
+        // 0 も読み込まないと、0 にした他社公演数がリロードで自動値に戻ってしまう
+        if (item.performance_count !== undefined && item.performance_count !== null) {
           const key = item.performance_type === 'gmtest'
             ? `${item.scenario_id}_gmtest`
             : item.scenario_id
