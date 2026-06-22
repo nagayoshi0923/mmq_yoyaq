@@ -116,7 +116,17 @@
       副産物: `useScheduleData` に同居していた未使用関数
       `addDemoParticipantsToPastUnderfullEvents`（約235行・参照ゼロ・実体は独立スクリプト
       scripts/add-demo-participants-now.cjs）を削除（knip 確認済み）。682→444 行。
-- [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
+- [x] 4-5 `usePrivateGroup` をファイル分割（**完了** 2026-06-23 / 案A: ファイル分割）。
+      ※ 当初記載「958行を create/invite/**chat** の3系統に」は実態と乖離していた。実ファイルは942行で
+      既に3つの export 済みフック（`usePrivateGroup` 主操作群 / `usePrivateGroupData` ID取得+Realtime /
+      `usePrivateGroupByInviteCode` 招待コード取得+Realtime）＋モジュールヘルパで構成され、**chat は本ファイルに無い**
+      （chat は `GroupChat.tsx`/`PrivateGroupManage` 側）。これが「分割軸が実態と不一致」の正体。
+      対応: フック境界そのままに4ファイルへ verbatim 分離。
+      `usePrivateGroup.ts`(942→**561**) / `usePrivateGroupData.ts`(98) / `usePrivateGroupByInviteCode.ts`(136) /
+      共有ヘルパ `privateGroupHelpers.ts`(163: getSystemMessageSettings/sendSystemMessage/enrichMembersWithNames/enrichGroupWithViewData)。
+      import 元2箇所（PrivateGroupManage / PrivateGroupInvite）を新パスへ更新。挙動不変。
+      検証: tsc=0 / eslint=0 / build:fast / test:unit 23 passed。
+      ※ 残: 主 `usePrivateGroup()`（操作系統 creation/query/membership で更に分割可＝案B）は別タスク候補
 - [ ] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
 
 ※ このフェーズは各コミット後にステージングでスケジュール画面の動作確認を必ず挟む。

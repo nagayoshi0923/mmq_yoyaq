@@ -27,7 +27,8 @@ import {
   UserMinus,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { usePrivateGroup, usePrivateGroupData } from '@/hooks/usePrivateGroup'
+import { usePrivateGroup } from '@/hooks/usePrivateGroup'
+import { usePrivateGroupData } from '@/hooks/usePrivateGroupData'
 import { GroupChat } from './components/GroupChat'
 import { UserSearchInvite } from './components/UserSearchInvite'
 import { AddCandidateDates } from './components/AddCandidateDates'
