@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { planKitTransfers, type PlannerDemand, type KitState } from '../kitTransferPlanner'
-import type { Scenario, Store } from '@/types'
+import {
+  planKitTransfers,
+  findOverdueTransfers,
+  type PlannerDemand,
+  type KitState,
+} from '../kitTransferPlanner'
+import type { Scenario, Store, KitTransferEvent, KitTransferCompletion } from '@/types'
 
 // ── テスト用ビルダ（必要な列だけ） ───────────────────────────────
 function mkStore(id: string, opts: Partial<Store> = {}): Store {
@@ -187,5 +192,76 @@ describe('planKitTransfers', () => {
     const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
     expect(plan.transfers).toHaveLength(0)
     expect(plan.shortages.some(s => s.store_id === 'B' && s.date === TODAY)).toBe(true)
+  })
+})
+
+// ── 持ち越しの責任追及（findOverdueTransfers） ──────────────────
+function mkEvent(opts: Partial<KitTransferEvent> = {}): KitTransferEvent {
+  return {
+    id: 'ev-1',
+    organization_id: 'org',
+    scenario_master_id: S1,
+    kit_number: 1,
+    from_store_id: 'A',
+    to_store_id: 'B',
+    transfer_date: '2026-07-10',
+    status: 'pending',
+    created_by: 'user-creator',
+    created_at: '',
+    updated_at: '',
+    ...opts,
+  } as unknown as KitTransferEvent
+}
+function mkCompletion(opts: Partial<KitTransferCompletion> = {}): KitTransferCompletion {
+  return {
+    id: 'c-1',
+    organization_id: 'org',
+    scenario_master_id: S1,
+    kit_number: 1,
+    performance_date: '2026-07-11',
+    from_store_id: 'A',
+    to_store_id: 'B',
+    picked_up_at: null,
+    picked_up_by: null,
+    delivered_at: null,
+    delivered_by: null,
+    created_at: '',
+    updated_at: '',
+    ...opts,
+  } as unknown as KitTransferCompletion
+}
+
+describe('findOverdueTransfers', () => {
+  it('O-1 pending・予定日が過去・完了記録なし → 未実行(not_started)・超過日数', () => {
+    const events = [mkEvent({ transfer_date: '2026-07-10' })]
+    const res = findOverdueTransfers(events, [], TODAY) // TODAY=2026-07-13
+    expect(res).toHaveLength(1)
+    expect(res[0].state).toBe('not_started')
+    expect(res[0].daysOverdue).toBe(3)
+    expect(res[0].event.created_by).toBe('user-creator')
+  })
+
+  it('O-2 回収済みだが未設置 → picked_up_only', () => {
+    const events = [mkEvent()]
+    const completions = [mkCompletion({ picked_up_at: '2026-07-10T09:00:00Z', picked_up_by: 'staff-x' })]
+    const res = findOverdueTransfers(events, completions, TODAY)
+    expect(res).toHaveLength(1)
+    expect(res[0].state).toBe('picked_up_only')
+  })
+
+  it('O-3 設置済み(delivered) → 未実行ではない（除外）', () => {
+    const events = [mkEvent()]
+    const completions = [mkCompletion({ picked_up_at: 'x', delivered_at: '2026-07-10T12:00:00Z' })]
+    expect(findOverdueTransfers(events, completions, TODAY)).toHaveLength(0)
+  })
+
+  it('O-4 status=completed / cancelled は対象外', () => {
+    const events = [mkEvent({ status: 'completed' }), mkEvent({ id: 'ev-2', status: 'cancelled' })]
+    expect(findOverdueTransfers(events, [], TODAY)).toHaveLength(0)
+  })
+
+  it('O-5 予定日が今日/未来は対象外', () => {
+    const events = [mkEvent({ transfer_date: TODAY }), mkEvent({ id: 'ev-2', transfer_date: '2026-07-20' })]
+    expect(findOverdueTransfers(events, [], TODAY)).toHaveLength(0)
   })
 })
