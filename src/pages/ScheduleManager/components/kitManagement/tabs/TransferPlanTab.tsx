@@ -27,6 +27,29 @@ type DemandEvent = {
 type SuggestionGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferSuggestion[] }
 type TransferEventGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferEvent[] }
 
+const CATEGORY_BADGES: Record<string, { label: string; className: string }> = {
+  open: { label: 'オープン', className: 'border-blue-200 bg-blue-50 text-blue-700' },
+  private: { label: '貸切', className: 'border-purple-200 bg-purple-50 text-purple-700' },
+  gmtest: { label: 'GMテスト', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  testplay: { label: 'テスト', className: 'border-slate-200 bg-slate-50 text-slate-700' },
+  offsite: { label: '出張', className: 'border-green-200 bg-green-50 text-green-700' },
+  venue_rental: { label: '場所貸し', className: 'border-pink-200 bg-pink-50 text-pink-700' },
+  venue_rental_free: { label: '場所貸し', className: 'border-pink-200 bg-pink-50 text-pink-700' },
+  package: { label: 'パッケージ', className: 'border-cyan-200 bg-cyan-50 text-cyan-700' },
+  mtg: { label: 'MTG', className: 'border-gray-200 bg-gray-50 text-gray-700' },
+}
+
+function getCategoryBadge(event?: DemandEvent): { label: string; className: string } {
+  if (!event) return CATEGORY_BADGES.open
+  if (event.category === 'private' || event.is_private_request || event.is_private_booking) {
+    return CATEGORY_BADGES.private
+  }
+  return CATEGORY_BADGES[event.category || 'open'] || {
+    label: event.category || 'オープン',
+    className: 'border-gray-200 bg-gray-50 text-gray-700',
+  }
+}
+
 interface TransferPlanTabProps {
   // 新ロジック（再設計版）: 緊急ボード用
   plannedTransfers: KitTransferSuggestion[]
@@ -873,6 +896,9 @@ export function TransferPlanTab({
                                                   const hasPrivatePerformance = matchingEvents.some(e =>
                                                     e.category === 'private' || e.is_private_request || e.is_private_booking
                                                   )
+                                                  const categoryBadge = getCategoryBadge(
+                                                    matchingEvents.find(e => e.date === suggestion.performance_date) || matchingEvents[0]
+                                                  )
                                                   
                                                   // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
                                                   const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_master_id
@@ -906,6 +932,9 @@ export function TransferPlanTab({
                                                       )}
                                                       <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isCancelled ? 'line-through text-gray-400' : ''}`}>
                                                         {allDatesStr}
+                                                      </Badge>
+                                                      <Badge variant="outline" className={`text-[9px] px-1 py-0 ${categoryBadge.className}`}>
+                                                        {categoryBadge.label}
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
@@ -994,6 +1023,9 @@ export function TransferPlanTab({
                                                   const hasPrivatePerformance = matchingEvents.some(e =>
                                                     e.category === 'private' || e.is_private_request || e.is_private_booking
                                                   )
+                                                  const categoryBadge = getCategoryBadge(
+                                                    matchingEvents.find(e => e.date === suggestion.performance_date) || matchingEvents[0]
+                                                  )
                                                   
                                                   // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
                                                   const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_master_id
@@ -1027,6 +1059,9 @@ export function TransferPlanTab({
                                                       )}
                                                       <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isCancelled ? 'line-through text-gray-400' : ''}`}>
                                                         {allDatesStr}
+                                                      </Badge>
+                                                      <Badge variant="outline" className={`text-[9px] px-1 py-0 ${categoryBadge.className}`}>
+                                                        {categoryBadge.label}
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
