@@ -640,27 +640,6 @@ export function TransferPlanTab({
                                   })
                                 })
                                 
-                                // ルートをソート
-                                const sortRoutesByGroup = (routes: typeof groups) => {
-                                  return [...routes].sort((a, b) => {
-                                    const storeAData = storeMap.get(a.to_store_id)
-                                    const storeBData = storeMap.get(b.to_store_id)
-                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
-                                  })
-                                }
-                                const sortIncomingByGroup = (routes: typeof groups) => {
-                                  return [...routes].sort((a, b) => {
-                                    const storeAData = storeMap.get(a.from_store_id)
-                                    const storeBData = storeMap.get(b.from_store_id)
-                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
-                                  })
-                                }
-                                
-                                const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
-                                const incomingRoutes = sortIncomingByGroup(groupIncoming)
-                                const isStartStop = stopIndex === 0
-                                const displayIncomingRoutes = isStartStop ? [] : incomingRoutes
-
                                 // 予約0件（移動必要なし）のアイテムは出/入のカウントから除外
                                 const hasBookings = (suggestion: KitTransferSuggestion) => {
                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
@@ -678,6 +657,28 @@ export function TransferPlanTab({
                                   const total = matchingEvents.reduce((s, e) => s + (e.current_participants || 0), 0)
                                   return total > 0
                                 }
+                                const getRoutePriorityRank = (route: typeof groups[number]) => {
+                                  return route.items.some(hasBookings) ? 0 : 1
+                                }
+                                // ルートをソート（移動必要を含む行き先/受け取り元を先に表示）
+                                const sortRoutesByGroup = (routes: typeof groups) => {
+                                  return [...routes].sort((a, b) => {
+                                    const priorityDiff = getRoutePriorityRank(a) - getRoutePriorityRank(b)
+                                    if (priorityDiff !== 0) return priorityDiff
+                                    const storeAData = storeMap.get(a.to_store_id)
+                                    const storeBData = storeMap.get(b.to_store_id)
+                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
+                                  })
+                                }
+                                const sortIncomingByGroup = (routes: typeof groups) => {
+                                  return [...routes].sort((a, b) => {
+                                    const priorityDiff = getRoutePriorityRank(a) - getRoutePriorityRank(b)
+                                    if (priorityDiff !== 0) return priorityDiff
+                                    const storeAData = storeMap.get(a.from_store_id)
+                                    const storeBData = storeMap.get(b.from_store_id)
+                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
+                                  })
+                                }
                                 const getSuggestionPriorityRank = (suggestion: KitTransferSuggestion) => {
                                   return hasBookings(suggestion) ? 0 : 1
                                 }
@@ -692,6 +693,10 @@ export function TransferPlanTab({
                                     return a.kit_number - b.kit_number
                                   })
                                 }
+                                const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
+                                const incomingRoutes = sortIncomingByGroup(groupIncoming)
+                                const isStartStop = stopIndex === 0
+                                const displayIncomingRoutes = isStartStop ? [] : incomingRoutes
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 const incomingCount = displayIncomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 const outgoingItemCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
