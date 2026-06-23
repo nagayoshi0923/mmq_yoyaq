@@ -1351,17 +1351,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // キット（キット番号ごと）の固定トグル。固定キットは移動計画で動かさない。
   // scenarioId は orgScenarioId || scenario.id（API はどちらでも解決）。
   const handleToggleKitFixed = async (scenarioId: string, kitNumber: number, isFixed: boolean) => {
+    const matches = (l: KitLocation) =>
+      (l.org_scenario_id === scenarioId || l.scenario?.id === scenarioId) && l.kit_number === kitNumber
+    // 楽観更新：即座に🔒を反映（API完了を待たずに見た目を変える）
+    setKitLocations(prev => prev.map(l => matches(l) ? { ...l, is_fixed: isFixed } : l))
     try {
       await kitApi.updateKitFixed(scenarioId, kitNumber, isFixed)
-      setKitLocations(prev => prev.map(l =>
-        (l.org_scenario_id === scenarioId || l.scenario?.id === scenarioId) && l.kit_number === kitNumber
-          ? { ...l, is_fixed: isFixed }
-          : l
-      ))
       showToast.success(isFixed ? 'このキットを固定しました（移動計画で動かしません）' : 'キットの固定を解除しました')
     } catch (e) {
+      // 失敗したら元に戻す＋明示
       console.error('Failed to toggle kit is_fixed:', e)
-      showToast.error('固定設定の更新に失敗しました')
+      setKitLocations(prev => prev.map(l => matches(l) ? { ...l, is_fixed: !isFixed } : l))
+      showToast.error('固定設定の更新に失敗しました（APIデプロイ待ち/権限の可能性）')
     }
   }
 
