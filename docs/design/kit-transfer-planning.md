@@ -81,12 +81,52 @@
 - 同点で2案 → **移動回数が少ない方**を選ぶ
 - 移動日提案が制約（home最終使用後〜dest初回使用前）を満たす
 
-## 未決（オーナー確認したい）
+## 決定事項（2026-06-23・全確定）
 
-1. **「同住所」の判定**：`kit_group_id` を正とする（提案）／実住所比較も足す？
-2. **tie-break の優先**：近い拠点 と 公演直前、どちらを上に？
-3. **「原則1週1回」の例外**：どうしても週2回要るケースは「不足として出す」か「例外的に2回許可」か？
-4. ✅ **決定（2026-06-23）**：移動は **必ず公演の前日までに到着**（当日着は危険なので禁止）。**T ≤ 公演日 − 1**。
+1. ✅ **「同住所」の判定** = 既存 `kit_group_id`（手動グループ）を同一拠点とみなす。実住所の自動比較は足さない。
+2. ✅ **tie-break の優先** = ①移動回数最小 → ②近い拠点（region→住所近接）→ ③公演前日寄りの日。
+3. ✅ **「週1回」の例外** = 例外許可せず、週2回要るケースは**不足として明示**（正しさ優先）。必要なら後日 週2回解禁を検討。
+4. ✅ **前日必着** = 当日着は禁止。**T ≤ 公演日 − 1**。
+
+### 残課題（将来・今は入れない）
+- 移動日に「運べない曜日（スタッフ都合等）」の制約があるか。今は home最終使用後〜公演前日の範囲で**任意日**に運べる前提。必要になれば「許可日フィルタ」を後付けする。
+
+## API 契約（新モジュール `src/utils/kitTransferPlanner.ts`）
+
+旧 `kitOptimizer.calculateKitTransfers` は当面据え置き、新ロジックは別モジュールで作りテストで固める。
+
+※ `KitDemand` は `src/types/kit.ts` に別用途の同名型があるため、planner 入力は `PlannerDemand` とする。
+
+```ts
+export interface PlannerDemand {
+  date: string              // 'YYYY-MM-DD'
+  store_id: string
+  scenario_master_id: string
+  start_time: string        // 'HH:MM'（時間重複判定に使用）
+  end_time: string          // 'HH:MM'
+}
+
+export interface KitShortageItem {
+  date: string
+  store_id: string
+  scenario_master_id: string
+  needed: number            // 必要数（最大同時数）
+  available: number         // 確保できた数
+}
+
+export interface KitTransferPlan {
+  transfers: KitTransferSuggestion[]   // transfer_date = 到着日（= 公演日-1 以前）
+  shortages: KitShortageItem[]         // 解消できなかった不足（必ず返す）
+}
+
+// 移動日は引数で受け取らない（システムが最適日を決める）
+export function planKitTransfers(
+  initialState: KitState,
+  demands: PlannerDemand[],
+  scenarios: Scenario[],
+  stores: Store[],
+): KitTransferPlan
+```
 
 ---
 
