@@ -1,7 +1,7 @@
 import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { TabsContent } from '@/components/ui/tabs'
-import { GripVertical, Lock, LockOpen } from 'lucide-react'
+import { GripVertical } from 'lucide-react'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import type { KitCondition, Store, Scenario } from '@/types'
 import type { DraggedKit } from '../types'
@@ -24,7 +24,6 @@ interface StoreInventoryTabProps {
   handleDragOver: (e: React.DragEvent, storeId: string) => void
   handleDragLeave: () => void
   handleDrop: (e: React.DragEvent, toStoreId: string) => Promise<void>
-  handleToggleKitFixed: (store: Store) => Promise<void>
   handleDragStart: (e: React.DragEvent, scenarioId: string, kitNumber: number, fromStoreId: string) => void
   handleDragEnd: () => void
   handleContextMenu: (e: React.MouseEvent, scenarioId: string, kitNumber: number, storeId: string, condition: KitCondition) => void
@@ -38,7 +37,6 @@ export function StoreInventoryTab({
   handleDragOver,
   handleDragLeave,
   handleDrop,
-  handleToggleKitFixed,
   handleDragStart,
   handleDragEnd,
   handleContextMenu,
@@ -65,27 +63,15 @@ export function StoreInventoryTab({
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, store.id)}
                   >
-                    {/* カラムヘッダー */}
-                    <div className={`p-2 border-b rounded-t-lg ${store.kit_fixed ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200' : 'bg-muted/50'}`}>
+                    {/* カラムヘッダー（固定は「現在の配置」タブでキットごとに設定） */}
+                    <div className="p-2 border-b rounded-t-lg bg-muted/50">
                       <div className="flex items-center justify-between gap-1">
                         <span className="font-medium text-sm truncate">
                           {store.short_name || store.name}
                         </span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Badge variant="secondary" className="text-xs h-5">
-                            {totalKits}
-                          </Badge>
-                          <button
-                            onClick={() => handleToggleKitFixed(store)}
-                            title={store.kit_fixed ? '固定中（クリックで解除）' : '固定なし（クリックで固定）'}
-                            className={`h-5 w-5 flex items-center justify-center rounded transition-colors ${store.kit_fixed ? 'text-orange-500 hover:text-orange-700' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
-                          >
-                            {store.kit_fixed
-                              ? <Lock className="h-3.5 w-3.5" />
-                              : <LockOpen className="h-3.5 w-3.5" />
-                            }
-                          </button>
-                        </div>
+                        <Badge variant="secondary" className="text-xs h-5 shrink-0">
+                          {totalKits}
+                        </Badge>
                       </div>
                     </div>
                     

@@ -5,6 +5,7 @@ import { TabsContent } from '@/components/ui/tabs'
 import { ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { KitLocation, Store, Scenario, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
 import { WEEKDAYS, formatCompletionDate } from '../helpers'
+import type { KitShortageItem, OverdueTransfer } from '@/utils/kitTransferPlanner'
 
 /**
  * キット管理ダイアログ「移動計画(transfers)」タブ。最大のタブのため、まずは JSX を
@@ -17,6 +18,9 @@ type SuggestionGroup = { from_store_id: string; from_store_name: string; to_stor
 type TransferEventGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferEvent[] }
 
 interface TransferPlanTabProps {
+  // 新ロジック（再設計版）: 緊急ボード用
+  newShortages: KitShortageItem[]      // 手遅れ等・解消できない不足
+  overdueTransfers: OverdueTransfer[]  // 持ち越し（未実行の確定移動）
   // 移動日設定
   transferDates: string[]
   setTransferDates: Dispatch<SetStateAction<string[]>>
@@ -49,6 +53,8 @@ interface TransferPlanTabProps {
 }
 
 export function TransferPlanTab({
+  newShortages,
+  overdueTransfers,
   transferDates,
   setTransferDates,
   setSelectedOffsets,
@@ -78,6 +84,119 @@ export function TransferPlanTab({
   return (
           <TabsContent value="transfers" className="flex-1 overflow-auto">
             <div className="space-y-4">
+              {/* 🔴 緊急ボード（再設計版・今日起点）: 手遅れ＋持ち越し */}
+              {(newShortages.length > 0 || overdueTransfers.length > 0) && (
+                <div className="border-2 border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 space-y-3">
+                  <div>
+                    <div className="flex items-center gap-2 font-bold text-red-800 dark:text-red-200">
+                      <AlertTriangle className="h-4 w-4" />
+                      🔴 緊急ボード（今すぐ判断が必要）
+                    </div>
+                    <div className="text-[11px] text-red-600/80 dark:text-red-300/80 mt-0.5">
+                      システムが自動で最適な移動を組んでも解決できない分です（移動計画では消えません）
+                    </div>
+                  </div>
+
+                  {/* ① 間に合わない（時間切れ） */}
+                  {newShortages.some(s => s.reason === 'too_late') && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-red-700 dark:text-red-300">
+                        🔴 間に合わない（公演が近すぎて前日までに運べない）: {newShortages.filter(s => s.reason === 'too_late').length}件
+                      </div>
+                      {newShortages.filter(s => s.reason === 'too_late').map((s, i) => {
+                        const sc = scenarioMap.get(s.scenario_master_id)
+                        const st = storeMap.get(s.store_id)
+                        return (
+                          <div key={`late-${i}`} className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300 flex-wrap">
+                            <span className="font-medium">{formatDate(s.date)}</span>
+                            <span>{st?.short_name || st?.name || s.store_id}</span>
+                            <span>-</span>
+                            <span>{sc?.title || s.scenario_master_id}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* ② 固定店にあり移動不可（固定解除で使える） */}
+                  {newShortages.some(s => s.reason === 'locked_fixed') && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        🟠 固定店にあり・移動不可（その店の「固定」を解除すれば使えます）: {newShortages.filter(s => s.reason === 'locked_fixed').length}件
+                      </div>
+                      {newShortages.filter(s => s.reason === 'locked_fixed').map((s, i) => {
+                        const sc = scenarioMap.get(s.scenario_master_id)
+                        const st = storeMap.get(s.store_id)
+                        const lockedNames = (s.lockedStoreIds || [])
+                          .map(id => storeMap.get(id)?.short_name || storeMap.get(id)?.name || id)
+                          .join('・')
+                        return (
+                          <div key={`lock-${i}`} className="flex items-center gap-2 text-sm text-orange-700 dark:text-orange-300 flex-wrap">
+                            <span className="font-medium">{formatDate(s.date)}</span>
+                            <span>{st?.short_name || st?.name || s.store_id}</span>
+                            <span>-</span>
+                            <span>{sc?.title || s.scenario_master_id}</span>
+                            {lockedNames && <span className="text-orange-500">（{lockedNames} に在庫あり・固定中）</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* ③ キット不足（移動しても足りない/出せない） */}
+                  {newShortages.some(s => s.reason === 'no_capacity') && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        🟠 キット不足（移動しても台数が足りない・出せるキットが無い）: {newShortages.filter(s => s.reason === 'no_capacity').length}件
+                      </div>
+                      {newShortages.filter(s => s.reason === 'no_capacity').map((s, i) => {
+                        const sc = scenarioMap.get(s.scenario_master_id)
+                        const st = storeMap.get(s.store_id)
+                        return (
+                          <div key={`cap-${i}`} className="flex items-center gap-2 text-sm text-orange-700 dark:text-orange-300 flex-wrap">
+                            <span className="font-medium">{formatDate(s.date)}</span>
+                            <span>{st?.short_name || st?.name || s.store_id}</span>
+                            <span>-</span>
+                            <span>{sc?.title || s.scenario_master_id}</span>
+                            <span className="text-orange-500">（不足 {s.needed - s.available}／必要 {s.needed}・在庫 {s.available}）</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {overdueTransfers.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold text-red-700 dark:text-red-300">
+                        未実行の確定移動（持ち越し・要追跡）: {overdueTransfers.length}件
+                      </div>
+                      {overdueTransfers.map((o, i) => {
+                        const ev = o.event
+                        const sc = scenarioMap.get(ev.scenario_master_id)
+                        const from = storeMap.get(ev.from_store_id)
+                        const to = storeMap.get(ev.to_store_id)
+                        return (
+                          <div key={`ovd-${i}`} className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300 flex-wrap">
+                            <span className="font-medium">{formatDate(ev.transfer_date)} 予定</span>
+                            <span className="text-red-600 font-semibold">{o.daysOverdue}日超過</span>
+                            <span>{sc?.title || ev.scenario_master_id} #{ev.kit_number}</span>
+                            <span>{from?.short_name || from?.name || ev.from_store_id}</span>
+                            <ArrowRight className="h-3 w-3" />
+                            <span>{to?.short_name || to?.name || ev.to_store_id}</span>
+                            <span className="text-[10px] px-1 rounded bg-red-100 dark:bg-red-800">
+                              {o.state === 'picked_up_only' ? '回収済み・未設置' : '未着手'}
+                            </span>
+                            {ev.created_by && (
+                              <span className="text-[10px] text-muted-foreground">確定者ID: {ev.created_by.slice(0, 8)}</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 移動日設定 */}
               <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg flex-wrap">
                 <span className="text-sm font-medium whitespace-nowrap">移動日:</span>

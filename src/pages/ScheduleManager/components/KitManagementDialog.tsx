@@ -26,6 +26,7 @@ import { kitApi } from '@/lib/api/kitApi'
 import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
+import { planKitTransfers, findOverdueTransfers, type PlannerDemand, type OverdueTransfer } from '@/utils/kitTransferPlanner'
 import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario, KitCondition, KitTransferCompletion } from '@/types'
 import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
@@ -34,7 +35,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
 import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, HelpCircle, Lock, LockOpen } from 'lucide-react'
-import { formatJstMonthDay } from '@/utils/jstDate'
+import { formatJstMonthDay, toJstYmd } from '@/utils/jstDate'
 import type { DraggedKit, ContextMenuState, KitManagementDialogProps } from './kitManagement/types'
 import { WEEKDAYS, formatCompletionDate } from './kitManagement/helpers'
 import { CurrentPlacementTab } from './kitManagement/tabs/CurrentPlacementTab'
@@ -52,6 +53,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     date: string
     store_id: string
     scenario_master_id: string
+    start_time?: string
+    end_time?: string
     is_cancelled?: boolean
     current_participants?: number
     capacity?: number
@@ -704,6 +707,73 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return [...filteredSuggestions, ...additionalFromCompletions]
   }, [suggestions, completions, scenarios, stores, kitLocations, demandDates])
 
+  // ── 新・移動計画ロジック（再設計版 / planKitTransfers）──────────
+  // 仕様: docs/design/kit-transfer-planning.md
+  // 今日起点・前日必着・同住所×時間重複は最大同時数・解消不能は shortages。
+  // ※現状は緊急ボード（手遅れ＝shortages / 持ち越し＝overdue）に使用。一覧の置換は後続。
+  const planToday = toJstYmd(new Date())
+  // 分析期間の上限（今日 +14日）
+  const planHorizonEnd = useMemo(() => {
+    const [y, m, d] = planToday.split('-').map(Number)
+    const dt = new Date(y, m - 1, d)
+    dt.setDate(dt.getDate() + 14)
+    return toJstYmd(dt)
+  }, [planToday])
+
+  // kitLocations から現在のキット配置（scenario.id ベース）
+  const kitStateForPlan = useMemo<KitState>(() => {
+    const state: KitState = {}
+    for (const loc of kitLocations) {
+      const scenarioId = loc.scenario?.id
+      if (!scenarioId) continue
+      if (!state[scenarioId]) state[scenarioId] = {}
+      state[scenarioId][loc.kit_number] = loc.store_id
+    }
+    return state
+  }, [kitLocations])
+
+  // 時刻つき需要（今日以降・キャンセル除外）。時刻欠落は終日扱い（重複＝多めに必要＝安全側）
+  const plannerDemands = useMemo<PlannerDemand[]>(() => {
+    return scheduleEvents
+      .filter(e => {
+        if (!e.scenario_master_id || e.is_cancelled) return false
+        if (!(e.date >= planToday && e.date <= planHorizonEnd)) return false
+        // キット管理対象（kit_count>0）のシナリオのみ。非対象は不足に数えない
+        const sc = scenarioMap.get(e.scenario_master_id)
+        return !!sc && (sc.kit_count || 0) > 0
+      })
+      .map(e => ({
+        date: e.date,
+        store_id: e.store_id,
+        scenario_master_id: e.scenario_master_id,
+        start_time: e.start_time || '00:00',
+        end_time: e.end_time || '23:59',
+      }))
+  }, [scheduleEvents, planToday, planHorizonEnd, scenarioMap])
+
+  // 固定キット（キット番号ごと）。kitLocations.is_fixed から集合を作る。
+  // ※固定は「キット番号ごと」。店舗固定(stores.kit_fixed)は使わない。
+  const fixedKitKeys = useMemo(() => {
+    const set = new Set<string>()
+    for (const loc of kitLocations) {
+      const scenarioId = loc.scenario?.id
+      if (scenarioId && loc.is_fixed) set.add(`${scenarioId}-${loc.kit_number}`)
+    }
+    return set
+  }, [kitLocations])
+
+  // 新ロジックの計算結果（移動提案＋解消できない不足）
+  const newPlan = useMemo(
+    () => planKitTransfers(kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys),
+    [kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys],
+  )
+
+  // 持ち越し（未実行の確定移動・責任追及）
+  const overdueTransfers = useMemo<OverdueTransfer[]>(
+    () => findOverdueTransfers(transferEvents, completions, planToday),
+    [transferEvents, completions, planToday],
+  )
+
   // データ取得
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -806,6 +876,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         date: e.date,
         store_id: e.store_id || e.venue,
         scenario_master_id: e.scenario_master_id || '',
+        start_time: e.start_time || '',
+        end_time: e.end_time || '',
         is_cancelled: e.is_cancelled || false,
         current_participants: e.current_participants || 0,
         capacity: e.capacity || 0
@@ -1276,15 +1348,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }
   
   // 店舗固定ステータスをトグル
-  const handleToggleKitFixed = async (store: Store) => {
-    const newValue = !store.kit_fixed
+  // キット（キット番号ごと）の固定トグル。固定キットは移動計画で動かさない。
+  // scenarioId は orgScenarioId || scenario.id（API はどちらでも解決）。
+  const handleToggleKitFixed = async (scenarioId: string, kitNumber: number, isFixed: boolean) => {
     try {
-      await storeApi.update(store.id, { kit_fixed: newValue })
-      setStores(prev => prev.map(s => s.id === store.id ? { ...s, kit_fixed: newValue } : s))
-      showToast.success(newValue ? `${store.short_name || store.name} を固定しました（移動元にならない）` : `${store.short_name || store.name} の固定を解除しました`)
+      await kitApi.updateKitFixed(scenarioId, kitNumber, isFixed)
+      setKitLocations(prev => prev.map(l =>
+        (l.org_scenario_id === scenarioId || l.scenario?.id === scenarioId) && l.kit_number === kitNumber
+          ? { ...l, is_fixed: isFixed }
+          : l
+      ))
+      showToast.success(isFixed ? 'このキットを固定しました（移動計画で動かしません）' : 'キットの固定を解除しました')
     } catch (e) {
-      console.error('Failed to toggle kit_fixed:', e)
-      showToast.error('設定の更新に失敗しました')
+      console.error('Failed to toggle kit is_fixed:', e)
+      showToast.error('固定設定の更新に失敗しました')
     }
   }
 
@@ -1485,6 +1562,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             handleChangeKitCount={handleChangeKitCount}
             handleSetKitLocation={handleSetKitLocation}
             handleUpdateCondition={handleUpdateCondition}
+            handleToggleKitFixed={handleToggleKitFixed}
           />
 
           {/* 店舗別在庫（カラム式） */}
@@ -1497,7 +1575,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             handleDragOver={handleDragOver}
             handleDragLeave={handleDragLeave}
             handleDrop={handleDrop}
-            handleToggleKitFixed={handleToggleKitFixed}
             handleDragStart={handleDragStart}
             handleDragEnd={handleDragEnd}
             handleContextMenu={handleContextMenu}
@@ -1520,6 +1597,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           {/* 移動計画 */}
           {/* 移動計画(transfers)（kitManagement/tabs/TransferPlanTab.tsx へ切り出し） */}
           <TransferPlanTab
+            newShortages={newPlan.shortages}
+            overdueTransfers={overdueTransfers}
             transferDates={transferDates}
             setTransferDates={setTransferDates}
             setSelectedOffsets={setSelectedOffsets}
