@@ -15,6 +15,7 @@ export interface ContextMenuState {
   kitNumber: number
   storeId: string
   condition: KitCondition
+  isFixed: boolean  // このキットが固定中か（キット番号ごと）
 }
 
 export interface KitManagementDialogProps {

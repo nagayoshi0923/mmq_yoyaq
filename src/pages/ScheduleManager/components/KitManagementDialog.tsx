@@ -1442,13 +1442,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     condition: KitCondition
   ) => {
     e.preventDefault()
+    // このキットが固定中か（キット番号ごと）を kitLocations から判定
+    const isFixed = kitLocations.some(l =>
+      (l.org_scenario_id === scenarioId || l.scenario?.id === scenarioId) &&
+      l.kit_number === kitNumber && !!l.is_fixed
+    )
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
       scenarioId,
       kitNumber,
       storeId,
-      condition
+      condition,
+      isFixed
     })
   }
 
@@ -1562,7 +1568,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             handleChangeKitCount={handleChangeKitCount}
             handleSetKitLocation={handleSetKitLocation}
             handleUpdateCondition={handleUpdateCondition}
-            handleToggleKitFixed={handleToggleKitFixed}
+            handleContextMenu={handleContextMenu}
           />
 
           {/* 店舗別在庫（カラム式） */}
@@ -1635,6 +1641,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
         >
+          <ContextMenuItem
+            onClick={() => {
+              handleToggleKitFixed(contextMenu.scenarioId, contextMenu.kitNumber, !contextMenu.isFixed)
+              setContextMenu(null)
+            }}
+          >
+            {contextMenu.isFixed
+              ? <><LockOpen className="h-3 w-3 mr-2" />固定を解除</>
+              : <><Lock className="h-3 w-3 mr-2" />このキットを固定（動かさない）</>}
+          </ContextMenuItem>
+
+          <ContextMenuSeparator />
+
           <ContextMenuLabel>状態を変更</ContextMenuLabel>
           {(Object.keys(KIT_CONDITION_LABELS) as KitCondition[]).map(cond => (
             <ContextMenuItem
