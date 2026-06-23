@@ -409,7 +409,7 @@ export function TransferPlanTab({
                       return (
                         <>
                           {missedWarning}
-                          {sortedDays.map(({ dateStr, groups, routeStops, startStoreOptions, selectedStartValue }) => {
+                          {sortedDays.map(({ dateStr, groups, routeStops, startCarryInRoutes, startStoreOptions, selectedStartValue }) => {
                         const transferDate = parseLocalDate(dateStr)
                         const transferDayOfWeek = transferDate.getDay()
                         const dayShort = WEEKDAYS.find(w => w.value === transferDayOfWeek)?.short || '?'
@@ -494,6 +494,24 @@ export function TransferPlanTab({
                                           </Badge>
                                         )}
                                       </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {startCarryInRoutes.length > 0 && (
+                              <div className="mb-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-2 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-200">
+                                <div className="mb-1 text-xs font-semibold">出発前に起点へ持ち込み</div>
+                                <div className="space-y-1">
+                                  {startCarryInRoutes.map((route, routeIdx) => (
+                                    <div key={`${dateStr}-start-carry-${routeIdx}`} className="flex flex-wrap items-center gap-1.5 text-xs">
+                                      <Badge variant="outline" className="bg-white/70 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+                                        {route.items.length}件
+                                      </Badge>
+                                      <span className="font-medium">{route.from_store_name}</span>
+                                      <ArrowRight className="h-3 w-3" />
+                                      <span className="font-medium">{route.to_store_name}</span>
                                     </div>
                                   ))}
                                 </div>

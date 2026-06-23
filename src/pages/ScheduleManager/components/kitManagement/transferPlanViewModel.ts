@@ -33,6 +33,7 @@ export type TransferDayView = {
   dateStr: string
   groups: SuggestionGroup[]
   routeStops: TransferRouteStop[]
+  startCarryInRoutes: SuggestionGroup[]
   startStoreOptions: TransferStartStoreOption[]
   selectedStartValue: string
 }
@@ -394,6 +395,7 @@ export function buildTransferPlanViewModel({
         ? selectedStartStoreId
         : '__auto__'
 
+      let startCarryInRoutes: SuggestionGroup[] = []
       const routeStops = sortedStoreGroups.map(([groupId, storeIdsInGroup], stopIndex) => {
         const groupOutgoing: SuggestionGroup[] = []
         const groupIncoming: SuggestionGroup[] = []
@@ -415,8 +417,12 @@ export function buildTransferPlanViewModel({
 
         const outgoingRoutes = sortOutgoingRoutes(groupOutgoing)
           .map(route => ({ ...route, items: sortSuggestionsByPriority(route.items) }))
-        const incomingRoutes = (stopIndex === 0 ? [] : sortIncomingRoutes(groupIncoming))
+        const sortedIncomingRoutes = sortIncomingRoutes(groupIncoming)
           .map(route => ({ ...route, items: sortSuggestionsByPriority(route.items) }))
+        if (stopIndex === 0) {
+          startCarryInRoutes = sortedIncomingRoutes
+        }
+        const incomingRoutes = stopIndex === 0 ? [] : sortedIncomingRoutes
         const previousGroup = stopIndex > 0 ? sortedStoreGroups[stopIndex - 1] : null
 
         const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
@@ -456,6 +462,7 @@ export function buildTransferPlanViewModel({
         dateStr,
         groups,
         routeStops,
+        startCarryInRoutes,
         startStoreOptions,
         selectedStartValue,
       }
