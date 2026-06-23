@@ -1253,7 +1253,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     } finally {
       setIsCalculating(false)
     }
-  }, [kitLocations, scheduleEvents, demandDates, scenariosWithKits, stores, transferDates])
+  }, [kitLocations, scheduleEvents, demandDates, scenarios, scenariosWithKits, stores, transferDates])
 
   // データが揃ったら自動で移動計画を計算（デバウンス付き）
   useEffect(() => {
