@@ -171,16 +171,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return weekEnd < today
   }, [selectedWeekStart])
   
-  // 週が変わったら記憶した曜日オフセットから移動日を再構成
+  // 週または記憶した曜日オフセットが変わったら移動日を再構成
   useEffect(() => {
     if (weekDates.length > 0) {
-      const dates = selectedOffsetsRef.current
+      const dates = selectedOffsets
         .filter(i => i >= 0 && i < weekDates.length)
         .map(i => weekDates[i])
         .filter((d): d is string => Boolean(d))
       setTransferDates(dates)
     }
-  }, [weekDates])
+  }, [weekDates, selectedOffsets])
   
   // 週間需要で表示する日付リスト（公演期間 = 移動日の翌日〜最後の移動日がカバーする範囲）
   // 例: 月・金移動の場合 → 火曜〜翌週月曜
