@@ -367,9 +367,9 @@ export function TransferPlanTab({
                       const plannedTransferDateStrs = displaySuggestions
                         .map(suggestion => suggestion.transfer_date)
                         .filter((date): date is string => !!date)
-                      const usesPlannedTransferDates = plannedTransferDateStrs.length > 0
+                      const usesSelectedTransferDates = transferDates.length > 0
                       const sortedTransferDateStrs = [
-                        ...new Set(usesPlannedTransferDates ? plannedTransferDateStrs : transferDates),
+                        ...new Set(usesSelectedTransferDates ? transferDates : plannedTransferDateStrs),
                       ].sort()
                       
                       // 日付文字列からローカル日付オブジェクトを作成（タイムゾーン問題を回避）
@@ -492,7 +492,7 @@ export function TransferPlanTab({
                         if (!actualTransferDateStr) continue
                         
                         // 選択された移動日のみ含める
-                        if (!usesPlannedTransferDates && !transferDates.includes(actualTransferDateStr)) continue
+                        if (usesSelectedTransferDates && !transferDates.includes(actualTransferDateStr)) continue
                         
                         // 移動日でグループ化
                         if (!itemsByTransferDate.has(actualTransferDateStr)) {
@@ -774,7 +774,7 @@ export function TransferPlanTab({
                         return (
                           <div key={dateStr}>
                             {/* 移動日ヘッダー（複数日ある場合のみ表示） */}
-                            {transferDates.length > 1 && (
+                            {sortedDays.length > 1 && (
                               <div className={`flex items-center gap-2 mb-2 px-2 py-1 rounded-lg ${isPastTransferDate ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-primary/10'}`}>
                                 <Calendar className={`h-4 w-4 ${isPastTransferDate ? 'text-amber-600' : 'text-primary'}`} />
                                 <span className="font-bold">{transferDateLabel} 移動</span>
@@ -792,7 +792,9 @@ export function TransferPlanTab({
 
                             {startStoreOptions.length > 0 && (
                               <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-2">
-                                <span className="text-xs font-medium text-muted-foreground">起点店舗</span>
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {sortedDays.length > 1 ? `${transferDateLabel}の起点店舗` : '起点店舗'}
+                                </span>
                                 <Select value={selectedStartValue} onValueChange={handleStartStoreChange}>
                                   <SelectTrigger className="h-8 w-[180px] text-xs">
                                     <SelectValue />
