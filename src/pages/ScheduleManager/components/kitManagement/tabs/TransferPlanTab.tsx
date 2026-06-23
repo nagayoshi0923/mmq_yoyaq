@@ -868,6 +868,20 @@ export function TransferPlanTab({
                                   const total = matchingEvents.reduce((s, e) => s + (e.current_participants || 0), 0)
                                   return total > 0
                                 }
+                                const getSuggestionPriorityRank = (suggestion: KitTransferSuggestion) => {
+                                  return hasBookings(suggestion) ? 0 : 1
+                                }
+                                const sortSuggestionsByPriority = (items: KitTransferSuggestion[]) => {
+                                  return [...items].sort((a, b) => {
+                                    const priorityDiff = getSuggestionPriorityRank(a) - getSuggestionPriorityRank(b)
+                                    if (priorityDiff !== 0) return priorityDiff
+                                    const dateDiff = a.performance_date.localeCompare(b.performance_date)
+                                    if (dateDiff !== 0) return dateDiff
+                                    const titleDiff = a.scenario_title.localeCompare(b.scenario_title, 'ja')
+                                    if (titleDiff !== 0) return titleDiff
+                                    return a.kit_number - b.kit_number
+                                  })
+                                }
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
 
@@ -951,7 +965,7 @@ export function TransferPlanTab({
                                                 {route.from_store_name}から {storeIdsInGroup.length > 1 && `→ ${toStoreName}へ`}
                                               </div>
                                               <div className="space-y-1">
-                                                {route.items.map((suggestion, index) => {
+                                                {sortSuggestionsByPriority(route.items).map((suggestion, index) => {
                                                   // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付とイベント情報を取得
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
@@ -1078,7 +1092,7 @@ export function TransferPlanTab({
                                               
                                               {/* キット一覧 */}
                                               <div className="space-y-1">
-                                                {route.items.map((suggestion, index) => {
+                                                {sortSuggestionsByPriority(route.items).map((suggestion, index) => {
                                                   // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付とイベント情報を取得
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
