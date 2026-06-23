@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { KitLocation, Store, StoreTravelTime, Scenario, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
 import { WEEKDAYS, formatCompletionDate } from '../helpers'
+import { buildTransferPlanViewModel, formatDateStr, parseLocalDate } from '../transferPlanViewModel'
+import type { SuggestionGroup } from '../transferPlanViewModel'
 import type { KitShortageItem, OverdueTransfer } from '@/utils/kitTransferPlanner'
 
 /**
@@ -25,7 +27,6 @@ type DemandEvent = {
   current_participants?: number
   capacity?: number
 }
-type SuggestionGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferSuggestion[] }
 type TransferEventGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferEvent[] }
 
 const CATEGORY_BADGES: Record<string, { label: string; className: string }> = {
@@ -129,25 +130,16 @@ export function TransferPlanTab({
   handleToggleDelivery,
   handleUpdateStatus,
 }: TransferPlanTabProps) {
-  const completionSuggestions = mergedSuggestions.filter(
-    suggestion => suggestion.reason === '完了記録' || !!suggestion.transfer_date,
-  )
-  const displaySuggestions = (() => {
-    const source = [...plannedTransfers, ...completionSuggestions]
-    const seen = new Set<string>()
-    return source.filter(suggestion => {
-      const key = [
-        suggestion.org_scenario_id || suggestion.scenario_master_id,
-        suggestion.kit_number,
-        suggestion.from_store_id,
-        suggestion.to_store_id,
-        suggestion.performance_date,
-      ].join('::')
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  })()
+  const transferPlanView = buildTransferPlanViewModel({
+    plannedTransfers,
+    mergedSuggestions,
+    transferDates,
+    kitLocations,
+    getStoreGroupId,
+    isPickedUp,
+    isDelivered,
+  })
+  const displaySuggestions = transferPlanView.displaySuggestions
 
   return (
           <TabsContent value="transfers" className="flex-1 overflow-auto">
@@ -364,191 +356,15 @@ export function TransferPlanTab({
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
                   <div className="space-y-4">
                     {(() => {
-                      const plannedTransferDateStrs = displaySuggestions
-                        .map(suggestion => suggestion.transfer_date)
-                        .filter((date): date is string => !!date)
-                      const usesSelectedTransferDates = transferDates.length > 0
-                      const sortedTransferDateStrs = [
-                        ...new Set(usesSelectedTransferDates ? transferDates : plannedTransferDateStrs),
-                      ].sort()
-                      
-                      // 日付文字列からローカル日付オブジェクトを作成（タイムゾーン問題を回避）
-                      const parseLocalDate = (dateStr: string): Date => {
-                        const [year, month, day] = dateStr.split('-').map(Number)
-                        return new Date(year, month - 1, day)
-                      }
-                      
-                      // 日付をYYYY-MM-DD形式の文字列に変換（ローカル）
-                      const formatDateStr = (date: Date): string => {
-                        const year = date.getFullYear()
-                        const month = String(date.getMonth() + 1).padStart(2, '0')
-                        const day = String(date.getDate()).padStart(2, '0')
-                        return `${year}-${month}-${day}`
-                      }
-                      
-                      // 今日の日付（ローカル）
+                      const {
+                        sortedTransferDateStrs,
+                        sortedDays,
+                        missedPerformances,
+                      } = transferPlanView
                       const todayStr = formatDateStr(new Date())
-                      
-                      // 移動日が過去かどうかを判定
                       const isTransferDatePast = (transferDateStr: string): boolean => {
                         return transferDateStr < todayStr
                       }
-                      
-                      // 公演日から実際の移動日を計算する関数
-                      // ルール: 当日運搬は危険なので、公演日より前の直近の移動日を使用
-                      const getActualTransferDate = (performanceDate: string): string | null => {
-                        if (sortedTransferDateStrs.length === 0) return null
-                        
-                        const perfDateStr = performanceDate
-                        
-                        // 公演日より前の移動日を探す（直近のもの）
-                        let responsibleTransferDate: string | null = null
-                        
-                        for (let i = sortedTransferDateStrs.length - 1; i >= 0; i--) {
-                          const transferDateStr = sortedTransferDateStrs[i]
-                          if (transferDateStr < perfDateStr) {
-                            responsibleTransferDate = transferDateStr
-                            break
-                          }
-                        }
-                        
-                        // 公演日より前の移動日がない場合、前週の最後の移動日を探す
-                        if (!responsibleTransferDate && sortedTransferDateStrs.length > 0) {
-                          // 最後の移動日を使用（週をまたぐケース）
-                          const lastTransferDate = parseLocalDate(sortedTransferDateStrs[sortedTransferDateStrs.length - 1])
-                          // 1週間前の同じ曜日を計算
-                          const prevWeekDate = new Date(lastTransferDate)
-                          prevWeekDate.setDate(prevWeekDate.getDate() - 7)
-                          responsibleTransferDate = formatDateStr(prevWeekDate)
-                        }
-                        
-                        return responsibleTransferDate
-                      }
-                      
-                      // 間に合わない公演を検出（選択した移動日では対応できない公演）
-                      // 最初の移動日より前の公演は間に合わない
-                      const missedPerformances: typeof suggestions = []
-                      const firstTransferDate = sortedTransferDateStrs[0] || ''
-                      
-                      // 各キットを個別に移動日で振り分け、その後ルートでグループ化
-                      // Map: transferDate -> Map: (from+to+scenario) -> items[]
-                      type ItemWithTransfer = typeof suggestions[0] & { actualTransferDate: string }
-                      const itemsByTransferDate = new Map<string, ItemWithTransfer[]>()
-                      
-                      // デバッグ用
-                      console.log('🚚 移動日計算デバッグ:', {
-                        sortedTransferDateStrs,
-                        weekDates,
-                        totalItems: displaySuggestions.length
-                      })
-                      
-                      // キットの現在位置マップを作成
-                      const kitCurrentLocationMap = new Map<string, string>()
-                      for (const loc of kitLocations) {
-                        const scenarioId = loc.scenario?.id
-                        if (scenarioId) {
-                          kitCurrentLocationMap.set(`${scenarioId}-${loc.kit_number}`, loc.store_id)
-                        }
-                      }
-                      
-                      // 各アイテムを個別に処理
-                      for (const item of displaySuggestions) {
-                        const perfDateStr = item.performance_date
-                        
-                        // キットが既に目的地にある場合はスキップ（移動不要）
-                        // ただし回収済み or 設置完了済みはチェック状態表示のため残す
-                        const currentLocation = kitCurrentLocationMap.get(`${item.scenario_master_id}-${item.kit_number}`)
-                        const itemLookupScenarioId = item.org_scenario_id || item.scenario_master_id
-                        const itemPickedUp = isPickedUp(itemLookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
-                        const itemDelivered = isDelivered(itemLookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
-                        if (currentLocation === item.to_store_id && !itemPickedUp && !itemDelivered) {
-                          continue
-                        }
-                        
-                        // 回収済み・設置済みも表示する（チェック状態を確認できるように）
-                        // 視覚的にはスタイリングで区別される（青=回収済み、緑=設置完了）
-                        
-                        // 完了記録からの項目かどうか
-                        const isFromCompletion = !!item.transfer_date
-                        
-                        // 移動日を決定
-                        let actualTransferDateStr: string | null
-                        if (isFromCompletion) {
-                          // 新ロジック/完了記録: 計画済みの移動日をそのまま使用
-                          actualTransferDateStr = item.transfer_date!
-                        } else {
-                          // オプティマイザ提案: performance_date から計算
-                          actualTransferDateStr = getActualTransferDate(item.performance_date)
-                        }
-                        
-                        // 移動日より前または同日の公演はスキップ（間に合わない）
-                        if (actualTransferDateStr && perfDateStr <= actualTransferDateStr) {
-                          if (!isFromCompletion) {
-                            missedPerformances.push(item)
-                          }
-                          continue
-                        }
-                        
-                        if (!actualTransferDateStr) continue
-                        
-                        // 選択された移動日のみ含める
-                        if (usesSelectedTransferDates && !transferDates.includes(actualTransferDateStr)) continue
-                        
-                        // 移動日でグループ化
-                        if (!itemsByTransferDate.has(actualTransferDateStr)) {
-                          itemsByTransferDate.set(actualTransferDateStr, [])
-                        }
-                        itemsByTransferDate.get(actualTransferDateStr)!.push({
-                          ...item,
-                          actualTransferDate: actualTransferDateStr
-                        })
-                      }
-                      
-                      // 移動日ごとにルートでグループ化し直す
-                      const byTransferDate = new Map<string, typeof groupedSuggestions>()
-                      
-                      for (const [transferDateStr, items] of itemsByTransferDate) {
-                        // このtransferDate内でルートごとにグループ化
-                        const routeGroups = new Map<string, typeof items>()
-                        
-                        for (const item of items) {
-                          const fromGroupId = getStoreGroupId(item.from_store_id)
-                          const toGroupId = getStoreGroupId(item.to_store_id)
-                          const routeKey = `${fromGroupId}->${toGroupId}::${item.scenario_master_id}`
-                          
-                          if (!routeGroups.has(routeKey)) {
-                            routeGroups.set(routeKey, [])
-                          }
-                          routeGroups.get(routeKey)!.push(item)
-                        }
-                        
-                        // groupedSuggestions形式に変換（アイテムは公演日の昇順でソート）
-                        const groups: typeof groupedSuggestions = []
-                        for (const [, routeItems] of routeGroups) {
-                          const first = routeItems[0]
-                          const fromGroupId = getStoreGroupId(first.from_store_id)
-                          const toGroupId = getStoreGroupId(first.to_store_id)
-                          // 公演日の昇順でソート
-                          const sortedItems = [...routeItems].sort((a, b) => 
-                            a.performance_date.localeCompare(b.performance_date)
-                          )
-                          groups.push({
-                            from_store_id: first.from_store_id,
-                            from_store_name: first.from_store_name,
-                            to_store_id: first.to_store_id,
-                            to_store_name: first.to_store_name,
-                            isGrouped: fromGroupId === toGroupId,
-                            items: sortedItems
-                          })
-                        }
-                        
-                        byTransferDate.set(transferDateStr, groups)
-                      }
-                      
-                      // 日付順にソート
-                      const sortedDays = [...byTransferDate.entries()].sort((a, b) => 
-                        a[0].localeCompare(b[0])
-                      )
                       
                       // 間に合わない公演の警告表示
                       const missedWarning = missedPerformances.length > 0 ? (
@@ -595,7 +411,7 @@ export function TransferPlanTab({
                       return (
                         <>
                           {missedWarning}
-                          {sortedDays.map(([dateStr, groups], dayIndex) => {
+                          {sortedDays.map(({ dateStr, groups }, dayIndex) => {
                         const transferDate = parseLocalDate(dateStr)
                         const transferDayOfWeek = transferDate.getDay()
                         const dayShort = WEEKDAYS.find(w => w.value === transferDayOfWeek)?.short || '?'
