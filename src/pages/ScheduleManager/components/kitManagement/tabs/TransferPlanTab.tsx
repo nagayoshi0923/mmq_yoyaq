@@ -75,7 +75,6 @@ interface TransferPlanTabProps {
   mergedSuggestions: KitTransferSuggestion[]
   groupedSuggestions: SuggestionGroup[]
   groupedTransferEvents: TransferEventGroup[]
-  completions: KitTransferCompletion[]
   scheduleEvents: DemandEvent[]
   kitLocations: KitLocation[]
   storeTravelTimes: StoreTravelTime[]
@@ -114,7 +113,6 @@ export function TransferPlanTab({
   mergedSuggestions,
   groupedSuggestions,
   groupedTransferEvents,
-  completions,
   scheduleEvents,
   kitLocations,
   storeTravelTimes,
@@ -325,11 +323,11 @@ export function TransferPlanTab({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm sm:text-base">移動提案 ({displaySuggestions.length}件)</span>
+                      <span className="text-sm sm:text-base">移動提案 ({transferPlanView.visibleSuggestions.length}件)</span>
                       {(() => {
-                        const deliveredCount = completions.filter(c => c.delivered_at).length
-                        const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
-                        const remainingCount = displaySuggestions.length - deliveredCount - pickedUpCount
+                        const deliveredCount = transferPlanView.statusCounts.delivered
+                        const pickedUpCount = transferPlanView.statusCounts.pickedUp
+                        const remainingCount = transferPlanView.statusCounts.remaining
                         return (
                           <>
                             {deliveredCount > 0 && (

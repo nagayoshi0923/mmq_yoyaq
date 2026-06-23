@@ -94,4 +94,25 @@ describe('buildTransferPlanViewModel', () => {
     })
     expect(visible.sortedDays).toHaveLength(1)
   })
+
+  it('ステータス件数は表示中の提案だけを数える', () => {
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [
+        suggestion({ transfer_date: '2026-06-26', kit_number: 1 }),
+        suggestion({ transfer_date: '2026-06-26', kit_number: 2 }),
+        suggestion({ transfer_date: '2026-06-25', kit_number: 3 }),
+      ],
+      isPickedUp: (_scenarioId, kitNumber) => kitNumber === 1 || kitNumber === 2 || kitNumber === 3,
+      isDelivered: (_scenarioId, kitNumber) => kitNumber === 2 || kitNumber === 3,
+    })
+
+    expect(view.visibleSuggestions.map(item => item.kit_number)).toEqual([1, 2])
+    expect(view.statusCounts).toEqual({
+      delivered: 1,
+      pickedUp: 1,
+      remaining: 0,
+    })
+  })
 })

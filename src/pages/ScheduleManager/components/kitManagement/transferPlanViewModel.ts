@@ -26,6 +26,12 @@ type BuildTransferPlanViewModelParams = {
 
 export type TransferPlanViewModel = {
   displaySuggestions: KitTransferSuggestion[]
+  visibleSuggestions: KitTransferSuggestion[]
+  statusCounts: {
+    delivered: number
+    pickedUp: number
+    remaining: number
+  }
   sortedTransferDateStrs: string[]
   sortedDays: TransferDayView[]
   missedPerformances: KitTransferSuggestion[]
@@ -174,8 +180,29 @@ export function buildTransferPlanViewModel({
       return { dateStr, groups }
     })
 
+  const visibleSuggestions = sortedDays.flatMap(day =>
+    day.groups.flatMap(group => group.items)
+  )
+  const delivered = visibleSuggestions.filter(item => {
+    const lookupScenarioId = item.org_scenario_id || item.scenario_master_id
+    return isDelivered(lookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
+  }).length
+  const pickedUp = visibleSuggestions.filter(item => {
+    const lookupScenarioId = item.org_scenario_id || item.scenario_master_id
+    return (
+      isPickedUp(lookupScenarioId, item.kit_number, item.performance_date, item.to_store_id) &&
+      !isDelivered(lookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
+    )
+  }).length
+
   return {
     displaySuggestions,
+    visibleSuggestions,
+    statusCounts: {
+      delivered,
+      pickedUp,
+      remaining: visibleSuggestions.length - delivered - pickedUp,
+    },
     sortedTransferDateStrs,
     sortedDays,
     missedPerformances,

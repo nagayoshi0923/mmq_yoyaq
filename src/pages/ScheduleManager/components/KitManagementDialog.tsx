@@ -1659,7 +1659,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             mergedSuggestions={mergedSuggestions}
             groupedSuggestions={groupedSuggestions}
             groupedTransferEvents={groupedTransferEvents}
-            completions={completions}
             scheduleEvents={scheduleEvents}
             kitLocations={kitLocations}
             storeTravelTimes={storeTravelTimes}
