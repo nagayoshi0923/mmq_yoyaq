@@ -686,6 +686,19 @@ export function TransferPlanTab({
                           storeIdsInGroup.some(storeId =>
                             (bySource.get(storeId) || []).some(route => getStoreGroupId(route.to_store_id) !== groupId)
                           )
+                        const hasDropAtGroup = (storeIdsInGroup: string[], groupId: string): boolean =>
+                          storeIdsInGroup.some(storeId =>
+                            (byDestination.get(storeId) || []).some(route => getStoreGroupId(route.from_store_id) !== groupId)
+                          )
+                        const canStartAtGroup = (storeIdsInGroup: string[], groupId: string): boolean =>
+                          hasPickupAtGroup(storeIdsInGroup, groupId) && !hasDropAtGroup(storeIdsInGroup, groupId)
+                        const canVisitAfter = (storeIdsInGroup: string[], groupId: string, visitedGroupIds: Set<string>): boolean =>
+                          storeIdsInGroup.every(storeId =>
+                            (byDestination.get(storeId) || []).every(route => {
+                              const fromGroupId = getStoreGroupId(route.from_store_id)
+                              return fromGroupId === groupId || visitedGroupIds.has(fromGroupId)
+                            })
+                          )
                         const displayOrderOfGroup = (storeIdsInGroup: string[]): number =>
                           Math.min(...storeIdsInGroup.map(storeId => storeMap.get(storeId)?.display_order ?? 999))
                         const orderGroupsByRoute = (entries: Array<[string, string[]]>): Array<[string, string[]]> => {
@@ -694,23 +707,34 @@ export function TransferPlanTab({
                           const selectedStartStoreId = transferStartStoreIds[dateStr]
                           const selectedStartGroupId = selectedStartStoreId ? getStoreGroupId(selectedStartStoreId) : null
                           const selectedStartIndex = selectedStartGroupId
-                            ? remaining.findIndex(([groupId, storeIds]) => groupId === selectedStartGroupId || storeIds.includes(selectedStartStoreId))
+                            ? remaining.findIndex(([groupId, storeIds]) =>
+                              (groupId === selectedStartGroupId || storeIds.includes(selectedStartStoreId)) &&
+                              canStartAtGroup(storeIds, groupId)
+                            )
                             : -1
-                          const pickupStartIndex = remaining.findIndex(([groupId, storeIds]) => hasPickupAtGroup(storeIds, groupId))
+                          const pickupStartIndex = remaining.findIndex(([groupId, storeIds]) => canStartAtGroup(storeIds, groupId))
+                          const fallbackPickupStartIndex = remaining.findIndex(([groupId, storeIds]) => hasPickupAtGroup(storeIds, groupId))
                           const startIndex = selectedStartIndex >= 0 ? selectedStartIndex : pickupStartIndex
                           const ordered: Array<[string, string[]]> = [
-                            remaining.splice(startIndex >= 0 ? startIndex : 0, 1)[0],
+                            remaining.splice(startIndex >= 0 ? startIndex : fallbackPickupStartIndex >= 0 ? fallbackPickupStartIndex : 0, 1)[0],
                           ]
 
                           while (remaining.length > 0) {
                             const current = ordered[ordered.length - 1]
+                            const visitedGroupIds = new Set(ordered.map(([groupId]) => groupId))
+                            const readyIndexes = remaining
+                              .map((entry, index) => ({ entry, index }))
+                              .filter(({ entry }) => canVisitAfter(entry[1], entry[0], visitedGroupIds))
                             let nextIndex = 0
                             let nextMinutes = Number.POSITIVE_INFINITY
-                            for (let i = 0; i < remaining.length; i++) {
-                              const minutes = getGroupTravelMinutes(current[1], remaining[i][1])
+                            const candidates = readyIndexes.length > 0
+                              ? readyIndexes
+                              : remaining.map((entry, index) => ({ entry, index }))
+                            for (const { entry, index } of candidates) {
+                              const minutes = getGroupTravelMinutes(current[1], entry[1])
                               if (minutes < nextMinutes) {
                                 nextMinutes = minutes
-                                nextIndex = i
+                                nextIndex = index
                               }
                             }
                             ordered.push(remaining.splice(nextIndex, 1)[0])
@@ -720,6 +744,7 @@ export function TransferPlanTab({
                         }
                         const sortedGroups = orderGroupsByRoute([...storeGroups.entries()])
                         const startStoreOptions = [...storeGroups.entries()]
+                          .filter(([groupId, storeIds]) => canStartAtGroup(storeIds, groupId))
                           .sort((a, b) => displayOrderOfGroup(a[1]) - displayOrderOfGroup(b[1]))
                           .map(([groupId, storeIds]) => ({
                             groupId,
