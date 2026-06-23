@@ -884,6 +884,8 @@ export function TransferPlanTab({
                                 }
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+                                const outgoingItemCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
+                                const incomingItemCount = incomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
 
                                 // 未完了カウント（予約ありかつ未完了のアイテム）
                                 const incompleteCount =
@@ -951,9 +953,11 @@ export function TransferPlanTab({
                                     {/* 到着（このグループが必要としているキット）- 設置チェック */}
                                     {incomingRoutes.length > 0 && (
                                       <div className="mb-3">
-                                        <div className="text-xs font-medium text-blue-600 mb-1 flex items-center gap-1">
-                                          <ArrowRight className="h-3 w-3" />
+                                        <div className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-2">
                                           降ろす（設置）
+                                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
+                                            {incomingItemCount}件
+                                          </Badge>
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-blue-200">
                                           {incomingRoutes.map((route, routeIdx) => {
@@ -961,8 +965,15 @@ export function TransferPlanTab({
                                             const toStoreName = toStore?.short_name || toStore?.name || ''
                                             return (
                                             <div key={`in-${routeIdx}`}>
-                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
-                                                {route.from_store_name}から {storeIdsInGroup.length > 1 && `→ ${toStoreName}へ`}
+                                              <div className="mb-1 flex items-center gap-1.5 text-xs text-blue-700">
+                                                <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700">受け取り元</span>
+                                                <span className="font-medium">{route.from_store_name}</span>
+                                                {storeIdsInGroup.length > 1 && (
+                                                  <>
+                                                    <ArrowRight className="h-3 w-3 text-blue-400" />
+                                                    <span className="text-muted-foreground">{toStoreName}へ設置</span>
+                                                  </>
+                                                )}
                                               </div>
                                               <div className="space-y-1">
                                                 {sortSuggestionsByPriority(route.items).map((suggestion, index) => {
@@ -993,6 +1004,7 @@ export function TransferPlanTab({
                                                   const hasPrivatePerformance = matchingEvents.some(e =>
                                                     e.category === 'private' || e.is_private_request || e.is_private_booking
                                                   )
+                                                  const isLowPriority = totalParticipants === 0 && !hasPrivatePerformance
                                                   const categoryBadge = getCategoryBadge(
                                                     matchingEvents.find(e => e.date === suggestion.performance_date) || matchingEvents[0]
                                                   )
@@ -1036,16 +1048,18 @@ export function TransferPlanTab({
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
                                                       {/* 予約状況表示（未完了のみ） */}
-                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && !delivered && (
+                                                      {!isTransferCancelled && !isCancelled && !delivered && (
                                                         <>
-                                                          <span className="text-[10px] font-medium text-muted-foreground">
-                                                            {totalParticipants}/{totalCapacity}
-                                                          </span>
+                                                          {totalCapacity > 0 && (
+                                                            <span className="text-[10px] font-medium text-muted-foreground">
+                                                              {totalParticipants}/{totalCapacity}
+                                                            </span>
+                                                          )}
                                                           <Badge
-                                                            variant={totalParticipants === 0 && !hasPrivatePerformance ? 'secondary' : 'destructive'}
+                                                            variant={isLowPriority ? 'secondary' : 'destructive'}
                                                             className="text-[9px] px-1 py-0"
                                                           >
-                                                            {totalParticipants === 0 && !hasPrivatePerformance ? '優先度低' : '移動必要'}
+                                                            {isLowPriority ? '優先度低' : '移動必要'}
                                                           </Badge>
                                                         </>
                                                       )}
@@ -1075,9 +1089,11 @@ export function TransferPlanTab({
                                     {/* 出発（このグループから持ち出すキット）- 回収チェック */}
                                     {outgoingRoutes.length > 0 && (
                                       <div>
-                                        <div className="text-xs font-medium text-red-600 mb-1 flex items-center gap-1">
-                                          <ArrowRight className="h-3 w-3 rotate-180" />
+                                        <div className="text-xs font-semibold text-red-700 mb-2 flex items-center gap-2">
                                           積む（回収）
+                                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-700 border-red-200">
+                                            {outgoingItemCount}件
+                                          </Badge>
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-red-200">
                                           {outgoingRoutes.map((route, routeIdx) => {
@@ -1086,8 +1102,12 @@ export function TransferPlanTab({
                                             return (
                                             <div key={`out-${routeIdx}`}>
                                               {/* 配達先ヘッダー */}
-                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
-                                                {storeIdsInGroup.length > 1 && `${fromStoreName}から `}→ {route.to_store_name}へ
+                                              <div className="mb-1 flex items-center gap-1.5 text-xs text-red-700">
+                                                <span className="rounded bg-red-50 px-1.5 py-0.5 font-medium text-red-700">行き先</span>
+                                                <span className="font-medium">{route.to_store_name}</span>
+                                                {storeIdsInGroup.length > 1 && (
+                                                  <span className="text-muted-foreground">({fromStoreName}から回収)</span>
+                                                )}
                                               </div>
                                               
                                               {/* キット一覧 */}
@@ -1120,6 +1140,7 @@ export function TransferPlanTab({
                                                   const hasPrivatePerformance = matchingEvents.some(e =>
                                                     e.category === 'private' || e.is_private_request || e.is_private_booking
                                                   )
+                                                  const isLowPriority = totalParticipants === 0 && !hasPrivatePerformance
                                                   const categoryBadge = getCategoryBadge(
                                                     matchingEvents.find(e => e.date === suggestion.performance_date) || matchingEvents[0]
                                                   )
@@ -1163,16 +1184,18 @@ export function TransferPlanTab({
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
                                                       {/* 予約状況表示（未回収のみ） */}
-                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && !pickedUp && (
+                                                      {!isTransferCancelled && !isCancelled && !pickedUp && (
                                                         <>
-                                                          <span className="text-[10px] font-medium text-muted-foreground">
-                                                            {totalParticipants}/{totalCapacity}
-                                                          </span>
+                                                          {totalCapacity > 0 && (
+                                                            <span className="text-[10px] font-medium text-muted-foreground">
+                                                              {totalParticipants}/{totalCapacity}
+                                                            </span>
+                                                          )}
                                                           <Badge
-                                                            variant={totalParticipants === 0 && !hasPrivatePerformance ? 'secondary' : 'destructive'}
+                                                            variant={isLowPriority ? 'secondary' : 'destructive'}
                                                             className="text-[9px] px-1 py-0"
                                                           >
-                                                            {totalParticipants === 0 && !hasPrivatePerformance ? '優先度低' : '移動必要'}
+                                                            {isLowPriority ? '優先度低' : '移動必要'}
                                                           </Badge>
                                                         </>
                                                       )}
