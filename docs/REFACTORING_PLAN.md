@@ -116,8 +116,31 @@
       副産物: `useScheduleData` に同居していた未使用関数
       `addDemoParticipantsToPastUnderfullEvents`（約235行・参照ゼロ・実体は独立スクリプト
       scripts/add-demo-participants-now.cjs）を削除（knip 確認済み）。682→444 行。
-- [ ] 4-5 `usePrivateGroup`（958行）を create / invite / chat の3系統に分離
-- [ ] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
+- [x] 4-5 `usePrivateGroup` をファイル分割（**完了** 2026-06-23 / 案A: ファイル分割）。
+      ※ 当初記載「958行を create/invite/**chat** の3系統に」は実態と乖離していた。実ファイルは942行で
+      既に3つの export 済みフック（`usePrivateGroup` 主操作群 / `usePrivateGroupData` ID取得+Realtime /
+      `usePrivateGroupByInviteCode` 招待コード取得+Realtime）＋モジュールヘルパで構成され、**chat は本ファイルに無い**
+      （chat は `GroupChat.tsx`/`PrivateGroupManage` 側）。これが「分割軸が実態と不一致」の正体。
+      対応: フック境界そのままに4ファイルへ verbatim 分離。
+      `usePrivateGroup.ts`(942→**561**) / `usePrivateGroupData.ts`(98) / `usePrivateGroupByInviteCode.ts`(136) /
+      共有ヘルパ `privateGroupHelpers.ts`(163: getSystemMessageSettings/sendSystemMessage/enrichMembersWithNames/enrichGroupWithViewData)。
+      import 元2箇所（PrivateGroupManage / PrivateGroupInvite）を新パスへ更新。挙動不変。
+      検証: tsc=0 / eslint=0 / build:fast / test:unit 23 passed。
+      ※ 残: 主 `usePrivateGroup()`（操作系統 creation/query/membership で更に分割可＝案B）は別タスク候補
+- [x] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
+      **コード完了（2026-06-23・6/6 サブステップ完了、AuthContext 1,120→134行・挙動不変）**。
+      ※第6歩は staging push 済み・オーナーの実機検証（login/logout/リロード維持/タブ復帰/マルチタブ同期）待ち。
+      各歩は「旧本体と byte 一致(空白除去diff=0)」＋ tsc=0 / eslint=0 / build:fast / test:unit 23 passed で担保。
+      `src/contexts/auth/` 配下へ抽出。共有 state/ref は呼び出し側で生成し deps 注入（クロージャ捕捉タイミングを旧実装と一致させて挙動不変）。
+      - [x] 第1歩 純ヘルパー → `authContextHelpers.ts`（lookupStaffRole/getSignOutRedirectPath/getClientIpAddress/logAuthEvent/定数）`fde32a11`（1,120→981）
+      - [x] 第2歩 ロール解決 `setUserFromSession`(380行) → `resolveUserFromSession.ts`（deps: isProcessingRef/userRef/staffCache/setStaffCache/setUser）`350f724d`（981→603）
+      - [x] 第3歩 リフレッシュ `refreshSession` → `useSessionRefresh.ts`（lastRefreshRef 内包、安定 useCallback）`9b2f0668`（603→544）
+      - [x] 第4歩 アクション `signIn/signOut` → `authActions.ts`（createAuthActions ファクトリ）`ce507e23`（544→449）
+      - [x] 第5歩 セッション `getInitialSession/tryRecoverSession` → `sessionBootstrap.ts`（createSessionBootstrap ファクトリ、deps: resolveDeps/setLoading/setIsInitialized）`dc09dfe6`（449→**356**）
+      - [x] 第6歩（最難関）マウント `useEffect`（~230行）→ `useAuthLifecycle.ts`（`useAuthLifecycle` フック、deps: loading/resolveDeps/getInitialSession/tryRecoverSession/refreshSession/全 ref/各 setter）`f7d8b5c9`（356→**134**）。
+            `onAuthStateChange` 購読／visibilitychange・focus／10分 interval／`BroadcastChannel`（マルチタブ同期）／SIGNED_OUT→`tryRecoverSession` リカバリーを内包し、AuthProvider は「状態＋合成」ファサードに。
+            effect 本体は旧実装と byte 一致（空白除去 diff=0）、依存配列 `[refreshSession]`（マウント時1回）と cleanup（unsubscribe/removeEventListener/clearInterval/channel.close）を維持。tsc=0 / eslint=0 errors / build:fast / test:unit 23 passed。
+            ※ **残: オーナーが staging で login/logout/リロード維持/タブ復帰/マルチタブ同期を実機検証 → OK なら main マージで 4-6 クローズ。**
 
 ※ このフェーズは各コミット後にステージングでスケジュール画面の動作確認を必ず挟む。
 ※ 並行中の org_scope API 化（セキュリティ案件）と同一ファイルを触る場合、コミットを分離する。

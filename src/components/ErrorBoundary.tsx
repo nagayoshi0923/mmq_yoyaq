@@ -1,7 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { logger } from '@/utils/logger'
 import { captureException } from '@/lib/sentry'
-import { isChunkLoadError } from '@/utils/lazyWithRetry'
+import { isChunkLoadError, forceReloadLatest } from '@/utils/lazyWithRetry'
 
 interface Props {
   children: ReactNode
@@ -63,6 +63,11 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload()
   }
 
+  // チャンク更新画面専用: bfcache/中間キャッシュを確実に避けて最新版を取得する
+  handleReloadLatest = (): void => {
+    forceReloadLatest()
+  }
+
   handleGoHome = (): void => {
     window.location.href = '/'
   }
@@ -94,7 +99,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
-                  onClick={this.handleReload}
+                  onClick={this.handleReloadLatest}
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
                   {isDev ? 'ページを再読み込み' : '最新版を読み込む'}
