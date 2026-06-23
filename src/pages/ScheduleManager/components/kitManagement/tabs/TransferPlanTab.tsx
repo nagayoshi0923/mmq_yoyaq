@@ -474,6 +474,32 @@ export function TransferPlanTab({
                               </Badge>
                             </div>
 
+                            {routeStops.length > 0 && (
+                              <div className="mb-2 rounded-md border bg-background px-2 py-2">
+                                <div className="mb-1 text-xs font-medium text-muted-foreground">移動順</div>
+                                <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                                  {routeStops.map((stop, stopIndex) => (
+                                    <div key={`${dateStr}-route-${stop.groupId}`} className="flex items-center gap-1.5">
+                                      {stopIndex > 0 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                      <div className="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1">
+                                        {stopIndex === 0 && (
+                                          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                                            起点
+                                          </Badge>
+                                        )}
+                                        <span className="font-medium">{stop.groupStoreName}</span>
+                                        {stopIndex === routeStops.length - 1 && routeStops.length > 1 && (
+                                          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                                            ゴール
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {startStoreOptions.length > 0 && (
                               <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-2">
                                 <span className="text-xs font-medium text-muted-foreground">
