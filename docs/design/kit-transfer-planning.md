@@ -119,14 +119,35 @@ export interface KitTransferPlan {
   shortages: KitShortageItem[]         // 解消できなかった不足（必ず返す）
 }
 
-// 移動日は引数で受け取らない（システムが最適日を決める）
+// 移動日は引数で受け取らない（システムが最適日を決める）。
+// today は「手遅れ判定」に必須：移動(到着)日 T は today <= T <= 公演日-1 の範囲のみ。
+// この範囲が空（公演が今日以前 等）＝手遅れ → shortages に出す。
 export function planKitTransfers(
   initialState: KitState,
   demands: PlannerDemand[],
   scenarios: Scenario[],
   stores: Store[],
+  today: string,          // 'YYYY-MM-DD'
 ): KitTransferPlan
 ```
+
+## 時間の基準・期間（2026-06-23 決定）
+
+- **基準 = 今日**。**今日〜+14日**の公演を分析（過去日は出さない）。横軸の長さは将来変更可。
+  - ※現行は「今週(月〜日)・過去日込み・週送り」で、“今ヤバい”が埋もれる原因だった。
+- **移動可能日** = `today` 以降のみ（過去には運べない）。前日必着と合わせ `today <= T <= 公演日-1`。
+
+## 状況把握（UI: 一覧ステータス ＋ 緊急ボード）
+
+planKitTransfers の出力から導出する（別ロジック不要）：
+
+- **一覧の行ステータス（シンプル2段階）**
+  - ✅ **在庫あり** … その公演が transfers にも shortages にも無い（既にその拠点にキットがある）
+  - ⚠️ **要対応** … その公演に対する移動が transfers にある（今は無いが手配すれば間に合う）
+- **🔴 緊急ボード（最上部）＋該当行も赤**
+  - (a) **手遅れ** … shortages に出た公演（今日以降に間に合わせる移動が無い／手段なし）
+  - (b) **持ち越し** … 未実行の確定移動（`transferEvents` で到着予定日を過ぎても delivered になっていないもの）
+  - 緊急ボードに出たものは一覧の該当行も赤で示す（ボード＋行色の両方）。
 
 ---
 
