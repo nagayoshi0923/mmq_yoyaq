@@ -7,7 +7,6 @@ import { ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from
 import type { KitLocation, Store, StoreTravelTime, Scenario, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
 import { WEEKDAYS, formatCompletionDate } from '../helpers'
 import { buildTransferPlanViewModel, formatDateStr, parseLocalDate } from '../transferPlanViewModel'
-import type { SuggestionGroup } from '../transferPlanViewModel'
 import type { KitShortageItem, OverdueTransfer } from '@/utils/kitTransferPlanner'
 
 /**
@@ -71,9 +70,7 @@ interface TransferPlanTabProps {
   demandDates: string[]
   // 計算・提案データ
   isCalculating: boolean
-  suggestions: KitTransferSuggestion[]
   mergedSuggestions: KitTransferSuggestion[]
-  groupedSuggestions: SuggestionGroup[]
   groupedTransferEvents: TransferEventGroup[]
   scheduleEvents: DemandEvent[]
   kitLocations: KitLocation[]
@@ -109,9 +106,7 @@ export function TransferPlanTab({
   weekDates,
   demandDates,
   isCalculating,
-  suggestions,
   mergedSuggestions,
-  groupedSuggestions,
   groupedTransferEvents,
   scheduleEvents,
   kitLocations,

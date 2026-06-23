@@ -406,69 +406,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return shortages
   }, [demandDates, scheduleEvents, kitLocations, scenarioMap, isSameStoreGroup])
   
-  // 移動提案をルート（店舗グループ→店舗グループ）でグループ化
-  // ヘッダーはグループ名、個々のアイテムは実際の店舗名を保持
-  const groupedSuggestions = useMemo(() => {
-    const groups = new Map<string, {
-      from_store_id: string
-      from_store_name: string
-      to_store_id: string
-      to_store_name: string
-      isGrouped: boolean  // 複数店舗がグループ化されているか
-      items: KitTransferSuggestion[]
-    }>()
-    
-    for (const s of suggestions) {
-      // 同じグループ内の移動は除外
-      if (isSameStoreGroup(s.from_store_id, s.to_store_id)) {
-        continue
-      }
-      
-      // グループの代表店舗IDでキーを作成
-      const fromGroupId = getStoreGroupId(s.from_store_id)
-      const toGroupId = getStoreGroupId(s.to_store_id)
-      const key = `${fromGroupId}->${toGroupId}`
-      
-      if (!groups.has(key)) {
-        // グループ代表店舗の名前を取得
-        const fromGroupStore = storeMap.get(fromGroupId)
-        const toGroupStore = storeMap.get(toGroupId)
-        // 行き先がグループ化されているか（代表店舗と違う店舗への移動があるか）
-        const isToGrouped = toGroupId !== s.to_store_id
-        groups.set(key, {
-          from_store_id: fromGroupId,
-          from_store_name: fromGroupStore?.short_name || fromGroupStore?.name || s.from_store_name,
-          to_store_id: toGroupId,
-          to_store_name: toGroupStore?.short_name || toGroupStore?.name || s.to_store_name,
-          isGrouped: isToGrouped,
-          items: []
-        })
-      } else {
-        // 既にグループがある場合、異なる店舗への移動があればグループ化フラグを立てる
-        const group = groups.get(key)!
-        if (s.to_store_id !== group.to_store_id && s.to_store_id !== toGroupId) {
-          group.isGrouped = true
-        }
-      }
-      groups.get(key)!.items.push(s)
-    }
-    
-    // 配列に変換して起点店舗の表示順でソート
-    return [...groups.values()].sort((a, b) => {
-      const fromStoreA = storeMap.get(a.from_store_id)
-      const fromStoreB = storeMap.get(b.from_store_id)
-      const orderA = fromStoreA?.display_order ?? 999
-      const orderB = fromStoreB?.display_order ?? 999
-      if (orderA !== orderB) return orderA - orderB
-      // 同じ起点なら行き先の表示順でソート
-      const toStoreA = storeMap.get(a.to_store_id)
-      const toStoreB = storeMap.get(b.to_store_id)
-      const toOrderA = toStoreA?.display_order ?? 999
-      const toOrderB = toStoreB?.display_order ?? 999
-      return toOrderA - toOrderB
-    })
-  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId])
-  
   // 確定済み移動イベントをルート（店舗グループ）でグループ化
   const groupedTransferEvents = useMemo(() => {
     // 同グループ内の移動を除外
@@ -1655,9 +1592,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             weekDates={weekDates}
             demandDates={demandDates}
             isCalculating={isCalculating}
-            suggestions={suggestions}
             mergedSuggestions={mergedSuggestions}
-            groupedSuggestions={groupedSuggestions}
             groupedTransferEvents={groupedTransferEvents}
             scheduleEvents={scheduleEvents}
             kitLocations={kitLocations}
