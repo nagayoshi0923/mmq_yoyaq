@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, X, Minus, Plus, Lock } from 'lucide-react'
+import { Search, X, Minus, Plus, Lock, LockOpen } from 'lucide-react'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import type { KitCondition, KitLocation, Store, Scenario } from '@/types'
 
@@ -33,6 +33,7 @@ interface CurrentPlacementTabProps {
   handleSetKitLocation: (scenarioId: string, kitNumber: number, storeId: string) => Promise<void>
   handleUpdateCondition: (scenarioId: string, kitNumber: number, condition: KitCondition, conditionNotes?: string | null) => Promise<void>
   handleContextMenu: (e: React.MouseEvent, scenarioId: string, kitNumber: number, storeId: string, condition: KitCondition) => void
+  handleToggleKitFixed: (scenarioId: string, kitNumber: number, isFixed: boolean) => Promise<void>
 }
 
 export function CurrentPlacementTab({
@@ -48,6 +49,7 @@ export function CurrentPlacementTab({
   handleSetKitLocation,
   handleUpdateCondition,
   handleContextMenu,
+  handleToggleKitFixed,
 }: CurrentPlacementTabProps) {
   return (
           <TabsContent value="current" className="flex-1 overflow-auto">
@@ -160,11 +162,17 @@ export function CurrentPlacementTab({
                                   <span className="text-sm font-medium">
                                     #{kitNum}
                                   </span>
-                                  {location?.is_fixed && (
-                                    <span title="固定中（移動計画で動かさない）。右クリックで解除" className="text-orange-500 shrink-0">
-                                      <Lock className="h-3.5 w-3.5" />
-                                    </span>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => location && handleToggleKitFixed(orgScenarioId || scenario.id, kitNum, !location.is_fixed)}
+                                    disabled={!location}
+                                    title={location?.is_fixed ? '固定中（移動計画で動かさない）。クリックで解除' : '固定する（移動計画で動かさない）'}
+                                    className={`h-5 w-5 flex items-center justify-center rounded shrink-0 transition-colors disabled:opacity-30 ${location?.is_fixed ? 'text-orange-500 hover:text-orange-700' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
+                                  >
+                                    {location?.is_fixed
+                                      ? <Lock className="h-3.5 w-3.5" />
+                                      : <LockOpen className="h-3.5 w-3.5" />}
+                                  </button>
                                   <Select
                                     value={location?.store_id || ''}
                                     onValueChange={(value) => handleSetKitLocation(orgScenarioId || scenario.id, kitNum, value)}

@@ -1579,6 +1579,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             handleSetKitLocation={handleSetKitLocation}
             handleUpdateCondition={handleUpdateCondition}
             handleContextMenu={handleContextMenu}
+            handleToggleKitFixed={handleToggleKitFixed}
           />
 
           {/* 店舗別在庫（カラム式） */}
