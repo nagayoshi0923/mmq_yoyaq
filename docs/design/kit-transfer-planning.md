@@ -149,6 +149,26 @@ planKitTransfers の出力から導出する（別ロジック不要）：
   - (b) **持ち越し** … 未実行の確定移動（`transferEvents` で到着予定日を過ぎても delivered になっていないもの）
   - 緊急ボードに出たものは一覧の該当行も赤で示す（ボード＋行色の両方）。
 
+## 持ち越しの責任追及（未実行の確定移動・2026-06-23 追加）
+
+過去に運べていなかった確定移動を、後から追跡できるように出す。
+
+- **未実行の定義** = `kit_transfer_events` で `status='pending'` かつ `transfer_date < today` かつ **設置未完了**（対応する `kit_transfer_completions` に `delivered_at` が無い）。
+- **出せる情報**（既存データで可能）:
+  - 移動内容（シナリオ / キット番号 / from→to）
+  - 予定日（`transfer_date`）と **超過日数**（today − transfer_date）
+  - 状態：`not_started`（回収もまだ）/ `picked_up_only`（回収済みだが未設置＝`picked_up_at` あり・`delivered_at` 無し）
+  - **確定者**（`created_by`）、回収済みなら **回収者**（`picked_up_by`）
+- ⚠️ **担当者（運ぶ予定の人）専用フィールドは無い**（`created_by`＝確定者）。明確な担当割当が要るなら `kit_transfer_events.assigned_to` を追加（将来・スキーマ変更）。
+- **関数（純）**：`findOverdueTransfers(events, completions, today) → OverdueTransfer[]`。緊急ボードの(b)に表示。
+  ```ts
+  export interface OverdueTransfer {
+    event: KitTransferEvent
+    daysOverdue: number
+    state: 'not_started' | 'picked_up_only'
+  }
+  ```
+
 ---
 
 ※ 本書で合意 → テストを先に書く（期待挙動を固定）→ kitOptimizer を作り直す → staging で実データ確認、の順で進める。
