@@ -165,6 +165,38 @@ describe('buildTransferPlanViewModel', () => {
     expect(routeStops[3].incomingRoutes.map(route => route.to_store_id)).toEqual(['A'])
   })
 
+  it('起点に戻す必要があるキットは最短になる位置へ差し込む', () => {
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [
+        suggestion({ kit_number: 1, from_store_id: 'A', from_store_name: 'A店', to_store_id: 'B', to_store_name: 'B店' }),
+        suggestion({ kit_number: 2, from_store_id: 'B', from_store_name: 'B店', to_store_id: 'A', to_store_name: 'A店' }),
+        suggestion({ kit_number: 3, from_store_id: 'A', from_store_name: 'A店', to_store_id: 'C', to_store_name: 'C店' }),
+      ],
+      scheduleEvents: [
+        { date: '2026-06-27', store_id: 'B', scenario_master_id: 'scenario-1', current_participants: 1 },
+        { date: '2026-06-27', store_id: 'A', scenario_master_id: 'scenario-1', current_participants: 1 },
+        { date: '2026-06-27', store_id: 'C', scenario_master_id: 'scenario-1', current_participants: 1 },
+      ],
+      demandDates: ['2026-06-27'],
+      storeMap: new Map([
+        ['A', { id: 'A', short_name: 'A店', name: 'A店', display_order: 1 }],
+        ['B', { id: 'B', short_name: 'B店', name: 'B店', display_order: 2 }],
+        ['C', { id: 'C', short_name: 'C店', name: 'C店', display_order: 3 }],
+      ] as any),
+      storeTravelTimes: [
+        { store_a_id: 'A', store_b_id: 'B', minutes: 5 },
+        { store_a_id: 'A', store_b_id: 'C', minutes: 10 },
+        { store_a_id: 'B', store_b_id: 'C', minutes: 100 },
+      ] as any,
+    })
+
+    const routeStops = view.sortedDays[0].routeStops
+    expect(routeStops.map(stop => stop.groupStoreName)).toEqual(['A店', 'B店', 'A店', 'C店'])
+    expect(routeStops[2].incomingRoutes.map(route => route.from_store_id)).toEqual(['B'])
+  })
+
   it('移動必要を含むルートとキットを優先して並べる', () => {
     const view = buildTransferPlanViewModel({
       ...baseParams,

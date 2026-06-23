@@ -458,7 +458,30 @@ export function buildTransferPlanViewModel({
       })
       if (returnToStartIncomingRoutes.length > 0 && routeStops.length > 0) {
         const startStop = routeStops[0]
-        const previousStop = routeStops[routeStops.length - 1]
+        const returnSourceGroupIds = new Set(
+          returnToStartIncomingRoutes.map(route => getStoreGroupId(route.from_store_id))
+        )
+        const latestSourceIndex = Math.max(
+          ...routeStops.map((stop, index) => returnSourceGroupIds.has(stop.groupId) ? index : -1)
+        )
+        const firstAllowedInsertIndex = Math.max(1, latestSourceIndex + 1)
+        let bestInsertIndex = routeStops.length
+        let bestAddedMinutes = Number.POSITIVE_INFINITY
+        for (let insertIndex = firstAllowedInsertIndex; insertIndex <= routeStops.length; insertIndex++) {
+          const previousStop = routeStops[insertIndex - 1]
+          const nextStop = routeStops[insertIndex]
+          const addedMinutes =
+            getGroupTravelMinutes(previousStop.storeIdsInGroup, startStop.storeIdsInGroup) +
+            (nextStop
+              ? getGroupTravelMinutes(startStop.storeIdsInGroup, nextStop.storeIdsInGroup) -
+                getGroupTravelMinutes(previousStop.storeIdsInGroup, nextStop.storeIdsInGroup)
+              : 0)
+          if (addedMinutes < bestAddedMinutes) {
+            bestAddedMinutes = addedMinutes
+            bestInsertIndex = insertIndex
+          }
+        }
+        const previousStop = routeStops[bestInsertIndex - 1]
         const incomingCount = returnToStartIncomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
         const incomingItemCount = returnToStartIncomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
         const incompleteCount = returnToStartIncomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
@@ -466,7 +489,7 @@ export function buildTransferPlanViewModel({
           const id = s.org_scenario_id || s.scenario_master_id
           return !isDelivered(id, s.kit_number, s.performance_date, s.to_store_id)
         }).length, 0)
-        routeStops.push({
+        routeStops.splice(bestInsertIndex, 0, {
           ...startStop,
           groupId: `${startStop.groupId}::return`,
           minutesFromPrevious: getGroupTravelMinutes(previousStop.storeIdsInGroup, startStop.storeIdsInGroup),
@@ -478,6 +501,10 @@ export function buildTransferPlanViewModel({
           incomingItemCount,
           incompleteCount,
         })
+        const nextStop = routeStops[bestInsertIndex + 1]
+        if (nextStop) {
+          nextStop.minutesFromPrevious = getGroupTravelMinutes(startStop.storeIdsInGroup, nextStop.storeIdsInGroup)
+        }
       }
 
       return {
