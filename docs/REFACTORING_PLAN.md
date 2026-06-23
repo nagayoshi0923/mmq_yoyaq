@@ -187,6 +187,7 @@
 - [ ] 5-1 `KitManagementDialog`（3,124行）: 状態→フック、テーブル→子コンポーネント
       **進行中（2026-06-23・6歩構成、各歩 staging push＋挙動不変）**。`components/kitManagement/` 配下へ抽出。
       JSXタブは props 注入で子化（Tabs コンテキストは親 `<Tabs>` から伝播）。各歩は「旧本体と byte 一致（空白除去diff=0）」＋ tsc=0 / eslint=0 errors / build:fast / test:unit 23 passed で担保。
+      🔎 **各歩を staging へ push したら、オーナーは staging で動作確認すること**（手順書: [manual-test-5-1.md](refactoring/manual-test-5-1.md) に各歩のチェックリストを追記している）。確認OKになるまで次の歩に進まない。
       - [x] 第1歩 型・定数・純ヘルパー（DraggedKit/ContextMenuState/Props・WEEKDAYS・formatCompletionDate）→ `kitManagement/types.ts` ＋ `helpers.ts` `765f47c2`（3,124→3,087）
       - [x] 第2歩 「現在の配置」タブ → `kitManagement/tabs/CurrentPlacementTab.tsx`（props: scenarioSearch/scenariosWithKits/scenariosWithoutKits/kitLocations/stores/storeMap/handle{ChangeKitCount,SetKitLocation,UpdateCondition}）`c618952d`（3,087→**2,876**）
       - [x] 第3歩 「店舗別在庫」タブ → `kitManagement/tabs/StoreInventoryTab.tsx`（props: stores/storeInventory/dragOverStoreId/draggedKit/handle{DragOver,DragLeave,Drop,ToggleKitFixed,DragStart,DragEnd,ContextMenu}）`a4b77631`（2,876→**2,786**）
