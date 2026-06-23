@@ -1636,6 +1636,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             completions={completions}
             scheduleEvents={scheduleEvents}
             kitLocations={kitLocations}
+            storeTravelTimes={storeTravelTimes}
             scenarioMap={scenarioMap}
             storeMap={storeMap}
             getStoreGroupId={getStoreGroupId}

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TabsContent } from '@/components/ui/tabs'
 import { ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
-import type { KitLocation, Store, Scenario, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
+import type { KitLocation, Store, StoreTravelTime, Scenario, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
 import { WEEKDAYS, formatCompletionDate } from '../helpers'
 import type { KitShortageItem, OverdueTransfer } from '@/utils/kitTransferPlanner'
 
@@ -40,6 +40,7 @@ interface TransferPlanTabProps {
   completions: KitTransferCompletion[]
   scheduleEvents: DemandEvent[]
   kitLocations: KitLocation[]
+  storeTravelTimes: StoreTravelTime[]
   scenarioMap: Map<string, Scenario>
   storeMap: Map<string, Store>
   // ヘルパー / セレクタ
@@ -75,6 +76,7 @@ export function TransferPlanTab({
   completions,
   scheduleEvents,
   kitLocations,
+  storeTravelTimes,
   scenarioMap,
   storeMap,
   getStoreGroupId,
@@ -622,12 +624,55 @@ export function TransferPlanTab({
                           storeGroups.get(groupId)!.push(storeId)
                         })
                         
-                        // グループを表示順でソート
-                        const sortedGroups = [...storeGroups.entries()].sort((a, b) => {
-                          const storeA = storeMap.get(a[1][0])
-                          const storeB = storeMap.get(b[1][0])
-                          return (storeA?.display_order || 0) - (storeB?.display_order || 0)
-                        })
+                        const normalizePair = (storeAId: string, storeBId: string): string =>
+                          storeAId < storeBId ? `${storeAId}::${storeBId}` : `${storeBId}::${storeAId}`
+                        const travelTimeMap = new Map(
+                          storeTravelTimes.map(t => [normalizePair(t.store_a_id, t.store_b_id), t.minutes])
+                        )
+                        const getStoreTravelMinutes = (fromStoreId: string, toStoreId: string): number => {
+                          if (getStoreGroupId(fromStoreId) === getStoreGroupId(toStoreId)) return 0
+                          return travelTimeMap.get(normalizePair(fromStoreId, toStoreId)) ?? 30
+                        }
+                        const getGroupTravelMinutes = (fromStoreIds: string[], toStoreIds: string[]): number => {
+                          let best = Number.POSITIVE_INFINITY
+                          for (const fromId of fromStoreIds) {
+                            for (const toId of toStoreIds) {
+                              best = Math.min(best, getStoreTravelMinutes(fromId, toId))
+                            }
+                          }
+                          return Number.isFinite(best) ? best : 30
+                        }
+                        const hasPickupAtGroup = (storeIdsInGroup: string[], groupId: string): boolean =>
+                          storeIdsInGroup.some(storeId =>
+                            (bySource.get(storeId) || []).some(route => getStoreGroupId(route.to_store_id) !== groupId)
+                          )
+                        const displayOrderOfGroup = (storeIdsInGroup: string[]): number =>
+                          Math.min(...storeIdsInGroup.map(storeId => storeMap.get(storeId)?.display_order ?? 999))
+                        const orderGroupsByRoute = (entries: Array<[string, string[]]>): Array<[string, string[]]> => {
+                          if (entries.length <= 1) return entries
+                          const remaining = [...entries].sort((a, b) => displayOrderOfGroup(a[1]) - displayOrderOfGroup(b[1]))
+                          const startIndex = remaining.findIndex(([groupId, storeIds]) => hasPickupAtGroup(storeIds, groupId))
+                          const ordered: Array<[string, string[]]> = [
+                            remaining.splice(startIndex >= 0 ? startIndex : 0, 1)[0],
+                          ]
+
+                          while (remaining.length > 0) {
+                            const current = ordered[ordered.length - 1]
+                            let nextIndex = 0
+                            let nextMinutes = Number.POSITIVE_INFINITY
+                            for (let i = 0; i < remaining.length; i++) {
+                              const minutes = getGroupTravelMinutes(current[1], remaining[i][1])
+                              if (minutes < nextMinutes) {
+                                nextMinutes = minutes
+                                nextIndex = i
+                              }
+                            }
+                            ordered.push(remaining.splice(nextIndex, 1)[0])
+                          }
+
+                          return ordered
+                        }
+                        const sortedGroups = orderGroupsByRoute([...storeGroups.entries()])
                         
                         return (
                           <div key={dateStr}>
@@ -650,7 +695,7 @@ export function TransferPlanTab({
                             
                             {/* 店舗グループ別（同じkit_groupは1つのカードに） */}
                             <div className="space-y-3">
-                              {sortedGroups.map(([groupId, storeIdsInGroup]) => {
+                              {sortedGroups.map(([groupId, storeIdsInGroup], stopIndex) => {
                                 // グループ内の全店舗の出入りを集計
                                 const groupOutgoing: typeof groups = []
                                 const groupIncoming: typeof groups = []
@@ -724,6 +769,10 @@ export function TransferPlanTab({
                                   const store = storeMap.get(id)
                                   return store?.short_name || store?.name || '?'
                                 }).join(' / ')
+                                const previousGroup = stopIndex > 0 ? sortedGroups[stopIndex - 1] : null
+                                const minutesFromPrevious = previousGroup
+                                  ? getGroupTravelMinutes(previousGroup[1], storeIdsInGroup)
+                                  : null
                                 
                                 return (
                                   <div
@@ -731,18 +780,30 @@ export function TransferPlanTab({
                                     className="bg-white dark:bg-gray-800 rounded-lg p-3"
                                   >
                                     {/* 店舗グループヘッダー */}
-                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b flex-wrap">
+                                      <Badge variant="secondary" className="h-6 w-6 justify-center rounded-full px-0">
+                                        {stopIndex + 1}
+                                      </Badge>
                                       <MapPin className="h-4 w-4 text-primary" />
                                       <span className="font-bold text-lg">{groupStoreName}</span>
-                                      <div className="ml-auto flex items-center gap-2">
+                                      {minutesFromPrevious === null ? (
+                                        <Badge variant="outline" className="text-[10px]">
+                                          起点
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-[10px]">
+                                          前店舗から約{minutesFromPrevious}分
+                                        </Badge>
+                                      )}
+                                      <div className="ml-auto flex items-center gap-2 flex-wrap">
                                         {outgoingCount > 0 && (
                                           <Badge variant="outline" className="bg-red-50 text-red-700">
-                                            出{outgoingCount}
+                                            積む{outgoingCount}
                                           </Badge>
                                         )}
                                         {incomingCount > 0 && (
                                           <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                            入{incomingCount}
+                                            降ろす{incomingCount}
                                           </Badge>
                                         )}
                                         {incompleteCount > 0 && (
@@ -758,7 +819,7 @@ export function TransferPlanTab({
                                       <div className="mb-3">
                                         <div className="text-xs font-medium text-blue-600 mb-1 flex items-center gap-1">
                                           <ArrowRight className="h-3 w-3" />
-                                          ここへ届ける（設置）
+                                          降ろす（設置）
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-blue-200">
                                           {incomingRoutes.map((route, routeIdx) => {
@@ -767,7 +828,7 @@ export function TransferPlanTab({
                                             return (
                                             <div key={`in-${routeIdx}`}>
                                               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
-                                                ← {route.from_store_name}から {storeIdsInGroup.length > 1 && `→ ${toStoreName}へ`}
+                                                {route.from_store_name}から {storeIdsInGroup.length > 1 && `→ ${toStoreName}へ`}
                                               </div>
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
@@ -841,7 +902,7 @@ export function TransferPlanTab({
                                                             variant={totalParticipants === 0 ? 'secondary' : 'destructive'}
                                                             className="text-[9px] px-1 py-0"
                                                           >
-                                                            {totalParticipants === 0 ? '移動必要なし' : '移動必要'}
+                                                            {totalParticipants === 0 ? '優先度低' : '移動必要'}
                                                           </Badge>
                                                         </>
                                                       )}
@@ -873,7 +934,7 @@ export function TransferPlanTab({
                                       <div>
                                         <div className="text-xs font-medium text-red-600 mb-1 flex items-center gap-1">
                                           <ArrowRight className="h-3 w-3 rotate-180" />
-                                          ここから持ち出す（回収）
+                                          積む（回収）
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-red-200">
                                           {outgoingRoutes.map((route, routeIdx) => {
@@ -959,7 +1020,7 @@ export function TransferPlanTab({
                                                             variant={totalParticipants === 0 ? 'secondary' : 'destructive'}
                                                             className="text-[9px] px-1 py-0"
                                                           >
-                                                            {totalParticipants === 0 ? '移動必要なし' : '移動必要'}
+                                                            {totalParticipants === 0 ? '優先度低' : '移動必要'}
                                                           </Badge>
                                                         </>
                                                       )}
