@@ -151,7 +151,9 @@ export const ContextMenuContent: React.FC<ContextMenuContentProps> = ({
   const menuContent = (
     <div
       ref={menuRef}
-      className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+      // pointer-events-auto: Radix Dialog(modal) が body の pointer-events を切るため、
+      // body へ portal したメニューがクリック不能になるのを防ぐ
+      className="pointer-events-auto fixed z-[9999] min-w-[160px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
       style={{ left: adjustedPos.x, top: adjustedPos.y }}
       onClick={(e) => e.stopPropagation()}
     >
