@@ -22,6 +22,8 @@ interface TransferPlanTabProps {
   plannedTransfers: KitTransferSuggestion[]
   newShortages: KitShortageItem[]      // 手遅れ等・解消できない不足
   overdueTransfers: OverdueTransfer[]  // 持ち越し（未実行の確定移動）
+  planStartDate: string
+  planEndDate: string
   // 移動日設定
   transferDates: string[]
   setTransferDates: Dispatch<SetStateAction<string[]>>
@@ -57,6 +59,8 @@ export function TransferPlanTab({
   plannedTransfers,
   newShortages,
   overdueTransfers,
+  planStartDate,
+  planEndDate,
   transferDates,
   setTransferDates,
   setSelectedOffsets,
@@ -105,14 +109,19 @@ export function TransferPlanTab({
 
   return (
           <TabsContent value="transfers" className="flex-1 overflow-auto">
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {/* 🔴 緊急ボード（再設計版・今日起点）: 手遅れ＋持ち越し */}
               {(newShortages.length > 0 || overdueTransfers.length > 0) && (
-                <div className="border-2 border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 space-y-3">
+                <div className="order-2 border-2 border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 space-y-3">
                   <div>
-                    <div className="flex items-center gap-2 font-bold text-red-800 dark:text-red-200">
-                      <AlertTriangle className="h-4 w-4" />
-                      🔴 緊急ボード（今すぐ判断が必要）
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2 font-bold text-red-800 dark:text-red-200">
+                        <AlertTriangle className="h-4 w-4" />
+                        🔴 緊急ボード（今すぐ判断が必要）
+                      </div>
+                      <Badge variant="outline" className="w-fit border-red-300 bg-white/70 text-red-700 dark:bg-red-950/40 dark:text-red-200">
+                        対象: {formatDate(planStartDate)}〜{formatDate(planEndDate)}
+                      </Badge>
                     </div>
                     <div className="text-[11px] text-red-600/80 dark:text-red-300/80 mt-0.5">
                       システムが自動で最適な移動を組んでも解決できない分です（移動計画では消えません）
@@ -220,7 +229,7 @@ export function TransferPlanTab({
               )}
 
               {/* 移動日設定 */}
-              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg flex-wrap">
+              <div className="order-1 flex items-center gap-4 p-3 bg-muted/50 rounded-lg flex-wrap">
                 <span className="text-sm font-medium whitespace-nowrap">移動日:</span>
                 <div className="flex items-center gap-2 flex-wrap">
                   {weekDates.map(dateStr => {
@@ -270,7 +279,7 @@ export function TransferPlanTab({
               </div>
 
               {isCalculating && (
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <p className="order-3 text-sm text-muted-foreground flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin" />
                   計算中...
                 </p>
@@ -278,7 +287,7 @@ export function TransferPlanTab({
 
               {/* 移動提案 */}
               {displaySuggestions.length > 0 && (
-                <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
+                <div className="order-4 border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
@@ -991,7 +1000,7 @@ export function TransferPlanTab({
               )}
 
               {/* 確定済み移動イベント（ルートでグループ化） */}
-              <div>
+              <div className="order-5">
                 <h3 className="font-medium mb-2">確定済み移動</h3>
                 {groupedTransferEvents.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">

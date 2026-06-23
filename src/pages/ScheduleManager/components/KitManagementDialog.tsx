@@ -1617,6 +1617,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             plannedTransfers={newPlan.transfers}
             newShortages={newPlan.shortages}
             overdueTransfers={overdueTransfers}
+            planStartDate={planToday}
+            planEndDate={planHorizonEnd}
             transferDates={transferDates}
             setTransferDates={setTransferDates}
             setSelectedOffsets={setSelectedOffsets}
