@@ -74,6 +74,21 @@ describe('buildTransferPlanViewModel', () => {
     expect(view.sortedDays[0].groups[0].items).toHaveLength(1)
   })
 
+  it('mergedSuggestions の旧計算提案は混ぜず、完了記録だけを補完する', () => {
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [suggestion({ kit_number: 1 })],
+      mergedSuggestions: [
+        suggestion({ kit_number: 2, reason: '旧計算の提案' }),
+        suggestion({ kit_number: 3, reason: '完了記録' }),
+      ],
+    })
+
+    expect(view.displaySuggestions.map(item => item.kit_number)).toEqual([1, 3])
+    expect(view.visibleSuggestions.map(item => item.kit_number)).toEqual([1, 3])
+  })
+
   it('すでに目的地にある未着手キットは表示しないが、回収済みなら表示する', () => {
     const item = suggestion()
 
