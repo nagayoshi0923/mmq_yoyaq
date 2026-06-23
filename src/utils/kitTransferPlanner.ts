@@ -119,6 +119,7 @@ export function planKitTransfers(
   today: string,
   fixedKitKeys: Set<string> = new Set(),
   travelTimes: StoreTravelTime[] = [],
+  allowedTransferDates: string[] = [],
 ): KitTransferPlan {
   const scenarioMap = new Map(scenarios.map(s => [s.id, s]))
   const storeMap = new Map(stores.map(s => [s.id, s]))
@@ -144,6 +145,19 @@ export function planKitTransfers(
 
   const transfers: KitTransferSuggestion[] = []
   const shortages: KitShortageItem[] = []
+  const normalizedAllowedTransferDates = [...new Set(allowedTransferDates)]
+    .filter(date => date >= today)
+    .sort()
+  const getLatestTransferDate = (deadline: string): string | null => {
+    if (normalizedAllowedTransferDates.length === 0) {
+      return deadline >= today ? deadline : null
+    }
+    for (let i = normalizedAllowedTransferDates.length - 1; i >= 0; i--) {
+      const date = normalizedAllowedTransferDates[i]
+      if (date <= deadline) return date
+    }
+    return null
+  }
 
   const demandsByScenario = new Map<string, PlannerDemand[]>()
   for (const d of demands) {
@@ -219,9 +233,10 @@ export function planKitTransfers(
 
       // pass2: 他拠点から移動して補う
       if (chosen.length < needed) {
-        const arrival = prevDate(D) // 前日必着（到着日の上限）
+        const arrivalDeadline = prevDate(D) // 前日必着（到着日の上限）
+        const arrival = getLatestTransferDate(arrivalDeadline)
         const candidates: Array<{ kn: number; fromStore: string }> = []
-        if (arrival >= today) {
+        if (arrival) {
           for (const [kn, k] of kits) {
             if (chosen.includes(kn)) continue
             if (k.assigned.has(D)) continue

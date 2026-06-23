@@ -720,8 +720,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // 新ロジックの計算結果（移動提案＋解消できない不足）
   const newPlan = useMemo(
-    () => planKitTransfers(kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys, storeTravelTimes),
-    [kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys, storeTravelTimes],
+    () => planKitTransfers(kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys, storeTravelTimes, transferDates),
+    [kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys, storeTravelTimes, transferDates],
   )
 
   // 持ち越し（未実行の確定移動・責任追及）

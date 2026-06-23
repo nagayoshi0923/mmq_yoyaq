@@ -1,4 +1,5 @@
 import { TabsContent } from '@/components/ui/tabs'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { AlertTriangle, CheckCircle2, CircleDashed } from 'lucide-react'
 import type { KitLocation, Store, Scenario } from '@/types'
 
@@ -144,28 +145,45 @@ export function WeeklyDemandTab({
                                       const StatusIcon = status.icon
                                       
                                       return (
-                                        <div
-                                          key={sid}
-                                          className={`flex h-6 min-w-[92px] max-w-[112px] items-center gap-1 rounded-sm border px-1 text-left ${status.itemClassName}`}
-                                          title={`${scenario.title} × ${count} / ${status.title}`}
-                                        >
-                                          <span className={`h-4 w-0.5 shrink-0 rounded-full ${status.markerClassName}`} />
-                                          <StatusIcon className={`h-2.5 w-2.5 shrink-0 ${status.iconClassName}`} />
-                                          <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none">
-                                            {scenario.title}
-                                          </span>
-                                          {count > 1 && (
-                                            <span className="shrink-0 text-[9px] font-semibold leading-none text-slate-500">×{count}</span>
-                                          )}
-                                          <span className={`shrink-0 text-[9px] font-medium leading-none ${status.metaClassName}`}>
-                                            {status.label}
-                                          </span>
-                                          {totalParticipants > 0 && (
-                                            <span className="shrink-0 text-[9px] leading-none text-slate-500">
-                                              {totalParticipants}/{matchingEvents[0]?.capacity || '-'}
-                                            </span>
-                                          )}
-                                        </div>
+                                        <Popover key={sid}>
+                                          <PopoverTrigger asChild>
+                                            <button
+                                              type="button"
+                                              className={`flex h-6 min-w-[92px] max-w-[112px] items-center gap-1 rounded-sm border px-1 text-left ${status.itemClassName}`}
+                                              title={`${scenario.title} × ${count} / ${status.title}`}
+                                            >
+                                              <span className={`h-4 w-0.5 shrink-0 rounded-full ${status.markerClassName}`} />
+                                              <StatusIcon className={`h-2.5 w-2.5 shrink-0 ${status.iconClassName}`} />
+                                              <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none">
+                                                {scenario.title}
+                                              </span>
+                                              {count > 1 && (
+                                                <span className="shrink-0 text-[9px] font-semibold leading-none text-slate-500">×{count}</span>
+                                              )}
+                                              <span className={`shrink-0 text-[9px] font-medium leading-none ${status.metaClassName}`}>
+                                                {status.label}
+                                              </span>
+                                              {totalParticipants > 0 && (
+                                                <span className="shrink-0 text-[9px] leading-none text-slate-500">
+                                                  {totalParticipants}/{matchingEvents[0]?.capacity || '-'}
+                                                </span>
+                                              )}
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-64 p-3 text-left" align="start">
+                                            <div className="space-y-2">
+                                              <div className="text-sm font-semibold leading-snug">{scenario.title}</div>
+                                              <div className="space-y-1 text-xs text-muted-foreground">
+                                                <div>{formatDate(date)} / {store.short_name || store.name}</div>
+                                                <div>{status.title}</div>
+                                                <div>公演数: {count}</div>
+                                                {totalParticipants > 0 && (
+                                                  <div>予約: {totalParticipants}/{matchingEvents[0]?.capacity || '-'}</div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
                                       )
                                     })}
                                   </div>

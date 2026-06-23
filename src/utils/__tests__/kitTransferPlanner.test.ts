@@ -79,6 +79,28 @@ describe('planKitTransfers', () => {
     }
   })
 
+  it('③b 選択移動日がある場合は公演前の最新移動日に載せる', () => {
+    const stores = [mkStore('A'), mkStore('B')]
+    const scenarios = [mkScenario(S1, 1)]
+    const state: KitState = { [S1]: { 1: 'A' } }
+    const demands = [demand('2026-07-18', 'B', S1)]
+
+    const plan = planKitTransfers(
+      state,
+      demands,
+      scenarios,
+      stores,
+      TODAY,
+      new Set(),
+      [],
+      ['2026-07-14', '2026-07-17', '2026-07-18'],
+    )
+
+    expect(plan.shortages).toHaveLength(0)
+    expect(plan.transfers).toHaveLength(1)
+    expect(plan.transfers[0].transfer_date).toBe('2026-07-17')
+  })
+
   it('④ 同住所(kit_group)×時間非重複 は1キットで使い回し（移動0・不足0）', () => {
     const stores = [
       mkStore('G1', { kit_group_id: 'G' }),
