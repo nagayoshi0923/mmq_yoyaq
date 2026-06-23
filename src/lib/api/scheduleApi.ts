@@ -65,6 +65,8 @@ export const scheduleApi = {
       end_time: string
       category: string
       is_cancelled: boolean
+      is_private_request?: boolean
+      is_private_booking?: boolean
       current_participants: number
       capacity: number
     }

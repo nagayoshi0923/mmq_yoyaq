@@ -56,7 +56,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     scenario_master_id: string
     start_time?: string
     end_time?: string
+    category?: string
     is_cancelled?: boolean
+    is_private_request?: boolean
+    is_private_booking?: boolean
     current_participants?: number
     capacity?: number
   }>>([])
@@ -882,7 +885,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         scenario_master_id: e.scenario_master_id || '',
         start_time: e.start_time || '',
         end_time: e.end_time || '',
+        category: e.category || 'open',
         is_cancelled: e.is_cancelled || false,
+        is_private_request: e.is_private_request || false,
+        is_private_booking: e.is_private_booking || false,
         current_participants: e.current_participants || 0,
         capacity: e.capacity || 0
       })).filter(e => e.scenario_master_id)

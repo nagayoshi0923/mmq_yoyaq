@@ -13,7 +13,17 @@ import type { KitShortageItem, OverdueTransfer } from '@/utils/kitTransferPlanne
  * 内部の小コンポーネント/純関数分割は後続コミットで行う。
  * Tabs コンテキストは親の <Tabs> から伝播するため挙動は不変。
  */
-type DemandEvent = { date: string; store_id: string; scenario_master_id: string; is_cancelled?: boolean; current_participants?: number; capacity?: number }
+type DemandEvent = {
+  date: string
+  store_id: string
+  scenario_master_id: string
+  category?: string
+  is_cancelled?: boolean
+  is_private_request?: boolean
+  is_private_booking?: boolean
+  current_participants?: number
+  capacity?: number
+}
 type SuggestionGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferSuggestion[] }
 type TransferEventGroup = { from_store_id: string; from_store_name: string; to_store_id: string; to_store_name: string; isGrouped: boolean; items: KitTransferEvent[] }
 
@@ -738,14 +748,18 @@ export function TransferPlanTab({
                                 // 予約0件（移動必要なし）のアイテムは出/入のカウントから除外
                                 const hasBookings = (suggestion: KitTransferSuggestion) => {
                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
-                                  const total = scheduleEvents
+                                  const matchingEvents = scheduleEvents
                                     .filter(e =>
                                       e.scenario_master_id === suggestion.scenario_master_id &&
                                       getStoreGroupId(e.store_id) === toGroupId &&
                                       demandDates.includes(e.date) &&
                                       !e.is_cancelled
                                     )
-                                    .reduce((s, e) => s + (e.current_participants || 0), 0)
+                                  const hasPrivatePerformance = matchingEvents.some(e =>
+                                    e.category === 'private' || e.is_private_request || e.is_private_booking
+                                  )
+                                  if (hasPrivatePerformance) return true
+                                  const total = matchingEvents.reduce((s, e) => s + (e.current_participants || 0), 0)
                                   return total > 0
                                 }
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
@@ -856,6 +870,9 @@ export function TransferPlanTab({
                                                   const totalCapacity = matchingEvents.reduce((sum, e) => sum + (e.capacity || 0), 0)
                                                   const totalParticipants = matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
                                                   const remainingSeats = totalCapacity - totalParticipants
+                                                  const hasPrivatePerformance = matchingEvents.some(e =>
+                                                    e.category === 'private' || e.is_private_request || e.is_private_booking
+                                                  )
                                                   
                                                   // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
                                                   const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_master_id
@@ -899,10 +916,10 @@ export function TransferPlanTab({
                                                             {totalParticipants}/{totalCapacity}
                                                           </span>
                                                           <Badge
-                                                            variant={totalParticipants === 0 ? 'secondary' : 'destructive'}
+                                                            variant={totalParticipants === 0 && !hasPrivatePerformance ? 'secondary' : 'destructive'}
                                                             className="text-[9px] px-1 py-0"
                                                           >
-                                                            {totalParticipants === 0 ? '優先度低' : '移動必要'}
+                                                            {totalParticipants === 0 && !hasPrivatePerformance ? '優先度低' : '移動必要'}
                                                           </Badge>
                                                         </>
                                                       )}
@@ -974,6 +991,9 @@ export function TransferPlanTab({
                                                   const totalCapacity = matchingEvents.reduce((sum, e) => sum + (e.capacity || 0), 0)
                                                   const totalParticipants = matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
                                                   const remainingSeats = totalCapacity - totalParticipants
+                                                  const hasPrivatePerformance = matchingEvents.some(e =>
+                                                    e.category === 'private' || e.is_private_request || e.is_private_booking
+                                                  )
                                                   
                                                   // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
                                                   const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_master_id
@@ -1017,10 +1037,10 @@ export function TransferPlanTab({
                                                             {totalParticipants}/{totalCapacity}
                                                           </span>
                                                           <Badge
-                                                            variant={totalParticipants === 0 ? 'secondary' : 'destructive'}
+                                                            variant={totalParticipants === 0 && !hasPrivatePerformance ? 'secondary' : 'destructive'}
                                                             className="text-[9px] px-1 py-0"
                                                           >
-                                                            {totalParticipants === 0 ? '優先度低' : '移動必要'}
+                                                            {totalParticipants === 0 && !hasPrivatePerformance ? '優先度低' : '移動必要'}
                                                           </Badge>
                                                         </>
                                                       )}

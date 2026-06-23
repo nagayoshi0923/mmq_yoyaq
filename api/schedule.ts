@@ -69,7 +69,7 @@ const SCHEDULE_EVENT_MY_SELECT = `
 `
 
 const SCHEDULE_EVENT_DATE_RANGE_FIELDS =
-  'id, date, venue, store_id, scenario, scenario_id, scenario_master_id, start_time, end_time, category, is_cancelled, current_participants, capacity, organization_id'
+  'id, date, venue, store_id, scenario, scenario_id, scenario_master_id, start_time, end_time, category, is_cancelled, is_private_request, current_participants, capacity, organization_id'
 
 const SCHEDULE_EVENT_BY_SCENARIO_SELECT = `
   id, date, start_time, end_time, time_slot,
