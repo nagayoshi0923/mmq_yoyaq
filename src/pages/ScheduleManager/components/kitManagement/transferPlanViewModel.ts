@@ -74,10 +74,7 @@ export function buildTransferPlanViewModel({
   isPickedUp,
   isDelivered,
 }: BuildTransferPlanViewModelParams): TransferPlanViewModel {
-  const completionSuggestions = mergedSuggestions.filter(
-    suggestion => suggestion.reason === '完了記録',
-  )
-  const source = [...plannedTransfers, ...completionSuggestions]
+  const source = [...plannedTransfers, ...mergedSuggestions]
   const seen = new Set<string>()
   const displaySuggestions = source.filter(suggestion => {
     const key = [
