@@ -19,6 +19,7 @@ type TransferEventGroup = { from_store_id: string; from_store_name: string; to_s
 
 interface TransferPlanTabProps {
   // 新ロジック（再設計版）: 緊急ボード用
+  plannedTransfers: KitTransferSuggestion[]
   newShortages: KitShortageItem[]      // 手遅れ等・解消できない不足
   overdueTransfers: OverdueTransfer[]  // 持ち越し（未実行の確定移動）
   // 移動日設定
@@ -53,6 +54,7 @@ interface TransferPlanTabProps {
 }
 
 export function TransferPlanTab({
+  plannedTransfers,
   newShortages,
   overdueTransfers,
   transferDates,
@@ -81,6 +83,26 @@ export function TransferPlanTab({
   handleToggleDelivery,
   handleUpdateStatus,
 }: TransferPlanTabProps) {
+  const completionSuggestions = mergedSuggestions.filter(
+    suggestion => suggestion.reason === '完了記録' || !!suggestion.transfer_date,
+  )
+  const displaySuggestions = (() => {
+    const source = [...plannedTransfers, ...completionSuggestions]
+    const seen = new Set<string>()
+    return source.filter(suggestion => {
+      const key = [
+        suggestion.org_scenario_id || suggestion.scenario_master_id,
+        suggestion.kit_number,
+        suggestion.from_store_id,
+        suggestion.to_store_id,
+        suggestion.performance_date,
+      ].join('::')
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  })()
+
   return (
           <TabsContent value="transfers" className="flex-1 overflow-auto">
             <div className="space-y-4">
@@ -255,16 +277,16 @@ export function TransferPlanTab({
               )}
 
               {/* 移動提案 */}
-              {mergedSuggestions.length > 0 && (
+              {displaySuggestions.length > 0 && (
                 <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm sm:text-base">移動提案 ({mergedSuggestions.length}件)</span>
+                      <span className="text-sm sm:text-base">移動提案 ({displaySuggestions.length}件)</span>
                       {(() => {
                         const deliveredCount = completions.filter(c => c.delivered_at).length
                         const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
-                        const remainingCount = mergedSuggestions.length - deliveredCount - pickedUpCount
+                        const remainingCount = displaySuggestions.length - deliveredCount - pickedUpCount
                         return (
                           <>
                             {deliveredCount > 0 && (
@@ -291,7 +313,13 @@ export function TransferPlanTab({
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
                   <div className="space-y-4">
                     {(() => {
-                      const sortedTransferDateStrs = [...transferDates].sort()
+                      const plannedTransferDateStrs = displaySuggestions
+                        .map(suggestion => suggestion.transfer_date)
+                        .filter((date): date is string => !!date)
+                      const usesPlannedTransferDates = plannedTransferDateStrs.length > 0
+                      const sortedTransferDateStrs = [
+                        ...new Set(usesPlannedTransferDates ? plannedTransferDateStrs : transferDates),
+                      ].sort()
                       
                       // 日付文字列からローカル日付オブジェクトを作成（タイムゾーン問題を回避）
                       const parseLocalDate = (dateStr: string): Date => {
@@ -360,7 +388,7 @@ export function TransferPlanTab({
                       console.log('🚚 移動日計算デバッグ:', {
                         sortedTransferDateStrs,
                         weekDates,
-                        totalItems: mergedSuggestions.length
+                        totalItems: displaySuggestions.length
                       })
                       
                       // キットの現在位置マップを作成
@@ -373,7 +401,7 @@ export function TransferPlanTab({
                       }
                       
                       // 各アイテムを個別に処理
-                      for (const item of mergedSuggestions) {
+                      for (const item of displaySuggestions) {
                         const perfDateStr = item.performance_date
                         
                         // キットが既に目的地にある場合はスキップ（移動不要）
@@ -395,19 +423,8 @@ export function TransferPlanTab({
                         // 移動日を決定
                         let actualTransferDateStr: string | null
                         if (isFromCompletion) {
-                          // 完了記録: 実際のピックアップ日より前の最も近い選択された移動日を使用
-                          const completionTransferDate = item.transfer_date!
-                          actualTransferDateStr = null
-                          for (let i = sortedTransferDateStrs.length - 1; i >= 0; i--) {
-                            if (sortedTransferDateStrs[i] <= completionTransferDate) {
-                              actualTransferDateStr = sortedTransferDateStrs[i]
-                              break
-                            }
-                          }
-                          // 見つからない場合は最初の移動日を使用
-                          if (!actualTransferDateStr && sortedTransferDateStrs.length > 0) {
-                            actualTransferDateStr = sortedTransferDateStrs[0]
-                          }
+                          // 新ロジック/完了記録: 計画済みの移動日をそのまま使用
+                          actualTransferDateStr = item.transfer_date!
                         } else {
                           // オプティマイザ提案: performance_date から計算
                           actualTransferDateStr = getActualTransferDate(item.performance_date)
@@ -424,7 +441,7 @@ export function TransferPlanTab({
                         if (!actualTransferDateStr) continue
                         
                         // 選択された移動日のみ含める
-                        if (!transferDates.includes(actualTransferDateStr)) continue
+                        if (!usesPlannedTransferDates && !transferDates.includes(actualTransferDateStr)) continue
                         
                         // 移動日でグループ化
                         if (!itemsByTransferDate.has(actualTransferDateStr)) {

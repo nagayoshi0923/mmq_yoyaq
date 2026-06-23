@@ -1614,6 +1614,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           {/* 移動計画 */}
           {/* 移動計画(transfers)（kitManagement/tabs/TransferPlanTab.tsx へ切り出し） */}
           <TransferPlanTab
+            plannedTransfers={newPlan.transfers}
             newShortages={newPlan.shortages}
             overdueTransfers={overdueTransfers}
             transferDates={transferDates}
