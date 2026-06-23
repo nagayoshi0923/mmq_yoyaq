@@ -18,7 +18,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 }
 
 const STORE_SELECT_FIELDS =
-  'id, organization_id, name, short_name, address, access_info, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, capacity, rooms, notes, color, fixed_costs, venue_cost_per_performance, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, kit_group_id, created_at, updated_at'
+  'id, organization_id, name, short_name, address, access_info, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, capacity, rooms, notes, color, fixed_costs, venue_cost_per_performance, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, kit_group_id, kit_fixed, created_at, updated_at'
 
 // 作成可能フィールドのホワイトリスト
 const STORE_CREATABLE_FIELDS = [
@@ -27,6 +27,7 @@ const STORE_CREATABLE_FIELDS = [
   'capacity', 'rooms', 'notes', 'color', 'fixed_costs', 'venue_cost_per_performance',
   'is_temporary', 'temporary_date', 'temporary_dates', 'temporary_venue_names',
   'display_order', 'region', 'transport_allowance', 'kit_group_id',
+  'kit_fixed',
 ] as const
 
 // 更新可能フィールドのホワイトリスト（Mass Assignment 防止）
