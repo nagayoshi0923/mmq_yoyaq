@@ -9,7 +9,7 @@
  */
 import { supabase } from '../supabase'
 import { apiClient } from '@/lib/apiClient'
-import type { Store } from '@/types'
+import type { Store, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const STORE_SELECT_FIELDS =
@@ -91,6 +91,20 @@ export const storeApi = {
     await apiClient.patch<void>(
       '/api/stores?action=updateDisplayOrder',
       { orders: storeOrders },
+    )
+  },
+
+  // 店舗間移動時間を取得（組織共有）
+  async getTravelTimes(): Promise<StoreTravelTime[]> {
+    return apiClient.get<StoreTravelTime[]>('/api/stores?action=travelTimes')
+  },
+
+  // 店舗間移動時間を一括保存（admin 権限が必要）
+  // minutes=null の項目は削除する
+  async upsertTravelTimes(items: StoreTravelTimeInput[]): Promise<StoreTravelTime[]> {
+    return apiClient.patch<StoreTravelTime[]>(
+      '/api/stores?action=upsertTravelTimes',
+      { items },
     )
   },
 

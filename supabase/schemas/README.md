@@ -11,7 +11,7 @@
 - **新テーブル作成時**: `schemas/` にも定義ファイルを追加すること
 - **schemas/ のみの更新は禁止**: 実際のDB変更は必ずマイグレーションで行う（schemas/ は参照用）
 
-## 管理対象テーブル（14テーブル + 1ビュー）
+## 管理対象テーブル（15テーブル + 1ビュー）
 
 | ファイル | テーブル | 備考 |
 |----------|---------|------|
@@ -20,6 +20,7 @@
 | `reservations.sql` | reservations | 予約データ |
 | `scenario_masters.sql` | scenario_masters | マスターデータ |
 | `stores.sql` | stores | 店舗管理 |
+| `store_travel_times.sql` | store_travel_times | 店舗間移動時間マスタ |
 | `customers.sql` | customers | 顧客管理 |
 | `private_groups.sql` | private_groups | 貸切グループ |
 | `private_group_candidate_dates.sql` | private_group_candidate_dates | 候補日 |

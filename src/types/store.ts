@@ -43,6 +43,25 @@ export interface Store {
   updated_at: string
 }
 
+// 店舗間の移動時間（無向ペア: store_a_id-store_b_id を1レコードで保持）
+export interface StoreTravelTime {
+  id: string
+  organization_id: string
+  store_a_id: string
+  store_b_id: string
+  minutes: number
+  memo?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface StoreTravelTimeInput {
+  store_a_id: string
+  store_b_id: string
+  minutes: number | null
+  memo?: string | null
+}
+
 // 「臨時会場」用途で必要な最小フィールド
 // （stores テーブルの全カラムをselectしない画面向け）
 export type TemporaryVenue = Pick<
