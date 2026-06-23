@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TabsContent } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { KitLocation, Store, StoreTravelTime, Scenario, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
 import { WEEKDAYS, formatCompletionDate } from '../helpers'
@@ -62,6 +63,9 @@ interface TransferPlanTabProps {
   setTransferDates: Dispatch<SetStateAction<string[]>>
   setSelectedOffsets: Dispatch<SetStateAction<number[]>>
   saveOffsets: (offsets: number[]) => Promise<void>
+  transferStartStoreIds: Record<string, string>
+  setTransferStartStoreIds: Dispatch<SetStateAction<Record<string, string>>>
+  saveTransferStartStoreIds: (startStoreIds: Record<string, string>) => Promise<void>
   weekDates: string[]
   demandDates: string[]
   // 計算・提案データ
@@ -99,6 +103,9 @@ export function TransferPlanTab({
   setTransferDates,
   setSelectedOffsets,
   saveOffsets,
+  transferStartStoreIds,
+  setTransferStartStoreIds,
+  saveTransferStartStoreIds,
   weekDates,
   demandDates,
   isCalculating,
@@ -684,7 +691,13 @@ export function TransferPlanTab({
                         const orderGroupsByRoute = (entries: Array<[string, string[]]>): Array<[string, string[]]> => {
                           if (entries.length <= 1) return entries
                           const remaining = [...entries].sort((a, b) => displayOrderOfGroup(a[1]) - displayOrderOfGroup(b[1]))
-                          const startIndex = remaining.findIndex(([groupId, storeIds]) => hasPickupAtGroup(storeIds, groupId))
+                          const selectedStartStoreId = transferStartStoreIds[dateStr]
+                          const selectedStartGroupId = selectedStartStoreId ? getStoreGroupId(selectedStartStoreId) : null
+                          const selectedStartIndex = selectedStartGroupId
+                            ? remaining.findIndex(([groupId, storeIds]) => groupId === selectedStartGroupId || storeIds.includes(selectedStartStoreId))
+                            : -1
+                          const pickupStartIndex = remaining.findIndex(([groupId, storeIds]) => hasPickupAtGroup(storeIds, groupId))
+                          const startIndex = selectedStartIndex >= 0 ? selectedStartIndex : pickupStartIndex
                           const ordered: Array<[string, string[]]> = [
                             remaining.splice(startIndex >= 0 ? startIndex : 0, 1)[0],
                           ]
@@ -706,6 +719,32 @@ export function TransferPlanTab({
                           return ordered
                         }
                         const sortedGroups = orderGroupsByRoute([...storeGroups.entries()])
+                        const startStoreOptions = [...storeGroups.entries()]
+                          .sort((a, b) => displayOrderOfGroup(a[1]) - displayOrderOfGroup(b[1]))
+                          .map(([groupId, storeIds]) => ({
+                            groupId,
+                            value: storeIds[0],
+                            label: storeIds.map(id => {
+                              const store = storeMap.get(id)
+                              return store?.short_name || store?.name || '?'
+                            }).join(' / '),
+                          }))
+                        const selectedStartStoreId = transferStartStoreIds[dateStr]
+                        const selectedStartValue = startStoreOptions.some(option => option.value === selectedStartStoreId)
+                          ? selectedStartStoreId
+                          : '__auto__'
+                        const handleStartStoreChange = (value: string) => {
+                          setTransferStartStoreIds(prev => {
+                            const next = { ...prev }
+                            if (value === '__auto__') {
+                              delete next[dateStr]
+                            } else {
+                              next[dateStr] = value
+                            }
+                            saveTransferStartStoreIds(next)
+                            return next
+                          })
+                        }
                         
                         return (
                           <div key={dateStr}>
@@ -723,6 +762,25 @@ export function TransferPlanTab({
                                 <Badge variant="secondary" className="ml-auto">
                                   {dayKitCount}キット
                                 </Badge>
+                              </div>
+                            )}
+
+                            {startStoreOptions.length > 0 && (
+                              <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-2">
+                                <span className="text-xs font-medium text-muted-foreground">起点店舗</span>
+                                <Select value={selectedStartValue} onValueChange={handleStartStoreChange}>
+                                  <SelectTrigger className="h-8 w-[180px] text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__auto__">自動おすすめ</SelectItem>
+                                    {startStoreOptions.map(option => (
+                                      <SelectItem key={`${dateStr}-${option.groupId}`} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
                             )}
                             

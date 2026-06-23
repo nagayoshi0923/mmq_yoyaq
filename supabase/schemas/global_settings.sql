@@ -33,7 +33,8 @@ CREATE TABLE public.global_settings (
   system_msg_booking_rejected_title TEXT,
   system_msg_booking_rejected_body TEXT,
   system_msg_booking_cancelled_title TEXT,
-  system_msg_booking_cancelled_body TEXT
+  system_msg_booking_cancelled_body TEXT,
+  kit_transfer_start_store_ids JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
 -- Indexes

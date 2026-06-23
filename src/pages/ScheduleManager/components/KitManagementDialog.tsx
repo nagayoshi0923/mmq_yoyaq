@@ -88,6 +88,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [selectedOffsets, setSelectedOffsets] = useState<number[]>([0, 4]) // デフォルト: 月曜・金曜
   const selectedOffsetsRef = useRef<number[]>([0, 4])
   selectedOffsetsRef.current = selectedOffsets
+  const [transferStartStoreIds, setTransferStartStoreIds] = useState<Record<string, string>>({})
 
   // オフセット変更時に global_settings へ保存
   const saveOffsets = useCallback(async (offsets: number[]) => {
@@ -100,6 +101,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         .eq('organization_id', orgId)
     } catch (e) {
       console.warn('kit_transfer_offsets の保存に失敗:', e)
+    }
+  }, [])
+
+  const saveTransferStartStoreIds = useCallback(async (startStoreIds: Record<string, string>) => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+      await supabase
+        .from('global_settings')
+        .update({ kit_transfer_start_store_ids: startStoreIds })
+        .eq('organization_id', orgId)
+    } catch (e) {
+      console.warn('kit_transfer_start_store_ids の保存に失敗:', e)
     }
   }, [])
   
@@ -804,13 +818,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       if (orgId) {
         const { data: gs } = await supabase
           .from('global_settings')
-          .select('kit_transfer_offsets')
+          .select('kit_transfer_offsets, kit_transfer_start_store_ids')
           .eq('organization_id', orgId)
           .single()
         if (gs?.kit_transfer_offsets && Array.isArray(gs.kit_transfer_offsets)) {
           const offsets = gs.kit_transfer_offsets as number[]
           setSelectedOffsets(offsets)
           selectedOffsetsRef.current = offsets
+        }
+        if (gs?.kit_transfer_start_store_ids && typeof gs.kit_transfer_start_store_ids === 'object' && !Array.isArray(gs.kit_transfer_start_store_ids)) {
+          setTransferStartStoreIds(gs.kit_transfer_start_store_ids as Record<string, string>)
         }
       }
 
@@ -1632,6 +1649,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             setTransferDates={setTransferDates}
             setSelectedOffsets={setSelectedOffsets}
             saveOffsets={saveOffsets}
+            transferStartStoreIds={transferStartStoreIds}
+            setTransferStartStoreIds={setTransferStartStoreIds}
+            saveTransferStartStoreIds={saveTransferStartStoreIds}
             weekDates={weekDates}
             demandDates={demandDates}
             isCalculating={isCalculating}
