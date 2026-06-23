@@ -983,6 +983,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
     'production_cost', 'production_costs', 'depreciation_per_performance',
     'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing',
     'booking_start_date', 'booking_end_date', 'private_booking_time_slots',
+    'kit_count',
   ] as const
   for (const col of directOrgColumns) {
     if (updates[col] !== undefined) {

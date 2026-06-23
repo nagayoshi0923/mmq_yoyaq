@@ -138,12 +138,26 @@ export function TransferPlanTab({
     isDelivered,
   })
   const displaySuggestions = transferPlanView.displaySuggestions
+  const isHighPriorityShortage = (shortage: KitShortageItem) => {
+    const matchingEvents = scheduleEvents.filter(e =>
+      e.date === shortage.date &&
+      e.store_id === shortage.store_id &&
+      e.scenario_master_id === shortage.scenario_master_id &&
+      !e.is_cancelled
+    )
+    if (matchingEvents.some(e => e.category === 'private' || e.is_private_request || e.is_private_booking)) return true
+    return matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0) > 0
+  }
+  const urgentShortages = newShortages.filter(isHighPriorityShortage)
+  const tooLateShortages = urgentShortages.filter(s => s.reason === 'too_late')
+  const lockedFixedShortages = urgentShortages.filter(s => s.reason === 'locked_fixed')
+  const noCapacityShortages = urgentShortages.filter(s => s.reason === 'no_capacity')
 
   return (
           <TabsContent value="transfers" className="flex-1 overflow-auto">
             <div className="flex flex-col gap-4">
               {/* 🔴 緊急ボード（再設計版・今日起点）: 手遅れ＋持ち越し */}
-              {(newShortages.length > 0 || overdueTransfers.length > 0) && (
+              {(urgentShortages.length > 0 || overdueTransfers.length > 0) && (
                 <div className="order-2 border-2 border-red-300 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 space-y-3">
                   <div>
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -161,12 +175,12 @@ export function TransferPlanTab({
                   </div>
 
                   {/* ① 間に合わない（時間切れ） */}
-                  {newShortages.some(s => s.reason === 'too_late') && (
+                  {tooLateShortages.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-xs font-semibold text-red-700 dark:text-red-300">
-                        🔴 間に合わない（公演が近すぎて前日までに運べない）: {newShortages.filter(s => s.reason === 'too_late').length}件
+                        🔴 間に合わない（公演が近すぎて前日までに運べない）: {tooLateShortages.length}件
                       </div>
-                      {newShortages.filter(s => s.reason === 'too_late').map((s, i) => {
+                      {tooLateShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
                         const st = storeMap.get(s.store_id)
                         return (
@@ -182,12 +196,12 @@ export function TransferPlanTab({
                   )}
 
                   {/* ② 固定店にあり移動不可（固定解除で使える） */}
-                  {newShortages.some(s => s.reason === 'locked_fixed') && (
+                  {lockedFixedShortages.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                        🟠 固定店にあり・移動不可（その店の「固定」を解除すれば使えます）: {newShortages.filter(s => s.reason === 'locked_fixed').length}件
+                        🟠 固定店にあり・移動不可（その店の「固定」を解除すれば使えます）: {lockedFixedShortages.length}件
                       </div>
-                      {newShortages.filter(s => s.reason === 'locked_fixed').map((s, i) => {
+                      {lockedFixedShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
                         const st = storeMap.get(s.store_id)
                         const lockedNames = (s.lockedStoreIds || [])
@@ -207,12 +221,12 @@ export function TransferPlanTab({
                   )}
 
                   {/* ③ キット不足（移動しても足りない/出せない） */}
-                  {newShortages.some(s => s.reason === 'no_capacity') && (
+                  {noCapacityShortages.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                        🟠 キット不足（移動しても台数が足りない・出せるキットが無い）: {newShortages.filter(s => s.reason === 'no_capacity').length}件
+                        🟠 キット不足（移動しても台数が足りない・出せるキットが無い）: {noCapacityShortages.length}件
                       </div>
-                      {newShortages.filter(s => s.reason === 'no_capacity').map((s, i) => {
+                      {noCapacityShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
                         const st = storeMap.get(s.store_id)
                         return (
