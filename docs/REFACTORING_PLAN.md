@@ -128,6 +128,18 @@
       検証: tsc=0 / eslint=0 / build:fast / test:unit 23 passed。
       ※ 残: 主 `usePrivateGroup()`（操作系統 creation/query/membership で更に分割可＝案B）は別タスク候補
 - [ ] 4-6 `AuthContext`（1,120行）の内部分割（セッション / リフレッシュ / マルチタブ同期。公開IFは不変）
+      **進行中（2026-06-23・5/6 サブステップ完了、すべて staging push＋実機検証済み・挙動不変）**。
+      各歩は「旧本体と byte 一致(空白除去diff=0)」＋ tsc=0 / eslint=0 / build:fast / test:unit 23 passed で担保。
+      `src/contexts/auth/` 配下へ抽出。共有 state/ref は呼び出し側で生成し deps 注入（クロージャ捕捉タイミングを旧実装と一致させて挙動不変）。
+      - [x] 第1歩 純ヘルパー → `authContextHelpers.ts`（lookupStaffRole/getSignOutRedirectPath/getClientIpAddress/logAuthEvent/定数）`fde32a11`（1,120→981）
+      - [x] 第2歩 ロール解決 `setUserFromSession`(380行) → `resolveUserFromSession.ts`（deps: isProcessingRef/userRef/staffCache/setStaffCache/setUser）`350f724d`（981→603）
+      - [x] 第3歩 リフレッシュ `refreshSession` → `useSessionRefresh.ts`（lastRefreshRef 内包、安定 useCallback）`9b2f0668`（603→544）
+      - [x] 第4歩 アクション `signIn/signOut` → `authActions.ts`（createAuthActions ファクトリ）`ce507e23`（544→449）
+      - [x] 第5歩 セッション `getInitialSession/tryRecoverSession` → `sessionBootstrap.ts`（createSessionBootstrap ファクトリ、deps: resolveDeps/setLoading/setIsInitialized）`dc09dfe6`（449→**356**）
+      - [ ] **第6歩（残・最難関）** マウント `useEffect`（~230行）の切り出し。`onAuthStateChange` 購読／visibilitychange・focus／10分 interval／`BroadcastChannel`（マルチタブ同期）が
+            全 ref（userRef/isProcessingRef/isExplicitSignOutRef/recoveryAttemptedRef/broadcastChannelRef）と SIGNED_OUT→`tryRecoverSession` リカバリー分岐に絡む。
+            `useAuthLifecycle` 等へ切り出して AuthProvider を「状態＋合成」ファサード化すれば 4-6 完了。effect 依存配列 `[refreshSession]`（マウント時1回）と cleanup（unsubscribe/removeEventListener/clearInterval/channel.close）を厳密に保つこと。
+            ※ 着手前に staging で login/logout/リロード維持/タブ復帰/マルチタブ同期を再確認 → 完了後も同様に検証。
 
 ※ このフェーズは各コミット後にステージングでスケジュール画面の動作確認を必ず挟む。
 ※ 並行中の org_scope API 化（セキュリティ案件）と同一ファイルを触る場合、コミットを分離する。
