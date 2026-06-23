@@ -125,18 +125,35 @@ describe('planKitTransfers', () => {
 
     const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
     expect(plan.transfers).toHaveLength(0)
-    expect(plan.shortages.some(s => s.store_id === 'B' && s.date === D15)).toBe(true)
+    const b = plan.shortages.find(s => s.store_id === 'B' && s.date === D15)
+    expect(b).toBeTruthy()
+    expect(b?.reason).toBe('no_capacity') // 時間切れではなく台数/手配不能
   })
 
-  it('⑦ 固定店舗(kit_fixed)は供給源にしない → 不足', () => {
-    const stores = [mkStore('A', { kit_fixed: true }), mkStore('B')]
+  it('⑦ 固定キット（キット番号ごと）は動かさない → 不足（理由=locked_fixed・在る店を示す）', () => {
+    const stores = [mkStore('A'), mkStore('B')] // 店舗固定は使わない
+    const scenarios = [mkScenario(S1, 1)]
+    const state: KitState = { [S1]: { 1: 'A' } }
+    const demands = [demand(D15, 'B', S1)]
+    const fixed = new Set([`${S1}-1`]) // S1 の #1 を固定
+
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY, fixed)
+    expect(plan.transfers).toHaveLength(0)
+    const b = plan.shortages.find(s => s.store_id === 'B')
+    expect(b).toBeTruthy()
+    expect(b?.reason).toBe('locked_fixed')
+    expect(b?.lockedStoreIds).toContain('A')
+  })
+
+  it('⑦b 店舗固定(stores.kit_fixed)はもう使わない: 固定指定なしなら普通に移動する', () => {
+    const stores = [mkStore('A', { kit_fixed: true }), mkStore('B')] // 店舗固定は無視される
     const scenarios = [mkScenario(S1, 1)]
     const state: KitState = { [S1]: { 1: 'A' } }
     const demands = [demand(D15, 'B', S1)]
 
-    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
-    expect(plan.transfers).toHaveLength(0)
-    expect(plan.shortages.some(s => s.store_id === 'B')).toBe(true)
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY) // fixedKitKeys なし
+    expect(plan.shortages).toHaveLength(0)
+    expect(plan.transfers).toHaveLength(1) // 店舗固定は効かず移動する
   })
 
   it('⑧ 未配置キット（現在地不明）は移動候補にしない → 不足', () => {
@@ -169,17 +186,50 @@ describe('planKitTransfers', () => {
   })
 
   it('⑩ 解消できない不足は必ず shortages として返す（サイレントにしない）', () => {
-    const stores = [mkStore('A', { kit_fixed: true }), mkStore('B')]
+    const stores = [mkStore('A'), mkStore('B')]
     const scenarios = [mkScenario(S1, 1)]
     const state: KitState = { [S1]: { 1: 'A' } }
     const demands = [demand(D15, 'B', S1)]
+    const fixed = new Set([`${S1}-1`]) // 固定で出せない → 不足
 
-    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY, fixed)
     expect(plan.shortages.length).toBeGreaterThan(0)
     const s = plan.shortages[0]
     expect(s).toHaveProperty('needed')
     expect(s).toHaveProperty('available')
     expect(s.needed).toBeGreaterThan(s.available)
+  })
+
+  it('⑫ マルチホップ: home→他店→home で複数公演をカバー（移動2回・不足なし）', () => {
+    // A:7/14 → B:7/16 → A:7/18、キット1台 A。今週金曜などに運べばカバーできるはず
+    const stores = [mkStore('A'), mkStore('B')]
+    const scenarios = [mkScenario(S1, 1)]
+    const state: KitState = { [S1]: { 1: 'A' } }
+    const demands = [
+      demand('2026-07-14', 'A', S1),
+      demand('2026-07-16', 'B', S1),
+      demand('2026-07-18', 'A', S1),
+    ]
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
+    expect(plan.shortages).toHaveLength(0)
+    expect(plan.transfers).toHaveLength(2) // A→B, B→A
+    // すべて前日必着
+    for (const t of plan.transfers) expect(t.transfer_date < t.performance_date).toBe(true)
+  })
+
+  it('⑬ 後の公演は移動でカバーできるなら不足に出さない（A:7/14, B:7/18, A:7/20）', () => {
+    // ユーザー指摘: 「金曜に運べば後の分は不足じゃない」
+    const stores = [mkStore('A'), mkStore('B')]
+    const scenarios = [mkScenario(S1, 1)]
+    const state: KitState = { [S1]: { 1: 'A' } }
+    const demands = [
+      demand('2026-07-14', 'A', S1),
+      demand('2026-07-18', 'B', S1), // 移動でカバー可能 → 不足に出さない
+      demand('2026-07-20', 'A', S1),
+    ]
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
+    expect(plan.shortages).toHaveLength(0)
+    expect(plan.transfers.some(t => t.to_store_id === 'B' && t.performance_date === '2026-07-18')).toBe(true)
   })
 
   it('⑪ 手遅れ: 今日以降に間に合う移動が無い → shortages（transfers無し）', () => {
@@ -191,7 +241,9 @@ describe('planKitTransfers', () => {
 
     const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
     expect(plan.transfers).toHaveLength(0)
-    expect(plan.shortages.some(s => s.store_id === 'B' && s.date === TODAY)).toBe(true)
+    const b = plan.shortages.find(s => s.store_id === 'B' && s.date === TODAY)
+    expect(b).toBeTruthy()
+    expect(b?.reason).toBe('too_late') // 公演が今日＝前日に運べない＝時間切れ
   })
 })
 
