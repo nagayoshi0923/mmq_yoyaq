@@ -1464,7 +1464,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="max-h-[100dvh] sm:max-h-[90vh] h-[100dvh] sm:h-[85vh] overflow-hidden flex flex-col w-full sm:w-[900px]">
+      <DialogContent
+        size="xl"
+        className="max-h-[100dvh] sm:max-h-[90vh] h-[100dvh] sm:h-[85vh] overflow-hidden flex flex-col w-full sm:w-[900px]"
+        // 右クリックメニュー（body へ portal）操作時はダイアログを閉じない
+        onInteractOutside={(e) => {
+          const target = (e.detail as { originalEvent?: Event } | undefined)?.originalEvent?.target as HTMLElement | undefined
+          if (target?.closest('[data-context-menu]')) e.preventDefault()
+        }}
+      >
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
