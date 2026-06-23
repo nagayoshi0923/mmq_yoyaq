@@ -128,6 +128,11 @@ export function TransferPlanTab({
     mergedSuggestions,
     transferDates,
     kitLocations,
+    scheduleEvents,
+    demandDates,
+    storeTravelTimes,
+    storeMap,
+    transferStartStoreIds,
     getStoreGroupId,
     isPickedUp,
     isDelivered,
@@ -404,7 +409,7 @@ export function TransferPlanTab({
                       return (
                         <>
                           {missedWarning}
-                          {sortedDays.map(({ dateStr, groups }, dayIndex) => {
+                          {sortedDays.map(({ dateStr, groups, routeStops, startStoreOptions, selectedStartValue }) => {
                         const transferDate = parseLocalDate(dateStr)
                         const transferDayOfWeek = transferDate.getDay()
                         const dayShort = WEEKDAYS.find(w => w.value === transferDayOfWeek)?.short || '?'
@@ -440,133 +445,6 @@ export function TransferPlanTab({
                         // この移動日が過去かどうか（表示のみに使用、チェックは可能）
                         const isPastTransferDate = isTransferDatePast(dateStr)
                         
-                        // 出発店舗・到着店舗でグループ化
-                        const bySource = new Map<string, typeof groups>()
-                        const byDestination = new Map<string, typeof groups>()
-                        const allStoreIds = new Set<string>()
-                        
-                        for (const group of groups) {
-                          // 出発でグループ化
-                          if (!bySource.has(group.from_store_id)) {
-                            bySource.set(group.from_store_id, [])
-                          }
-                          bySource.get(group.from_store_id)!.push(group)
-                          
-                          // 到着でグループ化
-                          if (!byDestination.has(group.to_store_id)) {
-                            byDestination.set(group.to_store_id, [])
-                          }
-                          byDestination.get(group.to_store_id)!.push(group)
-                          
-                          // 関連する店舗IDを収集
-                          allStoreIds.add(group.from_store_id)
-                          allStoreIds.add(group.to_store_id)
-                        }
-                        
-                        // 店舗をグループ別にまとめる（同じkit_group_idは1つのカードに）
-                        const storeGroups = new Map<string, string[]>()
-                        allStoreIds.forEach(storeId => {
-                          const groupId = getStoreGroupId(storeId)
-                          if (!storeGroups.has(groupId)) {
-                            storeGroups.set(groupId, [])
-                          }
-                          storeGroups.get(groupId)!.push(storeId)
-                        })
-                        
-                        const normalizePair = (storeAId: string, storeBId: string): string =>
-                          storeAId < storeBId ? `${storeAId}::${storeBId}` : `${storeBId}::${storeAId}`
-                        const travelTimeMap = new Map(
-                          storeTravelTimes.map(t => [normalizePair(t.store_a_id, t.store_b_id), t.minutes])
-                        )
-                        const getStoreTravelMinutes = (fromStoreId: string, toStoreId: string): number => {
-                          if (getStoreGroupId(fromStoreId) === getStoreGroupId(toStoreId)) return 0
-                          return travelTimeMap.get(normalizePair(fromStoreId, toStoreId)) ?? 30
-                        }
-                        const getGroupTravelMinutes = (fromStoreIds: string[], toStoreIds: string[]): number => {
-                          let best = Number.POSITIVE_INFINITY
-                          for (const fromId of fromStoreIds) {
-                            for (const toId of toStoreIds) {
-                              best = Math.min(best, getStoreTravelMinutes(fromId, toId))
-                            }
-                          }
-                          return Number.isFinite(best) ? best : 30
-                        }
-                        const hasPickupAtGroup = (storeIdsInGroup: string[], groupId: string): boolean =>
-                          storeIdsInGroup.some(storeId =>
-                            (bySource.get(storeId) || []).some(route => getStoreGroupId(route.to_store_id) !== groupId)
-                          )
-                        const hasDropAtGroup = (storeIdsInGroup: string[], groupId: string): boolean =>
-                          storeIdsInGroup.some(storeId =>
-                            (byDestination.get(storeId) || []).some(route => getStoreGroupId(route.from_store_id) !== groupId)
-                          )
-                        const canStartAtGroup = (storeIdsInGroup: string[], groupId: string): boolean =>
-                          hasPickupAtGroup(storeIdsInGroup, groupId) && !hasDropAtGroup(storeIdsInGroup, groupId)
-                        const canVisitAfter = (storeIdsInGroup: string[], groupId: string, visitedGroupIds: Set<string>): boolean =>
-                          storeIdsInGroup.every(storeId =>
-                            (byDestination.get(storeId) || []).every(route => {
-                              const fromGroupId = getStoreGroupId(route.from_store_id)
-                              return fromGroupId === groupId || visitedGroupIds.has(fromGroupId)
-                            })
-                          )
-                        const displayOrderOfGroup = (storeIdsInGroup: string[]): number =>
-                          Math.min(...storeIdsInGroup.map(storeId => storeMap.get(storeId)?.display_order ?? 999))
-                        const orderGroupsByRoute = (entries: Array<[string, string[]]>): Array<[string, string[]]> => {
-                          if (entries.length <= 1) return entries
-                          const remaining = [...entries].sort((a, b) => displayOrderOfGroup(a[1]) - displayOrderOfGroup(b[1]))
-                          const selectedStartStoreId = transferStartStoreIds[dateStr]
-                          const selectedStartGroupId = selectedStartStoreId ? getStoreGroupId(selectedStartStoreId) : null
-                          const selectedStartIndex = selectedStartGroupId
-                            ? remaining.findIndex(([groupId, storeIds]) =>
-                              (groupId === selectedStartGroupId || storeIds.includes(selectedStartStoreId)) &&
-                              canStartAtGroup(storeIds, groupId)
-                            )
-                            : -1
-                          const pickupStartIndex = remaining.findIndex(([groupId, storeIds]) => canStartAtGroup(storeIds, groupId))
-                          const fallbackPickupStartIndex = remaining.findIndex(([groupId, storeIds]) => hasPickupAtGroup(storeIds, groupId))
-                          const startIndex = selectedStartIndex >= 0 ? selectedStartIndex : pickupStartIndex
-                          const ordered: Array<[string, string[]]> = [
-                            remaining.splice(startIndex >= 0 ? startIndex : fallbackPickupStartIndex >= 0 ? fallbackPickupStartIndex : 0, 1)[0],
-                          ]
-
-                          while (remaining.length > 0) {
-                            const current = ordered[ordered.length - 1]
-                            const visitedGroupIds = new Set(ordered.map(([groupId]) => groupId))
-                            const readyIndexes = remaining
-                              .map((entry, index) => ({ entry, index }))
-                              .filter(({ entry }) => canVisitAfter(entry[1], entry[0], visitedGroupIds))
-                            let nextIndex = 0
-                            let nextMinutes = Number.POSITIVE_INFINITY
-                            const candidates = readyIndexes.length > 0
-                              ? readyIndexes
-                              : remaining.map((entry, index) => ({ entry, index }))
-                            for (const { entry, index } of candidates) {
-                              const minutes = getGroupTravelMinutes(current[1], entry[1])
-                              if (minutes < nextMinutes) {
-                                nextMinutes = minutes
-                                nextIndex = index
-                              }
-                            }
-                            ordered.push(remaining.splice(nextIndex, 1)[0])
-                          }
-
-                          return ordered
-                        }
-                        const sortedGroups = orderGroupsByRoute([...storeGroups.entries()])
-                        const startStoreOptions = [...storeGroups.entries()]
-                          .filter(([groupId, storeIds]) => canStartAtGroup(storeIds, groupId))
-                          .sort((a, b) => displayOrderOfGroup(a[1]) - displayOrderOfGroup(b[1]))
-                          .map(([groupId, storeIds]) => ({
-                            groupId,
-                            value: storeIds[0],
-                            label: storeIds.map(id => {
-                              const store = storeMap.get(id)
-                              return store?.short_name || store?.name || '?'
-                            }).join(' / '),
-                          }))
-                        const selectedStartStoreId = transferStartStoreIds[dateStr]
-                        const selectedStartValue = startStoreOptions.some(option => option.value === selectedStartStoreId)
-                          ? selectedStartStoreId
-                          : '__auto__'
                         const handleStartStoreChange = (value: string) => {
                           setTransferStartStoreIds(prev => {
                             const next = { ...prev }
@@ -619,112 +497,19 @@ export function TransferPlanTab({
                             
                             {/* 店舗グループ別（同じkit_groupは1つのカードに） */}
                             <div className="space-y-3">
-                              {sortedGroups.map(([groupId, storeIdsInGroup], stopIndex) => {
-                                // グループ内の全店舗の出入りを集計
-                                const groupOutgoing: typeof groups = []
-                                const groupIncoming: typeof groups = []
-                                
-                                storeIdsInGroup.forEach(storeId => {
-                                  const outgoing = bySource.get(storeId) || []
-                                  const incoming = byDestination.get(storeId) || []
-                                  // 同グループ内への移動は除外（不要な移動）
-                                  outgoing.forEach(route => {
-                                    if (getStoreGroupId(route.to_store_id) !== groupId) {
-                                      groupOutgoing.push(route)
-                                    }
-                                  })
-                                  incoming.forEach(route => {
-                                    if (getStoreGroupId(route.from_store_id) !== groupId) {
-                                      groupIncoming.push(route)
-                                    }
-                                  })
-                                })
-                                
-                                // 予約0件（移動必要なし）のアイテムは出/入のカウントから除外
-                                const hasBookings = (suggestion: KitTransferSuggestion) => {
-                                  const toGroupId = getStoreGroupId(suggestion.to_store_id)
-                                  const matchingEvents = scheduleEvents
-                                    .filter(e =>
-                                      e.scenario_master_id === suggestion.scenario_master_id &&
-                                      getStoreGroupId(e.store_id) === toGroupId &&
-                                      demandDates.includes(e.date) &&
-                                      !e.is_cancelled
-                                    )
-                                  const hasPrivatePerformance = matchingEvents.some(e =>
-                                    e.category === 'private' || e.is_private_request || e.is_private_booking
-                                  )
-                                  if (hasPrivatePerformance) return true
-                                  const total = matchingEvents.reduce((s, e) => s + (e.current_participants || 0), 0)
-                                  return total > 0
-                                }
-                                const getRoutePriorityRank = (route: typeof groups[number]) => {
-                                  return route.items.some(hasBookings) ? 0 : 1
-                                }
-                                // ルートをソート（移動必要を含む行き先/受け取り元を先に表示）
-                                const sortRoutesByGroup = (routes: typeof groups) => {
-                                  return [...routes].sort((a, b) => {
-                                    const priorityDiff = getRoutePriorityRank(a) - getRoutePriorityRank(b)
-                                    if (priorityDiff !== 0) return priorityDiff
-                                    const storeAData = storeMap.get(a.to_store_id)
-                                    const storeBData = storeMap.get(b.to_store_id)
-                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
-                                  })
-                                }
-                                const sortIncomingByGroup = (routes: typeof groups) => {
-                                  return [...routes].sort((a, b) => {
-                                    const priorityDiff = getRoutePriorityRank(a) - getRoutePriorityRank(b)
-                                    if (priorityDiff !== 0) return priorityDiff
-                                    const storeAData = storeMap.get(a.from_store_id)
-                                    const storeBData = storeMap.get(b.from_store_id)
-                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
-                                  })
-                                }
-                                const getSuggestionPriorityRank = (suggestion: KitTransferSuggestion) => {
-                                  return hasBookings(suggestion) ? 0 : 1
-                                }
-                                const sortSuggestionsByPriority = (items: KitTransferSuggestion[]) => {
-                                  return [...items].sort((a, b) => {
-                                    const priorityDiff = getSuggestionPriorityRank(a) - getSuggestionPriorityRank(b)
-                                    if (priorityDiff !== 0) return priorityDiff
-                                    const dateDiff = a.performance_date.localeCompare(b.performance_date)
-                                    if (dateDiff !== 0) return dateDiff
-                                    const titleDiff = a.scenario_title.localeCompare(b.scenario_title, 'ja')
-                                    if (titleDiff !== 0) return titleDiff
-                                    return a.kit_number - b.kit_number
-                                  })
-                                }
-                                const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
-                                const incomingRoutes = sortIncomingByGroup(groupIncoming)
-                                const isStartStop = stopIndex === 0
-                                const displayIncomingRoutes = isStartStop ? [] : incomingRoutes
-                                const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
-                                const incomingCount = displayIncomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
-                                const outgoingItemCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
-                                const incomingItemCount = displayIncomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
-
-                                // 未完了カウント（予約ありかつ未完了のアイテム）
-                                const incompleteCount =
-                                  outgoingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
-                                    if (!hasBookings(s)) return false
-                                    const id = s.org_scenario_id || s.scenario_master_id
-                                    return !isPickedUp(id, s.kit_number, s.performance_date, s.to_store_id)
-                                  }).length, 0) +
-                                  displayIncomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
-                                    if (!hasBookings(s)) return false
-                                    const id = s.org_scenario_id || s.scenario_master_id
-                                    return !isDelivered(id, s.kit_number, s.performance_date, s.to_store_id)
-                                  }).length, 0)
-                                
-                                // グループ名（複数店舗ならスラッシュで繋ぐ）
-                                const groupStoreName = storeIdsInGroup.map(id => {
-                                  const store = storeMap.get(id)
-                                  return store?.short_name || store?.name || '?'
-                                }).join(' / ')
-                                const previousGroup = stopIndex > 0 ? sortedGroups[stopIndex - 1] : null
-                                const minutesFromPrevious = previousGroup
-                                  ? getGroupTravelMinutes(previousGroup[1], storeIdsInGroup)
-                                  : null
-                                
+                              {routeStops.map(({
+                                groupId,
+                                storeIdsInGroup,
+                                groupStoreName,
+                                minutesFromPrevious,
+                                outgoingRoutes,
+                                incomingRoutes,
+                                outgoingCount,
+                                incomingCount,
+                                outgoingItemCount,
+                                incomingItemCount,
+                                incompleteCount,
+                              }, stopIndex) => {
                                 return (
                                   <div
                                     key={groupId}
@@ -766,7 +551,7 @@ export function TransferPlanTab({
                                     </div>
                                     
                                     {/* 到着（このグループが必要としているキット）- 設置チェック */}
-                                    {displayIncomingRoutes.length > 0 && (
+                                    {incomingRoutes.length > 0 && (
                                       <div className="mb-3">
                                         <div className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-2">
                                           降ろす（設置）
@@ -775,7 +560,7 @@ export function TransferPlanTab({
                                           </Badge>
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-blue-200">
-                                          {displayIncomingRoutes.map((route, routeIdx) => {
+                                          {incomingRoutes.map((route, routeIdx) => {
                                             const toStore = storeMap.get(route.to_store_id)
                                             const toStoreName = toStore?.short_name || toStore?.name || ''
                                             return (
@@ -791,7 +576,7 @@ export function TransferPlanTab({
                                                 )}
                                               </div>
                                               <div className="space-y-1">
-                                                {sortSuggestionsByPriority(route.items).map((suggestion, index) => {
+                                                {route.items.map((suggestion, index) => {
                                                   // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付とイベント情報を取得
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
@@ -927,7 +712,7 @@ export function TransferPlanTab({
                                               
                                               {/* キット一覧 */}
                                               <div className="space-y-1">
-                                                {sortSuggestionsByPriority(route.items).map((suggestion, index) => {
+                                                {route.items.map((suggestion, index) => {
                                                   // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付とイベント情報を取得
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents

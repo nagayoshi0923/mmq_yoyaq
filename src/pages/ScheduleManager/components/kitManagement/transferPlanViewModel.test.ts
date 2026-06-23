@@ -131,4 +131,61 @@ describe('buildTransferPlanViewModel', () => {
       remaining: 0,
     })
   })
+
+  it('起点店舗では降ろすルートを表示しない', () => {
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [
+        suggestion({ kit_number: 1, from_store_id: 'A', from_store_name: 'A店', to_store_id: 'B', to_store_name: 'B店' }),
+        suggestion({ kit_number: 2, from_store_id: 'C', from_store_name: 'C店', to_store_id: 'A', to_store_name: 'A店' }),
+      ],
+      scheduleEvents: [
+        { date: '2026-06-27', store_id: 'B', scenario_master_id: 'scenario-1', current_participants: 1 },
+        { date: '2026-06-27', store_id: 'A', scenario_master_id: 'scenario-1', current_participants: 1 },
+      ],
+      demandDates: ['2026-06-27'],
+      transferStartStoreIds: { '2026-06-26': 'C' },
+    })
+
+    const firstStop = view.sortedDays[0].routeStops[0]
+    expect(firstStop.groupId).toBe('C')
+    expect(firstStop.outgoingRoutes).toHaveLength(1)
+    expect(firstStop.incomingRoutes).toHaveLength(0)
+    expect(firstStop.incomingCount).toBe(0)
+  })
+
+  it('移動必要を含むルートとキットを優先して並べる', () => {
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [
+        suggestion({
+          kit_number: 1,
+          scenario_title: '優先度低',
+          from_store_id: 'A',
+          from_store_name: 'A店',
+          to_store_id: 'B',
+          to_store_name: 'B店',
+        }),
+        suggestion({
+          kit_number: 2,
+          scenario_title: '移動必要',
+          from_store_id: 'A',
+          from_store_name: 'A店',
+          to_store_id: 'C',
+          to_store_name: 'C店',
+        }),
+      ],
+      scheduleEvents: [
+        { date: '2026-06-27', store_id: 'B', scenario_master_id: 'scenario-1', current_participants: 0 },
+        { date: '2026-06-27', store_id: 'C', scenario_master_id: 'scenario-1', current_participants: 3 },
+      ],
+      demandDates: ['2026-06-27'],
+    })
+
+    const firstStop = view.sortedDays[0].routeStops[0]
+    expect(firstStop.outgoingRoutes.map(route => route.to_store_id)).toEqual(['C', 'B'])
+    expect(firstStop.outgoingRoutes.flatMap(route => route.items.map(item => item.kit_number))).toEqual([2, 1])
+  })
 })
