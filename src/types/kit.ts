@@ -36,6 +36,7 @@ export interface KitLocation {
   store_id: string
   condition: KitCondition  // キットの状態
   condition_notes?: string | null  // 状態に関するメモ
+  is_fixed?: boolean  // このキット（キット番号ごと）を固定＝移動計画で動かさない
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド

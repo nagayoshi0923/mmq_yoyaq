@@ -230,24 +230,37 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   return res.status(200).json(data)
 }
 
-// ─── PATCH: updateKitCondition 相当 ───────────────────────────────────────
+// ─── PATCH: updateKitCondition / is_fixed トグル ───────────────────────────
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const body = req.body ?? {}
-  const { scenario_id, kit_number, condition, condition_notes } = body as {
+  const { scenario_id, kit_number, condition, condition_notes, is_fixed } = body as {
     scenario_id?: string
     kit_number?: number
     condition?: string
     condition_notes?: string | null
+    is_fixed?: boolean
   }
-  if (!scenario_id || !Number.isInteger(kit_number) || !condition) {
-    return res.status(400).json({ error: 'scenario_id / kit_number / condition が必要です' })
+  if (!scenario_id || !Number.isInteger(kit_number)) {
+    return res.status(400).json({ error: 'scenario_id / kit_number が必要です' })
+  }
+  // condition 更新 と is_fixed 更新の両対応（少なくとも一方が必要）
+  const updateRow: Record<string, unknown> = {}
+  if (condition !== undefined) {
+    updateRow.condition = condition
+    updateRow.condition_notes = condition_notes ?? null
+  }
+  if (typeof is_fixed === 'boolean') {
+    updateRow.is_fixed = is_fixed
+  }
+  if (Object.keys(updateRow).length === 0) {
+    return res.status(400).json({ error: 'condition か is_fixed が必要です' })
   }
   const orgScenarioId = await resolveOrgScenarioId(user.orgId, scenario_id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q: any = (db as any)
     .from('scenario_kit_locations')
-    .update({ condition, condition_notes: condition_notes ?? null })
+    .update(updateRow)
     .eq('organization_id', user.orgId)
     .eq('kit_number', kit_number)
 

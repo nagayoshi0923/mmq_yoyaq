@@ -128,6 +128,24 @@ export const kitApi = {
   },
 
   /**
+   * キット（キット番号ごと）の固定フラグを更新
+   * is_fixed=true のキットは移動計画で動かさない
+   * scenarioId: organization_scenarios.id または scenario_master_id
+   */
+  async updateKitFixed(
+    scenarioId: string,
+    kitNumber: number,
+    isFixed: boolean
+  ): Promise<KitLocation> {
+    const data = await apiClient.patch<KitLocationRaw>('/api/kit-locations', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      is_fixed: isFixed,
+    })
+    return transformKitLocation(data)
+  },
+
+  /**
    * シナリオの全キット位置を一括設定
    * scenarioId: organization_scenarios.id または scenario_master_id
    */
