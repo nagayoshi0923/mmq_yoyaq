@@ -190,7 +190,7 @@
       - [x] 第1歩 型・定数・純ヘルパー（DraggedKit/ContextMenuState/Props・WEEKDAYS・formatCompletionDate）→ `kitManagement/types.ts` ＋ `helpers.ts` `765f47c2`（3,124→3,087）
       - [x] 第2歩 「現在の配置」タブ → `kitManagement/tabs/CurrentPlacementTab.tsx`（props: scenarioSearch/scenariosWithKits/scenariosWithoutKits/kitLocations/stores/storeMap/handle{ChangeKitCount,SetKitLocation,UpdateCondition}）`c618952d`（3,087→**2,876**）
       - [x] 第3歩 「店舗別在庫」タブ → `kitManagement/tabs/StoreInventoryTab.tsx`（props: stores/storeInventory/dragOverStoreId/draggedKit/handle{DragOver,DragLeave,Drop,ToggleKitFixed,DragStart,DragEnd,ContextMenu}）`a4b77631`（2,876→**2,786**）
-      - [ ] 第4歩 「週間需要」タブ → `kitManagement/tabs/WeeklyDemandTab.tsx`
+      - [x] 第4歩 「週間需要」タブ → `kitManagement/tabs/WeeklyDemandTab.tsx`（props: kitShortages/storeMap/scenarioMap/demandDates/scheduleEvents/kitLocations/stores/isSameStoreGroup/formatDate）`216b3285`（2,786→**2,670**）
       - [ ] 第5歩 「移動計画(transfers)」タブ → `kitManagement/tabs/TransferPlanTab.tsx`（大きいので props 注入で移動のみ。内部の日付計算/グルーピング/小コンポーネント分割は別コミット）
       - [ ] 第6歩〜 ロジックを `useKitManagementData` / selectors(派生) / handlers フックへ分割（一括 useKitAssignment にせず分ける）。ContextMenu / deliveryConfirm / help dialog はタブ横断UI状態のため当面は親に残し必要 props のみ渡す
 - [ ] 5-2 `ImportScheduleModal`（2,013行）: パース/検証を純関数化（テスト対象）、プレビューUI分離
