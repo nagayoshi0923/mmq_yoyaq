@@ -582,27 +582,24 @@ export function TransferPlanTab({
                         
                         return (
                           <div key={dateStr}>
-                            {/* 移動日ヘッダー（複数日ある場合のみ表示） */}
-                            {sortedDays.length > 1 && (
-                              <div className={`flex items-center gap-2 mb-2 px-2 py-1 rounded-lg ${isPastTransferDate ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-primary/10'}`}>
-                                <Calendar className={`h-4 w-4 ${isPastTransferDate ? 'text-amber-600' : 'text-primary'}`} />
-                                <span className="font-bold">{transferDateLabel} 移動</span>
-                                <span className="text-sm text-muted-foreground">→ {perfPeriodLabel}</span>
-                                {isPastTransferDate && (
-                                  <Badge variant="secondary" className="bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200">
-                                    過去
-                                  </Badge>
-                                )}
-                                <Badge variant="secondary" className="ml-auto">
-                                  {dayKitCount}キット
+                            <div className={`flex items-center gap-2 mb-2 px-2 py-1 rounded-lg ${isPastTransferDate ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-primary/10'}`}>
+                              <Calendar className={`h-4 w-4 ${isPastTransferDate ? 'text-amber-600' : 'text-primary'}`} />
+                              <span className="font-bold">{transferDateLabel} 移動</span>
+                              <span className="text-sm text-muted-foreground">→ {perfPeriodLabel}</span>
+                              {isPastTransferDate && (
+                                <Badge variant="secondary" className="bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200">
+                                  過去
                                 </Badge>
-                              </div>
-                            )}
+                              )}
+                              <Badge variant="secondary" className="ml-auto">
+                                {dayKitCount}キット
+                              </Badge>
+                            </div>
 
                             {startStoreOptions.length > 0 && (
                               <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border bg-background px-2 py-2">
                                 <span className="text-xs font-medium text-muted-foreground">
-                                  {sortedDays.length > 1 ? `${transferDateLabel}の起点店舗` : '起点店舗'}
+                                  {transferDateLabel}の起点店舗
                                 </span>
                                 <Select value={selectedStartValue} onValueChange={handleStartStoreChange}>
                                   <SelectTrigger className="h-8 w-[180px] text-xs">
