@@ -5,7 +5,7 @@ import {
   type PlannerDemand,
   type KitState,
 } from '../kitTransferPlanner'
-import type { Scenario, Store, KitTransferEvent, KitTransferCompletion } from '@/types'
+import type { Scenario, Store, StoreTravelTime, KitTransferEvent, KitTransferCompletion } from '@/types'
 
 // ── テスト用ビルダ（必要な列だけ） ───────────────────────────────
 function mkStore(id: string, opts: Partial<Store> = {}): Store {
@@ -94,6 +94,40 @@ describe('planKitTransfers', () => {
     const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
     expect(plan.transfers).toHaveLength(0)
     expect(plan.shortages).toHaveLength(0)
+  })
+
+  it('④b 住所が同じ店舗は kit_group 未設定でも同一拠点として使い回す', () => {
+    const stores = [
+      mkStore('G1', { address: '東京都新宿区1-1' }),
+      mkStore('G2', { address: ' 東京都 新宿区 1-1 ' }),
+    ]
+    const scenarios = [mkScenario(S1, 1)]
+    const state: KitState = { [S1]: { 1: 'G1' } }
+    const demands = [
+      demand(D14, 'G1', S1, '10:00', '13:00'),
+      demand(D14, 'G2', S1, '14:00', '17:00'),
+    ]
+
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY)
+    expect(plan.transfers).toHaveLength(0)
+    expect(plan.shortages).toHaveLength(0)
+  })
+
+  it('④c 複数候補がある場合は店舗間移動時間が短い店舗から出す', () => {
+    const stores = [mkStore('A'), mkStore('B'), mkStore('C')]
+    const travelTimes = [
+      { store_a_id: 'A', store_b_id: 'B', minutes: 40 },
+      { store_a_id: 'B', store_b_id: 'C', minutes: 10 },
+    ] as StoreTravelTime[]
+    const scenarios = [mkScenario(S1, 2)]
+    const state: KitState = { [S1]: { 1: 'A', 2: 'C' } }
+    const demands = [demand(D15, 'B', S1)]
+
+    const plan = planKitTransfers(state, demands, scenarios, stores, TODAY, new Set(), travelTimes)
+    expect(plan.shortages).toHaveLength(0)
+    expect(plan.transfers).toHaveLength(1)
+    expect(plan.transfers[0].from_store_id).toBe('C')
+    expect(plan.transfers[0].to_store_id).toBe('B')
   })
 
   it('⑤ 同住所×時間重複 は必要数=最大同時数。在庫不足は shortages に出る', () => {

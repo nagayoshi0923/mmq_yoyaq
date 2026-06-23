@@ -11,7 +11,7 @@
  *
  * ⚠️ 現状は契約（型・シグネチャ）のみ。アルゴリズムは未実装（テスト先行）。
  */
-import type { Scenario, Store, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
+import type { Scenario, Store, StoreTravelTime, KitTransferSuggestion, KitTransferEvent, KitTransferCompletion } from '@/types'
 import type { KitState } from './kitOptimizer'
 
 export type { KitState } from './kitOptimizer'
@@ -118,13 +118,28 @@ export function planKitTransfers(
   stores: Store[],
   today: string,
   fixedKitKeys: Set<string> = new Set(),
+  travelTimes: StoreTravelTime[] = [],
 ): KitTransferPlan {
   const scenarioMap = new Map(scenarios.map(s => [s.id, s]))
   const storeMap = new Map(stores.map(s => [s.id, s]))
-  const groupOf = (storeId: string): string => storeMap.get(storeId)?.kit_group_id || storeId
+  const normalizeAddress = (address?: string | null): string => (address || '').trim().replace(/\s+/g, '')
+  const groupOf = (storeId: string): string => {
+    const store = storeMap.get(storeId)
+    if (!store) return storeId
+    if (store.kit_group_id) return store.kit_group_id
+    const address = normalizeAddress(store.address)
+    return address ? `address:${address}` : storeId
+  }
   const nameOf = (storeId: string): string => {
     const s = storeMap.get(storeId)
     return s?.short_name || s?.name || storeId
+  }
+  const normalizePair = (storeAId: string, storeBId: string): string =>
+    storeAId < storeBId ? `${storeAId}::${storeBId}` : `${storeBId}::${storeAId}`
+  const travelTimeMap = new Map(travelTimes.map(t => [normalizePair(t.store_a_id, t.store_b_id), t.minutes]))
+  const travelMinutes = (fromStoreId: string, toStoreId: string): number => {
+    if (groupOf(fromStoreId) === groupOf(toStoreId)) return 0
+    return travelTimeMap.get(normalizePair(fromStoreId, toStoreId)) ?? 30
   }
 
   const transfers: KitTransferSuggestion[] = []
@@ -227,12 +242,16 @@ export function planKitTransfers(
             if (breaksSource) continue
             candidates.push({ kn, fromStore: curStore })
           }
-          // tie-break: 近い拠点（region 一致）優先
+          // tie-break: 店舗間移動時間が短い候補を優先。未入力は暫定30分。
           const destRegion = storeMap.get(toStoreId)?.region || ''
           candidates.sort((a, b) => {
+            const minutesA = travelMinutes(a.fromStore, toStoreId)
+            const minutesB = travelMinutes(b.fromStore, toStoreId)
+            if (minutesA !== minutesB) return minutesA - minutesB
             const ra = (storeMap.get(a.fromStore)?.region || '') === destRegion && destRegion !== '' ? 0 : 1
             const rb = (storeMap.get(b.fromStore)?.region || '') === destRegion && destRegion !== '' ? 0 : 1
-            return ra - rb
+            if (ra !== rb) return ra - rb
+            return (storeMap.get(a.fromStore)?.display_order ?? 999) - (storeMap.get(b.fromStore)?.display_order ?? 999)
           })
           for (const c2 of candidates) {
             if (chosen.length >= needed) break

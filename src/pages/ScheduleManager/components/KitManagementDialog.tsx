@@ -27,7 +27,7 @@ import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
 import { planKitTransfers, findOverdueTransfers, type PlannerDemand, type OverdueTransfer } from '@/utils/kitTransferPlanner'
-import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario, KitCondition, KitTransferCompletion } from '@/types'
+import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, StoreTravelTime, Scenario, KitCondition, KitTransferCompletion } from '@/types'
 import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
@@ -48,6 +48,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [kitLocations, setKitLocations] = useState<KitLocation[]>([])
   const [transferEvents, setTransferEvents] = useState<KitTransferEvent[]>([])
   const [stores, setStores] = useState<Store[]>([])
+  const [storeTravelTimes, setStoreTravelTimes] = useState<StoreTravelTime[]>([])
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [scheduleEvents, setScheduleEvents] = useState<Array<{
     date: string
@@ -765,8 +766,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // 新ロジックの計算結果（移動提案＋解消できない不足）
   const newPlan = useMemo(
-    () => planKitTransfers(kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys),
-    [kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys],
+    () => planKitTransfers(kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys, storeTravelTimes),
+    [kitStateForPlan, plannerDemands, scenarios, stores, planToday, fixedKitKeys, storeTravelTimes],
   )
 
   // 持ち越し（未実行の確定移動・責任追及）
@@ -810,10 +811,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         }
       }
 
-      const [locationsData, storesData, scenariosData] = await Promise.all([
+      const [locationsData, storesData, scenariosData, travelTimesData] = await Promise.all([
         kitApi.getKitLocations(),
         storeApi.getAll(),
-        scenarioApi.getAll()
+        scenarioApi.getAll(),
+        storeApi.getTravelTimes()
       ])
       
       // デバッグ: データ取得結果
@@ -837,6 +839,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       
       setKitLocations(locationsData)
       setStores(storesData)
+      setStoreTravelTimes(travelTimesData)
       setScenarios(scenariosData)
 
       // 週間スケジュールを取得
