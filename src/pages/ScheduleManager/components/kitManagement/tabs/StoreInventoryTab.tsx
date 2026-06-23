@@ -1,7 +1,7 @@
 import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { TabsContent } from '@/components/ui/tabs'
-import { GripVertical } from 'lucide-react'
+import { GripVertical, Lock } from 'lucide-react'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import type { KitCondition, Store, Scenario } from '@/types'
 import type { DraggedKit } from '../types'
@@ -13,7 +13,7 @@ import type { DraggedKit } from '../types'
  */
 type StoreInventory = Map<string, Array<{
   scenario: Scenario
-  kits: Array<{ kitNumber: number; condition: KitCondition; conditionNotes?: string | null }>
+  kits: Array<{ kitNumber: number; condition: KitCondition; conditionNotes?: string | null; isFixed?: boolean }>
 }>>
 
 interface StoreInventoryTabProps {
@@ -96,15 +96,18 @@ export function StoreInventoryTab({
                                 onContextMenu={(e) => handleContextMenu(e, item.scenario.id, kit.kitNumber, store.id, kit.condition)}
                                 className={`
                                   px-2 py-1 rounded border bg-background text-xs cursor-grab active:cursor-grabbing
-                                  ${hasIssue ? 'border-orange-300 dark:border-orange-700' : 'border-border'}
+                                  ${kit.isFixed ? 'ring-1 ring-orange-400 border-orange-400 bg-orange-50 dark:bg-orange-900/20' : hasIssue ? 'border-orange-300 dark:border-orange-700' : 'border-border'}
                                   ${isDragging ? 'opacity-50' : ''}
                                   hover:border-primary/50 hover:shadow-sm transition-all
                                 `}
-                                title={kit.conditionNotes || 'ドラッグで移動 / 右クリックでメニュー'}
+                                title={kit.isFixed ? '固定中（移動計画で動かさない）。右クリックで解除' : (kit.conditionNotes || 'ドラッグで移動 / 右クリックでメニュー')}
                               >
                                 {/* 状態 + シナリオ名 */}
                                 <div className="flex items-center gap-1.5">
                                   <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                                  {kit.isFixed && (
+                                    <Lock className="h-3 w-3 text-orange-500 shrink-0" />
+                                  )}
                                   <span
                                     className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-[10px] ${KIT_CONDITION_COLORS[kit.condition]}`}
                                   >

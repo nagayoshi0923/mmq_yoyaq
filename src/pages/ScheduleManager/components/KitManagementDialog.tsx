@@ -286,7 +286,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const storeInventory = useMemo(() => {
     const inventory = new Map<string, Array<{
       scenario: Scenario
-      kits: Array<{ kitNumber: number; condition: KitCondition; conditionNotes?: string | null }>
+      kits: Array<{ kitNumber: number; condition: KitCondition; conditionNotes?: string | null; isFixed?: boolean }>
     }>>()
     
     // アクティブな店舗で初期化
@@ -310,7 +310,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const kitInfo = {
         kitNumber: loc.kit_number,
         condition: (loc.condition || 'good') as KitCondition,
-        conditionNotes: loc.condition_notes
+        conditionNotes: loc.condition_notes,
+        isFixed: loc.is_fixed ?? false
       }
       
       if (existing) {
