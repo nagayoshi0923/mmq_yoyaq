@@ -2,7 +2,7 @@ import ReactDOM from 'react-dom/client'
 import App from './AppRoot.tsx'
 import './index.css'
 import { initSentry } from '@/lib/sentry'
-import { initVersionCheck, clearChunkReloadFlag, isChunkLoadError } from '@/utils/lazyWithRetry'
+import { initVersionCheck, clearChunkReloadFlag, isChunkLoadError, forceReloadLatest } from '@/utils/lazyWithRetry'
 
 // パッシブイベントリスナーの警告を抑制
 // UIライブラリ（Radix UI等）がtouchstartにpassive: falseを使用するため
@@ -127,7 +127,7 @@ function showUpdateBanner(): void {
   document.body.appendChild(banner)
 
   document.getElementById('app-update-btn')?.addEventListener('click', () => {
-    window.location.reload()
+    forceReloadLatest()
   })
   document.getElementById('app-update-dismiss')?.addEventListener('click', () => {
     banner.remove()

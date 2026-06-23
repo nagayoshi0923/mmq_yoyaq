@@ -192,3 +192,29 @@ export function clearChunkReloadFlag(): void {
   sessionStorage.removeItem('chunk-error-reload')
   sessionStorage.removeItem('chunk-auto-reload')
 }
+
+/**
+ * ユーザーが「最新版を読み込む / 更新する」を押したときの確実なリロード。
+ *
+ * 素の location.reload() だと、iOS Safari の bfcache や中間キャッシュで
+ * 古いページ状態・古いチャンク参照が復元され「押しても変わらない（動かない）」
+ * ことがある。対策として:
+ *  1. チャンク自動リロードの抑止フラグを解除（手動操作後は自動回復も再び効くように）
+ *  2. キャッシュバスター(_v=timestamp)付きで location.replace し、確実に新しい
+ *     index.html（no-store）と新チャンクを取りに行く。_v はアプリ側では未使用で、
+ *     値が入っていれば Vercel の「_v 欠落時リダイレクト」も発火しない。
+ */
+export function forceReloadLatest(): void {
+  try {
+    clearChunkReloadFlag()
+  } catch {
+    // sessionStorage 不可環境でも続行
+  }
+  try {
+    const url = new URL(window.location.href)
+    url.searchParams.set('_v', String(Date.now()))
+    window.location.replace(url.toString())
+  } catch {
+    window.location.reload()
+  }
+}
