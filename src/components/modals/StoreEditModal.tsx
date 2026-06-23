@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ItemizedListWithDates, type ItemizedListColumn } from '@/components/ui/itemized-list-with-dates'
 import { Save, Trash2 } from 'lucide-react'
-import type { Store, StoreFixedCost } from '@/types'
+import type { Store, StoreFixedCost, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 import { logger } from '@/utils/logger'
 
 interface StoreEditModalProps {
@@ -14,13 +14,44 @@ interface StoreEditModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (updatedStore: Store) => void
+  onSaveTravelTimes?: (items: StoreTravelTimeInput[]) => Promise<void>
   onDelete?: (store: Store) => void
-  allStores?: Store[]  // キットグループ選択用
+  allStores?: Store[]  // キットグループ選択・店舗間移動時間用
+  travelTimes?: StoreTravelTime[]
 }
 
-export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allStores = [] }: StoreEditModalProps) {
+export function StoreEditModal({
+  store,
+  isOpen,
+  onClose,
+  onSave,
+  onSaveTravelTimes,
+  onDelete,
+  allStores = [],
+  travelTimes = []
+}: StoreEditModalProps) {
   const [formData, setFormData] = useState<Partial<Store>>({})
+  const [travelTimeDrafts, setTravelTimeDrafts] = useState<Record<string, { minutes: string; memo: string }>>({})
   const [loading, setLoading] = useState(false)
+
+  const normalizePair = (storeAId: string, storeBId: string): [string, string] =>
+    storeAId < storeBId ? [storeAId, storeBId] : [storeBId, storeAId]
+
+  const getStoreGroupId = (storeId: string): string => {
+    const target = allStores.find(s => s.id === storeId)
+    return target?.kit_group_id || storeId
+  }
+
+  const normalizeAddress = (address?: string | null): string => (address || '').trim().replace(/\s+/g, '')
+
+  const isSameTravelGroup = (a: Store, b: Store): boolean => {
+    const groupA = getStoreGroupId(a.id)
+    const groupB = getStoreGroupId(b.id)
+    if (groupA === groupB) return true
+    const addressA = normalizeAddress(a.address)
+    const addressB = normalizeAddress(b.address)
+    return addressA !== '' && addressA === addressB
+  }
 
   useEffect(() => {
     if (store) {
@@ -73,6 +104,26 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
     }
   }, [store, isOpen])
 
+  useEffect(() => {
+    if (!store || !isOpen) {
+      setTravelTimeDrafts({})
+      return
+    }
+
+    const drafts: Record<string, { minutes: string; memo: string }> = {}
+    for (const otherStore of allStores.filter(s => s.id !== store.id)) {
+      const [storeAId, storeBId] = normalizePair(store.id, otherStore.id)
+      const existing = travelTimes.find(
+        t => t.store_a_id === storeAId && t.store_b_id === storeBId
+      )
+      drafts[otherStore.id] = {
+        minutes: existing ? String(existing.minutes) : '',
+        memo: existing?.memo || ''
+      }
+    }
+    setTravelTimeDrafts(drafts)
+  }, [store, isOpen, allStores, travelTimes])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -81,7 +132,34 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
       if (store) {
         // 編集モード：既存データとマージ
         const updatedStore = { ...store, ...formData } as Store
+        const travelTimeItems: StoreTravelTimeInput[] = onSaveTravelTimes
+          ? allStores
+            .filter(otherStore => otherStore.id !== store.id && !isSameTravelGroup(updatedStore, otherStore))
+            .map(otherStore => {
+              const draft = travelTimeDrafts[otherStore.id] || { minutes: '', memo: '' }
+              const minutesText = draft.minutes.trim()
+              const minutes = minutesText === '' ? null : Number(minutesText)
+              if (
+                minutes !== null &&
+                (!Number.isInteger(minutes) || minutes <= 0 || minutes > 1440)
+              ) {
+                const message = '店舗間移動時間は1〜1440分の整数で入力してください'
+                alert(message)
+                throw new Error(message)
+              }
+
+              return {
+                store_a_id: store.id,
+                store_b_id: otherStore.id,
+                minutes,
+                memo: draft.memo.trim() || null
+              }
+            })
+          : []
         await onSave(updatedStore)
+        if (onSaveTravelTimes) {
+          await onSaveTravelTimes(travelTimeItems)
+        }
       } else {
         // 新規作成モード：formDataをそのまま渡す
         await onSave(formData as Store)
@@ -96,6 +174,21 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
 
   const handleInputChange = (field: keyof Store, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleTravelTimeChange = (
+    storeId: string,
+    field: 'minutes' | 'memo',
+    value: string
+  ) => {
+    setTravelTimeDrafts(prev => ({
+      ...prev,
+      [storeId]: {
+        minutes: prev[storeId]?.minutes || '',
+        memo: prev[storeId]?.memo || '',
+        [field]: value
+      }
+    }))
   }
 
   // 固定費のカラム定義
@@ -571,6 +664,73 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
                     <span className="text-sm text-muted-foreground">/ 公演</span>
                   </div>
                 </div>
+
+                {/* 店舗間移動時間 */}
+                {store && allStores.length > 1 && (
+                  <div className="pt-4 border-t">
+                    <h3 className="text-lg font-semibold mb-2">他店舗への移動時間</h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      キット移動ルートの並び順に使う移動時間です。未入力の組み合わせは移動計画で暫定30分として扱われます。
+                    </p>
+                    <div className="space-y-3">
+                      {[...allStores]
+                        .filter(otherStore => otherStore.id !== store.id)
+                        .sort((a, b) => (a.display_order ?? 999) - (b.display_order ?? 999))
+                        .map(otherStore => {
+                          const sameGroup = isSameTravelGroup(store, otherStore)
+                          const draft = travelTimeDrafts[otherStore.id] || { minutes: '', memo: '' }
+                          return (
+                            <div key={otherStore.id} className="rounded-md border p-3 bg-muted/20">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div>
+                                  <div className="text-sm font-medium">
+                                    {otherStore.short_name || otherStore.name}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {otherStore.status === 'active' ? '営業中' : otherStore.status === 'temporarily_closed' ? '一時休業' : '閉鎖'}
+                                  </div>
+                                </div>
+                                {sameGroup && (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">
+                                    同一拠点 0分
+                                  </span>
+                                )}
+                              </div>
+                              {sameGroup ? (
+                                <p className="text-xs text-muted-foreground">
+                                  同じキットグループまたは同じ住所のため、移動時間入力は不要です。
+                                </p>
+                              ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-2">
+                                  <div>
+                                    <label className="block text-xs font-medium mb-1">分</label>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={1440}
+                                      value={draft.minutes}
+                                      onChange={(e) => handleTravelTimeChange(otherStore.id, 'minutes', e.target.value)}
+                                      placeholder="30"
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium mb-1">メモ</label>
+                                    <Input
+                                      value={draft.memo}
+                                      onChange={(e) => handleTravelTimeChange(otherStore.id, 'memo', e.target.value)}
+                                      placeholder="例: 山手線、徒歩込み"
+                                      className="h-8"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             

@@ -10,7 +10,7 @@ import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/ta
 import { useTablePreferences } from '@/hooks/useTablePreferences'
 import { storeApi } from '@/lib/api'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
-import type { Store } from '@/types'
+import type { Store, StoreTravelTimeInput } from '@/types'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -19,11 +19,12 @@ import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
 import { StoreFilters } from './components/StoreFilters'
 import { createStoreColumns, getStoreColors, getStatusBadge } from './utils/tableColumns'
-import { useStoreQuery, useStoreQueryClient } from './hooks/useStoreQuery'
+import { useStoreQuery, useStoreTravelTimesQuery, useStoreQueryClient } from './hooks/useStoreQuery'
 
 export function StoreManagement() {
   const { data: stores = [], isLoading: loading, error: queryError } = useStoreQuery()
-  const { updateStore, addStore, removeStore } = useStoreQueryClient()
+  const { data: travelTimes = [] } = useStoreTravelTimesQuery()
+  const { updateStore, addStore, removeStore, updateTravelTimes } = useStoreQueryClient()
   const error = queryError ? (queryError as Error).message : ''
 
   const [editingStore, setEditingStore] = useState<Store | null>(null)
@@ -87,6 +88,17 @@ export function StoreManagement() {
     } catch (err: any) {
       logger.error('Error saving store:', err)
       showToast.error('店舗の保存に失敗しました', getSafeErrorMessage(err))
+      throw err
+    }
+  }
+
+  async function handleSaveTravelTimes(items: StoreTravelTimeInput[]) {
+    try {
+      const savedTravelTimes = await storeApi.upsertTravelTimes(items)
+      updateTravelTimes(savedTravelTimes)
+    } catch (err: any) {
+      logger.error('Error saving store travel times:', err)
+      showToast.error('店舗間移動時間の保存に失敗しました', getSafeErrorMessage(err))
       throw err
     }
   }
@@ -367,8 +379,10 @@ export function StoreManagement() {
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
         onSave={handleSaveStore}
+        onSaveTravelTimes={handleSaveTravelTimes}
         onDelete={handleDeleteStore}
         allStores={stores}
+        travelTimes={travelTimes}
       />
     </AppLayout>
   )
