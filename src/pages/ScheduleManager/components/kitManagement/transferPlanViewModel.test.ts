@@ -132,7 +132,7 @@ describe('buildTransferPlanViewModel', () => {
     })
   })
 
-  it('起点店舗では降ろすルートを表示せず、出発前持ち込みとして分ける', () => {
+  it('起点に戻す必要があるキットはルート末尾の降ろすとして表示する', () => {
     const view = buildTransferPlanViewModel({
       ...baseParams,
       transferDates: ['2026-06-26'],
@@ -147,6 +147,11 @@ describe('buildTransferPlanViewModel', () => {
         { date: '2026-06-27', store_id: 'C', scenario_master_id: 'scenario-1', current_participants: 1 },
       ],
       demandDates: ['2026-06-27'],
+      storeMap: new Map([
+        ['A', { id: 'A', short_name: 'A店', name: 'A店', display_order: 1 }],
+        ['B', { id: 'B', short_name: 'B店', name: 'B店', display_order: 2 }],
+        ['C', { id: 'C', short_name: 'C店', name: 'C店', display_order: 3 }],
+      ] as any),
     })
 
     const firstStop = view.sortedDays[0].routeStops[0]
@@ -154,7 +159,10 @@ describe('buildTransferPlanViewModel', () => {
     expect(firstStop.outgoingRoutes).toHaveLength(1)
     expect(firstStop.incomingRoutes).toHaveLength(0)
     expect(firstStop.incomingCount).toBe(0)
-    expect(view.sortedDays[0].startCarryInRoutes.map(route => route.to_store_id)).toEqual(['A'])
+    const routeStops = view.sortedDays[0].routeStops
+    expect(routeStops.map(stop => stop.groupStoreName)).toEqual(['A店', 'B店', 'C店', 'A店'])
+    expect(routeStops[3].outgoingRoutes).toHaveLength(0)
+    expect(routeStops[3].incomingRoutes.map(route => route.to_store_id)).toEqual(['A'])
   })
 
   it('移動必要を含むルートとキットを優先して並べる', () => {

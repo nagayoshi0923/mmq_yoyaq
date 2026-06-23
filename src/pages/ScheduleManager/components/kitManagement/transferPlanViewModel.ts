@@ -33,7 +33,6 @@ export type TransferDayView = {
   dateStr: string
   groups: SuggestionGroup[]
   routeStops: TransferRouteStop[]
-  startCarryInRoutes: SuggestionGroup[]
   startStoreOptions: TransferStartStoreOption[]
   selectedStartValue: string
 }
@@ -395,7 +394,7 @@ export function buildTransferPlanViewModel({
         ? selectedStartStoreId
         : '__auto__'
 
-      let startCarryInRoutes: SuggestionGroup[] = []
+      let returnToStartIncomingRoutes: SuggestionGroup[] = []
       const routeStops = sortedStoreGroups.map(([groupId, storeIdsInGroup], stopIndex) => {
         const groupOutgoing: SuggestionGroup[] = []
         const groupIncoming: SuggestionGroup[] = []
@@ -420,7 +419,7 @@ export function buildTransferPlanViewModel({
         const sortedIncomingRoutes = sortIncomingRoutes(groupIncoming)
           .map(route => ({ ...route, items: sortSuggestionsByPriority(route.items) }))
         if (stopIndex === 0) {
-          startCarryInRoutes = sortedIncomingRoutes
+          returnToStartIncomingRoutes = sortedIncomingRoutes
         }
         const incomingRoutes = stopIndex === 0 ? [] : sortedIncomingRoutes
         const previousGroup = stopIndex > 0 ? sortedStoreGroups[stopIndex - 1] : null
@@ -457,12 +456,34 @@ export function buildTransferPlanViewModel({
           incompleteCount,
         }
       })
+      if (returnToStartIncomingRoutes.length > 0 && routeStops.length > 0) {
+        const startStop = routeStops[0]
+        const previousStop = routeStops[routeStops.length - 1]
+        const incomingCount = returnToStartIncomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+        const incomingItemCount = returnToStartIncomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
+        const incompleteCount = returnToStartIncomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
+          if (!hasBookings(s)) return false
+          const id = s.org_scenario_id || s.scenario_master_id
+          return !isDelivered(id, s.kit_number, s.performance_date, s.to_store_id)
+        }).length, 0)
+        routeStops.push({
+          ...startStop,
+          groupId: `${startStop.groupId}::return`,
+          minutesFromPrevious: getGroupTravelMinutes(previousStop.storeIdsInGroup, startStop.storeIdsInGroup),
+          outgoingRoutes: [],
+          incomingRoutes: returnToStartIncomingRoutes,
+          outgoingCount: 0,
+          incomingCount,
+          outgoingItemCount: 0,
+          incomingItemCount,
+          incompleteCount,
+        })
+      }
 
       return {
         dateStr,
         groups,
         routeStops,
-        startCarryInRoutes,
         startStoreOptions,
         selectedStartValue,
       }
