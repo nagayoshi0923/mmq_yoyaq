@@ -12,6 +12,7 @@ import {
   logAuthEvent,
 } from './auth/authContextHelpers'
 import { resolveUserFromSession } from './auth/resolveUserFromSession'
+import { useSessionRefresh } from './auth/useSessionRefresh'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -51,8 +52,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const userRef = React.useRef<AuthUser | null>(null)
   // 認証処理中のフラグ（クロージャー問題を回避するためuseRefを使用）
   const isProcessingRef = React.useRef<boolean>(false)
-  // 最後のトークンリフレッシュ時間（重複リフレッシュ防止）
-  const lastRefreshRef = React.useRef<number>(0)
   // 明示的ログアウト中フラグ（SIGNED_OUT でリカバリーを試みないようにする）
   const isExplicitSignOutRef = React.useRef<boolean>(false)
   // セッション復元の試行済みフラグ（無限ループ防止）
@@ -78,67 +77,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 各 effect / callback は生成時のクロージャでこれを捕捉する（旧実装と同じ捕捉タイミング）。
   const resolveDeps = { isProcessingRef, userRef, staffCache, setStaffCache, setUser }
 
-  // 手動セッションリフレッシュ関数
-  const refreshSession = useCallback(async () => {
-    const now = Date.now()
-    // 30秒以内に既にリフレッシュした場合はスキップ
-    if (now - lastRefreshRef.current < 30000) {
-      authTrace('⏭️ セッションリフレッシュ: 30秒以内に既に実行済み、スキップ')
-      return
-    }
-    
-    lastRefreshRef.current = now
-    authTrace('🔄 セッションリフレッシュ開始')
-    
-    try {
-      // まず現在のセッション状態を確認（不要なrefreshを避ける）
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) {
-        logger.error('❌ セッション確認エラー:', sessionError)
-        return
-      }
-      
-      const session = sessionData.session
-      if (!session) {
-        authTrace('⏭️ セッションなし: リフレッシュをスキップ')
-        return
-      }
-      
-      // 有効期限まで十分余裕がある場合はリフレッシュしない
-      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
-      const refreshThresholdMs = 15 * 60 * 1000 // 15分前からリフレッシュ開始
-      if (expiresAt && expiresAt - now > refreshThresholdMs) {
-        authTrace('⏭️ セッション有効: リフレッシュ不要（残り', Math.round((expiresAt - now) / 60000), '分）')
-        return
-      }
-      
-      authTrace('🔄 セッション有効期限が近いためリフレッシュ開始（残り', Math.round((expiresAt - now) / 60000), '分）')
-      
-      const { data, error } = await supabase.auth.refreshSession()
-      if (error) {
-        logger.error('❌ セッションリフレッシュエラー:', error)
-        
-        // リフレッシュに失敗した場合も、直ちにログアウトせずに再確認
-        if (error.message?.includes('Invalid Refresh Token') || 
-            error.message?.includes('Refresh Token Not Found')) {
-          const { data: retrySession } = await supabase.auth.getSession()
-          if (!retrySession.session) {
-            setUser(null)
-            userRef.current = null
-          } else {
-            authTrace('⚠️ リフレッシュ失敗だがセッションは有効: 状態維持')
-          }
-        }
-        return
-      }
-      
-      if (data.session) {
-        authTrace('✅ セッションリフレッシュ成功')
-      }
-    } catch (err) {
-      logger.error('❌ セッションリフレッシュ例外:', err)
-    }
-  }, [])
+  // 手動セッションリフレッシュ（auth/useSessionRefresh.ts へ切り出し）
+  const refreshSession = useSessionRefresh(userRef, setUser)
 
   // デプロイ後のリロードでトークンリフレッシュが失敗した場合のリカバリー。
   // Supabase クライアント初期化前に保存したバックアップから refresh_token を取り出し、
