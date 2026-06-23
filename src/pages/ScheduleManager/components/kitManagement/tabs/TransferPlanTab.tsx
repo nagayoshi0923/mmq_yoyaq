@@ -658,6 +658,8 @@ export function TransferPlanTab({
                                 
                                 const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
                                 const incomingRoutes = sortIncomingByGroup(groupIncoming)
+                                const isStartStop = stopIndex === 0
+                                const displayIncomingRoutes = isStartStop ? [] : incomingRoutes
 
                                 // 予約0件（移動必要なし）のアイテムは出/入のカウントから除外
                                 const hasBookings = (suggestion: KitTransferSuggestion) => {
@@ -691,9 +693,9 @@ export function TransferPlanTab({
                                   })
                                 }
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
-                                const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+                                const incomingCount = displayIncomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 const outgoingItemCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
-                                const incomingItemCount = incomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
+                                const incomingItemCount = displayIncomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
 
                                 // 未完了カウント（予約ありかつ未完了のアイテム）
                                 const incompleteCount =
@@ -702,7 +704,7 @@ export function TransferPlanTab({
                                     const id = s.org_scenario_id || s.scenario_master_id
                                     return !isPickedUp(id, s.kit_number, s.performance_date, s.to_store_id)
                                   }).length, 0) +
-                                  incomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
+                                  displayIncomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
                                     if (!hasBookings(s)) return false
                                     const id = s.org_scenario_id || s.scenario_master_id
                                     return !isDelivered(id, s.kit_number, s.performance_date, s.to_store_id)
@@ -759,7 +761,7 @@ export function TransferPlanTab({
                                     </div>
                                     
                                     {/* 到着（このグループが必要としているキット）- 設置チェック */}
-                                    {incomingRoutes.length > 0 && (
+                                    {displayIncomingRoutes.length > 0 && (
                                       <div className="mb-3">
                                         <div className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-2">
                                           降ろす（設置）
@@ -768,7 +770,7 @@ export function TransferPlanTab({
                                           </Badge>
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-blue-200">
-                                          {incomingRoutes.map((route, routeIdx) => {
+                                          {displayIncomingRoutes.map((route, routeIdx) => {
                                             const toStore = storeMap.get(route.to_store_id)
                                             const toStoreName = toStore?.short_name || toStore?.name || ''
                                             return (
