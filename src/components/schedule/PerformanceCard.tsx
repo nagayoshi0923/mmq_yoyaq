@@ -1,6 +1,6 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Users, AlertTriangle, EyeOff } from 'lucide-react'
+import { Users, AlertTriangle, EyeOff, Package } from 'lucide-react'
 import { useLongPress } from '@/hooks/useLongPress'
 import { getEffectiveCategory } from '@/utils/scheduleUtils'
 import { devDb } from '@/components/ui/DevField'
@@ -215,9 +215,10 @@ function PerformanceCardBase({
             <Badge
               variant="outline"
               size="sm"
-              className="font-bold text-[9px] px-1 py-0 h-4 whitespace-nowrap bg-red-600 text-white border-red-600"
+              className="font-bold text-[9px] px-1 py-0 h-4 whitespace-nowrap bg-red-600 text-white border-red-600 inline-flex items-center gap-0.5"
               title="キット未配置: この店舗または同じキットグループにキットがありません"
             >
+              <Package className="w-2.5 h-2.5" />
               キット未配置
             </Badge>
           )}
