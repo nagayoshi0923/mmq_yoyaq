@@ -692,6 +692,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const plannerDemands = useMemo<PlannerDemand[]>(() => {
     const hasCommittedParticipants = (event: (typeof scheduleEvents)[number]) => {
       if (event.category === 'private' || event.is_private_request || event.is_private_booking) return true
+      if (event.category === 'gmtest') return true
       return (event.current_participants || 0) > 0
     }
 

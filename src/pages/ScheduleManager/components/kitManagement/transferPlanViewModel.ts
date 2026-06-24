@@ -155,6 +155,7 @@ export function buildTransferPlanViewModel({
       e.category === 'private' || e.is_private_request || e.is_private_booking
     )
     if (hasPrivatePerformance) return true
+    if (matchingEvents.some(e => e.category === 'gmtest')) return true
     const total = matchingEvents.reduce((s, e) => s + (e.current_participants || 0), 0)
     return total > 0
   }

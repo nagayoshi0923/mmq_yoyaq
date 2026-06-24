@@ -138,6 +138,14 @@ export function TransferPlanTab({
     isDelivered,
   })
   const displaySuggestions = transferPlanView.displaySuggestions
+  const getShortageEvent = (shortage: KitShortageItem) => {
+    return scheduleEvents.find(e =>
+      e.date === shortage.date &&
+      e.store_id === shortage.store_id &&
+      e.scenario_master_id === shortage.scenario_master_id &&
+      !e.is_cancelled
+    )
+  }
   const isHighPriorityShortage = (shortage: KitShortageItem) => {
     const matchingEvents = scheduleEvents.filter(e =>
       e.date === shortage.date &&
@@ -146,6 +154,7 @@ export function TransferPlanTab({
       !e.is_cancelled
     )
     if (matchingEvents.some(e => e.category === 'private' || e.is_private_request || e.is_private_booking)) return true
+    if (matchingEvents.some(e => e.category === 'gmtest')) return true
     return matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0) > 0
   }
   const urgentShortages = newShortages.filter(isHighPriorityShortage)
@@ -183,9 +192,13 @@ export function TransferPlanTab({
                       {tooLateShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
                         const st = storeMap.get(s.store_id)
+                        const categoryBadge = getCategoryBadge(getShortageEvent(s))
                         return (
                           <div key={`late-${i}`} className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300 flex-wrap">
                             <span className="font-medium">{formatDate(s.date)}</span>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryBadge.className}`}>
+                              {categoryBadge.label}
+                            </Badge>
                             <span>{st?.short_name || st?.name || s.store_id}</span>
                             <span>-</span>
                             <span>{sc?.title || s.scenario_master_id}</span>
@@ -204,12 +217,16 @@ export function TransferPlanTab({
                       {lockedFixedShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
                         const st = storeMap.get(s.store_id)
+                        const categoryBadge = getCategoryBadge(getShortageEvent(s))
                         const lockedNames = (s.lockedStoreIds || [])
                           .map(id => storeMap.get(id)?.short_name || storeMap.get(id)?.name || id)
                           .join('・')
                         return (
                           <div key={`lock-${i}`} className="flex items-center gap-2 text-sm text-orange-700 dark:text-orange-300 flex-wrap">
                             <span className="font-medium">{formatDate(s.date)}</span>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryBadge.className}`}>
+                              {categoryBadge.label}
+                            </Badge>
                             <span>{st?.short_name || st?.name || s.store_id}</span>
                             <span>-</span>
                             <span>{sc?.title || s.scenario_master_id}</span>
@@ -229,9 +246,13 @@ export function TransferPlanTab({
                       {noCapacityShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
                         const st = storeMap.get(s.store_id)
+                        const categoryBadge = getCategoryBadge(getShortageEvent(s))
                         return (
                           <div key={`cap-${i}`} className="flex items-center gap-2 text-sm text-orange-700 dark:text-orange-300 flex-wrap">
                             <span className="font-medium">{formatDate(s.date)}</span>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${categoryBadge.className}`}>
+                              {categoryBadge.label}
+                            </Badge>
                             <span>{st?.short_name || st?.name || s.store_id}</span>
                             <span>-</span>
                             <span>{sc?.title || s.scenario_master_id}</span>

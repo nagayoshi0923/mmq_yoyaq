@@ -22,6 +22,7 @@ type DemandEvent = {
 
 const hasCommittedParticipants = (events: DemandEvent[]) => {
   if (events.some(e => e.category === 'private' || e.is_private_request || e.is_private_booking)) return true
+  if (events.some(e => e.category === 'gmtest')) return true
   return events.reduce((sum, e) => sum + (e.current_participants || 0), 0) > 0
 }
 

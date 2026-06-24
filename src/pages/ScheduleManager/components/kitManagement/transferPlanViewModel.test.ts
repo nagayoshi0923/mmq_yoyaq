@@ -230,4 +230,38 @@ describe('buildTransferPlanViewModel', () => {
     expect(firstStop.outgoingRoutes.map(route => route.to_store_id)).toEqual(['C', 'B'])
     expect(firstStop.outgoingRoutes.flatMap(route => route.items.map(item => item.kit_number))).toEqual([2, 1])
   })
+
+  it('GMテストは予約者0人でも移動必要として優先する', () => {
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [
+        suggestion({
+          kit_number: 1,
+          scenario_title: '通常オープン',
+          from_store_id: 'A',
+          from_store_name: 'A店',
+          to_store_id: 'B',
+          to_store_name: 'B店',
+        }),
+        suggestion({
+          kit_number: 2,
+          scenario_title: 'GMテスト',
+          from_store_id: 'A',
+          from_store_name: 'A店',
+          to_store_id: 'C',
+          to_store_name: 'C店',
+        }),
+      ],
+      scheduleEvents: [
+        { date: '2026-06-27', store_id: 'B', scenario_master_id: 'scenario-1', category: 'open', current_participants: 0 },
+        { date: '2026-06-27', store_id: 'C', scenario_master_id: 'scenario-1', category: 'gmtest', current_participants: 0 },
+      ],
+      demandDates: ['2026-06-27'],
+    })
+
+    const firstStop = view.sortedDays[0].routeStops[0]
+    expect(firstStop.outgoingRoutes.map(route => route.to_store_id)).toEqual(['C', 'B'])
+    expect(firstStop.outgoingRoutes.flatMap(route => route.items.map(item => item.kit_number))).toEqual([2, 1])
+  })
 })
