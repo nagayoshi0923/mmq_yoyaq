@@ -690,13 +690,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // 時刻つき需要（今日以降・キャンセル除外）。時刻欠落は終日扱い（重複＝多めに必要＝安全側）
   const plannerDemands = useMemo<PlannerDemand[]>(() => {
+    const hasCommittedParticipants = (event: (typeof scheduleEvents)[number]) => {
+      if (event.category === 'private' || event.is_private_request || event.is_private_booking) return true
+      return (event.current_participants || 0) > 0
+    }
+
     return scheduleEvents
       .filter(e => {
         if (!e.scenario_master_id || e.is_cancelled) return false
         if (!(e.date >= planToday && e.date <= planHorizonEnd)) return false
-        // キット管理対象（kit_count>0）のシナリオのみ。非対象は不足に数えない
+        // キット管理対象は通常通り計算。キット未登録でも予約/貸切がある公演は手配対象として不足に出す。
         const sc = scenarioMap.get(e.scenario_master_id)
-        return !!sc && (sc.kit_count || 0) > 0
+        return !!sc && ((sc.kit_count || 0) > 0 || hasCommittedParticipants(e))
       })
       .map(e => ({
         date: e.date,

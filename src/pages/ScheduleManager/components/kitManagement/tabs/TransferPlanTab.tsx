@@ -224,7 +224,7 @@ export function TransferPlanTab({
                   {noCapacityShortages.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                        🟠 キット不足（移動しても台数が足りない・出せるキットが無い）: {noCapacityShortages.length}件
+                        🟠 手配必要（キット未登録・所在不明・台数不足）: {noCapacityShortages.length}件
                       </div>
                       {noCapacityShortages.map((s, i) => {
                         const sc = scenarioMap.get(s.scenario_master_id)
