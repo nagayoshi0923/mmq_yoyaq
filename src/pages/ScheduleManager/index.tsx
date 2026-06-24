@@ -871,8 +871,9 @@ export function ScheduleManager() {
       allEventsForMonth,
       scheduleTableProps.dataProvider.intervalWarningEventIds ?? new Set<string>(),
       scheduleTableProps.viewConfig.stores,
+      scheduleTableProps.dataProvider.kitWarningEventIds ?? new Set<string>(),
     ),
-    [allEventsForMonth, scheduleTableProps.dataProvider.intervalWarningEventIds, scheduleTableProps.viewConfig.stores]
+    [allEventsForMonth, scheduleTableProps.dataProvider.intervalWarningEventIds, scheduleTableProps.dataProvider.kitWarningEventIds, scheduleTableProps.viewConfig.stores]
   )
 
   // カテゴリオプション（開催予定数・中止数付き）

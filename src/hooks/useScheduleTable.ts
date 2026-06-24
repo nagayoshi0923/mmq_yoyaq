@@ -5,7 +5,7 @@
  * 各ページで独自のカスタマイズが可能
  */
 
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useScheduleData } from './useScheduleData'
 import { useShiftData } from './useShiftData'
 import { useMemoManager } from './useMemoManager'
@@ -15,6 +15,9 @@ import { useScheduleEvents } from '@/pages/ScheduleManager/hooks/useScheduleEven
 import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
 import { generateMonthDays } from '@/utils/scheduleUtils'
 import { computeIntervalWarningEventIds } from '@/utils/intervalWarning'
+import { computeKitWarningEventIds } from '@/utils/scheduleWarnings'
+import { kitApi } from '@/lib/api/kitApi'
+import { logger } from '@/utils/logger'
 import type {
   ScheduleTableViewConfig,
   ScheduleTableDataProvider,
@@ -22,6 +25,7 @@ import type {
   ScheduleTableDisplayConfig,
   ScheduleTableProps
 } from '@/components/schedule/ScheduleTable'
+import type { KitLocation } from '@/types'
 
 interface UseScheduleTableOptions {
   currentDate: Date
@@ -55,6 +59,21 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
   
   const shiftData = useMemo(() => shiftDataHook?.shiftData ?? {}, [shiftDataHook?.shiftData])
   const { handleSaveMemo, getMemo } = memoManager
+  const [kitLocations, setKitLocations] = useState<KitLocation[] | null>(null)
+
+  const loadKitLocations = useCallback(async () => {
+    try {
+      const locations = await kitApi.getKitLocations()
+      setKitLocations(locations)
+    } catch (error) {
+      logger.error('キット配置データの読み込みエラー:', error)
+      setKitLocations([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadKitLocations()
+  }, [loadKitLocations])
 
   // イベント操作
   const eventOperations = useEventOperations({
@@ -98,6 +117,13 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     [events]
   )
 
+  const kitWarningEventIds = useMemo(
+    () => kitLocations
+      ? computeKitWarningEventIds(events, kitLocations, stores)
+      : new Set<string>(),
+    [events, kitLocations, stores]
+  )
+
   // DataProvider
   const dataProvider: ScheduleTableDataProvider = useMemo(() => ({
     getEventsForSlot,
@@ -105,7 +131,13 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     getMemo,
     onSaveMemo: handleSaveMemo,
     intervalWarningEventIds,
-  }), [getEventsForSlot, shiftData, getMemo, handleSaveMemo, intervalWarningEventIds])
+    kitWarningEventIds,
+  }), [getEventsForSlot, shiftData, getMemo, handleSaveMemo, intervalWarningEventIds, kitWarningEventIds])
+
+  const fetchScheduleWithKitLocations = useCallback(() => {
+    void fetchSchedule()
+    void loadKitLocations()
+  }, [fetchSchedule, loadKitLocations])
 
   // EventHandlers
   const eventHandlers: ScheduleTableEventHandlers = useMemo(() => ({
@@ -196,7 +228,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         hasExistingEvent: contextMenuActions.hasExistingEvent
       }
     },
-    fetchSchedule: fetchSchedule,
+    fetchSchedule: fetchScheduleWithKitLocations,
     events: events
   }
 }
@@ -309,4 +341,3 @@ export function useScheduleTableModals(currentDate: Date) {
     fetchSchedule: scheduleData.fetchSchedule
   }
 }
-

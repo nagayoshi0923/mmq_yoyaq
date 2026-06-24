@@ -62,6 +62,8 @@ interface TimeSlotCellProps {
   isBlocked?: boolean
   // 同日同店舗で前後の公演と間隔が 60 分未満の公演 ID
   intervalWarningEventIds?: Set<string>
+  // 公演店舗または同一キットグループにキットが無い公演 ID
+  kitWarningEventIds?: Set<string>
 }
 
 function TimeSlotCellBase({
@@ -83,6 +85,7 @@ function TimeSlotCellBase({
   onContextMenuEvent,
   isBlocked = false,
   intervalWarningEventIds,
+  kitWarningEventIds,
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -198,6 +201,7 @@ function TimeSlotCellBase({
               onToggleReservation={onToggleReservation}
               onContextMenu={onContextMenuEvent}
               hasIntervalWarning={intervalWarningEventIds?.has(event.id) ?? false}
+              hasKitWarning={kitWarningEventIds?.has(event.id) ?? false}
             />
           ))}
         </div>

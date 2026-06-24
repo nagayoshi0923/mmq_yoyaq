@@ -24,6 +24,7 @@ interface CategoryGmStatsBarProps {
 const WARNING_REASON_LABEL: Record<string, string> = {
   incomplete: '未定',
   interval: '間隔<60分',
+  kit: 'キット未配置',
 }
 
 // カテゴリ定義（公演カテゴリ + 役割）
@@ -298,4 +299,3 @@ const GmBadge = memo(function GmBadge({
     </button>
   )
 })
-

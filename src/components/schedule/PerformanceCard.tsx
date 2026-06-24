@@ -54,6 +54,8 @@ interface PerformanceCardProps {
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
   /** 同日同店舗の前後公演と間隔が 60 分未満 (赤ボーダー警告) */
   hasIntervalWarning?: boolean
+  /** 公演店舗または同一キットグループにキットが無い */
+  hasKitWarning?: boolean
   /** 履歴プレビュー用: ドラッグ・長押し・公開トグル・コンテキストメニューを無効化し、カード全体を 1 クリックで onClick に渡す */
   previewMode?: boolean
 }
@@ -70,6 +72,7 @@ function PerformanceCardBase({
   onToggleReservation,
   onContextMenu,
   hasIntervalWarning = false,
+  hasKitWarning = false,
   previewMode = false,
 }: PerformanceCardProps) {
   const reservationCount = event.current_participants || 0
@@ -114,8 +117,8 @@ function PerformanceCardBase({
   // 完了状態の判定（シナリオなし、GMなし、またはメインGMなし）
   const isIncomplete = !event.scenario || event.gms.length === 0 || mainGms.length === 0
 
-  // 赤ボーダー警告: 未完了 or 前後の公演と間隔 60 分未満
-  const showAlertBorder = isIncomplete || hasIntervalWarning
+  // 赤ボーダー警告: 未完了 or 前後の公演と間隔 60 分未満 or キット未配置
+  const showAlertBorder = isIncomplete || hasIntervalWarning || hasKitWarning
   
   // 実際に表示するカテゴリを判定（MTGなど特殊ケースに対応）
   const effectiveCategory = getEffectiveCategory(event.category, event.scenario)
@@ -281,16 +284,22 @@ function PerformanceCardBase({
         {...devDb('schedule_events.scenario')}
       >
         {event.scenario ? (
-          <span 
-            className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : ''}`}
-            title={isUnregisteredScenario 
-              ? (event.scenarios?.title 
-                  ? `正式名称: ${event.scenarios.title}` 
-                  : 'シナリオマスタ未登録')
-              : undefined}
+          <span
+            className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : hasKitWarning ? 'text-red-600' : ''}`}
+            title={[
+              isUnregisteredScenario
+                ? (event.scenarios?.title
+                    ? `正式名称: ${event.scenarios.title}`
+                    : 'シナリオマスタ未登録')
+                : null,
+              hasKitWarning ? 'キット未配置: この店舗または同じキットグループにキットがありません' : null,
+            ].filter(Boolean).join(' / ') || undefined}
           >
             {isUnregisteredScenario && (
               <AlertTriangle className="w-3 h-3 flex-shrink-0 text-orange-500" />
+            )}
+            {hasKitWarning && (
+              <AlertTriangle className="w-3 h-3 flex-shrink-0 text-red-500" />
             )}
             {event.scenario}
           </span>
