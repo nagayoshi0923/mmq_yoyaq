@@ -34,6 +34,8 @@ interface RawEventData {
   id: string
   date: string
   store_id: string
+  scenario_master_id?: string | null
+  organization_scenario_id?: string | null
   scenario?: string
   scenarios?: { id: string; title: string; player_count_max?: number } | { id: string; title: string; player_count_max?: number }[] | null
   scenario_masters?: { id: string; title: string; player_count_max?: number } | { id: string; title: string; player_count_max?: number }[] | null
@@ -66,6 +68,7 @@ interface CandidateDateTime {
 interface PrivateRequestData {
   id: string
   title: string
+  scenario_master_id?: string | null
   status: string
   store_id: string
   gm_staff?: string
@@ -76,7 +79,7 @@ interface PrivateRequestData {
     candidates: CandidateDateTime[]
     confirmedStore?: { storeId: string; storeName?: string }
   }
-  scenario_masters?: { title: string; player_count_max: number }
+  scenario_masters?: { id?: string; title: string; player_count_max: number }
   customers?: { nickname?: string }
 }
 
@@ -159,6 +162,9 @@ export async function fetchScheduleEventsForMonth(
       date: event.date,
       venue: event.store_id,
       scenario: scenarioTitle,
+      scenario_master_id: event.scenario_master_id || scenarioInfo?.id,
+      organization_scenario_id: event.organization_scenario_id || undefined,
+      store_id: event.store_id,
       scenarios: scenarioInfo ? {
         id: scenarioInfo.id,
         title: scenarioInfo.title,
@@ -194,7 +200,8 @@ export async function fetchScheduleEventsForMonth(
     .select(`
       id, title, customer_name, display_customer_name, status, store_id,
       gm_staff, candidate_datetimes, participant_count, schedule_event_id,
-      scenario_masters:scenario_master_id ( title, player_count_max ),
+      scenario_master_id,
+      scenario_masters:scenario_master_id ( id, title, player_count_max ),
       customers:customer_id ( nickname )
     `)
     .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
@@ -264,6 +271,8 @@ export async function fetchScheduleEventsForMonth(
           date: candidate.date,
           venue: venueId,
           scenario: privateScenarioTitle,
+          scenario_master_id: request.scenario_master_id || request.scenario_masters?.id || orgPrivateScenario?.id,
+          store_id: venueId,
           gms: gmNames,
           start_time: candidate.startTime || '',
           end_time: candidate.endTime || '',

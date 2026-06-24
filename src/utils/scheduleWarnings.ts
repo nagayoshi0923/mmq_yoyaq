@@ -47,7 +47,7 @@ function isSameStoreGroup(storeMap: Map<string, StoreLike>, storeId1: string, st
 
 function requiresKitWarningCheck(event: ScheduleEvent): boolean {
   if (event.is_cancelled) return false
-  if (!event.scenario_master_id) return false
+  if (!event.scenario_master_id && !event.scenarios?.id) return false
   return !['offsite', 'venue_rental', 'venue_rental_free', 'mtg'].includes(event.category)
 }
 
@@ -72,7 +72,8 @@ export function computeKitWarningEventIds(
     if (!requiresKitWarningCheck(event)) continue
 
     const targetStoreId = event.store_id || event.venue
-    const scenarioLocations = locationsByScenario.get(event.scenario_master_id!)
+    const scenarioId = event.scenario_master_id || event.scenarios?.id
+    const scenarioLocations = scenarioId ? locationsByScenario.get(scenarioId) : undefined
     const hasKitAtVenue = scenarioLocations?.some((loc) =>
       loc.store_id && isSameStoreGroup(storeMap, loc.store_id, targetStoreId)
     ) ?? false
