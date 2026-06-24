@@ -215,7 +215,7 @@ function PerformanceCardBase({
             <Badge
               variant="outline"
               size="sm"
-              className="font-bold text-[10px] px-1 py-0 h-4 whitespace-nowrap bg-red-600 text-white border-red-600"
+              className="font-bold text-[9px] px-1 py-0 h-4 whitespace-nowrap bg-red-600 text-white border-red-600"
               title="キット未配置: この店舗または同じキットグループにキットがありません"
             >
               キット未配置
