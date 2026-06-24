@@ -204,12 +204,24 @@ function PerformanceCardBase({
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between gap-0.5">
-        <span 
-          className={`font-mono text-[10px] leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
-          {...devDb('schedule_events.start_time/end_time')}
-        >
-          {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
-        </span>
+        <div className="flex items-center gap-1 min-w-0">
+          <span
+            className={`font-mono text-[10px] leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+            {...devDb('schedule_events.start_time/end_time')}
+          >
+            {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
+          </span>
+          {hasKitWarning && !event.is_cancelled && (
+            <Badge
+              variant="outline"
+              size="sm"
+              className="font-bold text-[10px] px-1 py-0 h-4 whitespace-nowrap bg-red-600 text-white border-red-600"
+              title="キット未配置: この店舗または同じキットグループにキットがありません"
+            >
+              キット未配置
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
           {/* 仮状態バッジ */}
           {event.is_tentative && !event.is_cancelled && (
@@ -285,21 +297,17 @@ function PerformanceCardBase({
       >
         {event.scenario ? (
           <span
-            className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : hasKitWarning ? 'text-red-600' : ''}`}
+            className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : ''}`}
             title={[
               isUnregisteredScenario
                 ? (event.scenarios?.title
                     ? `正式名称: ${event.scenarios.title}`
                     : 'シナリオマスタ未登録')
                 : null,
-              hasKitWarning ? 'キット未配置: この店舗または同じキットグループにキットがありません' : null,
             ].filter(Boolean).join(' / ') || undefined}
           >
             {isUnregisteredScenario && (
               <AlertTriangle className="w-3 h-3 flex-shrink-0 text-orange-500" />
-            )}
-            {hasKitWarning && (
-              <AlertTriangle className="w-3 h-3 flex-shrink-0 text-red-500" />
             )}
             {event.scenario}
           </span>
