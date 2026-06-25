@@ -277,7 +277,12 @@
           209行の JSX を Python で逐語移送（デモ追加98行のインライン INSERT 処理含む・git 比較で外側 `{}` 以外 diff=0）、
           クロージャ参照は同名 props 注入。newParticipant 型は `reservationList/newParticipant.ts` へ。死 import 除去。
           検証: tsc=0 / eslint=0 / build:fast / test:unit 130。**実機スモーク**: 参加者追加（フォーム/スタッフ自動判定）・デモ追加。
-        - [ ] 予約行（~385行）→子、ステータス変更/キャンセル/追加 ハンドラ→フック（次バッチ）
+        - [x] ReservationRow（予約1件の行・チェック/ステータス/キャンセル/展開詳細）（1,683→**1,281**）。
+          417行の map を Python で逐語移送（git 比較で本体 diff=0）、クロージャ参照は同名 props 注入。死 import 一掃
+          （Input/Label/Select一式/ChevronDown/Up/RESERVATION_SOURCE/getSafeErrorMessage）。tsc=0/eslint=0/build/test 130。
+          **実機スモーク**: 予約のステータス変更（確定/チェックイン）・キャンセル・行展開（顧客情報/電話/メール）。
+      **→ ReservationList 当セッション 2,263→1,281（-982）。JSX はほぼ子化。残: ステータス変更/キャンセル等の
+        ハンドラ→フック化（任意・さらに削減したい場合）。**
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
