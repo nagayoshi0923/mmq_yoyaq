@@ -20,6 +20,8 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { sumActiveParticipants } from './reservationList/participants'
 import { useReservationListData } from './reservationList/useReservationListData'
+import { CancelReservationDialog } from './reservationList/dialogs/CancelReservationDialog'
+import { DeleteEventDialog } from './reservationList/dialogs/DeleteEventDialog'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
 import { getDefaultStoreCancellationTemplate } from '@/lib/templateRegistry'
@@ -859,6 +861,22 @@ export function ReservationList({
     } catch (error) {
       logger.error('参加者追加エラー:', error)
       showToast.error('参加者の追加に失敗しました')
+    }
+  }
+
+  // 貸切公演の削除実行（DeleteEventDialog から呼ぶ・元はダイアログ内インライン処理）
+  const handleConfirmDeleteEvent = async () => {
+    if (!onDeleteEvent) return
+    setIsDeletingEvent(true)
+    try {
+      await onDeleteEvent()
+      setIsDeleteEventDialogOpen(false)
+      showToast.success('貸切公演を削除しました')
+    } catch (error) {
+      logger.error('イベント削除エラー:', error)
+      showToast.error('削除に失敗しました')
+    } finally {
+      setIsDeletingEvent(false)
     }
   }
 
@@ -1870,52 +1888,17 @@ export function ReservationList({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>予約をキャンセルしますか？</DialogTitle>
-            <DialogDescription>
-              キャンセル確認メールが送信されます。
-            </DialogDescription>
-          </DialogHeader>
-          {cancellingReservation && (
-            <div className="space-y-2 py-4">
-              <div className="text-sm">
-                <span className="font-medium">予約者:</span>{' '}
-                {cancellingReservation.customer_name || 
-                  (cancellingReservation.customers ? 
-                    (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
-                    '顧客名なし')}
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">参加者数:</span> {cancellingReservation.participant_count}名
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">予約番号:</span> {cancellingReservation.reservation_number || 'なし'}
-              </div>
-            </div>
-          )}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCancelDialogOpen(false)
-                setCancellingReservation(null)
-              }}
-              disabled={isCancelling}
-            >
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmCancelFromDialog}
-              disabled={isCancelling}
-            >
-              {isCancelling ? '処理中...' : 'キャンセル確定'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CancelReservationDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        reservation={cancellingReservation}
+        onClose={() => {
+          setIsCancelDialogOpen(false)
+          setCancellingReservation(null)
+        }}
+        isCancelling={isCancelling}
+        onConfirm={handleConfirmCancelFromDialog}
+      />
 
       <Dialog open={isEmailConfirmOpen} onOpenChange={(open) => {
         if (!open) {
@@ -2021,50 +2004,13 @@ export function ReservationList({
       </Dialog>
 
       {/* 貸切イベント削除確認ダイアログ */}
-      <Dialog open={isDeleteEventDialogOpen} onOpenChange={setIsDeleteEventDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>貸切公演を削除しますか？</DialogTitle>
-            <DialogDescription>
-              全ての参加者がキャンセルされました。この貸切公演自体を削除しますか？
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              「削除する」を選択すると、この貸切公演がスケジュールから完全に削除されます。
-            </p>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteEventDialogOpen(false)}
-              disabled={isDeletingEvent}
-            >
-              削除しない
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (!onDeleteEvent) return
-                setIsDeletingEvent(true)
-                try {
-                  await onDeleteEvent()
-                  setIsDeleteEventDialogOpen(false)
-                  showToast.success('貸切公演を削除しました')
-                } catch (error) {
-                  logger.error('イベント削除エラー:', error)
-                  showToast.error('削除に失敗しました')
-                } finally {
-                  setIsDeletingEvent(false)
-                }
-              }}
-              disabled={isDeletingEvent}
-            >
-              {isDeletingEvent ? '削除中...' : '削除する'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DeleteEventDialog
+        open={isDeleteEventDialogOpen}
+        onOpenChange={setIsDeleteEventDialogOpen}
+        onClose={() => setIsDeleteEventDialogOpen(false)}
+        isDeleting={isDeletingEvent}
+        onConfirm={handleConfirmDeleteEvent}
+      />
     </>
   )
 }

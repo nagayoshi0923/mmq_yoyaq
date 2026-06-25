@@ -262,6 +262,11 @@
         **3 effect は git 比較で完全一致（空白除く）**。死 import 一掃（useRef/RESERVATION_WITH_CUSTOMER_SELECT_FIELDS＋
         変更前から死んでいた Tabs 一式）。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。
         **実機確認**: 公演モーダル→予約リストの 一覧表示/参加者数同期/realtime更新（別タブで予約変更→自動反映）。
+        ※実機スモークで別件の realtime バグ（募集停止が他タブ反映されない＝schedule_blocked_slots 未購読）を発見・別コミットで修正済（本番反映済）。
+      - [~] 5-3c ダイアログを子コンポーネント化（`reservationList/dialogs/`・**要 staging 実機スモーク**）。
+        - [x] CancelReservationDialog（予約キャンセル確認）/ DeleteEventDialog（貸切公演削除確認）（2,070→**2,016**）。
+          JSX 逐語移植＋props化、Delete のインライン削除処理は親 `handleConfirmDeleteEvent` へ持ち上げ。tsc=0/eslint=0/build/test 130。
+        - [ ] メール送信モーダル / キャンセルメール送信確認ダイアログ（インライン送信処理の持ち上げ要・次バッチ）
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
