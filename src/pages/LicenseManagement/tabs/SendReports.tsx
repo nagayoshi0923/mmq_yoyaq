@@ -58,6 +58,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBody'
 import { computePreviewItem } from './sendReports/reportItems'
+import { compareReportGroups } from './sendReports/sorting'
 
 interface SendReportsProps {
   organizationId: string
@@ -1044,30 +1045,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       g.authorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       g.items.some(item => item.scenarioTitle.toLowerCase().includes(searchQuery.toLowerCase()))
     )
-    .sort((a, b) => {
-      let cmp = 0
-      switch (sortKey) {
-        case 'hasEvents':
-          // 公演あり（totalEvents > 0）を優先、同じなら名前順
-          const aHas = a.totalEvents > 0 ? 1 : 0
-          const bHas = b.totalEvents > 0 ? 1 : 0
-          cmp = aHas !== bHas ? aHas - bHas : a.authorName.localeCompare(b.authorName, 'ja')
-          break
-        case 'name':
-          cmp = a.authorName.localeCompare(b.authorName, 'ja')
-          break
-        case 'email':
-          cmp = (a.authorEmail || 'zzz').localeCompare(b.authorEmail || 'zzz')
-          break
-        case 'events':
-          cmp = a.totalEvents - b.totalEvents
-          break
-        case 'cost':
-          cmp = a.totalLicenseCost - b.totalLicenseCost
-          break
-      }
-      return sortAsc ? cmp : -cmp
-    })
+    .sort((a, b) => compareReportGroups(a, b, sortKey, sortAsc))
 
   // 表示モードに応じたイベント数・金額を取得するヘルパー
   const getDisplayEvents = (group: ReportGroup): number => {

@@ -266,6 +266,11 @@
         依存しないよう `<T extends PreviewInput>` で全フィールド温存。`getPreviewItem` は上書きマップを注入する
         1行ラッパーに（約10箇所の呼び出し側は無改変）。6 ケースのテスト整備。
         検証: tsc=0 / eslint=0 / build:fast / test:unit 116 passed。**実機テスト不要**。
+      - [x] 5-5c グループ並び替え比較を純関数化＋テスト（2026-06-26・2,185→**2,163**）。
+        filteredGroups.sort の比較ロジック（hasEvents の公演あり優先＋名前タイブレーク／name/email/events/cost／
+        sortAsc 反転）を `sendReports/sorting.ts` の `compareReportGroups(a, b, sortKey, sortAsc)` へ逐語抽出。
+        4 ケース（実際に sort して順序を検証）のテスト整備。
+        検証: tsc=0 / eslint=0 / build:fast / test:unit 120 passed。**実機テスト不要**。
 
 ## Phase 6: 巨大ページの解体
 
