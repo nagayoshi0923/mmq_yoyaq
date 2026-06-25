@@ -260,6 +260,12 @@
         共有しつつ、行明細の単価表記の挙動差（コピー用は `|| 0` ガード有り／送信用は無し）は温存。
         7 ケースの characterization テスト整備。検証: tsc=0 / eslint=0 / build:fast / test:unit 110 passed。
         副作用なしの純抽出＝**実機テスト不要**（出力文字列はテストで byte 担保）。
+      - [x] 5-5b 明細プレビュー計算 `getPreviewItem` の計算コアを純関数化＋テスト（2026-06-26・2,195→**2,185**）。
+        手動上書き（internalInputs/externalInputs）反映の公演数・金額計算を `sendReports/reportItems.ts` の
+        ジェネリック純関数 `computePreviewItem(item, internalInputs, externalInputs)` へ抽出。型は呼び出し側に
+        依存しないよう `<T extends PreviewInput>` で全フィールド温存。`getPreviewItem` は上書きマップを注入する
+        1行ラッパーに（約10箇所の呼び出し側は無改変）。6 ケースのテスト整備。
+        検証: tsc=0 / eslint=0 / build:fast / test:unit 116 passed。**実機テスト不要**。
 
 ## Phase 6: 巨大ページの解体
 

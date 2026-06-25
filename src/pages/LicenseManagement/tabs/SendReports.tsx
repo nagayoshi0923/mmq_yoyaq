@@ -57,6 +57,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBody'
+import { computePreviewItem } from './sendReports/reportItems'
 
 interface SendReportsProps {
   organizationId: string
@@ -778,19 +779,8 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   }
 
   // プレビュー用に編集後の値を計算するヘルパー
-  const getPreviewItem = (item: ReportItem) => {
-    const internalKey = item.scenarioKey
-    const internalEvents = internalInputs[internalKey] ?? item.internalEvents
-    const internalLicenseCost = internalEvents * item.internalLicenseAmount
-
-    const externalEvents = item.scenarioType === 'managed'
-      ? (externalInputs[item.scenarioKey] ?? item.externalEvents)
-      : 0
-    const externalLicenseCost = externalEvents * item.externalLicenseAmount
-    const events = internalEvents + externalEvents
-    const licenseCost = internalLicenseCost + externalLicenseCost
-    return { ...item, internalEvents, internalLicenseCost, externalEvents, externalLicenseCost, events, licenseCost }
-  }
+  // 計算コアは sendReports/reportItems の純関数へ委譲。状態（上書きマップ）のみここで注入。
+  const getPreviewItem = (item: ReportItem) => computePreviewItem(item, internalInputs, externalInputs)
 
   // メール本文の編集保存
   const handleSaveEmailBody = async () => {
