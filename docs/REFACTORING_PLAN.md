@@ -249,7 +249,12 @@
         後続（要 async 再構成＋実機確認）。検証: tsc=0 / eslint=0 errors / build:fast / test:unit 89 passed。
         **※ import パスに手を入れたため実機スモーク対象**。
       - [ ] 5-2d プレビュー表示UIを子コンポーネントへ分離
-- [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
+- [~] 5-3 `ReservationList`（2,263行）: データ層→フック、ハンドラ→フック、テーブル/ダイアログ→子
+      ※当初想定の「フィルタ/エクスポート」は実体無し（CSV エクスポート・フィルタUIは存在しない）。純ロジックは薄く、
+        主戦場は データ取得+realtime / status・cancel・add ハンドラ / テーブル・各ダイアログ の分割（要スモーク）。
+      - [x] 5-3a 参加者集計を純関数化＋テスト（2026-06-26・2,263→**2,259**）。
+        `sumActiveParticipants`（有効ステータスのみ participant_count 合算・3箇所使用）を
+        `reservationList/participants.ts` へ逐語抽出＋4ケースのテスト。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。**実機テスト不要**。
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
