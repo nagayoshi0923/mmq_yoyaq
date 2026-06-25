@@ -263,12 +263,16 @@
         変更前から死んでいた Tabs 一式）。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。
         **実機確認**: 公演モーダル→予約リストの 一覧表示/参加者数同期/realtime更新（別タブで予約変更→自動反映）。
         ※実機スモークで別件の realtime バグ（募集停止が他タブ反映されない＝schedule_blocked_slots 未購読）を発見・別コミットで修正済（本番反映済）。
-      - [~] 5-3c ダイアログを子コンポーネント化（`reservationList/dialogs/`・**要 staging 実機スモーク**）。
-        - [x] CancelReservationDialog（予約キャンセル確認）/ DeleteEventDialog（貸切公演削除確認）（2,070→**2,016**）。
-          JSX 逐語移植＋props化、Delete のインライン削除処理は親 `handleConfirmDeleteEvent` へ持ち上げ。tsc=0/eslint=0/build/test 130。
-        - [x] EmailConfirmDialog（キャンセルメール送信確認）（2,016→**1,923**）。emailContent の型＋初期値を
-          `reservationList/cancellationEmailState.ts` へ切出し（fast-refresh 警告回避）、リセット処理は親 `closeEmailConfirm` へ。
-        - [ ] メール送信モーダル（インライン90行の送信処理を親へ持ち上げ要・次バッチ）
+      - [x] 5-3c ダイアログ4つを子コンポーネント化（`reservationList/dialogs/`・**要 staging 実機スモーク**）。2,070→**1,877**。
+        - [x] CancelReservationDialog（予約キャンセル確認）/ DeleteEventDialog（貸切公演削除確認）。
+          Delete のインライン削除処理は親 `handleConfirmDeleteEvent` へ持ち上げ。
+        - [x] EmailConfirmDialog（キャンセルメール送信確認）。emailContent の型＋初期値を
+          `reservationList/cancellationEmailState.ts` へ切出し（fast-refresh 警告回避）、リセットは親 `closeEmailConfirm` へ。
+        - [x] SendEmailDialog（一括メール送信）。インライン90行の送信処理を親 `handleSendBulkEmail` へ持ち上げ。
+          全4ダイアログ抽出で死 import（Dialog 一式）を除去。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。
+        **実機スモーク（公演モーダル→予約リスト）**: ①予約キャンセル→メール確認→確定 ②貸切で全員キャンセル→公演削除確認
+        ③メール送信（複数選択→件名/本文→送信）④メール送信確認のテンプレ編集。
+      - [ ] 5-3d 残: ステータス変更/キャンセル/参加者追加 ハンドラ→フック、参加者リスト本体（~850行）→子（次バッチ）
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
