@@ -926,22 +926,32 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     )
     .sort((a, b) => compareReportGroups(a, b, sortKey, sortAsc))
 
-  // 表示モードに応じたイベント数・金額を取得するヘルパー
+  // 表示モードに応じたイベント数・金額を取得するヘルパー。
+  // 手動上書き（internalInputs/externalInputs）を getPreviewItem 経由で反映するため、
+  // group の静的集計ではなく明細を都度プレビュー集計する（リスト操作が即ヘッダーに反映され、送信値とも一致）。
   const getDisplayEvents = (group: ReportGroup): number => {
+    const items = group.items.map(getPreviewItem)
     switch (viewMode) {
-      case 'internal': return group.totalInternalEvents
-      case 'external': return group.totalExternalEvents
-      default: return group.totalEvents
+      case 'internal': return items.reduce((sum, i) => sum + i.internalEvents, 0)
+      case 'external': return items.reduce((sum, i) => sum + i.externalEvents, 0)
+      default: return items.reduce((sum, i) => sum + i.events, 0)
     }
   }
 
   const getDisplayLicenseCost = (group: ReportGroup): number => {
+    const items = group.items.map(getPreviewItem)
     switch (viewMode) {
-      case 'internal': return group.totalInternalLicenseCost
-      case 'external': return group.totalExternalLicenseCost
-      default: return group.totalLicenseCost
+      case 'internal': return items.reduce((sum, i) => sum + i.internalLicenseCost, 0)
+      case 'external': return items.reduce((sum, i) => sum + i.externalLicenseCost, 0)
+      default: return items.reduce((sum, i) => sum + i.licenseCost, 0)
     }
   }
+
+  // 自社/他社の内訳（上書き反映）
+  const getDisplayInternalEvents = (group: ReportGroup): number =>
+    group.items.map(getPreviewItem).reduce((sum, i) => sum + i.internalEvents, 0)
+  const getDisplayExternalEvents = (group: ReportGroup): number =>
+    group.items.map(getPreviewItem).reduce((sum, i) => sum + i.externalEvents, 0)
 
   const getItemDisplayEvents = (item: ReportItem): number => {
     switch (viewMode) {
@@ -966,11 +976,11 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     partialEmail: filteredGroups.filter(g => g.hasPartialEmail).length,
     withoutEmail: filteredGroups.filter(g => !g.authorEmail).length,
     totalEvents: filteredGroups.reduce((sum, g) => sum + getDisplayEvents(g), 0),
-    totalInternalEvents: filteredGroups.reduce((sum, g) => sum + g.totalInternalEvents, 0),
-    totalExternalEvents: filteredGroups.reduce((sum, g) => sum + g.totalExternalEvents, 0),
+    totalInternalEvents: filteredGroups.reduce((sum, g) => sum + getDisplayInternalEvents(g), 0),
+    totalExternalEvents: filteredGroups.reduce((sum, g) => sum + getDisplayExternalEvents(g), 0),
     totalLicense: filteredGroups.reduce((sum, g) => sum + getDisplayLicenseCost(g), 0),
-    totalInternalLicense: filteredGroups.reduce((sum, g) => sum + g.totalInternalLicenseCost, 0),
-    totalExternalLicense: filteredGroups.reduce((sum, g) => sum + g.totalExternalLicenseCost, 0)
+    totalInternalLicense: filteredGroups.reduce((sum, g) => sum + g.items.map(getPreviewItem).reduce((s, i) => s + i.internalLicenseCost, 0), 0),
+    totalExternalLicense: filteredGroups.reduce((sum, g) => sum + g.items.map(getPreviewItem).reduce((s, i) => s + i.externalLicenseCost, 0), 0)
   }
 
   const getGroupKey = (group: ReportGroup) =>
@@ -1500,7 +1510,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                             {getDisplayEvents(group)}公演
                             {isLicenseManager && viewMode === 'all' && (
                               <span className="text-xs ml-1">
-                                (自社{group.totalInternalEvents}/他社{group.totalExternalEvents})
+                                (自社{getDisplayInternalEvents(group)}/他社{getDisplayExternalEvents(group)})
                               </span>
                             )}
                           </span>
