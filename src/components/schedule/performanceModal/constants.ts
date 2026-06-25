@@ -3,6 +3,20 @@
  * 値は元 PerformanceModal.tsx から逐語移設（挙動不変）。
  */
 
+// 30分間隔の時間オプションを生成
+const generateTimeOptions = () => {
+  const options = []
+  for (let hour = 9; hour <= 23; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      options.push(timeString)
+    }
+  }
+  return options
+}
+
+export const timeOptions = generateTimeOptions()
+
 // 公演カテゴリ別のトーン（bg=ダイアログ背景, section=内側カード/フッター/タブ, border=枠線）
 // イベント枠の categoryConfig と同じ系統だが、内側に階調をつけるため 3 段階で持つ
 export const CATEGORY_TONE: Record<string, { bg: string; section: string; border: string }> = {
