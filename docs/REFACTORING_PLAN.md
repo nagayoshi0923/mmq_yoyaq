@@ -281,6 +281,15 @@
         念のため送信タブのスモーク（グループ/合計表示）を推奨（必須ではない）。
       **→ SendReports 安全な純ロジックはここで概ね出し切り（2,290→2,049）。残りは送信フロー（handleConfirmSend）・
         各種 save ハンドラ・テーブルUI＝async/対話的のため実機テストリストが必要。次バッチはオーナー確認後。**
+      - [~] 5-5e ダイアログを子コンポーネント化（`sendReports/dialogs/`・**要 staging 実機スモーク**）。
+        JSX を逐語移植しクロージャ参照を props 化（挙動不変）。オーナー承認済み（ダイアログ子化から開始）。
+        - [x] EmailBodyEditDialog（送信済みメール確認・編集）`sendReports/dialogs/EmailBodyEditDialog.tsx`（2,049→**2,023**）。
+          併せて inline 型を `types.ts` の `EmailBodyEditTarget` に集約。検証: tsc=0 / eslint=0 / build:fast / test:unit 126。
+        - [ ] BulkEmailDialog（作者メアド一括登録）
+        - [ ] DisplayNameDialog（報告用表示名・メモ編集）
+        - [ ] SendPreviewDialog（送信プレビュー・最大 ~206行）
+        実機テストリスト（着手前にオーナー提示済み）: 送信プレビュー（選択/本文切替/再生成抑止/実送信）・
+        表示名編集・一括メール登録・メール本文編集（送信履歴）。
 
 ## Phase 6: 巨大ページの解体
 

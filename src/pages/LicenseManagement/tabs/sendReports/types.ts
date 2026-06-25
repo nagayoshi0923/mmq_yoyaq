@@ -25,6 +25,13 @@ export interface ReportItem {
   scenarioType?: 'normal' | 'managed'  // 管理作品のみ他社表示
 }
 
+// 送信済みメールの確認・編集ダイアログの対象
+export interface EmailBodyEditTarget {
+  authorName: string
+  emailBody: string
+  subject: string
+}
+
 // 作者ごとにグループ化（報告用表示名でグループ化）
 export interface ReportGroup {
   authorName: string  // 報告用表示名（編集可能）

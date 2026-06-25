@@ -60,7 +60,8 @@ import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBod
 import { computePreviewItem } from './sendReports/reportItems'
 import { compareReportGroups } from './sendReports/sorting'
 import { groupReportItems } from './sendReports/grouping'
-import type { ReportItem, ReportGroup } from './sendReports/types'
+import type { ReportItem, ReportGroup, EmailBodyEditTarget } from './sendReports/types'
+import { EmailBodyEditDialog } from './sendReports/dialogs/EmailBodyEditDialog'
 
 interface SendReportsProps {
   organizationId: string
@@ -123,7 +124,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // 送信履歴
   const [sentHistory, setSentHistory] = useState<Map<string, { sentAt: string; totalEvents: number; totalCost: number; emailBody?: string; subject?: string }>>(new Map())
   const [isEmailBodyEditOpen, setIsEmailBodyEditOpen] = useState(false)
-  const [emailBodyEditTarget, setEmailBodyEditTarget] = useState<{ authorName: string; emailBody: string; subject: string } | null>(null)
+  const [emailBodyEditTarget, setEmailBodyEditTarget] = useState<EmailBodyEditTarget | null>(null)
   const [isSavingEmailBody, setIsSavingEmailBody] = useState(false)
   
   // コピー済み状態（作者名 → タイムアウトID）
@@ -1140,43 +1141,16 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
 
       {/* 送信済みメール確認・編集ダイアログ */}
-      <Dialog open={isEmailBodyEditOpen} onOpenChange={(open) => { if (!open) { setIsEmailBodyEditOpen(false); setEmailBodyEditTarget(null) } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>送信済みメールの確認・編集</DialogTitle>
-            <DialogDescription>
-              {emailBodyEditTarget?.authorName} 宛 {selectedYear}年{selectedMonth}月分
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-3 py-2">
-            <div className="space-y-1">
-              <Label className="text-sm">件名</Label>
-              <Input
-                value={emailBodyEditTarget?.subject ?? ''}
-                onChange={(e) => setEmailBodyEditTarget(prev => prev ? { ...prev, subject: e.target.value } : prev)}
-                disabled={isSavingEmailBody}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">本文</Label>
-              <Textarea
-                value={emailBodyEditTarget?.emailBody ?? ''}
-                onChange={(e) => setEmailBodyEditTarget(prev => prev ? { ...prev, emailBody: e.target.value } : prev)}
-                className="font-mono text-xs h-96 resize-none"
-                disabled={isSavingEmailBody}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsEmailBodyEditOpen(false); setEmailBodyEditTarget(null) }} disabled={isSavingEmailBody}>
-              キャンセル
-            </Button>
-            <Button onClick={handleSaveEmailBody} disabled={isSavingEmailBody}>
-              {isSavingEmailBody ? '保存中...' : '保存'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EmailBodyEditDialog
+        open={isEmailBodyEditOpen}
+        onClose={() => { setIsEmailBodyEditOpen(false); setEmailBodyEditTarget(null) }}
+        target={emailBodyEditTarget}
+        setTarget={setEmailBodyEditTarget}
+        year={selectedYear}
+        month={selectedMonth}
+        isSaving={isSavingEmailBody}
+        onSave={handleSaveEmailBody}
+      />
 
       {/* 一括メール登録ダイアログ */}
       <Dialog open={isBulkEmailDialogOpen} onOpenChange={setIsBulkEmailDialogOpen}>
