@@ -6,7 +6,7 @@
  * 設定は DB（schedule_blocked_slots）に永続化されます。
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -28,36 +28,71 @@ function createSlotKey(date: string, storeId: string, timeSlot: 'morning' | 'aft
 
 export function useBlockedSlots(): UseBlockedSlotsReturn {
   const [blockedSlots, setBlockedSlots] = useState<Set<BlockedSlotKey>>(new Set())
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // DBから初期データを読み込む
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const orgId = await getCurrentOrganizationId()
-        if (!orgId) return
-        const { data, error } = await supabase
-          .from('schedule_blocked_slots')
-          .select('date, store_id, time_slot')
-          .eq('organization_id', orgId)
+  // DBから募集中止スロットを読み込む（realtime からの再取得でも使うので空でも必ず Set を更新する）
+  const load = useCallback(async () => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+      const { data, error } = await supabase
+        .from('schedule_blocked_slots')
+        .select('date, store_id, time_slot')
+        .eq('organization_id', orgId)
 
-        if (error) {
-          logger.error('募集中止スロットの読み込みエラー:', error)
-          return
-        }
-
-        if (data && data.length > 0) {
-          const keys = data.map(row =>
-            createSlotKey(row.date, row.store_id, row.time_slot as 'morning' | 'afternoon' | 'evening')
-          )
-          setBlockedSlots(new Set(keys))
-          logger.log(`📛 募集中止スロット読み込み: ${keys.length}件`)
-        }
-      } catch (error) {
+      if (error) {
         logger.error('募集中止スロットの読み込みエラー:', error)
+        return
       }
+
+      const keys = (data ?? []).map(row =>
+        createSlotKey(row.date, row.store_id, row.time_slot as 'morning' | 'afternoon' | 'evening')
+      )
+      setBlockedSlots(new Set(keys))
+      logger.log(`📛 募集中止スロット読み込み: ${keys.length}件`)
+    } catch (error) {
+      logger.error('募集中止スロットの読み込みエラー:', error)
     }
-    load()
   }, [])
+
+  // 初期データを読み込む
+  useEffect(() => {
+    load()
+  }, [load])
+
+  // realtime 購読: 他タブ・他スタッフの募集停止/再開を即時反映（組織IDでサーバーフィルタ）
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+
+    void (async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId || cancelled) return
+      channel = supabase
+        .channel(`schedule_blocked_slots_changes_${orgId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'schedule_blocked_slots',
+            filter: `organization_id=eq.${orgId}`,
+          },
+          () => {
+            // デバウンス: 連続変更をまとめて1回再取得
+            if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current)
+            realtimeDebounceRef.current = setTimeout(() => { load() }, 300)
+          }
+        )
+        .subscribe()
+    })()
+
+    return () => {
+      cancelled = true
+      if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current)
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [load])
 
   const isSlotBlocked = useCallback(
     (date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening'): boolean => {
