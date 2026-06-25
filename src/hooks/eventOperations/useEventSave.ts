@@ -83,6 +83,25 @@ interface UseEventSaveProps {
   organizationId: string | null
 }
 
+/**
+ * 楽観表示・保存直後カードに添付する scenarios（マスタ情報）を引くための照合。
+ *
+ * モーダルはシナリオ選択時に scenario_master_id（= 組織シナリオの id）を渡すため、
+ * タイトルが厳密一致しなくても id で確実に引ける。タイトル厳密一致のみだと、
+ * リロード時の寛容な照合（useScheduleEventsQuery の findScenario）との差で、
+ * 登録済みシナリオでも「シナリオマスタ未登録」⚠️ がリロードまで誤表示されていた（F-2）。
+ */
+function findDisplayScenario(
+  scenarios: Scenario[],
+  title: string,
+  masterId?: string | null,
+): Scenario | undefined {
+  return (
+    scenarios.find(s => s.title === title) ||
+    (masterId ? scenarios.find(s => s.id === masterId || s.scenario_master_id === masterId) : undefined)
+  )
+}
+
 export function useEventSave({
   events,
   setEvents,
@@ -305,7 +324,7 @@ export function useEventSave({
 
         // 楽観的 insert: 保存完了前にセルへ表示し、ユーザの不安感を解消する
         // 失敗時は finally ブロックで除外、成功時は real id に置き換える
-        const matchedScenarioForOptimistic = scenarios.find(s => s.title === performanceData.scenario)
+        const matchedScenarioForOptimistic = findDisplayScenario(scenarios, performanceData.scenario, performanceData.scenario_master_id)
         const tempEventId = `temp-${crypto.randomUUID()}`
         const optimisticEvent: ScheduleEvent = {
           id: tempEventId,
@@ -314,7 +333,9 @@ export function useEventSave({
           scenario: performanceData.scenario || '',
           scenarios: matchedScenarioForOptimistic ? {
             id: matchedScenarioForOptimistic.id,
-            title: matchedScenarioForOptimistic.title,
+            // PerformanceCard の警告判定は event.scenario === event.scenarios.title を要求するため、
+            // 入力タイトルを優先採用して偽の「未登録」警告を防ぐ（正規タイトルはリロードで揃う）
+            title: performanceData.scenario || matchedScenarioForOptimistic.title,
             player_count_max: matchedScenarioForOptimistic.player_count_max ?? 8
           } : undefined,
           gms: performanceData.gms || [],
@@ -343,7 +364,7 @@ export function useEventSave({
         // ここを後続処理（履歴記録・スタッフ予約同期＝ネットワーク往復）の後に
         // 置くと、その間ずっと仮ID（temp-）のセルが見えてしまい、右クリックの
         // 中止・削除が「存在しないID」で失敗する（2026-06-13 テストで発覚）
-        const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
+        const matchedScenario = findDisplayScenario(scenarios, savedEvent.scenario || performanceData.scenario, performanceData.scenario_master_id)
         const effectiveMax = matchedScenario?.player_count_max || savedEvent.capacity || 8
         const formattedEvent: ScheduleEvent = {
           id: savedEvent.id,
@@ -352,7 +373,8 @@ export function useEventSave({
           scenario: savedEvent.scenario || '',
           scenarios: matchedScenario ? {
             id: matchedScenario.id,
-            title: matchedScenario.title,
+            // 警告判定（event.scenario === event.scenarios.title）を満たすため保存値のタイトルを優先
+            title: savedEvent.scenario || performanceData.scenario || matchedScenario.title,
             player_count_max: matchedScenario.player_count_max ?? 8
           } : undefined,
           gms: savedEvent.gms || [],
