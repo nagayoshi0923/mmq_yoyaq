@@ -200,7 +200,17 @@
       - [x] 第3歩 「店舗別在庫」タブ → `kitManagement/tabs/StoreInventoryTab.tsx`（props: stores/storeInventory/dragOverStoreId/draggedKit/handle{DragOver,DragLeave,Drop,ToggleKitFixed,DragStart,DragEnd,ContextMenu}）`a4b77631`（2,876→**2,786**）
       - [x] 第4歩 「週間需要」タブ → `kitManagement/tabs/WeeklyDemandTab.tsx`（props: kitShortages/storeMap/scenarioMap/demandDates/scheduleEvents/kitLocations/stores/isSameStoreGroup/formatDate）`216b3285`（2,786→**2,670**）
       - [x] 第5歩 「移動計画(transfers)」タブ → `kitManagement/tabs/TransferPlanTab.tsx`（~880行・props 25個注入で移動のみ）`f1724b9d`（2,670→**1,822**）。内部の日付計算/グルーピング/小コンポーネント分割は後続コミットで実施（未）
-      - [ ] 第6歩〜 ロジックを `useKitManagementData` / selectors(派生) / handlers フックへ分割（一括 useKitAssignment にせず分ける）。ContextMenu / deliveryConfirm / help dialog はタブ横断UI状態のため当面は親に残し必要 props のみ渡す
+      - 第6歩〜 ロジックを `useKitManagementData` / selectors(派生) / handlers フックへ分割（一括 useKitAssignment にせず分ける）。ContextMenu / deliveryConfirm / help dialog はタブ横断UI状態のため当面は親に残し必要 props のみ渡す
+        - [x] 第6a歩 **データ層** → `kitManagement/useKitManagementData.ts`（2026-06-25・1,904→**1,730**）。
+          サーバーデータ state（kitLocations/transferEvents/stores/storeTravelTimes/scenarios/scheduleEvents/
+          completions/currentStaffId/currentStaffName/loading）＋ `fetchData` ＋ 初回取得 effect ＋
+          完了状態の Realtime 購読 effect を移管。fetchData が書き戻す設定 state
+          （selectedOffsets/transferStartStoreIds）は親所有のまま setter/ref を deps 注入
+          （AuthContext と同じ方式・クロージャ捕捉タイミング一致で挙動不変）。移動した fetchData/effects は逐語コピー。
+          副産物: 親の死んだ import（getCurrentStaff / storeApi / scheduleApi / Store / StoreTravelTime）を除去。
+          検証: tsc=0 / eslint=0 / build:fast / test:unit 54 passed。**要 staging 実機確認（キット管理ダイアログ）**。
+        - [ ] 第6b歩 selectors（派生 useMemo: storeMap/scenarioMap/demandDates/kitShortages/scenariosWithKits 等）→ フック化
+        - [ ] 第6c歩 handlers（toggle/calculate/setLocation/changeKitCount/move/drag 等）→ フック化
 - [ ] 5-2 `ImportScheduleModal`（2,013行）: パース/検証を純関数化（テスト対象）、プレビューUI分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
