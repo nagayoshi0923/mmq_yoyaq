@@ -12,6 +12,7 @@ export { staffApi } from './api/staffApi'
 export { memoApi } from './api/memoApi'
 export { salesApi } from './api/salesApi'
 export { scheduleApi } from './api/scheduleApi'
+export { licenseContractsApi } from './api/licenseContractsApi'
 
 // 型定義の再エクスポート
 export type { CandidateDateTime, GMAvailabilityResponse, PaginatedResponse } from './api/types'

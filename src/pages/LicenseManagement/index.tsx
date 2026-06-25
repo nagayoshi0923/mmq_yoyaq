@@ -13,13 +13,16 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { ReportsReceived } from './tabs/ReportsReceived'
 import { SendReports } from './tabs/SendReports'
 import { LicenseSummary } from './tabs/LicenseSummary'
+import { ContractMaster } from './tabs/ContractMaster'
 
 export default function LicenseManagement() {
   const { organization, staff, isLicenseManager, isLoading } = useOrganization()
   const [searchParams] = useSearchParams()
   const rawTab = searchParams.get('tab') || 'send'
+  const canManageContracts = Boolean(staff?.role?.includes('admin') || staff?.role?.includes('license_admin'))
+  const canViewContracts = Boolean(canManageContracts || staff?.role?.includes('staff'))
   // ライセンス管理組織以外は send 固定
-  const effectiveTab = isLicenseManager ? rawTab : 'send'
+  const effectiveTab = isLicenseManager || rawTab === 'contracts' ? rawTab : 'send'
 
   const renderContent = () => {
     if (isLoading) {
@@ -42,6 +45,7 @@ export default function LicenseManagement() {
       )
     }
     switch (effectiveTab) {
+      case 'contracts': return canViewContracts ? <ContractMaster canEdit={canManageContracts} /> : null
       case 'received': return isLicenseManager ? <ReportsReceived staffId={staff.id} /> : null
       case 'summary':  return isLicenseManager ? <LicenseSummary /> : null
       default:         return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />

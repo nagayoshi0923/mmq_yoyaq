@@ -211,6 +211,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
           path: `/${slug}/license-management`, roles: ['admin', 'staff', 'license_admin'],
           subItems: [
             { id: 'send',     label: '公演報告', path: `/${slug}/license-management?tab=send` },
+            { id: 'contracts', label: '契約マスタ', path: `/${slug}/license-management?tab=contracts` },
             { id: 'received', label: '受信',     path: `/${slug}/license-management?tab=received`, roles: ['license_admin'] },
             { id: 'summary',  label: '集計',     path: `/${slug}/license-management?tab=summary`,  roles: ['license_admin'] },
           ],

@@ -37,6 +37,70 @@ export interface LicensePerformanceSummary {
   total_license_fee: number
 }
 
+export type LicenseManagerType =
+  | 'qw_managed'
+  | 'external_rights_holder'
+  | 'buyout'
+  | 'in_house'
+
+export type LicenseBillingStatus =
+  | 'billable'
+  | 'not_billable'
+  | 'exempt'
+  | 'pending_confirmation'
+
+export interface StoreScenarioLicenseContract {
+  id: string
+  organization_id: string
+  store_id: string
+  scenario_master_id: string
+  license_manager_type: LicenseManagerType
+  standard_license_amount: number
+  contracted_count: number
+  contract_start_date: string | null
+  contract_end_date: string | null
+  billing_status: LicenseBillingStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+  stores?: {
+    id: string
+    name: string
+    short_name: string
+  } | null
+  scenario_masters?: {
+    id: string
+    title: string
+    author: string | null
+  } | null
+}
+
+export interface StoreScenarioLicenseContractOptions {
+  stores: Array<{
+    id: string
+    name: string
+    short_name: string
+  }>
+  scenarios: Array<{
+    id: string
+    title: string
+    author: string | null
+    license_amount: number | null
+  }>
+}
+
+export interface LicenseContractInput {
+  store_id: string
+  scenario_master_id: string
+  license_manager_type: LicenseManagerType
+  standard_license_amount: number
+  contracted_count: number
+  contract_start_date?: string | null
+  contract_end_date?: string | null
+  billing_status: LicenseBillingStatus
+  notes?: string | null
+}
+
 // ================================================
 // 作者ポータル関連の型定義（メールアドレスベース）
 // ================================================
