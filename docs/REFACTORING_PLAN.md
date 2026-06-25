@@ -209,7 +209,14 @@
           （AuthContext と同じ方式・クロージャ捕捉タイミング一致で挙動不変）。移動した fetchData/effects は逐語コピー。
           副産物: 親の死んだ import（getCurrentStaff / storeApi / scheduleApi / Store / StoreTravelTime）を除去。
           検証: tsc=0 / eslint=0 / build:fast / test:unit 54 passed。**要 staging 実機確認（キット管理ダイアログ）**。
-        - [ ] 第6b歩 selectors（派生 useMemo: storeMap/scenarioMap/demandDates/kitShortages/scenariosWithKits 等）→ フック化
+        - [x] 第6b歩 **selectors** → `kitManagement/useKitManagementSelectors.ts`（2026-06-25・1,730→**1,211**）。
+          派生 useMemo/useCallback 全28個（demandDates/scenarioMap/storeMap/storeGroup系/storeInventory/
+          kitShortages/groupedTransferEvents/completion lookups(isPickedUp/isDelivered/getCompletion等)/
+          mergedSuggestions/新ロジック plan系(planToday/kitStateForPlan/plannerDemands/fixedKitKeys/newPlan/overdueTransfers)）を
+          逐語抽出（**553行 byte 完全一致 diff=0** を確認）。入力11個（データ6＋storeTravelTimes＋suggestions/transferDates/weekDates/scenarioSearch）を
+          注入、出力は全派生値を返し親は使用19個のみ destructure。内部相互参照はフック内で解決。
+          親の死んだ import（planKitTransfers/findOverdueTransfers/PlannerDemand/OverdueTransfer/toJstYmd/KitTransferEvent/KitTransferCompletion/Scenario）も除去。
+          検証: tsc=0 / eslint=0 / build:fast / test:unit 54 passed。**要 staging 実機確認**。
         - [ ] 第6c歩 handlers（toggle/calculate/setLocation/changeKitCount/move/drag 等）→ フック化
 - [ ] 5-2 `ImportScheduleModal`（2,013行）: パース/検証を純関数化（テスト対象）、プレビューUI分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
