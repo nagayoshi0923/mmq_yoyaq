@@ -63,6 +63,7 @@ import { groupReportItems } from './sendReports/grouping'
 import type { ReportItem, ReportGroup, EmailBodyEditTarget } from './sendReports/types'
 import { EmailBodyEditDialog } from './sendReports/dialogs/EmailBodyEditDialog'
 import { BulkEmailDialog } from './sendReports/dialogs/BulkEmailDialog'
+import { DisplayNameDialog } from './sendReports/dialogs/DisplayNameDialog'
 
 interface SendReportsProps {
   organizationId: string
@@ -1165,83 +1166,17 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       />
 
       {/* 報告用表示名・メモ編集ダイアログ */}
-      <Dialog open={isDisplayNameDialogOpen} onOpenChange={setIsDisplayNameDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>作者設定</DialogTitle>
-            <DialogDescription>
-              報告用の表示名とメモを設定できます
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>元の作者名</Label>
-              <div className="p-2 bg-muted rounded text-sm">
-                {displayNameTarget?.originalAuthorName}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="displayName">報告用表示名</Label>
-              <Input
-                id="displayName"
-                placeholder="報告用の表示名を入力"
-                value={newDisplayName}
-                onChange={(e) => setNewDisplayName(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                元の作者名と同じ場合はリセットされます
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="authorNotes">メモ（振込先等）</Label>
-              <Textarea
-                id="authorNotes"
-                placeholder="振込先情報、連絡事項など"
-                value={newAuthorNotes}
-                onChange={(e) => setNewAuthorNotes(e.target.value)}
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>対象シナリオ ({displayNameTarget?.items.length || 0}件)</Label>
-              <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                {displayNameTarget?.items.map((item, idx) => (
-                  <div key={idx} className="text-sm">
-                    • {item.scenarioTitle}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDisplayNameDialogOpen(false)}
-              disabled={isSavingDisplayName}
-            >
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleSaveDisplayName}
-              disabled={isSavingDisplayName || !newDisplayName.trim()}
-            >
-              {isSavingDisplayName ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  更新中...
-                </>
-              ) : (
-                '保存'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DisplayNameDialog
+        open={isDisplayNameDialogOpen}
+        onOpenChange={setIsDisplayNameDialogOpen}
+        target={displayNameTarget}
+        displayName={newDisplayName}
+        setDisplayName={setNewDisplayName}
+        authorNotes={newAuthorNotes}
+        setAuthorNotes={setNewAuthorNotes}
+        isSaving={isSavingDisplayName}
+        onSave={handleSaveDisplayName}
+      />
 
       {/* 送信プレビューダイアログ */}
       <Dialog open={isSendPreviewOpen} onOpenChange={setIsSendPreviewOpen}>
