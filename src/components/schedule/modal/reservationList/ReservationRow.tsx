@@ -74,7 +74,7 @@ export function ReservationRow({
                               }}
                               disabled={isCancelled}
                             />
-                            <span className={`font-medium truncate flex-1 min-w-0 flex items-center gap-2 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
+                            <span className={`font-medium text-sm flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
                               {(() => {
                                 const customer = reservation.customers
                                   ? (Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers)
@@ -82,9 +82,9 @@ export function ReservationRow({
                                 const name = reservation.customer_name || customer?.name || reservation.customer_notes || '顧客名なし'
                                 const nickname = customer?.nickname
                                 if (nickname && nickname !== name) {
-                                  return <>{name}<span className="text-xs text-muted-foreground ml-1">({nickname})</span></>
+                                  return <span className="break-words min-w-0">{name}<span className="text-xs text-muted-foreground ml-1">({nickname})</span></span>
                                 }
-                                return name
+                                return <span className="break-words min-w-0">{name}</span>
                               })()}
                               {/* キャンセル済みバッジ + 日時 */}
                               {isCancelled && (
