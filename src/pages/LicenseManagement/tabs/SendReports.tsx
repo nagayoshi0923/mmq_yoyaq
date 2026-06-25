@@ -9,19 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  MailCheck,
-  Home,
-  Building,
-  Layers,
-} from 'lucide-react'
-import { MonthSwitcher } from '@/components/patterns/calendar'
+import { Loader2 } from 'lucide-react'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
@@ -41,6 +29,7 @@ import { DisplayNameDialog } from './sendReports/dialogs/DisplayNameDialog'
 import { SendPreviewDialog } from './sendReports/dialogs/SendPreviewDialog'
 import { ReportStatsCards } from './sendReports/components/ReportStatsCards'
 import { ReportGroupCard } from './sendReports/components/ReportGroupCard'
+import { ReportToolbar } from './sendReports/components/ReportToolbar'
 
 interface SendReportsProps {
   organizationId: string
@@ -1217,103 +1206,25 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
         onConfirmSend={handleConfirmSend}
       />
 
-      {/* ヘッダー */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
-          {(isSavingExternal || isSavingInternal) && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>保存中...</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {selectedGroups.size > 0 && (
-            <Button variant="outline" size="sm" onClick={deselectAll}>
-              選択解除
-            </Button>
-          )}
-          <Button
-            onClick={handleBatchSend}
-            disabled={isSending || selectedGroups.size === 0}
-          >
-            <MailCheck className="w-4 h-4 mr-2" />
-            {isSending ? '送信中...' : `一括送信 (${selectedGroups.size}件)`}
-          </Button>
-        </div>
-      </div>
-
-      {/* 検索・ソート・表示モード切り替え */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="作者名・シナリオ名で検索..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        {/* ソート切り替え */}
-        <Select 
-          value={sortKey} 
-          onValueChange={(value) => setSortKey(value as SortKey)}
-        >
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="hasEvents">公演あり優先</SelectItem>
-            <SelectItem value="name">名前順</SelectItem>
-            <SelectItem value="email">メアド順</SelectItem>
-            <SelectItem value="events">公演数順</SelectItem>
-            <SelectItem value="cost">金額順</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setSortAsc(!sortAsc)}
-          title={sortAsc ? '昇順' : '降順'}
-        >
-          {sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </Button>
-        
-        {/* 表示モード切り替え */}
-        {isLicenseManager && (
-          <div className="inline-flex items-center gap-1 rounded-lg bg-muted p-1">
-            <Button
-              variant={viewMode === 'all' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('all')}
-              className="gap-1"
-            >
-              <Layers className="w-4 h-4" />
-              <span className="hidden sm:inline">合計</span>
-            </Button>
-            <Button
-              variant={viewMode === 'internal' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('internal')}
-              className="gap-1"
-            >
-              <Home className="w-4 h-4" />
-              <span className="hidden sm:inline">自社</span>
-            </Button>
-            <Button
-              variant={viewMode === 'external' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('external')}
-              className="gap-1"
-            >
-              <Building className="w-4 h-4" />
-              <span className="hidden sm:inline">他社</span>
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* ヘッダー＋検索・ソート・表示モード */}
+      <ReportToolbar
+        currentDate={currentDate}
+        onChangeMonth={setCurrentDate}
+        isSaving={isSavingExternal || isSavingInternal}
+        selectedCount={selectedGroups.size}
+        onDeselectAll={deselectAll}
+        onBatchSend={handleBatchSend}
+        isSending={isSending}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        sortKey={sortKey}
+        onSortKeyChange={setSortKey}
+        sortAsc={sortAsc}
+        onToggleSortAsc={() => setSortAsc(!sortAsc)}
+        isLicenseManager={isLicenseManager}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {/* 統計 */}
       <ReportStatsCards stats={stats} isLicenseManager={isLicenseManager} viewMode={viewMode} />

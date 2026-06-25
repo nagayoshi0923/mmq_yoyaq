@@ -305,8 +305,13 @@
           親 `handleOpenSentEmail` に集約、sentHistory マップは渡さず `sentAt` のみ。併せて親の死んだ import を一掃
           （Badge/Checkbox/Tooltip一式/多数の lucide アイコン/formatJstMonthDay/useMemo/Scenario 型）。
           検証: tsc=0 / eslint=0 / build:fast / test:unit 126。**実機スモーク**: 一覧の各バッジ/送信/コピー/展開/明細の公演数入力。
-      **→ 当セッション累計 SendReports 2,290→1,380（-910）。残：ヘッダー(検索/月送り/viewMode/一括送信)の子化と
-        データ層/ハンドラのフック化（loadData/handleBatchSend/handleConfirmSend 等）で ~700 を目指す。次バッチで継続。**
+        - [x] ReportToolbar（月送り＋一括送信／検索・ソート・表示モード）`components/ReportToolbar.tsx`（1,380→**1,291**）。
+          2ブロックを Fragment で返す（親 space-y-6 維持）。sortKey 型は sorting.ts の `ReportSortKey` を再利用。
+          死 import 一掃（Input/Select一式/MonthSwitcher/Search/各アイコン）。tsc=0/eslint=0/build:fast/test:unit 126。
+          **実機スモーク**: 月送り/検索/ソート切替/昇降順/viewMode 切替/一括送信。
+      **→ JSX はほぼ抽出完了。当セッション累計 SendReports 2,290→1,291（-999）。
+        残り ~700 へは データ層/ハンドラのフック化（loadData/handleBatchSend/handleConfirmSend/save系 ~800行・**中リスク**）。
+        これは独立バッチ（kitManagement の useData/useHandlers 方式）として次回。**
 
 ## Phase 6: 巨大ページの解体
 
