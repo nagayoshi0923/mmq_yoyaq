@@ -255,6 +255,13 @@
       - [x] 5-3a 参加者集計を純関数化＋テスト（2026-06-26・2,263→**2,259**）。
         `sumActiveParticipants`（有効ステータスのみ participant_count 合算・3箇所使用）を
         `reservationList/participants.ts` へ逐語抽出＋4ケースのテスト。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。**実機テスト不要**。
+      - [x] 5-3b データ層を `useReservationListData` フックへ分離（2026-06-26・2,259→**2,070**・**要 staging 実機確認**）。
+        サーバーデータ state（reservations/loadingReservations/customerNames）＋ realtime トリガー（realtimeRefreshKey/
+        debounceRef はフック内に閉じる）＋ 3 effect（loadReservations＋realtime購読＋顧客名取得）を移管。
+        入力は event/mode/onParticipantChange/onLocalParticipantUpdate、ハンドラの楽観更新用に setReservations を公開。
+        **3 effect は git 比較で完全一致（空白除く）**。死 import 一掃（useRef/RESERVATION_WITH_CUSTOMER_SELECT_FIELDS＋
+        変更前から死んでいた Tabs 一式）。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。
+        **実機確認**: 公演モーダル→予約リストの 一覧表示/参加者数同期/realtime更新（別タブで予約変更→自動反映）。
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
