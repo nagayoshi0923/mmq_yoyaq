@@ -5,46 +5,31 @@
  * - author_email あり → 作者に報告（メール送信）
  * - author_email なし → 管理会社に報告
  */
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSessionState } from '@/hooks/useSessionState'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Search,
-  Mail,
-  Building2,
-  Send,
   ChevronDown,
   ChevronUp,
   Loader2,
-  JapaneseYen,
-  Users,
-  Calendar,
-  ExternalLink,
   MailCheck,
-  AlertCircle,
   Home,
   Building,
   Layers,
-  Copy,
-  Check
 } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
-import type { Scenario, Author } from '@/types'
+import type { Author } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
-import { StickyNote } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatJstMonthDay } from '@/utils/jstDate'
 import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBody'
 import { computePreviewItem } from './sendReports/reportItems'
 import { compareReportGroups } from './sendReports/sorting'
@@ -55,6 +40,7 @@ import { BulkEmailDialog } from './sendReports/dialogs/BulkEmailDialog'
 import { DisplayNameDialog } from './sendReports/dialogs/DisplayNameDialog'
 import { SendPreviewDialog } from './sendReports/dialogs/SendPreviewDialog'
 import { ReportStatsCards } from './sendReports/components/ReportStatsCards'
+import { ReportGroupCard } from './sendReports/components/ReportGroupCard'
 
 interface SendReportsProps {
   organizationId: string
@@ -969,6 +955,18 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     return { events, cost, sentEvents: sent.totalEvents, sentCost: sent.totalCost }
   }
 
+  // 送信済みメールの確認・編集ダイアログを開く（送信済バッジ／差分バッジ共通）
+  const handleOpenSentEmail = (group: ReportGroup) => {
+    const h = sentHistory.get(group.authorName)
+    if (!h) return
+    setEmailBodyEditTarget({
+      authorName: group.authorName,
+      emailBody: h.emailBody ?? '',
+      subject: h.subject ?? `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${group.authorName}`,
+    })
+    setIsEmailBodyEditOpen(true)
+  }
+
   const getItemDisplayEvents = (item: ReportItem): number => {
     switch (viewMode) {
       case 'internal': return item.internalEvents
@@ -1339,371 +1337,39 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
           </Card>
         ) : (
           filteredGroups.map((group) => {
-            const key = getGroupKey(group)
-            const isExpanded = expandedGroups.has(key)
-            const isSelected = group.authorEmail ? selectedGroups.has(group.authorName) : false
-            // 編集後の合計公演数を計算（externalInputsを考慮）
-            const editedTotalEvents = group.items.reduce((sum, item) => sum + getPreviewItem(item).events, 0)
-            const hasNoEvents = editedTotalEvents === 0
-
+            const groupKey = getGroupKey(group)
             return (
-              <Card key={key} className={`${isSelected ? 'ring-2 ring-primary' : ''} ${hasNoEvents ? 'opacity-50' : ''}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    {/* チェックボックス（メールありのみ） */}
-                    {group.authorEmail && (
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleSelect(group.authorName)}
-                      />
-                    )}
-
-                    {/* メイン情報 */}
-                    <div 
-                      className="flex-1 flex items-center justify-between cursor-pointer"
-                      onClick={() => toggleExpand(key)}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            className="font-semibold hover:text-primary hover:underline transition-colors text-left"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenDisplayNameDialog(group)
-                            }}
-                            title="クリックして表示名を編集"
-                          >
-                            {group.authorName}
-                          </button>
-                          {group.authorName !== group.originalAuthorName && (
-                            <Badge variant="secondary" className="text-xs">
-                              編集済
-                            </Badge>
-                          )}
-                          {sentHistory.has(group.authorName) && (
-                            <Badge
-                              className="text-xs bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const h = sentHistory.get(group.authorName)!
-                                setEmailBodyEditTarget({
-                                  authorName: group.authorName,
-                                  emailBody: h.emailBody ?? '',
-                                  subject: h.subject ?? `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${group.authorName}`,
-                                })
-                                setIsEmailBodyEditOpen(true)
-                              }}
-                              title="クリックしてメール内容を確認・編集"
-                            >
-                              ✓ 送信済 {formatJstMonthDay(sentHistory.get(group.authorName)!.sentAt)}
-                            </Badge>
-                          )}
-                          {/* 送信後に公演数・金額が変動した場合の差分警告 */}
-                          {(() => {
-                            const drift = getReportDrift(group)
-                            if (!drift) return null
-                            const eventsChanged = drift.events !== drift.sentEvents
-                            const costChanged = drift.cost !== drift.sentCost
-                            const parts = [
-                              eventsChanged ? `公演${drift.sentEvents}→${drift.events}` : null,
-                              costChanged ? `¥${drift.sentCost.toLocaleString()}→¥${drift.cost.toLocaleString()}` : null,
-                            ].filter(Boolean).join(' / ')
-                            return (
-                              <Badge
-                                variant="destructive"
-                                className="text-xs cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const h = sentHistory.get(group.authorName)!
-                                  setEmailBodyEditTarget({
-                                    authorName: group.authorName,
-                                    emailBody: h.emailBody ?? '',
-                                    subject: h.subject ?? `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${group.authorName}`,
-                                  })
-                                  setIsEmailBodyEditOpen(true)
-                                }}
-                                title="送信後に公演数・金額が変動しています。クリックで送信済み内容を確認"
-                              >
-                                ⚠️ 送信時から変動 ({parts})
-                              </Badge>
-                            )
-                          })()}
-                          {group.authorEmail ? (
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs text-green-600 cursor-pointer hover:bg-green-50 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenBulkEmailDialog(group)
-                              }}
-                            >
-                              <Mail className="w-3 h-3 mr-1" />
-                              {group.authorEmail}
-                            </Badge>
-                          ) : (
-                            <Badge 
-                              variant="secondary" 
-                              className="text-xs text-orange-600 cursor-pointer hover:bg-orange-100 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenBulkEmailDialog(group)
-                              }}
-                            >
-                              <Building2 className="w-3 h-3 mr-1" />
-                              メアド未登録
-                            </Badge>
-                          )}
-                          {/* 一部未登録の警告 */}
-                          {group.hasPartialEmail && (
-                            <Badge 
-                              variant="destructive" 
-                              className="text-xs cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenBulkEmailDialog(group)
-                              }}
-                            >
-                              ⚠️ {group.itemsWithoutEmail}件未登録
-                            </Badge>
-                          )}
-                          {/* 作者メモ */}
-                          {group.authorNotes ? (
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span 
-                                    className="inline-flex items-center text-xs text-amber-600 cursor-pointer hover:bg-amber-100 transition-colors border border-amber-200 rounded px-1.5 py-0.5"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleOpenDisplayNameDialog(group)
-                                    }}
-                                  >
-                                    <StickyNote className="w-3 h-3 mr-1" />
-                                    メモ
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap bg-white border shadow-lg rounded-md p-2">
-                                  <p className="text-sm text-foreground">{group.authorNotes}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">クリックで編集</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <span 
-                              className="inline-flex items-center text-xs text-muted-foreground cursor-pointer hover:bg-muted transition-colors border border-dashed border-muted-foreground/30 rounded px-1.5 py-0.5"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenDisplayNameDialog(group)
-                              }}
-                            >
-                              <StickyNote className="w-3 h-3 mr-1" />
-                              メモ追加
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                          <span>
-                            {getDisplayEvents(group)}公演
-                            {isLicenseManager && viewMode === 'all' && (
-                              <span className="text-xs ml-1">
-                                (自社{getDisplayInternalEvents(group)}/他社{getDisplayExternalEvents(group)})
-                              </span>
-                            )}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <JapaneseYen className="w-3 h-3" />
-                            {getDisplayLicenseCost(group).toLocaleString()}
-                          </span>
-                          <span>{group.items.length}シナリオ</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isGroupZeroCostOnly(group) && (
-                          <Badge variant="secondary" className="text-xs">
-                            報告不要
-                          </Badge>
-                        )}
-                        {!isGroupZeroCostOnly(group) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCopyEmail(group)
-                            }}
-                            title="メール本文をコピー"
-                          >
-                            {copiedAuthor === group.authorName ? (
-                              <Check className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                        )}
-                        {group.authorEmail && !isGroupZeroCostOnly(group) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isSending}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenSendPreview(group)
-                            }}
-                          >
-                            <Send className="w-4 h-4 mr-1" />
-                            送信
-                          </Button>
-                        )}
-                        {isExpanded ? (
-                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 詳細 */}
-                  {isExpanded && (
-                    <div className="mt-4 pt-4 border-t space-y-2">
-                      {/* ヘッダー行（ライセンス管理者のみ） */}
-                      {isLicenseManager && (
-                        <div className="flex items-center justify-between py-1 px-3 text-xs text-muted-foreground border-b">
-                          <span>シナリオ名</span>
-                          <div className="flex items-center gap-2 text-right">
-                            <span className="w-24">自社</span>
-                            <span className="w-24">他社</span>
-                            <span className="w-24">合計</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {group.items.map((item, idx) => (
-                        <div 
-                          key={idx}
-                          className={`flex items-center justify-between py-2 px-3 rounded ${
-                            item.licenseCost === 0 
-                              ? 'bg-muted/20 opacity-60' 
-                              : 'bg-muted/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <button
-                              className="text-sm text-left hover:underline hover:text-primary transition-colors"
-                              onClick={() => handleEditScenario(item.scenarioId)}
-                            >
-                              {item.scenarioTitle}
-                            </button>
-                            {item.isGMTest && (
-                              <Badge variant="outline" className="text-xs">GMテスト</Badge>
-                            )}
-                            {item.licenseCost === 0 && (
-                              <Badge variant="secondary" className="text-xs text-muted-foreground">
-                                報告不要
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            {isLicenseManager ? (
-                              <>
-                                {/* 自社（手動上書き可能） */}
-                                {(() => {
-                                  const internalKey = item.scenarioKey
-                                  const isOverridden = internalInputs[internalKey] !== undefined
-                                  const effectiveInternal = internalInputs[internalKey] ?? item.internalEvents
-                                  const effectiveInternalCost = effectiveInternal * item.internalLicenseAmount
-                                  return (
-                                    <div className="w-24 text-right">
-                                      <div className="flex items-center justify-end gap-1">
-                                        <Home className="w-3 h-3 text-blue-500" />
-                                        <Input
-                                          type="number"
-                                          min={0}
-                                          className={`w-14 h-6 text-xs text-right px-1 ${isOverridden ? 'text-orange-500 font-medium' : ''}`}
-                                          placeholder={item.internalEvents.toString()}
-                                          value={isOverridden ? effectiveInternal : ''}
-                                          onChange={(e) => {
-                                            const raw = e.target.value
-                                            const val = raw === '' ? undefined : (parseInt(raw) || 0)
-                                            handleInternalInputChange(internalKey, val)
-                                          }}
-                                        />
-                                        <span className="text-xs">回</span>
-                                      </div>
-                                      <div className="text-xs text-muted-foreground">
-                                        @¥{item.internalLicenseAmount.toLocaleString()}
-                                      </div>
-                                      <div className={`font-medium ${isOverridden ? 'text-orange-500' : 'text-blue-600'}`}>
-                                        ¥{effectiveInternalCost.toLocaleString()}
-                                      </div>
-                                    </div>
-                                  )
-                                })()}
-                                {/* 他社（回数 × 単価 = 金額）- 管理作品のみ表示・編集可能（GMテスト含む） */}
-                                {item.scenarioType === 'managed' ? (
-                                  <div className="w-28 text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                      <Building className="w-3 h-3 text-green-500" />
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        className={`w-14 h-6 text-xs text-right px-1 ${externalInputs[item.scenarioKey] !== undefined ? 'text-orange-500 font-medium' : ''}`}
-                                        placeholder={item.externalEvents.toString()}
-                                        value={externalInputs[item.scenarioKey] !== undefined ? externalInputs[item.scenarioKey] : ''}
-                                        onChange={(e) => {
-                                          const raw = e.target.value
-                                          const val = raw === '' ? 0 : (parseInt(raw) || 0)
-                                          handleExternalInputChange(item.scenarioKey, val)
-                                        }}
-                                      />
-                                      <span className="text-xs">回</span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      @¥{item.externalLicenseAmount.toLocaleString()}
-                                    </div>
-                                    <div className={`font-medium ${externalInputs[item.scenarioKey] !== undefined ? 'text-orange-500' : 'text-green-600'}`}>
-                                      ¥{((externalInputs[item.scenarioKey] ?? item.externalEvents) * item.externalLicenseAmount).toLocaleString()}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="w-28 text-right text-muted-foreground text-xs">
-                                    -
-                                  </div>
-                                )}
-                                {/* 合計 */}
-                                <div className="w-24 text-right">
-                                  {(() => {
-                                    const pi = getPreviewItem(item)
-                                    return (
-                                      <>
-                                        <div className="font-medium">{pi.events}回</div>
-                                        <div className="text-xs text-muted-foreground">&nbsp;</div>
-                                        <div className="font-bold">
-                                          ¥{pi.licenseCost.toLocaleString()}
-                                        </div>
-                                      </>
-                                    )
-                                  })()}
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <span>{item.internalEvents}回</span>
-                                <span className="text-muted-foreground">
-                                  @¥{item.internalLicenseAmount.toLocaleString()}
-                                </span>
-                                <span className="font-medium">
-                                  ¥{item.internalLicenseCost.toLocaleString()}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <ReportGroupCard
+                key={groupKey}
+                group={group}
+                groupKey={groupKey}
+                isExpanded={expandedGroups.has(groupKey)}
+                isSelected={group.authorEmail ? selectedGroups.has(group.authorName) : false}
+                sentAt={sentHistory.get(group.authorName)?.sentAt ?? null}
+                copiedAuthor={copiedAuthor}
+                isSending={isSending}
+                internalInputs={internalInputs}
+                externalInputs={externalInputs}
+                viewMode={viewMode}
+                isLicenseManager={isLicenseManager}
+                getPreviewItem={getPreviewItem}
+                getReportDrift={getReportDrift}
+                getDisplayEvents={getDisplayEvents}
+                getDisplayInternalEvents={getDisplayInternalEvents}
+                getDisplayExternalEvents={getDisplayExternalEvents}
+                getDisplayLicenseCost={getDisplayLicenseCost}
+                isGroupZeroCostOnly={isGroupZeroCostOnly}
+                onToggleSelect={toggleSelect}
+                onToggleExpand={toggleExpand}
+                onOpenDisplayNameDialog={handleOpenDisplayNameDialog}
+                onOpenBulkEmailDialog={handleOpenBulkEmailDialog}
+                onOpenSendPreview={handleOpenSendPreview}
+                onCopyEmail={handleCopyEmail}
+                onOpenSentEmail={handleOpenSentEmail}
+                onEditScenario={handleEditScenario}
+                onInternalInputChange={handleInternalInputChange}
+                onExternalInputChange={handleExternalInputChange}
+              />
             )
           })
         )}

@@ -298,6 +298,15 @@
       **→ ダイアログ子化バッチ完了。SendReports 2,049→1,708（当バッチ -341 / 当セッション累計 2,290→1,708）。
         次の大物は ①グループ一覧テーブルの子化（~450行）②データ層/ハンドラのフック化（loadData/handleBatchSend 等）。
         いずれも対話的＝実機テストリスト要。目標 ~700行まではあと 2-3 バッチ。**
+      - [~] 5-5f 一覧UIを子コンポーネント化（`sendReports/components/`・**要 staging 実機スモーク**）。
+        - [x] ReportStatsCards（上部統計カード）`components/ReportStatsCards.tsx`（1,763→**1,714**）。props=stats/フラグのみ。tsc=0/eslint=0/build:fast。
+        - [x] ReportGroupCard（報告先カード1件・最大 ~370行）`components/ReportGroupCard.tsx`（1,714→**1,380**）。
+          filteredGroups.map の本体を逐語移植し props ~26個で注入。送信済/差分バッジの「送信済メールを開く」処理は
+          親 `handleOpenSentEmail` に集約、sentHistory マップは渡さず `sentAt` のみ。併せて親の死んだ import を一掃
+          （Badge/Checkbox/Tooltip一式/多数の lucide アイコン/formatJstMonthDay/useMemo/Scenario 型）。
+          検証: tsc=0 / eslint=0 / build:fast / test:unit 126。**実機スモーク**: 一覧の各バッジ/送信/コピー/展開/明細の公演数入力。
+      **→ 当セッション累計 SendReports 2,290→1,380（-910）。残：ヘッダー(検索/月送り/viewMode/一括送信)の子化と
+        データ層/ハンドラのフック化（loadData/handleBatchSend/handleConfirmSend 等）で ~700 を目指す。次バッチで継続。**
 
 ## Phase 6: 巨大ページの解体
 
