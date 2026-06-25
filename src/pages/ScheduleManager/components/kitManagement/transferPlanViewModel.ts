@@ -197,8 +197,13 @@ export function buildTransferPlanViewModel({
   const source = [...plannedTransfers, ...mergedSuggestions]
   const seen = new Set<string>()
   const displaySuggestions = source.filter(suggestion => {
+    // 重複排除は scenario_master_id を主キーにする。
+    // 新ロジック(planKitTransfers)は org_scenario_id を持たず scenario_master_id のみ、
+    // 旧 mergedSuggestions は org_scenario_id を持つため、`org_scenario_id || scenario_master_id`
+    // だと同一移動でもキーが食い違い両方残って二重表示になっていた。両者が必ず持つ
+    // scenario_master_id を優先キーにして同一移動を確実に畳む（無い場合のみ org_scenario_id）。
     const key = [
-      suggestion.org_scenario_id || suggestion.scenario_master_id,
+      suggestion.scenario_master_id || suggestion.org_scenario_id,
       suggestion.kit_number,
       suggestion.from_store_id,
       suggestion.to_store_id,

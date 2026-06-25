@@ -74,6 +74,24 @@ describe('buildTransferPlanViewModel', () => {
     expect(view.sortedDays[0].groups[0].items).toHaveLength(1)
   })
 
+  it('新ロジックの移動(org_scenario_id無し)と旧mergedSuggestions(org_scenario_id有り)の同一移動を重複表示しない', () => {
+    // 回帰: planKitTransfers は org_scenario_id を持たず scenario_master_id のみ、
+    // mergedSuggestions は org_scenario_id を持つ。dedupキーが org_scenario_id 優先だと
+    // 同一移動でもキーが食い違い二重表示されていた（本番のキット移動重複の原因）。
+    const planned = suggestion({ scenario_master_id: 'scenario-1' }) // org_scenario_id 無し
+    const merged = suggestion({ scenario_master_id: 'scenario-1', org_scenario_id: 'org-scenario-1' })
+
+    const view = buildTransferPlanViewModel({
+      ...baseParams,
+      transferDates: ['2026-06-26'],
+      plannedTransfers: [planned],
+      mergedSuggestions: [merged],
+    })
+
+    expect(view.displaySuggestions).toHaveLength(1)
+    expect(view.sortedDays[0].groups[0].items).toHaveLength(1)
+  })
+
   it('mergedSuggestions の旧計算提案は選択日に合うものだけ表示する', () => {
     const view = buildTransferPlanViewModel({
       ...baseParams,
