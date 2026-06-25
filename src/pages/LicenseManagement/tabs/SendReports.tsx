@@ -54,6 +54,7 @@ import { EmailBodyEditDialog } from './sendReports/dialogs/EmailBodyEditDialog'
 import { BulkEmailDialog } from './sendReports/dialogs/BulkEmailDialog'
 import { DisplayNameDialog } from './sendReports/dialogs/DisplayNameDialog'
 import { SendPreviewDialog } from './sendReports/dialogs/SendPreviewDialog'
+import { ReportStatsCards } from './sendReports/components/ReportStatsCards'
 
 interface SendReportsProps {
   organizationId: string
@@ -1317,57 +1318,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       </div>
 
       {/* 統計 */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-2xl font-bold">{stats.totalGroups}</div>
-            <div className="text-sm text-muted-foreground">作者数</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Mail className="w-5 h-5 mx-auto mb-1 text-green-500" />
-            <div className="text-2xl font-bold">{stats.withEmail}</div>
-            <div className="text-sm text-muted-foreground">送信可</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <AlertCircle className="w-5 h-5 mx-auto mb-1 text-yellow-500" />
-            <div className="text-2xl font-bold">{stats.partialEmail}</div>
-            <div className="text-sm text-muted-foreground">一部未登録</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Building2 className="w-5 h-5 mx-auto mb-1 text-orange-500" />
-            <div className="text-2xl font-bold">{stats.withoutEmail}</div>
-            <div className="text-sm text-muted-foreground">未登録</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Calendar className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-2xl font-bold">{stats.totalEvents}</div>
-            <div className="text-sm text-muted-foreground flex flex-col">
-              <span>総公演数</span>
-              {isLicenseManager && viewMode === 'all' && (
-                <span className="text-xs">
-                  (自社{stats.totalInternalEvents} / 他社{stats.totalExternalEvents})
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <JapaneseYen className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-2xl font-bold">¥{stats.totalLicense.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">総額</div>
-          </CardContent>
-        </Card>
-      </div>
+      <ReportStatsCards stats={stats} isLicenseManager={isLicenseManager} viewMode={viewMode} />
 
       {/* 一括選択ボタン */}
       {stats.withEmail > 0 && (
