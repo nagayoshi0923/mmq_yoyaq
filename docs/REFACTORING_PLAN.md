@@ -271,6 +271,16 @@
         sortAsc 反転）を `sendReports/sorting.ts` の `compareReportGroups(a, b, sortKey, sortAsc)` へ逐語抽出。
         4 ケース（実際に sort して順序を検証）のテスト整備。
         検証: tsc=0 / eslint=0 / build:fast / test:unit 120 passed。**実機テスト不要**。
+      - [x] 5-5d 作者グループ化（生 items→ReportGroup）を純関数化＋テスト（2026-06-26・2,163→**2,049**）。
+        loadData 内の集計ロジック（メアド/表示名でのグループ化・合計加算・hasPartialEmail・
+        license_organization_name 上書き・複数表示名の " / " 連結・authorNotes 解決）を
+        `sendReports/grouping.ts` の `groupReportItems(items, authorNotesMap, authorOrgNameMap)` へ逐語抽出。
+        併せて `ReportItem`/`ReportGroup` 型をコンポーネント内定義から `sendReports/types.ts` へ移設
+        （定義の移動のみ・28箇所の参照は無改変）。6 ケースの characterization テスト整備。
+        検証: tsc=0 / eslint=0 / build:fast / test:unit 126 passed。純抽出だが**実メール生成の元データ経路**のため、
+        念のため送信タブのスモーク（グループ/合計表示）を推奨（必須ではない）。
+      **→ SendReports 安全な純ロジックはここで概ね出し切り（2,290→2,049）。残りは送信フロー（handleConfirmSend）・
+        各種 save ハンドラ・テーブルUI＝async/対話的のため実機テストリストが必要。次バッチはオーナー確認後。**
 
 ## Phase 6: 巨大ページの解体
 

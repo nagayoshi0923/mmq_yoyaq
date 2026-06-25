@@ -59,6 +59,8 @@ import { formatJstMonthDay } from '@/utils/jstDate'
 import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBody'
 import { computePreviewItem } from './sendReports/reportItems'
 import { compareReportGroups } from './sendReports/sorting'
+import { groupReportItems } from './sendReports/grouping'
+import type { ReportItem, ReportGroup } from './sendReports/types'
 
 interface SendReportsProps {
   organizationId: string
@@ -66,47 +68,8 @@ interface SendReportsProps {
   isLicenseManager: boolean
 }
 
-// 報告データ
-interface ReportItem {
-  scenarioId: string
-  scenarioKey: string  // map キー（scenarioId + '_gmtest' or '_カスタム種別' など）
-  scenarioTitle: string
-  author: string  // 元の作者名
-  reportDisplayName: string  // 報告用表示名（report_display_name || author）
-  authorEmail: string | null  // あれば作者へ、なければ会社へ
-  events: number  // 合計（internalEvents + externalEvents）
-  internalEvents: number  // 自社公演数
-  externalEvents: number  // 他社報告数
-  licenseCost: number  // 合計金額
-  internalLicenseCost: number  // 自社公演の金額
-  externalLicenseCost: number  // 他社報告の金額
-  internalLicenseAmount: number  // 自社公演の単価
-  externalLicenseAmount: number  // 他社報告の単価（franchise_license_amount）
-  isGMTest?: boolean
-  scenarioType?: 'normal' | 'managed'  // 管理作品のみ他社表示
-}
-
 // 表示モード
 type ViewMode = 'all' | 'internal' | 'external'
-
-// 作者ごとにグループ化（報告用表示名でグループ化）
-interface ReportGroup {
-  authorName: string  // 報告用表示名（編集可能）
-  originalAuthorName: string  // 元の作者名（参照用）
-  authorEmail: string | null  // 最も多く使われているメアド
-  authorNotes: string | null  // 作者メモ（authorsテーブルから）
-  items: ReportItem[]
-  totalEvents: number
-  totalInternalEvents: number
-  totalExternalEvents: number
-  totalLicenseCost: number
-  totalInternalLicenseCost: number
-  totalExternalLicenseCost: number
-  // 一部未登録の警告用
-  itemsWithEmail: number
-  itemsWithoutEmail: number
-  hasPartialEmail: boolean  // 一部のみメアド登録
-}
 
 export function SendReports({ organizationId, staffId, isLicenseManager }: SendReportsProps) {
   const [loading, setLoading] = useState(true)
@@ -627,88 +590,11 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
       const items = Array.from(itemsByScenario.values())
 
-      // グループ化: メールアドレスがあればメアドで、なければ報告用表示名で
-      const groupMap = new Map<string, ReportGroup>()
-      // メアドごとの表示名を追跡（複数作者をまとめる場合用）
-      const emailDisplayNames = new Map<string, Set<string>>()
-
-      items.forEach(item => {
-        // メールアドレスがあればメアドでグループ化、なければ報告用表示名でグループ化
-        const key = item.authorEmail 
-          ? `email:${item.authorEmail}` 
-          : `name:${item.reportDisplayName}`
-        
-        // メアドグループの場合、表示名を追跡
-        if (item.authorEmail) {
-          if (!emailDisplayNames.has(item.authorEmail)) {
-            emailDisplayNames.set(item.authorEmail, new Set())
-          }
-          emailDisplayNames.get(item.authorEmail)!.add(item.reportDisplayName)
-        }
-        
-        if (groupMap.has(key)) {
-          const group = groupMap.get(key)!
-          group.items.push(item)
-          group.totalEvents += item.events
-          group.totalInternalEvents += item.internalEvents
-          group.totalExternalEvents += item.externalEvents
-          group.totalLicenseCost += item.licenseCost
-          group.totalInternalLicenseCost += item.internalLicenseCost
-          group.totalExternalLicenseCost += item.externalLicenseCost
-          if (item.authorEmail) {
-            group.itemsWithEmail++
-          } else {
-            group.itemsWithoutEmail++
-          }
-        } else {
-          groupMap.set(key, {
-            authorName: item.reportDisplayName,
-            originalAuthorName: item.author,
-            authorEmail: item.authorEmail,
-            authorNotes: authorNotesMap.get(item.author) || null,
-            items: [item],
-            totalEvents: item.events,
-            totalInternalEvents: item.internalEvents,
-            totalExternalEvents: item.externalEvents,
-            totalLicenseCost: item.licenseCost,
-            totalInternalLicenseCost: item.internalLicenseCost,
-            totalExternalLicenseCost: item.externalLicenseCost,
-            itemsWithEmail: item.authorEmail ? 1 : 0,
-            itemsWithoutEmail: item.authorEmail ? 0 : 1,
-            hasPartialEmail: false
-          })
-        }
-      })
-
-      // 一部未登録フラグ・メモ・グループ表示名を確定
-      groupMap.forEach((group, key) => {
-        group.hasPartialEmail = group.itemsWithEmail > 0 && group.itemsWithoutEmail > 0
-
-        // メモ
-        if (!group.authorNotes) {
-          group.authorNotes = authorNotesMap.get(group.originalAuthorName) || null
-        }
-
-        // グループ表示名の優先順位:
-        //   1. グループ内いずれかの作者が持つ license_organization_name
-        //   2. メアドグループの場合、report_display_name の結合
-        //   3. そのままの reportDisplayName
-        const orgName = group.items
-          .map(item => authorOrgNameMap.get(item.author))
-          .find(name => !!name)
-
-        if (orgName) {
-          group.authorName = orgName
-        } else if (key.startsWith('email:') && group.authorEmail) {
-          const displayNames = emailDisplayNames.get(group.authorEmail)
-          if (displayNames && displayNames.size > 1) {
-            group.authorName = Array.from(displayNames).sort().join(' / ')
-          }
-        }
-      })
+      // グループ化（純関数 groupReportItems へ委譲）
+      const groups = groupReportItems(items, authorNotesMap, authorOrgNameMap)
 
       // ソートして設定
-      const sorted = Array.from(groupMap.values()).sort((a, b) => b.totalEvents - a.totalEvents)
+      const sorted = groups.sort((a, b) => b.totalEvents - a.totalEvents)
       setReportGroups(sorted)
 
     } catch (error) {
