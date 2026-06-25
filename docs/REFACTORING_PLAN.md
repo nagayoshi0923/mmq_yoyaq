@@ -241,7 +241,13 @@
         `toKatakana`/`toHiragana` を削除し kanaUtils の `hiraganaToKatakana`/`katakanaToHiragana` に集約（実装一致確認済み）。
         死変数 `seasonalMatch` も除去。14ケースのユニットテスト整備。
         検証: tsc=0 / eslint=0 errors（既存 scenarioMatchCache 警告のみ）/ build:fast / test:unit 82 passed。
-      - [ ] 5-2c `handlePreview` のプレビュー構築を純関数 `buildPreview(rawText, deps)→{events,errors}` に抽出＋テスト
+      - [~] 5-2c `handlePreview` の純パース部分を抽出＋テスト（2026-06-25・1,758→**1,704**）。
+        当初構想の単一 `buildPreview` は、handlePreview が「既存イベントの supabase フェッチ＋state setter＋
+        UIスレッド譲り(setTimeout)」をパースループに織り込んでおり**純関数として安全に切り出せない**ため、
+        クリーンに純粋な部分のみ先行抽出: `mergeWrappedLines`（セル内改行の行結合）/ `detectTargetMonth`
+        （対象年月判定）を `parsers.ts` へ逐語抽出＋7ケースのテスト。残る非同期パースループ本体の純化は
+        後続（要 async 再構成＋実機確認）。検証: tsc=0 / eslint=0 errors / build:fast / test:unit 89 passed。
+        **※ import パスに手を入れたため実機スモーク対象**。
       - [ ] 5-2d プレビュー表示UIを子コンポーネントへ分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント

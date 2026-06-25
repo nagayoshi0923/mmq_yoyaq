@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isQuote, parseTsvLines, parseTsvCells, parseTimeFromTitle, parseDate } from './parsers'
+import { isQuote, parseTsvLines, parseTsvCells, parseTimeFromTitle, parseDate, mergeWrappedLines, detectTargetMonth } from './parsers'
 
 describe('isQuote', () => {
   it('ASCII引用符と日本語引用符を引用符と判定する', () => {
@@ -62,5 +62,35 @@ describe('parseDate', () => {
     expect(parseDate('5/2/3', 2026)).toBe('')
     expect(parseDate('5/', 2026)).toBe('')
     expect(parseDate('', 2026)).toBe('')
+  })
+})
+
+describe('mergeWrappedLines', () => {
+  it('日付/ヘッダー/空行で始まる行は新しい行として保つ', () => {
+    expect(mergeWrappedLines(['5/1\t月', '日付\t曜日', ''])).toEqual(['5/1\t月', '日付\t曜日', ''])
+  })
+  it('新しい行でない行は直前の行へ結合する', () => {
+    expect(mergeWrappedLines(['5/1\t月', 'タイトル続き', '5/2\t火'])).toEqual([
+      '5/1\t月 タイトル続き',
+      '5/2\t火',
+    ])
+  })
+  it('店舗名（タブ始まり）で始まる行は新しい行', () => {
+    expect(mergeWrappedLines(['5/1\t月', '\t馬場\tタイトル'])).toEqual(['5/1\t月', '\t馬場\tタイトル'])
+  })
+})
+
+describe('detectTargetMonth', () => {
+  it('M/D は表示年＋その月', () => {
+    expect(detectTargetMonth(['5/15\t水\t馬場'], 2026, 6)).toEqual({ year: 2026, month: 5 })
+  })
+  it('YYYY/M/D はその年月', () => {
+    expect(detectTargetMonth(['2025/3/10\t月'], 2026, 6)).toEqual({ year: 2025, month: 3 })
+  })
+  it('M/D/YYYY は末尾の年＋先頭の月', () => {
+    expect(detectTargetMonth(['3/10/2024\t月'], 2026, 6)).toEqual({ year: 2024, month: 3 })
+  })
+  it('日付行が無ければ表示中の年月にフォールバック', () => {
+    expect(detectTargetMonth(['ヘッダーのみ', 'タイトル'], 2026, 6)).toEqual({ year: 2026, month: 6 })
   })
 })

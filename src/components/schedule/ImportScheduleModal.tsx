@@ -16,7 +16,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
-import { parseTsvLines, parseTsvCells, parseTimeFromTitle, parseDate } from './importSchedule/parsers'
+import { parseTsvLines, parseTsvCells, parseTimeFromTitle, parseDate, mergeWrappedLines, detectTargetMonth } from './importSchedule/parsers'
 import { matchStaffName, matchScenarioName } from './importSchedule/matchers'
 import { hiraganaToKatakana, katakanaToHiragana } from '@/utils/kanaUtils'
 
@@ -1026,77 +1026,23 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     
     try {
       const rawLines = parseTsvLines(scheduleText.trim())
-      
-      // 日付またはヘッダーで始まらない行を前の行に結合する
-      // （セル内改行が引用符で囲まれていない場合の対処）
-      const lines: string[] = []
-      const datePattern = /^\d{1,2}\/\d{1,2}/  // MM/DD形式
-      const headerPattern = /^(日付|曜日|\s*$)/  // ヘッダー行
-      const venuePattern = /^\t*\t(馬場|大久保|大塚|別館|出張|ゲムマ|SME|制作|別会場)/  // 店舗で始まる行
-      
-      for (let i = 0; i < rawLines.length; i++) {
-        const line = rawLines[i]
-        const trimmed = line.trim()
-        
-        // 行が日付、ヘッダー、空白、または店舗名で始まる場合は新しい行
-        const isNewRow = datePattern.test(trimmed) || 
-                         headerPattern.test(trimmed) || 
-                         venuePattern.test(line) ||
-                         trimmed === ''
-        
-        if (isNewRow || lines.length === 0) {
-          lines.push(line)
-        } else {
-          // 前の行に結合（スペースで区切る）
-          lines[lines.length - 1] += ' ' + trimmed
-        }
-      }
-      
+
+      // セル内改行で分断された行を前の行に結合（純関数へ抽出）
+      const lines = mergeWrappedLines(rawLines)
+
       logger.log(`📋 行結合: ${rawLines.length}行 → ${lines.length}行`)
       const events: any[] = []
       const errors: string[] = []
       let currentDate = ''
       let currentWeekday = ''
       
-      // インポート対象の月を特定（現在表示中の年月を使用）
-      let targetMonth: { year: number; month: number } | null = null
-      
       // 現在表示中の年月を優先使用
       const displayYear = currentDisplayDate?.getFullYear() || new Date().getFullYear()
       const displayMonth = currentDisplayDate ? currentDisplayDate.getMonth() + 1 : new Date().getMonth() + 1
-      
-      for (const line of lines) {
-        if (!line.trim()) continue
-        const parts = parseTsvCells(line)
-        if (parts.length < 2) continue
-        const dateStr = parts[0]
-        if (dateStr && dateStr.includes('/')) {
-          const dateParts = dateStr.split('/')
-          if (dateParts.length === 2) {
-            const month = parseInt(dateParts[0])
-            // 現在表示中の年を使用（スプレッドシートのMM/DD形式）
-            targetMonth = { year: displayYear, month }
-            break
-          } else if (dateParts.length === 3) {
-            // YYYY/MM/DD または MM/DD/YYYY 形式
-            const first = parseInt(dateParts[0])
-            if (first > 100) {
-              // YYYY/MM/DD
-              targetMonth = { year: first, month: parseInt(dateParts[1]) }
-            } else {
-              // MM/DD/YYYY
-              targetMonth = { year: parseInt(dateParts[2]), month: first }
-            }
-            break
-          }
-        }
-      }
-      
-      // 月が特定できなかった場合は表示中の年月を使用
-      if (!targetMonth) {
-        targetMonth = { year: displayYear, month: displayMonth }
-      }
-      
+
+      // インポート対象の月を特定（純関数へ抽出。日付行が無ければ表示中の年月）
+      const targetMonth = detectTargetMonth(lines, displayYear, displayMonth)
+
       // ターゲット月をステートに保存
       setImportTargetMonth(targetMonth)
       
