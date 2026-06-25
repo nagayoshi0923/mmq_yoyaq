@@ -166,31 +166,6 @@ const CATEGORY_TONE: Record<string, { bg: string; section: string; border: strin
   memo:              { bg: '#f9fafb', section: '#f3f4f6', border: '#e5e7eb' }, // gray
 }
 
-// スタッフの背景色から文字色を取得するマッピング
-const COLOR_MAP: Record<string, string> = {
-  '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
-  '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626',
-  '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777',
-  '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
-}
-
-// アバターの文字色
-const AVATAR_TEXT_COLORS = [
-  '#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
-]
-
-// スタッフの文字色を取得
-const getStaffTextColor = (staff: StaffType): string => {
-  if (staff.avatar_color) {
-    return COLOR_MAP[staff.avatar_color] || '#374151'
-  }
-  // avatar_color未設定の場合は名前からハッシュ値を計算して色を決定
-  const name = staff.name
-  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  const colorIndex = hash % AVATAR_TEXT_COLORS.length
-  return AVATAR_TEXT_COLORS[colorIndex]
-}
-
 export function PerformanceModal({
   isOpen,
   onClose,
@@ -259,14 +234,6 @@ export function PerformanceModal({
 
   // 店舗のデフォルト公演時間（分）- performance_schedule_settings から取得
   const [defaultDuration, setDefaultDuration] = useState(180)
-
-  // 営業時間制限（開始時刻・終了時刻）
-  const [businessHours, setBusinessHours] = useState<{ openTime: string; closeTime: string } | null>(null)
-
-  // 営業時間に基づいてフィルタリングされた時間選択肢
-  const filteredTimeOptions = businessHours
-    ? timeOptions.filter(time => time >= businessHours.openTime && time <= businessHours.closeTime)
-    : timeOptions
 
   // シナリオが選択中の店舗で公演可能かどうかをチェック
   const isScenarioAvailableAtVenue = (scenario: Scenario) => {
@@ -422,21 +389,6 @@ export function PerformanceModal({
     return selectedScenario?.scenario_master_id || selectedScenario?.id || undefined
   }, [scenarios, event?.scenario])
 
-  // 閉店時刻選択肢（開始時刻より後の時間のみ）
-  const getEndTimeOptions = (startTime: string) => {
-    const options = businessHours
-      ? timeOptions.filter(time => time > startTime && time <= businessHours.closeTime)
-      : timeOptions.filter(time => time > startTime)
-    return options.length > 0 ? options : timeOptions.filter(time => time > startTime)
-  }
-
-  // 使用されない一時変数（型推論用）
-  const [_unusedTimeSlotDefaults] = useState({
-    morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
-    afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
-    evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
-  })
-
   // 日付が変わったら平日/休日に応じてデフォルト時間を更新
   useEffect(() => {
     if (!formData.date || isTimeSlotSettingsLoading) return
@@ -518,69 +470,6 @@ export function PerformanceModal({
       } catch { /* ignore */ }
     }
     loadDefaultDuration()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.venue, stores])
-
-  // 営業時間設定を読み込む（公演時間設定は useTimeSlotSettings で取得）
-  useEffect(() => {
-    const loadBusinessHoursSettings = async () => {
-      try {
-        // venueが店舗名の場合はIDに変換
-        const venueValue = formData.venue || ''
-        const storeId = resolveStoreId(venueValue) || stores[0]?.id
-        if (!storeId) return
-
-        // 営業時間設定を取得（組織でフィルタ）
-        let businessHoursQuery = supabase
-          .from('business_hours_settings')
-          .select('opening_hours, holidays, time_restrictions')
-          .eq('store_id', storeId)
-        
-        if (organizationId) {
-          businessHoursQuery = businessHoursQuery.eq('organization_id', organizationId)
-        }
-        
-        const { data: businessHoursData, error: businessHoursError } = await businessHoursQuery.maybeSingle()
-
-        if (businessHoursError && businessHoursError.code !== 'PGRST116') {
-          logger.error('営業時間設定取得エラー:', businessHoursError)
-        }
-
-        // 営業時間制限の適用（時間選択肢の制限）
-        if (businessHoursData?.opening_hours) {
-          const openingHours = businessHoursData.opening_hours
-          // 営業時間設定が配列形式（曜日別）か単純なオブジェクト形式かで処理を分ける
-          if (Array.isArray(openingHours) && openingHours.length > 0) {
-            // 曜日別設定の場合は、共通の開店・閉店時刻を取得（最も広い範囲）
-            const allOpenTimes = openingHours.map((h: any) => h.open_time).filter(Boolean)
-            const allCloseTimes = openingHours.map((h: any) => h.close_time).filter(Boolean)
-            if (allOpenTimes.length > 0 && allCloseTimes.length > 0) {
-              const openTime = allOpenTimes.sort()[0] // 最も早い開店時刻
-              const closeTime = allCloseTimes.sort().reverse()[0] // 最も遅い閉店時刻
-              setBusinessHours({ openTime, closeTime })
-              logger.log('営業時間設定を適用:', { openTime, closeTime })
-            }
-          } else if (openingHours.open_time && openingHours.close_time) {
-            // 単純なオブジェクト形式
-            setBusinessHours({
-              openTime: openingHours.open_time,
-              closeTime: openingHours.close_time
-            })
-            logger.log('営業時間設定を適用:', openingHours)
-          }
-        } else {
-          // 設定がない場合はデフォルト（制限なし）
-          setBusinessHours(null)
-        }
-
-      } catch (error) {
-        logger.error('設定読み込みエラー:', error)
-      }
-    }
-
-    if (formData.venue || stores.length > 0) {
-      loadBusinessHoursSettings()
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.venue, stores])
 
