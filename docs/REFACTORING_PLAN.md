@@ -234,7 +234,13 @@
         `parseDate`（M/D→YYYY-MM-DD）を逐語抽出。`parseDate` は year フォールバック（currentDisplayDate）を
         呼び出し側が常に displayYear を渡しているため year 必須の純関数に（挙動同一）。13ケースのユニットテスト整備。
         検証: tsc=0 / eslint=0 errors（既存の scenarioMatchCache 警告のみ・スコープ外）/ build:fast / test:unit 68 passed。
-      - [ ] 5-2b 曖昧マッチャ `matchStaff`(findBestStaffMatch) / `matchScenario` を deps注入で純関数化＋テスト
+      - [x] 5-2b 曖昧マッチャを純関数化＋テスト（2026-06-25・1,919→**1,758**）。
+        `findBestStaffMatch`(93行)/`findBestScenarioMatch`(74行) のアルゴリズムを `importSchedule/matchers.ts` の
+        純関数 `matchStaffName(input, staffList, mapping)` / `matchScenarioName(input, scenarioList, aliasMap)` へ抽出
+        （メモ化キャッシュはコンポーネント側のラッパに残し挙動同一）。重複していたコンポーネント内
+        `toKatakana`/`toHiragana` を削除し kanaUtils の `hiraganaToKatakana`/`katakanaToHiragana` に集約（実装一致確認済み）。
+        死変数 `seasonalMatch` も除去。14ケースのユニットテスト整備。
+        検証: tsc=0 / eslint=0 errors（既存 scenarioMatchCache 警告のみ）/ build:fast / test:unit 82 passed。
       - [ ] 5-2c `handlePreview` のプレビュー構築を純関数 `buildPreview(rawText, deps)→{events,errors}` に抽出＋テスト
       - [ ] 5-2d プレビュー表示UIを子コンポーネントへ分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子

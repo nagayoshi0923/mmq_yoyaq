@@ -17,6 +17,8 @@ import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
 import { parseTsvLines, parseTsvCells, parseTimeFromTitle, parseDate } from './importSchedule/parsers'
+import { matchStaffName, matchScenarioName } from './importSchedule/matchers'
+import { hiraganaToKatakana, katakanaToHiragana } from '@/utils/kanaUtils'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -279,21 +281,6 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     }
   }, [isOpen])
   
-  // ひらがな→カタカナ変換
-  const toKatakana = (str: string): string => {
-    return str.replace(/[\u3041-\u3096]/g, (match) => 
-      String.fromCharCode(match.charCodeAt(0) + 0x60)
-    )
-  }
-  
-  // カタカナ→ひらがな変換
-  const toHiragana = (str: string): string => {
-    return str.replace(/[\u30A1-\u30F6]/g, (match) => 
-      String.fromCharCode(match.charCodeAt(0) - 0x60)
-    )
-  }
-  
-  
   // スタッフ名からマッピングを動的に生成
   const dynamicStaffMapping = useMemo(() => {
     const mapping: Record<string, string> = { ...STAFF_NAME_MAPPING }
@@ -306,8 +293,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         mapping[name] = name
       }
       // ひらがな・カタカナ変換も追加
-      const hiragana = toHiragana(name)
-      const katakana = toKatakana(name)
+      const hiragana = katakanaToHiragana(name)
+      const katakana = hiraganaToKatakana(name)
       if (hiragana !== name && !mapping[hiragana]) {
         mapping[hiragana] = name
       }
@@ -335,176 +322,28 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     ...scenarioList.map(s => ({ value: s.title, label: s.title }))
   ], [scenarioList])
   
+  // スタッフ名のファジーマッチ（純関数 matchStaffName をキャッシュでラップ）
   const findBestStaffMatch = (input: string): string | null => {
     if (!input || input.length === 0) return null
-    
     const normalizedInput = input.trim()
-    
-    // キャッシュをチェック
     if (staffMatchCache.has(normalizedInput)) {
       return staffMatchCache.get(normalizedInput) || null
     }
-    
-    // ヘルパー関数：結果をキャッシュに保存して返す
-    const cacheAndReturn = (result: string | null): string | null => {
-      staffMatchCache.set(normalizedInput, result)
-      return result
-    }
-    
-    // 1. 完全一致チェック（動的マッピング）
-    if (dynamicStaffMapping[normalizedInput]) {
-      return cacheAndReturn(dynamicStaffMapping[normalizedInput])
-    }
-    
-    // 2. ひらがな/カタカナ変換して完全一致チェック
-    const hiraganaInput = toHiragana(normalizedInput)
-    const katakanaInput = toKatakana(normalizedInput)
-    
-    if (dynamicStaffMapping[hiraganaInput]) {
-      return cacheAndReturn(dynamicStaffMapping[hiraganaInput])
-    }
-    if (dynamicStaffMapping[katakanaInput]) {
-      return cacheAndReturn(dynamicStaffMapping[katakanaInput])
-    }
-    
-    // 3. スタッフリストから完全一致チェック
-    for (const staff of staffList) {
-      if (staff.name === normalizedInput) {
-        return cacheAndReturn(staff.name)
-      }
-      // ひらがな/カタカナで一致
-      const staffHiragana = toHiragana(staff.name)
-      const staffKatakana = toKatakana(staff.name)
-      if (staffHiragana === hiraganaInput || staffKatakana === katakanaInput) {
-        return cacheAndReturn(staff.name)
-      }
-    }
-    
-    // 4. 前方一致・部分一致チェック
-    for (const staff of staffList) {
-      const staffHiragana = toHiragana(staff.name)
-      const staffKatakana = toKatakana(staff.name)
-      
-      // 入力がスタッフ名で始まる
-      if (normalizedInput.startsWith(staff.name) && staff.name.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      // スタッフ名が入力で始まる
-      if (staff.name.startsWith(normalizedInput) && normalizedInput.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      // ひらがな/カタカナで前方一致
-      if (hiraganaInput.startsWith(staffHiragana) && staffHiragana.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      if (staffHiragana.startsWith(hiraganaInput) && hiraganaInput.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      if (katakanaInput.startsWith(staffKatakana) && staffKatakana.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      if (staffKatakana.startsWith(katakanaInput) && katakanaInput.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      // 入力がスタッフ名を含む
-      if (normalizedInput.includes(staff.name) && staff.name.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      // スタッフ名が入力を含む（逆方向）
-      if (staff.name.includes(normalizedInput) && normalizedInput.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      // ひらがな/カタカナで部分一致
-      if (hiraganaInput.includes(staffHiragana) && staffHiragana.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-      if (staffHiragana.includes(hiraganaInput) && hiraganaInput.length >= 2) {
-        return cacheAndReturn(staff.name)
-      }
-    }
-    
-    // 類似度マッチングは削除（パフォーマンス改善のため）
-    // 上記の完全一致・部分一致で見つからない場合はnullを返す
-    
-    staffMatchCache.set(normalizedInput, null)
-    return null
+    const result = matchStaffName(input, staffList, dynamicStaffMapping)
+    staffMatchCache.set(normalizedInput, result)
+    return result
   }
-  
-  // 類似度マッチングでシナリオ名を検索
+
+  // シナリオ名のファジーマッチ（純関数 matchScenarioName をキャッシュでラップ）
   const findBestScenarioMatch = (input: string): string | null => {
     if (!input || input.length === 0) return null
-    
     const normalizedInput = input.trim()
-    
-    // キャッシュをチェック
     if (scenarioMatchCache.has(normalizedInput)) {
       return scenarioMatchCache.get(normalizedInput) || null
     }
-    
-    // 1. エイリアスマップチェック（DB取得済み、フォールバックはハードコード）
-    if (scenarioAliasMap[normalizedInput]) {
-      const result = scenarioAliasMap[normalizedInput]
-      scenarioMatchCache.set(normalizedInput, result)
-      return result
-    }
-    
-    // 2. シナリオリストから完全一致チェック
-    for (const scenario of scenarioList) {
-      if (scenario.title === normalizedInput) {
-        scenarioMatchCache.set(normalizedInput, scenario.title)
-        return scenario.title
-      }
-    }
-    
-    // 3. 部分一致チェック（入力がシナリオ名を含む、またはシナリオ名が入力を含む）
-    for (const scenario of scenarioList) {
-      const scenarioName = scenario.title
-      // 入力がシナリオ名で始まる
-      if (normalizedInput.startsWith(scenarioName)) {
-        scenarioMatchCache.set(normalizedInput, scenarioName)
-        return scenarioName
-      }
-      // シナリオ名が入力で始まる（短い入力でも長いシナリオ名にマッチ）
-      if (scenarioName.startsWith(normalizedInput) && normalizedInput.length >= 3) {
-        scenarioMatchCache.set(normalizedInput, scenarioName)
-        return scenarioName
-      }
-      // 入力がシナリオ名を含む
-      if (normalizedInput.includes(scenarioName) && scenarioName.length >= 3) {
-        scenarioMatchCache.set(normalizedInput, scenarioName)
-        return scenarioName
-      }
-    }
-    
-    // 4. 「季節」プレフィックスを除去してリトライ
-    const seasonStripped = normalizedInput.replace(/^季節(マーダー)?[／/・]?/, '')
-    if (seasonStripped !== normalizedInput && seasonStripped.length >= 2) {
-      // 季節マダミスの場合、プレフィックスを追加して検索
-      const seasonalMatch = `季節／${seasonStripped}`
-      if (scenarioAliasMap[seasonStripped]) {
-        const result = scenarioAliasMap[seasonStripped]
-        scenarioMatchCache.set(normalizedInput, result)
-        return result
-      }
-      for (const scenario of scenarioList) {
-        if (scenario.title.includes(seasonStripped)) {
-          scenarioMatchCache.set(normalizedInput, scenario.title)
-          return scenario.title
-        }
-      }
-    }
-    
-    // 5. シナリオ名に入力が含まれる（逆引き）
-    for (const scenario of scenarioList) {
-      const scenarioName = scenario.title
-      if (scenarioName.includes(normalizedInput) && normalizedInput.length >= 3) {
-        scenarioMatchCache.set(normalizedInput, scenarioName)
-        return scenarioName
-      }
-    }
-    
-    scenarioMatchCache.set(normalizedInput, null)
-    return null
+    const result = matchScenarioName(input, scenarioList, scenarioAliasMap)
+    scenarioMatchCache.set(normalizedInput, result)
+    return result
   }
 
   // カテゴリを判定
