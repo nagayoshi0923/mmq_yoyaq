@@ -271,10 +271,12 @@ export function useEventSave({
         
         const storeName = storeData.name
         
-        // シナリオIDを取得
+        // シナリオIDを取得（タイトル厳密一致が崩れても scenario_master_id で確実に引く＝堅牢化）
+        // ※ ここが厳密一致のみだと、貸切等で scenario_master_id が NULL 保存され、
+        //   給与計算・キット需要から公演がサイレントに漏れる（過去 273 件の原因）
         let scenarioId = null
         if (performanceData.scenario) {
-          const matchingScenario = scenarios.find(s => s.title === performanceData.scenario)
+          const matchingScenario = findDisplayScenario(scenarios, performanceData.scenario, performanceData.scenario_master_id)
           scenarioId = matchingScenario?.id || null
         }
         
@@ -553,10 +555,10 @@ export function useEventSave({
           }
           const eventId = performanceData.id
           
-          // シナリオIDを取得
+          // シナリオIDを取得（編集時も scenario_master_id フォールバックで堅牢に）
           let scenarioId = null
           if (performanceData.scenario) {
-            const matchingScenario = scenarios.find(s => s.title === performanceData.scenario)
+            const matchingScenario = findDisplayScenario(scenarios, performanceData.scenario, performanceData.scenario_master_id)
             scenarioId = matchingScenario?.id || null
           }
           
