@@ -251,7 +251,15 @@
       - [ ] 5-2d プレビュー表示UIを子コンポーネントへ分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
-- [ ] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
+- [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
+      - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
+        `generateEmailText`（コピー用）/`generateEmailBodyForItems`（送信用）の本文組み立てを
+        `sendReports/emailBody.ts` の純関数 `buildReportEmailText` / `buildSendEmailBody`（＋共通
+        `emailTemplate`・`paymentDateText`）へ抽出。`getPreviewItem` は状態依存のため呼び出し側に残し、
+        既に preview 適用・licenseCost>0 で絞った `paidItems` を渡す形に。2 関数は共通テンプレートを
+        共有しつつ、行明細の単価表記の挙動差（コピー用は `|| 0` ガード有り／送信用は無し）は温存。
+        7 ケースの characterization テスト整備。検証: tsc=0 / eslint=0 / build:fast / test:unit 110 passed。
+        副作用なしの純抽出＝**実機テスト不要**（出力文字列はテストで byte 担保）。
 
 ## Phase 6: 巨大ページの解体
 

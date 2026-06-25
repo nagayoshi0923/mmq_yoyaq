@@ -56,6 +56,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatJstMonthDay } from '@/utils/jstDate'
+import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBody'
 
 interface SendReportsProps {
   organizationId: string
@@ -163,117 +164,21 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // コピー済み状態（作者名 → タイムアウトID）
   const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
   
-  // メール本文を生成
+  // メール本文を生成（コピー用）。明細生成は sendReports/emailBody の純関数へ委譲。
   const generateEmailText = (group: ReportGroup) => {
     const paidItems = group.items
       .map(getPreviewItem)
       .filter(item => item.licenseCost > 0)
-    
-    const totalEvents = paidItems.reduce((sum, item) => sum + item.events, 0)
-    const totalLicenseCost = paidItems.reduce((sum, item) => sum + item.licenseCost, 0)
-    
-    // 振込予定日（翌月20日）
-    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1
-    const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear
-    const paymentDate = `${nextYear}年${nextMonth}月20日`
-    
-    // 通常公演と他店公演を分ける
-    const normalItems = paidItems.filter(item => item.internalEvents > 0)
-    const externalItems = paidItems.filter(item => item.externalEvents > 0)
-    
-    const normalText = normalItems.map(item => {
-      const gmTestLabel = item.isGMTest ? '（GMテスト）' : ''
-      const unitPrice = item.internalLicenseAmount || 0
-      const cost = item.internalLicenseCost || 0
-      return `・${item.scenarioTitle}${gmTestLabel}: ${item.internalEvents}回 × @¥${unitPrice.toLocaleString()}/回 = ¥${cost.toLocaleString()}`
-    }).join('\n')
-    
-    const externalText = externalItems.length > 0 
-      ? '\n\n【他店公演分】\n' + externalItems.map(item => {
-          const unitPrice = item.externalLicenseAmount || 0
-          const cost = item.externalLicenseCost || 0
-          return `・${item.scenarioTitle}: ${item.externalEvents}回 × @¥${unitPrice.toLocaleString()}/回 = ¥${cost.toLocaleString()}`
-        }).join('\n')
-      : ''
-    
-    const scenariosText = normalText + externalText
-    
-    return `${group.authorName} 様
-
-いつもお世話になっております。
-
-${selectedYear}年${selectedMonth}月のライセンス料をご報告いたします。
-
-■ 概要
-総公演数: ${totalEvents}回
-総ライセンス料: ¥${totalLicenseCost.toLocaleString()}
-
-■ 詳細
-${scenariosText}
-
-■ お支払いについて
-お支払い予定日: ${paymentDate}まで
-
-請求書は queens.waltz@gmail.com 宛にお送りください。
-
-何かご不明点がございましたら、お気軽にお問い合わせください。
-
-よろしくお願いいたします。
-`
+    return buildReportEmailText(group.authorName, paidItems, selectedYear, selectedMonth)
   }
-  
-  // 選択シナリオから送信用メール本文を生成
+
+  // 選択シナリオから送信用メール本文を生成。明細生成は純関数へ委譲。
   const generateEmailBodyForItems = (group: ReportGroup, selectedIds: Set<string>) => {
     const paidItems = group.items
       .filter(item => selectedIds.has(item.scenarioKey))
       .map(getPreviewItem)
       .filter(item => item.licenseCost > 0)
-
-    const totalEvents = paidItems.reduce((sum, item) => sum + item.events, 0)
-    const totalLicenseCost = paidItems.reduce((sum, item) => sum + item.licenseCost, 0)
-
-    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1
-    const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear
-    const paymentDate = `${nextYear}年${nextMonth}月20日`
-
-    const normalItems = paidItems.filter(item => item.internalEvents > 0)
-    const externalItems = paidItems.filter(item => item.externalEvents > 0)
-
-    const normalText = normalItems.map(item => {
-      const gmTestLabel = item.isGMTest ? '（GMテスト）' : ''
-      const cost = item.internalLicenseCost || 0
-      return `・${item.scenarioTitle}${gmTestLabel}: ${item.internalEvents}回 × @¥${item.internalLicenseAmount.toLocaleString()}/回 = ¥${cost.toLocaleString()}`
-    }).join('\n')
-
-    const externalText = externalItems.length > 0
-      ? '\n\n【他店公演分】\n' + externalItems.map(item => {
-          const cost = item.externalLicenseCost || 0
-          return `・${item.scenarioTitle}: ${item.externalEvents}回 × @¥${item.externalLicenseAmount.toLocaleString()}/回 = ¥${cost.toLocaleString()}`
-        }).join('\n')
-      : ''
-
-    return `${group.authorName} 様
-
-いつもお世話になっております。
-
-${selectedYear}年${selectedMonth}月のライセンス料をご報告いたします。
-
-■ 概要
-総公演数: ${totalEvents}回
-総ライセンス料: ¥${totalLicenseCost.toLocaleString()}
-
-■ 詳細
-${normalText}${externalText}
-
-■ お支払いについて
-お支払い予定日: ${paymentDate}まで
-
-請求書は queens.waltz@gmail.com 宛にお送りください。
-
-何かご不明点がございましたら、お気軽にお問い合わせください。
-
-よろしくお願いいたします。
-`
+    return buildSendEmailBody(group.authorName, paidItems, selectedYear, selectedMonth)
   }
 
   // メール本文をコピー
