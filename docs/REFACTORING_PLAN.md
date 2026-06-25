@@ -281,8 +281,12 @@
           417行の map を Python で逐語移送（git 比較で本体 diff=0）、クロージャ参照は同名 props 注入。死 import 一掃
           （Input/Label/Select一式/ChevronDown/Up/RESERVATION_SOURCE/getSafeErrorMessage）。tsc=0/eslint=0/build/test 130。
           **実機スモーク**: 予約のステータス変更（確定/チェックイン）・キャンセル・行展開（顧客情報/電話/メール）。
-      **→ ReservationList 当セッション 2,263→1,281（-982）。JSX はほぼ子化。残: ステータス変更/キャンセル等の
-        ハンドラ→フック化（任意・さらに削減したい場合）。**
+      - [x] 5-3③ ハンドラ群を `useReservationListActions` フックへ分離（1,281→**486**）。
+        ステータス変更/キャンセル（メール送信含む）/参加者追加/貸切削除/一括メール送信の826行を逐語移送
+        （git 比較で本体 diff=0）、状態・setter・props を 34 deps として注入、内部相互参照はフック内で解決。
+        死 import 15個を一掃。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。**実機スモーク**: ステータス変更・キャンセル（メール送信）・参加者追加・一括メール・貸切削除。
+      **→ 5-3 完了。ReservationList 当セッション 2,263→486（-78%）。`reservationList/` に
+        純モジュール/データ層フック/アクションフック/ダイアログ4/AddParticipantSection/ReservationRow を分離。**
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
