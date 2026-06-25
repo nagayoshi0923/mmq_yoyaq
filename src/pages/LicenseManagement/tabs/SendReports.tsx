@@ -953,6 +953,21 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const getDisplayExternalEvents = (group: ReportGroup): number =>
     group.items.map(getPreviewItem).reduce((sum, i) => sum + i.externalEvents, 0)
 
+  // 送信時スナップショット（license_report_history）と現在の集計の差分。
+  // 送信後にスケジュールや手動上書きが変わると、報告済み金額と実値がズレるため、
+  // 有料明細（licenseCost>0・送信時と同じ基準）で公演数・金額を比較し、どちらかが違えば差分とみなす。
+  const getReportDrift = (
+    group: ReportGroup,
+  ): { events: number; cost: number; sentEvents: number; sentCost: number } | null => {
+    const sent = sentHistory.get(group.authorName)
+    if (!sent) return null
+    const paid = group.items.map(getPreviewItem).filter(i => i.licenseCost > 0)
+    const events = paid.reduce((sum, i) => sum + i.events, 0)
+    const cost = paid.reduce((sum, i) => sum + i.licenseCost, 0)
+    if (events === sent.totalEvents && cost === sent.totalCost) return null
+    return { events, cost, sentEvents: sent.totalEvents, sentCost: sent.totalCost }
+  }
+
   const getItemDisplayEvents = (item: ReportItem): number => {
     switch (viewMode) {
       case 'internal': return item.internalEvents
@@ -1432,6 +1447,36 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                               ✓ 送信済 {formatJstMonthDay(sentHistory.get(group.authorName)!.sentAt)}
                             </Badge>
                           )}
+                          {/* 送信後に公演数・金額が変動した場合の差分警告 */}
+                          {(() => {
+                            const drift = getReportDrift(group)
+                            if (!drift) return null
+                            const eventsChanged = drift.events !== drift.sentEvents
+                            const costChanged = drift.cost !== drift.sentCost
+                            const parts = [
+                              eventsChanged ? `公演${drift.sentEvents}→${drift.events}` : null,
+                              costChanged ? `¥${drift.sentCost.toLocaleString()}→¥${drift.cost.toLocaleString()}` : null,
+                            ].filter(Boolean).join(' / ')
+                            return (
+                              <Badge
+                                variant="destructive"
+                                className="text-xs cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const h = sentHistory.get(group.authorName)!
+                                  setEmailBodyEditTarget({
+                                    authorName: group.authorName,
+                                    emailBody: h.emailBody ?? '',
+                                    subject: h.subject ?? `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${group.authorName}`,
+                                  })
+                                  setIsEmailBodyEditOpen(true)
+                                }}
+                                title="送信後に公演数・金額が変動しています。クリックで送信済み内容を確認"
+                              >
+                                ⚠️ 送信時から変動 ({parts})
+                              </Badge>
+                            )
+                          })()}
                           {group.authorEmail ? (
                             <Badge 
                               variant="outline" 
