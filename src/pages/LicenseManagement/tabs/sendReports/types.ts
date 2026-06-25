@@ -25,6 +25,15 @@ export interface ReportItem {
   scenarioType?: 'normal' | 'managed'  // 管理作品のみ他社表示
 }
 
+// 送信履歴（license_report_history）のグループ単位スナップショット
+export interface SentHistoryEntry {
+  sentAt: string
+  totalEvents: number
+  totalCost: number
+  emailBody?: string
+  subject?: string
+}
+
 // 送信済みメールの確認・編集ダイアログの対象
 export interface EmailBodyEditTarget {
   authorName: string

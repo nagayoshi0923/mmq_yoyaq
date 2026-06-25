@@ -312,6 +312,16 @@
       **→ JSX はほぼ抽出完了。当セッション累計 SendReports 2,290→1,291（-999）。
         残り ~700 へは データ層/ハンドラのフック化（loadData/handleBatchSend/handleConfirmSend/save系 ~800行・**中リスク**）。
         これは独立バッチ（kitManagement の useData/useHandlers 方式）として次回。**
+      - [~] 5-5g データ層をフック化（`useSendReportsData`・**中リスク・要 staging 実機確認**）。
+        - [x] データ層 → `sendReports/useSendReportsData.ts`（1,291→**963・1,000行突破**）。
+          サーバーデータ state（loading/reportGroups/externalInputs/internalInputs/sentHistory）＋ `loadData`（~325行を逐語移植）
+          ＋ 年月/組織変更時の取得 effect を移管。loadData は他 state を読まず依存は引数4個（organizationId/selectedYear/
+          selectedMonth/isLicenseManager）のみ。上書き入力・送信履歴・グループは handler 側でも更新するため setter を公開。
+          **loadData 本体は git 比較で diff=末尾空白のみ＝完全逐語一致**。親の死 import 一掃（scenarioApi/salesApi/storeApi/
+          getAllExternalReports/groupReportItems/Author/useEffect）＋ save入力 useCallback の deps に安定 setter 追記で警告解消。
+          検証: tsc=0 / eslint=0 / build:fast / test:unit 126。**実機確認**: タブ表示時のデータ取得・年月切替・シナリオ編集後の再読込。
+        - [ ] ハンドラ層 → `useSendReportsActions`（handleBatchSend/handleConfirmSend/save系/各 open）は次バッチ。
+      **→ 当セッション累計 SendReports 2,290→963（-1,327 / -58%・目標1,000突破）。残りはハンドラ層フック化で ~700 目標。**
 
 ## Phase 6: 巨大ページの解体
 
