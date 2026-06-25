@@ -37,6 +37,13 @@ export interface GMDetail {
   isCancelled?: boolean
 }
 
+/** シナリオマスタに解決できず給与集計から外れた公演（サイレントな漏れを可視化するため） */
+export interface UnresolvedSalaryEvent {
+  date: string
+  scenario: string
+  gmCount: number
+}
+
 export interface MonthlySalaryData {
   month: string
   staffList: StaffSalary[]
@@ -46,5 +53,7 @@ export interface MonthlySalaryData {
   totalEventCount: number
   totalNormalCount: number
   totalGMTestCount: number
+  /** scenario_master_id 未設定でタイトル解決もできず集計対象外になった公演（GMあり・非シナリオcat除く） */
+  unresolvedEvents: UnresolvedSalaryEvent[]
 }
 

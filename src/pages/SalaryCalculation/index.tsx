@@ -171,6 +171,25 @@ export default function SalaryCalculation() {
           </CardContent>
         </Card>
       ) : salaryData ? (
+        <>
+        {salaryData.unresolvedEvents.length > 0 && (
+          <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs sm:text-sm text-amber-900">
+            <div className="font-semibold">
+              ⚠️ {salaryData.unresolvedEvents.length}件の公演がシナリオ未解決のため給与集計に含まれていません
+            </div>
+            <div className="mt-1 text-amber-800">
+              シナリオマスタ未登録（scenario_master_id 未設定）でタイトル一致もしない公演です。スケジュールで該当公演のシナリオを設定し直すと集計されます。
+            </div>
+            <ul className="mt-1.5 list-disc pl-5 space-y-0.5">
+              {salaryData.unresolvedEvents.slice(0, 20).map((e, i) => (
+                <li key={i}>{e.date}　{e.scenario}（GM{e.gmCount}名）</li>
+              ))}
+              {salaryData.unresolvedEvents.length > 20 && (
+                <li>…ほか {salaryData.unresolvedEvents.length - 20} 件</li>
+              )}
+            </ul>
+          </div>
+        )}
         <Card className="shadow-none border">
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-start">
@@ -311,6 +330,7 @@ export default function SalaryCalculation() {
             )}
           </CardContent>
         </Card>
+        </>
       ) : null}
     </div>
   )

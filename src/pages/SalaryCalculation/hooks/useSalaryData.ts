@@ -3,7 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
-import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail } from '../types'
+import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail, UnresolvedSalaryEvent } from '../types'
+
+// シナリオ不要カテゴリ（出張・場所貸し・MTG）。これらはマスタ未解決でも警告対象にしない
+const NON_SCENARIO_CATEGORIES = ['offsite', 'venue_rental', 'venue_rental_free', 'mtg']
+const normalizeScenarioTitle = (s: string) => (s || '').replace(/[\s\-・／/]/g, '').toLowerCase()
 
 function getMonthRange(year: number, month: number) {
   const startLocal = new Date(year, month - 1, 1, 0, 0, 0, 0)
@@ -37,6 +41,7 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
       id,
       date,
       store_id,
+      scenario,
       scenario_master_id,
       gms,
       gm_roles,
@@ -59,10 +64,37 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
 
   const staffMap = new Map<string, StaffSalary>()
 
+  // フォールバック用: 同月内で scenario_master が解決済みの公演から「タイトル→マスタ情報」を学習。
+  // scenario_master_id が未設定（貸切作成時に付与漏れ等）でも、同名公演がマスタ解決できていれば集計に拾う。
+  const scenarioByTitle = new Map<string, { title: string; official_duration: number }>()
+  gmData?.forEach(event => {
+    const sc = event.scenario_masters as unknown as { title: string; official_duration: number } | null
+    if (sc && event.scenario) {
+      const key = normalizeScenarioTitle(event.scenario)
+      if (!scenarioByTitle.has(key)) scenarioByTitle.set(key, sc)
+    }
+  })
+
+  // タイトル解決もできず集計対象外になった公演（GMあり・非シナリオcat除く）を記録し、画面で警告表示する
+  const unresolvedEvents: UnresolvedSalaryEvent[] = []
+
   gmData?.forEach(event => {
     if (!event.gms || !Array.isArray(event.gms) || event.gms.length === 0) return
-    const scenario = event.scenario_masters as unknown as { title: string; official_duration: number } | null
-    if (!scenario) return
+    let scenario = event.scenario_masters as unknown as { title: string; official_duration: number } | null
+    // scenario_master_id 未設定/解決不可でも、フリーテキストの scenario からタイトル解決して集計する
+    // （これが無いと「スケジュールにあるのに給与に出ない」公演がサイレントに漏れる）
+    if (!scenario && event.scenario) {
+      const fallback = scenarioByTitle.get(normalizeScenarioTitle(event.scenario))
+      if (fallback) scenario = fallback
+    }
+    if (!scenario) {
+      // 出張・場所貸し・MTG 等の非シナリオ公演は対象外。それ以外でGM付きなのに解決できないものは
+      // サイレントに捨てず警告対象として可視化する
+      if (!NON_SCENARIO_CATEGORIES.includes(event.category)) {
+        unresolvedEvents.push({ date: event.date, scenario: event.scenario || '(無題)', gmCount: event.gms.length })
+      }
+      return
+    }
 
     const gmAssignments: any[] = []
     const isGMTest = event.category === 'gmtest'
@@ -173,6 +205,9 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
   const totalNormalCount = staffList.reduce((sum, s) => sum + s.totalNormalGMCount, 0)
   const totalGMTestCount = staffList.reduce((sum, s) => sum + s.totalGMTestCount, 0)
 
+  if (unresolvedEvents.length > 0) {
+    logger.warn('給与集計: シナリオ未解決で対象外の公演あり', { count: unresolvedEvents.length, unresolvedEvents })
+  }
   logger.log('給与データ集計結果:', { staffCount: staffList.length, totalAmount })
 
   return {
@@ -183,7 +218,8 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
     totalGMTestPay,
     totalEventCount,
     totalNormalCount,
-    totalGMTestCount
+    totalGMTestCount,
+    unresolvedEvents
   }
 }
 
