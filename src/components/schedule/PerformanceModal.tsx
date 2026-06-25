@@ -22,6 +22,7 @@ import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import { cn } from '@/lib/utils'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { computeCategoryFee } from './performanceModal/fee'
+import { calcEndTime } from '@/utils/eventOperationUtils'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -728,13 +729,8 @@ export function PerformanceModal({
   const calculateEndTime = (startTime: string, scenarioTitle: string) => {
     const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
     if (!selectedScenario) return startTime
-    
-    const [startHour, startMinute] = startTime.split(':').map(Number)
-    const startMinutes = startHour * 60 + startMinute
-    const endMinutes = startMinutes + selectedScenario.duration
-    const endHour = Math.floor(endMinutes / 60)
-    const endMinute = endMinutes % 60
-    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
+    // 時刻計算は共通の純関数 calcEndTime を再利用（重複排除）
+    return calcEndTime(startTime, selectedScenario.duration)
   }
 
   // 開始時間変更時の自動設定
@@ -746,11 +742,7 @@ export function PerformanceModal({
     if (formData.scenario) {
       endTime = calculateEndTime(startTime, formData.scenario)
     } else {
-      const [h, m] = startTime.split(':').map(Number)
-      const totalMinutes = h * 60 + m + defaultDuration
-      const endH = Math.floor(totalMinutes / 60)
-      const endM = totalMinutes % 60
-      endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+      endTime = calcEndTime(startTime, defaultDuration)
     }
     
     setFormData((prev: EventFormData) => ({
@@ -773,15 +765,9 @@ export function PerformanceModal({
       return
     }
     // 終了時間の自動計算
-    const currentStartMinutes = parseInt(formData.start_time.split(':')[0]) * 60 + parseInt(formData.start_time.split(':')[1])
+    // 準備時間ぶん開始を後ろ倒し（calcEndTime を再利用。prep=0 なら元の開始時刻のまま）
     const prepMinutes = selectedScenario.extra_preparation_time ?? 0
-    const requiredStartMinutes = currentStartMinutes + prepMinutes
-    let adjustedStartTime = formData.start_time
-    if (requiredStartMinutes > currentStartMinutes) {
-      const hours = Math.floor(requiredStartMinutes / 60)
-      const minutes = requiredStartMinutes % 60
-      adjustedStartTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
-    }
+    const adjustedStartTime = prepMinutes > 0 ? calcEndTime(formData.start_time, prepMinutes) : formData.start_time
     const endTime = calculateEndTime(adjustedStartTime, scenarioTitle)
     setFormData((prev: EventFormData) => ({
       ...prev,
