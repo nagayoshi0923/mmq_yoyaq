@@ -285,7 +285,7 @@
         JSX を逐語移植しクロージャ参照を props 化（挙動不変）。オーナー承認済み（ダイアログ子化から開始）。
         - [x] EmailBodyEditDialog（送信済みメール確認・編集）`sendReports/dialogs/EmailBodyEditDialog.tsx`（2,049→**2,023**）。
           併せて inline 型を `types.ts` の `EmailBodyEditTarget` に集約。検証: tsc=0 / eslint=0 / build:fast / test:unit 126。
-        - [ ] BulkEmailDialog（作者メアド一括登録）
+        - [x] BulkEmailDialog（作者メアド一括登録）`dialogs/BulkEmailDialog.tsx`（2,023→**1,966**）。tsc=0/eslint=0/build:fast。
         - [ ] DisplayNameDialog（報告用表示名・メモ編集）
         - [ ] SendPreviewDialog（送信プレビュー・最大 ~206行）
         実機テストリスト（着手前にオーナー提示済み）: 送信プレビュー（選択/本文切替/再生成抑止/実送信）・

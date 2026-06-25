@@ -62,6 +62,7 @@ import { compareReportGroups } from './sendReports/sorting'
 import { groupReportItems } from './sendReports/grouping'
 import type { ReportItem, ReportGroup, EmailBodyEditTarget } from './sendReports/types'
 import { EmailBodyEditDialog } from './sendReports/dialogs/EmailBodyEditDialog'
+import { BulkEmailDialog } from './sendReports/dialogs/BulkEmailDialog'
 
 interface SendReportsProps {
   organizationId: string
@@ -1153,73 +1154,15 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       />
 
       {/* 一括メール登録ダイアログ */}
-      <Dialog open={isBulkEmailDialogOpen} onOpenChange={setIsBulkEmailDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>作者メールアドレス一括登録</DialogTitle>
-            <DialogDescription>
-              {bulkEmailTarget?.authorName} のシナリオにメールアドレスを一括登録します
-              {bulkEmailTarget?.authorEmail && (
-                <span className="block mt-1 text-green-600">
-                  現在の登録: {bulkEmailTarget.authorEmail}
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="bulk-email">メールアドレス</Label>
-              <Input
-                id="bulk-email"
-                type="email"
-                placeholder="author@example.com"
-                value={bulkEmail}
-                onChange={(e) => setBulkEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>対象シナリオ ({bulkEmailTarget?.items.length || 0}件)</Label>
-              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
-                {bulkEmailTarget?.items.map((item, idx) => (
-                  <div key={idx} className="text-sm flex items-center gap-2">
-                    <span className={item.authorEmail ? 'text-muted-foreground' : 'text-orange-600 font-medium'}>
-                      • {item.scenarioTitle}
-                    </span>
-                    {!item.authorEmail && (
-                      <span className="text-xs text-orange-500">未登録</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsBulkEmailDialogOpen(false)}
-              disabled={isSavingEmail}
-            >
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleBulkEmailSave}
-              disabled={isSavingEmail || !bulkEmail.trim()}
-            >
-              {isSavingEmail ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  登録中...
-                </>
-              ) : (
-                '一括登録'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BulkEmailDialog
+        open={isBulkEmailDialogOpen}
+        onOpenChange={setIsBulkEmailDialogOpen}
+        target={bulkEmailTarget}
+        email={bulkEmail}
+        setEmail={setBulkEmail}
+        isSaving={isSavingEmail}
+        onSave={handleBulkEmailSave}
+      />
 
       {/* 報告用表示名・メモ編集ダイアログ */}
       <Dialog open={isDisplayNameDialogOpen} onOpenChange={setIsDisplayNameDialogOpen}>
