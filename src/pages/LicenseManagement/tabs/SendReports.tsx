@@ -33,15 +33,6 @@ import {
   Copy,
   Check
 } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
@@ -53,8 +44,6 @@ import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { StickyNote } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { buildReportEmailText, buildSendEmailBody } from './sendReports/emailBody'
 import { computePreviewItem } from './sendReports/reportItems'
@@ -64,6 +53,7 @@ import type { ReportItem, ReportGroup, EmailBodyEditTarget } from './sendReports
 import { EmailBodyEditDialog } from './sendReports/dialogs/EmailBodyEditDialog'
 import { BulkEmailDialog } from './sendReports/dialogs/BulkEmailDialog'
 import { DisplayNameDialog } from './sendReports/dialogs/DisplayNameDialog'
+import { SendPreviewDialog } from './sendReports/dialogs/SendPreviewDialog'
 
 interface SendReportsProps {
   organizationId: string
@@ -1179,212 +1169,29 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       />
 
       {/* 送信プレビューダイアログ */}
-      <Dialog open={isSendPreviewOpen} onOpenChange={setIsSendPreviewOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>レポート送信プレビュー</DialogTitle>
-            <DialogDescription>
-              {sendPreviewTarget?.authorName} ({sendPreviewTarget?.authorEmail}) へ
-              {selectedYear}年{selectedMonth}月のレポートを送信
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* 送信内容サマリー */}
-          <div className="flex gap-6 px-1 py-2 bg-muted rounded-lg">
-            <div className="text-center">
-              <div className="text-2xl font-bold">
-                {sendPreviewTarget?.items
-                  .filter(item => selectedScenarioIds.has(item.scenarioKey))
-                  .map(getPreviewItem)
-                  .reduce((sum, item) => sum + item.events, 0) || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">公演数</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold">
-                ¥{(sendPreviewTarget?.items
-                  .filter(item => selectedScenarioIds.has(item.scenarioKey))
-                  .map(getPreviewItem)
-                  .reduce((sum, item) => sum + item.licenseCost, 0) || 0).toLocaleString()}
-              </div>
-              <div className="text-xs text-muted-foreground">ライセンス料</div>
-            </div>
-          </div>
-
-          <Tabs value={sendPreviewTab} onValueChange={(v) => {
-            const tab = v as 'scenarios' | 'body'
-            setSendPreviewTab(tab)
-            // メール本文タブに切り替えるとき、手動編集していなければ現在の選択から再生成
-            if (tab === 'body' && !isBodyManuallyEdited && sendPreviewTarget) {
-              setEmailBodyText(generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds))
-            }
-          }}>
-            <TabsList className="w-full">
-              <TabsTrigger value="scenarios" className="flex-1">シナリオ選択</TabsTrigger>
-              <TabsTrigger value="body" className="flex-1">メール本文</TabsTrigger>
-            </TabsList>
-
-            {/* シナリオ選択タブ */}
-            <TabsContent value="scenarios" className="space-y-3 mt-3">
-              <div className="max-h-72 overflow-y-auto border rounded-md divide-y">
-                {sendPreviewTarget?.items.map((item, idx) => {
-                  const key = item.scenarioKey
-                  const isSelected = selectedScenarioIds.has(key)
-                  const previewItem = getPreviewItem(item)
-                  const isZeroCost = previewItem.licenseCost === 0
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-3 ${isZeroCost ? 'bg-muted/30' : ''}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleScenarioSelection(item)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-sm truncate cursor-pointer hover:underline ${isZeroCost ? 'text-muted-foreground' : ''}`}
-                              onClick={() => toggleScenarioSelection(item)}
-                            >
-                              {item.scenarioTitle}
-                            </span>
-                            {item.isGMTest && (
-                              <Badge variant="outline" className="text-xs shrink-0">GMテスト</Badge>
-                            )}
-                            {isZeroCost && (
-                              <Badge variant="secondary" className="text-xs shrink-0">0円</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 ml-7 flex items-center gap-4 text-xs">
-                        {/* 自社公演数（手動上書き可能） */}
-                        <div className="flex items-center gap-1">
-                          <Home className="w-3 h-3 text-blue-500" />
-                          <Input
-                            type="number"
-                            min={0}
-                            className={`w-14 h-6 text-xs px-1 ${internalInputs[key] !== undefined ? 'text-orange-500 font-medium' : ''}`}
-                            placeholder={item.internalEvents.toString()}
-                            value={internalInputs[key] !== undefined ? internalInputs[key] : ''}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              const val = raw === '' ? undefined : (parseInt(raw) || 0)
-                              handleInternalInputChange(key, val)
-                            }}
-                          />
-                          <span className="text-muted-foreground">@¥{item.internalLicenseAmount.toLocaleString()}</span>
-                        </div>
-                        {item.scenarioType === 'managed' && (
-                          <div className="flex items-center gap-1">
-                            <Building className="w-3 h-3 text-green-500" />
-                            <Input
-                              type="number"
-                              min={0}
-                              className={`w-14 h-6 text-xs px-1 ${externalInputs[item.scenarioKey] !== undefined ? 'text-orange-500 font-medium' : ''}`}
-                              placeholder={item.externalEvents.toString()}
-                              value={externalInputs[item.scenarioKey] !== undefined ? externalInputs[item.scenarioKey] : ''}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                const raw = e.target.value
-                                const val = raw === '' ? 0 : (parseInt(raw) || 0)
-                                handleExternalInputChange(item.scenarioKey, val)
-                              }}
-                            />
-                            <span className="text-muted-foreground">@¥{item.externalLicenseAmount.toLocaleString()}</span>
-                          </div>
-                        )}
-                        <div className="ml-auto font-medium">
-                          = ¥{previewItem.licenseCost.toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">※ 0円のシナリオはデフォルトで除外されています</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => {
-                    if (sendPreviewTarget) {
-                      const body = generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds)
-                      setEmailBodyText(body)
-                      setSendPreviewTab('body')
-                    }
-                  }}
-                >
-                  本文を確認 →
-                </Button>
-              </div>
-            </TabsContent>
-
-            {/* メール本文タブ */}
-            <TabsContent value="body" className="space-y-2 mt-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">メール本文（編集可能）</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => {
-                    if (sendPreviewTarget) {
-                      setEmailBodyText(generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds))
-                      setIsBodyManuallyEdited(false)
-                    }
-                  }}
-                >
-                  選択内容から再生成
-                </Button>
-              </div>
-              <Textarea
-                value={emailBodyText}
-                onChange={(e) => {
-                  setEmailBodyText(e.target.value)
-                  setIsBodyManuallyEdited(true)
-                }}
-                className="font-mono text-xs h-80 resize-none"
-                placeholder="メール本文"
-              />
-              <p className="text-xs text-muted-foreground">
-                ※ プレーンテキストメールとして送信されます。
-              </p>
-            </TabsContent>
-          </Tabs>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsSendPreviewOpen(false)}
-              disabled={isSending}
-            >
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleConfirmSend}
-              disabled={isSending || selectedScenarioIds.size === 0}
-            >
-              {isSending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  送信中...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  送信する ({selectedScenarioIds.size}件)
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SendPreviewDialog
+        open={isSendPreviewOpen}
+        onOpenChange={setIsSendPreviewOpen}
+        target={sendPreviewTarget}
+        year={selectedYear}
+        month={selectedMonth}
+        selectedScenarioIds={selectedScenarioIds}
+        toggleScenarioSelection={toggleScenarioSelection}
+        getPreviewItem={getPreviewItem}
+        generateEmailBody={generateEmailBodyForItems}
+        tab={sendPreviewTab}
+        setTab={setSendPreviewTab}
+        isBodyManuallyEdited={isBodyManuallyEdited}
+        setIsBodyManuallyEdited={setIsBodyManuallyEdited}
+        emailBodyText={emailBodyText}
+        setEmailBodyText={setEmailBodyText}
+        internalInputs={internalInputs}
+        externalInputs={externalInputs}
+        handleInternalInputChange={handleInternalInputChange}
+        handleExternalInputChange={handleExternalInputChange}
+        isSending={isSending}
+        onConfirmSend={handleConfirmSend}
+      />
 
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

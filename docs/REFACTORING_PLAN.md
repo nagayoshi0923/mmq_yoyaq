@@ -281,15 +281,23 @@
         念のため送信タブのスモーク（グループ/合計表示）を推奨（必須ではない）。
       **→ SendReports 安全な純ロジックはここで概ね出し切り（2,290→2,049）。残りは送信フロー（handleConfirmSend）・
         各種 save ハンドラ・テーブルUI＝async/対話的のため実機テストリストが必要。次バッチはオーナー確認後。**
-      - [~] 5-5e ダイアログを子コンポーネント化（`sendReports/dialogs/`・**要 staging 実機スモーク**）。
+      - [x] 5-5e ダイアログを子コンポーネント化（`sendReports/dialogs/`・**要 staging 実機スモーク**）。
         JSX を逐語移植しクロージャ参照を props 化（挙動不変）。オーナー承認済み（ダイアログ子化から開始）。
         - [x] EmailBodyEditDialog（送信済みメール確認・編集）`sendReports/dialogs/EmailBodyEditDialog.tsx`（2,049→**2,023**）。
           併せて inline 型を `types.ts` の `EmailBodyEditTarget` に集約。検証: tsc=0 / eslint=0 / build:fast / test:unit 126。
         - [x] BulkEmailDialog（作者メアド一括登録）`dialogs/BulkEmailDialog.tsx`（2,023→**1,966**）。tsc=0/eslint=0/build:fast。
         - [x] DisplayNameDialog（報告用表示名・メモ編集）`dialogs/DisplayNameDialog.tsx`（1,966→**1,901**）。tsc=0/eslint=0/build:fast。
-        - [ ] SendPreviewDialog（送信プレビュー・最大 ~206行）
-        実機テストリスト（着手前にオーナー提示済み）: 送信プレビュー（選択/本文切替/再生成抑止/実送信）・
-        表示名編集・一括メール登録・メール本文編集（送信履歴）。
+        - [x] SendPreviewDialog（送信プレビュー・最大 ~206行）`dialogs/SendPreviewDialog.tsx`（1,901→**1,708**）。
+          props 21個注入（内部 `tab` 変数は prop と衝突回避で `next` にリネーム・挙動同一）。
+          併せて親の死んだ import（Dialog一式/Label/Textarea/Tabs一式）を除去。tsc=0/eslint=0/build:fast/test:unit 126。
+        実機テストリスト（着手前にオーナー提示済み・**4ダイアログまとめて staging スモーク**）:
+        ①送信プレビュー（作者「送信」→シナリオ選択/自社・他社公演数の手動上書き/本文タブ切替で再生成/本文手動編集後は再生成抑止/実送信）
+        ②表示名編集（表示名・メモ変更→保存→一覧反映）
+        ③一括メール登録（メアド入力→保存→未登録バッジ解消）
+        ④メール本文編集（送信履歴のメール件名・本文編集→保存→履歴反映）。
+      **→ ダイアログ子化バッチ完了。SendReports 2,049→1,708（当バッチ -341 / 当セッション累計 2,290→1,708）。
+        次の大物は ①グループ一覧テーブルの子化（~450行）②データ層/ハンドラのフック化（loadData/handleBatchSend 等）。
+        いずれも対話的＝実機テストリスト要。目標 ~700行まではあと 2-3 バッチ。**
 
 ## Phase 6: 巨大ページの解体
 
