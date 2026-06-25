@@ -21,6 +21,7 @@ import { reservationApi } from '@/lib/reservationApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import { cn } from '@/lib/utils'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
+import { computeCategoryFee } from './performanceModal/fee'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -968,70 +969,12 @@ export function PerformanceModal({
   const renderPerformanceSummary = () => {
     const category = formData.category
 
-    // シナリオの通常参加費（1名あたり）を取得するヘルパー
-    const getNormalFeeAmount = (scenario: Scenario): number | null => {
-      if (scenario.participation_costs && scenario.participation_costs.length > 0) {
-        const normalCosts = scenario.participation_costs.filter(
-          c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
-        )
-        if (normalCosts.length >= 1) return normalCosts[0].amount
-      }
-      return scenario.participation_fee || null
-    }
-
-    // 「¥per / ¥total」形式で返す (total は per × player_count_max を満員想定で計算)
-    const formatFee = (per: number, max: number): string =>
-      `¥${per.toLocaleString()} / ¥${(per * max).toLocaleString()}`
-
-    const getCategoryFee = (): { label: string; fee: string } | null => {
-      if (category === 'mtg' || category === 'memo') return null
-      if (category === 'venue_rental') {
-        const fee = formData.venue_rental_fee ?? 12000
-        return { label: '場所貸し', fee: `¥${fee.toLocaleString()}` }
-      }
-      if (category === 'venue_rental_free') return { label: '場所貸し', fee: '¥0' }
-      if (category === 'testplay') return { label: 'テストプレイ', fee: '¥0' }
-      const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-      if (!formData.scenario || !selectedScenario) return null
-      const maxP = selectedScenario.player_count_max || formData.max_participants || 1
-      if (category === 'gmtest') {
-        let per = 0
-        if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
-          const gmtestCost = selectedScenario.participation_costs.find(
-            c => c.time_slot === 'gmtest' && (c.status === 'active' || !c.status)
-          )
-          if (gmtestCost) per = gmtestCost.amount
-        }
-        if (!per && selectedScenario.gm_test_participation_fee) per = selectedScenario.gm_test_participation_fee
-        return { label: 'GMテスト', fee: per > 0 ? formatFee(per, maxP) : '¥0' }
-      }
-      if (category === 'private') {
-        const perPerson = getNormalFeeAmount(selectedScenario)
-        if (perPerson) return { label: '貸切', fee: formatFee(perPerson, maxP) }
-        return null
-      }
-      // open / offsite / package など
-      if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
-        const normalCosts = selectedScenario.participation_costs.filter(
-          c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
-        )
-        if (normalCosts.length === 1) return { label: '', fee: formatFee(normalCosts[0].amount, maxP) }
-        if (normalCosts.length > 1) {
-          const amounts = normalCosts.map(c => c.amount)
-          const min = Math.min(...amounts)
-          const max = Math.max(...amounts)
-          if (min === max) return { label: '', fee: formatFee(min, maxP) }
-          return { label: '', fee: `¥${min.toLocaleString()}〜 / ¥${(max * maxP).toLocaleString()}` }
-        }
-      }
-      if (selectedScenario.participation_fee) {
-        return { label: '', fee: formatFee(selectedScenario.participation_fee, maxP) }
-      }
-      return null
-    }
-
     const selectedScenario = formData.scenario ? scenarios.find(s => s.title === formData.scenario) : null
-    const categoryFee = getCategoryFee()
+    // カテゴリ別の料金サマリーは純関数へ抽出（performanceModal/fee）
+    const categoryFee = computeCategoryFee(category, selectedScenario, {
+      venueRentalFee: formData.venue_rental_fee,
+      maxParticipants: formData.max_participants,
+    })
     const hasGms = formData.gms && formData.gms.length > 0
     const CATEGORY_LABEL_MAP: Record<string, string> = {
       open: 'オープン', private: '貸切', offsite: '出張', testplay: 'テストプレイ',
