@@ -16,6 +16,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
+import { parseTsvLines, parseTsvCells, parseTimeFromTitle, parseDate } from './importSchedule/parsers'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -713,43 +714,6 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     return { gms, mappings }
   }
 
-  // 時間を抽出
-  const parseTimeFromTitle = (title: string): { start: string; end: string } | null => {
-    const timeMatch = title.match(/\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)/)
-    if (timeMatch) {
-      const start = parseFloat(timeMatch[1])
-      const end = parseFloat(timeMatch[2])
-      
-      const startHour = Math.floor(start)
-      const startMin = Math.round((start - startHour) * 60)
-      const endHour = Math.floor(end)
-      const endMin = Math.round((end - endHour) * 60)
-      
-      return {
-        start: `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`,
-        end: `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`
-      }
-    }
-    return null
-  }
-
-  // 日付を解析（現在表示中の年を使用）
-  const parseDate = (dateStr: string, year?: number): string => {
-    if (!dateStr || !dateStr.includes('/')) {
-      return ''
-    }
-    const parts = dateStr.split('/')
-    if (parts.length !== 2) {
-      return ''
-    }
-    const month = parts[0].trim()
-    const day = parts[1].trim()
-    if (!month || !day) {
-      return ''
-    }
-    const targetYear = year || currentDisplayDate?.getFullYear() || new Date().getFullYear()
-    return `${targetYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-  }
 
   // インポート処理（プレビュー済みのデータを使用）
   const handleImport = async () => {
@@ -1222,64 +1186,6 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     await new Promise(resolve => setTimeout(resolve, 50))
     
     try {
-      // 引用符として認識する文字（ASCII、スマートクォート、日本語引用符など）
-      const QUOTE_CHARS = new Set(['"', '"', '"', '「', '」', '『', '』'])
-      const isQuote = (char: string) => QUOTE_CHARS.has(char)
-      
-      // セル内改行を含むTSVを正しくパースする（行を分割）
-      const parseTsvLines = (text: string): string[] => {
-        const result: string[] = []
-        let currentLine = ''
-        let inQuotes = false
-        
-        for (let i = 0; i < text.length; i++) {
-          const char = text[i]
-          
-          if (isQuote(char)) {
-            inQuotes = !inQuotes
-            currentLine += char
-          } else if (char === '\n' && !inQuotes) {
-            result.push(currentLine)
-            currentLine = ''
-          } else {
-            currentLine += char
-          }
-        }
-        
-        if (currentLine) {
-          result.push(currentLine)
-        }
-        
-        return result
-      }
-      
-      // 行をタブ区切りでセルに分割（ダブルクォート内のタブも考慮）
-      const parseTsvCells = (line: string): string[] => {
-        const cells: string[] = []
-        let currentCell = ''
-        let inQuotes = false
-        
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i]
-          
-          if (isQuote(char)) {
-            inQuotes = !inQuotes
-            // ダブルクォートは含めない（後で除去）
-          } else if (char === '\t' && !inQuotes) {
-            // セル内改行を空白に置換してトリム
-            cells.push(currentCell.replace(/\n/g, ' ').trim())
-            currentCell = ''
-          } else {
-            currentCell += char
-          }
-        }
-        
-        // 最後のセル
-        cells.push(currentCell.replace(/\n/g, ' ').trim())
-        
-        return cells
-      }
-      
       const rawLines = parseTsvLines(scheduleText.trim())
       
       // 日付またはヘッダーで始まらない行を前の行に結合する

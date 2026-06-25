@@ -229,6 +229,14 @@
       **→ Phase 5-1 完了（3,124→731 行。types/helpers＋4タブ＋data/selectors/handlers フックへ分解。
         ContextMenu/deliveryConfirm/help dialog のタブ横断 UI 状態と JSX シェルのみ親に残置）。要 staging 実機確認後に 5-1 クローズ。**
 - [ ] 5-2 `ImportScheduleModal`（2,013行）: パース/検証を純関数化（テスト対象）、プレビューUI分離
+      - [x] 5-2a 純パース関数を `importSchedule/parsers.ts` へ抽出＋vitest（2026-06-25・2,013→**1,919**）。
+        `parseTsvLines` / `parseTsvCells` / `isQuote`（TSVパース）・`parseTimeFromTitle`（タイトルから時刻）・
+        `parseDate`（M/D→YYYY-MM-DD）を逐語抽出。`parseDate` は year フォールバック（currentDisplayDate）を
+        呼び出し側が常に displayYear を渡しているため year 必須の純関数に（挙動同一）。13ケースのユニットテスト整備。
+        検証: tsc=0 / eslint=0 errors（既存の scenarioMatchCache 警告のみ・スコープ外）/ build:fast / test:unit 68 passed。
+      - [ ] 5-2b 曖昧マッチャ `matchStaff`(findBestStaffMatch) / `matchScenario` を deps注入で純関数化＋テスト
+      - [ ] 5-2c `handlePreview` のプレビュー構築を純関数 `buildPreview(rawText, deps)→{events,errors}` に抽出＋テスト
+      - [ ] 5-2d プレビュー表示UIを子コンポーネントへ分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [ ] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
