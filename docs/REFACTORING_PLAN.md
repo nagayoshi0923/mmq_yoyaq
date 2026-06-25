@@ -217,7 +217,17 @@
           注入、出力は全派生値を返し親は使用19個のみ destructure。内部相互参照はフック内で解決。
           親の死んだ import（planKitTransfers/findOverdueTransfers/PlannerDemand/OverdueTransfer/toJstYmd/KitTransferEvent/KitTransferCompletion/Scenario）も除去。
           検証: tsc=0 / eslint=0 / build:fast / test:unit 54 passed。**要 staging 実機確認**。
-        - [ ] 第6c歩 handlers（toggle/calculate/setLocation/changeKitCount/move/drag 等）→ フック化
+        - [x] 第6c歩 **handlers** → `kitManagement/useKitManagementHandlers.ts`（2026-06-25・1,211→**731**）。
+          全ハンドラ（回収/設置トグル＋executeDeliveryToggle/週移動/移動計算 handleCalculateTransfers＋自動計算 effect/
+          キット数・状態・固定/別店舗移動/D&D/右クリック）を逐語抽出（**519行 byte 完全一致 diff=0**）。
+          入力29個を注入、出力17ハンドラを返す（handleCalculateTransfers は自動計算 effect 専用のため内部留保・非公開）。
+          内部相互参照（handleDrop→handleMoveKit / toggle・confirm→executeDeliveryToggle）はフック内で解決。
+          付随: `deliveryConfirm` のインライン型を `types.ts` の `DeliveryConfirmState` に集約（親子で型一致）。
+          親の死んだ import（kitApi/scenarioApi/showToast/calculateKitTransfers/KitState/KitLocation）も除去。
+          handleCalculateTransfers の deps に注入 setter（setIsCalculating/setSuggestions）を明記し exhaustive-deps を充足（挙動不変）。
+          検証: tsc=0 / eslint=0 warnings / build:fast / test:unit 54 passed。**要 staging 実機確認**。
+      **→ Phase 5-1 完了（3,124→731 行。types/helpers＋4タブ＋data/selectors/handlers フックへ分解。
+        ContextMenu/deliveryConfirm/help dialog のタブ横断 UI 状態と JSX シェルのみ親に残置）。要 staging 実機確認後に 5-1 クローズ。**
 - [ ] 5-2 `ImportScheduleModal`（2,013行）: パース/検証を純関数化（テスト対象）、プレビューUI分離
 - [ ] 5-3 `ReservationList`（2,219行）: フィルタ→フック、エクスポート→util、テーブル→子
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント

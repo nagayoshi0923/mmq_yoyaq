@@ -18,6 +18,17 @@ export interface ContextMenuState {
   isFixed: boolean  // このキットが固定中か（キット番号ごと）
 }
 
+// 設置確認ダイアログの対象キット情報
+export interface DeliveryConfirmState {
+  scenarioId: string
+  kitNumber: number
+  performanceDate: string
+  toStoreId: string
+  scenarioTitle: string
+  toStoreName: string
+  orgScenarioId?: string
+}
+
 export interface KitManagementDialogProps {
   isOpen: boolean
   onClose: () => void
