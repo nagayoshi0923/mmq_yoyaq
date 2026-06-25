@@ -266,7 +266,9 @@
       - [~] 5-3c ダイアログを子コンポーネント化（`reservationList/dialogs/`・**要 staging 実機スモーク**）。
         - [x] CancelReservationDialog（予約キャンセル確認）/ DeleteEventDialog（貸切公演削除確認）（2,070→**2,016**）。
           JSX 逐語移植＋props化、Delete のインライン削除処理は親 `handleConfirmDeleteEvent` へ持ち上げ。tsc=0/eslint=0/build/test 130。
-        - [ ] メール送信モーダル / キャンセルメール送信確認ダイアログ（インライン送信処理の持ち上げ要・次バッチ）
+        - [x] EmailConfirmDialog（キャンセルメール送信確認）（2,016→**1,923**）。emailContent の型＋初期値を
+          `reservationList/cancellationEmailState.ts` へ切出し（fast-refresh 警告回避）、リセット処理は親 `closeEmailConfirm` へ。
+        - [ ] メール送信モーダル（インライン90行の送信処理を親へ持ち上げ要・次バッチ）
 - [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
