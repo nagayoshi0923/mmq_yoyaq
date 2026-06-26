@@ -1482,6 +1482,10 @@ export function ReservationList({
                     const isExpanded = expandedReservation === reservation.id
                     const isLast = index === reservations.length - 1
                     const isCancelled = reservation.status === 'cancelled'
+                    // GMタブから「スタッフ参加」役割で追加された予約は、チェックイン対象ではなく
+                    // 「スタッフ (GMタブから)」ラベル表示にする（チェックイン/ステータス操作を出さない）
+                    const isStaffParticipation = reservation.payment_method === 'staff' ||
+                      (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '')
                     return (
                       <div key={reservation.id} className={`${isLast ? '' : 'border-b'} ${isCancelled ? 'bg-gray-50 opacity-60' : ''}`}>
                         <div className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
@@ -1722,6 +1726,21 @@ export function ReservationList({
                                   )
                                 })()}
                               </div>
+                            ) : isStaffParticipation ? (
+                              <>
+                                <span className="h-8 px-2 text-xs flex items-center rounded bg-green-50 text-green-800 border border-green-200 whitespace-nowrap" title="GMタブからスタッフ参加として追加された参加者です">
+                                  スタッフ (GMタブから)
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                                  onClick={() => handleUpdateReservationStatus(reservation.id, 'cancelled')}
+                                  title="GMタブからも完全に削除します"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
                             ) : reservation.status === 'checked_in' ? (
                               <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
                                 ✓ 来店済
