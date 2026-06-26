@@ -5,7 +5,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
 import { Mail, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -23,6 +22,7 @@ import { useReservationListData } from './reservationList/useReservationListData
 import { CancelReservationDialog } from './reservationList/dialogs/CancelReservationDialog'
 import { DeleteEventDialog } from './reservationList/dialogs/DeleteEventDialog'
 import { EmailConfirmDialog } from './reservationList/dialogs/EmailConfirmDialog'
+import { SendEmailDialog } from './reservationList/dialogs/SendEmailDialog'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './reservationList/cancellationEmailState'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
@@ -870,6 +870,102 @@ export function ReservationList({
     setIsEmailConfirmOpen(false)
     setCancellingReservation(null)
     setEmailContent(EMPTY_CANCELLATION_EMAIL_STATE)
+  }
+
+  // 選択した予約者への一括メール送信（元は SendEmailDialog 内のインライン onClick）
+  const handleSendBulkEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      showToast.warning('件名と本文を入力してください')
+      return
+    }
+
+    setSendingEmail(true)
+    try {
+      const selectedEmails = reservations
+        .filter(r => selectedReservations.has(r.id))
+        .map(r => {
+          if (r.customers) {
+            if (Array.isArray(r.customers)) {
+              return r.customers[0]?.email
+            }
+            return (r.customers as Customer).email
+          }
+          return null
+        })
+        .filter((email): email is string => email !== null && email !== undefined)
+
+      if (selectedEmails.length === 0) {
+        showToast.warning('送信先のメールアドレスが見つかりませんでした')
+        return
+      }
+
+      logger.log('メール送信:', {
+        to: selectedEmails,
+        subject: emailSubject,
+        body: emailBody
+      })
+
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: {
+          recipients: selectedEmails,
+          subject: emailSubject,
+          body: emailBody
+        }
+      })
+
+      if (error) {
+        throw error
+      }
+
+      // 履歴を記録（モーダル経由の手動メール送信）
+      if (event?.id) {
+        try {
+          const organizationId = await getCurrentOrganizationId()
+          const storeObj = stores.find(s => s.id === currentEventData.venue || s.name === event.venue)
+          if (organizationId && storeObj?.id) {
+            const snapshot = await fetchEventSnapshot(event.id, organizationId)
+            const cellTimeSlot =
+              (snapshot?.time_slot as string | null | undefined) ??
+              currentEventData.time_slot ??
+              event.time_slot ??
+              null
+            await createEventHistory(
+              event.id,
+              organizationId,
+              'email_sent',
+              null,
+              {
+                subject: emailSubject,
+                body: emailBody,
+                recipient_count: selectedEmails.length,
+                recipient_emails: selectedEmails,
+              },
+              {
+                date: currentEventData.date || event.date,
+                storeId: storeObj.id,
+                timeSlot: cellTimeSlot,
+              },
+              {
+                notes: `${selectedEmails.length}名に「${emailSubject}」を送信`,
+              }
+            )
+          }
+        } catch (historyError) {
+          logger.error('メール送信履歴の記録に失敗:', historyError)
+        }
+      }
+
+      showToast.success(`${selectedEmails.length}件のメールを送信しました`)
+      setIsEmailModalOpen(false)
+      setEmailSubject('')
+      setEmailBody('')
+      setSelectedReservations(new Set())
+    } catch (error) {
+      logger.error('メール送信エラー:', error)
+      showToast.error('メール送信に失敗しました')
+    } finally {
+      setSendingEmail(false)
+    }
   }
 
   return (
@@ -1739,165 +1835,23 @@ export function ReservationList({
         </div>
       )}
 
-      <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
-        <DialogContent size="md">
-          <DialogHeader>
-            <DialogTitle>メール送信</DialogTitle>
-            <DialogDescription>
-              選択した{selectedReservations.size}件の予約者にメールを送信します
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email-subject">件名</Label>
-              <Input
-                id="email-subject"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="例: 公演のご案内"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email-body">本文</Label>
-              <Textarea
-                id="email-body"
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-                placeholder="メール本文を入力してください..."
-                rows={10}
-              />
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              <p className="font-medium mb-1">送信先:</p>
-              <ul className="list-disc list-inside space-y-1">
-                {reservations
-                  .filter(r => selectedReservations.has(r.id))
-                  .map(r => (
-                    <li key={r.id}>
-                      {r.customer_notes || '顧客名なし'} ({r.customer_id})
-                    </li>
-                  ))}
-              </ul>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEmailModalOpen(false)
-                  setEmailSubject('')
-                  setEmailBody('')
-                }}
-                disabled={sendingEmail}
-              >
-                キャンセル
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!emailSubject.trim() || !emailBody.trim()) {
-                    showToast.warning('件名と本文を入力してください')
-                    return
-                  }
-
-                  setSendingEmail(true)
-                  try {
-                    const selectedEmails = reservations
-                      .filter(r => selectedReservations.has(r.id))
-                      .map(r => {
-                        if (r.customers) {
-                          if (Array.isArray(r.customers)) {
-                            return r.customers[0]?.email
-                          }
-                          return (r.customers as Customer).email
-                        }
-                        return null
-                      })
-                      .filter((email): email is string => email !== null && email !== undefined)
-                    
-                    if (selectedEmails.length === 0) {
-                      showToast.warning('送信先のメールアドレスが見つかりませんでした')
-                      return
-                    }
-
-                    logger.log('メール送信:', {
-                      to: selectedEmails,
-                      subject: emailSubject,
-                      body: emailBody
-                    })
-                    
-                    const { error } = await supabase.functions.invoke('send-email', {
-                      body: {
-                        recipients: selectedEmails,
-                        subject: emailSubject,
-                        body: emailBody
-                      }
-                    })
-
-                    if (error) {
-                      throw error
-                    }
-
-                    // 履歴を記録（モーダル経由の手動メール送信）
-                    if (event?.id) {
-                      try {
-                        const organizationId = await getCurrentOrganizationId()
-                        const storeObj = stores.find(s => s.id === currentEventData.venue || s.name === event.venue)
-                        if (organizationId && storeObj?.id) {
-                          const snapshot = await fetchEventSnapshot(event.id, organizationId)
-                          const cellTimeSlot =
-                            (snapshot?.time_slot as string | null | undefined) ??
-                            currentEventData.time_slot ??
-                            event.time_slot ??
-                            null
-                          await createEventHistory(
-                            event.id,
-                            organizationId,
-                            'email_sent',
-                            null,
-                            {
-                              subject: emailSubject,
-                              body: emailBody,
-                              recipient_count: selectedEmails.length,
-                              recipient_emails: selectedEmails,
-                            },
-                            {
-                              date: currentEventData.date || event.date,
-                              storeId: storeObj.id,
-                              timeSlot: cellTimeSlot,
-                            },
-                            {
-                              notes: `${selectedEmails.length}名に「${emailSubject}」を送信`,
-                            }
-                          )
-                        }
-                      } catch (historyError) {
-                        logger.error('メール送信履歴の記録に失敗:', historyError)
-                      }
-                    }
-
-                    showToast.success(`${selectedEmails.length}件のメールを送信しました`)
-                    setIsEmailModalOpen(false)
-                    setEmailSubject('')
-                    setEmailBody('')
-                    setSelectedReservations(new Set())
-                  } catch (error) {
-                    logger.error('メール送信エラー:', error)
-                    showToast.error('メール送信に失敗しました')
-                  } finally {
-                    setSendingEmail(false)
-                  }
-                }}
-                disabled={sendingEmail || selectedReservations.size === 0}
-              >
-                {sendingEmail ? '送信中...' : `送信 (${selectedReservations.size}件)`}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SendEmailDialog
+        open={isEmailModalOpen}
+        onOpenChange={setIsEmailModalOpen}
+        recipientCount={selectedReservations.size}
+        recipients={reservations.filter(r => selectedReservations.has(r.id))}
+        subject={emailSubject}
+        setSubject={setEmailSubject}
+        body={emailBody}
+        setBody={setEmailBody}
+        sending={sendingEmail}
+        onClose={() => {
+          setIsEmailModalOpen(false)
+          setEmailSubject('')
+          setEmailBody('')
+        }}
+        onSend={handleSendBulkEmail}
+      />
 
       <CancelReservationDialog
         open={isCancelDialogOpen}
