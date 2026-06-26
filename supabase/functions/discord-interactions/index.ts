@@ -378,49 +378,8 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       responseStatus = 'all_unavailable'
     }
     
-    // gm_availability_responsesテーブルに保存 (upsert)
-    const { data: gmResponse, error: gmError } = await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: organizationId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_discord_id: gmUserId,
-        gm_name: gmUserName,
-        response_type: responseType,
-        selected_candidate_index: availableCandidates.length > 0 ? availableCandidates[0] : null,
-        response_datetime: new Date().toISOString(),
-        notes: availableCandidates.length > 0 
-          ? `Discord経由で回答: ${selectedDates.join(', ')}` 
-          : 'Discord経由で回答: 全て出勤不可',
-        response_status: responseStatus,
-        available_candidates: availableCandidates,
-        response_history: responseHistory,
-        responded_at: new Date().toISOString()
-      }, {
-        onConflict: 'reservation_id,staff_id'
-      })
-    
-    if (gmError) {
-      console.error('❌ Error saving GM response:', gmError)
-      throw gmError
-    } else {
-      console.log('✅ GM response saved to database:', gmResponse)
-      
-      // GMが1人でも回答したら、リクエストのステータスを「店舗確認待ち」に更新
-      const { error: updateError } = await supabase
-        .from('reservations')
-        .update({ status: 'pending_store' })
-        .eq('id', requestId)
-        .in('status', ['pending', 'pending_gm'])  // pending または pending_gm の場合に更新
-      
-      if (updateError) {
-        console.error('❌ Error updating reservation status:', updateError)
-      } else {
-        console.log('✅ Reservation status updated to pending_store')
-      }
-    }
-    
+    // ⚡ ボタンの体感速度向上: 先にメッセージ(ボタン状態)をDiscordへ反映し、
+    //    DB保存(回答upsert・予約ステータス)はその後に行う（押下→即ボタン変化）。
     // レスポンスメッセージを作成
     const scenarioTitle = reservation.title || '貸切予約'
     const candidateCount = candidates.length
@@ -504,7 +463,50 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     } else {
       console.log('✅ Message updated successfully')
     }
+
+    // gm_availability_responsesテーブルに保存 (upsert)
+    const { data: gmResponse, error: gmError } = await supabase
+      .from('gm_availability_responses')
+      .upsert({
+        organization_id: organizationId,
+        reservation_id: requestId,
+        staff_id: staffId,
+        gm_discord_id: gmUserId,
+        gm_name: gmUserName,
+        response_type: responseType,
+        selected_candidate_index: availableCandidates.length > 0 ? availableCandidates[0] : null,
+        response_datetime: new Date().toISOString(),
+        notes: availableCandidates.length > 0 
+          ? `Discord経由で回答: ${selectedDates.join(', ')}` 
+          : 'Discord経由で回答: 全て出勤不可',
+        response_status: responseStatus,
+        available_candidates: availableCandidates,
+        response_history: responseHistory,
+        responded_at: new Date().toISOString()
+      }, {
+        onConflict: 'reservation_id,staff_id'
+      })
     
+    if (gmError) {
+      console.error('❌ Error saving GM response:', gmError)
+      throw gmError
+    } else {
+      console.log('✅ GM response saved to database:', gmResponse)
+      
+      // GMが1人でも回答したら、リクエストのステータスを「店舗確認待ち」に更新
+      const { error: updateError } = await supabase
+        .from('reservations')
+        .update({ status: 'pending_store' })
+        .eq('id', requestId)
+        .in('status', ['pending', 'pending_gm'])  // pending または pending_gm の場合に更新
+      
+      if (updateError) {
+        console.error('❌ Error updating reservation status:', updateError)
+      } else {
+        console.log('✅ Reservation status updated to pending_store')
+      }
+    }
+
     console.log('📅 Date selection recorded and saved:', selectedDates)
     
   } catch (error) {
