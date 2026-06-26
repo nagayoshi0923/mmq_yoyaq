@@ -55,29 +55,6 @@ export function useEventModalState({ events }: UseEventModalStateProps) {
     }
   }, [events, searchParams])
 
-  // 楽観作成の temp→実id 差し替えに追従する。
-  // 新規公演はまず temp- 仮IDのカードとして表示され、保存完了で実IDへ差し替わる（useEventSave）。
-  // その差し替え前（仮IDのまま）に編集モーダルを開くと、editingEvent は temp- のスナップショットで
-  // 固定されてしまい、予約取得・スタッフ参加同期・保存が存在しない temp- ID で 400/500 になる。
-  // 差し替え完了を検知したら、同一セルの実イベントへ editingEvent を同期する。
-  // 通常（実ID）の編集には早期 return で一切触れないため挙動不変。
-  useEffect(() => {
-    if (!editingEvent || !editingEvent.id.startsWith('temp-')) return
-    // temp- がまだ events に存在する＝差し替え前。何もしない
-    if (events.some(e => e.id === editingEvent.id)) return
-    // 差し替え済み：同一セル（日付/店舗/開始時刻）の実イベントへ同期
-    const real = events.find(e =>
-      !e.id.startsWith('temp-') &&
-      e.date === editingEvent.date &&
-      e.venue === editingEvent.venue &&
-      e.start_time === editingEvent.start_time
-    )
-    if (real) {
-      setEditingEvent(real)
-      logger.log('🔄 編集中の楽観イベントを実IDへ同期:', editingEvent.id, '→', real.id)
-    }
-  }, [events, editingEvent])
-
   const handleAddPerformance = useCallback((date: string, venue: string, time_slot: TimeSlot) => {
     setModalMode('add')
 

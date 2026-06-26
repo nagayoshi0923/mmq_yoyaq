@@ -463,30 +463,32 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       
       if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
         const staffName = cancellingReservation.participant_names[0]
-        // ⚠️ gms/gm_roles の基準は「モーダルの現在値(currentEventData)」を使う。
-        // 以前は schedule_events_staff_view(DB) を基準にしていたが、モーダルで追加して
-        // まだ保存していないメインGM等は DB に無いため、それごと消えて DB にも書き戻していた
-        // （＝スタッフ参加キャンセルでメインGMがリセットされる既存バグ）。
-        const currentGms = currentEventData.gms || []
-        const currentRoles = currentEventData.gmRoles || {}
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        const newGms = currentGms.filter((g: string) => g !== staffName && !uuidPattern.test(g))
-        const newRoles = { ...currentRoles }
-        delete newRoles[staffName]
-        Object.keys(newRoles).forEach(key => {
-          if (uuidPattern.test(key)) {
-            delete newRoles[key]
-          }
-        })
-
-        if (event?.id) {
+        const { data: eventData } = await supabase
+          .from('schedule_events_staff_view')
+          .select('gms, gm_roles')
+          .eq('id', event.id)
+          .single()
+        
+        if (eventData) {
+          const currentGms = eventData.gms || []
+          const currentRoles = eventData.gm_roles || {}
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          const newGms = currentGms.filter((g: string) => g !== staffName && !uuidPattern.test(g))
+          const newRoles = { ...currentRoles }
+          delete newRoles[staffName]
+          Object.keys(newRoles).forEach(key => {
+            if (uuidPattern.test(key)) {
+              delete newRoles[key]
+            }
+          })
+          
           await supabase
             .from('schedule_events')
             .update({ gms: newGms, gm_roles: newRoles })
             .eq('id', event.id)
+          
+          onGmsChange(newGms, newRoles)
         }
-
-        onGmsChange(newGms, newRoles)
         showToast.success('スタッフ参加を削除しました')
       } else {
         // メール送信（チェックボックスがONの場合のみ）
