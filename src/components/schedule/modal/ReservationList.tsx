@@ -22,6 +22,8 @@ import { sumActiveParticipants } from './reservationList/participants'
 import { useReservationListData } from './reservationList/useReservationListData'
 import { CancelReservationDialog } from './reservationList/dialogs/CancelReservationDialog'
 import { DeleteEventDialog } from './reservationList/dialogs/DeleteEventDialog'
+import { EmailConfirmDialog } from './reservationList/dialogs/EmailConfirmDialog'
+import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './reservationList/cancellationEmailState'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
 import { getDefaultStoreCancellationTemplate } from '@/lib/templateRegistry'
@@ -95,24 +97,7 @@ export function ReservationList({
   const [shouldSendEmail, setShouldSendEmail] = useState(true) // メール送信するかどうか
   const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
   const [isDeletingEvent, setIsDeletingEvent] = useState(false) // イベント削除中フラグ
-  const [emailContent, setEmailContent] = useState({
-    customerEmail: '',
-    customerName: '',
-    cancellationReason: '店舗都合によるキャンセル',
-    scenarioTitle: '',
-    eventDate: '',
-    startTime: '',
-    endTime: '',
-    storeName: '',
-    participantCount: 0,
-    totalPrice: 0,
-    reservationNumber: '',
-    cancellationFee: 0,
-    paymentMethod: 'onsite' as 'onsite' | 'online' | 'staff' | string,
-    cancellationPolicy: '', // 設定から取得したポリシー
-    organizationName: '', // 組織名
-    emailBody: '' // メール本文全体
-  })
+  const [emailContent, setEmailContent] = useState<ReservationCancellationEmailState>(EMPTY_CANCELLATION_EMAIL_STATE)
   
   // メール本文の生成は共通モジュール（lib/cancellationEmail）に移動。
   // 公演の中止・削除フロー（DeleteEventCancelDialog）と同じロジックを共有する
@@ -878,6 +863,13 @@ export function ReservationList({
     } finally {
       setIsDeletingEvent(false)
     }
+  }
+
+  // メール送信確認ダイアログを閉じて状態をリセット（やめる／onOpenChange 共通）
+  const closeEmailConfirm = () => {
+    setIsEmailConfirmOpen(false)
+    setCancellingReservation(null)
+    setEmailContent(EMPTY_CANCELLATION_EMAIL_STATE)
   }
 
   return (
@@ -1919,108 +1911,23 @@ export function ReservationList({
         onConfirm={handleConfirmCancelFromDialog}
       />
 
-      <Dialog open={isEmailConfirmOpen} onOpenChange={(open) => {
-        if (!open) {
-          setCancellingReservation(null)
-        }
-        setIsEmailConfirmOpen(open)
-      }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>予約をキャンセル</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            {/* 送信先 */}
-            <div className="text-sm">
-              <span className="text-muted-foreground">送信先: </span>
-              <span className="font-medium">{emailContent.customerEmail}</span>
-            </div>
-
-            {/* メール本文 */}
-            <div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="email-body">メール本文</Label>
-                <TemplateEditButton
-                  templateKey="store_cancellation_template"
-                  storeId={cancellationTemplateStoreId}
-                  label="予約者タブキャンセルメールのテンプレを編集"
-                  className="h-7 text-xs text-purple-700 hover:text-purple-900"
-                  unavailableMessage="店舗が未選択のためテンプレートを編集できません"
-                  onSaved={(value) => {
-                    setEmailContent(prev => ({
-                      ...prev,
-                      emailBody: buildCancellationEmailBody(prev, value)
-                    }))
-                  }}
-                />
-              </div>
-              <Textarea
-                id="email-body"
-                value={emailContent.emailBody}
-                onChange={(e) => setEmailContent(prev => ({ ...prev, emailBody: e.target.value }))}
-                className="mt-1 font-mono text-xs"
-                rows={16}
-              />
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 pt-4 border-t flex-shrink-0">
-            {/* メール送信チェックボックス */}
-            {emailContent.customerEmail && (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="send-cancel-email"
-                  checked={shouldSendEmail}
-                  onCheckedChange={(checked) => setShouldSendEmail(!!checked)}
-                />
-                <label 
-                  htmlFor="send-cancel-email" 
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  キャンセル確認メールを送信する
-                </label>
-              </div>
-            )}
-            
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEmailConfirmOpen(false)
-                  setCancellingReservation(null)
-                  setEmailContent({
-                    customerEmail: '',
-                    customerName: '',
-                    cancellationReason: '店舗都合によるキャンセル',
-                    scenarioTitle: '',
-                    eventDate: '',
-                    startTime: '',
-                    endTime: '',
-                    storeName: '',
-                    participantCount: 0,
-                    totalPrice: 0,
-                    reservationNumber: '',
-                    cancellationFee: 0,
-                    paymentMethod: 'onsite',
-                    cancellationPolicy: '',
-                    organizationName: '',
-                    emailBody: ''
-                  })
-                }}
-                disabled={isCancelling}
-              >
-                やめる
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleExecuteCancel(shouldSendEmail)}
-                disabled={isCancelling}
-              >
-                {isCancelling ? '処理中...' : 'キャンセル確定'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EmailConfirmDialog
+        open={isEmailConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancellingReservation(null)
+          }
+          setIsEmailConfirmOpen(open)
+        }}
+        emailContent={emailContent}
+        setEmailContent={setEmailContent}
+        shouldSendEmail={shouldSendEmail}
+        setShouldSendEmail={setShouldSendEmail}
+        isCancelling={isCancelling}
+        cancellationTemplateStoreId={cancellationTemplateStoreId}
+        onClose={closeEmailConfirm}
+        onConfirm={() => handleExecuteCancel(shouldSendEmail)}
+      />
 
       {/* 貸切イベント削除確認ダイアログ */}
       <DeleteEventDialog
