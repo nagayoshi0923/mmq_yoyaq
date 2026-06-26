@@ -11,6 +11,7 @@ import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { CATEGORY_TONE } from './performanceModal/constants'
 import { useScenarioOptions } from './performanceModal/useScenarioOptions'
+import { useKitStoreIds } from './performanceModal/useKitStoreIds'
 import { PerformanceSummary } from './performanceModal/PerformanceSummary'
 import { DateTimeVenueSection } from './performanceModal/sections/DateTimeVenueSection'
 import { PerformanceContentSection } from './performanceModal/sections/PerformanceContentSection'
@@ -84,8 +85,6 @@ export function PerformanceModal({
   // 保存時に handleSave で一括 INSERT する
   type PendingParticipant = { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }
   const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
-  // 選択中シナリオのキット配置店舗一覧 (scenario_master_id 単位)
-  const [kitStoreIds, setKitStoreIds] = useState<string[]>([])
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
   const [deleteConfirming, setDeleteConfirming] = useState(false)
@@ -232,33 +231,8 @@ export function PerformanceModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
 
-  // シナリオ変更時にキット配置店舗を取得
-  useEffect(() => {
-    const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-    const masterId = selectedScenario?.scenario_master_id || selectedScenario?.id
-    if (!masterId) {
-      setKitStoreIds([])
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      try {
-        const orgId = await getCurrentOrganizationId()
-        if (!orgId) return
-        const { data, error } = await supabase
-          .from('scenario_kit_locations')
-          .select('store_id')
-          .eq('scenario_master_id', masterId)
-          .eq('organization_id', orgId)
-        if (error || cancelled) return
-        const ids = Array.from(new Set((data || []).map(r => r.store_id).filter(Boolean) as string[]))
-        setKitStoreIds(ids)
-      } catch (err) {
-        logger.error('キット配置店舗の取得エラー:', err)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [formData.scenario, scenarios])
+  // 選択中シナリオのキット配置店舗一覧（scenario_master_id 単位）
+  const kitStoreIds = useKitStoreIds(formData.scenario, scenarios)
 
   const initForm = async () => {
     
