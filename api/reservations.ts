@@ -699,6 +699,14 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (!ok) {
     return res.status(500).json({ error: '予約の更新に失敗しました（DB 側で 0 行更新）' })
   }
+  // admin_update_reservation_fields は失敗時に例外でなく { success:false, error } を返す。
+  // これを握り潰すと「成功扱いだが DB は未更新」になり、再取得で巻き戻って見える
+  // （チェックインがタブ往復で外れる不具合の一因だった）。success:false は明示的にエラーで返す。
+  if (typeof ok === 'object' && ok !== null && (ok as { success?: boolean }).success === false) {
+    const rpcError = (ok as { error?: string }).error || '予約の更新に失敗しました'
+    console.error('[reservations:update] RPC rejected:', rpcError)
+    return res.status(400).json({ error: rpcError })
+  }
 
   // 3) 更新後のレコードを customers/schedule_events と一緒に返す（メール送信側で必要）
   const { data, error } = await db
