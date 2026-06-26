@@ -326,30 +326,40 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     let availableCandidates = (existingResponse?.available_candidates || [])
       .filter((idx: number) => idx < candidates.length)
 
-    // 既に選択されているかチェック
-    const isAlreadySelected = availableCandidates.includes(dateIndex)
-    
-    if (isAlreadySelected) {
-      // 既に選択済みの場合は削除（トグル動作）
-      availableCandidates = availableCandidates.filter(idx => idx !== dateIndex)
-      console.log(`🔄 Toggling off date index ${dateIndex}`)
-    } else {
-      // 新しく追加
-      availableCandidates = [...availableCandidates, dateIndex]
-      console.log(`➕ Adding date index ${dateIndex}`)
-    }
-    
-    // 履歴レコードを作成
-    const historyEntry = {
-      timestamp: new Date().toISOString(),
-      action: isAlreadySelected ? 'removed' : 'added',
-      date_index: dateIndex,
-      date_string: selectedDate
-    }
-    
-    // 既存の履歴を取得して追加
+    // 既存の履歴を取得
     const responseHistory = existingResponse?.response_history || []
-    responseHistory.push(historyEntry)
+
+    // 誤連打ガード: 同じ候補を直近3秒以内に操作していたら、今回のクリックは無視して状態を維持する。
+    // Discordのボタン/メッセージが切り替わるまでにはラグがあり、その間に二度押しすると選択が
+    // 意図せずトグル解除されてしまう（オーナー報告の事故）。直前と同じ候補の連打のみを弾く。
+    const lastEntry = responseHistory[responseHistory.length - 1]
+    const isRapidDuplicate = !!lastEntry
+      && lastEntry.date_index === dateIndex
+      && (lastEntry.action === 'added' || lastEntry.action === 'removed')
+      && (Date.now() - new Date(lastEntry.timestamp).getTime() < 3000)
+
+    if (isRapidDuplicate) {
+      console.log(`⏱️ 誤連打ガード: 候補${dateIndex} の二度押し(3秒以内)を無視し、状態を維持`)
+    } else {
+      // 既に選択されているかチェック
+      const isAlreadySelected = availableCandidates.includes(dateIndex)
+      if (isAlreadySelected) {
+        // 既に選択済みの場合は削除（トグル動作）
+        availableCandidates = availableCandidates.filter(idx => idx !== dateIndex)
+        console.log(`🔄 Toggling off date index ${dateIndex}`)
+      } else {
+        // 新しく追加
+        availableCandidates = [...availableCandidates, dateIndex]
+        console.log(`➕ Adding date index ${dateIndex}`)
+      }
+      // 履歴レコードを作成
+      responseHistory.push({
+        timestamp: new Date().toISOString(),
+        action: isAlreadySelected ? 'removed' : 'added',
+        date_index: dateIndex,
+        date_string: selectedDate
+      })
+    }
     
     // 日程情報を組み立て
     const selectedDates = availableCandidates.map(idx => {
