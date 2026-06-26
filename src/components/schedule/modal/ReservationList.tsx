@@ -20,6 +20,7 @@ import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
+import { sumActiveParticipants } from './reservationList/participants'
 import { showToast } from '@/utils/toast'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
 import { getDefaultStoreCancellationTemplate } from '@/lib/templateRegistry'
@@ -124,11 +125,6 @@ export function ReservationList({
     currentEventData.venue ||
     (event?.venue ? stores.find(s => s.id === event.venue || s.name === event.venue)?.id : null)
 
-  const sumActiveParticipants = (list: Reservation[]) =>
-    list.reduce((sum, r) => {
-      if (!r?.status || !ACTIVE_RESERVATION_STATUSES_SET.has(r.status)) return sum
-      return sum + (r.participant_count || 0)
-    }, 0)
 
   // 予約データを読み込む
   useEffect(() => {
