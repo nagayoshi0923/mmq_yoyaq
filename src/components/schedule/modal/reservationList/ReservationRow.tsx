@@ -392,7 +392,7 @@ export function ReservationRow({
                                 </Button>
                               </div>
                             )}
-                            <div className="grid grid-cols-2 gap-3 text-sm mt-3">
+                            <div className="grid grid-cols-2 gap-3 text-xs mt-3">
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">人数</Label>
                                 <div className="flex items-center gap-2">
@@ -452,14 +452,14 @@ export function ReservationRow({
                                       
                                       showToast.success('人数を更新しました')
                                     }}
-                                    className="w-20 h-8 text-sm"
+                                    className="w-20 h-8 text-xs"
                                   />
                                   <span className="text-xs text-muted-foreground">名</span>
                                 </div>
                               </div>
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">予約ソース</Label>
-                                <div className="text-sm">
+                                <div className="text-xs">
                                   {reservation.reservation_source === RESERVATION_SOURCE.DEMO ? 'デモ' :
                                    reservation.reservation_source === RESERVATION_SOURCE.STAFF_PARTICIPATION ? 'スタッフ参加' :
                                    reservation.reservation_source === RESERVATION_SOURCE.WEB ? 'Web予約' :
@@ -496,13 +496,13 @@ export function ReservationRow({
                                   {phone && (
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs text-muted-foreground w-20 shrink-0">電話番号</span>
-                                      <a href={`tel:${phone}`} className="text-sm text-blue-600 hover:underline">{phone}</a>
+                                      <a href={`tel:${phone}`} className="text-xs text-blue-600 hover:underline">{phone}</a>
                                     </div>
                                   )}
                                   {email && (
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs text-muted-foreground w-20 shrink-0">メール</span>
-                                      <a href={`mailto:${email}`} className="text-sm text-blue-600 hover:underline break-all">{email}</a>
+                                      <a href={`mailto:${email}`} className="text-xs text-blue-600 hover:underline break-all">{email}</a>
                                     </div>
                                   )}
                                   {!phone && !email && (
@@ -514,7 +514,7 @@ export function ReservationRow({
                             {reservation.customer_notes && (
                               <div className="mt-3">
                                 <Label className="text-xs text-muted-foreground">備考</Label>
-                                <div className="text-sm mt-1">{reservation.customer_notes}</div>
+                                <div className="text-xs mt-1">{reservation.customer_notes}</div>
                               </div>
                             )}
                           </div>
