@@ -91,12 +91,12 @@ export function ReservationRow({
                                 const nickname = customer?.nickname
                                 const hasNickname = !!nickname && nickname !== name
                                 return (
-                                  <span className="flex flex-col min-w-0 leading-tight">
-                                    <span className="font-medium text-sm truncate">{name}</span>
+                                  <span className="flex flex-col min-w-0 flex-1 leading-tight">
+                                    <span className="font-medium text-xs truncate">{name}</span>
                                     {hasNickname ? (
-                                      <span className="text-xs text-muted-foreground truncate">（{nickname}）</span>
+                                      <span className="text-[10px] text-muted-foreground truncate">（{nickname}）</span>
                                     ) : (
-                                      <span className="text-xs text-muted-foreground/50 truncate">ニックネーム未設定</span>
+                                      <span className="text-[10px] text-muted-foreground/50 truncate">ニックネーム未設定</span>
                                     )}
                                   </span>
                                 )
