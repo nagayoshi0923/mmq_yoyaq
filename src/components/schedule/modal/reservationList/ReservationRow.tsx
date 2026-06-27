@@ -101,25 +101,7 @@ export function ReservationRow({
                                   </span>
                                 )
                               })()}
-                              {/* キャンセル済みバッジ + 日時 */}
-                              {isCancelled && (
-                                <>
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
-                                    キャンセル済
-                                  </span>
-                                  {(reservation.cancelled_at || reservation.updated_at) && (
-                                    <span className="text-[10px] text-gray-400 shrink-0">
-                                      {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
-                                        timeZone: 'Asia/Tokyo',
-                                        month: 'numeric',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })}
-                                    </span>
-                                  )}
-                                </>
-                              )}
+                              {/* キャンセル済みの表示はステータス列に集約（名前列のバッジ重複・名前潰れを解消） */}
                               {/* 貸切バッジ */}
                               {reservation.private_group_id && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
