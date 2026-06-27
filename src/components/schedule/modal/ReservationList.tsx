@@ -357,7 +357,7 @@ export function ReservationList({
                 </div>
               )}
               <div>
-                <div className="hidden sm:flex border rounded-t-lg bg-muted/30 p-3 h-[50px] items-center justify-between font-medium text-xs">
+                <div className="hidden sm:flex border rounded-t-lg bg-muted/30 p-3 h-[50px] items-center justify-between gap-3 font-medium text-xs">
                   <div className="flex items-center gap-3 flex-1">
                     <div className="w-[40px] flex items-center justify-center">
                       <Checkbox
@@ -373,7 +373,7 @@ export function ReservationList({
                     </div>
                     <span className="flex-1">顧客名</span>
                     <span className="w-[60px]">人数</span>
-                    <span className="w-[100px]">予約日時</span>
+                    <span className="w-[80px]">予約日時</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="w-[80px]">ステータス</span>

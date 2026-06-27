@@ -261,7 +261,7 @@ export function ReservationRow({
                                 </SelectContent>
                               </Select>
                             )}
-                            <span className="hidden sm:block text-xs text-muted-foreground w-[100px]">
+                            <span className="hidden sm:block text-xs text-muted-foreground w-[80px]">
                               {isCancelled && reservation.cancelled_at ? (
                                 <span title="キャンセル日時">
                                   {new Date(reservation.cancelled_at).toLocaleString('ja-JP', {
