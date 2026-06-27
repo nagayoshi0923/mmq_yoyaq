@@ -126,6 +126,7 @@ export function ReservationList({
   // 予約ステータスを更新する関数
   const {
     handleUpdateReservationStatus,
+    handleToggleArrivedLate,
     handleConfirmCancelFromDialog,
     handleExecuteCancel,
     handleAddParticipant,
@@ -415,6 +416,7 @@ export function ReservationList({
                       scenarios={scenarios}
                       event={event}
                       handleUpdateReservationStatus={handleUpdateReservationStatus}
+                      handleToggleArrivedLate={handleToggleArrivedLate}
                       onParticipantChange={onParticipantChange}
                     />
                   ))}

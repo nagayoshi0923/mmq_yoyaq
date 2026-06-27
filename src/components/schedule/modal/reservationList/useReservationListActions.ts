@@ -152,6 +152,31 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
     }
   }
 
+  // 遅刻フラグ（arrived_late）のトグル。来店済の行で「遅刻して来た」を別軸で記録する。
+  // status は変えないので参加者カウントは不変（checked_in のまま active）。
+  const handleToggleArrivedLate = async (reservationId: string, value: boolean) => {
+    const reservation = reservations.find(r => r.id === reservationId)
+    if (!reservation) return
+    const oldValue = reservation.arrived_late ?? false
+
+    // オプティミスティックUI
+    setReservations(prev =>
+      prev.map(r => r.id === reservationId ? { ...r, arrived_late: value } : r)
+    )
+
+    try {
+      await reservationApi.update(reservationId, { arrived_late: value })
+      logger.log('遅刻フラグ更新成功:', { id: reservationId, value })
+    } catch (error) {
+      // ロールバック
+      setReservations(prev =>
+        prev.map(r => r.id === reservationId ? { ...r, arrived_late: oldValue } : r)
+      )
+      logger.error('遅刻フラグ更新エラー:', error)
+      showToast.error('遅刻の更新に失敗しました')
+    }
+  }
+
   // キャンセル確認ダイアログを開く（メール文面も準備）
   const openCancelDialog = async (reservation: Reservation) => {
     if (!event) return
@@ -928,6 +953,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
 
   return {
     handleUpdateReservationStatus,
+    handleToggleArrivedLate,
     handleConfirmCancelFromDialog,
     handleExecuteCancel,
     handleAddParticipant,

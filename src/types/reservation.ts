@@ -32,6 +32,7 @@ export interface Reservation {
   payment_method?: string | null
   payment_datetime?: string | null
   status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' | 'gm_confirmed'
+  arrived_late?: boolean  // 遅刻して来店したか（checked_in時のみ意味を持つ）
   customer_notes?: string | null
   staff_notes?: string | null
   special_requests?: string | null

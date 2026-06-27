@@ -35,6 +35,7 @@ interface ReservationRowProps {
   scenarios: Scenario[]
   event: ScheduleEvent | null
   handleUpdateReservationStatus: (reservationId: string, newStatus: Reservation['status']) => void
+  handleToggleArrivedLate: (reservationId: string, value: boolean) => void
   onParticipantChange?: (eventId: string, newCount: number) => void
 }
 
@@ -52,6 +53,7 @@ export function ReservationRow({
   scenarios,
   event,
   handleUpdateReservationStatus,
+  handleToggleArrivedLate,
   onParticipantChange,
 }: ReservationRowProps) {
                     const isExpanded = expandedReservation === reservation.id
@@ -78,7 +80,7 @@ export function ReservationRow({
                               }}
                               disabled={isCancelled}
                             />
-                            <span className={`font-medium truncate flex-1 min-w-0 flex items-center gap-2 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
+                            <span className={`font-medium text-sm flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
                               {(() => {
                                 const customer = reservation.customers
                                   ? (Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers)
@@ -316,33 +318,66 @@ export function ReservationRow({
                                   <X className="h-4 w-4" />
                                 </Button>
                               </>
-                            ) : reservation.status === 'checked_in' ? (
-                              <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
-                                ✓ 来店済
-                              </span>
                             ) : (
                               <>
-                                <Select 
-                                  value={reservation.status} 
+                                {/* ステータス: 確定 / キャンセル / 欠席（保留中は手動選択から除外）。
+                                    来店済は確定をベースに表示し、来店事実はバッジで示す。欠席にすると来店表示は消える。 */}
+                                <Select
+                                  value={reservation.status === 'no_show' ? 'no_show' : 'confirmed'}
                                   onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
                                 >
-                                  <SelectTrigger className="w-[80px] h-8 text-xs">
+                                  <SelectTrigger className="w-[88px] h-8 text-xs">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="confirmed">確定</SelectItem>
                                     <SelectItem value="cancelled">キャンセル</SelectItem>
-                                    <SelectItem value="pending">保留中</SelectItem>
+                                    <SelectItem value="no_show">欠席</SelectItem>
                                   </SelectContent>
                                 </Select>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50"
-                                  onClick={() => handleUpdateReservationStatus(reservation.id, 'checked_in')}
-                                >
-                                  チェックイン
-                                </Button>
+                                {reservation.status === 'checked_in' ? (
+                                  <>
+                                    {/* 来店済バッジ（遅刻なら⏰遅刻も） */}
+                                    <span className="h-8 text-xs text-green-600 font-semibold flex items-center gap-1 whitespace-nowrap">
+                                      ✓ 来店済
+                                      {reservation.arrived_late && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                          ⏰遅刻
+                                        </span>
+                                      )}
+                                    </span>
+                                    {/* 遅刻トグル（来店済の時だけ。ON で arrived_late=true） */}
+                                    <Button
+                                      variant={reservation.arrived_late ? 'default' : 'outline'}
+                                      size="sm"
+                                      className={`h-8 px-2 text-xs ${reservation.arrived_late ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                                      onClick={() => handleToggleArrivedLate(reservation.id, !reservation.arrived_late)}
+                                      title="遅刻して来店したかを記録"
+                                    >
+                                      遅刻
+                                    </Button>
+                                    {/* チェックイン解除（誤爆を戻す → 確定へ） */}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                      onClick={() => handleUpdateReservationStatus(reservation.id, 'confirmed')}
+                                      title="チェックインを取り消して確定に戻す"
+                                    >
+                                      解除
+                                    </Button>
+                                  </>
+                                ) : reservation.status === 'no_show' ? null : (
+                                  /* 未来店: 独立したチェックインボタン */
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                                    onClick={() => handleUpdateReservationStatus(reservation.id, 'checked_in')}
+                                  >
+                                    チェックイン
+                                  </Button>
+                                )}
                               </>
                             )}
                             
