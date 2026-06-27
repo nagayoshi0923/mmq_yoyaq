@@ -633,9 +633,16 @@ export function PerformanceModal({
     
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
-      // シナリオIDがない場合は、タイトルから逆引き
-      const selectedScenario = scenarios.find(s => s.title === event.scenario)
-      
+      // シナリオIDがない場合は、タイトルから逆引き。
+      // タイトル完全一致を優先し、一致しない場合は scenario_master_id で照合する
+      // （同一シナリオでもマスタ名と組織側の表示名が食い違うと「未登録」誤表示になるため）。
+      const eventMasterId = (event as { scenario_master_id?: string }).scenario_master_id
+      const selectedScenario =
+        scenarios.find(s => s.title === event.scenario) ||
+        (eventMasterId
+          ? scenarios.find(s => s.scenario_master_id === eventMasterId || s.id === eventMasterId)
+          : undefined)
+
       // time_slotが存在する場合はそれを使用、なければstart_timeから判定
       let slot: 'morning' | 'afternoon' | 'evening' = 'morning'
       if (event.time_slot) {
@@ -661,6 +668,8 @@ export function PerformanceModal({
       }))
       setFormData({
         ...event,
+        // master_id で照合できた場合は登録済みの表示名にそろえる（「未登録」警告の誤表示を防ぐ）
+        scenario: selectedScenario?.title ?? event.scenario,
         scenario_master_id: selectedScenario?.id,  // scenario_masters.id
         time_slot: event.time_slot || timeSlotEnToSchedule(slot), // time_slotを設定
         max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
