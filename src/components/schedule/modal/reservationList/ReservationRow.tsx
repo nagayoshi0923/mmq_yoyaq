@@ -80,17 +80,24 @@ export function ReservationRow({
                               }}
                               disabled={isCancelled}
                             />
-                            <span className={`font-medium text-sm flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
+                            <span className={`flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
                               {(() => {
                                 const customer = reservation.customers
                                   ? (Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers)
                                   : null
                                 const name = reservation.customer_name || customer?.name || reservation.customer_notes || '顧客名なし'
                                 const nickname = customer?.nickname
-                                if (nickname && nickname !== name) {
-                                  return <>{name}<span className="text-xs text-muted-foreground ml-1">({nickname})</span></>
-                                }
-                                return name
+                                const hasNickname = !!nickname && nickname !== name
+                                return (
+                                  <span className="inline-flex items-baseline gap-1 min-w-0 max-w-full">
+                                    <span className="font-medium text-sm truncate">{name}</span>
+                                    {hasNickname ? (
+                                      <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">（{nickname}）</span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground/50 shrink-0 whitespace-nowrap">ニックネーム未設定</span>
+                                    )}
+                                  </span>
+                                )
                               })()}
                               {/* キャンセル済みバッジ + 日時 */}
                               {isCancelled && (
@@ -336,37 +343,15 @@ export function ReservationRow({
                                   </SelectContent>
                                 </Select>
                                 {reservation.status === 'checked_in' ? (
-                                  <>
-                                    {/* 来店済バッジ（遅刻なら⏰遅刻も） */}
-                                    <span className="h-8 text-xs text-green-600 font-semibold flex items-center gap-1 whitespace-nowrap">
-                                      ✓ 来店済
-                                      {reservation.arrived_late && (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
-                                          ⏰遅刻
-                                        </span>
-                                      )}
-                                    </span>
-                                    {/* 遅刻トグル（来店済の時だけ。ON で arrived_late=true） */}
-                                    <Button
-                                      variant={reservation.arrived_late ? 'default' : 'outline'}
-                                      size="sm"
-                                      className={`h-8 px-2 text-xs ${reservation.arrived_late ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
-                                      onClick={() => handleToggleArrivedLate(reservation.id, !reservation.arrived_late)}
-                                      title="遅刻して来店したかを記録"
-                                    >
-                                      遅刻
-                                    </Button>
-                                    {/* チェックイン解除（誤爆を戻す → 確定へ） */}
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                      onClick={() => handleUpdateReservationStatus(reservation.id, 'confirmed')}
-                                      title="チェックインを取り消して確定に戻す"
-                                    >
-                                      解除
-                                    </Button>
-                                  </>
+                                  /* 来店済バッジ（遅刻なら⏰遅刻も）。遅刻トグル/解除は詳細パネルへ集約して行をスッキリさせる */
+                                  <span className="h-8 text-xs text-green-600 font-semibold flex items-center gap-1 whitespace-nowrap">
+                                    ✓ 来店済
+                                    {reservation.arrived_late && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                        ⏰遅刻
+                                      </span>
+                                    )}
+                                  </span>
                                 ) : reservation.status === 'no_show' ? null : (
                                   /* 未来店: 独立したチェックインボタン */
                                   <Button
@@ -395,6 +380,30 @@ export function ReservationRow({
                         
                         {isExpanded && (
                           <div className="px-3 pb-3 pt-0 border-t">
+                            {/* 来店管理（来店済の時だけ）: 遅刻トグル＋チェックイン解除。行をスッキリさせるためここへ集約 */}
+                            {reservation.status === 'checked_in' && (
+                              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                <Label className="text-xs text-muted-foreground w-16 shrink-0">来店管理</Label>
+                                <Button
+                                  variant={reservation.arrived_late ? 'default' : 'outline'}
+                                  size="sm"
+                                  className={`h-8 px-3 text-xs ${reservation.arrived_late ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                                  onClick={() => handleToggleArrivedLate(reservation.id, !reservation.arrived_late)}
+                                  title="遅刻して来店したかを記録"
+                                >
+                                  {reservation.arrived_late ? '⏰ 遅刻あり' : '遅刻なし'}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={() => handleUpdateReservationStatus(reservation.id, 'confirmed')}
+                                  title="チェックインを取り消して確定に戻す"
+                                >
+                                  チェックイン解除
+                                </Button>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-3 text-sm mt-3">
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">人数</Label>
