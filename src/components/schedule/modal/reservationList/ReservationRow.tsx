@@ -66,20 +66,22 @@ export function ReservationRow({
                     return (
                       <div key={reservation.id} className={`${isLast ? '' : 'border-b'} ${isCancelled ? 'bg-gray-50 opacity-60' : ''}`}>
                         <div className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-                          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                            <Checkbox
-                              checked={selectedReservations.has(reservation.id)}
-                              onCheckedChange={(checked) => {
-                                const newSelected = new Set(selectedReservations)
-                                if (checked) {
-                                  newSelected.add(reservation.id)
-                                } else {
-                                  newSelected.delete(reservation.id)
-                                }
-                                setSelectedReservations(newSelected)
-                              }}
-                              disabled={isCancelled}
-                            />
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-[40px] flex items-center justify-center shrink-0">
+                              <Checkbox
+                                checked={selectedReservations.has(reservation.id)}
+                                onCheckedChange={(checked) => {
+                                  const newSelected = new Set(selectedReservations)
+                                  if (checked) {
+                                    newSelected.add(reservation.id)
+                                  } else {
+                                    newSelected.delete(reservation.id)
+                                  }
+                                  setSelectedReservations(newSelected)
+                                }}
+                                disabled={isCancelled}
+                              />
+                            </div>
                             <span className={`flex-1 min-w-0 flex items-center flex-wrap gap-x-2 gap-y-0.5 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
                               {(() => {
                                 const customer = reservation.customers
@@ -89,12 +91,12 @@ export function ReservationRow({
                                 const nickname = customer?.nickname
                                 const hasNickname = !!nickname && nickname !== name
                                 return (
-                                  <span className="inline-flex items-baseline gap-1 min-w-0 max-w-full">
+                                  <span className="flex flex-col min-w-0 leading-tight">
                                     <span className="font-medium text-sm truncate">{name}</span>
                                     {hasNickname ? (
-                                      <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">（{nickname}）</span>
+                                      <span className="text-xs text-muted-foreground truncate">（{nickname}）</span>
                                     ) : (
-                                      <span className="text-xs text-muted-foreground/50 shrink-0 whitespace-nowrap">ニックネーム未設定</span>
+                                      <span className="text-xs text-muted-foreground/50 truncate">ニックネーム未設定</span>
                                     )}
                                   </span>
                                 )
@@ -282,9 +284,9 @@ export function ReservationRow({
                             </span>
                           </div>
                           
-                          <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
+                          <div className="flex items-center gap-2 ml-[52px] sm:ml-0 flex-shrink-0">
                             {isCancelled ? (
-                              <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="w-[184px] flex flex-col gap-0.5 min-w-0">
                                 <span className="text-xs text-red-500">キャンセル済</span>
                                 {(() => {
                                   const reason = reservation.cancellation_reason
@@ -311,70 +313,74 @@ export function ReservationRow({
                                 })()}
                               </div>
                             ) : isStaffParticipation ? (
-                              <>
+                              <div className="w-[184px] flex items-center gap-2">
                                 <span className="h-8 px-2 text-xs flex items-center rounded bg-green-50 text-green-800 border border-green-200 whitespace-nowrap" title="GMタブからスタッフ参加として追加された参加者です">
                                   スタッフ (GMタブから)
                                 </span>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 shrink-0"
                                   onClick={() => handleUpdateReservationStatus(reservation.id, 'cancelled')}
                                   title="GMタブからも完全に削除します"
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
-                              </>
+                              </div>
                             ) : (
                               <>
-                                {/* ステータス: 確定 / キャンセル / 欠席（保留中は手動選択から除外）。
-                                    来店済は確定をベースに表示し、来店事実はバッジで示す。欠席にすると来店表示は消える。 */}
-                                <Select
-                                  value={reservation.status === 'no_show' ? 'no_show' : 'confirmed'}
-                                  onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
-                                >
-                                  <SelectTrigger className="w-[88px] h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="confirmed">確定</SelectItem>
-                                    <SelectItem value="cancelled">キャンセル</SelectItem>
-                                    <SelectItem value="no_show">欠席</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {reservation.status === 'checked_in' ? (
-                                  /* 来店済バッジ（遅刻なら⏰遅刻も）。遅刻トグル/解除は詳細パネルへ集約して行をスッキリさせる */
-                                  <span className="h-8 text-xs text-green-600 font-semibold flex items-center gap-1 whitespace-nowrap">
-                                    ✓ 来店済
-                                    {reservation.arrived_late && (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
-                                        ⏰遅刻
-                                      </span>
-                                    )}
-                                  </span>
-                                ) : reservation.status === 'no_show' ? null : (
-                                  /* 未来店: 独立したチェックインボタン */
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50"
-                                    onClick={() => handleUpdateReservationStatus(reservation.id, 'checked_in')}
+                                {/* ステータス列(w-80): 確定 / キャンセル / 欠席（保留中は手動選択から除外） */}
+                                <div className="w-[80px] shrink-0">
+                                  <Select
+                                    value={reservation.status === 'no_show' ? 'no_show' : 'confirmed'}
+                                    onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
                                   >
-                                    チェックイン
-                                  </Button>
-                                )}
+                                    <SelectTrigger className="w-full h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="confirmed">確定</SelectItem>
+                                      <SelectItem value="cancelled">キャンセル</SelectItem>
+                                      <SelectItem value="no_show">欠席</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {/* チェックイン列(w-96): 来店済バッジ or チェックインボタン（欠席は空）。遅刻トグル/解除は詳細へ */}
+                                <div className="w-[96px] shrink-0 flex items-center">
+                                  {reservation.status === 'checked_in' ? (
+                                    <span className="text-xs text-green-600 font-semibold flex items-center gap-1 whitespace-nowrap">
+                                      ✓来店済
+                                      {reservation.arrived_late && (
+                                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                          遅刻
+                                        </span>
+                                      )}
+                                    </span>
+                                  ) : reservation.status === 'no_show' ? null : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50 w-full"
+                                      onClick={() => handleUpdateReservationStatus(reservation.id, 'checked_in')}
+                                    >
+                                      チェックイン
+                                    </Button>
+                                  )}
+                                </div>
                               </>
                             )}
-                            
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                              onClick={() => setExpandedReservation(isExpanded ? null : reservation.id)}
-                            >
-                              詳細
-                              {isExpanded ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
-                            </Button>
+                            {/* 詳細列(w-52) */}
+                            <div className="w-[52px] shrink-0 flex items-center justify-end">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => setExpandedReservation(isExpanded ? null : reservation.id)}
+                              >
+                                詳細
+                                {isExpanded ? <ChevronUp className="ml-0.5 h-3 w-3" /> : <ChevronDown className="ml-0.5 h-3 w-3" />}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                         

@@ -377,7 +377,8 @@ export function ReservationList({
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="w-[80px]">ステータス</span>
-                    <span className="w-[80px]"></span>
+                    <span className="w-[96px]">チェックイン</span>
+                    <span className="w-[52px] text-right">詳細</span>
                   </div>
                 </div>
                 <div className="sm:hidden border rounded-t-lg bg-muted/30 p-3 flex items-center justify-between font-medium text-xs">
