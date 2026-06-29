@@ -13,6 +13,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { formatJstDateTime } from '@/utils/jstDate'
 import { reservationApi } from '@/lib/reservationApi'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES } from '@/lib/constants'
@@ -20,6 +21,19 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import type { ScheduleEvent } from '@/types/schedule'
+
+// 予約台帳の支払表示用ラベル（AddParticipantSection の選択肢と表記を揃える）
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  onsite: '現地決済',
+  online: '事前決済',
+  staff: 'スタッフ参加（無料）',
+}
+const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  pending: '未払い',
+  paid: '支払済み',
+  refunded: '返金済み',
+  cancelled: 'キャンセル',
+}
 
 interface ReservationRowProps {
   reservation: Reservation
@@ -468,9 +482,52 @@ export function ReservationRow({
                                 </div>
                               </div>
                             </div>
+                            {/* 予約台帳: 予約番号/料金/予約日時/予約作成日/担当GM/支払（社内向け台帳フィールド） */}
+                            {(() => {
+                              const gmLabel = reservation.gm_staff
+                                || (reservation.assigned_staff?.length ? reservation.assigned_staff.join('、') : '')
+                                || (event?.gms?.length ? event.gms.join('、') : '')
+                                || '-'
+                              const methodLabel = reservation.payment_method
+                                ? (PAYMENT_METHOD_LABEL[reservation.payment_method] ?? reservation.payment_method)
+                                : ''
+                              const statusLabel = PAYMENT_STATUS_LABEL[reservation.payment_status] ?? reservation.payment_status
+                              const paymentLabel = methodLabel ? `${methodLabel}・${statusLabel}` : statusLabel
+                              return (
+                                <div className="mt-2.5 space-y-1.5 border-t pt-2.5">
+                                  <Label className="text-xs font-semibold text-muted-foreground">予約台帳</Label>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">予約番号</span>
+                                      <span className="text-xs break-all">{reservation.reservation_number || '-'}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">料金</span>
+                                      <span className="text-xs">¥{(reservation.final_price ?? 0).toLocaleString('ja-JP')}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">予約日時</span>
+                                      <span className="text-xs">{formatJstDateTime(reservation.requested_datetime) || '-'}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">予約作成日</span>
+                                      <span className="text-xs">{formatJstDateTime(reservation.created_at) || '-'}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">担当GM</span>
+                                      <span className="text-xs">{gmLabel}</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">支払</span>
+                                      <span className="text-xs">{paymentLabel}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })()}
                             {(() => {
                               const customer = reservation.customers as any
-                              let email = reservation.customer_email 
+                              let email = reservation.customer_email
                                 || customer?.email 
                                 || customer?.user?.email
                               
