@@ -65,7 +65,7 @@ export function ReservationRow({
                       (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '')
                     return (
                       <div key={reservation.id} className={`${isLast ? '' : 'border-b'} ${isCancelled ? 'bg-gray-50 opacity-60' : ''}`}>
-                        <div className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                        <div className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="w-[40px] flex items-center justify-center shrink-0">
                               <Checkbox
@@ -367,10 +367,10 @@ export function ReservationRow({
                         </div>
                         
                         {isExpanded && (
-                          <div className="px-3 pb-3 pt-0 border-t">
+                          <div className="px-3 pb-2.5 pt-0 border-t bg-muted/30">
                             {/* 来店管理（来店済の時だけ）: 遅刻トグル＋チェックイン解除。行をスッキリさせるためここへ集約 */}
                             {reservation.status === 'checked_in' && (
-                              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
                                 <Label className="text-xs text-muted-foreground w-16 shrink-0">来店管理</Label>
                                 <Button
                                   variant={reservation.arrived_late ? 'default' : 'outline'}
@@ -392,8 +392,8 @@ export function ReservationRow({
                                 </Button>
                               </div>
                             )}
-                            <div className="grid grid-cols-2 gap-3 text-xs mt-3">
-                              <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs mt-2.5">
+                              <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">人数</Label>
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -457,7 +457,7 @@ export function ReservationRow({
                                   <span className="text-xs text-muted-foreground">名</span>
                                 </div>
                               </div>
-                              <div className="space-y-2">
+                              <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">予約ソース</Label>
                                 <div className="text-xs">
                                   {reservation.reservation_source === RESERVATION_SOURCE.DEMO ? 'デモ' :
@@ -491,7 +491,7 @@ export function ReservationRow({
                               const phone = reservation.customer_phone || customer?.phone_number
 
                               return (
-                                <div className="mt-3 space-y-2 border-t pt-3">
+                                <div className="mt-2.5 space-y-1.5 border-t pt-2.5">
                                   <Label className="text-xs font-semibold text-muted-foreground">顧客情報</Label>
                                   {phone && (
                                     <div className="flex items-center gap-2">
@@ -512,7 +512,7 @@ export function ReservationRow({
                               )
                             })()}
                             {reservation.customer_notes && (
-                              <div className="mt-3">
+                              <div className="mt-2.5">
                                 <Label className="text-xs text-muted-foreground">備考</Label>
                                 <div className="text-xs mt-1">{reservation.customer_notes}</div>
                               </div>
