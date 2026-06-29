@@ -20,7 +20,7 @@ import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getEventTimeSlot, checkTimeOverlap } from '@/utils/eventOperationUtils'
+import { checkTimeOverlap } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -30,9 +30,8 @@ import {
   confirmSendPrivateBookingChangeEmail,
   syncRelatedDataOnEventDateChange,
 } from '@/hooks/eventOperations/eventSyncHelpers'
-import { scheduleTimeSlotToEn, timeSlotEnToLabel } from '@/lib/timeSlot'
 import type { ScheduleEvent } from '@/types/schedule'
-import type { RpcAdminUpdateReservationFieldsParams, RpcAdminDeleteReservationsByIdsParams } from '@/lib/rpcTypes'
+import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 
 interface Store {
   id: string
@@ -117,93 +116,39 @@ export function useEventSave({
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
-    // タイムスロットを判定（保存された枠time_slotを優先、なければstart_timeから判定）
-    let timeSlot: 'morning' | 'afternoon' | 'evening'
-    const savedSlot = scheduleTimeSlotToEn(performanceData.time_slot)
-    if (savedSlot) {
-      timeSlot = savedSlot
-    } else {
-      const startHour = parseInt(performanceData.start_time.split(':')[0])
-      if (startHour < 12) {
-        timeSlot = 'morning'
-      } else if (startHour < 17) {
-        timeSlot = 'afternoon'
-      } else {
-        timeSlot = 'evening'
-      }
-    }
-    
-    // 重複チェック1：同じ日時・店舗・時間帯に既に公演があるか（タイムスロット単位）
-    const slotConflictingEvents = events.filter(event => {
-      // 編集中の公演自身は除外
-      if (modalMode === 'edit' && event.id === performanceData.id) {
-        return false
-      }
-      
-      // 既存イベントの時間帯も保存された枠を優先
-      const eventTimeSlot = getEventTimeSlot(event)
-      return event.date === performanceData.date &&
-             event.venue === performanceData.venue &&
-             eventTimeSlot === timeSlot &&
-             !event.is_cancelled
-    })
-    
-    if (slotConflictingEvents.length > 0) {
-      const conflictingEvent = slotConflictingEvents[0]
-      const timeSlotLabel = timeSlotEnToLabel(timeSlot, 'candidate')
-      const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
-      
-      // 重複警告モーダルを表示
-      setConflictInfo({
-        date: performanceData.date,
-        storeName,
-        timeSlot: timeSlotLabel,
-        conflictingEvent: {
-          id: conflictingEvent.id,
-          scenario: conflictingEvent.scenario,
-          gms: conflictingEvent.gms,
-          start_time: conflictingEvent.start_time,
-          end_time: conflictingEvent.end_time,
-          is_private_request: conflictingEvent.is_private_request,
-          reservation_id: conflictingEvent.reservation_id
-        }
-      })
-      setPendingPerformanceData(performanceData)
-      setIsConflictWarningOpen(true)
-      return false
-    }
-    
-    // 重複チェック2：実際の時間の重複（準備時間を考慮）
-    // 同じ日・同じ店舗の全公演と時間を比較
-    
-    // 新規公演のシナリオから準備時間を取得
+    // 重複/間隔チェック：同じ日・同じ店舗の全公演と「実際の時間」を比較（準備時間考慮）。
+    // 以前あった「同じ朝/昼/夜の枠に既に公演がある」だけの粗いチェックは廃止した。
+    // 十分な間隔（60分＋準備時間）が空いていれば、同じ枠に複数公演を置いてよい。
+    // checkTimeOverlap が拾うのは「時間が完全に重複(overlap)」か「間隔不足(interval)」のみ。
+    // ※ 警告を確認しても既存公演は絶対に削除しない（30分間隔の連続公演や2部屋同時公演を許容するため）。
     const newScenario = scenarios.find(s => s.title === performanceData.scenario)
     const newPrepMinutes = newScenario?.extra_preparation_time || 0
-    
+
     logger.log('🔍 準備時間チェック:', JSON.stringify({
       scenarioTitle: performanceData.scenario,
       foundScenario: !!newScenario,
       extra_preparation_time: newScenario?.extra_preparation_time,
       newPrepMinutes
     }))
-    
-    let timeConflict: { event: ScheduleEvent; reason: string } | null = null
-    
+
+    // 完全重複(overlap)を最優先で確定。無ければ最初の間隔不足(interval)を採用する。
+    let timeConflict: { event: ScheduleEvent; reason: string; kind: 'overlap' | 'interval' } | null = null
+
     for (const event of events) {
       // 編集中の公演自身は除外
       if (modalMode === 'edit' && event.id === performanceData.id) {
         continue
       }
-      
+
       // 同じ日・同じ店舗の公演のみ対象
       if (event.date !== performanceData.date || event.venue !== performanceData.venue || event.is_cancelled) {
         continue
       }
-      
+
       // 既存公演のシナリオから準備時間を取得
       const existingScenario = scenarios.find(s => s.title === event.scenario)
       const existingPrepMinutes = existingScenario?.extra_preparation_time || 0
-      
+
       // 時間の重複をチェック（両方向の準備時間を考慮）
       const result = checkTimeOverlap(
         event.start_time,
@@ -213,21 +158,30 @@ export function useEventSave({
         existingPrepMinutes,
         newPrepMinutes
       )
-      
+
       if (result.overlap) {
-        timeConflict = { event, reason: result.reason || '時間が重複' }
-        break
+        const kind: 'overlap' | 'interval' = result.reason === '時間が重複' ? 'overlap' : 'interval'
+        if (kind === 'overlap') {
+          // 時間が完全に重なるケースは最優先で確定（以降は探索不要）
+          timeConflict = { event, reason: result.reason || '時間が重複', kind }
+          break
+        }
+        // 間隔不足は最初の1件だけ保持（後で overlap が見つかれば上書きされる）
+        if (!timeConflict) {
+          timeConflict = { event, reason: result.reason || '間隔不足', kind }
+        }
       }
     }
-    
+
     if (timeConflict) {
       const conflictingEvent = timeConflict.event
       const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
-      
-      // 重複警告モーダルを表示
+
+      // 重複/間隔の警告モーダルを表示（破壊的操作はしない＝既存公演はそのまま残す）
       setConflictInfo({
         date: performanceData.date,
         storeName,
+        kind: timeConflict.kind,
         timeSlot: `${conflictingEvent.start_time.slice(0, 5)}〜${conflictingEvent.end_time.slice(0, 5)}（${timeConflict.reason}）`,
         conflictingEvent: {
           id: conflictingEvent.id,
@@ -241,9 +195,9 @@ export function useEventSave({
       })
       setPendingPerformanceData(performanceData)
       setIsConflictWarningOpen(true)
-      return false  // 重複警告表示時はダイアログを閉じない
+      return false  // 警告表示時はダイアログを閉じない
     }
-    
+
     // 重複がない場合は直接保存
     return await doSavePerformance(performanceData)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- doSavePerformanceは後で定義されるため意図的に省略
@@ -784,69 +738,17 @@ export function useEventSave({
     }
   }, [modalMode, stores, scenarios, setEvents, organizationId])
 
-  // 重複警告からの続行処理
+  // 重複/間隔警告からの続行処理：既存公演は削除せず、両方の公演を残して保存する。
+  // （前後30分など間隔が短い連続公演・2部屋同時公演を許容するため、保存が他公演を消すことはしない。
+  //   既存公演を消したい場合は右クリックの削除・中止など明示的な操作で行う。）
   const handleConflictContinue = useCallback(async () => {
-    if (!pendingPerformanceData || !conflictInfo) return
-    
-    try {
-      // タイムスロットを判定（保存された枠time_slotを優先）
-      let timeSlot: 'morning' | 'afternoon' | 'evening'
-      const savedSlot = scheduleTimeSlotToEn(pendingPerformanceData.time_slot)
-      if (savedSlot) {
-        timeSlot = savedSlot
-      } else {
-        const startHour = parseInt(pendingPerformanceData.start_time.split(':')[0])
-        if (startHour < 12) {
-          timeSlot = 'morning'
-        } else if (startHour < 18) {
-          timeSlot = 'afternoon'
-        } else {
-          timeSlot = 'evening'
-        }
-      }
-      
-      // 削除対象 = 「新公演と同じ時間帯の既存公演」＋「警告に出している重複公演そのもの」。
-      // 後者は間隔不足(60分)のとき別の時間帯のことがあり、時間帯一致だけでは漏れる
-      // （従来は同枠しか消さず、別枠の重複公演が残ったまま重なって保存されていた）。
-      const conflictingEventId: string | undefined = conflictInfo.conflictingEvent?.id
-      const conflictingEvents = events.filter(event => {
-        if (modalMode === 'edit' && event.id === pendingPerformanceData.id) {
-          return false
-        }
-        if (event.is_cancelled) return false
-        if (event.date !== pendingPerformanceData.date || event.venue !== pendingPerformanceData.venue) {
-          return false
-        }
-        // 既存イベントの時間帯も保存された枠を優先
-        const eventTimeSlot = getEventTimeSlot(event)
-        return eventTimeSlot === timeSlot || event.id === conflictingEventId
-      })
-
-      // 既存公演を削除
-      for (const conflictEvent of conflictingEvents) {
-        if (conflictEvent.is_private_request && conflictEvent.reservation_id) {
-          await supabase.rpc('admin_delete_reservations_by_ids', {
-            p_reservation_ids: [conflictEvent.reservation_id],
-          } as RpcAdminDeleteReservationsByIdsParams)
-        } else {
-          await scheduleApi.delete(conflictEvent.id)
-        }
-      }
-
-      // ローカル状態から削除
-      const deletedIds = new Set(conflictingEvents.map(e => e.id))
-      setEvents(prev => prev.filter(event => !deletedIds.has(event.id)))
-      
-      // 新しい公演を保存
-      await doSavePerformance(pendingPerformanceData)
-      setPendingPerformanceData(null)
-      setIsConflictWarningOpen(false)
-      setConflictInfo(null)
-    } catch (error) {
-      logger.error('既存公演の削除エラー:', error)
-      showToast.error('既存公演の削除に失敗しました')
-    }
-  }, [pendingPerformanceData, conflictInfo, events, modalMode, setEvents, doSavePerformance])
+    if (!pendingPerformanceData) return
+    // doSavePerformance が成否トーストを出す
+    await doSavePerformance(pendingPerformanceData)
+    setPendingPerformanceData(null)
+    setIsConflictWarningOpen(false)
+    setConflictInfo(null)
+  }, [pendingPerformanceData, doSavePerformance])
 
   return {
     isConflictWarningOpen,
