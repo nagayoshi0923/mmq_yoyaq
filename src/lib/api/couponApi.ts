@@ -378,6 +378,27 @@ export async function getCustomerCoupons(
 }
 
 /**
+ * 保有クーポンの残使用回数を調整（管理者向け）
+ * 店舗で利用失敗した等で残回数がズレた場合にスタッフが直す。
+ */
+export async function adjustCouponUses(
+  customerCouponId: string,
+  usesRemaining: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const params = new URLSearchParams({ action: 'adjust-coupon-uses' })
+    return await apiClient.patch<{ success: boolean; error?: string }>(
+      `/api/coupons?${params}`,
+      { customer_coupon_id: customerCouponId, uses_remaining: usesRemaining }
+    )
+  } catch (err) {
+    logger.error('クーポン残回数調整エラー:', err)
+    const message = err instanceof Error ? err.message : '調整に失敗しました'
+    return { success: false, error: message }
+  }
+}
+
+/**
  * 未使用クーポンを取消（管理者向け・誤付与の取り消し）
  * 使用履歴があるクーポンは取消不可（その場合は restoreCouponUsage）
  */

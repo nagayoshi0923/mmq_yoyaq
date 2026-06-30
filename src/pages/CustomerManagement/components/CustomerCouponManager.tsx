@@ -12,7 +12,7 @@ import { showToast } from '@/utils/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Ticket, Plus, X } from 'lucide-react'
-import { getCustomerCoupons, getCampaigns, grantCouponToCustomer, revokeCoupon } from '@/lib/api/couponApi'
+import { getCustomerCoupons, getCampaigns, grantCouponToCustomer, revokeCoupon, adjustCouponUses } from '@/lib/api/couponApi'
 import type { CustomerCoupon, CouponCampaign } from '@/types'
 import { formatJstYmd } from '@/utils/jstDate'
 
@@ -39,6 +39,8 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
   const [busy, setBusy] = useState(false)
   const [grantCampaignId, setGrantCampaignId] = useState('')
   const [grantUses, setGrantUses] = useState('')
+  // 保有クーポンの残回数編集（couponId -> 入力中の値）
+  const [editUses, setEditUses] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -79,6 +81,26 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
     setGrantCampaignId(id)
     const camp = campaigns.find(c => c.id === id)
     setGrantUses(camp ? String(camp.max_uses_per_customer) : '')
+  }
+
+  const applyUses = async (c: CustomerCoupon) => {
+    const raw = editUses[c.id]
+    const n = raw != null ? parseInt(raw, 10) : NaN
+    if (!Number.isFinite(n) || n < 0) { showToast.error('0以上の数値を入力してください'); return }
+    if (n === c.uses_remaining) return
+    setBusy(true)
+    try {
+      const result = await adjustCouponUses(c.id, n)
+      if (!result.success) {
+        showToast.error(result.error || '調整に失敗しました')
+        return
+      }
+      setEditUses(prev => { const next = { ...prev }; delete next[c.id]; return next })
+      showToast.success('残回数を更新しました')
+      await load()
+    } finally {
+      setBusy(false)
+    }
   }
 
   const revoke = async (couponId: string) => {
@@ -155,7 +177,22 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
                         <span className="text-sm truncate">{c.coupon_campaigns?.name || 'クーポン'}</span>
                         <span className="text-xs text-muted-foreground">{discountLabel(c.coupon_campaigns)}</span>
                         <Badge variant="outline" className={`text-[10px] font-normal ${st.cls}`}>{st.label}</Badge>
-                        <span className="text-[10px] text-muted-foreground">残{c.uses_remaining}回</span>
+                        {/* 残回数の調整（店舗で利用失敗した等で直す） */}
+                        <span className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">残</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={editUses[c.id] ?? String(c.uses_remaining)}
+                            onChange={e => setEditUses(prev => ({ ...prev, [c.id]: e.target.value }))}
+                            disabled={busy || c.status === 'revoked'}
+                            className="w-12 h-6 text-xs border border-input rounded px-1 bg-background"
+                          />
+                          <span className="text-[10px] text-muted-foreground">回</span>
+                          {editUses[c.id] != null && parseInt(editUses[c.id], 10) !== c.uses_remaining && (
+                            <Button size="sm" disabled={busy} className="h-6 px-1.5 text-[10px] shrink-0" onClick={() => applyUses(c)}>適用</Button>
+                          )}
+                        </span>
                         {c.expires_at && <span className="text-[10px] text-muted-foreground">〜{formatJstYmd(c.expires_at)}</span>}
                       </div>
                       {isUnused(c) && (

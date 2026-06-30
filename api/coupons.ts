@@ -199,6 +199,9 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   if (action === 'toggle-campaign-active') {
     return handleToggleCampaignActive(req, res, user)
   }
+  if (action === 'adjust-coupon-uses') {
+    return handleAdjustCouponUses(req, res, user)
+  }
 
   return res.status(400).json({ error: `unknown action: ${action}` })
 }
@@ -964,6 +967,58 @@ async function handleRevokeCoupon(req: VercelRequest, res: VercelResponse, user:
   if (deleteError) {
     console.error('[coupons:revoke-coupon] delete error:', deleteError)
     return res.status(500).json({ success: false, error: '取消に失敗しました' })
+  }
+
+  return res.status(200).json({ success: true })
+}
+
+// =========================================
+// 管理者向け: 保有クーポンの残使用回数を調整
+// 店舗で利用失敗した等で残回数がズレた場合にスタッフが直す。
+// =========================================
+async function handleAdjustCouponUses(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const body = (req.body ?? {}) as { customer_coupon_id?: string; uses_remaining?: number }
+  const customerCouponId = body.customer_coupon_id
+  const usesRaw = body.uses_remaining
+  if (!customerCouponId) {
+    return res.status(400).json({ success: false, error: 'customer_coupon_id が必要です' })
+  }
+  if (typeof usesRaw !== 'number' || !Number.isFinite(usesRaw) || usesRaw < 0) {
+    return res.status(400).json({ success: false, error: 'uses_remaining は 0 以上の数値が必要です' })
+  }
+  const usesRemaining = Math.floor(usesRaw)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+
+  // 自組織のクーポンか検証
+  const { data: coupon, error: couponError } = await database
+    .from('customer_coupons')
+    .select('id, status, organization_id')
+    .eq('id', customerCouponId)
+    .eq('organization_id', user.orgId)
+    .maybeSingle()
+
+  if (couponError) {
+    console.error('[coupons:adjust-coupon-uses] fetch error:', couponError)
+    return res.status(500).json({ success: false, error: couponError.message })
+  }
+  if (!coupon) {
+    return res.status(404).json({ success: false, error: 'クーポンが見つかりません' })
+  }
+
+  // 残回数に応じて status を整える（取消済みは触らない）。0なら fully_used、>0 なら active。
+  const nextStatus = coupon.status === 'revoked' ? 'revoked' : (usesRemaining > 0 ? 'active' : 'fully_used')
+
+  const { error: updateError } = await database
+    .from('customer_coupons')
+    .update({ uses_remaining: usesRemaining, status: nextStatus, updated_at: new Date().toISOString() })
+    .eq('id', customerCouponId)
+    .eq('organization_id', user.orgId)
+
+  if (updateError) {
+    console.error('[coupons:adjust-coupon-uses] update error:', updateError)
+    return res.status(500).json({ success: false, error: '残回数の更新に失敗しました' })
   }
 
   return res.status(200).json({ success: true })
