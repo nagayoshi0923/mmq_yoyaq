@@ -196,7 +196,7 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
                         {c.expires_at && <span className="text-[10px] text-muted-foreground">〜{formatJstYmd(c.expires_at)}</span>}
                       </div>
                       {isUnused(c) && (
-                        <Button variant="ghost" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => revoke(c.id)}>
+                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => revoke(c.id)}>
                           <X className="h-3 w-3 mr-1" />取消
                         </Button>
                       )}

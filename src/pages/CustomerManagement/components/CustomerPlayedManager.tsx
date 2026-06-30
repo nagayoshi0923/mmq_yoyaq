@@ -232,8 +232,8 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
                       {item.title}
                       {item.date && <span className="text-xs text-muted-foreground ml-2">{formatJstYmd(item.date)}</span>}
                     </span>
-                    <Button variant="ghost" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
-                      <Trash2 className="h-3 w-3" />
+                    <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
+                      <Trash2 className="h-3 w-3 mr-1" />削除
                     </Button>
                   </div>
                 ))}
