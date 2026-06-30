@@ -291,7 +291,19 @@
         死 import 15個を一掃。検証: tsc=0 / eslint=0 / build:fast / test:unit 130。**実機スモーク**: ステータス変更・キャンセル（メール送信）・参加者追加・一括メール・貸切削除。
       **→ 5-3 完了。ReservationList 当セッション 2,263→486（-78%）。`reservationList/` に
         純モジュール/データ層フック/アクションフック/ダイアログ4/AddParticipantSection/ReservationRow を分離。**
-- [ ] 5-4 `PerformanceModal`（1,930行）: フォーム状態→フック、時間枠選択→子コンポーネント
+- [~] 5-4 `PerformanceModal`（1,908行）: presentational から子化（**af0458c0 で退行リバート済みの鬼門**）
+      方針: **純 presentational 子化のみ**（state/effect/handler は親に残し**同名 props 注入**）。これにより
+      前回退行の原因（state/effect のフック化＝再レンダ/effect タイミング変化）を回避。各歩は「移送ブロックの
+      byte 一致（空白除去diff=0）」＋ tsc=0 / eslint=0 / build:fast / test:unit 130 で担保。`performanceModal/` 配下へ抽出。
+      ※オーナー指示「slices 1-4 を一括 staging スモーク」。1スライス＝別コミット（退行時に個別 revert 可能）。
+      - [x] slice1 確認ダイアログ2つ（シナリオ変更確認/公演削除確認）→ `performanceModal/dialogs/PerformanceConfirmDialogs.tsx` `63ae8c7b`（1,908→1,865）
+      - [x] slice2 セクション1「日時・場所」→ `performanceModal/sections/DateLocationSection.tsx` `880c3ab9`（1,865→1,785・死import SingleDatePopover/Calendar 除去）
+      - [x] slice3 セクション2「公演内容（シナリオ/最大定員/料金）」→ `sections/PerformanceContentSection.tsx` `6767f7c6`（1,785→1,678・**退行①シナリオ外れゾーン**・死import BookOpen/ExternalLink/SearchableSelect 除去）
+      - [x] slice4 セクション3「スタッフ・備考（GM選択/役割切替）」→ `sections/StaffNotesSection.tsx` ＋ async 副作用ヘルパー
+            ensureStaffReservation/removeStaffReservation を `performanceModal/staffReservationHelpers.ts` へ逐語移設 `2d662e3f`
+            （1,678→**1,374**・**退行②メインGM消失ゾーン**・死import 9個除去）
+      **→ 当バッチ PerformanceModal 1,908→1,374（-534）。要 staging 実機スモーク（公演モーダル）→ OK で main マージ。
+        残: カテゴリ選択ブロック/DialogHeader サマリー/フッターの子化、フォーム state のフック化は別バッチ（慎重に）。**
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
         `generateEmailText`（コピー用）/`generateEmailBodyForItems`（送信用）の本文組み立てを
