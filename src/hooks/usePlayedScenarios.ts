@@ -3,10 +3,12 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
+import { fetchPlayedOverrideIds } from '@/lib/playedOverrides'
 
 /**
  * ユーザーの体験済みシナリオIDを管理するフック
  * DB (reservations + manual_play_history) から取得（読み取り専用）
+ * customer_played_overrides（本人/スタッフが解除したシナリオ）は差し引く
  * 登録は PlayedRegistrationDialog 経由で行い、refreshPlayed で再取得
  */
 export function usePlayedScenarios() {
@@ -64,6 +66,10 @@ export function usePlayedScenarios() {
           scenarioIds.add(m.scenario_master_id)
         }
       })
+
+      // 本人/スタッフが「未体験に戻した」シナリオを差し引く（表示判定専用の override）
+      const overrideIds = await fetchPlayedOverrideIds(customer.id)
+      overrideIds.forEach(id => scenarioIds.delete(id))
 
       setPlayedScenarioIds(scenarioIds)
     } catch (error) {

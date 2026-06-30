@@ -87,7 +87,21 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .maybeSingle()
         
         if (!customer) return
-        
+
+        // 本人/スタッフが「未体験に戻した」場合は override が優先（予約/手動より先に判定）
+        const { data: override } = await supabase
+          .from('customer_played_overrides')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .eq('scenario_master_id', scenario.scenario_master_id)
+          .limit(1)
+          .maybeSingle()
+
+        if (override) {
+          setIsPlayed(false)
+          return
+        }
+
         // 予約から体験済みか確認
         const { data: reservation } = await supabase
           .from('reservations')

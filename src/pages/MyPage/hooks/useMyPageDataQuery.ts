@@ -58,6 +58,8 @@ export interface MyPageData {
   scenarioInfo: Record<string, { min: number; max: number }>
   stores: Record<string, Store>
   playedScenarios: PlayedScenario[]
+  /** 本人/スタッフが「未体験に戻した」scenario_master_id 集合（アルバム非表示・体験済み判定で差し引く） */
+  playedOverrideIds: Set<string>
   privateGroups: PrivateGroupSummary[]
   ratingsMap: Record<string, number>
 }
@@ -86,17 +88,24 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         }
       }
 
-      if (!customer) return { reservations: [], customerInfo: null, customerId: null, avatarUrl: null, stats: { participationCount: 0, points: 0 }, scheduleEvents: {}, orgSlugs: {}, orgNames: {}, scenarioImages: {}, scenarioSlugs: {}, scenarioInfo: {}, stores: {}, playedScenarios: [], privateGroups: [], ratingsMap: {} }
+      if (!customer) return { reservations: [], customerInfo: null, customerId: null, avatarUrl: null, stats: { participationCount: 0, points: 0 }, scheduleEvents: {}, orgSlugs: {}, orgNames: {}, scenarioImages: {}, scenarioSlugs: {}, scenarioInfo: {}, stores: {}, playedScenarios: [], playedOverrideIds: new Set(), privateGroups: [], ratingsMap: {} }
 
-      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult] = await Promise.all([
+      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult] = await Promise.all([
         supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customer.id).order('requested_datetime', { ascending: false }).limit(50),
         supabase.from('private_group_members').select(`id, is_organizer, status, group_id, private_groups:group_id (id, name, invite_code, status, created_at, reservation_id, scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_max))`).eq('user_id', userId!).eq('status', 'joined'),
         supabase.from('manual_play_history').select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id').eq('customer_id', customer.id).order('created_at', { ascending: false }).limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER),
         supabase.from('scenario_ratings').select('scenario_master_id, rating').eq('customer_id', customer.id),
+        supabase.from('customer_played_overrides').select('scenario_master_id').eq('customer_id', customer.id),
       ])
 
       if (reservationResult.error) throw reservationResult.error
       const reservationData = reservationResult.data || []
+
+      // 本人/スタッフが「未体験に戻した」scenario_master_id（取得失敗時は空＝従来どおり全表示）
+      const playedOverrideIds = new Set<string>(
+        (overridesResult.data || []).map((o: { scenario_master_id: string }) => o.scenario_master_id).filter(Boolean)
+      )
+      if (overridesResult.error) logger.warn('体験済みオーバーライド取得エラー:', overridesResult.error)
 
       const localRatingsMap: Record<string, number> = {}
       ratingsResult.data?.forEach((r: any) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
@@ -269,6 +278,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         scenarioInfo,
         stores,
         playedScenarios: uniquePlayed,
+        playedOverrideIds,
         privateGroups,
         ratingsMap: localRatingsMap,
       }
