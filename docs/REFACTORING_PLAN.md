@@ -248,7 +248,11 @@
         （対象年月判定）を `parsers.ts` へ逐語抽出＋7ケースのテスト。残る非同期パースループ本体の純化は
         後続（要 async 再構成＋実機確認）。検証: tsc=0 / eslint=0 errors / build:fast / test:unit 89 passed。
         **※ import パスに手を入れたため実機スモーク対象**。
-      - [ ] 5-2d プレビュー表示UIを子コンポーネントへ分離
+      - [x] 5-2d プレビュー表示UIを子コンポーネントへ分離（2026-07-01・1,704→**1,406**・`d0f336d5`・**要 staging 実機確認**）。
+        プレビューフェーズ JSX（border div）を `importSchedule/ImportPreview.tsx` へ sed 逐語抽出（byte一致 空白除去diff=0）。
+        `PreviewEvent` を `importSchedule/types.ts` に移し親子共有、プレビュー専用 CATEGORY_OPTIONS/GM_ROLE_OPTIONS は子へ。
+        親は props 9個注入のみ＋死 import（Alert/Select系/SearchableSelect/MultiSelect）除去。
+        検証: tsc=0 / eslint=0 errors / build:fast / test:unit 130 passed。**残: 5-2c 非同期パースループの純化**。
 - [~] 5-3 `ReservationList`（2,263行）: データ層→フック、ハンドラ→フック、テーブル/ダイアログ→子
       ※当初想定の「フィルタ/エクスポート」は実体無し（CSV エクスポート・フィルタUIは存在しない）。純ロジックは薄く、
         主戦場は データ取得+realtime / status・cancel・add ハンドラ / テーブル・各ダイアログ の分割（要スモーク）。
