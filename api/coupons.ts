@@ -1422,12 +1422,17 @@ async function handleToggleCampaignActive(req: VercelRequest, res: VercelRespons
 // 管理者向け: 顧客にクーポンを手動付与
 // =========================================
 async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const body = (req.body ?? {}) as { campaign_id?: string; customer_id?: string }
+  const body = (req.body ?? {}) as { campaign_id?: string; customer_id?: string; uses?: number }
   const campaignId = body.campaign_id
   const customerId = body.customer_id
   if (!campaignId || !customerId) {
     return res.status(400).json({ success: false, error: 'campaign_id と customer_id が必要です' })
   }
+  // 付与時に使用回数を指定可能（未指定 or 不正なら campaign.max_uses_per_customer を使う）
+  const usesRaw = body.uses
+  const usesOverride = typeof usesRaw === 'number' && Number.isFinite(usesRaw) && usesRaw >= 1
+    ? Math.floor(usesRaw)
+    : null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const database = db as any
@@ -1506,7 +1511,7 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
       campaign_id: campaignId,
       customer_id: customerId,
       organization_id: user.orgId,
-      uses_remaining: campaign.max_uses_per_customer,
+      uses_remaining: usesOverride ?? campaign.max_uses_per_customer,
       expires_at: expiresAt,
       status: 'active',
     })

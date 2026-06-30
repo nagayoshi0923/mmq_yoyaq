@@ -249,12 +249,13 @@ export async function toggleCampaignActive(
  */
 export async function grantCouponToCustomer(
   campaignId: string,
-  customerId: string
+  customerId: string,
+  uses?: number
 ): Promise<{ success: boolean; couponId?: string; error?: string }> {
   try {
     return await apiClient.post<{ success: boolean; couponId?: string; error?: string }>(
       '/api/coupons?action=grant-to-customer',
-      { campaign_id: campaignId, customer_id: customerId }
+      { campaign_id: campaignId, customer_id: customerId, ...(uses != null ? { uses } : {}) }
     )
   } catch (err) {
     logger.error('クーポン付与エラー:', err)

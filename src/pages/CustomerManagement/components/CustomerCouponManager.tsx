@@ -38,6 +38,7 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [grantCampaignId, setGrantCampaignId] = useState('')
+  const [grantUses, setGrantUses] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,19 +57,28 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
 
   const grant = async () => {
     if (!grantCampaignId) { showToast.error('キャンペーンを選択してください'); return }
+    const usesNum = grantUses ? parseInt(grantUses, 10) : NaN
+    const uses = Number.isFinite(usesNum) && usesNum >= 1 ? usesNum : undefined
     setBusy(true)
     try {
-      const result = await grantCouponToCustomer(grantCampaignId, customerId)
+      const result = await grantCouponToCustomer(grantCampaignId, customerId, uses)
       if (!result.success) {
         showToast.error(result.error || '付与に失敗しました')
         return
       }
       setGrantCampaignId('')
+      setGrantUses('')
       showToast.success('クーポンを付与しました')
       await load()
     } finally {
       setBusy(false)
     }
+  }
+
+  const onSelectCampaign = (id: string) => {
+    setGrantCampaignId(id)
+    const camp = campaigns.find(c => c.id === id)
+    setGrantUses(camp ? String(camp.max_uses_per_customer) : '')
   }
 
   const revoke = async (couponId: string) => {
@@ -105,7 +115,7 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
           <div className="flex flex-col sm:flex-row gap-2 p-3 bg-background rounded-lg border">
             <select
               value={grantCampaignId}
-              onChange={e => setGrantCampaignId(e.target.value)}
+              onChange={e => onSelectCampaign(e.target.value)}
               className="flex-1 min-w-0 text-sm border border-input rounded px-2 h-9 bg-background"
             >
               <option value="">クーポンを選んで付与...</option>
@@ -113,6 +123,18 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
                 <option key={c.id} value={c.id}>{c.name}（{discountLabel(c)}）</option>
               ))}
             </select>
+            <div className="flex items-center gap-1 shrink-0">
+              <input
+                type="number"
+                min={1}
+                value={grantUses}
+                onChange={e => setGrantUses(e.target.value)}
+                disabled={!grantCampaignId}
+                className="w-16 text-sm border border-input rounded px-2 h-9 bg-background"
+                title="使用回数"
+              />
+              <span className="text-xs text-muted-foreground">回</span>
+            </div>
             <Button size="sm" disabled={busy || !grantCampaignId} className="h-9 shrink-0" onClick={grant}>
               <Plus className="h-4 w-4 mr-1" />付与
             </Button>

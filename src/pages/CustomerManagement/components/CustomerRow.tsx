@@ -118,6 +118,13 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
     return `¥${amount.toLocaleString()}`
   }
 
+  // 予約IDごとのクーポン割引合計（予約履歴に「クーポン利用」を表示するため）
+  const couponDiscountByReservation = couponUsages.reduce<Record<string, number>>((acc, u) => {
+    const rid = u.reservation?.id
+    if (rid) acc[rid] = (acc[rid] || 0) + (u.discount_amount || 0)
+    return acc
+  }, {})
+
   return (
     <div className="border rounded-lg overflow-hidden bg-white">
       {/* PC View */}
@@ -311,6 +318,12 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
                         <Calendar className="h-3 w-3" />
                         {formatDateTime(reservation.requested_datetime)}
                       </div>
+                      {couponDiscountByReservation[reservation.id] != null && (
+                        <div className="text-xs text-emerald-600 flex items-center gap-1 mt-0.5">
+                          <Ticket className="h-3 w-3" />
+                          クーポン利用 -¥{couponDiscountByReservation[reservation.id].toLocaleString()}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                       <div className="text-right">
