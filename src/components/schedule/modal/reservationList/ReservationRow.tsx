@@ -3,11 +3,13 @@
  * ReservationList から子コンポーネント抽出・挙動不変。
  * map コールバック本体を逐語移送し、クロージャ参照は同名 props として注入。
  */
+import { useState, useEffect } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -15,6 +17,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { formatJstDateTime } from '@/utils/jstDate'
 import { reservationApi } from '@/lib/reservationApi'
+import { customerMemoApi, type CustomerVisitStats } from '@/lib/customerMemoApi'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES } from '@/lib/constants'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -77,6 +80,48 @@ export function ReservationRow({
                     // 「スタッフ (GMタブから)」ラベル表示にする（チェックイン/ステータス操作を出さない）
                     const isStaffParticipation = reservation.payment_method === 'staff' ||
                       (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '')
+
+                    // 顧客台帳（社内専用）: 展開時にこの顧客の社内メモ＋来店/遅刻/欠席集計を取得。
+                    // customer_id が無い行（当日参加・スタッフ参加など未登録客）は対象外。
+                    const customerId = reservation.customer_id ?? null
+                    const [internalMemo, setInternalMemo] = useState('')
+                    const [savedMemo, setSavedMemo] = useState('')
+                    const [memoLoading, setMemoLoading] = useState(false)
+                    const [memoSaving, setMemoSaving] = useState(false)
+                    const [visitStats, setVisitStats] = useState<CustomerVisitStats | null>(null)
+
+                    useEffect(() => {
+                      if (!isExpanded || !customerId) return
+                      let cancelled = false
+                      setMemoLoading(true)
+                      ;(async () => {
+                        const [memo, stats] = await Promise.all([
+                          customerMemoApi.getMemo(customerId),
+                          customerMemoApi.getVisitStats(customerId),
+                        ])
+                        if (cancelled) return
+                        setInternalMemo(memo)
+                        setSavedMemo(memo)
+                        setVisitStats(stats)
+                        setMemoLoading(false)
+                      })()
+                      return () => { cancelled = true }
+                    }, [isExpanded, customerId])
+
+                    const handleSaveMemo = async () => {
+                      if (!customerId) return
+                      setMemoSaving(true)
+                      try {
+                        await customerMemoApi.saveMemo(customerId, internalMemo)
+                        setSavedMemo(internalMemo)
+                        showToast.success('社内メモを保存しました')
+                      } catch (e) {
+                        showToast.error(getSafeErrorMessage(e, '社内メモの保存に失敗しました'))
+                      } finally {
+                        setMemoSaving(false)
+                      }
+                    }
+
                     return (
                       <div key={reservation.id} className={`${isLast ? '' : 'border-b'} ${isCancelled ? 'bg-gray-50 opacity-60' : ''}`}>
                         <div className="px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
@@ -572,6 +617,58 @@ export function ReservationRow({
                               <div className="mt-2.5">
                                 <Label className="text-xs text-muted-foreground">備考</Label>
                                 <div className="text-xs mt-1">{reservation.customer_notes}</div>
+                              </div>
+                            )}
+                            {/* 顧客台帳（社内専用）: 来店/遅刻/欠席のミニ台帳＋社内メモ。顧客には絶対表示しない（RLS済）。
+                                customer_id を持つ登録顧客のみ対象（未登録の当日参加・スタッフ参加では非表示）。 */}
+                            {customerId && (
+                              <div className="mt-2.5 space-y-1.5 border-t pt-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <Label className="text-xs font-semibold text-muted-foreground">顧客台帳（社内専用）</Label>
+                                  <span className="text-[10px] text-muted-foreground/70 shrink-0">顧客には表示されません</span>
+                                </div>
+                                {/* ミニ台帳: この組織での 来店/遅刻/欠席 回数 */}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {memoLoading && !visitStats ? (
+                                    <span className="text-[11px] text-muted-foreground">読み込み中…</span>
+                                  ) : (
+                                    <>
+                                      <span className="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded text-[11px] bg-green-50 text-green-700 border border-green-200">
+                                        来店<span className="font-semibold text-xs">{visitStats?.visitCount ?? 0}</span>回
+                                      </span>
+                                      <span className="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded text-[11px] bg-amber-50 text-amber-700 border border-amber-200">
+                                        遅刻<span className="font-semibold text-xs">{visitStats?.lateCount ?? 0}</span>回
+                                      </span>
+                                      <span className="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded text-[11px] bg-red-50 text-red-700 border border-red-200">
+                                        欠席<span className="font-semibold text-xs">{visitStats?.noShowCount ?? 0}</span>回
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                                {/* 社内メモ（customer_memos を customer_id+organization_id で upsert） */}
+                                <div className="space-y-1">
+                                  <Textarea
+                                    value={internalMemo}
+                                    onChange={(e) => setInternalMemo(e.target.value)}
+                                    placeholder="この顧客に関する社内メモ（顧客には表示されません）"
+                                    rows={2}
+                                    className="text-xs"
+                                    disabled={memoLoading || memoSaving}
+                                  />
+                                  <div className="flex items-center justify-end gap-2">
+                                    {internalMemo !== savedMemo && (
+                                      <span className="text-[10px] text-amber-600">未保存の変更</span>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      className="h-7 px-3 text-xs"
+                                      onClick={handleSaveMemo}
+                                      disabled={memoSaving || memoLoading || internalMemo === savedMemo}
+                                    >
+                                      {memoSaving ? '保存中…' : 'メモを保存'}
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
