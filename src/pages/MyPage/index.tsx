@@ -1,7 +1,7 @@
 import { useState, useRef, Suspense } from 'react'
 import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -361,7 +361,8 @@ export default function MyPage() {
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
 
-  const handleHideFromAlbum = async (scenario: PlayedScenario) => {
+  // 非表示＝アルバムの表示整理だけ（体験済みのまま・予約サイト/詳細には影響しない。localStorage で端末ローカル管理）
+  const handleHideFromAlbum = (scenario: PlayedScenario) => {
     const key = playedScenarioAlbumKey(scenario)
     setHiddenPlays(prev => {
       const newSet = new Set(prev)
@@ -371,25 +372,11 @@ export default function MyPage() {
     })
     setIsEditDialogOpen(false)
     setEditingScenario(null)
-    // 予約由来は DB override に永続化（端末跨ぎ・予約サイト/シナリオ詳細でも「未体験」になる）。
-    // 手動履歴は元々「削除」で消せるため override 対象外。
-    const smId = scenario.scenario_id
-    if (customerId && smId && !scenario.is_manual) {
-      setPlayedOverrideIds(prev => new Set(prev).add(smId))
-      try {
-        await addPlayedOverride(customerId, smId)
-      } catch (error) {
-        logger.error('体験済み解除の保存エラー:', error)
-        setPlayedOverrideIds(prev => { const next = new Set(prev); next.delete(smId); return next })
-        showToast.error('予約サイト・他端末への反映に失敗しました（この端末では非表示のままです）')
-        return
-      }
-    }
     showToast.success('アルバムから非表示にしました')
   }
 
   // アルバムで再表示
-  const handleShowInAlbum = async (scenario: PlayedScenario) => {
+  const handleShowInAlbum = (scenario: PlayedScenario) => {
     const key = playedScenarioAlbumKey(scenario)
     setHiddenPlays(prev => {
       const newSet = new Set(prev)
@@ -399,27 +386,54 @@ export default function MyPage() {
     })
     setIsEditDialogOpen(false)
     setEditingScenario(null)
-    const smId = scenario.scenario_id
-    if (customerId && smId && !scenario.is_manual) {
-      setPlayedOverrideIds(prev => { const next = new Set(prev); next.delete(smId); return next })
-      try {
-        await removePlayedOverride(customerId, smId)
-      } catch (error) {
-        logger.error('体験済み解除取り消しエラー:', error)
-        setPlayedOverrideIds(prev => new Set(prev).add(smId))
-        showToast.error('再表示の反映に失敗しました')
-        return
-      }
-    }
     showToast.success('アルバムに再表示しました')
   }
 
-  // アイテムが非表示かどうか（localStorage の従来非表示 + DB override の解除）
+  // 未体験に戻す＝記録の訂正（実際はプレイしていない）。DB override を書き、予約サイト/詳細でも未体験になる。
+  // 予約由来の登録顧客のみ（手動履歴は「削除」で消せるため対象外）。
+  const handleMarkUnplayed = async (scenario: PlayedScenario) => {
+    const smId = scenario.scenario_id
+    if (!customerId || !smId) return
+    setIsEditDialogOpen(false)
+    setEditingScenario(null)
+    setPlayedOverrideIds(prev => new Set(prev).add(smId)) // optimistic
+    try {
+      await addPlayedOverride(customerId, smId)
+      showToast.success('未体験に戻しました（予約サイトにも反映されます）')
+    } catch (error) {
+      logger.error('未体験への変更エラー:', error)
+      setPlayedOverrideIds(prev => { const next = new Set(prev); next.delete(smId); return next })
+      showToast.error('未体験への変更に失敗しました')
+    }
+  }
+
+  // 体験済みに戻す＝未体験の取り消し（override を削除）
+  const handleMarkPlayed = async (scenario: PlayedScenario) => {
+    const smId = scenario.scenario_id
+    if (!customerId || !smId) return
+    setIsEditDialogOpen(false)
+    setEditingScenario(null)
+    setPlayedOverrideIds(prev => { const next = new Set(prev); next.delete(smId); return next }) // optimistic
+    try {
+      await removePlayedOverride(customerId, smId)
+      showToast.success('体験済みに戻しました')
+    } catch (error) {
+      logger.error('体験済みへの復帰エラー:', error)
+      setPlayedOverrideIds(prev => new Set(prev).add(smId))
+      showToast.error('体験済みへの復帰に失敗しました')
+    }
+  }
+
+  // アイテムが「非表示」（アルバム整理・体験済みのまま）かどうか＝localStorage のみ
   const isScenarioHidden = (scenario: PlayedScenario) => {
     const key = playedScenarioAlbumKey(scenario)
     const legacy = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
-    const overridden = scenario.scenario_id ? playedOverrideIds.has(scenario.scenario_id) : false
-    return overridden || hiddenPlays.has(key) || hiddenPlays.has(legacy)
+    return hiddenPlays.has(key) || hiddenPlays.has(legacy)
+  }
+
+  // アイテムが「未体験に戻された」（DB override）かどうか＝予約サイト/詳細でも未体験
+  const isScenarioOverridden = (scenario: PlayedScenario) => {
+    return scenario.scenario_id ? playedOverrideIds.has(scenario.scenario_id) : false
   }
   
   // アイテムが削除済みかどうか
@@ -1417,10 +1431,11 @@ export default function MyPage() {
                           const key = playedScenarioAlbumKey(s)
                           const legacy = s.reservation_id || `${s.scenario}-${s.date}`
                           const overridden = s.scenario_id ? playedOverrideIds.has(s.scenario_id) : false
-                          const isHidden = overridden || hiddenPlays.has(key) || hiddenPlays.has(legacy)
+                          const isHidden = hiddenPlays.has(key) || hiddenPlays.has(legacy)
                           const isDeleted = deletedPlays.has(key) || deletedPlays.has(legacy)
                           if (showHiddenItems) return true
-                          return !isHidden && !isDeleted
+                          // 通常表示では 非表示・未体験・削除済み を除外
+                          return !isHidden && !overridden && !isDeleted
                         })
                         .sort((a, b) => {
                           if (albumSortOrder === 'rating_desc') {
@@ -1442,16 +1457,17 @@ export default function MyPage() {
                         .map((scenario) => {
                         const isHidden = isScenarioHidden(scenario)
                         const isDeleted = isScenarioDeleted(scenario)
+                        const isOverridden = isScenarioOverridden(scenario)
                         return (
                         <div
                           key={playedScenarioAlbumKey(scenario)}
-                          className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted ? 'opacity-50' : ''}`}
+                          className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
                           style={{ borderRadius: 0 }}
                         >
-                          {/* ステータスバッジ */}
-                          {(isHidden || isDeleted) && (
-                            <div className={`absolute top-2 left-2 z-10 text-white text-xs px-2 py-0.5 rounded ${isDeleted ? 'bg-red-600/80' : 'bg-gray-800/80'}`}>
-                              {isDeleted ? '削除済み' : '非表示'}
+                          {/* ステータスバッジ（未体験＞削除済み＞非表示 の優先） */}
+                          {(isOverridden || isHidden || isDeleted) && (
+                            <div className={`absolute top-2 left-2 z-10 text-white text-xs px-2 py-0.5 rounded ${isOverridden ? 'bg-amber-600/80' : isDeleted ? 'bg-red-600/80' : 'bg-gray-800/80'}`}>
+                              {isOverridden ? '未体験' : isDeleted ? '削除済み' : '非表示'}
                             </div>
                           )}
                           {/* 画像部分 */}
@@ -1565,9 +1581,9 @@ export default function MyPage() {
                   </div>
                 )}
                 
-                {/* 非表示/削除済みシナリオセクション（override も含めて件数カウント） */}
+                {/* 非表示・未体験・削除済みシナリオセクション */}
                 {(() => {
-                  const hiddenCount = playedScenarios.filter(s => isScenarioHidden(s) || isScenarioDeleted(s)).length
+                  const hiddenCount = playedScenarios.filter(s => isScenarioHidden(s) || isScenarioOverridden(s) || isScenarioDeleted(s)).length
                   if (hiddenCount === 0 || showHiddenItems) return null
                   return (
                     <div className="mt-8">
@@ -1579,7 +1595,7 @@ export default function MyPage() {
                         <div className="flex items-center justify-center gap-2 text-gray-500">
                           <EyeOff className="h-4 w-4" />
                           <span className="text-sm">
-                            非表示・削除済みのシナリオ ({hiddenCount}件)
+                            非表示・未体験・削除済みのシナリオ ({hiddenCount}件)
                           </span>
                         </div>
                       </button>
@@ -1677,8 +1693,18 @@ export default function MyPage() {
                         
                         {/* アクションボタン */}
                         <div className="space-y-2 pt-2 border-t">
-                          {/* 削除済みの場合は復元ボタン */}
-                          {isScenarioDeleted(editingScenario) ? (
+                          {isScenarioOverridden(editingScenario) ? (
+                            /* 未体験に戻されている → 体験済みに戻す */
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start gap-3"
+                              onClick={() => handleMarkPlayed(editingScenario)}
+                            >
+                              <RotateCcw className="h-4 w-4 text-green-600" />
+                              <span>体験済みに戻す</span>
+                            </Button>
+                          ) : isScenarioDeleted(editingScenario) ? (
+                            /* 削除済みの場合は復元ボタン */
                             <Button
                               variant="outline"
                               className="w-full justify-start gap-3"
@@ -1689,7 +1715,7 @@ export default function MyPage() {
                             </Button>
                           ) : (
                             <>
-                              {/* 非表示/表示ボタン */}
+                              {/* 非表示/再表示（アルバムの表示整理だけ・体験済みのまま） */}
                               {isScenarioHidden(editingScenario) ? (
                                 <Button
                                   variant="outline"
@@ -1709,7 +1735,19 @@ export default function MyPage() {
                                   <span>アルバムから非表示にする</span>
                                 </Button>
                               )}
-                              
+
+                              {/* 未体験に戻す（記録の訂正・予約サイト/詳細にも反映）。予約由来の登録顧客のみ */}
+                              {!editingScenario.is_manual && editingScenario.scenario_id && (
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start gap-3 text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                                  onClick={() => handleMarkUnplayed(editingScenario)}
+                                >
+                                  <RotateCcw className="h-4 w-4 text-amber-600" />
+                                  <span>未体験に戻す</span>
+                                </Button>
+                              )}
+
                               {/* 削除ボタン */}
                               <Button
                                 variant="outline"
@@ -1733,11 +1771,11 @@ export default function MyPage() {
                             </>
                           )}
                         </div>
-                        
+
                         <p className="text-xs text-gray-400">
                           {editingScenario.is_manual
                             ? '手動で追加した履歴です。削除すると完全に消去されます。'
-                            : '予約履歴からの記録です。「非表示」にすると予約サイトでも未体験扱いになります（再表示でいつでも戻せます）。'}
+                            : '「非表示」はアルバムの表示整理だけ（体験済みのまま）。「未体験に戻す」は予約サイトでも未体験になります。どちらもいつでも戻せます。'}
                         </p>
                       </div>
                     )}
