@@ -435,6 +435,135 @@ export default function MyPage() {
   const isScenarioOverridden = (scenario: PlayedScenario) => {
     return scenario.scenario_id ? playedOverrideIds.has(scenario.scenario_id) : false
   }
+
+  // 通常一覧に出さない（非表示 or 未体験 or 削除済み）か
+  const isScenarioExcluded = (scenario: PlayedScenario) =>
+    isScenarioHidden(scenario) || isScenarioOverridden(scenario) || isScenarioDeleted(scenario)
+
+  // アルバムの並び替え比較（メイン一覧と非表示セクションで共通）
+  const albumComparator = (a: PlayedScenario, b: PlayedScenario) => {
+    if (albumSortOrder === 'rating_desc') return (b.rating ?? 0) - (a.rating ?? 0)
+    if (albumSortOrder === 'rating_asc') { const ra = a.rating ?? 6; const rb = b.rating ?? 6; return ra - rb }
+    // date order (default)
+    if (a.is_manual && !a.date && !(b.is_manual && !b.date)) return -1
+    if (b.is_manual && !b.date && !(a.is_manual && !a.date)) return 1
+    if (!a.date && !b.date) return 0
+    if (!a.date) return 1
+    if (!b.date) return -1
+    return new Date(b.date).getTime() - new Date(a.date).getTime()
+  }
+
+  // アルバムのカード描画（メイン一覧と非表示セクションで共通）
+  const renderAlbumCard = (scenario: PlayedScenario) => {
+    const isHidden = isScenarioHidden(scenario)
+    const isDeleted = isScenarioDeleted(scenario)
+    const isOverridden = isScenarioOverridden(scenario)
+    return (
+      <div
+        key={playedScenarioAlbumKey(scenario)}
+        className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
+        style={{ borderRadius: 0 }}
+      >
+        {/* ステータスバッジ（未体験＞削除済み＞非表示 の優先） */}
+        {(isOverridden || isHidden || isDeleted) && (
+          <div className={`absolute top-2 left-2 z-10 text-white text-xs px-2 py-0.5 rounded ${isOverridden ? 'bg-amber-600/80' : isDeleted ? 'bg-red-600/80' : 'bg-gray-800/80'}`}>
+            {isOverridden ? '未体験' : isDeleted ? '削除済み' : '非表示'}
+          </div>
+        )}
+        {/* 画像部分 */}
+        <div
+          className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
+          onClick={() => {
+            if (scenario.scenario_id) {
+              const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
+              const url = scenario.organization_slug
+                ? `/${scenario.organization_slug}/scenario/${scenarioSlug}`
+                : `/scenario/${scenarioSlug}`
+              navigate(url)
+            }
+          }}
+        >
+          {scenario.key_visual_url ? (
+            <>
+              <div
+                className="absolute inset-0 scale-110"
+                style={{
+                  backgroundImage: `url(${scenario.key_visual_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(10px) brightness(0.7)',
+                }}
+              />
+              <img
+                src={scenario.key_visual_url}
+                alt={scenario.scenario}
+                className="relative w-full h-full object-contain"
+                loading="lazy"
+              />
+            </>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+              <span className="text-4xl opacity-30">🎭</span>
+            </div>
+          )}
+        </div>
+        {/* タイトル・日付部分 */}
+        <div className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1" title={scenario.scenario}>
+                {scenario.scenario || '（タイトル不明）'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {scenario.date ? formatJstDateJa(scenario.date) : '日付不明'}
+              </p>
+              {scenario.venue && scenario.venue !== '店舗情報なし' && (
+                <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
+              )}
+            </div>
+            {/* 編集ボタン */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleOpenEditDialog(scenario)
+              }}
+              title="編集"
+            >
+              <MoreVertical className="h-4 w-4 text-gray-500" />
+            </Button>
+          </div>
+          {/* おすすめ度（星評価） */}
+          {scenario.scenario_id && (
+            <div className="flex items-center gap-1 mt-1.5">
+              <span className="text-xs text-gray-400">おすすめ度</span>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRatingChange(scenario, star)
+                    }}
+                    className="p-0.5 hover:scale-110 transition-transform"
+                    title={`おすすめ度 ${star}`}
+                  >
+                    <Star
+                      className="h-3.5 w-3.5"
+                      fill={scenario.rating && scenario.rating >= star ? '#f59e0b' : 'none'}
+                      stroke={scenario.rating && scenario.rating >= star ? '#f59e0b' : '#d1d5db'}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
   
   // アイテムが削除済みかどうか
   const isScenarioDeleted = (scenario: PlayedScenario) => {
@@ -1398,7 +1527,7 @@ export default function MyPage() {
                     <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                       <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
-                        {showHiddenItems ? 'すべてのシナリオ（非表示・削除済み含む）' : '体験済みシナリオ'}
+                        体験済みシナリオ
                       </h2>
                       <div className="flex items-center gap-2">
                         {/* ソート */}
@@ -1411,160 +1540,21 @@ export default function MyPage() {
                           <option value="rating_desc">おすすめ度（高い順）</option>
                           <option value="rating_asc">おすすめ度（低い順）</option>
                         </select>
-                        {showHiddenItems && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
-                            onClick={() => setShowHiddenItems(false)}
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="text-xs">表示中のみ</span>
-                          </Button>
-                        )}
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {playedScenarios
-                        .filter(s => {
-                          const key = playedScenarioAlbumKey(s)
-                          const legacy = s.reservation_id || `${s.scenario}-${s.date}`
-                          const overridden = s.scenario_id ? playedOverrideIds.has(s.scenario_id) : false
-                          const isHidden = hiddenPlays.has(key) || hiddenPlays.has(legacy)
-                          const isDeleted = deletedPlays.has(key) || deletedPlays.has(legacy)
-                          if (showHiddenItems) return true
-                          // 通常表示では 非表示・未体験・削除済み を除外
-                          return !isHidden && !overridden && !isDeleted
-                        })
-                        .sort((a, b) => {
-                          if (albumSortOrder === 'rating_desc') {
-                            return (b.rating ?? 0) - (a.rating ?? 0)
-                          }
-                          if (albumSortOrder === 'rating_asc') {
-                            const ra = a.rating ?? 6
-                            const rb = b.rating ?? 6
-                            return ra - rb
-                          }
-                          // date order (default)
-                          if (a.is_manual && !a.date && !(b.is_manual && !b.date)) return -1
-                          if (b.is_manual && !b.date && !(a.is_manual && !a.date)) return 1
-                          if (!a.date && !b.date) return 0
-                          if (!a.date) return 1
-                          if (!b.date) return -1
-                          return new Date(b.date).getTime() - new Date(a.date).getTime()
-                        })
-                        .map((scenario) => {
-                        const isHidden = isScenarioHidden(scenario)
-                        const isDeleted = isScenarioDeleted(scenario)
-                        const isOverridden = isScenarioOverridden(scenario)
-                        return (
-                        <div
-                          key={playedScenarioAlbumKey(scenario)}
-                          className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
-                          style={{ borderRadius: 0 }}
-                        >
-                          {/* ステータスバッジ（未体験＞削除済み＞非表示 の優先） */}
-                          {(isOverridden || isHidden || isDeleted) && (
-                            <div className={`absolute top-2 left-2 z-10 text-white text-xs px-2 py-0.5 rounded ${isOverridden ? 'bg-amber-600/80' : isDeleted ? 'bg-red-600/80' : 'bg-gray-800/80'}`}>
-                              {isOverridden ? '未体験' : isDeleted ? '削除済み' : '非表示'}
-                            </div>
-                          )}
-                          {/* 画像部分 */}
-                          <div 
-                            className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
-                            onClick={() => {
-                              if (scenario.scenario_id) {
-                                const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
-                                const url = scenario.organization_slug 
-                                  ? `/${scenario.organization_slug}/scenario/${scenarioSlug}`
-                                  : `/scenario/${scenarioSlug}`
-                                navigate(url)
-                              }
-                            }}
-                          >
-                            {scenario.key_visual_url ? (
-                              <>
-                                <div 
-                                  className="absolute inset-0 scale-110"
-                                  style={{
-                                    backgroundImage: `url(${scenario.key_visual_url})`,
-                                    backgroundSize: 'cover',
-                                    backgroundPosition: 'center',
-                                    filter: 'blur(10px) brightness(0.7)',
-                                  }}
-                                />
-                                <img
-                                  src={scenario.key_visual_url}
-                                  alt={scenario.scenario}
-                                  className="relative w-full h-full object-contain"
-                                  loading="lazy"
-                                />
-                              </>
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                                <span className="text-4xl opacity-30">🎭</span>
-                              </div>
-                            )}
-                          </div>
-                          {/* タイトル・日付部分 */}
-                          <div className="p-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1" title={scenario.scenario}>
-                                  {scenario.scenario || '（タイトル不明）'}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {scenario.date ? formatJstDateJa(scenario.date) : '日付不明'}
-                                </p>
-                                {scenario.venue && scenario.venue !== '店舗情報なし' && (
-                                  <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
-                                )}
-                              </div>
-                              {/* 編集ボタン */}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenEditDialog(scenario)
-                                }}
-                                title="編集"
-                              >
-                                <MoreVertical className="h-4 w-4 text-gray-500" />
-                              </Button>
-                            </div>
-                            {/* おすすめ度（星評価） */}
-                            {scenario.scenario_id && (
-                              <div className="flex items-center gap-1 mt-1.5">
-                                <span className="text-xs text-gray-400">おすすめ度</span>
-                                <div className="flex items-center gap-0.5">
-                                  {[1, 2, 3, 4, 5].map(star => (
-                                    <button
-                                      key={star}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleRatingChange(scenario, star)
-                                      }}
-                                      className="p-0.5 hover:scale-110 transition-transform"
-                                      title={`おすすめ度 ${star}`}
-                                    >
-                                      <Star
-                                        className="h-3.5 w-3.5"
-                                        fill={scenario.rating && scenario.rating >= star ? '#f59e0b' : 'none'}
-                                        stroke={scenario.rating && scenario.rating >= star ? '#f59e0b' : '#d1d5db'}
-                                      />
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
+
+                    {/* メイン一覧は通常の体験済みのみ（非表示・未体験・削除済みは下のセクションへ） */}
+                    {(() => {
+                      const shown = playedScenarios.filter(s => !isScenarioExcluded(s))
+                      if (shown.length === 0) {
+                        return <p className="text-sm text-gray-400 py-6 text-center">表示中の体験済みシナリオはありません</p>
+                      }
+                      return (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {shown.sort(albumComparator).map(renderAlbumCard)}
                         </div>
-                        )
-                      })}
-                    </div>
+                      )
+                    })()}
                   </div>
                 ) : (
                   <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
@@ -1581,24 +1571,30 @@ export default function MyPage() {
                   </div>
                 )}
                 
-                {/* 非表示・未体験・削除済みシナリオセクション */}
+                {/* 非表示・未体験・削除済みシナリオセクション（メイン一覧には混ぜず、ここにまとめて表示） */}
                 {(() => {
-                  const hiddenCount = playedScenarios.filter(s => isScenarioHidden(s) || isScenarioOverridden(s) || isScenarioDeleted(s)).length
-                  if (hiddenCount === 0 || showHiddenItems) return null
+                  const excluded = playedScenarios.filter(isScenarioExcluded)
+                  if (excluded.length === 0) return null
                   return (
                     <div className="mt-8">
                       <button
-                        onClick={() => setShowHiddenItems(true)}
+                        onClick={() => setShowHiddenItems(v => !v)}
                         className="w-full p-4 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
                         style={{ borderRadius: 0 }}
                       >
                         <div className="flex items-center justify-center gap-2 text-gray-500">
-                          <EyeOff className="h-4 w-4" />
+                          {showHiddenItems ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                           <span className="text-sm">
-                            非表示・未体験・削除済みのシナリオ ({hiddenCount}件)
+                            非表示・未体験・削除済みのシナリオ ({excluded.length}件)
                           </span>
+                          <span className="text-xs text-gray-400">{showHiddenItems ? '— 閉じる' : '— 開く'}</span>
                         </div>
                       </button>
+                      {showHiddenItems && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                          {excluded.sort(albumComparator).map(renderAlbumCard)}
+                        </div>
+                      )}
                     </div>
                   )
                 })()}
