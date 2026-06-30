@@ -1448,12 +1448,15 @@ async function handleGrantCouponToCustomer(req: VercelRequest, res: VercelRespon
     return res.status(404).json({ success: false, error: 'キャンペーンが見つかりません' })
   }
 
-  // 顧客が自組織のものか
+  // 顧客が自組織 または platform 顧客(organization_id IS NULL) か。
+  // platform_customers_phase1 以降、ログイン顧客の customers 行は org=NULL に統一されているため、
+  // org 縛りだと付与できない（searchCustomers と同じく org=NULL も対象に含める）。
+  // クーポン自体は organization_id = user.orgId で作られるので、配布元組織は正しく記録される。
   const { data: customer, error: customerError } = await database
     .from('customers')
     .select('id, organization_id')
     .eq('id', customerId)
-    .eq('organization_id', user.orgId)
+    .or(`organization_id.eq.${user.orgId},organization_id.is.null`)
     .maybeSingle()
 
   if (customerError) {
