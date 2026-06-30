@@ -56,3 +56,6 @@ REVOKE ALL ON public.customer_played_overrides FROM anon;
 -- UPDATE は使わない（行は insert で除外・delete で解除のみ）。Supabase 既定で authenticated に付く UPDATE を剥がす
 -- （UPDATE ポリシーが無いので RLS でも拒否されるが、least-privilege のため明示）。
 REVOKE UPDATE ON public.customer_played_overrides FROM authenticated;
+-- prod の既定権限は authenticated に TRUNCATE/TRIGGER/REFERENCES まで付与する（staging との環境差）。
+-- API 経路は無く RLS も効くが、最小権限のため DML 以外を明示的に剥がす。
+REVOKE TRUNCATE, TRIGGER, REFERENCES ON public.customer_played_overrides FROM authenticated;
