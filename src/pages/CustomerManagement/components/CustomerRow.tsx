@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase'
 import { formatJstYmd, formatJstDateTime } from '@/utils/jstDate'
 import { devDb } from '@/components/ui/DevField'
 import type { CustomerCouponStats } from '../hooks/useCustomerData'
+import { CustomerPlayedManager } from './CustomerPlayedManager'
+import { CustomerCouponManager } from './CustomerCouponManager'
 
 interface CustomerRowProps {
   customer: Customer
@@ -285,6 +287,12 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
               </div>
             </div>
           </div>
+
+          {/* 体験済みシナリオ管理（Step B） */}
+          <CustomerPlayedManager customerId={customer.id} />
+
+          {/* クーポン操作（Step C） */}
+          <CustomerCouponManager customerId={customer.id} />
 
           {/* 予約履歴 */}
           <div>

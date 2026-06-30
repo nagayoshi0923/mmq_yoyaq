@@ -1,0 +1,154 @@
+/**
+ * 顧客別 クーポン管理（管理画面・スタッフ用 / 予約台帳 Step C）。
+ *
+ * - 保有クーポン一覧（自組織が配布した分）
+ * - 付与: キャンペーンを選んで grantCouponToCustomer
+ * - 取消: 未使用クーポンを revokeCoupon（使用履歴ありは不可＝バックエンドで弾く）
+ * すべて /api/coupons 経由（org は JWT 由来）。
+ */
+import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Ticket, Plus, X } from 'lucide-react'
+import { getCustomerCoupons, getCampaigns, grantCouponToCustomer, revokeCoupon } from '@/lib/api/couponApi'
+import type { CustomerCoupon, CouponCampaign } from '@/types'
+import { formatJstYmd } from '@/utils/jstDate'
+
+interface CustomerCouponManagerProps {
+  customerId: string
+}
+
+function discountLabel(c?: CouponCampaign | null): string {
+  if (!c) return ''
+  return c.discount_type === 'percentage' ? `${c.discount_amount}%` : `¥${c.discount_amount.toLocaleString()}`
+}
+
+const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+  active: { label: '有効', cls: 'text-green-700 border-green-300' },
+  fully_used: { label: '使用済み', cls: 'text-gray-500 border-gray-300' },
+  expired: { label: '期限切れ', cls: 'text-gray-500 border-gray-300' },
+  revoked: { label: '取消済み', cls: 'text-red-600 border-red-300' },
+}
+
+export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps) {
+  const [coupons, setCoupons] = useState<CustomerCoupon[]>([])
+  const [campaigns, setCampaigns] = useState<CouponCampaign[]>([])
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [grantCampaignId, setGrantCampaignId] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [c, camps] = await Promise.all([getCustomerCoupons(customerId), getCampaigns()])
+      setCoupons(c)
+      setCampaigns(camps.filter(camp => camp.is_active))
+    } catch (error) {
+      logger.error('クーポン管理データ取得エラー:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [customerId])
+
+  useEffect(() => { load() }, [load])
+
+  const grant = async () => {
+    if (!grantCampaignId) { showToast.error('キャンペーンを選択してください'); return }
+    setBusy(true)
+    try {
+      const result = await grantCouponToCustomer(grantCampaignId, customerId)
+      if (!result.success) {
+        showToast.error(result.error || '付与に失敗しました')
+        return
+      }
+      setGrantCampaignId('')
+      showToast.success('クーポンを付与しました')
+      await load()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const revoke = async (couponId: string) => {
+    if (!confirm('このクーポンを取消しますか？（誤付与の取り消し）')) return
+    setBusy(true)
+    try {
+      const result = await revokeCoupon(couponId)
+      if (!result.success) {
+        showToast.error(result.error || '取消に失敗しました')
+        return
+      }
+      showToast.success('クーポンを取消しました')
+      await load()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // 未使用（取消可能）か: 有効 かつ 残数 == キャンペーンの上限
+  const isUnused = (c: CustomerCoupon) =>
+    c.status === 'active' && c.coupon_campaigns != null && c.uses_remaining === c.coupon_campaigns.max_uses_per_customer
+
+  return (
+    <div>
+      <h4 className="mb-2 font-bold text-sm flex items-center gap-2">
+        <Ticket className="h-4 w-4" />
+        クーポン操作
+      </h4>
+      {loading ? (
+        <div className="text-center py-4 text-xs text-muted-foreground">読み込み中...</div>
+      ) : (
+        <div className="space-y-3">
+          {/* 付与フォーム */}
+          <div className="flex flex-col sm:flex-row gap-2 p-3 bg-background rounded-lg border">
+            <select
+              value={grantCampaignId}
+              onChange={e => setGrantCampaignId(e.target.value)}
+              className="flex-1 min-w-0 text-sm border border-input rounded px-2 h-9 bg-background"
+            >
+              <option value="">クーポンを選んで付与...</option>
+              {campaigns.map(c => (
+                <option key={c.id} value={c.id}>{c.name}（{discountLabel(c)}）</option>
+              ))}
+            </select>
+            <Button size="sm" disabled={busy || !grantCampaignId} className="h-9 shrink-0" onClick={grant}>
+              <Plus className="h-4 w-4 mr-1" />付与
+            </Button>
+          </div>
+
+          {/* 保有一覧 */}
+          <div className="p-3 bg-background rounded-lg border">
+            <div className="text-xs text-muted-foreground mb-2">保有クーポン（{coupons.length}件）</div>
+            {coupons.length === 0 ? (
+              <div className="text-xs text-muted-foreground">なし</div>
+            ) : (
+              <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                {coupons.map(c => {
+                  const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'text-gray-500 border-gray-300' }
+                  return (
+                    <div key={c.id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                        <span className="text-sm truncate">{c.coupon_campaigns?.name || 'クーポン'}</span>
+                        <span className="text-xs text-muted-foreground">{discountLabel(c.coupon_campaigns)}</span>
+                        <Badge variant="outline" className={`text-[10px] font-normal ${st.cls}`}>{st.label}</Badge>
+                        <span className="text-[10px] text-muted-foreground">残{c.uses_remaining}回</span>
+                        {c.expires_at && <span className="text-[10px] text-muted-foreground">〜{formatJstYmd(c.expires_at)}</span>}
+                      </div>
+                      {isUnused(c) && (
+                        <Button variant="ghost" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => revoke(c.id)}>
+                          <X className="h-3 w-3 mr-1" />取消
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

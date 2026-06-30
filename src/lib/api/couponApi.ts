@@ -362,6 +362,38 @@ export async function getCouponUsagesForAdmin(
 }
 
 /**
+ * 指定顧客の保有クーポン一覧を取得（管理者向け・自組織が配布した分）
+ */
+export async function getCustomerCoupons(
+  customerId: string
+): Promise<CustomerCoupon[]> {
+  try {
+    const params = new URLSearchParams({ type: 'customer-coupons', customer_id: customerId })
+    return await apiClient.get<CustomerCoupon[]>(`/api/coupons?${params}`)
+  } catch (err) {
+    logger.error('顧客クーポン一覧取得エラー:', err)
+    return []
+  }
+}
+
+/**
+ * 未使用クーポンを取消（管理者向け・誤付与の取り消し）
+ * 使用履歴があるクーポンは取消不可（その場合は restoreCouponUsage）
+ */
+export async function revokeCoupon(
+  customerCouponId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const params = new URLSearchParams({ action: 'revoke-coupon', customer_coupon_id: customerCouponId })
+    return await apiClient.delete<{ success: boolean; error?: string }>(`/api/coupons?${params}`)
+  } catch (err) {
+    logger.error('クーポン取消エラー:', err)
+    const message = err instanceof Error ? err.message : '取消に失敗しました'
+    return { success: false, error: message }
+  }
+}
+
+/**
  * キャンペーンに紐づくクーポン一覧を取得（顧客情報付き）
  */
 export async function getCampaignCoupons(

@@ -148,6 +148,10 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     requireStaff(user)
     return handleSearchCustomers(req, res, user)
   }
+  if (type === 'customer-coupons') {
+    requireStaff(user)
+    return handleCustomerCoupons(req, res, user)
+  }
 
   return res.status(400).json({ error: `unknown type: ${type}` })
 }
@@ -208,6 +212,9 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
 
   if (action === 'restore-usage') {
     return handleRestoreCouponUsage(req, res, user)
+  }
+  if (action === 'revoke-coupon') {
+    return handleRevokeCoupon(req, res, user)
   }
 
   return res.status(400).json({ error: `unknown action: ${action}` })
@@ -876,6 +883,90 @@ async function handleSearchCustomers(req: VercelRequest, res: VercelResponse, us
   }))
 
   return res.status(200).json(mapped)
+}
+
+// =========================================
+// 管理者向け: 指定顧客の保有クーポン一覧
+// =========================================
+async function handleCustomerCoupons(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const customerId = req.query.customer_id as string | undefined
+  if (!customerId) {
+    return res.status(400).json({ error: 'customer_id クエリパラメータが必要です' })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+  // 自組織が配布したクーポンのみ（grant 時に organization_id = orgId が入る）
+  const { data, error } = await database
+    .from('customer_coupons')
+    .select(CUSTOMER_COUPON_FIELDS)
+    .eq('customer_id', customerId)
+    .eq('organization_id', user.orgId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[coupons:customer-coupons] DB error:', error)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+  }
+
+  return res.status(200).json(data ?? [])
+}
+
+// =========================================
+// 管理者向け: 未使用クーポンを取消（誤付与の取り消し）
+// 使用履歴があるクーポンは取消不可（その場合は restore-usage で使用を戻すこと）
+// =========================================
+async function handleRevokeCoupon(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const customerCouponId = req.query.customer_coupon_id as string | undefined
+  if (!customerCouponId) {
+    return res.status(400).json({ success: false, error: 'customer_coupon_id が必要です' })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+
+  // 自組織のクーポンか検証
+  const { data: coupon, error: couponError } = await database
+    .from('customer_coupons')
+    .select('id, organization_id')
+    .eq('id', customerCouponId)
+    .eq('organization_id', user.orgId)
+    .maybeSingle()
+
+  if (couponError) {
+    console.error('[coupons:revoke-coupon] fetch error:', couponError)
+    return res.status(500).json({ success: false, error: couponError.message })
+  }
+  if (!coupon) {
+    return res.status(404).json({ success: false, error: 'クーポンが見つかりません' })
+  }
+
+  // 使用履歴があれば取消不可（使用を戻したい場合は restore-usage）
+  const { count: usageCount, error: usageError } = await database
+    .from('coupon_usages')
+    .select('id', { count: 'exact', head: true })
+    .eq('customer_coupon_id', customerCouponId)
+
+  if (usageError) {
+    console.error('[coupons:revoke-coupon] usage check error:', usageError)
+    return res.status(500).json({ success: false, error: usageError.message })
+  }
+  if ((usageCount ?? 0) > 0) {
+    return res.status(409).json({ success: false, error: '使用履歴があるため取消できません（使用を戻す場合は「使用取消」を使ってください）' })
+  }
+
+  const { error: deleteError } = await database
+    .from('customer_coupons')
+    .delete()
+    .eq('id', customerCouponId)
+    .eq('organization_id', user.orgId)
+
+  if (deleteError) {
+    console.error('[coupons:revoke-coupon] delete error:', deleteError)
+    return res.status(500).json({ success: false, error: '取消に失敗しました' })
+  }
+
+  return res.status(200).json({ success: true })
 }
 
 // =========================================
