@@ -385,7 +385,13 @@
 
 リスク: 中 / 規模: 大
 
-- [ ] 6-1 `PrivateGroupInvite/index.tsx`（3,468行・最大）: フォーム / メール送信 / バリデーション / 確認UI を分離
+- [~] 6-1 `PrivateGroupInvite/index.tsx`（3,469行・最大）: フォーム / メール送信 / バリデーション / 確認UI を分離
+      **presentational 抽出 第1バッチ（2026-07-02・3,469→2,544・staging 実機確認待ち）**。方式は 6-2 と同一。
+      - [x] チャット画面（`isChatMode`）のオーバーレイシート5つ（候補日/招待/設定/店舗編集/予約申請）→ `components/GroupChatSheets.tsx`
+            （989行を DOM順保持で byte 逐語移送・props 62個を同名注入。props の自由変数は **tsc 駆動**で厳密特定＝空白除去 diff=0）`7eddec86`。死 import Trash2/ChevronDown/MapPin 除去。
+      各スライス tsc=0 / eslint=0 / build:fast / test:unit 130。
+      ※ 残: 非チャット表示（招待/参加フロー・main return 1,649-末尾 ~896行＝進捗ステップ/タブ4種/参加費クーポン/PIN認証/ゲスト情報 等）＝**次バッチ**。チャット本体の GroupChat 領域は既存コンポーネントで抽出対象外。
+      （zsh の教訓: `for x in $VAR` は unquoted でも語分割しない＝props 生成は `tr ' ' '\n' | while read` を使う）
 - [~] 6-2 `ScheduleManager/index.tsx`（2,053行）: カレンダー描画 / D&D / 右クリックメニュー / ツールバー分離
       **presentational 抽出バッチ完了（2026-07-02・2,053→1,316・main `b03f0441` 反映済＝staging スモークOK）**。
       方式は Phase 5 と同一（byte 逐語移送・空白除去 diff=0・同名 props 注入・state/effect/handler は親に残置・1スライス1コミット）。
