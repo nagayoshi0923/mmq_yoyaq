@@ -96,6 +96,8 @@ export function useCancelReservationMutation(reservationId: string, onSuccess: (
     mutationFn: () => reservationApi.cancel(reservationId, 'お客様によるキャンセル'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
+      // マイページ予約一覧(mypage-data)も無効化しないと、キャンセルしても一覧から消えない(リロードまで反映されない)
+      queryClient.invalidateQueries({ queryKey: ['mypage-data'] })
       onSuccess()
     },
     onError: (error) => {
