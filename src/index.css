@@ -32,6 +32,18 @@ html, body {
 
     /* MMQデザインシステム：統一入力エリア背景色 */
     --input-bg: #F6F9FB;
+    --booking-primary: #E60012;
+    --booking-accent: #10B981;
+    --booking-accent-light: #10B98120;
+    --booking-danger: #DC2626;
+    --booking-warning: #F59E0B;
+    --booking-popular: #F97316;
+    --booking-confirmed-bg: #DBEAFE;
+    --booking-confirmed-text: #1D4ED8;
+    --booking-seat-full-bg: #E5E7EB;
+    --booking-seat-full-text: #6B7280;
+    --booking-seat-low-bg: #FEE2E2;
+    --booking-seat-low-text: #DC2626;
   }
 
   /* 予約サイト (booking-shell スコープ): シャープデザイン統一

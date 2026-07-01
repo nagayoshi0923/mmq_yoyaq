@@ -83,6 +83,28 @@ export default {
             'primary-light': 'var(--mypage-detail-primary-light)',
           },
         },
+        booking: {
+          primary: 'var(--booking-primary)',
+          accent: 'var(--booking-accent)',
+          'accent-light': 'var(--booking-accent-light)',
+          danger: 'var(--booking-danger)',
+          warning: 'var(--booking-warning)',
+          popular: 'var(--booking-popular)',
+          confirmed: {
+            bg: 'var(--booking-confirmed-bg)',
+            text: 'var(--booking-confirmed-text)',
+          },
+          seat: {
+            full: {
+              bg: 'var(--booking-seat-full-bg)',
+              text: 'var(--booking-seat-full-text)',
+            },
+            low: {
+              bg: 'var(--booking-seat-low-bg)',
+              text: 'var(--booking-seat-low-text)',
+            },
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

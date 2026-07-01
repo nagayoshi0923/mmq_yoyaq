@@ -3,7 +3,6 @@ import { Clock, Users, Heart, Sparkles, CheckCheck } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import { getColorFromName } from '@/lib/utils'
 import { devDb } from '@/components/ui/DevField'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { formatJstMonthDay, formatJstWeekday, getJstWeekdayIndex } from '@/utils/jstDate'
 
@@ -169,8 +168,7 @@ export const ScenarioCard = memo(function ScenarioCard({
     >
       {/* カード本体 - シャープデザイン（1カラム：横、2カラム以上：縦） */}
       <div 
-        className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex md:flex-col hover:scale-[1.02]"
-        style={{ borderRadius: 0 }}
+        className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex md:flex-col hover:scale-[1.02] rounded-none"
       >
         {/* キービジュアル */}
         <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
@@ -193,8 +191,7 @@ export const ScenarioCard = memo(function ScenarioCard({
               if (remaining >= 1 && remaining <= threshold) {
                 return (
                   <div 
-                    className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
-                    style={{ backgroundColor: '#DC2626' }}
+                    className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white bg-booking-danger"
                   >
                     成立間近！
                   </div>
@@ -205,8 +202,7 @@ export const ScenarioCard = memo(function ScenarioCard({
             if (nextEvent?.is_extended) {
               return (
                 <div 
-                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
-                  style={{ backgroundColor: '#F59E0B' }}
+                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white bg-booking-warning"
                 >
                   募集延長中！
                 </div>
@@ -216,8 +212,7 @@ export const ScenarioCard = memo(function ScenarioCard({
             if (scenario.is_recommended) {
               return (
                 <div 
-                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
-                  style={{ backgroundColor: THEME.primary }}
+                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white bg-booking-primary"
                 >
                   おすすめ
                 </div>
@@ -231,8 +226,7 @@ export const ScenarioCard = memo(function ScenarioCard({
               if (releaseDate <= oneYearAgo) {
                 return (
                   <div 
-                    className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
-                    style={{ backgroundColor: THEME.accent }}
+                    className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black bg-booking-accent"
                   >
                     ロングセラー
                   </div>
@@ -243,8 +237,7 @@ export const ScenarioCard = memo(function ScenarioCard({
             if (scenario.favorite_count && scenario.favorite_count >= 100) {
               return (
                 <div 
-                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
-                  style={{ backgroundColor: '#F97316' }}
+                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white bg-booking-popular"
                 >
                   人気
                 </div>
@@ -337,7 +330,7 @@ export const ScenarioCard = memo(function ScenarioCard({
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span 
                         className="w-1 h-4 flex-shrink-0"
-                        style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }}
+                        style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : 'var(--booking-primary)' }}
                       />
                       <span className="font-medium text-gray-900">
                         {dateInfo.date}
@@ -358,23 +351,19 @@ export const ScenarioCard = memo(function ScenarioCard({
                       <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                         {event.is_confirmed && event.available_seats > 0 && (
                           <span 
-                            className="text-[10px] font-bold px-1.5 py-0.5"
-                            style={{
-                              backgroundColor: '#DBEAFE',
-                              color: '#1D4ED8',
-                              borderRadius: 0,
-                            }}
+                            className="text-[10px] font-bold px-1.5 py-0.5 bg-booking-confirmed-bg text-booking-confirmed-text rounded-none"
                           >
                             開催決定
                           </span>
                         )}
                         <span 
-                          className="text-[10px] font-bold px-1.5 py-0.5"
-                          style={{
-                            backgroundColor: event.available_seats === 0 ? '#E5E7EB' : event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
-                            color: event.available_seats === 0 ? '#6B7280' : event.available_seats <= 2 ? '#DC2626' : THEME.accent,
-                            borderRadius: 0,
-                          }}
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded-none ${
+                            event.available_seats === 0
+                              ? 'bg-booking-seat-full-bg text-booking-seat-full-text'
+                              : event.available_seats <= 2
+                                ? 'bg-booking-seat-low-bg text-booking-seat-low-text'
+                                : 'bg-booking-accent-light text-booking-accent'
+                          }`}
                         >
                           {event.available_seats === 0 ? '満席' : `残${event.available_seats}`}
                         </span>
