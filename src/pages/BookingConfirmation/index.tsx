@@ -20,16 +20,7 @@ import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingS
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import type { CustomerCoupon } from '@/types'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { getAvailableSeats } from '@/lib/participantUtils'
@@ -877,40 +868,28 @@ export function BookingConfirmation({
       </div>
 
       {/* 重複予約確認ダイアログ */}
-      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
-              重複予約の確認
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <p>この公演に既に予約があります。本当に新しい予約を追加しますか？</p>
-                {duplicateWarning.existingReservation && (
-                  <div className="p-3 bg-muted rounded-md text-sm">
-                    <p className="font-medium">既存の予約</p>
-                    <p className="text-muted-foreground mt-1">
-                      予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
-                      参加人数: {duplicateWarning.existingReservation.participant_count}名
-                    </p>
-                  </div>
-                )}
-                <p className="ts-muted">
-                  人数を変更したい場合は、<Link to="/mypage" className="underline">マイページ</Link>から既存の予約を編集してください。
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>戻る</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDuplicate} className="bg-amber-600 hover:bg-amber-700">
-              新規予約を追加する
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmDialogOpen}
+        onOpenChange={setConfirmDialogOpen}
+        title="新規予約を追加しますか？"
+        description="この公演に既に予約があります。"
+        cancelLabel="戻る"
+        confirmLabel="新規予約を追加する"
+        onConfirm={handleConfirmDuplicate}
+      >
+        {duplicateWarning.existingReservation && (
+          <div className="p-3 bg-muted rounded-md text-sm">
+            <p className="font-medium text-foreground">既存の予約</p>
+            <p className="text-muted-foreground mt-1">
+              予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
+              参加人数: {duplicateWarning.existingReservation.participant_count}名
+            </p>
+          </div>
+        )}
+        <p className="ts-muted">
+          人数を変更したい場合は、<Link to="/mypage" className="underline">マイページ</Link>から既存の予約を編集してください。
+        </p>
+      </ConfirmDialog>
     </div>
   )
 }
-

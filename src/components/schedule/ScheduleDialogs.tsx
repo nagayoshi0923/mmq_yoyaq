@@ -1,7 +1,7 @@
 // スケジュール管理の各種ダイアログ
 
 import { memo } from 'react'
-import { ConfirmModal } from '@/components/patterns/modal'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import {
   DeleteEventCancelDialog,
   type DeleteCancelPrompt,
@@ -44,13 +44,13 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
   return (
     <>
       {/* 削除確認ダイアログ */}
-      <ConfirmModal
+      <ConfirmDialog
         open={isDeleteDialogOpen}
         onClose={onCloseDeleteDialog}
         onConfirm={onConfirmDelete}
-        title="公演を削除"
+        title="公演を削除しますか？"
         message="この公演を削除してもよろしいですか？この操作は取り消せません。"
-        variant="danger"
+        variant="destructive"
         confirmLabel="削除"
       />
 
@@ -72,11 +72,11 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
       )}
 
       {/* 復活確認ダイアログ */}
-      <ConfirmModal
+      <ConfirmDialog
         open={isRestoreDialogOpen}
         onClose={onCloseRestoreDialog}
         onConfirm={onConfirmRestore}
-        title="公演を復活"
+        title="公演を復活しますか？"
         message="この公演を復活してもよろしいですか？"
         variant="default"
         confirmLabel="復活"

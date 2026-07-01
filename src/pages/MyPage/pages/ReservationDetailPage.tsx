@@ -5,10 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink } from 'lucide-react'
 import { InviteShareButton } from '@/components/InviteShareButton'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -409,20 +406,19 @@ export function ReservationDetailPage() {
         )}
       </div>
 
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>予約をキャンセルしますか？</AlertDialogTitle>
-            <AlertDialogDescription>キャンセル後は元に戻せません。</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelMutation.isPending}>やめる</AlertDialogCancel>
-            <AlertDialogAction onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
-              {cancelMutation.isPending ? '処理中...' : 'キャンセルする'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        title="予約をキャンセルしますか？"
+        message="キャンセル後は元に戻せません。"
+        cancelLabel="やめる"
+        confirmLabel="キャンセルする"
+        variant="destructive"
+        isLoading={cancelMutation.isPending}
+        onConfirm={async () => {
+          await cancelMutation.mutateAsync()
+        }}
+      />
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>

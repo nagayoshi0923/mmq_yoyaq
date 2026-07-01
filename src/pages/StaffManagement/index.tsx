@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
-import { ConfirmModal } from '@/components/patterns/modal'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
 import { useTablePreferences } from '@/hooks/useTablePreferences'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -575,11 +575,11 @@ export function StaffManagement() {
         </Dialog>
 
         {/* 連携解除確認ダイアログ */}
-        <ConfirmModal
+        <ConfirmDialog
           open={unlinkDialogOpen}
           onClose={closeUnlinkDialog}
           onConfirm={handleConfirmUnlink}
-          title="アカウント連携を解除"
+          title="アカウント連携を解除しますか？"
           message={`${staffToUnlink?.name}さんとアカウントの連携を解除します。このスタッフはログインできなくなりますが、データは残ります。`}
           variant="warning"
           confirmLabel="連携解除"

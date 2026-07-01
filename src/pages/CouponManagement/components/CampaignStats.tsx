@@ -6,16 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -316,26 +307,17 @@ export function CampaignStats({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!restoreTarget} onOpenChange={(open) => { if (!open) setRestoreTarget(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>クーポン使用を取り消しますか？</AlertDialogTitle>
-            <AlertDialogDescription>
-              {restoreTarget?.title
-                ? `「${restoreTarget.title}」で使用されたクーポンを復元します。`
-                : 'このクーポン使用を取り消して、残数を1回分復元します。'}
-              この操作は元に戻せません。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={restoring}>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestore} disabled={restoring}>
-              {restoring ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              復元する
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!restoreTarget}
+        onOpenChange={(open) => { if (!open) setRestoreTarget(null) }}
+        title="クーポン使用を取り消しますか？"
+        message={restoreTarget?.title
+          ? `「${restoreTarget.title}」で使用されたクーポンを復元します。この操作は元に戻せません。`
+          : 'このクーポン使用を取り消して、残数を1回分復元します。この操作は元に戻せません。'}
+        confirmLabel="復元する"
+        isLoading={restoring}
+        onConfirm={handleRestore}
+      />
     </>
   )
 }

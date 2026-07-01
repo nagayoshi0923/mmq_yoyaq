@@ -28,7 +28,7 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
 import { scenarioMasterApi } from '@/lib/api/scenarioMasterApi'
-import { ConfirmModal } from '@/components/patterns/modal'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
 import type { Column } from '@/components/patterns/table'
 import { useTablePreferences } from '@/hooks/useTablePreferences'
@@ -849,13 +849,13 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
         existingMasterIds={existingMasterIds}
       />
 
-      <ConfirmModal
+      <ConfirmDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={handleUnlink}
-        title="シナリオを解除"
+        title="シナリオを解除しますか？"
         message={scenarioToDelete ? `「${scenarioToDelete.title}」をこの組織から解除します。\nマスタデータは残るので、後から再度追加できます。` : ''}
-        variant="danger"
+        variant="destructive"
         confirmLabel="解除する"
       />
     </div>

@@ -38,6 +38,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from '@/components/ui/sheet'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 // セクションコンポーネント
 function Section({ 
@@ -123,6 +124,7 @@ const groupedNavItems = NAV_ITEMS.reduce((acc, item) => {
 
 export function ComponentGallery() {
   const [activeSection, setActiveSection] = useState('buttons')
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
 
   // セクションへスクロール
   const scrollToSection = useCallback((id: string) => {
@@ -594,6 +596,22 @@ export function ComponentGallery() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                </ComponentBox>
+              </SubSection>
+
+              <SubSection title="ConfirmDialog">
+                <ComponentBox>
+                  <Button variant="outline" onClick={() => setConfirmDialogOpen(true)}>
+                    確認ダイアログ
+                  </Button>
+                  <ConfirmDialog
+                    open={confirmDialogOpen}
+                    onOpenChange={setConfirmDialogOpen}
+                    title="この操作を実行しますか？"
+                    message="反映には数秒かかる場合があります。"
+                    confirmLabel="実行する"
+                    onConfirm={() => new Promise(resolve => window.setTimeout(resolve, 800))}
+                  />
                 </ComponentBox>
               </SubSection>
             </Section>
