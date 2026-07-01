@@ -234,3 +234,44 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 - `/src/components/ui/alert-dialog.tsx` - 確認ダイアログ
 - `/src/components/ui/tooltip.tsx` - ツールチップ
 
+---
+
+# デザイン規約（2026-07-02 制定）
+
+全文と実測データは `docs/IMPROVEMENT_HANDOFF.md` セクション5。ここは日常参照用の要約。
+
+## 管理画面の規約
+
+| 項目 | 規約 |
+|---|---|
+| ページ骨格 | `PageHeader` 必須。ページ直下は `space-y-6` |
+| 見出し | h1=PageHeader / セクション=`text-base font-semibold`（CardTitle 既定と同じ） / サブ=`text-sm font-medium text-muted-foreground` |
+| 本文 / メタ | `text-sm` / `text-xs text-muted-foreground`。`text-[10px]` 等の任意サイズは新規禁止 |
+| 箱 | セクション=`rounded-xl border bg-card p-6`・影なし / リスト行=`rounded-lg border p-3` |
+| 角丸 | カード=`rounded-xl` / 行・コントロール=`rounded-lg`。bare `rounded` 新規禁止 |
+| 色 | セマンティックトークンのみ（`text-muted-foreground` 等）。`text-gray-*`・hex 直書き新規禁止。状態色は Badge variant |
+| 間隔 | 行内 `gap-2` / カードグリッド `gap-4` / リスト `space-y-2` / セクション間 `space-y-6` |
+
+🔒 **公演モーダル（PerformanceModal）と公演カードは基準デザイン＝見た目変更禁止**。
+
+## 共通パターン部品（`/src/components/patterns/`）
+
+プレビュー: `/dev/components` の「共通パターン」セクション。
+
+| 部品 | 用途 |
+|---|---|
+| `list/EmptyState` | データなし表示。文言は「該当する◯◯がありません」 |
+| `list/ListSkeleton` | 一覧ロード中（row/card/table）。「読み込み中...」テキストと自作スケルトンの置き換え先 |
+| `list/ListRow` | 展開式リスト行（左メディア・タイトル・バッジ・右メタ・展開部） |
+| `filter/SearchInput` | 検索ボックス（h-9 / pl-9 / max-w-md） |
+| `filter/FilterBar` + `FilterSelect` | 絞り込みバー（h-8 text-xs、リセット内蔵） |
+| `stat/StatCard` + `StatGrid` | 統計サマリー（ラベル text-xs / 数値 text-2xl font-bold 左寄せ） |
+| `status/ReservationStatusBadge` / `PrivateBookingStatusBadge` | 予約/貸切ステータスバッジ。マップは `lib/constants/reservationStatus.ts` が単一の真実源 |
+
+```tsx
+import { EmptyState, ListSkeleton, ListRow } from '@/components/patterns/list'
+import { SearchInput, FilterBar, FilterSelect } from '@/components/patterns/filter'
+import { StatCard, StatGrid } from '@/components/patterns/stat'
+import { ReservationStatusBadge, PrivateBookingStatusBadge } from '@/components/patterns/status'
+```
+

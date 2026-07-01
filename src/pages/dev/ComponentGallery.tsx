@@ -40,6 +40,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmDialog } from '@/components/patterns/modal'
 
+// 共通パターン（デザイン規約: docs/IMPROVEMENT_HANDOFF.md 5.1）
+import { EmptyState, ListSkeleton, ListRow } from '@/components/patterns/list'
+import { SearchInput, FilterBar, FilterSelect } from '@/components/patterns/filter'
+import { StatCard, StatGrid } from '@/components/patterns/stat'
+import { ReservationStatusBadge, PrivateBookingStatusBadge } from '@/components/patterns/status'
+import { RESERVATION_STATUS_CONFIG } from '@/lib/constants/reservationStatus'
+
 // セクションコンポーネント
 function Section({ 
   id, 
@@ -83,6 +90,107 @@ function ComponentBox({ label, children, className = '' }: { label?: string; chi
   )
 }
 
+// 共通パターン（patterns/list・filter・stat・status）のデモセクション
+function CommonPatternsSection() {
+  const [searchValue, setSearchValue] = useState('')
+  const [filterValue, setFilterValue] = useState('all')
+  const [expandedRow, setExpandedRow] = useState(true)
+  return (
+    <Section
+      id="patterns-common"
+      title="共通パターン"
+      description="@/components/patterns/{list,filter,stat,status} — デザイン規約: docs/IMPROVEMENT_HANDOFF.md 5.1"
+    >
+      <SubSection title="SearchInput / FilterBar / FilterSelect">
+        <ComponentBox label="検索は h-9・フィルタ類は h-8 に統一。リセットは既定値以外のときだけ出る">
+          <SearchInput
+            placeholder="顧客名・メールで検索"
+            value={searchValue}
+            onChange={e => setSearchValue(e.target.value)}
+          />
+          <FilterBar isDirty={filterValue !== 'all'} onReset={() => setFilterValue('all')}>
+            <FilterSelect
+              value={filterValue}
+              onValueChange={setFilterValue}
+              options={[
+                { value: 'all', label: 'すべてのステータス' },
+                { value: 'confirmed', label: '予約確定' },
+                { value: 'cancelled', label: 'キャンセル' },
+              ]}
+            />
+          </FilterBar>
+        </ComponentBox>
+      </SubSection>
+
+      <SubSection title="StatCard / StatGrid">
+        <StatGrid>
+          <StatCard label="今月の予約" value={128} icon={Calendar} />
+          <StatCard label="来店済み" value={96} tone="success" icon={Users} />
+          <StatCard label="未対応" value={4} tone="warning" icon={AlertCircle} />
+          <StatCard label="無断キャンセル" value={1} tone="destructive" />
+        </StatGrid>
+      </SubSection>
+
+      <SubSection title="ReservationStatusBadge / PrivateBookingStatusBadge">
+        <ComponentBox label="予約ステータス（lib/constants/reservationStatus.ts が単一の真実源）">
+          {Object.keys(RESERVATION_STATUS_CONFIG).map(s => (
+            <ReservationStatusBadge key={s} status={s} />
+          ))}
+        </ComponentBox>
+        <ComponentBox label="貸切リクエスト" className="mt-3">
+          <PrivateBookingStatusBadge status="pending_gm" />
+          <PrivateBookingStatusBadge status="pending_store" />
+          <PrivateBookingStatusBadge status="confirmed" />
+          <PrivateBookingStatusBadge status="cancelled" />
+          <PrivateBookingStatusBadge status="cancelled" wasConfirmed />
+        </ComponentBox>
+      </SubSection>
+
+      <SubSection title="ListRow（展開式リスト行）">
+        <div className="space-y-2">
+          <ListRow
+            media={
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                山
+              </div>
+            }
+            title="山田 太郎"
+            badges={<ReservationStatusBadge status="confirmed" size="sm" />}
+            subtitle="yamada@example.com ・ 来店3回"
+            meta={<span>¥5,500</span>}
+            expanded={expandedRow}
+            onToggle={() => setExpandedRow(v => !v)}
+          >
+            <p className="text-xs text-muted-foreground">
+              展開部（bg-muted/20 p-4）。詳細情報・社内メモ・アクションボタンを置く。
+            </p>
+          </ListRow>
+        </div>
+      </SubSection>
+
+      <SubSection title="EmptyState / ListSkeleton">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <EmptyState
+              icon={Search}
+              title="該当する予約がありません"
+              description="検索条件を変えてお試しください"
+              action={
+                <Button variant="outline" size="sm">
+                  条件をリセット
+                </Button>
+              }
+            />
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4">
+            <ListSkeleton rows={3} />
+          </div>
+        </div>
+      </SubSection>
+    </Section>
+  )
+}
+
 // ナビゲーションリンク
 const NAV_ITEMS = [
   { id: 'buttons', label: 'ボタン', category: 'UI基本' },
@@ -98,6 +206,7 @@ const NAV_ITEMS = [
   { id: 'tooltips', label: 'ツールチップ', category: 'フィードバック' },
   { id: 'tables', label: 'テーブル', category: 'データ表示' },
   { id: 'status', label: 'ステータス', category: 'データ表示' },
+  { id: 'patterns-common', label: '共通パターン', category: 'データ表示' },
   { id: 'sentry', label: 'Sentry', category: '開発ツール' },
   { id: 'hero', label: 'ヒーロー', category: 'トップページ' },
   { id: 'scenario-card', label: 'シナリオカード', category: 'トップページ' },
@@ -232,6 +341,9 @@ export function ComponentGallery() {
                 </Button>
               </ComponentBox>
             </Section>
+
+            {/* ====== 共通パターン ====== */}
+            <CommonPatternsSection />
 
             <Section
               id="buttons"
