@@ -72,7 +72,7 @@ GROUP BY 1,2 ORDER BY 1,2;
 ```
 期待値: anon は対象2テーブルで行なし、authenticated は `DELETE,INSERT,SELECT,UPDATE` のみ。
 
-### - [ ] Q1: ci.yml にユニットテストを追加
+### - [x] Q1: ci.yml にユニットテストを追加
 `.github/workflows/ci.yml` の typecheck の後に 1 ステップ追加するだけ:
 ```yaml
       - name: Unit tests

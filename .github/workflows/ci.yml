@@ -27,6 +27,9 @@ jobs:
       - name: TypeCheck
         run: npm run typecheck
 
+      - name: Unit tests
+        run: npm run test:unit
+
       - name: Lint
         run: npm run lint
 
@@ -45,4 +48,3 @@ jobs:
 
       - name: Build
         run: npm run build:fast
-
