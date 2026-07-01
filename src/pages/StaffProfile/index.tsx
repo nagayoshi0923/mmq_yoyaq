@@ -270,6 +270,7 @@ export function StaffProfile() {
     // 🛡 空保存ガード: 全件解除になる場合は明示的に確認
     let confirmClear = false
     if (assignments.length === 0) {
+      // eslint-disable-next-line no-alert
       const ok = window.confirm(
         '現在「担当 0 件」の状態で保存しようとしています。\n' +
         '保存すると、過去に登録されていた担当・体験済みの記録がすべて削除されます。\n\n' +

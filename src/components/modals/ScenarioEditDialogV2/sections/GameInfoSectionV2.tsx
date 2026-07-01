@@ -102,6 +102,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
 
   const handleDeleteCategory = () => {
     if (!editingOldCategoryName) return
+    // eslint-disable-next-line no-alert
     if (!window.confirm(`カテゴリ「${editingOldCategoryName}」をこのシナリオから削除しますか？`)) return
 
     setFormData(prev => ({

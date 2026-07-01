@@ -144,6 +144,7 @@ export function StoreEditModal({
                 (!Number.isInteger(minutes) || minutes <= 0 || minutes > 1440)
               ) {
                 const message = '店舗間移動時間は1〜1440分の整数で入力してください'
+                // eslint-disable-next-line no-alert, no-restricted-globals
                 alert(message)
                 throw new Error(message)
               }
@@ -741,6 +742,7 @@ export function StoreEditModal({
                   type="button"
                   variant="ghost"
                   onClick={() => {
+                    // eslint-disable-next-line no-alert, no-restricted-globals
                     if (confirm(`店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。`)) {
                       onDelete(store)
                       onClose()

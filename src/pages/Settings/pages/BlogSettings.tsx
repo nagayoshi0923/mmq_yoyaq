@@ -259,6 +259,7 @@ export function BlogSettings() {
   }
 
   const handleDelete = async (post: BlogPost) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm(`「${post.title}」を削除しますか？`)) return
 
     try {

@@ -104,6 +104,7 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
   }
 
   const revoke = async (couponId: string) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('このクーポンを取消しますか？（誤付与の取り消し）')) return
     setBusy(true)
     try {

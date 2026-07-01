@@ -206,6 +206,7 @@ export function BookingNoticeSettings() {
 
   // 削除
   const handleDelete = async (notice: BookingNotice) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('この注意事項を削除しますか？')) return
 
     try {

@@ -310,6 +310,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const handleApplyToMaster = async () => {
     if (!currentMasterId) return
     
+    // eslint-disable-next-line no-alert
     const confirmed = window.confirm(
       `現在の編集内容をマスターに反映しますか？\n\n` +
       `この操作により、他の組織がこのシナリオを引用した際に、更新された情報が適用されます。`
@@ -1337,6 +1338,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const handleDelete = async () => {
     if (!scenarioId) return
     
+    // eslint-disable-next-line no-alert
     if (!window.confirm(`「${formData.title}」を削除しますか？\nこの操作は取り消せません。`)) {
       return
     }

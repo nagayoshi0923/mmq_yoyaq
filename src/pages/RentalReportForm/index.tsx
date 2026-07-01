@@ -173,6 +173,7 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
       return
     }
 
+    // eslint-disable-next-line no-alert, no-restricted-globals
     const confirmed = confirm(
       `${reportYear}年${reportMonth}月のレンタル公演回数を報告しますか？\n\n` +
       `・会社名 / 店舗名: ${companyName}\n` +

@@ -132,6 +132,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
   }
 
   const handleImageRemove = () => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (confirm('画像を削除しますか？')) {
       setFormData(prev => ({ ...prev, key_visual_url: '' }))
     }

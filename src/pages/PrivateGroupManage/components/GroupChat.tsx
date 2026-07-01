@@ -1162,6 +1162,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   {isOrganizer && onResetCharAssignmentMethod && (
                     <button
                       onClick={() => {
+                        // eslint-disable-next-line no-alert
                         if (window.confirm('配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？')) {
                           onResetCharAssignmentMethod()
                         }
@@ -1305,6 +1306,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     {isOrganizer && onResetCharAssignmentMethod && (
                       <button
                       onClick={() => {
+                        // eslint-disable-next-line no-alert
                         if (window.confirm('配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？')) {
                           onResetCharAssignmentMethod()
                         }

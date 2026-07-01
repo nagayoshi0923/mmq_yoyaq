@@ -295,6 +295,7 @@ export function ScheduleManager() {
   const handleFillAllSeats = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => {
     const { startDate, endDate, categories } = params
 
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm(`${startDate} 〜 ${endDate} の対象カテゴリ (${categories.join(', ')}) で中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
 
     setIsFillingSeats(true)
@@ -636,6 +637,7 @@ export function ScheduleManager() {
 
   // 全期間のデータ修復（予約レコードがないのにcurrent_participantsが設定されている公演を修復）
   const handleFixAllData = async () => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('全期間の公演データを修復しますか？\n（予約レコードがない公演にデモ参加者を追加します）')) return
     
     setIsFixingData(true)
@@ -656,6 +658,7 @@ export function ScheduleManager() {
 
   // テストプレイの誤デモ予約削除 & GMテスト参加費の修正
   const handleCleanupBadDemoReservations = async () => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm(
       '過去の誤ったデモ予約を修正しますか？\n' +
       '・テストプレイ公演のデモ予約を削除\n' +

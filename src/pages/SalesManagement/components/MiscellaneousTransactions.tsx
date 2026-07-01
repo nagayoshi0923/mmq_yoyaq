@@ -184,6 +184,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   
   // トランザクションを削除
   const handleDeleteTransaction = async (id: string) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('削除しますか？')) return
     
     try {

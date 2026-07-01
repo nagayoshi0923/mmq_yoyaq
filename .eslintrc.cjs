@@ -23,6 +23,13 @@ module.exports = {
     'no-misleading-character-class': 'off', // 既存コード対応
     'no-case-declarations': 'off', // 既存コード対応
     'no-useless-catch': 'off', // 既存コード対応
+    'no-alert': 'error',
+    'no-restricted-globals': [
+      'error',
+      'confirm',
+      'prompt',
+      'alert',
+    ],
 
     // --- Security guardrails -------------------------------------------------
     // 予約テーブルの直接UPDATE/DELETEはP0事故の温床になりやすいので禁止（RPC経由に統一）
@@ -44,4 +51,3 @@ module.exports = {
     ],
   },
 }
-

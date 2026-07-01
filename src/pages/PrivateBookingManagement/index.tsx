@@ -173,6 +173,7 @@ export function PrivateBookingManagement() {
     const request = requests.find(r => r.id === cardRequest.id)
     if (!request) return
     
+    // eslint-disable-next-line no-alert
     const confirmed = window.confirm(
       `「${request.scenario_title}」のDiscord通知を再送信しますか？\n\n担当GMに新しいボタン付きメッセージが送信されます。`
     )
@@ -917,6 +918,7 @@ export function PrivateBookingManagement() {
                       <ActionButtons
                         onApprove={async () => {
                           if (req.status === 'confirmed') {
+                            // eslint-disable-next-line no-alert
                             const ok = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
                             if (!ok) return
                           }

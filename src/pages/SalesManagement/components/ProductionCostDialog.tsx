@@ -188,6 +188,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
   const handleDelete = async () => {
     if (!editingItem) return
     
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('この制作費を削除しますか？')) return
     
     setDeleting(true)

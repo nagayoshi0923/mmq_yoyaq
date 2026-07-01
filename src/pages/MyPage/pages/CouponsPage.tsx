@@ -75,6 +75,7 @@ export function CouponsPage() {
       setSelectedCoupon(null)
       setSelectedReservationId(null)
     } else {
+      // eslint-disable-next-line no-alert, no-restricted-globals
       alert(result.error || 'クーポンの使用に失敗しました')
     }
   }

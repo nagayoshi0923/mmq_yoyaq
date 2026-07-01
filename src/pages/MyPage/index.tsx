@@ -275,6 +275,7 @@ export default function MyPage() {
     const alreadyRegistered = playedScenarios.some(s => s.scenario_id === newScenarioId)
     if (alreadyRegistered) {
       const title = scenarioOptions.find(o => o.id === newScenarioId)?.title || 'このシナリオ'
+      // eslint-disable-next-line no-alert, no-restricted-globals
       if (!confirm(`「${title}」はすでに登録されています。\n同じ作品をもう一度追加しますか？`)) return
     }
     try {

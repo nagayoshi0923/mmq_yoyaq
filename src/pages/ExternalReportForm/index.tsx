@@ -137,6 +137,7 @@ export default function ExternalReportForm() {
     }
 
     // 確認
+    // eslint-disable-next-line no-alert, no-restricted-globals
     const confirmed = confirm(
       `${reportYear}年${reportMonth}月の公演報告を送信しますか？\n\n` +
       `・会社名: ${companyName}\n` +

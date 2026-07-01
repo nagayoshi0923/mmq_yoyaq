@@ -396,6 +396,7 @@ export function SettingsPage() {
       return
     }
 
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('本当にアカウントを削除しますか？この操作は取り消せません。')) {
       return
     }

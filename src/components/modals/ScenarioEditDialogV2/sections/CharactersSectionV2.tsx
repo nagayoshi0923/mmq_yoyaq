@@ -94,6 +94,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
   }
 
   const removeCharacter = (id: string) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('このキャラクターを削除しますか？')) return
     setFormData(prev => ({
       ...prev,

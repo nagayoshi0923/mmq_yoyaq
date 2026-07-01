@@ -178,6 +178,7 @@ export function PrivateGroupManage() {
   }
 
   const handleCancelGroup = async () => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!group || !confirm('グループをキャンセルしますか？この操作は取り消せません。')) return
 
     setCancelling(true)
@@ -614,6 +615,7 @@ export function PrivateGroupManage() {
                           cd.responses?.some(r => r.member_id === member.id)
                         )
                         const handleRemoveMember = async () => {
+                          // eslint-disable-next-line no-alert, no-restricted-globals
                           if (!confirm(`${member.guest_name || member.users?.email || 'このメンバー'}を退出させますか？`)) return
                           try {
                             await removeMember(member.id)

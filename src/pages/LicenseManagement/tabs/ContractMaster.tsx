@@ -255,6 +255,7 @@ export function ContractMaster({ canEdit }: ContractMasterProps) {
                             size="icon"
                             className="text-destructive hover:text-destructive"
                             onClick={() => {
+                              // eslint-disable-next-line no-alert
                               if (window.confirm('この契約マスタを削除しますか？')) {
                                 deleteMutation.mutate(contract.id)
                               }

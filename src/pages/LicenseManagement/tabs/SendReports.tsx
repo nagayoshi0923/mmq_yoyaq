@@ -461,6 +461,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     const totalEvents = targets.reduce((sum, g) => sum + g.totalEvents, 0)
     const totalLicense = targets.reduce((sum, g) => sum + g.totalLicenseCost, 0)
     
+    // eslint-disable-next-line no-alert, no-restricted-globals
     const confirmed = confirm(
       `${selectedYear}年${selectedMonth}月のレポートを一括送信しますか？\n\n` +
       `・送信先: ${targets.length}名\n` +

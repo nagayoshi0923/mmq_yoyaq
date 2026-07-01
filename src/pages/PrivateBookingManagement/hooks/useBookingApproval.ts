@@ -645,6 +645,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
   // 完全削除
   const handleDelete = useCallback(async (requestId: string) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('この申込を完全に削除しますか？\n\nこの操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。')) {
       return
     }
@@ -728,6 +729,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       onSuccess()
     } catch (error) {
       logger.error('削除エラー:', error)
+      // eslint-disable-next-line no-alert, no-restricted-globals
       alert(error instanceof Error ? error.message : '削除に失敗しました')
     } finally {
       setSubmitting(false)

@@ -987,6 +987,7 @@ export function GroupInviteView({
           <Button
             variant="outline"
             onClick={async () => {
+              // eslint-disable-next-line no-alert, no-restricted-globals
               if (!confirm('本当にこのグループから退出しますか？')) return
               try {
                 if (existingMemberId) {

@@ -347,6 +347,7 @@ export function ScheduleModals({
                   label: '臨時会場を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
+                    // eslint-disable-next-line no-alert, no-restricted-globals
                     if (confirm(`${event.date}から臨時会場を削除しますか？`)) {
                       removeTemporaryVenue(event.date, event.venue)
                     }
@@ -420,6 +421,7 @@ export function ScheduleModals({
                     
                     if (nextVenue) {
                       // 会場名を入力してもらう
+                      // eslint-disable-next-line no-alert
                       const customName = window.prompt('臨時会場の名前を入力してください（例: スペースマーケット渋谷）', '')
                       // キャンセル時は追加しない
                       if (customName === null) {
@@ -439,6 +441,7 @@ export function ScheduleModals({
                   icon: <Edit className="w-4 h-4" />,
                   onClick: () => {
                     const currentName = getVenueNameForDate(venue, date)
+                    // eslint-disable-next-line no-alert
                     const newName = window.prompt('新しい会場名を入力してください', currentName)
                     if (newName !== null && newName !== currentName) {
                       updateVenueName(date, venue, newName)
@@ -451,6 +454,7 @@ export function ScheduleModals({
                   label: '臨時会場を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
+                    // eslint-disable-next-line no-alert, no-restricted-globals
                     if (confirm(`${date}から臨時会場を削除しますか？`)) {
                       removeTemporaryVenue(date, venue)
                     }

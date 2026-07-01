@@ -40,6 +40,7 @@ export function useResponseSubmit({
       if (!allUnavailable && selectedOrders.length > 0 && gmScheduleConflicts?.[requestId]) {
         const conflictOrders = selectedOrders.filter(order => gmScheduleConflicts[requestId]?.[order])
         if (conflictOrders.length > 0) {
+          // eslint-disable-next-line no-alert
           const ok = window.confirm(
             `選択した候補の中に、あなたの既存予定と重複の可能性がある日時があります（候補${conflictOrders.join(', ')}）。\nこのまま送信しますか？`
           )

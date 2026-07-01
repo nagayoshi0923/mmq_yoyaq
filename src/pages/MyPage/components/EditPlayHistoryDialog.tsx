@@ -206,6 +206,7 @@ export function EditPlayHistoryDialog({
                                   const message = editingScenario.is_manual
                                     ? 'この履歴を完全に削除しますか？この操作は取り消せません。'
                                     : 'この履歴を削除しますか？'
+                                  // eslint-disable-next-line no-alert, no-restricted-globals
                                   if (confirm(message)) {
                                     if (editingScenario.is_manual && editingScenario.manual_id) {
                                       handleDeleteManualHistory(editingScenario.manual_id)

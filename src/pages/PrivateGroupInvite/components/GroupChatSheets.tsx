@@ -563,6 +563,7 @@ export function GroupChatSheets({
                       variant="outline"
                       className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                       onClick={() => {
+                        // eslint-disable-next-line no-alert, no-restricted-globals
                         if (confirm('このグループを削除しますか？\n\nこの操作は取り消せません。グループのすべてのデータ（メンバー、候補日、メッセージ）が削除されます。')) {
                           handleDeleteGroup()
                         }
@@ -602,6 +603,7 @@ export function GroupChatSheets({
                       variant="outline"
                       className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                       onClick={async () => {
+                        // eslint-disable-next-line no-alert, no-restricted-globals
                         if (!confirm('本当にこのグループから退出しますか？')) return
                         try {
                           if (existingMemberId) {

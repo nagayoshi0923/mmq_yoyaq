@@ -284,6 +284,7 @@ function MasterListManager({
         ? `「${item.name}」は ${usage} 件のシナリオで使用中です。\n削除すると、該当シナリオからもこのカテゴリが削除されます。\n本当に削除しますか？`
         : `「${item.name}」を削除しますか？`
 
+    // eslint-disable-next-line no-alert
     if (!window.confirm(message)) return
 
     setSaving(true)

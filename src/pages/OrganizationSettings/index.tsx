@@ -137,6 +137,7 @@ export default function OrganizationSettings() {
 
   // 招待を削除
   const handleDeleteInvitation = async (invitation: OrganizationInvitation) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm(`${invitation.name} さんの招待を取り消しますか？`)) return
 
     const { success, error } = await deleteInvitation(invitation.id)

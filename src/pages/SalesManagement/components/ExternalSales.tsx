@@ -222,6 +222,7 @@ export const ExternalSales: React.FC = () => {
 
   // 削除処理
   const handleDelete = async (id: string) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('削除しますか？')) return
 
     try {

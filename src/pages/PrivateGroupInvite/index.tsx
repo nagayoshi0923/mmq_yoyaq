@@ -925,6 +925,7 @@ export function PrivateGroupInvite() {
   // グループキャンセル
   const handleCancelGroup = async () => {
     if (!isOrganizer || !group) return
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('本当にこのグループをキャンセルしますか？')) return
     
     setCancelling(true)
@@ -1270,6 +1271,7 @@ export function PrivateGroupInvite() {
   // メンバー削除
   const handleRemoveMember = async (memberId: string) => {
     if (!isOrganizer || !group) return
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('このメンバーを退出させますか？')) return
 
     try {

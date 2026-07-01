@@ -165,6 +165,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   }
 
   const deleteManual = async (manualId: string) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     if (!confirm('この手動登録を削除しますか？')) return
     setBusy(true)
     try {

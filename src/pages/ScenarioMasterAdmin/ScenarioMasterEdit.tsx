@@ -270,6 +270,7 @@ export function ScenarioMasterEdit() {
   }
 
   const handleReject = async () => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     const reason = prompt('却下理由を入力してください:')
     if (!reason || !id) return
 
@@ -370,6 +371,7 @@ export function ScenarioMasterEdit() {
   }
 
   const handleCorrectionReject = async (correction: CorrectionRequest) => {
+    // eslint-disable-next-line no-alert, no-restricted-globals
     const comment = prompt('却下理由を入力してください:')
     if (!comment) return
 
