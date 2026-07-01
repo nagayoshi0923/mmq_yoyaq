@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, Plus, Trash2, Users, Lock, Sparkles, ExternalLink } from 'lucide-react'
+import { Save, Users, Lock, Sparkles, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -17,17 +17,19 @@ import {
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
 import { OtherPoliciesSection } from './cancellationSettings/OtherPoliciesSection'
+import { CancellationFeesEditor } from './cancellationSettings/CancellationFeesEditor'
+import { PolicyItemsEditor } from './cancellationSettings/PolicyItemsEditor'
 
 const RESERVATION_SETTINGS_SELECT_FIELDS =
   'id, store_id, cancellation_policy, cancellation_policy_items, cancellation_deadline_hours, cancellation_fees, private_cancellation_policy, private_cancellation_policy_items, private_cancellation_deadline_hours, private_cancellation_fees, organizer_cancel_reasons, organizer_cancel_refund_note, cancellation_judgment_rules, cancellation_notice_note, reservation_change_deadline_hours, reservation_change_note, private_reservation_change_deadline_hours, private_reservation_change_note, refund_method_note, auto_refund_enabled, refund_processing_days, policy_updated_at' as const
 
-interface CancellationFee {
+export interface CancellationFee {
   hours_before: number
   fee_percentage: number
   description: string
 }
 
-interface PolicyItem {
+export interface PolicyItem {
   id: string
   content: string
 }
@@ -82,214 +84,6 @@ export interface CancellationSettings {
 
 interface CancellationSettingsProps {
   storeId: string
-}
-
-// キャンセル料金コンポーネント
-interface CancellationFeesEditorProps {
-  fees: CancellationFee[]
-  onAdd: () => void
-  onRemove: (index: number) => void
-  onUpdate: (index: number, field: keyof CancellationFee, value: string | number) => void
-}
-
-function CancellationFeesEditor({ fees, onAdd, onRemove, onUpdate }: CancellationFeesEditorProps) {
-  // キャンセル料金をプレビュー表示
-  const getPreviewText = () => {
-    const sorted = [...fees].sort((a, b) => b.hours_before - a.hours_before)
-    return sorted.map(fee => {
-      const days = Math.floor(fee.hours_before / 24)
-      const hours = fee.hours_before % 24
-      let timeText = ''
-      
-      if (days > 0) {
-        timeText = `${days}日`
-        if (hours > 0) timeText += `${hours}時間`
-      } else if (hours > 0) {
-        timeText = `${hours}時間`
-      } else {
-        timeText = '当日'
-      }
-      
-      return `${timeText}前: ${fee.fee_percentage}% ${fee.description ? `(${fee.description})` : ''}`
-    }).join('\n')
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="font-medium text-sm">キャンセル料金</h4>
-          <p className="text-xs text-muted-foreground">キャンセルするタイミングに応じて料金を設定</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAdd}
-          className="text-blue-600 border-blue-600 hover:bg-blue-50"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          追加
-        </Button>
-      </div>
-
-      <div className="space-y-3">
-        {fees.map((fee, index) => (
-          <div key={index} className="border rounded-lg p-3">
-            <div className="grid grid-cols-12 gap-3 items-start">
-              <div className="col-span-3">
-                <Label className="text-xs">何時間前</Label>
-                <Input
-                  type="number"
-                  value={fee.hours_before}
-                  onChange={(e) => onUpdate(index, 'hours_before', parseInt(e.target.value) || 0)}
-                  min="0"
-                  className="text-sm mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {Math.floor(fee.hours_before / 24)}日{fee.hours_before % 24 > 0 ? `${fee.hours_before % 24}時間` : ''}前
-                </p>
-              </div>
-              <div className="col-span-3">
-                <Label className="text-xs">キャンセル料率</Label>
-                <div className="flex items-center gap-1 mt-1">
-                  <Input
-                    type="number"
-                    value={fee.fee_percentage}
-                    onChange={(e) => onUpdate(index, 'fee_percentage', parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="100"
-                    className="text-sm"
-                  />
-                  <span className="text-xs text-muted-foreground">%</span>
-                </div>
-              </div>
-              <div className="col-span-5">
-                <Label className="text-xs">説明</Label>
-                <Input
-                  type="text"
-                  value={fee.description}
-                  onChange={(e) => onUpdate(index, 'description', e.target.value)}
-                  placeholder="例: 1週間前まで無料"
-                  className="text-sm mt-1"
-                />
-              </div>
-              <div className="col-span-1 flex justify-end items-start pt-5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                  disabled={fees.length <= 1}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* プレビュー */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-        <h5 className="text-xs font-medium mb-1">プレビュー</h5>
-        <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-          {getPreviewText()}
-        </pre>
-      </div>
-    </div>
-  )
-}
-
-// ポリシー項目エディタ
-interface PolicyItemsEditorProps {
-  items: PolicyItem[]
-  onAdd: () => void
-  onRemove: (id: string) => void
-  onUpdate: (id: string, content: string) => void
-  onMoveUp: (index: number) => void
-  onMoveDown: (index: number) => void
-}
-
-function PolicyItemsEditor({ items, onAdd, onRemove, onUpdate, onMoveUp, onMoveDown }: PolicyItemsEditorProps) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="font-medium text-sm">ポリシー項目</h4>
-          <p className="text-xs text-muted-foreground">予約確認やサイトに表示される注意事項</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAdd}
-          className="text-blue-600 border-blue-600 hover:bg-blue-50"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          項目追加
-        </Button>
-      </div>
-
-      <div className="space-y-2">
-        {items.map((item, index) => (
-          <div key={item.id} className="flex items-start gap-2 p-2 border rounded-lg bg-white">
-            <div className="flex flex-col gap-0.5 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
-                onClick={() => onMoveUp(index)}
-                disabled={index === 0}
-              >
-                ▲
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
-                onClick={() => onMoveDown(index)}
-                disabled={index === items.length - 1}
-              >
-                ▼
-              </Button>
-            </div>
-            <div className="flex-1">
-              <Input
-                value={item.content}
-                onChange={(e) => onUpdate(item.id, e.target.value)}
-                placeholder="ポリシー内容を入力"
-                className="text-sm"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(item.id)}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0"
-              disabled={items.length <= 1}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
-
-      {/* プレビュー */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-        <h5 className="text-xs font-medium mb-2">表示プレビュー</h5>
-        <ul className="text-xs text-gray-700 space-y-1">
-          {items.map((item) => (
-            <li key={item.id}>• {item.content || '（未入力）'}</li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  )
 }
 
 // デフォルトのポリシー項目
