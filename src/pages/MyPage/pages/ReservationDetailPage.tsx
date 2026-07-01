@@ -344,7 +344,7 @@ export function ReservationDetailPage() {
                       <span className="text-xs text-gray-500 ml-2">{reservation.payment_status === 'paid' ? '決済済み' : '現地決済'}</span>
                     </div>
                   </div>
-                  {reservation.unit_price && (
+                  {!!reservation.unit_price && (
                     <div className="flex items-center justify-between py-2 border-b border-gray-100">
                       <span className="text-sm text-gray-500">1人あたり</span>
                       <span className="text-sm text-gray-600">¥{reservation.unit_price.toLocaleString()}/人</span>

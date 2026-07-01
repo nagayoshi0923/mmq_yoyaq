@@ -104,7 +104,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 同ファイル `useUpdateParticipantCountMutation` の onSuccess（:131-133）が詳細キーしか invalidate していない。
 同ファイルの cancel 側（:97-102）と同じく `queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })` を追加。
 
-### - [ ] B4: 予約詳細に謎の「0」が出る
+### - [x] B4: 予約詳細に謎の「0」が出る
 `src/pages/MyPage/pages/ReservationDetailPage.tsx:347` — `{reservation.unit_price && (` → `{!!reservation.unit_price && (`。
 
 ### - [ ] B5: スタッフ参加予約の「決済済み」を「スタッフ参加」表記に 🔍（仕様確定済み）
