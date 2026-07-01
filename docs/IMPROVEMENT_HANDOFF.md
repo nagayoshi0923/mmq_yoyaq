@@ -126,7 +126,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 ## 4. フェーズ2: temp-ID 予約編集 400/500 の fix 再適用 🔍
 
 **経緯**: fix `974adc56`（useEventModalState に temp→実ID 同期 effect を追加、23行）は revert `d707e519`（2026-06-26）で削除されたまま再適用されていない。
-- [ ] `git show 974adc56` で当時の diff を確認し、現在の `src/hooks/eventOperations/useEventModalState.ts` に**逐語で**再適用（ファイル構成が変わっていれば等価に移植）。
+- [x] `git show 974adc56` で当時の diff を確認し、現在の `src/hooks/eventOperations/useEventModalState.ts` に**逐語で**再適用（ファイル構成が変わっていれば等価に移植）。
 - [ ] 追加ガード（別コミット可）: `src/components/schedule/modal/reservationList/useReservationListData.ts:102` の通常公演分岐が temp-ID を素通しでサーバに送る。貸切分岐（:56-58）と同様に `event.id.startsWith('temp-')` は fetch をスキップ。
 - temp-ID は `src/hooks/eventOperations/useEventSave.ts:284` で生成される楽観 ID。sync/timing 系なので**保守的に・挙動を変えない最小差分**で。
 🔍 スケジュール管理→公演を新規作成→保存直後（採番前）にその公演を開いて予約者を編集→400/500 にならないこと。
