@@ -6,7 +6,7 @@ import {
   CheckCircle2, CircleDashed, XCircle, Clock,
   RefreshCw, Copy, Check, Mail, Phone, PlusCircle
 } from 'lucide-react'
-import { StatusBadge } from './StatusBadge'
+import { PrivateBookingStatusBadge } from '@/components/patterns/status'
 import {
   formatDate,
   formatDateTime,
@@ -145,14 +145,14 @@ export const BookingRequestCard = ({
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
           <div className="flex flex-col items-end gap-0.5 shrink-0">
-            <StatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
+            <PrivateBookingStatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
             {request.approver_name && (
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
                 承認: {request.approver_name}{request.approved_at ? ` ・ ${formatDateTime(request.approved_at)}` : ''}
               </span>
             )}
             {request.status === 'cancelled' && (
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {request.approver_name ? 'キャンセル' : '却下'}: {request.canceller_name || '不明'}
                 {request.cancelled_at ? ` ・ ${formatDateTime(request.cancelled_at)}` : ''}
               </span>
@@ -292,7 +292,7 @@ export const BookingRequestCard = ({
                         {/* 個別通知ボタン: 未送信→「通知」/ 未回答→「再通知」 */}
                         {onResendDiscordGm && isWaitingStatus && !responded && response.staff_id && (
                           <Button variant="ghost" size="sm"
-                            className={`h-5 px-1.5 ml-auto text-[10px] ${isUnsent ? 'text-red-600 hover:text-red-800 hover:bg-red-50' : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50'}`}
+                            className={`h-5 px-1.5 ml-auto text-xs ${isUnsent ? 'text-red-600 hover:text-red-800 hover:bg-red-50' : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50'}`}
                             onClick={() => handleResendGm(response.staff_id, response.gm_name)}
                             disabled={sending}
                           >

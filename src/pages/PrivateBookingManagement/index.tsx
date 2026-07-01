@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, X, Mail } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, Mail } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { SearchInput, FilterBar, FilterSelect } from '@/components/patterns/filter'
+import { EmptyState, ListSkeleton } from '@/components/patterns/list'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -612,8 +613,12 @@ export function PrivateBookingManagement() {
         containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         stickyLayout={true}
       >
-        <div className="flex items-center justify-center py-20">
-          <p className="text-muted-foreground text-lg">読み込み中...</p>
+        <div className="space-y-6">
+          <PageHeader
+            title={<><Calendar className="h-5 w-5 text-primary" />貸切予約管理</>}
+            description="貸切予約リクエストの承認・却下・店舗調整を行います"
+          />
+          <ListSkeleton rows={4} variant="card" />
         </div>
       </AppLayout>
     )
@@ -658,7 +663,7 @@ export function PrivateBookingManagement() {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-4">
+      <div className="space-y-6">
         <PageHeader
           title={<><Calendar className="h-5 w-5 text-primary" />貸切予約管理</>}
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
@@ -675,44 +680,46 @@ export function PrivateBookingManagement() {
             </TabsList>
 
             {/* 検索・絞り込みツールバー（全タブ横断で効く。件数バッジにも反映） */}
-            <div className="flex flex-wrap items-center gap-2">
+            <FilterBar
+              isDirty={hasActiveFilters}
+              onReset={() => {
+                setSearchText('')
+                setScenarioFilter('all')
+                setStoreFilter('all')
+                setDateRangeStart(undefined)
+                setDateRangeEnd(undefined)
+              }}
+            >
               <TemplateEditButton
                 templateKey="private_request_template"
                 organizationId={organizationId}
                 label="受付メールのテンプレを編集"
                 className="h-8 text-xs text-purple-700 hover:text-purple-900"
               />
-              <div className="relative flex-1 min-w-[280px] max-w-md">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="予約番号・名前・メール・シナリオで検索"
-                  className="pl-7 h-8 text-xs"
-                />
-              </div>
-              <Select value={scenarioFilter} onValueChange={setScenarioFilter}>
-                <SelectTrigger className="w-[150px] h-8 text-xs">
-                  <SelectValue placeholder="シナリオ" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">シナリオ: 全て</SelectItem>
-                  {scenarioOptions.map(title => (
-                    <SelectItem key={title} value={title}>{title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
-                  <SelectValue placeholder="店舗" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">店舗: 全て</SelectItem>
-                  {storeOptions.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchInput
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="予約番号・名前・メール・シナリオで検索"
+                containerClassName="flex-1 min-w-[280px] max-w-md"
+              />
+              <FilterSelect
+                value={scenarioFilter}
+                onValueChange={setScenarioFilter}
+                className="w-[150px]"
+                options={[
+                  { value: 'all', label: 'シナリオ: 全て' },
+                  ...scenarioOptions.map(title => ({ value: title, label: title })),
+                ]}
+              />
+              <FilterSelect
+                value={storeFilter}
+                onValueChange={setStoreFilter}
+                className="w-[130px]"
+                options={[
+                  { value: 'all', label: '店舗: 全て' },
+                  ...storeOptions.map(name => ({ value: name, label: name })),
+                ]}
+              />
               <DateRangePopover
                 startDate={dateRangeStart}
                 endDate={dateRangeEnd}
@@ -722,43 +729,31 @@ export function PrivateBookingManagement() {
                   : '期間指定'}
                 buttonClassName="!w-auto min-w-[110px] !h-8 text-xs input-bg rounded"
               />
-              <Select value={displayLimit} onValueChange={setDisplayLimit}>
-                <SelectTrigger className="w-[110px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="20">最新20件</SelectItem>
-                  <SelectItem value="50">最新50件</SelectItem>
-                  <SelectItem value="100">最新100件</SelectItem>
-                  <SelectItem value="all">全件表示</SelectItem>
-                </SelectContent>
-              </Select>
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-muted-foreground"
-                  onClick={() => {
-                    setSearchText('')
-                    setScenarioFilter('all')
-                    setStoreFilter('all')
-                    setDateRangeStart(undefined)
-                    setDateRangeEnd(undefined)
-                  }}
-                >
-                  <X className="h-4 w-4 mr-1" />クリア
-                </Button>
-              )}
-            </div>
+              <FilterSelect
+                value={displayLimit}
+                onValueChange={setDisplayLimit}
+                className="w-[110px]"
+                options={[
+                  { value: '20', label: '最新20件' },
+                  { value: '50', label: '最新50件' },
+                  { value: '100', label: '最新100件' },
+                  { value: 'all', label: '全件表示' },
+                ]}
+              />
+            </FilterBar>
           </div>
 
           {/* 予約リクエストタブ */}
           <div className="mt-0">
 
             {filteredRequests.length === 0 ? (
-              <Card className="shadow-none border">
-                <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                  該当するリクエストがありません
+              <Card className="border">
+                <CardContent className="p-0">
+                  <EmptyState
+                    icon={Search}
+                    title="該当するリクエストがありません"
+                    description={hasActiveFilters ? '検索条件やタブを変えてお試しください' : undefined}
+                  />
                 </CardContent>
               </Card>
             ) : (
