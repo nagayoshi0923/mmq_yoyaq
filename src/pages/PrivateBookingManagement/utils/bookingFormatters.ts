@@ -122,21 +122,24 @@ export function sortGmResponsesByReplyTime<T extends GmReplySortable>(responses:
 
 /**
  * ステータスに応じたカードクラス名を取得
+ *
+ * 左ボーダー太めのアクセント（border-l-4）は使わない（オーナー指示 2026-07-02）。
+ * ステータスは PrivateBookingStatusBadge の意味色で示し、カードは薄い背景 tint まで。
  */
 export const getCardClassName = (status: string): string => {
   switch (status) {
     case 'pending':
     case 'pending_gm':
-      return 'border-l-4 border-l-purple-400 border-purple-200 bg-purple-50/30'
+      return 'border-purple-200 bg-purple-50/30'
     case 'gm_confirmed':
     case 'pending_store':
-      return 'border-l-4 border-l-amber-400 border-amber-200 bg-amber-50/20'
+      return 'border-amber-200 bg-amber-50/20'
     case 'confirmed':
-      return 'border-l-4 border-l-green-400 border-green-200 bg-green-50/30'
+      return 'border-green-200 bg-green-50/30'
     case 'cancelled':
-      return 'border-l-4 border-l-gray-300 border-gray-200 bg-gray-50/30'
+      return 'border-gray-200 bg-gray-50/30'
     default:
-      return 'border-l-4 border-l-gray-200'
+      return ''
   }
 }
 
