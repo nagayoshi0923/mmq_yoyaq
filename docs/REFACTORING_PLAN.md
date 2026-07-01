@@ -386,7 +386,16 @@
 リスク: 中 / 規模: 大
 
 - [ ] 6-1 `PrivateGroupInvite/index.tsx`（3,468行・最大）: フォーム / メール送信 / バリデーション / 確認UI を分離
-- [ ] 6-2 `ScheduleManager/index.tsx`（2,056行）: カレンダー描画 / D&D / 右クリックメニュー / ツールバー分離
+- [~] 6-2 `ScheduleManager/index.tsx`（2,053行）: カレンダー描画 / D&D / 右クリックメニュー / ツールバー分離
+      **presentational 抽出バッチ完了（2026-07-02・2,053→1,316・main `b03f0441` 反映済＝staging スモークOK）**。
+      方式は Phase 5 と同一（byte 逐語移送・空白除去 diff=0・同名 props 注入・state/effect/handler は親に残置・1スライス1コミット）。
+      `ScheduleManager/components/` 配下へ抽出:
+      - [x] ① ツールバー sticky 操作行（月切替/フィルター群/PC・スマホのアクションボタン）→ `ScheduleToolbar.tsx`（props33）`8926df26`（2,053→1,779・死 import HelpButton＋lucide10種 除去）
+      - [x] ② モバイル用フィルターパネル（showMobileFilters 時）→ `ScheduleMobileFilters.tsx`（props12）`babd7bfb`（1,779→1,715・死 import MultiSelect/StoreMultiSelect 除去）
+      - [x] ③ `<Suspense>` 配下の全モーダル＋右クリック ContextMenu を **DOM 順を保ったまま** → `ScheduleModals.tsx`（props32・lazy()定義7つも移設）`b03f0441`（1,715→1,316・死 import lazy/Suspense・ContextMenu系・ScheduleDialogs・ExportRangeModal・FillSeatsModal・lucide10種・timeslot util2種 除去）
+      各スライス tsc=0 / eslint=0 / build:fast / test:unit 130。
+      ※ **残: 800行到達には state/handler のフック化が必要（前半~1,050行が state/effect/handler・中〜高リスク・退行注意）。別バッチでオーナー承認後に着手。**
+      （デプロイ中に「新しいバージョンがあります」＝ErrorBoundary のチャンク404画面が出たが、実物 curl 検証でデプロイは健全＝開いたままのタブが旧チャンクを掴んだ定番挙動。`_v=2` 固定キャッシュバスターの papercut は別件）
 - [ ] 6-3 `MyPage/index.tsx`（1,749行）: タブごとにコンポーネント分離
 - [ ] 6-4 `CompleteProfile.tsx`（1,173行）: 構造のみ整理（既知の誤遷移バグ修正とは**混ぜない**）
 
