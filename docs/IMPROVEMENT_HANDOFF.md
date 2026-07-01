@@ -179,7 +179,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 
 - [ ] **CardTitle の既定サイズを定義**: `src/components/ui/card.tsx:35` の CardTitle に `text-base font-semibold` を追加（現在サイズ未定義で親を継承し画面毎に変わる）。既存の className 上書き15種は移行バッチで順次削除。🔍 全体スモーク（見出しサイズが変わるため、パイロット確認に含める）
 
-- [ ] **デザインガード CI**: `scripts/check-design-tokens.mjs` を新設。`text-gray-` / `text-[` / `style={{ borderRadius` / bare `rounded"` の出現数をベースライン JSON と比較し、**増えたら fail**（減るのは OK・ベースライン自動更新）。ci.yml に追加。
+- [x] **デザインガード CI**: `scripts/check-design-tokens.mjs` を新設。`text-gray-` / `text-[` / `style={{ borderRadius` / bare `rounded"` の出現数をベースライン JSON と比較し、**増えたら fail**（減るのは OK・ベースライン自動更新）。ci.yml に追加。
 
 ### 5.3 D-1/D-2: 管理ページのUI改装 — ❌ **Codex 対象外（Claude 担当・後日）**
 オーナー判断（2026-07-02）: 管理ページの見た目の改装（特にサイドバーの「**貸切・予約**」「**売上・管理**」「**設定**」「**MMQ運営**」グループ配下のページ）は **Claude が後日実施**する。計画書: `docs/design/ADMIN_UI_REDESIGN_PLAN.md`。

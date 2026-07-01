@@ -19,6 +19,7 @@
     "check:cancellation-rpcs": "node scripts/verify-cancellation-rpcs.mjs",
     "check:permissions": "node scripts/verify_permissions.mjs",
     "check:permissions:fix": "node scripts/verify_permissions.mjs --fix",
+    "check:design-tokens": "node scripts/check-design-tokens.mjs",
     "verify": "npm run check:security-guardrails && npm run check:cancellation-rpcs && npm run typecheck && npm run lint && npm run build:fast",
     "db:check": "node scripts/check_schema.js",
     "db:reset": "npx supabase db reset --linked",
