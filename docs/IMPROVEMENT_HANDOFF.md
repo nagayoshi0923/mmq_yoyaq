@@ -185,7 +185,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 オーナー判断（2026-07-02）: 管理ページの見た目の改装（特にサイドバーの「**貸切・予約**」「**売上・管理**」「**設定**」「**MMQ運営**」グループ配下のページ）は **Claude が後日実施**する。計画書: `docs/design/ADMIN_UI_REDESIGN_PLAN.md`。
 **Codex はページ単位のUI再設計・レイアウト変更に着手しないこと**（他の管理ページ含む）。Codex のデザイン領域の担当は D-0（部品作成）/ D-3（顧客向けの見た目不変トークン化）/ D-5（モーダル・確認ダイアログ統一）のみ。
 - D-5c の確認ダイアログ置換は上記ページ群のファイルにも触れるが、「素の confirm を標準 ConfirmDialog に差し替える」**局所変更のみ**（ページレイアウトには手を付けない）なので Codex が実施してよい。
-- [ ] `src/components/patterns/table/index.ts` から未使用の DataTable / MobileResponsiveTable の export を削除（参照ゼロ確認済み・機械的な死コード削除なので Codex 可）。正は TanStackDataTable に一本化。
+- [x] `src/components/patterns/table/index.ts` から未使用の DataTable / MobileResponsiveTable の export を削除（参照ゼロ確認済み・機械的な死コード削除なので Codex 可）。正は TanStackDataTable に一本化。
 
 ### 5.5 D-3: 顧客向けのトークン化（見た目は変えない）🔍
 - [ ] MyPage 系の `style={{ borderRadius: 0 }}`（150箇所）と THEME 定数 inline color を、顧客レイアウトスコープの CSS 変数＋Tailwind テーマへ移す。**ピクセル単位で見た目不変**が検収条件（before/after スクショ比較）。
