@@ -88,7 +88,7 @@ ALTER TABLE public.email_settings DROP COLUMN IF EXISTS private_cancellation_tem
 ```
 staging→（オーナー確認後）prod。詳細経緯: `docs/refactoring/template-editing-triage-plan.md`。
 
-### - [ ] S2: api/staff.ts のスタッフ改名同期で RPC 戻り値を無視している箇所の修正
+### - [x] S2: api/staff.ts のスタッフ改名同期で RPC 戻り値を無視している箇所の修正
 `api/staff.ts:405-408` が `database.rpc('admin_update_reservation_fields', ...)` の error も `{success:false}` も判定せず破棄 → 完全サイレント失敗。
 `api/reservations.ts:699-709` と同じ判定を入れ、失敗時は `console.error`（ベストエフォート同期なのでループは継続、レスポンスに warning を含められればなお良い）。
 

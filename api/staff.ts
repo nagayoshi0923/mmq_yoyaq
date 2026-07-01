@@ -402,10 +402,27 @@ async function syncRenamedStaffReferences(
               updates.gm_staff = newName
             }
             if (Object.keys(updates).length === 0) return
-            await database.rpc('admin_update_reservation_fields', {
+            const { data: updateResult, error: updateError } = await database.rpc('admin_update_reservation_fields', {
               p_reservation_id: r.id,
               p_updates: updates,
             })
+            if (updateError) {
+              console.error('[staff:syncRenamed] reservation RPC error:', {
+                reservationId: r.id,
+                error: updateError,
+              })
+              return
+            }
+            if (
+              typeof updateResult === 'object'
+              && updateResult !== null
+              && (updateResult as { success?: boolean }).success === false
+            ) {
+              console.error('[staff:syncRenamed] reservation RPC rejected:', {
+                reservationId: r.id,
+                error: (updateResult as { error?: string }).error ?? 'unknown error',
+              })
+            }
           },
         ),
       )
