@@ -1,12 +1,12 @@
 import { useState, useRef, Suspense } from 'react'
 import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star, RotateCcw } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -1456,68 +1456,21 @@ export default function MyPage() {
                     <p className="text-sm text-gray-500">
                       これまでに参加したマーダーミステリーの記録です
                     </p>
-                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" variant="outline" className="gap-1">
-                          <Plus className="h-4 w-4" />
-                          <span className="hidden sm:inline">過去の体験を追加</span>
-                          <span className="sm:hidden">追加</span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>過去の体験を追加</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 pt-4">
-                          <div className="space-y-2">
-                            <Label>シナリオ *</Label>
-                            <SearchableSelect
-                              options={scenarioOptions.map((s): SearchableSelectOption => ({
-                                value: s.id,
-                                label: s.title
-                              }))}
-                              value={newScenarioId}
-                              onValueChange={setNewScenarioId}
-                              placeholder={optionsLoading ? '読み込み中...' : scenarioOptions.length === 0 ? 'シナリオがありません' : 'シナリオを選択'}
-                              searchPlaceholder="シナリオを検索..."
-                              emptyText="シナリオが見つかりません"
-                              disabled={optionsLoading || scenarioOptions.length === 0}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>プレイした日付（任意）</Label>
-                            <SingleDatePopover
-                              date={newPlayedAt}
-                              onDateChange={(date) => setNewPlayedAt(date || '')}
-                              placeholder="日付を選択"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>店舗（任意）</Label>
-                            <SearchableSelect
-                              options={storeOptions.map((s): SearchableSelectOption => ({
-                                value: s.id,
-                                label: s.name
-                              }))}
-                              value={newStoreId}
-                              onValueChange={setNewStoreId}
-                              placeholder={optionsLoading ? '読み込み中...' : storeOptions.length === 0 ? '店舗がありません' : '店舗を選択'}
-                              searchPlaceholder="店舗を検索..."
-                              emptyText="店舗が見つかりません"
-                              disabled={optionsLoading || storeOptions.length === 0}
-                              allowClear={true}
-                            />
-                          </div>
-                          <Button
-                            onClick={handleAddManualHistory}
-                            disabled={addManualHistoryMutation.isPending || !newScenarioId}
-                            className="w-full"
-                          >
-                            {addManualHistoryMutation.isPending ? '追加中...' : '追加'}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <AddPlayHistoryDialog
+                      isAddDialogOpen={isAddDialogOpen}
+                      setIsAddDialogOpen={setIsAddDialogOpen}
+                      scenarioOptions={scenarioOptions}
+                      storeOptions={storeOptions}
+                      optionsLoading={optionsLoading}
+                      newScenarioId={newScenarioId}
+                      setNewScenarioId={setNewScenarioId}
+                      newPlayedAt={newPlayedAt}
+                      setNewPlayedAt={setNewPlayedAt}
+                      newStoreId={newStoreId}
+                      setNewStoreId={setNewStoreId}
+                      handleAddManualHistory={handleAddManualHistory}
+                      addManualHistoryMutation={addManualHistoryMutation}
+                    />
                   </div>
                 </div>
 
