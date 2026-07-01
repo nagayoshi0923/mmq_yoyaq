@@ -99,6 +99,11 @@ export function useReservationListData({
             }
           } else {
             // 通常の予約の場合、schedule_event_idで取得
+            if (event.id.startsWith('temp-')) {
+              logger.log('temp公演のため通常予約取得をスキップ:', { eventId: event.id })
+              setReservations([])
+              return
+            }
             const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
