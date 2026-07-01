@@ -2150,10 +2150,10 @@ export function PrivateGroupInvite() {
                         )}
                         {isOrganizer && !member.is_organizer && member.id !== existingMemberId && (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRemoveMember(member.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
                           >
                             退出させる
                           </Button>

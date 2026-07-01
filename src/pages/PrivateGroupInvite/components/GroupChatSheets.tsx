@@ -476,10 +476,10 @@ export function GroupChatSheets({
                         </div>
                         {!member.is_organizer && (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRemoveMember(member.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
+                            className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300 shrink-0"
                           >
                             退出させる
                           </Button>

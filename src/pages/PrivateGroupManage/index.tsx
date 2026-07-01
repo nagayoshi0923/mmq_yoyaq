@@ -24,7 +24,6 @@ import {
   MessageCircle,
   UserPlus,
   Share2,
-  UserMinus,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
@@ -615,7 +614,7 @@ export function PrivateGroupManage() {
                           cd.responses?.some(r => r.member_id === member.id)
                         )
                         const handleRemoveMember = async () => {
-                          if (!confirm(`${member.guest_name || member.users?.email || 'このメンバー'}を削除しますか？`)) return
+                          if (!confirm(`${member.guest_name || member.users?.email || 'このメンバー'}を退出させますか？`)) return
                           try {
                             await removeMember(member.id)
                             refetch()
@@ -649,13 +648,13 @@ export function PrivateGroupManage() {
                               {/* 主催者のみメンバー削除可能 */}
                               {isOrganizer && !member.is_organizer && group.status === 'gathering' && (
                                 <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
                                   onClick={handleRemoveMember}
                                   disabled={actionLoading}
                                 >
-                                  <UserMinus className="w-4 h-4" />
+                                  退出させる
                                 </Button>
                               )}
                             </div>
