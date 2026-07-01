@@ -21,7 +21,6 @@ import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { getOrganizationBySlug } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { RESERVATION_STATUSES_BLOCKING_WITHDRAWAL } from '@/lib/reservationWithdrawalGuard'
 import {
   MSG_CANNOT_CLEAR_REGISTERED_PHONE,
@@ -530,9 +529,9 @@ export function SettingsPage() {
     <div className="space-y-4">
       {/* 連携されているログイン方法 */}
       {linkedProviders.length > 0 && (
-        <div className="bg-white shadow-sm p-4 border border-gray-200" style={{ borderRadius: 0 }}>
+        <div className="bg-white shadow-sm p-4 border border-gray-200 rounded-none">
           <div className="flex items-center gap-2 mb-3">
-            <Link2 className="w-5 h-5" style={{ color: THEME.primary }} />
+            <Link2 className="w-5 h-5 text-mypage-primary" />
             <h3 className="font-medium text-gray-900">連携されているログイン方法</h3>
           </div>
           <div className="space-y-2">
@@ -541,12 +540,10 @@ export function SettingsPage() {
               return (
                 <div 
                   key={`${provider}-${index}`}
-                  className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-100"
-                  style={{ borderRadius: 0 }}
+                  className="flex items-center gap-3 p-2 bg-gray-50 border border-gray-100 rounded-none"
                 >
                   <div 
-                    className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200"
-                    style={{ borderRadius: 0 }}
+                    className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-none"
                   >
                     {icon}
                   </div>
@@ -566,15 +563,13 @@ export function SettingsPage() {
           <div
             key={item.id}
             onClick={() => setActiveDialog(item.id)}
-            className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-gray-200 hover:border-gray-300"
-            style={{ borderRadius: 0 }}
+            className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-gray-200 hover:border-gray-300 rounded-none"
           >
             <div className="flex items-center gap-3">
               <div 
-                className="w-10 h-10 flex items-center justify-center"
-                style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                className="w-10 h-10 flex items-center justify-center bg-mypage-primary-light rounded-none"
               >
-                <Icon className="w-5 h-5" style={{ color: THEME.primary }} />
+                <Icon className="w-5 h-5 text-mypage-primary" />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">{item.label}</h3>
@@ -595,11 +590,10 @@ export function SettingsPage() {
           }
           setActiveDialog('delete')
         }}
-        className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-red-200 hover:border-red-300"
-        style={{ borderRadius: 0 }}
+        className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-red-200 hover:border-red-300 rounded-none"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 flex items-center justify-center bg-red-50" style={{ borderRadius: 0 }}>
+          <div className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-none">
             <Trash2 className="w-5 h-5 text-red-500" />
           </div>
           <div>
@@ -618,8 +612,7 @@ export function SettingsPage() {
       <div className="pt-4">
         <Button 
           variant="outline" 
-          className="w-full text-gray-500 border-gray-300"
-          style={{ borderRadius: 0 }}
+          className="w-full text-gray-500 border-gray-300 rounded-none"
           onClick={handleLogout}
         >
           ログアウト
@@ -702,8 +695,7 @@ export function SettingsPage() {
             <Button 
               onClick={handleSaveProfile} 
               disabled={saving || !formData.name.trim()}
-              style={{ backgroundColor: THEME.primary }}
-              className="text-white"
+              className="text-white bg-mypage-primary hover:bg-mypage-primary-hover"
             >
               {saving ? '保存中...' : '保存'}
             </Button>
@@ -791,8 +783,7 @@ export function SettingsPage() {
             <Button 
               onClick={handleChangeEmail} 
               disabled={changingEmail || !emailFormData.newEmail}
-              style={{ backgroundColor: THEME.primary }}
-              className="text-white"
+              className="text-white bg-mypage-primary hover:bg-mypage-primary-hover"
             >
               {changingEmail ? '送信中...' : '変更'}
             </Button>
@@ -837,8 +828,7 @@ export function SettingsPage() {
             <Button 
               onClick={handleChangePassword} 
               disabled={changingPassword || !passwordFormData.newPassword || !passwordFormData.confirmPassword}
-              style={{ backgroundColor: THEME.primary }}
-              className="text-white"
+              className="text-white bg-mypage-primary hover:bg-mypage-primary-hover"
             >
               {changingPassword ? '変更中...' : '変更'}
             </Button>
@@ -869,8 +859,7 @@ export function SettingsPage() {
           <DialogFooter>
             <Button
               onClick={() => setActiveDialog(null)}
-              style={{ backgroundColor: THEME.primary }}
-              className="text-white"
+              className="text-white bg-mypage-primary hover:bg-mypage-primary-hover"
             >
               閉じる
             </Button>

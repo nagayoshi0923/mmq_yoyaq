@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, ChevronRight, Clock, MapPin, Sparkles, Users, XCircle } from 'lucide-react'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
@@ -57,18 +56,13 @@ export function ReservationsTab({
                   )
                   const privateCount = activePg.length + pendingPrivateBookings.length
                   return (
-                    <div className="flex border border-gray-200 overflow-hidden bg-white" style={{ borderRadius: 0 }}>
+                    <div className="flex border border-gray-200 overflow-hidden bg-white rounded-none">
                       <button
                         type="button"
                         onClick={() => setReservationsSubTab('bookings')}
                         className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
-                          reservationsSubTab === 'bookings' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                          reservationsSubTab === 'bookings' ? 'text-white bg-mypage-primary' : 'text-gray-600 hover:bg-gray-50'
                         }`}
-                        style={
-                          reservationsSubTab === 'bookings'
-                            ? { backgroundColor: THEME.primary }
-                            : undefined
-                        }
                       >
                         <Calendar className="w-4 h-4 shrink-0" />
                         <span className="hidden sm:inline">公演予約</span>
@@ -87,13 +81,8 @@ export function ReservationsTab({
                         type="button"
                         onClick={() => setReservationsSubTab('private')}
                         className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 border-l border-gray-200 ${
-                          reservationsSubTab === 'private' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                          reservationsSubTab === 'private' ? 'text-white bg-mypage-primary' : 'text-gray-600 hover:bg-gray-50'
                         }`}
-                        style={
-                          reservationsSubTab === 'private'
-                            ? { backgroundColor: THEME.primary }
-                            : undefined
-                        }
                       >
                         <Users className="w-4 h-4 shrink-0" />
                         貸切
@@ -112,13 +101,8 @@ export function ReservationsTab({
                           type="button"
                           onClick={() => setReservationsSubTab('cancelled')}
                           className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 border-l border-gray-200 ${
-                            reservationsSubTab === 'cancelled' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                            reservationsSubTab === 'cancelled' ? 'text-white bg-mypage-primary' : 'text-gray-600 hover:bg-gray-50'
                           }`}
-                          style={
-                            reservationsSubTab === 'cancelled'
-                              ? { backgroundColor: THEME.primary }
-                              : undefined
-                          }
                         >
                           <XCircle className="w-4 h-4 shrink-0" />
                           <span className="hidden sm:inline">キャンセル済み</span>
@@ -165,8 +149,7 @@ export function ReservationsTab({
                       return (
                         <div 
                           key={group.id}
-                          className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
-                          style={{ borderRadius: 0 }}
+                          className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer rounded-none"
                           onClick={() => navigate(`/group/invite/${group.invite_code}`)}
                         >
                           <div 
@@ -201,8 +184,7 @@ export function ReservationsTab({
                                 <Button
                                   type="button"
                                   size="sm"
-                                  className="w-full mt-2 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                  style={{ borderRadius: 0 }}
+                                  className="w-full mt-2 h-8 text-xs bg-green-600 hover:bg-green-700 text-white rounded-none"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     navigate(`/group/invite/${group.invite_code}`)
@@ -214,7 +196,7 @@ export function ReservationsTab({
                             )}
                           
                           <div className="p-3 flex gap-3">
-                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden rounded-none">
                               {group.scenario_image ? (
                                 <>
                                   <div 
@@ -338,8 +320,7 @@ export function ReservationsTab({
                       return (
                         <div 
                           key={reservation.id}
-                          className="bg-white border border-amber-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer"
-                          style={{ borderRadius: 0 }}
+                          className="bg-white border border-amber-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer rounded-none"
                           onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                         >
                           <div 
@@ -361,7 +342,7 @@ export function ReservationsTab({
                           </div>
                           
                           <div className="p-3 flex gap-3">
-                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden rounded-none">
                               {imageUrl ? (
                                 <>
                                   <div 
@@ -439,8 +420,7 @@ export function ReservationsTab({
 
                 {activePrivateGroups.length === 0 && pendingPrivateBookings.length === 0 && (
                   <div
-                    className="bg-white border border-gray-200 p-8 text-center text-gray-500 text-sm"
-                    style={{ borderRadius: 0 }}
+                    className="bg-white border border-gray-200 p-8 text-center text-gray-500 text-sm rounded-none"
                   >
                     <Users className="w-8 h-8 mx-auto mb-2 text-purple-300" />
                     <p>貸切グループ・日程調整中の申込みはまだありません</p>
@@ -473,15 +453,13 @@ export function ReservationsTab({
                       return (
                         <div 
                           key={reservation.id}
-                          className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
-                          style={{ borderRadius: 0 }}
+                          className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer rounded-none"
                           onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                         >
                           {/* カウントダウンバー（各予約・公演日までの日数） */}
                           {daysUntil >= 0 && (
                             <div 
-                              className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2"
-                              style={{ backgroundColor: THEME.primary }}
+                              className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2 bg-mypage-primary"
                             >
                               <Sparkles className="w-4 h-4" />
                               {daysUntil === 0 ? '本日公演' : `あと${daysUntil}日`}
@@ -491,7 +469,7 @@ export function ReservationsTab({
                           {/* メインコンテンツ */}
                           <div className="p-3 flex gap-3">
                             {/* 画像 */}
-                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden rounded-none">
                               {imageUrl ? (
                                 <>
                                   <div 
@@ -525,7 +503,7 @@ export function ReservationsTab({
                               </h3>
                               
                               {/* 公演日時 */}
-                              <p className="text-sm font-bold mt-1" style={{ color: THEME.primary }}>
+                              <p className="text-sm font-bold mt-1 text-mypage-primary">
                                 {shortDate} {perf.time ? perf.time.slice(0, 5) : ''}
                               </p>
                               
@@ -585,18 +563,16 @@ export function ReservationsTab({
                     })}
                   </>
                 ) : (
-                  <div className="bg-white border border-gray-200 p-8 text-center" style={{ borderRadius: 0 }}>
+                  <div className="bg-white border border-gray-200 p-8 text-center rounded-none">
                     <div 
-                      className="w-14 h-14 flex items-center justify-center mx-auto mb-3"
-                      style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                      className="w-14 h-14 flex items-center justify-center mx-auto mb-3 bg-mypage-primary-light rounded-none"
                     >
-                      <Calendar className="w-7 h-7" style={{ color: THEME.primary }} />
+                      <Calendar className="w-7 h-7 text-mypage-primary" />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-1">予約がありません</h3>
                     <p className="text-gray-500 text-sm mb-4">公演を探して予約しましょう</p>
                     <Button 
-                      className="text-white px-6"
-                      style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
+                      className="text-white px-6 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
                       onClick={() => navigate('/scenario')}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
@@ -608,13 +584,12 @@ export function ReservationsTab({
                 {/* 参加履歴へのリンク */}
                 {pastReservations.length > 0 && (
                   <div 
-                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200"
-                    style={{ borderRadius: 0 }}
+                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200 rounded-none"
                     onClick={() => setActiveTab('album')}
                   >
                     <span className="text-sm text-gray-600">過去の参加履歴を見る</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium" style={{ color: THEME.primary }}>{pastReservations.length}件</span>
+                      <span className="text-sm font-medium text-mypage-primary">{pastReservations.length}件</span>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     </div>
                   </div>
@@ -634,13 +609,12 @@ export function ReservationsTab({
                         return (
                           <div
                             key={reservation.id}
-                            className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
-                            style={{ borderRadius: 0 }}
+                            className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer rounded-none"
                             onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                           >
                             <div className="p-3 flex gap-3">
                               {/* 画像（キャンセル済みは淡く） */}
-                              <div className="w-14 h-20 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                              <div className="w-14 h-20 flex-shrink-0 bg-gray-900 relative overflow-hidden rounded-none">
                                 {imageUrl ? (
                                   <img
                                     src={imageUrl}
@@ -689,7 +663,7 @@ export function ReservationsTab({
                         )
                       })
                     ) : (
-                      <div className="bg-white border border-gray-200 p-8 text-center" style={{ borderRadius: 0 }}>
+                      <div className="bg-white border border-gray-200 p-8 text-center rounded-none">
                         <p className="text-gray-500 text-sm">キャンセルした予約はありません</p>
                       </div>
                     )}

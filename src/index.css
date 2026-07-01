@@ -46,6 +46,19 @@ html, body {
     border-radius: 0 !important;
   }
 
+  .mypage-shell {
+    --mypage-primary: #E60012;
+    --mypage-primary-hover: #CC0010;
+    --mypage-primary-light: #FEE2E2;
+    --mypage-accent: #10B981;
+    --mypage-background: #FAFAFA;
+    --mypage-gradient-from: #E60012;
+    --mypage-gradient-to: #E60012DD;
+    --mypage-detail-primary: #dc2626;
+    --mypage-detail-primary-hover: #b91c1c;
+    --mypage-detail-primary-light: #fef2f2;
+  }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -247,6 +260,10 @@ html, body {
   .ts-muted   { @apply text-base md:text-sm text-muted-foreground; }
   .ts-caption { @apply text-xs text-muted-foreground; }
   .ts-emph    { @apply text-base font-bold; }
+
+  .mypage-avatar-gradient {
+    background: linear-gradient(to bottom right, var(--mypage-gradient-from), var(--mypage-gradient-to));
+  }
 }
 
 /* ============================================================

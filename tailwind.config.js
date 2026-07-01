@@ -71,6 +71,18 @@ export default {
           'error': '#dc2626',
           'info': '#0284c7',
         },
+        mypage: {
+          primary: 'var(--mypage-primary)',
+          'primary-hover': 'var(--mypage-primary-hover)',
+          'primary-light': 'var(--mypage-primary-light)',
+          accent: 'var(--mypage-accent)',
+          background: 'var(--mypage-background)',
+          detail: {
+            primary: 'var(--mypage-detail-primary)',
+            'primary-hover': 'var(--mypage-detail-primary-hover)',
+            'primary-light': 'var(--mypage-detail-primary-light)',
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

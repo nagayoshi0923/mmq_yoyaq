@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Heart, Users, Clock, Sparkles, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { useLikedScenariosQuery, useRemoveLikeMutation } from '../hooks/useLikedScenariosQuery'
 import { formatJstDateJa } from '@/utils/jstDate'
 
@@ -65,12 +64,11 @@ export function WantToPlayPage() {
 
   if ((wantToPlayScenarios as WantToPlayScenario[]).length === 0) {
     return (
-      <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
+      <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
         <div
-          className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
-          style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+          className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
         >
-          <Heart className="w-8 h-8" style={{ color: THEME.primary }} />
+          <Heart className="w-8 h-8 text-mypage-primary" />
         </div>
         <h3 className="font-bold text-gray-900 mb-2">遊びたいリスト</h3>
         <p className="text-gray-500 text-sm mb-6">
@@ -78,8 +76,7 @@ export function WantToPlayPage() {
           公演情報をチェックしましょう
         </p>
         <Button
-          className="text-white px-8"
-          style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
+          className="text-white px-8 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
           onClick={() => navigate('/')}
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -92,21 +89,20 @@ export function WantToPlayPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
-        <Heart className="w-5 h-5" style={{ color: THEME.primary }} />
+        <Heart className="w-5 h-5 text-mypage-primary" />
         <h2 className="font-bold text-gray-900">遊びたいシナリオ ({(wantToPlayScenarios as WantToPlayScenario[]).length})</h2>
       </div>
 
       {(wantToPlayScenarios as WantToPlayScenario[]).map((item) => (
         <div
           key={item.id}
-          className="bg-white shadow-sm p-4 hover:shadow-md transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300"
-          style={{ borderRadius: 0 }}
+          className="bg-white shadow-sm p-4 hover:shadow-md transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300 rounded-none"
           onClick={() => {
             navigate(`${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`)
           }}
         >
           <div className="flex gap-4">
-            <div className="flex-shrink-0 w-20 h-28 bg-gray-900 overflow-hidden relative" style={{ borderRadius: 0 }}>
+            <div className="flex-shrink-0 w-20 h-28 bg-gray-900 overflow-hidden relative rounded-none">
               {item.scenario.key_visual_url ? (
                 <>
                   <div
@@ -146,7 +142,7 @@ export function WantToPlayPage() {
                   className="flex-shrink-0 hover:bg-red-50"
                   title="お気に入りから削除"
                 >
-                  <Heart className="h-5 w-5 fill-current" style={{ color: THEME.primary }} />
+                  <Heart className="h-5 w-5 fill-current text-mypage-primary" />
                 </Button>
               </div>
 

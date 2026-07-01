@@ -188,7 +188,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 - [x] `src/components/patterns/table/index.ts` から未使用の DataTable / MobileResponsiveTable の export を削除（参照ゼロ確認済み・機械的な死コード削除なので Codex 可）。正は TanStackDataTable に一本化。
 
 ### 5.5 D-3: 顧客向けのトークン化（見た目は変えない）🔍
-- [ ] MyPage 系の `style={{ borderRadius: 0 }}`（150箇所）と THEME 定数 inline color を、顧客レイアウトスコープの CSS 変数＋Tailwind テーマへ移す。**ピクセル単位で見た目不変**が検収条件（before/after スクショ比較）。
+- [x] MyPage 系の `style={{ borderRadius: 0 }}`（150箇所）と THEME 定数 inline color を、顧客レイアウトスコープの CSS 変数＋Tailwind テーマへ移す。**ピクセル単位で見た目不変**が検収条件（before/after スクショ比較）。
 - [ ] PublicBookingTop の ScenarioCard の hex 直書き（:197 `#DC2626` 等）→ トークン化。
 - [ ] 顧客4ページの本文サイズを ts-body 系へ統一（PublicBookingTop=xs主体 → ScenarioDetail=ts-body → BookingConfirmation=sm主体、と現在3段階に割れている）。
 

@@ -7,7 +7,6 @@ import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, Ey
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ReservationsTab } from './components/ReservationsTab'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
@@ -125,8 +124,7 @@ export function MyPageContent({
     return (
       <div
         key={playedScenarioAlbumKey(scenario)}
-        className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
-        style={{ borderRadius: 0 }}
+        className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative rounded-none ${isHidden || isDeleted || isOverridden ? 'opacity-50' : ''}`}
       >
         {/* ステータスバッジ（未体験＞削除済み＞非表示 の優先） */}
         {(isOverridden || isHidden || isDeleted) && (
@@ -441,7 +439,7 @@ export function MyPageContent({
   const counts = getCounts()
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
+    <div className="min-h-screen mypage-shell bg-mypage-background">
       {/* プロフィールヘッダー */}
       <div className="bg-white border-b">
         <div className="max-w-4xl mx-auto px-4 py-6">
@@ -457,10 +455,7 @@ export function MyPageContent({
               />
               <button
                 onClick={handleAvatarClick}
-                className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                style={{ 
-                  background: avatarUrl ? undefined : `linear-gradient(to bottom right, ${THEME.gradientFrom}, ${THEME.gradientTo})`
-                }}
+                className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
               >
                 {avatarUrl ? (
                   <img 
@@ -474,8 +469,7 @@ export function MyPageContent({
               </button>
               {/* 編集アイコン */}
               <div 
-                className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md cursor-pointer"
-                style={{ backgroundColor: THEME.primary }}
+                className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
                 onClick={handleAvatarClick}
               >
                 <Pencil className="w-3.5 h-3.5 text-white" />
@@ -489,7 +483,7 @@ export function MyPageContent({
               </h1>
               <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1 text-sm text-gray-600">
-                  <Trophy className="w-4 h-4" style={{ color: THEME.primary }} />
+                  <Trophy className="w-4 h-4 text-mypage-primary" />
                   <span>{stats.participationCount}回参加</span>
                 </div>
               </div>
@@ -514,27 +508,24 @@ export function MyPageContent({
                   onClick={() => setActiveTab(item.id)}
                   className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-all relative ${
                     isActive 
-                      ? '' 
+                      ? 'text-mypage-primary' 
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  style={isActive ? { color: THEME.primary } : undefined}
                 >
                   <Icon className="w-5 h-5" />
                   <span className="hidden sm:inline">{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
                       className={`text-xs px-1.5 py-0.5 rounded-full ${
-                        isActive ? 'text-white' : 'bg-gray-200 text-gray-600'
+                        isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
                       }`}
-                      style={isActive ? { backgroundColor: THEME.primary } : undefined}
                     >
                       {count}
                     </span>
                   )}
                   {isActive && (
                     <div 
-                      className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full" 
-                      style={{ backgroundColor: THEME.primary }}
+                      className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-mypage-primary" 
                     />
                   )}
                 </button>
@@ -581,10 +572,10 @@ export function MyPageContent({
             {activeTab === 'album' && (
               <div className="space-y-6">
                 {/* 踏破率 - シャープデザイン */}
-                <div className="bg-white shadow-sm p-6 border border-gray-200" style={{ borderRadius: 0 }}>
+                <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
-                    <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.filter(s => {
+                    <span className="text-2xl font-bold text-mypage-primary">{playedScenarios.filter(s => {
                       const key = playedScenarioAlbumKey(s)
                       const legacy = s.reservation_id || `${s.scenario}-${s.date}`
                       return !hiddenPlays.has(key) && !hiddenPlays.has(legacy)
@@ -617,7 +608,7 @@ export function MyPageContent({
                   <div>
                     <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                       <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
+                        <span className="w-1 h-6 rounded-full bg-mypage-primary"></span>
                         体験済みシナリオ
                       </h2>
                       <div className="flex items-center gap-2">
@@ -648,12 +639,11 @@ export function MyPageContent({
                     })()}
                   </div>
                 ) : (
-                  <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
+                  <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
                     <div 
-                      className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
-                      style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                      className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
                     >
-                      <Camera className="w-8 h-8" style={{ color: THEME.primary }} />
+                      <Camera className="w-8 h-8 text-mypage-primary" />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">まだプレイ履歴がありません</h3>
                     <p className="text-gray-500 text-sm">
@@ -670,8 +660,7 @@ export function MyPageContent({
                     <div className="mt-8">
                       <button
                         onClick={() => setShowHiddenItems(v => !v)}
-                        className="w-full p-4 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
-                        style={{ borderRadius: 0 }}
+                        className="w-full p-4 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors rounded-none"
                       >
                         <div className="flex items-center justify-center gap-2 text-gray-500">
                           {showHiddenItems ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -734,11 +723,8 @@ export function MyPageContent({
       {/* フローティングアクションボタン - シャープデザイン */}
       <div className="fixed bottom-6 right-6 z-20">
         <Button 
-          className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+          className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
           size="icon"
-          style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
           onClick={() => navigate('/')}
         >
           <Sparkles className="w-6 h-6" />

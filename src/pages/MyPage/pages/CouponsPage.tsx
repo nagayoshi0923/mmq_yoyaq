@@ -5,7 +5,6 @@
  */
 import { useState } from 'react'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
@@ -141,13 +140,13 @@ export function CouponsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow-sm p-6 border border-gray-200" style={{ borderRadius: 0 }}>
+      <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-bold text-gray-900 flex items-center gap-2">
-            <Ticket className="w-5 h-5" style={{ color: THEME.primary }} />
+            <Ticket className="w-5 h-5 text-mypage-primary" />
             クーポン
           </h2>
-          <span className="text-2xl font-bold" style={{ color: THEME.primary }}>
+          <span className="text-2xl font-bold text-mypage-primary">
             {totalAvailableCount}枚
           </span>
         </div>
@@ -159,7 +158,7 @@ export function CouponsPage() {
       {expandedActiveCoupons.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <span className="w-1 h-5 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
+            <span className="w-1 h-5 rounded-full bg-mypage-primary"></span>
             利用可能なクーポン
           </h3>
           <div className="space-y-3">
@@ -173,17 +172,15 @@ export function CouponsPage() {
               return (
                 <div
                   key={`${coupon.id}-${index}`}
-                  className="bg-white border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]"
-                  style={{ borderRadius: 0 }}
+                  className="bg-white border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] rounded-none"
                   onClick={() => handleCouponTap(coupon, index)}
                 >
                   <div
-                    className="px-4 py-3 flex items-center justify-between"
-                    style={{ backgroundColor: THEME.primaryLight }}
+                    className="px-4 py-3 flex items-center justify-between bg-mypage-primary-light"
                   >
                     <div className="flex items-center gap-2">
-                      <Ticket className="w-5 h-5" style={{ color: THEME.primary }} />
-                      <span className="text-lg font-bold" style={{ color: THEME.primary }}>
+                      <Ticket className="w-5 h-5 text-mypage-primary" />
+                      <span className="text-lg font-bold text-mypage-primary">
                         {discountLabel}
                       </span>
                     </div>
@@ -262,8 +259,7 @@ export function CouponsPage() {
               return (
                 <div
                   key={coupon.id}
-                  className="bg-white border border-gray-200 p-3 opacity-60"
-                  style={{ borderRadius: 0 }}
+                  className="bg-white border border-gray-200 p-3 opacity-60 rounded-none"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -304,12 +300,11 @@ export function CouponsPage() {
       )}
 
       {coupons.length === 0 && (
-        <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
+        <div className="bg-white shadow-sm p-8 text-center border border-gray-200 rounded-none">
           <div
-            className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
-            style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+            className="w-16 h-16 flex items-center justify-center mx-auto mb-4 bg-mypage-primary-light rounded-none"
           >
-            <Ticket className="w-8 h-8" style={{ color: THEME.primary }} />
+            <Ticket className="w-8 h-8 text-mypage-primary" />
           </div>
           <h3 className="font-bold text-gray-900 mb-2">クーポンはありません</h3>
           <p className="text-gray-500 text-sm">
@@ -322,11 +317,10 @@ export function CouponsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
             <div
-              className="px-5 py-4 text-center"
-              style={{ backgroundColor: THEME.primaryLight }}
+              className="px-5 py-4 text-center bg-mypage-primary-light"
             >
-              <Scissors className="w-10 h-10 mx-auto mb-2" style={{ color: THEME.primary }} />
-              <h3 className="font-bold text-lg" style={{ color: THEME.primary }}>
+              <Scissors className="w-10 h-10 mx-auto mb-2 text-mypage-primary" />
+              <h3 className="font-bold text-lg text-mypage-primary">
                 クーポンを使用しますか？
               </h3>
             </div>
@@ -334,7 +328,7 @@ export function CouponsPage() {
             <div className="px-5 py-4">
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <p className="text-center">
-                  <span className="text-2xl font-bold" style={{ color: THEME.primary }}>
+                  <span className="text-2xl font-bold text-mypage-primary">
                     {selectedCoupon.coupon.coupon_campaigns?.discount_type === 'fixed'
                       ? `¥${selectedCoupon.coupon.coupon_campaigns.discount_amount.toLocaleString()}`
                       : `${selectedCoupon.coupon.coupon_campaigns?.discount_amount}%`} OFF
@@ -411,8 +405,7 @@ export function CouponsPage() {
                   キャンセル
                 </Button>
                 <Button
-                  className="flex-1"
-                  style={{ backgroundColor: selectedReservationId ? THEME.primary : '#9ca3af' }}
+                  className={`flex-1 ${selectedReservationId ? 'bg-mypage-primary hover:bg-mypage-primary-hover' : 'bg-gray-400 hover:bg-gray-400'}`}
                   onClick={handleUseCoupon}
                   disabled={useCouponMutation.isPending || !selectedReservationId}
                 >

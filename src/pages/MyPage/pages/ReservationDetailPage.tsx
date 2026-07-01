@@ -22,7 +22,6 @@ import {
 } from '../hooks/useReservationDetailQuery'
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 
-const THEME = { primary: '#dc2626', primaryLight: '#fef2f2', primaryHover: '#b91c1c' }
 const DEFAULT_CANCEL_DEADLINE_HOURS = 24
 
 export function ReservationDetailPage() {
@@ -121,7 +120,7 @@ export function ReservationDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen mypage-shell bg-gray-50 flex items-center justify-center">
         <div className="text-gray-500">読み込み中...</div>
       </div>
     )
@@ -129,10 +128,10 @@ export function ReservationDetailPage() {
 
   if (!reservation) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen mypage-shell bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 mb-4">予約が見つかりませんでした</p>
-          <Button onClick={() => navigate('/mypage')} style={{ borderRadius: 0 }}>マイページに戻る</Button>
+          <Button onClick={() => navigate('/mypage')} className="rounded-none">マイページに戻る</Button>
         </div>
       </div>
     )
@@ -167,10 +166,10 @@ export function ReservationDetailPage() {
   const canDecrease = reservation?.status === 'confirmed' && canCancel
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen mypage-shell bg-gray-50">
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/mypage')} className="p-2 -ml-2 hover:bg-gray-100 transition-colors" style={{ borderRadius: 0 }}>
+          <button onClick={() => navigate('/mypage')} className="p-2 -ml-2 hover:bg-gray-100 transition-colors rounded-none">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <h1 className="font-bold text-lg">予約詳細</h1>
@@ -179,7 +178,7 @@ export function ReservationDetailPage() {
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
         {scenario && (
-          <div className="bg-white border border-gray-200 overflow-hidden" style={{ borderRadius: 0 }}>
+          <div className="bg-white border border-gray-200 overflow-hidden rounded-none">
             {scenario.key_visual_url && (
               <div className="relative aspect-[16/9] bg-gray-900 overflow-hidden">
                 <div className="absolute inset-0 scale-110" style={{ backgroundImage: `url(${scenario.key_visual_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px) brightness(0.5)' }} />
@@ -217,17 +216,17 @@ export function ReservationDetailPage() {
           </div>
         )}
 
-        <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
+        <div className="bg-white border border-gray-200 p-4 rounded-none">
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1 text-sm font-medium" style={{ backgroundColor: statusDisplay.bg, color: statusDisplay.color, borderRadius: 0 }}>{statusDisplay.label}</span>
+            <span className="px-3 py-1 text-sm font-medium rounded-none" style={{ backgroundColor: statusDisplay.bg, color: statusDisplay.color }}>{statusDisplay.label}</span>
             {reservation.payment_status !== 'pending' && !isPendingPrivate && (
-              <span className="px-3 py-1 text-sm font-medium" style={{ backgroundColor: paymentDisplay.bg, color: paymentDisplay.color, borderRadius: 0 }}>{paymentDisplay.label}</span>
+              <span className="px-3 py-1 text-sm font-medium rounded-none" style={{ backgroundColor: paymentDisplay.bg, color: paymentDisplay.color }}>{paymentDisplay.label}</span>
             )}
           </div>
         </div>
 
         {isPendingPrivate && reservation.candidate_datetimes && (
-          <div className="bg-amber-50 border border-amber-200 p-4 space-y-4" style={{ borderRadius: 0 }}>
+          <div className="bg-amber-50 border border-amber-200 p-4 space-y-4 rounded-none">
             <div className="flex items-center gap-2"><Clock className="w-5 h-5 text-amber-600" /><h3 className="font-bold text-amber-800">貸切申込み内容</h3></div>
             {reservation.candidate_datetimes.candidates?.length > 0 && (
               <div>
@@ -236,8 +235,8 @@ export function ReservationDetailPage() {
                   {reservation.candidate_datetimes.candidates.map((candidate: any, index: number) => {
                     const dateStr = formatJstDateJa(candidate.date, true)
                     return (
-                      <div key={index} className="flex items-center gap-3 bg-white p-3 border border-amber-100" style={{ borderRadius: 0 }}>
-                        <span className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 text-sm font-bold" style={{ borderRadius: 0 }}>{candidate.order || index + 1}</span>
+                      <div key={index} className="flex items-center gap-3 bg-white p-3 border border-amber-100 rounded-none">
+                        <span className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 text-sm font-bold rounded-none">{candidate.order || index + 1}</span>
                         <div className="flex-1"><p className="font-medium text-gray-900">{dateStr}</p><p className="text-sm text-gray-600">{candidate.timeSlot}（{candidate.startTime}〜{candidate.endTime}）</p></div>
                       </div>
                     )
@@ -250,7 +249,7 @@ export function ReservationDetailPage() {
                 <p className="text-sm font-medium text-amber-700 mb-2">希望店舗</p>
                 <div className="flex flex-wrap gap-2">
                   {reservation.candidate_datetimes.requestedStores.map((s: any, index: number) => (
-                    <span key={index} className="px-3 py-1.5 bg-white border border-amber-200 text-sm text-gray-700" style={{ borderRadius: 0 }}>
+                    <span key={index} className="px-3 py-1.5 bg-white border border-amber-200 text-sm text-gray-700 rounded-none">
                       <MapPin className="w-3.5 h-3.5 inline-block mr-1 text-amber-600" />{s.storeName}
                     </span>
                   ))}
@@ -272,32 +271,32 @@ export function ReservationDetailPage() {
         )}
 
         {!isPendingPrivate && (
-          <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
+          <div className="bg-white border border-gray-200 p-4 rounded-none">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}>
-                <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
+              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 bg-mypage-detail-primary-light rounded-none">
+                <Calendar className="w-5 h-5 text-mypage-detail-primary" />
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">公演日時</p>
                 <p className="text-lg font-bold text-gray-900">{formatDate(perf.date)}</p>
-                {perf.time && <p className="text-base font-medium" style={{ color: THEME.primary }}>{perf.time.slice(0, 5)} 開演</p>}
+                {perf.time && <p className="text-base font-medium text-mypage-detail-primary">{perf.time.slice(0, 5)} 開演</p>}
               </div>
             </div>
           </div>
         )}
 
         {!isPendingPrivate && store && (
-          <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
+          <div className="bg-white border border-gray-200 p-4 rounded-none">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}>
-                <MapPin className="w-5 h-5" style={{ color: THEME.primary }} />
+              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 bg-mypage-detail-primary-light rounded-none">
+                <MapPin className="w-5 h-5 text-mypage-detail-primary" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">会場</p>
                 <p className="font-bold text-gray-900">{store.name}</p>
                 {store.address && <p className="text-sm text-gray-600 mt-1">{store.address}</p>}
                 {store.address && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline" style={{ color: THEME.primary }}>
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline text-mypage-detail-primary">
                     <ExternalLink className="w-4 h-4" />地図を開く
                   </a>
                 )}
@@ -307,7 +306,7 @@ export function ReservationDetailPage() {
         )}
 
         {!isPendingPrivate && (
-          <div className="bg-white border border-gray-200 p-4 space-y-4" style={{ borderRadius: 0 }}>
+          <div className="bg-white border border-gray-200 p-4 space-y-4 rounded-none">
             <h3 className="font-bold text-gray-900">予約情報</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -346,7 +345,7 @@ export function ReservationDetailPage() {
                   <div className="flex items-center justify-between py-2 border-b border-gray-100">
                     <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />お支払い金額</span>
                     <div className="text-right">
-                      <span className="font-bold text-lg" style={{ color: THEME.primary }}>¥{(reservation.final_price || 0).toLocaleString()}</span>
+                      <span className="font-bold text-lg text-mypage-detail-primary">¥{(reservation.final_price || 0).toLocaleString()}</span>
                       <span className="text-xs text-gray-500 ml-2">{paymentMethodLabel}</span>
                     </div>
                   </div>
@@ -361,7 +360,7 @@ export function ReservationDetailPage() {
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
                   <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />参加料金</span>
                   <div className="text-right">
-                    <span className="font-bold text-lg" style={{ color: THEME.primary }}>¥{(reservation.unit_price || 0).toLocaleString()}/人</span>
+                    <span className="font-bold text-lg text-mypage-detail-primary">¥{(reservation.unit_price || 0).toLocaleString()}/人</span>
                     <span className="text-xs text-gray-500 ml-2">{paymentMethodLabel}</span>
                   </div>
                 </div>
@@ -386,14 +385,14 @@ export function ReservationDetailPage() {
         )}
 
         {reservation.notes && (
-          <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
+          <div className="bg-white border border-gray-200 p-4 rounded-none">
             <h3 className="font-bold text-gray-900 mb-2">備考</h3>
             <p className="text-sm text-gray-600 whitespace-pre-wrap">{reservation.notes}</p>
           </div>
         )}
 
         {scenario && (
-          <Button variant="outline" className="w-full" style={{ borderColor: THEME.primary, color: THEME.primary, borderRadius: 0 }} onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}>
+          <Button variant="outline" className="w-full border-mypage-detail-primary text-mypage-detail-primary rounded-none" onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}>
             シナリオ詳細を見る<ExternalLink className="w-4 h-4 ml-2" />
           </Button>
         )}
