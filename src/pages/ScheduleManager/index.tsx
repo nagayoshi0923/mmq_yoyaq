@@ -38,7 +38,6 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { HelpButton } from '@/components/ui/help-button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 
 // Schedule Components（常時表示）
@@ -58,7 +57,7 @@ const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download, UsersRound } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, EyeOff, Eye, Clock, Calendar, UsersRound } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -67,6 +66,7 @@ import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSchedule'
 import { ExportRangeModal } from './components/ExportRangeModal'
 import { FillSeatsModal, type FillSeatsCategory } from './components/FillSeatsModal'
+import { ScheduleToolbar } from './components/ScheduleToolbar'
 import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 
 // Types
@@ -1146,315 +1146,41 @@ export function ScheduleManager() {
           description={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`}
           className="mb-2 pt-2"
         />
-        <div className="flex items-center h-12 gap-2">
-          {/* 月切り替え - 連結ボタングループ */}
-          <div className="flex items-center shrink-0 border border-input rounded-lg overflow-hidden bg-background">
-            <button
-              onClick={() => {
-                const newDate = new Date(currentDate)
-                newDate.setMonth(newDate.getMonth() - 1)
-                setCurrentDate(newDate)
-              }}
-              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input"
-              title="前月"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="flex items-center px-1">
-              <select
-                value={currentDate.getFullYear()}
-                onChange={(e) => {
-                  const newDate = new Date(currentDate)
-                  newDate.setFullYear(parseInt(e.target.value))
-                  setCurrentDate(newDate)
-                }}
-                className="h-9 w-[70px] px-1 text-sm font-semibold bg-transparent hover:bg-accent transition-colors cursor-pointer text-center appearance-none"
-              >
-                {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
-                  <option key={y} value={y}>{y}年</option>
-                ))}
-              </select>
-              <select
-                value={currentDate.getMonth() + 1}
-                onChange={(e) => {
-                  const newDate = new Date(currentDate)
-                  newDate.setMonth(parseInt(e.target.value) - 1)
-                  setCurrentDate(newDate)
-                }}
-                className="h-9 w-[50px] px-1 text-sm font-semibold bg-transparent hover:bg-accent transition-colors cursor-pointer text-center appearance-none"
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                  <option key={m} value={m}>{m}月</option>
-                ))}
-              </select>
-            </div>
-            <button
-              onClick={() => {
-                const newDate = new Date(currentDate)
-                newDate.setMonth(newDate.getMonth() + 1)
-                setCurrentDate(newDate)
-              }}
-              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-l border-input"
-              title="次月"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-          
-          {/* 区切り線 */}
-          <div className="hidden sm:block h-6 w-px bg-border mx-2" />
-          
-          {/* フィルター - 連結グループ */}
-          <div className="hidden sm:flex items-center h-9 border border-input rounded-lg bg-background flex-1">
-            <div className="flex-1 border-r border-input">
-              <MultiSelect
-                options={(() => {
-                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-                  const staffWithShift = new Set<string>()
-                  Object.values(shiftData).forEach((staffList: Staff[]) => {
-                    staffList.forEach(s => staffWithShift.add(s.id))
-                  })
-                  return [...gmList]
-                    .sort((a, b) => {
-                      const aHasShift = staffWithShift.has(a.id)
-                      const bHasShift = staffWithShift.has(b.id)
-                      if (aHasShift && !bHasShift) return -1
-                      if (!aHasShift && bHasShift) return 1
-                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
-                    })
-                    .map((staff) => {
-                      const hasShift = staffWithShift.has(staff.id)
-                      return {
-                        id: staff.id,
-                        name: staff.display_name || staff.name,
-                        displayInfo: hasShift ? (
-                          <span className="text-[9px] text-green-600">●</span>
-                        ) : undefined,
-                        displayInfoSearchText: hasShift ? '提出済' : undefined
-                      }
-                    })
-                })()}
-                selectedValues={selectedGMs}
-                onSelectionChange={setSelectedGMs}
-                placeholder="スタッフ"
-                closeOnSelect={false}
-                useIdAsValue={true}
-                className="h-9 w-full border-0 rounded-none shadow-none"
-              />
-            </div>
-
-            <div className="flex-1 border-r border-input">
-              <StoreMultiSelect
-                stores={scheduleTableProps.viewConfig.stores}
-                selectedStoreIds={selectedStores}
-                onStoreIdsChange={setSelectedStores}
-                hideLabel={true}
-                placeholder="店舗"
-                className="h-9 w-full border-0 rounded-none shadow-none"
-              />
-            </div>
-
-            <div className="flex-1 border-r border-input">
-              <MultiSelect
-                options={scenarioOptions}
-                selectedValues={selectedScenarioIds}
-                onSelectionChange={(values) => setSelectedScenarioIds(values.slice(-1))}
-                placeholder="シナリオ"
-                searchPlaceholder="シナリオ検索..."
-                closeOnSelect={true}
-                useIdAsValue={true}
-                className="h-9 w-full border-0 rounded-none shadow-none"
-              />
-            </div>
-
-            <div className="flex-1 border-r border-input">
-              <MultiSelect
-                options={shiftStaffOptions}
-                selectedValues={selectedShiftStaff}
-                onSelectionChange={setSelectedShiftStaff}
-                placeholder="出勤者"
-                closeOnSelect={false}
-                useIdAsValue={true}
-                className="h-9 w-full border-0 rounded-none shadow-none"
-              />
-            </div>
-
-            {/* カテゴリフィルター */}
-            <div className="flex-1">
-              <MultiSelect
-                options={categoryOptions}
-                selectedValues={selectedCategories}
-                onSelectionChange={setSelectedCategories}
-                placeholder="カテゴリ"
-                closeOnSelect={false}
-                useIdAsValue={true}
-                className="h-9 w-full border-0 rounded-none shadow-none"
-              />
-            </div>
-
-            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedScenarioIds.length > 0 || selectedShiftStaff.length > 0 || selectedCategories.length > 0) && (
-              <button
-                onClick={() => {
-                  setSelectedGMs([])
-                  setSelectedStores([])
-                  setSelectedScenarioIds([])
-                  setSelectedShiftStaff([])
-                  setSelectedCategories([])
-                }}
-                className="h-9 px-3 text-sm text-muted-foreground hover:bg-accent transition-colors border-l border-input whitespace-nowrap"
-              >
-                クリア
-              </button>
-            )}
-
-            {/* シナリオ該当日ジャンプ（選択中のみ表示） */}
-            {selectedScenarioId && (
-              <div className="flex items-center border-l border-input shrink-0">
-                <button
-                  type="button"
-                  onClick={() => jumpScenarioMatch('prev')}
-                  disabled={scenarioMatchedDates.length === 0}
-                  title="前の該当日へ"
-                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (scenarioMatchedDates.length > 0) scrollToDate(scenarioMatchedDates[0])
-                  }}
-                  disabled={scenarioMatchedDates.length === 0}
-                  title={selectedScenarioTitle ? `${selectedScenarioTitle} の該当日へ` : '該当日へ'}
-                  className="h-9 px-2 text-[11px] text-muted-foreground hover:bg-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent whitespace-nowrap"
-                >
-                  {scenarioMatchedDates.length}件
-                </button>
-                <button
-                  type="button"
-                  onClick={() => jumpScenarioMatch('next')}
-                  disabled={scenarioMatchedDates.length === 0}
-                  title="次の該当日へ"
-                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {/* アクションボタン - スマホ用 */}
-          <div className="sm:hidden flex items-center gap-1 ml-auto">
-            {/* フィルタートグルボタン */}
-            <button
-              onClick={() => setShowMobileFilters(v => !v)}
-              title="フィルター"
-              className={`h-9 w-9 flex items-center justify-center border rounded-lg transition-colors shrink-0 ${
-                showMobileFilters
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-input bg-background hover:bg-accent'
-              }`}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-            </button>
-            {isAdminOrLicenseAdmin && (
-              <>
-                <button
-                  onClick={handleCleanupBadDemoReservations}
-                  disabled={isCleaningDemo}
-                  title="誤デモ予約の修正"
-                  className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
-                >
-                  {isCleaningDemo ? (
-                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                  ) : (
-                    <Wrench className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setIsFillSeatsModalOpen(true)}
-                  disabled={isFillingSeats}
-                  title="中止以外を満席にする"
-                  className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
-                >
-                  {isFillingSeats ? (
-                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                  ) : (
-                    <Users className="h-4 w-4" />
-                  )}
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setIsKitManagementOpen(true)}
-              title="キット配置管理"
-              className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0"
-            >
-              <Package className="h-4 w-4" />
-            </button>
-          </div>
-          
-          {/* アクションボタン - PC用連結グループ */}
-          <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background shrink-0 ml-auto">
-            <div className="h-9 w-9 flex items-center justify-center border-r border-input">
-              <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-            </div>
-            <button
-              onClick={() => setIsKitManagementOpen(true)}
-              title="キット配置管理"
-              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input"
-            >
-              <Package className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              disabled={isExporting}
-              title="スケジュールをCSVエクスポート"
-              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input disabled:opacity-50"
-            >
-              {isExporting ? (
-                <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              title="インポート"
-              className={`h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors ${isAdminOrLicenseAdmin ? 'border-r border-input' : ''}`}
-            >
-              <Upload className="h-4 w-4" />
-            </button>
-            {isAdminOrLicenseAdmin && (
-              <>
-                <button
-                  onClick={handleCleanupBadDemoReservations}
-                  disabled={isCleaningDemo}
-                  title="誤デモ予約の修正（テストプレイ削除・GMテスト参加費修正）"
-                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input disabled:opacity-50"
-                >
-                  {isCleaningDemo ? (
-                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                  ) : (
-                    <Wrench className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setIsFillSeatsModalOpen(true)}
-                  disabled={isFillingSeats}
-                  title="中止以外を満席にする（デモ参加者を追加）"
-                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
-                >
-                  {isFillingSeats ? (
-                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                  ) : (
-                    <Users className="h-4 w-4" />
-                  )}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <ScheduleToolbar
+          currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
+          scheduleTableProps={scheduleTableProps}
+          gmList={gmList}
+          selectedGMs={selectedGMs}
+          setSelectedGMs={setSelectedGMs}
+          selectedStores={selectedStores}
+          setSelectedStores={setSelectedStores}
+          scenarioOptions={scenarioOptions}
+          selectedScenarioIds={selectedScenarioIds}
+          setSelectedScenarioIds={setSelectedScenarioIds}
+          shiftStaffOptions={shiftStaffOptions}
+          selectedShiftStaff={selectedShiftStaff}
+          setSelectedShiftStaff={setSelectedShiftStaff}
+          categoryOptions={categoryOptions}
+          selectedCategories={selectedCategories}
+          setSelectedCategories={setSelectedCategories}
+          selectedScenarioId={selectedScenarioId}
+          selectedScenarioTitle={selectedScenarioTitle}
+          scenarioMatchedDates={scenarioMatchedDates}
+          jumpScenarioMatch={jumpScenarioMatch}
+          scrollToDate={scrollToDate}
+          showMobileFilters={showMobileFilters}
+          setShowMobileFilters={setShowMobileFilters}
+          isAdminOrLicenseAdmin={isAdminOrLicenseAdmin}
+          handleCleanupBadDemoReservations={handleCleanupBadDemoReservations}
+          isCleaningDemo={isCleaningDemo}
+          setIsFillSeatsModalOpen={setIsFillSeatsModalOpen}
+          isFillingSeats={isFillingSeats}
+          setIsKitManagementOpen={setIsKitManagementOpen}
+          setIsExportModalOpen={setIsExportModalOpen}
+          isExporting={isExporting}
+          setIsImportModalOpen={setIsImportModalOpen}
+        />
 
         {/* モバイル用フィルターパネル */}
         {showMobileFilters && (
