@@ -1277,15 +1277,15 @@ export function PrivateGroupInvite() {
   // メンバー削除
   const handleRemoveMember = async (memberId: string) => {
     if (!isOrganizer || !group) return
-    if (!confirm('このメンバーを削除しますか？')) return
-    
+    if (!confirm('このメンバーを退出させますか？')) return
+
     try {
       await removeMember(memberId)
-      toast.success('メンバーを削除しました')
+      toast.success('メンバーを退出させました')
       refetch()
     } catch (err) {
       logger.error('Failed to remove member', err)
-      toast.error('削除に失敗しました')
+      toast.error('退出に失敗しました')
     }
   }
 
@@ -2155,7 +2155,7 @@ export function PrivateGroupInvite() {
                             onClick={() => handleRemoveMember(member.id)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <X className="w-4 h-4" />
+                            退出させる
                           </Button>
                         )}
                       </div>

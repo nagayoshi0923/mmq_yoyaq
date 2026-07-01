@@ -481,7 +481,7 @@ export function GroupChatSheets({
                             onClick={() => handleRemoveMember(member.id)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
                           >
-                            <X className="w-4 h-4" />
+                            退出させる
                           </Button>
                         )}
                       </div>
