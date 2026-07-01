@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { UserCog, Clock, Users } from 'lucide-react'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
@@ -11,6 +10,7 @@ import { DateLocationSection } from './performanceModal/sections/DateLocationSec
 import { PerformanceContentSection } from './performanceModal/sections/PerformanceContentSection'
 import { StaffNotesSection } from './performanceModal/sections/StaffNotesSection'
 import { CategorySelectSection } from './performanceModal/sections/CategorySelectSection'
+import { PerformanceFooter } from './performanceModal/sections/PerformanceFooter'
 import { staffApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
@@ -1231,32 +1231,16 @@ export function PerformanceModal({
         </Tabs>
 
         {/* フッターアクションボタン */}
-        <div
-          className="flex items-center justify-end gap-1.5 p-1.5 sm:p-2 border-t shrink-0"
-          style={CATEGORY_TONE[formData.category]
-            ? { backgroundColor: CATEGORY_TONE[formData.category].bg, borderTopColor: CATEGORY_TONE[formData.category].border }
-            : undefined}
-        >
-          <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
-            {!readOnly && mode === 'edit' && onDeleteEvent && (
-              <Button
-                variant="outline"
-                onClick={() => setDeleteConfirming(true)}
-                className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground mr-auto"
-              >
-                この予定を削除
-              </Button>
-            )}
-            <Button variant="outline" onClick={onClose} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
-              {readOnly ? '閉じる' : 'キャンセル'}
-            </Button>
-            {!readOnly && (
-              <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
-                {mode === 'add' ? '追加' : '保存'}
-              </Button>
-            )}
-          </div>
-        </div>
+        <PerformanceFooter
+          CATEGORY_TONE={CATEGORY_TONE}
+          formData={formData}
+          readOnly={readOnly}
+          mode={mode}
+          onDeleteEvent={onDeleteEvent}
+          setDeleteConfirming={setDeleteConfirming}
+          onClose={onClose}
+          handleSave={handleSave}
+        />
       </DialogContent>
 
       {/* シナリオ変更確認ダイアログ（参加者がいる場合） */}
