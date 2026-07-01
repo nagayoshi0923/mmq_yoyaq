@@ -166,8 +166,10 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 - スクエア（borderRadius:0）＋THEME 色は**意図的なブランドなので見た目は維持**。ただし inline style（150箇所）をやめ、顧客レイアウトのスコープで CSS 変数（`--radius: 0` 等）と Tailwind テーマに**トークン化**する。見た目を変える提案はオーナー承認後。
 - 本文サイズは ts-*（`ts-body` = text-base md:text-sm）に統一（ScenarioDetailPage が既に採用済みの方式を他3ページへ）。
 
-### 5.2 D-0: 共通部品の新規作成（既存画面は無変更・低リスク）
-- [ ] `src/components/patterns/` に以下 7 点を作成し、`src/pages/dev/ComponentGallery.tsx` にカタログ掲載、`src/components/ui/COMPONENTS_GUIDE.md` に 5.1 の規約を追記する。
+### 5.2 D-0: 共通部品の新規作成 — 🔵 **Claude 対応中（2026-07-02〜）: Codex は着手不要**
+Claude が別ブランチ `claude/ui-parts`（worktree）で部品7点＋ComponentGallery 掲載＋COMPONENTS_GUIDE 追記＋CardTitle 既定サイズを実装中。
+staging へのマージ後、D-5a（ConfirmDialog）等からこれらの部品を参照してよい。**Codex はこのセクションのコンポーネントを自作しないこと。**
+- [~] `src/components/patterns/` に以下 7 点を作成し、`src/pages/dev/ComponentGallery.tsx` にカタログ掲載、`src/components/ui/COMPONENTS_GUIDE.md` に 5.1 の規約を追記する。（Claude 実施中）
 
 1. **EmptyState** — `{ icon?, title, description?, action? }`。`py-12 text-center`、icon は `h-10 w-10 text-muted-foreground/50`、title は `text-sm font-medium`、description は `text-xs text-muted-foreground`。文言規約:「該当する◯◯がありません」。
 2. **ListSkeleton / TableSkeleton** — `{ rows?: number, variant?: 'row'|'card'|'table' }`。`ui/skeleton.tsx` を組み合わせ、行高 h-14 の縦積み。既存3重複スケルトン（ReservationManagement.tsx:312-376 / CustomerManagement/index.tsx:86-109 / OrganizationScenarioList.tsx:605-634）の置き換え先。
@@ -177,7 +179,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 6. **予約ステータス Badge の一元化** — `src/lib/constants/reservationStatus.ts` を作り、`status → { label, badgeVariant }` のマップを1箇所に。`ui/badge.tsx` の既存 variant（success/warning/gray 等）を使う。現在4実装（ReservationManagement.tsx:148-166 / PrivateBookingManagement/components/StatusBadge.tsx / ReservationRow.tsx:166,173 の手書き span / CustomerRow の Badge）を順次これに寄せる。
 7. **ListRow** — 展開式リスト行の定型 `{ media?, title, subtitle?, meta?, badges?, trailing?, expanded?, onToggle? }`。`rounded-lg border p-3`、展開部は `bg-muted/20 p-4`。CustomerRow / EmailLogs 行 / ReportGroupCard / MyPage 予約カードの共通化先。
 
-- [ ] **CardTitle の既定サイズを定義**: `src/components/ui/card.tsx:35` の CardTitle に `text-base font-semibold` を追加（現在サイズ未定義で親を継承し画面毎に変わる）。既存の className 上書き15種は移行バッチで順次削除。🔍 全体スモーク（見出しサイズが変わるため、パイロット確認に含める）
+- [~] **CardTitle の既定サイズを定義**（🔵 Claude 対応中・claude/ui-parts に含む）: `src/components/ui/card.tsx:35` の CardTitle に `text-base font-semibold` を追加。既存の className 上書き15種は移行バッチで順次削除。🔍 全体スモーク（見出しサイズが変わるため、パイロット確認に含める）
 
 - [x] **デザインガード CI**: `scripts/check-design-tokens.mjs` を新設。`text-gray-` / `text-[` / `style={{ borderRadius` / bare `rounded"` の出現数をベースライン JSON と比較し、**増えたら fail**（減るのは OK・ベースライン自動更新）。ci.yml に追加。
 
