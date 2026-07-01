@@ -80,7 +80,7 @@ GROUP BY 1,2 ORDER BY 1,2;
 ```
 現状 vitest のテスト12ファイルが CI で一切実行されていない（壊れても green になる）。
 
-### - [ ] D1: `email_settings.private_cancellation_template` 列の DROP
+### - [x] D1: `email_settings.private_cancellation_template` 列の DROP
 宙浮きテンプレの後始末（コード参照0・フロントは prod 反映済み＝いつでも実行可）。
 migration `20260702XXXXXX_drop_private_cancellation_template.sql`:
 ```sql
