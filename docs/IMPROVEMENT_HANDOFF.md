@@ -96,7 +96,7 @@ staging→（オーナー確認後）prod。詳細経緯: `docs/refactoring/temp
 
 ## 3. フェーズ1: 小粒バグ一掃（各1コミット）
 
-### - [ ] B2: キャンセル締切 0 時間が 24 に化ける falsy 罠
+### - [x] B2: キャンセル締切 0 時間が 24 に化ける falsy 罠
 `src/pages/MyPage/hooks/useReservationDetailQuery.ts:49` — `cancellation_deadline_hours || 24` → `?? 24`。
 DB で締切=0（直前までキャンセル可）の店舗があり、顧客のキャンセルを不当にブロック中。
 

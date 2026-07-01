@@ -46,7 +46,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
         const { data: storeData } = await supabase.from('stores').select('id, name, address').eq('id', storeIdToUse).single()
         if (storeData) store = storeData
         const { data: settingsData } = await supabase.from('reservation_settings').select('cancellation_policy, cancellation_deadline_hours').eq('store_id', storeIdToUse).maybeSingle()
-        if (settingsData) { cancellationPolicy = settingsData.cancellation_policy || null; cancelDeadlineHours = settingsData.cancellation_deadline_hours || 24 }
+        if (settingsData) { cancellationPolicy = settingsData.cancellation_policy || null; cancelDeadlineHours = settingsData.cancellation_deadline_hours ?? 24 }
       }
 
       let organization = null
