@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,6 +34,7 @@ export function StoreEditModal({
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [travelTimeDrafts, setTravelTimeDrafts] = useState<Record<string, { minutes: string; memo: string }>>({})
   const [loading, setLoading] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const normalizePair = (storeAId: string, storeBId: string): [string, string] =>
     storeAId < storeBId ? [storeAId, storeBId] : [storeBId, storeAId]
@@ -250,6 +252,7 @@ export function StoreEditModal({
   }
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
@@ -741,13 +744,7 @@ export function StoreEditModal({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => {
-                    // eslint-disable-next-line no-alert, no-restricted-globals
-                    if (confirm(`店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。`)) {
-                      onDelete(store)
-                      onClose()
-                    }
-                  }}
+                  onClick={() => setDeleteConfirmOpen(true)}
                   className="w-full text-muted-foreground hover:text-destructive"
                   disabled={loading}
                 >
@@ -790,5 +787,19 @@ export function StoreEditModal({
       </DialogContent>
 
     </Dialog>
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="店舗を削除しますか？"
+        message={store ? `店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。` : ''}
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={() => {
+          if (!onDelete || !store) return
+          onDelete(store)
+          onClose()
+        }}
+      />
+    </>
   )
 }

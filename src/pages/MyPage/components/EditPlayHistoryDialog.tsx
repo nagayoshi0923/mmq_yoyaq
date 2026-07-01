@@ -1,8 +1,9 @@
-import type { Dispatch, SetStateAction } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { Pencil, RotateCcw, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { PlayedScenario } from '../index'
@@ -53,10 +54,17 @@ export function EditPlayHistoryDialog({
   handleDeleteManualHistory,
   handleDeleteReservationHistory,
 }: EditPlayHistoryDialogProps) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const deleteMessage = editingScenario?.is_manual
+    ? 'この履歴を完全に削除しますか？この操作は取り消せません。'
+    : 'この履歴を削除しますか？'
+
   return (
+    <>
                 <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
                   setIsEditDialogOpen(open)
                   if (!open) {
+                    setDeleteConfirmOpen(false)
                     setEditingScenario(null)
                     setIsEditingDate(false)
                   }
@@ -202,19 +210,7 @@ export function EditPlayHistoryDialog({
                               <Button
                                 variant="outline"
                                 className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => {
-                                  const message = editingScenario.is_manual
-                                    ? 'この履歴を完全に削除しますか？この操作は取り消せません。'
-                                    : 'この履歴を削除しますか？'
-                                  // eslint-disable-next-line no-alert, no-restricted-globals
-                                  if (confirm(message)) {
-                                    if (editingScenario.is_manual && editingScenario.manual_id) {
-                                      handleDeleteManualHistory(editingScenario.manual_id)
-                                    } else {
-                                      handleDeleteReservationHistory(editingScenario)
-                                    }
-                                  }
-                                }}
+                                onClick={() => setDeleteConfirmOpen(true)}
                               >
                                 <Trash2 className="h-4 w-4" />
                                 <span>履歴を削除する</span>
@@ -232,5 +228,22 @@ export function EditPlayHistoryDialog({
                     )}
                   </DialogContent>
                 </Dialog>
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="履歴を削除しますか？"
+        message={deleteMessage}
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={() => {
+          if (!editingScenario) return
+          if (editingScenario.is_manual && editingScenario.manual_id) {
+            handleDeleteManualHistory(editingScenario.manual_id)
+          } else {
+            handleDeleteReservationHistory(editingScenario)
+          }
+        }}
+      />
+    </>
   )
 }

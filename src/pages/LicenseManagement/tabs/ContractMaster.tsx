@@ -4,6 +4,7 @@ import { AlertCircle, FilePenLine, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import {
   Dialog,
   DialogContent,
@@ -78,6 +79,7 @@ export function ContractMaster({ canEdit }: ContractMasterProps) {
   const queryClient = useQueryClient()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingContract, setEditingContract] = useState<StoreScenarioLicenseContract | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<StoreScenarioLicenseContract | null>(null)
   const [form, setForm] = useState<LicenseContractInput>(emptyForm)
 
   const { data: contracts = [], isLoading: contractsLoading } = useQuery({
@@ -254,12 +256,7 @@ export function ContractMaster({ canEdit }: ContractMasterProps) {
                             variant="ghost"
                             size="icon"
                             className="text-destructive hover:text-destructive"
-                            onClick={() => {
-                              // eslint-disable-next-line no-alert
-                              if (window.confirm('この契約マスタを削除しますか？')) {
-                                deleteMutation.mutate(contract.id)
-                              }
-                            }}
+                            onClick={() => setDeleteTarget(contract)}
                             disabled={deleteMutation.isPending}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -401,6 +398,20 @@ export function ContractMaster({ canEdit }: ContractMasterProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="契約マスタを削除しますか？"
+        message="この操作は元に戻せません。"
+        confirmLabel="削除する"
+        variant="destructive"
+        isLoading={deleteMutation.isPending}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          await deleteMutation.mutateAsync(deleteTarget.id)
+        }}
+      />
     </div>
   )
 }
