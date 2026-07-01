@@ -96,8 +96,10 @@ export function useCancelReservationMutation(reservationId: string, onSuccess: (
     mutationFn: () => reservationApi.cancel(reservationId, 'お客様によるキャンセル'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
-      // マイページ予約一覧(mypage-data)も無効化しないと、キャンセルしても一覧から消えない(リロードまで反映されない)
-      queryClient.invalidateQueries({ queryKey: ['mypage-data'] })
+      // マイページ予約一覧(mypage-data)も更新しないとキャンセルが一覧に反映されない。
+      // グローバル既定が refetchOnMount:false のため、非アクティブなクエリでも即再取得する
+      // refetchType:'all' を明示しないと stale マークされるだけで再取得されない。
+      queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })
       onSuccess()
     },
     onError: (error) => {
