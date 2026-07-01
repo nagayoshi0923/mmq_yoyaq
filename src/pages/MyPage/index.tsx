@@ -752,7 +752,8 @@ export default function MyPage() {
 
   // 予約を分類
   const upcomingReservations = reservations.filter(
-    r => new Date(r.requested_datetime) >= new Date() && r.status === 'confirmed'
+    // キャンセル済みも「注文履歴」として一覧に残す（消すと顧客がキャンセル有無を確認できない）
+    r => new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'cancelled')
   )
   const pastReservations = reservations.filter(
     r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'

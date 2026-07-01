@@ -450,8 +450,8 @@ export function ReservationsTab({
                           style={{ borderRadius: 0 }}
                           onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                         >
-                          {/* カウントダウンバー（各予約・公演日までの日数） */}
-                          {daysUntil >= 0 && (
+                          {/* カウントダウンバー（各予約・公演日までの日数）※キャンセル済みは非表示 */}
+                          {daysUntil >= 0 && reservation.status !== 'cancelled' && (
                             <div 
                               className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2"
                               style={{ backgroundColor: THEME.primary }}
