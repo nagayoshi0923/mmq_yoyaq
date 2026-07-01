@@ -130,6 +130,7 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
+      queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })
     },
     onError: (error) => {
       logger.error('人数変更エラー:', error)

@@ -100,7 +100,7 @@ staging→（オーナー確認後）prod。詳細経緯: `docs/refactoring/temp
 `src/pages/MyPage/hooks/useReservationDetailQuery.ts:49` — `cancellation_deadline_hours || 24` → `?? 24`。
 DB で締切=0（直前までキャンセル可）の店舗があり、顧客のキャンセルを不当にブロック中。
 
-### - [ ] B3: 参加人数変更後にマイページ一覧が更新されない
+### - [x] B3: 参加人数変更後にマイページ一覧が更新されない
 同ファイル `useUpdateParticipantCountMutation` の onSuccess（:131-133）が詳細キーしか invalidate していない。
 同ファイルの cancel 側（:97-102）と同じく `queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })` を追加。
 
