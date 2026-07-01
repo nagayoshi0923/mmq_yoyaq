@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation } from './hooks/useMyPageDataQuery'
+import { useQueryClient } from '@tanstack/react-query'
+import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation, myPageKeys } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ReservationsTab } from './components/ReservationsTab'
 import { MyPageContent } from './MyPageContent'
@@ -38,6 +39,9 @@ export interface PlayedScenario {
 }
 
 /** アルバム行の一意キー（手動は manual_id、予約は reservation_id。旧形式と後方互換のため legacy キーも参照） */
+// キャッシュヒットで再マウントした際も初回同期を発火させるためのセンチネル（未同期）
+const SYNC_UNSET = Symbol('mypage-sync-unset')
+
 function playedScenarioAlbumKey(s: PlayedScenario): string {
   if (s.reservation_id) return `res:${s.reservation_id}`
   if (s.is_manual && s.manual_id) return `manual:${s.manual_id}`
@@ -78,6 +82,7 @@ export default function MyPage() {
   const { user } = useAuth()
   const { organizationId } = useOrganization()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   // タブ・サブタブ状態をURLパラメータで管理（ブラウザバックでタブが戻る）
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') ?? 'reservations'
@@ -116,19 +121,19 @@ export default function MyPage() {
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
 
   // myPageData.ratingsMap が変わったらローカルステートを更新
-  const prevRatingsRef = useRef(myPageData?.ratingsMap)
+  const prevRatingsRef = useRef<unknown>(SYNC_UNSET)
   if (myPageData?.ratingsMap !== prevRatingsRef.current) {
     prevRatingsRef.current = myPageData?.ratingsMap
     if (myPageData?.ratingsMap) setRatingsMap(myPageData.ratingsMap)
   }
-  const prevPlayedRef = useRef(myPageData?.playedScenarios)
+  const prevPlayedRef = useRef<unknown>(SYNC_UNSET)
   if (myPageData?.playedScenarios !== prevPlayedRef.current) {
     prevPlayedRef.current = myPageData?.playedScenarios
     if (myPageData?.playedScenarios) setPlayedScenarios(myPageData.playedScenarios)
   }
   // 体験済み解除（DB override）の scenario_master_id 集合。optimistic 反映のためローカルに同期
   const [playedOverrideIds, setPlayedOverrideIds] = useState<Set<string>>(new Set())
-  const prevOverrideRef = useRef(myPageData?.playedOverrideIds)
+  const prevOverrideRef = useRef<unknown>(SYNC_UNSET)
   if (myPageData?.playedOverrideIds !== prevOverrideRef.current) {
     prevOverrideRef.current = myPageData?.playedOverrideIds
     if (myPageData?.playedOverrideIds) setPlayedOverrideIds(myPageData.playedOverrideIds)
@@ -136,7 +141,7 @@ export default function MyPage() {
 
   // アバター画像はローカルステートで管理（アップロード後に即反映するため）
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const prevAvatarRef = useRef(myPageData?.avatarUrl)
+  const prevAvatarRef = useRef<unknown>(SYNC_UNSET)
   if (myPageData?.avatarUrl !== prevAvatarRef.current) {
     prevAvatarRef.current = myPageData?.avatarUrl
     if (myPageData?.avatarUrl && !avatarUrl) setAvatarUrl(myPageData.avatarUrl)
@@ -253,6 +258,8 @@ export default function MyPage() {
         logger.error('アバターURL更新エラー:', updateError)
       } else {
         setAvatarUrl(publicUrl)
+        // クエリを無効化して再取得（別ページ遷移→再マウント時に新アバターが復元されるように）
+        queryClient.invalidateQueries({ queryKey: myPageKeys.data(user?.id ?? '', user?.email ?? '') })
         logger.log('アバター画像を保存しました')
       }
     } catch (error) {
