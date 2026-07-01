@@ -113,7 +113,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 ※ `useReservationDetailQuery` の select に `reservation_source` が含まれているか確認し、無ければ追加。
 🔍 マイページ→予約詳細（スタッフ参加予約 例: 260612-RARK 形式の予約番号）で「スタッフ参加」表示になること。
 
-### - [ ] B6: シナリオマスタ編集ギャラリーの D&D アップロード不動作 🔍
+### - [x] B6: シナリオマスタ編集ギャラリーの D&D アップロード不動作 🔍
 実機切り分け済み: **ドラッグ中のオーバーレイは出る**（dragover は届く）**が保存されない** → drop / dataTransfer 側の問題で確定。
 - 場所: `src/components/modals/ScenarioMasterEditDialog.tsx:202-223`（handleDragOver/Drop）と
   `ScenarioMasterEditDialog/ScenarioMasterTabContent.tsx:179-183`（gallery タブの結線）。

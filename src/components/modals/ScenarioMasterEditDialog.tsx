@@ -202,6 +202,7 @@ export function ScenarioMasterEditDialog({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
     if (!uploading) setIsDragging(true)
   }
 
@@ -219,7 +220,13 @@ export function ScenarioMasterEditDialog({
     if (uploading) return
     
     const files = Array.from(e.dataTransfer.files)
-    await handleFilesUpload(files)
+    const droppedFiles = files.length > 0
+      ? files
+      : Array.from(e.dataTransfer.items)
+        .filter((item) => item.kind === 'file')
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null)
+    await handleFilesUpload(droppedFiles)
   }
 
   useEffect(() => {

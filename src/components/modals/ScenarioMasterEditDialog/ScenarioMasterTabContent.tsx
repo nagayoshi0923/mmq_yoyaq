@@ -210,7 +210,12 @@ export function ScenarioMasterTabContent({
 
             {/* ドラッグオーバー時のオーバーレイ */}
             {isDragging && (
-              <div className="fixed inset-0 bg-primary/10 z-50 flex items-center justify-center pointer-events-none">
+              <div
+                className="fixed inset-0 bg-primary/10 z-50 flex items-center justify-center"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 <div className="bg-white rounded-xl shadow-2xl p-8 border-2 border-dashed border-primary">
                   <Upload className="w-12 h-12 mx-auto text-primary mb-3" />
                   <p className="text-lg font-medium text-primary">ここにドロップしてアップロード</p>
