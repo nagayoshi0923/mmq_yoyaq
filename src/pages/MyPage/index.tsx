@@ -271,6 +271,12 @@ export default function MyPage() {
   // 手動登録を追加
   const handleAddManualHistory = async () => {
     if (!customerId || !newScenarioId) { showToast.error('シナリオは必須です'); return }
+    // 既に登録済み（予約 or 手動）のシナリオなら確認してから追加（同じ作品の再プレイは許容）
+    const alreadyRegistered = playedScenarios.some(s => s.scenario_id === newScenarioId)
+    if (alreadyRegistered) {
+      const title = scenarioOptions.find(o => o.id === newScenarioId)?.title || 'このシナリオ'
+      if (!confirm(`「${title}」はすでに登録されています。\n同じ作品をもう一度追加しますか？`)) return
+    }
     try {
       await addManualHistoryMutation.mutateAsync({ scenarioId: newScenarioId, scenarioOptions, playedAt: newPlayedAt, storeId: newStoreId, storeOptions })
       setIsAddDialogOpen(false)
