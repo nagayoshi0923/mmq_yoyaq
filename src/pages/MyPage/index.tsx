@@ -675,6 +675,11 @@ export default function MyPage() {
 
   // 公演成立状況を取得
   const getPerformanceStatus = (reservation: Reservation) => {
+    // キャンセル済みは参加状況より優先して「キャンセル済み」を表示
+    if (reservation.status === 'cancelled') {
+      return { type: 'cancelled', label: 'キャンセル済み', color: 'bg-gray-100 text-gray-500' }
+    }
+
     const event = reservation.schedule_event_id ? scheduleEvents[reservation.schedule_event_id] : null
     
     // 貸切公演は状況表示不要
