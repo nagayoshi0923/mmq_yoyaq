@@ -1,11 +1,7 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect } from 'react'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Save, Users, Lock, Sparkles, ExternalLink } from 'lucide-react'
+import { Save, Sparkles, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -17,8 +13,8 @@ import {
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
 import { OtherPoliciesSection } from './cancellationSettings/OtherPoliciesSection'
-import { CancellationFeesEditor } from './cancellationSettings/CancellationFeesEditor'
-import { PolicyItemsEditor } from './cancellationSettings/PolicyItemsEditor'
+import { OpenPolicySection } from './cancellationSettings/OpenPolicySection'
+import { PrivatePolicySection } from './cancellationSettings/PrivatePolicySection'
 
 const RESERVATION_SETTINGS_SELECT_FIELDS =
   'id, store_id, cancellation_policy, cancellation_policy_items, cancellation_deadline_hours, cancellation_fees, private_cancellation_policy, private_cancellation_policy_items, private_cancellation_deadline_hours, private_cancellation_fees, organizer_cancel_reasons, organizer_cancel_refund_note, cancellation_judgment_rules, cancellation_notice_note, reservation_change_deadline_hours, reservation_change_note, private_reservation_change_deadline_hours, private_reservation_change_note, refund_method_note, auto_refund_enabled, refund_processing_days, policy_updated_at' as const
@@ -703,118 +699,32 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       )}
 
       {/* 通常公演のキャンセルポリシー */}
-      <section className="bg-white rounded-xl border p-6">
-        <SectionTitle
-          icon={Users}
-          label="通常公演のキャンセルポリシー"
-          description="一般参加者が予約をキャンセルした際に適用されるポリシーです。予約確認メール・キャンセルポリシーページに表示されます。"
-        />
-        <div className="space-y-6">
-          <PolicyItemsEditor
-            items={formData.cancellation_policy_items}
-            onAdd={addPolicyItem}
-            onRemove={removePolicyItem}
-            onUpdate={updatePolicyItem}
-            onMoveUp={movePolicyItemUp}
-            onMoveDown={movePolicyItemDown}
-          />
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">補足説明（任意）</Label>
-            <Textarea
-              id="cancellation_policy"
-              value={formData.cancellation_policy}
-              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
-              placeholder="上記項目以外の補足説明があれば入力"
-              rows={2}
-            />
-            <p className="text-xs text-muted-foreground">ポリシー項目に収まらない補足事項をご記入ください</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">キャンセル受付期限</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="cancellation_deadline_hours"
-                type="number"
-                value={formData.cancellation_deadline_hours}
-                onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
-                min="0"
-                max="720"
-                className="w-32"
-              />
-              <span className="text-sm text-muted-foreground">時間前まで受付</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              公演開始の{formData.cancellation_deadline_hours}時間前（{Math.floor(formData.cancellation_deadline_hours / 24)}日{formData.cancellation_deadline_hours % 24}時間前）までキャンセル可能。期限を過ぎると参加者はキャンセル操作できなくなります。
-            </p>
-          </div>
-
-          <CancellationFeesEditor
-            fees={formData.cancellation_fees}
-            onAdd={addCancellationFee}
-            onRemove={removeCancellationFee}
-            onUpdate={updateCancellationFee}
-          />
-        </div>
-      </section>
+      <OpenPolicySection
+        formData={formData}
+        setFormData={setFormData}
+        addPolicyItem={addPolicyItem}
+        removePolicyItem={removePolicyItem}
+        updatePolicyItem={updatePolicyItem}
+        movePolicyItemUp={movePolicyItemUp}
+        movePolicyItemDown={movePolicyItemDown}
+        addCancellationFee={addCancellationFee}
+        removeCancellationFee={removeCancellationFee}
+        updateCancellationFee={updateCancellationFee}
+      />
 
       {/* 貸切公演のキャンセルポリシー */}
-      <section className="bg-white rounded-xl border p-6">
-        <SectionTitle
-          icon={Lock}
-          label="プライベート貸切のキャンセルポリシー"
-          description="貸切予約者に適用される専用ポリシーです。通常公演より厳しい条件が設定できます。貸切申請フォームおよびキャンセルポリシーページに表示されます。"
-        />
-        <div className="space-y-6">
-          <PolicyItemsEditor
-            items={formData.private_cancellation_policy_items}
-            onAdd={addPrivatePolicyItem}
-            onRemove={removePrivatePolicyItem}
-            onUpdate={updatePrivatePolicyItem}
-            onMoveUp={movePrivatePolicyItemUp}
-            onMoveDown={movePrivatePolicyItemDown}
-          />
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">補足説明（任意）</Label>
-            <Textarea
-              id="private_cancellation_policy"
-              value={formData.private_cancellation_policy}
-              onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_policy: e.target.value }))}
-              placeholder="上記項目以外の補足説明があれば入力"
-              rows={2}
-            />
-            <p className="text-xs text-muted-foreground">ポリシー項目に収まらない補足事項をご記入ください</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">キャンセル受付期限</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="private_cancellation_deadline_hours"
-                type="number"
-                value={formData.private_cancellation_deadline_hours}
-                onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
-                min="0"
-                max="720"
-                className="w-32"
-              />
-              <span className="text-sm text-muted-foreground">時間前まで受付</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              公演開始の{formData.private_cancellation_deadline_hours}時間前（{Math.floor(formData.private_cancellation_deadline_hours / 24)}日{formData.private_cancellation_deadline_hours % 24}時間前）までキャンセル可能
-            </p>
-          </div>
-
-          <CancellationFeesEditor
-            fees={formData.private_cancellation_fees}
-            onAdd={addPrivateCancellationFee}
-            onRemove={removePrivateCancellationFee}
-            onUpdate={updatePrivateCancellationFee}
-          />
-        </div>
-      </section>
+      <PrivatePolicySection
+        formData={formData}
+        setFormData={setFormData}
+        addPrivatePolicyItem={addPrivatePolicyItem}
+        removePrivatePolicyItem={removePrivatePolicyItem}
+        updatePrivatePolicyItem={updatePrivatePolicyItem}
+        movePrivatePolicyItemUp={movePrivatePolicyItemUp}
+        movePrivatePolicyItemDown={movePrivatePolicyItemDown}
+        addPrivateCancellationFee={addPrivateCancellationFee}
+        removePrivateCancellationFee={removePrivateCancellationFee}
+        updatePrivateCancellationFee={updatePrivateCancellationFee}
+      />
 
       {/* その他のポリシー */}
       <OtherPoliciesSection formData={formData} setFormData={setFormData} generateId={generateId} />
