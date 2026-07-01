@@ -386,11 +386,11 @@
 リスク: 中 / 規模: 大
 
 - [~] 6-1 `PrivateGroupInvite/index.tsx`（3,469行・最大）: フォーム / メール送信 / バリデーション / 確認UI を分離
-      **presentational 抽出 第1バッチ（2026-07-02・3,469→2,544・staging 実機確認待ち）**。方式は 6-2 と同一。
-      - [x] チャット画面（`isChatMode`）のオーバーレイシート5つ（候補日/招待/設定/店舗編集/予約申請）→ `components/GroupChatSheets.tsx`
-            （989行を DOM順保持で byte 逐語移送・props 62個を同名注入。props の自由変数は **tsc 駆動**で厳密特定＝空白除去 diff=0）`7eddec86`。死 import Trash2/ChevronDown/MapPin 除去。
+      **presentational 抽出 2バッチ完了（2026-07-02・3,469→1,711・staging 実機確認待ち）**。方式は 6-2 と同一（tsc駆動で props 特定・byte逐語）。
+      - [x] チャット画面（`isChatMode`）のオーバーレイシート5つ（候補日/招待/設定/店舗編集/予約申請）→ `components/GroupChatSheets.tsx`（989行・props62）`7eddec86`（3,469→2,544）。死 import Trash2/ChevronDown/MapPin 除去。
+      - [x] 非チャット表示（招待/参加フロー・main return 894行＝プロフィール/進捗ステップ/タブ4種/参加費クーポン/PIN認証/ゲスト情報/送信・退出）→ `components/GroupInviteView.tsx`（1,024行・props66）`c9687cd6`（2,544→1,711）。死 import 23個（Select/Tabs/Badge/Input 一式ほか）除去。
       各スライス tsc=0 / eslint=0 / build:fast / test:unit 130。
-      ※ 残: 非チャット表示（招待/参加フロー・main return 1,649-末尾 ~896行＝進捗ステップ/タブ4種/参加費クーポン/PIN認証/ゲスト情報 等）＝**次バッチ**。チャット本体の GroupChat 領域は既存コンポーネントで抽出対象外。
+      ※ 残: **親1,711の残りは state/handler/effect（~1,300行）＝フック化が必要（中〜高リスク・要 per-batch 実機確認・別途）**。GroupInviteView(1,024) は将来サブ分割可。チャット本体 GroupChat 領域は既存コンポーネントで対象外。
       （zsh の教訓: `for x in $VAR` は unquoted でも語分割しない＝props 生成は `tr ' ' '\n' | while read` を使う）
 - [~] 6-2 `ScheduleManager/index.tsx`（2,053行）: カレンダー描画 / D&D / 右クリックメニュー / ツールバー分離
       **presentational 抽出バッチ完了（2026-07-02・2,053→1,316・main `b03f0441` 反映済＝staging スモークOK）**。
@@ -402,8 +402,11 @@
       各スライス tsc=0 / eslint=0 / build:fast / test:unit 130。
       ※ **残: 800行到達には state/handler のフック化が必要（前半~1,050行が state/effect/handler・中〜高リスク・退行注意）。別バッチでオーナー承認後に着手。**
       （デプロイ中に「新しいバージョンがあります」＝ErrorBoundary のチャンク404画面が出たが、実物 curl 検証でデプロイは健全＝開いたままのタブが旧チャンクを掴んだ定番挙動。`_v=2` 固定キャッシュバスターの papercut は別件）
-- [ ] 6-3 `MyPage/index.tsx`（1,749行）: タブごとにコンポーネント分離
-- [ ] 6-4 `CompleteProfile.tsx`（1,173行）: 構造のみ整理（既知の誤遷移バグ修正とは**混ぜない**）
+- [~] 6-3 `MyPage/index.tsx`（着手時1,090行・既に reservations 等は子化済み）: 本体ビューを子化
+      **完了（2026-07-02・1,090→505・staging 実機確認待ち）**。renderAlbumCard＋getCounts＋main return（634行）→ `MyPageContent.tsx`（749行・props64・tsc駆動）`7120d942`。
+      menuItems と lazy3ページ定義も子へ移設。共有ヘルパ isScenarioDeleted のみ親に定義残し prop 注入。死 import 24個除去。親505・子749 とも ≤800。
+      ⚠ 本体ビューまるごと移送＝再レンダ/effect タイミング差の可能性（[[feedback_byte_identity_misses_runtime_regression]]）。**実機スモーク必須**。
+- [x] 6-4 `CompleteProfile.tsx`: **別セッションで 1,173→769（≤800）達成済み＝完了**（構造整理のみ・誤遷移バグとは非混合）
 
 ## Phase 7: ルーティングと全体仕上げ
 
