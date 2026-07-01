@@ -263,7 +263,7 @@ export const LineupView = memo(function LineupView({
 
       {/* カタログへのリンク */}
       <section className="text-center py-6 border-t">
-        <p className="text-sm text-muted-foreground mb-3">
+        <p className="ts-muted mb-3">
           全{allScenarios.length}タイトルを検索・フィルター
         </p>
         <Button
@@ -293,4 +293,3 @@ export const LineupView = memo(function LineupView({
     </div>
   )
 })
-

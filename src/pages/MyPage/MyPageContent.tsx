@@ -482,7 +482,7 @@ export function MyPageContent({
                 {displayName} さん
               </h1>
               <div className="flex items-center gap-3 mt-2">
-                <div className="flex items-center gap-1 text-sm text-gray-600">
+                <div className="flex items-center gap-1 ts-muted text-gray-600">
                   <Trophy className="w-4 h-4 text-mypage-primary" />
                   <span>{stats.participationCount}回参加</span>
                 </div>
@@ -582,7 +582,7 @@ export function MyPageContent({
                     }).length}作品</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">
+                    <p className="ts-muted">
                       これまでに参加したマーダーミステリーの記録です
                     </p>
                     <AddPlayHistoryDialog
@@ -629,7 +629,7 @@ export function MyPageContent({
                     {(() => {
                       const shown = playedScenarios.filter(s => !isScenarioExcluded(s))
                       if (shown.length === 0) {
-                        return <p className="text-sm text-gray-400 py-6 text-center">表示中の体験済みシナリオはありません</p>
+                        return <p className="ts-muted text-gray-400 py-6 text-center">表示中の体験済みシナリオはありません</p>
                       }
                       return (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -646,7 +646,7 @@ export function MyPageContent({
                       <Camera className="w-8 h-8 text-mypage-primary" />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">まだプレイ履歴がありません</h3>
-                    <p className="text-gray-500 text-sm">
+                    <p className="ts-muted">
                       公演に参加すると、ここに記録されます
                     </p>
                   </div>

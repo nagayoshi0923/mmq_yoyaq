@@ -378,7 +378,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
               {organizationName || 'MMQ'}
             </h1>
-            <p className="text-sm md:text-[0.95rem] text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
+            <p className="ts-body text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
               {heroDescription}
             </p>
             
@@ -593,4 +593,3 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     </div>
   )
 }
-

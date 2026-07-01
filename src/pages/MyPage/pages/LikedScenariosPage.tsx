@@ -71,7 +71,7 @@ export function WantToPlayPage() {
           <Heart className="w-8 h-8 text-mypage-primary" />
         </div>
         <h3 className="font-bold text-gray-900 mb-2">遊びたいリスト</h3>
-        <p className="text-gray-500 text-sm mb-6">
+        <p className="ts-muted mb-6">
           気になるシナリオをお気に入りに追加して<br />
           公演情報をチェックしましょう
         </p>
@@ -130,7 +130,7 @@ export function WantToPlayPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-bold text-gray-900 truncate">{item.scenario.title}</h3>
-                  <p className="text-sm text-gray-500 mt-1">作者: {item.scenario.author}</p>
+                  <p className="ts-muted mt-1">作者: {item.scenario.author}</p>
                 </div>
                 <Button
                   variant="ghost"

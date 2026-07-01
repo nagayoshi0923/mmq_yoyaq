@@ -573,7 +573,7 @@ export function SettingsPage() {
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">{item.label}</h3>
-                <p className="text-sm text-gray-500 truncate max-w-[200px]">{item.desc}</p>
+                <p className="ts-muted truncate max-w-[200px]">{item.desc}</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -598,7 +598,7 @@ export function SettingsPage() {
           </div>
           <div>
             <h3 className="font-medium text-red-600">退会・アカウント削除</h3>
-            <p className="text-sm text-gray-500">
+            <p className="ts-muted">
               {hasBlockingPerformanceReservations === true
                 ? '公演予約中のため、予約の整理後に退会できます'
                 : '退会するとすべてのデータが削除されます'}

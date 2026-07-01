@@ -237,7 +237,7 @@ export function ReservationDetailPage() {
                     return (
                       <div key={index} className="flex items-center gap-3 bg-white p-3 border border-amber-100 rounded-none">
                         <span className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 text-sm font-bold rounded-none">{candidate.order || index + 1}</span>
-                        <div className="flex-1"><p className="font-medium text-gray-900">{dateStr}</p><p className="text-sm text-gray-600">{candidate.timeSlot}（{candidate.startTime}〜{candidate.endTime}）</p></div>
+                        <div className="flex-1"><p className="font-medium text-gray-900">{dateStr}</p><p className="ts-body text-gray-600">{candidate.timeSlot}（{candidate.startTime}〜{candidate.endTime}）</p></div>
                       </div>
                     )
                   })}
@@ -294,7 +294,7 @@ export function ReservationDetailPage() {
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">会場</p>
                 <p className="font-bold text-gray-900">{store.name}</p>
-                {store.address && <p className="text-sm text-gray-600 mt-1">{store.address}</p>}
+                {store.address && <p className="ts-body text-gray-600 mt-1">{store.address}</p>}
                 {store.address && (
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm mt-2 hover:underline text-mypage-detail-primary">
                     <ExternalLink className="w-4 h-4" />地図を開く
@@ -387,7 +387,7 @@ export function ReservationDetailPage() {
         {reservation.notes && (
           <div className="bg-white border border-gray-200 p-4 rounded-none">
             <h3 className="font-bold text-gray-900 mb-2">備考</h3>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap">{reservation.notes}</p>
+            <p className="ts-body text-gray-600 whitespace-pre-wrap">{reservation.notes}</p>
           </div>
         )}
 

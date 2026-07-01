@@ -547,7 +547,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   <div className="space-y-4">
                   {/* 日程を決めないで作成するボタン（一番上） */}
                   <div className="p-3 bg-purple-50 border border-purple-200">
-                    <p className="text-xs text-purple-800 mb-2">
+                    <p className="ts-body text-purple-800 mb-2">
                       日程やメンバーが決まっていない場合
                     </p>
                     <Button
@@ -654,7 +654,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   if (isOutOfPeriod) {
                     return (
                       <div className="border rounded-lg bg-gray-50 p-6 text-center space-y-2">
-                        <p className="text-sm text-gray-600">現在は募集していません</p>
+                        <p className="ts-muted">現在は募集していません</p>
                         {startDate && endDate ? (
                           <p className="text-xs text-muted-foreground">
                             募集期間: {startDate} 〜 {endDate}

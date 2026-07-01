@@ -150,7 +150,7 @@ export function CouponsPage() {
             {totalAvailableCount}枚
           </span>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="ts-muted">
           利用可能なクーポンは予約時に適用できます
         </p>
       </div>
@@ -195,7 +195,7 @@ export function CouponsPage() {
                   <div className="px-4 py-3">
                     <h4 className="font-medium text-gray-900 text-sm">{campaign.name}</h4>
                     {campaign.description && (
-                      <p className="text-xs text-gray-500 mt-1">{campaign.description}</p>
+                      <p className="ts-muted mt-1">{campaign.description}</p>
                     )}
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                       {coupon.expires_at && (
@@ -307,7 +307,7 @@ export function CouponsPage() {
             <Ticket className="w-8 h-8 text-mypage-primary" />
           </div>
           <h3 className="font-bold text-gray-900 mb-2">クーポンはありません</h3>
-          <p className="text-gray-500 text-sm">
+          <p className="ts-muted">
             キャンペーン実施時にクーポンが付与されます
           </p>
         </div>

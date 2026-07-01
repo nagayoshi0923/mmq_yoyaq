@@ -118,7 +118,7 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
           </div>
           <div className="p-4">
             <div className={`relative ${!isExpanded && shouldTruncate ? 'max-h-32 overflow-hidden' : ''}`}>
-              <p className="leading-relaxed whitespace-pre-wrap text-base md:text-xs text-gray-700">
+              <p className="ts-body leading-relaxed whitespace-pre-wrap text-gray-700">
                 {scenario.synopsis}
               </p>
               {/* グラデーションオーバーレイ */}
@@ -170,7 +170,7 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
             <h3 className="font-semibold text-gray-900 text-base">シナリオ特記事項</h3>
           </div>
           <div className="px-4 py-3">
-            <p className="leading-relaxed whitespace-pre-wrap text-base md:text-xs text-gray-700">
+            <p className="ts-body leading-relaxed whitespace-pre-wrap text-gray-700">
               {scenario.caution}
             </p>
           </div>
@@ -180,4 +180,3 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
     </div>
   )
 })
-
