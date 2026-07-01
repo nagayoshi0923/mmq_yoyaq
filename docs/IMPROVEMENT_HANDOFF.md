@@ -107,7 +107,7 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 ### - [x] B4: 予約詳細に謎の「0」が出る
 `src/pages/MyPage/pages/ReservationDetailPage.tsx:347` — `{reservation.unit_price && (` → `{!!reservation.unit_price && (`。
 
-### - [ ] B5: スタッフ参加予約の「決済済み」を「スタッフ参加」表記に 🔍（仕様確定済み）
+### - [x] B5: スタッフ参加予約の「決済済み」を「スタッフ参加」表記に 🔍（仕様確定済み）
 スタッフ参加予約は仕様上 ¥0＋`payment_status='paid'` で自動作成され、顧客マイページで「決済済み」と出る。
 `reservation_source === 'staff_participation'` のとき、`ReservationDetailPage.tsx` の支払いバッジ（:217-219）と支払方法表示（貸切分岐 :344 / 通常分岐 :359）を「スタッフ参加」表記に差し替える。
 ※ `useReservationDetailQuery` の select に `reservation_source` が含まれているか確認し、無ければ追加。

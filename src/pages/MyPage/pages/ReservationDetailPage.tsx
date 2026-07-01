@@ -140,9 +140,15 @@ export function ReservationDetailPage() {
 
   const perf = getPerformanceDateTime()
   const isPrivateBookingRequest = reservation.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE
+  const isStaffParticipation = reservation.reservation_source === RESERVATION_SOURCE.STAFF_PARTICIPATION
   const isPendingPrivate = isPrivateBookingRequest && ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(reservation.status)
   const statusDisplay = getStatusDisplay(reservation.status, isPrivateBookingRequest)
-  const paymentDisplay = getPaymentStatusDisplay(reservation.payment_status)
+  const paymentDisplay = isStaffParticipation
+    ? { label: 'スタッフ参加', color: '#2563eb', bg: '#eff6ff' }
+    : getPaymentStatusDisplay(reservation.payment_status)
+  const paymentMethodLabel = isStaffParticipation
+    ? 'スタッフ参加'
+    : reservation.payment_status === 'paid' ? '決済済み' : '現地決済'
 
   const canCancel = (() => {
     if (!user || reservation.status !== 'confirmed') return false
@@ -341,7 +347,7 @@ export function ReservationDetailPage() {
                     <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />お支払い金額</span>
                     <div className="text-right">
                       <span className="font-bold text-lg" style={{ color: THEME.primary }}>¥{(reservation.final_price || 0).toLocaleString()}</span>
-                      <span className="text-xs text-gray-500 ml-2">{reservation.payment_status === 'paid' ? '決済済み' : '現地決済'}</span>
+                      <span className="text-xs text-gray-500 ml-2">{paymentMethodLabel}</span>
                     </div>
                   </div>
                   {!!reservation.unit_price && (
@@ -356,7 +362,7 @@ export function ReservationDetailPage() {
                   <span className="text-sm text-gray-500 flex items-center gap-2"><CreditCard className="w-4 h-4" />参加料金</span>
                   <div className="text-right">
                     <span className="font-bold text-lg" style={{ color: THEME.primary }}>¥{(reservation.unit_price || 0).toLocaleString()}/人</span>
-                    <span className="text-xs text-gray-500 ml-2">{reservation.payment_status === 'paid' ? '決済済み' : '現地決済'}</span>
+                    <span className="text-xs text-gray-500 ml-2">{paymentMethodLabel}</span>
                   </div>
                 </div>
               )}
