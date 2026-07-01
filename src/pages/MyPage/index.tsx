@@ -108,7 +108,7 @@ export default function MyPage() {
   // タブ・サブタブ状態をURLパラメータで管理（ブラウザバックでタブが戻る）
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') ?? 'reservations'
-  const reservationsSubTab = (searchParams.get('sub') ?? 'bookings') as 'bookings' | 'private'
+  const reservationsSubTab = (searchParams.get('sub') ?? 'bookings') as 'bookings' | 'private' | 'cancelled'
 
   const setActiveTab = (tab: string) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
@@ -117,7 +117,7 @@ export default function MyPage() {
     return next
   }, { replace: true })
 
-  const setReservationsSubTab = (sub: 'bookings' | 'private') => setSearchParams(prev => {
+  const setReservationsSubTab = (sub: 'bookings' | 'private' | 'cancelled') => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     next.set('sub', sub)
     return next
@@ -752,12 +752,15 @@ export default function MyPage() {
 
   // 予約を分類
   const upcomingReservations = reservations.filter(
-    // キャンセル済みも「注文履歴」として一覧に残す（消すと顧客がキャンセル有無を確認できない）
-    r => new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'cancelled')
+    r => new Date(r.requested_datetime) >= new Date() && r.status === 'confirmed'
   )
   const pastReservations = reservations.filter(
     r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
   )
+  // キャンセル済みは現役リストに混ぜず、専用サブタブで「注文履歴」として表示（新しい順）
+  const cancelledReservations = reservations
+    .filter(r => r.status === 'cancelled')
+    .sort((a, b) => new Date(b.requested_datetime).getTime() - new Date(a.requested_datetime).getTime())
   // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）- 申込順（新しい順）
   const pendingPrivateBookings = reservations
     .filter(
@@ -895,6 +898,7 @@ export default function MyPage() {
                 pendingPrivateBookings={pendingPrivateBookings}
                 upcomingReservations={upcomingReservations}
                 pastReservations={pastReservations}
+                cancelledReservations={cancelledReservations}
                 scheduleEvents={scheduleEvents}
                 scenarioImages={scenarioImages}
                 orgNames={orgNames}

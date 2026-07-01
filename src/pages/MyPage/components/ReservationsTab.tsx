@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, ChevronRight, Clock, MapPin, Sparkles, Users } from 'lucide-react'
+import { Calendar, ChevronRight, Clock, MapPin, Sparkles, Users, XCircle } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
@@ -13,12 +13,13 @@ interface ReservationsTabProps {
   pendingPrivateBookings: Reservation[]
   upcomingReservations: Reservation[]
   pastReservations: Reservation[]
+  cancelledReservations: Reservation[]
   scheduleEvents: MyPageData['scheduleEvents']
   scenarioImages: MyPageData['scenarioImages']
   orgNames: MyPageData['orgNames']
   stores: MyPageData['stores']
-  reservationsSubTab: 'bookings' | 'private'
-  setReservationsSubTab: (sub: 'bookings' | 'private') => void
+  reservationsSubTab: 'bookings' | 'private' | 'cancelled'
+  setReservationsSubTab: (sub: 'bookings' | 'private' | 'cancelled') => void
   cleanTitle: (title?: string) => string
   getDaysUntil: (dateString: string) => number
   getPerformanceDateTime: (reservation: Reservation) => { date: string; time: string }
@@ -33,6 +34,7 @@ export function ReservationsTab({
   pendingPrivateBookings,
   upcomingReservations,
   pastReservations,
+  cancelledReservations,
   scheduleEvents,
   scenarioImages,
   orgNames,
@@ -105,6 +107,31 @@ export function ReservationsTab({
                           </span>
                         )}
                       </button>
+                      {cancelledReservations.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setReservationsSubTab('cancelled')}
+                          className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 border-l border-gray-200 ${
+                            reservationsSubTab === 'cancelled' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                          style={
+                            reservationsSubTab === 'cancelled'
+                              ? { backgroundColor: THEME.primary }
+                              : undefined
+                          }
+                        >
+                          <XCircle className="w-4 h-4 shrink-0" />
+                          <span className="hidden sm:inline">キャンセル済み</span>
+                          <span className="sm:hidden">キャンセル</span>
+                          <span
+                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
+                              reservationsSubTab === 'cancelled' ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {cancelledReservations.length}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   )
                 })()}
@@ -450,8 +477,8 @@ export function ReservationsTab({
                           style={{ borderRadius: 0 }}
                           onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                         >
-                          {/* カウントダウンバー（各予約・公演日までの日数）※キャンセル済みは非表示 */}
-                          {daysUntil >= 0 && reservation.status !== 'cancelled' && (
+                          {/* カウントダウンバー（各予約・公演日までの日数） */}
+                          {daysUntil >= 0 && (
                             <div 
                               className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2"
                               style={{ backgroundColor: THEME.primary }}
@@ -592,6 +619,80 @@ export function ReservationsTab({
                     </div>
                   </div>
                 )}
+                  </>
+                )}
+
+                {reservationsSubTab === 'cancelled' && (
+                  <>
+                    {cancelledReservations.length > 0 ? (
+                      cancelledReservations.map((reservation) => {
+                        const perf = getPerformanceDateTime(reservation)
+                        const store = reservation.store_id ? stores[reservation.store_id] : null
+                        const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
+                        const shortDate = formatJstDateJa(perf.date, true)
+                        const status = getPerformanceStatus(reservation)
+                        return (
+                          <div
+                            key={reservation.id}
+                            className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
+                            style={{ borderRadius: 0 }}
+                            onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
+                          >
+                            <div className="p-3 flex gap-3">
+                              {/* 画像（キャンセル済みは淡く） */}
+                              <div className="w-14 h-20 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                                {imageUrl ? (
+                                  <img
+                                    src={imageUrl}
+                                    alt={reservation.title}
+                                    className="w-full h-full object-cover opacity-50"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <span className="text-xl opacity-30">🎭</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 情報 */}
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-gray-700 text-sm leading-tight line-clamp-1">
+                                  {cleanTitle(reservation.title)}
+                                </h3>
+                                <p className="text-sm mt-1 text-gray-500">
+                                  {shortDate} {perf.time ? perf.time.slice(0, 5) : ''}
+                                </p>
+                                {store && (
+                                  <p className="mt-1 text-xs text-gray-500 font-medium truncate">{store.name}</p>
+                                )}
+                                {status && (
+                                  <div className="mt-1.5">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${status.color}`}>
+                                      {status.label}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-400">
+                                  <span className="font-mono">{reservation.reservation_number}</span>
+                                  <span>•</span>
+                                  <span>{reservation.participant_count}名</span>
+                                </div>
+                              </div>
+
+                              {/* 矢印 */}
+                              <div className="flex items-center">
+                                <ChevronRight className="w-5 h-5 text-gray-400" />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="bg-white border border-gray-200 p-8 text-center" style={{ borderRadius: 0 }}>
+                        <p className="text-gray-500 text-sm">キャンセルした予約はありません</p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
