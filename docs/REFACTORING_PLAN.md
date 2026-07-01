@@ -302,8 +302,13 @@
       - [x] slice4 セクション3「スタッフ・備考（GM選択/役割切替）」→ `sections/StaffNotesSection.tsx` ＋ async 副作用ヘルパー
             ensureStaffReservation/removeStaffReservation を `performanceModal/staffReservationHelpers.ts` へ逐語移設 `2d662e3f`
             （1,678→**1,374**・**退行②メインGM消失ゾーン**・死import 9個除去）
-      **→ 当バッチ PerformanceModal 1,908→1,374（-534）。要 staging 実機スモーク（公演モーダル）→ OK で main マージ。
-        残: カテゴリ選択ブロック/DialogHeader サマリー/フッターの子化、フォーム state のフック化は別バッチ（慎重に）。**
+      **バッチ1（slice1-4）本番反映済み**（main `4ab2a8fb`・staging スモークOK）。PerformanceModal 1,908→1,374。
+      - [x] slice5 カテゴリ（クイック選択）ブロック → `sections/CategorySelectSection.tsx` `64509997`（1,374→1,301・props2個・死import Select系/Input 除去）
+      - [x] slice6 フッターアクションボタン（削除/キャンセル/保存）→ `sections/PerformanceFooter.tsx` `a7965028`（1,301→1,286・死import Button 除去）
+      - [x] slice7 公演情報サマリー（renderPerformanceSummary・料金/GM/カテゴリ描画）→ `sections/PerformanceSummary.tsx` `9ca9bc5f`（1,286→**1,192**・死import lucide3種/computeCategoryFee 除去）
+      **→ バッチ2（slice5-7）PerformanceModal 1,374→1,192。presentational 子化はほぼ完了
+        （残 JSX は DialogHeader/Tabs シェル＝中央制御で分割非推奨、style 注入ブロック）。要 staging 実機スモーク→ OK で main マージ。
+        以降の削減はフォーム state/effect/handler のフック化（**中〜高リスク・退行注意**）で別途相談。**
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
         `generateEmailText`（コピー用）/`generateEmailBodyForItems`（送信用）の本文組み立てを
