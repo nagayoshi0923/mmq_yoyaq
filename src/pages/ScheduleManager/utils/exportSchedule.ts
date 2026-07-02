@@ -1,5 +1,4 @@
 import { saveAs } from 'file-saver'
-import JSZip from 'jszip'
 
 const CATEGORY_LABELS: Record<string, string> = {
   open: 'オープン公演',
@@ -81,6 +80,7 @@ export async function exportScheduleRangeToZip(
   monthlyData: { yearMonth: string; rows: ExportRow[] }[],
   rangeLabel: string,
 ) {
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   const bom = '﻿'
   for (const { yearMonth, rows } of monthlyData) {
