@@ -51,6 +51,7 @@ interface ScheduleModalsProps {
   isFillSeatsModalOpen: boolean
   setIsFillSeatsModalOpen: React.Dispatch<React.SetStateAction<boolean>>
   handleFillAllSeats: (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => Promise<void>
+  fetchFillSeatsTargetCount: (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => Promise<number>
   isFillingSeats: boolean
   isImportModalOpen: boolean
   setIsImportModalOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -85,6 +86,7 @@ export function ScheduleModals({
   isFillSeatsModalOpen,
   setIsFillSeatsModalOpen,
   handleFillAllSeats,
+  fetchFillSeatsTargetCount,
   isFillingSeats,
   isImportModalOpen,
   setIsImportModalOpen,
@@ -149,6 +151,7 @@ export function ScheduleModals({
           setIsFillSeatsModalOpen(false)
           await handleFillAllSeats(params)
         }}
+        fetchTargetCount={fetchFillSeatsTargetCount}
         isProcessing={isFillingSeats}
         defaultYear={currentDate.getFullYear()}
         defaultMonth={currentDate.getMonth() + 1}

@@ -294,12 +294,30 @@ export function ScheduleManager() {
     }
   }
 
+  // D-5d: 対象公演数のカウント（FillSeatsModal の確認ステップ用。handleFillAllSeats 冒頭の SELECT と同一条件）
+  const fetchFillSeatsTargetCount = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => {
+    const { startDate, endDate, categories } = params
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      throw new Error('組織情報が取得できません')
+    }
+    const { count, error } = await supabase
+      .from('schedule_events_staff_view')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+      .in('category', categories)
+    if (error) {
+      throw new Error(getSafeErrorMessage(error, '対象件数の取得に失敗しました'))
+    }
+    return count ?? 0
+  }
+
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
   const handleFillAllSeats = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => {
     const { startDate, endDate, categories } = params
-
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm(`${startDate} 〜 ${endDate} の対象カテゴリ (${categories.join(', ')}) で中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
 
     setIsFillingSeats(true)
     try {
@@ -1294,6 +1312,7 @@ export function ScheduleManager() {
         isFillSeatsModalOpen={isFillSeatsModalOpen}
         setIsFillSeatsModalOpen={setIsFillSeatsModalOpen}
         handleFillAllSeats={handleFillAllSeats}
+        fetchFillSeatsTargetCount={fetchFillSeatsTargetCount}
         isFillingSeats={isFillingSeats}
         isImportModalOpen={isImportModalOpen}
         setIsImportModalOpen={setIsImportModalOpen}
