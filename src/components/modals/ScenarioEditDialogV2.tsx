@@ -1858,7 +1858,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         open={isDeleteScenarioConfirmOpen}
         onOpenChange={setIsDeleteScenarioConfirmOpen}
         title={`「${formData.title}」を削除しますか？`}
-        description="この操作は取り消せません。"
+        description="この組織のシナリオ一覧から削除されます（シナリオマスターは削除されません）。この操作は取り消せません。"
         confirmLabel="削除する"
         variant="destructive"
         onConfirm={runDelete}
