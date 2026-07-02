@@ -1,11 +1,12 @@
 // 貸切グループ チャット画面のオーバーレイシート群（候補日/招待/設定/店舗編集/予約申請）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Calendar, Users, CheckCircle2, Loader2, LogOut, MessageCircle, Check, Copy, ArrowLeft, Settings, Trash2, ChevronDown, MapPin, X } from 'lucide-react'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -1108,13 +1109,12 @@ export function GroupChatSheets({
           </div>
         )}
 
-        <ConfirmDialog
+        <DeleteGroupConfirmDialog
           open={showDeleteGroupConfirm}
           onOpenChange={setShowDeleteGroupConfirm}
-          title="このグループを削除しますか？"
-          message={'このグループを削除しますか？\n\nこの操作は取り消せません。グループのすべてのデータ（メンバー、候補日、メッセージ）が削除されます。'}
-          confirmLabel="削除する"
-          variant="destructive"
+          memberCount={group.members?.length ?? 0}
+          candidateDateCount={group.candidate_dates?.length ?? 0}
+          isDeleting={isDeleting}
           onConfirm={handleDeleteGroup}
         />
         <ConfirmDialog
@@ -1127,5 +1127,104 @@ export function GroupChatSheets({
           onConfirm={handleConfirmLeaveGroup}
         />
     </>
+  )
+}
+
+/**
+ * D-5d: 貸切グループ削除の2ステップ確認ダイアログ（手本: DeleteEventCancelDialog の step 方式）
+ * step1 = 影響サマリー（メンバー数／候補日数）の確認、step2 = 取り消せない旨の最終確認。
+ * 赤い実行ボタンは最終ステップの1個だけ。
+ *
+ * 注記: メッセージ件数はロード済み state（usePrivateGroupByInviteCode の group）に存在しないため、
+ * 追加 fetch はせずメンバー数／候補日数の2種で表示する（仕様の「追加fetch禁止」を優先）。
+ */
+interface DeleteGroupConfirmDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  memberCount: number
+  candidateDateCount: number
+  isDeleting: boolean
+  onConfirm: () => Promise<void>
+}
+
+function DeleteGroupConfirmDialog({
+  open,
+  onOpenChange,
+  memberCount,
+  candidateDateCount,
+  isDeleting,
+  onConfirm,
+}: DeleteGroupConfirmDialogProps) {
+  const [step, setStep] = useState<'summary' | 'final'>('summary')
+
+  useEffect(() => {
+    if (open) setStep('summary')
+  }, [open])
+
+  const handleOpenChange = (next: boolean) => {
+    if (isDeleting) return
+    onOpenChange(next)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-sm">
+        {step === 'summary' ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>このグループを削除しますか？</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              <p className="text-sm">
+                このグループには以下のデータがあります。
+              </p>
+              <ul className="text-sm space-y-1 rounded-md border bg-muted/50 p-2">
+                <li>・メンバー <span className="font-bold">{memberCount} 人</span></li>
+                <li>・候補日 <span className="font-bold">{candidateDateCount} 件</span></li>
+              </ul>
+              <p className="text-xs text-muted-foreground">
+                ※ まだ削除は実行されません。
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                キャンセル
+              </Button>
+              <Button onClick={() => setStep('final')}>
+                次へ
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>本当に削除しますか？</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              <p className="text-sm">
+                この操作は取り消せません。グループのすべてのデータ（メンバー、候補日、メッセージ）が削除されます。
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setStep('summary')} disabled={isDeleting}>
+                戻る
+              </Button>
+              <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
+                {isDeleting ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    削除中...
+                  </span>
+                ) : '削除する'}
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
