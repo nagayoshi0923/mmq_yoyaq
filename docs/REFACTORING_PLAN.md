@@ -140,7 +140,7 @@
       - [x] 第6歩（最難関）マウント `useEffect`（~230行）→ `useAuthLifecycle.ts`（`useAuthLifecycle` フック、deps: loading/resolveDeps/getInitialSession/tryRecoverSession/refreshSession/全 ref/各 setter）`f7d8b5c9`（356→**134**）。
             `onAuthStateChange` 購読／visibilitychange・focus／10分 interval／`BroadcastChannel`（マルチタブ同期）／SIGNED_OUT→`tryRecoverSession` リカバリーを内包し、AuthProvider は「状態＋合成」ファサードに。
             effect 本体は旧実装と byte 一致（空白除去 diff=0）、依存配列 `[refreshSession]`（マウント時1回）と cleanup（unsubscribe/removeEventListener/clearInterval/channel.close）を維持。tsc=0 / eslint=0 errors / build:fast / test:unit 23 passed。
-            ※ **残: オーナーが staging で login/logout/リロード維持/タブ復帰/マルチタブ同期を実機検証 → OK なら main マージで 4-6 クローズ。**
+            ※ 2026-07-02 オーナーが staging で login/logout/リロード維持/タブ復帰/マルチタブ同期を実機確認済み・4-6 クローズ。
 
 ※ このフェーズは各コミット後にステージングでスケジュール画面の動作確認を必ず挟む。
 ※ 並行中の org_scope API 化（セキュリティ案件）と同一ファイルを触る場合、コミットを分離する。
@@ -192,7 +192,7 @@
 
 分割の基本手順: ファイル内でセクション関数に切る → 子ファイルへ移動 → ロジックをフックへ（常に動く状態を維持）
 
-- [ ] 5-1 `KitManagementDialog`（3,124行）: 状態→フック、テーブル→子コンポーネント
+- [x] 5-1 `KitManagementDialog`（3,124行）: 状態→フック、テーブル→子コンポーネント
       **進行中（2026-06-23・6歩構成、各歩 staging push＋挙動不変）**。`components/kitManagement/` 配下へ抽出。
       JSXタブは props 注入で子化（Tabs コンテキストは親 `<Tabs>` から伝播）。各歩は「旧本体と byte 一致（空白除去diff=0）」＋ tsc=0 / eslint=0 errors / build:fast / test:unit 23 passed で担保。
       - [x] 第1歩 型・定数・純ヘルパー（DraggedKit/ContextMenuState/Props・WEEKDAYS・formatCompletionDate）→ `kitManagement/types.ts` ＋ `helpers.ts` `765f47c2`（3,124→3,087）
@@ -227,7 +227,8 @@
           handleCalculateTransfers の deps に注入 setter（setIsCalculating/setSuggestions）を明記し exhaustive-deps を充足（挙動不変）。
           検証: tsc=0 / eslint=0 warnings / build:fast / test:unit 54 passed。**要 staging 実機確認**。
       **→ Phase 5-1 完了（3,124→731 行。types/helpers＋4タブ＋data/selectors/handlers フックへ分解。
-        ContextMenu/deliveryConfirm/help dialog のタブ横断 UI 状態と JSX シェルのみ親に残置）。要 staging 実機確認後に 5-1 クローズ。**
+        ContextMenu/deliveryConfirm/help dialog のタブ横断 UI 状態と JSX シェルのみ親に残置）。
+        2026-07-02 オーナー実機確認済み・5-1 クローズ。**
 - [ ] 5-2 `ImportScheduleModal`（2,013行）: パース/検証を純関数化（テスト対象）、プレビューUI分離
       - [x] 5-2a 純パース関数を `importSchedule/parsers.ts` へ抽出＋vitest（2026-06-25・2,013→**1,919**）。
         `parseTsvLines` / `parseTsvCells` / `isQuote`（TSVパース）・`parseTimeFromTitle`（タイトルから時刻）・
@@ -307,7 +308,8 @@
       - [x] slice6 フッターアクションボタン（削除/キャンセル/保存）→ `sections/PerformanceFooter.tsx` `a7965028`（1,301→1,286・死import Button 除去）
       - [x] slice7 公演情報サマリー（renderPerformanceSummary・料金/GM/カテゴリ描画）→ `sections/PerformanceSummary.tsx` `9ca9bc5f`（1,286→**1,192**・死import lucide3種/computeCategoryFee 除去）
       **→ バッチ2（slice5-7）PerformanceModal 1,374→1,192。presentational 子化はほぼ完了
-        （残 JSX は DialogHeader/Tabs シェル＝中央制御で分割非推奨、style 注入ブロック）。要 staging 実機スモーク→ OK で main マージ。
+        （残 JSX は DialogHeader/Tabs シェル＝中央制御で分割非推奨、style 注入ブロック）。
+        2026-07-02 オーナー実機スモーク確認済み→ main マージ可。
         以降の削減はフォーム state/effect/handler のフック化（**中〜高リスク・退行注意**）で別途相談。**
 - [~] 5-5 `SendReports`（2,292行）: 送信ロジック→フック、テーブル分離
       - [x] 5-5a ライセンス料報告メール本文を純関数化＋テスト（2026-06-26・2,290→**2,195**）。
@@ -403,9 +405,9 @@
       ※ **残: 800行到達には state/handler のフック化が必要（前半~1,050行が state/effect/handler・中〜高リスク・退行注意）。別バッチでオーナー承認後に着手。**
       （デプロイ中に「新しいバージョンがあります」＝ErrorBoundary のチャンク404画面が出たが、実物 curl 検証でデプロイは健全＝開いたままのタブが旧チャンクを掴んだ定番挙動。`_v=2` 固定キャッシュバスターの papercut は別件）
 - [~] 6-3 `MyPage/index.tsx`（着手時1,090行・既に reservations 等は子化済み）: 本体ビューを子化
-      **完了（2026-07-02・1,090→505・staging 実機確認待ち）**。renderAlbumCard＋getCounts＋main return（634行）→ `MyPageContent.tsx`（749行・props64・tsc駆動）`7120d942`。
+      **完了（2026-07-02・1,090→505・2026-07-02 オーナー実機スモーク確認済み）**。renderAlbumCard＋getCounts＋main return（634行）→ `MyPageContent.tsx`（749行・props64・tsc駆動）`7120d942`。
       menuItems と lazy3ページ定義も子へ移設。共有ヘルパ isScenarioDeleted のみ親に定義残し prop 注入。死 import 24個除去。親505・子749 とも ≤800。
-      ⚠ 本体ビューまるごと移送＝再レンダ/effect タイミング差の可能性（[[feedback_byte_identity_misses_runtime_regression]]）。**実機スモーク必須**。
+      ⚠ 本体ビューまるごと移送＝再レンダ/effect タイミング差の可能性（[[feedback_byte_identity_misses_runtime_regression]]）。実機スモーク済み。
 - [x] 6-4 `CompleteProfile.tsx`: **別セッションで 1,173→769（≤800）達成済み＝完了**（構造整理のみ・誤遷移バグとは非混合）
 
 ## Phase 7: ルーティングと全体仕上げ
