@@ -16,6 +16,7 @@
  */
 import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
+import { ApiClientError } from '@/lib/apiClient'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -743,7 +744,10 @@ export function useEventSave({
       return true
     } catch (error) {
       logger.error('公演保存エラー:', error)
-      showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
+      // サーバが返した具体的な理由（例: 同一枠に既存公演がある 409）を固定文言で潰さない。
+      // ApiClientError.message はサーバ側が意図して返す日本語文言（api/schedule.ts）のみが入る。
+      const serverDetail = error instanceof ApiClientError && error.message ? error.message : null
+      showToast.error(serverDetail ?? (modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました'))
       return false
     }
   }, [modalMode, stores, scenarios, setEvents, organizationId])
