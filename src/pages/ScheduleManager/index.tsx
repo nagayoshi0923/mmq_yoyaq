@@ -295,24 +295,31 @@ export function ScheduleManager() {
   }
 
   // D-5d: 対象公演数のカウント（FillSeatsModal の確認ステップ用。handleFillAllSeats 冒頭の SELECT と同一条件）
-  const fetchFillSeatsTargetCount = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => {
+  // カテゴリ別の内訳表示のため、選択カテゴリごとに count クエリを並列実行する
+  const fetchFillSeatsTargetCount = async (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }): Promise<{ total: number; byCategory: { category: FillSeatsCategory; count: number }[] }> => {
     const { startDate, endDate, categories } = params
     const orgId = await getCurrentOrganizationId()
     if (!orgId) {
       throw new Error('組織情報が取得できません')
     }
-    const { count, error } = await supabase
-      .from('schedule_events_staff_view')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-      .in('category', categories)
-    if (error) {
-      throw new Error(getSafeErrorMessage(error, '対象件数の取得に失敗しました'))
-    }
-    return count ?? 0
+    const results = await Promise.all(
+      categories.map(async (cat) => {
+        const { count, error } = await supabase
+          .from('schedule_events_staff_view')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgId)
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .eq('is_cancelled', false)
+          .eq('category', cat)
+        if (error) {
+          throw new Error(getSafeErrorMessage(error, '対象件数の取得に失敗しました'))
+        }
+        return { category: cat, count: count ?? 0 }
+      })
+    )
+    const total = results.reduce((sum, r) => sum + r.count, 0)
+    return { total, byCategory: results }
   }
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）

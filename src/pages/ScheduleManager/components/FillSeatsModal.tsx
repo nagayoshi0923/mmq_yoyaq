@@ -20,8 +20,8 @@ interface FillSeatsModalProps {
   open: boolean
   onClose: () => void
   onConfirm: (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => void
-  /** D-5d: 対象公演数の取得（「対象を確認」押下時に実行） */
-  fetchTargetCount: (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => Promise<number>
+  /** D-5d: 対象公演数の取得（「対象を確認」押下時に実行）。カテゴリ別内訳付き */
+  fetchTargetCount: (params: { startDate: string; endDate: string; categories: FillSeatsCategory[] }) => Promise<{ total: number; byCategory: { category: FillSeatsCategory; count: number }[] }>
   isProcessing: boolean
   defaultYear: number
   defaultMonth: number
@@ -52,6 +52,7 @@ export function FillSeatsModal({
   const [step, setStep] = useState<'input' | 'preview'>('input')
   const [isCounting, setIsCounting] = useState(false)
   const [targetCount, setTargetCount] = useState<number | null>(null)
+  const [targetByCategory, setTargetByCategory] = useState<{ category: FillSeatsCategory; count: number }[]>([])
 
   useEffect(() => {
     if (open) {
@@ -60,6 +61,7 @@ export function FillSeatsModal({
       setCategories(['open', 'private', 'gmtest', 'trip', 'package'])
       setStep('input')
       setTargetCount(null)
+      setTargetByCategory([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultYear, defaultMonth])
@@ -72,15 +74,12 @@ export function FillSeatsModal({
     )
   }
 
-  const categoryLabel = categories
-    .map(c => CATEGORY_OPTIONS.find(opt => opt.value === c)?.label ?? c)
-    .join('、')
-
   const handleCheckTarget = async () => {
     setIsCounting(true)
     try {
-      const count = await fetchTargetCount({ startDate, endDate, categories })
-      setTargetCount(count)
+      const { total, byCategory } = await fetchTargetCount({ startDate, endDate, categories })
+      setTargetCount(total)
+      setTargetByCategory(byCategory)
       setStep('preview')
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : '対象件数の取得に失敗しました')
@@ -175,18 +174,28 @@ export function FillSeatsModal({
             </DialogHeader>
 
             <div className="space-y-3 py-2">
+              <p className="text-sm">
+                {startDate} 〜 {endDate} の中止以外の公演を満席（参加者数＝定員）にします。
+              </p>
+
               {targetCount === 0 ? (
-                <p className="text-sm">
-                  {startDate} 〜 {endDate} の {categoryLabel} で該当する公演がありませんでした。
-                  <br />
-                  <span className="text-muted-foreground">対象の公演がありません。</span>
-                </p>
+                <p className="text-sm text-muted-foreground">対象の公演がありません。</p>
               ) : (
-                <p className="text-sm">
-                  {startDate} 〜 {endDate} の {categoryLabel} で中止以外の公演
-                  <span className="font-bold"> {targetCount ?? 0} 件</span>
-                  を満席（参加者数＝定員）にします。
-                </p>
+                <div className="space-y-1 border border-input rounded-md px-3 py-2">
+                  {targetByCategory.map(({ category, count }) => (
+                    <div
+                      key={category}
+                      className={`flex items-center justify-between text-sm ${count === 0 ? 'text-muted-foreground' : ''}`}
+                    >
+                      <span>{CATEGORY_OPTIONS.find(opt => opt.value === category)?.label ?? category}</span>
+                      <span>{count} 件</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between text-sm font-bold border-t border-input pt-1 mt-1">
+                    <span>合計</span>
+                    <span>{targetCount ?? 0} 件</span>
+                  </div>
+                </div>
               )}
 
               <p className="text-xs text-muted-foreground">
