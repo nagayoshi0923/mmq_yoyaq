@@ -109,6 +109,15 @@ export interface OpenEventReservation {
   status: string
 }
 
+export interface AnnualAnalysisItem {
+  year: number
+  totalRevenue: number
+  totalEvents: number
+  monthlyRevenue: number[]
+  monthlyEvents: number[]
+  growthRate: number | null
+}
+
 export interface ScheduleExportRow {
   date: string
   start_time: string
@@ -223,5 +232,17 @@ export const salesApi = {
       end: endDate,
     })
     return apiClient.get<ScheduleExportRow[]>(`/api/sales?${params.toString()}`)
+  },
+
+  // 年間分析データ（年月別の集計済みデータ）を取得
+  async getAnnualAnalysis(storeIds: string[] = [], startYear = 2022): Promise<AnnualAnalysisItem[]> {
+    const params = new URLSearchParams({
+      type: 'annual-analysis',
+      start_year: String(startYear),
+    })
+    if (storeIds.length > 0) {
+      params.set('store_ids', storeIds.join(','))
+    }
+    return apiClient.get<AnnualAnalysisItem[]>(`/api/sales?${params.toString()}`)
   },
 }
