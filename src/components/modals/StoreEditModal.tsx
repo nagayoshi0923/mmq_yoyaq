@@ -10,6 +10,8 @@ import { Save, Trash2 } from 'lucide-react'
 import type { Store, StoreFixedCost, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { supabase } from '@/lib/supabase'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 
 interface StoreEditModalProps {
   store: Store | null
@@ -36,6 +38,10 @@ export function StoreEditModal({
   const [travelTimeDrafts, setTravelTimeDrafts] = useState<Record<string, { minutes: string; memo: string }>>({})
   const [loading, setLoading] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  // D-5d: 削除可否チェック（紐づく公演/予約/キットの件数）
+  const [isCheckingDelete, setIsCheckingDelete] = useState(false)
+  const [deleteBlockedCounts, setDeleteBlockedCounts] = useState<{ events: number; reservations: number; kits: number } | null>(null)
+  const [deleteBlockedDialogOpen, setDeleteBlockedDialogOpen] = useState(false)
 
   const normalizePair = (storeAId: string, storeBId: string): [string, string] =>
     storeAId < storeBId ? [storeAId, storeBId] : [storeBId, storeAId]
@@ -126,6 +132,52 @@ export function StoreEditModal({
     }
     setTravelTimeDrafts(drafts)
   }, [store, isOpen, allStores, travelTimes])
+
+  // D-5d: 「この店舗を削除」押下時に紐づき件数をチェックしてから確認ダイアログを出し分ける
+  const handleDeleteButtonClick = async () => {
+    if (!store) return
+    setIsCheckingDelete(true)
+    try {
+      const [eventsResult, reservationsResult, kitsResult] = await Promise.all([
+        supabase
+          .from('schedule_events_staff_view')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', store.id),
+        supabase
+          .from('reservations')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', store.id),
+        supabase
+          .from('performance_kits')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', store.id),
+      ])
+
+      if (eventsResult.error || reservationsResult.error || kitsResult.error) {
+        const err = eventsResult.error || reservationsResult.error || kitsResult.error
+        showToast.error(getSafeErrorMessage(err, '紐づきデータの確認に失敗しました'))
+        return
+      }
+
+      const counts = {
+        events: eventsResult.count ?? 0,
+        reservations: reservationsResult.count ?? 0,
+        kits: kitsResult.count ?? 0,
+      }
+
+      if (counts.events > 0 || counts.reservations > 0 || counts.kits > 0) {
+        setDeleteBlockedCounts(counts)
+        setDeleteBlockedDialogOpen(true)
+      } else {
+        setDeleteConfirmOpen(true)
+      }
+    } catch (e) {
+      logger.error('店舗削除の紐づき確認に失敗:', e)
+      showToast.error('紐づきデータの確認に失敗しました')
+    } finally {
+      setIsCheckingDelete(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -744,12 +796,12 @@ export function StoreEditModal({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setDeleteConfirmOpen(true)}
+                  onClick={handleDeleteButtonClick}
                   className="w-full text-muted-foreground hover:text-destructive"
-                  disabled={loading}
+                  disabled={loading || isCheckingDelete}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  この店舗を削除
+                  {isCheckingDelete ? '確認中...' : 'この店舗を削除'}
                 </Button>
               </div>
             )}
@@ -791,7 +843,7 @@ export function StoreEditModal({
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title="店舗を削除しますか？"
-        message={store ? `店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。` : ''}
+        message={store ? `店舗「${store.name}」を削除してもよろしいですか？営業時間・料金などの店舗設定も一緒に削除されます。この操作は取り消せません。` : ''}
         confirmLabel="削除する"
         variant="destructive"
         onConfirm={() => {
@@ -800,6 +852,29 @@ export function StoreEditModal({
           onClose()
         }}
       />
+
+      {/* D-5d: 紐づきデータがある場合は削除不可の説明のみ（実行ボタンなし・閉じるのみ） */}
+      <Dialog open={deleteBlockedDialogOpen} onOpenChange={setDeleteBlockedDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>この店舗は削除できません</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              {store && deleteBlockedCounts
+                ? `店舗「${store.name}」には 公演 ${deleteBlockedCounts.events} 件・予約 ${deleteBlockedCounts.reservations} 件・キット ${deleteBlockedCounts.kits} 件 が紐づいているため削除できません。先にこれらを整理してください。`
+                : ''}
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setDeleteBlockedDialogOpen(false)}>
+              閉じる
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
