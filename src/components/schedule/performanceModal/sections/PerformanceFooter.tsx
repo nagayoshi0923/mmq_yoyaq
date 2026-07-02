@@ -11,6 +11,8 @@ interface PerformanceFooterProps {
   setDeleteConfirming: Dispatch<SetStateAction<boolean>>
   onClose: () => void
   handleSave: () => Promise<void>
+  /** initForm の非同期初期化が完了するまで true。完了前は保存ボタンを無効化する（B7） */
+  isFormInitializing: boolean
 }
 
 /** フッターアクションボタン（削除/キャンセル/保存）。PerformanceModal から逐語抽出（presentational・挙動不変） */
@@ -23,6 +25,7 @@ export function PerformanceFooter({
   setDeleteConfirming,
   onClose,
   handleSave,
+  isFormInitializing,
 }: PerformanceFooterProps) {
   return (
         <div
@@ -45,7 +48,7 @@ export function PerformanceFooter({
               {readOnly ? '閉じる' : 'キャンセル'}
             </Button>
             {!readOnly && (
-              <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
+              <Button onClick={handleSave} disabled={isFormInitializing} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
                 {mode === 'add' ? '追加' : '保存'}
               </Button>
             )}

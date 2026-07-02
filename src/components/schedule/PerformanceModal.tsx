@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -142,6 +142,10 @@ export function PerformanceModal({
   const [deleteConfirming, setDeleteConfirming] = useState(false)
   // ローカルで参加者数を管理（リアルタイム表示用）
   const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(event?.current_participants || 0)
+  // initForm の非同期初期化が完了するまで true。完了前の保存を防ぐガード（B7: 初期化未完了レース対策）
+  const [isFormInitializing, setIsFormInitializing] = useState(true)
+  // 保存処理の二重送信ガード（B7）。常時マウントのため initForm 実行時（モーダルを開くたび）にリセットする
+  const isSavingRef = useRef(false)
   const [formData, setFormData] = useState<EventFormData>({
     id: '',
     date: '',
@@ -543,7 +547,10 @@ export function PerformanceModal({
   }, [formData.scenario, scenarios])
 
   const initForm = async () => {
-    
+    setIsFormInitializing(true)
+    // 常時マウントのため、次にモーダルを開いた時に前回の保存中フラグが残留しないようリセット
+    isSavingRef.current = false
+    try {
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
       // シナリオIDがない場合は、タイトルから逆引き。
@@ -645,6 +652,9 @@ export function PerformanceModal({
         reservation_name: ''  // 予約者名（初期値は空）
       })
     }
+    } finally {
+      setIsFormInitializing(false)
+    }
   }
 
   // 終了時間を自動計算する関数
@@ -732,10 +742,14 @@ export function PerformanceModal({
     : ''
 
   const handleSave = async () => {
+    // 二重送信ガード（B7）: 保存処理中の再クリックを無視する
+    if (isSavingRef.current) return
+    isSavingRef.current = true
+
     // 時間帯を'朝'/'昼'/'夜'形式で保存
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
     // スタッフ参加/見学もGMリストに保持する（除外しない）
-    
+
     let scenario = formData.scenario || ''
     let notes = formData.notes || ''
     
@@ -782,7 +796,9 @@ export function PerformanceModal({
     // toast を見て必要に応じてモーダルを開き直す。
     // 保存中の体感フィードバックとして loading toast を出し、完了で dismiss する。
     const loadingToastId = toast.loading('保存中...')
-    const savePromise = onSave(saveData)
+    const savePromise = onSave(saveData).finally(() => {
+      isSavingRef.current = false
+    })
     onClose()
 
     // 残りの post-save 処理 (pending 参加者 INSERT) はバックグラウンドで実行
@@ -1147,6 +1163,7 @@ export function PerformanceModal({
           setDeleteConfirming={setDeleteConfirming}
           onClose={onClose}
           handleSave={handleSave}
+          isFormInitializing={isFormInitializing}
         />
       </DialogContent>
 
