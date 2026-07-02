@@ -21,6 +21,7 @@ import { Plus, Pencil, Trash2, Save, Loader2, ClipboardList } from 'lucide-react
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 // シンプルな通知ヘルパー
 const notify = {
@@ -76,6 +77,9 @@ export function BookingNoticeSettings() {
     requires_pre_reading: false, // 事前読み込み条件
     is_active: true
   })
+
+  // 削除確認ダイアログ
+  const [deleteTarget, setDeleteTarget] = useState<BookingNotice | null>(null)
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -205,15 +209,17 @@ export function BookingNoticeSettings() {
   }
 
   // 削除
-  const handleDelete = async (notice: BookingNotice) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('この注意事項を削除しますか？')) return
+  const handleDelete = (notice: BookingNotice) => {
+    setDeleteTarget(notice)
+  }
 
+  const runDelete = async () => {
+    if (!deleteTarget) return
     try {
       const { error } = await supabase
         .from('booking_notices')
         .delete()
-        .eq('id', notice.id)
+        .eq('id', deleteTarget.id)
 
       if (error) throw error
       notify.success('注意事項を削除しました')
@@ -591,6 +597,16 @@ export function BookingNoticeSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="この注意事項を削除しますか？"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDelete}
+      />
     </div>
   )
 }

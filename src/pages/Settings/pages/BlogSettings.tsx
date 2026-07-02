@@ -32,6 +32,7 @@ import type { BlogPost } from '@/types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
 import { formatJstDateJa } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 /** 自前アップロード（blog-covers）の公開URLからストレージパスを復元 */
 function storagePathFromBlogCoverPublicUrl(url: string): string | null {
@@ -52,6 +53,7 @@ export function BlogSettings() {
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null)
   const [isUploadingCover, setIsUploadingCover] = useState(false)
   const coverFileInputRef = useRef<HTMLInputElement>(null)
+  const [deleteTarget, setDeleteTarget] = useState<BlogPost | null>(null)
 
   // フォーム状態
   const [formData, setFormData] = useState({
@@ -258,15 +260,17 @@ export function BlogSettings() {
     }
   }
 
-  const handleDelete = async (post: BlogPost) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm(`「${post.title}」を削除しますか？`)) return
+  const handleDelete = (post: BlogPost) => {
+    setDeleteTarget(post)
+  }
 
+  const runDelete = async () => {
+    if (!deleteTarget) return
     try {
       const { error } = await supabase
         .from('blog_posts')
         .delete()
-        .eq('id', post.id)
+        .eq('id', deleteTarget.id)
 
       if (error) throw error
       toast.success('記事を削除しました')
@@ -556,6 +560,16 @@ export function BlogSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title={`「${deleteTarget?.title ?? ''}」を削除しますか？`}
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDelete}
+      />
     </div>
   )
 }

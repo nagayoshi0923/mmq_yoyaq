@@ -34,6 +34,7 @@ import { logger } from '@/utils/logger'
 import { useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 // ---------- 型定義 ----------
 interface MasterItem {
@@ -89,6 +90,9 @@ function MasterListManager({
 
   // 並び替え変更追跡
   const [hasOrderChanges, setHasOrderChanges] = useState(false)
+
+  // 削除確認ダイアログ
+  const [deleteTarget, setDeleteTarget] = useState<MasterItem | null>(null)
 
   const queryClient = useQueryClient()
 
@@ -273,19 +277,17 @@ function MasterListManager({
   }
 
   // ---------- 削除 ----------
-  const handleDelete = async (item: MasterItem) => {
+  const handleDelete = (item: MasterItem) => {
     if (!organizationId) return
+    setDeleteTarget(item)
+  }
+
+  const runDelete = async () => {
+    const item = deleteTarget
+    if (!item || !organizationId) return
 
     const usageItem = items.find((i) => i.id === item.id)
     const usage = usageItem?.usage_count || 0
-
-    const message =
-      usage > 0
-        ? `「${item.name}」は ${usage} 件のシナリオで使用中です。\n削除すると、該当シナリオからもこのカテゴリが削除されます。\n本当に削除しますか？`
-        : `「${item.name}」を削除しますか？`
-
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(message)) return
 
     setSaving(true)
     try {
@@ -545,6 +547,25 @@ function MasterListManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title={`「${deleteTarget?.name ?? ''}」を削除しますか？`}
+        description={
+          (deleteTarget && items.find((i) => i.id === deleteTarget.id)?.usage_count) ? (
+            <>
+              {items.find((i) => i.id === deleteTarget.id)?.usage_count} 件のシナリオで使用中です。
+              <br />
+              削除すると、該当シナリオからもこのカテゴリが削除されます。
+            </>
+          ) : undefined
+        }
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDelete}
+      />
     </section>
   )
 }

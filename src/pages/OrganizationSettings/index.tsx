@@ -37,6 +37,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from 'sonner'
 import { formatJstYmd } from '@/utils/jstDate'
 import type { OrganizationInvitation } from '@/types'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 export default function OrganizationSettings() {
   const { organization, isLoading: orgLoading, refetch } = useOrganization()
@@ -44,6 +45,7 @@ export default function OrganizationSettings() {
   const [isApplying, setIsApplying] = useState(false)
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([])
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(false)
+  const [deleteInvitationTarget, setDeleteInvitationTarget] = useState<OrganizationInvitation | null>(null)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -136,16 +138,18 @@ export default function OrganizationSettings() {
   }
 
   // 招待を削除
-  const handleDeleteInvitation = async (invitation: OrganizationInvitation) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm(`${invitation.name} さんの招待を取り消しますか？`)) return
+  const handleDeleteInvitation = (invitation: OrganizationInvitation) => {
+    setDeleteInvitationTarget(invitation)
+  }
 
-    const { success, error } = await deleteInvitation(invitation.id)
+  const runDeleteInvitation = async () => {
+    if (!deleteInvitationTarget) return
+    const { success, error } = await deleteInvitation(deleteInvitationTarget.id)
     if (error) {
       toast.error('削除に失敗しました')
     } else if (success) {
       toast.success('招待を取り消しました')
-      setInvitations(prev => prev.filter(inv => inv.id !== invitation.id))
+      setInvitations(prev => prev.filter(inv => inv.id !== deleteInvitationTarget.id))
     }
   }
 
@@ -439,6 +443,16 @@ export default function OrganizationSettings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 招待取り消し確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteInvitationTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteInvitationTarget(null) }}
+        title={`${deleteInvitationTarget?.name ?? ''} さんの招待を取り消しますか？`}
+        confirmLabel="取り消す"
+        variant="destructive"
+        onConfirm={runDeleteInvitation}
+      />
     </AppLayout>
   )
 }
