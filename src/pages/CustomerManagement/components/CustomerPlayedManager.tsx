@@ -19,6 +19,7 @@ import { RotateCcw, Trash2, Plus } from 'lucide-react'
 import { fetchPlayedOverrideIds, addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { formatJstYmd } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface PlayedItem {
   scenarioMasterId: string | null
@@ -44,6 +45,8 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   // 手動追加フォーム
   const [newScenarioId, setNewScenarioId] = useState('')
   const [newPlayedAt, setNewPlayedAt] = useState('')
+  // 削除確認ダイアログ対象の手動登録ID
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -164,9 +167,13 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
     }
   }
 
-  const deleteManual = async (manualId: string) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('この手動登録を削除しますか？')) return
+  const deleteManual = (manualId: string) => {
+    setDeleteTargetId(manualId)
+  }
+
+  const runDeleteManual = async () => {
+    const manualId = deleteTargetId
+    if (!manualId) return
     setBusy(true)
     try {
       const { error } = await supabase.from('manual_play_history').delete().eq('id', manualId).eq('customer_id', customerId)
@@ -255,6 +262,16 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
           </div>
         </div>
       )}
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTargetId(null) }}
+        title="この手動登録を削除しますか？"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDeleteManual}
+      />
     </div>
   )
 }

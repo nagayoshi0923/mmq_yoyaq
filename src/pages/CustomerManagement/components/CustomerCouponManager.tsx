@@ -15,6 +15,7 @@ import { Ticket, Plus, X } from 'lucide-react'
 import { getCustomerCoupons, getCampaigns, grantCouponToCustomer, revokeCoupon, adjustCouponUses } from '@/lib/api/couponApi'
 import type { CustomerCoupon, CouponCampaign } from '@/types'
 import { formatJstYmd } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface CustomerCouponManagerProps {
   customerId: string
@@ -41,6 +42,8 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
   const [grantUses, setGrantUses] = useState('')
   // 保有クーポンの残回数編集（couponId -> 入力中の値）
   const [editUses, setEditUses] = useState<Record<string, string>>({})
+  // 取消確認ダイアログ対象のクーポンID
+  const [revokeTargetId, setRevokeTargetId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,9 +106,13 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
     }
   }
 
-  const revoke = async (couponId: string) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('このクーポンを取消しますか？（誤付与の取り消し）')) return
+  const revoke = (couponId: string) => {
+    setRevokeTargetId(couponId)
+  }
+
+  const runRevoke = async () => {
+    const couponId = revokeTargetId
+    if (!couponId) return
     setBusy(true)
     try {
       const result = await revokeCoupon(couponId)
@@ -209,6 +216,17 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
           </div>
         </div>
       )}
+
+      {/* 取消確認ダイアログ */}
+      <ConfirmDialog
+        open={revokeTargetId !== null}
+        onOpenChange={(open) => { if (!open) setRevokeTargetId(null) }}
+        title="このクーポンを取消しますか？"
+        description="誤付与の取り消し"
+        confirmLabel="取消する"
+        variant="destructive"
+        onConfirm={runRevoke}
+      />
     </div>
   )
 }
