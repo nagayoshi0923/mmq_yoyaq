@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UserCheck } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGMRequests } from './hooks/useGMRequests'
 import { useAvailabilityCheck } from './hooks/useAvailabilityCheck'
@@ -64,7 +65,14 @@ export function GMAvailabilityCheck() {
     setEditingRequestId(null)
   }, [])
 
-  const { submitting, handleSubmit } = useResponseSubmit({
+  const {
+    submitting,
+    handleSubmit,
+    conflictConfirmOpen,
+    conflictConfirmOrders,
+    setConflictConfirmOpen,
+    confirmSubmitDespiteConflict
+  } = useResponseSubmit({
     requests,
     selectedCandidates,
     gmScheduleConflicts,
@@ -221,6 +229,17 @@ export function GMAvailabilityCheck() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* 既存予定との重複確認ダイアログ */}
+      <ConfirmDialog
+        open={conflictConfirmOpen}
+        onOpenChange={setConflictConfirmOpen}
+        title="このまま送信しますか？"
+        description={`選択した候補の中に、あなたの既存予定と重複の可能性がある日時があります（候補${conflictConfirmOrders.join(', ')}）。`}
+        confirmLabel="送信する"
+        variant="default"
+        onConfirm={confirmSubmitDespiteConflict}
+      />
     </AppLayout>
   )
 }

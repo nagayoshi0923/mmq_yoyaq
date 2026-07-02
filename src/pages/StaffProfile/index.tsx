@@ -16,6 +16,7 @@ import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { Loader2, Search, BookOpen, Users, Check, UserCircle } from 'lucide-react'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 // カスタム丸型チェックボックス
 interface CircleCheckProps {
@@ -82,6 +83,7 @@ export function StaffProfile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false)
 
   // スタッフ情報とアサインメントを読み込み
   useEffect(() => {
@@ -268,18 +270,16 @@ export function StaffProfile() {
     }
 
     // 🛡 空保存ガード: 全件解除になる場合は明示的に確認
-    let confirmClear = false
     if (assignments.length === 0) {
-      // eslint-disable-next-line no-alert
-      const ok = window.confirm(
-        '現在「担当 0 件」の状態で保存しようとしています。\n' +
-        '保存すると、過去に登録されていた担当・体験済みの記録がすべて削除されます。\n\n' +
-        '本当に全件解除しますか？'
-      )
-      if (!ok) return
-      confirmClear = true
+      setIsClearAllConfirmOpen(true)
+      return
     }
 
+    await runSave(false)
+  }
+
+  const runSave = async (confirmClear: boolean) => {
+    if (!staffId) return
     try {
       setSaving(true)
 
@@ -314,6 +314,10 @@ export function StaffProfile() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const runClearAllSave = async () => {
+    await runSave(true)
   }
 
   // 体験済みシナリオの数
@@ -513,6 +517,17 @@ export function StaffProfile() {
           ※ 1人体制で「GM可」をオフにすると体験済のみのレコードになります。2人体制ではメイン／サブをどちらもオフにしたとき同様です。GMをオンにすると体験済フラグはオフになります（シナリオ編集の担当GMと同じDB制約）
         </p>
       </div>
+
+      {/* 全件解除の確認ダイアログ */}
+      <ConfirmDialog
+        open={isClearAllConfirmOpen}
+        onOpenChange={setIsClearAllConfirmOpen}
+        title="本当に全件解除しますか？"
+        description="現在「担当 0 件」の状態で保存しようとしています。保存すると、過去に登録されていた担当・体験済みの記録がすべて削除されます。"
+        confirmLabel="全件解除する"
+        variant="destructive"
+        onConfirm={runClearAllSave}
+      />
     </AppLayout>
   )
 }

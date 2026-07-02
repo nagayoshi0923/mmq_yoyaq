@@ -25,29 +25,42 @@ export function useResponseSubmit({
   onSubmitSuccess 
 }: UseResponseSubmitProps) {
   const [submitting, setSubmitting] = useState<string | null>(null)
+  // GM本人の既存予定と被る可能性がある候補を選択して送信しようとした際の確認ダイアログ対象
+  const [conflictConfirmTarget, setConflictConfirmTarget] = useState<{ requestId: string; allUnavailable: boolean; conflictOrders: number[] } | null>(null)
 
   /**
    * 回答を送信
    */
   const handleSubmit = async (requestId: string, allUnavailable: boolean = false) => {
-    setSubmitting(requestId)
-    
-    try {
-      // UI上は1始まりだが、DBには0始まりで保存
-      const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
+    // UI上は1始まりだが、DBには0始まりで保存
+    const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
 
-      // ⚠️ GM本人の既存予定と被る可能性がある候補を選んでいる場合は、送信前に確認
-      if (!allUnavailable && selectedOrders.length > 0 && gmScheduleConflicts?.[requestId]) {
-        const conflictOrders = selectedOrders.filter(order => gmScheduleConflicts[requestId]?.[order])
-        if (conflictOrders.length > 0) {
-          // eslint-disable-next-line no-alert
-          const ok = window.confirm(
-            `選択した候補の中に、あなたの既存予定と重複の可能性がある日時があります（候補${conflictOrders.join(', ')}）。\nこのまま送信しますか？`
-          )
-          if (!ok) return
-        }
+    // ⚠️ GM本人の既存予定と被る可能性がある候補を選んでいる場合は、送信前に確認
+    if (!allUnavailable && selectedOrders.length > 0 && gmScheduleConflicts?.[requestId]) {
+      const conflictOrders = selectedOrders.filter(order => gmScheduleConflicts[requestId]?.[order])
+      if (conflictOrders.length > 0) {
+        setConflictConfirmTarget({ requestId, allUnavailable, conflictOrders })
+        return
       }
+    }
 
+    await runSubmit(requestId, allUnavailable)
+  }
+
+  /**
+   * 競合確認ダイアログで「このまま送信する」を選んだ場合に呼ばれる
+   */
+  const confirmSubmitDespiteConflict = async () => {
+    if (!conflictConfirmTarget) return
+    const { requestId, allUnavailable } = conflictConfirmTarget
+    await runSubmit(requestId, allUnavailable)
+  }
+
+  const runSubmit = async (requestId: string, allUnavailable: boolean) => {
+    setSubmitting(requestId)
+
+    try {
+      const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
       const availableCandidates = allUnavailable ? [] : selectedOrders.map(c => c - 1)
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
@@ -121,7 +134,11 @@ export function useResponseSubmit({
 
   return {
     submitting,
-    handleSubmit
+    handleSubmit,
+    conflictConfirmOpen: conflictConfirmTarget !== null,
+    conflictConfirmOrders: conflictConfirmTarget?.conflictOrders ?? [],
+    setConflictConfirmOpen: (open: boolean) => { if (!open) setConflictConfirmTarget(null) },
+    confirmSubmitDespiteConflict,
   }
 }
 
