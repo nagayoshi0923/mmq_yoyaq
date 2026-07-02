@@ -14,21 +14,22 @@ import { CustomerEditModal } from '@/pages/CustomerManagement/components/Custome
 import type { Customer } from '@/types'
 
 export function CustomerManagementContent() {
-  const { customers, loading, couponStats, refreshCustomers } = useCustomerData()
   const [searchTerm, setSearchTerm] = useState('')
+  const {
+    customers,
+    loading,
+    couponStats,
+    refreshCustomers,
+    totalCount,
+    page,
+    setPage,
+    pageSize,
+  } = useCustomerData(searchTerm)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
 
-  // フィルタリング
-  const filteredCustomers = customers.filter((customer) => {
-    const search = searchTerm.toLowerCase()
-    return (
-      customer.name.toLowerCase().includes(search) ||
-      customer.email?.toLowerCase().includes(search) ||
-      customer.phone?.includes(search)
-    )
-  })
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer)
@@ -43,7 +44,7 @@ export function CustomerManagementContent() {
     <div className="space-y-6">
       <PageHeader
         title={<><Users className="h-5 w-5 text-primary" />顧客</>}
-        description={`全${customers.length}名の予約顧客を管理`}
+        description={`全${totalCount}名の予約顧客を管理`}
       >
         <HelpButton topic="customer" label="顧客管理マニュアル" />
         <Button onClick={() => {
@@ -70,12 +71,12 @@ export function CustomerManagementContent() {
       {/* 顧客一覧 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">顧客一覧 ({filteredCustomers.length}件)</h2>
+          <h2 className="text-lg font-bold tracking-tight">顧客一覧 ({totalCount}件)</h2>
         </div>
 
         {loading ? (
           <div className="text-center py-8 text-muted-foreground text-sm">読み込み中...</div>
-        ) : filteredCustomers.length === 0 ? (
+        ) : customers.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
           </div>
@@ -95,7 +96,7 @@ export function CustomerManagementContent() {
             </div>
 
             {/* 顧客行 */}
-            {filteredCustomers.map((customer) => (
+            {customers.map((customer) => (
               <CustomerRow
                 key={customer.id}
                 customer={customer}
@@ -105,6 +106,36 @@ export function CustomerManagementContent() {
                 couponStats={couponStats[customer.id]}
               />
             ))}
+          </div>
+        )}
+
+        {/* ページネーション */}
+        {!loading && totalCount > pageSize && (
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="text-xs text-muted-foreground">
+              {(page - 1) * pageSize + 1}〜{Math.min(page * pageSize, totalCount)} / {totalCount}件
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+              >
+                前へ
+              </Button>
+              <span className="text-xs tabular-nums">
+                {page} / {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || loading}
+              >
+                次へ
+              </Button>
+            </div>
           </div>
         )}
       </div>

@@ -150,10 +150,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // /api/customers                  → 自組織の全顧客
 // /api/customers?action=findByEmail&email=...  → メールで自組織内検索
 // /api/customers?action=findByPhone&phone=...  → 電話で自組織内検索
+// /api/customers?action=listWithStats&search=...&page=...&pageSize=...  → サーバ集計＋ページング（顧客管理ページ用）
 async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
   const action = req.query.action as string | undefined
+
+  if (action === 'listWithStats') {
+    const search = (req.query.search as string | undefined)?.trim() || undefined
+    const rawPage = Number.parseInt(req.query.page as string, 10)
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
+    const rawPageSize = Number.parseInt(req.query.pageSize as string, 10)
+    const pageSize = Number.isFinite(rawPageSize) ? Math.min(100, Math.max(10, rawPageSize)) : 50
+    const offset = (page - 1) * pageSize
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (db as any).rpc('get_org_customers_with_stats', {
+      p_org_id: orgId,
+      p_search: search ?? null,
+      p_limit: pageSize,
+      p_offset: offset,
+    })
+
+    if (error) {
+      console.error('[customers:listWithStats] DB error:', error)
+      return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+    }
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>
+    const totalCount = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0
+    const customers = rows.map((row) => {
+      const { total_count: _totalCount, ...rest } = row
+      return rest
+    })
+
+    return res.status(200).json({ customers, totalCount })
+  }
 
   if (action === 'findByEmail') {
     const email = req.query.email as string | undefined
