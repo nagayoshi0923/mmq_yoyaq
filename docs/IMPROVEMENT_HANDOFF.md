@@ -275,7 +275,13 @@ RPC は staging 適用済み（権限=service_role のみ・**集計値の手計
 `api/sales?type=annual-analysis` にサーバ集計を追加し、フックは API 呼び出しのみに。集計ロジックは逐語移植（数値不変）。
 🔍 売上管理→年間分析タブ: 数値が改修前と一致すること・表示が速くなったこと。
 
-### - [ ] P5: AdminDashboard チャンクのハブ化解消（顧客ページが管理画面コードを DL している）
+### - [~] P5: AdminDashboard チャンクのハブ化解消 — **仕様確定（2026-07-03 Fable・scout 実測に基づく）**
+**確定した根本原因**: AdminDashboard.tsx を import するファイルは**ゼロ**（export はコンポーネント1個）。83チャンク参照の正体は、Rollup が共有レイアウト（Header→NotificationDropdown→date-fns 21箇所）を AdminDashboard のチャンクに同居させたこと。object 形式 manualChunks の副作用で vendor-react も 33バイト空チャンク（実体は vendor-ui 側に吸収）。
+**実装方針（vite.config.ts:44-54 のみ変更・ソース import 構造は触らない）**:
+1. manualChunks を **function 形式**に書き換え: node_modules を正規表現で振り分け（react/react-dom/scheduler→vendor-react、date-fns→vendor-datefns、lucide-react+@radix-ui→vendor-ui、@supabase→vendor-supabase、@tanstack/react-table→vendor-table、chart.js系→vendor-chart。その他 node_modules は自動分割に任せる）。
+2. それで AdminDashboard 参照が残る場合のみ、共有レイアウトの明示チャンク（Header/NotificationDropdown/AppLayout/PublicLayout の4ファイル程度を 'shared-layout' に。**AdminSidebar は含めない**＝顧客に管理ナビを配らない）を追加して再計測。
+**検収（ビルド出力で客観判定）**: ① `grep -l "AdminDashboard-" dist/assets/*.js | wc -l` が 83→ひと桁（特に PublicLayout/BlogDetailPage/ReservationDetailPage 等の顧客系チャンクから消える） ② vendor-react が実体を持つ ③ 初期ロード（index-*.js+css）gzip 合計が悪化しない（before 実測: js 90.2kB + css 20.4kB gzip） ④ build/test green。
+**⚠ 実機スモーク必須**: チャンク分割変更は module 初期化順が変わり TDZ/循環 import エラーが出ることがある → staging で顧客ページ（公演一覧・予約詳細・ブログ）と管理ページ（スケジュール・顧客管理）を開いて白画面が無いこと。
 実測: `AdminDashboard-*.js`（125.5kB）を **82 チャンクが静的 import**。PublicLayout / ReservationDetailPage（顧客ページ）まで依存し、date-fns ごと全ページに配られている。ルート lazy 化自体は良好（eager ページ import 0）なので、原因は共有ユーティリティが AdminDashboard チャンクに同居していること。
 1. `vite.config.ts:44-54` の manualChunks を修正（`vendor-react` 指定が機能せず **33バイトの空チャンク**になっている点も直す）。date-fns / 共有 utils を独立チャンクへ。
 2. ビルド後 `dist/assets` で `grep -l "AdminDashboard-" *.js` が顧客系チャンク（PublicLayout 等）から消えることを検収。before/after の初期ロード gzip 合計を報告（現状 約235kB gzip + CSS 126kB）。
