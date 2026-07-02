@@ -928,7 +928,7 @@ export function SettingsPage() {
         open={showDeleteConfirmDialog}
         onOpenChange={setShowDeleteConfirmDialog}
         title="アカウントを削除しますか？"
-        message="本当にアカウントを削除しますか？この操作は取り消せません。"
+        message="本当にアカウントを削除しますか？予約履歴・クーポン・体験済み記録を含む全データが完全に削除され、復元できません。"
         confirmLabel="削除する"
         variant="destructive"
         onConfirm={handleConfirmDeleteAccount}
