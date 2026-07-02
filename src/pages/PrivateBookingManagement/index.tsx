@@ -14,6 +14,7 @@ import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Sea
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { SearchInput, FilterBar, FilterSelect } from '@/components/patterns/filter'
 import { EmptyState, ListSkeleton } from '@/components/patterns/list'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -91,6 +92,8 @@ export function PrivateBookingManagement() {
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
   const [assignedGMIds, setAssignedGMIds] = useState<string[]>([])  // シナリオ担当GM
+  const [resendDiscordTarget, setResendDiscordTarget] = useState<{ id: string; scenario_title: string } | null>(null)  // Discord通知再送信確認
+  const [reapproveTarget, setReapproveTarget] = useState<{ req: PrivateBookingRequest } | null>(null)  // 承認済み予約の再変更確認
 
   useEffect(() => {
     getCurrentOrganizationId().then(setOrganizationId).catch(() => setOrganizationId(null))
@@ -113,7 +116,10 @@ export function PrivateBookingManagement() {
     handleRejectClick,
     handleRejectConfirm,
     handleRejectCancel,
-    handleDelete
+    handleDelete,
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
+    runDelete,
   } = useBookingApproval({
     onSuccess: () => {
       setSelectedRequest(null)
@@ -171,15 +177,15 @@ export function PrivateBookingManagement() {
 
   // Discord通知再送信ハンドラー
   const handleResendDiscordNotification = async (cardRequest: { id: string; scenario_title: string }) => {
+    setResendDiscordTarget(cardRequest)
+  }
+
+  const runResendDiscordNotification = async () => {
+    const cardRequest = resendDiscordTarget
+    if (!cardRequest) return
     const request = requests.find(r => r.id === cardRequest.id)
     if (!request) return
-    
-    // eslint-disable-next-line no-alert
-    const confirmed = window.confirm(
-      `「${request.scenario_title}」のDiscord通知を再送信しますか？\n\n担当GMに新しいボタン付きメッセージが送信されます。`
-    )
-    if (!confirmed) return
-    
+
     const result = await resendPrivateBookingDiscordNotification({
       id: request.id,
       scenario_master_id: request.scenario_master_id,
@@ -197,6 +203,19 @@ export function PrivateBookingManagement() {
       showToast.success('Discord通知を再送信しました')
     } else {
       showToast.error(result.error || 'Discord通知の再送信に失敗しました')
+    }
+  }
+
+  // 承認済み予約の再変更確認後の実行
+  const runReapprove = async () => {
+    const req = reapproveTarget?.req
+    if (!req) return
+    const needTwo = (req.required_gm_count ?? 1) >= 2
+    const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
+    if (result?.success) {
+      showToast.success('貸切予約を確定しました。確定メールとGM通知を送信します。')
+    } else if (result?.error) {
+      showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
     }
   }
 
@@ -913,9 +932,8 @@ export function PrivateBookingManagement() {
                       <ActionButtons
                         onApprove={async () => {
                           if (req.status === 'confirmed') {
-                            // eslint-disable-next-line no-alert
-                            const ok = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
-                            if (!ok) return
+                            setReapproveTarget({ req })
+                            return
                           }
                           const needTwo = (req.required_gm_count ?? 1) >= 2
                           const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
@@ -938,6 +956,39 @@ export function PrivateBookingManagement() {
         </Tabs>
 
         {/* 削除：承認ダイアログはカードのインライン展開に移行 */}
+
+        {/* Discord通知再送信 確認ダイアログ */}
+        <ConfirmDialog
+          open={resendDiscordTarget !== null}
+          onOpenChange={(open) => { if (!open) setResendDiscordTarget(null) }}
+          title={`「${resendDiscordTarget?.scenario_title ?? ''}」のDiscord通知を再送信しますか？`}
+          description="担当GMに新しいボタン付きメッセージが送信されます。"
+          confirmLabel="再送信する"
+          variant="default"
+          onConfirm={runResendDiscordNotification}
+        />
+
+        {/* 承認済み予約の内容変更 確認ダイアログ */}
+        <ConfirmDialog
+          open={reapproveTarget !== null}
+          onOpenChange={(open) => { if (!open) setReapproveTarget(null) }}
+          title="この予約は既に承認済みです。内容を変更しますか？"
+          description="変更すると、お客様に再度確定メールが送信されます。"
+          confirmLabel="変更する"
+          variant="default"
+          onConfirm={runReapprove}
+        />
+
+        {/* 申込の完全削除 確認ダイアログ */}
+        <ConfirmDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="この申込を完全に削除しますか？"
+          description="この操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。"
+          confirmLabel="削除する"
+          variant="destructive"
+          onConfirm={runDelete}
+        />
 
         {/* 確定メール（private_confirm_template）のテンプレ編集ダイアログ。承認時に選んだ店舗の設定を編集 */}
         <TemplateEditDialog

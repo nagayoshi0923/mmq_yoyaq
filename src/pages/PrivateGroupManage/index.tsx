@@ -33,6 +33,7 @@ import { UserSearchInvite } from './components/UserSearchInvite'
 import { AddCandidateDates } from './components/AddCandidateDates'
 import { logger } from '@/utils/logger'
 import { formatJstDateJa, getJstParts } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 export function PrivateGroupManage() {
   const navigate = useNavigate()
@@ -64,6 +65,8 @@ export function PrivateGroupManage() {
   const [showDateSelectionModal, setShowDateSelectionModal] = useState(false)
   const [selectedDatesForBooking, setSelectedDatesForBooking] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState('chat')
+  const [isCancelGroupConfirmOpen, setIsCancelGroupConfirmOpen] = useState(false)
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ id: string; name: string } | null>(null)
 
   const formatDate = (dateStr: string) => {
     return formatJstDateJa(dateStr, true)
@@ -177,10 +180,13 @@ export function PrivateGroupManage() {
     })
   }
 
-  const handleCancelGroup = async () => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!group || !confirm('グループをキャンセルしますか？この操作は取り消せません。')) return
+  const handleCancelGroup = () => {
+    if (!group) return
+    setIsCancelGroupConfirmOpen(true)
+  }
 
+  const runCancelGroup = async () => {
+    if (!group) return
     setCancelling(true)
     try {
       await updateGroupStatus(group.id, 'cancelled')
@@ -189,6 +195,16 @@ export function PrivateGroupManage() {
       logger.error('Failed to cancel group', err)
     } finally {
       setCancelling(false)
+    }
+  }
+
+  const runRemoveMember = async () => {
+    if (!removeMemberTarget) return
+    try {
+      await removeMember(removeMemberTarget.id)
+      refetch()
+    } catch (err) {
+      logger.error('Failed to remove member', err)
     }
   }
 
@@ -614,15 +630,8 @@ export function PrivateGroupManage() {
                         const hasResponded = group.candidate_dates?.every(cd =>
                           cd.responses?.some(r => r.member_id === member.id)
                         )
-                        const handleRemoveMember = async () => {
-                          // eslint-disable-next-line no-alert, no-restricted-globals
-                          if (!confirm(`${member.guest_name || member.users?.email || 'このメンバー'}を退出させますか？`)) return
-                          try {
-                            await removeMember(member.id)
-                            refetch()
-                          } catch (err) {
-                            logger.error('Failed to remove member', err)
-                          }
+                        const handleRemoveMember = () => {
+                          setRemoveMemberTarget({ id: member.id, name: member.guest_name || member.users?.email || 'このメンバー' })
                         }
                         return (
                           <div
@@ -1132,6 +1141,27 @@ export function PrivateGroupManage() {
           </Card>
         </div>
       )}
+
+      {/* グループキャンセル確認ダイアログ */}
+      <ConfirmDialog
+        open={isCancelGroupConfirmOpen}
+        onOpenChange={setIsCancelGroupConfirmOpen}
+        title="グループをキャンセルしますか？"
+        description="この操作は取り消せません。"
+        confirmLabel="キャンセルする"
+        variant="destructive"
+        onConfirm={runCancelGroup}
+      />
+
+      {/* メンバー退出確認ダイアログ */}
+      <ConfirmDialog
+        open={removeMemberTarget !== null}
+        onOpenChange={(open) => { if (!open) setRemoveMemberTarget(null) }}
+        title={`${removeMemberTarget?.name ?? 'このメンバー'}を退出させますか？`}
+        confirmLabel="退出させる"
+        variant="destructive"
+        onConfirm={runRemoveMember}
+      />
     </div>
   )
 }

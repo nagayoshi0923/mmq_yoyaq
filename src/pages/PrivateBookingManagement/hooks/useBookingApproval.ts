@@ -76,6 +76,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')  // 却下メールの全文（編集可能）
   const [rejectBodyLoading, setRejectBodyLoading] = useState(false)  // 全文の組み立て中
+  const [deleteConfirmRequestId, setDeleteConfirmRequestId] = useState<string | null>(null)  // 完全削除の確認対象
 
   // 承認処理
   const handleApprove = useCallback(async (
@@ -643,13 +644,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     setRejectionReason('')
   }, [])
 
-  // 完全削除
-  const handleDelete = useCallback(async (requestId: string) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('この申込を完全に削除しますか？\n\nこの操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。')) {
-      return
-    }
-    
+  // 完全削除（確認ダイアログを開く）
+  const handleDelete = useCallback((requestId: string) => {
+    setDeleteConfirmRequestId(requestId)
+  }, [])
+
+  // 完全削除（確認後の実行）
+  const runDelete = useCallback(async () => {
+    const requestId = deleteConfirmRequestId
+    if (!requestId) return
+
     setSubmitting(true)
     try {
       // 予約情報を取得
@@ -726,6 +730,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
       
       logger.log('貸切申込を完全に削除しました:', requestId)
+      setDeleteConfirmRequestId(null)
       onSuccess()
     } catch (error) {
       logger.error('削除エラー:', error)
@@ -733,7 +738,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     } finally {
       setSubmitting(false)
     }
-  }, [onSuccess])
+  }, [deleteConfirmRequestId, onSuccess])
 
   return {
     submitting,
@@ -745,7 +750,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     handleRejectClick,
     handleRejectConfirm,
     handleRejectCancel,
-    handleDelete
+    handleDelete,
+    deleteConfirmOpen: deleteConfirmRequestId !== null,
+    setDeleteConfirmOpen: (open: boolean) => { if (!open) setDeleteConfirmRequestId(null) },
+    runDelete,
   }
 }
 
