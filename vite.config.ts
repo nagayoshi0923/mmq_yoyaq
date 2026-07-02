@@ -41,16 +41,41 @@ export default defineConfig({
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
         // 🚀 手動チャンク分割: 初期バンドルを軽量化
-        manualChunks: {
-          // ベンダーライブラリを分離（キャッシュ効率向上）
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-ui': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-dropdown-menu', '@radix-ui/react-checkbox', '@radix-ui/react-tabs', '@radix-ui/react-alert-dialog', '@radix-ui/react-popover', '@radix-ui/react-avatar', '@radix-ui/react-label', '@radix-ui/react-tooltip'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-table': ['@tanstack/react-table'],
-          'vendor-utils': ['clsx', 'class-variance-authority'],
-          // 重い依存関係を分離
-          'vendor-chart': ['chart.js', 'react-chartjs-2'],
-          // ページコンポーネントごとのチャンク（自動分割に任せる部分）
+        // object 形式だと Rollup が「最初に到達したエントリの依存グラフ」に
+        // 引きずられてベンダー以外の共有モジュール（date-fns 等）まで
+        // 特定チャンク（AdminDashboard 等）に同居させてしまうことがあるため、
+        // node_modules を正規表現で判定する function 形式に変更。
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            // 共有レイアウト（Header/NotificationDropdown/AppLayout/PublicLayout）は
+            // 複数の動的 import チャンクから参照されるため、Rollup が
+            // AdminDashboard 等の特定チャンクへ同居させてしまう。
+            // 明示的に独立チャンクへ切り出す（AdminSidebar は含めない＝顧客に管理ナビを配らない）。
+            if (/\/src\/components\/layout\/(Header|NotificationDropdown|AppLayout|PublicLayout)\.tsx$/.test(id)) {
+              return 'shared-layout'
+            }
+            return undefined
+          }
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
+            return 'vendor-react'
+          }
+          if (/node_modules\/date-fns\//.test(id)) {
+            return 'vendor-datefns'
+          }
+          if (/node_modules\/(lucide-react|@radix-ui)\//.test(id)) {
+            return 'vendor-ui'
+          }
+          if (/node_modules\/@supabase\//.test(id)) {
+            return 'vendor-supabase'
+          }
+          if (/node_modules\/@tanstack\/react-table\//.test(id)) {
+            return 'vendor-table'
+          }
+          if (/node_modules\/(chart\.js|react-chartjs-2)\//.test(id)) {
+            return 'vendor-chart'
+          }
+          // その他の node_modules は自動分割に任せる
+          return undefined
         }
       }
     },
