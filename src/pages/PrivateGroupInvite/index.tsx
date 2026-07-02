@@ -21,6 +21,7 @@ import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
 import { getJstParts } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface Coupon {
   id: string
@@ -88,7 +89,12 @@ export function PrivateGroupInvite() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
-  
+
+  // 確認ダイアログ（グループキャンセル / メンバー退出）
+  const [confirmAction, setConfirmAction] = useState<
+    { kind: 'cancelGroup' } | { kind: 'removeMember'; memberId: string } | null
+  >(null)
+
   // クーポン関連
   const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
   const { data: coupons = [], isLoading: couponLoading } = useQuery({
@@ -925,9 +931,12 @@ export function PrivateGroupInvite() {
   // グループキャンセル
   const handleCancelGroup = async () => {
     if (!isOrganizer || !group) return
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('本当にこのグループをキャンセルしますか？')) return
-    
+    setConfirmAction({ kind: 'cancelGroup' })
+  }
+
+  // グループキャンセル確認ダイアログで「キャンセルする」が押されたときの実処理
+  const handleConfirmCancelGroup = async () => {
+    if (!group) return
     setCancelling(true)
     try {
       await updateGroupStatus(group.id, 'cancelled')
@@ -1271,9 +1280,11 @@ export function PrivateGroupInvite() {
   // メンバー削除
   const handleRemoveMember = async (memberId: string) => {
     if (!isOrganizer || !group) return
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('このメンバーを退出させますか？')) return
+    setConfirmAction({ kind: 'removeMember', memberId })
+  }
 
+  // メンバー退出確認ダイアログで「退出させる」が押されたときの実処理
+  const handleConfirmRemoveMember = async (memberId: string) => {
     try {
       await removeMember(memberId)
       toast.success('メンバーを退出させました')
@@ -1308,6 +1319,7 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
+    <>
       <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* ヘッダー */}
         <Header />
@@ -1638,10 +1650,33 @@ export function PrivateGroupInvite() {
         </div>
 
       </div>
+
+      <ConfirmDialog
+        open={confirmAction?.kind === 'cancelGroup'}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
+        title="このグループをキャンセルしますか？"
+        message="本当にこのグループをキャンセルしますか？"
+        confirmLabel="キャンセルする"
+        variant="destructive"
+        onConfirm={handleConfirmCancelGroup}
+      />
+      <ConfirmDialog
+        open={confirmAction?.kind === 'removeMember'}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
+        title="このメンバーを退出させますか？"
+        message="このメンバーを退出させますか？"
+        confirmLabel="退出させる"
+        variant="destructive"
+        onConfirm={async () => {
+          if (confirmAction?.kind === 'removeMember') await handleConfirmRemoveMember(confirmAction.memberId)
+        }}
+      />
+    </>
     )
   }
 
   return (
+    <>
     <GroupInviteView
       group={group}
       scenario={scenario}
@@ -1709,5 +1744,27 @@ export function PrivateGroupInvite() {
       handleOpenBookingDialog={handleOpenBookingDialog}
       handleSubmit={handleSubmit}
     />
+
+    <ConfirmDialog
+      open={confirmAction?.kind === 'cancelGroup'}
+      onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
+      title="このグループをキャンセルしますか？"
+      message="本当にこのグループをキャンセルしますか？"
+      confirmLabel="キャンセルする"
+      variant="destructive"
+      onConfirm={handleConfirmCancelGroup}
+    />
+    <ConfirmDialog
+      open={confirmAction?.kind === 'removeMember'}
+      onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
+      title="このメンバーを退出させますか？"
+      message="このメンバーを退出させますか？"
+      confirmLabel="退出させる"
+      variant="destructive"
+      onConfirm={async () => {
+        if (confirmAction?.kind === 'removeMember') await handleConfirmRemoveMember(confirmAction.memberId)
+      }}
+    />
+    </>
   )
 }

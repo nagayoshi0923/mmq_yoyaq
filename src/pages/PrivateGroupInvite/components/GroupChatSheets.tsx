@@ -1,6 +1,6 @@
 // 貸切グループ チャット画面のオーバーレイシート群（候補日/招待/設定/店舗編集/予約申請）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React from 'react'
+import React, { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Calendar, Users, CheckCircle2, Loader2, LogOut, MessageCircle, Check, Copy, ArrowLeft, Settings, Trash2, ChevronDown, MapPin, X } from 'lucide-react'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { NavigateFunction } from 'react-router-dom'
@@ -114,6 +115,34 @@ export function GroupChatSheets({
   handleResponseChange, handleRemoveMember, handleSavePreferredStores, handleSubmitBooking, handleShareLine, handleCopyUrl,
   handleDeleteGroup, handleOpenBookingDialog, handleSubmit,
 }: GroupChatSheetsProps) {
+  // 確認ダイアログ（グループ削除 / グループから退出）
+  const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false)
+  const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
+
+  const handleConfirmLeaveGroup = async () => {
+    try {
+      if (existingMemberId) {
+        const { error: deleteError } = await supabase.rpc('delete_guest_member', {
+          p_member_id: existingMemberId,
+          p_invite_code: code ?? null,
+        })
+        if (deleteError) throw deleteError
+        toast.success('グループから退出しました')
+        setExistingMemberId(null)
+        clearGuestSession()
+        closeSheetReplace()
+        refetch()
+      } else if (user && group) {
+        await leaveGroup(group.id)
+        toast.success('グループから退出しました')
+        navigate('/mypage')
+      }
+    } catch (err) {
+      logger.error('Failed to leave group', err)
+      toast.error('退出に失敗しました')
+    }
+  }
+
   return (
     <>
         {showMobileDates && (
@@ -562,12 +591,7 @@ export function GroupChatSheets({
                     <Button
                       variant="outline"
                       className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                      onClick={() => {
-                        // eslint-disable-next-line no-alert, no-restricted-globals
-                        if (confirm('このグループを削除しますか？\n\nこの操作は取り消せません。グループのすべてのデータ（メンバー、候補日、メッセージ）が削除されます。')) {
-                          handleDeleteGroup()
-                        }
-                      }}
+                      onClick={() => setShowDeleteGroupConfirm(true)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
@@ -602,31 +626,7 @@ export function GroupChatSheets({
                     <Button
                       variant="outline"
                       className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                      onClick={async () => {
-                        // eslint-disable-next-line no-alert, no-restricted-globals
-                        if (!confirm('本当にこのグループから退出しますか？')) return
-                        try {
-                          if (existingMemberId) {
-                            const { error: deleteError } = await supabase.rpc('delete_guest_member', {
-                              p_member_id: existingMemberId,
-                              p_invite_code: code ?? null,
-                            })
-                            if (deleteError) throw deleteError
-                            toast.success('グループから退出しました')
-                            setExistingMemberId(null)
-                            clearGuestSession()
-                            closeSheetReplace()
-                            refetch()
-                          } else if (user && group) {
-                            await leaveGroup(group.id)
-                            toast.success('グループから退出しました')
-                            navigate('/mypage')
-                          }
-                        } catch (err) {
-                          logger.error('Failed to leave group', err)
-                          toast.error('退出に失敗しました')
-                        }
-                      }}
+                      onClick={() => setShowLeaveGroupConfirm(true)}
                       disabled={actionLoading}
                     >
                       <LogOut className="h-4 w-4" />
@@ -1107,6 +1107,25 @@ export function GroupChatSheets({
             </div>
           </div>
         )}
+
+        <ConfirmDialog
+          open={showDeleteGroupConfirm}
+          onOpenChange={setShowDeleteGroupConfirm}
+          title="このグループを削除しますか？"
+          message={'このグループを削除しますか？\n\nこの操作は取り消せません。グループのすべてのデータ（メンバー、候補日、メッセージ）が削除されます。'}
+          confirmLabel="削除する"
+          variant="destructive"
+          onConfirm={handleDeleteGroup}
+        />
+        <ConfirmDialog
+          open={showLeaveGroupConfirm}
+          onOpenChange={setShowLeaveGroupConfirm}
+          title="このグループから退出しますか？"
+          message="本当にこのグループから退出しますか？"
+          confirmLabel="退出する"
+          variant="destructive"
+          onConfirm={handleConfirmLeaveGroup}
+        />
     </>
   )
 }

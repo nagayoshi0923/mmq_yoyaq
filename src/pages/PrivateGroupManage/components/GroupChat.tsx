@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface SystemMessage {
   type: 'system'
@@ -97,6 +98,8 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
+  // 配役方法変更の確認ダイアログ（アンケート回答カード/キャラクター選択カードの両方から起動）
+  const [showResetCharAssignmentConfirm, setShowResetCharAssignmentConfirm] = useState(false)
   const [charPreferences, setCharPreferences] = useState<Record<string, string>>({})
   const [charSaving, setCharSaving] = useState(false)
   const [charConfirmStep, setCharConfirmStep] = useState(false)
@@ -1161,12 +1164,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   </div>
                   {isOrganizer && onResetCharAssignmentMethod && (
                     <button
-                      onClick={() => {
-                        // eslint-disable-next-line no-alert
-                        if (window.confirm('配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？')) {
-                          onResetCharAssignmentMethod()
-                        }
-                      }}
+                      onClick={() => setShowResetCharAssignmentConfirm(true)}
                       className="text-xs text-purple-600 underline hover:text-purple-800"
                     >
                       方法変更
@@ -1305,12 +1303,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     <span className="font-semibold text-sm">キャラクター選択</span>
                     {isOrganizer && onResetCharAssignmentMethod && (
                       <button
-                      onClick={() => {
-                        // eslint-disable-next-line no-alert
-                        if (window.confirm('配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？')) {
-                          onResetCharAssignmentMethod()
-                        }
-                      }}
+                      onClick={() => setShowResetCharAssignmentConfirm(true)}
                       className="text-xs text-purple-600 underline hover:text-purple-800"
                     >
                       方法変更
@@ -1511,6 +1504,15 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showResetCharAssignmentConfirm}
+        onOpenChange={setShowResetCharAssignmentConfirm}
+        title="配役方法を変更しますか？"
+        message="配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？"
+        confirmLabel="変更する"
+        onConfirm={() => { onResetCharAssignmentMethod?.() }}
+      />
     </>
   )
 }

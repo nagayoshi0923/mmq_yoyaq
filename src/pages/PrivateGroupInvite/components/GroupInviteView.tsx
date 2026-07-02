@@ -1,6 +1,6 @@
 // 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React from 'react'
+import React, { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
 import { SurveyResponseForm } from './SurveyResponseForm'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { NavigateFunction } from 'react-router-dom'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
@@ -125,6 +126,33 @@ export function GroupInviteView({
   navigate, refetch, leaveGroup, formatDate, getResponseIcon, getInviteUrl, openSheet, closeSheet, clearGuestSession,
   handleCancelGroup, handlePinAuth, handleCopyUrl, handleRemoveMember, handleResponseChange, handleOpenBookingDialog, handleSubmit,
 }: GroupInviteViewProps) {
+  // 確認ダイアログ（グループから退出）
+  const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false)
+
+  const handleConfirmLeaveGroup = async () => {
+    try {
+      if (existingMemberId) {
+        // RPC経由で削除（RLSを回避）
+        const { error: deleteError } = await supabase.rpc('delete_guest_member', {
+          p_member_id: existingMemberId,
+          p_invite_code: code ?? null,
+        })
+        if (deleteError) throw deleteError
+        toast.success('グループから退出しました')
+        setExistingMemberId(null)
+        clearGuestSession()
+        refetch()
+      } else if (user && group) {
+        await leaveGroup(group.id)
+        toast.success('グループから退出しました')
+        navigate('/mypage')
+      }
+    } catch (err) {
+      logger.error('Failed to leave group', err)
+      toast.error('退出に失敗しました')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -986,31 +1014,7 @@ export function GroupInviteView({
         {(existingMemberId || (user && group?.members?.some(m => m.user_id === user.id && !m.is_organizer))) && (
           <Button
             variant="outline"
-            onClick={async () => {
-              // eslint-disable-next-line no-alert, no-restricted-globals
-              if (!confirm('本当にこのグループから退出しますか？')) return
-              try {
-                if (existingMemberId) {
-                  // RPC経由で削除（RLSを回避）
-                  const { error: deleteError } = await supabase.rpc('delete_guest_member', {
-                    p_member_id: existingMemberId,
-                    p_invite_code: code ?? null,
-                  })
-                  if (deleteError) throw deleteError
-                  toast.success('グループから退出しました')
-                  setExistingMemberId(null)
-                  clearGuestSession()
-                  refetch()
-                } else if (user && group) {
-                  await leaveGroup(group.id)
-                  toast.success('グループから退出しました')
-                  navigate('/mypage')
-                }
-              } catch (err) {
-                logger.error('Failed to leave group', err)
-                toast.error('退出に失敗しました')
-              }
-            }}
+            onClick={() => setShowLeaveGroupConfirm(true)}
             disabled={actionLoading}
             className="w-full mt-2 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
           >
@@ -1020,6 +1024,16 @@ export function GroupInviteView({
         )}
 
       </div>
+
+      <ConfirmDialog
+        open={showLeaveGroupConfirm}
+        onOpenChange={setShowLeaveGroupConfirm}
+        title="このグループから退出しますか？"
+        message="本当にこのグループから退出しますか？"
+        confirmLabel="退出する"
+        variant="destructive"
+        onConfirm={handleConfirmLeaveGroup}
+      />
     </div>
   )
 }
