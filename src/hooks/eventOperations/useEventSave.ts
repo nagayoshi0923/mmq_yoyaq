@@ -116,6 +116,16 @@ export function useEventSave({
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
+    // 店舗未選択のまま進むと stores への id=eq.(空) という無効クエリ(400)が飛び、
+    // 「店舗ID「」が見つかりません。先に店舗管理で店舗を追加してください」という
+    // 誤誘導エラーになる（2026-07-02 オーナー実機報告）。ネットワークに出る前に止める。
+    if (!performanceData.venue) {
+      logger.error('公演保存: 店舗未選択で保存が呼ばれた', JSON.stringify({
+        mode: modalMode, date: performanceData.date, scenario: performanceData.scenario,
+      }))
+      showToast.error('店舗が選択されていません。「店舗」プルダウンから選択してから保存してください')
+      return false
+    }
     // 重複/間隔チェック：同じ日・同じ店舗の全公演と「実際の時間」を比較（準備時間考慮）。
     // 以前あった「同じ朝/昼/夜の枠に既に公演がある」だけの粗いチェックは廃止した。
     // 十分な間隔（60分＋準備時間）が空いていれば、同じ枠に複数公演を置いてよい。
