@@ -609,6 +609,15 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
   const handleAddParticipant = async () => {
     const participantName = newParticipant.customer_name.trim() || 'デモ参加者'
 
+    // 楽観作成の temp- 仮ID中は reservations.schedule_event_id に存在しないIDを
+    // INSERT することになり 400/500 になる（保存完了で useEventModalState の同期 effect が
+    // 実IDへ差し替えるまでの数秒間だけの状態）。保留バッファ（onPendingAdd）は add モード
+    // 専用で、編集モードでは保存後に反映される保証がないため、ここでは案内して待ってもらう。
+    if (event?.id?.startsWith('temp-')) {
+      showToast.error('公演を保存中です。数秒後にもう一度お試しください')
+      return
+    }
+
     if (!event?.id) {
       // add モード: event 未保存のため、parent (PerformanceModal) でバッファリングする
       if (onPendingAdd) {
