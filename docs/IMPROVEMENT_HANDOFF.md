@@ -162,6 +162,10 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 | 間隔 | 行内 `gap-2` / カードグリッド `gap-4` / リスト `space-y-2` / セクション間 `space-y-6` |
 | コントロール | 検索=`SearchInput`(h-9) / フィルタ=`FilterBar`(h-8 text-xs) / 行アクション=`Button variant="outline" size="sm"`＋アイコン＋文言（7a7ce5f5 で確立したスタイル） |
 
+> **🚫 禁止パターン（オーナー指定 2026-07-02）**: カード左ボーダーのステータスアクセント（`border-l-4 border-l-{color}` 系）は
+> 「AIっぽい」ため**全面禁止・新規使用不可**。状態表現はステータスバッジ＋薄い背景 tint（`bg-*-50/30` 程度）まで。
+> 既存の使用箇所は各ページの改装バッチで除去する（⚠ 🔒公演カード内の使用だけは保護対象なので触らない）。
+
 **顧客向け（MyPage / PublicBookingTop / ScenarioDetail / BookingConfirmation）:**
 - スクエア（borderRadius:0）＋THEME 色は**意図的なブランドなので見た目は維持**。ただし inline style（150箇所）をやめ、顧客レイアウトのスコープで CSS 変数（`--radius: 0` 等）と Tailwind テーマに**トークン化**する。見た目を変える提案はオーナー承認後。
 - 本文サイズは ts-*（`ts-body` = text-base md:text-sm）に統一（ScenarioDetailPage が既に採用済みの方式を他3ページへ）。
