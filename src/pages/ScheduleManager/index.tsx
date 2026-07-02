@@ -35,6 +35,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 // UI Components
 import { Button } from '@/components/ui/button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 // Schedule Components（常時表示）
 import { CategoryGmStatsBar } from '@/components/schedule/CategoryGmStatsBar'
@@ -125,6 +126,8 @@ export function ScheduleManager() {
   const [isFillSeatsModalOpen, setIsFillSeatsModalOpen] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [isCleaningDemo, setIsCleaningDemo] = useState(false)
+  const [isFixAllDataConfirmOpen, setIsFixAllDataConfirmOpen] = useState(false)
+  const [isCleanupBadDemoConfirmOpen, setIsCleanupBadDemoConfirmOpen] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   
   // 履歴モーダル（セルベース）
@@ -636,10 +639,11 @@ export function ScheduleManager() {
   }
 
   // 全期間のデータ修復（予約レコードがないのにcurrent_participantsが設定されている公演を修復）
-  const handleFixAllData = async () => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('全期間の公演データを修復しますか？\n（予約レコードがない公演にデモ参加者を追加します）')) return
-    
+  const handleFixAllData = () => {
+    setIsFixAllDataConfirmOpen(true)
+  }
+
+  const runFixAllData = async () => {
     setIsFixingData(true)
     try {
       const result = await scheduleApi.addDemoParticipantsToAllActiveEvents()
@@ -657,14 +661,11 @@ export function ScheduleManager() {
   }
 
   // テストプレイの誤デモ予約削除 & GMテスト参加費の修正
-  const handleCleanupBadDemoReservations = async () => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm(
-      '過去の誤ったデモ予約を修正しますか？\n' +
-      '・テストプレイ公演のデモ予約を削除\n' +
-      '・GMテスト公演のデモ予約の参加費をGMテスト料金に修正'
-    )) return
+  const handleCleanupBadDemoReservations = () => {
+    setIsCleanupBadDemoConfirmOpen(true)
+  }
 
+  const runCleanupBadDemoReservations = async () => {
     setIsCleaningDemo(true)
     let deletedCount = 0
     let fixedCount = 0
@@ -1313,6 +1314,28 @@ export function ScheduleManager() {
         organizationId={organizationId}
         isKitManagementOpen={isKitManagementOpen}
         setIsKitManagementOpen={setIsKitManagementOpen}
+      />
+
+      {/* 全期間の公演データ修復 確認ダイアログ */}
+      <ConfirmDialog
+        open={isFixAllDataConfirmOpen}
+        onOpenChange={setIsFixAllDataConfirmOpen}
+        title="全期間の公演データを修復しますか？"
+        message="予約レコードがない公演にデモ参加者を追加します。"
+        confirmLabel="実行する"
+        variant="default"
+        onConfirm={runFixAllData}
+      />
+
+      {/* 過去の誤ったデモ予約修正 確認ダイアログ */}
+      <ConfirmDialog
+        open={isCleanupBadDemoConfirmOpen}
+        onOpenChange={setIsCleanupBadDemoConfirmOpen}
+        title="過去の誤ったデモ予約を修正しますか？"
+        message={'・テストプレイ公演のデモ予約を削除\n・GMテスト公演のデモ予約の参加費をGMテスト料金に修正'}
+        confirmLabel="実行する"
+        variant="default"
+        onConfirm={runCleanupBadDemoReservations}
       />
     </AppLayout>
   )

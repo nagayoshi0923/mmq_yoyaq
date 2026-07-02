@@ -1,6 +1,6 @@
 // スケジュール管理 モーダル・ダイアログ群（遅延ロード＋右クリックメニュー）
 // ScheduleManager/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useState } from 'react'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { timeSlotEnToSchedule } from '@/lib/timeSlot'
@@ -11,6 +11,7 @@ import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 import { ExportRangeModal } from './ExportRangeModal'
 import { FillSeatsModal, type FillSeatsCategory } from './FillSeatsModal'
+import { ConfirmDialog, InputDialog } from '@/components/patterns/modal'
 
 // Schedule Modals（遅延ロード：開くまで不要）
 const ConflictWarningModal = lazy(() => import('@/components/schedule/ConflictWarningModal').then(m => ({ default: m.ConflictWarningModal })))
@@ -105,7 +106,15 @@ export function ScheduleModals({
   isKitManagementOpen,
   setIsKitManagementOpen,
 }: ScheduleModalsProps) {
+  // 臨時会場削除の確認ダイアログ用ペンディング state（イベント行/セル行の2箇所で共有）
+  const [removeVenueTarget, setRemoveVenueTarget] = useState<{ date: string; venue: string } | null>(null)
+  // 臨時会場追加時の会場名入力ダイアログ用ペンディング state
+  const [addVenueTarget, setAddVenueTarget] = useState<{ date: string; venueId: string } | null>(null)
+  // 臨時会場名変更ダイアログ用ペンディング state
+  const [renameVenueTarget, setRenameVenueTarget] = useState<{ date: string; venue: string; currentName: string } | null>(null)
+
   return (
+    <>
       <Suspense fallback={null}>
       <PerformanceModal
         isOpen={modals.performanceModal.isOpen}
@@ -347,10 +356,7 @@ export function ScheduleModals({
                   label: '臨時会場を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
-                    // eslint-disable-next-line no-alert, no-restricted-globals
-                    if (confirm(`${event.date}から臨時会場を削除しますか？`)) {
-                      removeTemporaryVenue(event.date, event.venue)
-                    }
+                    setRemoveVenueTarget({ date: event.date, venue: event.venue })
                     modals.contextMenu.setContextMenu(null)
                   },
                   disabled: !isTemporaryVenue
@@ -421,18 +427,11 @@ export function ScheduleModals({
                     
                     if (nextVenue) {
                       // 会場名を入力してもらう
-                      // eslint-disable-next-line no-alert
-                      const customName = window.prompt('臨時会場の名前を入力してください（例: スペースマーケット渋谷）', '')
-                      // キャンセル時は追加しない
-                      if (customName === null) {
-                        modals.contextMenu.setContextMenu(null)
-                        return
-                      }
-                      addTemporaryVenue(date, nextVenue.id, customName || undefined)
+                      setAddVenueTarget({ date, venueId: nextVenue.id })
                     } else {
                       showToast.warning('すべての臨時会場が使用されています')
                     }
-                    
+
                     modals.contextMenu.setContextMenu(null)
                   }
                 },
@@ -441,11 +440,7 @@ export function ScheduleModals({
                   icon: <Edit className="w-4 h-4" />,
                   onClick: () => {
                     const currentName = getVenueNameForDate(venue, date)
-                    // eslint-disable-next-line no-alert
-                    const newName = window.prompt('新しい会場名を入力してください', currentName)
-                    if (newName !== null && newName !== currentName) {
-                      updateVenueName(date, venue, newName)
-                    }
+                    setRenameVenueTarget({ date, venue, currentName })
                     modals.contextMenu.setContextMenu(null)
                   },
                   disabled: !isTemporaryVenue
@@ -454,10 +449,7 @@ export function ScheduleModals({
                   label: '臨時会場を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
-                    // eslint-disable-next-line no-alert, no-restricted-globals
-                    if (confirm(`${date}から臨時会場を削除しますか？`)) {
-                      removeTemporaryVenue(date, venue)
-                    }
+                    setRemoveVenueTarget({ date, venue })
                     modals.contextMenu.setContextMenu(null)
                   },
                   disabled: !isTemporaryVenue,
@@ -528,5 +520,50 @@ export function ScheduleModals({
         onClose={() => setIsKitManagementOpen(false)}
       />
       </Suspense>
+
+      {/* 臨時会場を削除する確認ダイアログ */}
+      <ConfirmDialog
+        open={removeVenueTarget !== null}
+        onOpenChange={(open) => { if (!open) setRemoveVenueTarget(null) }}
+        title={`${removeVenueTarget?.date ?? ''}から臨時会場を削除しますか？`}
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={() => {
+          if (!removeVenueTarget) return
+          removeTemporaryVenue(removeVenueTarget.date, removeVenueTarget.venue)
+        }}
+      />
+
+      {/* 臨時会場を追加する際の会場名入力ダイアログ */}
+      <InputDialog
+        open={addVenueTarget !== null}
+        onOpenChange={(open) => { if (!open) setAddVenueTarget(null) }}
+        title="臨時会場を追加"
+        description="臨時会場の名前を入力してください（例: スペースマーケット渋谷）"
+        defaultValue=""
+        required={false}
+        confirmLabel="追加する"
+        onConfirm={(value) => {
+          if (!addVenueTarget) return
+          addTemporaryVenue(addVenueTarget.date, addVenueTarget.venueId, value || undefined)
+        }}
+      />
+
+      {/* 臨時会場名を変更する入力ダイアログ */}
+      <InputDialog
+        open={renameVenueTarget !== null}
+        onOpenChange={(open) => { if (!open) setRenameVenueTarget(null) }}
+        title="会場名を変更"
+        description="新しい会場名を入力してください"
+        defaultValue={renameVenueTarget?.currentName ?? ''}
+        confirmLabel="変更する"
+        onConfirm={(value) => {
+          if (!renameVenueTarget) return
+          if (value !== renameVenueTarget.currentName) {
+            updateVenueName(renameVenueTarget.date, renameVenueTarget.venue, value)
+          }
+        }}
+      />
+    </>
   )
 }
