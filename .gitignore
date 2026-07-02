@@ -46,9 +46,10 @@ SUPABASE_ACCESS_TOKEN
 supabase/.temp/
 supabase/schema_snapshot.sql
 
-# Claude Code（skills のみ git 管理、それ以外はローカル専用）
+# Claude Code（skills / agents のみ git 管理、それ以外はローカル専用）
 .claude/*
 !.claude/skills/
+!.claude/agents/
 
 # Staging env backups
 .env.staging.save
