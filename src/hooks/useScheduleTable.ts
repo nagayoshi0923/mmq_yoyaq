@@ -140,19 +140,52 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
   }, [fetchSchedule, loadKitLocations])
 
   // EventHandlers
+  // 依存は eventOperations / contextMenuActions オブジェクト全体ではなく、実際に使う
+  // 各ハンドラー（すべてサブフック側で useCallback 済み）にする。オブジェクト全体を
+  // 依存にすると、フックが毎レンダー新規オブジェクトを返すため、中身のハンドラーが
+  // 不変でも eventHandlers ごと再生成され、下流の React.memo（TimeSlotCell/
+  // PerformanceCard）が無効化されていた（P7）。
+  const {
+    handleAddPerformance,
+    handleEditPerformance,
+    handleDeletePerformance,
+    handleCancelConfirmPerformance,
+    handleUncancelPerformance,
+    handleToggleTentative,
+    handleToggleReservation,
+    handleDrop,
+  } = eventOperations
+  const {
+    handleCellContextMenu,
+    handleEventContextMenu,
+    handleDateContextMenu,
+  } = contextMenuActions
+
   const eventHandlers: ScheduleTableEventHandlers = useMemo(() => ({
-    onAddPerformance: eventOperations.handleAddPerformance,
-    onEditPerformance: eventOperations.handleEditPerformance,
-    onDeletePerformance: eventOperations.handleDeletePerformance,
-    onCancelConfirm: eventOperations.handleCancelConfirmPerformance,
-    onUncancel: eventOperations.handleUncancelPerformance,
-    onToggleTentative: eventOperations.handleToggleTentative,
-    onToggleReservation: eventOperations.handleToggleReservation,
-    onDrop: eventOperations.handleDrop,
-    onContextMenuCell: contextMenuActions.handleCellContextMenu,
-    onContextMenuEvent: contextMenuActions.handleEventContextMenu,
-    onContextMenuDate: contextMenuActions.handleDateContextMenu
-  }), [eventOperations, contextMenuActions])
+    onAddPerformance: handleAddPerformance,
+    onEditPerformance: handleEditPerformance,
+    onDeletePerformance: handleDeletePerformance,
+    onCancelConfirm: handleCancelConfirmPerformance,
+    onUncancel: handleUncancelPerformance,
+    onToggleTentative: handleToggleTentative,
+    onToggleReservation: handleToggleReservation,
+    onDrop: handleDrop,
+    onContextMenuCell: handleCellContextMenu,
+    onContextMenuEvent: handleEventContextMenu,
+    onContextMenuDate: handleDateContextMenu
+  }), [
+    handleAddPerformance,
+    handleEditPerformance,
+    handleDeletePerformance,
+    handleCancelConfirmPerformance,
+    handleUncancelPerformance,
+    handleToggleTentative,
+    handleToggleReservation,
+    handleDrop,
+    handleCellContextMenu,
+    handleEventContextMenu,
+    handleDateContextMenu
+  ])
 
   // DisplayConfig
   const displayConfig: ScheduleTableDisplayConfig = useMemo(() => ({

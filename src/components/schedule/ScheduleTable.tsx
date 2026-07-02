@@ -14,6 +14,10 @@ interface MonthDay {
   displayDate: string
 }
 
+// シフト未登録セル用の共有空配列（毎レンダー新規の `[]` を渡すと TimeSlotCell の
+// React.memo が無効化されるため、参照を固定する）
+const EMPTY_STAFF_LIST: Array<Staff & { timeSlot: string }> = []
+
 // Propsをグループ化
 export interface ScheduleTableViewConfig {
   currentDate: Date
@@ -275,7 +279,7 @@ export function ScheduleTable({
                     date={day.date}
                     venue={venue.id}
                     timeSlot="morning"
-                    availableStaff={shiftData[`${day.date}-morning`] || []}
+                    availableStaff={shiftData[`${day.date}-morning`] || EMPTY_STAFF_LIST}
                     categoryConfig={categoryConfig}
                     getReservationBadgeClass={getReservationBadgeClass}
                     onCancelConfirm={onCancelConfirm}
@@ -298,7 +302,7 @@ export function ScheduleTable({
                     date={day.date}
                     venue={venue.id}
                     timeSlot="afternoon"
-                    availableStaff={shiftData[`${day.date}-afternoon`] || []}
+                    availableStaff={shiftData[`${day.date}-afternoon`] || EMPTY_STAFF_LIST}
                     categoryConfig={categoryConfig}
                     getReservationBadgeClass={getReservationBadgeClass}
                     onCancelConfirm={onCancelConfirm}
@@ -321,7 +325,7 @@ export function ScheduleTable({
                     date={day.date}
                     venue={venue.id}
                     timeSlot="evening"
-                    availableStaff={shiftData[`${day.date}-evening`] || []}
+                    availableStaff={shiftData[`${day.date}-evening`] || EMPTY_STAFF_LIST}
                     categoryConfig={categoryConfig}
                     getReservationBadgeClass={getReservationBadgeClass}
                     onCancelConfirm={onCancelConfirm}
