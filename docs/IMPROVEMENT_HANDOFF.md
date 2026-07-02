@@ -121,9 +121,14 @@ DB で締切=0（直前までキャンセル可）の店舗があり、顧客の
 - 調査手順: handleDrop 先頭にログ → ①handleDrop 自体が発火するか ②`e.dataTransfer.files.length` が 0 でないか ③ファイル種別フィルタで弾いていないか、の順に特定して修正。
 🔍 シナリオ管理→シナリオマスタ編集→ギャラリータブで画像 D&D→アップロードされること（ボタン経由も退行なし）。
 
----
-
-## 4. フェーズ2: temp-ID 予約編集 400/500 の fix 再適用 🔍
+### - [ ] B7: 公演モーダルの初期化完了前に保存できてしまうレースの恒久修正 🔍（根本原因特定済み 2026-07-02）
+**症状**: 公演の新規作成モーダルを開いた直後に保存すると店舗ID空で保存が走る（現在は 3f3ce042 の対症ガードでトースト停止するが、レース自体は残存）。
+**原因（確定・独立2調査が収束）**: `PerformanceModal.tsx` の `initForm` が async で、add モードは `await getEmptySlotMemo(...)`（:611、Supabase往復）の**後**に `setFormData({venue: initialData.venue, ...})`（:632-646）を呼ぶ。この往復中は formData.venue が初期値 `''` のままだが、保存ボタン（`performanceModal/sections/PerformanceFooter.tsx:48`）に初期化完了ガード・二重送信ガードが無い。
+**修正仕様（見た目は不変・🔒制約と矛盾しない挙動修正）**:
+1. `PerformanceModal.tsx` に `isFormInitializing` state を追加し、`initForm` の冒頭で true / 完了時に false（**try/finally** で確実に落とす）。
+2. `handleSave` 実行中フラグ `isSaving` を追加（二重送信防止。handleSave 冒頭で立て、onSave 完了/失敗で落とす）。
+3. `PerformanceFooter` に prop を1つ追加し、保存ボタンを `disabled={isFormInitializing || isSaving || 既存条件}` に（既存の disabled スタイルをそのまま使用。文言・レイアウト変更禁止）。
+🔍 スケジュール管理→セルの＋→モーダルが開いた**瞬間**に保存を連打→保存されない（ボタン非活性）→ 一呼吸おいて保存→正常に1件だけ作成されること。
 
 **経緯**: fix `974adc56`（useEventModalState に temp→実ID 同期 effect を追加、23行）は revert `d707e519`（2026-06-26）で削除されたまま再適用されていない。
 - [x] `git show 974adc56` で当時の diff を確認し、現在の `src/hooks/eventOperations/useEventModalState.ts` に**逐語で**再適用（ファイル構成が変わっていれば等価に移植）。
