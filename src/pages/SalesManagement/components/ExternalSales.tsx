@@ -17,6 +17,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { showToast } from '@/utils/toast'
 import { format } from '@/lib/dateFns'
 import { formatJstMonthDay } from '@/utils/jstDate'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 // 外部売上の種類
 type ExternalSaleType = 'booth' | 'other_store'
@@ -63,6 +64,7 @@ export const ExternalSales: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [formData, setFormData] = useState<ExternalSaleFormData>({
     type: 'booth',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -221,19 +223,21 @@ export const ExternalSales: React.FC = () => {
   }
 
   // 削除処理
-  const handleDelete = async (id: string) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('削除しますか？')) return
+  const handleDelete = (id: string) => {
+    setDeleteTargetId(id)
+  }
 
+  const runDelete = async () => {
+    if (!deleteTargetId) return
     try {
       const { error } = await supabase
         .from('external_sales')
         .delete()
-        .eq('id', id)
-      
+        .eq('id', deleteTargetId)
+
       if (error) throw error
-      
-      setSales(prev => prev.filter(s => s.id !== id))
+
+      setSales(prev => prev.filter(s => s.id !== deleteTargetId))
       showToast.success('削除しました')
     } catch (error) {
       logger.error('削除エラー:', error)
@@ -491,6 +495,16 @@ export const ExternalSales: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTargetId(null) }}
+        title="削除しますか？"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDelete}
+      />
     </div>
   )
 }

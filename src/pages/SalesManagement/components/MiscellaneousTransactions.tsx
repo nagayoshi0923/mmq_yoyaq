@@ -10,6 +10,7 @@ import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
 import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface Transaction {
   id?: string
@@ -55,6 +56,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [loading, setLoading] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   
   // 新規追加フォームの状態
   const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({
@@ -183,16 +185,18 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   }
   
   // トランザクションを削除
-  const handleDeleteTransaction = async (id: string) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('削除しますか？')) return
-    
+  const handleDeleteTransaction = (id: string) => {
+    setDeleteTargetId(id)
+  }
+
+  const runDeleteTransaction = async () => {
+    if (!deleteTargetId) return
     try {
       const { error } = await supabase
         .from('miscellaneous_transactions')
         .delete()
-        .eq('id', id)
-      
+        .eq('id', deleteTargetId)
+
       if (error) throw error
       await loadTransactions()
     } catch (error) {
@@ -525,6 +529,16 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           )}
         </CardContent>
       </Card>
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTargetId(null) }}
+        title="削除しますか？"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDeleteTransaction}
+      />
     </div>
   )
 }

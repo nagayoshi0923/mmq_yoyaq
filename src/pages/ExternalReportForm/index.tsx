@@ -24,6 +24,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface ManagedScenario {
   id: string
@@ -41,6 +42,7 @@ export default function ExternalReportForm() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false)
   const [scenarios, setScenarios] = useState<ManagedScenario[]>([])
   const [entries, setEntries] = useState<Map<string, number>>(new Map())
   
@@ -121,7 +123,7 @@ export default function ExternalReportForm() {
   }, [entries, scenarios])
 
   // 送信
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     // バリデーション
     if (!companyName.trim()) {
       showToast.error('会社名を入力してください')
@@ -136,17 +138,10 @@ export default function ExternalReportForm() {
       return
     }
 
-    // 確認
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const confirmed = confirm(
-      `${reportYear}年${reportMonth}月の公演報告を送信しますか？\n\n` +
-      `・会社名: ${companyName}\n` +
-      `・シナリオ数: ${stats.totalScenarios}件\n` +
-      `・総公演回数: ${stats.totalCount}回\n` +
-      `・推定ライセンス料: ¥${stats.totalLicense.toLocaleString()}`
-    )
-    if (!confirmed) return
+    setIsSubmitConfirmOpen(true)
+  }
 
+  const runSubmit = async () => {
     try {
       setSubmitting(true)
 
@@ -400,6 +395,21 @@ export default function ExternalReportForm() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 送信確認ダイアログ */}
+      <ConfirmDialog
+        open={isSubmitConfirmOpen}
+        onOpenChange={setIsSubmitConfirmOpen}
+        title={`${reportYear}年${reportMonth}月の公演報告を送信しますか？`}
+        description={
+          <>
+            会社名: {companyName} / シナリオ数: {stats.totalScenarios}件 / 総公演回数: {stats.totalCount}回 / 推定ライセンス料: ¥{stats.totalLicense.toLocaleString()}
+          </>
+        }
+        confirmLabel="送信する"
+        variant="default"
+        onConfirm={runSubmit}
+      />
     </div>
   )
 }

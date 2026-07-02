@@ -28,6 +28,7 @@ import { SendPreviewDialog } from './sendReports/dialogs/SendPreviewDialog'
 import { ReportStatsCards } from './sendReports/components/ReportStatsCards'
 import { ReportGroupCard } from './sendReports/components/ReportGroupCard'
 import { ReportToolbar } from './sendReports/components/ReportToolbar'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface SendReportsProps {
   organizationId: string
@@ -49,6 +50,9 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   
   const [isSavingExternal, setIsSavingExternal] = useState(false)
   const [isSavingInternal, setIsSavingInternal] = useState(false)
+
+  // 一括送信 確認ダイアログ
+  const [batchSendTargets, setBatchSendTargets] = useState<ReportGroup[] | null>(null)
   
   // シナリオ編集ダイアログ
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -451,25 +455,18 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   }
 
   // 一括送信
-  const handleBatchSend = async () => {
+  const handleBatchSend = () => {
     const targets = filteredGroups.filter(g => g.authorEmail && selectedGroups.has(g.authorName))
     if (targets.length === 0) {
       showToast.warning('送信対象がありません')
       return
     }
+    setBatchSendTargets(targets)
+  }
 
-    const totalEvents = targets.reduce((sum, g) => sum + g.totalEvents, 0)
-    const totalLicense = targets.reduce((sum, g) => sum + g.totalLicenseCost, 0)
-    
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const confirmed = confirm(
-      `${selectedYear}年${selectedMonth}月のレポートを一括送信しますか？\n\n` +
-      `・送信先: ${targets.length}名\n` +
-      `・総公演数: ${totalEvents}回\n` +
-      `・総ライセンス料: ¥${totalLicense.toLocaleString()}\n\n` +
-      `送信先一覧:\n${targets.map(g => `  - ${g.authorName}`).join('\n')}`
-    )
-    if (!confirmed) return
+  const runBatchSend = async () => {
+    const targets = batchSendTargets
+    if (!targets || targets.length === 0) return
 
     setIsSending(true)
     let success = 0, fail = 0, skipped = 0
@@ -557,6 +554,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
     setIsSending(false)
     setSelectedGroups(new Set())
+    setBatchSendTargets(null)
 
     if (fail === 0 && skipped === 0) {
       showToast.success('一括送信完了', `${success}件に送信しました`)
@@ -877,6 +875,25 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
         handleExternalInputChange={handleExternalInputChange}
         isSending={isSending}
         onConfirmSend={handleConfirmSend}
+      />
+
+      {/* 一括送信 確認ダイアログ */}
+      <ConfirmDialog
+        open={batchSendTargets !== null}
+        onOpenChange={(open) => { if (!open) setBatchSendTargets(null) }}
+        title={`${selectedYear}年${selectedMonth}月のレポートを一括送信しますか？`}
+        description={
+          batchSendTargets ? (
+            <>
+              送信先: {batchSendTargets.length}名 / 総公演数: {batchSendTargets.reduce((sum, g) => sum + g.totalEvents, 0)}回 / 総ライセンス料: ¥{batchSendTargets.reduce((sum, g) => sum + g.totalLicenseCost, 0).toLocaleString()}
+              <br />
+              送信先一覧: {batchSendTargets.map(g => g.authorName).join('、')}
+            </>
+          ) : undefined
+        }
+        confirmLabel="送信する"
+        variant="default"
+        onConfirm={runBatchSend}
       />
 
       {/* ヘッダー＋検索・ソート・表示モード */}

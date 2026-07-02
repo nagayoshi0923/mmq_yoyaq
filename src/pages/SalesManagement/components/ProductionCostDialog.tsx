@@ -16,6 +16,7 @@ import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface Store {
   id: string
@@ -65,6 +66,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     category: '制作費',
@@ -185,12 +187,14 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!editingItem) return
-    
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('この制作費を削除しますか？')) return
-    
+    setIsDeleteConfirmOpen(true)
+  }
+
+  const runDelete = async () => {
+    if (!editingItem) return
+
     setDeleting(true)
     try {
       const { error } = await supabase
@@ -326,6 +330,16 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title="この制作費を削除しますか？"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDelete}
+      />
     </Dialog>
   )
 }

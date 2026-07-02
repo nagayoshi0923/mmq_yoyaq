@@ -26,6 +26,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface ManagedScenario {
   id: string
@@ -43,6 +44,7 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false)
   const [scenarios, setScenarios] = useState<ManagedScenario[]>([])
   const [organizationName, setOrganizationName] = useState('')
   const [organizationId, setOrganizationId] = useState<string | null>(null)
@@ -159,7 +161,7 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
     return { totalScenarios, totalCount, totalAmount }
   }, [entries, scenarios])
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!companyName.trim()) {
       showToast.error('会社名・店舗名を入力してください')
       return
@@ -173,16 +175,10 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
       return
     }
 
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const confirmed = confirm(
-      `${reportYear}年${reportMonth}月のレンタル公演回数を報告しますか？\n\n` +
-      `・会社名 / 店舗名: ${companyName}\n` +
-      `・シナリオ数: ${stats.totalScenarios}件\n` +
-      `・総公演回数: ${stats.totalCount}回\n` +
-      `・合計金額: ¥${stats.totalAmount.toLocaleString()}`
-    )
-    if (!confirmed) return
+    setIsSubmitConfirmOpen(true)
+  }
 
+  const runSubmit = async () => {
     try {
       setSubmitting(true)
 
@@ -471,6 +467,21 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
           ご不明な点がございましたら、{organizationName}までお問い合わせください。
         </p>
       </div>
+
+      {/* 送信確認ダイアログ */}
+      <ConfirmDialog
+        open={isSubmitConfirmOpen}
+        onOpenChange={setIsSubmitConfirmOpen}
+        title={`${reportYear}年${reportMonth}月のレンタル公演回数を報告しますか？`}
+        description={
+          <>
+            会社名/店舗名: {companyName} / シナリオ数: {stats.totalScenarios}件 / 総公演回数: {stats.totalCount}回 / 合計金額: ¥{stats.totalAmount.toLocaleString()}
+          </>
+        }
+        confirmLabel="報告する"
+        variant="default"
+        onConfirm={runSubmit}
+      />
     </div>
   )
 }
