@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// schedule_events_staff_view から SELECT する snapshot 列
+// schedule_events から SELECT する snapshot 列
 // クライアント側 SNAPSHOT_COLUMNS と同期させること
 export const SNAPSHOT_COLUMNS =
   'id, organization_id, date, venue, store_id, scenario, scenario_master_id, ' +
@@ -78,20 +78,28 @@ export async function recordEventHistory(
 }
 
 /**
- * schedule_events_staff_view から 1 件分のフル状態スナップショットを取得する。
+ * schedule_events から 1 件分のフル状態スナップショットを取得する。
  * 失敗時は null を返す（履歴記録の失敗は主処理を妨げない）。
+ *
+ * NOTE: api/* は service role（auth.uid() = NULL）で動くため、
+ * is_staff_or_admin() に依存する schedule_events_staff_view は常に 0 件を返す。
+ * そのため raw テーブルを直接参照し、organizationId で明示的にスコープする
+ * （service role は RLS をバイパスするため、呼び出し元で検証済みの
+ * organizationId を必ず渡すこと）。
  */
 export async function fetchEventSnapshotServer(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: SupabaseClient<any, 'public', any>,
   scheduleEventId: string,
+  organizationId: string,
 ): Promise<Record<string, unknown> | null> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (db as any)
-      .from('schedule_events_staff_view')
+      .from('schedule_events')
       .select(SNAPSHOT_COLUMNS)
       .eq('id', scheduleEventId)
+      .eq('organization_id', organizationId)
       .maybeSingle()
     if (error) {
       console.error('[fetchEventSnapshotServer] error:', error)

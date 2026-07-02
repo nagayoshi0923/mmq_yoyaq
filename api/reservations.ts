@@ -434,7 +434,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
 
   // schedule_event_history に add_participant を記録（失敗しても予約作成は成功させる）
   try {
-    const snapshot = await fetchEventSnapshotServer(db, scheduleEventId)
+    const snapshot = ev.organization_id
+      ? await fetchEventSnapshotServer(db, scheduleEventId, ev.organization_id as string)
+      : null
     if (snapshot && ev.organization_id) {
       const customerName =
         (reservation.customer_name as string | undefined)?.trim() ||
@@ -566,7 +568,7 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
 
   // schedule_event_history に add_participant を記録（スタッフ参加同期として）
   try {
-    const snapshot = await fetchEventSnapshotServer(db, scheduleEventId)
+    const snapshot = await fetchEventSnapshotServer(db, scheduleEventId, user.orgId)
     if (snapshot) {
       const cellDate = String(snapshot.date ?? '')
       const cellStoreId = String(snapshot.store_id ?? '')
@@ -905,7 +907,11 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   try {
     const scheduleEventId = reservation.schedule_event_id as string | null | undefined
     if (scheduleEventId && reservation.organization_id) {
-      const snapshot = await fetchEventSnapshotServer(db, scheduleEventId)
+      const snapshot = await fetchEventSnapshotServer(
+        db,
+        scheduleEventId,
+        reservation.organization_id as string,
+      )
       const cellDate = String(snapshot?.date ?? '')
       const cellStoreId = String(snapshot?.store_id ?? '')
       const cellTimeSlot = (snapshot?.time_slot as string | null | undefined) ?? null
@@ -1127,7 +1133,7 @@ async function handleSyncStaffReservationStatuses(
           .map(async (r) => {
             const eventId = r.schedule_event_id as string
             if (!snapshotCache.has(eventId)) {
-              snapshotCache.set(eventId, await fetchEventSnapshotServer(db, eventId))
+              snapshotCache.set(eventId, await fetchEventSnapshotServer(db, eventId, user.orgId))
             }
             const snapshot = snapshotCache.get(eventId)
             if (!snapshot) return
