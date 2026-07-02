@@ -16,6 +16,7 @@ import { parseIntSafe } from '@/utils/number'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useQueryClient } from '@tanstack/react-query'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface GameInfoSectionV2Props {
   formData: ScenarioFormData
@@ -31,6 +32,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingOldCategoryName, setEditingOldCategoryName] = useState<string | null>(null) // nullなら新規追加モード
+  const [isDeleteCategoryConfirmOpen, setIsDeleteCategoryConfirmOpen] = useState(false)
   const queryClient = useQueryClient()
 
   // organization_categories テーブルからカテゴリ情報を取得（sort_order 順）
@@ -102,9 +104,10 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
 
   const handleDeleteCategory = () => {
     if (!editingOldCategoryName) return
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`カテゴリ「${editingOldCategoryName}」をこのシナリオから削除しますか？`)) return
+    setIsDeleteCategoryConfirmOpen(true)
+  }
 
+  const runDeleteCategory = () => {
     setFormData(prev => ({
       ...prev,
       genre: (prev.genre || []).filter(g => g !== editingOldCategoryName)
@@ -296,6 +299,16 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* カテゴリ削除確認ダイアログ */}
+      <ConfirmDialog
+        open={isDeleteCategoryConfirmOpen}
+        onOpenChange={setIsDeleteCategoryConfirmOpen}
+        title={`カテゴリ「${editingOldCategoryName ?? ''}」をこのシナリオから削除しますか？`}
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDeleteCategory}
+      />
     </div>
   )
 }

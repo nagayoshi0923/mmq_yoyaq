@@ -23,6 +23,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react'
 import { parseIntSafe } from '@/utils/number'
+import { InputDialog } from '@/components/patterns/modal'
 
 interface ScenarioMaster {
   id: string
@@ -80,6 +81,8 @@ export function ScenarioMasterEdit() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [genreInput, setGenreInput] = useState('')
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
+  const [correctionRejectTarget, setCorrectionRejectTarget] = useState<CorrectionRequest | null>(null)
 
   const { organizationId } = useOrganization()
   const isLicenseAdmin = checkIsLicenseAdmin(user?.role, organizationId)
@@ -269,9 +272,12 @@ export function ScenarioMasterEdit() {
     }
   }
 
-  const handleReject = async () => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const reason = prompt('却下理由を入力してください:')
+  const handleReject = () => {
+    if (!id) return
+    setIsRejectDialogOpen(true)
+  }
+
+  const runReject = async (reason: string) => {
     if (!reason || !id) return
 
     try {
@@ -370,15 +376,18 @@ export function ScenarioMasterEdit() {
     }
   }
 
-  const handleCorrectionReject = async (correction: CorrectionRequest) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const comment = prompt('却下理由を入力してください:')
-    if (!comment) return
+  const handleCorrectionReject = (correction: CorrectionRequest) => {
+    setCorrectionRejectTarget(correction)
+  }
+
+  const runCorrectionReject = async (comment: string) => {
+    const correction = correctionRejectTarget
+    if (!comment || !correction) return
 
     try {
       await supabase
         .from('scenario_master_corrections')
-        .update({ 
+        .update({
           status: 'rejected',
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString(),
@@ -797,6 +806,30 @@ export function ScenarioMasterEdit() {
         </div>
         </div>
       </div>
+
+      {/* 却下理由入力ダイアログ（マスタ却下） */}
+      <InputDialog
+        open={isRejectDialogOpen}
+        onOpenChange={setIsRejectDialogOpen}
+        title="却下理由を入力してください"
+        multiline
+        required
+        confirmLabel="却下する"
+        variant="destructive"
+        onConfirm={runReject}
+      />
+
+      {/* 却下理由入力ダイアログ（修正リクエスト却下） */}
+      <InputDialog
+        open={correctionRejectTarget !== null}
+        onOpenChange={(open) => { if (!open) setCorrectionRejectTarget(null) }}
+        title="却下理由を入力してください"
+        multiline
+        required
+        confirmLabel="却下する"
+        variant="destructive"
+        onConfirm={runCorrectionReject}
+      />
     </div>
   )
 }

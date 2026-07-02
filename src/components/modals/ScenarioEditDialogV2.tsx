@@ -38,6 +38,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import type { Scenario, Staff } from '@/types'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 interface ScenarioEditDialogV2Props {
   isOpen: boolean
@@ -161,6 +162,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   
   // マスター編集ダイアログ（MMQ運営者用）
   const [masterEditDialogOpen, setMasterEditDialogOpen] = useState(false)
+
+  // マスターへの反映・シナリオ削除の確認ダイアログ
+  const [isApplyToMasterConfirmOpen, setIsApplyToMasterConfirmOpen] = useState(false)
+  const [isDeleteScenarioConfirmOpen, setIsDeleteScenarioConfirmOpen] = useState(false)
   
   // マスターデータ（相違検出用）
   const [masterData, setMasterData] = useState<ScenarioMaster | null>(null)
@@ -307,16 +312,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }
 
   // マスターに反映
-  const handleApplyToMaster = async () => {
+  const handleApplyToMaster = () => {
     if (!currentMasterId) return
-    
-    // eslint-disable-next-line no-alert
-    const confirmed = window.confirm(
-      `現在の編集内容をマスターに反映しますか？\n\n` +
-      `この操作により、他の組織がこのシナリオを引用した際に、更新された情報が適用されます。`
-    )
-    if (!confirmed) return
-    
+    setIsApplyToMasterConfirmOpen(true)
+  }
+
+  const runApplyToMaster = async () => {
+    if (!currentMasterId) return
     try {
       await scenarioMasterApi.update(currentMasterId, {
         title: formData.title,
@@ -1335,14 +1337,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }
 
   // シナリオ削除ハンドラ
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!scenarioId) return
-    
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`「${formData.title}」を削除しますか？\nこの操作は取り消せません。`)) {
-      return
-    }
-    
+    setIsDeleteScenarioConfirmOpen(true)
+  }
+
+  const runDelete = async () => {
+    if (!scenarioId) return
     try {
       await deleteMutation.mutateAsync(scenarioId)
       showToast.success('シナリオを削除しました')
@@ -1840,6 +1841,28 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           }}
         />
       )}
+
+      {/* マスターへの反映 確認ダイアログ */}
+      <ConfirmDialog
+        open={isApplyToMasterConfirmOpen}
+        onOpenChange={setIsApplyToMasterConfirmOpen}
+        title="現在の編集内容をマスターに反映しますか？"
+        description="この操作により、他の組織がこのシナリオを引用した際に、更新された情報が適用されます。"
+        confirmLabel="反映する"
+        variant="default"
+        onConfirm={runApplyToMaster}
+      />
+
+      {/* シナリオ削除 確認ダイアログ */}
+      <ConfirmDialog
+        open={isDeleteScenarioConfirmOpen}
+        onOpenChange={setIsDeleteScenarioConfirmOpen}
+        title={`「${formData.title}」を削除しますか？`}
+        description="この操作は取り消せません。"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={runDelete}
+      />
     </Dialog>
   )
 }
