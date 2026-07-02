@@ -275,7 +275,10 @@ RPC は staging 適用済み（権限=service_role のみ・**集計値の手計
 `api/sales?type=annual-analysis` にサーバ集計を追加し、フックは API 呼び出しのみに。集計ロジックは逐語移植（数値不変）。
 🔍 売上管理→年間分析タブ: 数値が改修前と一致すること・表示が速くなったこと。
 
-### - [~] P5: AdminDashboard チャンクのハブ化解消 — **仕様確定（2026-07-03 Fable・scout 実測に基づく）**
+### - [x] P5: AdminDashboard チャンクのハブ化解消 → **対応済み `e9dd0b08`（2026-07-03・実装=mmq-impl 3反復/判断=Fable）** 🔍スモーク待ち
+**結果実測**: AdminDashboard 参照 83→**30** / BlogDetailPage・ReservationDetailPage 等の顧客チャンク=**clean** / AdminDashboard チャンク 128.5kB→**52.3kB(-59%)** / vendor-react 空チャンク(33B)→実体化(143kB)。
+**採用判断のトレードオフ**: modulepreload 込み初期先読みは 261.6→294.3kB gzip（+12.5%）。ただし増分の中身は共有レイアウト＋date-fns（顧客も直後に使う）で、従来顧客ページが遅延 DL していた管理チャンク 128.5kB raw が消えるため**ページ到達までの総転送は同等〜改善**＋vendor/layout チャンクの長期キャッシュ化。変則2案（date-fns 除外/対象絞り）は実測で不採用（先読み改善せず or 参照数悪化）。
+**任意の後続 P5b**: date-fns 全量が先読み対象になる残課題は NotificationDropdown の formatDistanceToNow 遅延化（ソース変更）で先読みから外せる見込み。低優先。
 **確定した根本原因**: AdminDashboard.tsx を import するファイルは**ゼロ**（export はコンポーネント1個）。83チャンク参照の正体は、Rollup が共有レイアウト（Header→NotificationDropdown→date-fns 21箇所）を AdminDashboard のチャンクに同居させたこと。object 形式 manualChunks の副作用で vendor-react も 33バイト空チャンク（実体は vendor-ui 側に吸収）。
 **実装方針（vite.config.ts:44-54 のみ変更・ソース import 構造は触らない）**:
 1. manualChunks を **function 形式**に書き換え: node_modules を正規表現で振り分け（react/react-dom/scheduler→vendor-react、date-fns→vendor-datefns、lucide-react+@radix-ui→vendor-ui、@supabase→vendor-supabase、@tanstack/react-table→vendor-table、chart.js系→vendor-chart。その他 node_modules は自動分割に任せる）。
