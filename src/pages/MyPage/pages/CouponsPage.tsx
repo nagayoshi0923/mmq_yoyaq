@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
 import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
+import { showToast } from '@/utils/toast'
 
 function cleanScenarioTitleForCoupon(title?: string | null): string {
   if (!title) return '（タイトル不明）'
@@ -75,8 +76,7 @@ export function CouponsPage() {
       setSelectedCoupon(null)
       setSelectedReservationId(null)
     } else {
-      // eslint-disable-next-line no-alert, no-restricted-globals
-      alert(result.error || 'クーポンの使用に失敗しました')
+      showToast.error(result.error || 'クーポンの使用に失敗しました')
     }
   }
 

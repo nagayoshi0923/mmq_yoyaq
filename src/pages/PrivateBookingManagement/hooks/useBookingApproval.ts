@@ -729,8 +729,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       onSuccess()
     } catch (error) {
       logger.error('削除エラー:', error)
-      // eslint-disable-next-line no-alert, no-restricted-globals
-      alert(error instanceof Error ? error.message : '削除に失敗しました')
+      showToast.error(error instanceof Error ? error.message : '削除に失敗しました')
     } finally {
       setSubmitting(false)
     }

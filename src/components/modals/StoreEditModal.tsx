@@ -9,6 +9,7 @@ import { ItemizedListWithDates, type ItemizedListColumn } from '@/components/ui/
 import { Save, Trash2 } from 'lucide-react'
 import type { Store, StoreFixedCost, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface StoreEditModalProps {
   store: Store | null
@@ -146,8 +147,7 @@ export function StoreEditModal({
                 (!Number.isInteger(minutes) || minutes <= 0 || minutes > 1440)
               ) {
                 const message = '店舗間移動時間は1〜1440分の整数で入力してください'
-                // eslint-disable-next-line no-alert, no-restricted-globals
-                alert(message)
+                showToast.error(message)
                 throw new Error(message)
               }
 
