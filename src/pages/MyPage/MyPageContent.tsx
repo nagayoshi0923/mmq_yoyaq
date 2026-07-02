@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star } from 'lucide-react'
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationsTab } from './components/ReservationsTab'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { formatJstDateJa } from '@/utils/jstDate'
@@ -103,6 +104,9 @@ interface MyPageContentProps {
   addManualHistoryMutation: ReturnType<typeof useAddManualHistoryMutation>
   handleAddManualHistory: () => Promise<void>
   handleDeleteManualHistory: (manualId: string) => Promise<void>
+  duplicateConfirmTitle: string | null
+  setDuplicateConfirmTitle: React.Dispatch<React.SetStateAction<string | null>>
+  handleConfirmDuplicateAdd: () => Promise<void>
 }
 
 export function MyPageContent({
@@ -116,6 +120,7 @@ export function MyPageContent({
   editingScenario, setEditingScenario, editingDate, setEditingDate, isEditingDate, setIsEditingDate,
   newScenarioId, setNewScenarioId, newStoreId, setNewStoreId, newPlayedAt, setNewPlayedAt,
   addManualHistoryMutation, handleAddManualHistory, handleDeleteManualHistory,
+  duplicateConfirmTitle, setDuplicateConfirmTitle, handleConfirmDuplicateAdd,
 }: MyPageContentProps) {
   const renderAlbumCard = (scenario: PlayedScenario) => {
     const isHidden = isScenarioHidden(scenario)
@@ -730,6 +735,16 @@ export function MyPageContent({
           <Sparkles className="w-6 h-6" />
         </Button>
       </div>
+
+      {/* 手動プレイ履歴の重複登録確認ダイアログ */}
+      <ConfirmDialog
+        open={duplicateConfirmTitle !== null}
+        onOpenChange={(open) => { if (!open) setDuplicateConfirmTitle(null) }}
+        title={`「${duplicateConfirmTitle}」を重複して登録しますか？`}
+        message={`「${duplicateConfirmTitle}」はすでに登録されています。\n同じ作品をもう一度追加しますか？`}
+        confirmLabel="登録する"
+        onConfirm={handleConfirmDuplicateAdd}
+      />
     </div>
   )
 }

@@ -165,6 +165,8 @@ export default function MyPage() {
   const [newScenarioId, setNewScenarioId] = useState('')
   const [newPlayedAt, setNewPlayedAt] = useState('')
   const [newStoreId, setNewStoreId] = useState('')
+  // 重複登録確認ダイアログ用ステート（同じシナリオが既に登録されている場合に表示）
+  const [duplicateConfirmTitle, setDuplicateConfirmTitle] = useState<string | null>(null)
 
   // アルバム編集ダイアログ用ステート
   const [editingScenario, setEditingScenario] = useState<PlayedScenario | null>(null)
@@ -268,16 +270,8 @@ export default function MyPage() {
   }
 
 
-  // 手動登録を追加
-  const handleAddManualHistory = async () => {
-    if (!customerId || !newScenarioId) { showToast.error('シナリオは必須です'); return }
-    // 既に登録済み（予約 or 手動）のシナリオなら確認してから追加（同じ作品の再プレイは許容）
-    const alreadyRegistered = playedScenarios.some(s => s.scenario_id === newScenarioId)
-    if (alreadyRegistered) {
-      const title = scenarioOptions.find(o => o.id === newScenarioId)?.title || 'このシナリオ'
-      // eslint-disable-next-line no-alert, no-restricted-globals
-      if (!confirm(`「${title}」はすでに登録されています。\n同じ作品をもう一度追加しますか？`)) return
-    }
+  // 手動登録の実処理（重複確認が不要 or 確認済みの場合に実行）
+  const proceedAddManualHistory = async () => {
     try {
       await addManualHistoryMutation.mutateAsync({ scenarioId: newScenarioId, scenarioOptions, playedAt: newPlayedAt, storeId: newStoreId, storeOptions })
       setIsAddDialogOpen(false)
@@ -285,6 +279,25 @@ export default function MyPage() {
       setNewPlayedAt('')
       setNewStoreId('')
     } catch { /* エラーはmutation内で処理済み */ }
+  }
+
+  // 手動登録を追加
+  const handleAddManualHistory = async () => {
+    if (!customerId || !newScenarioId) { showToast.error('シナリオは必須です'); return }
+    // 既に登録済み（予約 or 手動）のシナリオなら確認してから追加（同じ作品の再プレイは許容）
+    const alreadyRegistered = playedScenarios.some(s => s.scenario_id === newScenarioId)
+    if (alreadyRegistered) {
+      const title = scenarioOptions.find(o => o.id === newScenarioId)?.title || 'このシナリオ'
+      setDuplicateConfirmTitle(title)
+      return
+    }
+    await proceedAddManualHistory()
+  }
+
+  // 重複登録確認ダイアログで「登録する」が押されたときの続行処理
+  const handleConfirmDuplicateAdd = async () => {
+    setDuplicateConfirmTitle(null)
+    await proceedAddManualHistory()
   }
 
   // 手動登録を削除
@@ -514,6 +527,9 @@ export default function MyPage() {
       addManualHistoryMutation={addManualHistoryMutation}
       handleAddManualHistory={handleAddManualHistory}
       handleDeleteManualHistory={handleDeleteManualHistory}
+      duplicateConfirmTitle={duplicateConfirmTitle}
+      setDuplicateConfirmTitle={setDuplicateConfirmTitle}
+      handleConfirmDuplicateAdd={handleConfirmDuplicateAdd}
     />
   )
 }

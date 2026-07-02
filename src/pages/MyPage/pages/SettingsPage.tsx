@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Trash2, AlertTriangle, User, Mail, Bell, Lock, ChevronRight, Phone, MapPin, MessageSquare, Link2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteMyAccount } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
@@ -60,6 +61,7 @@ export function SettingsPage() {
   })
   const [confirmEmail, setConfirmEmail] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
   /** null: 未確認。true のとき退会フローをブロック（公演予約あり） */
   const [hasBlockingPerformanceReservations, setHasBlockingPerformanceReservations] = useState<
     boolean | null
@@ -390,17 +392,17 @@ export function SettingsPage() {
     }
   }
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = () => {
     if (confirmEmail !== user?.email) {
       showToast.warning('メールアドレスが一致しません')
       return
     }
 
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm('本当にアカウントを削除しますか？この操作は取り消せません。')) {
-      return
-    }
+    setShowDeleteConfirmDialog(true)
+  }
 
+  // 削除確認ダイアログで「削除する」が押されたときの実処理
+  const handleConfirmDeleteAccount = async () => {
     setDeleting(true)
     let leaveDeleteDialogOpen = false
     try {
@@ -920,6 +922,17 @@ export function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* アカウント削除の最終確認ダイアログ */}
+      <ConfirmDialog
+        open={showDeleteConfirmDialog}
+        onOpenChange={setShowDeleteConfirmDialog}
+        title="アカウントを削除しますか？"
+        message="本当にアカウントを削除しますか？この操作は取り消せません。"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={handleConfirmDeleteAccount}
+      />
     </div>
   )
 }
