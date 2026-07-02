@@ -5,3 +5,4 @@
  */
 
 export { ConfirmDialog } from './ConfirmDialog'
+export { InputDialog } from './InputDialog'

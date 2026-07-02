@@ -38,7 +38,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from '@/components/ui/sheet'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ConfirmDialog } from '@/components/patterns/modal'
+import { ConfirmDialog, InputDialog } from '@/components/patterns/modal'
 
 // 共通パターン（デザイン規約: docs/IMPROVEMENT_HANDOFF.md 5.1）
 import { EmptyState, ListSkeleton, ListRow } from '@/components/patterns/list'
@@ -234,6 +234,7 @@ const groupedNavItems = NAV_ITEMS.reduce((acc, item) => {
 export function ComponentGallery() {
   const [activeSection, setActiveSection] = useState('buttons')
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [inputDialogOpen, setInputDialogOpen] = useState(false)
 
   // セクションへスクロール
   const scrollToSection = useCallback((id: string) => {
@@ -722,6 +723,23 @@ export function ComponentGallery() {
                     title="この操作を実行しますか？"
                     message="反映には数秒かかる場合があります。"
                     confirmLabel="実行する"
+                    onConfirm={() => new Promise(resolve => window.setTimeout(resolve, 800))}
+                  />
+                </ComponentBox>
+              </SubSection>
+
+              <SubSection title="InputDialog">
+                <ComponentBox>
+                  <Button variant="outline" onClick={() => setInputDialogOpen(true)}>
+                    テキスト入力ダイアログ
+                  </Button>
+                  <InputDialog
+                    open={inputDialogOpen}
+                    onOpenChange={setInputDialogOpen}
+                    title="名前を入力してください"
+                    description="window.prompt の代替となる入力ダイアログです。"
+                    placeholder="例: 山田太郎"
+                    confirmLabel="決定する"
                     onConfirm={() => new Promise(resolve => window.setTimeout(resolve, 800))}
                   />
                 </ComponentBox>
