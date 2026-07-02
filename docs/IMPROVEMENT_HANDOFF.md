@@ -295,10 +295,13 @@ RPC は staging 適用済み（権限=service_role のみ・**集計値の手計
 2. 有効なら: storage URL のみ変換対象＋`onError` で原寸フォールバック付きで再実装。`ui/optimized-image.tsx` と ScenarioCard から適用。無効なら: アップロード時サムネイル生成が必要になるため**設計をオーナーに相談**（勝手に進めない）。
 🔍 予約トップ・シナリオ詳細で画像が全て表示される＋ DevTools Network で転送サイズ縮小を確認。
 
-### - [ ] P7: リスト全行再レンダーの解消（リファクタ本線と同ファイルを触るため要調整）
-1. `src/hooks/useEventOperations.ts`（useCallback 0箇所）のハンドラ束を useCallback 化 → PerformanceCard / TimeSlotCell の既存 React.memo が効くようになる（現在無効化されている）。
-2. CustomerRow は P1 改修に内包。ReservationRow（親 ReservationList.tsx:404-415 が配列全体＋setState を全行に直渡し）は行 props を最小化＋memo。
-⚠ ScheduleManager / 予約者タブはリファクタ本線（docs/REFACTORING_PLAN.md Phase 5/6）の対象。**着手前にオーナーへ作業順を確認**。
+### - [~] P7: リスト全行再レンダーの解消 — **仕様確定（2026-07-03 Fable・scout 実測。バッチ1=スケジュール画面のみ）**
+**実測**: 月表示は約450セル・公演カード約675枚。PerformanceCard(:395)/TimeSlotCell(:260) は **React.memo 済みだが**、ScheduleTable(:273-339) が毎レンダ新規のハンドラ参照（カード6個/セル9個）＋ categoryConfig 新規オブジェクトを渡して memo を全滅させている。
+**方針（バッチ1）**: **カスタム memo 比較関数は使わない**（ハンドラを比較除外すると event 更新漏れバグの温床）。渡す側の安定化のみ:
+1. ScheduleTable が子に渡すハンドラ群を useCallback、categoryConfig 等のオブジェクト props を useMemo 化（exhaustive-deps を disable せず正しい deps で）。
+2. 必要なら useEventOperations 側の未 useCallback ハンドラも安定化（サブフック側は一部対応済み）。
+**やらないこと**: CustomerRow（P1 の50件/頁化で優先度低下・後続候補）/ ReservationRow・予約者タブ（リファクタ本線 Phase 5-4 の対象範囲＝そちらで実施）/ カスタム比較関数 / 🔒公演カード・PerformanceModal の見た目変更。**触るのは ScheduleTable.tsx / useEventOperations.ts（＋サブフック）のみ**＝進行中の 5-4（PerformanceModal）とファイル非重複。
+**検収**: tsc/lint（新規 disable なし）/test green ＋ 🔍実機でスケジュール画面の全操作（追加・編集・削除・中止・復活・D&D移動/コピー・仮公演・予約トグル・満席化）が従来どおり。
 
 ### - [x] P8: jszip を dynamic import に → 対応済み `34146535`
 `exportSchedule.ts` を `await import('jszip')` 方式に。jszip 約97kB が独立チャンク化（ビルドで確認済み）。
