@@ -1,6 +1,7 @@
 # AGENTS.md
 
-開発ルールの詳細はすべて `.cursorrules` を参照すること。
+開発ルールの正規ソースは `.cursorrules`。必ずそちらを参照すること。
+このファイルは最重要ルールの抜粋のみ（CLAUDE.md と内容を同期させること）。
 
 ---
 
@@ -8,31 +9,26 @@
 
 ### ブランチ戦略
 
-**staging で直接作業する。main への直接コミット・プッシュは絶対禁止。**
-
-作業開始前に必ず以下を確認・実行すること：
+**staging ブランチで直接作業する。**
 
 ```bash
-git branch --show-current   # 現在のブランチを確認
-git checkout staging && git pull origin staging  # 常に staging の最新から作業
+git branch --show-current                        # 作業開始前に必ず確認
+git checkout staging && git pull origin staging  # 常に staging の最新から
 ```
 
-### デプロイフロー
+### main への反映（本番デプロイ）
 
-```
-staging で直接実装・コミット・プッシュ
-  → ユーザーがステージング確認
-  → ユーザーが staging → main にマージ（本番デプロイ）
-```
+- **ユーザーの明示的な指示があったときのみ**、staging → main のマージ＋push まで一気に実行してよい
+- 指示なしの main マージ・push は絶対禁止。**force push は常に禁止**
+- マージ前に分岐チェック（`git log origin/staging..origin/main --oneline`）。main に hotfix が直接入っていることがある
+- マージ後は staging を main に ff で resync する
 
-DBマイグレーションがある場合：**DB変更 → フロントデプロイの順序を絶対に守ること。**
+### DBマイグレーションがある場合
 
-- **DBマイグレーションの適用**（`npm run db:push:staging` / `npm run db:push:prod`）：AI が実行してOK。実行前に変更内容を提示し、実行後は確認クエリで結果を報告する。
+**DB変更 → フロントデプロイの順序を絶対に守ること**（逆だと本番エラー、事故実績あり）。
 
-### AIがやってはいけないこと
-
-- main への直接コミット・プッシュ
-- ユーザー確認なしに staging → main をマージ
+- マイグレーション適用（`npm run db:push:staging` / `db:push:prod`）は AI が実行してOK。
+  実行前に変更内容を提示し、実行後は確認クエリで結果を報告する。
 
 ### 作業スコープのルール
 
@@ -42,3 +38,16 @@ DBマイグレーションがある場合：**DB変更 → フロントデプロ
 - リファクタ・クリーンアップ・関連改善は、明示的に頼まれない限りやらない
 - 「ついでに」「念のため」でスコープを広げない
 - 複数の修正が必要な場合は、先に分割案をユーザーに提示して確認を取る
+
+### 動作確認の依頼
+
+staging に push したら必ず動作確認チェックリストを出力する。
+各項目に「どの画面か（ページ名・タブ名・たどり方）」を必ず書く。
+
+---
+
+## 改善タスク（リファクタ・デザイン統一・性能）を実装する場合
+
+- 運用台帳は `docs/IMPROVEMENT_HANDOFF.md`。着手前に読み、完了したら更新する
+- コミット前に `npm run verify` を実行してグリーンであることを確認する
+- デザイン変更時の絶対制約: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）。詳細は `.cursorrules` のデザインシステム章
