@@ -47,9 +47,8 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   const [newPlayedAt, setNewPlayedAt] = useState('')
   // 削除確認ダイアログ対象の手動登録ID
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
-  // 各リストの「もっと見る」（初期は5件のみ表示）
-  const [showAllReservationItems, setShowAllReservationItems] = useState(false)
-  const [showAllManualItems, setShowAllManualItems] = useState(false)
+  // 統合リストの「もっと見る」（初期は5件のみ表示）
+  const [showAllItems, setShowAllItems] = useState(false)
   const PLAYED_PREVIEW_COUNT = 5
 
   const load = useCallback(async () => {
@@ -194,6 +193,14 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
 
   const isOverridden = (smId: string | null) => !!smId && overrideIds.has(smId)
 
+  // 予約由来・手動登録を1つのリストに統合（日付降順・日付なしは末尾）
+  const mergedItems = [...reservationItems, ...manualItems].sort((a, b) => {
+    if (a.date && b.date) return a.date < b.date ? 1 : a.date > b.date ? -1 : 0
+    if (a.date) return -1
+    if (b.date) return 1
+    return 0
+  })
+
   return (
     <div>
       <h4 className="mb-2 font-bold text-sm">体験済みシナリオ管理</h4>
@@ -201,72 +208,51 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
         <div className="text-center py-4 text-xs text-muted-foreground">読み込み中...</div>
       ) : (
         <div className="space-y-3">
-          {/* 予約由来 */}
+          {/* 体験済みシナリオ（予約由来・手動登録を統合） */}
           <div className="p-3 bg-background rounded-lg border">
-            <div className="text-xs text-muted-foreground mb-2">予約由来（{reservationItems.length}件）</div>
-            {reservationItems.length === 0 ? (
+            <div className="text-xs text-muted-foreground mb-2">体験済みシナリオ（合計{mergedItems.length}件）</div>
+            {mergedItems.length === 0 ? (
               <div className="text-xs text-muted-foreground">なし</div>
             ) : (
-              <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                {(showAllReservationItems ? reservationItems : reservationItems.slice(0, PLAYED_PREVIEW_COUNT)).map(item => {
-                  const overridden = isOverridden(item.scenarioMasterId)
+              <div className="space-y-1.5 mb-2 max-h-[280px] overflow-y-auto pr-1">
+                {(showAllItems ? mergedItems : mergedItems.slice(0, PLAYED_PREVIEW_COUNT)).map(item => {
+                  const overridden = item.source === 'reservation' && isOverridden(item.scenarioMasterId)
                   return (
-                    <div key={`r-${item.scenarioMasterId}`} className="flex items-center justify-between gap-2">
+                    <div key={item.source === 'manual' ? `m-${item.manualId}` : `r-${item.scenarioMasterId}`} className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex items-center gap-2">
                         <span className={`text-sm truncate ${overridden ? 'line-through text-muted-foreground' : ''}`}>{item.title}</span>
+                        {item.date
+                          ? <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground shrink-0">{formatJstYmd(item.date)}</Badge>
+                          : <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground shrink-0">{item.source === 'reservation' ? '予約' : '手動'}</Badge>}
                         {overridden && <Badge variant="outline" className="text-[10px] font-normal text-amber-700 border-amber-300 shrink-0">未体験</Badge>}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={busy || !item.scenarioMasterId}
-                        className={`h-7 px-2 text-xs shrink-0 ${overridden ? 'text-green-700 border-green-300 hover:bg-green-50' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
-                        onClick={() => toggleOverride(item.scenarioMasterId!, !overridden)}
-                      >
-                        <RotateCcw className="h-3 w-3 mr-1" />
-                        {overridden ? '体験済みに戻す' : '未体験に戻す'}
-                      </Button>
+                      {item.source === 'reservation' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || !item.scenarioMasterId}
+                          className={`h-7 px-2 text-xs shrink-0 ${overridden ? 'text-green-700 border-green-300 hover:bg-green-50' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                          onClick={() => toggleOverride(item.scenarioMasterId!, !overridden)}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          {overridden ? '体験済みに戻す' : '未体験に戻す'}
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-destructive border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
+                          <Trash2 className="h-3 w-3 mr-1" />削除
+                        </Button>
+                      )}
                     </div>
                   )
                 })}
-                {!showAllReservationItems && reservationItems.length > PLAYED_PREVIEW_COUNT && (
+                {!showAllItems && mergedItems.length > PLAYED_PREVIEW_COUNT && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="w-full h-7 text-xs text-muted-foreground"
-                    onClick={() => setShowAllReservationItems(true)}
+                    onClick={() => setShowAllItems(true)}
                   >
-                    もっと見る（あと {reservationItems.length - PLAYED_PREVIEW_COUNT} 件）
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 手動登録 */}
-          <div className="p-3 bg-background rounded-lg border">
-            <div className="text-xs text-muted-foreground mb-2">手動登録（{manualItems.length}件）</div>
-            {manualItems.length > 0 && (
-              <div className="space-y-1.5 mb-2 max-h-[160px] overflow-y-auto pr-1">
-                {(showAllManualItems ? manualItems : manualItems.slice(0, PLAYED_PREVIEW_COUNT)).map(item => (
-                  <div key={`m-${item.manualId}`} className="flex items-center justify-between gap-2">
-                    <span className="text-sm truncate">
-                      {item.title}
-                      {item.date && <span className="text-xs text-muted-foreground ml-2">{formatJstYmd(item.date)}</span>}
-                    </span>
-                    <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-destructive border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
-                      <Trash2 className="h-3 w-3 mr-1" />削除
-                    </Button>
-                  </div>
-                ))}
-                {!showAllManualItems && manualItems.length > PLAYED_PREVIEW_COUNT && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full h-7 text-xs text-muted-foreground"
-                    onClick={() => setShowAllManualItems(true)}
-                  >
-                    もっと見る（あと {manualItems.length - PLAYED_PREVIEW_COUNT} 件）
+                    もっと見る（あと {mergedItems.length - PLAYED_PREVIEW_COUNT} 件）
                   </Button>
                 )}
               </div>
