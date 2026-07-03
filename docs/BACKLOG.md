@@ -37,7 +37,7 @@
 ## 🔐 セキュリティ・設計の残り
 
 - ⬜ **S8** isAdmin が license_admin を内包する曖昧さの整理 ← issue #198
-- ⬜ **M5** org_scope API 化の残4箇所 / **M6** CI grep ガード追加
+- ✅ **M5** org_scope 残4箇所 → 監査の結果: 直接書き込み3関数は**呼び出し元ゼロの死にコードで削除** `724a58c6`、残り（resolveOrganizationScenarioView / storeApi.getAllPublic / skipOrgFilter）は RLS 保護＋意図的仕様で現状維持と判定 / ✅ **M6** CI grep ガード新設 `96e853b4`（ベースライン163・増加で fail・ci.yml 配線済み）
 - ⬜ **M18** カラムレベル権限分離（S1 の続き・大掛かり・低）← issue #57
 - ⬜ **S5（オーナー作業含む）** Supabase キーのローテーション（sb_secret＋DBパスワード）
 
