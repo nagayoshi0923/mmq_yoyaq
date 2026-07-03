@@ -275,8 +275,8 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string, 
   return res.status(200).json(data ?? [])
 }
 
-// 単一シナリオ取得: master_id または org_scenario_id で、まず自組織を、ダメなら共有シナリオを検索。
-// 他組織の非共有シナリオを返さないよう is_shared=true で明示フィルタする（RLS に依存しない）。
+// 単一シナリオ取得: master_id または org_scenario_id で、自組織のシナリオのみ検索する。
+// 他組織のシナリオは返さない（機密漏洩防止のため is_shared フォールバックは廃止）。
 // anon の場合は公開フィールド + status='available' で絞り込む。
 async function handleGetById(res: VercelResponse, orgId: string, id: string, isAnon: boolean) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
@@ -309,41 +309,15 @@ async function handleGetById(res: VercelResponse, orgId: string, id: string, isA
     console.error('[scenarios:getById] step2 error:', r2.error)
   }
 
-  // 3. 共有シナリオ（他組織でも is_shared=true なら可）から id 検索
-  let q3 = db
-    .from('organization_scenarios_with_master')
-    .select(fields)
-    .eq('id', id)
-    .eq('is_shared', true)
-  if (isAnon) q3 = q3.eq('status', 'available')
-  const r3 = await q3.limit(1)
-  if (r3.error) {
-    console.error('[scenarios:getById] step3 error:', r3.error)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: r3.error.message })
-  }
-  if (r3.data?.[0]) return res.status(200).json(r3.data[0])
-
-  // 4. 共有シナリオから org_scenario_id でも検索
-  let q4 = db
-    .from('organization_scenarios_with_master')
-    .select(fields)
-    .eq('org_scenario_id', id)
-    .eq('is_shared', true)
-  if (isAnon) q4 = q4.eq('status', 'available')
-  const r4 = await q4.limit(1)
-  if (r4.error) {
-    console.error('[scenarios:getById] step4 error:', r4.error)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: r4.error.message })
-  }
-
-  return res.status(200).json(r4.data?.[0] ?? null)
+  // 自組織で見つからなければ 404。
+  // （他組織の is_shared シナリオを返すフォールバックは機密漏洩のため廃止）
+  return res.status(404).json({ error: 'シナリオが見つかりません' })
 }
 
 // slug で単一シナリオ取得
 // 1. 自組織の slug で直接検索
 // 2. 他組織の slug からマスターIDを取得 → 自組織でそのマスターIDを検索
-//    （マスターのslugを複数組織で共有する場合の正しい引き当て）
-// 3. is_shared=true の共有シナリオから検索（フォールバック）
+//    （マスターのslugを複数組織で共有する場合の正しい引き当て。返すのは常に自組織のレコード）
 async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string, isAnon: boolean) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
@@ -383,20 +357,9 @@ async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string,
     }
   }
 
-  // Step 3: is_shared=true の共有シナリオから（フォールバック）
-  let q2 = db
-    .from('organization_scenarios_with_master')
-    .select(fields)
-    .eq('slug', slug)
-    .eq('is_shared', true)
-  if (isAnon) q2 = q2.eq('status', 'available')
-  const r2 = await q2.limit(1)
-  if (r2.error) {
-    console.error('[scenarios:getBySlug] step2 error:', r2.error)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: r2.error.message })
-  }
-
-  return res.status(200).json(r2.data?.[0] ?? null)
+  // 自組織で見つからなければ 404。
+  // （他組織の is_shared シナリオを返すフォールバックは機密漏洩のため廃止）
+  return res.status(404).json({ error: 'シナリオが見つかりません' })
 }
 
 // 旧 scenarios テーブルから取得（レガシー機能用）。組織でフィルタ。
@@ -1031,18 +994,24 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
   }
 
   // マスターを draft → pending に昇格（自組織が「公開中」にした場合のみ）
-  // TODO: 共有マスター（他組織が作成）の master_status を勝手に変えるのはリスクあり。
-  // 現状は旧挙動と同じく、自組織がこのマスターを保有していることを ensureOwnedByOrg で
-  // 確認済みなので、draft→pending 昇格自体は許可している。将来的には
-  // submitted_by_organization_id が自組織であることもチェックすることを検討する。
+  // 共有マスター（他組織が作成）の master_status を勝手に変えないよう、
+  // submitted_by_organization_id が自組織のマスターに限って昇格する。
+  // 他組織提出のマスターの場合は黙ってスキップ（エラーにしない）。
   if (updates.status === 'available') {
     const { data: masterData } = await db
       .from('scenario_masters')
-      .select('id, master_status')
+      .select('id, master_status, submitted_by_organization_id')
       .eq('id', id)
       .maybeSingle()
 
-    if (masterData && (masterData as { master_status?: string }).master_status === 'draft') {
+    const master = masterData as
+      | { master_status?: string; submitted_by_organization_id?: string | null }
+      | null
+    if (
+      master &&
+      master.master_status === 'draft' &&
+      master.submitted_by_organization_id === orgId
+    ) {
       await db
         .from('scenario_masters')
         .update({ master_status: 'pending', updated_at: new Date().toISOString() })
