@@ -273,7 +273,7 @@ const { data: bookings, error: bookingsError } = await supabase
 - `database/migrations/004_strict_rls_policies.sql`
 - `database/migrations/004b_rls_main_tables.sql`
 - `database/migrations/004_strict_rls_policies_safe.sql`
-- `supabase/migrations/add_organization_rls_policies.sql`
+- `supabase/sql_archive/add_organization_rls_policies.sql`
 
 複数のRLSポリシーファイルが存在し、どれが適用されているか不明確
 
