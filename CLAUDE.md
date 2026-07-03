@@ -65,7 +65,7 @@ staging に push したら必ず動作確認チェックリストを出力する
 |------|--------|
 | コード調査・呼び出し元列挙・影響範囲マップ | `scout` サブエージェント（haiku・読み取り専用） |
 | 検証スイート実行（typecheck / lint / check:* / test） | `checker` サブエージェント（haiku・変更不可） |
-| 仕様が固まった実装 | `mmq-impl` サブエージェント（sonnet）**または** Codex（`/codex` で指示書生成） |
+| 仕様が固まった実装 | `mmq-impl` サブエージェント（opus）**または** Codex（`/codex` で指示書生成） |
 | 大きな機能実装・改善タスク | Codex（`/codex` で指示書生成。台帳 = docs/IMPROVEMENT_HANDOFF.md） |
 
 - **mmq-impl / Codex の成果物は、メインモデルが必ず `git diff` をレビューしてからコミットする**（コミット・push・DB操作は委譲しない）
