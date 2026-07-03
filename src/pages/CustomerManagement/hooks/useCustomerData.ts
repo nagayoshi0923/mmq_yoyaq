@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { customerApi, type CustomerWithStats } from '@/lib/api/customerApi'
+import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -87,7 +88,7 @@ export function useCustomerData(searchTerm = '') {
   })
 
   const refreshCustomers = () =>
-    queryClient.invalidateQueries({ queryKey: customerKeys.all, refetchType: 'all' })
+    invalidateEverywhere(queryClient, customerKeys.all)
 
   return {
     customers: data?.customers ?? [],

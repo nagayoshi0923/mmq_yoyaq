@@ -15,7 +15,7 @@
 2. 各コミット前に必ず: `npx tsc --noEmit` / `npm run lint` / `npm run build:fast` / `npm run test:unit` すべて green。
 3. **DB を触るタスク**: SQL 全文を提示→承認後に `npm run db:push:staging` → 確認クエリの結果を報告 → staging 実機確認後にオーナー判断で prod。**DB変更→フロントデプロイの順序厳守**。
 4. このプロジェクト固有の罠（過去に実際に事故ったもの）:
-   - **React Query**: グローバル既定が `refetchOnMount:false`＋`staleTime:5分`（`src/AppRoot.tsx:41-55`）。mutation 後に**別画面**のリストを更新するときは `invalidateQueries({queryKey, refetchType:'all'})` を必ず付ける。
+   - **React Query**: グローバル既定が `refetchOnMount:false`＋`staleTime:5分`（`src/AppRoot.tsx:41-55`）。mutation 後に**別画面**のリストを更新するときは `invalidateQueries({queryKey, refetchType:'all'})` を必ず付ける（ヘルパー: `src/lib/queryInvalidation.ts` の invalidateEverywhere を使う）。
    - **RPC**: この DB の RPC は失敗時に例外でなく `{success:false}` を返すものがある。**戻り値の success を必ず判定**（手本: `api/reservations.ts:699-709`）。
    - **トリガー内 INSERT**: `ON CONFLICT (col)` を書く前にその col に UNIQUE があるか確認。複数 INSERT は内側 `BEGIN/EXCEPTION` で隔離。
    - **新規テーブル**: prod は既定で authenticated に ALL（TRUNCATE 含む）を付与する。作成時に必ず REVOKE（テンプレ: `supabase/migrations/20260630130000_create_customer_played_overrides.sql`）。

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { reservationApi } from '@/lib/reservationApi'
+import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { logger } from '@/utils/logger'
 
 export const reservationDetailKeys = {
@@ -98,8 +99,8 @@ export function useCancelReservationMutation(reservationId: string, onSuccess: (
       queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
       // マイページ予約一覧(mypage-data)も更新しないとキャンセルが一覧に反映されない。
       // グローバル既定が refetchOnMount:false のため、非アクティブなクエリでも即再取得する
-      // refetchType:'all' を明示しないと stale マークされるだけで再取得されない。
-      queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })
+      // invalidateEverywhere(refetchType:'all') を使わないと stale マークされるだけで再取得されない。
+      invalidateEverywhere(queryClient, ['mypage-data'])
       onSuccess()
     },
     onError: (error) => {
@@ -130,7 +131,7 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
-      queryClient.invalidateQueries({ queryKey: ['mypage-data'], refetchType: 'all' })
+      invalidateEverywhere(queryClient, ['mypage-data'])
     },
     onError: (error) => {
       logger.error('人数変更エラー:', error)
