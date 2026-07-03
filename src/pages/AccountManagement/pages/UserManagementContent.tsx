@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
 import { Users, Shield, AlertCircle, Search, UserCog, User as UserIcon } from 'lucide-react'
 import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
@@ -230,12 +229,10 @@ export function UserManagementContent() {
   return (
     <>
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <PageHeader
-          title={<><UserCog className="h-5 w-5 text-primary" />ユーザー管理</>}
-          description="スタッフ・管理者のアカウントとロールを管理"
-        >
+        {/* アクション行（タイトルは外側 PageHeader に集約） */}
+        <div className="flex items-center justify-end">
           <HelpButton topic="user" label="ユーザー管理マニュアル" />
-        </PageHeader>
+        </div>
 
         <Card className="shadow-none border">
           <CardHeader className="p-3 sm:p-4 md:p-6">

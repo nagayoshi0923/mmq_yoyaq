@@ -5,9 +5,8 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import { UserPlus, Search, Users } from 'lucide-react'
+import { UserPlus, Search } from 'lucide-react'
 import { useCustomerData } from '@/pages/CustomerManagement/hooks/useCustomerData'
 import { CustomerRow } from '@/pages/CustomerManagement/components/CustomerRow'
 import { CustomerEditModal } from '@/pages/CustomerManagement/components/CustomerEditModal'
@@ -42,10 +41,8 @@ export function CustomerManagementContent() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={<><Users className="h-5 w-5 text-primary" />顧客</>}
-        description={`全${totalCount}名の予約顧客を管理`}
-      >
+      {/* アクション行（タイトルは外側 PageHeader に集約） */}
+      <div className="flex items-center justify-end gap-2">
         <HelpButton topic="customer" label="顧客管理マニュアル" />
         <Button onClick={() => {
           setSelectedCustomer(null)
@@ -55,7 +52,7 @@ export function CustomerManagementContent() {
           <span className="hidden sm:inline">新規顧客</span>
           <span className="sm:hidden">新規</span>
         </Button>
-      </PageHeader>
+      </div>
 
       {/* 検索バー */}
       <div className="relative">
