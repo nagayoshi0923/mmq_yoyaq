@@ -469,17 +469,22 @@ export function useKitManagementHandlers({
       
       // scenarioApi.update は scenario_master_id (= scenario.id) を期待
       const updateId = currentScenario?.id || scenarioId
-      await scenarioApi.update(updateId, { kit_count: newCount })
-      showToast.success(`キット数を${newCount}に変更しました`)
-      
-      // シナリオリストを更新
+      // サーバーが確定した kit_count を受け取り、それを state の正とする。
+      // （楽観的に newCount を書き込むだけだと、サーバー側の正規化・保存失敗時に
+      //  表示だけ先行してズレる。開き直し時の fetchData() が返す DB 値と
+      //  必ず一致させるため、更新後レスポンスの kit_count を採用する）
+      const updated = await scenarioApi.update(updateId, { kit_count: newCount })
+      const persistedCount = updated?.kit_count ?? newCount
+      showToast.success(`キット数を${persistedCount}に変更しました`)
+
+      // シナリオリストを更新（サーバー確定値で反映）
       setScenarios(prev => prev.map(s => {
         const orgScenarioId = (s as { org_scenario_id?: string }).org_scenario_id
-        return (orgScenarioId === scenarioId || s.id === scenarioId) 
-          ? { ...s, kit_count: newCount } 
+        return (orgScenarioId === scenarioId || s.id === scenarioId)
+          ? { ...s, kit_count: persistedCount }
           : s
       }))
-      
+
       // キット位置も再取得して同期
       const locationsData = await kitApi.getKitLocations()
       setKitLocations(locationsData)

@@ -22,13 +22,16 @@ type KitLocationRaw = {
 }
 
 function transformKitLocation(item: KitLocationRaw): KitLocation {
+  // NOTE: /api/kit-locations は kit_count を返さないため、ここでは scenario の
+  // id / title のみを埋める。kit_count は各消費側が scenarios state（scenarioMap）
+  // から実値を引く（過去はここで 1 をハードコードしていたが、値を偽るだけで
+  // どこからも参照されない負債だったため削除）。
   if (item.org_scenario) {
     return {
       ...item,
       scenario: {
         id: item.org_scenario.scenario_master_id,
         title: item.org_scenario.scenario_masters?.title || '',
-        kit_count: 1,
       },
     } as unknown as KitLocation
   }
@@ -38,7 +41,6 @@ function transformKitLocation(item: KitLocationRaw): KitLocation {
       scenario: {
         id: item.scenario_master.id,
         title: item.scenario_master.title || '',
-        kit_count: 1,
       },
     } as unknown as KitLocation
   }
