@@ -187,6 +187,21 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       for (const row of data || []) {
         map.set(row.store_id as string, row as BusinessHoursSettingRow)
       }
+
+      // 既存公演を無視すると埋まっている枠が空きに見えるため、貸切確認ページ（PrivateBookingRequest）と
+      // 同じソース・カラム・フィルタで対象日・対象店舗の公演を取得して空き判定に渡す。
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('schedule_events_public')
+        .select('id, date, start_time, end_time, store_id, scenario, category, is_cancelled')
+        .in('store_id', storeIdsForSlots)
+        .eq('date', date)
+        .eq('is_cancelled', false)
+      if (cancelled) return
+      if (eventsError) {
+        logger.error('貸切リクエストページ: イベント取得エラー', eventsError)
+      }
+      const storeEvents = eventsData || []
+
       const scenarioDur =
         typeof scenario.duration === 'number' && scenario.duration > 0 ? scenario.duration : 180
       const weekendDur =
@@ -198,7 +213,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         storeIds: storeIdsForSlots,
         businessHoursByStore: map,
         scenarioTiming: { duration: scenarioDur, weekend_duration: weekendDur },
-        allStoreEvents: [],
+        allStoreEvents: storeEvents,
         isCustomHoliday,
         privateBookingTimeSlots: Array.isArray(scenario.private_booking_time_slots)
           ? scenario.private_booking_time_slots
