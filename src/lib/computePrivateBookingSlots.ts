@@ -115,7 +115,7 @@ function getBestSlotCandidateAcrossStores(
         const eEnd = ev.end_time
           ? (timeStrToMinutes(String(ev.end_time)) ?? eStart + 240)
           : eStart + 240
-        const endBuf = eEnd + 60
+        const endBuf = eEnd + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
         if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
       }
       startForFeasibility = Math.max(reverseStart, latestPriorEnd)
@@ -151,7 +151,7 @@ function getBestSlotCandidateAcrossStores(
           const eEnd = ev.end_time
             ? (timeStrToMinutes(String(ev.end_time)) ?? eStart + 240)
             : eStart + 240
-          const endBuf = eEnd + 60
+          const endBuf = eEnd + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
           if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
         }
         startForFeasibility = Math.max(reverseStart, latestPriorEnd)
@@ -377,7 +377,7 @@ export function computePrivateBookingSlots(
         }
       }
 
-      const bufferNeeded = 60 + extraPrepTime
+      const bufferNeeded = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES + extraPrepTime
       const effectiveEndLimit = anyStoreWithoutNext
         ? HARD_DAY_LIMIT - extraPrepTime
         : (bestNextEventStart ?? HARD_DAY_LIMIT) - bufferNeeded

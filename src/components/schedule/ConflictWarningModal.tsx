@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle } from 'lucide-react'
+import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 
 interface ConflictingEvent {
   scenario: string
@@ -37,7 +38,7 @@ export function ConflictWarningModal({
   const title = isOverlap ? '公演の時間が重複しています' : '前後の公演と間隔が短いです'
   const description = isOverlap
     ? '同じ店舗・日付で、既存の公演と時間が重なっています。'
-    : '前後の公演との間隔が、推奨（60分）より短くなっています。'
+    : `前後の公演との間隔が、推奨（${PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES}分）より短くなっています。`
 
   const handleContinue = () => {
     onContinue()

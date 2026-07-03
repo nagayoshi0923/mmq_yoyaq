@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Users, AlertTriangle } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import type { GmStatsData, GmStatsItem } from '@/pages/ScheduleManager/hooks/useGmStats'
 import type { ScheduleWarning } from '@/utils/scheduleWarnings'
+import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 
 interface CategoryGmStatsBarProps {
   // カテゴリフィルター
@@ -23,7 +24,7 @@ interface CategoryGmStatsBarProps {
 
 const WARNING_REASON_LABEL: Record<string, string> = {
   incomplete: '未定',
-  interval: '間隔<60分',
+  interval: `間隔<${PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES}分`,
   kit: 'キット未配置',
 }
 

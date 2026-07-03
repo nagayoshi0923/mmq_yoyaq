@@ -81,7 +81,7 @@ export function getPrivateBookingStoreSlotFeasibility(
     if (!st) continue
     const eventStart = timeToMinutes(st)
     const eventEnd = e.end_time ? timeToMinutes(e.end_time) : eventStart + 240
-    const eventEndWithBuffer = eventEnd + 60
+    const eventEndWithBuffer = eventEnd + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
     if (eventStart < slotBandEnd && eventEndWithBuffer > slotBandStart) {
       if (eventEndWithBuffer > latestEventEnd) latestEventEnd = eventEndWithBuffer
     }

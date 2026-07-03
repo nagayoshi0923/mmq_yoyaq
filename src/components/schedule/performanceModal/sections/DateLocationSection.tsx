@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import type { EventFormData, ScheduleEvent } from '@/types/schedule'
 import type { Store } from '@/types'
+import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 
 interface DateLocationSectionProps {
   formData: EventFormData
@@ -128,7 +129,7 @@ export function DateLocationSection({
               <p className={`text-[11px] pl-[84px] ${timeConflict.kind === 'overlap' ? 'text-red-600' : 'text-amber-700'}`}>
                 ⚠️ {timeConflict.event.start_time.slice(0, 5)}〜{timeConflict.event.end_time.slice(0, 5)}
                 {timeConflict.event.scenario ? `（${timeConflict.event.scenario}）` : ''}と
-                {timeConflict.kind === 'overlap' ? '時間が重複しています。' : '間隔が短いです（推奨60分）。'}
+                {timeConflict.kind === 'overlap' ? '時間が重複しています。' : `間隔が短いです（推奨${PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES}分）。`}
                 このまま保存もできます（既存公演は削除されません）。
               </p>
             )}
