@@ -48,7 +48,7 @@
 - ⬜ **M4** Edge Functions 残骸4関数の削除＋corsHeaders 集約
 - ✅ **M7** 60分ハードコード集約＋UI文言連動 `31ebe98a`（挙動不変証明済み・スモークOK）
 - ⬜ **M8** 野良SQL 22件の隔離 / **M9** 到達不能ハンドラ削除＋knip / **M10** useCustomHolidays realtime（低）
-- ⬜ **BUG-8** `npm run db:status` が常に「全適用済み」と誤報告（運用は生コマンドで回避中）
+- ✅ **BUG-8** `npm run db:status` が常に「全適用済み」と誤報告 → scripts/db-status.mjs に置換 `b8af8611`（staging/prod 両方を明示チェック・JSON パース・接続失敗も fail・両環境450件＋ダミー検出で実測済み。生コマンド回避運用は不要に）
 - ⬜ **M14** HTMLメール化＋開封トラッキング / **M15** キット移動の曜日設定 / **M16** slug リアルタイムチェック / **M17** プロフィールガード整理
 - ⬜ **M11** 依存メジャー更新（vite→tailwind→react の順・リファクタ後）
 
