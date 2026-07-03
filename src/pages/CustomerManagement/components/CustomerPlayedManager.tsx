@@ -47,6 +47,10 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   const [newPlayedAt, setNewPlayedAt] = useState('')
   // 削除確認ダイアログ対象の手動登録ID
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  // 各リストの「もっと見る」（初期は5件のみ表示）
+  const [showAllReservationItems, setShowAllReservationItems] = useState(false)
+  const [showAllManualItems, setShowAllManualItems] = useState(false)
+  const PLAYED_PREVIEW_COUNT = 5
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -204,7 +208,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
               <div className="text-xs text-muted-foreground">なし</div>
             ) : (
               <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                {reservationItems.map(item => {
+                {(showAllReservationItems ? reservationItems : reservationItems.slice(0, PLAYED_PREVIEW_COUNT)).map(item => {
                   const overridden = isOverridden(item.scenarioMasterId)
                   return (
                     <div key={`r-${item.scenarioMasterId}`} className="flex items-center justify-between gap-2">
@@ -225,6 +229,16 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
                     </div>
                   )
                 })}
+                {!showAllReservationItems && reservationItems.length > PLAYED_PREVIEW_COUNT && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 text-xs text-muted-foreground"
+                    onClick={() => setShowAllReservationItems(true)}
+                  >
+                    もっと見る（あと {reservationItems.length - PLAYED_PREVIEW_COUNT} 件）
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -234,17 +248,27 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
             <div className="text-xs text-muted-foreground mb-2">手動登録（{manualItems.length}件）</div>
             {manualItems.length > 0 && (
               <div className="space-y-1.5 mb-2 max-h-[160px] overflow-y-auto pr-1">
-                {manualItems.map(item => (
+                {(showAllManualItems ? manualItems : manualItems.slice(0, PLAYED_PREVIEW_COUNT)).map(item => (
                   <div key={`m-${item.manualId}`} className="flex items-center justify-between gap-2">
                     <span className="text-sm truncate">
                       {item.title}
                       {item.date && <span className="text-xs text-muted-foreground ml-2">{formatJstYmd(item.date)}</span>}
                     </span>
-                    <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
+                    <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-destructive border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
                       <Trash2 className="h-3 w-3 mr-1" />削除
                     </Button>
                   </div>
                 ))}
+                {!showAllManualItems && manualItems.length > PLAYED_PREVIEW_COUNT && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 text-xs text-muted-foreground"
+                    onClick={() => setShowAllManualItems(true)}
+                  >
+                    もっと見る（あと {manualItems.length - PLAYED_PREVIEW_COUNT} 件）
+                  </Button>
+                )}
               </div>
             )}
             {/* 手動追加フォーム */}

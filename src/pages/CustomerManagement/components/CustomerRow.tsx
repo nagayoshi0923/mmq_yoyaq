@@ -34,6 +34,9 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [couponUsages, setCouponUsages] = useState<CouponUsageHistory[]>([])
   const [loading, setLoading] = useState(false)
+  // 予約履歴の「もっと見る」（初期は最新5件のみ表示）
+  const [showAllReservations, setShowAllReservations] = useState(false)
+  const RESERVATION_PREVIEW_COUNT = 5
 
   // 展開時に予約履歴とクーポン使用履歴を取得
   useEffect(() => {
@@ -221,8 +224,8 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
 
       {/* 展開エリア（詳細情報） */}
       {isExpanded && (
-        <div className="border-t bg-muted/20 p-4 space-y-4">
-          {/* 顧客詳細 */}
+        <div className="border-t bg-muted/20 p-4 space-y-6">
+          {/* ① 顧客情報・メモ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <h4 className="mb-2 font-bold text-sm">顧客情報</h4>
@@ -251,11 +254,11 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
             </div>
           </div>
 
-          {/* クーポン情報 */}
-          <div>
+          {/* ② クーポン（残高・使用履歴 ＋ 操作） */}
+          <div className="space-y-3">
             <h4 className="mb-2 font-bold text-sm flex items-center gap-2">
               <Ticket className="h-4 w-4" />
-              クーポン情報
+              クーポン
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* クーポン残高 */}
@@ -272,7 +275,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
                   <div className="text-sm text-muted-foreground">クーポンなし</div>
                 )}
               </div>
-              
+
               {/* クーポン使用履歴 */}
               <div className="p-3 bg-background rounded-lg border">
                 <div className="text-xs text-muted-foreground mb-1">使用履歴</div>
@@ -286,22 +289,24 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
                           <span className="text-muted-foreground">{formatDate(usage.used_at)}</span>
                           <span className="truncate max-w-[150px]">{usage.reservation?.title || '予約'}</span>
                         </div>
-                        <span className="font-medium text-red-500">-¥{usage.discount_amount.toLocaleString()}</span>
+                        <span className="font-medium text-destructive">-¥{usage.discount_amount.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             </div>
+
+            {/* クーポン操作（Step C）＝ クーポンセクション内に配置（細い区切りで1段階層） */}
+            <div className="pt-3 border-t">
+              <CustomerCouponManager customerId={customer.id} />
+            </div>
           </div>
 
-          {/* 体験済みシナリオ管理（Step B） */}
+          {/* ③ 体験済みシナリオ（Step B） */}
           <CustomerPlayedManager customerId={customer.id} />
 
-          {/* クーポン操作（Step C） */}
-          <CustomerCouponManager customerId={customer.id} />
-
-          {/* 予約履歴 */}
+          {/* ④ 予約履歴 */}
           <div>
             <h4 className="mb-2 font-bold text-sm">予約履歴 ({reservations.length}件)</h4>
             {loading ? (
@@ -310,7 +315,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
               <div className="text-center py-4 text-xs text-muted-foreground">予約履歴がありません</div>
             ) : (
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                {reservations.map((reservation) => (
+                {(showAllReservations ? reservations : reservations.slice(0, RESERVATION_PREVIEW_COUNT)).map((reservation) => (
                   <div key={reservation.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-2">
                     <div className="flex-1">
                       <div className="text-sm font-medium">{reservation.title}</div>
@@ -350,6 +355,16 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
                     </div>
                   </div>
                 ))}
+                {!showAllReservations && reservations.length > RESERVATION_PREVIEW_COUNT && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground"
+                    onClick={() => setShowAllReservations(true)}
+                  >
+                    もっと見る（あと {reservations.length - RESERVATION_PREVIEW_COUNT} 件）
+                  </Button>
+                )}
               </div>
             )}
           </div>

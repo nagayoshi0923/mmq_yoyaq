@@ -28,9 +28,9 @@ function discountLabel(c?: CouponCampaign | null): string {
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   active: { label: '有効', cls: 'text-green-700 border-green-300' },
-  fully_used: { label: '使用済み', cls: 'text-gray-500 border-gray-300' },
-  expired: { label: '期限切れ', cls: 'text-gray-500 border-gray-300' },
-  revoked: { label: '取消済み', cls: 'text-red-600 border-red-300' },
+  fully_used: { label: '使用済み', cls: 'text-muted-foreground border-border' },
+  expired: { label: '期限切れ', cls: 'text-muted-foreground border-border' },
+  revoked: { label: '取消済み', cls: 'text-destructive border-red-300' },
 }
 
 export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps) {
@@ -178,7 +178,7 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
             ) : (
               <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
                 {coupons.map(c => {
-                  const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'text-gray-500 border-gray-300' }
+                  const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'text-muted-foreground border-border' }
                   return (
                     <div key={c.id} className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex items-center gap-2 flex-wrap">
@@ -204,7 +204,7 @@ export function CustomerCouponManager({ customerId }: CustomerCouponManagerProps
                         {c.expires_at && <span className="text-[10px] text-muted-foreground">〜{formatJstYmd(c.expires_at)}</span>}
                       </div>
                       {isUnused(c) && (
-                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-red-600 border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => revoke(c.id)}>
+                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-destructive border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => revoke(c.id)}>
                           <X className="h-3 w-3 mr-1" />取消
                         </Button>
                       )}

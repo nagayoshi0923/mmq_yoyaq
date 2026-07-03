@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import { UserPlus, Search, Users } from 'lucide-react'
+import { SearchInput } from '@/components/patterns/filter'
+import { EmptyState, ListSkeleton } from '@/components/patterns/list'
+import { UserPlus, Users } from 'lucide-react'
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
@@ -68,15 +68,11 @@ export default function CustomerManagement() {
         </PageHeader>
 
         {/* 検索バー */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="顧客名、メール、電話番号で検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-10 bg-white w-full max-w-md"
-          />
-        </div>
+        <SearchInput
+          placeholder="顧客名、メール、電話番号で検索..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
         {/* 顧客一覧 */}
         <div className="space-y-4">
@@ -85,33 +81,12 @@ export default function CustomerManagement() {
           </div>
 
           {loading ? (
-            <div className="space-y-2">
-              {/* ヘッダー行 */}
-              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 bg-muted/50 rounded-lg">
-                {[2,2,2,1,1,1,1,1,1].map((span, i) => (
-                  <div key={i} className={`col-span-${span}`}>
-                    <Skeleton className="h-3 w-full" />
-                  </div>
-                ))}
-              </div>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="grid grid-cols-12 gap-4 px-4 py-3 border rounded-lg items-center">
-                  <div className="col-span-2"><Skeleton className="h-4 w-24" /></div>
-                  <div className="col-span-2 hidden md:block"><Skeleton className="h-4 w-36" /></div>
-                  <div className="col-span-2 hidden md:block"><Skeleton className="h-4 w-28" /></div>
-                  <div className="col-span-1 hidden md:flex justify-center"><Skeleton className="h-4 w-8" /></div>
-                  <div className="col-span-1 hidden md:flex justify-center"><Skeleton className="h-4 w-8" /></div>
-                  <div className="col-span-1 hidden md:flex justify-center"><Skeleton className="h-4 w-8" /></div>
-                  <div className="col-span-1 hidden md:flex justify-end"><Skeleton className="h-4 w-16" /></div>
-                  <div className="col-span-1 hidden md:block"><Skeleton className="h-4 w-20" /></div>
-                  <div className="col-span-1 flex justify-center"><Skeleton className="h-8 w-8 rounded-md" /></div>
-                </div>
-              ))}
-            </div>
+            <ListSkeleton variant="table" rows={8} />
           ) : customers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              {searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
-            </div>
+            <EmptyState
+              icon={Users}
+              title={searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
+            />
           ) : (
             <div className="space-y-2">
               {/* テーブルヘッダー (PCのみ) */}
