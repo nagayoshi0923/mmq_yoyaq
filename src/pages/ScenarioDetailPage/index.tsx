@@ -149,10 +149,27 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }, [scenario, selectedEventId, events, isCustomHoliday])
 
   // 公演日程タブ用の店舗リスト
-  // シナリオが公演可能な店舗（available_stores）を基準にする。
-  // イベントが存在する店舗だけに絞ると、公演可能なのに予定がない店舗が
-  // ドロップダウンから消えてしまい、お客様が選択できなくなるため。
-  const scheduleStores = availableStores
+  // 「公演が実在する店舗（events の store_id）」∪「available_stores（availableStores）」の和集合。
+  // available_stores 未登録でも公演がある店舗（例: 埼玉大宮）を候補に含める。
+  // available_stores のみに絞ると、公演可能なのに予定がない店舗も残せるため和集合にする。
+  // 除外条件（office/非active/一時店舗）は availableStores と同じものを適用する（勝手に足さない・引かない）。
+  const scheduleStores = useMemo(() => {
+    // events で実際に使われている店舗ID（未紐付け＝出張公演などは除外）
+    const eventStoreIds = new Set(
+      events.map((e) => e.store_id).filter((id): id is string => !!id)
+    )
+    // availableStores に既に含まれる店舗ID
+    const availableStoreIds = new Set(availableStores.map((s) => s.id))
+
+    return stores.filter((s) =>
+      // availableStores と同一の除外条件を維持
+      s.ownership_type !== 'office' &&
+      s.status === 'active' &&
+      !s.is_temporary &&
+      // available_stores 由来 または 公演が実在する店舗
+      (availableStoreIds.has(s.id) || eventStoreIds.has(s.id))
+    )
+  }, [stores, events, availableStores])
 
   // 公演日程タブの店舗フィルタ: 1店舗の場合は自動選択
   // 出張公演など store_id が無い枠があるときは自動選択しない（そのままだと出張が一覧から消える）
