@@ -47,7 +47,7 @@
 - ✅ **M3** ESLint 9 化＋rules-of-hooks を error に `e12b8b1e`（flat config 移行・ガードレール逐語移植＋生存確認・max-warnings 100→57 ラチェット・違反1件は useCoupon 誤検知で alias 解消・挙動不変・**本番反映済み 8d8e8ee6**）
 - ⬜ **M4** Edge Functions 残骸4関数の削除＋corsHeaders 集約
 - ✅ **M7** 60分ハードコード集約＋UI文言連動 `31ebe98a`（挙動不変証明済み・スモークOK）
-- ⬜ **M8** 野良SQL 22件の隔離 / **M9** 到達不能ハンドラ削除＋knip / **M10** useCustomHolidays realtime（低）
+- ✅ **M8** 野良SQL 22件の隔離 `ab59bec2`（全件 CLI skip 済み＝DB未適用を確認・空3件削除＋19件を supabase/sql_archive/ へ R100 移動＋README） / ⬜ **M9** 到達不能ハンドラ削除＋knip / **M10** useCustomHolidays realtime（低）
 - ✅ **BUG-8** `npm run db:status` が常に「全適用済み」と誤報告 → scripts/db-status.mjs に置換 `b8af8611`（staging/prod 両方を明示チェック・JSON パース・接続失敗も fail・両環境450件＋ダミー検出で実測済み。生コマンド回避運用は不要に）
 - ⬜ **M14** HTMLメール化＋開封トラッキング / **M15** キット移動の曜日設定 / **M16** slug リアルタイムチェック / **M17** プロフィールガード整理
 - ⬜ **M11** 依存メジャー更新（vite→tailwind→react の順・リファクタ後）
