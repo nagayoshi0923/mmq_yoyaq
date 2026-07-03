@@ -44,7 +44,7 @@
 ## 🧹 掃除・品質基盤
 
 - ✅ **M2** console.* 109箇所→logger統一＋本番ビルドで除去（自社由来は dist 0件・スモークOK）
-- ⬜ **M3** ESLint 9 化＋rules-of-hooks を error に
+- ✅ **M3** ESLint 9 化＋rules-of-hooks を error に `e12b8b1e`（flat config 移行・ガードレール逐語移植＋生存確認・max-warnings 100→57 ラチェット・違反1件は useCoupon 誤検知で alias 解消・挙動不変）
 - ⬜ **M4** Edge Functions 残骸4関数の削除＋corsHeaders 集約
 - ✅ **M7** 60分ハードコード集約＋UI文言連動 `31ebe98a`（挙動不変証明済み・スモークOK）
 - ⬜ **M8** 野良SQL 22件の隔離 / **M9** 到達不能ハンドラ削除＋knip / **M10** useCustomHolidays realtime（低）
