@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getAllCoupons, useCoupon, getCurrentReservations } from '@/lib/api/couponApi'
+import { getAllCoupons, useCoupon as consumeCoupon, getCurrentReservations } from '@/lib/api/couponApi'
 
 export const couponsKeys = {
   coupons: ['my-coupons'] as const,
@@ -24,7 +24,7 @@ export function useUseCouponMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ couponId, reservationId }: { couponId: string; reservationId: string }) =>
-      useCoupon(couponId, reservationId),
+      consumeCoupon(couponId, reservationId),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: couponsKeys.coupons })
