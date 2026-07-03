@@ -31,7 +31,7 @@
 ## ⚡ 性能の残り（オーナー重点②）
 
 - ⬜ **P6** 画像最適化の復活（顧客体感に直結。**M13 アイコン2MB問題も同時に解決**。着手前にオーナー相談の約束）
-- ✅ **P4** invalidateEverywhere ヘルパー導入＋既存3箇所置換＋テスト3本（スモーク55 OK・本番反映待ち）
+- ✅ **P4** invalidateEverywhere ヘルパー導入＋既存3箇所置換＋テスト3本（スモーク55 OK・**本番反映済み 8d8e8ee6**）
 - ⬜ **P7-2** 顧客管理/予約者タブの再レンダ（低・改装やリファクタ本線と同時）/ **P2-2** monthlyRevenue の SUM RPC（低）
 
 ## 🔐 セキュリティ・設計の残り
@@ -44,7 +44,7 @@
 ## 🧹 掃除・品質基盤
 
 - ✅ **M2** console.* 109箇所→logger統一＋本番ビルドで除去（自社由来は dist 0件・スモークOK）
-- ✅ **M3** ESLint 9 化＋rules-of-hooks を error に `e12b8b1e`（flat config 移行・ガードレール逐語移植＋生存確認・max-warnings 100→57 ラチェット・違反1件は useCoupon 誤検知で alias 解消・挙動不変）
+- ✅ **M3** ESLint 9 化＋rules-of-hooks を error に `e12b8b1e`（flat config 移行・ガードレール逐語移植＋生存確認・max-warnings 100→57 ラチェット・違反1件は useCoupon 誤検知で alias 解消・挙動不変・**本番反映済み 8d8e8ee6**）
 - ⬜ **M4** Edge Functions 残骸4関数の削除＋corsHeaders 集約
 - ✅ **M7** 60分ハードコード集約＋UI文言連動 `31ebe98a`（挙動不変証明済み・スモークOK）
 - ⬜ **M8** 野良SQL 22件の隔離 / **M9** 到達不能ハンドラ削除＋knip / **M10** useCustomHolidays realtime（低）
