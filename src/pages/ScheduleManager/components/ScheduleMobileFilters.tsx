@@ -76,7 +76,9 @@ export function ScheduleMobileFilters({
                 onStoreIdsChange={setSelectedStores}
                 hideLabel={true}
                 placeholder="店舗で絞り込み"
-                className="h-10 w-full border-0 rounded-none shadow-none"
+                className="w-full"
+                triggerClassName="h-10 w-full border-0 rounded-none shadow-none text-xs"
+                triggerStyle={{ backgroundColor: '#F6F9FB' }}
               />
             )}
             {scenarioOptions.length > 0 && (

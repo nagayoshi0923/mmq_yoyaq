@@ -184,7 +184,9 @@ export function ScheduleToolbar({
                 onStoreIdsChange={setSelectedStores}
                 hideLabel={true}
                 placeholder="店舗"
-                className="h-9 w-full border-0 rounded-none shadow-none"
+                className="w-full"
+                triggerClassName="h-9 w-full border-0 rounded-none shadow-none text-xs"
+                triggerStyle={{ backgroundColor: '#F6F9FB' }}
               />
             </div>
 

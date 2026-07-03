@@ -1,4 +1,4 @@
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, type CSSProperties } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChevronDown } from 'lucide-react'
@@ -41,6 +41,8 @@ interface StoreMultiSelectProps {
   placeholder?: string
   hideLabel?: boolean
   className?: string
+  triggerClassName?: string
+  triggerStyle?: CSSProperties
 }
 
 /**
@@ -57,7 +59,9 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
   label = '店舗を選択',
   placeholder = '店舗を選択してください',
   hideLabel = false,
-  className = ''
+  className = '',
+  triggerClassName,
+  triggerStyle
 }: StoreMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -121,7 +125,8 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
           <Button
             type="button"
             variant="outline"
-            className={cn("w-full justify-between font-normal bg-white")}
+            className={cn("w-full justify-between font-normal bg-white", triggerClassName)}
+            style={triggerStyle}
           >
             <span className="truncate">{triggerLabel}</span>
             <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
