@@ -295,7 +295,7 @@ RPC は staging 適用済み（権限=service_role のみ・**集計値の手計
 2. 有効なら: storage URL のみ変換対象＋`onError` で原寸フォールバック付きで再実装。`ui/optimized-image.tsx` と ScenarioCard から適用。無効なら: アップロード時サムネイル生成が必要になるため**設計をオーナーに相談**（勝手に進めない）。
 🔍 予約トップ・シナリオ詳細で画像が全て表示される＋ DevTools Network で転送サイズ縮小を確認。
 
-### - [~] P7: リスト全行再レンダーの解消 — バッチ1（スケジュール画面）**実装済み `29a700a8`・🔍スモーク待ち（チェックリスト45）**。仕様（2026-07-03 Fable・scout 実測）:
+### - [x] P7: リスト全行再レンダーの解消 — バッチ1（スケジュール画面）**完了 `29a700a8`・✅本番スモークOK（2026-07-03）**。バッチ2（顧客管理行・予約者タブ）は低優先で残。仕様（当時）:
 **実測**: 月表示は約450セル・公演カード約675枚。PerformanceCard(:395)/TimeSlotCell(:260) は **React.memo 済みだが**、ScheduleTable(:273-339) が毎レンダ新規のハンドラ参照（カード6個/セル9個）＋ categoryConfig 新規オブジェクトを渡して memo を全滅させている。
 **方針（バッチ1）**: **カスタム memo 比較関数は使わない**（ハンドラを比較除外すると event 更新漏れバグの温床）。渡す側の安定化のみ:
 1. ScheduleTable が子に渡すハンドラ群を useCallback、categoryConfig 等のオブジェクト props を useMemo 化（exhaustive-deps を disable せず正しい deps で）。
