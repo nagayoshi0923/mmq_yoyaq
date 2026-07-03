@@ -63,7 +63,7 @@ function Step({ num, color, title, children, last }: {
 
 function ScriptBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-3 bg-blue-50 border-l-4 border-blue-400 px-4 py-3 rounded-r-md text-sm text-blue-900">
+    <div className="mt-3 bg-blue-50 border border-blue-200 px-4 py-3 rounded-md text-sm text-blue-900">
       <span className="font-bold text-xs text-blue-600 block mb-1">声がけ例</span>
       {children}
     </div>

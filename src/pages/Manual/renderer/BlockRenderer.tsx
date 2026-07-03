@@ -193,7 +193,7 @@ function RenderTwoColumn({ content }: { content: TwoColumnContent }) {
 
 function RenderScriptBox({ content }: { content: ScriptBoxContent }) {
   return (
-    <div className="bg-blue-50 border-l-4 border-blue-400 px-4 py-3 rounded-r-md text-sm text-blue-900">
+    <div className="bg-blue-50 border border-blue-200 px-4 py-3 rounded-md text-sm text-blue-900">
       {content.label && (
         <span className="font-bold text-xs text-blue-600 block mb-1">{content.label}</span>
       )}

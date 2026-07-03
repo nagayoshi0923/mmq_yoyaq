@@ -199,7 +199,7 @@ export function ShiftSubmission() {
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1 pl-1 border-l-2 border-gray-200">
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded-md">
                       <Info className="h-3 w-3" />
                       提出期限を過ぎた後の変更は、シフト制作担当者に直接連絡してください
                     </div>

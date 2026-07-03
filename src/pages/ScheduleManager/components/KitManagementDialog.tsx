@@ -569,7 +569,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               <h3 className="font-bold text-base mb-3">タブの説明</h3>
               
               <div className="space-y-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border-l-4 border-blue-500">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200">
                   <h4 className="font-semibold mb-1">📦 移動計画（メイン）</h4>
                   <p className="text-muted-foreground">
                     今週必要なキット移動の一覧。店舗ごとに何を持ち出すか・届けるかを確認できます。

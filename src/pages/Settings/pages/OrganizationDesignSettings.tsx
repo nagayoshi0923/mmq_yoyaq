@@ -228,7 +228,7 @@ export function OrganizationDesignSettings() {
                 </div>
 
                 {/* 注意 (アンバー固定) */}
-                <div className="text-xs px-3 py-2 rounded bg-amber-50 text-amber-800 border-l-4 border-amber-500">
+                <div className="text-xs px-3 py-2 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
                   参加したい日程を選択してください
                 </div>
 
@@ -387,7 +387,7 @@ export function OrganizationDesignSettings() {
               </div>
 
               {/* アナウンス (アンバー) */}
-              <div className="text-sm px-3 py-2 bg-amber-50 text-amber-800 border-l-4 border-amber-500">
+              <div className="text-sm px-3 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-md">
                 参加したい日程を選択してください
               </div>
 

@@ -33,6 +33,15 @@ interface NotificationSettingsProps {
   storeId?: string
 }
 
+// Tailwind JIT は動的クラス（`bg-${color}-50` 等）を生成できないため、
+// システムアナウンス各項目の配色を静的クラス文字列で明示する。
+const ANNOUNCEMENT_COLOR_CLASSES: Record<string, { bg: string; heading: string }> = {
+  purple: { bg: 'bg-purple-50', heading: 'text-purple-800' },
+  blue: { bg: 'bg-blue-50', heading: 'text-blue-800' },
+  green: { bg: 'bg-green-50', heading: 'text-green-800' },
+  gray: { bg: 'bg-gray-50', heading: 'text-gray-800' },
+}
+
 export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
@@ -543,8 +552,8 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
             // 「リクエスト却下時」はメール設定の private_rejection_template に統合（同じ本文を両方に使用）
             { key: 'booking_cancelled', label: '予約キャンセル時', color: 'gray', hasNote: false },
           ].map(({ key, label, color, hasNote }) => (
-            <div key={key} className={`space-y-3 p-4 bg-${color}-50 rounded-lg`}>
-              <h4 className={`font-medium text-${color}-800 text-sm`}>{label}</h4>
+            <div key={key} className={`space-y-3 p-4 ${ANNOUNCEMENT_COLOR_CLASSES[color]?.bg ?? 'bg-gray-50'} rounded-lg`}>
+              <h4 className={`font-medium ${ANNOUNCEMENT_COLOR_CLASSES[color]?.heading ?? 'text-gray-800'} text-sm`}>{label}</h4>
               <div className="space-y-2">
                 <Label>タイトル</Label>
                 <Input

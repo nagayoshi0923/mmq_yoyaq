@@ -476,7 +476,7 @@ export function LearnFromThisSystem() {
                 <CardContent className="space-y-5">
                   {c.sections.map(s => (
                     <div key={s.heading} className="space-y-2">
-                      <h3 className="text-sm font-bold border-l-4 border-blue-400 pl-2">{s.heading}</h3>
+                      <h3 className="text-sm font-bold">{s.heading}</h3>
                       <p className="text-sm text-gray-700 leading-relaxed">{s.text}</p>
                       {s.code && (
                         <div>
