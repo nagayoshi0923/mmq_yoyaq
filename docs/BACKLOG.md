@@ -41,7 +41,7 @@
 
 ## 🧹 掃除・品質基盤
 
-- ⬜ **M2** console.log 61件 → logger＋ビルドで drop
+- ✅ **M2** console.* 109箇所→logger統一＋本番ビルドで除去（自社由来は dist 0件・🔍スモーク53）
 - ⬜ **M3** ESLint 9 化＋rules-of-hooks を error に
 - ⬜ **M4** Edge Functions 残骸4関数の削除＋corsHeaders 集約
 - ✅ **M7** 60分ハードコード集約＋UI文言連動 `31ebe98a`（再現スクリプトで挙動不変を証明・🔍スモーク51）
