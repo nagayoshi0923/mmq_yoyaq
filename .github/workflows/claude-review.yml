@@ -1,0 +1,42 @@
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+jobs:
+  claude-review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude PR Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            この PR を日本語でレビューしてください。観点:
+            - バグ・ロジックエラー・エッジケース
+            - organization_id によるマルチテナント分離が維持されているか
+            - reservation_source が src/lib/constants.ts の定数を使っているか
+            - RLS ポリシーの直接変更が含まれていないか（SECURITY DEFINER RPC で対応する方針）
+            - セキュリティ（入力検証・認可漏れ）
+            - 明らかなパフォーマンス問題
+
+            指摘は該当行へのインラインコメントで、全体の所感はトップレベルコメントで書くこと。
+            重要度の低いスタイル指摘は省略してよい。
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
