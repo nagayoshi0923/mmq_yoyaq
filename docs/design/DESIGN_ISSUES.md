@@ -56,7 +56,7 @@
 - ⬜ **DI-12** 凡例の bg-gray-100 / bg-blue-100 / text-gray-500 直書き（index.tsx:162-170）
 
 ### シフト提出
-- ⬜ **DI-13** 提出期間案内バーが border-l-2（禁止の border-l-4 の同類・:202）→ 薄背景 tint＋バッジ様式へ
+- ✅ **DI-13** 提出期間案内バーの border-l 系 → 薄背景 tint 化（`2e2f57a1`・スモーク49 OK）
 
 ### GM確認
 - ⬜ **DI-14** 空状態が Card 直書き（index.tsx:144-148）→ EmptyState
@@ -97,9 +97,9 @@
 - ※ ユーザー管理・テナント管理・マスタ管理一覧は監査で「良好」
 
 ### 設定タブ群（定型が効いていて概ね健全。個別3件のみ）
-- ⬜ **DI-32** ⚡通知設定: Tailwind クラスをテンプレートリテラルで動的生成（`bg-${color}-50`・NotificationSettings.tsx:546-547）— **JIT が拾えず実行時に色が効かない可能性のある実バグ候補**。静的クラスへ
+- ✅ **DI-32** ⚡通知設定の動的 Tailwind クラス → 静的マップ化（`2e2f57a1`・実バグだった=色が付いた・スモーク48 OK）
 - ⬜ **DI-33** 売上レポート設定だけ Card 亜種（:198-259）→ 設定定型（bg-white rounded-xl border p-6＋SectionTitle）へ
-- ⬜ **DI-34** 組織デザイン設定に**禁止の border-l-4**が残存（OrganizationDesignSettings.tsx:390）→ 薄背景 tint へ
+- ✅ **DI-34** 組織デザイン設定の禁止 border-l-4 → 薄背景 tint 化（src 全体7箇所と共に全廃・`2e2f57a1`・スモーク49 OK）
 
 ### 運営マニュアル（Manual/index.tsx・管理側）
 - ⬜ **DI-35** PageHeader 不使用（:498-507 自前タイトル）＋ DbPageViewer のローディング/空状態が生テキスト（:267）→ 見出し様式＋ListSkeleton/EmptyState へ。DemoFrame の点線枠（:289）も Card 化余地
