@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Search, X, Minus, Plus, Lock, LockOpen } from 'lucide-react'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
+import { logger } from '@/utils/logger'
 import type { KitCondition, KitLocation, Store, Scenario } from '@/types'
 
 /**
@@ -94,7 +95,7 @@ export function CurrentPlacementTab({
                     
                     // デバッグ: 最初の3件のみログ出力
                     if (idx < 3) {
-                      console.log(`🔍 シナリオ[${scenario.title}]`, {
+                      logger.log(`🔍 シナリオ[${scenario.title}]`, {
                         scenarioId: scenario.id,
                         kitCount,
                         locationsFound: locations.length,

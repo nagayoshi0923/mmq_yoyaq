@@ -3,6 +3,7 @@
  * @path /cancel-policy
  */
 import { PublicLayout } from '@/components/layout/PublicLayout'
+import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { AlertTriangle, ChevronRight, Clock, Info } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
@@ -213,7 +214,7 @@ export function CancelPolicyPage() {
           })
         }
       } catch (error) {
-        console.error('キャンセルポリシー取得エラー:', error)
+        logger.error('キャンセルポリシー取得エラー:', error)
       } finally {
         setLoading(false)
       }

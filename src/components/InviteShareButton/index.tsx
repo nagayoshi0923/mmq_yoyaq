@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { logger } from '@/utils/logger'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Share2, Users, Copy, Check } from 'lucide-react'
@@ -65,7 +66,7 @@ export function InviteShareButton({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      console.error('Failed to copy')
+      logger.error('Failed to copy')
     }
   }
 

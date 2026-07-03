@@ -1,4 +1,5 @@
 import { Users, Copy, Check } from 'lucide-react'
+import { logger } from '@/utils/logger'
 import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -32,7 +33,7 @@ export const CustomerInfo = ({ request }: CustomerInfoProps) => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('コピーに失敗しました:', err)
+      logger.error('コピーに失敗しました:', err)
     }
   }
 

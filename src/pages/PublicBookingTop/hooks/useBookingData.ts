@@ -144,7 +144,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         
         return await query.order('title', { ascending: true })
       } catch (err) {
-        console.error('scenarios query error:', err)
+        logger.error('scenarios query error:', err)
         return { data: [], error: err }
       }
     })(),
@@ -162,11 +162,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         
         const result = await query.order('display_order', { ascending: true, nullsFirst: false })
         if (result.error) {
-          console.error('stores query failed:', result.error)
+          logger.error('stores query failed:', result.error)
         }
         return result
       } catch (err) {
-        console.error('stores query error:', err)
+        logger.error('stores query error:', err)
         return { data: [], error: err }
       }
     })(),
@@ -183,7 +183,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       try {
         return await supabase.rpc('get_public_available_scenario_keys')
       } catch (err) {
-        console.error('get_public_available_scenario_keys RPC error:', err)
+        logger.error('get_public_available_scenario_keys RPC error:', err)
         return { data: [], error: err }
       }
     })(),
@@ -193,7 +193,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       try {
         return await supabase.rpc('get_scenario_likes_count')
       } catch (err) {
-        console.error('get_scenario_likes_count RPC error:', err)
+        logger.error('get_scenario_likes_count RPC error:', err)
         return { data: [], error: err }
       }
     })(),
@@ -235,11 +235,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         
         const result = await query
         if (result.error) {
-          console.error('schedule_events query failed:', result.error)
+          logger.error('schedule_events query failed:', result.error)
         }
         return result
       } catch (err) {
-        console.error('schedule_events query error:', err)
+        logger.error('schedule_events query error:', err)
         return { data: [], error: err }
       }
     })()
@@ -265,7 +265,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     })
   } else if (likesCountResult.error) {
     // RPCが失敗した場合はフォールバックとしてscenario_likesを直接取得
-    console.warn('get_scenario_likes_count RPC failed, falling back to direct query')
+    logger.warn('get_scenario_likes_count RPC failed, falling back to direct query')
     try {
       const { data: likesData } = await supabase
         .from('scenario_likes')
@@ -276,7 +276,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         })
       }
     } catch (err) {
-      console.error('scenario_likes fallback query error:', err)
+      logger.error('scenario_likes fallback query error:', err)
     }
   }
   

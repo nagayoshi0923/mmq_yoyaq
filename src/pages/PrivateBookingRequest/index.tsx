@@ -293,10 +293,10 @@ export function PrivateBookingRequest({
     try {
       // グループがまだ作成されていない場合は作成
       let groupIdToUse = createdGroupId
-      console.log('[貸切リクエスト] 送信開始', { createdGroupId, scenarioId, editableTimeSlots: editableTimeSlots.length })
+      logger.log('[貸切リクエスト] 送信開始', { createdGroupId, scenarioId, editableTimeSlots: editableTimeSlots.length })
       
       if (!groupIdToUse && scenarioId) {
-        console.log('[貸切リクエスト] グループ作成開始')
+        logger.log('[貸切リクエスト] グループ作成開始')
         const group = await createGroup({
           scenarioId,
           name: undefined,
@@ -310,15 +310,15 @@ export function PrivateBookingRequest({
           })),
           notes: notes || undefined,
         })
-        console.log('[貸切リクエスト] グループ作成成功', { groupId: group.id, inviteCode: group.invite_code })
+        logger.log('[貸切リクエスト] グループ作成成功', { groupId: group.id, inviteCode: group.invite_code })
         groupIdToUse = group.id
         setCreatedGroupId(group.id)
         setCreatedInviteCode(group.invite_code)
       } else {
-        console.log('[貸切リクエスト] グループ作成スキップ', { reason: groupIdToUse ? '既存グループあり' : 'scenarioIdなし' })
+        logger.log('[貸切リクエスト] グループ作成スキップ', { reason: groupIdToUse ? '既存グループあり' : 'scenarioIdなし' })
       }
 
-      console.log('[貸切リクエスト] handleSubmit呼び出し', { groupIdToUse })
+      logger.log('[貸切リクエスト] handleSubmit呼び出し', { groupIdToUse })
       await handleSubmit(customerName, customerEmail, customerPhone, notes, customerNickname, groupIdToUse || undefined)
       
       // 成功後はボタンで遷移させるため自動リダイレクトは行わない

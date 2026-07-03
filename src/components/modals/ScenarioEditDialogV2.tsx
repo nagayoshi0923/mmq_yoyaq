@@ -1010,7 +1010,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         })
       } catch (scenarioErr) {
         logger.warn('scenarios テーブル保存エラー（organization_scenariosへの保存は続行）:', scenarioErr)
-        console.warn('⚠️ scenarios保存エラー（続行）:', scenarioErr)
+        logger.warn('⚠️ scenarios保存エラー（続行）:', scenarioErr)
       }
 
       // 担当GMの更新処理
@@ -1179,10 +1179,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               
               if (updateError) {
                 logger.error('organization_scenarios更新エラー:', updateError)
-                console.error('🚨 organization_scenarios UPDATE失敗:', updateError.message, updateError.code)
+                logger.error('🚨 organization_scenarios UPDATE失敗:', updateError.message, updateError.code)
               } else {
                 logger.log('organization_scenariosを更新しました（override含む）')
-                console.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
+                logger.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
               }
             }
 
@@ -1198,10 +1198,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               }
             }
 
-            console.log('🔍 orgScenarioId 確認:', orgScenarioId)
+            logger.log('🔍 orgScenarioId 確認:', orgScenarioId)
             
             // アンケート質問を保存
-            console.log('📝 アンケート質問保存チェック:', {
+            logger.log('📝 アンケート質問保存チェック:', {
               orgScenarioId,
               survey_enabled: formData.survey_enabled,
               questionsCount: formData.survey_questions?.length || 0,
@@ -1216,7 +1216,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   .eq('org_scenario_id', orgScenarioId)
 
                 if (fetchError) {
-                  console.error('🚨 既存質問取得エラー:', fetchError)
+                  logger.error('🚨 既存質問取得エラー:', fetchError)
                 }
 
                 const existingIds = new Set((existingQuestions || []).map(q => q.id))
@@ -1231,7 +1231,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     .in('id', toDelete)
                   
                   if (deleteError) {
-                    console.error('🚨 質問削除エラー:', deleteError)
+                    logger.error('🚨 質問削除エラー:', deleteError)
                   }
                 }
 
@@ -1246,7 +1246,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   order_num: q.order_num,
                 }))
 
-                console.log('📝 保存する質問データ:', questionsToUpsert)
+                logger.log('📝 保存する質問データ:', questionsToUpsert)
 
                 if (questionsToUpsert.length > 0) {
                   const { error: upsertError } = await supabase
@@ -1254,19 +1254,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     .upsert(questionsToUpsert, { onConflict: 'id' })
 
                   if (upsertError) {
-                    console.error('🚨 アンケート質問upsertエラー:', upsertError)
+                    logger.error('🚨 アンケート質問upsertエラー:', upsertError)
                     logger.error('アンケート質問保存エラー:', upsertError)
                   } else {
-                    console.log('✅ アンケート質問保存成功:', questionsToUpsert.length, '件')
+                    logger.log('✅ アンケート質問保存成功:', questionsToUpsert.length, '件')
                     logger.log('アンケート質問を保存しました:', questionsToUpsert.length, '件')
                   }
                 }
               } catch (surveyErr) {
-                console.error('🚨 アンケート質問処理例外:', surveyErr)
+                logger.error('🚨 アンケート質問処理例外:', surveyErr)
                 logger.error('アンケート質問処理エラー:', surveyErr)
               }
             } else {
-              console.log('⚠️ アンケート質問保存スキップ:', {
+              logger.log('⚠️ アンケート質問保存スキップ:', {
                 orgScenarioId: !!orgScenarioId,
                 survey_enabled: formData.survey_enabled,
               })

@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { logger } from '@/utils/logger'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -77,7 +78,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         .update({ kit_transfer_offsets: offsets })
         .eq('organization_id', orgId)
     } catch (e) {
-      console.warn('kit_transfer_offsets の保存に失敗:', e)
+      logger.warn('kit_transfer_offsets の保存に失敗:', e)
     }
   }, [])
 
@@ -90,7 +91,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         .update({ kit_transfer_start_store_ids: startStoreIds })
         .eq('organization_id', orgId)
     } catch (e) {
-      console.warn('kit_transfer_start_store_ids の保存に失敗:', e)
+      logger.warn('kit_transfer_start_store_ids の保存に失敗:', e)
     }
   }, [])
   

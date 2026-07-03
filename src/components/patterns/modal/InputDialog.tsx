@@ -1,4 +1,5 @@
 import { memo, ReactNode, useEffect, useState } from 'react'
+import { logger } from '@/utils/logger'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -69,7 +70,7 @@ export const InputDialog = memo(function InputDialog({
       await onConfirm(value)
       close()
     } catch (error) {
-      console.error('InputDialog onConfirm failed:', error)
+      logger.error('InputDialog onConfirm failed:', error)
     } finally {
       setLoading(false)
     }

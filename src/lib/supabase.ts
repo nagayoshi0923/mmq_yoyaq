@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { isVerboseDebug } from '@/utils/logger'
+import { isVerboseDebug, logger } from '@/utils/logger'
 
 // 環境変数のバリデーション
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -33,9 +33,9 @@ try {
         ? 'legacy_jwt'
         : 'unknown'
     const prefix = key ? `${key.slice(0, 12)}…` : 'null'
-    console.info('[supabase] api key kind:', { kind, prefix, len: key.length })
+    logger.info('[supabase] api key kind:', { kind, prefix, len: key.length })
     if (kind === 'legacy_jwt') {
-      console.warn(
+      logger.warn(
         '[supabase] Legacy JWT key is configured. If Supabase Legacy API keys are disabled, login/REST will fail. Use sb_publishable_...'
       )
     }

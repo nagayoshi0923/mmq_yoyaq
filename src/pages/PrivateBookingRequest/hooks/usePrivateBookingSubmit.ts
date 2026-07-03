@@ -172,7 +172,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       }
       
       // パラメータをログに出力
-      console.log('[貸切リクエスト] RPCパラメータ:', {
+      logger.log('[貸切リクエスト] RPCパラメータ:', {
         p_scenario_id: props.scenarioId,
         p_customer_id: customerId,
         p_participant_count: props.maxParticipants,
@@ -196,7 +196,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', createPrivateParams)
       
       if (rpcError) {
-        console.error('[貸切リクエスト] RPC エラー詳細:', {
+        logger.error('[貸切リクエスト] RPC エラー詳細:', {
           code: rpcError.code,
           message: rpcError.message,
           details: rpcError.details,
@@ -210,14 +210,14 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
 
       // 予約IDを取得（RPC戻り値からの取得）
       const parentReservationId = reservationId as string
-      console.log('[貸切リクエスト] RPC成功', { reservationId: parentReservationId, effectiveGroupId })
+      logger.log('[貸切リクエスト] RPC成功', { reservationId: parentReservationId, effectiveGroupId })
 
       // GM確認レコードはRPC関数内で作成済み
 
       // グループのステータスを「申込済み」に更新し、予約IDを紐付け
-      console.log('[貸切リクエスト] グループステータス更新チェック', { effectiveGroupId, parentReservationId })
+      logger.log('[貸切リクエスト] グループステータス更新チェック', { effectiveGroupId, parentReservationId })
       if (effectiveGroupId && parentReservationId) {
-        console.log('[貸切リクエスト] グループステータス更新開始')
+        logger.log('[貸切リクエスト] グループステータス更新開始')
         let groupUpdateError: Error | null = null
         try {
           await updatePrivateGroupStatus(effectiveGroupId, 'booking_requested', { reservationId: parentReservationId })
@@ -225,10 +225,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           groupUpdateError = err
         }
         if (groupUpdateError) {
-          console.error('[貸切リクエスト] グループステータス更新エラー:', groupUpdateError)
+          logger.error('[貸切リクエスト] グループステータス更新エラー:', groupUpdateError)
           logger.error('グループステータス更新エラー:', groupUpdateError)
         } else {
-          console.log('[貸切リクエスト] グループステータス更新成功')
+          logger.log('[貸切リクエスト] グループステータス更新成功')
           logger.log('グループステータスを「申込済み」に更新しました')
           
           // 予約申込のシステムメッセージを送信
@@ -270,13 +270,13 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           }
         }
       } else {
-        console.warn('[貸切リクエスト] グループステータス更新スキップ', { effectiveGroupId, parentReservationId })
+        logger.warn('[貸切リクエスト] グループステータス更新スキップ', { effectiveGroupId, parentReservationId })
       }
 
       // 貸切申し込み完了メールを送信
-      console.log('[貸切リクエスト] メール送信チェック', { parentReservationId, customerEmail })
+      logger.log('[貸切リクエスト] メール送信チェック', { parentReservationId, customerEmail })
       if (parentReservationId && customerEmail) {
-        console.log('[貸切リクエスト] メール送信開始')
+        logger.log('[貸切リクエスト] メール送信開始')
         try {
           const candidateDates = candidateDatetimes.candidates.map(c => ({
             date: c.date,
@@ -286,7 +286,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           }))
 
           const orgId = await resolveOrgId()
-          console.log('[貸切リクエスト] メール送信 invoke開始', { orgId, reservationId: parentReservationId })
+          logger.log('[貸切リクエスト] メール送信 invoke開始', { orgId, reservationId: parentReservationId })
           const { error: emailError, data: emailData } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
             body: {
               organizationId: orgId,
@@ -303,13 +303,13 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             }
           })
 
-          console.log('[貸切リクエスト] メール送信 invoke完了', { emailError, emailData })
+          logger.log('[貸切リクエスト] メール送信 invoke完了', { emailError, emailData })
           if (emailError) {
             logger.error('貸切申し込み完了メール送信エラー:', emailError)
-            console.error('[貸切リクエスト] メール送信エラー:', emailError)
+            logger.error('[貸切リクエスト] メール送信エラー:', emailError)
           } else {
             logger.log('貸切申し込み完了メールを送信しました')
-            console.log('[貸切リクエスト] メール送信成功')
+            logger.log('[貸切リクエスト] メール送信成功')
           }
         } catch (emailError) {
           logger.error('貸切申し込み完了メール送信エラー:', emailError)

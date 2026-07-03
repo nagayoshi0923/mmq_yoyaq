@@ -11,6 +11,7 @@ import { type KitState } from '@/utils/kitOptimizer'
 import { planKitTransfers, findOverdueTransfers, type PlannerDemand, type OverdueTransfer } from '@/utils/kitTransferPlanner'
 import { toJstYmd } from '@/utils/jstDate'
 import type { KitScheduleEvent } from './useKitManagementData'
+import { logger } from '@/utils/logger'
 
 interface UseKitManagementSelectorsParams {
   scenarios: Scenario[]
@@ -416,7 +417,7 @@ export function useKitManagementSelectors({
     if (matchingEvents.length === 0) return false // イベント自体がなければ不明なのでfalse
     const allCancelled = matchingEvents.every(event => event.is_cancelled)
     if (allCancelled) {
-      console.log('⚠️ 公演キャンセル判定:', { scenarioId, performanceDate, storeId, matchingEvents: matchingEvents.length, allCancelled })
+      logger.log('⚠️ 公演キャンセル判定:', { scenarioId, performanceDate, storeId, matchingEvents: matchingEvents.length, allCancelled })
     }
     return allCancelled
   }, [scheduleEvents, getStoreGroupId])
@@ -480,7 +481,7 @@ export function useKitManagementSelectors({
       
       // シナリオ情報が取得できない場合はログを出力してスキップ
       if (!scenarioTitle) {
-        console.warn('⚠️ 完了記録のシナリオ情報が見つかりません:', {
+        logger.warn('⚠️ 完了記録のシナリオ情報が見つかりません:', {
           completion_id: c.id,
           org_scenario_id: c.org_scenario_id,
           scenario_master_id: c.scenario_master_id,

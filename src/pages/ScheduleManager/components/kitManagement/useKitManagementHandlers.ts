@@ -13,6 +13,7 @@ import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
 import type { KitLocation, Store, Scenario, KitCondition, KitTransferCompletion, KitTransferSuggestion } from '@/types'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import type { DraggedKit, ContextMenuState, DeliveryConfirmState } from './types'
 import type { KitScheduleEvent } from './useKitManagementData'
@@ -90,7 +91,7 @@ export function useKitManagementHandlers({
     toStoreId: string,
     orgScenarioId?: string
   ) => {
-    console.log('📌 handleTogglePickup called:', {
+    logger.log('📌 handleTogglePickup called:', {
       scenarioId,
       orgScenarioId,
       kitNumber,
@@ -107,35 +108,35 @@ export function useKitManagementHandlers({
     
     // API呼び出しとルックアップには org_scenario_id を使用（なければ scenarioId をフォールバック）
     const apiScenarioId = orgScenarioId || scenarioId
-    console.log('📌 Using apiScenarioId:', apiScenarioId)
+    logger.log('📌 Using apiScenarioId:', apiScenarioId)
     
     // ルックアップにも apiScenarioId を使用（DBに保存されているID）
     const currentlyPickedUp = isPickedUp(apiScenarioId, kitNumber, performanceDate, toStoreId)
-    console.log('📌 currentlyPickedUp:', currentlyPickedUp)
+    logger.log('📌 currentlyPickedUp:', currentlyPickedUp)
     
     try {
       if (currentlyPickedUp) {
         // 回収解除（設置も解除される）
-        console.log('📌 Calling unmarkPickedUp...')
+        logger.log('📌 Calling unmarkPickedUp...')
         await kitApi.unmarkPickedUp(apiScenarioId, kitNumber, performanceDate, toStoreId)
-        console.log('📌 unmarkPickedUp completed')
+        logger.log('📌 unmarkPickedUp completed')
       } else {
         // 回収完了
-        console.log('📌 Calling markPickedUp...')
+        logger.log('📌 Calling markPickedUp...')
         const result = await kitApi.markPickedUp(apiScenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
-        console.log('📌 markPickedUp completed:', result)
+        logger.log('📌 markPickedUp completed:', result)
       }
       // 完了状態を手動で再取得（リアルタイム購読のバックアップ）
       const startDate = weekDates[0]
       const endDateObj = new Date(weekDates[6])
       endDateObj.setDate(endDateObj.getDate() + 3)
       const endDate = endDateObj.toISOString().split('T')[0]
-      console.log('📌 Fetching completions:', startDate, endDate)
+      logger.log('📌 Fetching completions:', startDate, endDate)
       const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
-      console.log('📌 Completions fetched:', completionsData.length)
+      logger.log('📌 Completions fetched:', completionsData.length)
       setCompletions(completionsData)
     } catch (error) {
-      console.error('❌ Failed to toggle pickup:', error)
+      logger.error('❌ Failed to toggle pickup:', error)
       showToast.error('操作に失敗しました')
     }
   }
@@ -213,7 +214,7 @@ export function useKitManagementHandlers({
       // ただしキット位置変更は再取得が必要
       fetchData()
     } catch (error) {
-      console.error('Failed to toggle delivery:', error)
+      logger.error('Failed to toggle delivery:', error)
       showToast.error('操作に失敗しました')
     }
   }
@@ -302,7 +303,7 @@ export function useKitManagementHandlers({
       })
       
       // デバッグログ
-      console.log('📦 移動計算デバッグ:', {
+      logger.log('📦 移動計算デバッグ:', {
         kitLocations: kitLocations.length,
         kitState: Object.keys(kitState).length,
         scheduleEvents: scheduleEvents.length,
@@ -315,14 +316,14 @@ export function useKitManagementHandlers({
       })
       
       if (demands.length === 0) {
-        console.warn('⚠️ 週間需要が0件です。スケジュールにシナリオが設定されていない可能性があります。')
+        logger.warn('⚠️ 週間需要が0件です。スケジュールにシナリオが設定されていない可能性があります。')
       }
 
       // 探偵撲滅デバッグ: '撲滅' を含む全シナリオを出力
       const baba = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
       const okubo = stores.find(s => s.name?.includes('大久保') || s.short_name?.includes('大久保'))
       const bokumetsusScenarios = scenarios.filter(s => s.title?.includes('撲滅'))
-      console.log('🔍 撲滅シナリオ一覧:', bokumetsusScenarios.map(s => ({
+      logger.log('🔍 撲滅シナリオ一覧:', bokumetsusScenarios.map(s => ({
         title: s.title,
         id: s.id,
         kit_count: s.kit_count,
@@ -331,12 +332,12 @@ export function useKitManagementHandlers({
       })))
       // 馬場の全需要を確認
       if (baba) {
-        console.log('🔍 馬場の需要一覧:', demands
+        logger.log('🔍 馬場の需要一覧:', demands
           .filter(d => d.store_id === baba.id)
           .map(d => ({ date: d.date, scenario: scenarios.find(s => s.id === d.scenario_master_id)?.title || d.scenario_master_id }))
         )
       }
-      console.log('🔍 大久保のkitState:', okubo ? Object.entries(kitState)
+      logger.log('🔍 大久保のkitState:', okubo ? Object.entries(kitState)
         .filter(([, kits]) => Object.values(kits).includes(okubo.id))
         .map(([scenarioId, kits]) => ({
           scenario: scenarios.find(s => s.id === scenarioId)?.title || scenarioId,
@@ -370,7 +371,7 @@ export function useKitManagementHandlers({
         org_scenario_id: scenarioIdToOrgScenarioId.get(suggestion.scenario_master_id) || suggestion.scenario_master_id
       }))
 
-      console.log('📦 移動計算結果:', resultWithOrgScenarioId)
+      logger.log('📦 移動計算結果:', resultWithOrgScenarioId)
       setSuggestions(resultWithOrgScenarioId)
       
       // 手動実行時のみトースト表示
@@ -386,7 +387,7 @@ export function useKitManagementHandlers({
         }
       }
     } catch (error) {
-      console.error('Failed to calculate transfers:', error)
+      logger.error('Failed to calculate transfers:', error)
       if (showNotification) {
         showToast.error('移動計画の計算に失敗しました')
       }
@@ -413,7 +414,7 @@ export function useKitManagementHandlers({
       showToast.success(status === 'completed' ? '移動完了としてマークしました' : 'キャンセルしました')
       fetchData()
     } catch (error) {
-      console.error('Failed to update transfer status:', error)
+      logger.error('Failed to update transfer status:', error)
       showToast.error('更新に失敗しました')
     }
   }
@@ -425,7 +426,7 @@ export function useKitManagementHandlers({
       showToast.success('キット位置を更新しました')
       fetchData()
     } catch (error) {
-      console.error('Failed to set kit location:', error)
+      logger.error('Failed to set kit location:', error)
       showToast.error('更新に失敗しました')
     }
   }
@@ -489,7 +490,7 @@ export function useKitManagementHandlers({
       const locationsData = await kitApi.getKitLocations()
       setKitLocations(locationsData)
     } catch (error) {
-      console.error('Failed to update kit count:', error)
+      logger.error('Failed to update kit count:', error)
       showToast.error('キット数の更新に失敗しました')
     }
   }
@@ -507,7 +508,7 @@ export function useKitManagementHandlers({
       showToast.success(isFixed ? 'このキットを固定しました（移動計画で動かしません）' : 'キットの固定を解除しました')
     } catch (e) {
       // 失敗したら元に戻す＋明示
-      console.error('Failed to toggle kit is_fixed:', e)
+      logger.error('Failed to toggle kit is_fixed:', e)
       setKitLocations(prev => prev.map(l => matches(l) ? { ...l, is_fixed: !isFixed } : l))
       showToast.error('固定設定の更新に失敗しました（APIデプロイ待ち/権限の可能性）')
     }
@@ -525,7 +526,7 @@ export function useKitManagementHandlers({
       showToast.success('キット状態を更新しました')
       fetchData()
     } catch (error) {
-      console.error('Failed to update kit condition:', error)
+      logger.error('Failed to update kit condition:', error)
       showToast.error('状態の更新に失敗しました')
     }
   }
@@ -538,7 +539,7 @@ export function useKitManagementHandlers({
       showToast.success(`${targetStore?.short_name || targetStore?.name || '別店舗'}に移動しました`)
       fetchData()
     } catch (error) {
-      console.error('Failed to move kit:', error)
+      logger.error('Failed to move kit:', error)
       showToast.error('移動に失敗しました')
     }
   }

@@ -8,6 +8,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient'
+import { logger } from '@/utils/logger'
 import type { KitLocation, KitTransferEvent, KitCondition, KitTransferCompletion } from '@/types'
 
 /** API 応答の素の構造（org_scenario / scenario_master を scenario に変換するため） */
@@ -327,7 +328,7 @@ export const kitApi = {
         store_id: toStoreId,
       })
     } catch (locationError) {
-      console.error('Failed to update kit location:', locationError)
+      logger.error('Failed to update kit location:', locationError)
       // 完了状態の更新は成功しているので、ログだけ出してエラーはスローしない
     }
 

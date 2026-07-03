@@ -5,13 +5,14 @@
  * 開発環境ではデフォルトで無効（VITE_SENTRY_DSN 未設定の場合）。
  */
 import * as Sentry from '@sentry/react'
+import { logger } from '@/utils/logger'
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined
 
 export function initSentry(): void {
   if (!SENTRY_DSN) {
     if (import.meta.env.DEV) {
-      console.log('[Sentry] DSN未設定のため無効（VITE_SENTRY_DSN を設定してください）')
+      logger.log('[Sentry] DSN未設定のため無効（VITE_SENTRY_DSN を設定してください）')
     }
     return
   }

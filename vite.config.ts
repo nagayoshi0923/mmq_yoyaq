@@ -7,7 +7,12 @@ const devHost = process.env.VITE_DEV_HOST === 'all' ? '0.0.0.0' : '127.0.0.1'
 const devLan = devHost === '0.0.0.0'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // 本番ビルドでは console.* / debugger を成果物から除去する。
+  // logger 経由の出力も内部で console を呼ぶため本番では消える（logger.ts 側の環境判定と重複しても無害）。
+  esbuild: {
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
+  },
   plugins: [
     react()
   ],
@@ -119,4 +124,4 @@ export default defineConfig({
       ignored: ['**/node_modules/**', '**/.git/**']
     }
   }
-})
+}))

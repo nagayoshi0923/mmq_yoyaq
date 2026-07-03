@@ -347,18 +347,18 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       .eq('id', groupId)
       .single()
     const latest = (data?.character_assignments || {}) as Record<string, string>
-    console.log('🎭 handleGoToCharConfirm:', { latest, groupId })
+    logger.log('🎭 handleGoToCharConfirm:', { latest, groupId })
     setCharPreferences(latest)
     setCharDecisions({ ...latest })
     setCharConfirmStep(true)
   }, [groupId])
 
   const handleCharConfirmAndSend = useCallback(async () => {
-    console.log('🎭 handleCharConfirmAndSend 開始')
+    logger.log('🎭 handleCharConfirmAndSend 開始')
     setCharSubmitting(true)
     try {
       const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
-      console.log('🎭 activeMembers:', activeMembers.length, 'charDecisions:', charDecisions)
+      logger.log('🎭 activeMembers:', activeMembers.length, 'charDecisions:', charDecisions)
       const lines = activeMembers.map(m => {
         const charId = charDecisions[m.id]
         const charName = characters.find(c => c.id === charId)?.name || '未定'
@@ -369,7 +369,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       }).join('\n')
 
       // チャットにシステムメッセージを送信
-      console.log('🎭 チャットメッセージ送信中...')
+      logger.log('🎭 チャットメッセージ送信中...')
       const { error } = await supabase
         .from('private_group_messages')
         .insert({
@@ -383,7 +383,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
             assignments: charDecisions,
           }),
         })
-      console.log('🎭 チャットメッセージ結果:', { error })
+      logger.log('🎭 チャットメッセージ結果:', { error })
       if (error) throw error
 
       // アンケート回答にもキャラクター選択として保存（RPC経由でRLS回避）
@@ -394,7 +394,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
           .select('scenario_master_id, organization_id')
           .eq('id', groupId)
           .single()
-        console.log('🎭 DEBUG グループ情報:', groupData)
+        logger.log('🎭 DEBUG グループ情報:', groupData)
 
         if (groupData?.scenario_master_id && groupData?.organization_id) {
           const { data: os1 } = await supabase
@@ -403,7 +403,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
             .eq('scenario_master_id', groupData.scenario_master_id)
             .eq('organization_id', groupData.organization_id)
             .maybeSingle()
-          console.log('🎭 DEBUG org_scenario (by master_id):', os1)
+          logger.log('🎭 DEBUG org_scenario (by master_id):', os1)
 
           const orgScenarioId = os1?.id || groupData.scenario_master_id
           const { data: questions } = await supabase
@@ -411,27 +411,27 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
             .select('id, question_type, question_text')
             .eq('org_scenario_id', orgScenarioId)
           const charSelQ = questions?.filter((q: any) => q.question_type === 'character_selection')
-          console.log('🎭 DEBUG survey questions:', { orgScenarioId, total: questions?.length, charSelQuestions: charSelQ, allTypes: questions?.map((q: any) => q.question_type) })
+          logger.log('🎭 DEBUG survey questions:', { orgScenarioId, total: questions?.length, charSelQuestions: charSelQ, allTypes: questions?.map((q: any) => q.question_type) })
         }
 
-        console.log('🎭 配役→アンケート反映 RPC呼び出し:', { groupId, charDecisions })
+        logger.log('🎭 配役→アンケート反映 RPC呼び出し:', { groupId, charDecisions })
         const upsertCharParams: RpcUpsertCharacterAssignmentsToSurveyParams = {
           p_group_id: groupId,
           p_assignments: charDecisions,
         }
         const { data: rpcData, error: rpcError } = await supabase.rpc('upsert_character_assignments_to_survey', upsertCharParams)
-        console.log('🎭 配役→アンケート反映 RPC結果:', { rpcData, rpcError })
+        logger.log('🎭 配役→アンケート反映 RPC結果:', { rpcData, rpcError })
         if (rpcError) {
-          console.error('🎭 アンケート回答への配役反映エラー:', rpcError)
+          logger.error('🎭 アンケート回答への配役反映エラー:', rpcError)
         }
         // RPC後にDBを直接確認
         const { data: checkResponses } = await supabase
           .from('private_group_survey_responses')
           .select('member_id, responses')
           .eq('group_id', groupId)
-        console.log('🎭 DEBUG RPC後の回答データ:', checkResponses)
+        logger.log('🎭 DEBUG RPC後の回答データ:', checkResponses)
       } catch (surveyErr) {
-        console.error('🎭 アンケート回答への配役反映エラー:', surveyErr)
+        logger.error('🎭 アンケート回答への配役反映エラー:', surveyErr)
       }
 
       toast.success('配役を確定しました')
@@ -1207,7 +1207,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                 return [...new Set(chosen.filter((v, i) => chosen.indexOf(v) !== i))]
               })()
               const allDecided = activeMembers.every(m => charDecisions[m.id])
-              console.log('🎭 確定ステップ表示中:', { allDecided, decisionDupes, charDecisions, activeMemberIds: activeMembers.map(m=>m.id) })
+              logger.log('🎭 確定ステップ表示中:', { allDecided, decisionDupes, charDecisions, activeMemberIds: activeMembers.map(m=>m.id) })
 
               return (
                 <div className="flex justify-center my-4">

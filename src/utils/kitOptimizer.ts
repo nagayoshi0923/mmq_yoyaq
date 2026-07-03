@@ -5,6 +5,7 @@
  */
 
 import type { Scenario, Store, KitTransferSuggestion } from '@/types'
+import { logger } from '@/utils/logger'
 
 // 日本の都道府県リスト（住所から抽出用）
 const PREFECTURES = [
@@ -164,8 +165,8 @@ export function calculateKitTransfers(
         const scenario = scenarioMap.get(scenarioId)
         const store = storeMap.get(storeId)
         if (!scenario || !store) {
-          if (!scenario) console.warn('⚠️ シナリオがscenarioMapにない:', { scenarioId, date, storeId })
-          if (!store) console.warn('⚠️ 店舗がstoreMapにない:', { storeId, scenarioId, date })
+          if (!scenario) logger.warn('⚠️ シナリオがscenarioMapにない:', { scenarioId, date, storeId })
+          if (!store) logger.warn('⚠️ 店舗がstoreMapにない:', { storeId, scenarioId, date })
           continue
         }
         
@@ -218,14 +219,14 @@ export function calculateKitTransfers(
               
               // 移動日当日に使用される場合はスキップ
               if (usedOnTransferDate) {
-                console.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は移動日(${proposedTransferDate})に移動元で使用中`)
+                logger.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は移動日(${proposedTransferDate})に移動元で使用中`)
                 continue
               }
               
               // 【重要】公演日当日に移動元で使用される場合もスキップ
               // 例: 3/11に大塚でも大久保でも公演がある場合、大塚のキットは移動してはいけない
               if (fromGroupNeedCount > 0) {
-                console.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は公演日(${date})に移動元で使用予定`)
+                logger.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は公演日(${date})に移動元で使用予定`)
                 continue
               }
               
@@ -284,7 +285,7 @@ export function calculateKitTransfers(
           
           // 不足あり・移動候補なしの場合はログ出力
           if (shortage > 0 && otherKits.length === 0) {
-            console.warn('⚠️ 移動候補なし（キット不足解消不可）:', {
+            logger.warn('⚠️ 移動候補なし（キット不足解消不可）:', {
               scenario: scenario.title,
               scenarioId,
               date,

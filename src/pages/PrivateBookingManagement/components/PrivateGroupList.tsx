@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { logger } from '@/utils/logger'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -113,7 +114,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       const { error: rpcError } = await supabase.rpc('send_staff_group_message', msgParams)
       
       if (rpcError) {
-        console.error('メッセージ送信エラー:', rpcError)
+        logger.error('メッセージ送信エラー:', rpcError)
         throw rpcError
       }
       
@@ -122,7 +123,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       setMessage('')
       setSelectedGroup(null)
     } catch (err: any) {
-      console.error('メッセージ送信例外:', err)
+      logger.error('メッセージ送信例外:', err)
       showToast.error('メッセージの送信に失敗しました')
     } finally {
       setSending(false)
@@ -212,7 +213,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       setSurveyDialogOpen(false)
       setSelectedGroupForSurvey(null)
     } catch (err: any) {
-      console.error('アンケート通知送信エラー:', err)
+      logger.error('アンケート通知送信エラー:', err)
       showToast.error(err.message || 'アンケート通知の送信に失敗しました')
     } finally {
       setSendingSurvey(false)

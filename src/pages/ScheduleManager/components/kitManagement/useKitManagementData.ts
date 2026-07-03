@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { kitApi } from '@/lib/api/kitApi'
 import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
+import { logger } from '@/utils/logger'
 import type { KitLocation, KitTransferEvent, Store, StoreTravelTime, Scenario, KitTransferCompletion } from '@/types'
 import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
@@ -77,7 +78,7 @@ export function useKitManagementData({
           // ユーザーIDを仮のスタッフIDとして設定（操作履歴の記録用）
           setCurrentStaffId(user.id)
           setCurrentStaffName(user.email?.split('@')[0] || 'ユーザー')
-          console.warn('⚠️ スタッフ情報が取得できないため、ログインユーザー情報を使用:', user.id)
+          logger.warn('⚠️ スタッフ情報が取得できないため、ログインユーザー情報を使用:', user.id)
         }
       }
 
@@ -107,7 +108,7 @@ export function useKitManagementData({
       ])
 
       // デバッグ: データ取得結果
-      console.log('🔧 キット管理データ取得:', {
+      logger.log('🔧 キット管理データ取得:', {
         locationsCount: locationsData.length,
         scenariosCount: scenariosData.length,
         sampleLocations: locationsData.slice(0, 5).map(l => ({
@@ -147,7 +148,7 @@ export function useKitManagementData({
       setCompletions(completionsData)
 
       // デバッグログ - scenario_master_id の有無を確認
-      console.log('📅 スケジュール取得:', {
+      logger.log('📅 スケジュール取得:', {
         startDate,
         endDate,
         totalEvents: eventsData.length,
@@ -178,7 +179,7 @@ export function useKitManagementData({
         capacity: e.capacity || 0
       })).filter(e => e.scenario_master_id)
 
-      console.log('📅 処理後のイベント:', {
+      logger.log('📅 処理後のイベント:', {
         total: processedEvents.length,
         cancelled: processedEvents.filter(e => e.is_cancelled).length,
         sample: processedEvents.slice(0, 5)
@@ -190,7 +191,7 @@ export function useKitManagementData({
       const transfersData = await kitApi.getTransferEvents(weekDates[0], weekDates[6])
       setTransferEvents(transfersData)
     } catch (error) {
-      console.error('Failed to fetch kit data:', error)
+      logger.error('Failed to fetch kit data:', error)
       showToast.error('データの取得に失敗しました')
     } finally {
       setLoading(false)
@@ -217,7 +218,7 @@ export function useKitManagementData({
           table: 'kit_transfer_completions'
         },
         async (payload) => {
-          console.log('🔄 リアルタイム更新:', payload)
+          logger.log('🔄 リアルタイム更新:', payload)
           // 完了状態を再取得
           const startDate = weekDates[0]
           const endDateObj = new Date(weekDates[6])

@@ -5,6 +5,7 @@
  * スケジュール画面から日付を右クリックして設定可能
  */
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 import { organizationSettingsApi } from '@/lib/api/organizationSettingsApi'
 import { isJapaneseHoliday as isJapaneseHolidayBase } from '@/utils/japaneseHolidays'
 import { showToast } from '@/utils/toast'
@@ -69,7 +70,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
         const holidays = await organizationSettingsApi.getCustomHolidays()
         setCustomHolidays(holidays)
       } catch (error) {
-        console.error('カスタム休日の取得に失敗:', error)
+        logger.error('カスタム休日の取得に失敗:', error)
       } finally {
         setIsLoading(false)
       }
@@ -87,7 +88,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
       })
       showToast.success(`${date} を休日に設定しました`)
     } catch (error) {
-      console.error('休日追加エラー:', error)
+      logger.error('休日追加エラー:', error)
       showToast.error('休日の追加に失敗しました')
     }
   }, [])
@@ -99,7 +100,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
       setCustomHolidays(prev => prev.filter(d => d !== date))
       showToast.success(`${date} の休日設定を解除しました`)
     } catch (error) {
-      console.error('休日削除エラー:', error)
+      logger.error('休日削除エラー:', error)
       showToast.error('休日の解除に失敗しました')
     }
   }, [])

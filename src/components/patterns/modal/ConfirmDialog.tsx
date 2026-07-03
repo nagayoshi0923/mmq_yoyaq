@@ -1,4 +1,5 @@
 import { memo, ReactNode, useState } from 'react'
+import { logger } from '@/utils/logger'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -72,7 +73,7 @@ export const ConfirmDialog = memo(function ConfirmDialog({
       await onConfirm()
       close()
     } catch (error) {
-      console.error('ConfirmDialog onConfirm failed:', error)
+      logger.error('ConfirmDialog onConfirm failed:', error)
     } finally {
       setInternalLoading(false)
     }
