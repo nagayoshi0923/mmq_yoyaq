@@ -14,8 +14,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { Settings, TrendingUp } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { Settings } from 'lucide-react'
 import { scenarioApi, staffApi, storeApi, scheduleApi } from '@/lib/api'
 import type { Staff, Scenario, Store } from '@/types'
 
@@ -278,13 +277,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   const modalEvents = useMemo(() => (salesData?.eventList || []) as any, [salesData?.eventList])
   return (
     <div id="sales-report-container" className="space-y-3 sm:space-y-4 md:space-y-6">
-      {/* ヘッダー：タイトルとエクスポートボタン */}
-      <PageHeader
-        title={<><TrendingUp className="h-5 w-5 text-primary" />{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</>}
-        description="期間別の売上・予約実績と分析"
-      >
+      {/* エクスポートボタン */}
+      <div className="flex flex-wrap items-center gap-2 justify-end">
         <ExportButtons salesData={salesData} dateRange={dateRange} />
-      </PageHeader>
+      </div>
 
       {/* 月切り替えと期間設定 */}
       <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Search, Filter, ChevronDown, ChevronRight, Download } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
@@ -96,11 +95,8 @@ export default function SalaryCalculation() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
-      {/* ヘッダー */}
-      <PageHeader
-        title="給与計算"
-        description="スタッフ別のGM報酬計算（シフト給与は今後実装予定）"
-      >
+      {/* アクション */}
+      <div className="flex flex-wrap items-center gap-2 justify-end">
         <Button
           onClick={handleExportCSV}
           disabled={loading || filteredStaffList.length === 0}
@@ -109,7 +105,7 @@ export default function SalaryCalculation() {
           <Download className="h-4 w-4" />
           CSVエクスポート
         </Button>
-      </PageHeader>
+      </div>
 
       {/* フィルター */}
       <Card className="shadow-none border">

@@ -16,7 +16,6 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)
 import { useAnnualAnalysis } from '../hooks/useAnnualAnalysis'
 import { TrendingUp, TrendingDown, Calendar, Banknote } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
 
 interface AnnualAnalysisProps {
   stores: Array<{ id: string; name: string; short_name: string; ownership_type?: string }>
@@ -190,8 +189,6 @@ export function AnnualAnalysis({ stores, selectedStoreIds }: AnnualAnalysisProps
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <PageHeader title="年間分析" description="年間売上推移と月次比較" />
-
       {/* KPIカード */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="shadow-none border">
