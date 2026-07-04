@@ -176,33 +176,28 @@ export function GroupInviteView({
           </CardContent>
         </Card>
 
-        {/* 新規登録特典案内 */}
+        {/* ログイン案内 */}
         {!user && (
-          <Card className="mb-6 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+          <Card className="mb-6 border-purple-200 bg-purple-50/50">
             <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
-                  <span className="text-lg">🎁</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-amber-800">
-                    新規会員登録で2,000円分クーポンプレゼント！
-                  </p>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    ログインして参加すると、次回予約で使えるクーポンがもらえます
-                  </p>
-                </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  参加にはログインが必要です
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  アカウントをお持ちでない方は新規登録から参加できます
+                </p>
               </div>
               <div className="flex gap-2 mt-3">
                 <Button
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                  className="flex-1"
                   onClick={() => navigate(`/signup?redirect=${encodeURIComponent(location.pathname)}`)}
                 >
                   新規登録
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-100"
+                  className="flex-1"
                   onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
                 >
                   ログイン
