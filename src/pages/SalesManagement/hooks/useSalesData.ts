@@ -1078,6 +1078,7 @@ function calculateSalesData(
     totalGmCost,
     totalProductionCost,
     totalPropsCost,
+    totalFcCost,
     totalFixedCost,
     fixedCostBreakdown,
     productionCostBreakdown,

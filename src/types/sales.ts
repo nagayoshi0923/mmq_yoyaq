@@ -6,6 +6,7 @@ export interface SalesData {
   totalGmCost: number
   totalProductionCost: number
   totalPropsCost: number
+  totalFcCost: number
   totalFixedCost: number
   totalFranchiseFee?: number
   fixedCostBreakdown: Array<{

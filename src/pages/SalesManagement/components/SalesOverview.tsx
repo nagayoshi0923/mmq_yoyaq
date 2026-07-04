@@ -397,6 +397,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           totalGmCost={salesData.totalGmCost}
           totalProductionCost={salesData.totalProductionCost}
           totalPropsCost={salesData.totalPropsCost}
+          totalFcCost={salesData.totalFcCost}
           totalFixedCost={salesData.totalFixedCost}
           fixedCostBreakdown={salesData.fixedCostBreakdown}
           productionCostBreakdown={salesData.productionCostBreakdown}

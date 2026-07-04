@@ -17,6 +17,7 @@ interface SummaryCardsProps {
   totalGmCost: number
   totalProductionCost: number
   totalPropsCost: number
+  totalFcCost: number
   totalFixedCost: number
   fixedCostBreakdown: Array<{
     item: string
@@ -74,6 +75,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   totalGmCost,
   totalProductionCost,
   totalPropsCost,
+  totalFcCost,
   totalFixedCost,
   fixedCostBreakdown,
   productionCostBreakdown,
@@ -161,8 +163,8 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         <StatCard
           label="FC料金"
           icon={Store}
-          value={formatCurrency(totalEvents * 1000)}
-          sub={`${totalEvents}公演 × ¥1,000`}
+          value={formatCurrency(totalFcCost)}
+          sub="FC店舗の事務手数料"
         />
 
         <StatCard
