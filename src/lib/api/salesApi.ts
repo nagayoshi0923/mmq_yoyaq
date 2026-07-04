@@ -73,6 +73,8 @@ export interface SalesStore {
   ownership_type?: 'corporate' | 'franchise' | 'office'
   transport_allowance?: number
   franchise_fee?: number
+  franchise_fee_type?: 'fixed' | 'percent'
+  franchise_fee_percent?: number
 }
 
 export interface ScenarioPerformanceItem {

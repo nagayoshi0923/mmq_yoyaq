@@ -29,7 +29,7 @@ const SCHEDULE_EVENT_SALES_SELECT_FIELDS =
   'id, organization_id, date, start_time, end_time, store_id, venue, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled'
 
 const STORE_SELECT_FIELDS_FOR_SALES =
-  'id, name, short_name, fixed_costs, ownership_type, transport_allowance, franchise_fee'
+  'id, name, short_name, fixed_costs, ownership_type, transport_allowance, franchise_fee, franchise_fee_type, franchise_fee_percent'
 
 const STORE_AND_SCENARIO_NESTED_SELECT = `
   *,
