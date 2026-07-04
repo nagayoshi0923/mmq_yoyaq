@@ -5,9 +5,7 @@ import { SummaryCards } from './SummaryCards'
 import { EventListCard } from './EventListCard'
 import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
-import { ProductionCostDialog } from './ProductionCostDialog'
-import { AdjustmentDialog, type AdjustmentTargetEvent, type AdjustmentEventOption } from './AdjustmentDialog'
-import { AdjustmentListCard } from './AdjustmentListCard'
+import { ProductionCostDialog, type ProductionCostItem, type AdjustmentEventOption } from './ProductionCostDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -73,20 +71,9 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     availableStaffByScenario: Record<string, Staff[]>
   } | null>(null)
   
-  // 制作費ダイアログの状態管理
+  // 制作費・調整 統合ダイアログの状態管理
   const [isProductionCostDialogOpen, setIsProductionCostDialogOpen] = useState(false)
-  const [editingProductionCost, setEditingProductionCost] = useState<{
-    id: string
-    date: string
-    category: string
-    amount: number
-    store_id?: string | null
-    scenario_id?: string | null
-  } | null>(null)
-  
-  // 収支調整ダイアログの状態管理（F-1）
-  const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false)
-  const [adjustmentTargetEvent, setAdjustmentTargetEvent] = useState<AdjustmentTargetEvent | null>(null)
+  const [editingProductionCost, setEditingProductionCost] = useState<ProductionCostItem | null>(null)
 
   // 月切り替えの状態管理
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -202,23 +189,52 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     setIsEditModalOpen(true)
   }
 
-  // 収支調整ハンドラー（F-1）
-  // 概要カード / 一覧の追加ボタンから開く（公演紐付けはダイアログ内で任意選択）
-  const handleAddAdjustmentStandalone = useCallback(() => {
-    setAdjustmentTargetEvent(null)
-    setIsAdjustmentDialogOpen(true)
+  // 制作費・調整 統合ダイアログを開く（追加）
+  const handleAddProductionCost = useCallback(() => {
+    setEditingProductionCost(null)
+    setIsProductionCostDialogOpen(true)
   }, [])
 
-  const handleAdjustmentDialogClose = useCallback(() => {
-    setIsAdjustmentDialogOpen(false)
-    setAdjustmentTargetEvent(null)
+  // 制作費行クリック（編集）
+  const handleEditProductionCost = useCallback((item: ProductionCostItem) => {
+    setEditingProductionCost(item)
+    setIsProductionCostDialogOpen(true)
   }, [])
 
-  const handleAdjustmentSaved = useCallback(() => {
+  // 収支調整行クリック（編集）: 種別を復元して統合ダイアログを開く
+  const handleEditAdjustment = useCallback((entry: {
+    id: string
+    date: string
+    type: 'income' | 'expense'
+    amount: number
+    category: string
+    description?: string | null
+    schedule_event_id?: string | null
+    store_id?: string | null
+  }) => {
+    setEditingProductionCost({
+      id: entry.id,
+      date: entry.date,
+      category: entry.category,
+      amount: entry.amount,
+      description: entry.description || '',
+      store_id: entry.store_id,
+      type: entry.type,
+      schedule_event_id: entry.schedule_event_id,
+    })
+    setIsProductionCostDialogOpen(true)
+  }, [])
+
+  const handleProductionCostDialogClose = useCallback(() => {
+    setIsProductionCostDialogOpen(false)
+    setEditingProductionCost(null)
+  }, [])
+
+  const handleProductionCostSaved = useCallback(() => {
     if (onDataRefresh) onDataRefresh()
   }, [onDataRefresh])
 
-  // 収支調整ダイアログの「公演（任意）」Select 候補（当期間の公演）
+  // 統合ダイアログの「公演（任意）」Select 候補（当期間の公演）
   const adjustmentEventOptions = useMemo<AdjustmentEventOption[]>(() => {
     return (salesData?.eventList || []).map(ev => ({
       id: ev.id,
@@ -227,15 +243,6 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       store_id: ev.store_id,
       store_name: ev.store_name,
     }))
-  }, [salesData?.eventList])
-
-  // schedule_event_id -> 公演名 の対応表（調整一覧で紐づく公演名を表示するため）
-  const eventNameById = useMemo(() => {
-    const map: Record<string, string> = {}
-    ;(salesData?.eventList || []).forEach(ev => {
-      if (ev.id) map[ev.id] = ev.scenario_title
-    })
-    return map
   }, [salesData?.eventList])
 
   // モーダル保存ハンドラー
@@ -448,17 +455,11 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           variableCostBreakdown={salesData.variableCostBreakdown}
           totalAdjustmentIncome={salesData.totalAdjustmentIncome}
           totalAdjustmentExpense={salesData.totalAdjustmentExpense}
-          adjustmentCount={salesData.adjustmentEntries.length}
+          adjustmentEntries={salesData.adjustmentEntries}
           netProfit={salesData.netProfit}
-          onAdjustmentClick={handleAddAdjustmentStandalone}
-          onProductionCostClick={isFranchiseOnly ? () => {
-            setEditingProductionCost(null)
-            setIsProductionCostDialogOpen(true)
-          } : undefined}
-          onProductionCostEdit={isFranchiseOnly ? (item) => {
-            setEditingProductionCost(item)
-            setIsProductionCostDialogOpen(true)
-          } : undefined}
+          onProductionCostClick={handleAddProductionCost}
+          onProductionCostEdit={handleEditProductionCost}
+          onAdjustmentEdit={handleEditAdjustment}
         />
           </div>
 
@@ -475,18 +476,6 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               }}
             />
           </div>
-
-          {/* 収支調整一覧（F-1・調整が0件なら見出しごと非表示） */}
-          {salesData.adjustmentEntries.length > 0 && (
-            <div className="mb-4 sm:mb-6">
-              <AdjustmentListCard
-                entries={salesData.adjustmentEntries}
-                eventNameById={eventNameById}
-                onAdd={handleAddAdjustmentStandalone}
-                onDeleted={handleAdjustmentSaved}
-              />
-            </div>
-          )}
 
           {/* チャート */}
           <SalesChart 
@@ -539,41 +528,16 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         />
       )}
 
-      {/* 制作費追加・編集ダイアログ（フランチャイズ用） */}
-      {isFranchiseOnly && (
-        <ProductionCostDialog
-          isOpen={isProductionCostDialogOpen}
-          onClose={() => {
-            setIsProductionCostDialogOpen(false)
-            setEditingProductionCost(null)
-          }}
-          onSave={() => {
-            // 保存後にデータをリフレッシュ
-            if (onDataRefresh) {
-              onDataRefresh()
-            }
-          }}
-          stores={stores}
-          defaultStoreId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : undefined}
-          editingItem={editingProductionCost ? {
-            id: editingProductionCost.id,
-            date: editingProductionCost.date,
-            category: editingProductionCost.category,
-            amount: editingProductionCost.amount,
-            store_id: editingProductionCost.store_id,
-            scenario_id: editingProductionCost.scenario_id
-          } : null}
-        />
-      )}
-
-      {/* 収支調整ダイアログ（F-1） */}
-      <AdjustmentDialog
-        isOpen={isAdjustmentDialogOpen}
-        onClose={handleAdjustmentDialogClose}
-        onSaved={handleAdjustmentSaved}
+      {/* 制作費・調整 統合ダイアログ（制作費種別はフランチャイズ集計時のみ） */}
+      <ProductionCostDialog
+        isOpen={isProductionCostDialogOpen}
+        onClose={handleProductionCostDialogClose}
+        onSave={handleProductionCostSaved}
         stores={stores}
-        targetEvent={adjustmentTargetEvent}
+        defaultStoreId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : undefined}
+        editingItem={editingProductionCost}
         events={adjustmentEventOptions}
+        allowProductionKind={isFranchiseOnly}
       />
     </div>
   )
