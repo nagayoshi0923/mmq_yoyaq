@@ -16,8 +16,9 @@
 - ✅ **S7** master_status 昇格を自組織提出マスターに限定 `932faa26`（※「自動昇格そのものを撤廃するか」は宿題⑤として残・2026-07-03）
 
 - ✅ **BUG-11** シナリオ詳細の店舗絞り込みに公演実在店舗が出ない（6/11 既存バグ・スモーク中に発見）→ 和集合化で修正（スモークOK）。**宿題⑦**: 大宮で貸切も受けるなら対応店舗に大宮を追加（データ側）
-- ⬜ **BUG-12** 売上概要の FC料金カードが実データ（franchise_fee 合計・useSalesData:1057）でなく「公演数×¥1,000」のハードコード表示（SummaryCards）＝実態とズレうる（2026-07-04 機能監査で発見）
-- ⬜ **S9** miscellaneous_transactions の SELECT ポリシーが `is_staff_or_admin()` のみで **org 境界なし**（他組織スタッフから金額・メモが読める）＋ authenticated に TRUNCATE 含む全 GRANT（S1 と同型）。**2026-07-04 本番DB実測で確認済み**。修正= SELECT に org 境界追加＋REVOKE の migration 1本
+- ✅ **BUG-12** 売上概要の FC料金カードのハードコード表示 → totalFcCost 実データ化 `a3edba26`（計算側は元から正・表示1枚のみの修正。🔍スモーク67）
+- ✅ **S9** miscellaneous_transactions の RLS org 境界穴（他組織 staff が読める＋ _strict 経由で他組織 admin が書ける）＋過剰 GRANT → migration `20260704100539` で封鎖 `81cad111`。**staging・本番とも適用＆実測検証済み（2026-07-04）**
+- ⬜ **BUG-13** useSalesData が totalFranchiseFee を return に含めず、SalesOverview:428 が `undefined || 0` で **公演リストへ franchiseFee=0 を渡し続けている疑い**（BUG-12 実装中に発見・未修正）。行表示の FC料金が常に0になっていないか要確認→修正判断
 
 ## 🎨 デザイン本線（オーナー重点①）
 
