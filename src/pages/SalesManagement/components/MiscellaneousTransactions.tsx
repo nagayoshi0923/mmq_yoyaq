@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { StatCard } from '@/components/patterns/stat'
 import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -227,10 +229,11 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   return (
     <div className="space-y-6">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">雑収支管理</h2>
-      </div>
-      
+      <PageHeader
+        title="雑収支管理"
+        description="公演に含まれない収入・支出を管理"
+      />
+
       {/* 月切り替え */}
       <div className="flex justify-center">
         <MonthSwitcher
@@ -244,46 +247,25 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       
       {/* サマリー */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              収入合計
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg text-green-900">
-              {formatCurrency(totalIncome)}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              支出合計
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg text-red-900">
-              {formatCurrency(totalExpense)}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className={`bg-gradient-to-br border-2 shadow-none ${netAmount >= 0 ? 'from-blue-50 to-blue-100 border-blue-300' : 'from-gray-50 to-gray-100 border-gray-300'}`}>
-          <CardHeader className="pb-3">
-            <CardTitle className={`text-sm ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
-              差額
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-lg ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
-              {formatCurrency(netAmount)}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="収入合計"
+          icon={TrendingUp}
+          tone="success"
+          value={formatCurrency(totalIncome)}
+        />
+
+        <StatCard
+          label="支出合計"
+          icon={TrendingDown}
+          tone="destructive"
+          value={formatCurrency(totalExpense)}
+        />
+
+        <StatCard
+          label="差額"
+          tone={netAmount >= 0 ? 'success' : 'destructive'}
+          value={formatCurrency(netAmount)}
+        />
       </div>
       
       {/* 新規追加フォーム */}
