@@ -20,6 +20,7 @@
 - ✅ **S9** miscellaneous_transactions の RLS org 境界穴（他組織 staff が読める＋ _strict 経由で他組織 admin が書ける）＋過剰 GRANT → migration `20260704100539` で封鎖 `81cad111`。**staging・本番とも適用＆実測検証済み（2026-07-04）**
 - ⬜ **BUG-13** useSalesData が totalFranchiseFee を return に含めず、SalesOverview:428 が `undefined || 0` で **公演リストへ franchiseFee=0 を渡し続けている疑い**（BUG-12 実装中に発見・未修正）。行表示の FC料金が常に0になっていないか要確認→修正判断
 - ⬜ **BUG-14** store.franchise_fee の**二重計上疑い**: 同じ設定値が ①公演1件ごとの「FC料金」（totalFcCost・useSalesData:1057）と ②店舗ごと月1回の「事務手数料」（totalFranchiseFee・:501-503）の**両方**で totalVariableCost（:1060）に加算される。仕様はどちらか一方のはず → **宿題: FC料金は「公演毎」か「月毎」どちらが正か**（オーナー）。BUG-13 と同時に整理して修正
+- ⬜ **BUG-15** 貸切公演への「満席化」でデモ予約が **final_price=0** で作られる（2026-07-04 実データで確認・staging 260702-RBPB）。デモ予約の売上は「参加費×人数」設計だが、貸切は料金体系が別（貸切プラン/venue_rental）のため金額解決が効かない → **宿題: 貸切の満席化の売上は (a)貸切合意金額 (b)参加費×人数 (c)常に¥0（実売上は実予約/F-1調整で計上・AI推奨）のどれか**
 
 ## 🎨 デザイン本線（オーナー重点①）
 
