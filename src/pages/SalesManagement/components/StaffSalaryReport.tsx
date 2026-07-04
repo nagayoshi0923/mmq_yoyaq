@@ -235,18 +235,6 @@ export function StaffSalaryReport() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
-      {/* アクション */}
-      <div className="flex flex-wrap items-center gap-2 justify-end">
-        <Button
-          onClick={handleExportCSV}
-          disabled={loading || filteredStaffList.length === 0}
-          className="flex items-center gap-2"
-        >
-          <Download className="h-4 w-4" />
-          CSVエクスポート
-        </Button>
-      </div>
-
       {/* フィルター */}
       <Card className="shadow-none border">
         <CardHeader className="p-3 sm:p-4 md:p-6">
@@ -260,12 +248,22 @@ export function StaffSalaryReport() {
             {/* 月選択 */}
             <div className="space-y-1 sm:space-y-2">
               <label className="text-xs sm:text-sm">対象月</label>
-              <MonthSwitcher
-                value={currentDate}
-                onChange={setCurrentDate}
-                showToday
-                quickJump
-              />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <MonthSwitcher
+                  value={currentDate}
+                  onChange={setCurrentDate}
+                  showToday
+                  quickJump
+                />
+                <Button
+                  onClick={handleExportCSV}
+                  disabled={loading || filteredStaffList.length === 0}
+                  className="flex items-center gap-2 sm:ml-auto"
+                >
+                  <Download className="h-4 w-4" />
+                  CSVエクスポート
+                </Button>
+              </div>
             </div>
 
             {/* その他のフィルター */}

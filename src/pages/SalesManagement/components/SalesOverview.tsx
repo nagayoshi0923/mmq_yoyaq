@@ -277,11 +277,6 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   const modalEvents = useMemo(() => (salesData?.eventList || []) as any, [salesData?.eventList])
   return (
     <div id="sales-report-container" className="space-y-3 sm:space-y-4 md:space-y-6">
-      {/* エクスポートボタン */}
-      <div className="flex flex-wrap items-center gap-2 justify-end">
-        <ExportButtons salesData={salesData} dateRange={dateRange} />
-      </div>
-
       {/* 月切り替えと期間設定 */}
       <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
@@ -295,7 +290,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               enableKeyboard={true}
             />
           </div>
-          
+
           {/* 期間設定ボタン */}
           <Button
             variant="outline"
@@ -317,6 +312,11 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               hideLabel
               placeholder="全店舗"
             />
+          </div>
+
+          {/* エクスポートボタン（コントロール行の右端に統合） */}
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <ExportButtons salesData={salesData} dateRange={dateRange} />
           </div>
         </div>
       </div>
