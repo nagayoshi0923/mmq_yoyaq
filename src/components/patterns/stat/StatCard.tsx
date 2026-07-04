@@ -9,7 +9,11 @@ interface StatCardProps {
   icon?: LucideIcon
   /** 数値の色調（未対応件数の警告など） */
   tone?: 'default' | 'success' | 'warning' | 'destructive'
+  /** 値の下に表示する補足行（内訳・注記など。未指定なら従来通り非表示） */
+  sub?: ReactNode
   className?: string
+  /** カードクリック時のコールバック（未指定なら非インタラクティブ） */
+  onClick?: () => void
 }
 
 const TONE_CLASS = {
@@ -25,15 +29,16 @@ const TONE_CLASS = {
  * ラベル text-xs muted / 数値 text-2xl font-bold 左寄せ / CardContent p-4（デザイン規約 5.1）。
  * StatGrid と組み合わせて使う。
  */
-export function StatCard({ label, value, icon: Icon, tone = 'default', className }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, tone = 'default', sub, className, onClick }: StatCardProps) {
   return (
-    <Card className={className}>
+    <Card className={cn(onClick && 'cursor-pointer transition-colors hover:bg-muted/50', className)} onClick={onClick}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">{label}</p>
           {Icon && <Icon className="h-4 w-4 text-muted-foreground/50" aria-hidden="true" />}
         </div>
         <p className={cn('mt-1 text-2xl font-bold leading-none', TONE_CLASS[tone])}>{value}</p>
+        {sub && <div className="mt-2 text-xs text-muted-foreground">{sub}</div>}
       </CardContent>
     </Card>
   )
