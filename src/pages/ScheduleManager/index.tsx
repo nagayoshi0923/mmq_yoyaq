@@ -487,11 +487,12 @@ export function ScheduleManager() {
               neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
             ),
             assigned_staff: event.gms || [],
-            base_price: participationFee * neededParticipants,
+            // デモ予約は参加費1人分を計上（旧サイト仕様の引き継ぎ・人数は満席表示用）
+            base_price: participationFee,
             options_price: 0,
-            total_price: participationFee * neededParticipants,
+            total_price: participationFee,
             discount_amount: 0,
-            final_price: participationFee * neededParticipants,
+            final_price: participationFee,
             payment_method: 'onsite',
             payment_status: 'paid',
             status: 'confirmed',
@@ -636,11 +637,12 @@ export function ScheduleManager() {
             neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
           ),
           assigned_staff: ev.gms || [],
-          base_price: participationFee * neededParticipants,
+          // デモ予約は参加費1人分を計上（旧サイト仕様の引き継ぎ・人数は満席表示用）
+          base_price: participationFee,
           options_price: 0,
-          total_price: participationFee * neededParticipants,
+          total_price: participationFee,
           discount_amount: 0,
-          final_price: participationFee * neededParticipants,
+          final_price: participationFee,
           payment_method: 'onsite',
           payment_status: 'paid',
           status: 'confirmed',
