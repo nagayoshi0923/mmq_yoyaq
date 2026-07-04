@@ -349,6 +349,8 @@ export function SurveyResponsesTab({
             action: 'individual_notice',
             target_member_id: memberId,
             target_member_name: memberName,
+            // 宛先ユーザーID（メンバー行が退出等で再作成されても user_id 照合で表示できるように #278）
+            target_user_id: member?.user_id || null,
             message: fullMessage,
             character_id: selectedCharId || null,
             character_name: selectedChar?.name || null,
