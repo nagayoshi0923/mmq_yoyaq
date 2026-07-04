@@ -1,6 +1,6 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, Users, Edit } from 'lucide-react'
+import { Calendar, MapPin, Users, Edit, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatJstYmd } from '@/utils/jstDate'
 
@@ -30,6 +30,8 @@ interface EventListCardProps {
   events: EventItem[]
   loading?: boolean
   onEditEvent?: (event: EventItem) => void
+  // F-1: 行から収支調整を追加するコールバック
+  onAddAdjustment?: (event: EventItem) => void
   // 追加費用（制作費・道具費用・固定費）を含む正確な純利益
   totalNetProfit?: number
   // 追加費用の内訳（合計行に表示用）
@@ -72,12 +74,13 @@ const SectionHeader: React.FC<{ subtitle?: string }> = ({ subtitle }) => (
   </div>
 )
 
-const EventListCardBase: React.FC<EventListCardProps> = ({ 
-  events, 
-  loading = false, 
+const EventListCardBase: React.FC<EventListCardProps> = ({
+  events,
+  loading = false,
   onEditEvent,
+  onAddAdjustment,
   totalNetProfit,
-  additionalCosts 
+  additionalCosts
 }) => {
   if (loading) {
     return (
@@ -141,14 +144,27 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground"
-                    onClick={() => onEditEvent?.(event)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {onAddAdjustment && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground"
+                        title="収支調整を追加"
+                        onClick={() => onAddAdjustment(event)}
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground"
+                      onClick={() => onEditEvent?.(event)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <button
@@ -224,6 +240,17 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                       >
                         {event.scenario_title}
                       </button>
+                      {onAddAdjustment && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground"
+                          title="収支調整を追加"
+                          onClick={() => onAddAdjustment(event)}
+                        >
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"

@@ -6,6 +6,8 @@ import { EventListCard } from './EventListCard'
 import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
 import { ProductionCostDialog } from './ProductionCostDialog'
+import { AdjustmentDialog, type AdjustmentTargetEvent } from './AdjustmentDialog'
+import { AdjustmentListCard } from './AdjustmentListCard'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -82,6 +84,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     scenario_id?: string | null
   } | null>(null)
   
+  // 収支調整ダイアログの状態管理（F-1）
+  const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false)
+  const [adjustmentTargetEvent, setAdjustmentTargetEvent] = useState<AdjustmentTargetEvent | null>(null)
+
   // 月切り替えの状態管理
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
@@ -195,6 +201,42 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     setEditingEvent(modalEvent)
     setIsEditModalOpen(true)
   }
+
+  // 収支調整ハンドラー（F-1）
+  // 公演行から開く: schedule_event_id / store_id / 日付を対象公演から引き継ぐ
+  const handleAddAdjustmentForEvent = useCallback((event: any) => {
+    setAdjustmentTargetEvent({
+      id: event.id,
+      date: event.date,
+      scenario_title: event.scenario_title,
+      store_id: event.store_id,
+    })
+    setIsAdjustmentDialogOpen(true)
+  }, [])
+
+  // 公演に紐づかない調整を開く
+  const handleAddAdjustmentStandalone = useCallback(() => {
+    setAdjustmentTargetEvent(null)
+    setIsAdjustmentDialogOpen(true)
+  }, [])
+
+  const handleAdjustmentDialogClose = useCallback(() => {
+    setIsAdjustmentDialogOpen(false)
+    setAdjustmentTargetEvent(null)
+  }, [])
+
+  const handleAdjustmentSaved = useCallback(() => {
+    if (onDataRefresh) onDataRefresh()
+  }, [onDataRefresh])
+
+  // schedule_event_id -> 公演名 の対応表（調整一覧で紐づく公演名を表示するため）
+  const eventNameById = useMemo(() => {
+    const map: Record<string, string> = {}
+    ;(salesData?.eventList || []).forEach(ev => {
+      if (ev.id) map[ev.id] = ev.scenario_title
+    })
+    return map
+  }, [salesData?.eventList])
 
   // モーダル保存ハンドラー
   const handleModalSave = async (eventData: any): Promise<boolean> => {
@@ -404,6 +446,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           propsCostBreakdown={salesData.propsCostBreakdown}
           totalVariableCost={salesData.totalVariableCost}
           variableCostBreakdown={salesData.variableCostBreakdown}
+          totalAdjustmentIncome={salesData.totalAdjustmentIncome}
           netProfit={salesData.netProfit}
           onProductionCostClick={isFranchiseOnly ? () => {
             setEditingProductionCost(null)
@@ -418,9 +461,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
           {/* 実施公演リスト */}
           <div className="mb-4 sm:mb-6">
-            <EventListCard 
-              events={salesData.eventList} 
+            <EventListCard
+              events={salesData.eventList}
               onEditEvent={handleEditEvent}
+              onAddAdjustment={handleAddAdjustmentForEvent}
               totalNetProfit={salesData.netProfit}
               additionalCosts={{
                 productionCost: salesData.totalProductionCost || 0,
@@ -429,6 +473,18 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               }}
             />
           </div>
+
+          {/* 収支調整一覧（F-1・調整が0件なら見出しごと非表示） */}
+          {salesData.adjustmentEntries.length > 0 && (
+            <div className="mb-4 sm:mb-6">
+              <AdjustmentListCard
+                entries={salesData.adjustmentEntries}
+                eventNameById={eventNameById}
+                onAdd={handleAddAdjustmentStandalone}
+                onDeleted={handleAdjustmentSaved}
+              />
+            </div>
+          )}
 
           {/* チャート */}
           <SalesChart 
@@ -507,6 +563,15 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           } : null}
         />
       )}
+
+      {/* 収支調整ダイアログ（F-1） */}
+      <AdjustmentDialog
+        isOpen={isAdjustmentDialogOpen}
+        onClose={handleAdjustmentDialogClose}
+        onSaved={handleAdjustmentSaved}
+        stores={stores}
+        targetEvent={adjustmentTargetEvent}
+      />
     </div>
   )
 }

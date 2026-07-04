@@ -33,6 +33,19 @@ export interface SalesData {
     category: string
     amount: number
   }>
+  // F-1: 収支調整（miscellaneous_transactions を調整エントリとして使う）
+  totalAdjustmentIncome: number   // 調整収入合計（総売上に加算される分）
+  totalAdjustmentExpense: number  // 調整支出合計（変動費に加算される分）
+  adjustmentEntries: Array<{
+    id: string
+    date: string
+    type: 'income' | 'expense'
+    amount: number
+    category: string
+    description?: string | null
+    schedule_event_id?: string | null
+    store_id?: string | null
+  }>
   netProfit: number
   storeRanking: Array<{
     id: string

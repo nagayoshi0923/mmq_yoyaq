@@ -44,6 +44,8 @@ interface SummaryCardsProps {
     category: string
     amount: number
   }>
+  // F-1: 調整収入（総売上のうち調整由来分）。0 のときは sub に何も出さない
+  totalAdjustmentIncome?: number
   netProfit: number
   // 制作費カードクリック時のコールバック（オプション）
   onProductionCostClick?: () => void
@@ -82,6 +84,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   propsCostBreakdown,
   totalVariableCost,
   variableCostBreakdown,
+  totalAdjustmentIncome = 0,
   netProfit,
   onProductionCostClick,
   onProductionCostEdit
@@ -103,6 +106,12 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               <span className="hidden sm:inline"> • </span>
               <br className="sm:hidden" />
               平均 <span {...devDb('calc:avg(revenue)')}>{formatCurrency(averageRevenue)}</span>
+              {totalAdjustmentIncome > 0 && (
+                <>
+                  <br />
+                  うち調整 +{formatCurrency(totalAdjustmentIncome)}
+                </>
+              )}
             </>
           }
         />

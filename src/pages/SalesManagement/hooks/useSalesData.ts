@@ -111,10 +111,9 @@ async function fetchSalesDataForPeriod(
     salesApi.getSalesByPeriod(formatDateJST(chartStartDate), formatDateJST(chartEndDate)),
     supabase
       .from('miscellaneous_transactions')
-      .select('id, date, type, category, amount, scenario_id, store_id')
+      .select('id, date, type, category, amount, description, scenario_id, store_id, schedule_event_id')
       .gte('date', formatDateJST(chartStartDate))
-      .lte('date', formatDateJST(chartEndDate))
-      .eq('type', 'expense'),
+      .lte('date', formatDateJST(chartEndDate)),
     supabase.from('staff').select('id, name, stores'),
   ])
 
@@ -331,8 +330,10 @@ function calculateSalesData(
     type: 'income' | 'expense';
     category: string;
     amount: number;
+    description?: string | null;
     scenario_id?: string | null;
     store_id?: string | null;
+    schedule_event_id?: string | null;
   }>,
   salarySettings: SalarySettings,
   staffByName: Map<string, string[]>  // スタッフ名→担当店舗IDの配列
@@ -1026,27 +1027,36 @@ function calculateSalesData(
     }
   })
 
-  // 雑収支データから制作費・道具費用を追加
+  // F-1: 雑収支データを振り分ける。
+  //  ・type='expense' かつ category='制作費' → 従来どおり制作費パス
+  //    （ProductionCostDialog の「クリックして追加」で入る既存フロー。壊さない）
+  //  ・それ以外（income 全部・制作費以外の expense）→ 収支調整パス
+  //    （F-1。totalAdjustmentIncome/Expense・adjustmentEntries へ）
+  let totalAdjustmentIncome = 0
+  let totalAdjustmentExpense = 0
+  const adjustmentEntries: SalesData['adjustmentEntries'] = []
   if (miscTransactions && miscTransactions.length > 0) {
-    // シナリオIDからシナリオ名へのマップを作成（パフォーマンス最適化）
+    // シナリオIDからシナリオ名へのマップ（制作費パスの scenario 名解決用）
     const scenarioMap = new Map<string, string>()
     events.forEach(event => {
       if (event.scenario_master_id && event.scenario) {
         scenarioMap.set(event.scenario_master_id, event.scenario)
       }
     })
-    
+
     miscTransactions.forEach(transaction => {
-      const transactionDate = new Date(transaction.date)
-      const transYear = transactionDate.getFullYear()
-      const transMonth = transactionDate.getMonth()
-      
-      // 発生月が期間内に含まれるかチェック
-      const isInPeriod = 
-        (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
-        (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
-      
-      if (isInPeriod) {
+      const isProductionCost = transaction.type === 'expense' && transaction.category === '制作費'
+
+      if (isProductionCost) {
+        // 制作費パス: 旧コードと同じく発生月ベースで期間判定し productionCost に加算する
+        const transactionDate = new Date(transaction.date)
+        const transYear = transactionDate.getFullYear()
+        const transMonth = transactionDate.getMonth()
+        const isInPeriod =
+          (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
+          (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
+        if (!isInPeriod) return
+
         const key = `misc-${transaction.id}`
         if (!processedProductionCosts.has(key)) {
           processedProductionCosts.add(key)
@@ -1062,28 +1072,59 @@ function calculateSalesData(
             isEditable: true  // miscTransactionsから追加されたものは編集可能
           })
         }
+        return
       }
+
+      // 調整パス: 集計期間（startDate〜endDate）の実日付範囲で判定
+      const transactionDate = new Date(transaction.date + 'T00:00:00+09:00')
+      const isInPeriod = transactionDate >= startDate && transactionDate <= endDate
+      if (!isInPeriod) return
+
+      if (transaction.type === 'income') {
+        totalAdjustmentIncome += transaction.amount
+      } else {
+        totalAdjustmentExpense += transaction.amount
+      }
+      adjustmentEntries.push({
+        id: transaction.id,
+        date: transaction.date,
+        type: transaction.type,
+        amount: transaction.amount,
+        category: transaction.category,
+        description: transaction.description ?? null,
+        schedule_event_id: transaction.schedule_event_id ?? null,
+        store_id: transaction.store_id ?? null,
+      })
     })
+    adjustmentEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   }
 
   // FC料金の計算（各公演のfranchise_feeを合計）
   const totalFcCost = eventList.reduce((sum, event) => sum + (event.franchise_fee || 0), 0)
 
-  // 変動費の計算（ライセンス費用 + GM給与 + FC料金 + 制作費 + 道具費用）
-  const totalVariableCost = totalLicenseCost + totalGmCost + totalFcCost + totalProductionCost + totalPropsCost
+  // F-1: 総売上に調整収入を加算する。
+  // totalRevenue は「予約由来分（reservationRevenue）＋ 調整分（totalAdjustmentIncome）」。
+  // 調整が 0 件なら totalAdjustmentIncome=0 で従来と完全一致する。
+  const reservationRevenue = totalRevenue
+  const totalRevenueWithAdjustment = reservationRevenue + totalAdjustmentIncome
+
+  // 変動費の計算（ライセンス費用 + GM給与 + FC料金 + 制作費 + 道具費用 + 調整支出）
+  // 制作費は misc 混入を外したので純粋なシナリオ制作費のみ。
+  const totalVariableCost = totalLicenseCost + totalGmCost + totalFcCost + totalProductionCost + totalPropsCost + totalAdjustmentExpense
   const variableCostBreakdown = [
     { category: 'ライセンス費用', amount: totalLicenseCost },
     { category: 'GM給与', amount: totalGmCost },
     ...(totalFcCost > 0 ? [{ category: 'FC料金', amount: totalFcCost }] : []),
     { category: '制作費', amount: totalProductionCost },
-    { category: '必要道具', amount: totalPropsCost }
+    { category: '必要道具', amount: totalPropsCost },
+    ...(totalAdjustmentExpense > 0 ? [{ category: 'その他支出（調整）', amount: totalAdjustmentExpense }] : [])
   ]
 
-  // 純利益の再計算（固定費も含める）
-  const netProfitWithFixedCost = totalRevenue - totalVariableCost - totalFixedCost
+  // 純利益の再計算（総売上＝調整込み、固定費も含める）
+  const netProfitWithFixedCost = totalRevenueWithAdjustment - totalVariableCost - totalFixedCost
 
   return {
-    totalRevenue,
+    totalRevenue: totalRevenueWithAdjustment,
     totalEvents,
     averageRevenuePerEvent,
     totalLicenseCost,
@@ -1097,6 +1138,9 @@ function calculateSalesData(
     propsCostBreakdown,
     totalVariableCost,
     variableCostBreakdown,
+    totalAdjustmentIncome,
+    totalAdjustmentExpense,
+    adjustmentEntries,
     netProfit: netProfitWithFixedCost,
     storeRanking,
     scenarioRanking,
