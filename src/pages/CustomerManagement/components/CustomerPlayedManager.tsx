@@ -231,14 +231,14 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
                           variant="outline"
                           size="sm"
                           disabled={busy || !item.scenarioMasterId}
-                          className={`h-7 px-2 text-xs shrink-0 ${overridden ? 'text-green-700 border-green-300 hover:bg-green-50' : 'text-amber-700 border-amber-300 hover:bg-amber-50'}`}
+                          className="h-7 px-2 text-xs text-muted-foreground shrink-0"
                           onClick={() => toggleOverride(item.scenarioMasterId!, !overridden)}
                         >
                           <RotateCcw className="h-3 w-3 mr-1" />
                           {overridden ? '体験済みに戻す' : '未体験に戻す'}
                         </Button>
                       ) : (
-                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-destructive border-red-300 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => deleteManual(item.manualId!)}>
+                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-muted-foreground shrink-0" onClick={() => deleteManual(item.manualId!)}>
                           <Trash2 className="h-3 w-3 mr-1" />削除
                         </Button>
                       )}
