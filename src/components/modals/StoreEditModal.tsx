@@ -77,6 +77,8 @@ export function StoreEditModal({
         status: store.status,
         ownership_type: store.ownership_type || 'corporate',
         franchise_fee: store.franchise_fee ?? (store.ownership_type === 'franchise' ? 1000 : undefined),
+        franchise_fee_type: store.franchise_fee_type ?? 'fixed',
+        franchise_fee_percent: store.franchise_fee_percent ?? undefined,
         capacity: store.capacity,
         rooms: store.rooms,
         notes: store.notes,
@@ -101,6 +103,8 @@ export function StoreEditModal({
         status: 'active',
         ownership_type: 'corporate',
         franchise_fee: undefined,
+        franchise_fee_type: 'fixed',
+        franchise_fee_percent: undefined,
         capacity: 0,
         rooms: 0,
         notes: '',
@@ -467,20 +471,60 @@ export function StoreEditModal({
 
                     {/* フランチャイズ手数料（フランチャイズ店のみ） */}
                     {formData.ownership_type === 'franchise' && (
-                      <div>
-                        <label className="block text-sm font-medium mb-1">
-                          フランチャイズ登録手数料（円）
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.franchise_fee ?? 1000}
-                          onChange={(e) => handleInputChange('franchise_fee', parseInt(e.target.value) || 1000)}
-                          min={0}
-                          placeholder="1000"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          フランチャイズ店に登録されるシナリオごとに発生する手数料
-                        </p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            FC料金の方式
+                          </label>
+                          <Select
+                            value={formData.franchise_fee_type ?? 'fixed'}
+                            onValueChange={(value) => handleInputChange('franchise_fee_type', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">定額（公演ごと）</SelectItem>
+                              <SelectItem value="percent">売上の％</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {(formData.franchise_fee_type ?? 'fixed') === 'fixed' ? (
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              フランチャイズ登録手数料（円）
+                            </label>
+                            <Input
+                              type="number"
+                              value={formData.franchise_fee ?? 1000}
+                              onChange={(e) => handleInputChange('franchise_fee', parseInt(e.target.value) || 1000)}
+                              min={0}
+                              placeholder="1000"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              フランチャイズ店で公演ごとに発生する手数料
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              FC料金（売上の％）
+                            </label>
+                            <Input
+                              type="number"
+                              value={formData.franchise_fee_percent ?? ''}
+                              onChange={(e) => handleInputChange('franchise_fee_percent', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                              min={0}
+                              max={100}
+                              step={0.1}
+                              placeholder="10"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              公演売上に対する割合（例: 10 = 売上の10%）
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
 

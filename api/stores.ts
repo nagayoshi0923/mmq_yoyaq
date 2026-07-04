@@ -18,7 +18,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 }
 
 const STORE_SELECT_FIELDS =
-  'id, organization_id, name, short_name, address, access_info, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, capacity, rooms, notes, color, fixed_costs, venue_cost_per_performance, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, kit_group_id, kit_fixed, created_at, updated_at'
+  'id, organization_id, name, short_name, address, access_info, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, franchise_fee_type, franchise_fee_percent, capacity, rooms, notes, color, fixed_costs, venue_cost_per_performance, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, kit_group_id, kit_fixed, created_at, updated_at'
 
 const STORE_TRAVEL_TIME_SELECT_FIELDS =
   'id, organization_id, store_a_id, store_b_id, minutes, memo, created_at, updated_at'
@@ -27,6 +27,7 @@ const STORE_TRAVEL_TIME_SELECT_FIELDS =
 const STORE_CREATABLE_FIELDS = [
   'name', 'short_name', 'address', 'access_info', 'phone_number', 'email',
   'opening_date', 'manager_name', 'status', 'ownership_type', 'franchise_fee',
+  'franchise_fee_type', 'franchise_fee_percent',
   'capacity', 'rooms', 'notes', 'color', 'fixed_costs', 'venue_cost_per_performance',
   'is_temporary', 'temporary_date', 'temporary_dates', 'temporary_venue_names',
   'display_order', 'region', 'transport_allowance', 'kit_group_id',

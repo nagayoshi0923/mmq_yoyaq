@@ -24,6 +24,8 @@ interface Store {
   short_name: string
   ownership_type?: 'corporate' | 'franchise' | 'office'
   franchise_fee?: number
+  franchise_fee_type?: 'fixed' | 'percent'  // FC料金の方式（fixed=定額 / percent=売上の％）
+  franchise_fee_percent?: number  // percent 方式のときの割合（%）
   transport_allowance?: number  // 交通費（担当店舗以外のスタッフが出勤した場合に加算）
   fixed_costs?: Array<{
     item: string
@@ -53,6 +55,19 @@ interface SalesEvent {
   venue_rental_fee?: number // 場所貸し公演料金
   actual_participants?: number
   has_demo_participant?: boolean
+}
+
+// F-4: FC料金（フランチャイズ手数料）の算出。
+// franchise_fee_type='fixed'（既定・未設定含む）は従来どおり定額（円）、
+// 'percent' は公演売上に対する割合（%）で算出する。
+// eventRevenue は「対象範囲の売上」（公演ごとなら当該公演売上、店舗合計なら店舗の合計売上）。
+function calcFranchiseFee(store: Store | undefined, eventRevenue: number): number {
+  if (!store || store.ownership_type !== 'franchise') return 0
+  if (store.franchise_fee_type === 'percent') {
+    return Math.round(eventRevenue * (store.franchise_fee_percent ?? 0) / 100)
+  }
+  // fixed（または type 未設定）: 従来どおり定額
+  return store.franchise_fee ?? 0
 }
 
 // localStorage キー
@@ -431,19 +446,18 @@ function calculateSalesData(
     const storeId = event.store_id
     const store = stores.find(s => s.id === storeId)
     const storeName = store?.name || '不明'
-    const isFranchiseStore = store?.ownership_type === 'franchise'
-    
+
     if (!storeRevenues.has(storeId)) {
-      // フランチャイズ店舗の場合、事務手数料（フランチャイズ手数料）を初期化
-      const franchiseFee = (isFranchiseStore && store?.franchise_fee) ? store.franchise_fee : 0
-      storeRevenues.set(storeId, { 
-        revenue: 0, 
-        events: 0, 
-        name: storeName, 
+      // FC料金はループ後にまとめて算出する（percent 方式は店舗の合計売上が必要なため）。
+      // ここでは 0 で初期化する。
+      storeRevenues.set(storeId, {
+        revenue: 0,
+        events: 0,
+        name: storeName,
         id: storeId,
         licenseCost: 0,
         gmCost: 0,
-        franchiseFee
+        franchiseFee: 0
       })
     }
     
@@ -491,6 +505,13 @@ function calculateSalesData(
         }
       }
     }
+  })
+
+  // 店舗別ランキング用の FC料金を算出（fixed=定額を1回計上 / percent=店舗の合計売上に対する割合）。
+  // ループ後に行うのは percent 方式が店舗の合計売上を必要とするため。
+  storeRevenues.forEach((storeData, storeId) => {
+    const store = stores.find(s => s.id === storeId)
+    storeData.franchiseFee = calcFranchiseFee(store as Store | undefined, storeData.revenue)
   })
 
   // フランチャイズ手数料の合計を計算（期間内に公演を行ったフランチャイズ店舗の手数料の合計）
@@ -702,7 +723,6 @@ function calculateSalesData(
     let gmCost = 0
 
     const eventStore = stores.find(s => s.id === event.store_id)
-    const isFranchiseStore = eventStore?.ownership_type === 'franchise'
     const isGmTest = event.category === 'gmtest'
 
     // ライセンス金額を取得（シナリオがある場合のみ）
@@ -836,8 +856,9 @@ function calculateSalesData(
     }
 
     // フランチャイズ店舗の場合、FC料金（事務手数料）を取得
-    const franchiseFee = (isFranchiseStore && eventStore?.franchise_fee) ? eventStore.franchise_fee : 0
-    
+    // fixed=公演ごとの定額 / percent=当該公演売上に対する割合
+    const franchiseFee = calcFranchiseFee(eventStore, event.revenue || 0)
+
     const netProfit = (event.revenue || 0) - licenseCost - gmCost - franchiseFee
 
     // 開始時間から終了時間を計算（シナリオのdurationを使用）

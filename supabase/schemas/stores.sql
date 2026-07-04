@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/stores.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-07-04
 CREATE TABLE public.stores (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -19,6 +19,8 @@ CREATE TABLE public.stores (
   fixed_costs JSONB DEFAULT '[]'::jsonb,
   ownership_type TEXT,
   franchise_fee INTEGER DEFAULT 1000,
+  franchise_fee_type TEXT NOT NULL DEFAULT 'fixed' CHECK (franchise_fee_type IN ('fixed', 'percent')),
+  franchise_fee_percent NUMERIC(5, 2),
   is_temporary BOOLEAN DEFAULT FALSE,
   temporary_date DATE,
   temporary_dates JSONB DEFAULT '[]'::jsonb,

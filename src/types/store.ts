@@ -23,7 +23,9 @@ export interface Store {
   manager_name: string
   status: 'active' | 'temporarily_closed' | 'closed'
   ownership_type?: 'corporate' | 'franchise' | 'office'  // 直営店 or フランチャイズ or オフィス
-  franchise_fee?: number  // フランチャイズ登録手数料（円）
+  franchise_fee?: number  // フランチャイズ登録手数料（円・fixed 方式で使用）
+  franchise_fee_type?: 'fixed' | 'percent'  // FC料金の方式（既定 fixed=定額 / percent=売上の％）
+  franchise_fee_percent?: number  // percent 方式のときの割合（%・例 10 = 売上の10%）
   capacity: number
   rooms: number
   notes?: string
