@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { salesApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { SalesData } from '@/types'
@@ -242,6 +243,9 @@ export function useSalesData() {
   // loadSalesData: 期間・フィルターを受け取り activeParams を更新 → React Query が再フェッチ
   const loadSalesData = useCallback(async (period: string, storeIds: string[], ownershipFilter?: 'corporate' | 'franchise') => {
     logger.log('📊 売上データ取得開始:', { period, storeIds, ownershipFilter })
+    // 同一パラメータでの再読込（公演モーダル保存後の onDataRefresh 等）でも
+    // 5分キャッシュを返さず必ず再取得する（P4 の refetchOnMount:false 対策）
+    invalidateEverywhere(queryClient, ['sales-data'])
     setSelectedPeriod(period)
 
     const range = periodToDateRange(period, customStartDate, customEndDate)
@@ -258,7 +262,7 @@ export function useSalesData() {
 
     setDateRange(range)
     setActiveParams({ startDate: range.startDate, endDate: range.endDate, storeIds, ownershipFilter })
-  }, [customStartDate, customEndDate])
+  }, [customStartDate, customEndDate, queryClient])
 
   return {
     salesData,
