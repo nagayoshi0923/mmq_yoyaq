@@ -467,15 +467,16 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     const fetchMessages = async () => {
       setLoading(true)
       try {
+        // 昇順+limitだと古い100件で打ち切られ最新の個別お知らせが表示されないため、最新100件を取得して反転する（#275）
         const { data, error } = await supabase
           .from('private_group_messages')
           .select('id, group_id, member_id, message, created_at')
           .eq('group_id', groupId)
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: false })
           .limit(100)
 
         if (error) throw error
-        setMessages(data || [])
+        setMessages((data || []).reverse())
       } catch (err) {
         logger.error('Failed to fetch messages', err)
       } finally {
