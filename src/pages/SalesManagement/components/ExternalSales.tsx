@@ -258,11 +258,13 @@ export const ExternalSales: React.FC = () => {
         title={<><ShoppingBag className="h-5 w-5 text-primary" />外部売上管理</>}
         description="BOOTH売上・他店公演を管理"
       >
-        <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
-        <Button onClick={handleOpenAdd} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          新規登録
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+          <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
+          <Button onClick={handleOpenAdd} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            新規登録
+          </Button>
+        </div>
       </PageHeader>
 
       {/* サマリーカード */}
