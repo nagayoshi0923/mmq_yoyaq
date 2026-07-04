@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
-import { Download, Image, Loader2, Copy, Check } from 'lucide-react'
+import { ActionMenu } from '@/components/patterns/action'
+import { Download, Image, Copy, Check } from 'lucide-react'
 import { showToast } from '@/utils/toast'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import {
@@ -242,12 +243,6 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     }
   }
 
-  const handleExportExcel = () => {
-    if (!salesData) return
-    // Excelエクスポート処理
-    logger.log('Excel export')
-  }
-
   const handleOpenTextDialog = () => {
     if (!salesData) return
     const report = generateTextReport(salesData, dateRange)
@@ -366,55 +361,30 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   return (
     <>
       <div className="flex flex-row flex-wrap items-center gap-2 sm:gap-3">
-        {/* テキストコピーボタン（一番目立つ位置に） */}
-        <Button 
-          variant="default" 
-          onClick={handleOpenTextDialog} 
-          disabled={loading || !salesData}
-          size="sm"
-          className="text-xs sm:text-sm h-7 sm:h-9"
-        >
-          <Copy className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">テキストコピー</span>
-          <span className="sm:hidden">コピー</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={handleExportImage} 
-          disabled={loading || !salesData || exporting}
-          size="sm"
-          className="text-xs sm:text-sm h-7 sm:h-9"
-        >
-          {exporting ? (
-            <Loader2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-          ) : (
-            <Image className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          )}
-          <span className="hidden sm:inline">画像保存</span>
-          <span className="sm:hidden">画像</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={handleExportCSV} 
-          disabled={loading || !salesData}
-          size="sm"
-          className="text-xs sm:text-sm h-7 sm:h-9"
-        >
-          <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">CSVエクスポート</span>
-          <span className="sm:hidden">CSV</span>
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={handleExportExcel} 
-          disabled={loading || !salesData}
-          size="sm"
-          className="text-xs sm:text-sm h-7 sm:h-9"
-        >
-          <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">Excelエクスポート</span>
-          <span className="sm:hidden">Excel</span>
-        </Button>
+        <ActionMenu
+          label="エクスポート"
+          items={[
+            {
+              label: 'テキストコピー',
+              icon: Copy,
+              onSelect: handleOpenTextDialog,
+              disabled: loading || !salesData,
+            },
+            {
+              label: '画像保存',
+              icon: Image,
+              onSelect: handleExportImage,
+              disabled: loading || !salesData || exporting,
+            },
+            'separator',
+            {
+              label: 'CSVエクスポート',
+              icon: Download,
+              onSelect: handleExportCSV,
+              disabled: loading || !salesData,
+            },
+          ]}
+        />
       </div>
 
       {/* テキストコピーダイアログ */}

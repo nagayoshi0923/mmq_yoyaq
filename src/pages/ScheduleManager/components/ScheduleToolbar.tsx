@@ -4,6 +4,7 @@ import React from 'react'
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { HelpButton } from '@/components/ui/help-button'
+import { ActionMenu } from '@/components/patterns/action'
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, SlidersHorizontal, Wrench, Users, Package, Download, Upload } from 'lucide-react'
 import type { Staff } from '@/types'
 import type { useScheduleTable } from '@/hooks/useScheduleTable'
@@ -342,25 +343,29 @@ export function ScheduleToolbar({
             >
               <Package className="h-4 w-4" />
             </button>
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              disabled={isExporting}
-              title="スケジュールをCSVエクスポート"
-              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input disabled:opacity-50"
-            >
-              {isExporting ? (
-                <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              title="インポート"
-              className={`h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors ${isAdminOrLicenseAdmin ? 'border-r border-input' : ''}`}
-            >
-              <Upload className="h-4 w-4" />
-            </button>
+            <div className={`h-9 flex items-center ${isAdminOrLicenseAdmin ? 'border-r border-input' : ''}`}>
+              <ActionMenu
+                label="入出力"
+                icon={Download}
+                variant="ghost"
+                size="sm"
+                disabled={isExporting}
+                className="h-9 rounded-none border-0"
+                items={[
+                  {
+                    label: 'CSVエクスポート',
+                    icon: Download,
+                    onSelect: () => setIsExportModalOpen(true),
+                    disabled: isExporting,
+                  },
+                  {
+                    label: 'インポート',
+                    icon: Upload,
+                    onSelect: () => setIsImportModalOpen(true),
+                  },
+                ]}
+              />
+            </div>
             {isAdminOrLicenseAdmin && (
               <>
                 <button
