@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import type { RpcSetCharacterPreferenceParams, RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { Sentry } from '@/lib/sentry'
 import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
@@ -37,6 +38,7 @@ interface SystemMessage {
   // 個別お知らせ用
   target_member_id?: string
   target_member_name?: string
+  target_user_id?: string
   // 配役結果用
   assignments?: Record<string, string>
 }
@@ -97,6 +99,8 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [sending, setSending] = useState(false)
   const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // 個別お知らせのフォールバック表示を検知したら1回だけ診断ログを送る（#278）
+  const noticeFallbackLoggedRef = useRef(false)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
   // 配役方法変更の確認ダイアログ（アンケート回答カード/キャラクター選択カードの両方から起動）
   const [showResetCharAssignmentConfirm, setShowResetCharAssignmentConfirm] = useState(false)
@@ -650,6 +654,14 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     <Card className={`flex flex-col ${fullHeight ? 'flex-1 h-full border-0 shadow-none' : 'h-[500px]'}`}>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* 未ログイン閲覧の警告（#275: 未ログインでもページは正常表示されるが個別お知らせだけ消えるため） */}
+          {!user && !currentMemberId && (
+            <div className="flex justify-center">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800 max-w-sm text-center">
+                ログインしていないため、あなた宛の個別のお知らせは表示されません。参加時のアカウントでログインしてご確認ください。
+              </div>
+            </div>
+          )}
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
               まだメッセージがありません。<br />
@@ -984,11 +996,24 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
                   // システムメッセージ（個別お知らせ）- 対象者本人のみに表示
                   if (systemMsg && systemMsg.action === 'individual_notice') {
-                    // 対象メンバー本人でなければ表示しない
-                    if (systemMsg.target_member_id !== currentMemberId) {
+                    // 対象本人か判定（#275/#278）:
+                    // - member_id 一致（prop の currentMemberId が未解決でも user_id から引き直した effectiveMemberId で補完）
+                    // - または通知に埋め込まれた target_user_id とログインユーザーの一致（メンバー行の再作成後も届く）
+                    const isTargetByMember = !!effectiveMemberId && systemMsg.target_member_id === effectiveMemberId
+                    const isTargetByUser = !!user && !!systemMsg.target_user_id && systemMsg.target_user_id === user.id
+                    if (!isTargetByMember && !isTargetByUser) {
                       return null
                     }
-                    const currentMember = members.find(m => m.id === currentMemberId)
+                    // 診断: currentMemberId prop では不一致だがフォールバックで表示できた場合を記録（#278）
+                    if (systemMsg.target_member_id !== currentMemberId && !noticeFallbackLoggedRef.current) {
+                      noticeFallbackLoggedRef.current = true
+                      Sentry.captureMessage('individual_notice: currentMemberId未解決のためフォールバック表示', {
+                        level: 'warning',
+                        tags: { feature: 'group-chat' },
+                        extra: { groupId, currentMemberId, memberIdFromUser, hasUser: !!user },
+                      })
+                    }
+                    const currentMember = members.find(m => m.id === effectiveMemberId)
                     const nickname = currentMember?.guest_name || 'あなた'
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
