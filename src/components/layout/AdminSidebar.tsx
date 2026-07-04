@@ -197,10 +197,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
           subItems: [
             { id: 'overview',             label: '売上概要',       path: `/${slug}/sales?tab=overview` },
             { id: 'annual-analysis',      label: '年間分析',       path: `/${slug}/sales?tab=annual-analysis` },
-            { id: 'scenario-performance', label: 'シナリオ別',     path: `/${slug}/sales?tab=scenario-performance` },
-            { id: 'open-event-analysis',  label: '公演分析',       path: `/${slug}/sales?tab=open-event-analysis` },
-            { id: 'external-sales',       label: '外部売上',       path: `/${slug}/sales?tab=external-sales` },
-            { id: 'misc-transactions',    label: '雑収支管理',     path: `/${slug}/sales?tab=misc-transactions` },
             { id: 'franchise-sales',      label: 'フランチャイズ', path: `/${slug}/sales?tab=franchise-sales` },
             { id: 'staff-salary-report',  label: 'スタッフ報酬',   path: `/${slug}/sales?tab=staff-salary-report` },
             { id: 'salary-calculation',   label: '給与計算',       path: `/${slug}/sales?tab=salary-calculation` },
