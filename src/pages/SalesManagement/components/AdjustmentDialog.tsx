@@ -34,6 +34,15 @@ export interface AdjustmentTargetEvent {
   store_id?: string
 }
 
+// ダイアログ内の「公演（任意）」Select 候補
+export interface AdjustmentEventOption {
+  id: string
+  date: string
+  scenario_title: string
+  store_id?: string
+  store_name?: string
+}
+
 interface AdjustmentDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -41,6 +50,8 @@ interface AdjustmentDialogProps {
   stores: Store[]
   // 公演から開いた場合の対象公演（null=公演に紐づかない調整）
   targetEvent?: AdjustmentTargetEvent | null
+  // 当期間の公演一覧（ダイアログ内の「公演（任意）」Select 候補）
+  events?: AdjustmentEventOption[]
 }
 
 /**
@@ -53,7 +64,8 @@ export const AdjustmentDialog: React.FC<AdjustmentDialogProps> = ({
   onClose,
   onSaved,
   stores,
-  targetEvent
+  targetEvent,
+  events = []
 }) => {
   const { organizationId } = useOrganization()
   const [loading, setLoading] = useState(false)
@@ -63,6 +75,8 @@ export const AdjustmentDialog: React.FC<AdjustmentDialogProps> = ({
     description: '',
     date: toJstYmd(new Date()),
   })
+  // 選択中の公演 ID（''=公演に紐づけない）
+  const [selectedEventId, setSelectedEventId] = useState('')
 
   // ダイアログが開かれた時にフォームを初期化する
   useEffect(() => {
@@ -74,7 +88,26 @@ export const AdjustmentDialog: React.FC<AdjustmentDialogProps> = ({
       // 公演から開いた場合は公演日、それ以外は今日
       date: targetEvent?.date || toJstYmd(new Date()),
     })
+    setSelectedEventId(targetEvent?.id || '')
   }, [isOpen, targetEvent])
+
+  // 選択中の公演（targetEvent 優先。無ければ events から解決）
+  const selectedEvent: AdjustmentEventOption | undefined = targetEvent
+    ? { id: targetEvent.id, date: targetEvent.date, scenario_title: targetEvent.scenario_title, store_id: targetEvent.store_id }
+    : events.find(ev => ev.id === selectedEventId)
+
+  // 公演 Select 変更時: 日付を公演日に合わせる（未選択なら紐付け解除）
+  const handleEventChange = (value: string) => {
+    if (value === 'none') {
+      setSelectedEventId('')
+      return
+    }
+    setSelectedEventId(value)
+    const ev = events.find(e => e.id === value)
+    if (ev?.date) {
+      setFormData(prev => ({ ...prev, date: ev.date }))
+    }
+  }
 
   const handleSave = async () => {
     if (!formData.amount || formData.amount <= 0) {
@@ -101,9 +134,9 @@ export const AdjustmentDialog: React.FC<AdjustmentDialogProps> = ({
           category: formData.type === 'income' ? '調整（収入）' : '調整（支出）',
           amount: formData.amount,
           description: formData.description.trim(),
-          store_id: targetEvent?.store_id || null,
+          store_id: selectedEvent?.store_id || null,
           scenario_id: null,
-          schedule_event_id: targetEvent?.id || null,
+          schedule_event_id: selectedEvent?.id || null,
           organization_id: organizationId,
         }])
 
@@ -168,13 +201,41 @@ export const AdjustmentDialog: React.FC<AdjustmentDialogProps> = ({
               <Label>金額</Label>
               <Input
                 type="number"
+                inputMode="numeric"
                 min={0}
                 placeholder="0"
                 value={formData.amount || ''}
-                onChange={(e) => setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setFormData({ ...formData, amount: v === '' ? 0 : (parseInt(v, 10) || 0) })
+                }}
               />
             </div>
           </div>
+
+          {!targetEvent && events.length > 0 && (
+            <div>
+              <Label>公演（任意）</Label>
+              <Select value={selectedEventId || 'none'} onValueChange={handleEventChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="公演に紐づけない" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">公演に紐づけない</SelectItem>
+                  {events.map((ev) => {
+                    const store = ev.store_name
+                      ?? (ev.store_id ? stores.find(s => s.id === ev.store_id)?.short_name : undefined)
+                    return (
+                      <SelectItem key={ev.id} value={ev.id}>
+                        {formatJstYmd(ev.date)} {ev.scenario_title}
+                        {store ? ` ・ ${store}` : ''}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label>日付</Label>

@@ -1,5 +1,5 @@
 import React from 'react'
-import { TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign, Wrench, Plus } from 'lucide-react'
+import { TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign, Wrench, Plus, SlidersHorizontal } from 'lucide-react'
 import { StatCard } from '@/components/patterns/stat'
 import { devDb } from '@/components/ui/DevField'
 
@@ -46,9 +46,15 @@ interface SummaryCardsProps {
   }>
   // F-1: 調整収入（総売上のうち調整由来分）。0 のときは sub に何も出さない
   totalAdjustmentIncome?: number
+  // F-1: 調整支出合計（収支調整カードの純額計算に使用）
+  totalAdjustmentExpense?: number
+  // F-1: 調整の件数（0件なら「クリックして追加」を表示）
+  adjustmentCount?: number
   netProfit: number
   // 制作費カードクリック時のコールバック（オプション）
   onProductionCostClick?: () => void
+  // 収支調整カードクリック時のコールバック（オプション）
+  onAdjustmentClick?: () => void
   // 制作費項目編集時のコールバック
   onProductionCostEdit?: (item: {
     id: string
@@ -85,10 +91,21 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   totalVariableCost,
   variableCostBreakdown,
   totalAdjustmentIncome = 0,
+  totalAdjustmentExpense = 0,
+  adjustmentCount = 0,
   netProfit,
   onProductionCostClick,
+  onAdjustmentClick,
   onProductionCostEdit
 }) => {
+  // 収支調整の純額（収入 − 支出）。0件なら ¥0
+  const adjustmentNet = totalAdjustmentIncome - totalAdjustmentExpense
+  const adjustmentNetLabel =
+    adjustmentNet > 0
+      ? `+${formatCurrency(adjustmentNet)}`
+      : adjustmentNet < 0
+        ? `-${formatCurrency(Math.abs(adjustmentNet))}`
+        : formatCurrency(0)
   // 支出合計を計算
   const totalExpenses = totalVariableCost + totalFixedCost
 
@@ -230,8 +247,8 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         />
       </div>
 
-      {/* 第3行: 固定費 */}
-      <div className="grid gap-2 sm:gap-2 md:gap-3 md:gap-4 grid-cols-1">
+      {/* 第3行: 固定費・収支調整 */}
+      <div className="grid gap-2 sm:gap-2 md:gap-3 md:gap-4 grid-cols-1 md:grid-cols-2">
         <StatCard
           label="固定費"
           icon={Store}
@@ -255,6 +272,25 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
                 })()}
               </div>
             ) : undefined
+          }
+        />
+
+        <StatCard
+          label="収支調整"
+          icon={onAdjustmentClick ? Plus : SlidersHorizontal}
+          onClick={onAdjustmentClick}
+          value={adjustmentNetLabel}
+          sub={
+            adjustmentCount > 0 ? (
+              <span className="break-words">
+                収入 {formatCurrency(totalAdjustmentIncome)}
+                <span className="hidden sm:inline"> ・ </span>
+                <br className="sm:hidden" />
+                支出 {formatCurrency(totalAdjustmentExpense)}
+              </span>
+            ) : (
+              <span>{onAdjustmentClick ? 'クリックして追加' : '調整なし'}</span>
+            )
           }
         />
       </div>

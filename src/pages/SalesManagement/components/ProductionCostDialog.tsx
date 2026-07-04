@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
+import { toJstYmd } from '@/utils/jstDate'
 import { Trash2 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/patterns/modal'
 
@@ -68,7 +69,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
   const [deleting, setDeleting] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: toJstYmd(new Date()),
     category: '制作費',
     amount: 0,
     description: '',
@@ -123,7 +124,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
       } else {
         // 追加モード：デフォルト値
         setFormData({
-          date: new Date().toISOString().split('T')[0],
+          date: toJstYmd(new Date()),
           category: '制作費',
           amount: 0,
           description: '',
@@ -240,9 +241,14 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
               <Label>金額</Label>
               <Input
                 type="number"
+                inputMode="numeric"
+                min={0}
                 placeholder="0"
                 value={formData.amount || ''}
-                onChange={(e) => setFormData({ ...formData, amount: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setFormData({ ...formData, amount: v === '' ? 0 : (parseInt(v, 10) || 0) })
+                }}
               />
             </div>
           </div>

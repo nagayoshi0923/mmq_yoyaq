@@ -6,7 +6,7 @@ import { EventListCard } from './EventListCard'
 import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
 import { ProductionCostDialog } from './ProductionCostDialog'
-import { AdjustmentDialog, type AdjustmentTargetEvent } from './AdjustmentDialog'
+import { AdjustmentDialog, type AdjustmentTargetEvent, type AdjustmentEventOption } from './AdjustmentDialog'
 import { AdjustmentListCard } from './AdjustmentListCard'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -203,18 +203,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
 
   // 収支調整ハンドラー（F-1）
-  // 公演行から開く: schedule_event_id / store_id / 日付を対象公演から引き継ぐ
-  const handleAddAdjustmentForEvent = useCallback((event: any) => {
-    setAdjustmentTargetEvent({
-      id: event.id,
-      date: event.date,
-      scenario_title: event.scenario_title,
-      store_id: event.store_id,
-    })
-    setIsAdjustmentDialogOpen(true)
-  }, [])
-
-  // 公演に紐づかない調整を開く
+  // 概要カード / 一覧の追加ボタンから開く（公演紐付けはダイアログ内で任意選択）
   const handleAddAdjustmentStandalone = useCallback(() => {
     setAdjustmentTargetEvent(null)
     setIsAdjustmentDialogOpen(true)
@@ -228,6 +217,17 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   const handleAdjustmentSaved = useCallback(() => {
     if (onDataRefresh) onDataRefresh()
   }, [onDataRefresh])
+
+  // 収支調整ダイアログの「公演（任意）」Select 候補（当期間の公演）
+  const adjustmentEventOptions = useMemo<AdjustmentEventOption[]>(() => {
+    return (salesData?.eventList || []).map(ev => ({
+      id: ev.id,
+      date: ev.date,
+      scenario_title: ev.scenario_title,
+      store_id: ev.store_id,
+      store_name: ev.store_name,
+    }))
+  }, [salesData?.eventList])
 
   // schedule_event_id -> 公演名 の対応表（調整一覧で紐づく公演名を表示するため）
   const eventNameById = useMemo(() => {
@@ -447,7 +447,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           totalVariableCost={salesData.totalVariableCost}
           variableCostBreakdown={salesData.variableCostBreakdown}
           totalAdjustmentIncome={salesData.totalAdjustmentIncome}
+          totalAdjustmentExpense={salesData.totalAdjustmentExpense}
+          adjustmentCount={salesData.adjustmentEntries.length}
           netProfit={salesData.netProfit}
+          onAdjustmentClick={handleAddAdjustmentStandalone}
           onProductionCostClick={isFranchiseOnly ? () => {
             setEditingProductionCost(null)
             setIsProductionCostDialogOpen(true)
@@ -464,7 +467,6 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
             <EventListCard
               events={salesData.eventList}
               onEditEvent={handleEditEvent}
-              onAddAdjustment={handleAddAdjustmentForEvent}
               totalNetProfit={salesData.netProfit}
               additionalCosts={{
                 productionCost: salesData.totalProductionCost || 0,
@@ -571,6 +573,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         onSaved={handleAdjustmentSaved}
         stores={stores}
         targetEvent={adjustmentTargetEvent}
+        events={adjustmentEventOptions}
       />
     </div>
   )
