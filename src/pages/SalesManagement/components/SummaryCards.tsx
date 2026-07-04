@@ -164,7 +164,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
           label="FC料金"
           icon={Store}
           value={formatCurrency(totalFcCost)}
-          sub="FC店舗の事務手数料"
+          sub="公演ごとのFC料金"
         />
 
         <StatCard

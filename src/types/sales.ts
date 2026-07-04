@@ -8,7 +8,6 @@ export interface SalesData {
   totalPropsCost: number
   totalFcCost: number
   totalFixedCost: number
-  totalFranchiseFee?: number
   fixedCostBreakdown: Array<{
     item: string
     amount: number

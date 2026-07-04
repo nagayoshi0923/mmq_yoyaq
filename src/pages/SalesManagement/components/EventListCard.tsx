@@ -30,14 +30,13 @@ interface EventListCardProps {
   events: EventItem[]
   loading?: boolean
   onEditEvent?: (event: EventItem) => void
-  // 追加費用（制作費・道具費用・固定費・事務手数料）を含む正確な純利益
+  // 追加費用（制作費・道具費用・固定費）を含む正確な純利益
   totalNetProfit?: number
   // 追加費用の内訳（合計行に表示用）
   additionalCosts?: {
     productionCost: number
     propsCost: number
     fixedCost: number
-    franchiseFee: number  // 事務手数料（店舗のfranchise_fee合計）
   }
 }
 
@@ -300,7 +299,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
         
         {/* 追加費用がある場合 */}
         {additionalCosts && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center text-sm border-t pt-2">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center text-sm border-t pt-2">
             <div>
               <p className="text-xs text-muted-foreground">制作費</p>
               <p className="text-red-600">{formatCurrency(additionalCosts.productionCost)}</p>
@@ -312,10 +311,6 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
             <div>
               <p className="text-xs text-muted-foreground">固定費</p>
               <p className="text-red-600">{formatCurrency(additionalCosts.fixedCost)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">事務手数料</p>
-              <p className="text-red-600">{formatCurrency(additionalCosts.franchiseFee)}</p>
             </div>
           </div>
         )}

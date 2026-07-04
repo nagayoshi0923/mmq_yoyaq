@@ -425,8 +425,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               additionalCosts={{
                 productionCost: salesData.totalProductionCost || 0,
                 propsCost: salesData.totalPropsCost || 0,
-                fixedCost: salesData.totalFixedCost || 0,
-                franchiseFee: salesData.totalFranchiseFee || 0
+                fixedCost: salesData.totalFixedCost || 0
               }}
             />
           </div>

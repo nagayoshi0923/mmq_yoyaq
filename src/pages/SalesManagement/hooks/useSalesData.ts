@@ -344,8 +344,7 @@ function calculateSalesData(
   // ライセンス金額とGM給与を計算（過去の公演のみ）
   let totalLicenseCost = 0
   let totalGmCost = 0
-  let totalFranchiseFee = 0
-  
+
   const now = new Date()
   now.setHours(0, 0, 0, 0) // 今日の0時に設定
 
@@ -516,17 +515,6 @@ function calculateSalesData(
   storeRevenues.forEach((storeData, storeId) => {
     const store = stores.find(s => s.id === storeId)
     storeData.franchiseFee = calcFranchiseFee(store as Store | undefined, storeData.revenue)
-  })
-
-  // フランチャイズ手数料の合計を計算（期間内に公演を行ったフランチャイズ店舗の手数料の合計）
-  const franchiseStoreIds = new Set(storeRevenues.keys())
-  franchiseStoreIds.forEach(storeId => {
-    const store = stores.find(s => s.id === storeId)
-    const storeData = storeRevenues.get(storeId)
-    if (store?.ownership_type === 'franchise' && store.franchise_fee && storeData && storeData.events > 0) {
-      // 期間内に公演を行ったフランチャイズ店舗の手数料を合計に加算
-      totalFranchiseFee += store.franchise_fee
-    }
   })
 
   const storeRanking = Array.from(storeRevenues.values())
@@ -859,7 +847,7 @@ function calculateSalesData(
       })
     }
 
-    // フランチャイズ店舗の場合、FC料金（事務手数料）を取得
+    // フランチャイズ店舗の場合、公演ごとのFC料金を取得
     // fixed=公演ごとの定額 / percent=当該公演売上に対する割合
     const franchiseFee = calcFranchiseFee(eventStore, event.revenue || 0)
 
@@ -1081,13 +1069,12 @@ function calculateSalesData(
   // FC料金の計算（各公演のfranchise_feeを合計）
   const totalFcCost = eventList.reduce((sum, event) => sum + (event.franchise_fee || 0), 0)
 
-  // 変動費の計算（ライセンス費用 + GM給与 + FC料金 + 事務手数料（フランチャイズ手数料）+ 制作費 + 道具費用）
-  const totalVariableCost = totalLicenseCost + totalGmCost + totalFcCost + totalFranchiseFee + totalProductionCost + totalPropsCost
+  // 変動費の計算（ライセンス費用 + GM給与 + FC料金 + 制作費 + 道具費用）
+  const totalVariableCost = totalLicenseCost + totalGmCost + totalFcCost + totalProductionCost + totalPropsCost
   const variableCostBreakdown = [
     { category: 'ライセンス費用', amount: totalLicenseCost },
     { category: 'GM給与', amount: totalGmCost },
     ...(totalFcCost > 0 ? [{ category: 'FC料金', amount: totalFcCost }] : []),
-    ...(totalFranchiseFee > 0 ? [{ category: '事務手数料', amount: totalFranchiseFee }] : []),
     { category: '制作費', amount: totalProductionCost },
     { category: '必要道具', amount: totalPropsCost }
   ]

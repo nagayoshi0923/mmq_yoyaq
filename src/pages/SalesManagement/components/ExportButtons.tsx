@@ -81,13 +81,6 @@ const generateTextReport = (salesData: any, dateRange?: { startDate: string; end
     lines.push('')
   }
 
-  // 事務手数料カード（フランチャイズ手数料）
-  const adminFee = vcBreakdown?.find(v => v.category === '事務手数料')?.amount ?? 0
-  if (adminFee > 0) {
-    lines.push(`  ◆ 事務手数料: ${formatCurrency(adminFee)}`)
-    lines.push('')
-  }
-
   // ライセンスカード
   lines.push(`  ◆ ライセンス: ${formatCurrency(salesData.totalLicenseCost || 0)}`)
   lines.push(`    作者への支払い`)
