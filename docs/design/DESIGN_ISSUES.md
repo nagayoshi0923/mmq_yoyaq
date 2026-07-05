@@ -84,7 +84,7 @@
 - ❌ **DI-26** 雑収支管理 → 同上（タブ撤去・M19）につき対象外
 
 ### 公演報告（LicenseManagement）
-- ⬜ **DI-27** 公演報告タブ: フィルタ手書き（SearchInput/FilterBar 未導入）
+- 🔧 **DI-27** 公演報告タブ → 実装済み `6ea115bd`（SearchInput 化＋統計6枚 StatCard 化＋ListSkeleton/EmptyState。🔍スモーク77-80 確認待ち・2026-07-06）。※ReportGroupCard の緑/橙は送信済/未登録の機能色＋差分⚠️バッジ仕様保護のため意図的に対象外
 - ⬜ **DI-28** 受信タブ: PageHeader 無し＋フィルタ手書き（:71-97）＋統計色直書き（:109-127）＋バッジ直書き（:46）
 
 ### MMQ運営
