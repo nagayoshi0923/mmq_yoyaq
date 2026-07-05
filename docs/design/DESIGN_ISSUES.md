@@ -86,7 +86,7 @@
 
 ### 公演報告（LicenseManagement）
 - 🔧 **DI-27** 公演報告タブ → 実装済み `6ea115bd`（SearchInput 化＋統計6枚 StatCard 化＋ListSkeleton/EmptyState。🔍スモーク77-80 確認待ち・2026-07-06）。※ReportGroupCard の緑/橙は送信済/未登録の機能色＋差分⚠️バッジ仕様保護のため意図的に対象外
-- 🔧 **DI-28** 受信タブ → 実装済み `6ee83388`（統計4枚 StatCard 化＋FilterBar/SearchInput/FilterSelect＋ListSkeleton/EmptyState。🔍スモーク81-84 確認待ち・2026-07-06）。PageHeader は index 側にあるためタブには追加せず（DI-18 の方針）。バッジ・承認/却下ボタン色は [[DI-39]] で一括統一予定
+- ✅ **DI-28** 受信タブ → `6ee83388`（統計4枚 StatCard 化＋FilterBar/SearchInput/FilterSelect＋ListSkeleton/EmptyState。スモーク81-84 オーナーOK・2026-07-06）。PageHeader は index 側にあるためタブには追加せず（DI-18 の方針）。バッジ・承認/却下ボタン色は DI-39 で一括統一予定
 
 ### MMQ運営
 - ⬜ **DI-29** マスタ編集（ScenarioMasterEdit）: 生 h1/h2 見出し6箇所（:457-771）＋権限エラーが生テキスト → 見出し様式とエラーカードの統一
