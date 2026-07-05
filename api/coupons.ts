@@ -63,6 +63,42 @@ const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   )
 `
 
+// PostgREST のデフォルト行数上限（1000）を超える結果を全件取得するためのページサイズ。
+const PAGE_SIZE = 1000
+// coupon_usages の .in() に一度に渡す customer_coupon_id の最大件数。
+// 1クーポンあたりの usage 行数が数枚でも 1000 行上限に収まるよう控えめに設定。
+const USAGE_CHUNK_SIZE = 200
+
+/**
+ * PostgREST のデフォルト 1000 行上限を回避し、range ページングで全行を取得する。
+ * buildQuery は毎回新しいクエリビルダを返す関数（同じビルダを使い回すと range が累積するため）。
+ */
+async function fetchAllRows<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  buildQuery: () => any,
+): Promise<{ rows: T[]; error: unknown | null }> {
+  const all: T[] = []
+  let offset = 0
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
+    if (error) return { rows: all, error }
+    const batch = (data as T[]) ?? []
+    all.push(...batch)
+    if (batch.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+  return { rows: all, error: null }
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size))
+  }
+  return chunks
+}
+
 // JWT user.id から customer 行を1件取得。
 // platform_customers_phase1 マイグレーション以降、ログイン済み顧客の customers 行は
 // organization_id = NULL（プラットフォーム共通）になっているため、user_id だけで一意に引く。
@@ -714,20 +750,24 @@ async function handleCampaignStats(req: VercelRequest, res: VercelResponse, user
     return res.status(404).json({ error: 'キャンペーンが見つかりません' })
   }
 
-  // 付与されたクーポンを取得
-  const { data: coupons, error: couponsError } = await database
-    .from('customer_coupons')
-    .select('id, uses_remaining')
-    .eq('campaign_id', campaignId)
-    .eq('organization_id', user.orgId)
+  // 付与されたクーポンを全件取得（1000 行上限を range ページングで回避）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { rows, error: couponsError } = await fetchAllRows<any>(() =>
+    database
+      .from('customer_coupons')
+      .select('id, uses_remaining')
+      .eq('campaign_id', campaignId)
+      .eq('organization_id', user.orgId)
+      .order('id'),
+  )
 
   if (couponsError) {
-    console.error('[coupons:campaign-stats] coupons error:', couponsError)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: couponsError.message })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = couponsError as any
+    console.error('[coupons:campaign-stats] coupons error:', err)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: err?.message })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = (coupons as any[]) ?? []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const couponIds = rows.map((c: any) => c.id)
 
@@ -735,15 +775,21 @@ async function handleCampaignStats(req: VercelRequest, res: VercelResponse, user
   let totalDiscountAmount = 0
 
   if (couponIds.length > 0) {
-    const { data: usages, error: usagesError } = await database
-      .from('coupon_usages')
-      .select('discount_amount')
-      .in('customer_coupon_id', couponIds)
-    if (!usagesError && usages) {
+    // couponIds をチャンクに分割して .in() を繰り返す（1リクエストの URL 長・行数上限を回避）
+    for (const ids of chunk(couponIds, USAGE_CHUNK_SIZE)) {
+      const { data: usages, error: usagesError } = await database
+        .from('coupon_usages')
+        .select('discount_amount')
+        .in('customer_coupon_id', ids)
+      if (usagesError) {
+        console.error('[coupons:campaign-stats] usages error:', usagesError)
+        return res.status(500).json({ error: 'データ取得に失敗しました', detail: usagesError.message })
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      totalUsed = (usages as any[]).length
+      const usageRows = (usages as any[]) ?? []
+      totalUsed += usageRows.length
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      totalDiscountAmount = (usages as any[]).reduce((sum: number, u: any) => sum + (u.discount_amount ?? 0), 0)
+      totalDiscountAmount += usageRows.reduce((sum: number, u: any) => sum + (u.discount_amount ?? 0), 0)
     }
   }
 
@@ -833,16 +879,24 @@ async function handleCampaignCoupons(req: VercelRequest, res: VercelResponse, us
 
   if (!campaign) return res.status(200).json([])
 
-  const { data, error } = await database
-    .from('customer_coupons')
-    .select(CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS)
-    .eq('campaign_id', campaignId)
-    .eq('organization_id', user.orgId)
-    .order('created_at', { ascending: false })
+  // 全件取得（1000 行上限を range ページングで回避）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { rows: data, error } = await fetchAllRows<any>(() =>
+    database
+      .from('customer_coupons')
+      .select(CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS)
+      .eq('campaign_id', campaignId)
+      .eq('organization_id', user.orgId)
+      // 一括付与で created_at が同時刻の行が多く、ページ間の重複/欠落を防ぐため id をタイブレーカーにする
+      .order('created_at', { ascending: false })
+      .order('id'),
+  )
 
   if (error) {
-    console.error('[coupons:campaign-coupons] DB error:', error)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = error as any
+    console.error('[coupons:campaign-coupons] DB error:', err)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: err?.message })
   }
 
   return res.status(200).json(data ?? [])
