@@ -5,15 +5,18 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { FilterBar, SearchInput } from '@/components/patterns/filter'
+import { ListSkeleton, EmptyState } from '@/components/patterns/list'
+import { Check, ChevronsUpDown, Link2, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type UnmatchedEvent = {
@@ -212,10 +215,10 @@ export function ScenarioMatcher() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-background p-8">
         <div className="max-w-6xl mx-auto">
           <Card className="p-8">
-            <p className="text-red-600">⚠️ このツールを使用するにはログインが必要です。</p>
+            <p className="text-destructive">⚠️ このツールを使用するにはログインが必要です。</p>
           </Card>
         </div>
       </div>
@@ -231,31 +234,39 @@ export function ScenarioMatcher() {
     >
     <div className="space-y-6">
       <div className="max-w-6xl mx-auto">
-        <Card className="p-8">
-          <h1 className="text-lg mb-4">🔗 シナリオマッチングツール</h1>
-          <p className="text-gray-600 mb-6">
-            スケジュール上のシナリオ名と、登録済みシナリオをマッチングします。
-          </p>
-          
-          <div className="mb-6">
-            <Input
-              placeholder="シナリオ名で検索..."
+        <PageHeader
+          title={<><Link2 className="h-5 w-5 text-primary" />シナリオマッチングツール</>}
+          description="スケジュール上のシナリオ名と、登録済みシナリオをマッチングします"
+        />
+
+        <div className="mb-6">
+          <FilterBar isDirty={searchTerm !== ''} onReset={() => setSearchTerm('')}>
+            <SearchInput
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-md"
+              placeholder="シナリオ名で検索..."
+              containerClassName="flex-1 min-w-[240px] max-w-md"
             />
-          </div>
+          </FilterBar>
+        </div>
 
-          {isLoading ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">読み込み中...</p>
+        {isLoading ? (
+          <ListSkeleton rows={4} variant="card" />
+        ) : (
+          <>
+            <div className="mb-4 text-sm text-muted-foreground">
+              未マッチ: {filteredEvents.length}件
             </div>
-          ) : (
-            <>
-              <div className="mb-4 text-sm text-gray-600">
-                未マッチ: {filteredEvents.length}件
-              </div>
 
+            {filteredEvents.length === 0 ? (
+              <Card><CardContent className="py-6">
+                <EmptyState
+                  icon={Search}
+                  title={searchTerm ? '該当するシナリオ名がありません' : '未マッチのシナリオはありません'}
+                  description={searchTerm ? '検索条件を変えてお試しください' : undefined}
+                />
+              </CardContent></Card>
+            ) : (
               <div className="space-y-4 mb-6 max-h-[600px] overflow-y-auto">
                 {filteredEvents.map((event) => {
                   const normalized = normalizeScenarioName(event.scenario)
@@ -263,13 +274,13 @@ export function ScenarioMatcher() {
                     <Card key={event.scenario} className="p-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                         <div>
-                          <div className="font-mono text-sm text-gray-500 mb-1">
+                          <div className="font-mono text-sm text-muted-foreground mb-1">
                             元の名前: {event.scenario}
                           </div>
                           <div className="text-lg mb-1">
                             正規化後: {normalized}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-muted-foreground">
                             出現回数: {event.count}件 | 最新: {event.date} {event.venue}
                           </div>
                         </div>
@@ -340,7 +351,7 @@ export function ScenarioMatcher() {
                                     const searchTerm = popoverSearchTerms[event.scenario] || ''
                                     return (s.title ?? '').toLowerCase().includes(searchTerm.toLowerCase())
                                   }).length === 0 && (
-                                    <div className="py-6 text-center text-sm text-gray-500">
+                                    <div className="py-6 text-center text-sm text-muted-foreground">
                                       シナリオが見つかりません
                                     </div>
                                   )}
@@ -354,28 +365,28 @@ export function ScenarioMatcher() {
                   )
                 })}
               </div>
+            )}
 
-              {Object.keys(selectedMatches).length > 0 && (
-                <div className="flex gap-4 items-center">
-                  <Button 
-                    onClick={applyMatches} 
-                    disabled={isLoading}
-                    size="lg"
-                  >
-                    {Object.keys(selectedMatches).length}件のマッチングを適用
-                  </Button>
-                  <Button 
-                    onClick={() => setSelectedMatches({})} 
-                    variant="outline"
-                    disabled={isLoading}
-                  >
-                    クリア
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
+            {Object.keys(selectedMatches).length > 0 && (
+              <div className="flex gap-4 items-center">
+                <Button
+                  onClick={applyMatches}
+                  disabled={isLoading}
+                  size="lg"
+                >
+                  {Object.keys(selectedMatches).length}件のマッチングを適用
+                </Button>
+                <Button
+                  onClick={() => setSelectedMatches({})}
+                  variant="outline"
+                  disabled={isLoading}
+                >
+                  クリア
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
     </AppLayout>
