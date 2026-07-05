@@ -19,6 +19,9 @@
 - ✅ **BUG-12** 売上概要の FC料金カードのハードコード表示 → totalFcCost 実データ化 `a3edba26`（計算側は元から正・表示1枚のみの修正。🔍スモーク67）
 - ✅ **S9** miscellaneous_transactions の RLS org 境界穴（他組織 staff が読める＋ _strict 経由で他組織 admin が書ける）＋過剰 GRANT → migration `20260704100539` で封鎖 `81cad111`。**staging・本番とも適用＆実測検証済み（2026-07-04）**
 - ✅ **BUG-13＋BUG-14** 月次「事務手数料」の二重計上（オーナー裁定=バグ）→ totalFranchiseFee を計算・内訳・公演リスト合計行・テキストレポートから全削除 `6108c29a`（🔍スモーク69）。**変動費が FC店舗×月1回分だけ減り粗利益が正しく増える＝意図した数値変化**。公演ごとの FC料金（％方式含む）は不変
+- 🔧 **BUG-16** キャンペーン統計モーダルが全滅表示（使用回数0・割引¥0・付与数/残り回数も過少）→ 原因確定: api/coupons.ts handleCampaignStats の①customer_coupons 取得が PostgREST 1000行上限で切断 ②1000個のUUIDを .in() に渡してリクエスト失敗 ③エラー握り潰しで0表示（RPC失敗握り潰しの再発型）。一覧側 handleCampaignCoupons も同じ1000行上限。**本番の正値=付与1,175・残4,347・使用353回・¥176,500（SQL裏取り済み）**。ページネーション＋チャンク化＋500返却＋一覧の id タイブレーカーで修正 `efa76e3b`（🔍スモーク89・staging は INFRA-1 により使用回数0が想定値、真値確認は本番反映後）
+- ⬜ **BUG-17** クーポン使用APIの reservation_id なし経路が必ず失敗: coupon_usages.reservation_id は NOT NULL なのに、api/coupons.ts:1228 が reservationId なし INSERT を許容＋:1236-1243 の FK エラー retry も reservation_id を省いて INSERT → NOT NULL 違反で500。予約に紐づかないクーポン使用が発生した時点で顕在化する潜在バグ（BUG-16 調査で発見・現状の通常予約フローでは reservationId 必須のため実害未確認）
+- ⬜ **INFRA-1** staging ミラーに coupon_usages が入っていない（本番354行/staging 0行。customer_coupons は最新なのに usages だけ空＝mirror-prod-to-staging.sh のロード漏れ疑い。次回ミラー時に要確認）
 - ✅ **BUG-15** デモ予約の売上計上を「参加費1人分」に統一 `fcf574b7`（オーナー仕様確定: 旧サイト引き継ぎ。従来は×人数で過大計上）。満席化2経路＋AddDemoParticipants の3箇所修正。貸切の参加費解決は 716f62a8 で解消済みと確認（¥0 は旧実装時代のデータ）。**残: 既存デモ予約の是正判断（本番 8,247件 ¥2.6億→1人分なら約¥3,700万・月あたり¥400〜700万の過大が解消） — 宿題⑧: (A)全期間補正 (B)今後のみ (C)期間区切り**
 
 ## 🎨 デザイン本線（オーナー重点①）
