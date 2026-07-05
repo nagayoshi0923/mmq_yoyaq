@@ -1,0 +1,31 @@
+name: Issue Groomer
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+jobs:
+  groom:
+    if: contains(github.event.issue.body, 'discord.com/channels')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: prompt
+        run: |
+          {
+            echo 'BODY<<PROMPT_EOF'
+            cat .github/issue-groomer-prompt.md
+            echo 'PROMPT_EOF'
+          } >> "$GITHUB_OUTPUT"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            対象: ${{ github.repository }} の issue #${{ github.event.issue.number }}
+            リポジトリ内の指示書に従って、このissueを整形してください。指示書の内容:
+
+            ${{ steps.prompt.outputs.BODY }}
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,LS,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label create:*)"
