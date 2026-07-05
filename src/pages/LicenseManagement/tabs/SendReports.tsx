@@ -9,7 +9,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { ListSkeleton, EmptyState } from '@/components/patterns/list'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { authorApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -795,11 +795,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ListSkeleton rows={4} variant="card" />
   }
 
   return (
@@ -932,8 +928,8 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       <div className="space-y-3">
         {filteredGroups.length === 0 ? (
           <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              該当するデータがありません
+            <CardContent className="py-6">
+              <EmptyState title="該当するデータがありません" />
             </CardContent>
           </Card>
         ) : (

@@ -3,11 +3,11 @@
  * SendReports から子コンポーネント抽出・挙動不変。JSX を逐語移植しクロージャ参照を props 化。
  * 2 ブロックは Fragment で返す（親の space-y-6 はそのまま効く）。
  */
-import { Loader2, MailCheck, Search, ChevronUp, ChevronDown, Layers, Home, Building } from 'lucide-react'
+import { Loader2, MailCheck, ChevronUp, ChevronDown, Layers, Home, Building } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { SearchInput } from '@/components/patterns/filter'
 import type { ReportSortKey } from '../sorting'
 
 type ViewMode = 'all' | 'internal' | 'external'
@@ -80,15 +80,12 @@ export function ReportToolbar({
 
       {/* 検索・ソート・表示モード切り替え */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="作者名・シナリオ名で検索..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        <SearchInput
+          placeholder="作者名・シナリオ名で検索..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          containerClassName="flex-1"
+        />
 
         {/* ソート切り替え */}
         <Select
