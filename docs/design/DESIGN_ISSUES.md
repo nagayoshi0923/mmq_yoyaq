@@ -77,7 +77,8 @@
 - ✅ **DI-18〜22** 顧客管理の改装1バッチで対応済み `325128db`+`81f7be3d`＋FB対応 `b32a8fc6`+`4bf3acf7`（スモーク60・61 オーナーOK・2026-07-04）: 二重ヘッダー解消・行展開セクション再構成・「もっと見る」折りたたみ・クーポン統合・色トークン化・スケルトン共通化。体験済みは統合1リスト・日付バッジ
 
 ### クーポン管理
-- ⬜ **DI-23** CampaignList のアクション領域が Switch＋DropdownMenu 混在でノイズ（:145-182）＋バッジ色直書き（:79）＋フォームの色直書き（CampaignEdit:378,395）
+- 🔧 **DI-23** → 実装済み `a67afe15`（ListSkeleton/EmptyState＋統計 StatCard 化＋フォーム色トークン化。🔍スモーク85-88 確認待ち・2026-07-06）。カテゴリバッジ（:79 青tint）は意味のある薄背景tintとして維持。**Switch＋DropdownMenu は現状維持**: ActionMenu 部品がアイコン単独トリガー非対応のため（label+ChevronDown 固定）。混在が気になる場合は DI-40 で部品拡張から
+- ⬜ **DI-40** ActionMenu 部品にアイコン単独トリガー（size=icon・label/Chevron なし）対応を追加 → 各一覧ページの MoreVertical DropdownMenu を集約可能にする（DI-23 実装中に判明した部品の制約）
 
 ### 売上管理
 - ✅ **DI-24** ★売上概要 SummaryCards → StatCard 様式に統一 `5be2de35`（スモーク62 オーナーOK・2026-07-04）
