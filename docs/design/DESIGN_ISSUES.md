@@ -36,6 +36,7 @@
 - ⬜ **DI-04** 空状態・ローディングの独自実装が5ページ以上（ダッシュボード・予約管理・グループ一覧・顧客管理・シナリオマッチャー）→ EmptyState / ListSkeleton へ
 - ⬜ **DI-05** Button variant の上から色を className で上書き（ReservationManagement:386,410,519,678 / LicenseReportManagement:236,248）→ variant 機能に統一
 - ⬜ **DI-06** `text-[10px]` 等の任意フォントサイズ（StaffManagement:535 / ScheduleManager:1245 / ReservationManagement:501）→ ts-* / text-xs 基準へ
+- ⬜ **DI-39** ライセンス報告のステータスバッジ（getStatusBadge）と承認/却下ボタン色が ReportsReceived と LicenseReportManagement に**完全同一の重複実装**（2026-07-06 DI-28 調査で判明）→ 共通部品に切り出して両ページ一括統一。片方だけ変えるとズレるため DI-28 では意図的に未着手
 - ✅ **DI-38** エクスポート/出力系ボタンの横並び廃止 → 共通 **ActionMenu**（patterns/action・1ボタン＋プルダウン）新設・適用 `695dfe3c`（オーナー要望 2026-07-04）。適用=売上概要4連ボタン（未実装Excelは削除）＋スケジュール管理の入出力2ボタン。単独CSVボタン各所とインポート/エクスポートペア部品は対象外と判断。**今後の改装バッチでも複数アクションはこの部品に寄せる**
 
 ## B. ページ別
@@ -85,7 +86,7 @@
 
 ### 公演報告（LicenseManagement）
 - 🔧 **DI-27** 公演報告タブ → 実装済み `6ea115bd`（SearchInput 化＋統計6枚 StatCard 化＋ListSkeleton/EmptyState。🔍スモーク77-80 確認待ち・2026-07-06）。※ReportGroupCard の緑/橙は送信済/未登録の機能色＋差分⚠️バッジ仕様保護のため意図的に対象外
-- ⬜ **DI-28** 受信タブ: PageHeader 無し＋フィルタ手書き（:71-97）＋統計色直書き（:109-127）＋バッジ直書き（:46）
+- 🔧 **DI-28** 受信タブ → 実装済み `6ee83388`（統計4枚 StatCard 化＋FilterBar/SearchInput/FilterSelect＋ListSkeleton/EmptyState。🔍スモーク81-84 確認待ち・2026-07-06）。PageHeader は index 側にあるためタブには追加せず（DI-18 の方針）。バッジ・承認/却下ボタン色は [[DI-39]] で一括統一予定
 
 ### MMQ運営
 - ⬜ **DI-29** マスタ編集（ScenarioMasterEdit）: 生 h1/h2 見出し6箇所（:457-771）＋権限エラーが生テキスト → 見出し様式とエラーカードの統一
