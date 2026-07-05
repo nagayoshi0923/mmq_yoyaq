@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { StatGrid, StatCard } from '@/components/patterns/stat/StatCard'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -163,36 +164,12 @@ export function CampaignStats({
           ) : (
             <div className="flex-1 overflow-hidden flex flex-col space-y-4">
               {stats && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                      <Users className="h-4 w-4" />
-                      付与数
-                    </div>
-                    <div className="text-2xl font-bold">{stats.totalGranted}</div>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                      <CheckCircle className="h-4 w-4" />
-                      使用回数
-                    </div>
-                    <div className="text-2xl font-bold">{stats.totalUsed}</div>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                      <Ticket className="h-4 w-4" />
-                      残り回数
-                    </div>
-                    <div className="text-2xl font-bold">{stats.totalRemaining}</div>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                      <Gift className="h-4 w-4" />
-                      割引総額
-                    </div>
-                    <div className="text-2xl font-bold">¥{stats.totalDiscountAmount.toLocaleString()}</div>
-                  </div>
-                </div>
+                <StatGrid className="sm:grid-cols-4">
+                  <StatCard label="付与数" value={stats.totalGranted} icon={Users} />
+                  <StatCard label="使用回数" value={stats.totalUsed} icon={CheckCircle} />
+                  <StatCard label="残り回数" value={stats.totalRemaining} icon={Ticket} />
+                  <StatCard label="割引総額" value={`¥${stats.totalDiscountAmount.toLocaleString()}`} icon={Gift} />
+                </StatGrid>
               )}
 
               <div className="flex-1 overflow-hidden">

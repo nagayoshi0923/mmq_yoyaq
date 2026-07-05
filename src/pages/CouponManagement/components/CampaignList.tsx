@@ -19,6 +19,7 @@ import {
   Calendar,
   Users
 } from 'lucide-react'
+import { ListSkeleton, EmptyState } from '@/components/patterns/list'
 import type { CouponCampaign } from '@/types'
 import { formatJstYmd } from '@/utils/jstDate'
 
@@ -42,22 +43,20 @@ export function CampaignList({
   toggleLoading
 }: CampaignListProps) {
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ListSkeleton rows={4} variant="card" />
   }
 
   if (campaigns.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Ticket className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">キャンペーンがありません</h3>
-        <p className="text-muted-foreground">
-          「新規キャンペーン」ボタンからキャンペーンを作成してください
-        </p>
-      </div>
+      <Card>
+        <CardContent className="py-6">
+          <EmptyState
+            icon={Ticket}
+            title="キャンペーンがありません"
+            description="「新規キャンペーン」ボタンからキャンペーンを作成してください"
+          />
+        </CardContent>
+      </Card>
     )
   }
 

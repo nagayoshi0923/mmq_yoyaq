@@ -375,7 +375,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
                 return (
                   <button key={w.value} type="button"
                     onClick={() => toggleWeekday(w.value)}
-                    className={`px-3 py-1 text-xs rounded-md border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}>
+                    className={`px-3 py-1 text-xs rounded-md border transition-colors ${sel ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-input hover:border-ring'}`}>
                     {w.label}
                   </button>
                 )
@@ -392,7 +392,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
                 return (
                   <button key={slot} type="button"
                     onClick={() => toggleTimeSlot(slot)}
-                    className={`px-3 py-1 text-xs rounded-md border transition-colors ${sel ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}>
+                    className={`px-3 py-1 text-xs rounded-md border transition-colors ${sel ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-foreground border-input hover:border-ring'}`}>
                     {slot}
                   </button>
                 )
