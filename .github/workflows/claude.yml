@@ -37,7 +37,7 @@ jobs:
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --allowedTools "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git checkout:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(git branch:*),Bash(gh pr create:*),Bash(npm run typecheck:*),Bash(npm run build:fast:*)"
             --append-system-prompt "作業ブランチは staging から作成し、PR は必ず --base staging で作成する（main への PR は絶対に作らない）。organization_id によるマルチテナント分離を必ず維持する。reservation_source は src/lib/constants.ts の定数を使う。RLS ポリシーの変更は行わず SECURITY DEFINER RPC で対応する。コードコメントは原則書かない（WHYが非自明な場合のみ）。"
