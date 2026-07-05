@@ -5,36 +5,40 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { 
   Search,
   Calendar,
   Building2,
   Users,
   Check,
   X,
-  Loader2,
   FileText
 } from 'lucide-react'
+import { StatCard, StatGrid } from '@/components/patterns/stat/StatCard'
+import { FilterBar, FilterSelect, SearchInput } from '@/components/patterns/filter'
+import { EmptyState } from '@/components/patterns/list/EmptyState'
+import { ListSkeleton } from '@/components/patterns/list/ListSkeleton'
 import { useLicenseReports } from '@/pages/LicenseReportManagement/hooks/useLicenseReports'
 import { ReportApprovalDialog } from '@/pages/LicenseReportManagement/components/ReportApprovalDialog'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import type { ExternalPerformanceReport } from '@/types'
 
+const STATUS_FILTER_DEFAULT = 'pending'
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'すべて' },
+  { value: 'pending', label: '審査中' },
+  { value: 'approved', label: '承認済み' },
+  { value: 'rejected', label: '却下' },
+]
+
 interface ReportsReceivedProps {
   staffId: string
 }
 
 export function ReportsReceived({ staffId }: ReportsReceivedProps) {
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(STATUS_FILTER_DEFAULT)
   const [searchTerm, setSearchTerm] = useState('')
   const { reports, isLoading, refetch } = useLicenseReports(statusFilter)
   const [selectedReport, setSelectedReport] = useState<ExternalPerformanceReport | null>(null)
@@ -60,82 +64,61 @@ export function ReportsReceived({ staffId }: ReportsReceivedProps) {
   })
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ListSkeleton rows={4} variant="card" />
   }
 
   return (
     <div className="space-y-6">
       {/* フィルター */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="シナリオ名または組織名で検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select
+      <FilterBar
+        isDirty={searchTerm !== '' || statusFilter !== STATUS_FILTER_DEFAULT}
+        onReset={() => {
+          setSearchTerm('')
+          setStatusFilter(STATUS_FILTER_DEFAULT)
+        }}
+      >
+        <SearchInput
+          placeholder="シナリオ名または組織名で検索..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          containerClassName="flex-1 min-w-[240px] max-w-md"
+        />
+        <FilterSelect
           value={statusFilter}
-          onValueChange={(v: 'all' | 'pending' | 'approved' | 'rejected') => setStatusFilter(v)}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            <SelectItem value="pending">審査中</SelectItem>
-            <SelectItem value="approved">承認済み</SelectItem>
-            <SelectItem value="rejected">却下</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          onValueChange={(v) => setStatusFilter(v as 'all' | 'pending' | 'approved' | 'rejected')}
+          options={STATUS_FILTER_OPTIONS}
+        />
+      </FilterBar>
 
       {/* 統計 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold">{reports.length}</div>
-            <div className="text-sm text-muted-foreground">総報告数</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-amber-600">
-              {reports.filter(r => r.status === 'pending').length}
-            </div>
-            <div className="text-sm text-muted-foreground">審査待ち</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {reports.filter(r => r.status === 'approved').length}
-            </div>
-            <div className="text-sm text-muted-foreground">承認済み</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {reports.filter(r => r.status === 'rejected').length}
-            </div>
-            <div className="text-sm text-muted-foreground">却下</div>
-          </CardContent>
-        </Card>
-      </div>
+      <StatGrid>
+        <StatCard label="総報告数" value={reports.length} />
+        <StatCard
+          label="審査待ち"
+          value={reports.filter(r => r.status === 'pending').length}
+          tone="warning"
+        />
+        <StatCard
+          label="承認済み"
+          value={reports.filter(r => r.status === 'approved').length}
+          tone="success"
+        />
+        <StatCard
+          label="却下"
+          value={reports.filter(r => r.status === 'rejected').length}
+          tone="destructive"
+        />
+      </StatGrid>
 
       {/* 報告一覧 */}
       <div className="space-y-3">
         {filteredReports.length === 0 ? (
           <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              {searchTerm ? '検索結果がありません' : '報告がありません'}
+            <CardContent className="py-6">
+              <EmptyState
+                icon={Search}
+                title={searchTerm ? '検索結果がありません' : '報告がありません'}
+              />
             </CardContent>
           </Card>
         ) : (
