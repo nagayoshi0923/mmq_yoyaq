@@ -19,7 +19,7 @@ jobs:
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             まず .github/issue-groomer-prompt.md を Read ツールで読んでください(読まずに作業を始めない)。
             そこに書かれた指示に厳密に従って、issue #${{ github.event.issue.number }} を整形してください。
