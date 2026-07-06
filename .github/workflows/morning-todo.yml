@@ -20,7 +20,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -eu
-          if [ -z "$WEBHOOK" ]; then echo "DISCORD_WEBHOOK_URL 未設定のためスキップ"; exit 0; fi
+          if [ -z "$WEBHOOK" ]; then echo "DISCORD_WEBHOOK_URL 未設定のためスキップします"; exit 0; fi
           TODAY=$(TZ=Asia/Tokyo date '+%-m/%-d')
 
           PRS=$(gh pr list -R "$REPO" --state open --json number,title,isDraft \
@@ -38,14 +38,21 @@ jobs:
           AITODO=$(gh issue list -R "$REPO" --state open --label ai-todo --json number,title \
             --jq 'map("・#\(.number) \(.title[0:44])") | join("\n")')
 
+          AHEAD=$(gh api "repos/$REPO/compare/main...staging" --jq '.ahead_by' 2>/dev/null || echo 0)
+          DEPLOY=""
+          if [ "$AHEAD" -gt 0 ]; then
+            DEPLOY="stagingにmain未反映のコミットが ${AHEAD} 件"$'\n'"<https://github.com/${REPO}/compare/main...staging>"
+          fi
+
           MSG="☀️ **今日のTODO** ${TODAY} — ${REPO}"
           [ -n "$PRS" ]     && MSG="$MSG"$'\n\n'"🟢 **マージ判断待ちPR**"$'\n'"$PRS"
+          [ -n "$DEPLOY" ]  && MSG="$MSG"$'\n\n'"🚀 **デプロイ判断**"$'\n'"$DEPLOY"
           [ -n "$NH" ]      && MSG="$MSG"$'\n\n'"🙋 **あなたの判断待ち**"$'\n'"$NH"
           [ -n "$NI" ]      && MSG="$MSG"$'\n\n'"⏳ **報告者の回答待ち(停滞していたら催促)**"$'\n'"$NI"
           [ -n "$NOLABEL" ] && MSG="$MSG"$'\n\n'"🏷 **トリアージ漏れ(ラベル無し)**"$'\n'"$NOLABEL"
           [ -n "$AITODO" ]  && MSG="$MSG"$'\n\n'"🤖 **AI作業中(結果待ち)**"$'\n'"$AITODO"
 
-          if [ -z "${PRS}${NH}${NI}${NOLABEL}${AITODO}" ]; then
+          if [ -z "${PRS}${DEPLOY}${NH}${NI}${NOLABEL}${AITODO}" ]; then
             MSG="$MSG"$'\n\n'"✅ 今日対応が必要なものはありません"
           fi
 
