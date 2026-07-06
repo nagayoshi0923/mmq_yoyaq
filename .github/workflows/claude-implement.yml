@@ -31,15 +31,17 @@ jobs:
           track_progress: true
           prompt: |
             gh issue view ${{ github.event.issue.number }} --comments で issue を読み、
-            「調査してほしいこと」を順に検証して原因を特定し、修正を実装してください。
+            「調査してほしいこと」「対応してほしいこと」を順に検証して原因を特定し、修正を実装してください。
 
             - まず git fetch origin staging を実行し、staging から作業ブランチを作成する
             - PR は gh pr create --base staging で作成する
+            - データベースの変更(スキーマ・RPC・データ修正)が必要な場合は、DBへ直接接続できないため、
+              supabase/migrations/ に新しいマイグレーションSQL(タイムスタンプ付きファイル名)として作成しPRに含める
             - PR 本文には原因・修正内容・「受入条件」との対応を書き、Refs #${{ github.event.issue.number }} を含める
             - PR 作成後、issue に PR へのリンクをコメントする
-            - コードから原因を特定できない、またはデータ起因の可能性が高い場合は、
-              修正せず調査結果と仮説・確認手順を issue にコメントして終了する
+            - コードとmigrationで対応できない(実データの目視確認が必須など)場合は、
+              修正せず調査結果と確認手順を issue にコメントし、needs-human ラベルを付けて終了する
           claude_args: |
             --model opus
-            --allowedTools "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git checkout:*),Bash(git switch:*),Bash(git fetch:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(git branch:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(ls:*),Bash(cat:*),Bash(rg:*),Bash(npm ci:*),Bash(npm install:*),Bash(npm run typecheck:*),Bash(npm run lint:*),Bash(npm run build:fast:*)"
+            --allowedTools "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git checkout:*),Bash(git switch:*),Bash(git fetch:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(git branch:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(ls:*),Bash(cat:*),Bash(rg:*),Bash(npm ci:*),Bash(npm install:*),Bash(npm run typecheck:*),Bash(npm run lint:*),Bash(npm run build:fast:*)"
             --append-system-prompt "作業ブランチは staging から作成し、PR は必ず --base staging で作成する（main への PR は絶対に作らない）。organization_id によるマルチテナント分離を必ず維持する。reservation_source は src/lib/constants.ts の定数を使う。RLS ポリシーの変更は行わず SECURITY DEFINER RPC で対応する。コードコメントは原則書かない（WHYが非自明な場合のみ）。"

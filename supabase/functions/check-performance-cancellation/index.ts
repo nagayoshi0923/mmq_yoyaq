@@ -159,6 +159,12 @@ serve(async (req) => {
         notifications.push(
           sendExtensionNotification(serviceClient, event)
         )
+      } else if (event.result === 'confirmed') {
+        // 開催決定（満席）: お客様へ開催決定メールを送信
+        // 前日満席・募集延長後の4時間前満席の両方がここに該当する
+        notifications.push(
+          sendConfirmationNotification(serviceClient, event)
+        )
       }
     }
 
@@ -1006,6 +1012,307 @@ ${emailSettings.senderName}
     const errorData = await response.json()
     throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
   }
+}
+
+/**
+ * 開催決定通知を送信（メール）
+ */
+async function sendConfirmationNotification(
+  supabase: ReturnType<typeof createClient>,
+  event: EventDetail
+): Promise<void> {
+  console.log('📧 開催決定通知送信開始:', event.event_id)
+
+  // 1. 予約者一覧を取得
+  const { data: reservations, error: resError } = await supabase
+    .from('reservations')
+    .select('id, customer_name, customer_email, participant_count, reservation_number, total_price')
+    .eq('schedule_event_id', event.event_id)
+    .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+
+  if (resError) {
+    console.error('予約取得エラー:', resError)
+  }
+
+  // 2. メール設定を取得
+  const emailSettings = await getEmailSettings(supabase, event.organization_id)
+
+  // 2.5. カスタムテンプレートを取得
+  const storeEmailSettings = await getStoreEmailSettings(supabase, {
+    organizationId: event.organization_id
+  })
+  const customTemplate = storeEmailSettings?.performance_confirmation_template
+
+  // 2.6. スタッフテーブルを取得（メールアドレスがない予約者のフォールバック用）
+  const { data: staffList } = await supabase
+    .from('staff')
+    .select('name, display_name, email')
+    .eq('organization_id', event.organization_id)
+
+  // 3. 各予約者にメール送信（送信済みガード: sendCancellationNotifications と同じ二重フォールバック）
+  const resolvedResendApiKey = emailSettings.resendApiKey || Deno.env.get('RESEND_API_KEY') || null
+  console.log('🔍 [DEBUG] 開催決定メール送信前チェック:', {
+    eventId: event.event_id,
+    reservationsCount: reservations?.length ?? 0,
+    reservationsWithEmail: (reservations || []).filter(r => !!r.customer_email).length,
+    resolvedResendApiKey: resolvedResendApiKey ? `set (len=${resolvedResendApiKey.length})` : 'NULL'
+  })
+  if (!resolvedResendApiKey) {
+    console.error('❌ Resend API キー未設定のため開催決定メール送信をスキップ:', event.event_id)
+  }
+  if (reservations && reservations.length > 0 && resolvedResendApiKey) {
+    const effectiveEmailSettings = { ...emailSettings, resendApiKey: resolvedResendApiKey }
+    for (const reservation of reservations) {
+      // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
+      let emailToSend = reservation.customer_email
+      if (!emailToSend && reservation.customer_name && staffList) {
+        const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
+        const matchedStaff = staffList.find(s =>
+          s.name === normalizedName || s.display_name === normalizedName
+        )
+        if (matchedStaff?.email) {
+          emailToSend = matchedStaff.email
+          console.log('📧 スタッフテーブルからメール取得:', normalizedName)
+        }
+      }
+
+      if (!emailToSend) continue
+
+      try {
+        await sendConfirmationEmail(
+          supabase,
+          effectiveEmailSettings,
+          emailToSend,
+          reservation.customer_name || 'お客様',
+          event,
+          customTemplate,
+          {
+            reservationNumber: reservation.reservation_number,
+            participantCount: reservation.participant_count,
+            totalPrice: reservation.total_price,
+            companyPhone: storeEmailSettings?.company_phone || '',
+            companyEmail: storeEmailSettings?.company_email || ''
+          }
+        )
+        console.log('✅ 開催決定メール送信:', maskEmail(emailToSend))
+      } catch (emailError) {
+        console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError instanceof Error ? emailError.message : emailError)
+      }
+    }
+  }
+
+  console.log('✅ 開催決定処理完了:', event.event_id)
+}
+
+/**
+ * 開催決定メールを送信
+ */
+async function sendConfirmationEmail(
+  supabase: ReturnType<typeof createClient>,
+  emailSettings: Awaited<ReturnType<typeof getEmailSettings>>,
+  customerEmail: string,
+  customerName: string,
+  event: EventDetail,
+  customTemplate?: string | null,
+  reservationDetails?: {
+    reservationNumber?: string
+    participantCount?: number
+    totalPrice?: number
+    companyPhone?: string
+    companyEmail?: string
+  }
+): Promise<void> {
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric' })
+  }
+
+  const formatTime = (timeStr: string): string => {
+    return timeStr.slice(0, 5)
+  }
+
+  // テンプレート変数（基本変数セット - 全メール共通）
+  const templateVariables: Record<string, string> = {
+    // 顧客情報
+    customer_name: customerName,
+    customer_email: customerEmail,
+    // 予約情報
+    reservation_number: reservationDetails?.reservationNumber || '',
+    scenario_title: event.scenario || '',
+    date: formatDate(event.date),
+    time: formatTime(event.start_time),
+    end_time: event.end_time ? formatTime(event.end_time) : '',
+    venue: event.store_name || '未定',
+    participants: String(reservationDetails?.participantCount || event.current_participants),
+    participant_count: String(reservationDetails?.participantCount || event.current_participants),
+    total_price: reservationDetails?.totalPrice?.toLocaleString() || '',
+    // 会社情報
+    company_name: emailSettings.senderName,
+    company_phone: reservationDetails?.companyPhone || '',
+    company_email: reservationDetails?.companyEmail || '',
+    // 開催決定関連
+    current_participants: String(event.current_participants),
+    max_participants: String(event.max_participants)
+  }
+
+  // カスタムテンプレートをHTMLに変換
+  const templateToHtml = (template: string): string => {
+    const htmlContent = template
+      .split('\n')
+      .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+      .join('\n')
+
+    return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+  <div style="padding: 20px 30px;">
+    ${htmlContent}
+  </div>
+</body>
+</html>`
+  }
+
+  let finalHtml: string
+  let finalText: string
+
+  if (customTemplate && customTemplate.trim()) {
+    // カスタムテンプレートを使用
+    const appliedTemplate = replaceTemplateVariables(customTemplate, templateVariables)
+    finalHtml = templateToHtml(appliedTemplate)
+    finalText = appliedTemplate
+    console.log('📧 Using custom performance_confirmation_template')
+  } else {
+    // デフォルトテンプレート
+    finalHtml = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>公演開催決定のお知らせ</title>
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #dcfce7; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+    <h1 style="color: #166534; margin-top: 0; font-size: 24px;">
+      🎉 公演開催決定のお知らせ
+    </h1>
+    <p style="font-size: 16px; margin-bottom: 10px;">
+      ${customerName} 様
+    </p>
+    <p style="font-size: 14px; color: #15803d;">
+      ご予約いただいている公演は、定員に達したため開催が決定いたしました。当日のご来場をお待ちしております。
+    </p>
+  </div>
+
+  <div style="background-color: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 25px; margin-bottom: 20px;">
+    <h2 style="color: #1f2937; font-size: 18px; margin-top: 0; border-bottom: 2px solid #22c55e; padding-bottom: 10px;">
+      公演情報
+    </h2>
+
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: #6b7280; width: 30%;">シナリオ</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; color: #1f2937;">${event.scenario}</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: #6b7280;">日時</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; color: #1f2937;">
+          ${formatDate(event.date)}<br>
+          ${formatTime(event.start_time)}〜
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 0; font-weight: bold; color: #6b7280;">会場</td>
+        <td style="padding: 12px 0; color: #1f2937;">${event.store_name || '未定'}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
+    <p style="margin: 0; color: #666; font-size: 14px;">
+      当日お会いできることを楽しみにしております。<br>
+      お気をつけてお越しください。
+    </p>
+  </div>
+
+  <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
+    <p style="margin: 5px 0;">${emailSettings.senderName}</p>
+    <p style="margin: 5px 0;">このメールは自動送信されています</p>
+  </div>
+</body>
+</html>
+    `
+
+    finalText = `
+${customerName} 様
+
+🎉 公演開催決定のお知らせ
+
+ご予約いただいている公演は、定員に達したため開催が決定いたしました。当日のご来場をお待ちしております。
+
+━━━━━━━━━━━━━━━━━━━━
+公演情報
+━━━━━━━━━━━━━━━━━━━━
+
+シナリオ: ${event.scenario}
+日時: ${formatDate(event.date)} ${formatTime(event.start_time)}〜
+会場: ${event.store_name || '未定'}
+
+━━━━━━━━━━━━━━━━━━━━
+
+当日お会いできることを楽しみにしております。
+お気をつけてお越しください。
+
+${emailSettings.senderName}
+    `
+  }
+
+  const emailSubject = `【公演開催決定のお知らせ】${event.scenario} - ${event.date}`
+  const emailLogId = await insertEmailLog(supabase, {
+    organization_id:   event.organization_id ?? null,
+    schedule_event_id: event.event_id ?? null,
+    email_type:        'performance_confirmation',
+    to_email:          customerEmail,
+    subject:           emailSubject,
+    body_html:         finalHtml,
+    body_text:         finalText,
+    status:            'queued',
+  })
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${emailSettings.resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
+      to: [customerEmail],
+      subject: emailSubject,
+      html: finalHtml,
+      text: finalText,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    await updateEmailLog(supabase, emailLogId, {
+      status: 'failed',
+      error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+    })
+    throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
+  }
+
+  const resendResult = await response.json()
+  await updateEmailLog(supabase, emailLogId, {
+    status: 'sent',
+    provider_message_id: resendResult?.id ?? null,
+    sent_at: new Date().toISOString(),
+  })
 }
 
 /**

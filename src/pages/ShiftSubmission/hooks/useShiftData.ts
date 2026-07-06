@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { shiftApi } from '@/lib/shiftApi'
+import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Sentry } from '@/lib/sentry'
 import type { ShiftSubmission, DayInfo } from '../types'
@@ -66,7 +67,7 @@ async function fetchShiftData(
  * シフトデータ管理フック
  */
 export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
-  const { staff } = useOrganization()
+  const { staff, isLoading: orgLoading, error: orgError, refetch: refetchOrg } = useOrganization()
   const currentStaffId = staff?.id ?? ''
 
   const year = currentDate.getFullYear()
@@ -89,25 +90,57 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
     }
   }, [shiftQuery.data])
 
-  // スタッフが未設定のときのエラー通知（初回のみ）
+  // スタッフが未設定のときの扱い（初回のみ）
+  // セッション切れ（0時をまたいでトークンが失効し getUser が null を返す等）と、
+  // 本当にスタッフ未登録なケースを区別する。前者を「スタッフ登録が解除されている」と
+  // 誤表示して操作不能にしないため、実際に認証セッションが生きているかを確認してから出し分ける。
+  const staffMissingHandledRef = useRef(false)
   useEffect(() => {
-    if (!currentStaffId && staff !== undefined && !shiftQuery.isLoading) {
+    if (currentStaffId) {
+      staffMissingHandledRef.current = false
+      return
+    }
+    // 組織クエリがロード中/エラー中は判定を保留（エラーは一時的な auth 失敗の可能性）
+    if (orgLoading || orgError || staffMissingHandledRef.current) return
+    staffMissingHandledRef.current = true
+
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
+
+      if (!user) {
+        // セッションが切れている。まずリフレッシュを試み、回復したら staff を再取得。
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        if (cancelled) return
+        if (refreshed?.session?.user) {
+          staffMissingHandledRef.current = false
+          await refetchOrg()
+          return
+        }
+        showToast.error(
+          'ログインの有効期限が切れました',
+          'お手数ですが、ページを再読み込みして再度お試しください。'
+        )
+        return
+      }
+
+      // 認証済みだが staff レコードが取れない（本当に未登録／紐付け解除の可能性）
       showToast.error(
         'スタッフ情報が見つかりません',
         'このアカウントはスタッフとして登録されていません。管理者に連絡してスタッフ登録を依頼してください。'
       )
-      // シフト提出ページに到達した時点でスタッフ扱いされてる前提なのに、
-      // staff レコードが取れないのは異常（auth レース or DB 不整合の可能性）。
-      // Sentry に通知して GitHub Issue で追跡できるようにする。
-      Sentry.captureMessage('shift-page: staff record missing', {
+      Sentry.captureMessage('shift-page: staff record missing (authenticated)', {
         level: 'warning',
         tags: { issue: 'staff-record-missing', page: 'shift-submission' },
-        extra: {
-          staffIsNull: staff === null,
-        },
+        extra: { userId: user.id },
       })
+    })()
+
+    return () => {
+      cancelled = true
     }
-  }, [currentStaffId, staff, shiftQuery.isLoading])
+  }, [currentStaffId, orgLoading, orgError, refetchOrg])
 
   const handleShiftChange = (date: string, timeSlot: 'morning' | 'afternoon' | 'evening' | 'all_day', checked: boolean) => {
     setShiftData(prev => {
