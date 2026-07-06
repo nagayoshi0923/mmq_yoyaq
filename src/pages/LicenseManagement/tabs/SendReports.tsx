@@ -223,6 +223,19 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // 自社公演数の入力ハンドラ（debounce付き）
   const handleInternalInputChange = useCallback((scenarioKey: string, value: number | undefined) => {
     setInternalInputs(prev => ({ ...prev, [scenarioKey]: value }))
+    // プレビュー表示中は、手入力込みの金額でチェックを自動追随（>0でON / 0でOFF）
+    if (isSendPreviewOpen && sendPreviewTarget) {
+      const item = sendPreviewTarget.items.find(i => i.scenarioKey === scenarioKey)
+      if (item) {
+        const preview = computePreviewItem(item, { ...internalInputs, [scenarioKey]: value }, externalInputs)
+        setSelectedScenarioIds(prev => {
+          const next = new Set(prev)
+          if (preview.licenseCost > 0) next.add(scenarioKey)
+          else next.delete(scenarioKey)
+          return next
+        })
+      }
+    }
     const existingTimer = saveTimeoutRefs.current.get(`internal_${scenarioKey}`)
     if (existingTimer) clearTimeout(existingTimer)
     const timer = setTimeout(() => {
@@ -230,7 +243,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       saveTimeoutRefs.current.delete(`internal_${scenarioKey}`)
     }, 500)
     saveTimeoutRefs.current.set(`internal_${scenarioKey}`, timer)
-  }, [saveInternalInput, setInternalInputs])
+  }, [saveInternalInput, setInternalInputs, isSendPreviewOpen, sendPreviewTarget, internalInputs, externalInputs])
 
   // 他社公演数の入力ハンドラ（debounce付き。キー = scenarioKey）
   const handleExternalInputChange = useCallback((scenarioKey: string, value: number) => {
@@ -238,6 +251,20 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       ...prev,
       [scenarioKey]: value
     }))
+
+    // プレビュー表示中は、手入力込みの金額でチェックを自動追随（>0でON / 0でOFF）
+    if (isSendPreviewOpen && sendPreviewTarget) {
+      const item = sendPreviewTarget.items.find(i => i.scenarioKey === scenarioKey)
+      if (item) {
+        const preview = computePreviewItem(item, internalInputs, { ...externalInputs, [scenarioKey]: value })
+        setSelectedScenarioIds(prev => {
+          const next = new Set(prev)
+          if (preview.licenseCost > 0) next.add(scenarioKey)
+          else next.delete(scenarioKey)
+          return next
+        })
+      }
+    }
 
     const existingTimer = saveTimeoutRefs.current.get(scenarioKey)
     if (existingTimer) clearTimeout(existingTimer)
@@ -247,7 +274,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       saveTimeoutRefs.current.delete(scenarioKey)
     }, 500)
     saveTimeoutRefs.current.set(scenarioKey, timer)
-  }, [saveExternalInput, setExternalInputs])
+  }, [saveExternalInput, setExternalInputs, isSendPreviewOpen, sendPreviewTarget, internalInputs, externalInputs])
 
 
   // 展開/折りたたみ
@@ -291,16 +318,10 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     }
 
     setSendPreviewTarget(group)
-    // 編集後の金額が0円以外のシナリオをデフォルトで選択
+    // 編集後の金額（手入力込み・getPreviewItem 基準）が0円以外のシナリオをデフォルト選択
     const defaultSelected = new Set(
       group.items
-        .filter(item => {
-          const extEvents = item.scenarioType === 'managed'
-            ? (externalInputs[item.scenarioKey] ?? item.externalEvents)
-            : 0
-          const totalCost = item.internalLicenseCost + (extEvents * item.externalLicenseAmount)
-          return totalCost > 0
-        })
+        .filter(item => getPreviewItem(item).licenseCost > 0)
         .map(item => item.scenarioKey)
     )
     setSelectedScenarioIds(defaultSelected)
