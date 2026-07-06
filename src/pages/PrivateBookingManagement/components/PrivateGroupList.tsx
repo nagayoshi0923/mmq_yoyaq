@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { EmptyState } from '@/components/patterns/list'
+import { SearchInput, FilterBar } from '@/components/patterns/filter'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   Users,
@@ -278,47 +279,48 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
     <div className="space-y-4">
       {/* フィルター */}
       <div className="flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="シナリオ名、主催者名、招待コードで検索..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={statusFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('all')}
-            >
-              全て ({groups.length})
-            </Button>
-            <Button
-              variant={statusFilter === 'date_adjusting' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('date_adjusting')}
-            >
-              日程調整中 ({statusCounts['date_adjusting'] || 0})
-            </Button>
-            <Button
-              variant={statusFilter === 'booking_requested' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('booking_requested')}
-            >
-              予約申請中 ({statusCounts['booking_requested'] || 0})
-            </Button>
-            <Button
-              variant={statusFilter === 'confirmed' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter('confirmed')}
-            >
-              確定 ({statusCounts['confirmed'] || 0})
-            </Button>
-          </div>
-        </div>
+        <FilterBar
+          isDirty={searchTerm !== '' || statusFilter !== 'all'}
+          onReset={() => {
+            setSearchTerm('')
+            setStatusFilter('all')
+          }}
+        >
+          <SearchInput
+            placeholder="シナリオ名、主催者名、招待コードで検索..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            containerClassName="flex-1"
+          />
+          <Button
+            variant={statusFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('all')}
+          >
+            全て ({groups.length})
+          </Button>
+          <Button
+            variant={statusFilter === 'date_adjusting' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('date_adjusting')}
+          >
+            日程調整中 ({statusCounts['date_adjusting'] || 0})
+          </Button>
+          <Button
+            variant={statusFilter === 'booking_requested' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('booking_requested')}
+          >
+            予約申請中 ({statusCounts['booking_requested'] || 0})
+          </Button>
+          <Button
+            variant={statusFilter === 'confirmed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('confirmed')}
+          >
+            確定 ({statusCounts['confirmed'] || 0})
+          </Button>
+        </FilterBar>
         {/* 追加フィルター */}
         <div className="flex gap-2 flex-wrap">
           <Button
@@ -341,11 +343,18 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
 
       {/* グループ一覧 */}
       {filteredGroups.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          {searchTerm || statusFilter !== 'all' 
-            ? '条件に一致するグループがありません' 
-            : '貸切グループがありません'}
-        </div>
+        <Card>
+          <CardContent className="py-6">
+            <EmptyState
+              icon={Search}
+              title={
+                searchTerm || statusFilter !== 'all'
+                  ? '条件に一致するグループがありません'
+                  : '貸切グループがありません'
+              }
+            />
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-3">
           {filteredGroups.map(group => {
@@ -461,7 +470,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                             <span>回答進捗: {progress.answered}/{progress.total} ({progress.percentage}%)</span>
                           </div>
-                          <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-primary transition-all"
                               style={{ width: `${progress.percentage}%` }}
