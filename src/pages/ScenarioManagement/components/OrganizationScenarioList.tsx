@@ -775,7 +775,17 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
           <div className="md:hidden space-y-2">
             {filteredScenarios.map((scenario) => {
               const statusConfig = STATUS_LABELS[scenario.org_status]
-              const gms = scenario.available_gms || []
+              const gmBadges = scenario.gm_list_badges
+              const gmFallbackNames: string[] = scenario.available_gms || []
+              type GmCardItem = { key: string; label: string; badgeClass: string }
+              let gmItems: GmCardItem[] = []
+              if (gmBadges && gmBadges.length > 0) {
+                gmItems = gmBadges.map((b, i) => ({ key: `${b.name}-${b.mode}-${i}`, label: b.displayLabel, badgeClass: gmScenarioBadgeClassNames(b.mode) }))
+              } else if (gmFallbackNames.length > 0) {
+                gmItems = gmFallbackNames.map((name, i) => ({ key: `fb-${name}-${i}`, label: name, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' }))
+              }
+              const gmDisplayed = gmItems.slice(0, 5)
+              const gmRemaining = gmItems.length - 5
               return (
                 <div
                   key={scenario.id}
@@ -813,15 +823,23 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                             <JapaneseYen className="w-2.5 h-2.5 inline" />{scenario.participation_fee.toLocaleString()}
                           </span>
                         )}
-                        {gms.length > 0 && (
-                          <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">GM: {gms.length}名</span>
-                        )}
                         {scenario.extra_preparation_time && scenario.extra_preparation_time > 0 && (
                           <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
                             準備+{scenario.extra_preparation_time}分
                           </span>
                         )}
                       </div>
+                      {gmItems.length > 0 && (
+                        <div className="flex items-start gap-2 text-xs mt-1">
+                          <span className="text-blue-600 shrink-0 w-6">GM</span>
+                          <div className="flex flex-wrap gap-1">
+                            {gmDisplayed.map(item => (
+                              <span key={item.key} className={`text-xs px-1.5 py-0.5 rounded border ${item.badgeClass}`}>{item.label}</span>
+                            ))}
+                            {gmRemaining > 0 && <span className="text-xs text-muted-foreground">+{gmRemaining}</span>}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {canEdit && (
                       <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
