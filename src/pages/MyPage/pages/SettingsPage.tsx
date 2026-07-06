@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@/components/patterns/modal'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteMyAccount } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
-import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
+import { getSafeErrorMessage, ApiError, ApiErrorType } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -223,7 +223,10 @@ export function SettingsPage() {
 
         if (error) throw error
         if (!updatedRows?.length) {
-          throw new Error('プロフィールを保存できませんでした。ページを再読み込みしてから再度お試しください。')
+          throw new ApiError(
+            'プロフィールを保存できませんでした（更新件数0件）',
+            ApiErrorType.CONFLICT
+          )
         }
         showToast.success('プロフィールを更新しました')
       } else if (user?.id) {
@@ -275,7 +278,10 @@ export function SettingsPage() {
 
         if (error) throw error
         if (!savedRows?.length) {
-          throw new Error('プロフィールを保存できませんでした。ページを再読み込みしてから再度お試しください。')
+          throw new ApiError(
+            'プロフィールを保存できませんでした（更新件数0件）',
+            ApiErrorType.CONFLICT
+          )
         }
         showToast.success('プロフィールを作成しました')
       }
