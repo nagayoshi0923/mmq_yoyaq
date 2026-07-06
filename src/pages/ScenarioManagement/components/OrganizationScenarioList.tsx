@@ -831,12 +831,25 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                       </div>
                       {gmItems.length > 0 && (
                         <div className="flex items-start gap-2 text-xs mt-1">
-                          <span className="text-blue-600 shrink-0 w-6">GM</span>
+                          <span className="text-blue-600 shrink-0 w-10">GM可</span>
                           <div className="flex flex-wrap gap-1">
                             {gmDisplayed.map(item => (
-                              <span key={item.key} className={`text-xs px-1.5 py-0.5 rounded border ${item.badgeClass}`}>{item.label}</span>
+                              <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
                             ))}
-                            {gmRemaining > 0 && <span className="text-xs text-muted-foreground">+{gmRemaining}</span>}
+                            {gmRemaining > 0 && <span className="text-muted-foreground">+{gmRemaining}</span>}
+                          </div>
+                        </div>
+                      )}
+                      {(scenario.experienced_staff || []).length > 0 && (
+                        <div className="flex items-start gap-2 text-xs mt-1">
+                          <span className="text-green-600 shrink-0 w-10">体験</span>
+                          <div className="flex flex-wrap gap-1">
+                            {(scenario.experienced_staff || []).slice(0, 5).map((name, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
+                            ))}
+                            {(scenario.experienced_staff || []).length > 5 && (
+                              <span className="text-muted-foreground">+{(scenario.experienced_staff || []).length - 5}</span>
+                            )}
                           </div>
                         </div>
                       )}
