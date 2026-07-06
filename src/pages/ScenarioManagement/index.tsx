@@ -159,7 +159,7 @@ export function ScenarioManagement() {
 
           <div className="flex items-center justify-between">
             {/* 凡例（マスタ由来 / 組織設定） */}
-            <div className="flex items-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <span className="w-3 h-3 bg-gray-100 border rounded"></span>
                 マスタ由来
