@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -832,12 +833,24 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                       {gmItems.length > 0 && (
                         <div className="flex items-start gap-2 text-xs mt-1">
                           <span className="text-blue-600 shrink-0 w-10">GM可</span>
-                          <div className="flex flex-wrap gap-1">
-                            {gmDisplayed.map(item => (
-                              <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
-                            ))}
-                            {gmRemaining > 0 && <span className="text-muted-foreground">+{gmRemaining}</span>}
-                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="flex flex-wrap gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                {gmDisplayed.map(item => (
+                                  <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
+                                ))}
+                                {gmRemaining > 0 && <span className="text-muted-foreground">+{gmRemaining}</span>}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto max-w-[280px] p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                              <div className="text-xs font-medium mb-2">担当GM（{gmItems.length}名）</div>
+                              <div className="flex flex-wrap gap-1">
+                                {gmItems.map(item => (
+                                  <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       )}
                       {(scenario.experienced_staff || []).length > 0 && (
