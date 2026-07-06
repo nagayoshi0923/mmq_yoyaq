@@ -54,6 +54,18 @@ staging に push したら必ず動作確認チェックリストを出力する
 | `/smoke` | 変更 diff から動作確認チェックリストを生成 |
 | `/codex` | Codex（実装担当）向けの指示書＋コピペプロンプトを生成 |
 | `/handoff` | セッション引き継ぎ＋次セッション用プロンプトを生成 |
+| `/issue` | 雑な一言を型どおりのissueに変換して起票（型= docs/templates/issue-format.md） |
+| `/bug-report` | 曖昧なバグ報告を再現手順つきissueに整形＋ヒアリング質問生成 |
+| `/review3` | UX・セキュリティ・ビジネスロジックの3視点PRレビュー（観点= docs/templates/review-perspectives.md） |
+| `/pr-triage` | open PRをまとめて捌くレビュー会（マージ基準・差し戻しの型） |
+| `/db-change` | DBスキーマ変更の安全手順（罠チェック→staging→本番→ロールバック） |
+| `/test-view` | 予約システム特有のエッジケース検証（観点= docs/templates/test-perspectives.md） |
+| `/release-notes` | マージ済みPRからスタッフ向け/お客さん向けのお知らせ文面を生成 |
+| `/yoyaq-domain` | ドメイン知識ロード（本体= docs/DOMAIN.md） |
+| `/customer-reply` | 顧客対応の定型文面（メール/LINE）を生成 |
+| `/figma-kit` | シナリオキット制作ツールの要件ロード |
+
+グローバル（~/.claude/skills/、全リポジトリ共通）: `/project-init` `/briefing` `/weekly-review` `/subsidy-docs`
 
 ---
 
