@@ -61,13 +61,13 @@
 - ✅ **DI-13** 提出期間案内バーの border-l 系 → 薄背景 tint 化（`2e2f57a1`・スモーク49 OK）
 
 ### GM確認
-- ⬜ **DI-14** 空状態が Card 直書き（index.tsx:144-148）→ EmptyState
+- 🔧 **DI-14** 空状態2箇所を EmptyState 化 `cf0873db`（🔍スモーク95 確認待ち・2026-07-06）
 
 ### 担当作品（StaffProfile）
-- ⬜ **DI-15** CircleCheck の text-gray 直書き（:33-36）・CardContent の p-4/p-8 乱立（:347-418）・text-blue-500/green-500 直書き（:381,390）
+- 🔧 **DI-15** サマリー2枚 StatCard 化＋CircleCheck 未選択グレーのトークン化＋検索0件 EmptyState `ffffddaa`（🔍スモーク96 確認待ち・2026-07-06）。選択時の青/緑はメイン/サブGMの機能色として維持・構造的パディングは意図的に不変
 
 ### 貸切グループ一覧（PrivateGroupList）
-- ⬜ **DI-16** 空状態 div 直書き（:342-347）／フィルタ手書き（:279-339）／進捗バー inline style（:466）／STATUS_CONFIG の色直書き（:34,447）
+- 🔧 **DI-16** SearchInput/FilterBar 化（ステータス件数ボタンUIは維持）＋EmptyState＋進捗バー背景トークン化 `e50f2daa`（🔍スモーク97 確認待ち・2026-07-06）。STATUS_CONFIG 6色・主催者青tint・確定緑は意味色として維持、進捗バーの width inline style は動的値のため維持
 
 ### 予約管理（ReservationManagement）★最多指摘＝**改装パイロット②の本命**
 - ✅ **DI-17** ★ページ全体の改装1バッチ `06323481`（スモーク59 オーナーOK・2026-07-04）: バッジ共通化・フィルタ共通部品化・スケルトン/空状態統一・色トークン化
