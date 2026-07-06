@@ -1,0 +1,48 @@
+name: Issue Retriage (needs-info回答の自動判定)
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  retriage:
+    if: >-
+      !github.event.issue.pull_request &&
+      github.event.comment.user.type != 'Bot' &&
+      contains(github.event.issue.labels.*.name, 'needs-info') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            issue #${{ github.event.issue.number }} に新しいコメントが投稿されました。
+            gh issue view ${{ github.event.issue.number }} --comments で全体を読み、
+            過去の確認質問(needs-infoの理由)への回答が揃ったかを判定してください。
+
+            - 揃った場合:
+              1. 本文の「確認中」項目を回答内容で更新する(gh issue edit --body)
+              2. gh issue edit ${{ github.event.issue.number }} --remove-label needs-info --add-label ai-todo
+                 (ai-todo付与で自動実装が開始される)
+              3. 「回答ありがとうございます。調査を開始します」と1行コメントする
+            - まだ不足している場合: ラベルは変えず、不足している点だけを丁寧に1行で確認コメントする
+            - 判定に迷う場合は何もしない(誤発火より保留を優先)
+
+            注意:
+            - needs-human が付いているissueには ai-todo を付けない(人間主導のまま)
+            - 出力のどこにも「@claude」という連続文字列を書かない
+          claude_args: |
+            --model opus
+            --allowedTools "Read,Glob,Grep,LS,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*)"
