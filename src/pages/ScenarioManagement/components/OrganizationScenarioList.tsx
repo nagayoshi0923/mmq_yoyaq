@@ -830,8 +830,23 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                           </span>
                         )}
                       </div>
+                    </div>
+                    {canEdit && (
+                      <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost" size="sm" className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setScenarioToDelete(scenario); setDeleteDialogOpen(true) }}
+                          title="解除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {(gmItems.length > 0 || (scenario.experienced_staff || []).length > 0) && (
+                    <div className="px-3 pb-3 space-y-1">
                       {gmItems.length > 0 && (
-                        <div className="flex items-start gap-2 text-xs mt-1">
+                        <div className="flex items-start gap-2 text-xs">
                           <span className="text-blue-600 shrink-0 w-10">GM可</span>
                           <Popover>
                             <PopoverTrigger asChild>
@@ -854,31 +869,32 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                         </div>
                       )}
                       {(scenario.experienced_staff || []).length > 0 && (
-                        <div className="flex items-start gap-2 text-xs mt-1">
+                        <div className="flex items-start gap-2 text-xs">
                           <span className="text-green-600 shrink-0 w-10">体験</span>
-                          <div className="flex flex-wrap gap-1">
-                            {(scenario.experienced_staff || []).slice(0, 5).map((name, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
-                            ))}
-                            {(scenario.experienced_staff || []).length > 5 && (
-                              <span className="text-muted-foreground">+{(scenario.experienced_staff || []).length - 5}</span>
-                            )}
-                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="flex flex-wrap gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                {(scenario.experienced_staff || []).slice(0, 5).map((name, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
+                                ))}
+                                {(scenario.experienced_staff || []).length > 5 && (
+                                  <span className="text-muted-foreground">+{(scenario.experienced_staff || []).length - 5}</span>
+                                )}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto max-w-[280px] p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                              <div className="text-xs font-medium mb-2">体験済み（{(scenario.experienced_staff || []).length}名）</div>
+                              <div className="flex flex-wrap gap-1">
+                                {(scenario.experienced_staff || []).map((name, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       )}
                     </div>
-                    {canEdit && (
-                      <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost" size="sm" className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setScenarioToDelete(scenario); setDeleteDialogOpen(true) }}
-                          title="解除"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               )
             })}
