@@ -842,7 +842,8 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                     )}
                   </div>
                   {(gmItems.length > 0 || (scenario.experienced_staff || []).length > 0) && (
-                    <div className="px-3 pb-3 space-y-1">
+                    /* 左端はサムネ幅(w-14)+gap-3 ぶんインデントしてタイトル列と揃え、右はカード右端まで使う */
+                    <div className="pl-20 pr-3 pb-3 space-y-1">
                       {gmItems.length > 0 && (
                         <div className="flex items-start gap-2 text-xs">
                           <span className="text-blue-600 shrink-0 w-10">GM可</span>

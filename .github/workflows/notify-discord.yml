@@ -1,0 +1,35 @@
+name: Notify Discord (要人間対応)
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  notify:
+    if: github.event.label.name == 'needs-info' || github.event.label.name == 'needs-human'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    steps:
+      - name: Send Discord notification
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TITLE: ${{ github.event.issue.title }}
+          URL: ${{ github.event.issue.html_url }}
+          NUMBER: ${{ github.event.issue.number }}
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_URL が未設定のためスキップします"
+            exit 0
+          fi
+          if [ "$LABEL" = "needs-info" ]; then
+            REASON="⏳ 報告者への確認待ち(質問がissueに投稿されています)"
+          else
+            REASON="🙋 人間の判断が必要(DB作業・設計判断など、自動実装の対象外)"
+          fi
+          MSG="**要人間対応** #${NUMBER}: ${TITLE}
+          ${REASON}
+          ${URL}"
+          PAYLOAD=$(jq -n --arg content "$MSG" '{content: $content}')
+          curl -sf -H "Content-Type: application/json" -d "$PAYLOAD" "$WEBHOOK"
