@@ -1,0 +1,55 @@
+name: Morning TODO → Discord
+
+on:
+  schedule:
+    - cron: '30 22 * * *' # 07:30 JST (UTC+9)
+  workflow_dispatch: # 手動テスト用
+
+jobs:
+  todo:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      pull-requests: read
+      contents: read
+    steps:
+      - name: Build and send TODO
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          if [ -z "$WEBHOOK" ]; then echo "DISCORD_WEBHOOK_URL 未設定のためスキップ"; exit 0; fi
+          TODAY=$(TZ=Asia/Tokyo date '+%-m/%-d')
+
+          PRS=$(gh pr list -R "$REPO" --state open --json number,title,isDraft \
+            --jq '[.[] | select(.isDraft|not)] | map("・#\(.number) \(.title[0:44])") | join("\n")')
+
+          NH=$(gh issue list -R "$REPO" --state open --label needs-human --json number,title \
+            --jq 'map("・#\(.number) \(.title[0:44])") | join("\n")')
+
+          NI=$(gh issue list -R "$REPO" --state open --label needs-info --json number,title,updatedAt \
+            --jq 'map("・#\(.number) \(.title[0:40]) (\((now - (.updatedAt|fromdateiso8601)) / 86400 | floor)日停滞)") | join("\n")')
+
+          NOLABEL=$(gh issue list -R "$REPO" --state open --json number,title,labels \
+            --jq '[.[] | select(.labels|length==0)] | map("・#\(.number) \(.title[0:44])") | join("\n")')
+
+          AITODO=$(gh issue list -R "$REPO" --state open --label ai-todo --json number,title \
+            --jq 'map("・#\(.number) \(.title[0:44])") | join("\n")')
+
+          MSG="☀️ **今日のTODO** ${TODAY} — ${REPO}"
+          [ -n "$PRS" ]     && MSG="$MSG"$'\n\n'"🟢 **マージ判断待ちPR**"$'\n'"$PRS"
+          [ -n "$NH" ]      && MSG="$MSG"$'\n\n'"🙋 **あなたの判断待ち**"$'\n'"$NH"
+          [ -n "$NI" ]      && MSG="$MSG"$'\n\n'"⏳ **報告者の回答待ち(停滞していたら催促)**"$'\n'"$NI"
+          [ -n "$NOLABEL" ] && MSG="$MSG"$'\n\n'"🏷 **トリアージ漏れ(ラベル無し)**"$'\n'"$NOLABEL"
+          [ -n "$AITODO" ]  && MSG="$MSG"$'\n\n'"🤖 **AI作業中(結果待ち)**"$'\n'"$AITODO"
+
+          if [ -z "${PRS}${NH}${NI}${NOLABEL}${AITODO}" ]; then
+            MSG="$MSG"$'\n\n'"✅ 今日対応が必要なものはありません"
+          fi
+
+          MSG="$MSG"$'\n\n'"<https://github.com/${REPO}/issues>"$'\n'"※未対応の項目は明朝また再掲されます"
+
+          PAYLOAD=$(jq -n --arg content "$MSG" '{content: $content}')
+          curl -sf -H "Content-Type: application/json" -d "$PAYLOAD" "$WEBHOOK"
