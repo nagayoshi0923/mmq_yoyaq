@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/patterns/list'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -20,7 +22,7 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { 
   ArrowLeft, Save, Plus, Trash2, GripVertical, CheckCircle, XCircle,
-  Image as ImageIcon
+  Image as ImageIcon, ShieldAlert
 } from 'lucide-react'
 import { parseIntSafe } from '@/utils/number'
 import { InputDialog } from '@/components/patterns/modal'
@@ -407,9 +409,16 @@ export function ScenarioMasterEdit() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">アクセス権限がありません</h1>
-          <Button onClick={() => navigate('/')}>トップへ戻る</Button>
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <Card>
+            <CardContent className="py-6">
+              <EmptyState
+                icon={ShieldAlert}
+                title="アクセス権限がありません"
+                action={<Button onClick={() => navigate('/')}>トップへ戻る</Button>}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -430,9 +439,15 @@ export function ScenarioMasterEdit() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">シナリオが見つかりません</h1>
-          <Button onClick={() => navigate('/admin/scenario-masters')}>一覧へ戻る</Button>
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <Card>
+            <CardContent className="py-6">
+              <EmptyState
+                title="シナリオが見つかりません"
+                action={<Button onClick={() => navigate('/admin/scenario-masters')}>一覧へ戻る</Button>}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -454,7 +469,7 @@ export function ScenarioMasterEdit() {
               <ArrowLeft className="w-4 h-4" />
               戻る
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-foreground">
               {isNew ? '新規シナリオマスタ' : master.title}
             </h1>
           </div>
@@ -513,7 +528,7 @@ export function ScenarioMasterEdit() {
           <div className="lg:col-span-2 space-y-6">
             {/* 基本情報 */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">基本情報</h2>
+              <h2 className="font-semibold text-foreground mb-4">基本情報</h2>
               
               <div className="space-y-4">
                 <div>
@@ -641,7 +656,7 @@ export function ScenarioMasterEdit() {
 
             {/* 説明・あらすじ */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">説明</h2>
+              <h2 className="font-semibold text-foreground mb-4">説明</h2>
               
               <div className="space-y-4">
                 <div>
@@ -681,7 +696,7 @@ export function ScenarioMasterEdit() {
             {!isNew && (
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-gray-900">キャラクター</h2>
+                  <h2 className="font-semibold text-foreground">キャラクター</h2>
                   <Button variant="outline" size="sm" onClick={addCharacter}>
                     <Plus className="w-4 h-4 mr-2" />
                     追加
@@ -746,7 +761,7 @@ export function ScenarioMasterEdit() {
           <div className="space-y-6">
             {/* ステータス */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">ステータス</h2>
+              <h2 className="font-semibold text-foreground mb-4">ステータス</h2>
               <select
                 value={master.master_status}
                 onChange={(e) => setMaster({ ...master, master_status: e.target.value as 'draft' | 'pending' | 'approved' | 'rejected' })}
@@ -768,7 +783,7 @@ export function ScenarioMasterEdit() {
 
             {/* その他設定 */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">その他</h2>
+              <h2 className="font-semibold text-foreground mb-4">その他</h2>
               
               <div className="space-y-4">
                 <div>

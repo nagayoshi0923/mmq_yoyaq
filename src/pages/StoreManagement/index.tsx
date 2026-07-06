@@ -340,7 +340,6 @@ export function StoreManagement() {
                       {store.region && <span>{store.region}</span>}
                       {store.ownership_type && (
                         <Badge
-                          // @ts-ignore
                           variant={
                             store.ownership_type === 'corporate' ? 'info' :
                             store.ownership_type === 'office' ? 'purple' : 'warning'
@@ -357,7 +356,7 @@ export function StoreManagement() {
                     )}
                   </div>
 
-                  <div className="bg-gray-50 px-3 py-1.5 text-[10px] text-muted-foreground flex items-center justify-between border-t">
+                  <div className="bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground flex items-center justify-between border-t">
                     <span>{store.manager_name || '店長未設定'}</span>
                     <span className="text-primary">編集 →</span>
                   </div>

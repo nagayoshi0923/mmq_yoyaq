@@ -53,6 +53,7 @@ staging に push したら必ず動作確認チェックリストを出力する
 | `/deploy` | staging → main の本番反映フロー一式（分岐チェック→DB適用→マージ→resync） |
 | `/smoke` | 変更 diff から動作確認チェックリストを生成 |
 | `/codex` | Codex（実装担当）向けの指示書＋コピペプロンプトを生成 |
+| `/codex-run` | 設計→Codex CLI自動実行→diffレビューの一気通貫パイプライン |
 | `/handoff` | セッション引き継ぎ＋次セッション用プロンプトを生成 |
 | `/issue` | 雑な一言を型どおりのissueに変換して起票（型= docs/templates/issue-format.md） |
 | `/bug-report` | 曖昧なバグ報告を再現手順つきissueに整形＋ヒアリング質問生成 |

@@ -3,12 +3,14 @@ import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { 
-  Store, 
-  Calendar as CalendarIcon, 
-  Users, 
-  BookOpen, 
+import { PageHeader } from '@/components/layout/PageHeader'
+import { ListSkeleton, EmptyState } from '@/components/patterns/list'
+import { StatCard, StatGrid } from '@/components/patterns/stat/StatCard'
+import {
+  Store,
+  Calendar as CalendarIcon,
+  Users,
+  BookOpen,
   Clock,
   Settings,
   ChevronLeft,
@@ -18,7 +20,8 @@ import {
   UserCircle,
   HelpCircle,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  LayoutDashboard
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { devDb } from '@/components/ui/DevField'
@@ -276,6 +279,11 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
 
   return (
     <div className="space-y-8 pb-20">
+      <PageHeader
+        title={<><LayoutDashboard className="h-5 w-5 text-primary" />ダッシュボード</>}
+        description="今日の予定と組織の状況"
+      />
+
       {/* オンボーディングバナー */}
       {needsOnboarding && (
         <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 rounded-2xl shadow-sm">
@@ -341,20 +349,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
 
           {/* コンテンツ */}
           {loading && staffName === '' ? (
-            <div className="flex-1 divide-y divide-border/40">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="px-4 py-3 flex items-center gap-3">
-                  <div className="w-12 shrink-0 space-y-1">
-                    <Skeleton className="h-3 w-8 mx-auto" />
-                    <Skeleton className="h-3 w-6 mx-auto" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <Skeleton className="h-4 w-36" />
-                    <Skeleton className="h-3 w-48" />
-                  </div>
-                  <Skeleton className="h-3 w-10 shrink-0" />
-                </div>
-              ))}
+            <div className="flex-1 p-4">
+              <ListSkeleton rows={4} variant="row" />
             </div>
           ) : upcomingEvents.length > 0 ? (
             <div className="flex-1 divide-y divide-border/40">
@@ -390,7 +386,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">直近の予定はありません</p>
+              <EmptyState title="直近の予定はありません" />
             </div>
           )}
         </div>
@@ -489,40 +485,22 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       {/* 4. スタッフ向け統計情報（出勤数・給与概算）- 全員に表示 */}
       <section>
         <h2 className="text-base font-semibold mb-4">今月の実績（概算）</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-card rounded-2xl border border-border/60 p-4 text-center">
-            <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
-            <div className="font-bold text-2xl text-primary" {...devDb('schedule_events.filter(gm).count()')}>{myStats.count}<span className="text-sm font-normal text-muted-foreground ml-1">回</span></div>
-          </div>
-          <div className="bg-card rounded-2xl border border-border/60 p-4 text-center">
-            <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
-            <div className="font-bold text-2xl text-primary" {...devDb('schedule_events.sum(gm_costs)')}>¥{myStats.salary.toLocaleString()}</div>
-          </div>
-        </div>
+        <StatGrid className="md:grid-cols-2">
+          <StatCard label="出勤回数" value={<span {...devDb('schedule_events.filter(gm).count()')}>{myStats.count}<span className="text-sm font-normal text-muted-foreground ml-1">回</span></span>} />
+          <StatCard label="報酬見込み" value={<span {...devDb('schedule_events.sum(gm_costs)')}>¥{myStats.salary.toLocaleString()}</span>} />
+        </StatGrid>
       </section>
 
       {/* 5. 管理者向け統計情報（控えめに表示） */}
       {isAdmin && (
         <section>
           <h2 className="text-base font-semibold mb-4">管理者用データ</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">今月の売上</div>
-              <div className="font-bold" {...devDb('reservations.sum(total_amount)')}>¥{stats.revenue.toLocaleString()}</div>
-            </div>
-            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">予約件数</div>
-              <div className="font-bold" {...devDb('reservations.count()')}>{stats.reservations}件</div>
-            </div>
-            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">公演数</div>
-              <div className="font-bold" {...devDb('schedule_events.count()')}>{stats.performances}回</div>
-            </div>
-            <div className="bg-card rounded-2xl border border-border/60 p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">稼働店舗</div>
-              <div className="font-bold" {...devDb('stores.count()')}>{stats.stores}店</div>
-            </div>
-          </div>
+          <StatGrid className="sm:grid-cols-4">
+            <StatCard label="今月の売上" value={<span {...devDb('reservations.sum(total_amount)')}>¥{stats.revenue.toLocaleString()}</span>} />
+            <StatCard label="予約件数" value={<span {...devDb('reservations.count()')}>{stats.reservations}件</span>} />
+            <StatCard label="公演数" value={<span {...devDb('schedule_events.count()')}>{stats.performances}回</span>} />
+            <StatCard label="稼働店舗" value={<span {...devDb('stores.count()')}>{stats.stores}店</span>} />
+          </StatGrid>
         </section>
       )}
 

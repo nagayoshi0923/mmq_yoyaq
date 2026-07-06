@@ -162,7 +162,9 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
           {characters.map((character, index) => (
             <div key={character.id} className="rounded-lg border bg-white p-3">
               <div>
-                <div className="flex gap-2">
+                <div className="flex flex-col md:flex-row gap-2">
+                  {/* ハンドル＋画像（モバイルは上段横並び、md以上は3列の左2列） */}
+                  <div className="flex gap-2">
                   {/* 並び替えハンドル */}
                   <div className="flex flex-col justify-center gap-1">
                     <Button
@@ -379,6 +381,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                         </Popover>
                       </div>
                     )}
+                  </div>
                   </div>
 
                   {/* メインコンテンツ */}

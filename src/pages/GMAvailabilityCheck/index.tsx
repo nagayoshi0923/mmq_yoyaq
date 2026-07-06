@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { UserCheck } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { EmptyState } from '@/components/patterns/list'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGMRequests } from './hooks/useGMRequests'
 import { useAvailabilityCheck } from './hooks/useAvailabilityCheck'
@@ -141,9 +142,9 @@ export function GMAvailabilityCheck() {
           {/* 未回答タブ */}
           <TabsContent value="pending" className="mt-0">
             {pendingRequests.length === 0 ? (
-              <Card className="shadow-none border">
-                <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                  未回答のリクエストはありません
+              <Card>
+                <CardContent className="py-6">
+                  <EmptyState title="未回答のリクエストはありません" />
                 </CardContent>
               </Card>
             ) : (
@@ -186,9 +187,9 @@ export function GMAvailabilityCheck() {
           {/* 全てのリクエストタブ（月別） */}
           <TabsContent value="all" className="mt-0">
             {allRequests.length === 0 ? (
-              <Card className="shadow-none border">
-                <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                  {formatMonthYear(currentDate)}のリクエストはありません
+              <Card>
+                <CardContent className="py-6">
+                  <EmptyState title={`${formatMonthYear(currentDate)}のリクエストはありません`} />
                 </CardContent>
               </Card>
             ) : (

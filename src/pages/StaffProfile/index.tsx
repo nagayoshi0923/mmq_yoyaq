@@ -17,6 +17,8 @@ import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { Loader2, Search, BookOpen, Users, Check, UserCircle } from 'lucide-react'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { EmptyState } from '@/components/patterns/list'
+import { StatCard, StatGrid } from '@/components/patterns/stat/StatCard'
 
 // カスタム丸型チェックボックス
 interface CircleCheckProps {
@@ -28,12 +30,12 @@ interface CircleCheckProps {
 
 function CircleCheck({ checked, onChange, color, disabled }: CircleCheckProps) {
   const colorClasses = {
-    blue: checked 
-      ? 'bg-blue-100 border-blue-400 text-blue-600' 
-      : 'bg-gray-100 border-gray-300 text-gray-400',
-    green: checked 
-      ? 'bg-green-100 border-green-400 text-green-600' 
-      : 'bg-gray-100 border-gray-300 text-gray-400'
+    blue: checked
+      ? 'bg-blue-100 border-blue-400 text-blue-600'
+      : 'bg-muted border-input text-muted-foreground/40',
+    green: checked
+      ? 'bg-green-100 border-green-400 text-green-600'
+      : 'bg-muted border-input text-muted-foreground/40'
   }
 
   return (
@@ -375,26 +377,10 @@ export function StaffProfile() {
         </PageHeader>
 
         {/* サマリー */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <BookOpen className="w-8 h-8 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold">{experiencedCount}</p>
-                <p className="text-sm text-muted-foreground">体験済み作品</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <Users className="w-8 h-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold">{gmCount}</p>
-                <p className="text-sm text-muted-foreground">GM可能作品</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <StatGrid className="md:grid-cols-2 mb-6">
+          <StatCard label="体験済み作品" value={experiencedCount} icon={BookOpen} />
+          <StatCard label="GM可能作品" value={gmCount} icon={Users} />
+        </StatGrid>
 
         {/* 検索 */}
         <div className="relative mb-4">
@@ -505,9 +491,7 @@ export function StaffProfile() {
               })}
 
               {filteredScenarios.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground">
-                  シナリオが見つかりません
-                </div>
+                <EmptyState title="シナリオが見つかりません" />
               )}
             </div>
           </CardContent>

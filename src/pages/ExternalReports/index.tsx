@@ -120,7 +120,7 @@ export default function ExternalReports() {
 
       {/* 報告一覧 */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-lg">報告履歴</h2>
+        <h2 className="text-base font-semibold">報告履歴</h2>
         
         {reports.length === 0 ? (
           <Card>

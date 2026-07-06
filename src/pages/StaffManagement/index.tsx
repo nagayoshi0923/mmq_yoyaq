@@ -480,7 +480,7 @@ export function StaffManagement() {
                             <div className="flex flex-wrap gap-1 mt-1">
                               {getRoleBadges(staffItem.role)}
                               {!staffItem.user_id && (
-                                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">未連携</Badge>
+                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">未連携</Badge>
                               )}
                           </div>
                           </div>
@@ -532,7 +532,7 @@ export function StaffManagement() {
                       </div>
                       
                       {/* フッター */}
-                      <div className="bg-gray-50 px-3 py-1.5 text-[10px] text-muted-foreground flex items-center justify-between border-t">
+                      <div className="bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground flex items-center justify-between border-t">
                         <div className="flex gap-3">
                           <span>店舗{staffItem.stores?.length || 0}</span>
                           <span className="text-blue-600">GM可{gmScenarios.length}</span>

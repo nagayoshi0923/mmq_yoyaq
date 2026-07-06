@@ -42,33 +42,32 @@
 ## B. ページ別
 
 ### ダッシュボード（DashboardHome）
-- ⬜ **DI-07** セクション見出しが h2 直書き×3＋ローディング手作り（:336,406,468 / :343-357）→ 見出し様式の統一＋ListSkeleton
-- ⬜ **DI-08** 統計カードが独自枠（bg-card rounded-2xl・:493-501）→ StatCard 系へ
+- ✅ **DI-07/08** `9a834200`（PageHeader 追加＝全管理ページで唯一無かった・ListSkeleton/EmptyState・統計6枚 StatCard 化。devDb 属性保持。スモーク92-94 オーナーOK・2026-07-06）。セクション h2 はページ内で様式統一済みのため維持、カレンダー曜日の赤/青は日本のカレンダー慣習色として維持（DI-09 と同扱い）
 
 ### スケジュール管理（ページ枠のみ・🔒カード/モーダル除外）
 - ⬜ **DI-09** 曜日色 text-red-300/blue-300・日付バー bg-slate-700・列幅 w-[32px] 等のハードコード（index.tsx:1245-1268）→ 見た目そのままの token 化（挙動・見た目不変）
 - ✅ **DI-37** フィルタ行で「店舗」だけ白背景＋枠線で浮く（オーナー指摘 2026-07-04 スクショ）→ StoreMultiSelect に triggerClassName/triggerStyle を追加し、デスクトップ＋モバイル両フィルタで他4つの MultiSelect（薄青フラット）と統一。他13使用箇所は無影響（プロップ未指定=従来どおり）。**教訓: 「同一行内のコンポーネント混在」は grep 監査で拾えない＝改装バッチ毎の実機スクショ確認が必須**
 
 ### 店舗管理
-- ⬜ **DI-10** モバイルカードのフッター bg-gray-50 直書き＋ownership バッジが @ts-ignore で variant 上書き（index.tsx:343-360）
+- 🔧 **DI-10** フッター色トークン化＋@ts-ignore 解消（badge.tsx に variant 型定義済みだった）`3eba1454`（🔍スモーク98 確認待ち・2026-07-06）
 
 ### スタッフ管理
-- ⬜ **DI-11** モバイルカード内バッジの色直書き（bg-amber-50/blue-50/green-50・:483,510,524）＋ text-[10px]
+- 🔧 **DI-11** フッター色トークン化＋text-[10px]→text-xs `b24f19ea`（🔍スモーク99 確認待ち・2026-07-06）。未連携amber/GM可blue/体験green は機能色として維持
 
 ### シナリオ管理（一覧のみ）
-- ⬜ **DI-12** 凡例の bg-gray-100 / bg-blue-100 / text-gray-500 直書き（index.tsx:162-170）
+- 🔧 **DI-12** 凡例テキストのみトークン化 `6dd2dd77`（🔍スモーク100 確認待ち・2026-07-06）。swatch のgray/blue はマスタ由来/組織設定の機能色として維持
 
 ### シフト提出
 - ✅ **DI-13** 提出期間案内バーの border-l 系 → 薄背景 tint 化（`2e2f57a1`・スモーク49 OK）
 
 ### GM確認
-- ⬜ **DI-14** 空状態が Card 直書き（index.tsx:144-148）→ EmptyState
+- ✅ **DI-14** 空状態2箇所を EmptyState 化 `cf0873db`（スモーク95 オーナーOK・2026-07-06）
 
 ### 担当作品（StaffProfile）
-- ⬜ **DI-15** CircleCheck の text-gray 直書き（:33-36）・CardContent の p-4/p-8 乱立（:347-418）・text-blue-500/green-500 直書き（:381,390）
+- ✅ **DI-15** サマリー2枚 StatCard 化＋CircleCheck 未選択グレーのトークン化＋検索0件 EmptyState `ffffddaa`（スモーク96 オーナーOK・2026-07-06）。選択時の青/緑はメイン/サブGMの機能色として維持・構造的パディングは意図的に不変
 
 ### 貸切グループ一覧（PrivateGroupList）
-- ⬜ **DI-16** 空状態 div 直書き（:342-347）／フィルタ手書き（:279-339）／進捗バー inline style（:466）／STATUS_CONFIG の色直書き（:34,447）
+- ✅ **DI-16** SearchInput/FilterBar 化（ステータス件数ボタンUIは維持）＋EmptyState＋進捗バー背景トークン化 `e50f2daa`（スモーク97 オーナーOK・2026-07-06）。STATUS_CONFIG 6色・主催者青tint・確定緑は意味色として維持、進捗バーの width inline style は動的値のため維持
 
 ### 予約管理（ReservationManagement）★最多指摘＝**改装パイロット②の本命**
 - ✅ **DI-17** ★ページ全体の改装1バッチ `06323481`（スモーク59 オーナーOK・2026-07-04）: バッジ共通化・フィルタ共通部品化・スケルトン/空状態統一・色トークン化
@@ -90,8 +89,8 @@
 - ✅ **DI-28** 受信タブ → `6ee83388`（統計4枚 StatCard 化＋FilterBar/SearchInput/FilterSelect＋ListSkeleton/EmptyState。スモーク81-84 オーナーOK・2026-07-06）。PageHeader は index 側にあるためタブには追加せず（DI-18 の方針）。バッジ・承認/却下ボタン色は DI-39 で一括統一予定
 
 ### MMQ運営
-- ⬜ **DI-29** マスタ編集（ScenarioMasterEdit）: 生 h1/h2 見出し6箇所（:457-771）＋権限エラーが生テキスト → 見出し様式とエラーカードの統一
-- ⬜ **DI-30** 外部公演報告: Card 外の h2 見出し（:123）＋バッジ色直書き（:39）
+- 🔧 **DI-29** 見出し text-gray-900 トークン化＋権限エラー/未発見を Card+EmptyState 化 `e7bcbc90`（🔍スモーク101 確認待ち・2026-07-06）。※台帳にあった D&D バグ B6 はこのページでは未実装機能と判明＝要再トリアージ
+- 🔧 **DI-30** h2 をセクション基準に統一 `b774d217`（🔍スモーク102 確認待ち・2026-07-06）。バッジは DI-39（3ページ一括）へ委譲
 - ✅ **DI-31** ★シナリオマッチャー全面統一 `24ec7619`（PageHeader 化・外殻Card廃止・FilterBar+SearchInput・ListSkeleton/EmptyState・色トークン化。機能/数字不変。スモーク72-76 オーナーOK・2026-07-06）
 - ※ ユーザー管理・テナント管理・マスタ管理一覧は監査で「良好」
 

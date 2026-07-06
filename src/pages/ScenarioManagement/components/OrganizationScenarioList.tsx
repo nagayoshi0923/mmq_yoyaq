@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -775,7 +776,17 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
           <div className="md:hidden space-y-2">
             {filteredScenarios.map((scenario) => {
               const statusConfig = STATUS_LABELS[scenario.org_status]
-              const gms = scenario.available_gms || []
+              const gmBadges = scenario.gm_list_badges
+              const gmFallbackNames: string[] = scenario.available_gms || []
+              type GmCardItem = { key: string; label: string; badgeClass: string }
+              let gmItems: GmCardItem[] = []
+              if (gmBadges && gmBadges.length > 0) {
+                gmItems = gmBadges.map((b, i) => ({ key: `${b.name}-${b.mode}-${i}`, label: b.displayLabel, badgeClass: gmScenarioBadgeClassNames(b.mode) }))
+              } else if (gmFallbackNames.length > 0) {
+                gmItems = gmFallbackNames.map((name, i) => ({ key: `fb-${name}-${i}`, label: name, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' }))
+              }
+              const gmDisplayed = gmItems.slice(0, 5)
+              const gmRemaining = gmItems.length - 5
               return (
                 <div
                   key={scenario.id}
@@ -813,9 +824,6 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                             <JapaneseYen className="w-2.5 h-2.5 inline" />{scenario.participation_fee.toLocaleString()}
                           </span>
                         )}
-                        {gms.length > 0 && (
-                          <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">GM: {gms.length}名</span>
-                        )}
                         {scenario.extra_preparation_time && scenario.extra_preparation_time > 0 && (
                           <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
                             準備+{scenario.extra_preparation_time}分
@@ -835,6 +843,58 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                       </div>
                     )}
                   </div>
+                  {(gmItems.length > 0 || (scenario.experienced_staff || []).length > 0) && (
+                    <div className="px-3 pb-3 space-y-1">
+                      {gmItems.length > 0 && (
+                        <div className="flex items-start gap-2 text-xs">
+                          <span className="text-blue-600 shrink-0 w-10">GM可</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="flex flex-wrap gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                {gmDisplayed.map(item => (
+                                  <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
+                                ))}
+                                {gmRemaining > 0 && <span className="text-muted-foreground">+{gmRemaining}</span>}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto max-w-[280px] p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                              <div className="text-xs font-medium mb-2">担当GM（{gmItems.length}名）</div>
+                              <div className="flex flex-wrap gap-1">
+                                {gmItems.map(item => (
+                                  <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      )}
+                      {(scenario.experienced_staff || []).length > 0 && (
+                        <div className="flex items-start gap-2 text-xs">
+                          <span className="text-green-600 shrink-0 w-10">体験</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="flex flex-wrap gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                {(scenario.experienced_staff || []).slice(0, 5).map((name, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
+                                ))}
+                                {(scenario.experienced_staff || []).length > 5 && (
+                                  <span className="text-muted-foreground">+{(scenario.experienced_staff || []).length - 5}</span>
+                                )}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto max-w-[280px] p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                              <div className="text-xs font-medium mb-2">体験済み（{(scenario.experienced_staff || []).length}名）</div>
+                              <div className="flex flex-wrap gap-1">
+                                {(scenario.experienced_staff || []).map((name, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
