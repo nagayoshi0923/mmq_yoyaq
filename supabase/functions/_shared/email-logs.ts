@@ -33,6 +33,7 @@ export type EmailLogType =
   | 'waitlist_confirmed'
   | 'guest_pin'
   | 'performance_cancellation'
+  | 'performance_confirmation'
   | 'license_report'
   | 'contact_inquiry'
   | 'coupon_granted'

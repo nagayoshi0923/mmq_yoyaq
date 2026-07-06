@@ -29,9 +29,18 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
     setLoading(true)
     try {
       // organization_idを取得（マルチテナント対応）
-      const organizationId = await getCurrentOrganizationId()
+      // 0時をまたいでトークンが失効しているとセッションが一時的に取れないことがあるため、
+      // 取得できなければリフレッシュして一度だけ再試行する（提出失敗での操作不能を防ぐ）。
+      let organizationId = await getCurrentOrganizationId()
       if (!organizationId) {
-        showToast.error('組織情報が取得できませんでした')
+        await supabase.auth.refreshSession()
+        organizationId = await getCurrentOrganizationId()
+      }
+      if (!organizationId) {
+        showToast.error(
+          'ログインの有効期限が切れました',
+          'ページを再読み込みして再度お試しください。'
+        )
         return
       }
       
