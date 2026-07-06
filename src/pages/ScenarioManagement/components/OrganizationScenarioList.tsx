@@ -785,8 +785,6 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
               } else if (gmFallbackNames.length > 0) {
                 gmItems = gmFallbackNames.map((name, i) => ({ key: `fb-${name}-${i}`, label: name, badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' }))
               }
-              const gmDisplayed = gmItems.slice(0, 5)
-              const gmRemaining = gmItems.length - 5
               return (
                 <div
                   key={scenario.id}
@@ -851,10 +849,9 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                           <Popover>
                             <PopoverTrigger asChild>
                               <div className="flex flex-wrap gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                {gmDisplayed.map(item => (
+                                {gmItems.map(item => (
                                   <Badge key={item.key} variant="outline" className={`text-xs font-normal py-0.5 px-1.5 ${item.badgeClass}`}>{item.label}</Badge>
                                 ))}
-                                {gmRemaining > 0 && <span className="text-muted-foreground">+{gmRemaining}</span>}
                               </div>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto max-w-[280px] p-3" align="start" onClick={(e) => e.stopPropagation()}>
@@ -874,12 +871,9 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                           <Popover>
                             <PopoverTrigger asChild>
                               <div className="flex flex-wrap gap-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                {(scenario.experienced_staff || []).slice(0, 5).map((name, idx) => (
+                                {(scenario.experienced_staff || []).map((name, idx) => (
                                   <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">{name}</Badge>
                                 ))}
-                                {(scenario.experienced_staff || []).length > 5 && (
-                                  <span className="text-muted-foreground">+{(scenario.experienced_staff || []).length - 5}</span>
-                                )}
                               </div>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto max-w-[280px] p-3" align="start" onClick={(e) => e.stopPropagation()}>
