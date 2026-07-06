@@ -77,7 +77,7 @@
 - ✅ **DI-18〜22** 顧客管理の改装1バッチで対応済み `325128db`+`81f7be3d`＋FB対応 `b32a8fc6`+`4bf3acf7`（スモーク60・61 オーナーOK・2026-07-04）: 二重ヘッダー解消・行展開セクション再構成・「もっと見る」折りたたみ・クーポン統合・色トークン化・スケルトン共通化。体験済みは統合1リスト・日付バッジ
 
 ### クーポン管理
-- 🔧 **DI-23** → 実装済み `a67afe15`（ListSkeleton/EmptyState＋統計 StatCard 化＋フォーム色トークン化。🔍スモーク85-88 確認待ち・2026-07-06）。カテゴリバッジ（:79 青tint）は意味のある薄背景tintとして維持。**Switch＋DropdownMenu は現状維持**: ActionMenu 部品がアイコン単独トリガー非対応のため（label+ChevronDown 固定）。混在が気になる場合は DI-40 で部品拡張から
+- ✅ **DI-23** `a67afe15`（ListSkeleton/EmptyState＋統計 StatCard 化＋フォーム色トークン化。スモーク85-88 オーナーOK・2026-07-06）。カテゴリバッジ（:79 青tint）は意味のある薄背景tintとして維持。**Switch＋DropdownMenu は現状維持**: ActionMenu 部品がアイコン単独トリガー非対応のため（label+ChevronDown 固定）。混在が気になる場合は DI-40 で部品拡張から
 - ⬜ **DI-40** ActionMenu 部品にアイコン単独トリガー（size=icon・label/Chevron なし）対応を追加 → 各一覧ページの MoreVertical DropdownMenu を集約可能にする（DI-23 実装中に判明した部品の制約）
 
 ### 売上管理
@@ -86,13 +86,13 @@
 - ❌ **DI-26** 雑収支管理 → 同上（タブ撤去・M19）につき対象外
 
 ### 公演報告（LicenseManagement）
-- 🔧 **DI-27** 公演報告タブ → 実装済み `6ea115bd`（SearchInput 化＋統計6枚 StatCard 化＋ListSkeleton/EmptyState。🔍スモーク77-80 確認待ち・2026-07-06）。※ReportGroupCard の緑/橙は送信済/未登録の機能色＋差分⚠️バッジ仕様保護のため意図的に対象外
+- ✅ **DI-27** 公演報告タブ `6ea115bd`（SearchInput 化＋統計6枚 StatCard 化＋ListSkeleton/EmptyState。スモーク77-80 オーナーOK・2026-07-06）。※ReportGroupCard の緑/橙は送信済/未登録の機能色＋差分⚠️バッジ仕様保護のため意図的に対象外
 - ✅ **DI-28** 受信タブ → `6ee83388`（統計4枚 StatCard 化＋FilterBar/SearchInput/FilterSelect＋ListSkeleton/EmptyState。スモーク81-84 オーナーOK・2026-07-06）。PageHeader は index 側にあるためタブには追加せず（DI-18 の方針）。バッジ・承認/却下ボタン色は DI-39 で一括統一予定
 
 ### MMQ運営
 - ⬜ **DI-29** マスタ編集（ScenarioMasterEdit）: 生 h1/h2 見出し6箇所（:457-771）＋権限エラーが生テキスト → 見出し様式とエラーカードの統一
 - ⬜ **DI-30** 外部公演報告: Card 外の h2 見出し（:123）＋バッジ色直書き（:39）
-- 🔧 **DI-31** ★シナリオマッチャー全面統一 → 実装済み `24ec7619`（PageHeader 化・外殻Card廃止・FilterBar+SearchInput・ListSkeleton/EmptyState・色トークン化。機能/数字不変）。🔍スモーク72 確認待ち（2026-07-06）
+- ✅ **DI-31** ★シナリオマッチャー全面統一 `24ec7619`（PageHeader 化・外殻Card廃止・FilterBar+SearchInput・ListSkeleton/EmptyState・色トークン化。機能/数字不変。スモーク72-76 オーナーOK・2026-07-06）
 - ※ ユーザー管理・テナント管理・マスタ管理一覧は監査で「良好」
 
 ### 設定タブ群（定型が効いていて概ね健全。個別3件のみ）
