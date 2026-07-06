@@ -224,6 +224,7 @@ export interface StoreEmailSettings {
   performance_cancellation_template: string | null
   event_cancellation_template: string | null
   performance_extension_template: string | null
+  performance_confirmation_template: string | null
 }
 
 export async function getStoreEmailSettings(
@@ -269,6 +270,7 @@ export async function getStoreEmailSettings(
       'performance_cancellation_template',
       'event_cancellation_template',
       'performance_extension_template',
+      'performance_confirmation_template',
     ].join(','))
 
   console.log('📧 getStoreEmailSettings called:', {
