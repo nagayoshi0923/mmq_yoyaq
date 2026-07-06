@@ -21,10 +21,10 @@ jobs:
 
       - name: Claude PR Review
         uses: anthropics/claude-code-action@v1
-        allowed_bots: "claude[bot],claude"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_sticky_comment: true
+          allowed_bots: "claude[bot],claude"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
