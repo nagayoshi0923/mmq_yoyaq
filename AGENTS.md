@@ -51,3 +51,29 @@ staging に push したら必ず動作確認チェックリストを出力する
 - 運用台帳は `docs/IMPROVEMENT_HANDOFF.md`。着手前に読み、完了したら更新する
 - コミット前に `npm run verify` を実行してグリーンであることを確認する
 - デザイン変更時の絶対制約: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）。詳細は `.cursorrules` のデザインシステム章
+
+---
+
+## Review guidelines
+
+**IMPORTANT: Write ALL review comments, summaries, and inline feedback in Japanese (日本語). Do not use English.**
+
+PRレビュー(Codex等のAIレビュアー)は以下の観点・方針で行うこと。
+
+### 出力形式
+
+- 指摘・要約・インラインコメントはすべて日本語で書く
+- 個別の指摘は該当行へのインラインコメントで書く
+- **レビューの最後に、必ずトップレベルコメントとして「総評」を1つ投稿する。**内容: ①最重要の指摘は何か ②マージ可否の推奨(そのままマージ可 / 修正後にマージ / 要議論) ③対応の優先順位
+- 重要度の低いスタイル指摘は省略する
+
+### 観点
+
+- バグ・ロジックエラー・エッジケースを最優先で指摘する
+- `organization_id` によるマルチテナント分離が維持されているか確認する
+- `reservation_source` が `src/lib/constants.ts` の定数を使っているか確認する
+- RLSポリシーの直接変更が含まれていないか確認する（SECURITY DEFINER RPC で対応する方針）
+- セキュリティ: 入力検証・認可漏れ・個人情報（メール/電話/PIN）の露出がないか
+- 明らかなパフォーマンス問題（N+1、無制限フェッチなど）
+- migrationを含むPR: 既存データへの影響、一意制約違反の可能性、失敗時に途中状態が残らないか、DB変更→フロントデプロイの順序が守られるかを確認する
+- デザイン変更を含むPR: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）に違反していないか

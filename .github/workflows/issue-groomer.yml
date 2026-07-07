@@ -24,6 +24,7 @@ jobs:
             まず .github/issue-groomer-prompt.md を Read ツールで読んでください(読まずに作業を始めない)。
             そこに書かれた指示に厳密に従って、issue #${{ github.event.issue.number }} を整形してください。
             gh コマンドで実際にタイトル・本文の編集とコメント投稿・ラベル付与を完了するところまでやり切ること。
+            本文が長い場合は Write ツールで一時ファイルに書き、gh issue edit --body-file で反映してよい。
           claude_args: |
             --model opus
-            --allowedTools "Read,Glob,Grep,LS,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label create:*)"
+            --allowedTools "Read,Glob,Grep,LS,Write,Bash(cat:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label create:*)"

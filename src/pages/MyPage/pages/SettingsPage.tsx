@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@/components/patterns/modal'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteMyAccount } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
-import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
+import { getSafeErrorMessage, ApiError, ApiErrorType } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -219,9 +219,15 @@ export function SettingsPage() {
         if (user?.id) {
           profileUpdate = profileUpdate.eq('user_id', user.id)
         }
-        const { error } = await profileUpdate
+        const { data: updatedRows, error } = await profileUpdate.select('id')
 
         if (error) throw error
+        if (!updatedRows?.length) {
+          throw new ApiError(
+            'プロフィールを保存できませんでした（更新件数0件）',
+            ApiErrorType.CONFLICT
+          )
+        }
         showToast.success('プロフィールを更新しました')
       } else if (user?.id) {
         let orgId = organizationId
@@ -240,7 +246,7 @@ export function SettingsPage() {
           .eq('user_id', user.id)
           .maybeSingle()
         
-        const { error } = existingCust
+        const { data: savedRows, error } = existingCust
           ? await supabase
               .from('customers')
               .update({
@@ -255,6 +261,7 @@ export function SettingsPage() {
               })
               .eq('id', existingCust.id)
               .eq('user_id', user.id)
+              .select('id')
           : await supabase
               .from('customers')
               .insert({
@@ -267,8 +274,15 @@ export function SettingsPage() {
                 email: user.email || null,
                 organization_id: orgId,
               })
+              .select('id')
 
         if (error) throw error
+        if (!savedRows?.length) {
+          throw new ApiError(
+            'プロフィールを保存できませんでした（更新件数0件）',
+            ApiErrorType.CONFLICT
+          )
+        }
         showToast.success('プロフィールを作成しました')
       }
 
