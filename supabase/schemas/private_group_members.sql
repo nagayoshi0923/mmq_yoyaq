@@ -1,5 +1,7 @@
 -- 正規ソース: supabase/schemas/private_group_members.sql
--- 最終更新: 2026-04-10
+-- 最終更新: 2026-07-07
+-- 注意: access_pin は #281 で削除。PIN は private_group_members_pii に集約し、
+--       save_guest_access_pin / authenticate_guest_by_pin RPC のみが読み書きする。
 CREATE TABLE public.private_group_members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   group_id UUID NOT NULL REFERENCES public.private_groups(id),
@@ -15,8 +17,7 @@ CREATE TABLE public.private_group_members (
   coupon_id UUID,
   coupon_discount INTEGER DEFAULT 0,
   final_amount INTEGER,
-  payment_status TEXT DEFAULT 'pending'::text,
-  access_pin TEXT
+  payment_status TEXT DEFAULT 'pending'::text
 );
 
 -- Indexes
