@@ -56,9 +56,12 @@ staging に push したら必ず動作確認チェックリストを出力する
 
 ## Review guidelines
 
+**IMPORTANT: Write ALL review comments, summaries, and inline feedback in Japanese (日本語). Do not use English.**
+
 PRレビュー(Codex等のAIレビュアー)は以下の観点・方針で行うこと。
 
-- 指摘は日本語で書く。重要度の低いスタイル指摘は省略する
+- 指摘・要約・インラインコメントはすべて日本語で書く
+- 重要度の低いスタイル指摘は省略する
 - バグ・ロジックエラー・エッジケースを最優先で指摘する
 - `organization_id` によるマルチテナント分離が維持されているか確認する
 - `reservation_source` が `src/lib/constants.ts` の定数を使っているか確認する
