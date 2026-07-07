@@ -320,6 +320,7 @@ export async function getStoreEmailSettings(
         'performance_cancellation_template',
         'event_cancellation_template',
         'performance_extension_template',
+        'performance_confirmation_template',
       ].join(','))
       .eq('organization_id', options.organizationId)
       .limit(1)

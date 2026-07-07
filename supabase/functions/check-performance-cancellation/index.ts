@@ -1037,8 +1037,34 @@ async function sendConfirmationNotification(
   // 2. メール設定を取得
   const emailSettings = await getEmailSettings(supabase, event.organization_id)
 
-  // 2.5. カスタムテンプレートを取得
+  // 2.4. 店舗単位テンプレを引くため schedule_event から store_id を解決
+  const { data: eventRow } = await supabase
+    .from('schedule_events')
+    .select('store_id')
+    .eq('id', event.event_id)
+    .maybeSingle()
+  const eventStoreId = (eventRow as { store_id?: string | null } | null)?.store_id ?? undefined
+
+  // 2.45. 重複送信ガード: 既に開催決定メールを送った予約者(to_email)を収集し再送を防ぐ
+  //   （failed 以外のログがあれば送信済みとみなす。cron リトライ/手動再実行対策）
+  const { data: existingConfirmationLogs } = await supabase
+    .from('email_logs')
+    .select('to_email')
+    .eq('schedule_event_id', event.event_id)
+    .eq('email_type', 'performance_confirmation')
+    .neq('status', 'failed')
+  const alreadyNotifiedEmails = new Set(
+    (existingConfirmationLogs ?? [])
+      .map((log) => (log as { to_email?: string | null }).to_email?.toLowerCase())
+      .filter((email): email is string => !!email)
+  )
+  if (alreadyNotifiedEmails.size > 0) {
+    console.log(`📧 開催決定メール送信済みスキップ対象: ${alreadyNotifiedEmails.size}件`, event.event_id)
+  }
+
+  // 2.5. カスタムテンプレートを取得（店舗設定を優先し、無ければ組織設定にフォールバック）
   const storeEmailSettings = await getStoreEmailSettings(supabase, {
+    storeId: eventStoreId,
     organizationId: event.organization_id
   })
   const customTemplate = storeEmailSettings?.performance_confirmation_template
@@ -1078,6 +1104,12 @@ async function sendConfirmationNotification(
 
       if (!emailToSend) continue
 
+      // 重複送信ガード: 既に開催決定メールを送った宛先はスキップ
+      if (alreadyNotifiedEmails.has(emailToSend.toLowerCase())) {
+        console.log('📧 開催決定メール送信済みのためスキップ:', maskEmail(emailToSend))
+        continue
+      }
+
       try {
         await sendConfirmationEmail(
           supabase,
@@ -1094,6 +1126,7 @@ async function sendConfirmationNotification(
             companyEmail: storeEmailSettings?.company_email || ''
           }
         )
+        alreadyNotifiedEmails.add(emailToSend.toLowerCase())
         console.log('✅ 開催決定メール送信:', maskEmail(emailToSend))
       } catch (emailError) {
         console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError instanceof Error ? emailError.message : emailError)
