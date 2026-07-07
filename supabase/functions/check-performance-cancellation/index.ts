@@ -1046,13 +1046,15 @@ async function sendConfirmationNotification(
   const eventStoreId = (eventRow as { store_id?: string | null } | null)?.store_id ?? undefined
 
   // 2.45. 重複送信ガード: 既に開催決定メールを送った予約者(to_email)を収集し再送を防ぐ
-  //   （failed 以外のログがあれば送信済みとみなす。cron リトライ/手動再実行対策）
+  //   実際に送信成功したステータス(sent 以降)のみを「送信済み」とみなす。
+  //   queued/failed は未送信扱いにして再送対象に含める（queued 詰まりで永久スキップさせない・#323）。
+  //   cron リトライ/手動再実行対策。
   const { data: existingConfirmationLogs } = await supabase
     .from('email_logs')
     .select('to_email')
     .eq('schedule_event_id', event.event_id)
     .eq('email_type', 'performance_confirmation')
-    .neq('status', 'failed')
+    .in('status', ['sent', 'delivered', 'opened', 'clicked', 'bounced', 'complained', 'delivery_delayed'])
   const alreadyNotifiedEmails = new Set(
     (existingConfirmationLogs ?? [])
       .map((log) => (log as { to_email?: string | null }).to_email?.toLowerCase())
@@ -1316,36 +1318,48 @@ ${emailSettings.senderName}
     status:            'queued',
   })
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${emailSettings.resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
-      to: [customerEmail],
-      subject: emailSubject,
-      html: finalHtml,
-      text: finalText,
-    }),
-  })
+  // fetch / response.json() が例外を投げた場合でも必ず failed を記録してから re-throw する。
+  // これを怠ると status が queued のまま残り、重複ガードが「送信済み」と誤判定して
+  // 未送信の予約者への再送が永久にスキップされる（#323）。
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${emailSettings.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
+        to: [customerEmail],
+        subject: emailSubject,
+        html: finalHtml,
+        text: finalText,
+      }),
+    })
 
-  if (!response.ok) {
-    const errorData = await response.json()
+    if (!response.ok) {
+      let errorDetail: string
+      try {
+        errorDetail = JSON.stringify(await response.json())
+      } catch {
+        errorDetail = `HTTP ${response.status}`
+      }
+      throw new Error(`Resend API error: ${errorDetail}`)
+    }
+
+    const resendResult = await response.json()
+    await updateEmailLog(supabase, emailLogId, {
+      status: 'sent',
+      provider_message_id: resendResult?.id ?? null,
+      sent_at: new Date().toISOString(),
+    })
+  } catch (sendError) {
     await updateEmailLog(supabase, emailLogId, {
       status: 'failed',
-      error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      error_message: sanitizeErrorMessage(sendError instanceof Error ? sendError.message : String(sendError)),
     })
-    throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
+    throw sendError
   }
-
-  const resendResult = await response.json()
-  await updateEmailLog(supabase, emailLogId, {
-    status: 'sent',
-    provider_message_id: resendResult?.id ?? null,
-    sent_at: new Date().toISOString(),
-  })
 }
 
 /**
