@@ -1,13 +1,22 @@
--- [#320 復旧] 2026-07-05 本番適用済み変更の再構成(詳細は 20260705130528 のヘッダ参照)。
+-- ====================================================================
+-- #281/#283 対策 (members.access_pin 封鎖 ステップ1/2)
 --
--- 内容: PII同期トリガーから access_pin の同期を除去する。
--- (members.access_pin は廃止予定の遺物。UPDATE のたびに NEW.access_pin(NULL) で
---  pii 側の PIN を消してしまう潜在バグもこれで解消)
-
+-- 同期トリガー sync_private_group_member_pii を修正し、access_pin を
+-- PII同期の対象から除外する。
+--
+-- 目的: 次ステップで members.access_pin を NULL 化する際、旧トリガーだと
+--       pii.access_pin まで NULL で上書きされ全ゲストのPINログインが不能に
+--       なる。これを防ぐため、先にトリガーから access_pin 同期を外す。
+--
+-- PIN の唯一の正規書き込み経路は save_guest_access_pin RPC（pii側にのみ書く）。
+-- このステップは関数定義の入れ替えのみで、既存データは変更しない。
+--
+-- 切り戻し: 旧定義（access_pin を EXCLUDED に含む版）を再適用する。
+-- ====================================================================
 CREATE OR REPLACE FUNCTION public.sync_private_group_member_pii()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
 AS $function$
 BEGIN
   -- INSERT または UPDATE 時に PII テーブルへ個人情報を同期する。

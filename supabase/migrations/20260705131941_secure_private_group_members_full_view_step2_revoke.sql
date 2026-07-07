@@ -1,8 +1,13 @@
--- [#320 復旧] 2026-07-05 本番適用済み変更の再構成(詳細は 20260705130528 のヘッダ参照)。
+-- ====================================================================
+-- #281 対策 (第2段階/2): private_group_members_full ビューへの
+--   anon / authenticated のアクセス権を剥奪する。
 --
--- 内容: PII を含む private_group_members_full ビューへの anon / authenticated の
--- 直接アクセスを剥奪し、service_role のみに限定する(本番の現行GRANT状態と一致)。
-
-REVOKE ALL ON public.private_group_members_full FROM anon;
-REVOKE ALL ON public.private_group_members_full FROM authenticated;
-GRANT ALL ON public.private_group_members_full TO service_role;
+-- 第1段階(security_invoker=true)でPII露出は既にRLSにより遮断済み。
+-- 本段階は多層防御として入口(GRANT)自体を閉じる。
+-- service_role の権限は維持する（管理系の動作に必要）。
+--
+-- フロント・Edge Function・DB内オブジェクトからの参照は無いことを確認済み。
+--
+-- 切り戻し: GRANT SELECT ON public.private_group_members_full TO anon, authenticated;
+-- ====================================================================
+REVOKE ALL ON public.private_group_members_full FROM anon, authenticated;

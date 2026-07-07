@@ -1,28 +1,17 @@
--- [#320 復旧] 2026-07-05 本番適用済み変更の再構成(詳細は 20260705130528 のヘッダ参照)。
---
--- 内容: ゲストPINの bcrypt ハッシュ化。
--- 1) pii テーブルに必要列を追加(staging用・冪等)
--- 2) 残存平文PINを一括ハッシュ化して平文を消去
--- 3) 保存RPC: ハッシュのみ保存 / 認証RPC: bcrypt照合+旧平文からの遅延移行
+-- #283: pii.access_pin の bcrypt ハッシュ化（staging検証済み構成と同一）
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+-- 1) 列追加（#282 レート制限の土台列も同時に用意。ロジックは #282 で別途）
+ALTER TABLE public.private_group_members_pii
+  ADD COLUMN IF NOT EXISTS access_pin_hash text,
+  ADD COLUMN IF NOT EXISTS failed_attempts integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS locked_until timestamptz;
 
-ALTER TABLE public.private_group_members_pii ADD COLUMN IF NOT EXISTS access_pin_hash text;
-ALTER TABLE public.private_group_members_pii ADD COLUMN IF NOT EXISTS failed_attempts integer NOT NULL DEFAULT 0;
-ALTER TABLE public.private_group_members_pii ADD COLUMN IF NOT EXISTS locked_until timestamptz;
-
-UPDATE public.private_group_members_pii
-SET access_pin_hash = extensions.crypt(access_pin, extensions.gen_salt('bf')),
-    access_pin = NULL,
-    updated_at = now()
-WHERE access_pin IS NOT NULL
-  AND access_pin_hash IS NULL;
-
+-- 2) 保存経路をハッシュ化版に差し替え（以後、平文は一切書き込まれない）
 CREATE OR REPLACE FUNCTION public.save_guest_access_pin(p_member_id uuid, p_pin text)
- RETURNS boolean
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
 AS $function$
 DECLARE
   v_member RECORD;
@@ -52,11 +41,13 @@ BEGIN
 END;
 $function$;
 
+-- 3) 認証経路をハッシュ照合＋平文フォールバック（自動移行）版に差し替え
+--    フォールバック内 UPDATE は pii2 で修飾（RETURNS TABLE の member_id と衝突するため）
 CREATE OR REPLACE FUNCTION public.authenticate_guest_by_pin(p_group_id uuid, p_email text, p_pin text)
- RETURNS TABLE(member_id uuid, guest_name text, guest_email text)
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public', 'extensions'
+RETURNS TABLE(member_id uuid, guest_name text, guest_email text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
 AS $function$
 DECLARE
   v_member_id uuid;
@@ -104,3 +95,33 @@ BEGIN
   RETURN;
 END;
 $function$;
+
+-- 4) 既存平文のバックフィル（3段階・安全弁付き）
+-- 4-1) 平文からハッシュを生成（この時点では平文を残す）
+UPDATE public.private_group_members_pii
+SET access_pin_hash = extensions.crypt(access_pin, extensions.gen_salt('bf')),
+    updated_at = now()
+WHERE access_pin IS NOT NULL
+  AND access_pin_hash IS NULL;
+
+-- 4-2) 安全弁: 全件をハッシュ照合で検証。1件でも不一致なら例外 → 全ロールバック
+DO $$
+DECLARE
+  v_bad integer;
+BEGIN
+  SELECT count(*) INTO v_bad
+  FROM public.private_group_members_pii
+  WHERE access_pin IS NOT NULL
+    AND (access_pin_hash IS NULL
+         OR access_pin_hash <> extensions.crypt(access_pin, access_pin_hash));
+  IF v_bad > 0 THEN
+    RAISE EXCEPTION 'PIN hash verification failed for % rows - aborting migration (full rollback)', v_bad;
+  END IF;
+END $$;
+
+-- 4-3) 照合一致が確認できた行のみ平文を破棄
+UPDATE public.private_group_members_pii
+SET access_pin = NULL,
+    updated_at = now()
+WHERE access_pin IS NOT NULL
+  AND access_pin_hash = extensions.crypt(access_pin, access_pin_hash);
