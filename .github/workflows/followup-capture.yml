@@ -1,0 +1,67 @@
+name: Follow-up Capture (マージ時の未対応指摘の自動起票)
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  capture:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect unresolved review threads and open items
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -eu
+          NAME="${REPO#*/}"
+
+          THREADS=$(gh api graphql \
+            -f query='query($owner:String!,$name:String!,$pr:Int!){
+              repository(owner:$owner,name:$name){
+                pullRequest(number:$pr){
+                  reviewThreads(first:50){
+                    nodes{
+                      isResolved
+                      comments(first:1){nodes{body path url author{login}}}
+                    }
+                  }
+                }
+              }
+            }' -f owner="$OWNER" -f name="$NAME" -F pr="$PR" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved|not) | .comments.nodes[0] | "### \(.path // "(全体)")\n\(.body)\n\n→ [元のコメント](\(.url)) (by \(.author.login))"] | join("\n\n---\n\n")')
+
+          BODY_SECTION=$(gh pr view "$PR" -R "$REPO" --json body --jq '.body' | \
+            awk '/^#+ *.*(残課題|未対応|フォローアップ)/{flag=1; print; next} /^#+ /{flag=0} flag' || true)
+
+          if [ -z "$THREADS" ] && [ -z "$BODY_SECTION" ]; then
+            echo "未対応の指摘なし。何もしません。"
+            exit 0
+          fi
+
+          ISSUE_BODY="## 概要"$'\n'"PR #${PR}(${PR_TITLE})のマージ時点で、以下の指摘・残課題が未対応のまま残っていたため自動転記しました。"$'\n'"対応方針を判断してください(コードで完結するものは ai-todo に付け替えると自動実装されます)。"
+
+          if [ -n "$THREADS" ]; then
+            ISSUE_BODY="$ISSUE_BODY"$'\n\n'"## 未解決のレビュースレッド"$'\n\n'"$THREADS"
+          fi
+          if [ -n "$BODY_SECTION" ]; then
+            ISSUE_BODY="$ISSUE_BODY"$'\n\n'"## PR本文に記載されていた残課題"$'\n\n'"$BODY_SECTION"
+          fi
+          ISSUE_BODY="$ISSUE_BODY"$'\n\n'"---"$'\n'"Refs #${PR} (自動起票: Follow-up Capture)"
+
+          gh issue create -R "$REPO" \
+            --title "[Follow-up] PR #${PR} の未対応指摘(${PR_TITLE:0:30})" \
+            --label "needs-human" \
+            --body "$ISSUE_BODY"
+
+          gh pr comment "$PR" -R "$REPO" \
+            --body "📌 未対応の指摘・残課題を [Follow-up] issueに転記しました(マージ時点でResolveされていなかったもの)。"

@@ -49,21 +49,26 @@ serve(async (req) => {
       getServiceRoleKey()
     )
 
-    // メンバーが実際に存在し、メールアドレスとPINが一致するか検証
-    const { data: member, error: memberError } = await serviceClient
-      .from('private_group_members')
-      .select('id, group_id, guest_email, access_pin')
-      .eq('id', memberId)
-      .eq('group_id', groupId)
-      .single()
+    // メールアドレスとPINの照合は PII テーブル(private_group_members_pii)を正とする。
+    // PIN・メール列は #281 で private_group_members から削除済みのため、
+    // SECURITY DEFINER RPC 経由で pii を参照して検証する。
+    const { data: authRows, error: authError } = await serviceClient.rpc(
+      'authenticate_guest_by_pin',
+      {
+        p_group_id: groupId,
+        p_email: email,
+        p_pin: pin,
+      }
+    )
 
-    if (memberError || !member) {
-      console.warn('⚠️ メンバーが見つかりません:', { memberId, groupId })
-      return errorResponse('メンバーが見つかりません', 404, corsHeaders)
+    const authenticated = Array.isArray(authRows) ? authRows[0] : authRows
+
+    if (authError) {
+      console.error('認証RPCエラー:', sanitizeErrorMessage(authError.message))
+      throw new Error('認証処理に失敗しました')
     }
 
-    // メールアドレスとPINが一致するか確認
-    if (member.guest_email?.toLowerCase() !== email.toLowerCase() || member.access_pin !== pin) {
+    if (!authenticated || authenticated.member_id !== memberId) {
       console.warn('⚠️ メールアドレスまたはPINが一致しません')
       return errorResponse('認証情報が一致しません', 403, corsHeaders)
     }

@@ -1,0 +1,11 @@
+-- ====================================================================
+-- #281 対策 (第1段階/2): private_group_members_full ビューに
+--   security_invoker=true を設定し、ビュー経由でもRLSが評価されるようにする。
+--
+-- この段階では権限(GRANT)は一切変更しない。よってアクセス可能性は変わらず、
+-- 機能に影響を与えずにRLSの多層防御だけを追加する。
+-- 第2段階でanon/authenticatedのアクセス権をREVOKEする。
+--
+-- 切り戻し: ALTER VIEW public.private_group_members_full SET (security_invoker = false);
+-- ====================================================================
+ALTER VIEW public.private_group_members_full SET (security_invoker = true);

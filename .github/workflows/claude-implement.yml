@@ -37,6 +37,7 @@ jobs:
             - PR は gh pr create --base staging で作成する
             - データベースの変更(スキーマ・RPC・データ修正)が必要な場合は、DBへ直接接続できないため、
               supabase/migrations/ に新しいマイグレーションSQL(タイムスタンプ付きファイル名)として作成しPRに含める
+            - コミットメッセージの末尾に「Fixes #${{ github.event.issue.number }}」を必ず含める(本番反映時の自動クローズ用)
             - PR 本文には原因・修正内容・「受入条件」との対応を書き、Refs #${{ github.event.issue.number }} を含める
             - PR 作成後、issue に PR へのリンクをコメントする
             - コードとmigrationで対応できない(実データの目視確認が必須など)場合は、
