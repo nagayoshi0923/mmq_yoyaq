@@ -1,0 +1,53 @@
+name: Deploy Guard
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate deploy safety
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          # stagingベースの未マージPR(ドラフト除く) = デプロイをブロックする未完了作業
+          BLOCKERS=$(gh pr list -R "$REPO" --base staging --state open --json number,title,isDraft \
+            --jq '[.[] | select(.isDraft|not)] | map("- #\(.number) \(.title)") | join("\n")')
+
+          # main向けのオープンPR(=デプロイPR)を全件評価
+          gh pr list -R "$REPO" --base main --state open --json number,isDraft,labels | \
+            jq -c '.[]' | while read -r pr; do
+            NUM=$(echo "$pr" | jq -r '.number')
+            DRAFT=$(echo "$pr" | jq -r '.isDraft')
+            FORCE=$(echo "$pr" | jq -r '[.labels[].name] | contains(["force-deploy"])')
+
+            if [ "$FORCE" = "true" ]; then
+              echo "#$NUM は force-deploy ラベルによりガード対象外"
+              continue
+            fi
+
+            if [ -n "$BLOCKERS" ] && [ "$DRAFT" = "false" ]; then
+              gh pr ready "$NUM" -R "$REPO" --undo
+              gh pr comment "$NUM" -R "$REPO" --body "# 🛑 Deploy Guard: マージ停止中
+
+**stagingに未マージの修正PRが残っているため、このデプロイPRを自動的にDraftに戻しました。**
+今マージすると、未修正の変更が本番に反映されます。先に以下を処理してください:
+
+$BLOCKERS
+
+すべてマージ(または明示的にクローズ)されると、**自動でReadyに戻り、このPRに✅コメントが付きます**。
+緊急デプロイが必要な場合のみ \`force-deploy\` ラベルを付けるとガードをスキップできます。"
+            elif [ -z "$BLOCKERS" ] && [ "$DRAFT" = "true" ]; then
+              gh pr ready "$NUM" -R "$REPO"
+              gh pr comment "$NUM" -R "$REPO" --body "# ✅ Deploy Guard: マージ可能
+
+stagingの未マージPRがすべて処理されたため、Readyに戻しました。安心してマージできます。"
+            fi
+          done
