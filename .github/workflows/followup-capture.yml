@@ -25,7 +25,6 @@ jobs:
           set -eu
           NAME="${REPO#*/}"
 
-          # 1) Resolveされていないレビュースレッドを収集
           THREADS=$(gh api graphql \
             -f query='query($owner:String!,$name:String!,$pr:Int!){
               repository(owner:$owner,name:$name){
@@ -39,13 +38,8 @@ jobs:
                 }
               }
             }' -f owner="$OWNER" -f name="$NAME" -F pr="$PR" \
-            --jq '[.data.repository.pullRequest.reviewThreads.nodes[]
-                   | select(.isResolved|not)
-                   | .comments.nodes[0]
-                   | "### \(.path // "(全体)")\n\(.body)\n\n→ [元のコメント](\(.url)) (by \(.author.login))"]
-                  | join("\n\n---\n\n")')
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved|not) | .comments.nodes[0] | "### \(.path // "(全体)")\n\(.body)\n\n→ [元のコメント](\(.url)) (by \(.author.login))"] | join("\n\n---\n\n")')
 
-          # 2) PR本文の「残課題」「未対応」「フォローアップ」セクションを抽出
           BODY_SECTION=$(gh pr view "$PR" -R "$REPO" --json body --jq '.body' | \
             awk '/^#+ *.*(残課題|未対応|フォローアップ)/{flag=1; print; next} /^#+ /{flag=0} flag' || true)
 
@@ -54,23 +48,15 @@ jobs:
             exit 0
           fi
 
-          ISSUE_BODY="## 概要
-PR #${PR}(${PR_TITLE})のマージ時点で、以下の指摘・残課題が未対応のまま残っていたため自動転記しました。
-対応方針を判断してください(コードで完結するものは ai-todo に付け替えると自動実装されます)。
+          ISSUE_BODY="## 概要"$'\n'"PR #${PR}(${PR_TITLE})のマージ時点で、以下の指摘・残課題が未対応のまま残っていたため自動転記しました。"$'\n'"対応方針を判断してください(コードで完結するものは ai-todo に付け替えると自動実装されます)。"
 
-"
-          [ -n "$THREADS" ] && ISSUE_BODY="$ISSUE_BODY## 未解決のレビュースレッド
-
-$THREADS
-
-"
-          [ -n "$BODY_SECTION" ] && ISSUE_BODY="$ISSUE_BODY## PR本文に記載されていた残課題
-
-$BODY_SECTION
-
-"
-          ISSUE_BODY="$ISSUE_BODY---
-Refs #${PR} (自動起票: Follow-up Capture)"
+          if [ -n "$THREADS" ]; then
+            ISSUE_BODY="$ISSUE_BODY"$'\n\n'"## 未解決のレビュースレッド"$'\n\n'"$THREADS"
+          fi
+          if [ -n "$BODY_SECTION" ]; then
+            ISSUE_BODY="$ISSUE_BODY"$'\n\n'"## PR本文に記載されていた残課題"$'\n\n'"$BODY_SECTION"
+          fi
+          ISSUE_BODY="$ISSUE_BODY"$'\n\n'"---"$'\n'"Refs #${PR} (自動起票: Follow-up Capture)"
 
           gh issue create -R "$REPO" \
             --title "[Follow-up] PR #${PR} の未対応指摘(${PR_TITLE:0:30})" \
