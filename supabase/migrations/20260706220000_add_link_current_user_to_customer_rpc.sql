@@ -7,6 +7,21 @@
 --   照合キーは「auth.users から取得した本人の検証済みメール」のみ。クライアント指定のメールは
 --   信用しないため、他人の customers 行を掴むことはできない。プラットフォーム顧客モデルでは
 --   email に全体ユニークインデックスがあり、1ユーザー=1顧客行に対応する。
+--
+-- organization_id のリセット:
+--   紐付け対象の行は元々ゲスト顧客（organization_id が特定の組織を指す）。
+--   20260519000000_platform_customers_phase1.sql の不変条件「ログイン済み顧客
+--   (user_id IS NOT NULL) は organization_id = NULL」を保つため、user_id と同時に
+--   organization_id も NULL にする（20260521030000_backfill_platform_customers_org_null.sql
+--   と同じ理由）。ただしリセットするのは呼び出しユーザーの public.users.role = 'customer'
+--   のときのみ。20260521030000 と同じガードで、staff/admin/license_admin が自分用に持つ
+--   customer 行の organization_id は変更しない。
+--
+-- 組織横断のゲスト重複について:
+--   未紐付け候補の一意性チェック（下記 v_match_count）は organization_id を問わずグローバルに
+--   行っている。同一人物が複数組織にゲストとして重複登録されている場合は v_match_count > 1 と
+--   なり意図的にスキップする（NULL を返す＝紐付けない）。誤って別組織の顧客行を紐付けるリスクを
+--   避けるための安全側の判断であり、該当ユーザーは自動では救済されない。
 
 CREATE OR REPLACE FUNCTION public.link_current_user_to_customer()
 RETURNS uuid
@@ -17,6 +32,7 @@ AS $$
 DECLARE
   v_uid         uuid := auth.uid();
   v_email       text;
+  v_role        app_role;
   v_customer_id uuid;
   v_match_count integer;
 BEGIN
@@ -42,7 +58,14 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- 未紐付けの候補が「ちょうど1件」のときのみ紐付ける（重複メールは曖昧なのでスキップ）
+  -- 呼び出しユーザー自身の role（staff/admin/license_admin が自分用の customer 行を
+  -- 誤って組織から外さないためのガード。20260521030000 と同じ条件）
+  SELECT role INTO v_role
+  FROM public.users
+  WHERE id = v_uid;
+
+  -- 未紐付けの候補が「ちょうど1件」のときのみ紐付ける（組織横断でグローバルにチェック。
+  -- 重複メール・複数組織ゲスト重複は曖昧とみなしスキップ）
   SELECT count(*) INTO v_match_count
   FROM public.customers
   WHERE user_id IS NULL
@@ -51,6 +74,7 @@ BEGIN
   IF v_match_count = 1 THEN
     UPDATE public.customers
     SET user_id = v_uid,
+        organization_id = CASE WHEN v_role = 'customer' THEN NULL ELSE organization_id END,
         updated_at = NOW()
     WHERE user_id IS NULL
       AND lower(email) = v_email
