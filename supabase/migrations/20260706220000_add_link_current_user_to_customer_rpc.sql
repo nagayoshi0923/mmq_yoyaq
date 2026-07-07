@@ -5,8 +5,16 @@
 --
 -- マルチテナント安全性:
 --   照合キーは「auth.users から取得した本人の検証済みメール」のみ。クライアント指定のメールは
---   信用しないため、他人の customers 行を掴むことはできない。プラットフォーム顧客モデルでは
---   email に全体ユニークインデックスがあり、1ユーザー=1顧客行に対応する。
+--   信用しないため、他人の customers 行を掴むことはできない。customers.email に DB 制約としての
+--   ユニークインデックスは無く（idx_customers_lower_email は非UNIQUE）、重複メール行が実在しうる
+--   ため、1ユーザー=1顧客行の対応は下記 v_match_count によるアプリ側のカウントチェックのみで
+--   担保している（複数一致は曖昧とみなしスキップする）。
+--
+-- 既に本人の顧客行が紐付いている場合の重複統合:
+--   本人の customers 行（user_id = 本人）が既に存在していても、同一メールの未紐付け重複行が
+--   「ちょうど1件」だけ残っていれば、その行が持つ予約・プレイ履歴等を本人行へ統合してから
+--   重複行を削除する。空プロフィール（サインアップ時に自動作成された行）に本人が紐付いていて、
+--   過去のゲスト予約が別行に残ったまま埋もれるのを防ぐための処理。
 --
 -- organization_id のリセット:
 --   紐付け対象の行は元々ゲスト顧客（organization_id が特定の組織を指す）。
@@ -34,19 +42,11 @@ DECLARE
   v_email       text;
   v_role        app_role;
   v_customer_id uuid;
+  v_dup_id      uuid;
   v_match_count integer;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN NULL;  -- 未ログイン
-  END IF;
-
-  -- 既に本人の顧客行が紐付いていればそれを返す（冪等）
-  SELECT id INTO v_customer_id
-  FROM public.customers
-  WHERE user_id = v_uid
-  LIMIT 1;
-  IF v_customer_id IS NOT NULL THEN
-    RETURN v_customer_id;
   END IF;
 
   -- 本人の検証済みメールを auth.users から取得
@@ -63,6 +63,73 @@ BEGIN
   SELECT role INTO v_role
   FROM public.users
   WHERE id = v_uid;
+
+  -- 既に本人の顧客行が紐付いている場合（冪等）。同一メールの未紐付け重複行が「ちょうど1件」
+  -- だけ残っていれば、その行の予約・プレイ履歴等を本人行へ統合してから重複行を削除する。
+  SELECT id INTO v_customer_id
+  FROM public.customers
+  WHERE user_id = v_uid
+  LIMIT 1;
+  IF v_customer_id IS NOT NULL THEN
+    SELECT count(*) INTO v_match_count
+    FROM public.customers
+    WHERE user_id IS NULL
+      AND lower(email) = v_email;
+
+    IF v_match_count = 1 THEN
+      SELECT id INTO v_dup_id
+      FROM public.customers
+      WHERE user_id IS NULL
+        AND lower(email) = v_email
+      LIMIT 1;
+
+      -- reservations（ON DELETE RESTRICT なので先に付け替え）
+      UPDATE public.reservations SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+
+      -- customer_org_stats（PK: customer_id, organization_id）
+      INSERT INTO public.customer_org_stats (customer_id, organization_id, notes, visit_count, total_spent, last_visit)
+      SELECT v_customer_id, organization_id, notes, visit_count, total_spent, last_visit
+      FROM public.customer_org_stats
+      WHERE customer_id = v_dup_id
+      ON CONFLICT (customer_id, organization_id) DO NOTHING;
+
+      -- scenario_likes (UNIQUE: customer_id, scenario_id)
+      DELETE FROM public.scenario_likes
+      WHERE customer_id = v_dup_id
+        AND scenario_id IN (SELECT scenario_id FROM public.scenario_likes WHERE customer_id = v_customer_id);
+      UPDATE public.scenario_likes SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+
+      -- scenario_ratings (UNIQUE: customer_id, scenario_master_id)
+      DELETE FROM public.scenario_ratings
+      WHERE customer_id = v_dup_id
+        AND scenario_master_id IN (SELECT scenario_master_id FROM public.scenario_ratings WHERE customer_id = v_customer_id);
+      UPDATE public.scenario_ratings SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+
+      -- customer_played_overrides (UNIQUE: customer_id, scenario_master_id)
+      DELETE FROM public.customer_played_overrides
+      WHERE customer_id = v_dup_id
+        AND scenario_master_id IN (SELECT scenario_master_id FROM public.customer_played_overrides WHERE customer_id = v_customer_id);
+      UPDATE public.customer_played_overrides SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+
+      -- customer_memos (UNIQUE: customer_id, organization_id)
+      DELETE FROM public.customer_memos
+      WHERE customer_id = v_dup_id
+        AND organization_id IN (SELECT organization_id FROM public.customer_memos WHERE customer_id = v_customer_id);
+      UPDATE public.customer_memos SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+
+      -- ユニーク制約の無い CASCADE テーブル
+      UPDATE public.customer_coupons          SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+      UPDATE public.manual_play_history        SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+      UPDATE public.album_character_records    SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+      UPDATE public.user_notifications         SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+      UPDATE public.waitlist                   SET customer_id = v_customer_id WHERE customer_id = v_dup_id;
+
+      -- 統合済みの重複行を削除（残る customer_org_stats 等は CASCADE で削除される）
+      DELETE FROM public.customers WHERE id = v_dup_id;
+    END IF;
+
+    RETURN v_customer_id;
+  END IF;
 
   -- 未紐付けの候補が「ちょうど1件」のときのみ紐付ける（組織横断でグローバルにチェック。
   -- 重複メール・複数組織ゲスト重複は曖昧とみなしスキップ）
