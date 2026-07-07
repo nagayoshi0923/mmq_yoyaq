@@ -18,6 +18,9 @@
 --   (user_id IS NOT NULL) は organization_id = NULL」を保つため、user_id と同時に
 --   organization_id も NULL にする（20260521030000_backfill_platform_customers_org_null.sql
 --   と同じ理由。これを怠ると他組織での予約が api/reservations.ts の境界チェックで拒否される）。
+--   ただしリセットするのは紐付け先の public.users.role = 'customer' の場合のみ。
+--   20260521030000 と同じガードで、staff/admin/license_admin が自分用に持つ customer 行の
+--   organization_id は変更しない。
 
 DO $$
 DECLARE
@@ -29,9 +32,10 @@ BEGIN
 
   UPDATE public.customers c
   SET user_id = au.id,
-      organization_id = NULL,
+      organization_id = CASE WHEN u.role = 'customer' THEN NULL ELSE c.organization_id END,
       updated_at = NOW()
   FROM auth.users au
+  LEFT JOIN public.users u ON u.id = au.id
   WHERE c.user_id IS NULL
     AND c.email IS NOT NULL
     AND lower(c.email) = lower(au.email)
