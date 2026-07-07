@@ -20,10 +20,24 @@ jobs:
           set -eu
           gh label create do-not-merge --color B60205 --description "Deploy Guard: マージ待機中" -R "$REPO" 2>/dev/null || true
 
-          BLOCKERS=$(gh pr list -R "$REPO" --base staging --state open --json number,title,isDraft \
-            --jq '[.[] | select(.isDraft|not)] | map("- #\(.number) \(.title)") | join("\n")')
+          STAGING_PRS=$(gh pr list -R "$REPO" --base staging --state open --json number,title,isDraft \
+            --jq '[.[] | select(.isDraft|not)] | sort_by(.number)')
 
-          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っています。**今マージすると未修正の変更が本番に反映されます。先に以下を処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、タイトルが【✅マージ可】に変わり✅コメントが付きます。緊急時のみ force-deploy ラベルでスキップ可。"
+          BLOCKERS=$(echo "$STAGING_PRS" | jq -r 'to_entries | map("- 【▶\(.key+1)】 #\(.value.number) \(.value.title | gsub("^【▶[0-9]+】 *"; ""))") | join("\n")')
+
+          # staging側PRに処理順の採番(古い順)。マージされるたび自動で振り直し
+          echo "$STAGING_PRS" | jq -c 'to_entries[]' | while read -r ent; do
+            IDX=$(echo "$ent" | jq -r '.key + 1')
+            NUM=$(echo "$ent" | jq -r '.value.number')
+            TITLE=$(echo "$ent" | jq -r '.value.title')
+            BASE=$(echo "$TITLE" | sed -E 's/^【▶[0-9]+】 *//')
+            NEW="【▶${IDX}】$BASE"
+            if [ "$NEW" != "$TITLE" ]; then
+              gh pr edit "$NUM" -R "$REPO" --title "$NEW" || true
+            fi
+          done
+
+          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っています。**今マージすると未修正の変更が本番に反映されます。タイトルの【▶番号】順に処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、タイトルが【✅マージ可】に変わり✅コメントが付きます。緊急時のみ force-deploy ラベルでスキップ可。"
           READY_MSG="# ✅ Deploy Guard: マージ可能"$'\n\n'"stagingの未マージPRがすべて処理されました。安心してマージできます。"
 
           gh pr list -R "$REPO" --base main --state open --json number,title,isDraft,labels | \
