@@ -6,6 +6,7 @@ on:
 
 permissions:
   pull-requests: write
+  issues: write
 
 jobs:
   guard:
@@ -13,32 +14,52 @@ jobs:
     steps:
       - name: Evaluate deploy safety
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -eu
+          gh label create do-not-merge --color B60205 --description "Deploy Guard: マージ待機中" -R "$REPO" 2>/dev/null || true
+
           BLOCKERS=$(gh pr list -R "$REPO" --base staging --state open --json number,title,isDraft \
             --jq '[.[] | select(.isDraft|not)] | map("- #\(.number) \(.title)") | join("\n")')
 
-          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っているため、このデプロイPRを自動的にDraftに戻しました。**"$'\n'"今マージすると、未修正の変更が本番に反映されます。先に以下を処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、自動でReadyに戻り、✅コメントが付きます。"$'\n'"緊急デプロイが必要な場合のみ force-deploy ラベルでガードをスキップできます。"
-          READY_MSG="# ✅ Deploy Guard: マージ可能"$'\n\n'"stagingの未マージPRがすべて処理されたため、Readyに戻しました。安心してマージできます。"
+          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っています。**今マージすると未修正の変更が本番に反映されます。先に以下を処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、タイトルが【✅マージ可】に変わり✅コメントが付きます。緊急時のみ force-deploy ラベルでスキップ可。"
+          READY_MSG="# ✅ Deploy Guard: マージ可能"$'\n\n'"stagingの未マージPRがすべて処理されました。安心してマージできます。"
 
-          gh pr list -R "$REPO" --base main --state open --json number,isDraft,labels | \
+          gh pr list -R "$REPO" --base main --state open --json number,title,isDraft,labels | \
             jq -c '.[]' | while read -r pr; do
             NUM=$(echo "$pr" | jq -r '.number')
+            TITLE=$(echo "$pr" | jq -r '.title')
             DRAFT=$(echo "$pr" | jq -r '.isDraft')
             FORCE=$(echo "$pr" | jq -r '[.labels[].name] | contains(["force-deploy"])')
+            HELD=$(echo "$pr" | jq -r '[.labels[].name] | contains(["do-not-merge"])')
+
+            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *待機中|✅ *マージ可)】 *//')
 
             if [ "$FORCE" = "true" ]; then
-              echo "#$NUM は force-deploy ラベルによりガード対象外"
+              echo "#$NUM は force-deploy によりガード対象外"
               continue
             fi
 
-            if [ -n "$BLOCKERS" ] && [ "$DRAFT" = "false" ]; then
-              gh pr ready "$NUM" -R "$REPO" --undo
-              gh pr comment "$NUM" -R "$REPO" --body "$BLOCK_MSG"
-            elif [ -z "$BLOCKERS" ] && [ "$DRAFT" = "true" ]; then
-              gh pr ready "$NUM" -R "$REPO"
-              gh pr comment "$NUM" -R "$REPO" --body "$READY_MSG"
+            if [ -n "$BLOCKERS" ]; then
+              NEW_TITLE="【🛑待機中】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ(GUARD_TOKEN未設定でもタイトル/ラベル運用で機能します)"
+                gh pr comment "$NUM" -R "$REPO" --body "$BLOCK_MSG" || true
+              fi
+            else
+              NEW_TITLE="【✅マージ可】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" = "true" ] || [ "$DRAFT" = "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --remove-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" || echo "Ready化はスキップ(Draft解除は手動で)"
+                gh pr comment "$NUM" -R "$REPO" --body "$READY_MSG" || true
+              fi
             fi
           done
