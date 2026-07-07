@@ -39,7 +39,7 @@ import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
 import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
-import { isGmMarkedAvailable } from './utils/gmAvailabilityStatus'
+import { isGmMarkedAvailable, isGmAvailableForCandidate } from './utils/gmAvailabilityStatus'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 
@@ -283,7 +283,13 @@ export function PrivateBookingManagement() {
     return mergedGmOptions
       .map((gm) => {
         const availableGM = availableGMs.find((ag) => String(ag.gm_id) === String(gm.id))
-        const isAvailable = availableGM ? isGmMarkedAvailable(availableGM) : false
+        // 候補日が選択されているときはその候補に対する回答で [対応可能] を判定する
+        // （選択候補なしのフォールバックのみ「いずれかの候補で対応可能」を使う）
+        const isAvailable = availableGM
+          ? selectedCandidate
+            ? isGmAvailableForCandidate(availableGM, selectedCandidate.order - 1)
+            : isGmMarkedAvailable(availableGM)
+          : false
         const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))
         let isGMDisabled = false
         if (selectedCandidate?.date && selectedCandidate?.timeSlot) {
