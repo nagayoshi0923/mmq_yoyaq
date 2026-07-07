@@ -17,11 +17,12 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -eu
-          # stagingベースの未マージPR(ドラフト除く) = デプロイをブロックする未完了作業
           BLOCKERS=$(gh pr list -R "$REPO" --base staging --state open --json number,title,isDraft \
             --jq '[.[] | select(.isDraft|not)] | map("- #\(.number) \(.title)") | join("\n")')
 
-          # main向けのオープンPR(=デプロイPR)を全件評価
+          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っているため、このデプロイPRを自動的にDraftに戻しました。**"$'\n'"今マージすると、未修正の変更が本番に反映されます。先に以下を処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、自動でReadyに戻り、✅コメントが付きます。"$'\n'"緊急デプロイが必要な場合のみ force-deploy ラベルでガードをスキップできます。"
+          READY_MSG="# ✅ Deploy Guard: マージ可能"$'\n\n'"stagingの未マージPRがすべて処理されたため、Readyに戻しました。安心してマージできます。"
+
           gh pr list -R "$REPO" --base main --state open --json number,isDraft,labels | \
             jq -c '.[]' | while read -r pr; do
             NUM=$(echo "$pr" | jq -r '.number')
@@ -35,19 +36,9 @@ jobs:
 
             if [ -n "$BLOCKERS" ] && [ "$DRAFT" = "false" ]; then
               gh pr ready "$NUM" -R "$REPO" --undo
-              gh pr comment "$NUM" -R "$REPO" --body "# 🛑 Deploy Guard: マージ停止中
-
-**stagingに未マージの修正PRが残っているため、このデプロイPRを自動的にDraftに戻しました。**
-今マージすると、未修正の変更が本番に反映されます。先に以下を処理してください:
-
-$BLOCKERS
-
-すべてマージ(または明示的にクローズ)されると、**自動でReadyに戻り、このPRに✅コメントが付きます**。
-緊急デプロイが必要な場合のみ \`force-deploy\` ラベルを付けるとガードをスキップできます。"
+              gh pr comment "$NUM" -R "$REPO" --body "$BLOCK_MSG"
             elif [ -z "$BLOCKERS" ] && [ "$DRAFT" = "true" ]; then
               gh pr ready "$NUM" -R "$REPO"
-              gh pr comment "$NUM" -R "$REPO" --body "# ✅ Deploy Guard: マージ可能
-
-stagingの未マージPRがすべて処理されたため、Readyに戻しました。安心してマージできます。"
+              gh pr comment "$NUM" -R "$REPO" --body "$READY_MSG"
             fi
           done
