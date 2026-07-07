@@ -385,6 +385,35 @@ ${emailLine}
 ─────────────────────────`
 }
 
+export function getDefaultPerformanceConfirmationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+
+  return `{customer_name} 様
+
+ご予約いただいております公演は、定員に達したため開催が決定いたしました。
+当日のご来場を心よりお待ちしております。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 開催決定した公演
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ: {scenario_title}
+日時: {date} {time}
+会場: {venue}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+当日お会いできることを楽しみにしております。
+お気をつけてお越しください。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
 export function getDefaultEventCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
@@ -587,6 +616,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'waitlist_notify_template',
   'waitlist_registration_template',
   'performance_cancellation_template',
+  'performance_confirmation_template',
   'event_cancellation_template',
   'performance_extension_template',
   'store_cancellation_template',
@@ -678,6 +708,14 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     category: 'other',
     additionalVariables: ADDITIONAL_VARIABLES.performance,
     getDefault: getDefaultPerformanceCancellationTemplate
+  },
+  {
+    key: 'performance_confirmation_template',
+    title: '開催決定メール',
+    description: '定員に達して公演開催が決定した際に予約者へ送信（自動判定）',
+    category: 'other',
+    additionalVariables: ADDITIONAL_VARIABLES.performance,
+    getDefault: getDefaultPerformanceConfirmationTemplate
   },
   {
     key: 'event_cancellation_template',

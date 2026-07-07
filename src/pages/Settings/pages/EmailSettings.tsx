@@ -25,6 +25,7 @@ import {
   getDefaultWaitlistNotifyTemplate,
   getDefaultWaitlistRegistrationTemplate,
   getDefaultPerformanceCancellationTemplate,
+  getDefaultPerformanceConfirmationTemplate,
   getDefaultEventCancellationTemplate,
   getDefaultPerformanceExtensionTemplate,
   getDefaultStoreCancellationTemplate,
@@ -32,7 +33,7 @@ import {
 import { VariableHintChips } from '@/components/settings/VariableHintChips'
 
 const EMAIL_SETTINGS_SELECT_FIELDS =
-  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template, store_cancellation_template, private_rejection_reason' as const
+  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, performance_confirmation_template, event_cancellation_template, performance_extension_template, store_cancellation_template, private_rejection_reason' as const
 
 // ========== 型定義 ==========
 
@@ -47,6 +48,7 @@ interface EmailTemplates {
   waitlist_notify_template: string
   waitlist_registration_template: string
   performance_cancellation_template: string
+  performance_confirmation_template: string
   event_cancellation_template: string
   performance_extension_template: string
   store_cancellation_template: string
@@ -181,6 +183,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     waitlist_notify_template: '',
     waitlist_registration_template: '',
     performance_cancellation_template: '',
+    performance_confirmation_template: '',
     event_cancellation_template: '',
     performance_extension_template: '',
     store_cancellation_template: '',
@@ -262,6 +265,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           waitlist_notify_template: data.waitlist_notify_template || getDefaultWaitlistNotifyTemplate(companyName, companyPhone, companyEmail),
           waitlist_registration_template: data.waitlist_registration_template || getDefaultWaitlistRegistrationTemplate(companyName, companyPhone, companyEmail),
           performance_cancellation_template: data.performance_cancellation_template || getDefaultPerformanceCancellationTemplate(companyName, companyPhone, companyEmail),
+          performance_confirmation_template: data.performance_confirmation_template || getDefaultPerformanceConfirmationTemplate(companyName, companyPhone, companyEmail),
           event_cancellation_template: data.event_cancellation_template || getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail),
           performance_extension_template: data.performance_extension_template || getDefaultPerformanceExtensionTemplate(companyName, companyPhone, companyEmail),
           store_cancellation_template: data.store_cancellation_template || getDefaultStoreCancellationTemplate(companyName, companyPhone, companyEmail),
@@ -288,6 +292,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           waitlist_notify_template: getDefaultWaitlistNotifyTemplate(),
           waitlist_registration_template: getDefaultWaitlistRegistrationTemplate(),
           performance_cancellation_template: getDefaultPerformanceCancellationTemplate(),
+          performance_confirmation_template: getDefaultPerformanceConfirmationTemplate(),
           event_cancellation_template: getDefaultEventCancellationTemplate(),
           performance_extension_template: getDefaultPerformanceExtensionTemplate(),
           store_cancellation_template: getDefaultStoreCancellationTemplate(),
@@ -328,6 +333,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       waitlist_notify_template: formData.waitlist_notify_template,
       waitlist_registration_template: formData.waitlist_registration_template,
       performance_cancellation_template: formData.performance_cancellation_template,
+      performance_confirmation_template: formData.performance_confirmation_template,
       event_cancellation_template: formData.event_cancellation_template,
       performance_extension_template: formData.performance_extension_template,
       store_cancellation_template: formData.store_cancellation_template,
