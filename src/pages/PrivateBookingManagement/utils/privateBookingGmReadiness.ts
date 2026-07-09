@@ -1,6 +1,10 @@
 import { supabase } from '@/lib/supabase'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
-import { isGmMarkedAvailable, shouldIncludeGmResponseRow } from './gmAvailabilityStatus'
+import {
+  isGmAvailableForCandidate,
+  isGmMarkedAvailable,
+  shouldIncludeGmResponseRow,
+} from './gmAvailabilityStatus'
 
 /**
  * 同一候補に対して、必要GM人数と（2人以上のとき）メイン／サブの役割が揃うか。
@@ -65,7 +69,7 @@ export async function isReservationReadyForStoreAfterGmResponses(
   for (let i = 0; i < nCand; i++) {
     const staffForI = new Set<string>()
     for (const r of rows) {
-      if (r.available_candidates?.includes(i)) {
+      if (isGmAvailableForCandidate(r, i)) {
         staffForI.add(String(r.staff_id))
       }
     }
