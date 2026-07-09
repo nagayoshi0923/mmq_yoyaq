@@ -20,6 +20,7 @@ interface LineupViewProps {
   isFavorite: (scenarioId: string) => boolean
   onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
   searchTerm?: string
+  onClearSearch?: () => void
   organizationSlug?: string
   organizationName?: string | null
   selectedStoreIds?: string[]
@@ -41,6 +42,7 @@ export const LineupView = memo(function LineupView({
   isFavorite,
   onToggleFavorite,
   searchTerm = '',
+  onClearSearch,
   organizationSlug,
   organizationName,
   selectedStoreIds = [],
@@ -142,7 +144,12 @@ export const LineupView = memo(function LineupView({
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
-              <p>該当するシナリオが見つかりませんでした</p>
+              <p className="mb-3">該当するシナリオが見つかりませんでした</p>
+              {onClearSearch && (
+                <Button variant="outline" size="sm" onClick={onClearSearch}>
+                  検索条件をクリア
+                </Button>
+              )}
             </div>
           )}
         </section>

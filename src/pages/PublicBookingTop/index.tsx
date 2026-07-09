@@ -515,6 +515,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 isFavorite={isFavorite}
                 onToggleFavorite={handleToggleFavorite}
                 searchTerm={searchTerm}
+                onClearSearch={() => setSearchTerm('')}
                 organizationSlug={organizationSlug}
                 organizationName={organizationName}
                 selectedStoreIds={selectedStoreIds}
