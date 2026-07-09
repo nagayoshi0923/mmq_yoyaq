@@ -1307,20 +1307,39 @@ ${emailSettings.senderName}
   }
 
   const emailSubject = `【公演開催決定のお知らせ】${event.scenario} - ${event.date}`
-  const emailLogId = await insertEmailLog(supabase, {
-    organization_id:   event.organization_id ?? null,
-    schedule_event_id: event.event_id ?? null,
-    email_type:        'performance_confirmation',
-    to_email:          customerEmail,
-    subject:           emailSubject,
-    body_html:         finalHtml,
-    body_text:         finalText,
-    status:            'queued',
-  })
+
+  // 送信前に DB で原子的に「送信権」を確保する（#327）。
+  //   queued 行を1件 INSERT できた run だけが送信権を持つ。ユニーク制約(active 集合)に
+  //   衝突して claim できなかった場合は既に別 run が送信中/送信済みなので送信しない。
+  //   これにより同時実行時に Resend を二重に呼ぶこと自体を防ぐ。
+  const { data: claimedId, error: claimError } = await supabase.rpc(
+    'claim_performance_confirmation_email',
+    {
+      p_schedule_event_id: event.event_id,
+      p_to_email:          customerEmail,
+      p_organization_id:   event.organization_id ?? null,
+      p_subject:           emailSubject,
+      p_body_html:         finalHtml,
+      p_body_text:         finalText,
+    }
+  )
+  if (claimError) {
+    // claim 呼び出し自体が失敗した場合は、二重送信を避けるため fail-closed で送信を中止する。
+    // 行は作られないため、次回 cron で再 claim → 再送される。
+    console.error('❌ 開催決定メール claim 失敗のため送信中止:', maskEmail(customerEmail), claimError.message)
+    return
+  }
+  if (!claimedId) {
+    // 別 run が送信中/送信済み。実際の Resend 送信はこの run では行わない。
+    console.log('📧 開催決定メール 送信権を確保できずスキップ(claim):', maskEmail(customerEmail))
+    return
+  }
+  const emailLogId = claimedId as string
 
   // fetch / response.json() が例外を投げた場合でも必ず failed を記録してから re-throw する。
   // これを怠ると status が queued のまま残り、重複ガードが「送信済み」と誤判定して
   // 未送信の予約者への再送が永久にスキップされる（#323）。
+  // claim で送信権を確保済みなので、この UPDATE は自分の行の更新でありユニーク制約に衝突しない。
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
