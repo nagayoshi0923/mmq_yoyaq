@@ -224,7 +224,7 @@ export function SettingsPage() {
         if (error) throw error
         if (!updatedRows?.length) {
           throw new ApiError(
-            'プロフィールを保存できませんでした（更新件数0件）',
+            'プロフィールを保存できませんでした。ページを再読み込みしてから再度お試しください（対象行が見つかりません）',
             ApiErrorType.CONFLICT
           )
         }
@@ -238,7 +238,12 @@ export function SettingsPage() {
             orgId = org?.id ?? null
           }
         }
-        
+
+        // INSERT で重複行を新規作成する前に、未紐付けの自分の顧客行を統合/紐付けする。
+        // これにより過去のゲスト予約を持つ未紐付け行が本人行になり、UPDATE 経路に載る (#334)
+        const { error: linkError } = await supabase.rpc('link_current_user_to_customer')
+        if (linkError) logger.warn('顧客レコードの自動紐付け/統合に失敗:', linkError)
+
         // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
         const { data: existingCust } = await supabase
           .from('customers')
@@ -249,6 +254,8 @@ export function SettingsPage() {
         const { data: savedRows, error } = existingCust
           ? await supabase
               .from('customers')
+              // organization_id は更新しない: ログイン済み顧客(本人行)は org=NULL が不変条件で、
+              // 統合RPCがこれを保つ。org を上書きすると他組織予約の境界チェックで弾かれる (#334)
               .update({
                 name: formData.name,
                 nickname: formData.nickname || null,
@@ -256,7 +263,6 @@ export function SettingsPage() {
                 address: formData.address || null,
                 line_id: formData.lineId || null,
                 email: user.email || null,
-                organization_id: orgId,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existingCust.id)
@@ -279,7 +285,7 @@ export function SettingsPage() {
         if (error) throw error
         if (!savedRows?.length) {
           throw new ApiError(
-            'プロフィールを保存できませんでした（更新件数0件）',
+            'プロフィールを保存できませんでした。ページを再読み込みしてから再度お試しください（対象行が見つかりません）',
             ApiErrorType.CONFLICT
           )
         }
@@ -290,7 +296,12 @@ export function SettingsPage() {
       setActiveDialog(null)
     } catch (error: any) {
       logger.error('プロフィール更新エラー:', error)
-      showToast.error(getSafeErrorMessage(error, '更新に失敗しました'))
+      // RLS 拒否（権限エラー）は原因が異なるため個別に案内する
+      if (error?.code === '42501' || /row-level security/i.test(error?.message ?? '')) {
+        showToast.error('保存する権限がありませんでした。再ログインしてから再度お試しください。')
+      } else {
+        showToast.error(getSafeErrorMessage(error, '更新に失敗しました'))
+      }
     } finally {
       setSaving(false)
     }
