@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, BookOpen } from 'lucide-react'
+import { Search, BookOpen, X } from 'lucide-react'
 import { memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -38,8 +38,18 @@ export const SearchBar = memo(function SearchBar({
           placeholder="シナリオを検索..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-8 sm:pl-9 pr-3 text-sm h-10 md:h-9"
+          className="pl-8 sm:pl-9 pr-8 text-sm h-10 md:h-9"
         />
+        {searchTerm.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onSearchChange('')}
+            aria-label="検索条件をクリア"
+            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
       <Button
         variant="outline"
