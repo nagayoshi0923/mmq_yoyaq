@@ -34,13 +34,25 @@ export function isGmMarkedAvailable(gm: GmResponseLike): boolean {
   return Array.isArray(cands) && cands.length > 0
 }
 
-/** 特定候補（0始まりインデックス）に対応可能とみなすか */
+/**
+ * 特定候補（0始まりインデックス）に対応可能とみなすか。
+ *
+ * available_candidates が記録されている場合はその候補のみ対応可能とする
+ * （複数候補で1日程だけ可の GM を他候補で [対応可能] にしないため）。
+ * response_status='available' 等で「対応可能」だが available_candidates が
+ * 未設定/空のレコード（旧データ・別経路のバックフィルなど）は、候補数に関わらず
+ * どの候補にも対応可能とみなし isGmMarkedAvailable と整合させる（後方互換フォールバック）。
+ */
 export function isGmAvailableForCandidate(
   gm: GmResponseLike,
   candidateIndexZeroBased: number
 ): boolean {
   if (!isGmMarkedAvailable(gm)) return false
-  return gm.available_candidates?.includes(candidateIndexZeroBased) === true
+  const cands = gm.available_candidates
+  if (Array.isArray(cands) && cands.length > 0) {
+    return cands.includes(candidateIndexZeroBased)
+  }
+  return true
 }
 
 /**

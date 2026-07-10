@@ -69,25 +69,31 @@ export const myPageKeys = {
   albumOptions: () => ['mypage-album-options'] as const,
 }
 
+// 紐付け/統合 RPC をセッション内で userId ごとに1回だけ実行するためのガード。
+// マイページのタブ再フォーカス・再マウントのたびに RPC（auth.users 参照 + 複数テーブルの
+// SELECT/UPDATE/DELETE）が走るDB負荷を避ける。RPC 失敗時は記録せず次回に再試行する。
+const linkedUserIds = new Set<string>()
+
 export function useMyPageDataQuery(userId: string | undefined, email: string | undefined) {
   return useQuery({
     queryKey: myPageKeys.data(userId ?? '', email ?? ''),
     enabled: !!(userId || email),
     queryFn: async (): Promise<MyPageData> => {
       let customer = null
+      // user_id 未紐付けの自分の顧客行を SECURITY DEFINER RPC で安全に紐付ける／重複行を統合する。
+      // （クライアント直 UPDATE は RLS(user_id = auth.uid()) で弾かれて機能しなかった: #308）
+      // 空プロフィールの本人行が既に紐付いていても、実データを持つ未紐付け重複行を統合できるよう
+      // 呼ぶ（RPC は冪等: 統合対象が無ければ何もしない）(#334)。
+      // ただしタブ再フォーカス等での毎回実行を避けるため、セッション内は userId ごとに1回だけ
+      // 実行する（#341）。新規に生じた重複行はリロード/次セッションで統合される。
       if (userId) {
+        if (!linkedUserIds.has(userId)) {
+          const { error: linkError } = await supabase.rpc('link_current_user_to_customer')
+          if (linkError) logger.warn('顧客レコードの自動紐付け/統合に失敗:', linkError)
+          else linkedUserIds.add(userId)
+        }
         const { data } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').eq('user_id', userId).maybeSingle()
         if (data) customer = data
-      }
-      // user_id 未紐付けの自分の顧客行を SECURITY DEFINER RPC で安全に紐付ける
-      // （クライアント直 UPDATE は RLS(user_id = auth.uid()) で弾かれて機能しなかった: #308）
-      if (!customer && userId) {
-        const { data: linkedId, error: linkError } = await supabase.rpc('link_current_user_to_customer')
-        if (linkError) logger.warn('顧客レコードの自動紐付けに失敗:', linkError)
-        if (linkedId) {
-          const { data } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').eq('user_id', userId).maybeSingle()
-          if (data) customer = data
-        }
       }
       if (!customer && email) {
         const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').ilike('email', email).maybeSingle()
