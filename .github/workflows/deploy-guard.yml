@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review, closed]
   workflow_dispatch:
+  workflow_run:
+    workflows: [CI, E2E Tests, Release PR (staging → main)]
+    types: [completed]
+  status:
 
 # 同時実行を直列化してタイトル採番の競合を防ぐ(進行中はキャンセルしない)
 concurrency:
@@ -21,6 +25,8 @@ jobs:
     # fork からの PR では secrets を使わない(同一リポジトリ内ブランチの PR のみ実行)
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_run' ||
+      github.event_name == 'status' ||
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
@@ -190,6 +196,8 @@ jobs:
 
           BLOCK_MSG="# 🛑 Deploy Guard: staging PR待ち"$'\n\n'"**stagingに未マージの修正PRが残っています。**タイトルの【▶番号】順に処理してください:"$'\n\n'"$BLOCKERS"
           DB_MSG="# 🛑 Deploy Guard: DB先行適用待ち"$'\n\n'"このリリースにはDB migrationが含まれます。Cursorへ「本番に反映して」と依頼し、本番DB適用後に db-applied ラベルが付いてからmainへマージしてください。"
+          CHECK_WAIT_MSG="# 🛑 Deploy Guard: チェック完了待ち"$'\n\n'"CI・E2E・Vercel Previewの完了を待っています。すべて成功するまでmainへマージしないでください。"
+          CHECK_FAIL_MSG="# 🛑 Deploy Guard: チェック失敗"$'\n\n'"CI・E2E・Vercel Previewのいずれかが失敗しています。失敗を解消してからmainへマージしてください。"
           READY_MSG="# ✅ Deploy Guard: 本番反映可能"$'\n\n'"staging PRとDB先行適用の確認が完了しました。このPRをmainへマージできます。"
 
           gh pr list -R "$REPO" --base main --state open --json number,title,isDraft,labels | \
@@ -202,7 +210,27 @@ jobs:
             HAS_DB=$(echo "$pr" | jq -r '[.labels[].name] | contains(["contains-db-changes"])')
             DB_APPLIED=$(echo "$pr" | jq -r '[.labels[].name] | contains(["db-applied"])')
 
-            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *確認中|🛑 *待機中|🛑 *DB確認|✅ *マージ可|✅ *本番反映可)】 *//')
+            CHECKS=$(gh pr view "$NUM" -R "$REPO" --json statusCheckRollup --jq '.statusCheckRollup')
+            CHECK_FAILURE=$(echo "$CHECKS" | jq '
+              [ .[]
+                | select(
+                    (.__typename == "CheckRun" and .name != "guard" and .status == "COMPLETED"
+                      and (.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED"))
+                    or
+                    (.__typename == "StatusContext" and (.state == "ERROR" or .state == "FAILURE"))
+                  )
+              ] | length')
+            CHECK_PENDING=$(echo "$CHECKS" | jq '
+              [ .[]
+                | select(
+                    (.__typename == "CheckRun" and .name != "guard" and .status != "COMPLETED")
+                    or
+                    (.__typename == "StatusContext" and (.state == "EXPECTED" or .state == "PENDING"))
+                  )
+              ] | length')
+            CHECK_TOTAL=$(echo "$CHECKS" | jq '[.[] | select(.__typename != "CheckRun" or .name != "guard")] | length')
+
+            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *確認中|🛑 *待機中|🛑 *DB確認|🛑 *チェック待ち|🛑 *チェック失敗|✅ *マージ可|✅ *本番反映可)】 *//')
 
             if [ "$FORCE" = "true" ]; then
               echo "#$NUM は force-deploy によりガード対象外"
@@ -228,6 +256,26 @@ jobs:
                 gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
                 gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ(GUARD_TOKEN未設定でもタイトル/ラベル運用で機能します)"
                 gh pr comment "$NUM" -R "$REPO" --body "$BLOCK_MSG" || true
+              fi
+            elif [ "$CHECK_FAILURE" -gt 0 ]; then
+              NEW_TITLE="【🛑チェック失敗】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ"
+                gh pr comment "$NUM" -R "$REPO" --body "$CHECK_FAIL_MSG" || true
+              fi
+            elif [ "$CHECK_TOTAL" -eq 0 ] || [ "$CHECK_PENDING" -gt 0 ]; then
+              NEW_TITLE="【🛑チェック待ち】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ"
+                gh pr comment "$NUM" -R "$REPO" --body "$CHECK_WAIT_MSG" || true
               fi
             else
               NEW_TITLE="【✅本番反映可】$BASE_TITLE"

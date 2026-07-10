@@ -59,10 +59,11 @@ jobs:
           1. base=stagingのPRをすべてmergeまたはcloseする
           2. ステージング環境で動作確認する
           3. DB migrationを含む場合は、Cursorへ「本番に反映して」と依頼する
-          4. タイトルが **【✅本番反映可】** になったら、このPRをmergeする
+          4. CI・E2E・Vercel Previewがすべて成功したことを確認する
+          5. タイトルが **【✅本番反映可】** になったら、このPRをmergeする
 
           ## 禁止
-          - 【🛑待機中】または【🛑DB確認】の状態でmergeしない
+          - タイトルが【🛑】で始まる状態ではmergeしない
           - force merge / force pushをしない
           EOF
 
