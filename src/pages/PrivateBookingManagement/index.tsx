@@ -828,11 +828,11 @@ export function PrivateBookingManagement() {
                         {/* 店舗・GMプルダウン（候補行クリックで開く） */}
                         {(() => {
                           const selectedCand = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
+                          // 重複日程の店舗も選択肢からは外さず、GM選択と同様に「予約済み」タグを付けて選べる状態にする
+                          // （希望店舗が全て同じ時間帯判定に引っかかると選択肢が0件になり承認できなくなるため）
                           const candidateStores = (() => {
                             const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
-                            const base = ids.length > 0 ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
-                            if (!selectedCand) return base
-                            return base.filter(s => !conflictInfo.storeDateConflicts.has(`${s.id}-${selectedCand.date}-${selectedCand.timeSlot}`))
+                            return ids.length > 0 ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
                           })()
                           return (
                             <div className="space-y-2">
@@ -851,6 +851,8 @@ export function PrivateBookingManagement() {
                                             (selectedCand.endTime || '') > e.startTime
                                           )
                                         : undefined
+                                      const hasConflict = !!selectedCand &&
+                                        conflictInfo.storeDateConflicts.has(`${s.id}-${selectedCand.date}-${selectedCand.timeSlot}`)
                                       const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
                                       return (
                                         <SelectItem key={s.id} value={s.id} className="whitespace-normal">
@@ -858,6 +860,7 @@ export function PrivateBookingManagement() {
                                             {s.name}
                                             {isRequested && <span className="ml-1 text-purple-600 text-xs">（お客様希望）</span>}
                                             {(s as any).region && <span className="ml-1 text-xs text-muted-foreground">({(s as any).region})</span>}
+                                            {hasConflict && !ev && <span className="ml-1 text-orange-600 text-xs">（予約済み）</span>}
                                           </span>
                                           {ev && (
                                             <span className="block text-xs text-orange-600 font-medium mt-0.5">
