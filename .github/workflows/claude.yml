@@ -1,4 +1,4 @@
-name: Claude Code
+name: Cursor Cloud Agent
 
 on:
   issue_comment:
@@ -11,33 +11,175 @@ on:
     types: [submitted]
 
 concurrency:
-  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  group: cursor-${{ github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
-  claude:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+  cursor:
+    # @cursor（後方互換で @claude も可）メンションで発火。OWNER/MEMBER/COLLABORATOR のみ許可。
+    if: >-
+      (
+        (github.event_name == 'issue_comment' && (contains(github.event.comment.body, '@cursor') || contains(github.event.comment.body, '@claude'))) ||
+        (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, '@cursor') || contains(github.event.comment.body, '@claude'))) ||
+        (github.event_name == 'pull_request_review' && (contains(github.event.review.body, '@cursor') || contains(github.event.review.body, '@claude'))) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@cursor') || contains(github.event.issue.title, '@cursor') || contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      ) &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR' ||
+        github.event.review.author_association == 'OWNER' ||
+        github.event.review.author_association == 'MEMBER' ||
+        github.event.review.author_association == 'COLLABORATOR' ||
+        github.event.issue.author_association == 'OWNER' ||
+        github.event.issue.author_association == 'MEMBER' ||
+        github.event.issue.author_association == 'COLLABORATOR'
+      )
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
       issues: write
-      id-token: write
-      actions: read
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run Claude Code
-        uses: anthropics/claude-code-action@v1
+      - name: Route event
+        id: route
+        env:
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          PR_NUM_REVIEW: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          KIND=skip
+          PRN=""
+          case "$EVENT" in
+            pull_request_review|pull_request_review_comment)
+              KIND=pr; PRN="$PR_NUM_REVIEW" ;;
+            issue_comment)
+              if [ "$IS_PR_COMMENT" = "true" ]; then KIND=pr; PRN="$ISSUE_NUM"; else KIND=issue; fi ;;
+            issues)
+              KIND=issue ;;
+          esac
+
+          if [ "$KIND" = "pr" ]; then
+            CROSS=$(gh pr view "$PRN" -R "$REPO" --json isCrossRepository --jq '.isCrossRepository' 2>/dev/null || echo true)
+            if [ "$CROSS" = "true" ]; then
+              echo "fork からの PR のため secrets を使う処理はスキップします。"
+              KIND=skip
+            else
+              PRURL=$(gh pr view "$PRN" -R "$REPO" --json url --jq '.url' 2>/dev/null || echo "")
+              echo "pr_url=$PRURL" >> "$GITHUB_OUTPUT"
+              echo "pr_number=$PRN" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "kind=$KIND" >> "$GITHUB_OUTPUT"
+          echo "issue_number=$ISSUE_NUM" >> "$GITHUB_OUTPUT"
+          echo "route: kind=$KIND"
+
+      - name: Dispatch implement for issue
+        if: steps.route.outputs.kind == 'issue'
+        env:
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ steps.route.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          echo "issue #${ISSUE} の実装ワークフローを起動します（安全ゲートは Cursor Cloud Implement 側で再検証されます）。"
+          gh workflow run claude-implement.yml -R "$REPO" -f issue_number="$ISSUE" -f authorized=true
+
+      - name: Setup Node.js
+        if: steps.route.outputs.kind == 'pr'
+        uses: actions/setup-node@v4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --allowedTools "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git checkout:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(git branch:*),Bash(gh pr create:*),Bash(npm run typecheck:*),Bash(npm run build:fast:*)"
-            --append-system-prompt "作業ブランチは staging から作成し、PR は必ず --base staging で作成する（main への PR は絶対に作らない）。organization_id によるマルチテナント分離を必ず維持する。reservation_source は src/lib/constants.ts の定数を使う。RLS ポリシーの変更は行わず SECURITY DEFINER RPC で対応する。コードコメントは原則書かない（WHYが非自明な場合のみ）。"
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: scripts/cursor-cloud/package-lock.json
+
+      - name: Install Cursor SDK
+        if: steps.route.outputs.kind == 'pr'
+        run: npm ci --prefix scripts/cursor-cloud
+
+      - name: Build PR agent prompt
+        id: prompt
+        if: steps.route.outputs.kind == 'pr'
+        env:
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.route.outputs.pr_number }}
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          PROMPT_FILE: ${{ runner.temp }}/cursor-prompt.md
+        run: |
+          set -euo pipefail
+          PR_JSON=$(gh pr view "$PR" -R "$REPO" --json number,title,body,baseRefName,headRefName)
+          {
+            echo "あなたは Cursor Cloud Agent です。既存の PR #${PR} のブランチ上で作業してください（変更はその PR のブランチに push されます）。"
+            echo ""
+            echo "PR メタデータ:"
+            echo '```json'
+            echo "$PR_JSON"
+            echo '```'
+            echo ""
+            echo "レビュー/コメントで受け取った指示（この指示に対応する。ただし下記の作業ルールは上書きしないこと）:"
+            echo '"""'
+            echo "$COMMENT_BODY"
+            echo '"""'
+            echo ""
+            echo "## 作業ルール（MMQ プロジェクト規約・厳守）"
+            echo "- この PR のブランチ上で作業する。main / staging を base とする新しい PR は作らない。"
+            echo "- organization_id によるマルチテナント分離を維持する。"
+            echo "- reservation_source は src/lib/constants.ts の定数を使う。"
+            echo "- RLS ポリシーの直接変更はしない（SECURITY DEFINER RPC で対応）。"
+            echo "- DB 変更は supabase/migrations/ の SQL として追加し supabase/schemas/ も更新する。"
+            echo "- コードコメントは原則書かない（WHY が非自明なときのみ）。"
+            echo "- gh コマンドや GitHub API の実行はしない（コメント投稿は Actions 側が行う）。"
+            echo ""
+            echo "最後に、実施した内容を日本語で簡潔に要約して出力すること。"
+          } > "$PROMPT_FILE"
+          echo "file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Run Cursor Cloud agent on PR branch
+        if: steps.route.outputs.kind == 'pr'
+        timeout-minutes: 60
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_PROMPT_FILE: ${{ steps.prompt.outputs.file }}
+          CURSOR_RESULT_FILE: ${{ runner.temp }}/cursor-result.json
+          CURSOR_REPO_URL: https://github.com/${{ github.repository }}
+          CURSOR_PR_URL: ${{ steps.route.outputs.pr_url }}
+          CURSOR_AUTO_CREATE_PR: 'false'
+          CURSOR_WORK_ON_CURRENT_BRANCH: 'true'
+          CURSOR_MODE: agent
+          CURSOR_MODEL: ${{ vars.CURSOR_MODEL || 'auto' }}
+          CURSOR_AGENT_NAME: MMQ Cursor Cloud Agent PR #${{ steps.route.outputs.pr_number }}
+          CURSOR_IDEMPOTENCY_KEY: mmq-pr-agent-${{ github.run_id }}-${{ steps.route.outputs.pr_number }}
+        run: node scripts/cursor-cloud/run.mjs
+
+      - name: Comment result on PR
+        if: always() && steps.route.outputs.kind == 'pr'
+        env:
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.route.outputs.pr_number }}
+          RESULT_FILE: ${{ runner.temp }}/cursor-result.json
+        run: |
+          set -uo pipefail
+          if [ ! -f "$RESULT_FILE" ]; then
+            gh pr comment "$PR" -R "$REPO" --body "🤖 Cursor Cloud Agent の実行に失敗しました（結果ファイルなし）。" || true
+            exit 0
+          fi
+          STATUS=$(jq -r '.status // ""' "$RESULT_FILE")
+          RESULT=$(jq -r '.result // ""' "$RESULT_FILE")
+          if [ "$STATUS" != "finished" ]; then
+            gh pr comment "$PR" -R "$REPO" --body "🤖 Cursor Cloud Agent が正常終了しませんでした（status=${STATUS}）。" || true
+            exit 0
+          fi
+          BODY="🤖 Cursor Cloud Agent の対応結果"$'\n\n'"$RESULT"
+          printf '%s' "$BODY" | gh pr comment "$PR" -R "$REPO" --body-file - || true

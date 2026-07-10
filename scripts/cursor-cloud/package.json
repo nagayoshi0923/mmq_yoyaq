@@ -1,0 +1,12 @@
+{
+  "name": "mmq-cursor-cloud-runner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.23"
+  }
+}
