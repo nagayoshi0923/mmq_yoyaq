@@ -49,7 +49,7 @@ jobs:
 
       - name: Ensure terminal-state labels exist
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           gh label create needs-human      -R "$REPO" --color D93F0B --description "人間の判断が必要" 2>/dev/null || true
@@ -60,7 +60,7 @@ jobs:
       - name: Gate - validate issue is safe to implement
         id: gate
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           AUTHORIZED: ${{ inputs.authorized || 'false' }}
@@ -114,7 +114,7 @@ jobs:
         id: prompt
         if: steps.gate.outputs.proceed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           PROMPT_FILE: ${{ runner.temp }}/cursor-prompt.md
@@ -172,7 +172,7 @@ jobs:
       - name: Postcondition - reconcile issue state from Cursor result
         if: always() && steps.gate.outputs.proceed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
@@ -232,7 +232,8 @@ jobs:
           RAW=$(jq -r '.result // ""' "$RESULT_FILE")
           DEC=$(printf '%s\n' "$RAW" | sed -E '/^```/d')
           OUTCOME=$(printf '%s' "$DEC" | jq -r '.outcome // ""' 2>/dev/null || echo "")
-          SUMMARY=$(printf '%s' "$DEC" | jq -r '.summary // ""' 2>/dev/null || echo "")
+          SUMMARY=$(printf '%s' "$DEC" | jq -r '.summary // ""' 2>/dev/null \
+            | sed -e 's/@cursor/＠cursor/g' -e 's/@claude/＠claude/g' || echo "")
 
           case "$OUTCOME" in
             needs-human)
@@ -240,6 +241,12 @@ jobs:
               gh issue edit "$ISSUE" -R "$REPO" --remove-label ai-todo 2>/dev/null || true
               gh issue edit "$ISSUE" -R "$REPO" --add-label needs-human || true
               gh issue comment "$ISSUE" -R "$REPO" --body "🤖 自動実装は人間の判断が必要と判定しました。$SUMMARY" || true
+              if [ -n "${WEBHOOK:-}" ]; then
+                MSG="🙋 **自動実装で人間判断が必要** #${ISSUE}
+          https://github.com/${REPO}/issues/${ISSUE}"
+                jq -n --arg content "$MSG" '{content: $content}' \
+                  | curl -sf -H "Content-Type: application/json" -d @- "$WEBHOOK" || true
+              fi
               ;;
             no-action)
               echo "no-action で終了。クローズします。"

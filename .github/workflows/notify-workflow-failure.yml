@@ -1,0 +1,46 @@
+name: Notify Discord (workflow failure)
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - E2E Tests
+      - Deploy Supabase
+      - Mirror Production DB to Staging
+      - Cursor Cloud Issue Groomer
+      - Cursor Cloud Implement (ai-todo)
+      - Cursor Cloud Review
+      - Cursor Cloud Agent
+      - Deploy Guard
+      - Release PR (staging → main)
+    types: [completed]
+
+jobs:
+  notify:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Send failure to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_URL が未設定のためスキップします"
+            exit 0
+          fi
+
+          MSG="🚨 **GitHub Actions失敗**
+          Workflow: ${WORKFLOW}
+          Branch: ${BRANCH}
+          ${TITLE}
+          ${URL}"
+          jq -n --arg content "$MSG" '{content: $content}' \
+            | curl -sf -H "Content-Type: application/json" -d @- "$WEBHOOK"

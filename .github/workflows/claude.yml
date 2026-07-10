@@ -50,7 +50,7 @@ jobs:
       - name: Route event
         id: route
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
           IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
@@ -87,7 +87,7 @@ jobs:
       - name: Dispatch implement for issue
         if: steps.route.outputs.kind == 'issue'
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ steps.route.outputs.issue_number }}
         run: |
@@ -111,7 +111,7 @@ jobs:
         id: prompt
         if: steps.route.outputs.kind == 'pr'
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.route.outputs.pr_number }}
           COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
@@ -165,7 +165,7 @@ jobs:
       - name: Comment result on PR
         if: always() && steps.route.outputs.kind == 'pr'
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ steps.route.outputs.pr_number }}
           RESULT_FILE: ${{ runner.temp }}/cursor-result.json
@@ -176,7 +176,8 @@ jobs:
             exit 0
           fi
           STATUS=$(jq -r '.status // ""' "$RESULT_FILE")
-          RESULT=$(jq -r '.result // ""' "$RESULT_FILE")
+          RESULT=$(jq -r '.result // ""' "$RESULT_FILE" \
+            | sed -e 's/@cursor/＠cursor/g' -e 's/@claude/＠claude/g')
           if [ "$STATUS" != "finished" ]; then
             gh pr comment "$PR" -R "$REPO" --body "🤖 Cursor Cloud Agent が正常終了しませんでした（status=${STATUS}）。" || true
             exit 0

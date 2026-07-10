@@ -3,6 +3,7 @@ name: Deploy Guard
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review, closed]
+  workflow_dispatch:
 
 # 同時実行を直列化してタイトル採番の競合を防ぐ(進行中はキャンセルしない)
 concurrency:
@@ -18,7 +19,9 @@ permissions:
 jobs:
   guard:
     # fork からの PR では secrets を使わない(同一リポジトリ内ブランチの PR のみ実行)
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -182,8 +185,12 @@ jobs:
             fi
           done
 
-          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っています。**今マージすると未修正の変更が本番に反映されます。タイトルの【▶番号】順に処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、タイトルが【✅マージ可】に変わり✅コメントが付きます。緊急時のみ force-deploy ラベルでスキップ可。"
-          READY_MSG="# ✅ Deploy Guard: マージ可能"$'\n\n'"stagingの未マージPRがすべて処理されました。安心してマージできます。"
+          gh label create db-applied -R "$REPO" --color 0E8A16 \
+            --description "本番DBへの先行適用を確認済み" 2>/dev/null || true
+
+          BLOCK_MSG="# 🛑 Deploy Guard: staging PR待ち"$'\n\n'"**stagingに未マージの修正PRが残っています。**タイトルの【▶番号】順に処理してください:"$'\n\n'"$BLOCKERS"
+          DB_MSG="# 🛑 Deploy Guard: DB先行適用待ち"$'\n\n'"このリリースにはDB migrationが含まれます。Cursorへ「本番に反映して」と依頼し、本番DB適用後に db-applied ラベルが付いてからmainへマージしてください。"
+          READY_MSG="# ✅ Deploy Guard: 本番反映可能"$'\n\n'"staging PRとDB先行適用の確認が完了しました。このPRをmainへマージできます。"
 
           gh pr list -R "$REPO" --base main --state open --json number,title,isDraft,labels | \
             jq -c '.[]' | while read -r pr; do
@@ -192,15 +199,27 @@ jobs:
             DRAFT=$(echo "$pr" | jq -r '.isDraft')
             FORCE=$(echo "$pr" | jq -r '[.labels[].name] | contains(["force-deploy"])')
             HELD=$(echo "$pr" | jq -r '[.labels[].name] | contains(["do-not-merge"])')
+            HAS_DB=$(echo "$pr" | jq -r '[.labels[].name] | contains(["contains-db-changes"])')
+            DB_APPLIED=$(echo "$pr" | jq -r '[.labels[].name] | contains(["db-applied"])')
 
-            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *待機中|✅ *マージ可)】 *//')
+            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *確認中|🛑 *待機中|🛑 *DB確認|✅ *マージ可|✅ *本番反映可)】 *//')
 
             if [ "$FORCE" = "true" ]; then
               echo "#$NUM は force-deploy によりガード対象外"
               continue
             fi
 
-            if [ -n "$BLOCKERS" ]; then
+            if [ "$HAS_DB" = "true" ] && [ "$DB_APPLIED" != "true" ]; then
+              NEW_TITLE="【🛑DB確認】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ(GUARD_TOKEN未設定でもタイトル/ラベル運用で機能します)"
+                gh pr comment "$NUM" -R "$REPO" --body "$DB_MSG" || true
+              fi
+            elif [ -n "$BLOCKERS" ]; then
               NEW_TITLE="【🛑待機中】$BASE_TITLE"
               if [ "$NEW_TITLE" != "$TITLE" ]; then
                 gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
@@ -211,7 +230,7 @@ jobs:
                 gh pr comment "$NUM" -R "$REPO" --body "$BLOCK_MSG" || true
               fi
             else
-              NEW_TITLE="【✅マージ可】$BASE_TITLE"
+              NEW_TITLE="【✅本番反映可】$BASE_TITLE"
               if [ "$NEW_TITLE" != "$TITLE" ]; then
                 gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
               fi

@@ -41,7 +41,7 @@ jobs:
       - name: Build groomer prompt
         id: prompt
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           ASSOC: ${{ github.event.issue.author_association || 'INTERNAL_DISPATCH' }}
@@ -81,7 +81,8 @@ jobs:
       - name: Apply groomer decision
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           ASSOC: ${{ github.event.issue.author_association || 'INTERNAL_DISPATCH' }}
@@ -183,12 +184,25 @@ jobs:
             fi
           fi
 
+          if [ -n "${WEBHOOK:-}" ] && { [ "$STATUSLABEL" = "needs-info" ] || [ "$STATUSLABEL" = "needs-human" ]; }; then
+            if [ "$STATUSLABEL" = "needs-info" ]; then
+              REASON="⏳ 報告者への確認待ち"
+            else
+              REASON="🙋 人間の判断が必要"
+            fi
+            MSG="**要人間対応** #${ISSUE}
+          ${REASON}
+          https://github.com/${REPO}/issues/${ISSUE}"
+            jq -n --arg content "$MSG" '{content: $content}' \
+              | curl -sf -H "Content-Type: application/json" -d @- "$WEBHOOK" || true
+          fi
+
           echo "整形を反映しました（statusLabel=$STATUSLABEL）。"
 
       - name: Postcondition - enforce exactly one status label
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}

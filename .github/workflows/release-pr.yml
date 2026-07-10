@@ -1,0 +1,97 @@
+name: Release PR (staging → main)
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create or update release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          BODY_FILE: ${{ runner.temp }}/release-pr-body.md
+        run: |
+          set -euo pipefail
+          git fetch origin main staging
+
+          AHEAD=$(gh api "repos/$REPO/compare/main...staging" --jq '.ahead_by')
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "staging と main に差分はありません。"
+            exit 0
+          fi
+
+          MIGRATIONS=$(git diff --name-only origin/main...origin/staging -- 'supabase/migrations/*.sql')
+          if [ -n "$MIGRATIONS" ]; then
+            DB_NOTICE="⚠️ DB migrationを含みます。mainへマージする前にCursorへ「本番に反映して」と依頼し、DB先行適用を完了してください。"
+          else
+            DB_NOTICE="DB migrationの追加はありません。"
+          fi
+
+          cat > "$BODY_FILE" <<EOF
+          ## このPRについて
+          stagingの変更をmain（本番）へ反映するためのPRです。stagingへのpushに合わせて自動更新されます。
+
+          ## 現在の状態
+          - main未反映コミット: ${AHEAD}件
+          - ${DB_NOTICE}
+
+          ## 次にすること
+          1. base=stagingのPRをすべてmergeまたはcloseする
+          2. ステージング環境で動作確認する
+          3. DB migrationを含む場合は、Cursorへ「本番に反映して」と依頼する
+          4. タイトルが **【✅本番反映可】** になったら、このPRをmergeする
+
+          ## 禁止
+          - 【🛑待機中】または【🛑DB確認】の状態でmergeしない
+          - force merge / force pushをしない
+          EOF
+
+          gh label create contains-db-changes -R "$REPO" --color C5DEF5 \
+            --description "main反映前にDB先行適用の確認が必要" 2>/dev/null || true
+
+          PR=$(gh pr list -R "$REPO" --base main --head staging --state open \
+            --json number --jq '.[0].number // empty')
+
+          if [ -z "$PR" ]; then
+            PR_URL=$(gh pr create -R "$REPO" --base main --head staging --draft \
+              --title "【🛑確認中】chore: stagingをmainへ反映" \
+              --body-file "$BODY_FILE")
+            PR="${PR_URL##*/}"
+            echo "release PR #${PR} を作成しました。"
+          else
+            gh pr edit "$PR" -R "$REPO" --body-file "$BODY_FILE"
+            echo "release PR #${PR} を更新しました。"
+          fi
+
+          if [ -n "$MIGRATIONS" ]; then
+            gh pr edit "$PR" -R "$REPO" --add-label contains-db-changes || true
+            if [ "$EVENT" = "push" ]; then
+              # stagingが更新されたら、以前のDB確認結果を引き継がない。
+              gh pr edit "$PR" -R "$REPO" --remove-label db-applied 2>/dev/null || true
+            fi
+          else
+            gh pr edit "$PR" -R "$REPO" --remove-label contains-db-changes 2>/dev/null || true
+          fi
+
+          # GITHUB_TOKENで作成・更新したPRはpull_requestイベントを再発火しないため明示実行する。
+          gh workflow run deploy-guard.yml -R "$REPO"

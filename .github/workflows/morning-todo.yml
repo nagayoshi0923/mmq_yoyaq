@@ -9,6 +9,7 @@ jobs:
   todo:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       issues: read
       pull-requests: read
       contents: read
@@ -42,6 +43,11 @@ jobs:
           AF=$(gh issue list -R "$REPO" --state open --label automation-failed --json number,title,url \
             --jq '.[0:10] | map("・#\(.number) \(.title[0:40])\n  \(.url)") | join("\n")')
 
+          SINCE=$(date -u -d '3 days ago' '+%Y-%m-%d')
+          FAILED=$(gh run list -R "$REPO" --status failure --created ">=$SINCE" --limit 10 \
+            --json name,displayTitle,url \
+            --jq 'map("・\(.name): \(.displayTitle[0:36])\n  \(.url)") | join("\n")')
+
           AHEAD=$(gh api "repos/$REPO/compare/main...staging" --jq '.ahead_by' 2>/dev/null || echo 0)
           DEPLOY=""
           if [ "$AHEAD" -gt 0 ]; then
@@ -51,13 +57,14 @@ jobs:
           MSG="☀️ **今日のTODO** ${TODAY} — ${REPO}"
           [ -n "$PRS" ]     && MSG="$MSG"$'\n\n'"🟢 **マージ判断待ちPR(最大10件)**"$'\n'"$PRS"
           [ -n "$DEPLOY" ]  && MSG="$MSG"$'\n\n'"🚀 **デプロイ判断**"$'\n'"$DEPLOY"
+          [ -n "$FAILED" ]  && MSG="$MSG"$'\n\n'"🚨 **直近3日の失敗Action**"$'\n'"$FAILED"
           [ -n "$AF" ]      && MSG="$MSG"$'\n\n'"⚠️ **自動処理が失敗(automation-failed)**"$'\n'"$AF"
           [ -n "$NH" ]      && MSG="$MSG"$'\n\n'"🙋 **あなたの判断待ち**"$'\n'"$NH"
           [ -n "$NI" ]      && MSG="$MSG"$'\n\n'"⏳ **報告者の回答待ち(停滞していたら催促)**"$'\n'"$NI"
           [ -n "$NOLABEL" ] && MSG="$MSG"$'\n\n'"🏷 **トリアージ漏れ(ラベル無し)**"$'\n'"$NOLABEL"
           [ -n "$AITODO" ]  && MSG="$MSG"$'\n\n'"🤖 **AI作業中(結果待ち)**"$'\n'"$AITODO"
 
-          if [ -z "${PRS}${DEPLOY}${AF}${NH}${NI}${NOLABEL}${AITODO}" ]; then
+          if [ -z "${PRS}${DEPLOY}${FAILED}${AF}${NH}${NI}${NOLABEL}${AITODO}" ]; then
             MSG="$MSG"$'\n\n'"✅ 今日対応が必要なものはありません"
           fi
 

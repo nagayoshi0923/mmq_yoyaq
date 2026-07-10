@@ -35,7 +35,7 @@ jobs:
       - name: Build retriage prompt
         id: prompt
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number }}
           PROMPT_FILE: ${{ runner.temp }}/cursor-prompt.md
@@ -82,7 +82,7 @@ jobs:
       - name: Apply retriage decision
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number }}
@@ -116,6 +116,12 @@ jobs:
             notify_failure "Cursor 出力が期待した JSON ではない"; exit 0
           fi
 
+          DEC=$(printf '%s' "$DEC" | jq -c '
+            walk(if type == "string"
+              then gsub("@cursor"; "＠cursor") | gsub("@claude"; "＠claude")
+              else .
+            end)
+          ')
           DECISION=$(printf '%s' "$DEC" | jq -r '.decision')
           COMMENT=$(printf '%s' "$DEC" | jq -r '.comment // ""')
 

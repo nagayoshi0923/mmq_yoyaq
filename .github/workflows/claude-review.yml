@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
       pull-requests: write
     steps:
       - name: Checkout repository
@@ -33,7 +34,7 @@ jobs:
       - name: Build review prompt
         id: prompt
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           PROMPT_FILE: ${{ runner.temp }}/cursor-prompt.md
@@ -84,7 +85,8 @@ jobs:
       - name: Post review comments
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           RESULT_FILE: ${{ runner.temp }}/cursor-result.json
@@ -111,17 +113,44 @@ jobs:
           RAW=$(jq -r '.result // ""' "$RESULT_FILE")
           DEC=$(printf '%s\n' "$RAW" | sed -E '/^```/d')
 
-          if [ "$STATUS" != "finished" ] || ! printf '%s' "$DEC" | jq -e 'has("summary")' >/dev/null 2>&1; then
+          if [ "$STATUS" != "finished" ] || ! printf '%s' "$DEC" | jq -e '
+            (.summary | type) == "string" and
+            (.mergeRecommendation == "merge" or .mergeRecommendation == "fix" or .mergeRecommendation == "discuss") and
+            (.findings | type) == "array" and
+            all(.findings[];
+              (.path | type) == "string" and
+              (.line | type) == "number" and (.line | floor) == .line and .line > 0 and
+              (.body | type) == "string"
+            )
+          ' >/dev/null 2>&1; then
             post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビューが正常に完了しませんでした（status=${STATUS}）。人間が確認してください。"
             exit 0
           fi
 
+          DEC=$(printf '%s' "$DEC" | jq -c '
+            walk(if type == "string"
+              then gsub("@cursor"; "＠cursor") | gsub("@claude"; "＠claude")
+              else .
+            end)
+          ')
           SUMMARY=$(printf '%s' "$DEC" | jq -r '.summary // ""')
           REC=$(printf '%s' "$DEC" | jq -r '.mergeRecommendation // "discuss"')
           case "$REC" in
-            merge)   REC_JP="そのままマージ可" ;;
-            fix)     REC_JP="修正後にマージ" ;;
-            *)       REC_JP="要議論" ;;
+            merge)
+              REC_JP="そのままマージ可"
+              NEXT_ACTION="タイトルの【▶N】順を確認して staging へマージしてください。"
+              REVIEW_LABEL="review-ok"
+              ;;
+            fix)
+              REC_JP="修正後にマージ"
+              NEXT_ACTION="PRに \`@cursor 指摘を修正して\` とコメントしてください。修正後に再確認します。"
+              REVIEW_LABEL="changes-requested"
+              ;;
+            *)
+              REC_JP="要議論"
+              NEXT_ACTION="判断が必要な内容を確認し、方針をPRへコメントしてください。"
+              REVIEW_LABEL="needs-human"
+              ;;
           esac
 
           SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
@@ -143,8 +172,22 @@ jobs:
             fi
           done
 
-          BODY="$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー総評"$'\n\n'"$SUMMARY"$'\n\n'"**マージ可否の推奨**: ${REC_JP}"
+          gh label create review-ok         -R "$REPO" --color 0E8A16 --description "Cursorレビュー: stagingへマージ可" 2>/dev/null || true
+          gh label create changes-requested -R "$REPO" --color D93F0B --description "Cursorレビュー: 修正が必要" 2>/dev/null || true
+          gh label create needs-human       -R "$REPO" --color FBCA04 --description "人間の判断が必要" 2>/dev/null || true
+          gh pr edit "$PR" -R "$REPO" \
+            --remove-label review-ok --remove-label changes-requested --remove-label needs-human 2>/dev/null || true
+          gh pr edit "$PR" -R "$REPO" --add-label "$REVIEW_LABEL" || true
+
+          BODY="$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー総評"$'\n\n'"$SUMMARY"$'\n\n'"**判定**: ${REC_JP}"$'\n\n'"### 次にすること"$'\n'"${NEXT_ACTION}"
           if [ -n "$FAILED" ]; then
             BODY="$BODY"$'\n\n'"### インラインで投稿できなかった指摘"$'\n'"$FAILED"
           fi
           post_toplevel "$BODY"
+
+          if [ "$REC" = "discuss" ] && [ -n "${WEBHOOK:-}" ]; then
+            MSG="🙋 **PRレビューで人間判断が必要** #${PR}
+          https://github.com/${REPO}/pull/${PR}"
+            jq -n --arg content "$MSG" '{content: $content}' \
+              | curl -sf -H "Content-Type: application/json" -d @- "$WEBHOOK" || true
+          fi
