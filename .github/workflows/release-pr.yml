@@ -94,4 +94,5 @@ jobs:
           fi
 
           # GITHUB_TOKENで作成・更新したPRはpull_requestイベントを再発火しないため明示実行する。
-          gh workflow run deploy-guard.yml -R "$REPO"
+          gh workflow run deploy-guard.yml -R "$REPO" \
+            || echo "Deploy Guardの明示起動はmain反映前のためスキップしました。PRは安全な待機状態を維持します。"
