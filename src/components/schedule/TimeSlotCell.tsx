@@ -180,11 +180,11 @@ function TimeSlotCellBase({
       {...longPressHandlers}
     >
       {events.length > 0 ? (
-        // 公演ありの場合: カードを表示（重複がある場合は全て表示＋警告）
-        <div className={events.length > 1 ? 'border-2 border-red-500 bg-red-50 rounded' : ''}>
+        // 公演ありの場合: カードを表示（同一枠に複数設置されている場合は件数を控えめに表示）
+        <div>
           {events.length > 1 && (
-            <div className="text-[10px] text-red-600 font-bold text-center bg-red-200 py-0.5">
-              ⚠️ 重複 {events.length}件
+            <div className="flex justify-center py-0.5">
+              <Badge variant="secondary" size="sm">{events.length}公演</Badge>
             </div>
           )}
           {events.map((event) => (

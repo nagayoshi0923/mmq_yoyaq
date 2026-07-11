@@ -149,28 +149,8 @@ export function useEventMoveCopy({
     if (!draggedEvent || !dropTarget) return
 
     try {
-      // 🚨 CRITICAL: 移動先の重複チェック
+      // 移動先の同一枠に既存公演があるか（重ねて設置の確認用。既存は削除しない）
       const conflict = checkConflict(dropTarget.date, dropTarget.venue, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening', draggedEvent.id)
-      if (conflict) {
-        const timeSlotLabel = timeSlotEnToLabel(dropTarget.timeSlot, 'candidate')
-        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-
-        const ok = await askConfirm({
-          title: '移動先に既存の公演があります',
-          message: `${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。既存の公演を削除して移動しますか？`,
-          confirmLabel: '既存を削除して移動',
-          variant: 'destructive',
-        })
-        if (!ok) {
-          setDraggedEvent(null)
-          setDropTarget(null)
-          return
-        }
-
-        // 既存公演を削除
-        await scheduleApi.delete(conflict.id)
-        setEvents(prev => prev.filter(e => e.id !== conflict.id))
-      }
 
       // 元の公演の時間帯を取得
       const sourceTimeSlot = getEventTimeSlot(draggedEvent)
@@ -208,8 +188,28 @@ export function useEventMoveCopy({
       // 繰り下げ後も同店舗・同日の他公演と重なる場合（後続公演への食い込み等）は警告。
       // 繰り下げでは後続公演との重複は解消できないため、続行可否をユーザーに委ねる。
       const moveOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
-      if (moveOverlap) {
-        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+      const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+
+      if (conflict) {
+        // 同一枠に既存公演がある: 重ねて設置の確認。既存は削除しない。
+        // 実時間も重なる場合は理由を併記し、時間重複の確認を二重に出さない。
+        const timeSlotLabel = timeSlotEnToLabel(dropTarget.timeSlot, 'candidate')
+        const overlapNote = moveOverlap
+          ? `\nまた「${moveOverlap.event.scenario}」（${moveOverlap.event.start_time.slice(0, 5)}〜${moveOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${moveOverlap.reason}）。`
+          : ''
+        const ok = await askConfirm({
+          title: '移動先に既存の公演があります',
+          message: `${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。重ねて設置しますか？${overlapNote}`,
+          confirmLabel: '重ねて設置',
+          variant: 'default',
+        })
+        if (!ok) {
+          setDraggedEvent(null)
+          setDropTarget(null)
+          return
+        }
+      } else if (moveOverlap) {
+        // 同一枠ではないが時間が重なる（別枠への食い込み等）: 従来どおりの警告
         const ok = await askConfirm({
           title: '時間が重なります',
           message: `${dropTarget.date} ${storeName}で「${moveOverlap.event.scenario}」（${moveOverlap.event.start_time.slice(0, 5)}〜${moveOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${moveOverlap.reason}）。このまま移動しますか？`,
@@ -430,29 +430,9 @@ export function useEventMoveCopy({
     if (!draggedEvent || !dropTarget) return
 
     try {
-      // 🚨 CRITICAL: 複製先の重複チェック
+      // 複製先の同一枠に既存公演があるか（重ねて設置の確認用。既存は削除しない）
       const targetTimeSlot = dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening'
       const conflict = checkConflict(dropTarget.date, dropTarget.venue, targetTimeSlot)
-      if (conflict) {
-        const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'candidate')
-        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-
-        const ok = await askConfirm({
-          title: '複製先に既存の公演があります',
-          message: `${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。既存の公演を削除して複製しますか？`,
-          confirmLabel: '既存を削除して複製',
-          variant: 'destructive',
-        })
-        if (!ok) {
-          setDraggedEvent(null)
-          setDropTarget(null)
-          return
-        }
-
-        // 既存公演を削除
-        await scheduleApi.delete(conflict.id)
-        setEvents(prev => prev.filter(e => e.id !== conflict.id))
-      }
 
       // 元の公演の時間帯を取得
       const sourceTimeSlot = getEventTimeSlot(draggedEvent)
@@ -488,8 +468,28 @@ export function useEventMoveCopy({
 
       // 繰り下げ後も同店舗・同日の他公演と重なる場合（後続公演への食い込み等）は警告
       const copyOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
-      if (copyOverlap) {
-        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+      const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+
+      if (conflict) {
+        // 同一枠に既存公演がある: 重ねて設置の確認。既存は削除しない。
+        // 実時間も重なる場合は理由を併記し、時間重複の確認を二重に出さない。
+        const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'candidate')
+        const overlapNote = copyOverlap
+          ? `\nまた「${copyOverlap.event.scenario}」（${copyOverlap.event.start_time.slice(0, 5)}〜${copyOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${copyOverlap.reason}）。`
+          : ''
+        const ok = await askConfirm({
+          title: '複製先に既存の公演があります',
+          message: `${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。重ねて設置しますか？${overlapNote}`,
+          confirmLabel: '重ねて設置',
+          variant: 'default',
+        })
+        if (!ok) {
+          setDraggedEvent(null)
+          setDropTarget(null)
+          return
+        }
+      } else if (copyOverlap) {
+        // 同一枠ではないが時間が重なる（別枠への食い込み等）: 従来どおりの警告
         const ok = await askConfirm({
           title: '時間が重なります',
           message: `${dropTarget.date} ${storeName}で「${copyOverlap.event.scenario}」（${copyOverlap.event.start_time.slice(0, 5)}〜${copyOverlap.event.end_time.slice(0, 5)}）と時間が重なります（${copyOverlap.reason}）。このまま複製しますか？`,

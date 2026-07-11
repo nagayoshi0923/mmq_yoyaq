@@ -1028,14 +1028,6 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
 
   if (!insertedId) {
     console.error('[schedule:create] insert error:', lastError)
-    // 23505: unique_violation
-    // idx_schedule_events_unique_slot: WHERE is_cancelled = false の partial unique
-    // (date, store_id, time_slot, organization_id) で重複が起きた場合
-    if (lastError?.code === '23505') {
-      return res.status(409).json({
-        error: 'この日時・店舗・時間帯にはすでに公演があります。既存の公演を確認するか、不要であれば中止してから再度作成してください。',
-      })
-    }
     return res.status(500).json({ error: '公演の作成に失敗しました', detail: lastError?.message })
   }
 
@@ -1156,11 +1148,6 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
 
   if (!updateSucceeded) {
     console.error('[schedule:update] update error:', lastError)
-    if (lastError?.code === '23505') {
-      return res.status(409).json({
-        error: 'この日時・店舗・時間帯にはすでに別の公演があります。移動先を確認してください。',
-      })
-    }
     return res.status(500).json({ error: '公演の更新に失敗しました', detail: lastError?.message })
   }
 
