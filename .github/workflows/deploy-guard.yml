@@ -3,15 +3,162 @@ name: Deploy Guard
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review, closed]
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI, E2E Tests, Release PR (staging → main)]
+    types: [completed]
+  status:
+
+# 同時実行を直列化してタイトル採番の競合を防ぐ(進行中はキャンセルしない)
+concurrency:
+  group: deploy-guard
+  cancel-in-progress: false
 
 permissions:
+  contents: read
   pull-requests: write
   issues: write
+  actions: read
 
 jobs:
   guard:
+    # fork からの PR では secrets を使わない(同一リポジトリ内ブランチの PR のみ実行)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_run' ||
+      github.event_name == 'status' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect open staging PRs
+        id: collect
+        env:
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          PRS_FILE: ${{ runner.temp }}/staging-prs.json
+        run: |
+          set -euo pipefail
+          BASE=$(gh pr list -R "$REPO" --base staging --state open --json number,title,body,isDraft \
+            --jq '[.[] | select(.isDraft|not)]')
+          NUMS=$(echo "$BASE" | jq -r '.[].number')
+          ARR='[]'
+          for n in $NUMS; do
+            FILES=$(gh pr view "$n" -R "$REPO" --json files --jq '[.files[].path]' 2>/dev/null || echo '[]')
+            META=$(echo "$BASE" | jq --argjson n "$n" '.[] | select(.number==$n) | {number, title, body}')
+            ENTRY=$(jq -n --argjson meta "$META" --argjson files "$FILES" '$meta + {files: $files}')
+            ARR=$(jq -n --argjson arr "$ARR" --argjson e "$ENTRY" '$arr + [$e]')
+          done
+          echo "$ARR" > "$PRS_FILE"
+          COUNT=$(echo "$ARR" | jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "staging の open/non-draft PR: ${COUNT} 件"
+
+      - name: Setup Node.js
+        if: fromJSON(steps.collect.outputs.count) >= 2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: scripts/cursor-cloud/package-lock.json
+
+      - name: Install Cursor SDK
+        if: fromJSON(steps.collect.outputs.count) >= 2
+        run: npm ci --prefix scripts/cursor-cloud
+
+      - name: Build reorder prompt
+        id: prompt
+        if: fromJSON(steps.collect.outputs.count) >= 2
+        env:
+          PRS_FILE: ${{ runner.temp }}/staging-prs.json
+          PROMPT_FILE: ${{ runner.temp }}/cursor-prompt.md
+        run: |
+          set -euo pipefail
+          {
+            echo "あなたは Cursor Cloud Agent（分析専用）です。コードは一切変更しないこと。"
+            echo "base=staging の open かつ non-draft の PR 群について、安全なマージ順を判定してください。"
+            echo ""
+            echo "対象 PR のメタデータ（number / title / body / files）:"
+            echo '```json'
+            cat "$PRS_FILE"
+            echo '```'
+            echo ""
+            echo "## 判定の優先順位"
+            echo "- DB migration や supabase/schemas/・supabase/rpcs/ の変更に依存する PR は「DB 側を先に」並べる。"
+            echo "- producer→consumer（先に用意すべき変更が先）。"
+            echo "- 同一ファイルを編集して競合しうる PR は近接させ、論理的に先に入るべき方を先に。"
+            echo "- 本文に明示された依存（例: 「#123 の後」）を尊重する。"
+            echo "- 依存関係が無い PR 同士は PR 番号の小さい順（古い順）にする。"
+            echo ""
+            echo "## 出力（最後に必ず出す）"
+            echo "厳密な JSON 1個のみを出力すること（前後の説明・コードフェンスなし）:"
+            echo '{ "order": [<最も先にマージすべき PR 番号>, ...] }'
+            echo "order には対象 PR の番号を過不足なく1回ずつ全て含めること。gh 実行・コード変更・PR/Issue へのコメントは禁止。"
+          } > "$PROMPT_FILE"
+          echo "file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Run Cursor Cloud reorder analysis
+        if: fromJSON(steps.collect.outputs.count) >= 2
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_PROMPT_FILE: ${{ steps.prompt.outputs.file }}
+          CURSOR_RESULT_FILE: ${{ runner.temp }}/cursor-result.json
+          CURSOR_REPO_URL: https://github.com/${{ github.repository }}
+          CURSOR_STARTING_REF: staging
+          CURSOR_AUTO_CREATE_PR: 'false'
+          CURSOR_MODE: plan
+          CURSOR_MODEL: ${{ vars.CURSOR_MODEL || 'auto' }}
+          CURSOR_AGENT_NAME: MMQ Deploy Guard reorder
+          CURSOR_IDEMPOTENCY_KEY: mmq-reorder-${{ github.run_id }}
+        run: node scripts/cursor-cloud/run.mjs
+
+      - name: Apply reorder (best-effort)
+        if: fromJSON(steps.collect.outputs.count) >= 2
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          PRS_FILE: ${{ runner.temp }}/staging-prs.json
+          RESULT_FILE: ${{ runner.temp }}/cursor-result.json
+        run: |
+          set -uo pipefail
+          if [ ! -f "$RESULT_FILE" ]; then echo "結果ファイルなし。既存順を維持します（fallback）。"; exit 0; fi
+          STATUS=$(jq -r '.status // ""' "$RESULT_FILE")
+          if [ "$STATUS" != "finished" ]; then echo "Cursor run 未完了（$STATUS）。既存順を維持します（fallback）。"; exit 0; fi
+
+          RAW=$(jq -r '.result // ""' "$RESULT_FILE")
+          DEC=$(printf '%s\n' "$RAW" | sed -E '/^```/d')
+          if ! printf '%s' "$DEC" | jq -e '(.order|type) == "array"' >/dev/null 2>&1; then
+            echo "order が配列ではありません。既存順を維持します（fallback）。"; exit 0
+          fi
+
+          EXPECT=$(jq -cS '[.[].number] | sort' "$PRS_FILE")
+          GOT=$(printf '%s' "$DEC" | jq -cS '[.order[]] | sort')
+          if [ "$EXPECT" != "$GOT" ]; then
+            echo "order が現在の PR 集合と完全一致しません（重複・欠落）。既存順を維持します（fallback）。"
+            echo "expect=$EXPECT got=$GOT"
+            exit 0
+          fi
+
+          IDX=1
+          for n in $(printf '%s' "$DEC" | jq -r '.order[]'); do
+            TITLE=$(gh pr view "$n" -R "$REPO" --json title --jq '.title' 2>/dev/null || echo "")
+            [ -z "$TITLE" ] && continue
+            BASE_TITLE=$(printf '%s' "$TITLE" | sed -E 's/^【▶[0-9]+】 *//')
+            NEW="【▶${IDX}】${BASE_TITLE}"
+            if [ "$NEW" != "$TITLE" ]; then
+              gh pr edit "$n" -R "$REPO" --title "$NEW" || true
+            fi
+            IDX=$((IDX+1))
+          done
+          echo "Cursor の判定順で 【▶N】 を付与しました。"
+
       - name: Evaluate deploy safety
         env:
           GH_TOKEN: ${{ secrets.GUARD_TOKEN || github.token }}
@@ -21,12 +168,19 @@ jobs:
           gh label create do-not-merge --color B60205 --description "Deploy Guard: マージ待機中" -R "$REPO" 2>/dev/null || true
 
           STAGING_PRS=$(gh pr list -R "$REPO" --base staging --state open --json number,title,isDraft \
-            --jq '[.[] | select(.isDraft|not)] | sort_by(.number)')
+            --jq '[.[] | select(.isDraft|not)]')
 
-          BLOCKERS=$(echo "$STAGING_PRS" | jq -r 'to_entries | map("- 【▶\(.key+1)】 #\(.value.number) \(.value.title | gsub("^【▶[0-9]+】 *"; ""))") | join("\n")')
+          # 並び順: AIが付けた既存の【▶N】を数値順で先に、prefixなしはPR番号順で末尾に。
+          # これによりAIの reorder が失敗しても既存順が保持され、新規PRだけが末尾に付く。
+          ORDERED=$(echo "$STAGING_PRS" | jq -c '
+            [ .[] | . + {ord: (if (.title | test("^【▶[0-9]+】")) then (.title | capture("^【▶(?<n>[0-9]+)】").n | tonumber) else null end)} ]
+            | ( [ .[] | select(.ord != null) ] | sort_by(.ord) )
+            + ( [ .[] | select(.ord == null) ] | sort_by(.number) )')
 
-          # staging側PRに処理順の採番(古い順)。マージされるたび自動で振り直し
-          echo "$STAGING_PRS" | jq -c 'to_entries[]' | while read -r ent; do
+          # 連番を 1..M に正規化しつつ案内文を作る
+          BLOCKERS=$(echo "$ORDERED" | jq -r 'to_entries | map("- 【▶\(.key+1)】 #\(.value.number) \(.value.title | gsub("^【▶[0-9]+】 *"; ""))") | join("\n")')
+
+          echo "$ORDERED" | jq -c 'to_entries[]' | while read -r ent; do
             IDX=$(echo "$ent" | jq -r '.key + 1')
             NUM=$(echo "$ent" | jq -r '.value.number')
             TITLE=$(echo "$ent" | jq -r '.value.title')
@@ -37,8 +191,14 @@ jobs:
             fi
           done
 
-          BLOCK_MSG="# 🛑 Deploy Guard: マージ停止中"$'\n\n'"**stagingに未マージの修正PRが残っています。**今マージすると未修正の変更が本番に反映されます。タイトルの【▶番号】順に処理してください:"$'\n\n'"$BLOCKERS"$'\n\n'"すべてマージ(または明示的にクローズ)されると、タイトルが【✅マージ可】に変わり✅コメントが付きます。緊急時のみ force-deploy ラベルでスキップ可。"
-          READY_MSG="# ✅ Deploy Guard: マージ可能"$'\n\n'"stagingの未マージPRがすべて処理されました。安心してマージできます。"
+          gh label create db-applied -R "$REPO" --color 0E8A16 \
+            --description "本番DBへの先行適用を確認済み" 2>/dev/null || true
+
+          BLOCK_MSG="# 🛑 Deploy Guard: staging PR待ち"$'\n\n'"**stagingに未マージの修正PRが残っています。**タイトルの【▶番号】順に処理してください:"$'\n\n'"$BLOCKERS"
+          DB_MSG="# 🛑 Deploy Guard: DB先行適用待ち"$'\n\n'"このリリースにはDB migrationが含まれます。Cursorへ「本番に反映して」と依頼し、本番DB適用後に db-applied ラベルが付いてからmainへマージしてください。"
+          CHECK_WAIT_MSG="# 🛑 Deploy Guard: チェック完了待ち"$'\n\n'"CI・E2E・Vercel Previewの完了を待っています。すべて成功するまでmainへマージしないでください。"
+          CHECK_FAIL_MSG="# 🛑 Deploy Guard: チェック失敗"$'\n\n'"CI・E2E・Vercel Previewのいずれかが失敗しています。失敗を解消してからmainへマージしてください。"
+          READY_MSG="# ✅ Deploy Guard: 本番反映可能"$'\n\n'"staging PRとDB先行適用の確認が完了しました。このPRをmainへマージできます。"
 
           gh pr list -R "$REPO" --base main --state open --json number,title,isDraft,labels | \
             jq -c '.[]' | while read -r pr; do
@@ -47,15 +207,47 @@ jobs:
             DRAFT=$(echo "$pr" | jq -r '.isDraft')
             FORCE=$(echo "$pr" | jq -r '[.labels[].name] | contains(["force-deploy"])')
             HELD=$(echo "$pr" | jq -r '[.labels[].name] | contains(["do-not-merge"])')
+            HAS_DB=$(echo "$pr" | jq -r '[.labels[].name] | contains(["contains-db-changes"])')
+            DB_APPLIED=$(echo "$pr" | jq -r '[.labels[].name] | contains(["db-applied"])')
 
-            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *待機中|✅ *マージ可)】 *//')
+            CHECKS=$(gh pr view "$NUM" -R "$REPO" --json statusCheckRollup --jq '.statusCheckRollup')
+            CHECK_FAILURE=$(echo "$CHECKS" | jq '
+              [ .[]
+                | select(
+                    (.__typename == "CheckRun" and .name != "guard" and .status == "COMPLETED"
+                      and (.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED"))
+                    or
+                    (.__typename == "StatusContext" and (.state == "ERROR" or .state == "FAILURE"))
+                  )
+              ] | length')
+            CHECK_PENDING=$(echo "$CHECKS" | jq '
+              [ .[]
+                | select(
+                    (.__typename == "CheckRun" and .name != "guard" and .status != "COMPLETED")
+                    or
+                    (.__typename == "StatusContext" and (.state == "EXPECTED" or .state == "PENDING"))
+                  )
+              ] | length')
+            CHECK_TOTAL=$(echo "$CHECKS" | jq '[.[] | select(.__typename != "CheckRun" or .name != "guard")] | length')
+
+            BASE_TITLE=$(echo "$TITLE" | sed -E 's/^【(🛑 *確認中|🛑 *待機中|🛑 *DB確認|🛑 *チェック待ち|🛑 *チェック失敗|✅ *マージ可|✅ *本番反映可)】 *//')
 
             if [ "$FORCE" = "true" ]; then
               echo "#$NUM は force-deploy によりガード対象外"
               continue
             fi
 
-            if [ -n "$BLOCKERS" ]; then
+            if [ "$HAS_DB" = "true" ] && [ "$DB_APPLIED" != "true" ]; then
+              NEW_TITLE="【🛑DB確認】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ(GUARD_TOKEN未設定でもタイトル/ラベル運用で機能します)"
+                gh pr comment "$NUM" -R "$REPO" --body "$DB_MSG" || true
+              fi
+            elif [ -n "$BLOCKERS" ]; then
               NEW_TITLE="【🛑待機中】$BASE_TITLE"
               if [ "$NEW_TITLE" != "$TITLE" ]; then
                 gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
@@ -65,8 +257,28 @@ jobs:
                 gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ(GUARD_TOKEN未設定でもタイトル/ラベル運用で機能します)"
                 gh pr comment "$NUM" -R "$REPO" --body "$BLOCK_MSG" || true
               fi
+            elif [ "$CHECK_FAILURE" -gt 0 ]; then
+              NEW_TITLE="【🛑チェック失敗】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ"
+                gh pr comment "$NUM" -R "$REPO" --body "$CHECK_FAIL_MSG" || true
+              fi
+            elif [ "$CHECK_TOTAL" -eq 0 ] || [ "$CHECK_PENDING" -gt 0 ]; then
+              NEW_TITLE="【🛑チェック待ち】$BASE_TITLE"
+              if [ "$NEW_TITLE" != "$TITLE" ]; then
+                gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
+              fi
+              if [ "$HELD" != "true" ]; then
+                gh pr edit "$NUM" -R "$REPO" --add-label "do-not-merge" || true
+                gh pr ready "$NUM" -R "$REPO" --undo || echo "Draft化はスキップ"
+                gh pr comment "$NUM" -R "$REPO" --body "$CHECK_WAIT_MSG" || true
+              fi
             else
-              NEW_TITLE="【✅マージ可】$BASE_TITLE"
+              NEW_TITLE="【✅本番反映可】$BASE_TITLE"
               if [ "$NEW_TITLE" != "$TITLE" ]; then
                 gh pr edit "$NUM" -R "$REPO" --title "$NEW_TITLE" || true
               fi

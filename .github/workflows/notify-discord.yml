@@ -6,7 +6,7 @@ on:
 
 jobs:
   notify:
-    if: github.event.label.name == 'needs-info' || github.event.label.name == 'needs-human'
+    if: github.event.label.name == 'needs-info' || github.event.label.name == 'needs-human' || github.event.label.name == 'automation-failed'
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -25,6 +25,8 @@ jobs:
           fi
           if [ "$LABEL" = "needs-info" ]; then
             REASON="⏳ 報告者への確認待ち(質問がissueに投稿されています)"
+          elif [ "$LABEL" = "automation-failed" ]; then
+            REASON="⚠️ 自動処理が終端状態に到達せず失敗(ラベル未確定/PR未作成など)。人間が状況を確認して状態を確定してください"
           else
             REASON="🙋 人間の判断が必要(DB作業・設計判断など、自動実装の対象外)"
           fi

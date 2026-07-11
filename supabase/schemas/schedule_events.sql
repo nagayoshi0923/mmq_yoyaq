@@ -59,5 +59,5 @@ CREATE INDEX idx_schedule_events_organization_id ON public.schedule_events USING
 CREATE INDEX idx_schedule_events_reservation_id ON public.schedule_events USING btree (reservation_id) WHERE (reservation_id IS NOT NULL);
 CREATE INDEX idx_schedule_events_scenario_master_id ON public.schedule_events USING btree (scenario_master_id);
 CREATE INDEX idx_schedule_events_store_date ON public.schedule_events USING btree (store_id, date);
-CREATE UNIQUE INDEX idx_schedule_events_unique_slot ON public.schedule_events USING btree (date, store_id, time_slot, organization_id) WHERE (is_cancelled = false);
+CREATE INDEX idx_schedule_events_slot ON public.schedule_events USING btree (date, store_id, time_slot, organization_id) WHERE (is_cancelled = false);
 CREATE INDEX idx_schedule_events_venue ON public.schedule_events USING btree (venue);

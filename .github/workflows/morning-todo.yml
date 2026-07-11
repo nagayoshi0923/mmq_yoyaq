@@ -9,6 +9,7 @@ jobs:
   todo:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       issues: read
       pull-requests: read
       contents: read
@@ -23,20 +24,29 @@ jobs:
           if [ -z "$WEBHOOK" ]; then echo "DISCORD_WEBHOOK_URL 未設定のためスキップします"; exit 0; fi
           TODAY=$(TZ=Asia/Tokyo date '+%-m/%-d')
 
-          PRS=$(gh pr list -R "$REPO" --state open --json number,title,isDraft \
-            --jq '[.[] | select(.isDraft|not)] | map("・#\(.number) \(.title[0:44])") | join("\n")')
+          # open かつ non-draft の PR。放置忘れ対策に未更新日数と直接URLを載せる。最大10件。
+          PRS=$(gh pr list -R "$REPO" --state open --json number,title,isDraft,updatedAt,url \
+            --jq '[.[] | select(.isDraft|not)] | .[0:10] | map("・#\(.number) \(.title[0:40]) (\((now - (.updatedAt|fromdateiso8601)) / 86400 | floor)日未更新)\n  \(.url)") | join("\n")')
 
           NH=$(gh issue list -R "$REPO" --state open --label needs-human --json number,title \
-            --jq 'map("・#\(.number) \(.title[0:44])") | join("\n")')
+            --jq '.[0:10] | map("・#\(.number) \(.title[0:44])") | join("\n")')
 
           NI=$(gh issue list -R "$REPO" --state open --label needs-info --json number,title,updatedAt \
-            --jq 'map("・#\(.number) \(.title[0:40]) (\((now - (.updatedAt|fromdateiso8601)) / 86400 | floor)日停滞)") | join("\n")')
+            --jq '.[0:10] | map("・#\(.number) \(.title[0:40]) (\((now - (.updatedAt|fromdateiso8601)) / 86400 | floor)日停滞)") | join("\n")')
 
           NOLABEL=$(gh issue list -R "$REPO" --state open --json number,title,labels \
-            --jq '[.[] | select(.labels|length==0)] | map("・#\(.number) \(.title[0:44])") | join("\n")')
+            --jq '[.[] | select(.labels|length==0)] | .[0:10] | map("・#\(.number) \(.title[0:44])") | join("\n")')
 
           AITODO=$(gh issue list -R "$REPO" --state open --label ai-todo --json number,title \
-            --jq 'map("・#\(.number) \(.title[0:44])") | join("\n")')
+            --jq '.[0:10] | map("・#\(.number) \(.title[0:44])") | join("\n")')
+
+          AF=$(gh issue list -R "$REPO" --state open --label automation-failed --json number,title,url \
+            --jq '.[0:10] | map("・#\(.number) \(.title[0:40])\n  \(.url)") | join("\n")')
+
+          SINCE=$(date -u -d '3 days ago' '+%Y-%m-%d')
+          FAILED=$(gh run list -R "$REPO" --status failure --created ">=$SINCE" --limit 10 \
+            --json name,displayTitle,url \
+            --jq 'map("・\(.name): \(.displayTitle[0:36])\n  \(.url)") | join("\n")')
 
           AHEAD=$(gh api "repos/$REPO/compare/main...staging" --jq '.ahead_by' 2>/dev/null || echo 0)
           DEPLOY=""
@@ -45,18 +55,28 @@ jobs:
           fi
 
           MSG="☀️ **今日のTODO** ${TODAY} — ${REPO}"
-          [ -n "$PRS" ]     && MSG="$MSG"$'\n\n'"🟢 **マージ判断待ちPR**"$'\n'"$PRS"
+          [ -n "$PRS" ]     && MSG="$MSG"$'\n\n'"🟢 **マージ判断待ちPR(最大10件)**"$'\n'"$PRS"
           [ -n "$DEPLOY" ]  && MSG="$MSG"$'\n\n'"🚀 **デプロイ判断**"$'\n'"$DEPLOY"
+          [ -n "$FAILED" ]  && MSG="$MSG"$'\n\n'"🚨 **直近3日の失敗Action**"$'\n'"$FAILED"
+          [ -n "$AF" ]      && MSG="$MSG"$'\n\n'"⚠️ **自動処理が失敗(automation-failed)**"$'\n'"$AF"
           [ -n "$NH" ]      && MSG="$MSG"$'\n\n'"🙋 **あなたの判断待ち**"$'\n'"$NH"
           [ -n "$NI" ]      && MSG="$MSG"$'\n\n'"⏳ **報告者の回答待ち(停滞していたら催促)**"$'\n'"$NI"
           [ -n "$NOLABEL" ] && MSG="$MSG"$'\n\n'"🏷 **トリアージ漏れ(ラベル無し)**"$'\n'"$NOLABEL"
           [ -n "$AITODO" ]  && MSG="$MSG"$'\n\n'"🤖 **AI作業中(結果待ち)**"$'\n'"$AITODO"
 
-          if [ -z "${PRS}${DEPLOY}${NH}${NI}${NOLABEL}${AITODO}" ]; then
+          if [ -z "${PRS}${DEPLOY}${FAILED}${AF}${NH}${NI}${NOLABEL}${AITODO}" ]; then
             MSG="$MSG"$'\n\n'"✅ 今日対応が必要なものはありません"
           fi
 
-          MSG="$MSG"$'\n\n'"<https://github.com/${REPO}/issues>"$'\n'"※未対応の項目は明朝また再掲されます"
+          MSG="$MSG"$'\n\n'"PR一覧: <https://github.com/${REPO}/pulls>"$'\n'"Issue一覧: <https://github.com/${REPO}/issues>"$'\n'"※未対応の項目は明朝また再掲されます"
 
-          PAYLOAD=$(jq -n --arg content "$MSG" '{content: $content}')
-          curl -sf -H "Content-Type: application/json" -d "$PAYLOAD" "$WEBHOOK"
+          # Discord content の上限(2000文字)を超えないよう分割送信する。
+          while [ "${#MSG}" -gt 1900 ]; do
+            CHUNK="${MSG:0:1900}"
+            MSG="${MSG:1900}"
+            jq -n --arg content "$CHUNK" '{content: $content}' \
+              | curl -sf -H "Content-Type: application/json" -d @- "$WEBHOOK"
+            sleep 1
+          done
+          jq -n --arg content "$MSG" '{content: $content}' \
+            | curl -sf -H "Content-Type: application/json" -d @- "$WEBHOOK"

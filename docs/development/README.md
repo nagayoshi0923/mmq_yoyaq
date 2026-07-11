@@ -1,6 +1,6 @@
 # 開発ルール
 
-**最終更新**: 2025-12-30
+**最終更新**: 2026-07-11
 
 コーディング・デザイン・運用に関するルール集。
 
@@ -17,6 +17,7 @@
 | [ui-design.md](./ui-design.md) | 全ページのUI要素詳細 |
 | [date-handling.md](./date-handling.md) | 日付処理のルール |
 | [status-badge-logic.md](./status-badge-logic.md) | ステータスバッジの判定ロジック |
+| [cursor-cloud-agents.md](./cursor-cloud-agents.md) | GitHub自動化用Cursor Cloud Agentsの設定・安全条件 |
 
 ---
 

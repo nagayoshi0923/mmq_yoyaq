@@ -5,9 +5,10 @@ on:
     types: [closed]
 
 permissions:
+  actions: write
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   capture:
@@ -22,7 +23,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          set -eu
+          set -euo pipefail
           NAME="${REPO#*/}"
 
           THREADS=$(gh api graphql \
@@ -58,10 +59,19 @@ jobs:
           fi
           ISSUE_BODY="$ISSUE_BODY"$'\n\n'"---"$'\n'"Refs #${PR} (自動起票: Follow-up Capture)"
 
-          gh issue create -R "$REPO" \
+          # ラベルは付けない(Issue Groomer が内容を見て ai-todo / no-action / needs-human を判断する)。
+          # 本文の「自動起票: Follow-up Capture」マーカーが Groomer / Implement の内部Follow-up判定に使われる。
+          NEW_ISSUE_URL=$(gh issue create -R "$REPO" \
             --title "[Follow-up] PR #${PR} の未対応指摘(${PR_TITLE:0:30})" \
-            --label "needs-human" \
-            --body "$ISSUE_BODY"
+            --body "$ISSUE_BODY")
+          NEW_ISSUE="${NEW_ISSUE_URL##*/}"
 
+          # GITHUB_TOKEN が作成した Issue は issues.opened を再発火しないため、
+          # workflow_dispatch で Groomer を明示的に起動する。
+          gh workflow run issue-groomer.yml -R "$REPO" -f issue_number="$NEW_ISSUE"
+
+          # 末尾のPRコメントは失敗してもIssue作成済みなのでworkflow全体は失敗させない
+          # (pull-requests: write を付与しているため通常は成功する)
           gh pr comment "$PR" -R "$REPO" \
-            --body "📌 未対応の指摘・残課題を [Follow-up] issueに転記しました(マージ時点でResolveされていなかったもの)。"
+            --body "📌 未対応の指摘・残課題を [Follow-up] issueに転記しました(マージ時点でResolveされていなかったもの)。" \
+            || echo "PRコメントの投稿に失敗しましたが、Issueは作成済みのため続行します。"
