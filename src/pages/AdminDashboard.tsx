@@ -703,8 +703,15 @@ export function AdminDashboard() {
     )
   }
 
-  // 開発用：デザインプレビューページ
+  // 開発用：デザインプレビューページ（開発ビルドのみ。本番では 404）
   if (currentPage === 'dev-design-preview') {
+    if (!import.meta.env.DEV) {
+      return (
+        <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+          <NotFoundPage />
+        </Suspense>
+      )
+    }
     return (
       <Suspense fallback={<LoadingScreen message="デザインプレビューを読み込み中..." />}>
         <DesignPreview />
@@ -712,8 +719,15 @@ export function AdminDashboard() {
     )
   }
 
-  // 開発用：UIコンポーネントギャラリー
+  // 開発用：UIコンポーネントギャラリー（開発ビルドのみ。本番では 404）
   if (currentPage === 'dev-components') {
+    if (!import.meta.env.DEV) {
+      return (
+        <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+          <NotFoundPage />
+        </Suspense>
+      )
+    }
     return (
       <Suspense fallback={<LoadingScreen message="コンポーネントギャラリーを読み込み中..." />}>
         <ComponentGallery />
