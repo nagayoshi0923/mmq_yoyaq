@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
+import { AdminOnlyNotice } from '@/components/layout/AdminOnlyNotice'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
@@ -398,6 +399,10 @@ export function AdminDashboard() {
   }
   
   if (currentPage === 'sales') {
+    // 売上（集計・粗利・給与）は管理者(admin/license_admin)専用
+    if (!isAdmin) {
+      return <AdminOnlyNotice currentPage="sales" />
+    }
     return (
       <Suspense fallback={<LoadingScreen message="売上管理を読み込み中..." />}>
         <SalesManagement />
@@ -605,6 +610,10 @@ export function AdminDashboard() {
   }
 
   if (currentPage === 'settings') {
+    // 設定（組織・給与・メール・データ管理等）は管理者(admin/license_admin)専用
+    if (!isAdmin) {
+      return <AdminOnlyNotice currentPage="settings" />
+    }
     return (
       <Suspense fallback={<LoadingScreen message="設定を読み込み中..." />}>
         <SettingsPage />
