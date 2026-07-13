@@ -113,17 +113,8 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
         email: email
       }
       
+      // staffApi.update（サーバー API / service_role）が users.role='staff' と organization_id を同期する。
       await staffApi.update(linkingStaff.id, updatedStaff)
-
-      // usersテーブルのroleをstaffに更新
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ role: 'staff' })
-        .eq('id', users.id)
-
-      if (updateError) {
-        logger.warn('usersテーブルの更新に失敗しました:', updateError)
-      }
 
       // React Queryのキャッシュを更新
       queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {
@@ -239,36 +230,8 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
         email: staff.email || undefined // emailも保持（必要に応じて）
       }
       
+      // staffApi.update（サーバー API / service_role）が admin/license_admin 以外の users.role を customer に戻す。
       await staffApi.update(staff.id, updatedStaff)
-
-      // usersテーブルのroleをcustomerに更新（スタッフ権限を解除）
-      const userIdToUpdate = staff.user_id
-      if (userIdToUpdate) {
-        // 現在のユーザー情報を取得してroleを確認
-        const { data: userData, error: fetchError } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', userIdToUpdate)
-          .single()
-          
-        if (fetchError) {
-          logger.error('ユーザー情報取得エラー:', fetchError)
-        } else if (userData && userData.role !== 'admin') {
-        // adminでない場合のみロールを変更
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ role: 'customer' })
-            .eq('id', userIdToUpdate)
-            
-          if (updateError) {
-            logger.error('usersテーブルのロール更新に失敗しました:', updateError)
-          } else {
-            logger.log('✅ 連携解除に伴い、ユーザーロールをcustomerに変更しました')
-          }
-        } else if (userData?.role === 'admin') {
-          logger.log('ℹ️ adminユーザーのため、ロール変更をスキップしました')
-        }
-      }
 
       // React Queryのキャッシュを更新
       queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {

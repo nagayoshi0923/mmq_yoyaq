@@ -294,23 +294,12 @@ export function StaffManagement() {
       }
 
       // 3. 新しいスタッフレコードにuser_idを設定
+      //    staffApi.update（サーバー API / service_role）が users.role='staff' と organization_id を同期する。
       await staffApi.update(linkingStaff.id, {
         ...linkingStaff,
         user_id: searchedUser.id,
         email: searchedUser.email
       })
-
-      // 4. usersテーブルのroleをstaffに更新（既にadminの場合は変更しない）
-      if (searchedUser.role !== 'admin') {
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ role: 'staff' })
-        .eq('id', searchedUser.id)
-
-      if (updateError) {
-        logger.warn('usersテーブルの更新に失敗しました:', updateError)
-      }
-      }
 
       // React Queryのキャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: ['staff'] })

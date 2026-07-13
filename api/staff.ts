@@ -142,13 +142,14 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   }
 
   // user_id を指定する場合、自組織のユーザーかチェック（別組織のユーザーを strap しない）
+  let linkTargetUser: { role: string | null; organization_id: string | null } | null = null
   if (insertRow.user_id) {
     if (typeof insertRow.user_id !== 'string') {
       return res.status(400).json({ error: 'user_id が不正です' })
     }
     const { data: targetUser, error: userErr } = await database
       .from('users')
-      .select('id, organization_id')
+      .select('id, organization_id, role')
       .eq('id', insertRow.user_id)
       .maybeSingle()
     if (userErr) {
@@ -160,6 +161,10 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
     if (targetUser.organization_id && targetUser.organization_id !== user.orgId) {
       return res.status(403).json({ error: '他組織のユーザーをスタッフとして登録できません' })
+    }
+    linkTargetUser = {
+      role: (targetUser.role as string | null) ?? null,
+      organization_id: (targetUser.organization_id as string | null) ?? null,
     }
   }
 
@@ -176,6 +181,20 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     console.error('[staff:create] DB error:', error)
     return res.status(500).json({ error: 'スタッフの作成に失敗しました', detail: error.message })
   }
+
+  // ─── user_id 紐付けの副作用: users.role / organization_id を service_role で同期
+  //     クライアント直の users.update は RLS(H-1) により対象ユーザーの org が NULL だと 0 行更新で
+  //     握り潰されるため、service_role を持つサーバー側でここで同期する。
+  if (typeof insertRow.user_id === 'string' && linkTargetUser) {
+    await syncUserOnStaffLink(
+      database,
+      user.orgId,
+      insertRow.user_id,
+      linkTargetUser.role,
+      linkTargetUser.organization_id,
+    )
+  }
+
   return res.status(201).json(data)
 }
 
@@ -223,6 +242,50 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
     requireAdmin(user)
   }
 
+  // ─── user_id（アカウント紐付け/解除）は権限操作として個別に処理する
+  //     Mass Assignment 防止のため updatable whitelist には含めず、ここで明示的に検証・付与する。
+  let linkChange:
+    | { kind: 'link'; targetUserId: string; targetRole: string | null; targetOrg: string | null }
+    | { kind: 'unlink'; targetUserId: string }
+    | null = null
+  if ('user_id' in body) {
+    const rawUserId = body.user_id
+    const newUserId = typeof rawUserId === 'string' && rawUserId.length > 0 ? rawUserId : null
+    const oldUserId = (existing.user_id as string | null) || null
+    if (newUserId !== oldUserId) {
+      // 紐付け/解除は権限操作。role 変更と同様に admin のみ許可する。
+      requireAdmin(user)
+      if (newUserId) {
+        // 紐付け先ユーザーの検証（create 側の越境チェックと同じ）
+        const { data: targetUser, error: targetErr } = await database
+          .from('users')
+          .select('id, role, organization_id')
+          .eq('id', newUserId)
+          .maybeSingle()
+        if (targetErr) {
+          console.error('[staff:update] user lookup error:', targetErr)
+          return res.status(500).json({ error: 'ユーザー情報の確認に失敗しました' })
+        }
+        if (!targetUser) {
+          return res.status(400).json({ error: '指定された user_id のユーザーが存在しません' })
+        }
+        if (targetUser.organization_id && targetUser.organization_id !== user.orgId) {
+          return res.status(403).json({ error: '他組織のユーザーをスタッフとして登録できません' })
+        }
+        linkChange = {
+          kind: 'link',
+          targetUserId: newUserId,
+          targetRole: (targetUser.role as string | null) ?? null,
+          targetOrg: (targetUser.organization_id as string | null) ?? null,
+        }
+      } else {
+        linkChange = { kind: 'unlink', targetUserId: oldUserId as string }
+      }
+      // staff.user_id 自体の更新を反映（whitelist 外なので明示的に付与）
+      updateRow.user_id = newUserId
+    }
+  }
+
   if (Object.keys(updateRow).length === 0) {
     return res.status(400).json({ error: '更新可能なフィールドがありません' })
   }
@@ -250,6 +313,21 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   // ─── role 変更時の副作用: users.role の同期
   if ('role' in updateRow && existing.user_id) {
     await syncStaffRoleToUser(database, existing.user_id as string, updateRow.role)
+  }
+
+  // ─── user_id 紐付け/解除の副作用: users.role / organization_id を service_role で同期
+  //     クライアント直の users.update は RLS(H-1) により対象ユーザーの org が NULL だと 0 行更新で
+  //     握り潰されるため、service_role を持つサーバー側でここで同期する。
+  if (linkChange?.kind === 'link') {
+    await syncUserOnStaffLink(
+      database,
+      user.orgId,
+      linkChange.targetUserId,
+      linkChange.targetRole,
+      linkChange.targetOrg,
+    )
+  } else if (linkChange?.kind === 'unlink') {
+    await syncUserOnStaffUnlink(database, linkChange.targetUserId)
   }
 
   return res.status(200).json(data)
@@ -456,5 +534,52 @@ async function syncStaffRoleToUser(
       .eq('id', userId)
   } catch (e) {
     console.warn('[staff:syncRole] users.role sync warn:', e)
+  }
+}
+
+// アカウント紐付け時: 対象ユーザーを staff 権限に昇格し、organization_id が未設定なら自組織を付与する。
+// admin / license_admin は権限を降格させない。service_role（database）で実行するため RLS を経由しない。
+async function syncUserOnStaffLink(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  database: any,
+  orgId: string,
+  userId: string,
+  currentRole: string | null,
+  currentOrg: string | null,
+) {
+  const isPrivileged = currentRole === 'admin' || currentRole === 'license_admin'
+  const patch: Record<string, unknown> = {}
+  if (!isPrivileged) patch.role = 'staff'
+  if (!currentOrg) patch.organization_id = orgId
+  if (Object.keys(patch).length === 0) return
+  patch.updated_at = new Date().toISOString()
+  try {
+    await database.from('users').update(patch).eq('id', userId)
+  } catch (e) {
+    console.error('[staff:linkUser] users.role/org sync error:', e)
+  }
+}
+
+// アカウント連携解除時: 対象ユーザーの role が admin / license_admin でなければ customer に戻す。
+// service_role（database）で実行するため RLS を経由しない。
+async function syncUserOnStaffUnlink(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  database: any,
+  userId: string,
+) {
+  try {
+    const { data: targetUser } = await database
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle()
+    if (!targetUser) return
+    if (targetUser.role === 'admin' || targetUser.role === 'license_admin') return
+    await database
+      .from('users')
+      .update({ role: 'customer', updated_at: new Date().toISOString() })
+      .eq('id', userId)
+  } catch (e) {
+    console.error('[staff:unlinkUser] users.role sync error:', e)
   }
 }

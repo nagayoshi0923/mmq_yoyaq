@@ -391,6 +391,10 @@ export function AdminDashboard() {
   }
   
   if (currentPage === 'staff') {
+    // スタッフ管理（招待・アカウント紐付け・権限変更）は管理者(admin/license_admin)専用
+    if (!isAdmin) {
+      return <AdminOnlyNotice currentPage="staff" />
+    }
     return (
       <Suspense fallback={<LoadingScreen message="スタッフ管理を読み込み中..." />}>
         <StaffManagement />
