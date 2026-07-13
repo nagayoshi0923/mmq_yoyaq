@@ -171,7 +171,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <>
               利益率 <span {...devDb('calc:profit_rate')}>{totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%</span>
               <br />
-              <span className="text-[10px] text-gray-500">固定費は月額満額を計上（日割りなし）。当月など期間の途中では粗利が低く表示されます。</span>
+              <span className="text-[10px] text-muted-foreground">固定費は月額満額を計上（日割りなし）。当月など期間の途中では粗利が低く表示されます。</span>
             </>
           }
         />
