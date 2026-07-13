@@ -418,28 +418,15 @@ export function CompleteProfile() {
           id: userId,
           email: userEmail,
           role: role,
-          organization_id: organizationId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })
-      
+      // NOTE: users.organization_id はここでは書き込まない。
+      // customer は organization_id=NULL 運用で支障がなく（get_user_organization_id は staff フォールバックあり）、
+      // H-1 の users 自己更新ポリシー（role/org 不変）が org 変更(NULL→非NULL)を 42501 で拒否してログノイズになるため。
+      // 組織スコープは下の customers 書き込み（organizationId）で保持する。
       if (usersUpsertError) {
         logger.warn('⚠️ usersテーブル更新エラー（続行）:', usersUpsertError)
-        // usersテーブルのエラーは致命的ではない（handle_new_userトリガーで作成済みの場合がある）
-        // ただし organization_id の設定が重要なので、個別にUPDATEを試行
-        const { error: updateOrgErr } = await supabase
-          .from('users')
-          .update({ 
-            organization_id: organizationId,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId)
-        
-        if (updateOrgErr) {
-          logger.warn('⚠️ organization_id更新もエラー:', updateOrgErr)
-        } else {
-          logger.log('✅ organization_id個別更新成功')
-        }
       } else {
         logger.log('✅ usersテーブル更新完了')
       }
