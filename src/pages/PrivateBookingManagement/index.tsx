@@ -20,7 +20,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { logger } from '@/utils/logger'
-import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNotificationForGm } from '@/lib/api/privateBookingNotificationApi'
 
@@ -215,7 +214,9 @@ export function PrivateBookingManagement() {
     if (result?.success) {
       showToast.success('貸切予約を確定しました。確定メールとGM通知を送信します。')
     } else if (result?.error) {
-      showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
+      // handleApprove の error はユーザー向けに整形済みのため、getSafeErrorMessage を通すと
+      // フォールバック文言に置き換わってしまう（#354）。そのまま表示する。
+      showToast.error(result.error || '処理に失敗しました')
     }
   }
 
@@ -947,7 +948,7 @@ export function PrivateBookingManagement() {
                           if (result?.success) {
                             showToast.success('貸切予約を確定しました。確定メールとGM通知を送信します。')
                           } else if (result?.error) {
-                            showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
+                            showToast.error(result.error || '処理に失敗しました')
                           }
                         }}
                         onReject={() => handleRejectClick(req.id, req)}
