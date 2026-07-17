@@ -11,11 +11,10 @@ import { privateGroupTimeSlotFromDb, privateGroupTimeSlotToDb } from '@/lib/priv
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
+import { usePrivateBookingDeadlineDays, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
 import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
-
-const MIN_ADVANCE_DAYS = 14
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -29,8 +28,8 @@ function addCalendarDaysYmd(ymd: string, days: number): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
-function getFirstSelectableMonthStart(now = new Date()): Date {
-  const minStr = addCalendarDaysYmd(getJstDateStringFromNow(now), MIN_ADVANCE_DAYS)
+function getFirstSelectableMonthStart(minAdvanceDays: number, now = new Date()): Date {
+  const minStr = addCalendarDaysYmd(getJstDateStringFromNow(now), minAdvanceDays)
   const [y, m] = minStr.split('-').map(Number)
   return new Date(y, m - 1, 1)
 }
@@ -55,7 +54,9 @@ export function AddCandidateDates({
   organizerMemberId,
 }: AddCandidateDatesProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState(() => getFirstSelectableMonthStart())
+  const [currentMonth, setCurrentMonth] = useState(() =>
+    getFirstSelectableMonthStart(DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS)
+  )
   const wasOpenRef = useRef(false)
   const emptyMonthAutoSkipRef = useRef(0)
   const [selectedSlots, setSelectedSlots] = useState<
@@ -66,6 +67,9 @@ export function AddCandidateDates({
 
   const { isCustomHoliday } = useCustomHolidays()
   const MAX_SELECTIONS = 100
+
+  // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
+  const minAdvanceDays = usePrivateBookingDeadlineDays({ organizationId })
 
   const { loading, scenarioTiming, computeSlotsByDate } = usePrivateBookingSlotData({
     organizationId,
@@ -78,7 +82,7 @@ export function AddCandidateDates({
   const { availableDates } = useMemo(() => {
     const dates: string[] = []
     const todayJstStr = getJstDateStringFromNow()
-    const minStr = addCalendarDaysYmd(todayJstStr, MIN_ADVANCE_DAYS)
+    const minStr = addCalendarDaysYmd(todayJstStr, minAdvanceDays)
 
     const jstOffsetMin = 9 * 60
     const jstNow = new Date(
@@ -100,7 +104,7 @@ export function AddCandidateDates({
     }
 
     return { availableDates: dates }
-  }, [currentMonth])
+  }, [currentMonth, minAdvanceDays])
 
   const slotsByDate = useMemo(
     () => computeSlotsByDate(availableDates),
@@ -137,9 +141,9 @@ export function AddCandidateDates({
     const lastDayOfPrevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0)
     const lp = lastDayOfPrevMonth
     const lastPrevStr = `${lp.getFullYear()}-${String(lp.getMonth() + 1).padStart(2, '0')}-${String(lp.getDate()).padStart(2, '0')}`
-    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), MIN_ADVANCE_DAYS)
+    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), minAdvanceDays)
     return lastPrevStr < minStr
-  }, [currentMonth])
+  }, [currentMonth, minAdvanceDays])
 
   const isNextDisabled = useMemo(() => {
     const jstOffsetMin = 9 * 60
@@ -163,7 +167,7 @@ export function AddCandidateDates({
     if (!wasOpenRef.current) {
       wasOpenRef.current = true
       emptyMonthAutoSkipRef.current = 0
-      setCurrentMonth(getFirstSelectableMonthStart())
+      setCurrentMonth(getFirstSelectableMonthStart(minAdvanceDays))
       return
     }
 
@@ -174,7 +178,7 @@ export function AddCandidateDates({
     if (emptyMonthAutoSkipRef.current >= 24) return
     emptyMonthAutoSkipRef.current += 1
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-  }, [isOpen, loading, availableDates.length, currentMonth])
+  }, [isOpen, loading, availableDates.length, currentMonth, minAdvanceDays])
 
   const handleSlotToggle = useCallback((date: string, slot: PrivateBookingSlot) => {
     setSelectedSlots(prev => {
@@ -198,10 +202,10 @@ export function AddCandidateDates({
   const handleSave = async () => {
     if (selectedSlots.length === 0) return
 
-    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), MIN_ADVANCE_DAYS)
+    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), minAdvanceDays)
     const tooSoon = selectedSlots.some(s => s.date < minStr)
     if (tooSoon) {
-      showToast.error(`候補日は本日より${MIN_ADVANCE_DAYS}日後以降のみ選べます`)
+      showToast.error(`候補日は本日より${minAdvanceDays}日後以降のみ選べます`)
       return
     }
 

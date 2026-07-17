@@ -21,6 +21,7 @@ import { usePrivateBooking } from './hooks/usePrivateBooking'
 import { useBookingActions } from './hooks/useBookingActions'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
+import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
 
 // 分離されたコンポーネント
 import { ScenarioHero } from './components/ScenarioHero'
@@ -113,6 +114,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   // カスタム休日フック（usePrivateBookingより先に呼ぶ必要がある）
   // 公開ページではorganizationSlugから組織IDを取得して休日を取得
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
+
+  // 貸切予約の受付締切（公演日の何日前まで申込可能か）
+  const privateBookingDeadlineDays = usePrivateBookingDeadlineDays({ organizationId, organizationSlug })
   
   // 貸切リクエストロジックフック
   const {
@@ -607,6 +611,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     blockedSlots={scenario?.private_booking_blocked_slots}
                     isNextMonthDisabled={isNextMonthDisabled}
                     loading={isLoadingEvents}
+                    deadlineDays={privateBookingDeadlineDays}
                   />
                   
                   {/* 選択された時間枠の表示 */}
