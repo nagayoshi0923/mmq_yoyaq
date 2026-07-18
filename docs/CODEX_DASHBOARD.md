@@ -4,9 +4,9 @@ POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.curs
 
 ## 境界
 
-- source/intakeタスクは壁打ちとキュー投入だけを行う。実装、検収、監督はサイドバーに見えるCodexタスクで行う。
+- source/intakeタスクは壁打ちとキュー投入だけを行う。監督が無ければsourceが別の可視監督タスクを作成またはwakeし、claimを確認する。source自身は監督・integrationを兼務しない。
 - POとの壁打ち後の明示GOだけが新規タスクを追加する。`BACKLOG.md`、`IMPROVEMENT_HANDOFF.md`、他台帳の既存TODOを自動追加・自動実行しない。
-- worker/reviewerは正確な最新`origin/staging`から作る`codex/*` branchと隔離worktreeを使う。stagingの統合/pushと本ファイル更新は監督だけが1件ずつ直列実行する。
+- worker/reviewerは正確な最新`origin/staging`から作る`codex/*` branchと隔離worktreeを使う。stagingの統合/pushと本ファイル更新は監督タスク本人だけが1件ずつ直列実行し、integration taskその他へ委譲しない。
 - UI変更はPREVIEW-first。隔離worktree/branchのlocal previewをPOがvisual OKするまでstagingへ統合しない。
 - 本番DB、main merge/push、本番デプロイは明示的なPO releaseだけで行い、このキューから自動実行しない。
 - dirty/unrelated変更をrevert、移送、吸収しない。
@@ -16,8 +16,9 @@ POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.curs
 - キュー追加: `YOYAQ_QUEUE_UPDATED`
 - worker REPORT: `YOYAQ_WORKER_REPORT_EVENT`
 - reviewer verdict: `YOYAQ_REVIEW_RESULT_EVENT`
-- 委譲integration完了: `YOYAQ_INTEGRATION_COMPLETED_EVENT`
-- すべて`codex_app send_message_to_thread`で監督へ明示配送し、task ID、child task ID、exact commit、state/verdict、gates、next actionを含める。
+- `YOYAQ_QUEUE_UPDATED`はqueue専用payloadとしてqueue commit、task IDs、priority、dependencies、PREVIEW対象、source threadを含める。child task ID、state/verdict、gates、next actionは要求しない。
+- worker/reviewerのterminal eventはtask ID、child/review task ID、exact commit、stateまたはverdict、gates、next actionを含める。
+- queue/terminal eventはいずれも`codex_app send_message_to_thread`で監督へ明示配送する。
 - passive completion、idle、child内final、`codex_delegation`表示は配送ではない。監督は同じ受領turnで`EVENT_CLAIMED`を記録し、次遷移も実行する。
 - 監督起動、ユーザー書き込み、status監査ではidle childのterminal turnを回収する。固定polling、heartbeat、FSEventsは使わない。
 
