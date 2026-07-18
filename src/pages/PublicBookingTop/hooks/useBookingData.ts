@@ -171,12 +171,18 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       }
     })(),
     
-    // 3. 設定取得
-    supabase
-      .from('reservation_settings')
-      .select('private_booking_deadline_days')
-      .limit(1)
-      .maybeSingle(),
+    // 3. 貸切予約の受付締切を取得（reservation_settings は anon から SELECT できないため RPC 経由）
+    (async () => {
+      try {
+        return await supabase.rpc('get_private_booking_deadline_days', {
+          p_organization_id: orgId,
+          p_organization_slug: null,
+        })
+      } catch (err) {
+        console.error('get_private_booking_deadline_days RPC error:', err)
+        return { data: null, error: err }
+      }
+    })(),
     
     // 4. 公開中の組織シナリオキー取得
     (async () => {
@@ -290,7 +296,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   const storesData = storesResult?.data || []
-  const privateBookingDeadlineDays = settingsResult?.data?.private_booking_deadline_days || 14
+  const privateBookingDeadlineDays = typeof settingsResult?.data === 'number' ? settingsResult.data : 14
   const allEventsData = eventsResult?.data || []
   
   // 予約可能な通常公演のみフィルタリング

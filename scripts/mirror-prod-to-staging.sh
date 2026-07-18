@@ -8,6 +8,10 @@ set -euo pipefail
 # スキーマ（テーブル定義）はコピーしない（マイグレーションで管理）。
 # auth.users や supabase_migrations は対象外。
 #
+# 本番にだけ存在するアドホックなバックアップ表（例: customers_org_backfill_20260707）
+# はステージングに定義がなくリストアが失敗するため除外する。
+# 本番で手動バックアップ表を作る場合は *_backup_* / *_backfill_* の命名にすること。
+#
 # 前提:
 #   - macOS Keychain に supabase-db-prod / supabase-db-staging のパスワードが保存済み
 #     または環境変数 PROD_DB_PASSWORD / STAGING_DB_PASSWORD を設定
@@ -77,6 +81,8 @@ PGPASSWORD="$PROD_PASSWORD" pg_dump \
   --no-owner \
   --no-privileges \
   --exclude-table="supabase_migrations.schema_migrations" \
+  --exclude-table="public.*_backup_*" \
+  --exclude-table="public.*_backfill_*" \
   > "$DUMP_FILE" 2>/dev/null
 
 DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)

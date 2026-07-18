@@ -122,6 +122,16 @@ gmDateConflicts.add('gm-uuid-2025-10-15-夜')
 
 ## 📋 変更履歴
 
+### 2026-07-17
+- **変更**: 貸切予約の受付締切（日前）を設定値に一本化
+- **変更内容**:
+  - これまでフロント各所（シナリオ詳細・グループ候補日追加・ガイド文言）に 14 日がハードコードされていたのを、`reservation_settings.private_booking_deadline_days` を正とするよう統一
+  - anon から締切日数を取得できる RPC `get_private_booking_deadline_days` を新設（正規定義: `supabase/rpcs/`）。共有フックは `src/hooks/usePrivateBookingDeadlineDays.ts`
+  - 締切チェックがなかった貸切リクエストページ（`PrivateBookingRequest`）にも同じ締切を適用
+  - 既存データは実効挙動に合わせて 14 日に補正（列デフォルトも 7 → 14）
+- **注意**: 締切を参照する箇所を増やす場合は必ず `usePrivateBookingDeadlineDays` を経由すること（14 を直書きしない）
+- **修正者**: AI Assistant
+
 ### 2026-01-23
 - **修正**: 参加人数変更の在庫制御をRPCで統一
 - **変更内容**:

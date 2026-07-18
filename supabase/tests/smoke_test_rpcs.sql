@@ -242,6 +242,21 @@ EXCEPTION WHEN OTHERS THEN
   END IF;
 END $$;
 
+-- 17. get_private_booking_deadline_days
+DO $$
+BEGIN
+  PERFORM get_private_booking_deadline_days('00000000-0000-0000-0000-000000000000'::uuid, NULL);
+  PERFORM get_private_booking_deadline_days(NULL, 'dummy-slug');
+  PERFORM get_private_booking_deadline_days();
+  INSERT INTO _smoke_results VALUES ('get_private_booking_deadline_days', 'PASS', NULL);
+EXCEPTION WHEN OTHERS THEN
+  IF SQLSTATE LIKE '42%' THEN
+    INSERT INTO _smoke_results VALUES ('get_private_booking_deadline_days', 'FAIL', SQLERRM);
+  ELSE
+    INSERT INTO _smoke_results VALUES ('get_private_booking_deadline_days', 'PASS', 'expected error: ' || SQLERRM);
+  END IF;
+END $$;
+
 -- ============================================================
 -- 結果出力
 -- ============================================================

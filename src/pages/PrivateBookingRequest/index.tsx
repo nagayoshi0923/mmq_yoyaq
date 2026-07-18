@@ -20,6 +20,7 @@ import { logger } from '@/utils/logger'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadlineDays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
@@ -117,15 +118,18 @@ export function PrivateBookingRequest({
     return filtered.length > 0 ? filtered : []
   }, [initialStoreIds, displayStores, scenarioAvailableSet])
 
-  // 追加可能な日付の範囲（今日から60日後まで）
+  // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
+  const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug })
+
+  // 追加可能な日付の範囲（受付締切日数後から60日後まで）
   const dateRange = useMemo(() => {
     const fmtJst = (d: Date) =>
       new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
     const today = new Date()
-    const minDate = fmtJst(today)
-    const maxDate = fmtJst(new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000))
+    const minDate = fmtJst(new Date(today.getTime() + deadlineDays * 24 * 60 * 60 * 1000))
+    const maxDate = fmtJst(new Date(today.getTime() + Math.max(60, deadlineDays) * 24 * 60 * 60 * 1000))
     return { minDate, maxDate }
-  }, [])
+  }, [deadlineDays])
 
   /** 候補追加・プルダウン用（HP貸切カレンダー・グループ候補追加と同じ営業時間マージ） */
   const storeIdsForSlotResolution = useMemo(() => {
@@ -199,6 +203,10 @@ export function PrivateBookingRequest({
 
   const handleAddTimeSlot = () => {
     if (!newDate || !newSlotLabel) return
+    if (newDate < dateRange.minDate) {
+      toast.error(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
+      return
+    }
     const daySlots = computePrivateBookingSlots({
       date: newDate,
       storeIds: storeIdsForSlotResolution,
