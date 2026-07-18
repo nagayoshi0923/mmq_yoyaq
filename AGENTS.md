@@ -9,12 +9,16 @@
 
 ### ブランチ戦略
 
-**staging ブランチで直接作業する。**
+**通常作業は staging ブランチで直接作業する。**
 
 ```bash
 git branch --show-current                        # 作業開始前に必ず確認
 git checkout staging && git pull origin staging  # 常に staging の最新から
 ```
+
+#### Codex自動配送の限定例外
+
+POとの壁打ち後に明示GOされたタスクは、[yoyaq-auto-delivery](.agents/skills/yoyaq-auto-delivery/SKILL.md)と[CODEX_DASHBOARD](docs/CODEX_DASHBOARD.md)に従う。この場合だけworker/reviewerを正確な最新`origin/staging`から`codex/*` branch・隔離worktreeへ分け、監督Codexだけがstagingへ1件ずつ統合・pushする。UIはPO visual OKまでstagingへ統合しない。本番DB・main・本番デプロイは明示PO指示なしに行わない。詳細・優先順位は`.cursorrules`を正とする。
 
 ### main への反映（本番デプロイ）
 
