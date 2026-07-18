@@ -2,6 +2,22 @@
 
 `[]`を実値へ置換して使う。source/intake、実装、検収、監督をそれぞれ可視タスクとして分離する。sourceは監督を兼務せず、監督が無ければ次のテンプレートで別の可視監督タスクを作成またはwakeする。
 
+## Source queue intake
+
+```text
+POの明示GOをYOYAQ queueへ追加してください。
+
+Source thread: [SOURCE_THREAD_ID]
+Task IDs: [TASK_IDS]
+Instruction/acceptance: [INSTRUCTION_AND_ACCEPTANCE]
+Priority/dependencies: [PRIORITY_AND_DEPENDENCIES]
+Preview-first: [TASK_IDS_OR_NONE]
+
+source/intakeの書込みは、docs/CODEX_DASHBOARD.mdへの新規queue追加だけに限定してください。初期TODO行と、タスク指示、受入条件、優先度、依存、PREVIEW要否、event sourceを追記し、1つのqueue commitを作ってください。既存タスクの状態遷移、event audit、REPORT/REWORK/DONE、integration/push記録や製品コードを編集しないでください。
+
+queue commit直後に、既存の可視監督へYOYAQ_QUEUE_UPDATEDを明示送信してください。監督が無ければ別の可視監督タスクを作成またはwakeしてから送信してください。source自身は監督にならず、QUEUE_CLAIMEDまたは着手可能な可視worker作成を確認するまでqueue追加を完了と報告しないでください。
+```
+
 ## Supervisor task
 
 ```text
@@ -12,7 +28,7 @@ Source thread: [SOURCE_THREAD_ID]
 Queue commit: [QUEUE_COMMIT]
 Task IDs: [TASK_IDS]
 
-開始時に.cursorrules、AGENTS.md、docs/CODEX_DASHBOARD.md、yoyaq-auto-deliveryとthread-prompts.mdを全文確認してください。git fetch origin staging後のSHAと全checkoutのdirty状態を記録し、queue commitのタスク定義をclaimしてください。実装worker/reviewerは別の可視タスク・隔離worktreeで起動してください。stagingの直列統合・進捗記録・pushはこの監督タスク本人だけが行い、integration taskその他へ委譲しないでください。
+開始時に.cursorrules、AGENTS.md、docs/CODEX_DASHBOARD.md、yoyaq-auto-deliveryとthread-prompts.mdを全文確認してください。git fetch origin staging後のSHAと全checkoutのdirty状態を記録し、sourceがcommit済みのqueue定義をclaimしてください。claim後の状態遷移、event audit、REPORT/REWORK/DONE、integration/push記録はこの監督が所有してください。実装worker/reviewerは別の可視タスク・隔離worktreeで起動してください。stagingの直列統合・進捗記録・pushはこの監督タスク本人だけが行い、integration taskその他へ委譲しないでください。
 
 監督起動時、各ユーザー書き込み時、各status監査時に、関連するidle worker/reviewerのterminal turnを確認してください。未claimのREPORT/DONE/REWORKがあればrecovered eventとして `EVENT_CLAIMED`（recovered: true）を記録し、fresh review、同じworkerへのREWORK返送、または監督本人のstaging直列統合を同じturnで実行してください。passive completion、idle、child内finalは配送ではありません。
 

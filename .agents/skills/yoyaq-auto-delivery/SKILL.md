@@ -18,13 +18,14 @@ description: Queens Waltz予約管理(yoyaq)で、POとの壁打ち後の明示G
 
 - 壁打ちで受入条件、許可ファイル、依存関係、リスクが確定し、POが明示的にGOしたタスクだけをキューへ追加する。
 - `docs/BACKLOG.md`や`docs/IMPROVEMENT_HANDOFF.md`の既存TODOを自動インポート・自動着手しない。
-- source/intakeタスクは壁打ちとキュー投入だけを担当する。実装、検収、監督はサイドバーに見える別タスクで行い、source自身が監督やintegrationを兼務しない。
+- source/intakeタスクは壁打ちとキュー投入だけを担当する。明示PO GOを受けた新規queue追加に限り、`docs/CODEX_DASHBOARD.md`へ初期`TODO`行と指示・受入条件・優先度・依存・PREVIEW要否・event sourceを追記してcommitできる。実装、検収、監督はサイドバーに見える別タスクで行い、source自身が監督やintegrationを兼務しない。
 - POのSTOP/PAUSEDを即時停止として扱う。過去のGOやREPORTで再開せず、新しい明示GOを待つ。
 - 本番DB適用、mainのmerge/push、本番デプロイは自動配送の範囲外とする。POの明示的な本番リリース指示がある別ターンだけで行う。
 
 ## キュー配送を完了させる
 
-- キュー文書のcommitだけで完了としない。sourceタスクは監督へ`YOYAQ_QUEUE_UPDATED`を`codex_app send_message_to_thread`で明示送信する。
+- 明示PO GO後、sourceは上記queue追加だけをcommitする。このcommitより後の状態遷移、event audit、REPORT/REWORK/DONE、integration/push記録は監督だけが更新する。
+- queue commitだけで完了としない。sourceはcommit直後に監督へ`YOYAQ_QUEUE_UPDATED`を`codex_app send_message_to_thread`で明示送信する。
 - `YOYAQ_QUEUE_UPDATED`専用payloadへ`commit`、`task_ids`、`priority`、`dependencies`、`preview_first`、`source_thread`を含める。childの`state/verdict/gates/next_action`はqueue eventには要求しない。
 - 監督が無ければ、sourceは別の可視監督タスクを作成またはwakeし、その監督へqueue eventを送る。source自身は監督へ昇格せず、監督の`QUEUE_CLAIMED`または着手可能レーンごとの可視worker作成を確認するまでqueue配送を完了としない。
 - 監督は受領turnで`EVENT_CLAIMED`を記録し、次の遷移まで同じturnで実行する。
