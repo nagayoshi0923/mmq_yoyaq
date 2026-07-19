@@ -66,7 +66,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
-| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `4371ba19225351832b656cc2c851f3d8047bd2f1` | 2026-07-19 10:37 JST |
+| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `4371ba19225351832b656cc2c851f3d8047bd2f1` | 2026-07-19 10:48 JST |
 
 ## Queue
 
@@ -74,7 +74,7 @@ REWORK -> DOING -> REPORT
 
 | task ID | title | status | lane | preview | dependencies | worker/review | report commit | staging result |
 |---|---|---|---|---|---|---|---|---|
-| YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | DOING | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` / 未検収 | - | - |
+| YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | REPORT | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` / `019f7810-79a7-7b51-9f3b-7c35f2b3cd38`検収中 | `e5e4d13ee6c67fc21c737392cb26034715eda6db` | - |
 | YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | TODO | HIGH-RISK | 必須 | YOYAQ-001 | 未割当 | - | - |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 
@@ -84,6 +84,7 @@ REWORK -> DOING -> REPORT
 |---|---|---|---|---|
 | 2026-07-19 10:28 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` | YOYAQ-001, YOYAQ-002, YOYAQ-003 | `89484b2b04d23f6652e6c9feb79dc46773e26b14` | source `019f77bb-e598-78e0-b0e9-f301d3626e89` からclaim、YOYAQ-001可視worker起動（recovered: false） |
 | 2026-07-19 10:37 | `YOYAQ_SCOPE_UPDATED` / `EVENT_CLAIMED` | YOYAQ-002, YOYAQ-003 | - | source `019f77bb-e598-78e0-b0e9-f301d3626e89` からclaim。002着手前の横断棚卸し、分類、動的反映、001 snapshot下流契約確認を追加（recovered: false） |
+| 2026-07-19 10:48 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `e5e4d13ee6c67fc21c737392cb26034715eda6db` | worker `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` からclaim、fresh独立検収 `019f7810-79a7-7b51-9f3b-7c35f2b3cd38` 起動（recovered: false） |
 
 ## 記録テンプレート
 
@@ -106,12 +107,12 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 ### YOYAQ-001: キャンセルポリシー共通基盤と予約時スナップショット
 
 - **GO/source:** 2026-07-19 PO明示GO。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。本番公開画面・Queens Waltz全有効店舗の設定を再監査し、オープン/貸切の料率・受付期限・変更期限を管理設定の唯一の正として統一する合意。
-- **status/lane:** DOING / HIGH-RISK（migration、予約金額、日付・締切、既存予約互換）
+- **status/lane:** REPORT / HIGH-RISK（migration、予約金額、日付・締切、既存予約互換）
 - **scope:** 優先度P0。Exact base `4371ba19225351832b656cc2c851f3d8047bd2f1`。予約時点の店舗・公演種別・受付期限・料率・料金基準・ポリシー更新時点を予約へスナップショット保存し、管理設定変更を既存予約へ遡及適用しない。既存予約は安全な互換方針を明記する。オープン/貸切を同じ純粋計算基盤で扱い、JSTの開演境界、0時間、7日/3日、50%/100%、金額丸めを対象テストで固定する。`reservation_settings`と`reservations`の正規schema、必要なmigration/API/型/共通ロジック/対象テストだけを許可し、RLS直接変更は禁止。migration全文、既存データ影響、rollback/互換方針、確認queryを提示し、staging DB適用は監督のDB先行手順に従う。実装gate: `npm run verify`、`npm run db:check`、`npm run test:unit`、`npm run check:cancellation-rpcs`、`npm run check:jst-date`、`npm run check:multi-tenant`、`git diff --check`。独立検収必須。
 - **worker:** task `019f77fc-8eb6-77a0-b8ba-033a4e9e614a`、worktree `/Users/mai/.codex/worktrees/52f9/mmq_yoyaq-1`、branch `codex/yoyaq-001-cancellation-policy-snapshot`、base `4371ba19225351832b656cc2c851f3d8047bd2f1`、port N/A（非UI）
 - **PREVIEW:** N/A（非UI）
-- **REPORT:** 未着手
-- **review:** 未着手
+- **REPORT:** commit `e5e4d13ee6c67fc21c737392cb26034715eda6db`、9ファイル。`verify`、`db:check`、unit 151件、cancellation RPC、JST、diff checkはPASS。multi-tenantはbase/currentとも既知136件でexit 1、増分0。RLS/DB適用/Edge deploy/pushなし。migration全文・既存データ影響・rollback/互換・確認query受領済み。`src/constants/cancellationPolicyDefaults.ts`が編集前8ファイル宣言外のためfresh reviewで許可境界を明示判定する。
+- **review:** task `019f7810-79a7-7b51-9f3b-7c35f2b3cd38`、worktree `/Users/mai/.codex/worktrees/b871/mmq_yoyaq-1`、exact commit detached HEAD / clean、検収中。
 - **integration:** 未着手
 - **PO check:** staging DB確認queryと、新規予約にスナップショットが保存され、設定変更後も既存予約の算定が変わらない証拠を提示する。
 
