@@ -35,16 +35,11 @@ export const DEFAULT_OPEN_CANCELLATION_FEES: CancellationFeeRow[] = [
 export const DEFAULT_PRIVATE_CANCELLATION_FEES: CancellationFeeRow[] = [
   {
     hours_before: 168,
-    fee_percentage: 0,
-    description: '7日より前は無料',
-  },
-  {
-    hours_before: 72,
     fee_percentage: 50,
     description: '7日前より公演価格全額の50%',
   },
   {
-    hours_before: 0,
+    hours_before: 72,
     fee_percentage: 100,
     description: '3日前より公演価格全額の100%',
   },

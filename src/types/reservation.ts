@@ -1,6 +1,15 @@
 import type { Customer } from './customer'
 import type { ScheduleEvent } from './scheduleEvent'
 
+export type CancellationPerformanceType = 'open' | 'private'
+export type CancellationFeeBasis = 'participant_total' | 'performance_total'
+
+export interface CancellationFeeRule {
+  hours_before: number
+  fee_percentage: number
+  description: string
+}
+
 export interface Reservation {
   id: string
   organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
@@ -38,6 +47,14 @@ export interface Reservation {
   special_requests?: string | null
   cancellation_reason?: string | null
   cancelled_at?: string | null
+  /** 予約時キャンセルポリシー。version=NULLはmigration以前の互換予約。 */
+  cancellation_policy_snapshot_version?: number | null
+  cancellation_policy_store_id?: string | null
+  cancellation_policy_performance_type?: CancellationPerformanceType | null
+  cancellation_policy_deadline_hours?: number | null
+  cancellation_policy_fees?: CancellationFeeRule[] | null
+  cancellation_policy_fee_basis?: CancellationFeeBasis | null
+  cancellation_policy_updated_at?: string | null
   external_reservation_id?: string | null
   reservation_source: 'web' | 'phone' | 'walk_in' | 'external' | 'web_private' | 'staff_entry' | 'staff_participation' | 'demo_auto' | 'demo'
   created_by?: string | null
