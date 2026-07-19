@@ -51,6 +51,7 @@ REWORK -> DOING -> REPORT
 - `REPORT`はworker commitと対象ゲート証拠がある状態。
 - `DONE`は必要な検収、監督の直列staging統合/push、進捗記録が完了した状態。
 - `PAUSED`では実装、テスト、検収、DB適用、統合、pushを行わない。
+- UI PREVIEWのPO向けURLは、同一Wi-Fi内外の実機から到達できるinternet-reachable HTTPSを必須とする。`localhost`と`192.168.x.x`は内部証拠だけに使い、唯一のPO URLにしない。提示直前に対象routeの外部HTTP 200を確認し、rotation/期限切れ時は再発行・再検証する。proxy/tunnelはPREVIEWに限定しreview後に停止・削除する。staging統合を代替PREVIEWにしない。
 
 ## リスクレーン
 
@@ -66,7 +67,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
-| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `4371ba19225351832b656cc2c851f3d8047bd2f1` | 2026-07-19 11:32 JST |
+| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `8c68d7dc9d28fa844a0041f94d81f666b0f97f2f` | 2026-07-19 12:55 JST |
 
 ## Queue
 
@@ -75,7 +76,7 @@ REWORK -> DOING -> REPORT
 | task ID | title | status | lane | preview | dependencies | worker/review | report commit | staging result |
 |---|---|---|---|---|---|---|---|---|
 | YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | DONE | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` / `019f782e-f6c6-7f72-9d34-0b7dcaec3565` DONE | `169f33fc64761db9624ed7dabdefff36a930beae` | staging DB `20260719090000`適用・本commitで統合 |
-| YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | TODO | HIGH-RISK | 必須 | YOYAQ-001 | 未割当 | - | - |
+| YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | REWORK | HIGH-RISK | 必須 / PO OK | YOYAQ-001 | `019f783c-455a-7db2-bf06-c9bae6cbcdd4` / `019f7a1c-829a-7900-92cb-f9a3eb0697fc` REWORK | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | 管理設定linkのorganization scope修正中 |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 
 ## Event log
@@ -92,6 +93,34 @@ REWORK -> DOING -> REPORT
 | 2026-07-19 11:22 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `169f33fc64761db9624ed7dabdefff36a930beae` | worker `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` の再REPORTをclaim、fresh独立検収 `019f782e-f6c6-7f72-9d34-0b7dcaec3565` 起動（recovered: false） |
 | 2026-07-19 11:28 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `169f33fc64761db9624ed7dabdefff36a930beae` | reviewer `019f782e-f6c6-7f72-9d34-0b7dcaec3565` のDONEをclaim、監督本人がstaging直列統合開始（recovered: false） |
 | 2026-07-19 11:32 | `STAGING_DB_APPLIED` | YOYAQ-001 | `20260719090000` | staging DBへmigration 1件を先行適用。追加列11件、trigger 2件、legacy 11547件、pending/incomplete/tenant mismatch各0、未適用migration 0を確認 |
+| 2026-07-19 11:37 | `LANE_STARTED` | YOYAQ-002 | `8c68d7dc9d28fa844a0041f94d81f666b0f97f2f` | YOYAQ-001依存解消後、横断棚卸しと画面所有を確定。可視worker `019f783c-455a-7db2-bf06-c9bae6cbcdd4` をPREVIEW-firstで起動（port 5182） |
+| 2026-07-19 11:54 | `YOYAQ_SCOPE_REQUEST` / `FILE_APPROVED` | YOYAQ-002 | - | `/:organizationSlug/cancel-policy`の404解消に限り、`src/pages/AdminDashboard.tsx`の2セグメント公開route分岐1件を追加許可。他route/UI変更は禁止 |
+| 2026-07-19 11:59 | `YOYAQ_SCOPE_REQUEST` / `FILE_APPROVED` | YOYAQ-002 | - | 通常予約の選択公演store伝播と、貸切複数候補で先頭storeを暗黙採用しないため、`BookingPanel.tsx`、`PrivateBookingScenarioSelect.tsx`、`PrivateBookingRequest/index.tsx`の`BookingNotice`引数だけを追加許可 |
+| 2026-07-19 12:06 | `YOYAQ_PREVIEW_READY_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | - | workerのport 5182 PREVIEWをclaim。公開ポリシー/FAQ/選択店舗付き注意事項と390px表示、console error 0を監督確認。公開RPC未適用のためvisual OK待ち |
+| 2026-07-19 12:55 | `YOYAQ_PREVIEW_DELIVERY_CORRECTION` / `EVENT_CLAIMED` | YOYAQ-002 | - | 実機mobile用LAN URL `http://192.168.3.67:5182`を追加し、今後のPREVIEW必須契約へ反映。visual OK未受領、staging/DB統合なし |
+| 2026-07-19 12:56 | `YOYAQ_PREVIEW_DELIVERY_CORRECTED` / `EVENT_CLAIMED` | YOYAQ-002 | - | workerがlocalhost/LANの両URLを再配送。server `*:5182`、実装変更なし、PREVIEW_WAITING_VISUAL_OKを維持 |
+| 2026-07-19 13:38 | `YOYAQ_PREVIEW_LAN_UNREACHABLE` / `EVENT_CLAIMED` | YOYAQ-002 | - | PO実機Chromeで`ERR_CONNECTION_REFUSED`。visual OK未受領。一時public tunnelは依存download/外部公開を伴うため明示PO承認待ち、staging/DB統合なし |
+| 2026-07-19 15:18 | `YOYAQ_PREVIEW_SERVER_RESTART_REQUIRED` / `EVENT_CLAIMED` | YOYAQ-002 | - | PO承認済みlocalhost.run tunnel `https://ab88982db88323.lhr.life`はactiveだがworker server停止。exact worktree/未commit実装を`0.0.0.0:5182`で再起動指示、visual OK待ち |
+| 2026-07-19 15:20 | `YOYAQ_PREVIEW_SERVER_RESTARTED` / `EVENT_CLAIMED` | YOYAQ-002 | - | worker Vite PID 69220、TCP `*:5182`復旧。localhost policy/FAQ HTTP 200、実装差分変更なし |
+| 2026-07-19 15:20 | `YOYAQ_PREVIEW_TUNNEL_HOST_BLOCKED` / `EVENT_CLAIMED` | YOYAQ-002 | - | tunnel hostがViteで403拒否。product/vite.configを変えず、exact hostだけを`__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS`で許可してserver再起動指示。wildcard禁止 |
+| 2026-07-19 15:22 | `YOYAQ_PREVIEW_TUNNEL_DOMAIN_ROTATED` / `EVENT_CLAIMED` | YOYAQ-002 | - | localhost.run現行domain `52f2b8a3f03ecc.lhr.life`がVite到達/host-block 403であることを確認。旧domainを廃止し、現行完全一致hostだけでVite再起動指示。重複tunnelは終了 |
+| 2026-07-19 15:24 | `YOYAQ_PREVIEW_HOST_ENV_UNSUPPORTED` | YOYAQ-002 | - | Vite 5.4.21実装に指定envの参照がなく、PID 75094でも現行domainは403。repo/product無変更・wildcardなしの`/tmp`一時configでexact allowedHostsを渡す代替案をPO承認待ち |
+| 2026-07-19 15:26 | `YOYAQ_PREVIEW_PUBLIC_READY` | YOYAQ-002 | - | Node標準のlocalhost-only proxy `127.0.0.1:5183 -> 127.0.0.1:5182`でHostだけを`localhost:5182`へ書換え、新tunnel `https://b826920a8b3afe.lhr.life`を確立。外部policy/FAQ各HTTP 200、repo/config/依存変更なし |
+| 2026-07-19 15:34 | `YOYAQ_PREVIEW_PUBLIC_URL_REPLACED` / `EVENT_CLAIMED` | YOYAQ-002 | - | PO実機でlocalhost.run URL到達不能のためCloudflare Quick Tunnel `https://infant-technologies-alternatives-expected.trycloudflare.com`へ差替え。停止していたproxyを再起動し、外部policy/FAQ各HTTP 200を再確認 |
+| 2026-07-19 15:35 | `PO_PREVIEW_ACCESS_POLICY_UPDATED` / `EVENT_CLAIMED` | UI PREVIEW共通 | - | PO向けはinternet-reachable HTTPS必須、localhost/LANは内部証拠のみ。提示直前の外部HTTP 200、URL rotation再発行、review後停止、staging代替禁止を恒久契約化 |
+| 2026-07-19 15:36 | `YOYAQ_PREVIEW_URL_EXPIRED` | YOYAQ-002 | - | 提示直前再検証で現Cloudflare全4routeがHTTP 530、Vite 5182停止を検知。無効URLは未提示。worker server再起動とQuick Tunnel再発行を要求、proxy 5183は維持 |
+| 2026-07-19 15:38 | `YOYAQ_PREVIEW_CLOUDFLARE_REISSUED` / `EVENT_CLAIMED` | YOYAQ-002 | - | 新Cloudflare Quick Tunnel `https://schemes-seminar-velocity-twin.trycloudflare.com`をclaim。公開ポリシー/FAQ/予約導線/管理設定の全4routeを外部HTTPSでHTTP 200再検証。Vite PID 89034 (`*:5182`)・localhost-only proxy PID 86547 (`127.0.0.1:5183`)を確認し、visual OK待ちを維持 |
+| 2026-07-19 16:13 | `YOYAQ_VISUAL_CORRECTION` / `EVENT_CLAIMED` | YOYAQ-002 | - | POから「予約画面内でキャンセルポリシーを確認したい」と修正指示。初期コンパクトな展開UIで共通`CancellationPolicyView`と選択店舗のcurrent settingsを再利用し、正規ページへの店舗付きリンクは補助導線として維持するPREVIEW再作業を同じworkerへ返却。通常は`selectedEvent.store_id`、貸切は単一店舗だけを特定し、複数/未確定時に先頭店舗を暗黙採用しない。commit/gate/DB/staging/mainは保留 |
+| 2026-07-19 16:23 | `YOYAQ_PREVIEW_READY_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | - | visual correctionの未commit実装をclaim。公開HTTPS `https://schemes-seminar-velocity-twin.trycloudflare.com`のpolicy/FAQ/通常予約fixture/設定を全4route HTTP 200再検証。監督ブラウザでdesktop/mobile 390pxの初期コンパクト/展開、通常・貸切共通View、store付き正規リンク、貸切複数店舗の非暗黙選択案内、横overflow 0、console error/warning 0を確認。worker報告のmobile展開/貸切画像2点は保存先に存在せず証拠採用せず、監督直接確認で補完。visual OK待ち、commit/gate/DB/staging/mainは保留 |
+| 2026-07-19 17:29 | `YOYAQ_VISUAL_OK` / `EVENT_CLAIMED` | YOYAQ-002 | - | POが公開PREVIEWの予約画面内compact展開、共通open/private表示、選択店舗link、貸切複数店舗の非暗黙選択、policy/FAQ/scenario/settings desktop/mobileを承認。同workerを最終gate・完全diff監査・1commit・WORKER_REPORTへ遷移。HIGH-RISK fresh独立検収必須。DB先行適用前のためstaging統合なし、main/本番は変更禁止。一時tunnel/proxyは終了へ移行 |
+| 2026-07-19 17:30 | `YOYAQ_PREVIEW_TUNNEL_STOPPED` / `EVENT_CLAIMED` | YOYAQ-002 | - | Cloudflare tunnel session 50659終了、metrics `127.0.0.1:20241` listenerなし、旧公開URL HTTP 530を確認。localhost-only proxy `127.0.0.1:5183`もlistenerなし、一時script削除済み。repo/config/DB/staging/main変更なし |
+| 2026-07-19 20:10 | `YOYAQ_CONTINUE` / `EVENT_CLAIMED` | YOYAQ-002, YOYAQ-003 | - | POの「じゃあ進めて」を明示継続としてclaim。中断したYOYAQ-002 FINAL_GATESをrecovery監査し、worker HEADはexact base `8c68d7dc9d28fa844a0041f94d81f666b0f97f2f`、同branch/worktree、承認済み15 modified + 6 untracked、未commit、port 5182停止済み、diff check PASSを確認。同workerを残りgate・完全diff監査・1commit・REPORTへwake。`origin/staging`は`8c68d7dc...`、監督checkoutの未push user/Claude commit `79963dbf...`とdirty smokeを別所有として保存し自動配送へ吸収しない。002 DONE後はDB先行統合し、003をPREVIEW-firstで自動開始 |
+| 2026-07-19 20:10 | `YOYAQ_002_FINAL_GATES_RESUMED` | YOYAQ-002 | - | 同worker `019f783c-455a-7db2-bf06-c9bae6cbcdd4`へ明示resume message送信成功、status `active` / turn `inProgress`を確認。worktree `/Users/mai/.codex/worktrees/2621/mmq_yoyaq-1`、branch `codex/yoyaq-002-dynamic-cancellation-policy`、base/HEAD `8c68d7dc...`。残りgateはverify、unit、design-token、JST、multi-tenant base増分、org-scope、diff check、RPC/migration/SQL安全監査、1commit、REPORT |
+| 2026-07-19 20:22 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | worker REPORTをclaim。exact baseから1commit、承認済み22ファイル、worktree clean。verify、unit 15 files/157 tests、design/JST、org-scope -1、multi-tenant増分0、diff/RPC mirror/SQL静的監査PASS。SQL実行は安全なmigration適用済みdisposable DB不在のためNOT RUN。fresh HIGH-RISK独立検収 `019f7a1c-829a-7900-92cb-f9a3eb0697fc` を別worktreeで起動 |
+| 2026-07-19 20:34 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | reviewer `019f7a1c-829a-7900-92cb-f9a3eb0697fc` のREWORKをclaim。SQL/tenant/security/verify/unit/design/JST/org-scope/multi-tenantはgreen。`/settings?tab=cancellation`では組織slugが取れず、公開linkが`/cancel-policy?store=...`へ落ちるMid 1件を同workerへ返送。認証済みorganization slugから組織scope付きlinkを生成し、slug不明時はstore queryだけを付けない防御と回帰testを要求 |
+| 2026-07-19 20:41 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | `236ee32d8f60e842e0763f519d885d398f92d365` | 同workerのREWORK REPORTをclaim。前REPORTから承認済み3ファイルだけを変更し、認証済みorganization slugで管理設定の公開linkを組織scope付きに修正、slug不明時はstore queryを破棄。targeted 4 tests、verify、unit 15 files/157 tests、diff/show checkがPASS、worktree clean。前回とは別のfresh独立検収 `019f7a2d-ffd9-7361-b14a-2a739599834a` をworktree `/Users/mai/.codex/worktrees/86de/mmq_yoyaq-1`で起動（recovered: false） |
+| 2026-07-19 20:50 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | `236ee32d8f60e842e0763f519d885d398f92d365` | fresh reviewer `019f7a2d-ffd9-7361-b14a-2a739599834a` のDONEをclaim。REWORK 3ファイルと累積22ファイル、targeted 4 tests、verify、unit 15/157、multi-tenant増分0、org-scope 1件改善、design増分なし、JST、diff/show、RPC権限・tenant・PII・DB-first契約がgreen。staging DBへmigration/RPC先行適用を開始（recovered: false） |
+| 2026-07-19 20:50 | `DB_APPLIED` / `INTEGRATED` | YOYAQ-002 | `41d76c1e` → `997f62f8` | staging DBへ`20260719140000`を先行適用。migration履歴、SECURITY DEFINER/search_path/ACL、anon RPC 12店舗、明示店舗1件、別組織/inactive店舗0件、返却列の非PIIを確認後、review済み2commitを最新`origin/staging=8c68d7dc...`へ直列統合。既知remote-only `20260717100000`は同一SHA-256 blobをCLI履歴照合へ一時配置しただけで再適用・commitせず削除。main/production変更なし |
 
 ## 記録テンプレート
 
@@ -126,14 +155,16 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 ### YOYAQ-002: 管理設定から顧客向けポリシー表示を動的統一
 
 - **GO/source:** 同上。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。
-- **status/lane:** TODO / HIGH-RISK（マルチテナント、顧客向け料金表示、管理設定連動）
+- **status/lane:** DONE / HIGH-RISK（PO visual OK・fresh独立再検収DONE・staging DB先行適用/確認・直列統合完了）
 - **scope:** 優先度P1、YOYAQ-001のstaging統合後に着手。MMQ管理サイトのキャンセル設定を唯一の正とし、保存後に公開キャンセルポリシー、組織FAQまたはポリシー誘導、通常/貸切予約確認、管理画面プレビュー、最終更新日へ動的反映する。着手前にキャンセルポリシー・締切・手数料・キャンセル方法のハードコードをリポジトリ全体で`rg`等により全件棚卸しし、FAQ/よくある質問、注意事項・利用規約・キャンセルポリシー、予約フォーム/確認/完了、マイページ予約詳細/キャンセルダイアログ、貸切関連ページ、顧客向けメール/通知、料金・期限判定、API/RPCを確認する。各ヒットを「動的化」「正当な固定文言」「対象外」に分類し根拠をREPORTへ残し、動的化対象は調査だけで終えず同一の管理設定またはYOYAQ-001予約時snapshotへ接続する。FAQは条件をDBコンテンツへ重複保持せず、共通動的表示または正規ページへの明示リンクを使い、注意事項その他の顧客ページにある条件も共通表示へ置換する。organization_id/store scopeを維持し、予約文脈では予約店舗と既存予約snapshotを必ず使用して後日の設定変更を遡及させない。複数店舗で設定が異なる場合は店舗を誤認させない。通常/貸切の料金基準と期間を読みやすく表示し、既存の顧客向けスクエアブランド外観を維持する。棚卸し結果から許可ファイルと画面所有を確定し、キャンセルポリシー関連以外の設定棚卸しへ拡張しない。対象ページ/フック/共通表示部品/対象テストと`docs/IMPROVEMENT_HANDOFF.md`の本タスク記録だけを許可し、公演モーダル・公演カードは変更禁止。管理画面変更から公開ページ群、予約済み顧客画面、メール/APIまでの整合をテストする。PREVIEW-first。PO visual OK後の実装gate: `npm run verify`、`npm run test:unit`、`npm run check:design-tokens`、`npm run check:jst-date`、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。独立検収必須。
-- **worker:** 未割当
-- **PREVIEW:** 必須。desktop/mobileで管理サイト「設定 > キャンセル設定」と、顧客サイト「キャンセルポリシー」「FAQ」「注意事項・利用規約」「予約フォーム/確認/完了」を固有portで確認する。
-- **REPORT:** 未着手
-- **review:** 未着手
-- **integration:** 未着手
-- **PO check:** 管理設定を変更すると上記各表示が同じ内容・最終更新日に変わり、別組織/別店舗の内容が混入しないこと。
+- **inventory/ownership:** `rg`横断棚卸しにより、002は現在設定の公開表示を所有する。動的化対象は`CancelPolicyPage`のadmin-only RLS直SELECT・先頭店舗選択・固定料率説明、`FAQPage`の固定3日前/前日/当日条件、`BookingConfirmation`の固定中止判定説明とrootリンク、共通`BookingNotice`の正規ポリシー誘導、`Footer`/`LegalPage`のorganization scope付き正規リンク、`CancellationSettings`の料金基準/公開プレビュー、公開専用最小RPC。`reservation_settings`全体のanon SELECT policyは追加せず、active organization/storeへ絞った`SECURITY DEFINER` RPCを使う。正当な固定文言は「各店舗ポリシーに従う」等の条件を持たない誘導、対象外は汎用キャンセルボタン、24時間オンライン予約、waitlist期限、無関係な料金設定。予約済みsnapshot、MyPage、固定24時間API判定、通常/貸切確認・キャンセルメール/通知は003所有として編集禁止。`PrivateBookingRequest`は共通`BookingNotice`経由で正規誘導し、任意DB本文は自動改変しない。
+- **allowed files:** 既存は`src/pages/static/{CancelPolicyPage,FAQPage,LegalPage}.tsx`、`src/pages/BookingConfirmation/index.tsx`、`src/pages/ScenarioDetailPage/components/BookingNotice.tsx`、`src/components/layout/Footer.tsx`、`src/pages/Settings/pages/CancellationSettings.tsx`と`cancellationSettings/*`、必要最小限の`src/constants/cancellationPolicyDefaults.ts`/`src/lib/publicBookingPath.ts`、`docs/IMPROVEMENT_HANDOFF.md`。`/:organizationSlug/cancel-policy`の明示route分岐1件に限り`src/pages/AdminDashboard.tsx`を追加許可する。`BookingNotice`へのstore伝播だけに限り`src/pages/ScenarioDetailPage/components/BookingPanel.tsx`、`src/pages/PrivateBookingScenarioSelect.tsx`、`src/pages/PrivateBookingRequest/index.tsx`を追加許可し、貸切複数店舗時はnullとして店舗別公開表示へ委ねる。新規は公開ポリシーAPI/hook 1件、共通表示component 1件、対象test、`supabase/rpcs/get_public_cancellation_policy.sql`、YOYAQ-002 migration 1件、`supabase/tests/yoyaq_002_public_cancellation_policy_test.sql`。追加はscope request必須。
+- **worker:** task `019f783c-455a-7db2-bf06-c9bae6cbcdd4`、worktree `/Users/mai/.codex/worktrees/2621/mmq_yoyaq-1`、branch `codex/yoyaq-002-dynamic-cancellation-policy`、base `8c68d7dc9d28fa844a0041f94d81f666b0f97f2f`、port 5182
+- **PREVIEW:** PO visual OK受領。承認範囲は、予約画面内compact展開、共通`CancellationPolicyView`の通常/貸切条件、選択店舗付き正規link、貸切複数店舗の非暗黙選択、policy/FAQ/scenario/settingsのdesktop/mobile。提示直前に公開4route HTTP 200、mobile 390pxの横overflow 0、console error/warning 0を監督確認済み。worker報告のmobile展開/貸切画像2点は保存先に存在しないため証拠採用せず、監督の公開PREVIEW直接確認で補完した。公開RPC/migrationは未適用。visual OK後は同workerの最終gate・REPORTへ進み、fresh独立検収DONE後にDB先行でstagingへ統合する。Cloudflare tunnel、localhost-only proxy、proxy一時scriptは終了・削除済み。
+- **REPORT:** initial commit `ce8977d2c50e0481306bcbb2b1812b870c32e9b8`＋REWORK commit `236ee32d8f60e842e0763f519d885d398f92d365`。累積は承認済み22ファイルのまま。REWORK差分は`CancellationSettings.tsx`、`publicBookingPath.ts`、`publicCancellationPolicy.test.ts`の3ファイル、9 insertions/5 deletionsのみ。認証済み`useOrganization()`のslugから`/{organizationSlug}/cancel-policy?store={storeId}`を生成し、slugがnull/空ならstore queryを付けず`/cancel-policy`へ防御。targeted 4 tests、`npm run verify`、unit 15 files/157 tests、diff/show check、RPC/migration mirrorがgreen。worktree clean、DB/staging/main/push未実施。
+- **review:** first fresh HIGH-RISK task `019f7a1c-829a-7900-92cb-f9a3eb0697fc` はREWORK。SQL/tenant/securityと全gateはgreenで、管理設定linkのorganization scope欠落Mid 1件だけを指摘。同worker修正後、別fresh task `019f7a2d-ffd9-7361-b14a-2a739599834a` がexact target `236ee32d8f60e842e0763f519d885d398f92d365`をDONE。REWORK exact 3 files、累積22 files、targeted 4 tests、verify、unit 15/157、multi-tenant base/current 136/136、org-scope 163→162、design増分なし、JST、diff/show、RPC権限・tenant/PII/DB-first契約を確認。SQL integration testはmigration適用済みdisposable local DBがなくNOT RUN。
+- **integration:** staging DBへ`20260719140000_get_public_cancellation_policy.sql`をfrontendより先に適用。migration履歴1件、関数`SECURITY DEFINER`、`search_path=public`、ACLはpostgres/anon/authenticatedのみ、Queens Waltz active 12店舗・設定12件、明示店舗1件、別組織/inactive店舗0件、anon RPC 12件を確認。返却契約は組織/店舗表示名とポリシー項目だけで顧客PII・決済情報なし。review targetとtree完全一致の統合commit `41d76c1e`、REWORK commit `997f62f8`を最新`origin/staging=8c68d7dc9d28fa844a0041f94d81f666b0f97f2f`へ直列適用し、dashboard監督記録を同pushへ含める。main/productionは変更しない。
+- **PO check:** desktop/mobileで①予約サイト`/:organizationSlug/cancel-policy`を開き通常/貸切の期限・料金基準・料率と店舗名を確認、②FAQのキャンセル回答から同ページへ進めることを確認、③シナリオ予約画面の「キャンセルポリシーを確認」を展開し画面内表示と選択店舗付き「公開ページで確認」を確認、④管理画面「設定 > キャンセル設定」で店舗を選び公開プレビューと組織scope付きlinkを確認する。管理画面で保存する場合は、公開ページ群の内容と最終更新日が同じ設定へ変わり、別店舗/別組織の条件が混入しなければOK。`OK / 修正点`を返信する。
 
 ### YOYAQ-003: マイページ貸切キャンセル動線・料金表示・API検証
 
