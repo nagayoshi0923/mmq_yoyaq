@@ -52,3 +52,16 @@ export function getOrganizationSlugFromPath(): string | null {
   }
   return null
 }
+
+/** 組織・店舗スコープを維持した公開キャンセルポリシーURLを返す。 */
+export function buildPublicCancellationPolicyPath(
+  organizationSlug?: string | null,
+  storeId?: string | null,
+): string {
+  const slug = organizationSlug?.trim()
+  const basePath = slug ? `/${encodeURIComponent(slug)}/cancel-policy` : '/cancel-policy'
+  if (!storeId) return basePath
+
+  const search = new URLSearchParams({ store: storeId })
+  return `${basePath}?${search.toString()}`
+}

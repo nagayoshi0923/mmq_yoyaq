@@ -3,34 +3,25 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Plus, Trash2 } from 'lucide-react'
 import type { CancellationFee } from '../CancellationSettings'
+import type { CancellationFeeBasis } from '@/types'
+import { formatCancellationFeeBasis, formatCancellationFeePeriod } from '@/lib/publicCancellationPolicy'
 
 // キャンセル料金コンポーネント
 interface CancellationFeesEditorProps {
   fees: CancellationFee[]
+  feeBasis: CancellationFeeBasis
   onAdd: () => void
   onRemove: (index: number) => void
   onUpdate: (index: number, field: keyof CancellationFee, value: string | number) => void
 }
 
-export function CancellationFeesEditor({ fees, onAdd, onRemove, onUpdate }: CancellationFeesEditorProps) {
+export function CancellationFeesEditor({ fees, feeBasis, onAdd, onRemove, onUpdate }: CancellationFeesEditorProps) {
   // キャンセル料金をプレビュー表示
   const getPreviewText = () => {
     const sorted = [...fees].sort((a, b) => b.hours_before - a.hours_before)
-    return sorted.map(fee => {
-      const days = Math.floor(fee.hours_before / 24)
-      const hours = fee.hours_before % 24
-      let timeText = ''
-      
-      if (days > 0) {
-        timeText = `${days}日`
-        if (hours > 0) timeText += `${hours}時間`
-      } else if (hours > 0) {
-        timeText = `${hours}時間`
-      } else {
-        timeText = '当日'
-      }
-      
-      return `${timeText}前: ${fee.fee_percentage}% ${fee.description ? `(${fee.description})` : ''}`
+    return sorted.map((fee, index) => {
+      const period = formatCancellationFeePeriod(fee, sorted[index + 1])
+      return `${period}: ${fee.fee_percentage}% ${fee.description ? `(${fee.description})` : ''}`
     }).join('\n')
   }
 
@@ -114,6 +105,7 @@ export function CancellationFeesEditor({ fees, onAdd, onRemove, onUpdate }: Canc
       {/* プレビュー */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
         <h5 className="text-xs font-medium mb-1">プレビュー</h5>
+        <p className="text-xs text-gray-700 mb-1">計算基準: {formatCancellationFeeBasis(feeBasis)}</p>
         <pre className="text-xs text-gray-700 whitespace-pre-wrap">
           {getPreviewText()}
         </pre>

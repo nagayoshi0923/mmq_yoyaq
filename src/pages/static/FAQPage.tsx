@@ -13,9 +13,23 @@ import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { FAQItem } from '@/types'
+import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
 
 interface FAQPageProps {
   organizationSlug?: string
+}
+
+const CANCELLATION_POLICY_GUIDANCE = 'キャンセル条件・受付期限・料金の計算基準は店舗ごとに異なります。このページの案内から、予約先店舗の最新キャンセルポリシーをご確認ください。'
+
+function replaceDuplicatedCancellationPolicy(item: FAQItem): FAQItem {
+  const isCancellationQuestion = item.question.includes('キャンセル')
+  const mentionsPolicyCondition = /(キャンセル料|キャンセル料金|キャンセル規定|キャンセルポリシー|期限|いつまで|何日前|何時間前)/.test(item.question)
+    || /(?:\d+\s*%|\d+\s*(?:日|時間)前|前日|当日)/.test(item.answer)
+  const isPolicyQuestion = isCancellationQuestion && mentionsPolicyCondition
+
+  return isPolicyQuestion
+    ? { ...item, answer: CANCELLATION_POLICY_GUIDANCE }
+    : item
 }
 
 // 共通FAQ（MMQ汎用）- exportして他で再利用
@@ -45,7 +59,7 @@ export const COMMON_FAQ_DATA: FAQItem[] = [
   {
     category: 'キャンセルについて',
     question: 'キャンセル料はかかりますか？',
-    answer: 'キャンセル料は各店舗のポリシーに従います。一般的に、公演3日前までは無料、前日は50%、当日は100%のキャンセル料が発生することが多いです。詳しくはキャンセルポリシーをご確認ください。',
+    answer: CANCELLATION_POLICY_GUIDANCE,
   },
   {
     category: 'キャンセルについて',
@@ -167,7 +181,7 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
   }, [slug])
 
   // 組織固有FAQと共通FAQを結合
-  const allFAQ = [...organizationFAQ, ...commonFAQ]
+  const allFAQ = [...organizationFAQ, ...commonFAQ].map(replaceDuplicatedCancellationPolicy)
 
   // カテゴリーでグループ化
   const categories = Array.from(new Set(allFAQ.map(item => item.category || 'その他')))
@@ -199,7 +213,7 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
   }
 
   return (
-    <PublicLayout>
+    <PublicLayout organizationSlug={slug} organizationName={organizationName || undefined}>
       {/* ヒーロー */}
       <section 
         className="relative overflow-hidden py-12"
@@ -252,6 +266,13 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
 
       {/* FAQ リスト */}
       <section className="max-w-4xl mx-auto px-4 pb-16">
+        <div className="mb-8 border border-amber-300 bg-amber-50 p-4">
+          <p className="ts-label text-amber-900">キャンセル条件を確認する</p>
+          <p className="ts-body text-amber-900 mb-2">
+            料率や受付期限はFAQへ重複掲載せず、店舗別の最新ポリシーにまとめています。
+          </p>
+          <CancellationPolicyLink organizationSlug={slug} className="inline-flex items-center gap-1 underline text-amber-900" />
+        </div>
         {searchTerm ? (
           // 検索結果
           <div className="space-y-3">

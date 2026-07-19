@@ -535,7 +535,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               reservationDeadlineHours={0}
               hasPreReading={false}
               mode="private"
-              storeId={preselectedStoreIds[0] || null}
+              storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
             />
 
             {/* 確認ボタン */}

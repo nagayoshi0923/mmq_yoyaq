@@ -7,6 +7,8 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { CancellationSettings, CancellationFee } from '../CancellationSettings'
 import { PolicyItemsEditor } from './PolicyItemsEditor'
 import { CancellationFeesEditor } from './CancellationFeesEditor'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import type { CancellationFeeBasis } from '@/types'
 
 interface PrivatePolicySectionProps {
   formData: CancellationSettings
@@ -70,8 +72,26 @@ export function PrivatePolicySection({ formData, setFormData, addPrivatePolicyIt
           </p>
         </div>
 
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">キャンセル料の計算基準</Label>
+          <Select
+            value={formData.private_cancellation_fee_basis}
+            onValueChange={(value: CancellationFeeBasis) => setFormData(prev => ({ ...prev, private_cancellation_fee_basis: value }))}
+          >
+            <SelectTrigger className="w-full md:w-80">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="performance_total">公演価格全額</SelectItem>
+              <SelectItem value="participant_total">予約時の参加料金合計</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">公開ページと予約時スナップショットに同じ基準を表示・保存します</p>
+        </div>
+
         <CancellationFeesEditor
           fees={formData.private_cancellation_fees}
+          feeBasis={formData.private_cancellation_fee_basis}
           onAdd={addPrivateCancellationFee}
           onRemove={removePrivateCancellationFee}
           onUpdate={updatePrivateCancellationFee}

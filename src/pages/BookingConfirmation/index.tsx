@@ -24,6 +24,7 @@ import { ConfirmDialog } from '@/components/patterns/modal'
 import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { getAvailableSeats } from '@/lib/participantUtils'
+import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
 
 export function BookingConfirmation({
   eventId,
@@ -748,6 +749,7 @@ export function BookingConfirmation({
             <BookingNotice
               mode="schedule"
               storeId={storeId}
+              organizationSlug={organizationSlug}
             />
 
             {/* 人数未達中止に関する注意喚起 */}
@@ -757,13 +759,14 @@ export function BookingConfirmation({
                   <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="text-xs text-amber-800">
                     <p className="font-medium mb-1">公演中止の可能性について</p>
-                    <p className="leading-relaxed">
-                      この公演は前日23:59時点で定員の過半数に達しない場合、中止となる可能性があります。
-                      中止の場合はメールでお知らせし、参加料金は発生しません。
+                    <p>
+                      中止判定の条件・タイミング・連絡方法は、選択店舗の最新ポリシーをご確認ください。
                     </p>
-                    <Link to="/cancel-policy" className="text-amber-700 underline mt-1 inline-block">
-                      詳しくはキャンセルポリシーをご確認ください
-                    </Link>
+                    <CancellationPolicyLink
+                      organizationSlug={organizationSlug}
+                      storeId={storeId}
+                      className="inline-flex items-center gap-1 text-amber-900 underline mt-1"
+                    />
                   </div>
                 </div>
               </CardContent>
