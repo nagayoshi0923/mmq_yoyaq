@@ -16,8 +16,8 @@ describe('buildPublicCancellationPolicyPath', () => {
       .toBe('/queens-waltz/cancel-policy?store=store-1')
   })
 
-  it('組織不明時に任意店舗を選ばずrootへ戻す', () => {
-    expect(buildPublicCancellationPolicyPath(null, null)).toBe('/cancel-policy')
+  it('管理設定で組織不明時はstore queryを付けずrootへ戻す', () => {
+    expect(buildPublicCancellationPolicyPath(null, 'store-1')).toBe('/cancel-policy')
   })
 })
 

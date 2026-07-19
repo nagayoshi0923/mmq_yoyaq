@@ -59,7 +59,9 @@ export function buildPublicCancellationPolicyPath(
   storeId?: string | null,
 ): string {
   const slug = organizationSlug?.trim()
-  const basePath = slug ? `/${encodeURIComponent(slug)}/cancel-policy` : '/cancel-policy'
+  if (!slug) return '/cancel-policy'
+
+  const basePath = `/${encodeURIComponent(slug)}/cancel-policy`
   if (!storeId) return basePath
 
   const search = new URLSearchParams({ store: storeId })

@@ -17,9 +17,10 @@ import { OpenPolicySection } from './cancellationSettings/OpenPolicySection'
 import { PrivatePolicySection } from './cancellationSettings/PrivatePolicySection'
 import type { CancellationFeeBasis } from '@/types'
 import { toJstYmd } from '@/utils/jstDate'
-import { buildPublicCancellationPolicyPath, getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
 import { CancellationPolicyView } from '@/components/patterns/cancellation/CancellationPolicyView'
 import type { PublicCancellationPolicy } from '@/lib/publicCancellationPolicy'
+import { useOrganization } from '@/hooks/useOrganization'
 
 const RESERVATION_SETTINGS_SELECT_FIELDS =
   'id, store_id, cancellation_policy, cancellation_policy_items, cancellation_deadline_hours, cancellation_fees, cancellation_fee_basis, private_cancellation_policy, private_cancellation_policy_items, private_cancellation_deadline_hours, private_cancellation_fees, private_cancellation_fee_basis, organizer_cancel_reasons, organizer_cancel_refund_note, cancellation_judgment_rules, cancellation_notice_note, reservation_change_deadline_hours, reservation_change_note, private_reservation_change_deadline_hours, private_reservation_change_note, refund_method_note, auto_refund_enabled, refund_processing_days, policy_updated_at' as const
@@ -149,6 +150,7 @@ function createDefaultCancellationSettings(storeId: string): CancellationSetting
 }
 
 export function CancellationSettings({ storeId }: CancellationSettingsProps) {
+  const { organization } = useOrganization()
   const [formData, setFormData] = useState<CancellationSettings>(() => createDefaultCancellationSettings(storeId))
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -569,7 +571,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     })
   }
 
-  const organizationSlug = getOrganizationSlugFromPath()
+  const organizationSlug = organization?.slug || null
   const previewPolicy: PublicCancellationPolicy = {
     organization_id: 'admin-preview',
     organization_slug: organizationSlug || '',
