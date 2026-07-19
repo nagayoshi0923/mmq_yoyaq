@@ -91,4 +91,4 @@ PRレビュー(Codex等のAIレビュアー)は以下の観点・方針で行う
 ## Claude連携ブリッジ（2026-07-19 PO指示）
 
 - POが「Claudeに聞いて」等と指示したとき、または設計・仕様のセカンドオピニオンが有効なときは、`scripts/ask-claude.sh "質問"` でClaude(Fable)へヘッドレス相談する（stdinで文脈を渡せる）。コード/diff非含有の相談に限る（テナント保護がプライベートコードのAnthropic送信を遮断し得る）。Claudeの見解と自分の見解を区別して報告する。
-- POがClaude側（Claude Code）で壁打ちした場合、Claudeが代筆・コミットしたダッシュボード起票と、`scripts/queue-to-codex.sh` 経由で監督スレッドへユーザー書き込みとして届く `YOYAQ_QUEUE_UPDATED` は、PO起票と同格の正規イベントとして扱う。以降のclaim・実装・検収・staging統合・pushは通常の自動連鎖（yoyaq-auto-delivery）に従う。
+- POがClaude側（Claude Code）で壁打ちした場合、Claudeが代筆・コミットしたダッシュボード起票と、`scripts/queue-to-codex.sh` 経由で監督スレッドへユーザー書き込みとして届く `YOYAQ_QUEUE_UPDATED` は、PO起票と同格の正規イベントとして扱う。以降のclaim・実装・検収・staging統合・pushは通常の自動連鎖（yoyaq-auto-delivery）に従う。ただし起票に「実装: Claude(Opus)」と明記された場合はClaude実装レーンに従い、監督は実装workerを生成せず、focused検収1回とDONE/REWORK記録だけを行う。

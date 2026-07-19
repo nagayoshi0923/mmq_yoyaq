@@ -96,5 +96,5 @@ staging に push したら必ず動作確認チェックリストを出力する
 
 ## Claude↔Codex双方向ブリッジ（2026-07-19）
 
-- このリポジトリでもClaude Codeセッションは壁打ち窓口を兼ねる。POのGO後は、Claudeが docs/CODEX_DASHBOARD.md へ起票形式（queue追加のみ）でコミットし、`scripts/queue-to-codex.sh "YOYAQ_QUEUE_UPDATED …（commit、task ID、優先順、依存、PREVIEW要否）"` で稼働中のCodex監督スレッドへ配送する（監督は自動発見）。以降の実装・検収・staging統合はCodexの可視タスク連鎖に任せ、Claudeは直接実装しない。
+- このリポジトリでもClaude Codeセッションは壁打ち窓口を兼ねる。POのGO後は、Claudeが docs/CODEX_DASHBOARD.md へ起票形式（queue追加のみ）でコミットし、`scripts/queue-to-codex.sh "YOYAQ_QUEUE_UPDATED …（commit、task ID、優先順、依存、PREVIEW要否）"` で稼働中のCodex監督スレッドへ配送する（監督は自動発見）。以降は起票の実装担当で分岐する: 「実装: Codex」はCodexの可視タスク連鎖に任せてClaudeは直接実装しない。「実装: Claude(Opus)」は上記Claude実装レーンに従い、Claude側が実装・staging push・検収受けまで行う。
 - 逆方向はCodexが `scripts/ask-claude.sh` でClaudeへ相談する（コード/diff非含有限定）。
