@@ -121,6 +121,7 @@ REWORK -> DOING -> REPORT
 | 2026-07-19 20:41 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | `236ee32d8f60e842e0763f519d885d398f92d365` | 同workerのREWORK REPORTをclaim。前REPORTから承認済み3ファイルだけを変更し、認証済みorganization slugで管理設定の公開linkを組織scope付きに修正、slug不明時はstore queryを破棄。targeted 4 tests、verify、unit 15 files/157 tests、diff/show checkがPASS、worktree clean。前回とは別のfresh独立検収 `019f7a2d-ffd9-7361-b14a-2a739599834a` をworktree `/Users/mai/.codex/worktrees/86de/mmq_yoyaq-1`で起動（recovered: false） |
 | 2026-07-19 20:50 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-002 | `236ee32d8f60e842e0763f519d885d398f92d365` | fresh reviewer `019f7a2d-ffd9-7361-b14a-2a739599834a` のDONEをclaim。REWORK 3ファイルと累積22ファイル、targeted 4 tests、verify、unit 15/157、multi-tenant増分0、org-scope 1件改善、design増分なし、JST、diff/show、RPC権限・tenant・PII・DB-first契約がgreen。staging DBへmigration/RPC先行適用を開始（recovered: false） |
 | 2026-07-19 20:50 | `DB_APPLIED` / `INTEGRATED` | YOYAQ-002 | `41d76c1e` → `997f62f8` | staging DBへ`20260719140000`を先行適用。migration履歴、SECURITY DEFINER/search_path/ACL、anon RPC 12店舗、明示店舗1件、別組織/inactive店舗0件、返却列の非PIIを確認後、review済み2commitを最新`origin/staging=8c68d7dc...`へ直列統合。既知remote-only `20260717100000`は同一SHA-256 blobをCLI履歴照合へ一時配置しただけで再適用・commitせず削除。main/production変更なし |
+| 2026-07-19 20:53 | `LANE_STARTED` | YOYAQ-003 | `4d9da2747e7cbb959c7f3a6b878509b18f4e8cf6` | YOYAQ-001/002依存解消後、可視PREVIEW-first worker `019f7a38-e35c-7fd0-83dd-37d7df446707` を隔離worktree `/Users/mai/.codex/worktrees/0f0d/mmq_yoyaq-1`、branch `codex/yoyaq-003-private-cancellation-flow`、port 5184で起動。MyPage貸切詳細、主催者認可、snapshot料金/期限、API原子取消、メール/通知整合だけを所有し、PO確認は外部HTTPS PREVIEW準備後（recovered: false） |
 
 ## 記録テンプレート
 
@@ -169,9 +170,9 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 ### YOYAQ-003: マイページ貸切キャンセル動線・料金表示・API検証
 
 - **GO/source:** 同上。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。
-- **status/lane:** TODO / HIGH-RISK（予約取消、金額、日付・締切、認可、メール/通知、貸切グループ原子更新）
+- **status/lane:** DOING / HIGH-RISK（予約取消、金額、日付・締切、認可、メール/通知、貸切グループ原子更新。PREVIEW-first worker調査・実装中）
 - **scope:** 優先度P2、YOYAQ-001/002のstaging統合後に着手。002の横断棚卸し結果を引き継ぎ、マイページ予約詳細/キャンセルダイアログ、貸切関連ページ、顧客向けメール/通知、料金・期限判定、API/RPCの各ヒットを「動的化」「正当な固定文言」「対象外」に分類した根拠と対応をREPORTへ残す。貸切主催者が「マイページ > 予約 > 貸切」から予約詳細とキャンセル確認へ進める動線を追加する。通常/貸切とも予約スナップショットから受付可否と現在のキャンセル料・金額を表示し、開演後は顧客操作を画面/API双方で拒否する。一般メンバーには貸切全体キャンセルを出さない。顧客キャンセルは予約と貸切グループを既存の原子処理で同期し、メール・GM通知・キャンセル待ち通知を維持する。スタッフ起点の店舗都合キャンセルは顧客期限で阻害しない。キャンセルメールの固定24時間計算を同じスナップショット計算へ統一し、表示・メール・APIの期限/料率/金額/可否を同じ正へ接続する。organization_id/store scopeを維持し、既存予約は後日の設定変更ではなく予約時snapshotを使う。キャンセルポリシー関連以外の設定棚卸しへ拡張しない。対象MyPage/PrivateGroup/API/reservationApi/メール連携/対象テストと`docs/IMPROVEMENT_HANDOFF.md`の完了記録だけを許可。PREVIEW-first。PO visual OK後の実装gate: `npm run verify`、`npm run test:unit`、`npm run check:cancellation-rpcs`、`npm run check:security-guardrails`、`npm run check:jst-date`、`npm run check:multi-tenant`、`npm run check:org-scope`、`npm run build`、`git diff --check`。独立検収必須。
-- **worker:** 未割当
+- **worker:** task `019f7a38-e35c-7fd0-83dd-37d7df446707`、worktree `/Users/mai/.codex/worktrees/0f0d/mmq_yoyaq-1`、branch `codex/yoyaq-003-private-cancellation-flow`、base `4d9da2747e7cbb959c7f3a6b878509b18f4e8cf6`、port 5184
 - **PREVIEW:** 必須。desktop/mobileで「マイページ > 予約 > 貸切 > 予約詳細」を開き、主催者/一般メンバー、期限前/開演後、オープン/貸切の確認導線と金額表示を固有portで確認する。
 - **REPORT:** 未着手
 - **review:** 未着手
