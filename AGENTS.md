@@ -85,3 +85,10 @@ PRレビュー(Codex等のAIレビュアー)は以下の観点・方針で行う
 - 明らかなパフォーマンス問題（N+1、無制限フェッチなど）
 - migrationを含むPR: 既存データへの影響、一意制約違反の可能性、失敗時に途中状態が残らないか、DB変更→フロントデプロイの順序が守られるかを確認する
 - デザイン変更を含むPR: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）に違反していないか
+
+---
+
+## Claude連携ブリッジ（2026-07-19 PO指示）
+
+- POが「Claudeに聞いて」等と指示したとき、または設計・仕様のセカンドオピニオンが有効なときは、`scripts/ask-claude.sh "質問"` でClaude(Fable)へヘッドレス相談する（stdinで文脈を渡せる）。コード/diff非含有の相談に限る（テナント保護がプライベートコードのAnthropic送信を遮断し得る）。Claudeの見解と自分の見解を区別して報告する。
+- POがClaude側（Claude Code）で壁打ちした場合、Claudeが代筆・コミットしたダッシュボード起票と、`scripts/queue-to-codex.sh` 経由で監督スレッドへユーザー書き込みとして届く `YOYAQ_QUEUE_UPDATED` は、PO起票と同格の正規イベントとして扱う。以降のclaim・実装・検収・staging統合・pushは通常の自動連鎖（yoyaq-auto-delivery）に従う。

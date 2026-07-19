@@ -91,3 +91,10 @@ staging に push したら必ず動作確認チェックリストを出力する
 
 - **mmq-impl / Codex の成果物は、メインモデルが必ず `git diff` をレビューしてからコミットする**（コミット・push・DB操作は委譲しない）
 - メインモデル自身で grep や検証コマンドを直接回さない（まず scout / checker に投げる）。1ファイル読む程度の単発確認は直接でよい
+
+---
+
+## Claude↔Codex双方向ブリッジ（2026-07-19）
+
+- このリポジトリでもClaude Codeセッションは壁打ち窓口を兼ねる。POのGO後は、Claudeが docs/CODEX_DASHBOARD.md へ起票形式（queue追加のみ）でコミットし、`scripts/queue-to-codex.sh "YOYAQ_QUEUE_UPDATED …（commit、task ID、優先順、依存、PREVIEW要否）"` で稼働中のCodex監督スレッドへ配送する（監督は自動発見）。以降の実装・検収・staging統合はCodexの可視タスク連鎖に任せ、Claudeは直接実装しない。
+- 逆方向はCodexが `scripts/ask-claude.sh` でClaudeへ相談する（コード/diff非含有限定）。
