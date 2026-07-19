@@ -66,7 +66,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
-| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `4371ba19225351832b656cc2c851f3d8047bd2f1` | 2026-07-19 11:08 JST |
+| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `4371ba19225351832b656cc2c851f3d8047bd2f1` | 2026-07-19 11:17 JST |
 
 ## Queue
 
@@ -74,7 +74,7 @@ REWORK -> DOING -> REPORT
 
 | task ID | title | status | lane | preview | dependencies | worker/review | report commit | staging result |
 |---|---|---|---|---|---|---|---|---|
-| YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | REPORT | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` / `019f7822-b07a-7150-a58b-6ba6d716856a` 検収中 | `704de5280506e197d82904b0af26a48bff88d3df` | - |
+| YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | DOING | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` REWORK中 / `019f7822-b07a-7150-a58b-6ba6d716856a` | `704de5280506e197d82904b0af26a48bff88d3df`（旧REPORT） | - |
 | YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | TODO | HIGH-RISK | 必須 | YOYAQ-001 | 未割当 | - | - |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 
@@ -88,6 +88,7 @@ REWORK -> DOING -> REPORT
 | 2026-07-19 10:58 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `e5e4d13ee6c67fc21c737392cb26034715eda6db` | reviewer `019f7810-79a7-7b51-9f3b-7c35f2b3cd38` のREWORKをclaim。同workerへ4件返送しREWORK→DOING（recovered: false） |
 | 2026-07-19 10:59 | `YOYAQ_SCOPE_REQUEST` / `FILE_APPROVED` | YOYAQ-001 | - | tenant不整合trigger再現テスト `supabase/tests/yoyaq_001_cancellation_policy_snapshot_test.sql` 1件だけを追加許可。local transaction限定、staging/prod実行禁止 |
 | 2026-07-19 11:08 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `704de5280506e197d82904b0af26a48bff88d3df` | worker `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` の再REPORTをclaim、fresh独立検収 `019f7822-b07a-7150-a58b-6ba6d716856a` 起動（recovered: false） |
+| 2026-07-19 11:17 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `704de5280506e197d82904b0af26a48bff88d3df` | reviewer `019f7822-b07a-7150-a58b-6ba6d716856a` のREWORKをclaim。同workerへtenant境界3経路のSQL回帰テスト追加を返送しREWORK→DOING（recovered: false） |
 
 ## 記録テンプレート
 
@@ -110,12 +111,12 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 ### YOYAQ-001: キャンセルポリシー共通基盤と予約時スナップショット
 
 - **GO/source:** 2026-07-19 PO明示GO。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。本番公開画面・Queens Waltz全有効店舗の設定を再監査し、オープン/貸切の料率・受付期限・変更期限を管理設定の唯一の正として統一する合意。
-- **status/lane:** REPORT（fresh独立検収中） / HIGH-RISK（migration、予約金額、日付・締切、既存予約互換）
+- **status/lane:** DOING（REWORK対応中） / HIGH-RISK（migration、予約金額、日付・締切、既存予約互換）
 - **scope:** 優先度P0。Exact base `4371ba19225351832b656cc2c851f3d8047bd2f1`。予約時点の店舗・公演種別・受付期限・料率・料金基準・ポリシー更新時点を予約へスナップショット保存し、管理設定変更を既存予約へ遡及適用しない。既存予約は安全な互換方針を明記する。オープン/貸切を同じ純粋計算基盤で扱い、JSTの開演境界、0時間、7日/3日、50%/100%、金額丸めを対象テストで固定する。`reservation_settings`と`reservations`の正規schema、必要なmigration/API/型/共通ロジック/対象テストだけを許可し、RLS直接変更は禁止。REWORK指摘1のDB trigger再現に限り、`supabase/tests/yoyaq_001_cancellation_policy_snapshot_test.sql`を追加許可する。テストはBEGIN/ROLLBACKの使い捨てlocal DB専用で、staging/prod実行は禁止。migration全文、既存データ影響、rollback/互換方針、確認queryを提示し、staging DB適用は監督のDB先行手順に従う。実装gate: `npm run verify`、`npm run db:check`、`npm run test:unit`、`npm run check:cancellation-rpcs`、`npm run check:jst-date`、`npm run check:multi-tenant`、`git diff --check`。独立検収必須。
 - **worker:** task `019f77fc-8eb6-77a0-b8ba-033a4e9e614a`、worktree `/Users/mai/.codex/worktrees/52f9/mmq_yoyaq-1`、branch `codex/yoyaq-001-cancellation-policy-snapshot`、base `4371ba19225351832b656cc2c851f3d8047bd2f1`、port N/A（非UI）
 - **PREVIEW:** N/A（非UI）
 - **REPORT:** commit `704de5280506e197d82904b0af26a48bff88d3df`、累積10ファイル（前REPORTからのREWORK差分6ファイル）。tenant不一致storeの拒否、version=1未完成snapshotのpending契約、正規schema同期、`RESERVATION_SOURCE.WEB_PRIVATE`利用を反映。`verify`、`db:check`、unit 153件、cancellation RPC、JST、diff checkはPASS。multi-tenantはbase/currentとも既知136件でexit 1、増分0。追加SQL testはmigration未適用かつ前提live列未同期の既存local DBを変更しないためNOT RUNで、BEGIN/ROLLBACK、tenant不一致、同一tenant設定なしdefault、snapshot完全性を構造監査済み。RLS/DB適用/Edge deploy/staging・main統合/pushなし。migration全文・既存データ影響・rollback/互換・確認query受領済み。
-- **review:** 前回task `019f7810-79a7-7b51-9f3b-7c35f2b3cd38` のREWORK 4件を新REPORTで対応。fresh review task `019f7822-b07a-7150-a58b-6ba6d716856a`、worktree `/Users/mai/.codex/worktrees/f8bb/mmq_yoyaq-1`、exact HEAD `704de5280506e197d82904b0af26a48bff88d3df`、cleanで検収中。
+- **review:** task `019f7822-b07a-7150-a58b-6ba6d716856a`、REWORK。前回4指摘の実装上の解消と全gateは確認済み。追加SQL testに、(a) `store_id`を他tenant店舗へ変更するUPDATE拒否、(b) `organization_id`変更でstore不一致になるUPDATE拒否、(c) 既存予約の無関係UPDATE成功とsnapshot不変、の3経路がなく、HIGH-RISK境界を実装・テスト双方で閉じた証拠が不足。同じSQL testのBEGIN/ROLLBACK内へ23514、行/旧snapshot不変、無関係UPDATE成功のassertを追加するよう同workerへ返送する。
 - **integration:** 未着手
 - **PO check:** staging DB確認queryと、新規予約にスナップショットが保存され、設定変更後も既存予約の算定が変わらない証拠を提示する。
 
