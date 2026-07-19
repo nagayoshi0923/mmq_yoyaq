@@ -74,6 +74,9 @@ REWORK -> DOING -> REPORT
 
 | task ID | title | status | lane | preview | dependencies | worker/review | report commit | staging result |
 |---|---|---|---|---|---|---|---|---|
+| YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | TODO | HIGH-RISK | N/A | なし | 未割当 | - | - |
+| YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | TODO | HIGH-RISK | 必須 | YOYAQ-001 | 未割当 | - | - |
+| YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 
 ## Event log
 
@@ -97,3 +100,39 @@ REWORK -> DOING -> REPORT
 ```
 
 PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
+
+### YOYAQ-001: キャンセルポリシー共通基盤と予約時スナップショット
+
+- **GO/source:** 2026-07-19 PO明示GO。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。本番公開画面・Queens Waltz全有効店舗の設定を再監査し、オープン/貸切の料率・受付期限・変更期限を管理設定の唯一の正として統一する合意。
+- **status/lane:** TODO / HIGH-RISK（migration、予約金額、日付・締切、既存予約互換）
+- **scope:** 優先度P0。Exact base `4371ba19225351832b656cc2c851f3d8047bd2f1`。予約時点の店舗・公演種別・受付期限・料率・料金基準・ポリシー更新時点を予約へスナップショット保存し、管理設定変更を既存予約へ遡及適用しない。既存予約は安全な互換方針を明記する。オープン/貸切を同じ純粋計算基盤で扱い、JSTの開演境界、0時間、7日/3日、50%/100%、金額丸めを対象テストで固定する。`reservation_settings`と`reservations`の正規schema、必要なmigration/API/型/共通ロジック/対象テストだけを許可し、RLS直接変更は禁止。migration全文、既存データ影響、rollback/互換方針、確認queryを提示し、staging DB適用は監督のDB先行手順に従う。実装gate: `npm run verify`、`npm run db:check`、`npm run test:unit`、`npm run check:cancellation-rpcs`、`npm run check:jst-date`、`npm run check:multi-tenant`、`git diff --check`。独立検収必須。
+- **worker:** 未割当
+- **PREVIEW:** N/A（非UI）
+- **REPORT:** 未着手
+- **review:** 未着手
+- **integration:** 未着手
+- **PO check:** staging DB確認queryと、新規予約にスナップショットが保存され、設定変更後も既存予約の算定が変わらない証拠を提示する。
+
+### YOYAQ-002: 管理設定から顧客向けポリシー表示を動的統一
+
+- **GO/source:** 同上。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。
+- **status/lane:** TODO / HIGH-RISK（マルチテナント、顧客向け料金表示、管理設定連動）
+- **scope:** 優先度P1、YOYAQ-001のstaging統合後に着手。MMQ管理サイトのキャンセル設定を唯一の正とし、保存後に公開キャンセルポリシー、組織FAQまたはポリシー誘導、通常/貸切予約確認、管理画面プレビュー、最終更新日へ動的反映する。ハードコードされた料率・期限文言を廃止し、組織・店舗を正しく特定する。複数店舗で設定が異なる場合は店舗を誤認させず、予約文脈では予約店舗を必ず使用する。通常/貸切の料金基準と期間を読みやすく表示し、既存の顧客向けスクエアブランド外観を維持する。対象ページ/フック/共通表示部品/対象テストと`docs/IMPROVEMENT_HANDOFF.md`の本タスク記録だけを許可し、公演モーダル・公演カードは変更禁止。PREVIEW-first。PO visual OK後の実装gate: `npm run verify`、`npm run test:unit`、`npm run check:design-tokens`、`npm run check:jst-date`、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。独立検収必須。
+- **worker:** 未割当
+- **PREVIEW:** 必須。管理サイト「設定 > キャンセル設定」と、顧客サイト「キャンセルポリシー」「FAQ」「予約確認」を固有portで確認する。
+- **REPORT:** 未着手
+- **review:** 未着手
+- **integration:** 未着手
+- **PO check:** 管理設定を変更すると上記各表示が同じ内容・最終更新日に変わり、別組織/別店舗の内容が混入しないこと。
+
+### YOYAQ-003: マイページ貸切キャンセル動線・料金表示・API検証
+
+- **GO/source:** 同上。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。
+- **status/lane:** TODO / HIGH-RISK（予約取消、金額、日付・締切、認可、メール/通知、貸切グループ原子更新）
+- **scope:** 優先度P2、YOYAQ-001/002のstaging統合後に着手。貸切主催者が「マイページ > 予約 > 貸切」から予約詳細とキャンセル確認へ進める動線を追加する。通常/貸切とも予約スナップショットから受付可否と現在のキャンセル料・金額を表示し、開演後は顧客操作を画面/API双方で拒否する。一般メンバーには貸切全体キャンセルを出さない。顧客キャンセルは予約と貸切グループを既存の原子処理で同期し、メール・GM通知・キャンセル待ち通知を維持する。スタッフ起点の店舗都合キャンセルは顧客期限で阻害しない。キャンセルメールの固定24時間計算を同じスナップショット計算へ統一する。対象MyPage/PrivateGroup/API/reservationApi/メール連携/対象テストと`docs/IMPROVEMENT_HANDOFF.md`の完了記録だけを許可。PREVIEW-first。PO visual OK後の実装gate: `npm run verify`、`npm run test:unit`、`npm run check:cancellation-rpcs`、`npm run check:security-guardrails`、`npm run check:jst-date`、`npm run check:multi-tenant`、`npm run check:org-scope`、`npm run build`、`git diff --check`。独立検収必須。
+- **worker:** 未割当
+- **PREVIEW:** 必須。主催者/一般メンバー、期限前/開演後、オープン/貸切の確認導線と金額表示を固有portで確認する。
+- **REPORT:** 未着手
+- **review:** 未着手
+- **integration:** 未着手
+- **PO check:** 「マイページ > 予約 > 貸切 > 予約詳細」で主催者だけがキャンセルでき、確認画面とメールの料金が公開ポリシーと一致し、キャンセル後に予約・グループ・通知が整合すること。
