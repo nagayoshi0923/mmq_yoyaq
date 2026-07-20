@@ -101,8 +101,15 @@ export const BookingNotice = memo(function BookingNotice({
   }, [mode, storeId, hasPreReading, currentOrganizationSlug])
 
   // 展開された時だけ、現在の組織・店舗に公開されているポリシーを取得する。
+  // 店舗未確定（storeId=null）のときは全店舗分を取らず、正規ページへ誘導するだけにする。
   useEffect(() => {
     if (!isPolicyOpen) return
+    if (!storeId) {
+      setPolicies([])
+      setPolicyLoadError(false)
+      setIsPolicyLoading(false)
+      return
+    }
 
     let active = true
     const fetchPolicies = async () => {
@@ -178,12 +185,11 @@ export const BookingNotice = memo(function BookingNotice({
 
             {isPolicyOpen && (
               <div className="mt-3 space-y-3">
-                {!storeId && (
+                {!storeId ? (
                   <p className="border border-blue-200 bg-blue-50 p-3 ts-body text-blue-900">
                     店舗が未確定または複数選択中です。該当する店舗のポリシーを店舗別にご確認ください。
                   </p>
-                )}
-                {isPolicyLoading ? (
+                ) : isPolicyLoading ? (
                   <div className="flex items-center justify-center gap-2 py-6 ts-body text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     キャンセルポリシーを読み込み中...
