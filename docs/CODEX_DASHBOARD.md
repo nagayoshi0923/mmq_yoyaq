@@ -2,6 +2,18 @@
 
 POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.cursorrules`](../.cursorrules)であり、本ファイルはキュー、状態、配送証拠だけを記録する。実行手順は[`yoyaq-auto-delivery`](../.agents/skills/yoyaq-auto-delivery/SKILL.md)を使う。
 
+## PO ACK: スピード規約（2026-07-20）
+
+`ACKNOWLEDGED / APPLIED`。以下は、POと同じ画面を見ながら進める今後のUI・機能修正ラウンドについて、本ファイル内の旧worktree・gate・検収記載より優先する。既存の安全規約と本番境界は上書きしない。
+
+1. **修正は即時反映:** 1項目2〜3分を目安に、最新`staging`を直接編集し、起動中dev serverへ即時反映する。修正ラウンドでは隔離worktreeを新設せず、フルゲートも実行しない。確認は`npm run typecheck`と、その変更に直接関係するcheck/test 1本だけに絞る。
+2. **毎回のPO確認は1行で具体化:** 修正のたびに「どの画面を開くか・何を操作するか・何が見えればOKか」を1行で提示する。番号、commit、URLだけの報告は禁止する。
+3. **検収はPO OK項目を最後に1回だけ:** POがOKした項目だけをまとめ、バッチでfocused検収を1回行う。検収ラウンドの反復はしない。`REWORK`で実装へ戻せるのは、テナント境界（`organization_id`）、認可・RLS、PII露出、データ破壊、migration整合の欠陥だけとする。堅牢性の追加詰め、スタイル、非重大な改善は検収を止めず、所見を記録してbacklog候補にする。
+4. **本番境界は不変:** `main`反映＝本番デプロイはPOの明示指示がある場合だけ行い、自動統合しない。DB変更を含む場合は、従来どおりDB変更・確認をfrontendデプロイより先に行う。
+5. **安全規約は不変:** `.cursorrules` / `AGENTS.md`のテナント・認可・RLS・PII・migration、共通`ConfirmDialog`、`border-l-4`禁止、公演モーダル/公演カード外観保護、dirty変更保存などの規約を維持する。
+
+進行中のYOYAQ-003は未commit差分を失わないため既存worktreeとPREVIEWを維持する。PO visual OK後は、OK済み項目を上記どおり1回だけバッチ検収する。新規タスクは追加せず、YOYAQ-001〜003のscope・依存・現在状態は変更しない。
+
 ## 境界
 
 - source/intakeタスクは壁打ちとキュー投入だけを行う。明示PO GOの新規queue追加に限り、初期`TODO`行と指示・受入条件・優先度・依存・PREVIEW要否・event sourceを本ファイルへ追記してcommitできる。
@@ -67,7 +79,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
-| `019f779d-7170-7752-a846-37c593cf3ec8` | `/Users/mai/mmq_yoyaq-1` | `8c68d7dc9d28fa844a0041f94d81f666b0f97f2f` | 2026-07-19 12:55 JST |
+| `019f779d-7170-7752-a846-37c593cf3ec8` | `/private/tmp/yoyaq-002-integration` | `989746d4c36b117c3b3d95581f4a921df33cf7a8` | 2026-07-20 11:26 JST |
 
 ## Queue
 
@@ -128,6 +140,7 @@ REWORK -> DOING -> REPORT
 | 2026-07-19 22:03 | `YOYAQ_SCOPE_REQUEST` / `FILE_APPROVED` / `EVENT_CLAIMED` | YOYAQ-003 | - | PREVIEW_REWORKの認証不要fixtureに限り、既存`src/AppRoot.tsx`のpre-AuthProvider dev gate最小分岐と、新規`src/pages/dev/YOYAQ003CancellationPreview.tsx`を追加許可。`import.meta.env.DEV`のcompile-time guard＋dev-only dynamic importでproduction route/chunk/stringを除外し、本番auth/routeは不変。fixtureはin-memoryのみ、Supabase/session/API/送信なしで、実ページから抽出したproduction cancellation panel/pure coreを再利用する。production build artifactにfixture route/string/chunkがないことを確認し、外部HTTPSの実内容を監督検証するまでPREVIEW_REWORKを維持（recovered: false） |
 | 2026-07-19 22:18 | `YOYAQ_PREVIEW_READY_EVENT` / `EVENT_CLAIMED` | YOYAQ-003 | - | 認証不要fixtureのPREVIEW_REWORK完了をclaim。旧tunnel失効を検知して新Cloudflare HTTPS `https://stats-agriculture-steps-italic.trycloudflare.com`を再発行。5直link各HTTP 200に加え、監督ブラウザでdesktop 1280px/mobile 390pxの実見出し・期限・料率・料金基準・金額・action状態を確認。貸切主催者期限前dialogは72h/50%/¥60,000→¥30,000、一般メンバーaction 0、期限後/開演後disabled・100%/¥60,000、通常期限前dialogは12h/50%/¥24,000→¥12,000。overflowなし、console error/warn 0、native dialogなし、確定controlは表示を閉じるだけ。production artifactからfixture route/string/chunk除外をworker確認。PREVIEW_WAITING_VISUAL_OK、未commit/final gate/DB/Edge/staging/mainは保留（recovered: false） |
 | 2026-07-20 00:34 | `YOYAQ_RULES_UPDATED` / `EVENT_CLAIMED` | 運用規約 | `f307b3a431bf5c98f368a92a454fd5ede5bfcf0d` | PO GOのClaude実装レーンをclaim。`.cursorrules`、`AGENTS.md`、`CLAUDE.md`の3ファイルに、起票で「実装: Claude(Opus)」を明記した将来タスクはClaudeが実装・staging統合/pushし、Codex監督はstaging push後のfocused検収1回とdashboard記録だけを担当する分岐を反映。重大欠陥だけを1往復REWORKとする。既存queue YOYAQ-001〜003は変更せず、YOYAQ-003はPREVIEW_WAITING_VISUAL_OKを維持。未push親commit `79963dbf...`のbridge/scriptは本イベントへ吸収せず、dirty smokeを保存。main/production/DB変更なし（recovered: false） |
+| 2026-07-20 11:26 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `PO_SPEED_POLICY_ACK` | 運用規約 | - | MMQ-STUDIOのスピード規約をyoyaqへ適用。UI/機能修正は最新staging直接編集＋dev server即時反映、1項目2〜3分、typecheck＋関連check/test 1本、修正ごとの具体的な1行PO確認、PO OK項目だけのバッチ検収1回へ変更。REWORKはtenant境界・認可/RLS・PII・データ破壊・migration整合だけ、その他は記録/backlog候補。main/本番はPO明示のみ、DB先行と既存安全規約を維持。新規task追加なし。YOYAQ-003は既存未commit worktree/PREVIEWを保存し、PO OK後の1回検収へ移行（recovered: false） |
 
 ## 記録テンプレート
 
