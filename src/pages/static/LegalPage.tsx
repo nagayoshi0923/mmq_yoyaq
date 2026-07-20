@@ -6,11 +6,13 @@ import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Scale, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { buildPublicCancellationPolicyPath, getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 
 
 export function LegalPage() {
+  const organizationSlug = getOrganizationSlugFromPath()
   return (
-    <PublicLayout>
+    <PublicLayout organizationSlug={organizationSlug || undefined}>
       {/* ヒーロー */}
       <section 
         className="relative overflow-hidden py-12"
@@ -127,7 +129,7 @@ export function LegalPage() {
                     予約のキャンセルは、各店舗の定めるキャンセルポリシーに従います。
                   </p>
                   <p className="text-gray-500 text-xs">
-                    詳細は<Link to="/cancel-policy" className="text-red-600 hover:underline">キャンセルポリシー</Link>をご確認ください。
+                    詳細は<Link to={buildPublicCancellationPolicyPath(organizationSlug)} className="text-red-600 hover:underline">キャンセルポリシー</Link>をご確認ください。
                   </p>
                 </td>
               </tr>
@@ -152,4 +154,3 @@ export function LegalPage() {
     </PublicLayout>
   )
 }
-

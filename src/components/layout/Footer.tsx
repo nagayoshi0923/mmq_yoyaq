@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
 
 interface StoreInfo {
   id: string
@@ -30,9 +31,6 @@ interface FooterProps {
 export function Footer({ organizationSlug, organizationName, stores = [], minimal = false }: FooterProps) {
   const currentYear = new Date().getFullYear()
   
-  // リンクのベースパス
-  const basePath = organizationSlug ? `/${organizationSlug}` : ''
-
   if (minimal) {
     return (
       <footer className="bg-gray-900 text-gray-400 py-6">
@@ -144,7 +142,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
                   </Link>
                 </li>
                 <li>
-                  <Link to="/cancel-policy" className="text-sm hover:text-white transition-colors">
+                  <Link to={buildPublicCancellationPolicyPath(organizationSlug)} className="text-sm hover:text-white transition-colors">
                     キャンセルポリシー
                   </Link>
                 </li>
@@ -217,4 +215,3 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
     </footer>
   )
 }
-

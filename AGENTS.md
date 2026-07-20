@@ -9,12 +9,20 @@
 
 ### ブランチ戦略
 
-**staging ブランチで直接作業する。**
+**通常作業は staging ブランチで直接作業する。**
 
 ```bash
 git branch --show-current                        # 作業開始前に必ず確認
 git checkout staging && git pull origin staging  # 常に staging の最新から
 ```
+
+#### Codex自動配送の限定例外
+
+POとの壁打ち後に明示GOされたタスクは、[yoyaq-auto-delivery](.agents/skills/yoyaq-auto-delivery/SKILL.md)と[CODEX_DASHBOARD](docs/CODEX_DASHBOARD.md)に従う。sourceは新規queue追加だけをcommitし、直後に別の可視監督へeventを送ってclaimを確認する。以降の記録とstaging統合・pushは監督Codex本人だけが行う（source昇格・integration task委譲は禁止）。worker/reviewerは正確な最新`origin/staging`から`codex/*` branch・隔離worktreeへ分け、UIはPO visual OKまでstagingへ統合しない。本番DB・main・本番デプロイは明示PO指示なしに行わない。詳細・優先順位は`.cursorrules`を正とする。
+
+#### Claude実装レーン（2026-07-20 PO GO）
+
+起票時に「実装: Claude(Opus)」と明記されたタスクは、実装・staging統合・pushをClaude側が行う。Codexは実装workerを生成せず、Claudeのstaging push後に**focused検収を1回だけ**行う（diff全読＋指定gate再実行＋テナント境界/認可/PII/回帰の確認）。REWORK指摘は重大欠陥（データ破壊・テナント境界・認可/PII・回帰）に限定して1往復に束ね、修正はClaudeがstagingへの追撃コミットで行う。dashboardの状態・検収・DONE/REWORK記録は従来どおり監督だけが更新する。詳細は`.cursorrules`を正とする。
 
 ### main への反映（本番デプロイ）
 
@@ -77,3 +85,10 @@ PRレビュー(Codex等のAIレビュアー)は以下の観点・方針で行う
 - 明らかなパフォーマンス問題（N+1、無制限フェッチなど）
 - migrationを含むPR: 既存データへの影響、一意制約違反の可能性、失敗時に途中状態が残らないか、DB変更→フロントデプロイの順序が守られるかを確認する
 - デザイン変更を含むPR: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）に違反していないか
+
+---
+
+## Claude連携ブリッジ（2026-07-19 PO指示）
+
+- POが「Claudeに聞いて」等と指示したとき、または設計・仕様のセカンドオピニオンが有効なときは、`scripts/ask-claude.sh "質問"` でClaude(Fable)へヘッドレス相談する（stdinで文脈を渡せる）。コード/diff非含有の相談に限る（テナント保護がプライベートコードのAnthropic送信を遮断し得る）。Claudeの見解と自分の見解を区別して報告する。
+- POがClaude側（Claude Code）で壁打ちした場合、Claudeが代筆・コミットしたダッシュボード起票と、`scripts/queue-to-codex.sh` 経由で監督スレッドへユーザー書き込みとして届く `YOYAQ_QUEUE_UPDATED` は、PO起票と同格の正規イベントとして扱う。以降のclaim・実装・検収・staging統合・pushは通常の自動連鎖（yoyaq-auto-delivery）に従う。ただし起票に「実装: Claude(Opus)」と明記された場合はClaude実装レーンに従い、監督は実装workerを生成せず、focused検収1回とDONE/REWORK記録だけを行う。

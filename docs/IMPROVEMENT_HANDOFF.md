@@ -364,3 +364,11 @@ invalidateQueries 60箇所中 `refetchType:'all'` は1箇所のみ（既定 refe
 3. 🔍 タスクは push 後に確認手順を報告して停止。オーナー OK 後に次へ。
 4. DB タスクは SQL 提示→承認→staging 適用→確認クエリ報告→prod はオーナー判断。
 5. この文書のチェックボックス更新を忘れない（進捗の唯一の記録）。
+
+---
+
+## 9. YOYAQ 自動配送記録
+
+### - [x] YOYAQ-002: 管理設定から顧客向けキャンセルポリシー表示を動的統一 🔍
+
+管理画面の店舗別キャンセル設定を、公開ポリシー・FAQ案内・通常/貸切予約画面・管理プレビューの共通表示へ接続。公開取得はactiveかつ公開承認済み組織/active店舗だけを返す最小列のSECURITY DEFINER RPCとし、`reservation_settings`へのanon SELECTは追加しない。複数店舗時は任意の先頭店舗を採用せず店舗別表示、予約画面は通常予約の選択店舗または貸切の単一選択店舗を明示する。2026-07-19にdesktop/mobileのPREVIEWをPO確認済み。worker REPORT後の独立検収とstaging直列統合、migration適用は未実施で、適用時はDB→frontendの順を厳守する。

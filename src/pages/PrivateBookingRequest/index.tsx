@@ -673,7 +673,7 @@ export function PrivateBookingRequest({
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               mode="private"
-              storeId={selectedStoreIds[0] || null}
+              storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
             />
 
             <Button

@@ -244,6 +244,9 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     if (subPage === 'faq') {
       return { page: 'org-faq', scenarioId: null, organizationSlug: orgSlug }
     }
+    if (subPage === 'cancel-policy') {
+      return { page: 'cancel-policy', scenarioId: null, organizationSlug: orgSlug }
+    }
     if (subPage === 'private-booking-select') {
       return { page: 'private-booking-select', scenarioId: null, organizationSlug: orgSlug }
     }

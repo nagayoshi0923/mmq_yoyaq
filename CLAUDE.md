@@ -9,12 +9,20 @@
 
 ### ブランチ戦略
 
-**staging ブランチで直接作業する。**
+**通常作業は staging ブランチで直接作業する。**
 
 ```bash
 git branch --show-current                        # 作業開始前に必ず確認
 git checkout staging && git pull origin staging  # 常に staging の最新から
 ```
+
+#### Codex自動配送の限定例外
+
+POとの壁打ち後に明示GOされたタスクは、[yoyaq-auto-delivery](.agents/skills/yoyaq-auto-delivery/SKILL.md)と[CODEX_DASHBOARD](docs/CODEX_DASHBOARD.md)に従う。sourceは新規queue追加だけをcommitし、直後に別の可視監督へeventを送ってclaimを確認する。以降の記録とstaging統合・pushは監督Codex本人だけが行う（source昇格・integration task委譲は禁止）。worker/reviewerは正確な最新`origin/staging`から`codex/*` branch・隔離worktreeへ分け、UIはPO visual OKまでstagingへ統合しない。本番DB・main・本番デプロイは明示PO指示なしに行わない。詳細・優先順位は`.cursorrules`を正とする。
+
+#### Claude実装レーン（2026-07-20 PO GO）
+
+起票時に「実装: Claude(Opus)」と明記したタスクは、実装・staging統合・pushをClaude側が行う（設計・diff全行レビューはFable本体、実装はmmq-implサブエージェント）。Codexは実装workerを生成せず、Claudeのstaging push後にfocused検収を1回だけ行う。REWORK指摘は重大欠陥（データ破壊・テナント境界・認可/PII・回帰）に限定して1往復に束ね、修正はClaudeがstagingへ追撃コミットする。dashboardの状態・検収記録の更新は従来どおり監督専有。詳細は`.cursorrules`を正とする。
 
 ### main への反映（本番デプロイ）
 
@@ -83,3 +91,10 @@ staging に push したら必ず動作確認チェックリストを出力する
 
 - **mmq-impl / Codex の成果物は、メインモデルが必ず `git diff` をレビューしてからコミットする**（コミット・push・DB操作は委譲しない）
 - メインモデル自身で grep や検証コマンドを直接回さない（まず scout / checker に投げる）。1ファイル読む程度の単発確認は直接でよい
+
+---
+
+## Claude↔Codex双方向ブリッジ（2026-07-19）
+
+- このリポジトリでもClaude Codeセッションは壁打ち窓口を兼ねる。POのGO後は、Claudeが docs/CODEX_DASHBOARD.md へ起票形式（queue追加のみ）でコミットし、`scripts/queue-to-codex.sh "YOYAQ_QUEUE_UPDATED …（commit、task ID、優先順、依存、PREVIEW要否）"` で稼働中のCodex監督スレッドへ配送する（監督は自動発見）。以降は起票の実装担当で分岐する: 「実装: Codex」はCodexの可視タスク連鎖に任せてClaudeは直接実装しない。「実装: Claude(Opus)」は上記Claude実装レーンに従い、Claude側が実装・staging push・検収受けまで行う。
+- 逆方向はCodexが `scripts/ask-claude.sh` でClaudeへ相談する（コード/diff非含有限定）。

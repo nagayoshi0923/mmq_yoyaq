@@ -127,6 +127,7 @@ export const BookingPanel = memo(function BookingPanel({
         reservationDeadlineHours={reservationDeadlineHours}
         hasPreReading={hasPreReading}
         mode="schedule"
+        storeId={selectedEvent?.store_id || null}
       />
 
       {/* 予約確認ボタン */}
