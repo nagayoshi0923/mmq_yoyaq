@@ -534,7 +534,7 @@ async function handleCurrentReservations(
       .from('reservations')
       .select('id, schedule_event_id, organization_id')
       .eq('customer_id', customer.id)
-      .eq('status', 'confirmed')
+      .in('status', ['confirmed', 'checked_in'])
     if (user.orgId) q = q.eq('organization_id', user.orgId)
     const { data, error } = await q
     if (error) console.error('[coupons:current-reservations] direct error:', error)
@@ -604,7 +604,7 @@ async function handleCurrentReservations(
       .from('reservations')
       .select('id, participant_names, schedule_event_id, organization_id')
       .or('payment_method.eq.staff,reservation_source.eq.staff_entry,reservation_source.eq.staff_participation')
-      .eq('status', 'confirmed')
+      .in('status', ['confirmed', 'checked_in'])
       .eq('organization_id', user.orgId)
     if (error) console.error('[coupons:current-reservations] staff error:', error)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

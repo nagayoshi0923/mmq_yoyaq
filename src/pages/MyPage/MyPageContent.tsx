@@ -414,10 +414,10 @@ export function MyPageContent({
 
   // 予約を分類
   const upcomingReservations = reservations.filter(
-    r => new Date(r.requested_datetime) >= new Date() && r.status === 'confirmed'
+    r => new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
   )
   const pastReservations = reservations.filter(
-    r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
+    r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
   )
   // キャンセル済みは現役リストに混ぜず、専用サブタブで「注文履歴」として表示（新しい順）
   const cancelledReservations = reservations
