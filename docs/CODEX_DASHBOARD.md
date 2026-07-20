@@ -4,7 +4,7 @@ POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.curs
 
 ## PO ACK: スピード規約（2026-07-20）
 
-`ACKNOWLEDGED / APPLIED`。以下は、POと同じ画面を見ながら進める今後のUI・機能修正ラウンドについて、本ファイル内の旧worktree・gate・検収記載より優先する。既存の安全規約と本番境界は上書きしない。
+`ACKNOWLEDGED / APPLIED`（2026-07-20 12:0x PO明示GOで確定）。以下は、POと同じ画面を見ながら進める今後のUI・機能修正ラウンドについて、本ファイル内の旧worktree・gate・検収記載より優先する。既存の安全規約と本番境界は上書きしない。
 
 1. **修正は即時反映:** 1項目2〜3分を目安に、最新`staging`を直接編集し、起動中dev serverへ即時反映する。修正ラウンドでは隔離worktreeを新設せず、フルゲートも実行しない。確認は`npm run typecheck`と、その変更に直接関係するcheck/test 1本だけに絞る。
 2. **毎回のPO確認は1行で具体化:** 修正のたびに「どの画面を開くか・何を操作するか・何が見えればOKか」を1行で提示する。番号、commit、URLだけの報告は禁止する。
@@ -141,6 +141,7 @@ REWORK -> DOING -> REPORT
 | 2026-07-19 22:18 | `YOYAQ_PREVIEW_READY_EVENT` / `EVENT_CLAIMED` | YOYAQ-003 | - | 認証不要fixtureのPREVIEW_REWORK完了をclaim。旧tunnel失効を検知して新Cloudflare HTTPS `https://stats-agriculture-steps-italic.trycloudflare.com`を再発行。5直link各HTTP 200に加え、監督ブラウザでdesktop 1280px/mobile 390pxの実見出し・期限・料率・料金基準・金額・action状態を確認。貸切主催者期限前dialogは72h/50%/¥60,000→¥30,000、一般メンバーaction 0、期限後/開演後disabled・100%/¥60,000、通常期限前dialogは12h/50%/¥24,000→¥12,000。overflowなし、console error/warn 0、native dialogなし、確定controlは表示を閉じるだけ。production artifactからfixture route/string/chunk除外をworker確認。PREVIEW_WAITING_VISUAL_OK、未commit/final gate/DB/Edge/staging/mainは保留（recovered: false） |
 | 2026-07-20 00:34 | `YOYAQ_RULES_UPDATED` / `EVENT_CLAIMED` | 運用規約 | `f307b3a431bf5c98f368a92a454fd5ede5bfcf0d` | PO GOのClaude実装レーンをclaim。`.cursorrules`、`AGENTS.md`、`CLAUDE.md`の3ファイルに、起票で「実装: Claude(Opus)」を明記した将来タスクはClaudeが実装・staging統合/pushし、Codex監督はstaging push後のfocused検収1回とdashboard記録だけを担当する分岐を反映。重大欠陥だけを1往復REWORKとする。既存queue YOYAQ-001〜003は変更せず、YOYAQ-003はPREVIEW_WAITING_VISUAL_OKを維持。未push親commit `79963dbf...`のbridge/scriptは本イベントへ吸収せず、dirty smokeを保存。main/production/DB変更なし（recovered: false） |
 | 2026-07-20 11:26 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `PO_SPEED_POLICY_ACK` | 運用規約 | - | MMQ-STUDIOのスピード規約をyoyaqへ適用。UI/機能修正は最新staging直接編集＋dev server即時反映、1項目2〜3分、typecheck＋関連check/test 1本、修正ごとの具体的な1行PO確認、PO OK項目だけのバッチ検収1回へ変更。REWORKはtenant境界・認可/RLS・PII・データ破壊・migration整合だけ、その他は記録/backlog候補。main/本番はPO明示のみ、DB先行と既存安全規約を維持。新規task追加なし。YOYAQ-003は既存未commit worktree/PREVIEWを保存し、PO OK後の1回検収へ移行（recovered: false） |
+| 2026-07-20 12:24 | `YOYAQ_QUEUE_UPDATED` / `STOP_RELEASED` / `EVENT_CLAIMED` | 運用規約 | `e83b038364feed3629c282e8a60e0b014b9a789e` | POの12:0x明示GOにより全停止を解除し、11:24配送のスピード規約成文化とACK記録を正式確定。既存commit `e83b0383...`のdashboard先頭規約を再監査し、内容を維持する。プロダクト実装は引き続きPOの項目別GO待ちで、YOYAQ-003を含む実装・gate・DB/Edge・main/本番操作は開始しない。新規task追加なし、dirty smokeと未commit差分を保存（recovered: false） |
 
 ## 記録テンプレート
 
