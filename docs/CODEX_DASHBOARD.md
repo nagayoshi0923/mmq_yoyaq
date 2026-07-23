@@ -90,6 +90,7 @@ REWORK -> DOING -> REPORT
 | YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | DONE | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` / `019f782e-f6c6-7f72-9d34-0b7dcaec3565` DONE | `169f33fc64761db9624ed7dabdefff36a930beae` | staging DB `20260719090000`適用・本commitで統合 |
 | YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | REWORK | HIGH-RISK | 必須 / PO OK | YOYAQ-001 | `019f783c-455a-7db2-bf06-c9bae6cbcdd4` / `019f7a1c-829a-7900-92cb-f9a3eb0697fc` REWORK | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | 管理設定linkのorganization scope修正中 |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
+| YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | TODO | HIGH-RISK | 必須 | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | 未割当 | - | - |
 
 ## Event log
 
@@ -199,3 +200,17 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **review:** 未着手
 - **integration:** 未着手
 - **PO check:** 「マイページ > 予約 > 貸切 > 予約詳細」で主催者だけがキャンセルでき、確認画面とメールの料金が公開ポリシーと一致し、キャンセル後に予約・グループ・通知が整合すること。
+
+### YOYAQ-004: 募集停止枠の貸切申請・承認を一貫して拒否
+
+- **GO/source:** 2026-07-23 PO明示GO。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。2026-10-25大塚午後の募集停止が2026-07-11に設定済みだった一方、貸切申請が2026-07-22に受理された事実をread-only本番監査で確認し、「募集停止」を貸切の候補追加・申請・承認にも共通の受付停止として強制する合意。
+- **status/lane:** TODO / HIGH-RISK（予約在庫、RPC/migration、organization/store境界、日付/time_slot、並行更新）
+- **scope:** 優先度P0、YOYAQ-003と製品ファイル非重複なら並行可、staging統合は監督が直列化する。`schedule_blocked_slots`を管理画面表示だけでなく貸切受付可否の正として扱う。①顧客の候補日追加・貸切申請画面では、希望店舗の全てが該当日/time_slotで募集停止なら選択不可にし「現在受付停止中」を表示する。複数希望店舗では1店舗以上が受付可能なら候補として有効。②既に画面へ追加済みの候補も送信直前に再取得・再検証し、無効候補を黙って削除せず、日付/time_slotと対象店舗を示して再選択を求める。送信する全候補はそれぞれ1店舗以上で、募集停止でも公演競合でもないことを必須とする。③`create_private_booking_request`を最終権威とし、信頼済みDB上のorganization、requested store、候補日、正規time_slot変換で同条件をtransaction内再検証する。client判定や古い画面状態だけで通さない。④管理側の`approve_private_booking`もchosen store/date/time_slotを同一transaction内で再検証し、募集停止中は承認不可とする。解除または別候補/店舗の選択を要求し、競合と募集停止を区別できるエラー契約にする。⑤申請後に募集停止された既存pending申請は自動削除・自動却下しない。管理カードで「申請後に募集停止」を表示し、申請前から停止済みなら「申請時点で募集停止（既存不整合）」として区別する。どちらも停止中は承認不可。⑥現在確認済みの該当申請1件はデータを自動変更せず、運用で事情説明と代替候補の相談を行える状態を維持する。⑦block/unblockと申請/承認の競合、別organization・別store、午前/午後/夜間変換、複数店舗の一部/全部停止、既存pending、event conflict併存をSQL/unit testで固定する。RLS直接変更、顧客PIIの新規返却、既存申請の一括更新、通知/メール、募集停止以外の在庫仕様変更は禁止。
+- **allowed files:** 既存は`src/hooks/usePrivateBookingSlotData.ts`、`src/lib/privateBookingSlotAvailability.ts`と対象test、`src/pages/PrivateBookingRequest/index.tsx`、`src/pages/PrivateBookingRequest/hooks/usePrivateBookingSubmit.ts`、`src/pages/PrivateGroupInvite/index.tsx`、`src/pages/PrivateGroupManage/components/AddCandidateDates.tsx`、`src/pages/ScenarioDetailPage/hooks/usePrivateBooking.ts`、`src/pages/PrivateBookingManagement/index.tsx`、`src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts`、`src/pages/PrivateBookingManagement/components/BookingRequestCard.tsx`、必要最小限の`src/lib/rpcTypes.ts`、`src/AppRoot.tsx`、`docs/development/critical-features.md`。新規は環境非依存の募集停止判定module/test、公開画面へPIIなしの最小availabilityだけを返す`SECURITY DEFINER` RPC正本、`create_private_booking_request`正本、live定義から復元する`approve_private_booking`正本、YOYAQ-004 migration 1件、transaction SQL test 1件、production artifactへ含めない認証不要・in-memory・送信不能のdev/PREVIEW-only fixture 1件。schema/RLS policy、`schedule_blocked_slots`既存管理hook、メール/通知、既存申請データは変更禁止。追加ファイルは編集前に監督へscope request必須。
+- **PREVIEW:** 必須。internet-reachable HTTPSの認証不要・実データ非使用・送信不能fixtureで、desktop/mobile 390pxについて①全希望店舗が停止した候補のdisabled＋「現在受付停止中」、②複数店舗の一部だけ停止なら選択可、全部停止なら不可、③送信直前に停止へ変わった候補の具体的な再選択エラー、④管理カードの「申請後に募集停止」と「申請時点で募集停止（既存不整合）」、⑤停止中の承認不可を確認する。production build/runtimeからfixture route/string/chunkを除外し、console error/warnと横overflowを0にする。PO visual OK前は最終gate、commit、review、DB/Edge/staging統合を行わない。
+- **gates/review:** PO visual OK後に`npm run verify`、対象unit、`npm run test:rpcs`、`npm run db:check`、`npm run check:security-guardrails`、`npm run check:permissions`、`npm run check:anon-rls-grants`、`npm run check:multi-tenant`、`npm run check:org-scope`、`npm run check:jst-date`、`npm run build`、`git diff --check`、RPC/migration byte一致、live `pg_get_functiondef`差分監査、transaction SQL testを実行する。HIGH-RISK fresh独立検収必須。stagingはmigration/RPC適用・確認をfrontend統合/pushより先に行い、main/productionは変更しない。
+- **worker:** 未割当
+- **REPORT:** 未着手
+- **review:** 未着手
+- **integration:** 未着手
+- **PO check:** 【顧客向け貸切予約 > 候補日時】停止枠が選べず、複数店舗のうち空きがあれば選べること。【貸切確認 > 申請カード > 候補日時】申請後/申請前からの募集停止が区別され、停止中は承認できないこと。
