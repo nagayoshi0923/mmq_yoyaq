@@ -14,6 +14,11 @@ import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
 import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
+import {
+  getPrivateBookingCandidateBlockedState,
+  type PrivateBookingBlockedSlotRow,
+} from '@/lib/privateBookingBlockedSlotAvailability'
+import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 
 const MIN_ADVANCE_DAYS = 14
 
@@ -67,7 +72,13 @@ export function AddCandidateDates({
   const { isCustomHoliday } = useCustomHolidays()
   const MAX_SELECTIONS = 100
 
-  const { loading, scenarioTiming, computeSlotsByDate } = usePrivateBookingSlotData({
+  const {
+    loading,
+    scenarioTiming,
+    blockedSlots,
+    computeSlotsByDate,
+    isCandidateBlockedOnAllStores,
+  } = usePrivateBookingSlotData({
     organizationId,
     scenarioId,
     storeIds,
@@ -119,11 +130,22 @@ export function AddCandidateDates({
         const isAlreadySelected = existingDates.some(
           ed => ed.date === date && privateGroupTimeSlotFromDb(ed.time_slot) === slot.label
         )
-        newMap[key] = !isAlreadySelected
+        newMap[key] =
+          !isAlreadySelected &&
+          !isCandidateBlockedOnAllStores(date, slot.label, storeIds)
       }
     }
     setAvailabilityMap(newMap)
-  }, [isOpen, availableDates, existingDates, slotsByDate, scenarioTiming])
+  }, [
+    isOpen,
+    availableDates,
+    existingDates,
+    slotsByDate,
+    scenarioTiming,
+    storeIds,
+    blockedSlots,
+    isCandidateBlockedOnAllStores,
+  ])
 
   const handleMonthChange = (delta: number) => {
     setCurrentMonth(prev => {
@@ -207,6 +229,34 @@ export function AddCandidateDates({
 
     setSaving(true)
     try {
+      const selectedDates = selectedSlots.map((slot) => slot.date).sort()
+      const availabilityParams: RpcGetPublicPrivateBookingAvailabilityParams = {
+        p_organization_id: organizationId,
+        p_store_ids: storeIds,
+        p_start_date: selectedDates[0],
+        p_end_date: selectedDates[selectedDates.length - 1],
+      }
+      const { data: latestBlockedRows, error: blockedError } = await supabase.rpc(
+        'get_public_private_booking_availability',
+        availabilityParams
+      )
+      if (blockedError) throw blockedError
+
+      const invalidSlots = selectedSlots.filter((slot) =>
+        getPrivateBookingCandidateBlockedState(
+          { date: slot.date, timeSlot: slot.slot.label },
+          storeIds,
+          (latestBlockedRows || []) as PrivateBookingBlockedSlotRow[]
+        ).allStoresBlocked
+      )
+      if (invalidSlots.length > 0) {
+        const labels = invalidSlots
+          .map((slot) => `${formatJstMonthDay(slot.date)} ${slot.slot.label}`)
+          .join('、')
+        showToast.error(`${labels} は現在受付停止中です。別の候補日時を選択してください`)
+        return
+      }
+
       const timing = await fetchScenarioTimingFromDb(supabase, {
         organizationId,
         scenarioLookupId: scenarioId,
@@ -327,6 +377,10 @@ export function AddCandidateDates({
             </div>
           }
         />
+
+        <p className="shrink-0 px-1 py-0.5 text-[9px] text-muted-foreground">
+          灰色の枠は、希望店舗のすべてが現在受付停止中です
+        </p>
 
         {selectedSlots.length > 0 && (
           <div className="shrink-0 space-y-px">

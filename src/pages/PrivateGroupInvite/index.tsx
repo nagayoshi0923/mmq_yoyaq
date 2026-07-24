@@ -22,6 +22,13 @@ import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
 import { getJstParts } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import {
+  formatBlockedCandidateLabel,
+  getPrivateBookingCandidateBlockedState,
+  type PrivateBookingBlockedSlotRow,
+} from '@/lib/privateBookingBlockedSlotAvailability'
+import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
+import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 
 interface Coupon {
   id: string
@@ -1030,6 +1037,64 @@ export function PrivateGroupInvite() {
         toast.error('組織情報が取得できません。ページを再読み込みしてください。')
         return
       }
+      if (preferredStoreNames.length === 0) {
+        toast.error('希望店舗を1店舗以上選択してください')
+        return
+      }
+
+      const requestedStoreIds = preferredStoreNames.map((store) => store.id)
+      const selectedDates = selectedCandidateDates.map((candidate) => candidate.date).sort()
+      const availabilityParams: RpcGetPublicPrivateBookingAvailabilityParams = {
+        p_organization_id: orgId,
+        p_store_ids: requestedStoreIds,
+        p_start_date: selectedDates[0],
+        p_end_date: selectedDates[selectedDates.length - 1],
+      }
+      const [blockedResult, eventsResult] = await Promise.all([
+        supabase.rpc('get_public_private_booking_availability', availabilityParams),
+        supabase
+          .from('schedule_events_for_availability')
+          .select('date, store_id, start_time, end_time, is_cancelled')
+          .filter('organization_id', 'eq', orgId)
+          .in('store_id', requestedStoreIds)
+          .gte('date', selectedDates[0])
+          .lte('date', selectedDates[selectedDates.length - 1])
+          .eq('is_cancelled', false),
+      ])
+      if (blockedResult.error) throw blockedResult.error
+      if (eventsResult.error) throw eventsResult.error
+
+      const blockedRows = (blockedResult.data || []) as PrivateBookingBlockedSlotRow[]
+      const eventRows = eventsResult.data || []
+      const unavailableCandidates = selectedCandidateDates.filter((candidate) => {
+        const blockedState = getPrivateBookingCandidateBlockedState(
+          { date: candidate.date, timeSlot: candidate.time_slot },
+          requestedStoreIds,
+          blockedRows
+        )
+        const start = timeStrToMinutes(candidate.start_time)
+        const end = timeStrToMinutes(candidate.end_time)
+        if (start == null || end == null) return true
+        return !blockedState.availableStoreIds.some((storeId) =>
+          !eventRows.some((event) => {
+            if (event.store_id !== storeId || event.date !== candidate.date) return false
+            const eventStart = timeStrToMinutes(event.start_time)
+            const eventEnd = timeStrToMinutes(event.end_time)
+            if (eventStart == null || eventEnd == null) return true
+            return eventStart < end + 60 && eventEnd > start - 60
+          })
+        )
+      })
+      if (unavailableCandidates.length > 0) {
+        const details = unavailableCandidates.map((candidate) =>
+          formatBlockedCandidateLabel(
+            { date: candidate.date, timeSlot: candidate.time_slot },
+            preferredStoreNames.map((store) => store.name)
+          )
+        ).join('、')
+        toast.error(`${details} は現在受付停止中または既存公演と競合しています。候補を再選択してください`)
+        return
+      }
 
       // 顧客情報を取得または作成
       let customerId: string | null = null
@@ -1177,7 +1242,11 @@ export function PrivateGroupInvite() {
         } else if (rpcError.code === 'P0026') {
           errorMessage = '組織情報が見つかりません'
         } else if (rpcError.code === 'P0030' || (rpcError.message && rpcError.message.includes('conflict'))) {
-          errorMessage = '選択された全ての候補日時が既存の公演と重複しています。別の日時をお選びください。'
+          errorMessage = '候補日時に既存の公演との競合があります。日時と希望店舗を再選択してください。'
+        } else if (rpcError.code === 'P0040') {
+          errorMessage = '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。'
+        } else if (rpcError.code === 'P0041' || rpcError.code === 'P0042') {
+          errorMessage = '候補日時または希望店舗が正しくありません。再選択してください。'
         } else if (rpcError.message) {
           errorMessage = rpcError.message
         }

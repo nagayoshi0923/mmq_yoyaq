@@ -41,6 +41,12 @@ import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
 import { isGmMarkedAvailable, isGmAvailableForCandidate } from './utils/gmAvailabilityStatus'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
+import {
+  classifyPrivateBookingBlockedTiming,
+  getPrivateBookingCandidateBlockedState,
+  toCanonicalPrivateBookingTimeSlot,
+  type PrivateBookingBlockedSlotRow,
+} from '@/lib/privateBookingBlockedSlotAvailability'
 
 // 時間帯を正規化する関数（競合キーの一貫性を保つため）
 const normalizeTimeSlot = (timeSlot: string): string => {
@@ -145,6 +151,7 @@ export function PrivateBookingManagement() {
 
   // 全リクエストの候補日に対するグローバル競合マップ（カード表示時点から店舗バッジを出すため）
   const [globalStoreDateConflicts, setGlobalStoreDateConflicts] = useState<Set<string>>(new Set())
+  const [blockedSlotRows, setBlockedSlotRows] = useState<PrivateBookingBlockedSlotRow[]>([])
 
   // GM出欠手動記録ハンドラー
   const handleGMResponseSave = async (requestId: string, staffId: string, availableCandidates: number[]) => {
@@ -368,6 +375,53 @@ export function PrivateBookingManagement() {
         setGlobalStoreDateConflicts(conflictSet)
       })
   }, [requests])
+
+  useEffect(() => {
+    if (!organizationId || !requests.length) {
+      setBlockedSlotRows([])
+      return
+    }
+    const allDates = [...new Set(
+      requests.flatMap((request) =>
+        (request.candidate_datetimes?.candidates || []).map((candidate) => candidate.date)
+      )
+    )].filter(Boolean)
+    if (!allDates.length) {
+      setBlockedSlotRows([])
+      return
+    }
+
+    let cancelled = false
+    void supabase
+      .from('schedule_blocked_slots')
+      .select('date, store_id, time_slot, created_at')
+      .filter('organization_id', 'eq', organizationId)
+      .in('date', allDates)
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          logger.error('貸切管理: 募集停止枠取得エラー', error)
+          setBlockedSlotRows([])
+          return
+        }
+        setBlockedSlotRows((data || []) as PrivateBookingBlockedSlotRow[])
+      })
+    return () => { cancelled = true }
+  }, [organizationId, requests])
+
+  const isCandidateStoreBlocked = useCallback((
+    candidate: { date: string; timeSlot: string } | undefined,
+    storeId: string
+  ): boolean => {
+    if (!candidate || !storeId) return false
+    const canonicalTimeSlot = toCanonicalPrivateBookingTimeSlot(candidate.timeSlot)
+    if (!canonicalTimeSlot) return false
+    return blockedSlotRows.some((row) =>
+      row.date === candidate.date &&
+      row.store_id === storeId &&
+      row.time_slot === canonicalTimeSlot
+    )
+  }, [blockedSlotRows])
 
   // 選択されたリクエストの初期化
   useEffect(() => {
@@ -801,9 +855,46 @@ export function PrivateBookingManagement() {
                         ? stores.filter(s => ids.includes(s.id))
                         : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
                       return (req.candidate_datetimes?.candidates || []).reduce((acc: any, cand: any) => {
-                        acc[cand.order] = baseStores.filter(s => !conflictSet.has(`${s.id}-${cand.date}-${cand.timeSlot}`))
+                        acc[cand.order] = baseStores.filter(s =>
+                          !conflictSet.has(`${s.id}-${cand.date}-${cand.timeSlot}`) &&
+                          !isCandidateStoreBlocked(cand, s.id)
+                        )
                         return acc
                       }, {} as Record<number, typeof baseStores>)
+                    })()}
+                    blockedStatusPerCandidate={(() => {
+                      const ids = req.candidate_datetimes?.requestedStores?.map((store: any) => store.storeId) || []
+                      const baseStores = ids.length > 0
+                        ? stores.filter((store) => ids.includes(store.id))
+                        : stores.filter((store) => store.ownership_type !== 'office' && !store.is_temporary)
+                      return (req.candidate_datetimes?.candidates || []).reduce((acc, candidate) => {
+                        const state = getPrivateBookingCandidateBlockedState(
+                          { date: candidate.date, timeSlot: candidate.timeSlot },
+                          baseStores.map((store) => store.id),
+                          blockedSlotRows
+                        )
+                        if (state.blockedStoreIds.length === 0) return acc
+                        const timing = state.allStoresBlocked
+                          ? classifyPrivateBookingBlockedTiming(
+                              { date: candidate.date, timeSlot: candidate.timeSlot },
+                              baseStores.map((store) => store.id),
+                              blockedSlotRows,
+                              req.created_at
+                            )
+                          : 'none'
+                        acc[candidate.order] = {
+                          allStoresBlocked: state.allStoresBlocked,
+                          timing,
+                          storeNames: baseStores
+                            .filter((store) => state.blockedStoreIds.includes(store.id))
+                            .map((store) => store.short_name || store.name),
+                        }
+                        return acc
+                      }, {} as Record<number, {
+                        allStoresBlocked: boolean
+                        timing: 'none' | 'blocked_after_request' | 'blocked_at_request'
+                        storeNames: string[]
+                      }>)
                     })()}
                     onSelectCandidate={(clickedReq, order) => {
                       // 同じ候補を再クリック → 選択解除
@@ -858,13 +949,20 @@ export function PrivateBookingManagement() {
                                         : undefined
                                       const hasConflict = !!selectedCand &&
                                         conflictInfo.storeDateConflicts.has(`${s.id}-${selectedCand.date}-${selectedCand.timeSlot}`)
+                                      const isBlocked = isCandidateStoreBlocked(selectedCand, s.id)
                                       const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
                                       return (
-                                        <SelectItem key={s.id} value={s.id} className="whitespace-normal">
+                                        <SelectItem
+                                          key={s.id}
+                                          value={s.id}
+                                          className="whitespace-normal"
+                                          disabled={isBlocked}
+                                        >
                                           <span className="block">
                                             {s.name}
                                             {isRequested && <span className="ml-1 text-purple-600 text-xs">（お客様希望）</span>}
                                             {(s as any).region && <span className="ml-1 text-xs text-muted-foreground">({(s as any).region})</span>}
+                                            {isBlocked && <span className="ml-1 text-red-700 text-xs">（現在受付停止中）</span>}
                                             {hasConflict && !ev && <span className="ml-1 text-orange-600 text-xs">（予約済み）</span>}
                                           </span>
                                           {ev && (
@@ -952,7 +1050,19 @@ export function PrivateBookingManagement() {
                           }
                         }}
                         onReject={() => handleRejectClick(req.id, req)}
-                        disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder || ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId)}
+                        disabled={
+                          submitting ||
+                          !selectedGMId ||
+                          !selectedStoreId ||
+                          !selectedCandidateOrder ||
+                          ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId) ||
+                          isCandidateStoreBlocked(
+                            req.candidate_datetimes?.candidates?.find(
+                              (candidate) => candidate.order === selectedCandidateOrder
+                            ),
+                            selectedStoreId
+                          )
+                        }
                         submitting={submitting}
                       />
                     ) : undefined}

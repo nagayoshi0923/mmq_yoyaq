@@ -26,6 +26,13 @@ import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
+import {
+  getPrivateBookingCandidateBlockedState,
+  type PrivateBookingBlockedSlotRow,
+} from '@/lib/privateBookingBlockedSlotAvailability'
+import { resolveOrgIdFromPageContext } from '@/lib/organization'
+import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
+import { toJstYmd } from '@/utils/jstDate'
 
 const MAX_TIME_SLOTS = 6
 
@@ -155,26 +162,63 @@ export function PrivateBookingRequest({
   })
   const businessHoursByStore = businessHoursData ?? new Map<string, BusinessHoursSettingRow>()
 
-  const { data: storeEvents = [] } = useQuery({
+  const { data: storeEvents = [], refetch: refetchStoreEvents } = useQuery({
     queryKey: ['private-booking-request', 'store-events', storeIdsKey],
     enabled: storeIdsForSlotResolution.length > 0,
     queryFn: async () => {
-      const fmtJst = (d: Date) =>
-        new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
+      const organizationId = await resolveOrgIdFromPageContext()
+      if (!organizationId) return []
       const today = new Date()
-      const windowEnd = new Date(today)
-      windowEnd.setDate(today.getDate() + 180)
+      const windowEnd = new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)
       const { data, error } = await supabase
-        .from('schedule_events_public')
-        .select('id, date, start_time, end_time, store_id, scenario, category, is_cancelled')
+        .from('schedule_events_for_availability')
+        .select('id, date, start_time, end_time, store_id, is_cancelled')
+        .filter('organization_id', 'eq', organizationId)
         .in('store_id', storeIdsForSlotResolution)
-        .gte('date', fmtJst(today))
-        .lte('date', fmtJst(windowEnd))
+        .gte('date', toJstYmd(today))
+        .lte('date', toJstYmd(windowEnd))
         .eq('is_cancelled', false)
       if (error) { logger.error('貸切確認: イベント取得エラー', error); return [] }
       return data || []
     },
   })
+
+  const {
+    data: blockedSlotRows = [],
+    refetch: refetchBlockedSlotRows,
+  } = useQuery({
+    queryKey: ['private-booking-request', 'blocked-slots', storeIdsKey],
+    enabled: storeIdsForSlotResolution.length > 0,
+    queryFn: async () => {
+      const organizationId = await resolveOrgIdFromPageContext()
+      if (!organizationId) return [] as PrivateBookingBlockedSlotRow[]
+      const params: RpcGetPublicPrivateBookingAvailabilityParams = {
+        p_organization_id: organizationId,
+        p_store_ids: storeIdsForSlotResolution,
+        p_start_date: dateRange.minDate,
+        p_end_date: toJstYmd(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)),
+      }
+      const { data, error } = await supabase.rpc(
+        'get_public_private_booking_availability',
+        params
+      )
+      if (error) {
+        logger.error('貸切確認: 募集停止枠取得エラー', error)
+        throw error
+      }
+      return (data || []) as PrivateBookingBlockedSlotRow[]
+    },
+  })
+
+  const getBlockedState = useCallback(
+    (date: string, timeSlot: string, rows = blockedSlotRows) =>
+      getPrivateBookingCandidateBlockedState(
+        { date, timeSlot },
+        storeIdsForSlotResolution,
+        rows
+      ),
+    [blockedSlotRows, storeIdsForSlotResolution]
+  )
 
   const pickerDate = newDate || dateRange.minDate
   const candidateSlotsForPicker = useMemo(() => {
@@ -211,6 +255,10 @@ export function PrivateBookingRequest({
     const picked = daySlots.find((s) => s.label === newSlotLabel)
     if (!picked) {
       toast.error('この日・店舗の組み合わせでは、その時間帯を追加できません')
+      return
+    }
+    if (getBlockedState(newDate, picked.label).allStoresBlocked) {
+      toast.error(`${newDate} ${picked.label} は現在受付停止中です`)
       return
     }
     const slot: TimeSlot = {
@@ -279,7 +327,10 @@ export function PrivateBookingRequest({
       return
     }
 
-    // 店舗未選択でも送信可能（後から選択できる）
+    if (selectedStoreIds.length === 0) {
+      setError('希望店舗を1店舗以上選択してください')
+      return
+    }
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
@@ -291,6 +342,42 @@ export function PrivateBookingRequest({
     }
 
     try {
+      // グループや顧客データを変更する前に、募集停止と公演競合を最新化して全候補を再検証する。
+      const [latestBlockedResult, latestEventsResult] = await Promise.all([
+        refetchBlockedSlotRows(),
+        refetchStoreEvents(),
+      ])
+      if (latestBlockedResult.error) throw latestBlockedResult.error
+      if (latestEventsResult.error) throw latestEventsResult.error
+      const latestBlockedRows =
+        (latestBlockedResult.data || []) as PrivateBookingBlockedSlotRow[]
+      const latestEvents = latestEventsResult.data || []
+      const invalidCandidates = editableTimeSlots.filter((candidate) => {
+        const blockedState = getBlockedState(
+          candidate.date,
+          candidate.slot.label,
+          latestBlockedRows
+        )
+        if (blockedState.allStoresBlocked) return true
+        const latestSlots = computePrivateBookingSlots({
+          date: candidate.date,
+          storeIds: blockedState.availableStoreIds,
+          businessHoursByStore,
+          scenarioTiming,
+          allStoreEvents: latestEvents,
+          isCustomHoliday,
+          privateBookingTimeSlots,
+        })
+        return !latestSlots.some((slot) => slot.label === candidate.slot.label)
+      })
+      if (invalidCandidates.length > 0) {
+        const details = invalidCandidates
+          .map((candidate) => `${candidate.date} ${candidate.slot.label}`)
+          .join('、')
+        setError(`${details} は現在受付停止中または既存公演と競合しています。候補日時を再選択してください。`)
+        return
+      }
+
       // グループがまだ作成されていない場合は作成
       let groupIdToUse = createdGroupId
       logger.log('[貸切リクエスト] 送信開始', { createdGroupId, scenarioId, editableTimeSlots: editableTimeSlots.length })
@@ -369,6 +456,9 @@ export function PrivateBookingRequest({
   }
 
   const totalPrice = participationFee * maxParticipants
+  const hasFullyBlockedCandidate = editableTimeSlots.some((candidate) =>
+    getBlockedState(candidate.date, candidate.slot.label).allStoresBlocked
+  )
 
   return (
     <div className="booking-shell min-h-screen bg-background overflow-x-clip">
@@ -465,11 +555,23 @@ export function PrivateBookingRequest({
                                 日付を選ぶか、希望店舗の営業時間を読み込み中です
                               </div>
                             ) : (
-                              candidateSlotsForPicker.map((slot) => (
-                                  <SelectItem key={slot.label} value={slot.label}>
+                              candidateSlotsForPicker.map((slot) => {
+                                const blockedState = getBlockedState(pickerDate, slot.label)
+                                return (
+                                  <SelectItem
+                                    key={slot.label}
+                                    value={slot.label}
+                                    disabled={blockedState.allStoresBlocked}
+                                  >
                                     {slot.label}（{slot.startTime}〜{slot.endTime}）
+                                    {blockedState.allStoresBlocked
+                                      ? ' — 現在受付停止中'
+                                      : blockedState.partiallyBlocked
+                                        ? ' — 一部店舗のみ受付中'
+                                        : ''}
                                   </SelectItem>
-                              ))
+                                )
+                              })
                             )}
                           </SelectContent>
                         </Select>
@@ -508,7 +610,9 @@ export function PrivateBookingRequest({
                     </CardContent>
                   </Card>
                 ) : (
-                  editableTimeSlots.map((slot, index) => (
+                  editableTimeSlots.map((slot, index) => {
+                    const blockedState = getBlockedState(slot.date, slot.slot.label)
+                    return (
                     <Card key={`${slot.date}-${slot.slot.label}`}>
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="space-y-1">
@@ -523,6 +627,16 @@ export function PrivateBookingRequest({
                             <Clock className="w-4 h-4" />
                             <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
                           </div>
+                          {blockedState.allStoresBlocked && (
+                            <p className="text-xs font-medium text-red-700">
+                              現在受付停止中 — 候補日時を再選択してください
+                            </p>
+                          )}
+                          {blockedState.partiallyBlocked && (
+                            <p className="text-xs text-amber-700">
+                              一部の希望店舗は現在受付停止中です
+                            </p>
+                          )}
                         </div>
                         {editableTimeSlots.length > 1 && (
                           <Button
@@ -536,7 +650,8 @@ export function PrivateBookingRequest({
                         )}
                       </CardContent>
                     </Card>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -678,7 +793,7 @@ export function PrivateBookingRequest({
 
             <Button
               onClick={onSubmit}
-              disabled={isSubmitting || groupLoading}
+              disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate}
               className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
             >
               {(isSubmitting || groupLoading) ? (
@@ -686,7 +801,7 @@ export function PrivateBookingRequest({
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {groupLoading ? 'グループ作成中...' : 'リクエスト送信中...'}
                 </>
-              ) : '貸切リクエストを送信'}
+              ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください' : '貸切リクエストを送信'}
             </Button>
           </div>
         </div>
@@ -694,4 +809,3 @@ export function PrivateBookingRequest({
     </div>
   )
 }
-

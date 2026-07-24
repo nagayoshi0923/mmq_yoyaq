@@ -1,6 +1,6 @@
 # 重要機能保護ルール
 
-**最終更新**: 2025-12-30
+**最終更新**: 2026-07-23
 
 絶対に削除・劣化させてはいけない重要機能のリスト。
 
@@ -105,7 +105,34 @@ gmDateConflicts.add('gm-uuid-2025-10-15-夜')
 
 ---
 
-#### 3. スケジュールインポート機能
+#### 3. 貸切候補の募集停止ガード
+
+**正規RPC**:
+- `supabase/rpcs/create_private_booking_request.sql`
+- `supabase/rpcs/approve_private_booking.sql`
+- `supabase/rpcs/get_public_private_booking_availability.sql`
+
+**必須要件**:
+- 顧客画面では、希望店舗の全店が `schedule_blocked_slots` で停止中の候補だけを選択不可にする。一部店舗のみ停止中なら候補として維持する
+- 送信直前に募集停止・公演競合を再取得し、無効候補を黙って削除せず再選択を求める
+- `create_private_booking_request` は、信頼済みorganization・active店舗・全候補・canonical time slotを使い、予約INSERT前にtransaction内で再検査する
+- `approve_private_booking` は、予約に保存済みの候補と希望店舗だけを使い、同一transactionで募集停止と公演競合を再検査してから公演を作成する
+- 募集停止は `P0040`、公演競合は既存の競合SQLSTATEとして区別する
+- 申請後に募集停止へ変わっても、既存pending申請を自動削除・自動却下・書き換えしない
+- `schedule_blocked_slots` のRLS policyをこの機能から直接変更しない
+
+**回帰確認**:
+```bash
+grep -n "LOCK TABLE schedule_blocked_slots" \
+  supabase/rpcs/create_private_booking_request.sql \
+  supabase/rpcs/approve_private_booking.sql
+psql "$LOCAL_DATABASE_URL" \
+  -f supabase/tests/yoyaq_004_private_booking_blocked_slots_test.sql
+```
+
+---
+
+#### 4. スケジュールインポート機能
 
 **ファイル**: `src/components/schedule/ImportScheduleModal.tsx`
 
@@ -121,6 +148,14 @@ gmDateConflicts.add('gm-uuid-2025-10-15-夜')
 ---
 
 ## 📋 変更履歴
+
+### 2026-07-23
+- **修正**: 募集停止枠の貸切申請・承認をclientとDB transactionの両方で拒否
+- **変更内容**:
+  - 全希望店舗が停止中の候補を選択不可にし、一部店舗停止は有効候補として維持
+  - 送信直前の再検査と、申請・承認RPC内のtenant/store/date/time slot再検査を追加
+  - 既存pending申請を保持したまま「申請後に募集停止」と「申請時点で募集停止（既存不整合）」を区別
+- **理由**: 画面表示後の募集停止raceと、client検査を迂回した貸切作成・承認を防ぐため
 
 ### 2026-01-23
 - **修正**: 参加人数変更の在庫制御をRPCで統一

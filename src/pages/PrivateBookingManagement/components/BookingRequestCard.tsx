@@ -87,6 +87,11 @@ interface BookingRequestCardProps {
   cardActionsContent?: React.ReactNode
   // 候補ごとの空き店舗（承認モード時のみ渡す）
   storesPerCandidate?: Record<number, Array<{ id: string; name: string; short_name?: string }>>
+  blockedStatusPerCandidate?: Record<number, {
+    allStoresBlocked: boolean
+    timing: 'none' | 'blocked_after_request' | 'blocked_at_request'
+    storeNames: string[]
+  }>
   // GM手動入力
   gmList?: GMStaff[]
   onGMResponseSave?: (requestId: string, staffId: string, availableCandidates: number[]) => Promise<void>
@@ -101,6 +106,7 @@ export const BookingRequestCard = ({
   inlineApprovalContent,
   cardActionsContent,
   storesPerCandidate,
+  blockedStatusPerCandidate,
   gmList = [],
   onGMResponseSave,
 }: BookingRequestCardProps) => {
@@ -382,6 +388,7 @@ export const BookingRequestCard = ({
                 const clickable = !!onSelectCandidate
 
                 const availableStores = storesPerCandidate?.[candidate.order]
+                const blockedStatus = blockedStatusPerCandidate?.[candidate.order]
 
                 return (
                   <div key={candidate.order}>
@@ -453,6 +460,24 @@ export const BookingRequestCard = ({
                             </span>
                           ))}
                         </div>
+                      )}
+
+                      {blockedStatus && (
+                        <Alert className="mt-2 border-red-300 bg-red-50 py-2 text-red-950">
+                          <AlertTitle className="text-xs font-semibold text-red-900">
+                            {blockedStatus.allStoresBlocked
+                              ? blockedStatus.timing === 'blocked_at_request'
+                                ? '申請時点で募集停止（既存不整合）'
+                                : '申請後に募集停止'
+                              : '一部店舗が現在受付停止中'}
+                          </AlertTitle>
+                          <AlertDescription className="text-xs text-red-900/90">
+                            {blockedStatus.storeNames.join('、')}
+                            {blockedStatus.allStoresBlocked
+                              ? ' — 停止中は承認できません。募集再開または別候補・店舗を案内してください。'
+                              : ' — 受付中の別店舗は承認できます。'}
+                          </AlertDescription>
+                        </Alert>
                       )}
                     </div>
 

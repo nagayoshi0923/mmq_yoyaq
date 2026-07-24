@@ -70,7 +70,11 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
 
   const scenarioMasterId = scenario?.scenario_master_id || scenario?.scenario_id || scenario?.id || scenarioId
 
-  const { loading: isLoadingEvents, computeSlotsByDate } = usePrivateBookingSlotData({
+  const {
+    loading: isLoadingEvents,
+    computeSlotsByDate,
+    isCandidateBlockedOnAllStores,
+  } = usePrivateBookingSlotData({
     organizationId: organizationId || '',
     scenarioId: scenarioMasterId,
     storeIds: selectedStoreIds,
@@ -113,8 +117,11 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     if (isLoadingEvents) return false
     const result = computeSlotsByDate([date])
     const slots = result[date] || []
-    return slots.some(s => s.label === slot.label)
-  }, [isLoadingEvents, computeSlotsByDate])
+    return (
+      slots.some(s => s.label === slot.label) &&
+      !isCandidateBlockedOnAllStores(date, slot.label, _storeIds)
+    )
+  }, [isLoadingEvents, computeSlotsByDate, isCandidateBlockedOnAllStores])
 
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []

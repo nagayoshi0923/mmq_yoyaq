@@ -20,6 +20,7 @@ import { showToast } from '@/utils/toast'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
+import { toCanonicalPrivateBookingTimeSlot } from '@/lib/privateBookingBlockedSlotAvailability'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -141,6 +142,37 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       const selectedEndTime = resolveEndTime(selectedCandidate, selectedDateYmd)
 
+      const canonicalTimeSlot = toCanonicalPrivateBookingTimeSlot(selectedCandidate.timeSlot)
+      if (!organizationId || !canonicalTimeSlot) {
+        setSubmitting(false)
+        return {
+          success: false,
+          error: '候補日時または組織情報が無効です。画面を更新してから再度お試しください。',
+        }
+      }
+
+      const { data: blockedSlot, error: blockedSlotError } = await supabase
+        .from('schedule_blocked_slots')
+        .select('id')
+        .filter('organization_id', 'eq', organizationId)
+        .eq('date', selectedDateYmd)
+        .eq('store_id', selectedStoreId)
+        .eq('time_slot', canonicalTimeSlot)
+        .maybeSingle()
+      if (blockedSlotError) {
+        logger.error('募集停止枠チェックエラー:', blockedSlotError)
+        setSubmitting(false)
+        return { success: false, error: '募集停止状況の確認に失敗しました。もう一度お試しください。' }
+      }
+      if (blockedSlot) {
+        setSubmitting(false)
+        const storeName = stores.find((store) => store.id === selectedStoreId)?.name || '選択店舗'
+        return {
+          success: false,
+          error: `${selectedDateYmd} ${selectedCandidate.timeSlot}（${storeName}）は現在受付停止中です。募集再開後に承認するか、別の候補・店舗を選択してください。`,
+        }
+      }
+
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
       const existingEventsQuery = supabase
@@ -241,6 +273,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           return {
             success: false,
             error: 'この時間帯には既に別の公演が入っています。別の候補を選んでください。'
+          }
+        }
+        if (approveError.code === 'P0040') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: 'この候補・店舗は現在受付停止中です。募集再開後に承認するか、別の候補・店舗を選択してください。',
           }
         }
         if (approveError.code === 'P0025') {
@@ -756,4 +795,3 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     runDelete,
   }
 }
-

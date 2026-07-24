@@ -106,6 +106,13 @@ export interface RpcApprovePrivateBookingParams {
   p_selected_sub_gm_id: string | null
 }
 
+export interface RpcGetPublicPrivateBookingAvailabilityParams {
+  p_organization_id: string
+  p_store_ids: string[]
+  p_start_date: string
+  p_end_date: string
+}
+
 // ─── グループメンバー系 ──────────────────────────────────────────────────────
 
 export interface RpcAuthenticateGuestByPinParams {

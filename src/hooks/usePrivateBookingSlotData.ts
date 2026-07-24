@@ -4,6 +4,13 @@ import { logger } from '@/utils/logger'
 import { fetchScenarioTimingFromDb, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { computePrivateBookingSlots, type PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
+import {
+  buildPrivateBookingBlockedSlotIndex,
+  getPrivateBookingCandidateBlockedState,
+  type PrivateBookingBlockedSlotRow,
+} from '@/lib/privateBookingBlockedSlotAvailability'
+import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
+import { toJstYmd } from '@/utils/jstDate'
 
 interface UsePrivateBookingSlotDataOptions {
   organizationId: string
@@ -19,8 +26,10 @@ interface UsePrivateBookingSlotDataResult {
   businessHoursByStore: Map<string, BusinessHoursSettingRow>
   allStoreEvents: any[]
   scenarioTiming: ScenarioTimingFromDb | null
+  blockedSlots: PrivateBookingBlockedSlotRow[]
   loading: boolean
   computeSlotsByDate: (dates: string[]) => Record<string, PrivateBookingSlot[]>
+  isCandidateBlockedOnAllStores: (date: string, timeSlot: string, candidateStoreIds?: string[]) => boolean
 }
 
 export function usePrivateBookingSlotData({
@@ -36,10 +45,12 @@ export function usePrivateBookingSlotData({
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
   const [businessHoursByStore, setBusinessHoursByStore] = useState<Map<string, BusinessHoursSettingRow>>(new Map())
   const [scenarioTiming, setScenarioTiming] = useState<ScenarioTimingFromDb | null>(null)
+  const [blockedSlots, setBlockedSlots] = useState<PrivateBookingBlockedSlotRow[]>([])
   const [eventsLoaded, setEventsLoaded] = useState(false)
   const [eventsLoading, setEventsLoading] = useState(false)
   const [businessHoursLoaded, setBusinessHoursLoaded] = useState(false)
   const [scenarioTimingLoaded, setScenarioTimingLoaded] = useState(false)
+  const [blockedSlotsLoaded, setBlockedSlotsLoaded] = useState(false)
 
   const effectiveStoreIds = storeIds.length > 0 ? storeIds : fallbackStoreIds
 
@@ -57,8 +68,7 @@ export function usePrivateBookingSlotData({
         const { data } = await supabase
           .from('stores')
           .select('id')
-          .eq('organization_id', organizationId)
-          .eq('status', 'active')
+          .match({ organization_id: organizationId, status: 'active' })
           .or('is_temporary.is.null,is_temporary.eq.false')
           .neq('ownership_type', 'office')
         if (!cancelled && data) {
@@ -94,18 +104,16 @@ export function usePrivateBookingSlotData({
       setEventsLoading(true)
       setEventsLoaded(false)
       try {
-        const fmtJst = (d: Date) =>
-          new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
         const today = new Date()
-        const windowEnd = new Date(today)
-        windowEnd.setDate(today.getDate() + 180)
+        const windowEnd = new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)
 
         const { data, error } = await supabase
-          .from('schedule_events_public')
+          .from('schedule_events_for_availability')
           .select('id, date, store_id, start_time, end_time, is_cancelled')
+          .eq('organization_id', organizationId)
           .in('store_id', effectiveStoreIds)
-          .gte('date', fmtJst(today))
-          .lte('date', fmtJst(windowEnd))
+          .gte('date', toJstYmd(today))
+          .lte('date', toJstYmd(windowEnd))
           .eq('is_cancelled', false)
 
         if (error) throw error
@@ -154,7 +162,46 @@ export function usePrivateBookingSlotData({
     loadBusinessHours()
 
     return () => { cancelled = true }
-  }, [isActive, effectiveStoreIds])
+  }, [isActive, organizationId, effectiveStoreIds])
+
+  useEffect(() => {
+    if (!isActive) {
+      setBlockedSlots([])
+      setBlockedSlotsLoaded(false)
+      return
+    }
+    if (!organizationId || effectiveStoreIds.length === 0) {
+      setBlockedSlots([])
+      setBlockedSlotsLoaded(true)
+      return
+    }
+
+    let cancelled = false
+    setBlockedSlotsLoaded(false)
+    ;(async () => {
+      try {
+        const today = new Date()
+        const windowEnd = new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)
+        const params: RpcGetPublicPrivateBookingAvailabilityParams = {
+          p_organization_id: organizationId,
+          p_store_ids: effectiveStoreIds,
+          p_start_date: toJstYmd(today),
+          p_end_date: toJstYmd(windowEnd),
+        }
+        const { data, error } = await supabase.rpc('get_public_private_booking_availability', params)
+        if (error) throw error
+        if (!cancelled) {
+          setBlockedSlots((data || []) as PrivateBookingBlockedSlotRow[])
+        }
+      } catch (err) {
+        logger.error('Failed to load private booking blocked slots', err)
+        if (!cancelled) setBlockedSlots([])
+      } finally {
+        if (!cancelled) setBlockedSlotsLoaded(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isActive, organizationId, effectiveStoreIds])
 
   // Load scenario timing
   useEffect(() => {
@@ -184,7 +231,13 @@ export function usePrivateBookingSlotData({
     return () => { cancelled = true }
   }, [isActive, organizationId, scenarioId])
 
-  const loading = fallbackLoading || eventsLoading || !eventsLoaded || !businessHoursLoaded || !scenarioTimingLoaded
+  const loading =
+    fallbackLoading ||
+    eventsLoading ||
+    !eventsLoaded ||
+    !businessHoursLoaded ||
+    !scenarioTimingLoaded ||
+    !blockedSlotsLoaded
 
   const resolvedTimeSlots = privateBookingTimeSlots ?? scenarioTiming?.private_booking_time_slots ?? undefined
 
@@ -207,12 +260,28 @@ export function usePrivateBookingSlotData({
     }
   }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots])
 
+  const blockedSlotIndex = useMemo(
+    () => buildPrivateBookingBlockedSlotIndex(blockedSlots),
+    [blockedSlots]
+  )
+
+  const isCandidateBlockedOnAllStores = useMemo(() => {
+    return (date: string, timeSlot: string, candidateStoreIds = effectiveStoreIds): boolean =>
+      getPrivateBookingCandidateBlockedState(
+        { date, timeSlot },
+        candidateStoreIds,
+        blockedSlotIndex
+      ).allStoresBlocked
+  }, [blockedSlotIndex, effectiveStoreIds])
+
   return {
     effectiveStoreIds,
     businessHoursByStore,
     allStoreEvents,
     scenarioTiming,
+    blockedSlots,
     loading,
     computeSlotsByDate,
+    isCandidateBlockedOnAllStores,
   }
 }
