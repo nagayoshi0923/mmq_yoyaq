@@ -79,7 +79,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
-| `019f779d-7170-7752-a846-37c593cf3ec8` | `/private/tmp/yoyaq-004-integration` | `564dd67fbb101d75169b072b25ef22555c4b0c2b` | 2026-07-24 11:04 JST |
+| `019f779d-7170-7752-a846-37c593cf3ec8` | `/private/tmp/yoyaq-004-integration` | `6ec0f59e9388b9bde9f3f6afbb0100ed53537fab` | 2026-07-24 11:25 JST |
 
 ## Queue
 
@@ -90,7 +90,7 @@ REWORK -> DOING -> REPORT
 | YOYAQ-001 | キャンセルポリシー共通基盤と予約時スナップショット | DONE | HIGH-RISK | N/A | なし | `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` / `019f782e-f6c6-7f72-9d34-0b7dcaec3565` DONE | `169f33fc64761db9624ed7dabdefff36a930beae` | staging DB `20260719090000`適用・本commitで統合 |
 | YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | REWORK | HIGH-RISK | 必須 / PO OK | YOYAQ-001 | `019f783c-455a-7db2-bf06-c9bae6cbcdd4` / `019f7a1c-829a-7900-92cb-f9a3eb0697fc` REWORK | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | 管理設定linkのorganization scope修正中 |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
-| YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | DOING | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / review 未着手 | - | final gates・完全diff監査・1commit・REPORT進行中 |
+| YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | REPORT | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / fresh review 起動中 | `643ff96fb010171e919e6c893c3477b2e331e8ef` | 独立検収待ち。DB/staging/main未変更 |
 
 ## Event log
 
@@ -151,6 +151,7 @@ REWORK -> DOING -> REPORT
 | 2026-07-23 22:55 | `YOYAQ_PREVIEW_TRANSPORT_REWORK` / `EVENT_CLAIMED` | YOYAQ-004 | - | POの再度の「みれない」と、再発行済みQuick TunnelのDNS解決不能（curl exit 6 / HTTP 000）をclaim。Quick TunnelをPO確認手段から廃止し、同じ未commit worker実装を保持したまま、製品stagingとは独立したVercel Preview静的artifactへ切替。visual OK、最終gate、commit、review、DB、製品staging統合は引き続き保留（recovered: false） |
 | 2026-07-23 23:00 | `YOYAQ_PREVIEW_STABLE_REISSUED` | YOYAQ-004 | `dpl_EVifNUeWsf6faRkXZKgHGLL7vCV5` | Vercelの非production Preview `https://mmq-yoyaq-a29n2x74x-nagayoshi0923s-projects.vercel.app/yoyaq-004-preview.html`をREADYで発行。5 state全てを配送直前にDNS解決・外部HTTP 200・実ブラウザdesktop 1280px/mobile 390pxで確認し、必要文言とdisabled状態、横overflow 0、console error/warn 0、native dialogなしを確認。artifactは認証不要・in-memory・PIIなし・送信不能・DB/API/RPC/session不使用で、製品staging/main/production/DB変更なし。PREVIEW_WAITING_VISUAL_OKを維持（recovered: false） |
 | 2026-07-24 11:04 | `YOYAQ_VISUAL_OK_AND_PRODUCTION_RELEASE_REQUESTED` / `EVENT_CLAIMED` | YOYAQ-004 | - | POの「OKで本番に」をclaim。Vercel Preview 5状態のvisual OKを同worker `019f8e6f-2935-7143-b7b2-a03841f62e9f`へ明示配送し、PREVIEW_WAITING_VISUAL_OK→DOING。worker activeを確認し、指定final gates・完全diff監査・1日本語commit・WORKER_REPORTへ進行。本番承認はstaging DONE後の分岐/未承認差分/migration監査を条件とし、現時点ではDB/staging/main/production変更なし（recovered: false） |
+| 2026-07-24 11:25 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-004 | `643ff96fb010171e919e6c893c3477b2e331e8ef` | worker REPORTをclaim。exact baseから1日本語commit、承認済み20ファイル、worktree clean。verify、対象unit 11件、security/permission/anon/JST/build、multi-tenant/org-scope exact-base増分0、diff/RPC-migration同期/production preview除外がPASS。local DB不在のためtransaction SQLはNOT RUNだがBEGIN/ROLLBACK・申請/承認P0040・tenant/event/pending不変を静的監査。fresh HIGH-RISK独立検収を別worktreeで起動し、DB/staging/main/productionは未変更（recovered: false） |
 
 ## 記録テンプレート
 
@@ -218,7 +219,7 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **PREVIEW:** PO visual OK受領。DNSが不安定だったQuick Tunnelは廃止し、監督所有の非production Vercel Preview `https://mmq-yoyaq-a29n2x74x-nagayoshi0923s-projects.vercel.app/yoyaq-004-preview.html`で承認。`state=all-blocked`、`mixed-stores`、`stale-submit`、`blocked-after-request`、`blocked-at-request`の5直linkを配送直前にDNS解決・外部HTTP 200・実ブラウザで再確認し、desktop 1280px/mobile 390pxとも横overflow 0、console error/warn 0、native dialogなし。全店舗停止はdisabled＋「現在受付停止中」、一部店舗受付中は選択可、送信直前停止は日付/time_slot/店舗付き再選択エラー、申請後停止と申請時点停止（既存不整合）を区別し、いずれも承認disabledかつ申請データを保持する。fixture artifactは認証不要・in-memory・PIIなし・送信不能・DB/API/RPC/session不使用で、製品staging統合の代替にはしない。visual OK後は同workerのfinal gates・REPORT、fresh HIGH-RISK独立検収、DB先行のstaging統合へ進む。安定Preview cleanupは独立検収完了後、PO確認証跡を残して監督が記録する。
 - **gates/review:** PO visual OK後に`npm run verify`、対象unit、`npm run test:rpcs`、`npm run db:check`、`npm run check:security-guardrails`、`npm run check:permissions`、`npm run check:anon-rls-grants`、`npm run check:multi-tenant`、`npm run check:org-scope`、`npm run check:jst-date`、`npm run build`、`git diff --check`、RPC/migration byte一致、live `pg_get_functiondef`差分監査、transaction SQL testを実行する。HIGH-RISK fresh独立検収必須。stagingはmigration/RPC適用・確認をfrontend統合/pushより先に行い、main/productionは変更しない。
 - **worker:** `019f8e6f-2935-7143-b7b2-a03841f62e9f`、worktree `/Users/mai/.codex/worktrees/1460/mmq_yoyaq-1`、branch `codex/yoyaq-004-blocked-private-booking`、exact base `69cd070b3bce99dbab57bb01e1e3d9428a32e8da`、port `5186`。YOYAQ-003が編集中の`src/AppRoot.tsx`はYOYAQ-004側でLOCKし、非重複製品ファイルのみ並行する。
-- **REPORT:** 未着手
-- **review:** 未着手
+- **REPORT:** `643ff96fb010171e919e6c893c3477b2e331e8ef`。exact baseから1日本語commit、承認済み20ファイル、worktree clean。`npm run verify`、対象unit 11件、security guardrails、permissions、anon RLS grants、JST、build、diff check、RPC/migration同期、production artifactのpreview除外がPASS。multi-tenant/org-scopeはexact base比増分0。安全なmigration適用済みlocal DBがないためtransaction SQLはNOT RUNで、staging/prodでは実行していない。migrationは3 RPCのCREATE OR REPLACE/GRANTのみで、table/index/constraint/RLS/data DDL/DML、PII返却、既存pending更新、AppRoot差分はいずれも0。
+- **review:** fresh HIGH-RISK独立検収を別worktreeで起動中。lock ordering、信頼済みcandidate/store、P0040/P0030分離、既存pending不変、tenant/認可/PII、migration整合、preview production除外を重点確認する。
 - **integration:** 未着手
 - **PO check:** 【顧客向け貸切予約 > 候補日時】停止枠が選べず、複数店舗のうち空きがあれば選べること。【貸切確認 > 申請カード > 候補日時】申請後/申請前からの募集停止が区別され、停止中は承認できないこと。
