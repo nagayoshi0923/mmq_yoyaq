@@ -249,8 +249,9 @@ export function PlatformTop() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { favorites, toggleFavorite } = useFavorites()
-  const { isPlayed, customerId, markAsPlayed } = usePlayedScenarios()
+  const { isPlayed, customerId, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
+  const [togglingPlayedIds, setTogglingPlayedIds] = useState<Set<string>>(new Set())
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [isExpanded, setIsExpanded] = useState(() => {
     if (!isBrowserReloadNavigation()) return false
@@ -365,7 +366,22 @@ export function PlatformTop() {
   const handlePlayedClick = (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!user) { showToast.error('ログインが必要です'); return }
-    if (isPlayed(scenarioId)) { showToast.info('既に体験済みとして登録されています'); return }
+    if (isPlayed(scenarioId)) {
+      if (togglingPlayedIds.has(scenarioId)) return
+      setTogglingPlayedIds(prev => new Set(prev).add(scenarioId))
+      unmarkAsPlayed(scenarioId)
+        .then(() => showToast.success('未体験に戻しました'))
+        .catch((error) => {
+          logger.error('未体験変更エラー:', error)
+          showToast.error('未体験への変更に失敗しました')
+        })
+        .finally(() => setTogglingPlayedIds(prev => {
+          const next = new Set(prev)
+          next.delete(scenarioId)
+          return next
+        }))
+      return
+    }
     setPlayedDialogTarget({ id: scenarioId, title: scenarioTitle })
   }
 

@@ -1,15 +1,11 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScenarioCard } from './ScenarioCard'
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, Calendar } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
-import { useAuth } from '@/contexts/AuthContext'
-import { PlayedRegistrationDialog } from '@/components/modals/PlayedRegistrationDialog'
-import { showToast } from '@/utils/toast'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 interface LineupViewProps {
@@ -18,7 +14,9 @@ interface LineupViewProps {
   allScenarios: ScenarioCardType[]
   onCardClick: (scenarioId: string) => void
   isFavorite: (scenarioId: string) => boolean
+  isPlayed: (scenarioId: string) => boolean
   onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
+  onTogglePlayed: (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => void
   searchTerm?: string
   onClearSearch?: () => void
   organizationSlug?: string
@@ -40,7 +38,9 @@ export const LineupView = memo(function LineupView({
   allScenarios,
   onCardClick,
   isFavorite,
+  isPlayed,
   onToggleFavorite,
+  onTogglePlayed,
   searchTerm = '',
   onClearSearch,
   organizationSlug,
@@ -53,23 +53,6 @@ export const LineupView = memo(function LineupView({
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
 
-  const { user } = useAuth()
-  const { isPlayed, customerId, markAsPlayed } = usePlayedScenarios()
-  const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
-
-  const handleTogglePlayed = (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!user) {
-      showToast.error('ログインが必要です')
-      return
-    }
-    if (isPlayed(scenarioId)) {
-      showToast.info('既に体験済みとして登録されています')
-      return
-    }
-    setPlayedDialogTarget({ id: scenarioId, title: scenarioTitle })
-  }
-  
   // 臨時会場を除外した店舗リスト
   const filteredStores = useMemo(() => stores.filter(store => !store.is_temporary), [stores])
   
@@ -137,7 +120,7 @@ export const LineupView = memo(function LineupView({
                   isFavorite={isFavorite(scenario.scenario_id)}
                   isPlayed={isPlayed(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
-                  onTogglePlayed={handleTogglePlayed}
+                  onTogglePlayed={onTogglePlayed}
                   organizationName={organizationName}
                 />
               ))}
@@ -153,16 +136,6 @@ export const LineupView = memo(function LineupView({
             </div>
           )}
         </section>
-        {playedDialogTarget && (
-          <PlayedRegistrationDialog
-            open={!!playedDialogTarget}
-            onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }}
-            scenarioTitle={playedDialogTarget.title}
-            scenarioMasterId={playedDialogTarget.id}
-            customerId={customerId}
-            onRegistered={() => markAsPlayed(playedDialogTarget.id)}
-          />
-        )}
       </div>
     )
   }
@@ -200,7 +173,7 @@ export const LineupView = memo(function LineupView({
                 isFavorite={isFavorite(scenario.scenario_id)}
                 isPlayed={isPlayed(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
-                onTogglePlayed={handleTogglePlayed}
+                onTogglePlayed={onTogglePlayed}
                 organizationName={organizationName}
               />
             ))}
@@ -251,7 +224,7 @@ export const LineupView = memo(function LineupView({
                   isFavorite={isFavorite(scenario.scenario_id)}
                   isPlayed={isPlayed(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
-                  onTogglePlayed={handleTogglePlayed}
+                  onTogglePlayed={onTogglePlayed}
                   organizationName={organizationName}
                 />
               ))}
@@ -287,16 +260,6 @@ export const LineupView = memo(function LineupView({
           シナリオカタログを見る
         </Button>
       </section>
-      {playedDialogTarget && (
-        <PlayedRegistrationDialog
-          open={!!playedDialogTarget}
-          onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }}
-          scenarioTitle={playedDialogTarget.title}
-          scenarioMasterId={playedDialogTarget.id}
-          customerId={customerId}
-          onRegistered={() => markAsPlayed(playedDialogTarget.id)}
-        />
-      )}
     </div>
   )
 })

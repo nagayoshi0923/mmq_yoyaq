@@ -191,8 +191,34 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
-  const { isPlayed, customerId: playedCustomerId, markAsPlayed, playedScenarioIds } = usePlayedScenarios()
+  const { isPlayed, customerId: playedCustomerId, markAsPlayed, unmarkAsPlayed, playedScenarioIds } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
+  const [togglingPlayedIds, setTogglingPlayedIds] = useState<Set<string>>(new Set())
+
+  const handleTogglePlayed = useCallback((id: string, title: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!user) {
+      showToast.error('ログインが必要です')
+      return
+    }
+    if (isPlayed(id)) {
+      if (togglingPlayedIds.has(id)) return
+      setTogglingPlayedIds(prev => new Set(prev).add(id))
+      unmarkAsPlayed(id)
+        .then(() => showToast.success('未体験に戻しました'))
+        .catch((error) => {
+          logger.error('未体験変更エラー:', error)
+          showToast.error('未体験への変更に失敗しました')
+        })
+        .finally(() => setTogglingPlayedIds(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        }))
+      return
+    }
+    setPlayedDialogTarget({ id, title })
+  }, [user, isPlayed, togglingPlayedIds, unmarkAsPlayed])
 
   // カレンダー・リスト用の表示フィルタ
   const [hideSoldOut, setHideSoldOut] = useState(false)
@@ -493,12 +519,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                     isFavorite={isFavorite(scenario.scenario_id)}
                     isPlayed={isPlayed(scenario.scenario_id)}
                     onToggleFavorite={handleToggleFavorite}
-                    onTogglePlayed={(id, title, e) => {
-                      e.stopPropagation()
-                      if (!user) { showToast.error('ログインが必要です'); return }
-                      if (isPlayed(id)) { showToast.info('既に体験済みとして登録されています'); return }
-                      setPlayedDialogTarget({ id, title })
-                    }}
+                    onTogglePlayed={handleTogglePlayed}
                   />
                 ))}
               </div>
@@ -513,7 +534,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 allScenarios={allScenarios}
                 onCardClick={handleCardClick}
                 isFavorite={isFavorite}
+                isPlayed={isPlayed}
                 onToggleFavorite={handleToggleFavorite}
+                onTogglePlayed={handleTogglePlayed}
                 searchTerm={searchTerm}
                 onClearSearch={() => setSearchTerm('')}
                 organizationSlug={organizationSlug}

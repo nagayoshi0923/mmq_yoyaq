@@ -33,12 +33,17 @@ export async function addPlayedOverride(customerId: string, scenarioMasterId: st
   if (error) throw error
 }
 
-/** 解除を取り消す（= override を削除して体験済みに戻す）。 */
-export async function removePlayedOverride(customerId: string, scenarioMasterId: string): Promise<void> {
-  const { error } = await supabase
+/**
+ * 解除を取り消す（= override を削除して体験済みに戻す）。
+ * 戻り値は実際に override を削除したかどうか。再登録時に既存履歴を重複追加しないために使う。
+ */
+export async function removePlayedOverride(customerId: string, scenarioMasterId: string): Promise<boolean> {
+  const { data, error } = await supabase
     .from('customer_played_overrides')
     .delete()
     .eq('customer_id', customerId)
     .eq('scenario_master_id', scenarioMasterId)
+    .select('id')
   if (error) throw error
+  return (data?.length ?? 0) > 0
 }

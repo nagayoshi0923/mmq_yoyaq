@@ -8,6 +8,7 @@ import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { removePlayedOverride } from '@/lib/playedOverrides'
 
 interface PlayedRegistrationDialogProps {
   open: boolean
@@ -34,24 +35,30 @@ export function PlayedRegistrationDialog({
 
     setIsSubmitting(true)
     try {
-      const manualCount = await countManualPlayHistoryForCustomer(customerId)
-      if (isManualPlayHistoryAtCap(manualCount)) {
-        showToast.error(
-          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
-        )
-        return
+      // 「未体験に戻す」で作った override があれば、元の予約・手動履歴を復帰させる。
+      // 新しい手動履歴を重複追加せず、上限件数も消費しない。
+      const restoredExistingPlayed = await removePlayedOverride(customerId, scenarioMasterId)
+
+      if (!restoredExistingPlayed) {
+        const manualCount = await countManualPlayHistoryForCustomer(customerId)
+        if (isManualPlayHistoryAtCap(manualCount)) {
+          showToast.error(
+            `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+          )
+          return
+        }
+
+        const { error } = await supabase
+          .from('manual_play_history')
+          .insert({
+            customer_id: customerId,
+            scenario_title: scenarioTitle,
+            scenario_master_id: scenarioMasterId,
+            played_at: playedDate || null,
+          })
+
+        if (error) throw error
       }
-
-      const { error } = await supabase
-        .from('manual_play_history')
-        .insert({
-          customer_id: customerId,
-          scenario_title: scenarioTitle,
-          scenario_master_id: scenarioMasterId,
-          played_at: playedDate || null,
-        })
-
-      if (error) throw error
 
       onOpenChange(false)
       showToast.success('体験済みに登録しました')

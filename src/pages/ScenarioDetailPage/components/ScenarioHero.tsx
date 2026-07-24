@@ -18,6 +18,7 @@ import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -72,11 +73,23 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   const [selectedStoreId, setSelectedStoreId] = useState('')
   const [allStores, setAllStores] = useState<Store[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [customerId, setCustomerId] = useState<string | null>(null)
+  const [isTogglingPlayed, setIsTogglingPlayed] = useState(false)
+  const [isCheckingPlayed, setIsCheckingPlayed] = useState(true)
   
   // 体験済みかどうかチェック
   useEffect(() => {
+    let active = true
+
     const checkPlayed = async () => {
-      if (!user?.email) return
+      setIsCheckingPlayed(true)
+      setIsPlayed(false)
+      setCustomerId(null)
+
+      if (!user?.email) {
+        setIsCheckingPlayed(false)
+        return
+      }
       
       try {
         // 顧客IDを取得
@@ -86,7 +99,8 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .eq('email', user.email)
           .maybeSingle()
         
-        if (!customer) return
+        if (!active || !customer) return
+        setCustomerId(customer.id)
 
         // 本人/スタッフが「未体験に戻した」場合は override が優先（予約/手動より先に判定）
         const { data: override } = await supabase
@@ -97,6 +111,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .limit(1)
           .maybeSingle()
 
+        if (!active) return
         if (override) {
           setIsPlayed(false)
           return
@@ -113,11 +128,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .limit(1)
           .maybeSingle()
         
+        if (!active) return
         if (reservation) {
           setIsPlayed(true)
           return
         }
-        
+
         // 手動登録から体験済みか確認
         const { data: manual } = await supabase
           .from('manual_play_history')
@@ -127,15 +143,18 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .limit(1)
           .maybeSingle()
         
-        if (manual) {
-          setIsPlayed(true)
-        }
+        if (active) setIsPlayed(!!manual)
       } catch (error) {
         logger.error('体験済みチェックエラー:', error)
+      } finally {
+        if (active) setIsCheckingPlayed(false)
       }
     }
     
-    checkPlayed()
+    void checkPlayed()
+    return () => {
+      active = false
+    }
   }, [user, scenario.scenario_master_id])
 
   // 全店舗を取得（ダイアログ用）
@@ -164,13 +183,29 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     navigate(`/group/create?${params.toString()}`)
   }
   
-  const handlePlayedClick = () => {
+  const handlePlayedClick = async () => {
     if (!user) {
       showToast.error('ログインが必要です')
       return
     }
+    if (isCheckingPlayed) return
     if (isPlayed) {
-      showToast.info('既に体験済みとして登録されています')
+      if (isTogglingPlayed) return
+      if (!customerId) {
+        showToast.error('未体験への変更に失敗しました')
+        return
+      }
+      setIsTogglingPlayed(true)
+      try {
+        await addPlayedOverride(customerId, scenario.scenario_master_id)
+        setIsPlayed(false)
+        showToast.success('未体験に戻しました')
+      } catch (error) {
+        logger.error('未体験変更エラー:', error)
+        showToast.error('未体験への変更に失敗しました')
+      } finally {
+        setIsTogglingPlayed(false)
+      }
       return
     }
     setPlayedDate('')
@@ -195,30 +230,33 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
         return
       }
 
-      const manualCount = await countManualPlayHistoryForCustomer(customer.id)
-      if (isManualPlayHistoryAtCap(manualCount)) {
-        showToast.error(
-          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
-        )
-        return
-      }
-      
-      // 選択された店舗名を取得
-      const selectedStore = allStores.find(s => s.id === selectedStoreId)
-      const venueName = selectedStore?.name || null
+      const restoredExistingPlayed = await removePlayedOverride(customer.id, scenario.scenario_master_id)
+      if (!restoredExistingPlayed) {
+        const manualCount = await countManualPlayHistoryForCustomer(customer.id)
+        if (isManualPlayHistoryAtCap(manualCount)) {
+          showToast.error(
+            `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+          )
+          return
+        }
 
-      // manual_play_historyに追加
-      const { error } = await supabase
-        .from('manual_play_history')
-        .insert({
-          customer_id: customer.id,
-          scenario_title: scenario.scenario_title,
-          scenario_master_id: scenario.scenario_master_id,
-          played_at: playedDate || null,
-          venue: venueName,
-        })
-      
-      if (error) throw error
+        // 選択された店舗名を取得
+        const selectedStore = allStores.find(s => s.id === selectedStoreId)
+        const venueName = selectedStore?.name || null
+
+        // manual_play_historyに追加
+        const { error } = await supabase
+          .from('manual_play_history')
+          .insert({
+            customer_id: customer.id,
+            scenario_title: scenario.scenario_title,
+            scenario_master_id: scenario.scenario_master_id,
+            played_at: playedDate || null,
+            venue: venueName,
+          })
+
+        if (error) throw error
+      }
       
       setIsPlayed(true)
       setIsPlayedDialogOpen(false)
@@ -280,8 +318,9 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                   {/* 体験済みボタン */}
                   <button
                     onClick={handlePlayedClick}
+                    disabled={isCheckingPlayed || isTogglingPlayed}
                     className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
-                    title={isPlayed ? '体験済み' : '体験済みに登録'}
+                    title={isPlayed ? '体験済み（クリックで解除）' : '体験済みに登録'}
                   >
                     <CheckCheck className={`w-4 h-4 ${isPlayed ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} />
                     <span className="text-xs text-white/70">
@@ -432,4 +471,3 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     </div>
   )
 })
-

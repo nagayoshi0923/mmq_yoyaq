@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +30,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 import { getAvailableSeats } from '@/lib/participantUtils'
 
 interface ScenarioDetailGlobalProps {
@@ -252,17 +253,29 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   }
 }
 
-async function checkIsPlayed(email: string, scenarioId: string): Promise<boolean> {
+async function findCustomerIdByEmail(email: string): Promise<string | null> {
   const { data: customer } = await supabase.from('customers').select('id').eq('email', email).maybeSingle()
-  if (!customer) return false
-  const { data: reservation } = await supabase.from('reservations').select('id').eq('customer_id', customer.id).eq('scenario_master_id', scenarioId).in('status', ['confirmed', 'gm_confirmed']).lte('requested_datetime', new Date().toISOString()).limit(1).maybeSingle()
+  return customer?.id ?? null
+}
+
+async function checkIsPlayed(customerId: string, scenarioId: string): Promise<boolean> {
+  const { data: override } = await supabase
+    .from('customer_played_overrides')
+    .select('id')
+    .eq('customer_id', customerId)
+    .eq('scenario_master_id', scenarioId)
+    .limit(1)
+    .maybeSingle()
+  if (override) return false
+  const { data: reservation } = await supabase.from('reservations').select('id').eq('customer_id', customerId).eq('scenario_master_id', scenarioId).in('status', ['confirmed', 'gm_confirmed']).lte('requested_datetime', new Date().toISOString()).limit(1).maybeSingle()
   if (reservation) return true
-  const { data: manual } = await supabase.from('manual_play_history').select('id').eq('customer_id', customer.id).eq('scenario_master_id', scenarioId).limit(1).maybeSingle()
+  const { data: manual } = await supabase.from('manual_play_history').select('id').eq('customer_id', customerId).eq('scenario_master_id', scenarioId).limit(1).maybeSingle()
   return !!manual
 }
 
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false)
@@ -276,29 +289,38 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     queryFn: () => fetchScenarioDetail(scenarioSlug),
   })
 
+  const { data: playedCustomerId } = useQuery({
+    queryKey: ['scenario-played-customer-id', user?.email],
+    enabled: !!user?.email,
+    queryFn: () => findCustomerIdByEmail(user!.email!),
+  })
+
   const { data: isPlayedFromServer } = useQuery({
-    queryKey: ['scenario-is-played', user?.email, data?.scenario?.id],
-    enabled: !!user?.email && !!data?.scenario?.id,
-    queryFn: () => checkIsPlayed(user!.email!, data!.scenario.id),
+    queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id],
+    enabled: !!playedCustomerId && !!data?.scenario?.id,
+    queryFn: () => checkIsPlayed(playedCustomerId!, data!.scenario.id),
   })
 
   const isPlayed = playedOverride || isPlayedFromServer || false
 
   const submitPlayedMutation = useMutation({
     mutationFn: async () => {
-      if (!user?.email || !data?.scenario) throw new Error('データが不足しています')
-      const { data: customer } = await supabase.from('customers').select('id').eq('email', user.email).maybeSingle()
-      if (!customer) throw new Error('顧客情報が見つかりません')
-      const manualCount = await countManualPlayHistoryForCustomer(customer.id)
-      if (isManualPlayHistoryAtCap(manualCount)) throw new Error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
-      const { error } = await supabase.from('manual_play_history').insert({
-        customer_id: customer.id, scenario_title: data.scenario.title, scenario_master_id: data.scenario.id, played_at: playedDate || null, venue: null,
-      })
-      if (error) throw error
+      if (!playedCustomerId || !data?.scenario) throw new Error('顧客情報が見つかりません')
+      const restoredExistingPlayed = await removePlayedOverride(playedCustomerId, data.scenario.id)
+      if (!restoredExistingPlayed) {
+        const manualCount = await countManualPlayHistoryForCustomer(playedCustomerId)
+        if (isManualPlayHistoryAtCap(manualCount)) throw new Error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
+        const { error } = await supabase.from('manual_play_history').insert({
+          customer_id: playedCustomerId, scenario_title: data.scenario.title, scenario_master_id: data.scenario.id, played_at: playedDate || null, venue: null,
+        })
+        if (error) throw error
+      }
     },
     onSuccess: () => {
       setPlayedOverride(true)
       setIsPlayedDialogOpen(false)
+      queryClient.setQueryData(['scenario-is-played', playedCustomerId, data?.scenario?.id], true)
+      queryClient.invalidateQueries({ queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id], refetchType: 'all' })
       showToast.success('体験済みに登録しました')
     },
     onError: (error: any) => {
@@ -306,6 +328,27 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       showToast.error(error.message || '登録に失敗しました')
     },
   })
+
+  const unmarkPlayedMutation = useMutation({
+    mutationFn: async () => {
+      if (!playedCustomerId || !data?.scenario) throw new Error('顧客情報が見つかりません')
+      await addPlayedOverride(playedCustomerId, data.scenario.id)
+    },
+    onSuccess: () => {
+      setPlayedOverride(false)
+      queryClient.setQueryData(['scenario-is-played', playedCustomerId, data?.scenario?.id], false)
+      queryClient.invalidateQueries({ queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id], refetchType: 'all' })
+      showToast.success('未体験に戻しました')
+    },
+    onError: (error: unknown) => {
+      logger.error('未体験変更エラー:', error)
+      showToast.error('未体験への変更に失敗しました')
+    },
+  })
+
+  useEffect(() => {
+    setPlayedOverride(false)
+  }, [user?.email, data?.scenario?.id])
 
   // URLがUUIDでslugが存在する場合にリダイレクト
   useEffect(() => {
@@ -361,7 +404,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
   const handlePlayedClick = () => {
     if (!user) { showToast.error('ログインが必要です'); return }
-    if (isPlayed) { showToast.info('既に体験済みとして登録されています'); return }
+    if (isPlayed) {
+      if (!unmarkPlayedMutation.isPending) unmarkPlayedMutation.mutate()
+      return
+    }
     setPlayedDate(new Date().toISOString().split('T')[0])
     setIsPlayedDialogOpen(true)
   }
@@ -484,7 +530,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                 )}
                 {user && (
                   <div className="flex items-center gap-2">
-                    <button onClick={handlePlayedClick} className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-green-50 rounded" title={isPlayed ? '体験済み' : '体験済みに登録'}>
+                    <button onClick={handlePlayedClick} className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-green-50 rounded" title={isPlayed ? '体験済み（クリックで解除）' : '体験済みに登録'}>
                       <CheckCheck className={`h-5 w-5 ${isPlayed ? 'text-green-500' : 'text-gray-400'}`} />
                       <span className="text-xs text-gray-500">{isPlayed ? '体験済み' : '体験した'}</span>
                     </button>
