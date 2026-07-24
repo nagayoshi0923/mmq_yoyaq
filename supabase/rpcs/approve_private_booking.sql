@@ -29,6 +29,7 @@ DECLARE
   v_gm_name TEXT;
   v_sub_gm_name TEXT;
   v_store_name TEXT;
+  v_store_short_name TEXT;
   v_updated_count INTEGER;
   v_private_group_id UUID;
   v_gms_array TEXT[];
@@ -43,6 +44,11 @@ DECLARE
   v_schedule_time_slot TEXT;
   v_trusted_candidate_found BOOLEAN := false;
   v_requested_store_count INTEGER;
+  v_candidate_ordinal BIGINT;
+  v_selected_candidate_ordinal BIGINT;
+  v_normalized_candidate JSONB;
+  v_rebuilt_candidates JSONB := '[]'::JSONB;
+  v_confirmed_candidate_datetimes JSONB;
 BEGIN
   SELECT *
   INTO v_reservation
@@ -60,14 +66,25 @@ BEGIN
   v_existing_event_id := v_reservation.schedule_event_id;
 
   v_caller_org_id := get_user_organization_id();
-  IF NOT (is_org_admin() OR (v_caller_org_id IS NOT NULL AND v_caller_org_id = v_org_id)) THEN
+  IF auth.uid() IS NULL
+     OR v_caller_org_id IS NULL
+     OR v_caller_org_id IS DISTINCT FROM v_org_id
+  THEN
     RAISE EXCEPTION 'UNAUTHORIZED' USING ERRCODE = 'P0010';
   END IF;
 
   SELECT id INTO v_caller_staff_id
   FROM staff
   WHERE user_id = auth.uid()
-    AND organization_id = v_org_id;
+    AND organization_id = v_org_id
+  ORDER BY id
+  LIMIT 1;
+
+  IF NOT is_staff_or_admin()
+     OR (v_caller_staff_id IS NULL AND NOT is_org_admin())
+  THEN
+    RAISE EXCEPTION 'UNAUTHORIZED' USING ERRCODE = 'P0010';
+  END IF;
 
   SELECT name INTO v_gm_name
   FROM staff
@@ -92,7 +109,8 @@ BEGIN
     END IF;
   END IF;
 
-  SELECT name INTO v_store_name
+  SELECT name, short_name
+  INTO v_store_name, v_store_short_name
   FROM stores
   WHERE id = p_selected_store_id
     AND organization_id = v_org_id
@@ -115,11 +133,11 @@ BEGIN
   END IF;
 
   -- clientが送ったconfirmed状態ではなく、予約に保存済みの候補から日付・開始・time_slotを復元する。
-  FOR v_candidate IN
-    SELECT value
+  FOR v_candidate, v_candidate_ordinal IN
+    SELECT candidate.value, candidate.ordinality
     FROM jsonb_array_elements(
       COALESCE(v_reservation.candidate_datetimes->'candidates', '[]'::jsonb)
-    )
+    ) WITH ORDINALITY AS candidate(value, ordinality)
   LOOP
     v_raw := v_candidate->>'date';
     BEGIN
@@ -155,6 +173,7 @@ BEGIN
         WHEN '夜間' THEN 'evening'
         ELSE NULL
       END;
+      v_selected_candidate_ordinal := v_candidate_ordinal;
       v_trusted_candidate_found := true;
       EXIT;
     END IF;
@@ -166,6 +185,63 @@ BEGIN
   IF p_selected_start_time >= p_selected_end_time THEN
     RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE_TIME' USING ERRCODE = 'P0041';
   END IF;
+
+  -- live client互換のshapeを維持しつつ、保存済み候補だけからconfirmed状態を再構築する。
+  FOR v_candidate, v_candidate_ordinal IN
+    SELECT candidate.value, candidate.ordinality
+    FROM jsonb_array_elements(
+      COALESCE(v_reservation.candidate_datetimes->'candidates', '[]'::jsonb)
+    ) WITH ORDINALITY AS candidate(value, ordinality)
+  LOOP
+    v_normalized_candidate := v_candidate;
+    v_raw := v_candidate->>'date';
+    IF v_raw IS NOT NULL THEN
+      BEGIN
+        IF btrim(v_raw) ~ '^\d{4}-\d{2}-\d{2}$' THEN
+          v_candidate_date := btrim(v_raw)::DATE;
+        ELSE
+          v_candidate_date := ((btrim(v_raw))::TIMESTAMPTZ AT TIME ZONE 'Asia/Tokyo')::DATE;
+        END IF;
+        v_normalized_candidate := jsonb_set(
+          v_normalized_candidate,
+          '{date}',
+          to_jsonb(v_candidate_date::TEXT),
+          true
+        );
+      EXCEPTION WHEN OTHERS THEN
+        NULL;
+      END;
+    END IF;
+
+    v_normalized_candidate := jsonb_set(
+      v_normalized_candidate,
+      '{status}',
+      to_jsonb(
+        CASE
+          WHEN v_candidate_ordinal = v_selected_candidate_ordinal THEN 'confirmed'
+          ELSE 'pending'
+        END
+      ),
+      true
+    );
+    v_rebuilt_candidates := v_rebuilt_candidates || jsonb_build_array(v_normalized_candidate);
+  END LOOP;
+
+  v_confirmed_candidate_datetimes := jsonb_set(
+    jsonb_set(
+      COALESCE(v_reservation.candidate_datetimes, '{}'::JSONB),
+      '{candidates}',
+      v_rebuilt_candidates,
+      true
+    ),
+    '{confirmedStore}',
+    jsonb_build_object(
+      'storeId', p_selected_store_id::TEXT,
+      'storeName', v_store_name,
+      'storeShortName', COALESCE(v_store_short_name, v_store_name)
+    ),
+    true
+  );
 
   v_calendar_date := p_selected_date;
   v_schedule_time_slot := CASE v_candidate_time_slot
@@ -319,6 +395,7 @@ BEGIN
     gm_staff = p_selected_gm_id,
     store_id = p_selected_store_id,
     schedule_event_id = v_schedule_event_id,
+    candidate_datetimes = v_confirmed_candidate_datetimes,
     requested_datetime = (v_calendar_date::TEXT || ' ' || p_selected_start_time::TEXT)::TIMESTAMP WITH TIME ZONE,
     duration = EXTRACT(EPOCH FROM (p_selected_end_time - p_selected_start_time)) / 60,
     confirmed_by = COALESCE(v_caller_staff_id, confirmed_by),
