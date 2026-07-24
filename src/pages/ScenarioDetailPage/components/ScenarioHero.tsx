@@ -18,6 +18,7 @@ import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -72,6 +73,8 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   const [selectedStoreId, setSelectedStoreId] = useState('')
   const [allStores, setAllStores] = useState<Store[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [customerId, setCustomerId] = useState<string | null>(null)
+  const [isTogglingPlayed, setIsTogglingPlayed] = useState(false)
   
   // 体験済みかどうかチェック
   useEffect(() => {
@@ -87,6 +90,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .maybeSingle()
         
         if (!customer) return
+        setCustomerId(customer.id)
 
         // 本人/スタッフが「未体験に戻した」場合は override が優先（予約/手動より先に判定）
         const { data: override } = await supabase
@@ -164,13 +168,39 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     navigate(`/group/create?${params.toString()}`)
   }
   
-  const handlePlayedClick = () => {
+  const handlePlayedClick = async () => {
     if (!user) {
       showToast.error('ログインが必要です')
       return
     }
+    // 体験済みならクリックで解除（override を追加）
     if (isPlayed) {
-      showToast.info('既に体験済みとして登録されています')
+      if (isTogglingPlayed) return
+      let cid = customerId
+      if (!cid && user.email) {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle()
+        cid = customer?.id ?? null
+        if (cid) setCustomerId(cid)
+      }
+      if (!cid) {
+        showToast.error('未体験への変更に失敗しました')
+        return
+      }
+      setIsTogglingPlayed(true)
+      try {
+        await addPlayedOverride(cid, scenario.scenario_master_id)
+        setIsPlayed(false)
+        showToast.success('未体験に戻しました')
+      } catch (error) {
+        logger.error('未体験変更エラー:', error)
+        showToast.error('未体験への変更に失敗しました')
+      } finally {
+        setIsTogglingPlayed(false)
+      }
       return
     }
     setPlayedDate('')
@@ -219,7 +249,14 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
         })
       
       if (error) throw error
-      
+
+      // 過去に「未体験に戻した」override が残っていると体験済みに反映されないため削除（行が無ければ無視）
+      try {
+        await removePlayedOverride(customer.id, scenario.scenario_master_id)
+      } catch (overrideError) {
+        logger.warn('体験済み override 削除に失敗（無視）:', overrideError)
+      }
+
       setIsPlayed(true)
       setIsPlayedDialogOpen(false)
       showToast.success('体験済みに登録しました')

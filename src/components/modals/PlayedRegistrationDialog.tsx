@@ -8,6 +8,7 @@ import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { removePlayedOverride } from '@/lib/playedOverrides'
 
 interface PlayedRegistrationDialogProps {
   open: boolean
@@ -52,6 +53,13 @@ export function PlayedRegistrationDialog({
         })
 
       if (error) throw error
+
+      // 過去に「未体験に戻した」override が残っていると再登録が体験済みに反映されないため削除（行が無ければ無視）
+      try {
+        await removePlayedOverride(customerId, scenarioMasterId)
+      } catch (overrideError) {
+        logger.warn('体験済み override 削除に失敗（無視）:', overrideError)
+      }
 
       onOpenChange(false)
       showToast.success('体験済みに登録しました')

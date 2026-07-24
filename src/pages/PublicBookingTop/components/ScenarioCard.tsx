@@ -261,7 +261,9 @@ export const ScenarioCard = memo(function ScenarioCard({
                 onClick={handlePlayedClick}
                 onTouchEnd={(e) => e.stopPropagation()}
                 className={`flex-shrink-0 p-1 transition-colors rounded ${onTogglePlayed ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
-                title={isPlayed ? '体験済み' : '未体験（クリックで登録）'}
+                title={onTogglePlayed
+                  ? (isPlayed ? '体験済み（クリックで解除）' : '未体験（クリックで登録）')
+                  : (isPlayed ? '体験済み' : '未体験')}
               >
                 <CheckCheck className={`h-4 w-4 ${isPlayed ? 'text-green-500' : 'text-gray-300 hover:text-green-300'}`} />
               </button>

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
-import { fetchPlayedOverrideIds } from '@/lib/playedOverrides'
+import { fetchPlayedOverrideIds, addPlayedOverride } from '@/lib/playedOverrides'
 
 /**
  * ユーザーの体験済みシナリオIDを管理するフック
@@ -91,5 +91,27 @@ export function usePlayedScenarios() {
     setPlayedScenarioIds(prev => new Set([...prev, scenarioMasterId]))
   }, [])
 
-  return { isPlayed, customerId, markAsPlayed, refreshPlayed: fetchPlayedScenarios, playedScenarioIds, loading }
+  /**
+   * 体験済みを解除（未体験に戻す）。override を追加し、ローカル状態も更新する。
+   * customerId が無い場合は throw（呼び出し側で toast）。
+   */
+  const unmarkAsPlayed = useCallback(async (scenarioMasterId: string): Promise<void> => {
+    if (!customerId) {
+      throw new Error('顧客情報が見つかりません')
+    }
+    // optimistic: 先にローカルから外し、失敗時は戻す
+    setPlayedScenarioIds(prev => {
+      const next = new Set(prev)
+      next.delete(scenarioMasterId)
+      return next
+    })
+    try {
+      await addPlayedOverride(customerId, scenarioMasterId)
+    } catch (error) {
+      setPlayedScenarioIds(prev => new Set([...prev, scenarioMasterId]))
+      throw error
+    }
+  }, [customerId])
+
+  return { isPlayed, customerId, markAsPlayed, unmarkAsPlayed, refreshPlayed: fetchPlayedScenarios, playedScenarioIds, loading }
 }

@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +30,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 import { getAvailableSeats } from '@/lib/participantUtils'
 
 interface ScenarioDetailGlobalProps {
@@ -255,6 +256,9 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
 async function checkIsPlayed(email: string, scenarioId: string): Promise<boolean> {
   const { data: customer } = await supabase.from('customers').select('id').eq('email', email).maybeSingle()
   if (!customer) return false
+  // 本人/スタッフが「未体験に戻した」場合は override が優先（予約/手動より先に判定）
+  const { data: override } = await supabase.from('customer_played_overrides').select('id').eq('customer_id', customer.id).eq('scenario_master_id', scenarioId).limit(1).maybeSingle()
+  if (override) return false
   const { data: reservation } = await supabase.from('reservations').select('id').eq('customer_id', customer.id).eq('scenario_master_id', scenarioId).in('status', ['confirmed', 'gm_confirmed']).lte('requested_datetime', new Date().toISOString()).limit(1).maybeSingle()
   if (reservation) return true
   const { data: manual } = await supabase.from('manual_play_history').select('id').eq('customer_id', customer.id).eq('scenario_master_id', scenarioId).limit(1).maybeSingle()
@@ -263,6 +267,7 @@ async function checkIsPlayed(email: string, scenarioId: string): Promise<boolean
 
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false)
@@ -295,15 +300,42 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         customer_id: customer.id, scenario_title: data.scenario.title, scenario_master_id: data.scenario.id, played_at: playedDate || null, venue: null,
       })
       if (error) throw error
+      // 過去に「未体験に戻した」override が残っていると体験済みに反映されないため削除（行が無ければ無視）
+      try {
+        await removePlayedOverride(customer.id, data.scenario.id)
+      } catch (overrideError) {
+        logger.warn('体験済み override 削除に失敗（無視）:', overrideError)
+      }
     },
     onSuccess: () => {
       setPlayedOverride(true)
       setIsPlayedDialogOpen(false)
+      queryClient.setQueryData(['scenario-is-played', user?.email, data?.scenario?.id], true)
+      queryClient.invalidateQueries({ queryKey: ['scenario-is-played', user?.email, data?.scenario?.id], refetchType: 'all' })
       showToast.success('体験済みに登録しました')
     },
     onError: (error: any) => {
       logger.error('体験済み登録エラー:', error)
       showToast.error(error.message || '登録に失敗しました')
+    },
+  })
+
+  const unmarkPlayedMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.email || !data?.scenario) throw new Error('データが不足しています')
+      const { data: customer } = await supabase.from('customers').select('id').eq('email', user.email).maybeSingle()
+      if (!customer) throw new Error('顧客情報が見つかりません')
+      await addPlayedOverride(customer.id, data.scenario.id)
+    },
+    onSuccess: () => {
+      setPlayedOverride(false)
+      queryClient.setQueryData(['scenario-is-played', user?.email, data?.scenario?.id], false)
+      queryClient.invalidateQueries({ queryKey: ['scenario-is-played', user?.email, data?.scenario?.id], refetchType: 'all' })
+      showToast.success('未体験に戻しました')
+    },
+    onError: (error: any) => {
+      logger.error('未体験変更エラー:', error)
+      showToast.error('未体験への変更に失敗しました')
     },
   })
 
@@ -361,7 +393,12 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
   const handlePlayedClick = () => {
     if (!user) { showToast.error('ログインが必要です'); return }
-    if (isPlayed) { showToast.info('既に体験済みとして登録されています'); return }
+    // 体験済みならクリックで解除（override を追加）
+    if (isPlayed) {
+      if (unmarkPlayedMutation.isPending) return
+      unmarkPlayedMutation.mutate()
+      return
+    }
     setPlayedDate(new Date().toISOString().split('T')[0])
     setIsPlayedDialogOpen(true)
   }

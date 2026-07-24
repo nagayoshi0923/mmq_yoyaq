@@ -54,9 +54,11 @@ export const LineupView = memo(function LineupView({
   const isSearching = searchTerm.length > 0
 
   const { user } = useAuth()
-  const { isPlayed, customerId, markAsPlayed } = usePlayedScenarios()
+  const { isPlayed, customerId, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
+  const [togglingPlayedIds, setTogglingPlayedIds] = useState<Set<string>>(new Set())
 
+  // 体験済みトグル: 体験済みなら解除、未体験なら登録ダイアログを開く
   const handleTogglePlayed = (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!user) {
@@ -64,7 +66,16 @@ export const LineupView = memo(function LineupView({
       return
     }
     if (isPlayed(scenarioId)) {
-      showToast.info('既に体験済みとして登録されています')
+      if (togglingPlayedIds.has(scenarioId)) return
+      setTogglingPlayedIds(prev => new Set(prev).add(scenarioId))
+      unmarkAsPlayed(scenarioId)
+        .then(() => showToast.success('未体験に戻しました'))
+        .catch(() => showToast.error('未体験への変更に失敗しました'))
+        .finally(() => setTogglingPlayedIds(prev => {
+          const next = new Set(prev)
+          next.delete(scenarioId)
+          return next
+        }))
       return
     }
     setPlayedDialogTarget({ id: scenarioId, title: scenarioTitle })
