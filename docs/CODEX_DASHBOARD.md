@@ -91,6 +91,16 @@ REWORK -> DOING -> REPORT
 | YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | REWORK | HIGH-RISK | 必須 / PO OK | YOYAQ-001 | `019f783c-455a-7db2-bf06-c9bae6cbcdd4` / `019f7a1c-829a-7900-92cb-f9a3eb0697fc` REWORK | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | 管理設定linkのorganization scope修正中 |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 | YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | DONE | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / fresh review `019f921a-093b-7ae3-a037-63f299ea6c4f` DONE | `a45b989e042e3be0597c21f28160e01ccd1b3377` | staging/prod DB先行、main/staging ff同期、本番READY |
+| YOYAQ-005 | 公演メール送信の顧客名表示・API契約修正 | TODO | HIGH-RISK | 必須 | なし（YOYAQ-003と製品ファイル非重複なら並行可、staging統合は直列） | 未割当 | - | - |
+
+### YOYAQ-005 queue definition: 公演メール送信の顧客名表示・API契約修正
+
+- **GO/source:** 2026-07-25 PO明示「どちらも対応して」。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。公演ダイアログの一括メール送信で、送信先が全件「顧客名なし（customer UUID）」になる事象と、`send-email` Edge Functionの正式入力`to`に対してclientが`recipients`を送る契約不整合を同時に修正する。
+- **status/lane:** TODO / HIGH-RISK（メール送信・顧客PIIを扱うため独立検収必須）
+- **scope/acceptance:** ①送信先表示は予約一覧と同じ `reservation.customer_name -> joined customers.name -> reservation.customer_notes -> 顧客名なし` の順で解決し、顧客名が予約データまたは同一組織のJOIN顧客に存在する場合に「顧客名なし」へ落とさない。②一括送信は既存の選択予約から抽出したメールアドレスを維持しつつ、Edge Function契約どおり`to`、`subject`、`body`、認証済み現在組織の`organizationId`を送る。廃止キー`recipients`は送信payloadへ含めない。③件数表示、空件名/本文の拒否、送信後の履歴・toast・選択解除は維持する。④名前fallbackとpayload shape（`to`あり・`recipients`なし・組織IDあり）を対象testで固定する。⑤他組織顧客の取得、顧客PIIの新規ログ/履歴追加、Edge Function/RLS/DB変更、メール本文の個別差し込み、送信方法の変更は行わない。
+- **allowed files:** `src/components/schedule/modal/reservationList/dialogs/SendEmailDialog.tsx`、`src/components/schedule/modal/reservationList/useReservationListActions.ts`、名前解決/payloadを対象test可能にする同ディレクトリ内の最小helperとtest（新規各1ファイルまで）。`supabase/functions/send-email/index.ts`は正式契約のread-only確認だけで編集禁止。追加ファイルは編集前に監督へscope request必須。
+- **PREVIEW:** 必須。公演ダイアログ > 予約管理で複数予約を選択しメール送信を開き、予約一覧に表示される顧客名と送信先名が一致することをdesktop/mobileで確認する。実メール送信はPREVIEWでは行わない。認証が必要なため、安定したstaging確認または認証不要・送信不能fixtureを使用し、実顧客PIIを公開PREVIEWへ含めない。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`git diff --check`。HIGH-RISK focused独立検収で、同一組織JOIN、PII非増加、正式payload、既存送信後処理の回帰を確認する。DB/Edge deploy不要。staging統合・push後、ページ名・タブ名・たどり方付きのPO確認項目を提示する。main/productionは別の明示PO releaseまで禁止。
 
 ## Event log
 
