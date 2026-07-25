@@ -91,12 +91,12 @@ REWORK -> DOING -> REPORT
 | YOYAQ-002 | 管理設定から顧客向けポリシー表示を動的統一 | REWORK | HIGH-RISK | 必須 / PO OK | YOYAQ-001 | `019f783c-455a-7db2-bf06-c9bae6cbcdd4` / `019f7a1c-829a-7900-92cb-f9a3eb0697fc` REWORK | `ce8977d2c50e0481306bcbb2b1812b870c32e9b8` | 管理設定linkのorganization scope修正中 |
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 | YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | DONE | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / fresh review `019f921a-093b-7ae3-a037-63f299ea6c4f` DONE | `a45b989e042e3be0597c21f28160e01ccd1b3377` | staging/prod DB先行、main/staging ff同期、本番READY |
-| YOYAQ-005 | 公演メール送信の顧客名表示・API契約修正 | TODO | HIGH-RISK | 必須 | なし（YOYAQ-003と製品ファイル非重複なら並行可、staging統合は直列） | 未割当 | - | - |
+| YOYAQ-005 | 公演メール送信の顧客名表示・API契約修正 | DOING | HIGH-RISK | 必須 | なし（YOYAQ-003と製品ファイル非重複なら並行可、staging統合は直列） | worker `019f9743-28a6-7f13-b22a-a0eda448bd84` / worktree `/Users/mai/.codex/worktrees/661e/mmq_yoyaq-1` / branch `codex/yoyaq-005-performance-email-contract` / port `5188` | - | PREVIEW-first実装中 |
 
 ### YOYAQ-005 queue definition: 公演メール送信の顧客名表示・API契約修正
 
 - **GO/source:** 2026-07-25 PO明示「どちらも対応して」。source task `019f77bb-e598-78e0-b0e9-f301d3626e89`。公演ダイアログの一括メール送信で、送信先が全件「顧客名なし（customer UUID）」になる事象と、`send-email` Edge Functionの正式入力`to`に対してclientが`recipients`を送る契約不整合を同時に修正する。
-- **status/lane:** TODO / HIGH-RISK（メール送信・顧客PIIを扱うため独立検収必須）
+- **status/lane:** DOING / HIGH-RISK（メール送信・顧客PIIを扱うため独立検収必須）。worker `019f9743-28a6-7f13-b22a-a0eda448bd84`、worktree `/Users/mai/.codex/worktrees/661e/mmq_yoyaq-1`、branch `codex/yoyaq-005-performance-email-contract`、exact base `c7e7ac5a42de05e080fd2436dbbca943ee6bb4ec`、port `5188`。
 - **scope/acceptance:** ①送信先表示は予約一覧と同じ `reservation.customer_name -> joined customers.name -> reservation.customer_notes -> 顧客名なし` の順で解決し、顧客名が予約データまたは同一組織のJOIN顧客に存在する場合に「顧客名なし」へ落とさない。②一括送信は既存の選択予約から抽出したメールアドレスを維持しつつ、Edge Function契約どおり`to`、`subject`、`body`、認証済み現在組織の`organizationId`を送る。廃止キー`recipients`は送信payloadへ含めない。③件数表示、空件名/本文の拒否、送信後の履歴・toast・選択解除は維持する。④名前fallbackとpayload shape（`to`あり・`recipients`なし・組織IDあり）を対象testで固定する。⑤他組織顧客の取得、顧客PIIの新規ログ/履歴追加、Edge Function/RLS/DB変更、メール本文の個別差し込み、送信方法の変更は行わない。
 - **allowed files:** `src/components/schedule/modal/reservationList/dialogs/SendEmailDialog.tsx`、`src/components/schedule/modal/reservationList/useReservationListActions.ts`、名前解決/payloadを対象test可能にする同ディレクトリ内の最小helperとtest（新規各1ファイルまで）。`supabase/functions/send-email/index.ts`は正式契約のread-only確認だけで編集禁止。追加ファイルは編集前に監督へscope request必須。
 - **PREVIEW:** 必須。公演ダイアログ > 予約管理で複数予約を選択しメール送信を開き、予約一覧に表示される顧客名と送信先名が一致することをdesktop/mobileで確認する。実メール送信はPREVIEWでは行わない。認証が必要なため、安定したstaging確認または認証不要・送信不能fixtureを使用し、実顧客PIIを公開PREVIEWへ含めない。
@@ -106,6 +106,7 @@ REWORK -> DOING -> REPORT
 
 | time (JST) | event | task ID | commit | claimed/transition |
 |---|---|---|---|---|
+| 2026-07-25 12:14 | `YOYAQ_QUEUE_UPDATED` / `YOYAQ_QUEUE_COMMIT_SHA_CORRECTION` / `EVENT_CLAIMED` | YOYAQ-005 | `c7e7ac5a42de05e080fd2436dbbca943ee6bb4ec` | source `019f77bb-e598-78e0-b0e9-f301d3626e89` からP0 queueとfull SHA訂正をclaim。最新`origin/staging`・queue commit一致、全checkout dirty監査、既存dirty `.claude/skills/smoke/SKILL.md`保存を確認。可視worker `019f9743-28a6-7f13-b22a-a0eda448bd84` を隔離worktree `/Users/mai/.codex/worktrees/661e/mmq_yoyaq-1`、branch `codex/yoyaq-005-performance-email-contract`、port `5188`、exact baseから起動。YOYAQ-003と製品ファイル非重複なら並行、staging統合は監督が直列化する（recovered: false） |
 | 2026-07-19 10:28 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` | YOYAQ-001, YOYAQ-002, YOYAQ-003 | `89484b2b04d23f6652e6c9feb79dc46773e26b14` | source `019f77bb-e598-78e0-b0e9-f301d3626e89` からclaim、YOYAQ-001可視worker起動（recovered: false） |
 | 2026-07-19 10:37 | `YOYAQ_SCOPE_UPDATED` / `EVENT_CLAIMED` | YOYAQ-002, YOYAQ-003 | - | source `019f77bb-e598-78e0-b0e9-f301d3626e89` からclaim。002着手前の横断棚卸し、分類、動的反映、001 snapshot下流契約確認を追加（recovered: false） |
 | 2026-07-19 10:48 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-001 | `e5e4d13ee6c67fc21c737392cb26034715eda6db` | worker `019f77fc-8eb6-77a0-b8ba-033a4e9e614a` からclaim、fresh独立検収 `019f7810-79a7-7b51-9f3b-7c35f2b3cd38` 起動（recovered: false） |
