@@ -193,7 +193,17 @@ export async function fetchScheduleEventsForMonth(
     .filter(e => e.reservation_id && !e.is_reservation_name_overwritten)
     .map(e => e.reservation_id!)
 
+  // 貸切公演の「紐づく予約が全てキャンセル済み」検出用の対象公演ID
+  const privateEventIdsForCancelCheck = formattedEvents
+    .filter(e => e.category === 'private')
+    .map(e => e.id)
+
   const orgId = await getCurrentOrganizationId()
+
+  const cancelCheckQueryBase = supabase
+    .from('reservations')
+    .select('schedule_event_id, status')
+    .in('schedule_event_id', privateEventIdsForCancelCheck)
 
   const privateQueryBase = supabase
     .from('reservations')
@@ -208,7 +218,7 @@ export async function fetchScheduleEventsForMonth(
     .eq('status', 'confirmed')
     .is('schedule_event_id', null)
 
-  const [nicknameResult, privateResult] = await Promise.all([
+  const [nicknameResult, privateResult, cancelCheckResult] = await Promise.all([
     reservationIdsForNickname.length > 0
       ? supabase
           .from('reservations')
@@ -216,6 +226,9 @@ export async function fetchScheduleEventsForMonth(
           .in('id', reservationIdsForNickname)
       : Promise.resolve({ data: null as any, error: null }),
     orgId ? privateQueryBase.eq('organization_id', orgId) : privateQueryBase,
+    privateEventIdsForCancelCheck.length > 0
+      ? (orgId ? cancelCheckQueryBase.eq('organization_id', orgId) : cancelCheckQueryBase)
+      : Promise.resolve({ data: null as any, error: null }),
   ])
 
   if (nicknameResult.data) {
@@ -227,6 +240,27 @@ export async function fetchScheduleEventsForMonth(
     formattedEvents.forEach(e => {
       if (e.reservation_id && nicknameMap.has(e.reservation_id)) {
         e.reservation_name = nicknameMap.get(e.reservation_id)!
+      }
+    })
+  }
+
+  // 貸切公演のうち「予約が1件以上あり、そのすべてがキャンセル済み」を検出
+  // （予約行が1件も無い公演には立てない。手入力の貸切公演を誤検知しないため）
+  const { data: cancelCheckRows, error: cancelCheckError } = cancelCheckResult
+  if (cancelCheckError) logger.error('貸切予約ステータス取得エラー:', cancelCheckError)
+  if (cancelCheckRows) {
+    const statsByEventId = new Map<string, { total: number; cancelled: number }>()
+    ;(cancelCheckRows as { schedule_event_id: string | null; status: string | null }[]).forEach(r => {
+      if (!r.schedule_event_id) return
+      const stat = statsByEventId.get(r.schedule_event_id) ?? { total: 0, cancelled: 0 }
+      stat.total += 1
+      if (r.status === 'cancelled') stat.cancelled += 1
+      statsByEventId.set(r.schedule_event_id, stat)
+    })
+    formattedEvents.forEach(e => {
+      const stat = statsByEventId.get(e.id)
+      if (stat && stat.total > 0 && stat.total === stat.cancelled) {
+        e.hasOnlyCancelledReservations = true
       }
     })
   }

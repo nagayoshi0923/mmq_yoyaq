@@ -26,6 +26,7 @@ export interface ScheduleEvent {
   reservation_name?: string // 貸切予約の予約者名
   original_customer_name?: string // MMQからの元の予約者名（上書き検出用）
   is_reservation_name_overwritten?: boolean // 予約者名が手動で上書きされたかどうか
+  hasOnlyCancelledReservations?: boolean // 紐づく予約が1件以上あり、そのすべてがキャンセル済みの場合 true（貸切の取りこぼし検知用）
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   venue_rental_fee?: number // 場所貸し公演料金
   organization_id?: string // マルチテナント対応

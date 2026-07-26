@@ -28,6 +28,7 @@ interface ScheduleEvent {
   reservation_name?: string // 貸切予約の予約者名
   original_customer_name?: string // MMQからの元の予約者名（上書き検出用）
   is_reservation_name_overwritten?: boolean // 予約者名が手動で上書きされたかどうか
+  hasOnlyCancelledReservations?: boolean // 紐づく予約が1件以上あり、そのすべてがキャンセル済みの場合 true（貸切の取りこぼし検知用）
   scenarios?: {
     id: string
     title: string
@@ -241,7 +242,19 @@ function PerformanceCardBase({
               中止
             </Badge>
           )}
-          
+          {/* 貸切なのに予約が全てキャンセル済み */}
+          {event.category === 'private' && !event.is_cancelled && event.hasOnlyCancelledReservations && (
+            <Badge
+              variant="outline"
+              size="sm"
+              className="font-normal text-[10px] px-1 py-0 h-4 whitespace-nowrap bg-amber-100 text-amber-700 border-amber-300 flex items-center gap-0.5"
+              title="この貸切公演の予約はすべてキャンセル済みです。実施しない場合は公演を中止にしてください"
+            >
+              <AlertTriangle className="w-2.5 h-2.5" />
+              予約なし
+            </Badge>
+          )}
+
           {/* 公開状況バッジ */}
           {!event.is_cancelled && (() => {
             const isPublished = event.is_private_request || event.is_reservation_enabled
