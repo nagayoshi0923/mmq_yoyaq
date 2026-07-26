@@ -6,6 +6,7 @@ import { useSessionRefresh } from './auth/useSessionRefresh'
 import { createAuthActions } from './auth/authActions'
 import { createSessionBootstrap } from './auth/sessionBootstrap'
 import { useAuthLifecycle } from './auth/useAuthLifecycle'
+import { useStrandedAuthTokenNotice } from './auth/useStrandedAuthTokenNotice'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -108,6 +109,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setLoading,
     setIsInitialized,
   })
+
+  // 認証トークンが URL ハッシュに残ったまま未ログインになった場合の可視化（無言の失敗対策）
+  useStrandedAuthTokenNotice({ isInitialized, user })
 
   const isAdmin = !!user && (user.role === 'admin' || user.role === 'license_admin')
   const isStaff = !!user && user.role !== 'customer'

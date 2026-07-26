@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { supabase, type AuthUser } from '@/lib/supabase'
-import { authTrace, logger } from '@/utils/logger'
+import { authTrace } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
 import { validateRedirectUrl } from '@/lib/utils'
 import {
@@ -10,6 +10,7 @@ import {
   AUTH_CHANNEL_NAME,
 } from './authContextHelpers'
 import { resolveUserFromSession, type ResolveUserDeps } from './resolveUserFromSession'
+import { reportAuthFailure } from './authDiagnostics'
 
 /**
  * AuthProvider のマウント時ライフサイクル effect を切り出したフック。
@@ -75,8 +76,10 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
       authTrace(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
       setIsInitialized(true)  // 認証完了をマーク
-    }).catch(() => {
+    }).catch((err) => {
       clearTimeout(loadingTimeout)
+      // エラーを捨てない: 原因未特定の「無言でログイン失敗」障害の診断材料を残す
+      reportAuthFailure('getInitialSession', err)
       setLoading(false)
       setIsInitialized(true)  // エラーでも完了とみなす
     })
@@ -176,7 +179,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
               }
             }
           }).catch((err) => {
-            logger.error('❌ resolveUserFromSession error:', err)
+            reportAuthFailure('resolveUserFromSession', err, { authEvent: event })
             setLoading(false)
             setIsInitialized(true)  // エラーでも完了とみなす
           })
