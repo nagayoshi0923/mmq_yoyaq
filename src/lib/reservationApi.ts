@@ -461,7 +461,8 @@ export const reservationApi = {
   // バックエンド API (/api/reservations?action=cancel) で DB 部分を一括処理し、
   // メール送信 / Discord 通知 / waitlist 通知などの Edge Function 呼び出しは
   // 引き続きクライアント側で実行する（既存挙動の維持）。
-  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store' }): Promise<Reservation> {
+  // options.cancelPrivateEvent: true のとき、紐づく貸切公演(category='private')も中止にする
+  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean; customEmailBody?: string; skipCancellationEmail?: boolean; cancelledBy?: 'customer' | 'store'; cancelPrivateEvent?: boolean }): Promise<Reservation> {
     // ⚠️ P1-12: 相関ID — キャンセル→メール→通知を一つのフローとして追跡
     const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
     clog.info('キャンセル開始', { reservationId: id })
@@ -486,6 +487,7 @@ export const reservationApi = {
       {
         cancellation_reason: cancellationReason ?? null,
         skip_group_cancel: Boolean(options?.skipGroupCancel),
+        cancel_private_event: Boolean(options?.cancelPrivateEvent),
       }
     )
 

@@ -806,6 +806,8 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   const body = (req.body ?? {}) as Record<string, unknown>
   const reason = (body.cancellation_reason as string | null | undefined) ?? null
   const skipGroupCancel = Boolean(body.skip_group_cancel)
+  // true のとき、紐づく貸切公演(category='private')も中止にする（貸切リクエストの却下フロー）
+  const cancelPrivateEvent = Boolean(body.cancel_private_event)
 
   // 1) 予約 + customers + schedule_events を取得（マルチテナント境界チェックも兼ねる）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -861,6 +863,53 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
         error: '予約+グループのキャンセルに失敗しました',
         detail: error?.message,
       })
+    }
+  }
+
+  // 2-b) 貸切リクエストの却下フロー（cancel_private_event = true）のときだけ、
+  //      紐づく貸切公演（category='private'）も中止にする。
+  //      「有効な予約が0件なら中止」という状態ベースの判定はしない（スタッフが予約を入れ直す運用や、
+  //      予約行を持たない手入力の貸切を巻き込むため）。店舗が能動的に却下した操作のときのみ中止する。
+  //      ⚠ 予約キャンセルは既に確定しており巻き戻せないため、ここでの失敗は警告として返すだけにする。
+  let eventCancelWarning = false
+  if (cancelPrivateEvent) {
+    try {
+      const targetEventId = (reservation.schedule_event_id as string | null | undefined) ?? null
+      if (!targetEventId) {
+        // 未承認リクエストの却下 → 公演がまだ存在しない（正常系。何もしない）
+      } else if (!user.orgId) {
+        // org を特定できない呼び出し元（platform customer）は公演に触らない
+        console.warn('[reservations:cancel] cancel_private_event skipped: user.orgId が未設定')
+      } else {
+        // org スコープ: 実行ユーザーの組織の公演だけを対象にする（マルチテナント境界）
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: targetEvent, error: eventFetchError } = await (db as any)
+          .from('schedule_events')
+          .select('id, category, is_cancelled')
+          .eq('id', targetEventId)
+          .eq('organization_id', user.orgId)
+          .maybeSingle()
+        if (eventFetchError) throw eventFetchError
+
+        // 貸切公演かつ未中止のときだけ更新する（open など他カテゴリ・中止済みは触らない）
+        if (targetEvent && targetEvent.category === 'private' && targetEvent.is_cancelled !== true) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: eventUpdateError } = await (db as any)
+            .from('schedule_events')
+            .update({
+              is_cancelled: true,
+              cancelled_at: new Date().toISOString(),
+              cancellation_reason: reason,
+            })
+            .eq('id', targetEventId)
+            .eq('organization_id', user.orgId)
+            .eq('category', 'private')
+          if (eventUpdateError) throw eventUpdateError
+        }
+      }
+    } catch (eventCancelError) {
+      console.error('[reservations:cancel] private event cancel error:', eventCancelError)
+      eventCancelWarning = true
     }
   }
 
@@ -987,6 +1036,8 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
       organization_slug: orgSlug,
       skip_group_cancel: skipGroupCancel,
     },
+    // 予約はキャンセルできたが、紐づく貸切公演の中止に失敗した場合のみ true
+    ...(eventCancelWarning ? { eventCancelWarning: true } : {}),
   })
 }
 
