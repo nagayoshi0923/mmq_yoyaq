@@ -132,13 +132,14 @@ type ReservationRow = {
   payment_method: string | null
   reservation_source: string | null
   unit_price: number | null
+  total_price: number | null
   final_price: number | null
 }
 
 const ADMIN_ENTERED_REVENUE_SOURCES = new Set(['walk_in', 'demo', 'demo_auto'])
 
 function getReservationRevenue(
-  reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'final_price'>,
+  reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'total_price' | 'final_price'>,
   participantCount: number,
   scenarioUnitFee: number,
 ): number {
@@ -148,7 +149,9 @@ function getReservationRevenue(
       : scenarioUnitFee
     return unitPrice * participantCount
   }
-  return reservation.final_price ?? (scenarioUnitFee * participantCount)
+  if (reservation.final_price && reservation.final_price > 0) return reservation.final_price
+  if (reservation.total_price && reservation.total_price > 0) return reservation.total_price
+  return scenarioUnitFee * participantCount
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -297,6 +300,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     payment_method: string | null
     reservation_source: string | null
     unit_price: number | null
+    total_price: number | null
     final_price: number | null
   }> = []
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
@@ -304,7 +308,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: batch, error: batchError } = await (db as any)
       .from('reservations')
-      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, final_price')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
@@ -815,6 +819,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     payment_method: string | null
     reservation_source: string | null
     unit_price: number | null
+    total_price: number | null
     final_price: number | null
   }> = []
 
@@ -823,7 +828,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: batch } = await (db as any)
       .from('reservations')
-      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, final_price')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
