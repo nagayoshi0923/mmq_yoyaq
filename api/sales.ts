@@ -143,7 +143,9 @@ function getReservationRevenue(
   scenarioUnitFee: number,
 ): number {
   if (ADMIN_ENTERED_REVENUE_SOURCES.has(reservation.reservation_source || '')) {
-    const unitPrice = reservation.unit_price ?? scenarioUnitFee
+    const unitPrice = reservation.unit_price && reservation.unit_price > 0
+      ? reservation.unit_price
+      : scenarioUnitFee
     return unitPrice * participantCount
   }
   return reservation.final_price ?? (scenarioUnitFee * participantCount)
