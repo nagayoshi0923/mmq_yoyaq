@@ -130,7 +130,23 @@ type ReservationRow = {
   participant_count: number | null
   participant_names: string[] | null
   payment_method: string | null
+  reservation_source: string | null
+  unit_price: number | null
   final_price: number | null
+}
+
+const ADMIN_ENTERED_REVENUE_SOURCES = new Set(['walk_in', 'demo', 'demo_auto'])
+
+function getReservationRevenue(
+  reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'final_price'>,
+  participantCount: number,
+  scenarioUnitFee: number,
+): number {
+  if (ADMIN_ENTERED_REVENUE_SOURCES.has(reservation.reservation_source || '')) {
+    const unitPrice = reservation.unit_price ?? scenarioUnitFee
+    return unitPrice * participantCount
+  }
+  return reservation.final_price ?? (scenarioUnitFee * participantCount)
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -277,6 +293,8 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     participant_count: number | null
     participant_names: string[] | null
     payment_method: string | null
+    reservation_source: string | null
+    unit_price: number | null
     final_price: number | null
   }> = []
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
@@ -284,7 +302,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: batch, error: batchError } = await (db as any)
       .from('reservations')
-      .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, final_price')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
@@ -380,7 +398,9 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
         if (hasStaffParticipant || r.payment_method === 'staff') {
           totalRevenue += 0
         } else {
-          totalRevenue += r.final_price || 0
+          const category = event.category === 'gmtest' ? 'gmtest' : 'normal'
+          const unitFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, category)
+          totalRevenue += getReservationRevenue(r, participantCount, unitFee)
         }
       })
     }
@@ -791,6 +811,8 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     participant_count: number | null
     participant_names: string[] | null
     payment_method: string | null
+    reservation_source: string | null
+    unit_price: number | null
     final_price: number | null
   }> = []
 
@@ -799,7 +821,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: batch } = await (db as any)
       .from('reservations')
-      .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, final_price')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
@@ -895,9 +917,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           regularParticipants += count
           // GMテスト公演は participation_costs.gmtest を最優先で適用（旧カラム/通常料金へフォールバック）
           const unitFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, cat)
-          const price = isGmTest
-            ? unitFee * count
-            : (r.final_price ?? unitFee * count)
+          const price = getReservationRevenue(r, count, unitFee)
           if (r.payment_method === 'online') onlineAmount += price
           else onsiteAmount += price
         }
