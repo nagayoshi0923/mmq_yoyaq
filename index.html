@@ -22,10 +22,29 @@
       // 古いキャッシュ検知: Reactロード前にビルドハッシュを比較し、古ければ自動リロード
       // インラインなのでバンドルキャッシュに依存しない
       (function(){
+        // Supabase セッションの localStorage キー。
+        // ⚠️ src/lib/supabase.ts の AUTH_STORAGE_KEY / storageKey と同じ値でなければならない。
+        // インラインスクリプトなので import できず直書きしている。値がずれると
+        // 「セッション確立済みかどうか」の判定が常に false になり、認証復帰直後に
+        // リロードしてトークンを無駄にする（＝ログインできない）ため、片方だけ変えないこと。
+        var AUTH_STORAGE_KEY = 'mmq-supabase-auth';
         if (sessionStorage.getItem('_vck')) return; // 無限ループ防止
-        // 認証トークンがURLに含まれている場合はリロードしない（Supabase のフローを妨げない）
+        // 認証トークンがURLに含まれているか（Supabase のログイン復帰直後）
+        // location.reload() はフラグメントを保持するので、リロード自体はフローを壊さない。
+        // ただしセッション確立後にリロードするとローテーション済み refresh_token を
+        // 再利用して失敗し得るため、後段でセッションの有無を見て判断する。
         var h = location.hash || '';
-        if (h.indexOf('access_token=') !== -1 || h.indexOf('refresh_token=') !== -1 || h.indexOf('error=') !== -1) return;
+        var hasAuthTokenInUrl = h.indexOf('access_token=') !== -1 || h.indexOf('refresh_token=') !== -1 || h.indexOf('error=') !== -1;
+        // 認証復帰中にリロードして良いか = まだセッションが確立していないか。
+        // localStorage は private browsing 等で例外を投げ得るので、その場合は
+        // 安全側（リロードしない）に倒す。
+        function canReloadDuringAuth() {
+          try {
+            return localStorage.getItem(AUTH_STORAGE_KEY) === null;
+          } catch (e) {
+            return false;
+          }
+        }
         var scripts = document.querySelectorAll('script[type="module"][src]');
         var hash = null;
         for (var i = 0; i < scripts.length; i++) {
@@ -41,10 +60,12 @@
           .then(function(html) {
             if (!html) return;
             var m = html.match(/index-([^.]+)\.js/);
-            if (m && m[1] !== hash) {
-              sessionStorage.setItem('_vck', '1');
-              location.reload();
-            }
+            if (!m || m[1] === hash) return; // 最新のビルド
+            // 判定はここ（リロードを決める直前）で行う。スクリプト実行時点では
+            // supabase-js がまだ localStorage にセッションを書いていない。
+            if (hasAuthTokenInUrl && !canReloadDuringAuth()) return; // ログイン成功済み → 更新は次回ナビゲーションに任せる
+            sessionStorage.setItem('_vck', '1');
+            location.reload();
           })
           .catch(function() {});
       })();
