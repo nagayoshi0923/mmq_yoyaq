@@ -425,6 +425,7 @@ export function ScheduleManager() {
         total_price: number
         discount_amount: number
         final_price: number
+        unit_price: number
         payment_method: string
         payment_status: string
         status: string
@@ -466,6 +467,7 @@ export function ScheduleManager() {
           const scenarioInfo = scenarioMasterId ? scenarioInfoMap.get(scenarioMasterId) : null
           const isGmTest = (event as { category?: string }).category === 'gmtest'
           const participationFee = getParticipationFee(scenarioInfo?.pricing, isGmTest ? 'gmtest' : 'normal')
+          const totalPrice = participationFee * neededParticipants
           const duration = scenarioInfo?.duration || 120
           
           // 予約番号を生成（ユニークにするためインデックスを含める）
@@ -487,12 +489,12 @@ export function ScheduleManager() {
               neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
             ),
             assigned_staff: event.gms || [],
-            // デモ予約は参加費1人分を計上（旧サイト仕様の引き継ぎ・人数は満席表示用）
-            base_price: participationFee,
+            base_price: totalPrice,
             options_price: 0,
-            total_price: participationFee,
+            total_price: totalPrice,
             discount_amount: 0,
-            final_price: participationFee,
+            final_price: totalPrice,
+            unit_price: participationFee,
             payment_method: 'onsite',
             payment_status: 'paid',
             status: 'confirmed',
@@ -614,6 +616,7 @@ export function ScheduleManager() {
           duration = scenarioInfo.duration || 120
         }
       }
+      const totalPrice = participationFee * neededParticipants
 
       const now = new Date()
       const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
@@ -637,12 +640,12 @@ export function ScheduleManager() {
             neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
           ),
           assigned_staff: ev.gms || [],
-          // デモ予約は参加費1人分を計上（旧サイト仕様の引き継ぎ・人数は満席表示用）
-          base_price: participationFee,
+          base_price: totalPrice,
           options_price: 0,
-          total_price: participationFee,
+          total_price: totalPrice,
           discount_amount: 0,
-          final_price: participationFee,
+          final_price: totalPrice,
+          unit_price: participationFee,
           payment_method: 'onsite',
           payment_status: 'paid',
           status: 'confirmed',
