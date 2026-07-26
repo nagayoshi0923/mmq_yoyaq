@@ -6,7 +6,7 @@ import { useSessionRefresh } from './auth/useSessionRefresh'
 import { createAuthActions } from './auth/authActions'
 import { createSessionBootstrap } from './auth/sessionBootstrap'
 import { useAuthLifecycle } from './auth/useAuthLifecycle'
-import { useStrandedAuthTokenNotice } from './auth/useStrandedAuthTokenNotice'
+import { useStrandedAuthTokenRecovery } from './auth/useStrandedAuthTokenRecovery'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -110,8 +110,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsInitialized,
   })
 
-  // 認証トークンが URL ハッシュに残ったまま未ログインになった場合の可視化（無言の失敗対策）
-  useStrandedAuthTokenNotice({ isInitialized, user })
+  // 認証トークンが URL ハッシュに残ったまま未ログインになった場合の自己復旧＋可視化
+  // （supabase-js の /auth/v1/user fetch 失敗で無言のログアウト状態になる障害への対策）
+  useStrandedAuthTokenRecovery({ isInitialized, user })
 
   const isAdmin = !!user && (user.role === 'admin' || user.role === 'license_admin')
   const isStaff = !!user && user.role !== 'customer'
