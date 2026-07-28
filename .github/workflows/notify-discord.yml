@@ -1,8 +1,7 @@
 name: Notify Discord (要人間対応)
 
 on:
-  issues:
-    types: [labeled]
+  workflow_dispatch:
 
 jobs:
   notify:
