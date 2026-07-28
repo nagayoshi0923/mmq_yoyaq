@@ -101,7 +101,21 @@ serve(async (req) => {
     const companyPhone = storeEmailSettings?.company_phone || ''
     
     // カスタムテンプレートの取得
-    const customTemplate = storeEmailSettings?.private_confirm_template
+    let customTemplate = storeEmailSettings?.private_confirm_template
+    if ((!customTemplate || !customTemplate.trim()) && resolvedOrganizationId) {
+      const { data: orgTemplateRow } = await serviceClient
+        .from('email_settings')
+        .select('private_confirm_template')
+        .eq('organization_id', resolvedOrganizationId)
+        .not('private_confirm_template', 'is', null)
+        .neq('private_confirm_template', '')
+        .limit(1)
+        .maybeSingle()
+      if (orgTemplateRow?.private_confirm_template?.trim()) {
+        customTemplate = orgTemplateRow.private_confirm_template
+        console.log('📧 private_confirm_template fallback: using another store\'s template in same organization')
+      }
+    }
 
     // 日付フォーマット関数（JST固定）
     const formatDate = (dateStr: string): string => {
