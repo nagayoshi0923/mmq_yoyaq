@@ -20,6 +20,7 @@ import {
 import { Plus, Pencil, Trash2, Save, Loader2, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
 import { ConfirmDialog } from '@/components/patterns/modal'
 
@@ -43,6 +44,7 @@ const EVENT_CATEGORIES = [
 
 interface BookingNotice {
   id: string
+  organization_id?: string | null
   content: string
   applicable_types: string[]
   sort_order: number
@@ -64,6 +66,7 @@ interface Store {
 export function BookingNoticeSettings() {
   const [notices, setNotices] = useState<BookingNotice[]>([])
   const [stores, setStores] = useState<Store[]>([])
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   
@@ -86,18 +89,20 @@ export function BookingNoticeSettings() {
     setIsLoading(true)
     try {
       // 並列で取得（店舗は組織対応済み）
-      const [noticesRes, storesData] = await Promise.all([
+      const [noticesRes, storesData, orgId] = await Promise.all([
         supabase
           .from('booking_notices')
           .select('id, organization_id, content, applicable_types, store_id, store_ids, requires_pre_reading, is_active, sort_order, created_at, updated_at')
           .order('sort_order', { ascending: true }),
-        storeApi.getAll()
+        storeApi.getAll(),
+        getCurrentOrganizationId()
       ])
 
       if (noticesRes.error) throw noticesRes.error
 
       setNotices(noticesRes.data || [])
       setStores(storesData || [])
+      setOrganizationId(orgId)
     } catch (error) {
       logger.error('データ取得エラー:', error)
       notify.error('データの取得に失敗しました')
@@ -154,10 +159,16 @@ export function BookingNoticeSettings() {
     setIsSaving(true)
     try {
       if (editingNotice) {
-        // 更新
+        // 更新（organization_id が未設定の既存行だけ、ログイン中ユーザーの組織IDで補完する）
+        const needsOrgBackfill = !editingNotice.organization_id
+        if (needsOrgBackfill && !organizationId) {
+          notify.error('組織情報を取得できませんでした。ページを再読み込みしてください')
+          return
+        }
         const { error } = await supabase
           .from('booking_notices')
           .update({
+            organization_id: editingNotice.organization_id ?? organizationId,
             content: editForm.content.trim(),
             applicable_types: editForm.applicable_types,
             store_ids: editForm.store_ids,
@@ -172,14 +183,14 @@ export function BookingNoticeSettings() {
         notify.success('注意事項を更新しました')
       } else {
         // 新規作成
-        const maxSortOrder = notices.length > 0 
-          ? Math.max(...notices.map(n => n.sort_order)) 
+        if (!organizationId) {
+          notify.error('組織情報を取得できませんでした。ページを再読み込みしてください')
+          return
+        }
+
+        const maxSortOrder = notices.length > 0
+          ? Math.max(...notices.map(n => n.sort_order))
           : 0
-        
-        // store_idsが指定されている場合は最初のstore、なければ最初のstoreからorganization_idを取得
-        const store = editForm.store_ids.length > 0 
-          ? stores.find(s => s.id === editForm.store_ids[0])
-          : stores[0]
 
         const { error } = await supabase
           .from('booking_notices')
@@ -189,7 +200,7 @@ export function BookingNoticeSettings() {
             store_ids: editForm.store_ids,
             store_id: editForm.store_ids.length === 1 ? editForm.store_ids[0] : null, // 後方互換
             requires_pre_reading: editForm.requires_pre_reading,
-            organization_id: store?.organization_id,
+            organization_id: organizationId,
             is_active: editForm.is_active,
             sort_order: maxSortOrder + 1
           })
