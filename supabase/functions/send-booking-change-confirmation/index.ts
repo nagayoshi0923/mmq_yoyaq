@@ -181,9 +181,7 @@ serve(async (req) => {
       ${changeData.priceDifference! > 0 ? '+' : ''}¥${changeData.priceDifference!.toLocaleString()}
     </p>
     <p style="margin: 10px 0 0 0; color: ${changeData.priceDifference! > 0 ? '#92400e' : '#065f46'}; font-size: 14px;">
-      ${changeData.priceDifference! > 0 
-        ? '差額は当日にお支払いください（現金・カード可）' 
-        : '差額は返金またはクレジットにて対応させていただきます'}
+      ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。
     </p>
   </div>
   ` : ''}
@@ -268,9 +266,7 @@ ${hasPriceDifference ? `━━━━━━━━━━━━━━━━━━�
 
 ${changeData.priceDifference! > 0 ? '+' : ''}¥${changeData.priceDifference!.toLocaleString()}
 
-${changeData.priceDifference! > 0 
-  ? '差額は当日にお支払いください（現金・カード可）' 
-  : '差額は返金またはクレジットにて対応させていただきます'}
+ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。
 
 ` : ''}${changeData.newEventDate ? `━━━━━━━━━━━━━━━━━━━━
 変更後の予約内容
@@ -360,6 +356,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       console.log('📧 Using custom booking change template from email_settings')
     } else {
       // デフォルトのハードコードテンプレートを使用
+      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: changeData.storeId, organizationId: resolvedOrganizationId, template: 'booking_change_template' })
       finalHtml = emailHtml
       finalText = emailText
     }

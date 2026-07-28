@@ -206,10 +206,7 @@ serve(async (req) => {
   </div>
 
   <div style="margin: 0 0 30px 0; padding: 15px; background-color: #f9fafb; border-left: 3px solid #6b7280;">
-    <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">【ご注意】</p>
-    <p style="margin: 0 0 8px 0; font-size: 14px;">・料金は目安です。実際の料金は店舗との調整により変動する場合があります</p>
-    <p style="margin: 0 0 8px 0; font-size: 14px;">・候補日時の中から、店舗の都合に合わせて1つを確定させていただきます</p>
-    <p style="margin: 0; font-size: 14px;">・ご希望に沿えない場合もございます。その場合は別途ご連絡いたします</p>
+    <p style="margin: 0; font-size: 14px;">ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。</p>
   </div>
 
   <p style="margin: 0 0 30px 0; font-size: 15px;">
@@ -260,12 +257,8 @@ ${requestData.notes}
 3. 承認後、確定日時・店舗・料金をご連絡いたします
 
 ━━━━━━━━━━━━━━━━━━━━
-ご注意
-━━━━━━━━━━━━━━━━━━━━
 
-・料金は目安です。実際の料金は店舗との調整により変動する場合があります
-・候補日時の中から、店舗の都合に合わせて1つを確定させていただきます
-・ご希望に沿えない場合もございます。その場合は別途ご連絡いたします
+ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -315,6 +308,9 @@ MMQ
 </html>`
       finalText = appliedTemplate
       console.log('📧 Using custom private_request_template')
+    } else {
+      // デフォルトのハードコードテンプレートを使用
+      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { organizationId: requestData.organizationId, template: 'private_request_template' })
     }
 
     const emailSubject = `【貸切予約リクエスト受付】${requestData.scenarioTitle}`

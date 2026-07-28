@@ -253,13 +253,7 @@ serve(async (req) => {
   </div>
 
   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-    <h3 style="color: #92400e; margin-top: 0; font-size: 16px;">重要事項</h3>
-    <ul style="margin: 0; padding-left: 20px; color: #92400e;">
-      <li style="margin-bottom: 8px;">当日は開始時刻の<strong>15分前</strong>までにご来場ください</li>
-      <li style="margin-bottom: 8px;">お支払いは<strong>現地決済</strong>となります（現金・カード可）</li>
-      <li style="margin-bottom: 8px;">キャンセルは公演開始の<strong>24時間前</strong>まで無料です</li>
-      <li style="margin-bottom: 8px;">遅刻された場合、ご入場いただけない可能性があります</li>
-    </ul>
+    <p style="margin: 0; color: #92400e;">ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。</p>
   </div>
 
   <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
@@ -296,13 +290,8 @@ ${bookingData.customerName} 様
 お支払い金額: ¥${bookingData.totalPrice.toLocaleString()}
 
 ━━━━━━━━━━━━━━━━━━━━
-重要事項
-━━━━━━━━━━━━━━━━━━━━
 
-• 当日は開始時刻の15分前までにご来場ください
-• お支払いは現地決済となります（現金・カード可）
-• キャンセルは公演開始の24時間前まで無料です
-• 遅刻された場合、ご入場いただけない可能性があります
+ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。
 
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -376,6 +365,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       console.log('📧 Using custom reservation confirmation template from email_settings')
     } else {
       // デフォルトのハードコードテンプレートを使用
+      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: bookingData.storeId, organizationId: resolvedOrganizationId, template: 'reservation_confirmation_template' })
       finalHtml = emailHtml
       finalText = emailText
     }

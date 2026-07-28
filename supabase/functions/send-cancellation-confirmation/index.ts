@@ -217,20 +217,11 @@ serve(async (req) => {
     <h3 style="color: #991b1b; margin-top: 0; font-size: 16px;">お詫び</h3>
     <p style="margin: 0; color: #991b1b;">
       この度は、ご予約いただいていたにもかかわらず、公演を中止せざるを得なくなり、誠に申し訳ございません。<br>
-      お支払いいただいた料金は全額返金させていただきます。<br>
       またのご利用を心よりお待ちしております。
     </p>
   </div>
   ` : ''}
 
-  ${!isStoreCancellation && !hasCancellationFee ? `
-  <div style="background-color: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-    <h3 style="color: #065f46; margin-top: 0; font-size: 16px;">キャンセル料</h3>
-    <p style="margin: 0; color: #065f46;">
-      期限内にキャンセルいただいたため、キャンセル料は発生いたしません。
-    </p>
-  </div>
-  ` : ''}
 
   ${hasCancellationFee ? `
   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
@@ -291,14 +282,7 @@ ${cancellationData.cancellationReason}
 ━━━━━━━━━━━━━━━━━━━━
 
 この度は、ご予約いただいていたにもかかわらず、公演を中止せざるを得なくなり、誠に申し訳ございません。
-お支払いいただいた料金は全額返金させていただきます。
 またのご利用を心よりお待ちしております。
-
-` : ''}${!isStoreCancellation && !hasCancellationFee ? `━━━━━━━━━━━━━━━━━━━━
-キャンセル料
-━━━━━━━━━━━━━━━━━━━━
-
-期限内にキャンセルいただいたため、キャンセル料は発生いたしません。
 
 ` : ''}${hasCancellationFee ? `━━━━━━━━━━━━━━━━━━━━
 キャンセル料のお支払いについて
@@ -384,6 +368,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       console.log('📧 Using custom cancellation template from email_settings')
     } else {
       // デフォルトのハードコードテンプレートを使用
+      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: cancellationData.storeId, organizationId: resolvedOrganizationId, template: isStoreCancellation ? 'event_cancellation_template' : 'cancellation_template' })
       finalHtml = emailHtml
       finalText = emailText
     }

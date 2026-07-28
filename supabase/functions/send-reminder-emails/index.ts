@@ -141,6 +141,7 @@ serve(async (req) => {
       emailTemplate = reminderData.template
     } else {
       // デフォルトテンプレートを生成
+      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: reminderData.storeId, organizationId: resolvedOrganizationId, template: 'reminder_template' })
       const dayMessage = getDayMessage(reminderData.daysBefore)
       emailTemplate = getDefaultReminderTemplate(dayMessage)
     }
@@ -335,10 +336,7 @@ function getDefaultReminderTemplate(dayMessage: string): string {
   </div>
 
   <div style="margin: 0 0 30px 0; padding: 15px; background-color: #f9fafb; border-left: 3px solid #6b7280;">
-    <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">【当日のお願い】</p>
-    <p style="margin: 0 0 8px 0; font-size: 14px;">・開演15分前までにご来場ください</p>
-    <p style="margin: 0 0 8px 0; font-size: 14px;">・お時間に余裕を持ってご来店ください</p>
-    <p style="margin: 0; font-size: 14px;">・当日連絡先: 03-XXXX-XXXX</p>
+    <p style="margin: 0; font-size: 14px;">ご予約に関する詳細・ご注意事項は、公式サイトのご案内をご確認ください。</p>
   </div>
 
   <p style="margin: 0 0 30px 0; font-size: 15px;">
@@ -348,7 +346,7 @@ function getDefaultReminderTemplate(dayMessage: string): string {
 
   <div style="margin: 30px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
     <p style="margin: 0;">クイーンズワルツ</p>
-    <p style="margin: 5px 0 0 0;">TEL: 03-XXXX-XXXX | Email: info@queens-waltz.jp</p>
+    <p style="margin: 5px 0 0 0;">Email: info@queens-waltz.jp</p>
   </div>
 </body>
 </html>`
