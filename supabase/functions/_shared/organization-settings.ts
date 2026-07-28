@@ -10,6 +10,33 @@
 // @ts-nocheck
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+/**
+ * email_settings から取得する列（会社情報＋テンプレート）
+ * 店舗行 → 組織内の他行 のマージ対象でもある
+ */
+const EMAIL_SETTINGS_COLUMNS = [
+  'company_name',
+  'company_email',
+  'company_phone',
+  'company_address',
+  'reservation_confirmation_template',
+  'cancellation_template',
+  'reminder_template',
+  'booking_change_template',
+  'private_request_template',
+  'private_confirm_template',
+  'private_rejection_template',
+  'waitlist_notify_template',
+  'waitlist_registration_template',
+  'performance_cancellation_template',
+  'event_cancellation_template',
+  'performance_extension_template',
+  'performance_confirmation_template',
+] as const
+
+/** SELECT 用（マージ対象外の store_id を含む） */
+const EMAIL_SETTINGS_SELECT = ['store_id', ...EMAIL_SETTINGS_COLUMNS].join(',')
+
 export interface EmailTemplates {
   greeting?: string
   signature?: string
@@ -208,6 +235,7 @@ export async function getNotificationSettings(
  * email_settings テーブルから取得
  */
 export interface StoreEmailSettings {
+  store_id?: string | null
   company_name: string | null
   company_email: string | null
   company_phone: string | null
@@ -253,25 +281,7 @@ export async function getStoreEmailSettings(
 
   let query = supabase
     .from('email_settings')
-    .select([
-      'company_name',
-      'company_email',
-      'company_phone',
-      'company_address',
-      'reservation_confirmation_template',
-      'cancellation_template',
-      'reminder_template',
-      'booking_change_template',
-      'private_request_template',
-      'private_confirm_template',
-      'private_rejection_template',
-      'waitlist_notify_template',
-      'waitlist_registration_template',
-      'performance_cancellation_template',
-      'event_cancellation_template',
-      'performance_extension_template',
-      'performance_confirmation_template',
-    ].join(','))
+    .select(EMAIL_SETTINGS_SELECT)
 
   console.log('📧 getStoreEmailSettings called:', {
     originalStoreId: options.storeId,
@@ -291,61 +301,91 @@ export async function getStoreEmailSettings(
     return null
   }
 
-  const { data, error } = await query.maybeSingle()
+  const { data: storeRows, error } = await query.limit(1)
 
   if (error) {
     console.error('📧 店舗メール設定取得エラー:', error)
+    if (!options.organizationId) return null
+  }
+
+  const data = storeRows?.[0] ?? null
+
+  // organizationId が無い場合は店舗行をそのまま返す（従来動作）
+  if (!options.organizationId) {
+    console.log('📧 getStoreEmailSettings result (no organizationId):', {
+      storeId: effectiveStoreId,
+      hasSettings: !!data,
+      hasBookingChangeTemplate: !!data?.booking_change_template,
+      templatePreview: data?.booking_change_template?.substring(0, 50) || '(なし)'
+    })
+    return data
+  }
+
+  // 組織内の他の行を取得し、空の列を補完する
+  const { data: orgRows, error: orgError } = await supabase
+    .from('email_settings')
+    .select(EMAIL_SETTINGS_SELECT)
+    .eq('organization_id', options.organizationId)
+    .limit(20)
+
+  if (orgError) {
+    console.error('📧 Organization fallback error:', orgError)
+  }
+
+  const candidates = (orgRows || []).filter(
+    (row: any) => !effectiveStoreId || row?.store_id !== effectiveStoreId
+  )
+
+  if (!data && candidates.length === 0) {
+    console.log('📧 getStoreEmailSettings result: no settings found')
     return null
   }
 
-  // storeIdで見つからない場合、organizationIdで再検索
-  if (!data && effectiveStoreId && options.organizationId) {
-    console.log('📧 No settings found for storeId, trying organizationId fallback')
-    const { data: orgData, error: orgError } = await supabase
-      .from('email_settings')
-      .select([
-        'company_name',
-        'company_email',
-        'company_phone',
-        'company_address',
-        'reservation_confirmation_template',
-        'cancellation_template',
-        'reminder_template',
-        'booking_change_template',
-        'private_request_template',
-        'private_confirm_template',
-        'private_rejection_template',
-        'waitlist_notify_template',
-        'waitlist_registration_template',
-        'performance_cancellation_template',
-        'event_cancellation_template',
-        'performance_extension_template',
-        'performance_confirmation_template',
-      ].join(','))
-      .eq('organization_id', options.organizationId)
-      .limit(1)
-      .maybeSingle()
-    
-    if (orgError) {
-      console.error('📧 Organization fallback error:', orgError)
-    } else if (orgData) {
-      console.log('📧 Found settings via organizationId fallback:', {
-        hasBookingChangeTemplate: !!orgData.booking_change_template,
-        templatePreview: orgData.booking_change_template?.substring(0, 50)
-      })
-      return orgData
-    }
-  }
+  const { merged, filledColumns } = mergeEmailSettings(data, candidates)
 
   console.log('📧 getStoreEmailSettings result:', {
     storeId: effectiveStoreId,
     organizationId: options.organizationId,
-    hasSettings: !!data,
-    hasBookingChangeTemplate: !!data?.booking_change_template,
-    templatePreview: data?.booking_change_template?.substring(0, 50) || '(なし)'
+    hasStoreRow: !!data,
+    orgCandidateCount: candidates.length,
+    filledFromOrganization: filledColumns,
+    hasBookingChangeTemplate: !!merged.booking_change_template,
+    templatePreview: merged.booking_change_template?.substring(0, 50) || '(なし)'
   })
 
-  return data
+  return merged
+}
+
+/** 値が実質空（null / undefined / 空白のみ）か */
+function isBlank(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '')
+}
+
+/**
+ * 店舗行をベースに、空の列を組織内の他の行の非空値で補完する
+ */
+function mergeEmailSettings(
+  storeRow: any | null,
+  organizationRows: any[]
+): { merged: StoreEmailSettings; filledColumns: string[] } {
+  const merged: any = { ...(storeRow || {}) }
+  const filledColumns: string[] = []
+
+  for (const column of EMAIL_SETTINGS_COLUMNS) {
+    if (!isBlank(merged[column])) continue
+    for (const row of organizationRows) {
+      if (!isBlank(row?.[column])) {
+        merged[column] = row[column]
+        filledColumns.push(column)
+        break
+      }
+    }
+    if (!(column in merged)) {
+      merged[column] = null
+    }
+  }
+
+  return { merged: merged as StoreEmailSettings, filledColumns }
 }
 
 /**
