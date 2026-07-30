@@ -64,6 +64,8 @@ export interface ScenarioFormData {
   flexible_pricing: FlexiblePricing
   // 注意事項（予約ページに表示）
   caution?: string
+  // センシティブ項目キー配列（src/constants/sensitiveTopics.ts の SENSITIVE_TOPICS.key）
+  sensitive_tags?: string[]
   // キービジュアル画像URL
   key_visual_url?: string
   // ライセンス金額

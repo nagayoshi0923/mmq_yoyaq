@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
@@ -16,6 +17,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
+import { SENSITIVE_TOPICS } from '@/constants/sensitiveTopics'
 import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
@@ -276,6 +278,45 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               onChange={(e) => setFormData(prev => ({ ...prev, caution: e.target.value }))}
               rows={2} placeholder="例: ホラー表現あり / 暗い部屋での公演 / 激しい運動あり" className="text-[11px]" />
             <p className="text-[11px] text-muted-foreground mt-0.5">シナリオ詳細ページに表示</p>
+          </div>
+        </div>
+
+        {/* センシティブ項目（顧客側のセルフチェック診断用） */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">
+            センシティブ項目
+          </span>
+          <div className="flex-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5">
+              {SENSITIVE_TOPICS.map((topic) => {
+                const checked = (formData.sensitive_tags || []).includes(topic.key)
+                return (
+                  <div key={topic.key} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`sensitive-${topic.key}`}
+                      checked={checked}
+                      onCheckedChange={(next) => {
+                        setFormData(prev => {
+                          const current = prev.sensitive_tags || []
+                          return {
+                            ...prev,
+                            sensitive_tags: next === true
+                              ? (current.includes(topic.key) ? current : [...current, topic.key])
+                              : current.filter(key => key !== topic.key),
+                          }
+                        })
+                      }}
+                    />
+                    <Label htmlFor={`sensitive-${topic.key}`} className="text-xs cursor-pointer">
+                      {topic.label}
+                    </Label>
+                  </div>
+                )
+              })}
+            </div>
+            <p className={hintStyle}>
+              この作品に含まれる描写を選択してください。お客さんの詳細ページのセルフチェック診断に使われます。未選択の場合は診断セクション自体が表示されません。
+            </p>
           </div>
         </div>
       </div>

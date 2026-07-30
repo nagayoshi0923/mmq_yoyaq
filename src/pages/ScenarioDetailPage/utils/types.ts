@@ -30,6 +30,8 @@ export interface ScenarioDetail {
   synopsis?: string
   description?: string
   caution?: string
+  /** センシティブ項目キー配列（src/constants/sensitiveTopics.ts の SENSITIVE_TOPICS.key） */
+  sensitive_tags?: string[]
   author: string
   genre: string[]
   duration: number

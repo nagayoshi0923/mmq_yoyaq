@@ -118,6 +118,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       { item: 'gmtest', amount: 0, type: 'fixed' }
     ],
     caution: '',
+    sensitive_tags: [],
     has_pre_reading: false,
     gm_count: 1,
     gm_assignments: [],  // 空配列 = デフォルト報酬を使用
@@ -653,6 +654,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           }
         },
         caution: '',
+        sensitive_tags: [],
         key_visual_url: '',
         available_stores: [],
         characters: [],
@@ -775,6 +777,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           private_booking_time_slots: scenario.private_booking_time_slots || [],
           private_booking_time_slots_weekend: scenario.private_booking_time_slots_weekend ?? null,
           caution: '',
+          sensitive_tags: [],
           characters: [],  // organization_scenariosから後で取得
         })
         
@@ -788,7 +791,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -819,6 +822,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     key_visual_url: osData.custom_key_visual_url || prev.key_visual_url,
                     description: osData.custom_description || prev.description,
                     caution: osData.custom_caution || prev.caution || '',
+                    sensitive_tags: osData.custom_sensitive_tags || prev.sensitive_tags || [],
                     // 対応店舗: organization_scenarios側のデータを優先
                     available_stores: (osData.available_stores && osData.available_stores.length > 0) 
                       ? osData.available_stores 
@@ -866,14 +870,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     // カラムが存在しない場合は無視
                   }
                 } else {
-                  // organization_scenarios がなければ scenario_masters.caution を取得
+                  // organization_scenarios がなければ scenario_masters.caution / sensitive_tags を取得
                   const { data: masterCaution } = await supabase
                     .from('scenario_masters')
-                    .select('caution')
+                    .select('caution, sensitive_tags')
                     .eq('id', masterId)
                     .maybeSingle()
                   if (masterCaution?.caution) {
                     setFormData(prev => ({ ...prev, caution: masterCaution.caution || '' }))
+                  }
+                  if (masterCaution?.sensitive_tags) {
+                    setFormData(prev => ({ ...prev, sensitive_tags: masterCaution.sensitive_tags || [] }))
                   }
                 }
               }
@@ -1108,6 +1115,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               custom_key_visual_url: scenarioData.key_visual_url || null,
               custom_description: scenarioData.description || null,
               custom_caution: formData.caution || null,
+              // 空配列 = マスタ (scenario_masters.sensitive_tags) 準拠にフォールバック
+              custom_sensitive_tags: formData.sensitive_tags && formData.sensitive_tags.length > 0 ? formData.sensitive_tags : null,
               // 運用フィールド
               available_stores: scenarioData.available_stores || [],
               participation_costs: scenarioData.participation_costs || [],

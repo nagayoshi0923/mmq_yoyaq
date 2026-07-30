@@ -5,6 +5,7 @@ import type { ScenarioDetail, ScenarioCharacter } from '../utils/types'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { SensitivityCheck } from './SensitivityCheck'
 
 interface ScenarioAboutProps {
   scenario: ScenarioDetail
@@ -176,6 +177,9 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
           </div>
         </div>
       )}
+
+      {/* センシティブ内容セルフチェック（未申告作品では非表示） */}
+      <SensitivityCheck sensitiveTags={scenario.sensitive_tags || []} />
 
     </div>
   )

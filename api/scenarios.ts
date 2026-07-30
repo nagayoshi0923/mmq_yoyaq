@@ -56,6 +56,7 @@ const SELECT_FIELDS = [
   'booking_start_date', 'booking_end_date',
   'individual_notice_template', 'character_assignment_method',
   'private_booking_time_slots', 'private_booking_blocked_slots',
+  'sensitive_tags',
 ].join(', ')
 
 // 旧 scenarios テーブル（getAllLegacy 用）
@@ -98,6 +99,7 @@ const PUBLIC_DETAIL_FIELDS = [
   'characters',
   'booking_start_date', 'booking_end_date',
   'private_booking_time_slots', 'private_booking_blocked_slots',
+  'sensitive_tags',
 ].join(', ')
 
 // 統計集計用に getScenarioStats が必要とする最小カラム

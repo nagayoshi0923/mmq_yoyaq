@@ -195,6 +195,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     synopsis: scenarioData.synopsis || scenarioData.description,
     description: scenarioData.description,
     caution: (scenarioData as any).caution || null,
+    sensitive_tags: scenarioData.sensitive_tags || [],
     author: scenarioData.author,
     genre: scenarioData.genre || [],
     duration: scenarioData.duration,

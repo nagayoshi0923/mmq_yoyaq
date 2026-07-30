@@ -29,7 +29,9 @@ CREATE TABLE public.scenario_masters (
   official_site_url TEXT,
   gallery_images TEXT[] DEFAULT '{}'::text[],
   weekend_duration INTEGER,
-  report_display_name TEXT
+  report_display_name TEXT,
+  -- センシティブ内容セルフ診断用。値は src/constants/sensitiveTopics.ts の SENSITIVE_TOPICS.key
+  sensitive_tags TEXT[] NOT NULL DEFAULT '{}'::text[]
 );
 
 -- Indexes

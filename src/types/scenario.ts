@@ -130,6 +130,7 @@ export interface Scenario {
   characters?: any[] // キャラクター情報
   pre_reading_notice_message?: string | null // 事前読み通知メッセージ
   master_status?: string // マスタステータス
+  sensitive_tags?: string[] // センシティブ項目キー配列（src/constants/sensitiveTopics.ts の SENSITIVE_TOPICS.key）
 }
 
 // スケジュール関連の型定義

@@ -68,6 +68,8 @@ CREATE TABLE public.organization_scenarios (
   individual_notice_template TEXT,
   character_assignment_method TEXT NOT NULL DEFAULT 'survey'::text,
   private_booking_time_slots TEXT[],
+  -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）
+  custom_sensitive_tags TEXT[],
   UNIQUE (organization_id, scenario_master_id)
 );
 
