@@ -1333,7 +1333,7 @@ export function GuidePage() {
               </div>
               <div>
                 <p className="font-medium text-gray-900 mb-1">Q. カレンダーに貸切申込ボタンが表示されません</p>
-                <p className="text-gray-600 leading-relaxed">貸切申込ボタンは、カレンダー画面上部の<strong>店舗チェックボックスで店舗を1つ以上選択</strong>すると表示されます。また、開催日の<strong>14日前</strong>を過ぎた日程には申込できません。</p>
+                <p className="text-gray-600 leading-relaxed">貸切申込ボタンは、カレンダー画面上部の<strong>店舗チェックボックスで店舗を1つ以上選択</strong>すると表示されます。また、開催日の<strong>受付締切（標準では14日前。店舗の設定により異なります）</strong>を過ぎた日程には申込できません。</p>
               </div>
               <div>
                 <p className="font-medium text-gray-900 mb-1">Q. メンバーはMMQ登録が必要？</p>

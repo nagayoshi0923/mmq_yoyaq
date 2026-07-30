@@ -42,6 +42,8 @@ interface PrivateBookingFormProps {
   blockedSlots?: string[]
   isNextMonthDisabled?: boolean
   loading?: boolean
+  /** 予約受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値 */
+  deadlineDays?: number
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -60,6 +62,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   blockedSlots = [],
   isNextMonthDisabled = false,
   loading = false,
+  deadlineDays = 14,
 }: PrivateBookingFormProps) {
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
   const [slotsByDate, setSlotsByDate] = useState<Record<string, PrivateBookingSlot[]>>({})
@@ -173,10 +176,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     const dateObj = new Date(date + 'T00:00:00+09:00')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const twoWeeksLater = new Date(today)
-    twoWeeksLater.setDate(today.getDate() + 14)
-    return dateObj < twoWeeksLater
-  }, [])
+    const deadline = new Date(today)
+    deadline.setDate(today.getDate() + deadlineDays)
+    return dateObj < deadline
+  }, [deadlineDays])
 
   // Auto-select when only one store
   useEffect(() => {

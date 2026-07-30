@@ -37,7 +37,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     max_participants_per_booking: 8,
     advance_booking_days: 90,
     same_day_booking_cutoff: 0,
-    private_booking_deadline_days: 7,
+    private_booking_deadline_days: 14,
     max_bookings_per_customer: null,
     require_phone_verification: false,
     payment_method_label: '現地決済',
@@ -87,7 +87,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           max_participants_per_booking: data.max_participants_per_booking ?? 8,
           advance_booking_days: data.advance_booking_days ?? 90,
           same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
-          private_booking_deadline_days: data.private_booking_deadline_days ?? 7,
+          private_booking_deadline_days: data.private_booking_deadline_days ?? 14,
           max_bookings_per_customer: data.max_bookings_per_customer,
           require_phone_verification: data.require_phone_verification ?? false,
           payment_method_label: data.payment_method_label ?? '現地決済',
@@ -100,7 +100,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           max_participants_per_booking: 8,
           advance_booking_days: 90,
           same_day_booking_cutoff: 0,
-          private_booking_deadline_days: 7,
+          private_booking_deadline_days: 14,
           max_bookings_per_customer: null,
           require_phone_verification: false,
           payment_method_label: '現地決済',
@@ -163,7 +163,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             max_participants_per_booking: data.max_participants_per_booking ?? 8,
             advance_booking_days: data.advance_booking_days ?? 90,
             same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
-            private_booking_deadline_days: data.private_booking_deadline_days ?? 7,
+            private_booking_deadline_days: data.private_booking_deadline_days ?? 14,
             max_bookings_per_customer: data.max_bookings_per_customer,
             require_phone_verification: data.require_phone_verification ?? false,
             payment_method_label: data.payment_method_label ?? '現地決済',
@@ -247,7 +247,8 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
               className="max-w-[200px]"
             />
             <p className="text-xs text-muted-foreground">
-              公演日の{formData.private_booking_deadline_days}日前まで貸切申込を受付。貸切申込フォームの締切に使用されます
+              公演日の{formData.private_booking_deadline_days}日前まで貸切申込を受付。貸切申込フォームの締切に使用されます。
+              店舗ごとに異なる値を設定した場合、貸切申込カレンダーでは組織内で最も長い日数が適用されます
             </p>
           </div>
         </div>

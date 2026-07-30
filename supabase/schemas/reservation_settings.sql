@@ -7,6 +7,9 @@ CREATE TABLE public.reservation_settings (
   max_participants_per_booking INTEGER DEFAULT 8,
   advance_booking_days INTEGER DEFAULT 90,
   same_day_booking_cutoff INTEGER DEFAULT 0,
+  -- 貸切公演: 公演日の何日前まで申込を受け付けるか。
+  -- 全貸切フロー（シナリオ詳細・グループ候補日追加・リクエストページ・予約トップ）が
+  -- get_private_booking_deadline_days RPC 経由でこの値を参照する（14 を直書きしない）
   private_booking_deadline_days INTEGER DEFAULT 14,
   cancellation_policy TEXT,
   cancellation_deadline_hours INTEGER DEFAULT 0,
