@@ -92,6 +92,58 @@ REWORK -> DOING -> REPORT
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 | YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | DONE | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / fresh review `019f921a-093b-7ae3-a037-63f299ea6c4f` DONE | `a45b989e042e3be0597c21f28160e01ccd1b3377` | staging/prod DB先行、main/staging ff同期、本番READY |
 | YOYAQ-005 | 公演メール送信の顧客名表示・API契約修正 | PREVIEW_WAITING_VISUAL_OK | HIGH-RISK | 必須 | なし（YOYAQ-003と製品ファイル非重複なら並行可、staging統合は直列） | worker `019f9743-28a6-7f13-b22a-a0eda448bd84` / worktree `/Users/mai/.codex/worktrees/661e/mmq_yoyaq-1` / branch `codex/yoyaq-005-performance-email-contract` / port `5188` | - | Vercel Preview `dpl_58WGh5itsRDCy9BQHS9fwEt9WXhW` READY / PO visual OK待ち |
+| YOYAQ-006 | anon権限の参照監査とREVOKE migration作成（本番情報漏洩） | TODO | HIGH-RISK | 不要 | なし（P0・最優先） | 未割当 | - | - |
+| YOYAQ-007 | 公式サイト向け公開シナリオビューとHP掲載カラムのmigration作成 | TODO | HIGH-RISK | 不要 | YOYAQ-006 | 未割当 | - | - |
+| YOYAQ-008 | 公式サイト向け公開シナリオAPI実装 | TODO | HIGH-RISK | 不要 | YOYAQ-007（migration適用済みであること） | 未割当 | - | - |
+
+### YOYAQ-006 queue definition: anon権限の参照監査とREVOKE migration作成
+
+- **GO/source:** 2026-08-01 PO明示「codexにここから指示が出せるようにして」。設計の正は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §1 / §4-3。着手前に必読。
+- **背景（本番実測 2026-08-01・project `cznpcewciwywcqcxktba`）:** `public.organization_scenarios_with_master` と `public.organization_scenarios_public` に anon が `DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE` を保持。両ビューとも `reloptions = null`（`security_invoker` 未設定）。未認証でライセンス料8種・`production_cost`・`depreciation_per_performance`・`gm_costs`・`gm_count`・`gm_assignments`・`available_gms`・`experienced_staff`・`notes`・`author_email`・`participation_costs` の `time_slot='gmtest'` 内部価格が読める。
+- **status/lane:** TODO / HIGH-RISK（本番権限とテナント境界に触れる）。PREVIEW不要（UI変更なし）。
+- **scope/acceptance:**
+  - ① `src/` `api/` `supabase/` `scripts/` 全体（`.ts` `.tsx` `.sql` `.mjs`）から `organization_scenarios_with_master` / `organization_scenarios_public` / `organization_scenarios` / `scenario_masters` の参照箇所を漏れなく列挙し、各件について「ファイル:行 / 参照先 / 実行主体（anon・authenticated・service_role） / 未ログインで到達しうるか」を表にする。実行主体はSupabaseクライアント生成元（anon keyクライアントか `api/_lib/db.ts` の service_role か）を実際にたどって判定し、たどれない場合は推測せず「不明」と記す。
+  - ② 「未ログインで到達しうる かつ anon クライアントで読んでいる」箇所を**危険リスト**として別掲する。顧客向け予約サイトのログイン不要画面を重点確認する。
+  - ③ 危険リスト各件に、REVOKE後も動く代替案を1行で提案する（API経由化 / 公開専用ビューへの差し替え等）。
+  - ④ ①〜③を `docs/ANON_GRANT_AUDIT.md` に出力する。
+  - ⑤ 設計書 §4-3 のREVOKE文を **migrationファイルとして作成するだけ** にする。冒頭コメントに「危険リストがゼロ、または代替対応が別タスクで完了してから適用すること」を明記する。
+  - ⑥ 危険リストが空でない場合は**適用可否をREPORTで監督に上申**し、自己判断で先へ進めない。
+- **allowed files:** 新規 `docs/ANON_GRANT_AUDIT.md`、新規 `supabase/migrations/<timestamp>_revoke_anon_grants_on_scenario_views.sql`。それ以外の製品コード変更は禁止（追加が必要なら監督へscope request）。
+- **禁止:** migrationの適用（`npm run db:push:staging` / `db:push:prod` / MCP `apply_migration` を含め一切実行しない）。既存ビュー定義の変更。anonへのGRANT追加。`api/_lib/auth.ts` の変更。
+- **gates/review:** `npm run typecheck`、`npm run check:anon-rls-grants`、`npm run check:multi-tenant`、`git diff --check`。HIGH-RISK focused独立検収で、監査の網羅性（検索漏れがないか）と、REVOKEで壊れる箇所の見落としを重点確認する。DB適用は監督経由でPO判断。
+
+### YOYAQ-007 queue definition: 公開シナリオビューとHP掲載カラムのmigration作成
+
+- **GO/source:** 同上。設計の正は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §4-1 / §4-2 / §6。着手前に必読。
+- **status/lane:** TODO / HIGH-RISK（DBスキーマ変更）。PREVIEW不要。依存: YOYAQ-006（監査完了まで着手しない）。
+- **scope/acceptance:**
+  - ① `public.organization_scenarios` に `web_published boolean NOT NULL DEFAULT true` と `web_display_order integer` を追加。両方に `COMMENT ON COLUMN` を付ける。`DEFAULT true` はPO決定「`org_status='available'` の181件を全部掲載」に対応するもので、値を変えない。
+  - ② 部分インデックス `idx_org_scenarios_web_published (organization_id, web_published) WHERE web_published` を張る。
+  - ③ 部分UNIQUEインデックス `uq_org_scenarios_slug (organization_id, slug) WHERE slug IS NOT NULL` を張る。既存重複で失敗しうるため、migration冒頭コメントに重複検出クエリを記載する。
+  - ④ `public.public_scenarios` ビューを設計書 §4-2 のSQLどおり作成する。`WITH (security_invoker = true)` を必ず付け、`REVOKE ALL ON public.public_scenarios FROM anon, authenticated;` と `GRANT SELECT ON public.public_scenarios TO service_role;` を含める。
+  - ⑤ 設計書 §3-4 のブラックリスト列（ライセンス料8種・`production_cost*`・`depreciation_per_performance`・`gm_costs`・`gm_count`・`gm_assignments`・`available_gms`・`experienced_staff`・`notes`・`author_email`・`author_id`・`survey_*`・`characters`・`available_stores`・`booking_*`・`individual_notice_template`・`private_booking_*`・`play_count`・`kit_count`・`master_status`・`report_display_name`・`required_props`・`gm_test_participation_fee`）が `public_scenarios` に1つも含まれていないことを自分で照合し、照合結果をREPORTに書く。
+  - ⑥ `participation_costs` はビューに**含める**（`gmtest` の除去はAPI層の責務。anonにGRANTしないため漏洩しない）。
+  - ⑦ `supabase/schemas/organization_scenarios.sql` に追加カラムを反映する。
+- **allowed files:** 新規 `supabase/migrations/<timestamp>_add_web_publish_columns_to_org_scenarios.sql`、新規 `supabase/migrations/<timestamp>_create_public_scenarios_view.sql`、既存 `supabase/schemas/organization_scenarios.sql`（カラム追記のみ）。
+- **禁止:** migrationの適用（`db:push:*` / MCP `apply_migration` 一切禁止。適用は監督経由でPO/Claudeが `/db-change` 手順で実行）。既存 `organization_scenarios_with_master` の定義変更。anonへのGRANT追加。設計書に無いカラムの追加。
+- **gates/review:** `npm run typecheck`、`npm run db:check`、`npm run check:anon-rls-grants`、`npm run check:multi-tenant`、`git diff --check`。検収ではブラックリスト列の混入と `security_invoker` の有無を重点確認する。
+
+### YOYAQ-008 queue definition: 公式サイト向け公開シナリオAPI実装
+
+- **GO/source:** 同上。仕様の正は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §3。着手前に必読。
+- **status/lane:** TODO / HIGH-RISK（認証不要の公開エンドポイント新設）。PREVIEW不要。依存: YOYAQ-007のmigrationがstagingに**適用済み**であること（未適用なら着手しない）。
+- **参照すべき既存実装:** `api/customers.ts`（serverless基本形・`setCors`）、`api/_lib/db.ts`（service_roleクライアント）、`api/scenarios.ts:160`（認証不要GETの既存例）。
+- **scope/acceptance:**
+  - ① `api/_lib/publicScenario.ts` に `public_scenarios` の行を公開JSONへ変換するシリアライザを**1本だけ**書き、一覧・詳細の両方がこれを使う（フィールドの食い違い事故防止）。
+  - ② 料金は `participation_costs` のうち `time_slot === 'normal'` の要素だけを使う。`'gmtest'` は内部価格につき**絶対に含めない**。返すのは `price: { normal: number|null, display: string }` のみ。平日/土日祝で差がある場合 `display` は `"平日4,500円 / 土日祝5,000円"` 形式。`flexible_pricing` / `pricing_patterns` / `use_flexible_pricing` は生のまま返さない。
+  - ③ `GET /api/public/scenarios` を実装。クエリ `org`（既定 `queens-waltz`、`organizations.slug` から解決、未知は404）、`tag`（カンマ区切り・`genre` とAND一致）、`players`、`q`（title/author部分一致）、`sort`（`recommended`|`newest`|`title`|`duration`、既定 `recommended` = `is_recommended DESC, web_display_order NULLS LAST, title`）、`limit`（既定24・最大100でクランプ）、`offset`。レスポンスは `{ items, total, limit, offset }`。
+  - ④ `GET /api/public/scenarios/[slug]` を実装。`org` クエリ必須、同一シリアライザで単体を返し、存在しない/非公開は404。
+  - ⑤ CORS は環境変数 `PUBLIC_SITE_ORIGINS`（カンマ区切り）の許可リスト方式。`Access-Control-Allow-Credentials` は**付けない**（公開APIで不要かつ危険）。`OPTIONS` は204。
+  - ⑥ 成功レスポンスに `Cache-Control: public, s-maxage=300, stale-while-revalidate=86400` を付ける。GET以外は405。
+  - ⑦ 受け入れ確認: 認証ヘッダなしのcurlで一覧・詳細が取得でき、`items[0]` に license / cost / gm / notes 系のキーが1つも存在しないこと。`?players=6` `?tag=オススメ` `?limit=5&offset=5` `?sort=newest` が期待どおり効くこと。`gmtest` の金額がレスポンスのどこにも現れないこと。これらをREPORTに実出力付きで記す。
+- **allowed files:** 新規 `api/public/scenarios.ts`、新規 `api/public/scenarios/[slug].ts`、新規 `api/_lib/publicScenario.ts`、承認済み新規test `api/_lib/publicScenario.test.ts`。追加ファイルは編集前に監督へscope request必須。
+- **禁止:** `api/_lib/auth.ts` の変更。既存 `api/scenarios.ts` の変更。`organization_scenarios_with_master` の参照（`public_scenarios` だけを読む）。設計書 §3-4 のブラックリスト列を返すこと。DBマイグレーションの作成・適用。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。HIGH-RISK focused独立検収で、公開レスポンスへの機密列混入・`gmtest` 価格の露出・CORS許可リストの緩さ・org解決のテナント境界を重点確認する。staging統合・push後、ページ名/たどり方付きのPO確認項目を提示する。main/production は別の明示PO releaseまで禁止。
 
 ### YOYAQ-005 queue definition: 公演メール送信の顧客名表示・API契約修正
 
