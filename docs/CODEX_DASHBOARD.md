@@ -95,7 +95,8 @@ REWORK -> DOING -> REPORT
 | YOYAQ-006 | anon権限の参照監査と列レベルGRANT是正の監査 | DOING | HIGH-RISK | 不要 | なし（P0・最優先） | worker `019fbcf5-fb67-7622-9f6a-bab5730b9ae0` / Claude是正 `4cbee1c4` | - | 列レベルGRANT migration `20260801130000`をstaging/prod適用済み。新規REVOKE migrationは中止 |
 | YOYAQ-007 | 公式サイト向け公開シナリオビューとHP掲載カラムのmigration作成 | TODO | HIGH-RISK | 不要 | YOYAQ-006 | 未割当 | - | - |
 | YOYAQ-008 | 公式サイト向け公開シナリオAPI実装 | TODO | HIGH-RISK | 不要 | YOYAQ-007（migration適用済みであること） | 未割当 | - | - |
-| YOYAQ-011 | スタッフ担当シナリオの消失防止 | DOING | HIGH-RISK | 必須 | なし（P0） | worker `019fbd3a-3fff-7670-b9b3-af5817eac84e` / exact base `386de9067d015fd6878b0fc1eb413e6734462467` | - | 復元済みデータ保持。migration適用なし |
+| YOYAQ-011 | スタッフ担当シナリオの減少防止 | DOING | HIGH-RISK | 必須 | なし（P0） | worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` / V2 scope corrected | - | 結合テーブル表示を正とする。しらやま112行保持、減少1件でも409、関連query全refetch。migration適用なし |
+| YOYAQ-012 | スタッフ担当シナリオの正を結合テーブルへ一本化（二重管理の解消） | TODO | HIGH-RISK | 必須 | YOYAQ-011（減少ガード実装後） | 未割当 | - | - |
 | YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
 | YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
 | YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
@@ -230,6 +231,10 @@ REWORK -> DOING -> REPORT
 - **R2:** `organization_scenarios_with_master` 等のviewが `security_invoker` 未設定で、base tableがFORCE RLSなしのためanonから非available行のタイトル等が見える。`security_invoker=true` 化はstaff画面の可視範囲に影響するため独立タスクとして設計・検証する。
 
 ## Event log
+
+| 2026-08-02 | `YOYAQ_SCOPE_CORRECTED_V2` / `EVENT_CLAIMED` | YOYAQ-011 | - | 表示元はstaff_scenario_assignmentsのみと確定。しらやまの再同期112行を正規データとして保持し、ぽんちゃん0件は再投入しない。二重管理解消は対象外。減少1件でも409、外れるシナリオ名、`confirm_clear`、更新後の関連query `refetchType:'all'` を受入条件へ反映。worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` を起動。migration適用なし（recovered: false） |
+
+| 2026-08-02 | `YOYAQ_SCOPE_CORRECTED` / `EVENT_CLAIMED` | YOYAQ-011 | `785772f8` | 初版の消失前提を訂正。復元投入行は全削除済みで再投入禁止。二重管理の解消は対象外。新配列が既存より1件でも減る場合に409、外れるシナリオ名を返し、`confirm_clear` 明示時のみ許可する仕様へ変更。worker `019fbe46-48ed-7563-8b44-c54e92af7f8e` を再起動。migration適用なし（recovered: false） |
 
 | 2026-08-02 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-011 | `386de9067d015fd6878b0fc1eb413e6734462467` | P0実害（担当シナリオ消失）をclaim。可視worker `019fbd3a-3fff-7670-b9b3-af5817eac84e` をexact baseから起動。復元済み行（`notes='2026-08-02 公演履歴(schedule_events.gms)から復元'`）の削除・上書き禁止、migration適用禁止を確認。YOYAQ-009継続、YOYAQ-010未着手（recovered: false） |
 
@@ -377,3 +382,28 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **review:** 初回reviewer `019f91f3-983e-7723-a528-ace3c1ff196c` はtarget `643ff96f...`をREWORK。fresh rereviewer `019f921a-093b-7ae3-a037-63f299ea6c4f` がtarget `a45b989e042e3be0597c21f28160e01ccd1b3377`をDONE。createのcustomer/group認可・DB保存候補/希望店舗の信頼、approveの全caller組織一致、locked reservationからのconfirmed候補/店舗再構築を確認し、重大欠陥なし。保存済みendTimeと現在設定の再計算値がずれた既存pendingや、競合後の直接申請再試行で既作成group候補と再選択候補がずれる場合はmutation前にfail-closedし得るが、既存行を変更せずDB保存候補を信頼元にする契約に沿うため非blocking。
 - **integration:** 最新`origin/staging` `72bbbc94a5f7dae1f493aef7e5439c3d96a58c4c`へreview済み2commitを競合なく直列適用し、累積20ファイルのblobがreview targetと完全一致。統合checkoutで`npm run verify`と対象unit 11件、diff/show checkがPASS。frontend pushより先にstaging DBへ`20260723210000`を適用し、適用済み474・未適用0、pending貸切申請7件・fingerprint `b5ec4cdcd3bdbdd644e804b2538b0a62`前後一致、対象3関数のSECURITY DEFINER/search_path/ACL、YOYAQ-004 policy 0件を確認。review済み20ファイル＋dashboardだけを`origin/staging`へpushし、Vercel Preview READY・外部HTTPS 200を確認。POの本番承認に基づき、mainがstagingの祖先・main直hotfix 0・今回以外の製品差分0を確認後、production DBへ同migration 1件だけを先行適用。prodは適用済み473・未適用0、pending貸切申請11件・fingerprint `880083644cc06eaeb16c3caaea226549`前後一致、対象3関数/RLS不変を確認。既存ドリフト`20260717100000`は今回scope外としてprodへ適用せず、YOYAQ-004依存なし。`origin/main`を`origin/staging`へforceなしでfast-forwardして両branchを`f7b47020b3ba1436e398831aa4feaa1c97279569`へ同期し、Vercel production `dpl_FmuDsXR9jrWZjgXPxdXvo63rcAxT` READY、本番公開入口/貸切導線HTTPS 200、新availability RPC read-only実行、PREVIEW fixture非露出を確認。PO確認用Preview `dpl_EVifNUeWsf6faRkXZKgHGLL7vCV5`はexact target確認後に削除した。
 - **PO check:** 【顧客向け貸切予約 > 候補日時】停止枠が選べず、複数店舗のうち空きがあれば選べること。【貸切確認 > 申請カード > 候補日時】申請後/申請前からの募集停止が区別され、停止中は承認できないこと。
+
+### YOYAQ-012 queue definition: スタッフ担当シナリオの正を結合テーブルへ一本化
+
+- **GO/source:** 2026-08-02 PO明示「二重管理は統合するようにして、片方になくても片方があれば採用」。ぽんちゃんの扱いは PO 判断「C（復活してよい）」。
+- **背景（本番実測 2026-08-02）:**
+  - スタッフ×シナリオの紐付けが2箇所に分かれている。
+    - `staff.special_scenarios` / `staff.available_scenarios`（`scenario_masters.id` の UUID 配列）
+    - `staff_scenario_assignments`（結合テーブル）
+  - **画面の表示元は結合テーブルのみ。** `src/pages/StaffManagement/hooks/useStaffQuery.ts:44` が `staff.special_scenarios` を結合テーブル由来の値で上書きするため、配列側にしか無い紐付けは画面に出ず GM 候補にも出ない。
+  - 対応関係: `special_scenarios` → `can_main_gm=true`（「GM可能」）、`available_scenarios` → `is_experienced=true`（「体験済み」）。`gm_experienced_check` 制約により両フラグは排他。
+  - **データ側の統合は Claude が実施済み**（`20260802110000_backfill_staff_scenario_assignments_from_legacy.sql`、staging/prod 適用済み）。和集合で 940件を投入し、結合テーブル 3,050 → **3,990件**。レガシー配列側の取りこぼし **0件**。GM が付いたシナリオ 211 → **217件**。削除は一切していない。
+  - 投入行は `notes LIKE '2026-08-02 二重管理統合%'` で識別できる。**これらは正規の担当データとして扱い、削除・上書きしないこと。**
+- **本タスクの目的:** データは揃ったので、**コード側の正を結合テーブルへ一本化**し、再びズレが生まれないようにする。
+- **status/lane:** TODO / HIGH-RISK（スタッフ担当データの保存経路を変更する）。**PREVIEW必須**。依存: YOYAQ-011（減少ガード）実装後に着手する。
+- **最優先の制約:** **登録済みの担当を1件も減らさないこと。** どの段階でも削除・縮小方向の変更を行わない。
+- **scope/acceptance:**
+  - ① 保存経路の棚卸し: `staff.special_scenarios` / `staff.available_scenarios` に書き込んでいる箇所を全数列挙する（既知: `src/lib/api/staffApi.ts:54`、`api/staff.ts` の許可フィールド、`src/pages/StaffManagement/components/StaffEditForm.tsx`、`api/invitations.ts:369`、`src/pages/OrganizationRegister/index.tsx:243`）。読み取り側も同様に列挙し、`docs/` に対応表を残す。
+  - ② **保存時は結合テーブルを正とする。** 担当編集の保存が `staff_scenario_assignments` を必ず更新するようにし、レガシー配列は当面**同じ内容を書き続ける（二重書き）**にとどめる。配列の廃止（カラム DROP）は本タスクでは行わない。
+  - ③ 読み取り側は結合テーブル由来に統一する。`useStaffQuery.ts` のような「カラムを結合テーブルで上書きする」暗黙の処理をやめ、**どこから来た値かがコード上で明示される**形にする。
+  - ④ 整合性チェックを追加する: レガシー配列と結合テーブルの差分を検出するスクリプトを `scripts/` に置き、`package.json` に `check:staff-scenario-sync` として登録する。**配列にあって結合テーブルに無い**ものが1件でもあれば警告として出力する（CI を落とすかは監督判断）。
+  - ⑤ 招待・組織登録の初期値（`available_scenarios: []` 等）が、既存の紐付けを消す経路になっていないことを確認し、なっていれば直す。
+- **allowed files:** ①で列挙したファイル、新規 `scripts/check-staff-scenario-sync.mjs`、既存 `package.json`（scripts追記のみ）、新規 `docs/` 対応表、対象unit test。列挙外のファイルは監督へ scope request。
+- **禁止:** migrationの適用。`staff.special_scenarios` / `staff.available_scenarios` カラムの DROP。`staff_scenario_assignments` の既存データの削除・書き換え（`notes LIKE '2026-08-02 二重管理統合%'` の940行を含む）。`gm_experienced_check` 制約の変更。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:staff-scenario-sync`（新規）、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、保存後に両方が同じ内容になること、既存の担当が1件も減らないこと、テナント境界を重点確認する。
+- **PREVIEW:** 必須。スタッフ管理 > スタッフ詳細 > 担当シナリオ編集で、追加・削除・無変更保存の3パターンを試し、一覧の「GM可能」「体験済み」列と件数が即座に一致することを desktop/mobile で確認する（更新後は `invalidateQueries` に `refetchType:'all'` を付け、計算列だけ更新されてチップが古いまま残る状態を作らないこと）。
