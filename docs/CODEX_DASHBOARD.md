@@ -92,9 +92,47 @@ REWORK -> DOING -> REPORT
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 | YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | DONE | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / fresh review `019f921a-093b-7ae3-a037-63f299ea6c4f` DONE | `a45b989e042e3be0597c21f28160e01ccd1b3377` | staging/prod DB先行、main/staging ff同期、本番READY |
 | YOYAQ-005 | 公演メール送信の顧客名表示・API契約修正 | PREVIEW_WAITING_VISUAL_OK | HIGH-RISK | 必須 | なし（YOYAQ-003と製品ファイル非重複なら並行可、staging統合は直列） | worker `019f9743-28a6-7f13-b22a-a0eda448bd84` / worktree `/Users/mai/.codex/worktrees/661e/mmq_yoyaq-1` / branch `codex/yoyaq-005-performance-email-contract` / port `5188` | - | Vercel Preview `dpl_58WGh5itsRDCy9BQHS9fwEt9WXhW` READY / PO visual OK待ち |
-| YOYAQ-006 | anon権限の参照監査とREVOKE migration作成（本番情報漏洩） | TODO | HIGH-RISK | 不要 | なし（P0・最優先） | 未割当 | - | - |
+| YOYAQ-006 | anon権限の参照監査と列レベルGRANT是正の監査 | DOING | HIGH-RISK | 不要 | なし（P0・最優先） | worker `019fbcf5-fb67-7622-9f6a-bab5730b9ae0` / Claude是正 `4cbee1c4` | - | 列レベルGRANT migration `20260801130000`をstaging/prod適用済み。新規REVOKE migrationは中止 |
 | YOYAQ-007 | 公式サイト向け公開シナリオビューとHP掲載カラムのmigration作成 | TODO | HIGH-RISK | 不要 | YOYAQ-006 | 未割当 | - | - |
 | YOYAQ-008 | 公式サイト向け公開シナリオAPI実装 | TODO | HIGH-RISK | 不要 | YOYAQ-007（migration適用済みであること） | 未割当 | - | - |
+| YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
+| YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
+
+### YOYAQ-009 queue definition: anon読み取りの公開専用ビュー分離とanon権限ゼロ化
+
+- **GO/source:** 2026-08-01 PO明示。設計の背景は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §1 と、本ダッシュボードのYOYAQ-006。着手前に必読。
+- **背景:** 2026-08-01 に列レベルGRANT（`20260801130000` / `20260801140000`）で機密列の露出は塞いだが、`organization_scenarios_with_master` / `organization_scenarios` / `scenario_masters` は依然 anon が直接読める。ビューは `security_invoker` 未設定（owner=postgres・base tableは FORCE RLS 無し）で **RLSが効かず、anonから非 available 行も見える**。`security_invoker=true` 化は、ビュー定義が参照する機密列の権限を呼び出し元に要求するため anon 側が 42501 で全滅する（2026-04-12 の `20260412110000` で実際に踏んで全面ロールバックされた経緯あり）。したがって **オブジェクトを分離**して解決する。
+- **status/lane:** TODO / HIGH-RISK（顧客向け公開画面のデータ取得経路を全面的に差し替える）。PREVIEW不要（UIの見た目変更なし）だが、後述の実機確認は必須。
+- **scope/acceptance:**
+  - ① 公開専用ビュー `public.public_scenarios_v1` を新規作成する。**`security_invoker` は設定しない**（owner権限で実行させ、anonに基底テーブル権限を要求させないため）。列は現在anonが読める公開列のみ、行は `WHERE org_status = 'available'` で固定する。ライセンス料8種・`production_cost*`・`depreciation_per_performance`・`gm_costs`・`gm_count`・`gm_assignments`・`available_gms`・`experienced_staff`・`notes`・`author_email`・`survey_url`・`individual_notice_template`・`pricing_patterns`・`flexible_pricing`・`use_flexible_pricing`・`play_count`・`gm_test_participation_fee`・`report_display_name`・`external_license_amount` は**含めない**。
+  - ② anon 経路の参照を機械的に差し替える。対象は以下13箇所（2026-08-01 実測・`select('*')` は1つも無いことを確認済み）。各箇所の select 列は**一切変えない**。
+    `src/pages/PublicBookingTop/hooks/useBookingData.ts:136` / `src/pages/ScenarioCatalog/index.tsx:89` / `src/pages/PlatformScenarioSearch/index.tsx:98` / `src/pages/ScenarioDetailGlobal/index.tsx:147`（および同ファイルの `organization_scenarios` / `scenario_masters` 直読み 105,117,121,129,139,171,175,181,188,198） / `src/lib/scenarioRelatedPublic.ts:34` / `src/lib/privateBookingScenarioTime.ts:108,134` / `src/pages/PrivateGroupInvite/index.tsx:341` / `src/pages/PrivateGroupCreate/index.tsx:55` / `src/hooks/privateGroupHelpers.ts:145` / `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts:23` / `src/pages/PlatformTop/index.tsx:127,128,130` / `src/pages/PrivateGroupManage/components/GroupChat.tsx:164,405` / `src/pages/RentalReportForm/index.tsx:88`
+  - ③ `/mypage` 系（`useMyPageDataQuery.ts:108,140,307` / `useReservationDetailQuery.ts:63,67,71` / `useLikedScenariosQuery.ts:35`）はルートガードが無く未ログインでもマウントされるため、**同様に公開ビュー経由へ寄せる**。ログイン必須データを公開ビューから取らせないこと。
+  - ④ ②③が完了し実機確認が通った**後で**、`organization_scenarios_with_master` / `organization_scenarios` / `scenario_masters` から **anon の全権限を REVOKE** する migration を作成する（適用は監督経由でPO/Claude）。
+  - ⑤ **退行防止CIガード**を追加する。`scripts/` に新規スクリプトを置き、`anon` が上記3オブジェクトに対して table 権限・列権限のいずれかを1つでも持っていたら **exit 1** にする。`package.json` に `check:anon-scenario-grants` として登録し、`npm run verify` の系列から呼ばれるようにする。既存の `scripts/audit-anon-rls-grants.sh` は「GRANTが足りず401になる」検出器で方向が逆のため、**別スクリプトとして追加**し既存を書き換えないこと。
+  - ⑥ `scripts/verify_permissions.mjs` の `ANON_REQUIRED_TABLES` から `scenario_masters` / `organization_scenarios` を削除する。この2つが「anonが読めること」を要求する検査に残っていると、④のREVOKEと矛盾して常時赤になる。`FIX_SQL` に両テーブルを**復活させないこと**（2026-04-12 のロールバックはこの `--fix` が一因）。
+- **allowed files:** 新規 `supabase/migrations/<timestamp>_create_public_scenarios_v1_view.sql`、新規 `supabase/migrations/<timestamp>_revoke_all_anon_on_scenario_objects.sql`、新規 `scripts/check-anon-scenario-grants.mjs`、既存 `package.json`（scripts追記のみ）、既存 `scripts/verify_permissions.mjs`、および②③に列挙したフロントのファイル。**列挙外のフロントファイルを触る必要が出たら必ず監督へscope request**。
+- **禁止:** migrationの適用（`db:push:*` / MCP `apply_migration` 一切禁止）。各所の select 列の変更・追加。`organization_scenarios_with_master` の定義変更。`security_invoker=true` 化（上記の理由で anon が全滅する）。`scripts/audit-anon-rls-grants.sh` の書き換え。API層（`api/`）の変更。
+- **gates/review:** `npm run typecheck`、`npm run check:permissions`、`npm run check:anon-scenario-grants`（新規）、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、公開ビューへの機密列混入、`select('*')` の混入、②③の差し替え漏れ（`organization_scenarios_with_master` を anon 経路から参照する箇所が残っていないか）を重点確認する。
+- **staging統合後のPO確認（必須・ページ名とたどり方を明記して提示すること）:** ①`/queens-waltz` 予約トップでシナリオ一覧が出る ②`/queens-waltz/catalog` でカタログが出る ③シナリオ詳細から公演を選び**予約確定画面まで進んで料金が正しく出る** ④貸切申込で所要時間・時間枠が出る ⑤`/group/invite/{code}` がゲストで開ける ⑥`/mypage` が表示される。
+
+### YOYAQ-010 queue definition: レンタル公演報告フォームの再建
+
+- **GO/source:** 2026-08-01 PO明示「A」（トークン付きAPI経由化・金額はサーバー側計算・クライアントに単価を渡さない）。
+- **背景（本番実測 2026-08-01）:** `/{org}/rental-report` は**既に機能不全**。フォームは `external_performance_reports` へ `scenario_id` / `reporter_company_name` / `reporter_email` / `organization_id: null` を INSERT しようとするが、実テーブルの列は `scenario_master_id` / `organization_id`(NOT NULL) / `reported_by`(NOT NULL) で、送信列は存在しない。加えて anon はこのテーブルに SELECT/INSERT いずれの GRANT も持たない。**送信は必ず失敗する**。実効的な作用は他社向けライセンス単価の公開のみだったため、`20260801140000` で `external_license_amount` の anon 権限を剥奪済み（現在この画面の金額は0円表示になる）。
+- **status/lane:** TODO / HIGH-RISK（外部公開フォーム・金額・PII）。**PREVIEW必須**（UIが変わるため）。
+- **scope/acceptance:**
+  - ① トークン管理テーブルを新設する（例 `external_report_tokens`: `id` / `organization_id` NOT NULL / `token` UNIQUE NOT NULL / `partner_label` / `is_active` NOT NULL DEFAULT true / `expires_at` / `last_used_at` / `created_at`）。anon には**一切 GRANT しない**（APIのservice_roleからのみ参照）。トークンは推測不能な長さ（32バイト以上の乱数をbase64url）とする。
+  - ② 公開API `api/public/rental-report.ts` を新設する。認証はクエリ/ボディの `token` のみ。
+    - `GET ?org={slug}&token=...` → トークン検証後に、対象組織の `scenario_type='managed'` かつ `org_status='available'` のシナリオ一覧（`id` / `title` / `author`）と、**単価を含めた表示用データ**を返す。トークンが無効・失効・非活性なら 401 とし、**シナリオ一覧も単価も一切返さない**。
+    - `POST` → トークン検証後、報告を登録する。**クライアントから送られた金額は一切信用せず、サーバー側で DB の `external_license_amount` から再計算する**。書き込みは実テーブルの列（`organization_id` / `scenario_master_id` / `performance_date` / `performance_count` / `status` / `notes` 等）に正しく合わせる。`reported_by` が NOT NULL のため、外部報告をどう表現するか（NULL許容へ変更するか、報告者を別列で持つか）を実装前に監督へ確認すること。
+    - CORS は既存の許可リスト方式に合わせる。`Cache-Control: no-store`。GET/POST/OPTIONS 以外は 405。
+  - ③ `src/pages/RentalReportForm/index.tsx` を、Supabase 直クエリ・直INSERTから②のAPI呼び出しへ全面的に差し替える。URLは `/{org}/rental-report?token=...`。**トークンが無い/無効な場合は、シナリオ一覧も金額も表示せず**「有効な報告用リンクからアクセスしてください」の案内だけを出す。
+  - ④ 単価の画面表示は**トークン検証を通った場合のみ**とする（報告する取引先自身には従来どおり単価・小計・合計を見せてよい）。
+  - ⑤ 管理画面側にトークンの発行・失効UIを追加する。破壊的操作の確認は共通 `ConfirmDialog`（`@/components/patterns/modal`）を使い、native `confirm()` を使わない。
+- **allowed files:** 新規 `supabase/migrations/<timestamp>_create_external_report_tokens.sql`、新規 `api/public/rental-report.ts`、既存 `src/pages/RentalReportForm/index.tsx`、管理UIの追加先は**着手前に監督へscope request**。
+- **禁止:** migrationの適用。`external_performance_reports` への anon GRANT 追加。クライアントが送った金額の採用。トークン未検証での単価・シナリオ一覧の返却。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:permissions`、`git diff --check`。検収では、トークン無しで単価が取れないこと、他組織のトークンで別組織のデータが取れないこと（テナント境界）、金額のサーバー再計算、報告の重複登録防止を重点確認する。
 
 ### YOYAQ-006 queue definition: anon権限の参照監査とREVOKE migration作成
 
@@ -154,7 +192,15 @@ REWORK -> DOING -> REPORT
 - **PREVIEW:** 必須。公演ダイアログ > 予約管理で複数予約を選択しメール送信を開き、予約一覧に表示される顧客名と送信先名が一致することをdesktop/mobileで確認する。実メール送信はPREVIEWでは行わない。認証が必要なため、安定したstaging確認または認証不要・送信不能fixtureを使用し、実顧客PIIを公開PREVIEWへ含めない。
 - **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`git diff --check`。HIGH-RISK focused独立検収で、同一組織JOIN、PII非増加、正式payload、既存送信後処理の回帰を確認する。DB/Edge deploy不要。staging統合・push後、ページ名・タブ名・たどり方付きのPO確認項目を提示する。main/productionは別の明示PO releaseまで禁止。
 
+## Follow-up backlog
+
+- **R1:** `/{org}/rental-report` はルートガードなしで `organization_scenarios.external_license_amount` をanonから読むため暫定許可中。ページをAPI経由化してから列レベル許可を追加で塞ぐ。
+- **R2:** `organization_scenarios_with_master` 等のviewが `security_invoker` 未設定で、base tableがFORCE RLSなしのためanonから非available行のタイトル等が見える。`security_invoker=true` 化はstaff画面の可視範囲に影響するため独立タスクとして設計・検証する。
+
 ## Event log
+
+| 2026-08-01 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-006 | `62627677a32c803cbe5b0d148e462927962edfac` | re-deliveryを同一queueとしてclaim。YOYAQ-006のみ着手可能と確認し、可視worker `019fbce5-fdd0-7541-8451-3eb5b844282a` をexact baseから起動。YOYAQ-007/008は依存未充足のためTODO保留。DB適用なし（recovered: false） |
+| 2026-08-01 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` | YOYAQ-006 | `4cbee1c4` | POのスコープ変更をclaim。顧客向け画面が対象viewをanonで直接読むためテーブル単位REVOKE案を破棄し、Claudeの列レベルGRANT是正（migration `20260801130000`）をstaging/prod適用済みとして記録。新規REVOKE migration作成を中止し、監査docのみ継続。可視worker `019fbcf5-fb67-7622-9f6a-bab5730b9ae0` を起動。R1 external_license_amount公開ページAPI化、R2 security_invoker独立タスクを残課題化。DB操作なし（recovered: false） |
 
 | time (JST) | event | task ID | commit | claimed/transition |
 |---|---|---|---|---|
