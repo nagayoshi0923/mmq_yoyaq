@@ -33,9 +33,14 @@ if (!SUPABASE_URL || !ANON_KEY) {
 const ANON_REQUIRED_TABLES = [
   { table: 'organizations', op: 'SELECT', filter: 'limit=1' },
   { table: 'stores', op: 'SELECT', filter: 'limit=1' },
-  { table: 'scenario_masters', op: 'SELECT', filter: 'limit=1' },
+  // scenario_masters / organization_scenarios は anon が「列レベル」でしか読めない
+  // （20260801130000_restrict_anon_columns_on_scenario_objects.sql）。
+  // PostgREST の既定は select=* で、列レベル GRANT では 42501 になるため
+  // 必ず公開列を明示して検査する。ここを select=* に戻すと、
+  // 「テーブル全体を anon に開放しないと通らない」検査になり、機密列の漏洩が復活する。
+  { table: 'scenario_masters', op: 'SELECT', filter: 'select=id,title&limit=1' },
   { table: 'schedule_events', op: 'SELECT', filter: 'limit=1' },
-  { table: 'organization_scenarios', op: 'SELECT', filter: 'limit=1' },
+  { table: 'organization_scenarios', op: 'SELECT', filter: 'select=id,slug&limit=1' },
   { table: 'business_hours_settings', op: 'SELECT', filter: 'limit=1' },
   { table: 'booking_notices', op: 'SELECT', filter: 'limit=1' },
   { table: 'private_groups', op: 'SELECT', filter: 'limit=1' },
@@ -54,9 +59,13 @@ const FIX_SQL = `
 -- 公開予約サイト・貸切招待ページに必要な anon 権限を復旧
 GRANT SELECT ON public.organizations TO anon;
 GRANT SELECT ON public.stores TO anon;
-GRANT SELECT ON public.scenario_masters TO anon;
 GRANT SELECT ON public.schedule_events TO anon;
-GRANT SELECT ON public.organization_scenarios TO anon;
+-- ⚠️ scenario_masters / organization_scenarios はここに書かない。
+-- テーブル全体を GRANT すると、ライセンス料・原価・GM報酬・GM実名・内部メモ・
+-- 作者メールが未認証で読める状態に戻る（2026-08-01 に列レベル GRANT へ是正済み）。
+-- これらの権限を復旧する必要が生じた場合は
+-- supabase/migrations/20260801130000_restrict_anon_columns_on_scenario_objects.sql
+-- を再適用すること。
 GRANT SELECT ON public.business_hours_settings TO anon;
 GRANT SELECT ON public.booking_notices TO anon;
 GRANT INSERT ON public.contact_inquiries TO anon;
