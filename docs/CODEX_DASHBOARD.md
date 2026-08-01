@@ -97,6 +97,29 @@ REWORK -> DOING -> REPORT
 | YOYAQ-008 | 公式サイト向け公開シナリオAPI実装 | TODO | HIGH-RISK | 不要 | YOYAQ-007（migration適用済みであること） | 未割当 | - | - |
 | YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
 | YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
+| YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
+
+### YOYAQ-011 queue definition: スタッフ担当シナリオの消失防止
+
+- **GO/source:** 2026-08-02 PO明示「対策して」。実害の報告（「スタッフがシナリオとの紐付けを解除された気がする」）を起点とする調査で、消失が事実と確認された。
+- **背景（本番実測 2026-08-02）:**
+  - active な GM 2名（しらやま / ぽんちゃん、いずれも 2025-12 登録）の `staff_scenario_assignments` が **0件**だった。
+  - 一方 `schedule_events.gms` の実績では しらやま=346公演/70シナリオ（2024-09-15〜2026-10-11）、ぽんちゃん=334公演/38シナリオ。**未来日程にもアサイン済み**で、担当が空のまま運用されていた。
+  - staging ミラーも0件のため復旧元にならず、公演履歴から再構成して復元済み（しらやま64件 / ぽんちゃん28件、`notes='2026-08-02 公演履歴(schedule_events.gms)から復元'`）。
+  - 保存経路は `api/assignments.ts` の「staff_id 単位で**全削除→再挿入**」。空配列は `confirm_clear` で拒否され、孤児シナリオも delete 前検証で除外済み（いずれも過去事故の対策）。**残る穴は「部分的に欠けた配列での保存」**で、空でないため既存ガードを素通りし、送られなかった分が黙って消える。
+  - `staff_scenario_assignments` には `assigned_at` しか無く **削除の痕跡が一切残らない**ため、いつ誰が何を外したかを事後に追えない。今回も原因特定ができなかった。
+- **status/lane:** TODO / HIGH-RISK（データ消失の再発防止・実害発生済みのため最優先）。**PREVIEW必須**（確認UIが増えるため）。
+- **scope/acceptance:**
+  - ① **急減ガード**: `api/assignments.ts` の `update_staff_assignments` 相当の処理で、delete 実行前に既存件数を取得し、「既存が一定件数以上（例: 5件以上）あり、かつ新しい配列がその半分未満に減る」場合は **409 で拒否**する。レスポンスには `existing_count` / `incoming_count` / 減少する具体的なシナリオ名一覧を含める。既存の空配列ガードと同じく `confirm_clear: true`（または専用フラグ）が明示された場合のみ通す。閾値はマジックナンバーを直書きせず定数化する。
+  - ② `POST /assignments` の GM 一括更新側（`staff_ids` を受ける方、現状 `confirm_clear` で空配列のみ防御）にも同じ急減ガードを入れる。
+  - ③ **変更履歴**: `staff_scenario_assignment_history` テーブルを新設する（`id` / `organization_id` NOT NULL / `staff_id` / `scenario_master_id` / `action`（'added' | 'removed'）/ `changed_by`（auth user id）/ `changed_at` / `source`（'api' 等））。anon には**一切 GRANT しない**。`api/assignments.ts` の更新処理で、delete/insert の差分を履歴として記録する（全行ではなく**実際に増減した分だけ**）。
+  - ④ フロント側で①②の 409 を受けたとき、共通 `ConfirmDialog`（`@/components/patterns/modal`）で「N件からM件に減ります。外れる担当: 〜」を提示し、PO が明示的に承認した場合のみ再送する。native `confirm()` / `alert()` は使わない。
+  - ⑤ 管理画面のスタッフ詳細に、そのスタッフの担当変更履歴（直近20件程度）を表示する。表示先は着手前に監督へ scope request すること。
+  - ⑥ **復元済みデータを壊さないこと。** `notes='2026-08-02 公演履歴(schedule_events.gms)から復元'` の行は通常の担当行として扱い、マイグレーションやテストで削除・上書きしない。
+- **allowed files:** 既存 `api/assignments.ts`、新規 `supabase/migrations/<timestamp>_create_staff_scenario_assignment_history.sql`、担当編集UIの該当ファイル（着手前に監督へ scope request で確定させる）、対象unit test。
+- **禁止:** migrationの適用（`db:push:*` / MCP `apply_migration` 一切禁止）。`staff_scenario_assignments` の既存データの削除・書き換え。`gm_experienced_check` 制約の変更。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。公演モーダル・公演カードの見た目変更。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、急減ガードが「部分欠けの配列」を実際に止めること、`confirm_clear` 明示時のみ通ること、履歴が増減分だけ正しく記録されること、テナント境界（他組織の staff_id を更新できないこと）を重点確認する。
+- **PREVIEW:** 必須。スタッフ管理 > スタッフ詳細 > 担当シナリオ編集で、担当を大幅に減らす保存を試み、確認ダイアログが出ること・キャンセルで元のままであること・承認すると反映されることを desktop/mobile で確認する。実データの担当を減らしたまま放置しないこと。
 
 ### YOYAQ-009 queue definition: anon読み取りの公開専用ビュー分離とanon権限ゼロ化
 
