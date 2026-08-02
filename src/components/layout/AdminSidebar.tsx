@@ -82,6 +82,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const { organization, organizationId } = useOrganization()
   const { count: pendingCount } = useStoreConfirmationPendingCount()
   const isLicAdmin = checkIsLicenseAdmin(user?.role, organizationId)
+  const isStoreRepresentative = user?.role !== 'customer' && user?.isStoreRepresentative === true
 
   const slug = organization?.slug || 'queens-waltz'
 
@@ -98,7 +99,13 @@ export const AdminSidebar = memo(function AdminSidebar() {
       id: 'top',
       label: null,
       items: [
-        { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
+        {
+          id: 'dashboard',
+          label: isStoreRepresentative ? '個人ダッシュボード' : 'ダッシュボード',
+          icon: LayoutDashboard,
+          path: isStoreRepresentative ? `/${slug}/dashboard?view=personal` : `/${slug}/dashboard`,
+          roles: ['admin', 'staff', 'license_admin'],
+        },
         { id: 'store-dashboard', label: '店舗ダッシュボード', icon: Store, path: `/${slug}/store-dashboard`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'stores',    label: '店舗',     icon: Store,    path: `/${slug}/stores`,    roles: ['admin', 'license_admin'] },
@@ -286,7 +293,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
         { id: 'scenario-matcher',  label: 'シナリオマッチャー', icon: Shield,    path: `/${slug}/scenario-matcher`,   roles: ['license_admin'] },
       ],
     },
-  ], [slug, pendingCount])
+  ], [slug, pendingCount, isStoreRepresentative])
 
   // ロールフィルター
   const visibleGroups = useMemo(() => {

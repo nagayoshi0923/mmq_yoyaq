@@ -496,6 +496,28 @@ function AppRoutes() {
     return <FullPageSpinner />
   }
 
+  // 店舗代表の標準着地点は店舗ダッシュボードにする。
+  // セッション復元・リロード・/dashboard直リンクでも同じ遷移になるよう、
+  // ログインフォームの成功時遷移とは別に通常ルート側で判定する。
+  const pathSegments = location.pathname.split('/').filter(Boolean)
+  const isDashboardPath =
+    location.pathname === '/dashboard' ||
+    (pathSegments.length === 2 && pathSegments[1] === 'dashboard')
+  const isPersonalDashboardRequested = new URLSearchParams(location.search).get('view') === 'personal'
+  if (
+    isInitialized &&
+    user?.role !== 'customer' &&
+    user?.isStoreRepresentative === true &&
+    isDashboardPath &&
+    !isPersonalDashboardRequested
+  ) {
+    const pathOrganizationSlug = pathSegments.length === 2 ? pathSegments[0] : organization?.slug
+    const storeDashboardPath = pathOrganizationSlug
+      ? `/${pathOrganizationSlug}/store-dashboard`
+      : '/store-dashboard'
+    return <Navigate to={storeDashboardPath} replace />
+  }
+
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
   if (!user || (user && user.role === 'customer')) {
     if (isInitialized) {
