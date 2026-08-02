@@ -48,6 +48,7 @@ const AddDemoParticipants = lazyWithRetry(() => import('./AddDemoParticipants').
 const ScenarioMatcher = lazyWithRetry(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
 const ManualPage = lazyWithRetry(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazyWithRetry(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
+const StoreDashboard = lazyWithRetry(() => import('./StoreDashboard').then(m => ({ default: m.StoreDashboard })))
 const StaffProfile = lazyWithRetry(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
 const OrganizationManagement = lazyWithRetry(() => import('./OrganizationManagement'))
 const ExternalReports = lazyWithRetry(() => import('./ExternalReports'))
@@ -108,7 +109,7 @@ const GettingStartedPage = lazyWithRetry(() => import('./static').then(m => ({ d
 
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
-  'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
+  'dashboard', 'store-dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
   'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
@@ -376,6 +377,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="スケジュールを読み込み中..." />}>
         <ScheduleManager />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'store-dashboard') {
+    return (
+      <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
+        <StoreDashboard />
       </Suspense>
     )
   }
@@ -1037,4 +1046,3 @@ export function AdminDashboard() {
     </div>
   )
 }
-

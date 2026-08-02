@@ -76,6 +76,7 @@ const idbPersister = createAsyncStoragePersister({
  */
 const BOOKING_SHELL_ADMIN_SUB_PATHS = new Set([
   'dashboard',
+  'store-dashboard',
   'stores',
   'staff',
   'staff-profile',
@@ -495,6 +496,7 @@ function AppRoutes() {
       // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
       const adminPaths = [
         '/dashboard',
+        '/store-dashboard',
         '/stores',
         '/staff',
         '/scenarios',

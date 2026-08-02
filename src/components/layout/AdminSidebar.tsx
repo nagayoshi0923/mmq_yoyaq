@@ -68,7 +68,7 @@ type NavGroup = {
 
 // 管理サイトのパス判定用
 const ADMIN_PATH_SEGMENTS = [
-  'dashboard', 'stores', 'staff', 'scenarios', 'schedule',
+  'dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule',
   'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual',
   'staff-profile', 'license-management', 'coupons', 'blog',
@@ -99,6 +99,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: null,
       items: [
         { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
+        { id: 'store-dashboard', label: '店舗ダッシュボード', icon: Store, path: `/${slug}/store-dashboard`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'stores',    label: '店舗',     icon: Store,    path: `/${slug}/stores`,    roles: ['admin', 'license_admin'] },
         { id: 'staff',     label: 'スタッフ', icon: Users,    path: `/${slug}/staff`,     roles: ['admin', 'license_admin'] },

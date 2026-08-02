@@ -12,6 +12,7 @@ import { getOrganizationBySlug } from '@/lib/organization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { NotificationDropdown } from './NotificationDropdown'
 import type { Organization } from '@/types'
+import { StaffCheckinBubble } from '@/components/store/StaffCheckinBubble'
 
 // 訪問組織のlocalStorageキー
 const VISITED_ORG_KEY = 'mmq_visited_organization'
@@ -22,7 +23,7 @@ function getOrgSlugFromUrl(): string | null {
   const match = pathname.match(/^\/([^/]+)/)
   if (match) {
     // 管理ページや特殊パスは除外
-    const excludePaths = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 
+    const excludePaths = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
       'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation', 
@@ -132,7 +133,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
   // 公開組織ページ（/{slug} 以下の予約サイト）かどうかを判定
   // 管理ページのセグメントを含む場合は管理ページとみなす
   const isPublicOrgPage = useMemo(() => {
-    const adminSegments = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+    const adminSegments = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
       'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
@@ -150,7 +151,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
     if (typeof window === 'undefined') return null
     const match = window.location.pathname.match(/^\/([^/]+)/)
     if (!match) return null
-    const exclude = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+    const exclude = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
       'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
@@ -165,6 +166,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
   const headerBgColor = backgroundColor ?? (isPublicOrgPage ? themePreset.primary : THEME.primary)
 
   return (
+    <>
     <header
       className="h-[44px] sm:h-[48px] md:h-[52px] text-white relative"
       style={{ backgroundColor: headerBgColor, zIndex: 40 }}
@@ -299,5 +301,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
         </div>
       </div>
     </header>
+    <StaffCheckinBubble />
+    </>
   )
 })
