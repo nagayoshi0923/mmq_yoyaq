@@ -331,7 +331,7 @@ function AppRoutes() {
   )
 
   // 開発者モード: ライセンス管理者（license_admin + QW管理者）にdev-modeクラスを付与
-  const { organizationId: devOrgId } = useOrganization()
+  const { organizationId: devOrgId, organization } = useOrganization()
   const isLicAdmin = checkIsLicenseAdmin(user?.role, devOrgId)
   React.useEffect(() => {
     if (isLicAdmin) {
@@ -462,7 +462,10 @@ function AppRoutes() {
     // モバイルSafariでは IndexedDB 読み込みがタイムアウト後に完了し user がセットされる
     // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
     if (isInitialized && user) {
-      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+      const authenticatedHome = user.isStoreRepresentative
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        : '/dashboard'
+      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -473,7 +476,10 @@ function AppRoutes() {
   if (authPage === 'signup') {
     // ログイン済みなら適切なトップページへ（同上の理由で isInitialized を使用）
     if (isInitialized && user) {
-      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+      const authenticatedHome = user.isStoreRepresentative
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        : '/dashboard'
+      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
