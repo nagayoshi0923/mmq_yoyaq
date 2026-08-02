@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 const STORE_KEY = 'mmq_store_dashboard_selected_store'
 
-export function StaffCheckinBubble() {
+export function StaffCheckinBubble({ onStaffCheckin }: { onStaffCheckin?: (staffId: string) => void }) {
   const { isStaff } = useAuth()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -30,6 +30,7 @@ export function StaffCheckinBubble() {
     setLoading(true)
     try {
       await storeDashboardApi.action({ action: alreadyCheckedIn ? 'staff_checkout' : 'staff_checkin', staff_id: prompt.staff_id, store_id: data.selected_store_id })
+      if (!alreadyCheckedIn) onStaffCheckin?.(prompt.staff_id)
       const refreshed = await storeDashboardApi.get(data.selected_store_id)
       setData(refreshed)
     } finally { setLoading(false) }

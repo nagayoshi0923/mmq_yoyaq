@@ -13,6 +13,7 @@ export function StoreDashboard() {
   const { isStaff } = useAuth()
   const [data, setData] = useState<StoreDashboardData | null>(null)
   const [selectedStoreId, setSelectedStoreId] = useState(() => localStorage.getItem(STORE_KEY) ?? '')
+  const [openEventIds, setOpenEventIds] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
   const load = async (storeId?: string) => {
     try { setError(null); setData(await storeDashboardApi.get(storeId)) } catch (e) { setError(e instanceof Error ? e.message : '取得に失敗しました') }
@@ -25,8 +26,17 @@ export function StoreDashboard() {
   const reservationCount = data.events.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.participant_count ?? 0), 0), 0)
   const revenue = data.events.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.final_price ?? r.total_price ?? 0), 0), 0)
   const checkedStaff = data.gm_status.filter(s => s.checkin).length
-  const handleStoreChange = (id: string) => { localStorage.setItem(STORE_KEY, id); setSelectedStoreId(id) }
+  const handleStoreChange = (id: string) => { localStorage.setItem(STORE_KEY, id); setOpenEventIds(new Set()); setSelectedStoreId(id) }
   const handleCustomerCheckin = async (reservationId: string) => { await storeDashboardApi.action({ action: 'customer_checkin', reservation_id: reservationId }); await load(data.selected_store_id ?? undefined) }
+  const handleStaffCheckin = (staffId: string) => {
+    setOpenEventIds(previous => {
+      const next = new Set(previous)
+      for (const event of data.events) {
+        if (event.assigned_staff?.some((staff: any) => staff.id === staffId)) next.add(event.id)
+      }
+      return next
+    })
+  }
   return (
     <div className="min-h-full bg-muted/20 px-4 py-7 md:px-10">
       <header className="flex items-center gap-4">
@@ -46,20 +56,33 @@ export function StoreDashboard() {
         <section className="overflow-hidden rounded-2xl border bg-white">
           <div className="border-b px-5 py-4 text-base font-bold">本日の公演・来客予定</div>
           {data.events.length === 0 && <p className="p-8 text-sm text-muted-foreground">本日の公演はありません。</p>}
-          {data.events.map(event => <EventSection key={event.id} event={event} onCheckin={handleCustomerCheckin} />)}
+          {data.events.map(event => <EventSection key={event.id} event={event} isOpen={openEventIds.has(event.id)} onToggle={() => setOpenEventIds(previous => {
+            const next = new Set(previous)
+            if (next.has(event.id)) next.delete(event.id)
+            else next.add(event.id)
+            return next
+          })} onCheckin={handleCustomerCheckin} />)}
         </section>
         <aside className="space-y-5">
           <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">本日のGM出勤状況</h2>{data.gm_status.map((s: any) => <div key={s.id} className="flex items-center justify-between border-b px-4 py-3 last:border-0"><div><p className="text-sm font-medium">{s.display_name || s.name}</p><p className="text-xs text-muted-foreground">{s.checkin ? `${new Date(s.checkin.checked_in_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 打刻済み` : '未打刻'}</p></div><span className={`h-3 w-3 rounded-full ${s.checkin ? 'bg-emerald-500' : 'bg-amber-400'}`} /> </div>)}</section>
           <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">店舗連絡</h2><p className="whitespace-pre-wrap px-4 py-4 text-sm text-muted-foreground">{store?.notes || '店舗連絡メモはありません。'}</p></section>
         </aside>
       </div>
-      <StaffCheckinBubble />
+      <StaffCheckinBubble onStaffCheckin={handleStaffCheckin} />
     </div>
   )
 }
 
-function EventSection({ event, onCheckin }: { event: any; onCheckin: (id: string) => Promise<void> }) {
-  return <div><div className="flex items-center gap-4 bg-indigo-50/60 px-5 py-3"><span className="rounded-lg bg-indigo-100 px-3 py-2 text-sm font-bold text-indigo-600">{event.start_time.slice(0, 5)}〜{event.end_time.slice(0, 5)}</span><div className="flex-1"><p className="text-sm font-semibold">{event.scenario}</p><p className="text-xs text-muted-foreground">予約 {event.reservations.reduce((n: number, r: any) => n + r.participant_count, 0)}/{event.capacity ?? event.max_participants ?? '—'}名 ・ GM: {event.gms?.join('、') || '未定'}</p></div><Badge variant="success">{event.status === 'completed' ? '終了' : '受付中'}</Badge></div><div className="space-y-1 px-5 py-2">{event.reservations.map((r: any) => <CustomerRow key={r.id} reservation={r} onCheckin={onCheckin} />)}</div></div>
+function EventSection({ event, isOpen, onToggle, onCheckin }: { event: any; isOpen: boolean; onToggle: () => void; onCheckin: (id: string) => Promise<void> }) {
+  return <div>
+    <button type="button" className="flex w-full items-center gap-4 bg-indigo-50/60 px-5 py-3 text-left hover:bg-indigo-100/60" onClick={onToggle} aria-expanded={isOpen}>
+      <span className="flex w-4 shrink-0 justify-center text-lg font-bold text-indigo-600" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
+      <span className="rounded-lg bg-indigo-100 px-3 py-2 text-sm font-bold text-indigo-600">{event.start_time.slice(0, 5)}〜{event.end_time.slice(0, 5)}</span>
+      <span className="flex-1"><span className="block text-sm font-semibold">{event.scenario}</span><span className="block text-xs text-muted-foreground">予約 {event.reservations.reduce((n: number, r: any) => n + r.participant_count, 0)}/{event.capacity ?? event.max_participants ?? '—'}名 ・ GM: {event.gms?.join('、') || '未定'}</span></span>
+      <Badge variant="success">{event.status === 'completed' ? '終了' : '受付中'}</Badge>
+    </button>
+    {isOpen && <div className="space-y-1 px-5 py-2">{event.reservations.map((r: any) => <CustomerRow key={r.id} reservation={r} onCheckin={onCheckin} />)}</div>}
+  </div>
 }
 
 function CustomerRow({ reservation, onCheckin }: { reservation: any; onCheckin: (id: string) => Promise<void> }) {
