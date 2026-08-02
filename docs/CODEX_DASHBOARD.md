@@ -97,6 +97,7 @@ REWORK -> DOING -> REPORT
 | YOYAQ-008 | 公式サイト向け公開シナリオAPI実装 | TODO | HIGH-RISK | 不要 | YOYAQ-007（migration適用済みであること） | 未割当 | - | - |
 | YOYAQ-011 | スタッフ担当シナリオの減少防止 | DOING | HIGH-RISK | 必須 | なし（P0） | worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` / V2 scope corrected | - | 結合テーブル表示を正とする。しらやま112行保持、減少1件でも409、関連query全refetch。migration適用なし |
 | YOYAQ-012 | スタッフ担当シナリオの正を結合テーブルへ一本化（二重管理の解消） | TODO | HIGH-RISK | 必須 | YOYAQ-011（減少ガード実装後） | 未割当 | - | - |
+| YOYAQ-013 | 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる | TODO | UI-INSTANT | 必須 | なし | 未割当 | - | - |
 | YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
 | YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
 | YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
@@ -382,6 +383,17 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **review:** 初回reviewer `019f91f3-983e-7723-a528-ace3c1ff196c` はtarget `643ff96f...`をREWORK。fresh rereviewer `019f921a-093b-7ae3-a037-63f299ea6c4f` がtarget `a45b989e042e3be0597c21f28160e01ccd1b3377`をDONE。createのcustomer/group認可・DB保存候補/希望店舗の信頼、approveの全caller組織一致、locked reservationからのconfirmed候補/店舗再構築を確認し、重大欠陥なし。保存済みendTimeと現在設定の再計算値がずれた既存pendingや、競合後の直接申請再試行で既作成group候補と再選択候補がずれる場合はmutation前にfail-closedし得るが、既存行を変更せずDB保存候補を信頼元にする契約に沿うため非blocking。
 - **integration:** 最新`origin/staging` `72bbbc94a5f7dae1f493aef7e5439c3d96a58c4c`へreview済み2commitを競合なく直列適用し、累積20ファイルのblobがreview targetと完全一致。統合checkoutで`npm run verify`と対象unit 11件、diff/show checkがPASS。frontend pushより先にstaging DBへ`20260723210000`を適用し、適用済み474・未適用0、pending貸切申請7件・fingerprint `b5ec4cdcd3bdbdd644e804b2538b0a62`前後一致、対象3関数のSECURITY DEFINER/search_path/ACL、YOYAQ-004 policy 0件を確認。review済み20ファイル＋dashboardだけを`origin/staging`へpushし、Vercel Preview READY・外部HTTPS 200を確認。POの本番承認に基づき、mainがstagingの祖先・main直hotfix 0・今回以外の製品差分0を確認後、production DBへ同migration 1件だけを先行適用。prodは適用済み473・未適用0、pending貸切申請11件・fingerprint `880083644cc06eaeb16c3caaea226549`前後一致、対象3関数/RLS不変を確認。既存ドリフト`20260717100000`は今回scope外としてprodへ適用せず、YOYAQ-004依存なし。`origin/main`を`origin/staging`へforceなしでfast-forwardして両branchを`f7b47020b3ba1436e398831aa4feaa1c97279569`へ同期し、Vercel production `dpl_FmuDsXR9jrWZjgXPxdXvo63rcAxT` READY、本番公開入口/貸切導線HTTPS 200、新availability RPC read-only実行、PREVIEW fixture非露出を確認。PO確認用Preview `dpl_EVifNUeWsf6faRkXZKgHGLL7vCV5`はexact target確認後に削除した。
 - **PO check:** 【顧客向け貸切予約 > 候補日時】停止枠が選べず、複数店舗のうち空きがあれば選べること。【貸切確認 > 申請カード > 候補日時】申請後/申請前からの募集停止が区別され、停止中は承認できないこと。
+
+### YOYAQ-013 queue definition: 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる
+
+- **GO/source:** 2026-08-03 Discord壁打ちで、POが選択肢A「GO（実HPカタログの横幅・カード寸法をFigmaに合わせる → ローカル確認 → push）」を明示選択。
+- **status/lane:** TODO / UI-INSTANT。PREVIEW必須、PO visual OK後にのみ最終gate・commit・staging統合/pushへ進む。
+- **scope/acceptance:** 実HPのシナリオカタログを、デスクトップでコンテンツ幅およそ1280px、カード幅およそ400px、3列の詰まった構図へ合わせる。カード内のポスター・タイトル・作者・料金・バッジの見た目や情報は変更しない。モバイル/タブレットの既存レスポンシブ表示を壊さない。
+- **allowed files:** `src/pages/ScenarioCatalog/index.tsx`のみ。PREVIEW専用fixture等の追加ファイルが必要なら、編集前に監督へscope requestする。
+- **禁止:** カード内部、公演カード/公演モーダル、色、文言、データ取得、フィルター挙動の変更。`border-l-4`、native `confirm()`、新規`text-*` / `font-*` / `leading-*`クラス、DB/Edge Function変更。
+- **gates:** PO visual OK後に`npm run typecheck`、`npm run check:design-tokens`、`git diff --check`、完全diff監査。独立検収は通常省略し、監督が統合前監査する。
+- **PREVIEW:** シナリオカタログをdesktop幅（目安1440px）で開き、左右余白約80pxの範囲に約400pxカードが3列で並ぶことをFigma見本と比較する。mobileでも横overflowやカード崩れがないことを確認する。
+- **priority/dependencies/event source:** P1、依存なし。既存HIGH-RISKレーンと製品ファイルが非重複なら並行可、staging統合は監督が直列化する。source thread: Discord壁打ち席（2026-08-03 A返信）。
 
 ### YOYAQ-012 queue definition: スタッフ担当シナリオの正を結合テーブルへ一本化
 
