@@ -229,6 +229,9 @@ export async function resolveUserFromSession(
               .from('customers')
               .select('name, nickname')
               .eq('user_id', supabaseUser.id)
+              .order('updated_at', { ascending: false })
+              .order('created_at', { ascending: true })
+              .limit(1)
               .maybeSingle()
             
             if (data) {
