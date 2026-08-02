@@ -57,7 +57,16 @@ export function useStaffMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ staff, isEdit }: { staff: Staff; isEdit: boolean }) => {
+    mutationFn: async ({
+      staff,
+      isEdit,
+      confirmDecrease,
+    }: {
+      staff: Staff
+      isEdit: boolean
+      // 担当減少ガード（YOYAQ-011）を明示承認して再送するとき true
+      confirmDecrease?: boolean
+    }) => {
       let result: Staff
       const staffData = staff as Staff & { experienced_scenarios?: string[] }
       
@@ -117,7 +126,9 @@ export function useStaffMutation() {
         })
         
         if (assignments.length > 0 || gmScenarios.length === 0) {
-          await assignmentApi.updateStaffAssignments(staff.id, assignments)
+          await assignmentApi.updateStaffAssignments(staff.id, assignments, undefined, {
+            confirmClear: confirmDecrease === true,
+          })
         }
       } else {
         result = await staffApi.create(staff)
@@ -179,8 +190,8 @@ export function useStaffMutation() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all })
-      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+      queryClient.invalidateQueries({ queryKey: staffKeys.all, refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: scenarioKeys.all, refetchType: 'all' })
     },
   })
 }

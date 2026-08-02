@@ -85,6 +85,24 @@ export const assignmentApi = {
     )
   },
 
+  // スタッフの担当変更履歴（直近） — 管理画面のスタッフ詳細で表示
+  async getStaffAssignmentHistory(
+    staffId: string,
+    limit = 20
+  ): Promise<Array<{
+    id: string
+    scenario_master_id: string
+    scenario_title: string
+    action: 'added' | 'removed'
+    changed_by: string | null
+    changed_at: string
+    source: string
+  }>> {
+    return apiClient.get(
+      `/api/assignments?history_staff_id=${encodeURIComponent(staffId)}&limit=${limit}`
+    )
+  },
+
   // スタッフの担当シナリオを一括更新
   async updateStaffAssignments(
     staffId: string,
@@ -169,12 +187,14 @@ export const assignmentApi = {
     scenarioId: string,
     staffIds: string[],
     notes?: string,
-    _organizationId?: string
+    _organizationId?: string,
+    options?: { confirmClear?: boolean }
   ) {
     await apiClient.post('/api/assignments?action=update_scenario_assignments', {
       scenario_master_id: scenarioId,
       staff_ids: staffIds,
       notes: notes ?? null,
+      confirm_clear: options?.confirmClear === true,
     })
   },
 

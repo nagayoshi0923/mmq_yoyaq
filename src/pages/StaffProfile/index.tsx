@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { ApiClientError } from '@/lib/apiClient'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 // scenarioApi は不要（organization_scenarios_with_master ビューを直接使用）
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
@@ -86,6 +87,12 @@ export function StaffProfile() {
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false)
+  // 減少ガード（YOYAQ-011）: 409 を受けたときに確認ダイアログを出すための情報
+  const [decreaseGuard, setDecreaseGuard] = useState<{
+    existingCount: number
+    incomingCount: number
+    removedNames: string[]
+  } | null>(null)
 
   // スタッフ情報とアサインメントを読み込み
   useEffect(() => {
@@ -306,11 +313,30 @@ export function StaffProfile() {
       // staff_scenario_assignments が唯一のデータソース
 
       // 関連するキャッシュを無効化（即座に反映されるようにする）
-      queryClient.invalidateQueries({ queryKey: staffKeys.all })
-      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+      // refetchType:'all' で別画面（シナリオ側の担当GM表示など）も含めて再取得する
+      queryClient.invalidateQueries({ queryKey: staffKeys.all, refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: scenarioKeys.all, refetchType: 'all' })
 
+      setDecreaseGuard(null)
       showToast.success('保存しました')
     } catch (error) {
+      // 🛡 減少ガード（YOYAQ-011）: 担当が減る保存はサーバーが 409 で拒否する。
+      // 確認ダイアログを出し、承認された場合のみ confirm_clear 付きで再送する。
+      if (
+        error instanceof ApiClientError &&
+        error.status === 409 &&
+        error.body?.error === 'ASSIGNMENT_DECREASE_REJECTED'
+      ) {
+        const b = error.body
+        setDecreaseGuard({
+          existingCount: typeof b.existing_count === 'number' ? b.existing_count : 0,
+          incomingCount: typeof b.incoming_count === 'number' ? b.incoming_count : 0,
+          removedNames: Array.isArray(b.removed_scenario_names)
+            ? (b.removed_scenario_names as string[])
+            : [],
+        })
+        return
+      }
       logger.error('保存エラー:', error)
       showToast.error('保存に失敗しました')
     } finally {
@@ -319,6 +345,11 @@ export function StaffProfile() {
   }
 
   const runClearAllSave = async () => {
+    await runSave(true)
+  }
+
+  // 減少ガードのダイアログで承認 → confirm_clear 付きで再送
+  const runDecreaseConfirmedSave = async () => {
     await runSave(true)
   }
 
@@ -512,6 +543,34 @@ export function StaffProfile() {
         variant="destructive"
         onConfirm={runClearAllSave}
       />
+
+      {/* 減少ガードの確認ダイアログ（YOYAQ-011） */}
+      <ConfirmDialog
+        open={decreaseGuard !== null}
+        onOpenChange={(open) => {
+          if (!open) setDecreaseGuard(null)
+        }}
+        title="担当を減らして保存しますか？"
+        description={
+          decreaseGuard
+            ? `登録済みの担当が ${decreaseGuard.existingCount} 件から ${decreaseGuard.incomingCount} 件に減ります。この操作を行うと、外れる担当の記録は失われます。`
+            : undefined
+        }
+        confirmLabel="減らして保存する"
+        variant="destructive"
+        onConfirm={runDecreaseConfirmedSave}
+      >
+        {decreaseGuard && decreaseGuard.removedNames.length > 0 && (
+          <div>
+            <p className="text-foreground">外れる担当</p>
+            <ul className="mt-1 list-disc pl-5 max-h-48 overflow-y-auto">
+              {decreaseGuard.removedNames.map((name, i) => (
+                <li key={`${name}-${i}`}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </ConfirmDialog>
     </AppLayout>
   )
 }

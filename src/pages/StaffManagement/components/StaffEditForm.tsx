@@ -6,8 +6,87 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { Link2, Unlink, Trash2, X } from 'lucide-react'
+import { Link2, Unlink, Trash2, X, Loader2 } from 'lucide-react'
 import type { Staff, Store, Scenario } from '@/types'
+import { assignmentApi } from '@/lib/assignmentApi'
+import { formatJstDateTime } from '@/utils/jstDate'
+import { logger } from '@/utils/logger'
+import { EmptyState } from '@/components/patterns/list'
+
+type AssignmentHistoryRow = {
+  id: string
+  scenario_master_id: string
+  scenario_title: string
+  action: 'added' | 'removed'
+  changed_by: string | null
+  changed_at: string
+  source: string
+}
+
+// 担当変更履歴（直近20件）。スタッフ詳細でそのスタッフの担当がいつ増減したかを可視化する。
+function AssignmentHistoryList({ staffId }: { staffId: string }) {
+  const [rows, setRows] = useState<AssignmentHistoryRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    assignmentApi
+      .getStaffAssignmentHistory(staffId, 20)
+      .then((data) => {
+        if (!cancelled) setRows(data ?? [])
+      })
+      .catch((err) => {
+        logger.error('担当変更履歴の取得に失敗:', err)
+        if (!cancelled) setRows([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [staffId])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (rows.length === 0) {
+    return <EmptyState title="担当の変更履歴はまだありません" />
+  }
+
+  return (
+    <ul className="space-y-1 max-h-64 overflow-y-auto">
+      {rows.map((row) => (
+        <li
+          key={row.id}
+          className="flex items-center justify-between gap-2 py-1.5 px-2 rounded border bg-muted/30"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`inline-flex shrink-0 items-center py-0.5 px-1.5 rounded border text-muted-foreground ${
+                row.action === 'added'
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-orange-50 border-orange-200'
+              }`}
+            >
+              {row.action === 'added' ? '追加' : '解除'}
+            </span>
+            <span className="truncate text-muted-foreground">{row.scenario_title}</span>
+          </div>
+          <span className="shrink-0 text-muted-foreground">
+            {formatJstDateTime(row.changed_at)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 interface StaffEditFormProps {
   staff: Staff | null
@@ -323,6 +402,14 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
             />
               </div>
             </div>
+
+            {/* 担当変更履歴（YOYAQ-011・既存スタッフのみ） */}
+            {staff?.id && (
+              <div>
+                <h3 className="text-lg mb-4 pb-2 border-b">担当変更履歴</h3>
+                <AssignmentHistoryList staffId={staff.id} />
+              </div>
+            )}
           </div>
         </div>
       </div>

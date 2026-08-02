@@ -12,6 +12,8 @@ export class ApiClientError extends Error {
     public readonly status: number,
     message: string,
     public readonly detail?: string,
+    /** サーバーが返した JSON body 全体（減少ガードの existing_count 等を UI に渡すため） */
+    public readonly body?: Record<string, unknown>,
   ) {
     super(message)
     this.name = 'ApiClientError'
@@ -84,7 +86,7 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
     })
     if (!retryRes.ok) {
       const body = await retryRes.json().catch(() => ({ error: `HTTP ${retryRes.status}` }))
-      throw new ApiClientError(retryRes.status, body?.error ?? `API エラー: ${retryRes.status}`, body?.detail)
+      throw new ApiClientError(retryRes.status, body?.error ?? `API エラー: ${retryRes.status}`, body?.detail, body)
     }
     if (retryRes.status === 204) return undefined as T
     return retryRes.json() as Promise<T>
@@ -92,7 +94,7 @@ async function apiFetch<T>(path: string, options?: ApiFetchOptions): Promise<T> 
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new ApiClientError(res.status, body?.error ?? `API エラー: ${res.status}`, body?.detail)
+    throw new ApiClientError(res.status, body?.error ?? `API エラー: ${res.status}`, body?.detail, body)
   }
 
   if (res.status === 204) return undefined as T
