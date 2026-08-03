@@ -98,6 +98,7 @@ REWORK -> DOING -> REPORT
 | YOYAQ-011 | スタッフ担当シナリオの減少防止 | DOING | HIGH-RISK | 必須 | なし（P0） | worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` / V2 scope corrected | - | 結合テーブル表示を正とする。しらやま112行保持、減少1件でも409、関連query全refetch。migration適用なし |
 | YOYAQ-012 | スタッフ担当シナリオの正を結合テーブルへ一本化（二重管理の解消） | TODO | HIGH-RISK | 必須 | YOYAQ-011（減少ガード実装後） | 未割当 | - | - |
 | YOYAQ-013 | 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる | TODO | UI-INSTANT | 必須 | なし | 未割当 | - | - |
+| YOYAQ-014 | 店舗代表アカウントから個人ダッシュボードを撤去 | TODO | HIGH-RISK | 不要（POがコード上の説明とstaging配送を受入条件に指定） | なし | 未割当 | - | - |
 | YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
 | YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
 | YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
@@ -419,3 +420,14 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **禁止:** migrationの適用。`staff.special_scenarios` / `staff.available_scenarios` カラムの DROP。`staff_scenario_assignments` の既存データの削除・書き換え（`notes LIKE '2026-08-02 二重管理統合%'` の940行を含む）。`gm_experienced_check` 制約の変更。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。
 - **gates/review:** `npm run typecheck`、対象unit test、`npm run check:staff-scenario-sync`（新規）、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、保存後に両方が同じ内容になること、既存の担当が1件も減らないこと、テナント境界を重点確認する。
 - **PREVIEW:** 必須。スタッフ管理 > スタッフ詳細 > 担当シナリオ編集で、追加・削除・無変更保存の3パターンを試し、一覧の「GM可能」「体験済み」列と件数が即座に一致することを desktop/mobile で確認する（更新後は `invalidateQueries` に `refetchType:'all'` を付け、計算列だけ更新されてチップが古いまま残る状態を作らないこと）。
+
+### YOYAQ-014 queue definition: 店舗代表アカウントから個人ダッシュボードを撤去
+
+- **GO/source:** 2026-08-03 PO明示依頼。`queens.waltz@gmail.com` の店舗代表はスタッフではなく、個人ダッシュボード不要と確定。source thread: Codex `/root`（本依頼）。
+- **status/lane:** TODO / HIGH-RISK（認証後ルーティングとロール別メニュー境界）。PREVIEW不要。POが、コード上の説明、typecheck/build、staging commit/pushを完了条件として指定している。
+- **priority/dependencies:** P0、依存なし。正確な最新 `origin/staging` `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab` を基点とする。既存のレイアウト復元 `5fc7e13e` / `b73987d4` を維持する。
+- **scope/acceptance:** ① `isStoreRepresentative === true` のログイン後着地を `/{slug}/store-dashboard` にする。② `AdminSidebar.tsx` の店舗代表向け「個人ダッシュボード」ラベル/パス分岐を撤去し、そのダッシュボード項目自体を店舗代表に表示しない。店舗ダッシュボード項目と店舗切替動線は維持する。③ 店舗代表について残る不要な `?view=personal` 分岐を整理する。④ admin / staff / license_admin の着地・メニューは変更せず、スタッフ向け個人ダッシュボード自体を維持する。⑤ 店舗代表の店舗ダッシュボードでもヘッダー・サイドバーが表示される既存レイアウトを維持する。⑥ typecheck / buildを通し、ロール別分岐を完全diffと検索結果で説明する。⑦ 1作業1commit、日本語Conventional Commitの件名と変更内容を記した本文で `origin/staging` へpushする。
+- **allowed files:** `src/AppRoot.tsx`、`src/components/auth/LoginForm.tsx`、`src/components/layout/AdminSidebar.tsx`、当該ロール分岐の既存対象test（存在し、最小修正が必要な場合のみ）。dashboardは監督だけが更新する。追加ファイルは編集前に監督へscope requestする。
+- **禁止:** 本番DB・本番環境・main、DB/Edge Function、依頼範囲外のリファクタ、他ロールの挙動変更、ヘッダー/サイドバーのレイアウト復元の破棄、店舗代表の店舗切替動線の削除。
+- **gates/review:** workerは `npm run typecheck`、`npm run build`、`git diff --check`、`isStoreRepresentative` / `view=personal` / メニューrole条件の検索監査。HIGH-RISK focused独立検収で、店舗代表の全着地経路、AdminSidebarの項目可視性、admin / staff / license_admin回帰、レイアウト保持、認可・テナント・PII非変更を確認する。
+- **PO check after staging push:** 【ログイン画面】店舗代表でログインし、ヘッダー・サイドバー付きの「店舗ダッシュボード」へ着地すること。【管理画面 > サイドメニュー】「個人ダッシュボード」が表示されず「店舗ダッシュボード」が表示されること。【店舗ダッシュボード > 店舗切替】店舗を切り替えられること。【各ロールのログイン画面・サイドメニュー】admin / staff / license_adminの従来着地とダッシュボード項目が変わっていないこと。
