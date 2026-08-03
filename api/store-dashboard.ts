@@ -5,6 +5,26 @@ import { getParticipationFee, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } f
 
 const EVENT_FIELDS = 'id, date, start_time, end_time, scenario, venue, store_id, gms, category, status, is_cancelled, capacity, max_participants, current_participants, total_revenue, organization_id, notes, scenario_master_id, organization_scenario_id'
 
+interface DashboardStaff {
+  id: string
+  name?: string | null
+  display_name?: string | null
+  organization_id?: string | null
+  [key: string]: unknown
+}
+
+export function resolveEventGmStaff(eventGms: unknown, staff: DashboardStaff[], organizationId: string, eventId: string) {
+  const names = Array.isArray(eventGms)
+    ? eventGms.filter((name): name is string => typeof name === 'string' && name.trim().length > 0).map(name => name.trim())
+    : []
+  return names.map((name, index) => staff.find(member => member.name === name || member.display_name === name) ?? {
+    id: `event-gm:${eventId}:${index}`,
+    name,
+    display_name: name,
+    organization_id: organizationId,
+  })
+}
+
 export interface StaffCheckinRecord {
   id: string
   checked_in_at: string
@@ -183,11 +203,14 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
       ...event,
       participation_fee: Number.isFinite(participationFee) ? participationFee : 0,
       reservations: reservationsByEvent.get(event.id) ?? [],
-      assigned_staff: (event.gms ?? []).map((name: string) => (staff ?? []).find((s: any) => s.name === name || s.display_name === name)).filter(Boolean),
+      assigned_staff: resolveEventGmStaff(event.gms, staff ?? [], user.orgId, event.id),
     }
   })
-  const assignedStaffIds = new Set(eventRows.flatMap((event: any) => event.assigned_staff.map((s: any) => s.id)))
-  const gmStatus = (staff ?? []).filter((s: any) => assignedStaffIds.has(s.id))
+  const gmStatus = Array.from(new Map(
+    eventRows
+      .flatMap((event: any) => event.assigned_staff)
+      .map((member: DashboardStaff) => [member.display_name || member.name, member] as const),
+  ).values())
   return res.status(200).json({ date: today, stores, selected_store_id: selectedStoreId, events: eventRows, gm_status: gmStatus })
 }
 

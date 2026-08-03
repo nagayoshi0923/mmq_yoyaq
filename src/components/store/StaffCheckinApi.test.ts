@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createStaffCheckinService,
   getJstDayBounds,
+  resolveEventGmStaff,
   type StaffCheckinRepository,
 } from '../../../api/store-dashboard'
 
@@ -26,6 +27,15 @@ function createRepository(overrides: Partial<StaffCheckinRepository> = {}): Staf
 }
 
 describe('staff checkin API service', () => {
+  it('公演のGM名を正としてスタッフ照合に失敗しても表示用行を残す', () => {
+    const staff = [{ id: 'staff-sora', name: 'ソラ', organization_id: 'org-self' }]
+
+    expect(resolveEventGmStaff(['ソラ', '未登録GM', ''], staff, 'org-self', 'event-1')).toEqual([
+      { id: 'staff-sora', name: 'ソラ', organization_id: 'org-self' },
+      { id: 'event-gm:event-1:1', name: '未登録GM', display_name: '未登録GM', organization_id: 'org-self' },
+    ])
+  })
+
   it('JST当日の範囲を翌日0時未満で固定する', () => {
     expect(getJstDayBounds(fixedNow())).toEqual({
       start: '2026-08-04T00:00:00+09:00',
