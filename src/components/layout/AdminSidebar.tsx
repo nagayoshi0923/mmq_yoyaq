@@ -101,9 +101,9 @@ export const AdminSidebar = memo(function AdminSidebar() {
       items: [
         {
           id: 'dashboard',
-          label: isStoreRepresentative ? '個人ダッシュボード' : 'ダッシュボード',
+          label: 'ダッシュボード',
           icon: LayoutDashboard,
-          path: isStoreRepresentative ? `/${slug}/dashboard?view=personal` : `/${slug}/dashboard`,
+          path: `/${slug}/dashboard`,
           roles: ['admin', 'staff', 'license_admin'],
         },
         { id: 'store-dashboard', label: '店舗ダッシュボード', icon: Store, path: `/${slug}/store-dashboard`, roles: ['admin', 'staff', 'license_admin'] },
@@ -293,7 +293,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
         { id: 'scenario-matcher',  label: 'シナリオマッチャー', icon: Shield,    path: `/${slug}/scenario-matcher`,   roles: ['license_admin'] },
       ],
     },
-  ], [slug, pendingCount, isStoreRepresentative])
+  ], [slug, pendingCount])
 
   // ロールフィルター
   const visibleGroups = useMemo(() => {
@@ -301,12 +301,13 @@ export const AdminSidebar = memo(function AdminSidebar() {
     return NAV_GROUPS.map(group => ({
       ...group,
       items: group.items.filter(item => {
+        if (isStoreRepresentative && item.id === 'dashboard') return false
         if (item.roles.includes(user.role)) return true
         if (isLicAdmin && item.roles.includes('license_admin')) return true
         return false
       }),
     })).filter(group => group.items.length > 0)
-  }, [NAV_GROUPS, user, isLicAdmin])
+  }, [NAV_GROUPS, user, isLicAdmin, isStoreRepresentative])
 
   // アクティブ判定（ページレベル）
   const isActive = useCallback((item: NavItem) => {

@@ -79,6 +79,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
+| `/root/yoyaq_014_supervisor` | `/private/tmp/yoyaq-014-integration` | `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab` | 2026-08-03 10:32 JST |
 | `019f779d-7170-7752-a846-37c593cf3ec8` | `/private/tmp/yoyaq-004-integration` | `6ec0f59e9388b9bde9f3f6afbb0100ed53537fab` | 2026-07-24 11:25 JST |
 
 ## Queue
@@ -98,7 +99,7 @@ REWORK -> DOING -> REPORT
 | YOYAQ-011 | スタッフ担当シナリオの減少防止 | DOING | HIGH-RISK | 必須 | なし（P0） | worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` / V2 scope corrected | - | 結合テーブル表示を正とする。しらやま112行保持、減少1件でも409、関連query全refetch。migration適用なし |
 | YOYAQ-012 | スタッフ担当シナリオの正を結合テーブルへ一本化（二重管理の解消） | TODO | HIGH-RISK | 必須 | YOYAQ-011（減少ガード実装後） | 未割当 | - | - |
 | YOYAQ-013 | 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる | TODO | UI-INSTANT | 必須 | なし | 未割当 | - | - |
-| YOYAQ-014 | 店舗代表アカウントから個人ダッシュボードを撤去 | TODO | HIGH-RISK | 不要（POがコード上の説明とstaging配送を受入条件に指定） | なし | 未割当 | - | - |
+| YOYAQ-014 | 店舗代表アカウントから個人ダッシュボードを撤去 | DONE | HIGH-RISK | 不要（POがコード上の説明とstaging配送を受入条件に指定） | なし | worker `/root/yoyaq_014_supervisor/yoyaq_014_worker` / reviewer `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` DONE | `45863e102a32f46823e219dc67ee1c9df26871a1` | review済み3ファイル＋dashboardを本commitで`origin/staging`へ直列統合・push |
 | YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
 | YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
 | YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
@@ -233,6 +234,14 @@ REWORK -> DOING -> REPORT
 - **R2:** `organization_scenarios_with_master` 等のviewが `security_invoker` 未設定で、base tableがFORCE RLSなしのためanonから非available行のタイトル等が見える。`security_invoker=true` 化はstaff画面の可視範囲に影響するため独立タスクとして設計・検証する。
 
 ## Event log
+
+| 2026-08-03 10:32 | `STAGING_INTEGRATED` / `EVENT_CLAIMED` | YOYAQ-014 | 本commit | 最新`origin/staging` `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab`がworker baseから不変であることを再fetch確認し、review済み3ファイルとdashboardだけを監督checkoutへ直列適用。worker/reviewerのtypecheck・build、diff check、検索監査はgreenで、統合blobをREPORT commitと照合して`origin/staging`へpush。本番DB・main・本番環境は変更なし（recovered: false） |
+
+| 2026-08-03 10:32 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-014 | `45863e102a32f46823e219dc67ee1c9df26871a1` | fresh reviewer `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` のDONEをclaim。前提4点、許可3ファイルの完全diff、typecheck、build、diff check、全着地経路、role別メニュー、AppLayout/Header/Sidebar、店舗切替、認可・テナント・PII非変更を確認しblocking指摘なし。監督本人がstaging直列統合を開始（recovered: false） |
+
+| 2026-08-03 10:27 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-014 | `45863e102a32f46823e219dc67ee1c9df26871a1` | worker REPORTをclaim。exact baseから許可済み3ファイルだけを変更した1日本語commit、worktree clean。typecheck、build、diff check、`view=personal` / 「個人ダッシュボード」0件、role分岐・完全diff監査がPASS。fresh HIGH-RISK独立検収 `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` を別worktree `/private/tmp/yoyaq-014-review` のexact REPORT commitで起動（recovered: false） |
+
+| 2026-08-03 10:22 | `YOYAQ_QUEUE_UPDATED` / `YOYAQ_QUEUE_COMMIT_SHA_CORRECTION` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-014 | `d491230c98e967a7b025c91cc54edf449844b096` | source `/root` のP0 queueとfull SHA訂正をclaim。`origin/staging` exact base `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab`、全checkout dirty監査、source worktree cleanを確認。可視worker `/root/yoyaq_014_supervisor/yoyaq_014_worker` を隔離worktree `/private/tmp/yoyaq-014-worker`、branch `codex/yoyaq-014-remove-personal-dashboard`、portなしで起動。監督統合checkoutは `/private/tmp/yoyaq-014-integration`。本番DB・main・本番環境は変更しない（recovered: false） |
 
 | 2026-08-02 | `YOYAQ_SCOPE_CORRECTED_V2` / `EVENT_CLAIMED` | YOYAQ-011 | - | 表示元はstaff_scenario_assignmentsのみと確定。しらやまの再同期112行を正規データとして保持し、ぽんちゃん0件は再投入しない。二重管理解消は対象外。減少1件でも409、外れるシナリオ名、`confirm_clear`、更新後の関連query `refetchType:'all'` を受入条件へ反映。worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` を起動。migration適用なし（recovered: false） |
 
