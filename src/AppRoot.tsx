@@ -76,6 +76,7 @@ const idbPersister = createAsyncStoragePersister({
  */
 const BOOKING_SHELL_ADMIN_SUB_PATHS = new Set([
   'dashboard',
+  'store-dashboard',
   'stores',
   'staff',
   'staff-profile',
@@ -330,7 +331,7 @@ function AppRoutes() {
   )
 
   // 開発者モード: ライセンス管理者（license_admin + QW管理者）にdev-modeクラスを付与
-  const { organizationId: devOrgId } = useOrganization()
+  const { organizationId: devOrgId, organization } = useOrganization()
   const isLicAdmin = checkIsLicenseAdmin(user?.role, devOrgId)
   React.useEffect(() => {
     if (isLicAdmin) {
@@ -461,7 +462,10 @@ function AppRoutes() {
     // モバイルSafariでは IndexedDB 読み込みがタイムアウト後に完了し user がセットされる
     // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
     if (isInitialized && user) {
-      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+      const authenticatedHome = user.isStoreRepresentative
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        : '/dashboard'
+      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -472,7 +476,10 @@ function AppRoutes() {
   if (authPage === 'signup') {
     // ログイン済みなら適切なトップページへ（同上の理由で isInitialized を使用）
     if (isInitialized && user) {
-      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+      const authenticatedHome = user.isStoreRepresentative
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        : '/dashboard'
+      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -489,12 +496,33 @@ function AppRoutes() {
     return <FullPageSpinner />
   }
 
+  // 店舗代表の標準着地点は店舗ダッシュボードにする。
+  // セッション復元・リロード・/dashboard直リンクでも同じ遷移になるよう、
+  // ログインフォームの成功時遷移とは別に通常ルート側で判定する。
+  const pathSegments = location.pathname.split('/').filter(Boolean)
+  const isDashboardPath =
+    location.pathname === '/dashboard' ||
+    (pathSegments.length === 2 && pathSegments[1] === 'dashboard')
+  if (
+    isInitialized &&
+    user?.role !== 'customer' &&
+    user?.isStoreRepresentative === true &&
+    isDashboardPath
+  ) {
+    const pathOrganizationSlug = pathSegments.length === 2 ? pathSegments[0] : organization?.slug
+    const storeDashboardPath = pathOrganizationSlug
+      ? `/${pathOrganizationSlug}/store-dashboard`
+      : '/store-dashboard'
+    return <Navigate to={storeDashboardPath} replace />
+  }
+
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
   if (!user || (user && user.role === 'customer')) {
     if (isInitialized) {
       // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
       const adminPaths = [
         '/dashboard',
+        '/store-dashboard',
         '/stores',
         '/staff',
         '/scenarios',

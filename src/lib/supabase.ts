@@ -79,6 +79,7 @@ export type AuthUser = {
   staffName?: string
   customerName?: string  // 顧客テーブルから取得した名前（顧客ロール用）
   role: 'admin' | 'staff' | 'customer' | 'license_admin'
+  isStoreRepresentative?: boolean
   created_at?: string  // ユーザー登録日
 }
 
@@ -108,13 +109,14 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   // ユーザーのロール情報を取得（実際のテーブル構造に応じて調整）
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, is_store_representative')
     .eq('id', user.id)
     .single()
   
   return {
     id: user.id,
     email: user.email!,
-    role: profile?.role || 'customer'
+    role: profile?.role || 'customer',
+    isStoreRepresentative: profile?.is_store_representative === true,
   }
 }

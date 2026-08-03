@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { AdminOnlyNotice } from '@/components/layout/AdminOnlyNotice'
 import { useAuth } from '@/contexts/AuthContext'
@@ -48,6 +49,7 @@ const AddDemoParticipants = lazyWithRetry(() => import('./AddDemoParticipants').
 const ScenarioMatcher = lazyWithRetry(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
 const ManualPage = lazyWithRetry(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazyWithRetry(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
+const StoreDashboard = lazyWithRetry(() => import('./StoreDashboard').then(m => ({ default: m.StoreDashboard })))
 const StaffProfile = lazyWithRetry(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
 const OrganizationManagement = lazyWithRetry(() => import('./OrganizationManagement'))
 const ExternalReports = lazyWithRetry(() => import('./ExternalReports'))
@@ -108,7 +110,7 @@ const GettingStartedPage = lazyWithRetry(() => import('./static').then(m => ({ d
 
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
-  'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
+  'dashboard', 'store-dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
   'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
@@ -377,6 +379,16 @@ export function AdminDashboard() {
       <Suspense fallback={<LoadingScreen message="スケジュールを読み込み中..." />}>
         <ScheduleManager />
       </Suspense>
+    )
+  }
+
+  if (currentPage === 'store-dashboard') {
+    return (
+      <AppLayout currentPage="store-dashboard" containerPadding="p-0">
+        <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
+          <StoreDashboard />
+        </Suspense>
+      </AppLayout>
     )
   }
   
@@ -905,9 +917,11 @@ export function AdminDashboard() {
 
   if (currentPage === 'add-demo-participants') {
     return (
-      <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
-        <AddDemoParticipants />
-      </Suspense>
+      <AppLayout currentPage="add-demo-participants">
+        <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
+          <AddDemoParticipants />
+        </Suspense>
+      </AppLayout>
     )
   }
 
@@ -1001,9 +1015,6 @@ export function AdminDashboard() {
     )
   }
 
-  // ナビゲーション表示判定
-  const shouldShowNavigation = isStaff
-
   // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
   const isStaffOrAdmin = isStaff
   const knownPages = ['dashboard', 'report-form', 'rental-report']
@@ -1016,25 +1027,18 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      <Header onPageChange={handlePageChange} />
-      <div className="flex flex-1 min-h-0">
-        {shouldShowNavigation && <AdminSidebar />}
-        <main data-scroll-container className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <div className="max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-            <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
-              {currentPage === 'dashboard' ? (
-                <DashboardHome onPageChange={handlePageChange} />
-              ) : currentPage === 'report-form' ? (
-                <ExternalReportForm />
-              ) : (
-                <DashboardHome onPageChange={handlePageChange} />
-              )}
-            </Suspense>
-          </div>
-        </main>
+    <AppLayout currentPage={currentPage} containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+      <div className="max-w-[1440px] mx-auto">
+        <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
+          {currentPage === 'dashboard' ? (
+            <DashboardHome onPageChange={handlePageChange} />
+          ) : currentPage === 'report-form' ? (
+            <ExternalReportForm />
+          ) : (
+            <DashboardHome onPageChange={handlePageChange} />
+          )}
+        </Suspense>
       </div>
-    </div>
+    </AppLayout>
   )
 }
-

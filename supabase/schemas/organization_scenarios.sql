@@ -70,6 +70,10 @@ CREATE TABLE public.organization_scenarios (
   private_booking_time_slots TEXT[],
   -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）
   custom_sensitive_tags TEXT[],
+  -- 公式サイト(queenswaltz.jp)への掲載可否。org_status=available かつ true のものだけ公開APIに出る
+  web_published BOOLEAN NOT NULL DEFAULT TRUE,
+  -- 公式サイト一覧の表示順。NULL は末尾
+  web_display_order INTEGER,
   UNIQUE (organization_id, scenario_master_id)
 );
 
@@ -78,3 +82,5 @@ CREATE INDEX idx_org_scenarios_master_id ON public.organization_scenarios USING 
 CREATE INDEX idx_org_scenarios_org_id ON public.organization_scenarios USING btree (organization_id);
 CREATE INDEX idx_org_scenarios_slug ON public.organization_scenarios USING btree (organization_id, slug);
 CREATE INDEX idx_org_scenarios_status ON public.organization_scenarios USING btree (org_status);
+CREATE INDEX idx_org_scenarios_web_published ON public.organization_scenarios USING btree (organization_id, web_published) WHERE web_published;
+CREATE UNIQUE INDEX uq_org_scenarios_slug ON public.organization_scenarios USING btree (organization_id, slug) WHERE slug IS NOT NULL;

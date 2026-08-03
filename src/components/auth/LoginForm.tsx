@@ -321,6 +321,35 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // リダイレクトは getUser の代わりに signIn 直後の user.id で1クエリにまとめる
         setTimeout(async () => {
           try {
+            let userProfile: {
+              role: string | null
+              organization_id: string | null
+              is_store_representative: boolean | null
+            } | null = null
+            let profileOrgSlug: string | undefined
+
+            const { data: profileData } = await supabase
+              .from('users')
+              .select('role, organization_id, is_store_representative')
+              .eq('id', signedUser.id)
+              .maybeSingle()
+
+            if (profileData) {
+              userProfile = {
+                role: profileData.role,
+                organization_id: profileData.organization_id,
+                is_store_representative: profileData.is_store_representative,
+              }
+              if (profileData.organization_id) {
+                const { data: profileOrganization } = await supabase
+                  .from('organizations')
+                  .select('slug')
+                  .eq('id', profileData.organization_id)
+                  .maybeSingle()
+                profileOrgSlug = profileOrganization?.slug
+              }
+            }
+
             let staffData: {
               organization_id: string | null
               role: string | null
@@ -369,10 +398,18 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               }
             }
 
-            if (staffData?.organization_id) {
-              const slug = orgSlug || ''
+            const organizationId = userProfile?.organization_id ?? staffData?.organization_id
+            const role = userProfile?.role ?? staffData?.role
+            const slug = orgSlug || profileOrgSlug || ''
 
-              if (staffData.role === 'admin' || staffData.role === 'staff') {
+            if (organizationId) {
+              if (userProfile?.is_store_representative === true && role !== 'customer') {
+                sessionStorage.removeItem('returnUrl')
+                navigate(slug ? `/${slug}/store-dashboard` : '/store-dashboard', { replace: true })
+                return
+              }
+
+              if (role === 'admin' || role === 'staff' || role === 'license_admin') {
                 sessionStorage.removeItem('returnUrl')
                 navigate(slug ? `/${slug}/schedule` : '/dashboard', { replace: true })
               } else {

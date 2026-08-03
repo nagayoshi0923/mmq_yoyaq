@@ -68,7 +68,7 @@ type NavGroup = {
 
 // 管理サイトのパス判定用
 const ADMIN_PATH_SEGMENTS = [
-  'dashboard', 'stores', 'staff', 'scenarios', 'schedule',
+  'dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule',
   'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual',
   'staff-profile', 'license-management', 'coupons', 'blog',
@@ -82,6 +82,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const { organization, organizationId } = useOrganization()
   const { count: pendingCount } = useStoreConfirmationPendingCount()
   const isLicAdmin = checkIsLicenseAdmin(user?.role, organizationId)
+  const isStoreRepresentative = user?.role !== 'customer' && user?.isStoreRepresentative === true
 
   const slug = organization?.slug || 'queens-waltz'
 
@@ -98,7 +99,14 @@ export const AdminSidebar = memo(function AdminSidebar() {
       id: 'top',
       label: null,
       items: [
-        { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
+        {
+          id: 'dashboard',
+          label: 'ダッシュボード',
+          icon: LayoutDashboard,
+          path: `/${slug}/dashboard`,
+          roles: ['admin', 'staff', 'license_admin'],
+        },
+        { id: 'store-dashboard', label: '店舗ダッシュボード', icon: Store, path: `/${slug}/store-dashboard`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'stores',    label: '店舗',     icon: Store,    path: `/${slug}/stores`,    roles: ['admin', 'license_admin'] },
         { id: 'staff',     label: 'スタッフ', icon: Users,    path: `/${slug}/staff`,     roles: ['admin', 'license_admin'] },
@@ -293,12 +301,13 @@ export const AdminSidebar = memo(function AdminSidebar() {
     return NAV_GROUPS.map(group => ({
       ...group,
       items: group.items.filter(item => {
+        if (isStoreRepresentative && item.id === 'dashboard') return false
         if (item.roles.includes(user.role)) return true
         if (isLicAdmin && item.roles.includes('license_admin')) return true
         return false
       }),
     })).filter(group => group.items.length > 0)
-  }, [NAV_GROUPS, user, isLicAdmin])
+  }, [NAV_GROUPS, user, isLicAdmin, isStoreRepresentative])
 
   // アクティブ判定（ページレベル）
   const isActive = useCallback((item: NavItem) => {

@@ -45,6 +45,7 @@ export async function resolveUserFromSession(
     try {
       // データベースからユーザーのロールを取得
       let role: 'admin' | 'staff' | 'customer' | 'license_admin' = 'customer'
+      let isStoreRepresentative = false
       
       authTrace('📊 usersテーブルからロール取得開始')
       try {
@@ -53,7 +54,7 @@ export async function resolveUserFromSession(
             
             const rolePromise = supabase
               .from('users')
-              .select('role')
+              .select('role, is_store_representative')
               .eq('id', supabaseUser.id)
               .maybeSingle()
 
@@ -64,7 +65,7 @@ export async function resolveUserFromSession(
             const result = await Promise.race([
               rolePromise,
               timeoutPromise
-            ]) as { data: { role: string } | null; error: Error | null } | undefined
+            ]) as { data: { role: string; is_store_representative?: boolean | null } | null; error: Error | null } | undefined
             
             // Supabaseのレスポンス形式を確認
             if (result && (result.data !== undefined || result.error !== undefined)) {
@@ -82,6 +83,7 @@ export async function resolveUserFromSession(
               
           if (userData?.role) {
           role = userData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
+          isStoreRepresentative = userData.is_store_representative === true
           authTrace('✅ データベースからロール取得:', role)
           } else if (roleError) {
             throw roleError
@@ -188,6 +190,7 @@ export async function resolveUserFromSession(
           // タイムアウトの場合: 既存のロールを保持、なければスタッフチェック
           if (existingUser && existingUser.id === supabaseUser.id) {
             role = existingUser.role
+            isStoreRepresentative = existingUser.isStoreRepresentative === true
             authTrace('🔄 タイムアウト: 既存のロールを保持:', role)
           } else {
             role = (await lookupStaffRole(supabaseUser.id, supabaseUser.email)) ?? 'customer'
@@ -197,6 +200,7 @@ export async function resolveUserFromSession(
           // その他のエラー: 既存のユーザー情報があればそのロールを保持
           if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
             role = existingUser.role
+            isStoreRepresentative = existingUser.isStoreRepresentative === true
             authTrace('🔄 例外発生、既存のロールを保持:', role)
           } else {
             role = (await lookupStaffRole(supabaseUser.id, supabaseUser.email)) ?? 'customer'
@@ -360,7 +364,8 @@ export async function resolveUserFromSession(
         email: supabaseUser.email!,
         name: displayName,
         staffName: staffName,
-        role: role
+        role: role,
+        isStoreRepresentative,
       }
       
       authTrace('✅ ユーザー情報設定完了:', { 
@@ -392,7 +397,8 @@ export async function resolveUserFromSession(
           email: supabaseUser.email!,
           name: displayName,
           staffName: undefined,
-          role: 'customer' as const
+          role: 'customer' as const,
+          isStoreRepresentative: false,
         }
         
         authTrace('🔄 フォールバックユーザー情報設定:', fallbackUserData)
