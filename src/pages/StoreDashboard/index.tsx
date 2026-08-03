@@ -6,6 +6,7 @@ import { storeDashboardApi, type StoreDashboardData } from '@/lib/api/storeDashb
 import { StaffCheckinBubble } from '@/components/store/StaffCheckinBubble'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
+import { EVENT_STATUS } from '@/constants/game'
 
 const STORE_KEY = 'mmq_store_dashboard_selected_store'
 
@@ -23,8 +24,9 @@ export function StoreDashboard() {
   if (error) return <div className="p-8 text-destructive">{error}</div>
   if (!data) return <LoadingScreen message="店舗ダッシュボードを読み込み中..." />
   const store = data.stores.find(s => s.id === data.selected_store_id) ?? data.stores[0]
-  const reservationCount = data.events.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.participant_count ?? 0), 0), 0)
-  const revenue = data.events.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.final_price ?? r.total_price ?? 0), 0), 0)
+  const countableEvents = data.events.filter(event => event.status !== EVENT_STATUS.CANCELLED)
+  const reservationCount = countableEvents.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.participant_count ?? 0), 0), 0)
+  const revenue = countableEvents.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.final_price ?? r.total_price ?? 0), 0), 0)
   const checkedStaff = data.gm_status.filter(s => s.checkin).length
   const handleStoreChange = (id: string) => { localStorage.setItem(STORE_KEY, id); setOpenEventIds(new Set()); setSelectedStoreId(id) }
   const handleCustomerCheckin = async (reservationId: string) => { await storeDashboardApi.action({ action: 'customer_checkin', reservation_id: reservationId }); await load(data.selected_store_id ?? undefined) }
@@ -74,12 +76,18 @@ export function StoreDashboard() {
 }
 
 function EventSection({ event, isOpen, onToggle, onCheckin }: { event: any; isOpen: boolean; onToggle: () => void; onCheckin: (id: string) => Promise<void> }) {
+  const statusBadge = event.status === EVENT_STATUS.CANCELLED
+    ? { label: '中止', variant: 'cancelled' as const }
+    : event.status === EVENT_STATUS.COMPLETED
+      ? { label: '終了', variant: 'success' as const }
+      : { label: '受付中', variant: 'success' as const }
+
   return <div>
     <button type="button" className="flex w-full items-center gap-4 bg-indigo-50/60 px-5 py-3 text-left hover:bg-indigo-100/60" onClick={onToggle} aria-expanded={isOpen}>
       <span className="flex w-4 shrink-0 justify-center text-lg font-bold text-indigo-600" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
       <span className="rounded-lg bg-indigo-100 px-3 py-2 text-sm font-bold text-indigo-600">{event.start_time.slice(0, 5)}〜{event.end_time.slice(0, 5)}</span>
       <span className="flex-1"><span className="block text-sm font-semibold">{event.scenario}</span><span className="block text-xs text-muted-foreground">予約 {event.reservations.reduce((n: number, r: any) => n + r.participant_count, 0)}/{event.capacity ?? event.max_participants ?? '—'}名 ・ GM: {event.gms?.join('、') || '未定'}</span></span>
-      <Badge variant="success">{event.status === 'completed' ? '終了' : '受付中'}</Badge>
+      <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
     </button>
     {isOpen && <div className="space-y-1 px-5 py-2">{event.reservations.map((r: any) => <CustomerRow key={r.id} reservation={r} onCheckin={onCheckin} />)}</div>}
   </div>
