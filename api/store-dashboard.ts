@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
+import { getParticipationFee, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
 
-const EVENT_FIELDS = 'id, date, start_time, end_time, scenario, venue, store_id, gms, category, status, is_cancelled, capacity, max_participants, current_participants, total_revenue, organization_id, notes'
+const EVENT_FIELDS = 'id, date, start_time, end_time, scenario, venue, store_id, gms, category, status, is_cancelled, capacity, max_participants, current_participants, total_revenue, organization_id, notes, scenario_master_id, organization_scenario_id'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end()
@@ -33,6 +34,11 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   if (selectedStoreId) eventQuery = eventQuery.eq('store_id', selectedStoreId)
   const { data: events, error: eventError } = await eventQuery
   if (eventError) throw eventError
+  const { data: scenarios, error: scenarioError } = await database
+    .from('organization_scenarios_with_master')
+    .select(`id, org_scenario_id, scenario_master_id, title, ${SCENARIO_PRICING_COLUMNS}`)
+    .eq('organization_id', user.orgId)
+  if (scenarioError) throw scenarioError
   const eventIds = (events ?? []).map((event: any) => event.id)
   const { data: reservations, error: reservationError } = eventIds.length
     ? await database.from('reservations').select('id, schedule_event_id, customer_id, customer_name, customer_email, customer_phone, participant_count, status, final_price, total_price').eq('organization_id', user.orgId).in('schedule_event_id', eventIds).not('status', 'in', '(cancelled,rejected)')
@@ -60,7 +66,28 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
     list.push(row)
     reservationsByEvent.set(reservation.schedule_event_id, list)
   }
-  const eventRows = (events ?? []).map((event: any) => ({ ...event, reservations: reservationsByEvent.get(event.id) ?? [], assigned_staff: (event.gms ?? []).map((name: string) => (staff ?? []).find((s: any) => s.name === name || s.display_name === name)).filter(Boolean) }))
+  const scenarioById = new Map<string, ScenarioPricing & { id?: string; org_scenario_id?: string; scenario_master_id?: string; title?: string }>()
+  const scenarioByTitle = new Map<string, ScenarioPricing & { id?: string; org_scenario_id?: string; scenario_master_id?: string; title?: string }>()
+  for (const scenario of scenarios ?? []) {
+    const pricing = scenario as ScenarioPricing & { id?: string; org_scenario_id?: string; scenario_master_id?: string; title?: string }
+    if (pricing.id) scenarioById.set(pricing.id, pricing)
+    if (pricing.org_scenario_id) scenarioById.set(pricing.org_scenario_id, pricing)
+    if (pricing.scenario_master_id) scenarioById.set(pricing.scenario_master_id, pricing)
+    if (pricing.title) scenarioByTitle.set(pricing.title, pricing)
+  }
+  const eventRows = (events ?? []).map((event: any) => {
+    const scenario = (event.organization_scenario_id && scenarioById.get(event.organization_scenario_id))
+      ?? (event.scenario_master_id && scenarioById.get(event.scenario_master_id))
+      ?? (event.scenario && scenarioByTitle.get(event.scenario))
+    const category = event.category === 'gmtest' ? 'gmtest' : 'normal'
+    const participationFee = Number(getParticipationFee(scenario, category))
+    return {
+      ...event,
+      participation_fee: Number.isFinite(participationFee) ? participationFee : 0,
+      reservations: reservationsByEvent.get(event.id) ?? [],
+      assigned_staff: (event.gms ?? []).map((name: string) => (staff ?? []).find((s: any) => s.name === name || s.display_name === name)).filter(Boolean),
+    }
+  })
   const assignedStaffIds = new Set(eventRows.flatMap((event: any) => event.assigned_staff.map((s: any) => s.id)))
   const gmStatus = (staff ?? []).filter((s: any) => assignedStaffIds.has(s.id)).map((s: any) => ({ ...s, checkin: checkinMap.get(s.id) ?? null }))
   const promptStaff = gmStatus.find((s: any) => s.checkin && !s.checkin.checked_out_at) ?? gmStatus.find((s: any) => !s.checkin)

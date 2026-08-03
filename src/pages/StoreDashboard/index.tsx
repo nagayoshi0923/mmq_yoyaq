@@ -91,7 +91,7 @@ function EventSection({ event, isOpen, onToggle, onCheckin }: { event: any; isOp
     <button type="button" className={`flex w-full items-center gap-4 px-5 py-3 text-left ${isCancelled ? 'bg-muted/60 hover:bg-muted' : 'bg-indigo-50/60 hover:bg-indigo-100/60'}`} onClick={onToggle} aria-expanded={isOpen}>
       <span className={`flex w-4 shrink-0 justify-center text-lg font-bold ${isCancelled ? 'text-muted-foreground' : 'text-indigo-600'}`} aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
       <span className={`rounded-lg px-3 py-2 text-sm font-bold ${isCancelled ? 'bg-muted text-muted-foreground line-through' : 'bg-indigo-100 text-indigo-600'}`}>{event.start_time.slice(0, 5)}〜{event.end_time.slice(0, 5)}</span>
-      <span className="flex-1"><span className={`block text-sm font-semibold ${isCancelled ? 'text-muted-foreground line-through' : ''}`}>{event.scenario}</span><span className="block text-xs text-muted-foreground">予約 {event.reservations.reduce((n: number, r: any) => n + r.participant_count, 0)}/{event.capacity ?? event.max_participants ?? '—'}名 ・ GM: {event.gms?.join('、') || '未定'}</span></span>
+      <span className="flex-1"><span className={`block text-sm font-semibold ${isCancelled ? 'text-muted-foreground line-through' : ''}`}>{event.scenario}</span><span className="block text-xs text-muted-foreground">予約 {event.reservations.reduce((n: number, r: any) => n + r.participant_count, 0)}/{event.capacity ?? event.max_participants ?? '—'}名 ・ GM: {event.gms?.join('、') || '未定'} ・ 参加費: {formatParticipationFee(event.participation_fee)}</span></span>
       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
     </button>
     {isOpen && <div className="space-y-1 px-5 py-2">{event.reservations.map((r: any) => <CustomerRow key={r.id} reservation={r} onCheckin={onCheckin} />)}</div>}
@@ -104,4 +104,8 @@ function CustomerRow({ reservation, onCheckin }: { reservation: any; onCheckin: 
 }
 
 function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl border bg-white px-5 py-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-bold">{value}</p></div> }
+function formatParticipationFee(value: unknown) {
+  const fee = Number(value)
+  return Number.isFinite(fee) && fee > 0 ? `¥${fee.toLocaleString('ja-JP')}/人` : '—'
+}
 function formatJapaneseDate(value: string) { return new Intl.DateTimeFormat('ja-JP', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' }).format(new Date(`${value}T00:00:00+09:00`)) }
