@@ -62,7 +62,7 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   if (viewerStaffError) throw viewerStaffError
   const viewerStaff = viewerStaffRows?.length === 1 ? viewerStaffRows[0] : null
   const staffIds = (staff ?? []).map((s: any) => s.id)
-  const { data: checkins, error: checkinError } = staffIds.length ? await database.from('staff_checkins').select('id, staff_id, store_id, checked_in_at, checked_out_at').eq('organization_id', user.orgId).eq('store_id', selectedStoreId).gte('checked_in_at', `${today}T00:00:00+09:00`).lt('checked_in_at', `${today}T23:59:59+09:00`).in('staff_id', staffIds) : { data: [], error: null }
+  const { data: checkins, error: checkinError } = staffIds.length ? await database.from('staff_checkins').select('id, staff_id, store_id, checked_in_at, checked_out_at').eq('organization_id', user.orgId).eq('store_id', selectedStoreId).gte('checked_in_at', `${today}T00:00:00+09:00`).lt('checked_in_at', `${getNextJstDate(today)}T00:00:00+09:00`).in('staff_id', staffIds) : { data: [], error: null }
   if (checkinError) throw checkinError
   const checkinMap = new Map((checkins ?? []).map((c: any) => [c.staff_id, c]))
   const { data: viewerCheckins, error: viewerCheckinError } = viewerStaff
@@ -72,7 +72,7 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
       .eq('staff_id', viewerStaff.id)
       .eq('organization_id', user.orgId)
       .gte('checked_in_at', `${today}T00:00:00+09:00`)
-      .lt('checked_in_at', `${today}T23:59:59+09:00`)
+      .lt('checked_in_at', `${getNextJstDate(today)}T00:00:00+09:00`)
       .order('checked_in_at', { ascending: false })
       .limit(1)
     : { data: [], error: null }
@@ -173,12 +173,16 @@ async function cancelOwnStaffCheckin(res: VercelResponse, user: AuthUser) {
 
 function getJstDayBounds(now = new Date()) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(now)
-  const [year, month, day] = today.split('-').map(Number)
-  const nextDay = new Date(Date.UTC(year, month - 1, day + 1))
-  const next = [nextDay.getUTCFullYear(), nextDay.getUTCMonth() + 1, nextDay.getUTCDate()]
-    .map((value) => String(value).padStart(2, '0'))
   return {
     start: `${today}T00:00:00+09:00`,
-    end: `${next[0]}-${next[1]}-${next[2]}T00:00:00+09:00`,
+    end: `${getNextJstDate(today)}T00:00:00+09:00`,
   }
+}
+
+function getNextJstDate(today: string) {
+  const [year, month, day] = today.split('-').map(Number)
+  const nextDay = new Date(Date.UTC(year, month - 1, day + 1))
+  return [nextDay.getUTCFullYear(), nextDay.getUTCMonth() + 1, nextDay.getUTCDate()]
+    .map((value) => String(value).padStart(2, '0'))
+    .join('-')
 }
