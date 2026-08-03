@@ -38,9 +38,10 @@ function getOrgSlugFromUrl(): string | null {
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
   backgroundColor?: string
+  showStaffCheckinBubble?: boolean
 }
 
-export const Header = memo(function Header({ onPageChange, backgroundColor }: HeaderProps) {
+export const Header = memo(function Header({ onPageChange, backgroundColor, showStaffCheckinBubble = true }: HeaderProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { organization: staffOrganization, organizationId } = useOrganization()
@@ -301,7 +302,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
         </div>
       </div>
     </header>
-    <StaffCheckinBubble />
+    {showStaffCheckinBubble && <StaffCheckinBubble />}
     </>
   )
 })

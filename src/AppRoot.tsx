@@ -463,7 +463,7 @@ function AppRoutes() {
     // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
     if (isInitialized && user) {
       const authenticatedHome = user.isStoreRepresentative
-        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/dashboard?view=personal`
         : '/dashboard'
       return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
@@ -477,7 +477,7 @@ function AppRoutes() {
     // ログイン済みなら適切なトップページへ（同上の理由で isInitialized を使用）
     if (isInitialized && user) {
       const authenticatedHome = user.isStoreRepresentative
-        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/dashboard?view=personal`
         : '/dashboard'
       return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
@@ -496,7 +496,7 @@ function AppRoutes() {
     return <FullPageSpinner />
   }
 
-  // 店舗代表の標準着地点は店舗ダッシュボードにする。
+  // 店舗代表の標準着地点は個人ダッシュボードにする。
   // セッション復元・リロード・/dashboard直リンクでも同じ遷移になるよう、
   // ログインフォームの成功時遷移とは別に通常ルート側で判定する。
   const pathSegments = location.pathname.split('/').filter(Boolean)
@@ -512,10 +512,10 @@ function AppRoutes() {
     !isPersonalDashboardRequested
   ) {
     const pathOrganizationSlug = pathSegments.length === 2 ? pathSegments[0] : organization?.slug
-    const storeDashboardPath = pathOrganizationSlug
-      ? `/${pathOrganizationSlug}/store-dashboard`
-      : '/store-dashboard'
-    return <Navigate to={storeDashboardPath} replace />
+    const personalDashboardPath = pathOrganizationSlug
+      ? `/${pathOrganizationSlug}/dashboard?view=personal`
+      : '/dashboard?view=personal'
+    return <Navigate to={personalDashboardPath} replace />
   }
 
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示

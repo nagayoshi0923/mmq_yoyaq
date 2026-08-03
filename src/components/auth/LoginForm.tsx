@@ -405,7 +405,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             if (organizationId) {
               if (userProfile?.is_store_representative === true && role !== 'customer') {
                 sessionStorage.removeItem('returnUrl')
-                navigate(slug ? `/${slug}/store-dashboard` : '/store-dashboard', { replace: true })
+                navigate(slug ? `/${slug}/dashboard?view=personal` : '/dashboard?view=personal', { replace: true })
                 return
               }
 

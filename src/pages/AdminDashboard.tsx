@@ -384,7 +384,7 @@ export function AdminDashboard() {
 
   if (currentPage === 'store-dashboard') {
     return (
-      <AppLayout currentPage="store-dashboard">
+      <AppLayout currentPage="store-dashboard" containerPadding="p-0" showStaffCheckinBubble={false}>
         <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
           <StoreDashboard />
         </Suspense>
@@ -917,9 +917,11 @@ export function AdminDashboard() {
 
   if (currentPage === 'add-demo-participants') {
     return (
-      <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
-        <AddDemoParticipants />
-      </Suspense>
+      <AppLayout currentPage="add-demo-participants">
+        <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
+          <AddDemoParticipants />
+        </Suspense>
+      </AppLayout>
     )
   }
 
@@ -1013,9 +1015,6 @@ export function AdminDashboard() {
     )
   }
 
-  // ナビゲーション表示判定
-  const shouldShowNavigation = isStaff
-
   // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
   const isStaffOrAdmin = isStaff
   const knownPages = ['dashboard', 'report-form', 'rental-report']
@@ -1028,24 +1027,18 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      <Header onPageChange={handlePageChange} />
-      <div className="flex flex-1 min-h-0">
-        {shouldShowNavigation && <AdminSidebar />}
-        <main data-scroll-container className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <div className="max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-            <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
-              {currentPage === 'dashboard' ? (
-                <DashboardHome onPageChange={handlePageChange} />
-              ) : currentPage === 'report-form' ? (
-                <ExternalReportForm />
-              ) : (
-                <DashboardHome onPageChange={handlePageChange} />
-              )}
-            </Suspense>
-          </div>
-        </main>
+    <AppLayout currentPage={currentPage} containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+      <div className="max-w-[1440px] mx-auto">
+        <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
+          {currentPage === 'dashboard' ? (
+            <DashboardHome onPageChange={handlePageChange} />
+          ) : currentPage === 'report-form' ? (
+            <ExternalReportForm />
+          ) : (
+            <DashboardHome onPageChange={handlePageChange} />
+          )}
+        </Suspense>
       </div>
-    </div>
+    </AppLayout>
   )
 }
