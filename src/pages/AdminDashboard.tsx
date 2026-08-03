@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { AdminOnlyNotice } from '@/components/layout/AdminOnlyNotice'
 import { useAuth } from '@/contexts/AuthContext'
@@ -383,9 +384,11 @@ export function AdminDashboard() {
 
   if (currentPage === 'store-dashboard') {
     return (
-      <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
-        <StoreDashboard />
-      </Suspense>
+      <AppLayout currentPage="store-dashboard">
+        <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
+          <StoreDashboard />
+        </Suspense>
+      </AppLayout>
     )
   }
   
