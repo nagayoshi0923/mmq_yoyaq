@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createStaffCheckinService,
   getJstDayBounds,
+  loadStaffCheckinContext,
   resolveStaffCheckinContext,
   resolveEventGmStaff,
   type StaffCheckinRepository,
@@ -28,6 +29,34 @@ function createRepository(overrides: Partial<StaffCheckinRepository> = {}): Staf
 }
 
 describe('staff checkin API service', () => {
+  it('実スキーマに存在するstaff列だけを読み、宛名を公演情報から独立して返す', async () => {
+    const staffQuery = createSupabaseQuery({ data: [{ id: 'staff-self', name: 'ソラ' }], error: null })
+    const eventQuery = createSupabaseQuery({ data: [{ start_time: '13:30:00', scenario: 'REDRUM05 目醒めゆくフローライト', gms: ['ソラ'], is_cancelled: false }], error: null })
+    const storeQuery = createSupabaseQuery({ data: { id: 'store-selected', name: 'クインズワルツ高田馬場店' }, error: null })
+    const database = { from: vi.fn((table: string) => ({ staff: staffQuery, schedule_events: eventQuery, stores: storeQuery })[table]) }
+
+    await expect(loadStaffCheckinContext(database, user, 'store-selected')).resolves.toEqual({
+      staff_name: 'ソラ',
+      performance: {
+        start_time: '13:30:00',
+        scenario: 'REDRUM05 目醒めゆくフローライト',
+        store_name: 'クインズワルツ高田馬場店',
+      },
+    })
+    expect(staffQuery.select).toHaveBeenCalledWith('id, name')
+  })
+
+  it('公演情報の取得に失敗しても宛名行を保持する', async () => {
+    const staffQuery = createSupabaseQuery({ data: [{ id: 'staff-self', name: 'ソラ' }], error: null })
+    const eventQuery = createSupabaseQuery({ data: null, error: new Error('schedule unavailable') })
+    const storeQuery = createSupabaseQuery({ data: { id: 'store-selected', name: 'クインズワルツ高田馬場店' }, error: null })
+    const database = { from: vi.fn((table: string) => ({ staff: staffQuery, schedule_events: eventQuery, stores: storeQuery })[table]) }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(loadStaffCheckinContext(database, user, 'store-selected')).resolves.toEqual({ staff_name: 'ソラ' })
+    consoleError.mockRestore()
+  })
+
   it('表示名を優先して担当公演の補足情報を組み立てる', () => {
     expect(resolveStaffCheckinContext(
       { id: 'staff-self', name: '旧名', display_name: 'ソラ' },
@@ -140,3 +169,15 @@ describe('staff checkin API service', () => {
     await expect(service.cancel(user)).rejects.toMatchObject({ status: 404 })
   })
 })
+
+function createSupabaseQuery(result: { data: unknown; error: unknown }) {
+  const query = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue(result),
+    maybeSingle: vi.fn().mockResolvedValue(result),
+    then: (resolve: (value: typeof result) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(result).then(resolve, reject),
+  }
+  return query
+}

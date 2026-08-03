@@ -362,22 +362,38 @@ function isDatabaseErrorCode(error: unknown, code: string) {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === code
 }
 
-async function loadStaffCheckinContext(database: any, user: AuthUser, storeId?: string): Promise<StaffCheckinContext> {
-  if (!storeId) return {}
+export async function loadStaffCheckinContext(database: any, user: AuthUser, storeId?: string): Promise<StaffCheckinContext> {
+  let staff: DashboardStaff | undefined
+  try {
+    const { data: staffRows, error: staffError } = await database
+      .from('staff')
+      .select('id, name')
+      .eq('organization_id', user.orgId)
+      .eq('user_id', user.userId)
+      .eq('status', 'active')
+      .limit(1)
+    if (staffError) throw staffError
+    staff = staffRows?.[0]
+  } catch (error) {
+    console.error('[store-dashboard] 打刻バブルの宛名情報を取得できませんでした', error)
+    return {}
+  }
+
+  const context = resolveStaffCheckinContext(staff, undefined, undefined)
+  if (!storeId) return context
+
   try {
     const today = getJstDayBounds().start.slice(0, 10)
-    const [{ data: staffRows, error: staffError }, { data: events, error: eventError }, { data: store, error: storeError }] = await Promise.all([
-      database.from('staff').select('id, name, display_name').eq('organization_id', user.orgId).eq('user_id', user.userId).eq('status', 'active').limit(1),
+    const [{ data: events, error: eventError }, { data: store, error: storeError }] = await Promise.all([
       database.from('schedule_events').select('start_time, scenario, gms, status, is_cancelled').eq('organization_id', user.orgId).eq('date', today).eq('store_id', storeId).order('start_time'),
       database.from('stores').select('id, name').eq('organization_id', user.orgId).eq('id', storeId).eq('status', 'active').maybeSingle(),
     ])
-    if (staffError) throw staffError
     if (eventError) throw eventError
     if (storeError) throw storeError
-    return resolveStaffCheckinContext(staffRows?.[0], events, store?.name)
+    return resolveStaffCheckinContext(staff, events, store?.name)
   } catch (error) {
-    console.error('[store-dashboard] 打刻バブルの補足情報を取得できませんでした', error)
-    return {}
+    console.error('[store-dashboard] 打刻バブルの公演情報を取得できませんでした', error)
+    return context
   }
 }
 
