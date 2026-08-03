@@ -6,6 +6,8 @@ import { storeDashboardApi, type StoreDashboardData } from '@/lib/api/storeDashb
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { EVENT_STATUS } from '@/constants/game'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { StaffCheckinBubble, StaffCheckinFallback } from '@/components/store/StaffCheckinBubble'
 
 const STORE_KEY = 'mmq_store_dashboard_selected_store'
 
@@ -14,7 +16,7 @@ function isCancelledEvent(event: { is_cancelled?: boolean; status?: string }) {
 }
 
 export function StoreDashboard() {
-  const { isStaff } = useAuth()
+  const { isStaff, user } = useAuth()
   const [data, setData] = useState<StoreDashboardData | null>(null)
   const [selectedStoreId, setSelectedStoreId] = useState(() => localStorage.getItem(STORE_KEY) ?? '')
   const [openEventIds, setOpenEventIds] = useState<Set<string>>(() => new Set())
@@ -63,6 +65,11 @@ export function StoreDashboard() {
           <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">店舗連絡</h2><p className="whitespace-pre-wrap px-4 py-4 text-sm text-muted-foreground">{store?.notes || '店舗連絡メモはありません。'}</p></section>
         </aside>
       </div>
+      {user?.isStoreRepresentative === true && (
+        <ErrorBoundary key={data.selected_store_id ?? 'no-store'} fallback={<StaffCheckinFallback />}>
+          <StaffCheckinBubble storeId={data.selected_store_id} />
+        </ErrorBoundary>
+      )}
     </div>
   )
 }

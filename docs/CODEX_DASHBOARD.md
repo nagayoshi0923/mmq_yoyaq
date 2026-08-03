@@ -79,6 +79,7 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
+| `/root/yoyaq_021_supervisor` | `/private/tmp/yoyaq-021-integration` | `924cdcc68c1fffc6114f2ddfb9946884f76dba72` | 2026-08-03 15:37 JST |
 | `/root/yoyaq_014_supervisor` | `/private/tmp/yoyaq-014-integration` | `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab` | 2026-08-03 10:32 JST |
 | `019f779d-7170-7752-a846-37c593cf3ec8` | `/private/tmp/yoyaq-004-integration` | `6ec0f59e9388b9bde9f3f6afbb0100ed53537fab` | 2026-07-24 11:25 JST |
 
@@ -100,6 +101,7 @@ REWORK -> DOING -> REPORT
 | YOYAQ-012 | スタッフ担当シナリオの正を結合テーブルへ一本化（二重管理の解消） | TODO | HIGH-RISK | 必須 | YOYAQ-011（減少ガード実装後） | 未割当 | - | - |
 | YOYAQ-013 | 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる | TODO | UI-INSTANT | 必須 | なし | 未割当 | - | - |
 | YOYAQ-014 | 店舗代表アカウントから個人ダッシュボードを撤去 | DONE | HIGH-RISK | 不要（POがコード上の説明とstaging配送を受入条件に指定） | なし | worker `/root/yoyaq_014_supervisor/yoyaq_014_worker` / reviewer `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` DONE | `45863e102a32f46823e219dc67ee1c9df26871a1` | review済み3ファイル＋dashboardを本commitで`origin/staging`へ直列統合・push |
+| YOYAQ-021 | 出勤打刻をnull安全な独立状態として再実装 | DONE | HIGH-RISK | 内部PREVIEW必須・別途PO visual OK待ちは不要（本依頼が4状態と一連操作の検証後pushを明示） | なし | worker `/root/yoyaq_021_supervisor/yoyaq_021_worker` / reviewer `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` DONE | `8c626c5f625adba0bddd24c0daba603d93dd707b` | review済み13ファイル＋dashboardを本commitで`origin/staging`へ直列統合・push |
 | YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
 | YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
 | YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
@@ -234,6 +236,16 @@ REWORK -> DOING -> REPORT
 - **R2:** `organization_scenarios_with_master` 等のviewが `security_invoker` 未設定で、base tableがFORCE RLSなしのためanonから非available行のタイトル等が見える。`security_invoker=true` 化はstaff画面の可視範囲に影響するため独立タスクとして設計・検証する。
 
 ## Event log
+
+| 2026-08-03 15:37 | `STAGING_INTEGRATED` / `EVENT_CLAIMED` | YOYAQ-021 | 本commit | push直前の最新`origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72`がworker baseから不変であることを再fetch確認し、queue定義とreview済み13ファイル、dashboard監督記録だけを直列統合。製品13ファイルのblobはREPORT commitと完全一致。統合checkoutで対象25 tests、実体のtypecheck＋Vite production build、security、org-scope、JST、diff、production artifact除外がgreen。実ブラウザのみbinding 0件でNOT RUN、8状態HTTP 200とrender/API/ErrorBoundary testで補完。本番DB・main・本番環境は変更せず、`origin/staging`へpushする（recovered: false） |
+
+| 2026-08-03 15:34 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-021 | `8c626c5f625adba0bddd24c0daba603d93dd707b` | fresh reviewer `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` のDONEをclaim。前提4点、13ファイル完全diff、対象25 tests、typecheck、build、security、org-scope、JST、diff、baseline増分0、production artifact除外がgreen。本人/org/JST当日/選択store/DB NOW/23505→409/取消exact id、null安全、5状態、局所ErrorBoundary、退勤0、常時可視取消、ConfirmDialog、既存表示/他ロール非変更を確認しblocking指摘なし。実ブラウザは正規troubleshooting後もbinding 0件でNOT RUN、8状態HTTP 200とrender/API/ErrorBoundary testで補完。監督本人がstaging直列統合を開始（recovered: false） |
+
+| 2026-08-03 15:26 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-021 | `8c626c5f625adba0bddd24c0daba603d93dd707b` | worker REPORTをclaim。exact baseから許可済み13ファイルだけを変更した1日本語commit、worktree clean。対象unit/API/component 25件、typecheck、build、security、org-scope、JST、diff check、preview production artifact除外がPASS。multi-tenant/design-tokenはexact baseと同じ既存baselineのみで増分0。in-memory preview 8状態はport 5197でHTTP 200、実ブラウザは利用可能binding 0件でNOT RUN。fresh HIGH-RISK独立検収 `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` を別worktree `/private/tmp/yoyaq-021-review` のexact REPORT commitで起動（recovered: false） |
+
+| 2026-08-03 15:11 | `YOYAQ_SCOPE_REQUEST` / `PREVIEW_FIXTURE_FILE_APPROVED` / `EVENT_CLAIMED` | YOYAQ-021 | - | workerの内部PREVIEW用追加2ファイルをclaim。独立dev entry `yoyaq-021-preview.html` と、in-memory APIだけを実`StaffCheckinBubble`へ注入する `src/components/store/StaffCheckinPreview.tsx` を限定承認。production build input/AppRoot/通常routeへ接続せず、実DB/session/API mutation/PIIを使わず、loading/unchecked/checked/error/empty/error-boundaryと打刻→取消→打ち直しをport 5197で確認する。その他のscope、DB/migration/main/production禁止は維持（recovered: false） |
+
+| 2026-08-03 15:09 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-021 | `e684ad3305ee7cac8bef0af86e5229f247243590` | source `/root` のP0 queueをclaim。fetch後の最新`origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72`、source commitの親/base一致、全checkout dirty状態を監査し、既存dirtyを保存。可視worker `/root/yoyaq_021_supervisor/yoyaq_021_worker` をexact baseから、worktree `/private/tmp/yoyaq-021-worker`、branch `codex/yoyaq-021-checkin-safe`、port `5197`で起動。監督統合checkoutは`/private/tmp/yoyaq-021-integration`。本番DB・main・本番環境は変更しない（recovered: false） |
 
 | 2026-08-03 10:32 | `STAGING_INTEGRATED` / `EVENT_CLAIMED` | YOYAQ-014 | 本commit | 最新`origin/staging` `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab`がworker baseから不変であることを再fetch確認し、review済み3ファイルとdashboardだけを監督checkoutへ直列適用。worker/reviewerのtypecheck・build、diff check、検索監査はgreenで、統合blobをREPORT commitと照合して`origin/staging`へpush。本番DB・main・本番環境は変更なし（recovered: false） |
 
@@ -440,3 +452,15 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **禁止:** 本番DB・本番環境・main、DB/Edge Function、依頼範囲外のリファクタ、他ロールの挙動変更、ヘッダー/サイドバーのレイアウト復元の破棄、店舗代表の店舗切替動線の削除。
 - **gates/review:** workerは `npm run typecheck`、`npm run build`、`git diff --check`、`isStoreRepresentative` / `view=personal` / メニューrole条件の検索監査。HIGH-RISK focused独立検収で、店舗代表の全着地経路、AdminSidebarの項目可視性、admin / staff / license_admin回帰、レイアウト保持、認可・テナント・PII非変更を確認する。
 - **PO check after staging push:** 【ログイン画面】店舗代表でログインし、ヘッダー・サイドバー付きの「店舗ダッシュボード」へ着地すること。【管理画面 > サイドメニュー】「個人ダッシュボード」が表示されず「店舗ダッシュボード」が表示されること。【店舗ダッシュボード > 店舗切替】店舗を切り替えられること。【各ロールのログイン画面・サイドメニュー】admin / staff / license_adminの従来着地とダッシュボード項目が変わっていないこと。
+
+### YOYAQ-021 queue definition: 出勤打刻をnull安全な独立状態として再実装
+
+- **GO/source:** 2026-08-03 PO明示依頼「出勤打刻機能を作り直す（初回描画クラッシュを再発させない設計で一括実装）」。source thread: Codex `/root`（本依頼）。復旧済み最新 `origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72` を正とし、過去の打刻実装commitをそのまま復活させない。
+- **status/lane:** DONE / HIGH-RISK（fresh独立検収DONE・staging直列統合/push）。優先度P0、依存なし。本番DB・main・本番デプロイは禁止。staging DBは参照のみで、migration適用・直接レコード削除を行わない。
+- **scope/acceptance:** ① 打刻UIのデータ取得を店舗ダッシュボード本体の取得・描画から分離し、初期値を明示した判別可能な loading / ready-unchecked / ready-checked / error / unavailable 状態で扱う。null/undefined/空レスポンスを直接参照せず、打刻UI自身の取得・描画例外が店舗ダッシュボード全体を落とさないエラー境界を置く。② 未打刻は「出勤打刻がまだです」とクライアント現在時刻HH:MMのボタンを表示する。POSTはstaff_idや公演時刻を信用せず、認証ユーザーとorganizationから本人staffをサーバ側で一意に解決し、選択storeの組織所属を検証して、`staff_checkins.checked_in_at`のDB DEFAULT `NOW()`を正として記録する。退勤action/UIは作らない。③ 打刻済みは「出勤打刻済み（HH:MM）」と常に見える「取り消す」を表示する。共通`ConfirmDialog`を1枚挟み、サーバは認証本人・同一organization・JST当日の打刻だけを対象にして取消し、未打刻へ再取得する。④ 打刻→取消→打ち直しを同一画面で完結させ、既存13:30想定レコードもUIから取消可能にする。staging DBの直接削除は禁止。⑤ 店舗ダッシュボードの参加費、中止公演、店舗代表の個人ダッシュボード撤去、ヘッダー/サイドバー、店舗切替を維持し、admin / staff / license_adminの既存着地・メニュー・画面挙動を変えない。打刻UIは店舗代表だけに表示し、APIでも`users.is_store_representative`をDBから確認してfail-closedにする。⑥ 過去の根本原因 `data === null` でのプロパティ参照を対象testで再現し、loading / unchecked / checked / API failure / empty or malformed response / render error boundaryを固定する。API testは本人解決、別organization/store拒否、DB時刻（checked_in_atをclientから送らない）、当日だけの取消、重複打刻を固定する。
+- **allowed files:** `api/store-dashboard.ts`、`src/lib/api/storeDashboardApi.ts`、`src/pages/StoreDashboard/index.tsx`、新規または復元する `src/components/store/StaffCheckinBubble.tsx` と同階層の対象test/状態helper、API対象test、`docs/PAGES.md`、`docs/development/critical-features.md`、`docs/development/ui-design.md`。内部PREVIEW専用に `yoyaq-021-preview.html` と `src/components/store/StaffCheckinPreview.tsx` を追加承認し、production build input/AppRoot/通常routeへ接続せず、実DB/session/API mutationなしのin-memory fixtureに限定する。dashboardは監督だけが更新する。追加ファイルは編集前に監督へscope requestする。
+- **禁止:** `supabase/migrations/*`、schema/RLS/Edge Function、staging/prod DBへの書込み検証や直接削除、`staff_checkins`既存レコードの手動変更、退勤action/UI、公演開始時刻を打刻値へ使うこと、client指定staff_idの採用、native `confirm()` / `alert()`、`border-l-4`、公演カード/公演モーダルの外観変更、既存参加費・中止公演表示の変更、他ロールの挙動変更。
+- **PREVIEW/gates/review:** 隔離worktreeの固有portで、実DBを書き換えないfixture/mockを使い loading / 未打刻 / 打刻済み / API失敗 / 空データ / error boundaryを実ブラウザ確認する。本依頼でPOがこれらの検証通過後のstaging pushまで明示しているため、別ターンのvisual OK待ちは不要。workerは対象unit/API/component test、`npm run typecheck`、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:org-scope`、`npm run check:jst-date`、`npm run build`、`git diff --check`を実行する。HIGH-RISK fresh独立検収で完全diff、本人/当日/organization/store境界、null安全、error isolation、他ロールと参加費・中止公演・個人ダッシュボード撤去の回帰を確認する。監督は全green後だけ最新`origin/staging`へ直列統合・pushする。
+- **REPORT/review:** worker commit `8c626c5f625adba0bddd24c0daba603d93dd707b`、許可済み13ファイル、worktree clean。対象unit/API/component 25件、typecheck、build、security、org-scope、JST、diff、preview production artifact除外がPASS。multi-tenant/design-tokenはexact baseと同じ既存baselineのみで増分0。fresh reviewer `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` は前提4点・完全diff・全指定境界を確認してDONE、blocking指摘なし。実ブラウザはworker/reviewer/監督すべて正規接続後もbinding 0件でNOT RUN、port 5197の8状態HTTP 200とrender/API/ErrorBoundary testで補完。
+- **integration:** 最新`origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72`へqueue定義とreview済み13ファイル、dashboardだけを監督が直列適用。製品blobはREPORT commitと一致し、統合checkoutで対象25 tests、実体のtypecheck＋Vite production build、security、org-scope、JST、diff、artifact除外を再確認して本commitを`origin/staging`へpush。本番DB・main・本番環境は変更しない。
+- **PO check after staging push:** 【店舗ダッシュボード】初回読み込みでページが落ちず、未打刻では現在時刻の出勤ボタン、打刻済みでは時刻と「取り消す」が見えること。「取り消す」の確認後に未打刻へ戻り、もう一度現在時刻で打刻できること。参加費・中止公演・店舗切替・ヘッダー/サイドバーが従来どおりであること。
