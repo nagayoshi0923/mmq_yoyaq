@@ -10,7 +10,6 @@ interface AppLayoutProps {
   containerPadding?: string
   stickyLayout?: boolean // ヘッダー・ナビ・サイドバーを固定するか
   className?: string // 追加のクラス名
-  showStaffCheckinBubble?: boolean
 }
 
 /**
@@ -32,14 +31,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   maxWidth,          // 非推奨・後方互換用。基本は使わない
   containerPadding = 'px-[10px] py-3 sm:py-4 md:py-6',
   stickyLayout = false,
-  className = '',
-  showStaffCheckinBubble = true
+  className = ''
 }) => {
   if (stickyLayout) {
     return (
       // w-screen + overflow-hidden でページ横スクロールを完全に封じる
       <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
-        <Header showStaffCheckinBubble={showStaffCheckinBubble} />
+        <Header />
         <div className="flex flex-1 min-h-0 min-w-0">
           <AdminSidebar />
           <div className={`flex-1 flex min-h-0 min-w-0 ${className}`}>
@@ -61,7 +59,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <Header showStaffCheckinBubble={showStaffCheckinBubble} />
+      <Header />
       <div className="flex flex-1 min-h-0 min-w-0">
         <AdminSidebar />
         <div className={`flex flex-1 min-h-0 min-w-0 ${className}`}>

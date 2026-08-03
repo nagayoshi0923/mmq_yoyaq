@@ -3,7 +3,6 @@ import { Check, ChevronDown, ExternalLink, Phone, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { storeDashboardApi, type StoreDashboardData } from '@/lib/api/storeDashboardApi'
-import { StaffCheckinBubble } from '@/components/store/StaffCheckinBubble'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { EVENT_STATUS } from '@/constants/game'
@@ -15,7 +14,7 @@ function isCancelledEvent(event: { is_cancelled?: boolean; status?: string }) {
 }
 
 export function StoreDashboard() {
-  const { isStaff, user } = useAuth()
+  const { isStaff } = useAuth()
   const [data, setData] = useState<StoreDashboardData | null>(null)
   const [selectedStoreId, setSelectedStoreId] = useState(() => localStorage.getItem(STORE_KEY) ?? '')
   const [openEventIds, setOpenEventIds] = useState<Set<string>>(() => new Set())
@@ -31,18 +30,8 @@ export function StoreDashboard() {
   const countableEvents = data.events.filter(event => !isCancelledEvent(event))
   const reservationCount = countableEvents.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.participant_count ?? 0), 0), 0)
   const revenue = countableEvents.reduce((sum, e) => sum + e.reservations.reduce((n: number, r: any) => n + (r.final_price ?? r.total_price ?? 0), 0), 0)
-  const checkedStaff = data.gm_status.filter(s => s.checkin).length
   const handleStoreChange = (id: string) => { localStorage.setItem(STORE_KEY, id); setOpenEventIds(new Set()); setSelectedStoreId(id) }
   const handleCustomerCheckin = async (reservationId: string) => { await storeDashboardApi.action({ action: 'customer_checkin', reservation_id: reservationId }); await load(data.selected_store_id ?? undefined) }
-  const handleStaffCheckin = (staffId: string) => {
-    setOpenEventIds(previous => {
-      const next = new Set(previous)
-      for (const event of data.events) {
-        if (event.assigned_staff?.some((staff: any) => staff.id === staffId)) next.add(event.id)
-      }
-      return next
-    })
-  }
   return (
     <div className="min-h-full bg-muted/20 px-4 py-7 md:px-10">
       <header className="flex items-center gap-4">
@@ -56,7 +45,7 @@ export function StoreDashboard() {
         <span className="rounded-lg border bg-white px-3 py-2 text-xs text-muted-foreground">店舗代表アカウント</span>
       </header>
       <section className="mt-5 grid gap-4 md:grid-cols-4">
-        <Stat label="本日の公演" value={`${data.events.length}件`} /><Stat label="来客予定" value={`${reservationCount}名`} /><Stat label="出勤GM" value={`${checkedStaff}/${data.gm_status.length}名 打刻済み`} /><Stat label="本日の売上見込み" value={`¥${revenue.toLocaleString()}`} />
+        <Stat label="本日の公演" value={`${data.events.length}件`} /><Stat label="来客予定" value={`${reservationCount}名`} /><Stat label="担当GM" value={`${data.gm_status.length}名`} /><Stat label="本日の売上見込み" value={`¥${revenue.toLocaleString()}`} />
       </section>
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="overflow-hidden rounded-2xl border bg-white">
@@ -70,11 +59,10 @@ export function StoreDashboard() {
           })} onCheckin={handleCustomerCheckin} />)}
         </section>
         <aside className="space-y-5">
-          <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">本日のGM出勤状況</h2>{data.gm_status.map((s: any) => <div key={s.id} className="flex items-center justify-between border-b px-4 py-3 last:border-0"><div><p className="text-sm font-medium">{s.display_name || s.name}</p><p className="text-xs text-muted-foreground">{s.checkin ? `${new Date(s.checkin.checked_in_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 打刻済み` : '未打刻'}</p></div><span className={`h-3 w-3 rounded-full ${s.checkin ? 'bg-emerald-500' : 'bg-amber-400'}`} /> </div>)}</section>
+          <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">本日の担当GM</h2>{data.gm_status.map((s: any) => <div key={s.id} className="flex items-center justify-between border-b px-4 py-3 last:border-0"><p className="text-sm font-medium">{s.display_name || s.name}</p><span className="text-xs text-muted-foreground">担当</span></div>)}</section>
           <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">店舗連絡</h2><p className="whitespace-pre-wrap px-4 py-4 text-sm text-muted-foreground">{store?.notes || '店舗連絡メモはありません。'}</p></section>
         </aside>
       </div>
-      <StaffCheckinBubble onStaffCheckin={handleStaffCheckin} checkinOnly={user?.isStoreRepresentative === true} />
     </div>
   )
 }

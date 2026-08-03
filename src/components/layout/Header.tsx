@@ -12,7 +12,6 @@ import { getOrganizationBySlug } from '@/lib/organization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { NotificationDropdown } from './NotificationDropdown'
 import type { Organization } from '@/types'
-import { StaffCheckinBubble } from '@/components/store/StaffCheckinBubble'
 
 // 訪問組織のlocalStorageキー
 const VISITED_ORG_KEY = 'mmq_visited_organization'
@@ -38,10 +37,9 @@ function getOrgSlugFromUrl(): string | null {
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
   backgroundColor?: string
-  showStaffCheckinBubble?: boolean
 }
 
-export const Header = memo(function Header({ onPageChange, backgroundColor, showStaffCheckinBubble = true }: HeaderProps) {
+export const Header = memo(function Header({ onPageChange, backgroundColor }: HeaderProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { organization: staffOrganization, organizationId } = useOrganization()
@@ -302,7 +300,6 @@ export const Header = memo(function Header({ onPageChange, backgroundColor, show
         </div>
       </div>
     </header>
-    {showStaffCheckinBubble && <StaffCheckinBubble />}
     </>
   )
 })

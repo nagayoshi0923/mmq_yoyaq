@@ -375,7 +375,6 @@ parseHash(hash: string): {
 | ページ名 | パス | 用途 | アクセス |
 |---------|------|------|---------|
 | **DashboardHome** | `#dashboard` | ダッシュボード | admin, staff |
-| **StoreDashboard** | `/{organization_slug}/store-dashboard` | 店舗ダッシュボード・当日の出勤打刻 | admin, staff, license_admin |
 | **ScheduleManager** | `#schedule` | 公演スケジュール管理 | admin |
 | **ShiftSubmission** | `#shift-submission` | シフト提出 | admin, staff |
 | **GMAvailabilityCheck** | `#gm-availability` | GM確認回答 | admin, staff |
@@ -686,7 +685,6 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
-| 2026-08-03 | 店舗ダッシュボードに、ログイン中スタッフ本人の当日出勤打刻を確認付きで取り消し、正しい時刻で再打刻できる導線を追加 | AI |
 | 2026-07-24 | 公開予約トップ・プラットフォームトップ・シナリオ詳細で、顧客自身が体験済みチェックを解除・再登録できるように変更 | AI |
 | 2026-04-03 | 設定ページに「メール配信履歴」タブを追加。Resendの送信先・件名・ステータスをMMQ管理画面から確認可能に | AI |
 | 2026-01-18 | NotFoundPage（404エラーページ）追加。存在しないパスへのアクセス時に表示 | AI |

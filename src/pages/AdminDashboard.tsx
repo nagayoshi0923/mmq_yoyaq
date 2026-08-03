@@ -384,7 +384,7 @@ export function AdminDashboard() {
 
   if (currentPage === 'store-dashboard') {
     return (
-      <AppLayout currentPage="store-dashboard" containerPadding="p-0" showStaffCheckinBubble={false}>
+      <AppLayout currentPage="store-dashboard" containerPadding="p-0">
         <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
           <StoreDashboard />
         </Suspense>
