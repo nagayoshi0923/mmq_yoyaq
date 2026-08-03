@@ -2,69 +2,96 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createStaffCheckinService,
   getJstDayBounds,
-  loadStaffCheckinContext,
-  resolveStaffCheckinContext,
-  resolveEventGmStaff,
+  resolveStaffCheckinCandidates,
   type StaffCheckinRepository,
+  type StaffCheckinScheduledCandidate,
 } from '../../../api/store-dashboard'
 
 const user = {
-  userId: 'user-self',
+  userId: 'store-account',
   orgId: 'org-self',
   role: 'staff' as const,
   jwt: 'test-jwt',
 }
 const fixedNow = () => new Date('2026-08-03T15:30:00.000Z')
 
+const sora = { id: 'staff-sora', name: 'ソラ', organization_id: 'org-self' }
+const rena = { id: 'staff-rena', name: 'レナ', organization_id: 'org-self' }
+
 function createRepository(overrides: Partial<StaffCheckinRepository> = {}): StaffCheckinRepository {
   return {
     isStoreRepresentative: vi.fn().mockResolvedValue(true),
-    findStaffIdsByUser: vi.fn().mockResolvedValue(['staff-self']),
     storeBelongsToOrganization: vi.fn().mockResolvedValue(true),
-    findToday: vi.fn().mockResolvedValue(null),
-    insert: vi.fn().mockResolvedValue({ id: 'checkin-new', checked_in_at: '2026-08-03T15:30:01.000Z' }),
-    deleteToday: vi.fn().mockResolvedValue({ id: 'checkin-old', checked_in_at: '2026-08-03T04:30:00.000Z' }),
+    findScheduledCandidates: vi.fn().mockResolvedValue([]),
+    insert: vi.fn().mockResolvedValue({ id: 'checkin-new', checked_in_at: '2026-08-03T06:30:01.000Z' }),
+    deleteToday: vi.fn().mockResolvedValue({ id: 'checkin-old', checked_in_at: '2026-08-03T06:30:00.000Z' }),
     ...overrides,
   }
 }
 
+function candidate(staff: typeof sora, checkin: StaffCheckinScheduledCandidate['checkin'] = null): StaffCheckinScheduledCandidate {
+  return {
+    staff,
+    checkin,
+    performance: {
+      start_time: '13:30:00',
+      scenario: 'REDRUM05 目醒めゆくフローライト',
+      store_name: 'クインズワルツ高田馬場店',
+    },
+  }
+}
+
 describe('staff checkin API service', () => {
-  it('実スキーマに存在するstaff列だけを読み、宛名を公演情報から独立して返す', async () => {
-    const staffQuery = createSupabaseQuery({ data: [{ id: 'staff-self', name: 'ソラ' }], error: null })
-    const eventQuery = createSupabaseQuery({ data: [{ start_time: '13:30:00', scenario: 'REDRUM05 目醒めゆくフローライト', gms: ['ソラ'], is_cancelled: false }], error: null })
-    const storeQuery = createSupabaseQuery({ data: { id: 'store-selected', name: 'クインズワルツ高田馬場店' }, error: null })
-    const database = { from: vi.fn((table: string) => ({ staff: staffQuery, schedule_events: eventQuery, stores: storeQuery })[table]) }
-
-    await expect(loadStaffCheckinContext(database, user, 'store-selected')).resolves.toEqual({
-      staff_name: 'ソラ',
-      performance: {
-        start_time: '13:30:00',
-        scenario: 'REDRUM05 目醒めゆくフローライト',
-        store_name: 'クインズワルツ高田馬場店',
-      },
-    })
-    expect(staffQuery.select).toHaveBeenCalledWith('id, name')
-  })
-
-  it('公演情報の取得に失敗しても宛名行を保持する', async () => {
-    const staffQuery = createSupabaseQuery({ data: [{ id: 'staff-self', name: 'ソラ' }], error: null })
-    const eventQuery = createSupabaseQuery({ data: null, error: new Error('schedule unavailable') })
-    const storeQuery = createSupabaseQuery({ data: { id: 'store-selected', name: 'クインズワルツ高田馬場店' }, error: null })
-    const database = { from: vi.fn((table: string) => ({ staff: staffQuery, schedule_events: eventQuery, stores: storeQuery })[table]) }
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    await expect(loadStaffCheckinContext(database, user, 'store-selected')).resolves.toEqual({ staff_name: 'ソラ' })
-    consoleError.mockRestore()
-  })
-
-  it('表示名を優先して担当公演の補足情報を組み立てる', () => {
-    expect(resolveStaffCheckinContext(
-      { id: 'staff-self', name: '旧名', display_name: 'ソラ' },
+  it('スケジュールのGM割当を正として、未打刻GMを公演開始時刻順に選ぶ', () => {
+    expect(resolveStaffCheckinCandidates(
+      [sora, rena],
       [
         { start_time: '13:30:00', scenario: 'REDRUM05 目醒めゆくフローライト', gms: ['ソラ'], is_cancelled: false },
+        { start_time: '18:00:00', scenario: '別シナリオ', gms: ['レナ'], is_cancelled: false },
       ],
+      [{ id: 'checkin-sora', staff_id: 'staff-sora', checked_in_at: '2026-08-03T04:30:00.000Z' }],
       'クインズワルツ高田馬場店',
-    )).toEqual({
+    )).toEqual([
+      {
+        staff: sora,
+        performance: {
+          start_time: '13:30:00',
+          scenario: 'REDRUM05 目醒めゆくフローライト',
+          store_name: 'クインズワルツ高田馬場店',
+        },
+        checkin: { id: 'checkin-sora', checked_in_at: '2026-08-03T04:30:00.000Z' },
+      },
+      {
+        staff: rena,
+        performance: { start_time: '18:00:00', scenario: '別シナリオ', store_name: 'クインズワルツ高田馬場店' },
+        checkin: null,
+      },
+    ])
+  })
+
+  it('中止公演・割当名欠損・重複公演を安全に除外する', () => {
+    expect(resolveStaffCheckinCandidates(
+      [sora],
+      [
+        { start_time: '09:00:00', scenario: '中止', gms: ['ソラ'], is_cancelled: true },
+        { start_time: '13:30:00', scenario: 'REDRUM05', gms: ['ソラ', '', null], is_cancelled: false },
+        { start_time: '18:00:00', scenario: '別公演', gms: ['ソラ'], status: 'cancelled' },
+      ],
+      null,
+      null,
+    )).toEqual([{ staff: sora, performance: undefined, checkin: null }])
+    expect(resolveStaffCheckinCandidates([sora], null, null, null)).toEqual([])
+  })
+
+  it('当日店舗の未打刻GMを宛名にして、公演情報も返す', async () => {
+    const repository = createRepository({
+      findScheduledCandidates: vi.fn().mockResolvedValue([candidate(sora)]),
+    })
+    const service = createStaffCheckinService(repository, fixedNow)
+
+    await expect(service.getState(user, 'store-selected')).resolves.toEqual({
+      available: true,
+      my_checkin: null,
       staff_name: 'ソラ',
       performance: {
         start_time: '13:30:00',
@@ -72,24 +99,69 @@ describe('staff checkin API service', () => {
         store_name: 'クインズワルツ高田馬場店',
       },
     })
+    expect(repository.findScheduledCandidates).toHaveBeenCalledWith(
+      'org-self',
+      'store-selected',
+      '2026-08-04',
+      '2026-08-04T00:00:00+09:00',
+      '2026-08-05T00:00:00+09:00',
+    )
   })
 
-  it('担当名・公演情報の欠損や中止公演を例外なく省略する', () => {
-    expect(resolveStaffCheckinContext(
-      { id: 'staff-self', name: 'ソラ' },
-      [{ start_time: '13:30:00', scenario: 'REDRUM05', gms: ['ソラ'], is_cancelled: true }],
-      'クインズワルツ高田馬場店',
-    )).toEqual({ staff_name: 'ソラ' })
-    expect(resolveStaffCheckinContext(undefined, null, null)).toEqual({})
+  it('打刻時にもサーバー側で未打刻GMを再選定し、そのstaff_idで記録する', async () => {
+    const repository = createRepository({
+      findScheduledCandidates: vi.fn().mockResolvedValue([candidate(sora, { id: 'already', checked_in_at: '2026-08-03T04:30:00.000Z' }), candidate(rena)]),
+    })
+    const service = createStaffCheckinService(repository, fixedNow)
+
+    await service.checkIn(user, 'store-selected')
+
+    expect(repository.insert).toHaveBeenCalledWith({
+      staff_id: 'staff-rena',
+      store_id: 'store-selected',
+      organization_id: 'org-self',
+    })
+    expect(repository.insert).not.toHaveBeenCalledWith(expect.objectContaining({ checked_in_at: expect.anything() }))
   })
 
-  it('公演のGM名を正としてスタッフ照合に失敗しても表示用行を残す', () => {
-    const staff = [{ id: 'staff-sora', name: 'ソラ', organization_id: 'org-self' }]
+  it('当日の担当GMがいなければ打刻バブルを利用不可にする', async () => {
+    const service = createStaffCheckinService(createRepository(), fixedNow)
+    await expect(service.getState(user, 'store-selected')).resolves.toEqual({ available: false })
+  })
 
-    expect(resolveEventGmStaff(['ソラ', '未登録GM', ''], staff, 'org-self', 'event-1')).toEqual([
-      { id: 'staff-sora', name: 'ソラ', organization_id: 'org-self' },
-      { id: 'event-gm:event-1:1', name: '未登録GM', display_name: '未登録GM', organization_id: 'org-self' },
-    ])
+  it('店舗代表でないアカウントは従来どおり拒否する', async () => {
+    const service = createStaffCheckinService(createRepository({ isStoreRepresentative: vi.fn().mockResolvedValue(false) }), fixedNow)
+    await expect(service.getState(user, 'store-selected')).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('全員打刻済みのときは先頭GMの打刻状態を表示し、取消もそのGMに限定する', async () => {
+    const existing = { id: 'checkin-sora', checked_in_at: '2026-08-03T04:30:00.000Z' }
+    const repository = createRepository({
+      findScheduledCandidates: vi.fn().mockResolvedValue([candidate(sora, existing), candidate(rena, { id: 'checkin-rena', checked_in_at: '2026-08-03T05:00:00.000Z' })]),
+    })
+    const service = createStaffCheckinService(repository, fixedNow)
+
+    await expect(service.getState(user, 'store-selected')).resolves.toMatchObject({
+      available: true,
+      my_checkin: { checked_in_at: existing.checked_in_at },
+      staff_name: 'ソラ',
+    })
+    await expect(service.cancel(user, 'store-selected')).resolves.toEqual({ cancelled: true })
+    expect(repository.deleteToday).toHaveBeenCalledWith(
+      { staffId: 'staff-sora', organizationId: 'org-self' },
+      'checkin-sora',
+      '2026-08-04T00:00:00+09:00',
+      '2026-08-05T00:00:00+09:00',
+    )
+  })
+
+  it('並行打刻でDB unique違反になった場合も409へ変換する', async () => {
+    const repository = createRepository({
+      findScheduledCandidates: vi.fn().mockResolvedValue([candidate(sora)]),
+      insert: vi.fn().mockRejectedValue({ code: '23505' }),
+    })
+    const service = createStaffCheckinService(repository, fixedNow)
+    await expect(service.checkIn(user, 'store-selected')).rejects.toMatchObject({ status: 409 })
   })
 
   it('JST当日の範囲を翌日0時未満で固定する', () => {
@@ -98,86 +170,4 @@ describe('staff checkin API service', () => {
       end: '2026-08-05T00:00:00+09:00',
     })
   })
-
-  it('usersの店舗代表フラグをDB確認しfail-closedにする', async () => {
-    const service = createStaffCheckinService(createRepository({ isStoreRepresentative: vi.fn().mockResolvedValue(false) }), fixedNow)
-    await expect(service.getState(user)).rejects.toMatchObject({ status: 403 })
-  })
-
-  it('ログインuserとorganizationから本人staffを一意解決する', async () => {
-    const repository = createRepository()
-    const service = createStaffCheckinService(repository, fixedNow)
-    await service.getState(user)
-    expect(repository.findStaffIdsByUser).toHaveBeenCalledWith('user-self', 'org-self')
-    expect(repository.findToday).toHaveBeenCalledWith(
-      { staffId: 'staff-self', organizationId: 'org-self' },
-      '2026-08-04T00:00:00+09:00',
-      '2026-08-05T00:00:00+09:00',
-    )
-  })
-
-  it.each([
-    { name: '本人staffがない', overrides: { findStaffIdsByUser: vi.fn().mockResolvedValue([]) } },
-    { name: '本人staffが複数', overrides: { findStaffIdsByUser: vi.fn().mockResolvedValue(['staff-1', 'staff-2']) } },
-    { name: '別organizationの店舗', overrides: { storeBelongsToOrganization: vi.fn().mockResolvedValue(false) } },
-  ])('$name場合は打刻を拒否する', async ({ overrides }) => {
-    const service = createStaffCheckinService(createRepository(overrides), fixedNow)
-    await expect(service.checkIn(user, 'store-selected')).rejects.toMatchObject({ status: 403 })
-  })
-
-  it('作成値はserver解決したstaff/store/orgだけでDB DEFAULT NOW()へ時刻を委ねる', async () => {
-    const repository = createRepository()
-    const service = createStaffCheckinService(repository, fixedNow)
-    await service.checkIn(user, 'store-selected')
-    expect(repository.insert).toHaveBeenCalledWith({
-      staff_id: 'staff-self',
-      store_id: 'store-selected',
-      organization_id: 'org-self',
-    })
-    expect(repository.insert).not.toHaveBeenCalledWith(expect.objectContaining({ checked_in_at: expect.anything() }))
-  })
-
-  it('当日の重複打刻はinsert前に409で拒否する', async () => {
-    const repository = createRepository({ findToday: vi.fn().mockResolvedValue({ id: 'existing', checked_in_at: '2026-08-03T04:30:00.000Z' }) })
-    const service = createStaffCheckinService(repository, fixedNow)
-    await expect(service.checkIn(user, 'store-selected')).rejects.toMatchObject({ status: 409 })
-    expect(repository.insert).not.toHaveBeenCalled()
-  })
-
-  it('並行打刻でDB unique違反になった場合も409へ変換する', async () => {
-    const repository = createRepository({ insert: vi.fn().mockRejectedValue({ code: '23505' }) })
-    const service = createStaffCheckinService(repository, fixedNow)
-    await expect(service.checkIn(user, 'store-selected')).rejects.toMatchObject({ status: 409 })
-  })
-
-  it('店舗切替後も選択店舗に縛らず本人・organization・JST当日の打刻を取得して取り消す', async () => {
-    const existing = { id: 'checkin-at-other-store', checked_in_at: '2026-08-03T04:30:00.000Z' }
-    const repository = createRepository({ findToday: vi.fn().mockResolvedValue(existing) })
-    const service = createStaffCheckinService(repository, fixedNow)
-    expect(await service.getState(user)).toEqual({ available: true, my_checkin: { checked_in_at: existing.checked_in_at } })
-    await expect(service.cancel(user)).resolves.toEqual({ cancelled: true })
-    expect(repository.deleteToday).toHaveBeenCalledWith(
-      { staffId: 'staff-self', organizationId: 'org-self' },
-      'checkin-at-other-store',
-      '2026-08-04T00:00:00+09:00',
-      '2026-08-05T00:00:00+09:00',
-    )
-  })
-
-  it('当日の本人打刻がなければ取消を404にする', async () => {
-    const service = createStaffCheckinService(createRepository(), fixedNow)
-    await expect(service.cancel(user)).rejects.toMatchObject({ status: 404 })
-  })
 })
-
-function createSupabaseQuery(result: { data: unknown; error: unknown }) {
-  const query = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockResolvedValue(result),
-    maybeSingle: vi.fn().mockResolvedValue(result),
-    then: (resolve: (value: typeof result) => unknown, reject: (reason: unknown) => unknown) => Promise.resolve(result).then(resolve, reject),
-  }
-  return query
-}

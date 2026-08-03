@@ -24,5 +24,5 @@ export const storeDashboardApi = {
   action: (body: Record<string, unknown>) => apiClient.post<any>('/api/store-dashboard', body),
   getStaffCheckin: (storeId?: string) => apiClient.get<StaffCheckinApiResponse>(`/api/store-dashboard?resource=staff_checkin${storeId ? `&store_id=${encodeURIComponent(storeId)}` : ''}`),
   staffCheckin: (storeId: string) => apiClient.post<{ id: string; checked_in_at: string }>('/api/store-dashboard', { action: 'staff_checkin', store_id: storeId }),
-  cancelStaffCheckin: () => apiClient.post<{ cancelled: true }>('/api/store-dashboard', { action: 'staff_checkin_cancel' }),
+  cancelStaffCheckin: (storeId: string) => apiClient.post<{ cancelled: true }>('/api/store-dashboard', { action: 'staff_checkin_cancel', store_id: storeId }),
 }

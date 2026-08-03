@@ -41,20 +41,26 @@ export interface StaffCheckinContext {
   performance?: StaffCheckinPerformance
 }
 
+export interface StaffCheckinScheduledCandidate {
+  staff: DashboardStaff
+  performance?: StaffCheckinPerformance
+  checkin: StaffCheckinRecord | null
+}
+
+interface StaffCheckinActor {
+  organizationId: string
+  storeId: string
+}
+
 interface StaffCheckinIdentity {
   staffId: string
   organizationId: string
 }
 
-interface StaffCheckinActor extends StaffCheckinIdentity {
-  storeId: string
-}
-
 export interface StaffCheckinRepository {
   isStoreRepresentative: (userId: string, organizationId: string) => Promise<boolean>
-  findStaffIdsByUser: (userId: string, organizationId: string) => Promise<string[]>
   storeBelongsToOrganization: (storeId: string, organizationId: string) => Promise<boolean>
-  findToday: (identity: StaffCheckinIdentity, start: string, end: string) => Promise<StaffCheckinRecord | null>
+  findScheduledCandidates: (organizationId: string, storeId: string, date: string, start: string, end: string) => Promise<StaffCheckinScheduledCandidate[]>
   insert: (values: { staff_id: string; store_id: string; organization_id: string }) => Promise<StaffCheckinRecord>
   deleteToday: (identity: StaffCheckinIdentity, checkinId: string, start: string, end: string) => Promise<StaffCheckinRecord | null>
 }
@@ -80,41 +86,51 @@ export function getJstDayBounds(now = new Date()) {
 }
 
 export function createStaffCheckinService(repository: StaffCheckinRepository, now: () => Date = () => new Date()) {
-  const resolveIdentity = async (user: AuthUser): Promise<StaffCheckinIdentity> => {
-    const [isRepresentative, staffIds] = await Promise.all([
-      repository.isStoreRepresentative(user.userId, user.orgId),
-      repository.findStaffIdsByUser(user.userId, user.orgId),
-    ])
-    if (!isRepresentative) throw new ApiError(403, '店舗代表アカウントだけが出勤打刻を利用できます')
-    if (staffIds.length !== 1) throw new ApiError(403, 'ログイン中の本人スタッフを一意に確認できません')
-    return { staffId: staffIds[0], organizationId: user.orgId }
-  }
-
   const resolveActor = async (user: AuthUser, storeId: string): Promise<StaffCheckinActor> => {
-    const [identity, storeIsValid] = await Promise.all([
-      resolveIdentity(user),
+    const [isRepresentative, storeIsValid] = await Promise.all([
+      repository.isStoreRepresentative(user.userId, user.orgId),
       repository.storeBelongsToOrganization(storeId, user.orgId),
     ])
+    if (!isRepresentative) throw new ApiError(403, '店舗代表アカウントだけが出勤打刻を利用できます')
     if (!storeIsValid) throw new ApiError(403, '選択した店舗を利用できません')
-    return { ...identity, storeId }
+    return { organizationId: user.orgId, storeId }
   }
 
-  const getState = async (user: AuthUser) => {
-    const identity = await resolveIdentity(user)
+  const resolveCandidates = async (user: AuthUser, storeId: string) => {
+    const actor = await resolveActor(user, storeId)
     const bounds = getJstDayBounds(now())
-    const checkin = await repository.findToday(identity, bounds.start, bounds.end)
-    return { available: true as const, my_checkin: checkin ? { checked_in_at: checkin.checked_in_at } : null }
+    return {
+      actor,
+      candidates: await repository.findScheduledCandidates(
+        actor.organizationId,
+        actor.storeId,
+        bounds.start.slice(0, 10),
+        bounds.start,
+        bounds.end,
+      ),
+    }
+  }
+
+  const getState = async (user: AuthUser, storeId: string) => {
+    const { candidates } = await resolveCandidates(user, storeId)
+    if (candidates.length === 0) return { available: false as const }
+    const target = candidates.find(candidate => !candidate.checkin) ?? candidates[0]
+    return {
+      available: true as const,
+      my_checkin: target.checkin ? { checked_in_at: target.checkin.checked_in_at } : null,
+      ...toStaffCheckinContext(target),
+    }
   }
 
   const checkIn = async (user: AuthUser, storeId: string) => {
-    const actor = await resolveActor(user, storeId)
-    const bounds = getJstDayBounds(now())
-    if (await repository.findToday(actor, bounds.start, bounds.end)) {
+    const { actor, candidates } = await resolveCandidates(user, storeId)
+    const target = candidates.find(candidate => !candidate.checkin)
+    if (!target) {
       throw new ApiError(409, '本日の出勤打刻はすでに記録されています')
     }
     try {
       return await repository.insert({
-        staff_id: actor.staffId,
+        staff_id: target.staff.id,
         store_id: actor.storeId,
         organization_id: actor.organizationId,
       })
@@ -124,12 +140,17 @@ export function createStaffCheckinService(repository: StaffCheckinRepository, no
     }
   }
 
-  const cancel = async (user: AuthUser) => {
-    const identity = await resolveIdentity(user)
+  const cancel = async (user: AuthUser, storeId: string) => {
+    const { actor, candidates } = await resolveCandidates(user, storeId)
     const bounds = getJstDayBounds(now())
-    const checkin = await repository.findToday(identity, bounds.start, bounds.end)
-    if (!checkin) throw new ApiError(404, '本日の自分の出勤打刻が見つかりません')
-    const deleted = await repository.deleteToday(identity, checkin.id, bounds.start, bounds.end)
+    const target = candidates.find(candidate => candidate.checkin)
+    if (!target?.checkin) throw new ApiError(404, '本日の出勤打刻が見つかりません')
+    const deleted = await repository.deleteToday(
+      { staffId: target.staff.id, organizationId: actor.organizationId },
+      target.checkin.id,
+      bounds.start,
+      bounds.end,
+    )
     if (!deleted) throw new ApiError(404, '本日の自分の出勤打刻が見つかりません')
     return { cancelled: true as const }
   }
@@ -232,10 +253,10 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (action === 'staff_checkin' || action === 'staff_checkin_cancel') {
     if ('staff_id' in body || 'checked_in_at' in body) return res.status(400).json({ error: '本人と打刻時刻はサーバーで決定します' })
     const service = createStaffCheckinService(createStaffCheckinRepository(database))
-    if (action === 'staff_checkin' && (typeof body.store_id !== 'string' || !body.store_id)) return res.status(400).json({ error: 'store_id が必要です' })
+    if (typeof body.store_id !== 'string' || !body.store_id) return res.status(400).json({ error: 'store_id が必要です' })
     const result = action === 'staff_checkin'
       ? await service.checkIn(user, body.store_id as string)
-      : await service.cancel(user)
+      : await service.cancel(user, body.store_id as string)
     return res.status(action === 'staff_checkin' ? 201 : 200).json(result)
   }
   if (action === 'customer_checkin') {
@@ -250,37 +271,9 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
 
 async function getStaffCheckin(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const service = createStaffCheckinService(createStaffCheckinRepository(db as any))
-  const state = await service.getState(user)
   const storeId = typeof _req.query.store_id === 'string' ? _req.query.store_id : undefined
-  const context = await loadStaffCheckinContext(db as any, user, storeId)
-  return res.status(200).json({ ...state, ...context })
-}
-
-export function resolveStaffCheckinContext(
-  staff: DashboardStaff | null | undefined,
-  events: unknown,
-  storeName: unknown,
-): StaffCheckinContext {
-  const staffName = firstNonEmptyString(staff?.display_name, staff?.name)
-  const context: StaffCheckinContext = staffName ? { staff_name: staffName } : {}
-  if (!staff || !Array.isArray(events)) return context
-
-  const staffNames = new Set([staff.name, staff.display_name].filter(isNonEmptyString).map(name => name.trim()))
-  if (staffNames.size === 0) return context
-  const store = typeof storeName === 'string' ? storeName.trim() : ''
-  const event = events.find((candidate): candidate is Record<string, unknown> => {
-    if (!isRecord(candidate) || candidate.is_cancelled === true || candidate.status === 'cancelled') return false
-    if (!isNonEmptyString(candidate.start_time) || !isNonEmptyString(candidate.scenario) || !store) return false
-    return Array.isArray(candidate.gms) && candidate.gms.some(name => isNonEmptyString(name) && staffNames.has(name.trim()))
-  })
-  if (event) {
-    context.performance = {
-      start_time: (event.start_time as string).trim(),
-      scenario: (event.scenario as string).trim(),
-      store_name: store,
-    }
-  }
-  return context
+  if (!storeId) return res.status(200).json({ available: false })
+  return res.status(200).json(await service.getState(user, storeId))
 }
 
 function createStaffCheckinRepository(database: any): StaffCheckinRepository {
@@ -296,17 +289,6 @@ function createStaffCheckinRepository(database: any): StaffCheckinRepository {
       if (error) throw error
       return data?.is_store_representative === true
     },
-    async findStaffIdsByUser(userId, organizationId) {
-      const { data, error } = await database
-        .from('staff')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('organization_id', organizationId)
-        .eq('status', 'active')
-        .limit(2)
-      if (error) throw error
-      return (data ?? []).map((row: { id: string }) => row.id)
-    },
     async storeBelongsToOrganization(storeId, organizationId) {
       const { data, error } = await database
         .from('stores')
@@ -318,19 +300,42 @@ function createStaffCheckinRepository(database: any): StaffCheckinRepository {
       if (error) throw error
       return Boolean(data)
     },
-    async findToday(identity, start, end) {
-      const { data, error } = await database
-        .from('staff_checkins')
-        .select('id, checked_in_at')
-        .eq('staff_id', identity.staffId)
-        .eq('organization_id', identity.organizationId)
-        .gte('checked_in_at', start)
-        .lt('checked_in_at', end)
-        .order('checked_in_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (error) throw error
-      return data as StaffCheckinRecord | null
+    async findScheduledCandidates(organizationId, storeId, date, start, end) {
+      const [{ data: events, error: eventError }, { data: store, error: storeError }, { data: staff, error: staffError }] = await Promise.all([
+        database.from('schedule_events')
+          .select('start_time, scenario, gms, status, is_cancelled')
+          .eq('organization_id', organizationId)
+          .eq('store_id', storeId)
+          .eq('date', date)
+          .order('start_time'),
+        database.from('stores')
+          .select('id, name')
+          .eq('id', storeId)
+          .eq('organization_id', organizationId)
+          .eq('status', 'active')
+          .maybeSingle(),
+        database.from('staff')
+          .select('id, name, organization_id')
+          .eq('organization_id', organizationId)
+          .eq('status', 'active')
+          .order('name'),
+      ])
+      if (eventError) throw eventError
+      if (storeError) throw storeError
+      if (staffError) throw staffError
+
+      const staffIds = (staff ?? []).map((member: DashboardStaff) => member.id)
+      const { data: checkins, error: checkinError } = staffIds.length
+        ? await database.from('staff_checkins')
+          .select('id, staff_id, checked_in_at')
+          .eq('organization_id', organizationId)
+          .gte('checked_in_at', start)
+          .lt('checked_in_at', end)
+          .in('staff_id', staffIds)
+          .order('checked_in_at', { ascending: false })
+        : { data: [], error: null }
+      if (checkinError) throw checkinError
+      return resolveStaffCheckinCandidates(staff ?? [], events, checkins, store?.name)
     },
     async insert(values) {
       const { data, error } = await database
@@ -363,37 +368,61 @@ function isDatabaseErrorCode(error: unknown, code: string) {
 }
 
 export async function loadStaffCheckinContext(database: any, user: AuthUser, storeId?: string): Promise<StaffCheckinContext> {
-  let staff: DashboardStaff | undefined
-  try {
-    const { data: staffRows, error: staffError } = await database
-      .from('staff')
-      .select('id, name')
-      .eq('organization_id', user.orgId)
-      .eq('user_id', user.userId)
-      .eq('status', 'active')
-      .limit(1)
-    if (staffError) throw staffError
-    staff = staffRows?.[0]
-  } catch (error) {
-    console.error('[store-dashboard] 打刻バブルの宛名情報を取得できませんでした', error)
-    return {}
+  if (!storeId) return {}
+  const service = createStaffCheckinService(createStaffCheckinRepository(database))
+  const state = await service.getState(user, storeId)
+  if (state.available === false || !state.staff_name) return {}
+  return {
+    staff_name: state.staff_name,
+    ...(state.performance ? { performance: state.performance } : {}),
+  }
+}
+
+export function resolveStaffCheckinCandidates(
+  staff: DashboardStaff[],
+  events: unknown,
+  checkins: unknown,
+  storeName: unknown,
+): StaffCheckinScheduledCandidate[] {
+  if (!Array.isArray(events)) return []
+  const checkinByStaffId = new Map<string, StaffCheckinRecord>()
+  if (Array.isArray(checkins)) {
+    for (const value of checkins) {
+      if (!isRecord(value) || !isNonEmptyString(value.staff_id) || !isNonEmptyString(value.id) || !isNonEmptyString(value.checked_in_at)) continue
+      if (!checkinByStaffId.has(value.staff_id)) {
+        checkinByStaffId.set(value.staff_id, {
+          id: value.id,
+          checked_in_at: value.checked_in_at,
+        })
+      }
+    }
   }
 
-  const context = resolveStaffCheckinContext(staff, undefined, undefined)
-  if (!storeId) return context
+  const store = typeof storeName === 'string' && storeName.trim() ? storeName.trim() : undefined
+  const result: StaffCheckinScheduledCandidate[] = []
+  const assignedStaffIds = new Set<string>()
+  for (const event of events) {
+    if (!isRecord(event) || event.is_cancelled === true || event.status === 'cancelled' || !Array.isArray(event.gms)) continue
+    const performance = isNonEmptyString(event.start_time) && isNonEmptyString(event.scenario) && store
+      ? { start_time: event.start_time.trim(), scenario: event.scenario.trim(), store_name: store }
+      : undefined
+    for (const rawName of event.gms) {
+      if (!isNonEmptyString(rawName)) continue
+      const name = rawName.trim()
+      const member = staff.find(candidate => candidate.name?.trim() === name || candidate.display_name?.trim() === name)
+      if (!member || assignedStaffIds.has(member.id)) continue
+      assignedStaffIds.add(member.id)
+      result.push({ staff: member, performance, checkin: checkinByStaffId.get(member.id) ?? null })
+    }
+  }
+  return result
+}
 
-  try {
-    const today = getJstDayBounds().start.slice(0, 10)
-    const [{ data: events, error: eventError }, { data: store, error: storeError }] = await Promise.all([
-      database.from('schedule_events').select('start_time, scenario, gms, status, is_cancelled').eq('organization_id', user.orgId).eq('date', today).eq('store_id', storeId).order('start_time'),
-      database.from('stores').select('id, name').eq('organization_id', user.orgId).eq('id', storeId).eq('status', 'active').maybeSingle(),
-    ])
-    if (eventError) throw eventError
-    if (storeError) throw storeError
-    return resolveStaffCheckinContext(staff, events, store?.name)
-  } catch (error) {
-    console.error('[store-dashboard] 打刻バブルの公演情報を取得できませんでした', error)
-    return context
+function toStaffCheckinContext(candidate: StaffCheckinScheduledCandidate): StaffCheckinContext {
+  const staffName = firstNonEmptyString(candidate.staff.display_name, candidate.staff.name)
+  return {
+    ...(staffName ? { staff_name: staffName } : {}),
+    ...(candidate.performance ? { performance: candidate.performance } : {}),
   }
 }
 
@@ -405,6 +434,6 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, any> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
