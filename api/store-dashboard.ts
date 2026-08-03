@@ -65,7 +65,19 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   const { data: checkins, error: checkinError } = staffIds.length ? await database.from('staff_checkins').select('id, staff_id, store_id, checked_in_at, checked_out_at').eq('organization_id', user.orgId).eq('store_id', selectedStoreId).gte('checked_in_at', `${today}T00:00:00+09:00`).lt('checked_in_at', `${today}T23:59:59+09:00`).in('staff_id', staffIds) : { data: [], error: null }
   if (checkinError) throw checkinError
   const checkinMap = new Map((checkins ?? []).map((c: any) => [c.staff_id, c]))
-  const viewerCheckin = viewerStaff ? checkinMap.get(viewerStaff.id) ?? null : null
+  const { data: viewerCheckins, error: viewerCheckinError } = viewerStaff
+    ? await database
+      .from('staff_checkins')
+      .select('id, staff_id, store_id, checked_in_at, checked_out_at')
+      .eq('staff_id', viewerStaff.id)
+      .eq('organization_id', user.orgId)
+      .gte('checked_in_at', `${today}T00:00:00+09:00`)
+      .lt('checked_in_at', `${today}T23:59:59+09:00`)
+      .order('checked_in_at', { ascending: false })
+      .limit(1)
+    : { data: [], error: null }
+  if (viewerCheckinError) throw viewerCheckinError
+  const viewerCheckin = viewerCheckins?.[0] ?? null
   const reservationsByEvent = new Map<string, any[]>()
   for (const reservation of reservations ?? []) {
     const customer = reservation.customer_id ? customerMap.get(reservation.customer_id) : null
