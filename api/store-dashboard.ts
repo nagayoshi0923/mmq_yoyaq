@@ -29,7 +29,7 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   const validStoreIds = new Set((stores ?? []).map((s: any) => s.id))
   const selectedStoreId = storeId && validStoreIds.has(storeId) ? storeId : (stores?.[0]?.id ?? null)
 
-  let eventQuery = database.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', user.orgId).eq('date', today).eq('is_cancelled', false).order('start_time')
+  let eventQuery = database.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', user.orgId).eq('date', today).order('start_time')
   if (selectedStoreId) eventQuery = eventQuery.eq('store_id', selectedStoreId)
   const { data: events, error: eventError } = await eventQuery
   if (eventError) throw eventError
