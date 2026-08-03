@@ -41,7 +41,7 @@ export function StaffCheckinBubble({ onStaffCheckin }: { onStaffCheckin?: (staff
       <p className="mt-5 text-sm font-semibold text-foreground">{prompt.staff_name}さん、{alreadyCheckedIn ? '退勤' : '出勤'}打刻をお願いします。</p>
       <p className="mt-2 text-xs text-muted-foreground">{prompt.start_time.slice(0, 5)} {prompt.scenario} @ {prompt.store_name}</p>
       <Button className="mt-4 h-11 w-full rounded-lg bg-indigo-500 text-sm font-bold hover:bg-indigo-600" onClick={handleClick} disabled={loading}>
-        <Clock3 className="mr-2 h-4 w-4" />{prompt.start_time.slice(0, 5)} {alreadyCheckedIn ? '退勤' : '出勤'}打刻する
+        <Clock3 className="mr-2 h-4 w-4" />{alreadyCheckedIn ? '退勤' : '出勤'}打刻する
       </Button>
       <p className="mt-3 text-xs text-muted-foreground">※打刻するまで表示されます（画面操作は妨げません）</p>
     </aside>

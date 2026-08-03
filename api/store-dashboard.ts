@@ -112,7 +112,8 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
   const { data: store } = await database.from('stores').select('id').eq('id', body.store_id).eq('organization_id', user.orgId).maybeSingle()
   if (!staff || !store) return res.status(403).json({ error: '対象が組織に属していません' })
   if (action === 'staff_checkin') {
-    const { data, error } = await database.from('staff_checkins').insert({ staff_id: body.staff_id, store_id: body.store_id, organization_id: user.orgId }).select().single()
+    const checkedInAt = new Date().toISOString()
+    const { data, error } = await database.from('staff_checkins').insert({ staff_id: body.staff_id, store_id: body.store_id, organization_id: user.orgId, checked_in_at: checkedInAt }).select().single()
     if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'すでに出勤打刻済みです' : '出勤打刻に失敗しました' })
     return res.status(201).json(data)
   }
