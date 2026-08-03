@@ -6,6 +6,7 @@ export interface StoreDashboardData {
   selected_store_id: string | null
   events: Array<any>
   gm_status: Array<any>
+  my_checkin: { id: string; staff_id: string; store_id: string; checked_in_at: string; checked_out_at: string | null } | null
   prompt: { staff_id: string; staff_name: string; event_id: string; scenario: string; start_time: string; store_name: string } | null
 }
 

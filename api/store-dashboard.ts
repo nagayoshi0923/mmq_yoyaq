@@ -53,10 +53,19 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   const customerMap = new Map((customers ?? []).map((c: any) => [c.id, c]))
   const { data: staff, error: staffError } = await database.from('staff').select('id, name, role, stores, organization_id').eq('organization_id', user.orgId).eq('status', 'active').order('name')
   if (staffError) throw staffError
+  const { data: viewerStaffRows, error: viewerStaffError } = await database
+    .from('staff')
+    .select('id')
+    .eq('organization_id', user.orgId)
+    .eq('user_id', user.userId)
+    .limit(2)
+  if (viewerStaffError) throw viewerStaffError
+  const viewerStaff = viewerStaffRows?.length === 1 ? viewerStaffRows[0] : null
   const staffIds = (staff ?? []).map((s: any) => s.id)
   const { data: checkins, error: checkinError } = staffIds.length ? await database.from('staff_checkins').select('id, staff_id, store_id, checked_in_at, checked_out_at').eq('organization_id', user.orgId).eq('store_id', selectedStoreId).gte('checked_in_at', `${today}T00:00:00+09:00`).lt('checked_in_at', `${today}T23:59:59+09:00`).in('staff_id', staffIds) : { data: [], error: null }
   if (checkinError) throw checkinError
   const checkinMap = new Map((checkins ?? []).map((c: any) => [c.staff_id, c]))
+  const viewerCheckin = viewerStaff ? checkinMap.get(viewerStaff.id) ?? null : null
   const reservationsByEvent = new Map<string, any[]>()
   for (const reservation of reservations ?? []) {
     const customer = reservation.customer_id ? customerMap.get(reservation.customer_id) : null
@@ -92,7 +101,7 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   const gmStatus = (staff ?? []).filter((s: any) => assignedStaffIds.has(s.id)).map((s: any) => ({ ...s, checkin: checkinMap.get(s.id) ?? null }))
   const promptStaff = gmStatus.find((s: any) => s.checkin && !s.checkin.checked_out_at) ?? gmStatus.find((s: any) => !s.checkin)
   const promptEvent = promptStaff ? eventRows.find((event: any) => event.assigned_staff.some((s: any) => s.id === promptStaff.id)) : null
-  return res.status(200).json({ date: today, stores, selected_store_id: selectedStoreId, events: eventRows, gm_status: gmStatus, prompt: promptStaff && promptEvent ? { staff_id: promptStaff.id, staff_name: promptStaff.display_name || promptStaff.name, event_id: promptEvent.id, scenario: promptEvent.scenario, start_time: promptEvent.start_time, store_name: stores?.find((s: any) => s.id === selectedStoreId)?.name ?? '' } : null })
+  return res.status(200).json({ date: today, stores, selected_store_id: selectedStoreId, events: eventRows, gm_status: gmStatus, my_checkin: viewerCheckin, prompt: promptStaff && promptEvent ? { staff_id: promptStaff.id, staff_name: promptStaff.display_name || promptStaff.name, event_id: promptEvent.id, scenario: promptEvent.scenario, start_time: promptEvent.start_time, store_name: stores?.find((s: any) => s.id === selectedStoreId)?.name ?? '' } : null })
 }
 
 async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUser) {
@@ -106,6 +115,7 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
     if (!data) return res.status(404).json({ error: '予約が見つかりません' })
     return res.status(200).json(data)
   }
+  if (action === 'staff_checkin_cancel') return await cancelOwnStaffCheckin(res, user)
   if (action !== 'staff_checkin' && action !== 'staff_checkout') return res.status(400).json({ error: 'action が不正です' })
   if (typeof body.staff_id !== 'string' || typeof body.store_id !== 'string') return res.status(400).json({ error: 'staff_id と store_id が必要です' })
   const { data: staff } = await database.from('staff').select('id').eq('id', body.staff_id).eq('organization_id', user.orgId).maybeSingle()
@@ -121,4 +131,42 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (error) throw error
   if (!data) return res.status(404).json({ error: '出勤中の打刻が見つかりません' })
   return res.status(200).json(data)
+}
+
+async function cancelOwnStaffCheckin(res: VercelResponse, user: AuthUser) {
+  const database = db as any
+  const { data: staffRows, error: staffError } = await database
+    .from('staff')
+    .select('id')
+    .eq('organization_id', user.orgId)
+    .eq('user_id', user.userId)
+    .limit(2)
+  if (staffError) throw staffError
+  if (!staffRows || staffRows.length !== 1) return res.status(403).json({ error: 'ログイン中のスタッフに紐づく打刻が見つかりません' })
+
+  const { start, end } = getJstDayBounds()
+  const { data, error } = await database
+    .from('staff_checkins')
+    .delete()
+    .eq('staff_id', staffRows[0].id)
+    .eq('organization_id', user.orgId)
+    .is('checked_out_at', null)
+    .gte('checked_in_at', start)
+    .lt('checked_in_at', end)
+    .select('id, staff_id, store_id, checked_in_at, checked_out_at')
+  if (error) throw error
+  if (!data?.length) return res.status(404).json({ error: '本日の出勤中の打刻が見つかりません' })
+  return res.status(200).json({ cancelled: true, id: data[0].id })
+}
+
+function getJstDayBounds(now = new Date()) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(now)
+  const [year, month, day] = today.split('-').map(Number)
+  const nextDay = new Date(Date.UTC(year, month - 1, day + 1))
+  const next = [nextDay.getUTCFullYear(), nextDay.getUTCMonth() + 1, nextDay.getUTCDate()]
+    .map((value) => String(value).padStart(2, '0'))
+  return {
+    start: `${today}T00:00:00+09:00`,
+    end: `${next[0]}-${next[1]}-${next[2]}T00:00:00+09:00`,
+  }
 }

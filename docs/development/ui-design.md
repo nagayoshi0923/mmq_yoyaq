@@ -113,6 +113,13 @@
   - 種類: Card + リスト
   - 用途: 最近の活動履歴表示
 
+### 2-1. 店舗ダッシュボード (`StoreDashboard/index.tsx`)
+
+- **出勤打刻バブル** (`StaffCheckinBubble.tsx`)
+  - 打刻済みのログイン中スタッフには「打刻を取り消す」導線を表示
+  - 取消前に共通 `ConfirmDialog` で確認する
+  - 取消後は現在時刻表示の出勤打刻ボタンへ戻る
+
 ---
 
 ### 3. 店舗管理ページ (`StoreManagement.tsx`)

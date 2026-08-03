@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Clock3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import { storeDashboardApi } from '@/lib/api/storeDashboardApi'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -18,6 +19,7 @@ export function StaffCheckinBubble({ onStaffCheckin, checkinOnly = false }: { on
   const { isStaff } = useAuth()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState(getCurrentTime)
   useEffect(() => {
     if (!isStaff) return
@@ -39,7 +41,8 @@ export function StaffCheckinBubble({ onStaffCheckin, checkinOnly = false }: { on
   if (!isStaff || !data?.prompt) return null
   const prompt = data.prompt
   const alreadyCheckedIn = data.gm_status?.find((s: any) => s.id === prompt.staff_id)?.checkin
-  if (checkinOnly && alreadyCheckedIn) return null
+  const canCancelOwnCheckin = Boolean(data.my_checkin && !data.my_checkin.checked_out_at)
+  if (checkinOnly && alreadyCheckedIn && !canCancelOwnCheckin) return null
   const handleClick = async () => {
     setLoading(true)
     try {
@@ -49,15 +52,32 @@ export function StaffCheckinBubble({ onStaffCheckin, checkinOnly = false }: { on
       setData(refreshed)
     } finally { setLoading(false) }
   }
+  const handleCancel = async () => {
+    await storeDashboardApi.action({ action: 'staff_checkin_cancel' })
+    const refreshed = await storeDashboardApi.get(data.selected_store_id)
+    setData(refreshed)
+  }
   return (
-    <aside className="fixed bottom-5 right-5 z-50 w-[320px] rounded-2xl border border-indigo-200 bg-white p-5 shadow-xl" aria-label="出勤打刻">
+    <>
+      <aside className="fixed bottom-5 right-5 z-50 w-[320px] rounded-2xl border border-indigo-200 bg-white p-5 shadow-xl" aria-label="出勤打刻">
       <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600"><span className="h-2 w-2 rounded-full bg-amber-400" />{checkinOnly || !alreadyCheckedIn ? '出勤打刻がまだです' : '退勤打刻がまだです'}</div>
       <p className="mt-5 text-sm font-semibold text-foreground">{prompt.staff_name}さん、{checkinOnly || !alreadyCheckedIn ? '出勤' : '退勤'}打刻をお願いします。</p>
       <p className="mt-2 text-xs text-muted-foreground">{prompt.start_time.slice(0, 5)} {prompt.scenario} @ {prompt.store_name}</p>
       <Button className="mt-4 h-11 w-full rounded-lg bg-indigo-500 text-sm font-bold hover:bg-indigo-600" onClick={handleClick} disabled={loading}>
         <Clock3 className="mr-2 h-4 w-4" />{checkinOnly ? `${currentTime} 出勤打刻する` : `${alreadyCheckedIn ? '退勤' : '出勤'}打刻する`}
       </Button>
+      {canCancelOwnCheckin && <Button type="button" variant="ghost" className="mt-2 h-9 w-full text-sm text-muted-foreground hover:text-foreground" onClick={() => setCancelDialogOpen(true)} disabled={loading}>打刻を取り消す</Button>}
       <p className="mt-3 text-xs text-muted-foreground">※打刻するまで表示されます（画面操作は妨げません）</p>
-    </aside>
+      </aside>
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancel}
+        title="打刻を取り消しますか？"
+        description="本日の自分の出勤打刻だけを取り消します。取り消し後は、正しい時刻で打ち直せます。"
+        confirmLabel="取り消す"
+        variant="destructive"
+      />
+    </>
   )
 }
