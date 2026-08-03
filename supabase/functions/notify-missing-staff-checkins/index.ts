@@ -18,6 +18,7 @@ import {
   buildDedupeKey,
   findMissingCheckinCandidates,
   getJstDateRange,
+  formatMissingCheckinMessage,
   type CheckinRecord,
   type CheckinStaff,
   type MissingCheckinEvent,
@@ -30,17 +31,9 @@ function isDiscordChannelId(value: unknown): value is string {
 }
 
 function formatMessage(candidate: { event: MissingCheckinEvent; staff: CheckinStaff }): Record<string, unknown> {
-  const { event, staff } = candidate
   return {
     username: 'MMQ 出勤打刻通知',
-    content: [
-      '⚠️ 出勤打刻漏れ通知',
-      `未打刻: ${staff.name}`,
-      `店舗: ${event.store_name || '店舗名未設定'}`,
-      `公演開始時刻（JST）: ${event.date} ${event.start_time.slice(0, 5)}`,
-      `公演名: ${event.scenario || '公演名未設定'}`,
-      `未打刻GM名: ${staff.name}`,
-    ].join('\n'),
+    content: formatMissingCheckinMessage(candidate),
   }
 }
 

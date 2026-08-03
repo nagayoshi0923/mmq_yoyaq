@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildDedupeKey,
+  formatMissingCheckinMessage,
   findMissingCheckinCandidates,
   getJstDate,
   getJstDateRange,
@@ -32,6 +33,14 @@ function event(overrides: Partial<MissingCheckinEvent> = {}): MissingCheckinEven
 }
 
 describe('notify-missing-staff-checkins logic', () => {
+  it('通知本文は公演情報・店舗名・GM名を3行で差し込む', () => {
+    expect(formatMissingCheckinMessage({ event: event({ start_time: '13:00:00', scenario: 'テスト公演', store_name: 'テスト店舗' }), staff: { ...staffA, name: 'テストGM' } })).toBe([
+      '⚠️ 出勤打刻漏れ｜13:00 テスト公演',
+      '店舗：テスト店舗',
+      'テストGMさんが公演開始55分前時点で未打刻です',
+    ].join('\n'))
+  })
+
   it('JSTの公演開始55分前ちょうどを含めて判定する', () => {
     expect(parseJstDateTime('2026-08-05', '10:00:00')?.toISOString()).toBe('2026-08-05T01:00:00.000Z')
     expect(isMissingCheckinEventDue(event(), new Date('2026-08-05T00:04:59.999Z'))).toBe(false)

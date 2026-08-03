@@ -30,6 +30,15 @@ export interface MissingCheckinCandidate {
   staff: CheckinStaff
 }
 
+export function formatMissingCheckinMessage(candidate: MissingCheckinCandidate): string {
+  const { event, staff } = candidate
+  return [
+    `⚠️ 出勤打刻漏れ｜${event.start_time.slice(0, 5)} ${event.scenario || '公演名未設定'}`,
+    `店舗：${event.store_name || '店舗名未設定'}`,
+    `${staff.name}さんが公演開始55分前時点で未打刻です`,
+  ].join('\n')
+}
+
 const JST_OFFSET_MINUTES = 9 * 60
 const MISSING_CHECKIN_NOTIFICATION_LEAD_TIME_MS = 55 * 60 * 1000
 
