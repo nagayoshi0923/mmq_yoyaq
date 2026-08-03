@@ -31,7 +31,7 @@ export interface MissingCheckinCandidate {
 }
 
 const JST_OFFSET_MINUTES = 9 * 60
-const TEN_MINUTES_MS = 10 * 60 * 1000
+const MISSING_CHECKIN_NOTIFICATION_LEAD_TIME_MS = 55 * 60 * 1000
 
 function parseDateParts(value: string): [number, number, number] | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
@@ -79,7 +79,7 @@ export function isMissingCheckinEventDue(event: MissingCheckinEvent, now: Date):
   if (status === 'cancelled' || status === 'canceled') return false
   const startAt = parseJstDateTime(event.date, event.start_time)
   if (!startAt || !Number.isFinite(now.getTime())) return false
-  return now.getTime() >= startAt.getTime() - TEN_MINUTES_MS
+  return now.getTime() >= startAt.getTime() - MISSING_CHECKIN_NOTIFICATION_LEAD_TIME_MS
 }
 
 function getAssignedStaff(event: MissingCheckinEvent, staff: CheckinStaff[]): CheckinStaff[] {

@@ -1,4 +1,4 @@
--- 公演開始10分前の担当GM出勤打刻漏れ通知
+-- 公演開始55分前の担当GM出勤打刻漏れ通知
 -- 送信は既存 discord_notification_queue / retry-discord-notifications 経路を利用する。
 
 -- 既存通知キューに、公演・GM・対象JST日単位の冪等キーを追加する。

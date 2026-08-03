@@ -32,16 +32,18 @@ function event(overrides: Partial<MissingCheckinEvent> = {}): MissingCheckinEven
 }
 
 describe('notify-missing-staff-checkins logic', () => {
-  it('JSTの公演開始10分前を含めて判定する', () => {
+  it('JSTの公演開始55分前ちょうどを含めて判定する', () => {
     expect(parseJstDateTime('2026-08-05', '10:00:00')?.toISOString()).toBe('2026-08-05T01:00:00.000Z')
-    expect(isMissingCheckinEventDue(event(), new Date('2026-08-05T00:49:59.999Z'))).toBe(false)
-    expect(isMissingCheckinEventDue(event(), new Date('2026-08-05T01:00:00.000Z'))).toBe(true)
+    expect(isMissingCheckinEventDue(event(), new Date('2026-08-05T00:04:59.999Z'))).toBe(false)
+    expect(isMissingCheckinEventDue(event(), new Date('2026-08-05T00:05:00.000Z'))).toBe(true)
+    expect(isMissingCheckinEventDue(event(), new Date('2026-08-05T00:05:00.001Z'))).toBe(true)
   })
 
-  it('JSTの日付境界と深夜公演を正しく扱う', () => {
+  it('JSTの日付境界でも公演開始55分前の境界を正しく扱う', () => {
     const lateNight = event({ date: '2026-08-06', start_time: '00:05:00' })
-    const now = new Date('2026-08-05T15:55:00.000Z') // 2026-08-06 00:55 JST
-    expect(isMissingCheckinEventDue(lateNight, now)).toBe(true)
+    expect(isMissingCheckinEventDue(lateNight, new Date('2026-08-05T14:09:59.999Z'))).toBe(false) // 2026-08-05 23:09:59.999 JST
+    expect(isMissingCheckinEventDue(lateNight, new Date('2026-08-05T14:10:00.000Z'))).toBe(true) // 2026-08-05 23:10 JST
+    expect(isMissingCheckinEventDue(lateNight, new Date('2026-08-05T15:55:00.000Z'))).toBe(true) // 2026-08-06 00:55 JST
     expect(getJstDate('2026-08-05T15:00:00.000Z')).toBe('2026-08-06')
     expect(getJstDateRange(new Date('2026-08-05T15:00:00.000Z'))).toEqual(['2026-08-06', '2026-08-07'])
   })
