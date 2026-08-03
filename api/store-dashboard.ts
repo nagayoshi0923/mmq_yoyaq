@@ -30,6 +30,17 @@ export interface StaffCheckinRecord {
   checked_in_at: string
 }
 
+export interface StaffCheckinPerformance {
+  start_time: string
+  scenario: string
+  store_name: string
+}
+
+export interface StaffCheckinContext {
+  staff_name?: string
+  performance?: StaffCheckinPerformance
+}
+
 interface StaffCheckinIdentity {
   staffId: string
   organizationId: string
@@ -239,7 +250,37 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
 
 async function getStaffCheckin(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const service = createStaffCheckinService(createStaffCheckinRepository(db as any))
-  return res.status(200).json(await service.getState(user))
+  const state = await service.getState(user)
+  const storeId = typeof _req.query.store_id === 'string' ? _req.query.store_id : undefined
+  const context = await loadStaffCheckinContext(db as any, user, storeId)
+  return res.status(200).json({ ...state, ...context })
+}
+
+export function resolveStaffCheckinContext(
+  staff: DashboardStaff | null | undefined,
+  events: unknown,
+  storeName: unknown,
+): StaffCheckinContext {
+  const staffName = firstNonEmptyString(staff?.display_name, staff?.name)
+  const context: StaffCheckinContext = staffName ? { staff_name: staffName } : {}
+  if (!staff || !Array.isArray(events)) return context
+
+  const staffNames = new Set([staff.name, staff.display_name].filter(isNonEmptyString).map(name => name.trim()))
+  if (staffNames.size === 0) return context
+  const store = typeof storeName === 'string' ? storeName.trim() : ''
+  const event = events.find((candidate): candidate is Record<string, unknown> => {
+    if (!isRecord(candidate) || candidate.is_cancelled === true || candidate.status === 'cancelled') return false
+    if (!isNonEmptyString(candidate.start_time) || !isNonEmptyString(candidate.scenario) || !store) return false
+    return Array.isArray(candidate.gms) && candidate.gms.some(name => isNonEmptyString(name) && staffNames.has(name.trim()))
+  })
+  if (event) {
+    context.performance = {
+      start_time: (event.start_time as string).trim(),
+      scenario: (event.scenario as string).trim(),
+      store_name: store,
+    }
+  }
+  return context
 }
 
 function createStaffCheckinRepository(database: any): StaffCheckinRepository {
@@ -319,4 +360,35 @@ function createStaffCheckinRepository(database: any): StaffCheckinRepository {
 
 function isDatabaseErrorCode(error: unknown, code: string) {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === code
+}
+
+async function loadStaffCheckinContext(database: any, user: AuthUser, storeId?: string): Promise<StaffCheckinContext> {
+  if (!storeId) return {}
+  try {
+    const today = getJstDayBounds().start.slice(0, 10)
+    const [{ data: staffRows, error: staffError }, { data: events, error: eventError }, { data: store, error: storeError }] = await Promise.all([
+      database.from('staff').select('id, name, display_name').eq('organization_id', user.orgId).eq('user_id', user.userId).eq('status', 'active').limit(1),
+      database.from('schedule_events').select('start_time, scenario, gms, status, is_cancelled').eq('organization_id', user.orgId).eq('date', today).eq('store_id', storeId).order('start_time'),
+      database.from('stores').select('id, name').eq('organization_id', user.orgId).eq('id', storeId).eq('status', 'active').maybeSingle(),
+    ])
+    if (staffError) throw staffError
+    if (eventError) throw eventError
+    if (storeError) throw storeError
+    return resolveStaffCheckinContext(staffRows?.[0], events, store?.name)
+  } catch (error) {
+    console.error('[store-dashboard] 打刻バブルの補足情報を取得できませんでした', error)
+    return {}
+  }
+}
+
+function firstNonEmptyString(...values: unknown[]) {
+  return values.find(isNonEmptyString)?.trim()
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

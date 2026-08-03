@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createStaffCheckinService,
   getJstDayBounds,
+  resolveStaffCheckinContext,
   resolveEventGmStaff,
   type StaffCheckinRepository,
 } from '../../../api/store-dashboard'
@@ -27,6 +28,32 @@ function createRepository(overrides: Partial<StaffCheckinRepository> = {}): Staf
 }
 
 describe('staff checkin API service', () => {
+  it('表示名を優先して担当公演の補足情報を組み立てる', () => {
+    expect(resolveStaffCheckinContext(
+      { id: 'staff-self', name: '旧名', display_name: 'ソラ' },
+      [
+        { start_time: '13:30:00', scenario: 'REDRUM05 目醒めゆくフローライト', gms: ['ソラ'], is_cancelled: false },
+      ],
+      'クインズワルツ高田馬場店',
+    )).toEqual({
+      staff_name: 'ソラ',
+      performance: {
+        start_time: '13:30:00',
+        scenario: 'REDRUM05 目醒めゆくフローライト',
+        store_name: 'クインズワルツ高田馬場店',
+      },
+    })
+  })
+
+  it('担当名・公演情報の欠損や中止公演を例外なく省略する', () => {
+    expect(resolveStaffCheckinContext(
+      { id: 'staff-self', name: 'ソラ' },
+      [{ start_time: '13:30:00', scenario: 'REDRUM05', gms: ['ソラ'], is_cancelled: true }],
+      'クインズワルツ高田馬場店',
+    )).toEqual({ staff_name: 'ソラ' })
+    expect(resolveStaffCheckinContext(undefined, null, null)).toEqual({})
+  })
+
   it('公演のGM名を正としてスタッフ照合に失敗しても表示用行を残す', () => {
     const staff = [{ id: 'staff-sora', name: 'ソラ', organization_id: 'org-self' }]
 

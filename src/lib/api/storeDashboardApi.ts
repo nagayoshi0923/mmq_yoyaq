@@ -11,12 +11,18 @@ export interface StoreDashboardData {
 export interface StaffCheckinApiResponse {
   available: boolean
   my_checkin: { checked_in_at: string } | null
+  staff_name?: string
+  performance?: {
+    start_time: string
+    scenario: string
+    store_name: string
+  }
 }
 
 export const storeDashboardApi = {
   get: (storeId?: string) => apiClient.get<StoreDashboardData>(`/api/store-dashboard${storeId ? `?store_id=${encodeURIComponent(storeId)}` : ''}`),
   action: (body: Record<string, unknown>) => apiClient.post<any>('/api/store-dashboard', body),
-  getStaffCheckin: () => apiClient.get<StaffCheckinApiResponse>('/api/store-dashboard?resource=staff_checkin'),
+  getStaffCheckin: (storeId?: string) => apiClient.get<StaffCheckinApiResponse>(`/api/store-dashboard?resource=staff_checkin${storeId ? `&store_id=${encodeURIComponent(storeId)}` : ''}`),
   staffCheckin: (storeId: string) => apiClient.post<{ id: string; checked_in_at: string }>('/api/store-dashboard', { action: 'staff_checkin', store_id: storeId }),
   cancelStaffCheckin: () => apiClient.post<{ cancelled: true }>('/api/store-dashboard', { action: 'staff_checkin_cancel' }),
 }

@@ -28,19 +28,40 @@ describe('StaffCheckinPanel', () => {
     expect(render({ status: 'loading' })).toContain('出勤打刻を確認中')
   })
 
-  it('未打刻では現在時刻の出勤ボタンだけを表示する', () => {
-    const html = render({ status: 'ready-unchecked' })
+  it('未打刻では宛名・公演情報・注記と現在時刻の出勤ボタンを表示する', () => {
+    const html = render({
+      status: 'ready-unchecked',
+      staffName: 'ソラ',
+      performance: { startTime: '13:30:00', scenario: 'REDRUM05 目醒めゆくフローライト', storeName: 'クインズワルツ高田馬場店' },
+    })
     expect(html).toContain('出勤打刻がまだです')
+    expect(html).toContain('ソラさん、出勤打刻をお願いします。')
+    expect(html).toContain('13:30 REDRUM05 目醒めゆくフローライト @ クインズワルツ高田馬場店')
     expect(html).toContain('15:42 出勤打刻する')
+    expect(html).toContain('※打刻するまで表示されます（画面操作は妨げません）')
     expect(html).not.toContain('退勤')
     expect(html).not.toContain('取り消す')
   })
 
   it('打刻済みでも時刻と取消を常時表示する', () => {
-    const html = render({ status: 'ready-checked', checkedInAt: '2026-08-03T04:30:00.000Z' })
+    const html = render({
+      status: 'ready-checked',
+      checkedInAt: '2026-08-03T04:30:00.000Z',
+      staffName: 'ソラ',
+      performance: { startTime: '13:30:00', scenario: 'REDRUM05 目醒めゆくフローライト', storeName: 'クインズワルツ高田馬場店' },
+    })
     expect(html).toContain('出勤打刻済み（13:30）')
     expect(html).toContain('取り消す')
     expect(html).not.toContain('退勤')
+  })
+
+  it('名前や公演情報が欠損しても該当行だけを省略する', () => {
+    const html = render({ status: 'ready-unchecked' })
+    expect(html).toContain('出勤打刻がまだです')
+    expect(html).toContain('15:42 出勤打刻する')
+    expect(html).toContain('※打刻するまで表示されます（画面操作は妨げません）')
+    expect(html).not.toContain('さん、出勤打刻をお願いします。')
+    expect(html).not.toContain(' @ ')
   })
 
   it('API失敗と利用不可を例外なく描画する', () => {

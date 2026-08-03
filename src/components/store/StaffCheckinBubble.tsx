@@ -146,9 +146,11 @@ export function StaffCheckinPanel({
       {state.status === 'ready-unchecked' && (
         <div className="space-y-4">
           <p className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-400" />出勤打刻がまだです</p>
+          <StaffCheckinContext state={state} />
           <Button type="button" className="h-11 w-full bg-indigo-500 hover:bg-indigo-600" onClick={onCheckin} disabled={disabled}>
             <Clock3 className="mr-2 h-4 w-4" />{currentTime} 出勤打刻する
           </Button>
+          <p className="text-xs text-muted-foreground">※打刻するまで表示されます（画面操作は妨げません）</p>
         </div>
       )}
       {state.status === 'ready-checked' && (
@@ -160,6 +162,15 @@ export function StaffCheckinPanel({
         </div>
       )}
     </aside>
+  )
+}
+
+function StaffCheckinContext({ state }: { state: Extract<StaffCheckinState, { status: 'ready-unchecked' | 'ready-checked' }> }) {
+  return (
+    <>
+      {state.staffName && <p className="text-sm font-semibold text-foreground">{state.staffName}さん、出勤打刻をお願いします。</p>}
+      {state.performance && <p className="text-xs text-muted-foreground">{state.performance.startTime.slice(0, 5)} {state.performance.scenario} @ {state.performance.storeName}</p>}
+    </>
   )
 }
 

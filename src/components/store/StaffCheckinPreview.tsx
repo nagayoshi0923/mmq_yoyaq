@@ -6,6 +6,15 @@ import '@/index.css'
 
 type PreviewState = 'loading' | 'unchecked' | 'checked' | 'error' | 'empty' | 'unavailable' | 'flow' | 'error-boundary'
 
+const context = {
+  staff_name: 'ソラ',
+  performance: {
+    start_time: '13:30:00',
+    scenario: 'REDRUM05 目醒めゆくフローライト',
+    store_name: 'クインズワルツ高田馬場店',
+  },
+}
+
 const previewState = (new URLSearchParams(window.location.search).get('state') ?? 'unchecked') as PreviewState
 let flowCheckedInAt: string | null = null
 
@@ -15,9 +24,9 @@ const client: StaffCheckinClient = {
     if (previewState === 'error') throw new Error('APIから出勤打刻を取得できませんでした。')
     if (previewState === 'empty') return null
     if (previewState === 'unavailable') return { available: false }
-    if (previewState === 'checked') return { available: true, my_checkin: { checked_in_at: '2026-08-03T04:30:00.000Z' } }
-    if (previewState === 'flow') return { available: true, my_checkin: flowCheckedInAt ? { checked_in_at: flowCheckedInAt } : null }
-    return { available: true, my_checkin: null }
+    if (previewState === 'checked') return { available: true, my_checkin: { checked_in_at: '2026-08-03T04:30:00.000Z' }, ...context }
+    if (previewState === 'flow') return { available: true, my_checkin: flowCheckedInAt ? { checked_in_at: flowCheckedInAt } : null, ...context }
+    return { available: true, my_checkin: null, ...context }
   },
   checkIn: async () => {
     flowCheckedInAt = new Date().toISOString()
