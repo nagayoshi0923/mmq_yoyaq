@@ -57,7 +57,6 @@ serve(async (req) => {
       `)
       .eq('date', targetDateStr)
       .eq('is_cancelled', false)
-      .eq('is_reservation_enabled', true)
 
     if (eventsError) throw eventsError
 
