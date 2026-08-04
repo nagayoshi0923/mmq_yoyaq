@@ -58,7 +58,9 @@ html, body {
     border-radius: 0 !important;
   }
 
-  .mypage-shell {
+  /* マイページの色トークン。Dialog 等は Radix ポータルで body 直下に描画され
+     .mypage-shell の外に出るため、:root に定義する必要がある */
+  :root {
     --mypage-primary: #E60012;
     --mypage-primary-hover: #CC0010;
     --mypage-primary-light: #FEE2E2;
