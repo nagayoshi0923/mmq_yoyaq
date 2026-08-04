@@ -52,11 +52,11 @@ export function useScheduleData(currentDate: Date) {
   const { data: events = [], isLoading, isFetching, error: queryError } = useScheduleEventsQuery(currentDate)
   const error = queryError ? String(queryError) : null
 
-  // 月変化時に即座に ±3 をプリフェッチ
+  // 月変化時に即座に ±1 をプリフェッチ
   // キャッシュ済みの月は prefetchQuery が自動スキップするので実際にフェッチするのは未取得月のみ
   // → 月移動を連続で行ってもidle待ちなしに隣接月が確保される
   useEffect(() => {
-    for (let i = -3; i <= 3; i++) {
+    for (let i = -1; i <= 1; i++) {
       if (i === 0) continue
       const d = new Date(year, month - 1 + i, 1)
       const y = d.getFullYear()
@@ -69,11 +69,11 @@ export function useScheduleData(currentDate: Date) {
     }
   }, [year, month, queryClient])
 
-  // idle 時に ±4〜6 まで拡張（余裕があれば先読み、なければスキップ）
+  // idle 時に ±2〜3 まで拡張（余裕があれば先読み、なければスキップ）
   useEffect(() => {
     const prefetchFar = () => {
-      for (let i = -6; i <= 6; i++) {
-        if (Math.abs(i) <= 3 || i === 0) continue
+      for (let i = -3; i <= 3; i++) {
+        if (Math.abs(i) <= 1 || i === 0) continue
         const d = new Date(year, month - 1 + i, 1)
         const y = d.getFullYear()
         const m = d.getMonth() + 1
@@ -341,8 +341,14 @@ export function useScheduleData(currentDate: Date) {
       }
       realtimeDebounceRef.current = setTimeout(() => {
         if (pendingFetchRef.current) {
-          logger.log('🔄 Realtime: デバウンス後にデータ再取得')
           pendingFetchRef.current = false
+          // 自分の mutation 直後の invalidate が既に走っている場合は二重フェッチになるだけ
+          // （その fetch は mutation コミット後に開始しているので変更を含む）
+          if (queryClient.isFetching({ queryKey: scheduleEventKeys.month(yearLocal, monthLocal) }) > 0) {
+            logger.log('⏭️ Realtime: フェッチ進行中のためスキップ')
+            return
+          }
+          logger.log('🔄 Realtime: デバウンス後にデータ再取得')
           invalidateScheduleMonth(queryClient, yearLocal, monthLocal)
         }
       }, 500)

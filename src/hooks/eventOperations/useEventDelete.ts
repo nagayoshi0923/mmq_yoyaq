@@ -256,8 +256,9 @@ async function handleActiveReservationsBeforeDelete(
   })
   showToast.info(`${activeReservations.length}件の予約をキャンセルしています…`)
   const failures: string[] = []
-  for (const r of activeReservations) {
-    try {
+  // 予約が多いと直列だと待ち時間が積み上がるため並列実行（失敗は allSettled で個別に収集）
+  const cancelResults = await Promise.allSettled(
+    activeReservations.map(async r => {
       if (sendMail) {
         await reservationApi.cancel(r.id, reason, {
           skipGroupCancel: true,
@@ -274,11 +275,15 @@ async function handleActiveReservationsBeforeDelete(
         const { error } = await supabase.rpc('admin_update_reservation_fields', params)
         if (error) throw error
       }
-    } catch (e) {
-      logger.error('予約キャンセル失敗:', { reservationId: r.id, error: e })
+    })
+  )
+  cancelResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const r = activeReservations[index]
+      logger.error('予約キャンセル失敗:', { reservationId: r.id, error: result.reason })
       failures.push(r.customer_name || r.id)
     }
-  }
+  })
   if (failures.length > 0) {
     throw new Error(
       `${failures.length}件の予約キャンセルに失敗したため、公演の削除を中止しました（${failures.join('、')}）。` +
@@ -460,7 +465,8 @@ export function useEventDelete({ setEvents, organizationId, fetchSchedule }: Use
   const performDeleteByKind = useCallback(async (targetEvent: ScheduleEvent) => {
     if (isPrivateBookingEvent(targetEvent)) {
       await deletePrivateBookingEventCore(targetEvent, organizationId, setEvents)
-      await fetchSchedule?.()
+      // 楽観的更新済み（setEvents で除去）のため、裏の再フェッチ完了は待たない
+      void fetchSchedule?.()
       return
     }
 
@@ -517,7 +523,8 @@ export function useEventDelete({ setEvents, organizationId, fetchSchedule }: Use
     }
 
     setEvents(prev => prev.filter(event => event.id !== targetEvent.id))
-    await fetchSchedule?.()
+    // 楽観的更新済み（setEvents で除去）のため、裏の再フェッチ完了は待たない
+    void fetchSchedule?.()
   }, [setEvents, organizationId, fetchSchedule])
 
   // 削除の入口（右クリックメニュー等から）。

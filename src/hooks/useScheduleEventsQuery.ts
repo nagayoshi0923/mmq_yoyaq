@@ -124,14 +124,20 @@ export async function fetchScheduleEventsForMonth(
 
   const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
 
+  // 正規化タイトル → シナリオ の索引を1回だけ構築（公演ごとの全件走査を避ける）
+  // 先勝ち（先に登録されたタイトルを優先）で、従来の線形走査と同じ結果になるようにする
+  const scenarioByNormalizedTitle = new Map<string, any>()
+  scenarioByTitle.forEach((s, t) => {
+    const nt = normalize(t)
+    if (!scenarioByNormalizedTitle.has(nt)) scenarioByNormalizedTitle.set(nt, s)
+  })
+
   const findScenario = (eventScenario: string) => {
     const mapped = SCENARIO_ALIAS[eventScenario] || eventScenario
     const norm = normalize(mapped)
     if (scenarioByTitle.has(mapped)) return scenarioByTitle.get(mapped)
     if (scenarioByTitle.has(eventScenario)) return scenarioByTitle.get(eventScenario)
-    for (const [t, s] of scenarioByTitle.entries()) {
-      if (normalize(t) === norm) return s
-    }
+    if (scenarioByNormalizedTitle.has(norm)) return scenarioByNormalizedTitle.get(norm)
     for (const [t, s] of scenarioByTitle.entries()) {
       if (t.includes(mapped) || mapped.includes(t)) return s
     }
