@@ -499,18 +499,8 @@ async function handleByMonth(req: VercelRequest, res: VercelResponse, user: Auth
     const maxForSync = resolveMaxParticipants(event, orgScenarioMap)
     const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
 
-    // current_participants 同期（バックグラウンドで実行・エラーは握る）
-    if (!event.is_cancelled && hasAnyReservations && cappedActualParticipants !== (event.current_participants || 0)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      Promise.resolve(
-        (db as any)
-          .from('schedule_events')
-          .update({ current_participants: cappedActualParticipants })
-          .eq('id', event.id)
-      ).catch((syncError: unknown) => {
-        console.error('[schedule] by-month sync error:', syncError)
-      })
-    }
+    // current_participants は DB トリガー（trigger_recalc_participants）が予約変更時に同期するため、
+    // 読み取り時の書き戻しはしない（Realtime エコーで全クライアントの再フェッチを誘発していた）
 
     const maxParticipants = maxForSync
     const effectiveParticipants = event.is_cancelled
@@ -791,19 +781,9 @@ async function handleByScenario(req: VercelRequest, res: VercelResponse, user: A
 
   const eventsWithActualParticipants = scheduleEvents.map(event => {
     const actualParticipants = participantsByEventId.get(event.id) || 0
-    const shouldUpdate = actualParticipants > (event.current_participants || 0)
 
-    if (shouldUpdate) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      Promise.resolve(
-        (db as any)
-          .from('schedule_events')
-          .update({ current_participants: actualParticipants })
-          .eq('id', event.id)
-      ).catch((syncError: unknown) => {
-        console.error('[schedule] by-scenario sync error:', syncError)
-      })
-    }
+    // current_participants は DB トリガー（trigger_recalc_participants）が予約変更時に同期するため、
+    // 読み取り時の書き戻しはしない（Realtime エコーで全クライアントの再フェッチを誘発していた）
 
     const maxParticipants = resolveMaxParticipants(event, orgScenarioMap)
     const effectiveParticipants = Math.max(actualParticipants, event.current_participants || 0)
