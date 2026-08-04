@@ -24,6 +24,8 @@ export type AuthFailureStage =
   | 'urlTokenNotConsumed'
   /** 認証プロバイダ（Supabase）がハッシュでエラーを返した */
   | 'urlAuthProviderError'
+  /** ログイン処理（signIn）が失敗・無応答で打ち切られた */
+  | 'signIn'
 
 /** ハッシュに現れうる認証パラメータ名のホワイトリスト（これ以外は 'other' に丸める） */
 const KNOWN_AUTH_HASH_PARAMS = new Set([
@@ -99,7 +101,9 @@ function buildDiagnosticCode(stage: AuthFailureStage): string {
         ? 'RESOLVE'
         : stage === 'urlTokenNotConsumed'
           ? 'URLTOKEN'
-          : 'PROVIDER'
+          : stage === 'signIn'
+            ? 'SIGNIN'
+            : 'PROVIDER'
   const suffix = Math.random().toString(36).slice(2, 6).toUpperCase()
   return `AUTH-${stageCode}-${suffix}`
 }

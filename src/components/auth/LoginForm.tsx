@@ -17,6 +17,12 @@ import {
   Sparkles, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { reportAuthFailure } from '@/contexts/auth/authDiagnostics'
+
+/** ログイン処理が無応答のまま打ち切られたことを示すエラーメッセージ */
+const LOGIN_WATCHDOG_TIMEOUT = 'LOGIN_WATCHDOG_TIMEOUT'
+/** ログイン処理の応答を待つ上限（ミリ秒） */
+const LOGIN_WATCHDOG_TIMEOUT_MS = 15000
 
 // ソーシャルログインアイコン
 function GoogleIcon({ className }: { className?: string }) {
@@ -313,7 +319,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         
       } else {
         // ログイン（signIn は getUser を挟まずセッション確定まで返す）
-        const { user: signedUser } = await signIn(email, password)
+        // supabase-js の auth 呼び出しが navigator.locks 待ちで永遠に resolve しない事故が
+        // あるため、15秒で打ち切って必ずエラー表示に落とす（スピナー固着の防止）
+        let watchdogTimer: ReturnType<typeof setTimeout> | undefined
+        const watchdog = new Promise<never>((_, reject) => {
+          watchdogTimer = setTimeout(
+            () => reject(new Error(LOGIN_WATCHDOG_TIMEOUT)),
+            LOGIN_WATCHDOG_TIMEOUT_MS
+          )
+        })
+        let signedUser: Awaited<ReturnType<typeof signIn>>['user']
+        try {
+          const result = await Promise.race([signIn(email, password), watchdog])
+          signedUser = result.user
+        } finally {
+          if (watchdogTimer !== undefined) clearTimeout(watchdogTimer)
+        }
 
         setMessage('ログイン成功！リダイレクト中...')
         setError('')
@@ -464,7 +485,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         }
       } else {
         // ログインエラー
-        if (errorMessage.includes('Invalid login credentials')) {
+        if (errorMessage === LOGIN_WATCHDOG_TIMEOUT) {
+          reportAuthFailure('signIn', error, { watchdog: true })
+          setError('ログイン処理が応答しませんでした。ページを再読み込みしてから、もう一度お試しください。改善しない場合は他のMMQのタブを閉じてください。')
+        } else if (errorMessage.includes('Invalid login credentials')) {
           setError('メールアドレスまたはパスワードが正しくありません')
         } else if (errorMessage.includes('Email not confirmed')) {
           setShowResendOption(true)
