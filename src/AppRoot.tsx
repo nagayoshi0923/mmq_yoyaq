@@ -58,7 +58,9 @@ const queryClient = new QueryClient({
 // buster を変えるとキャッシュが自動無効化される（スキーマ変更時に更新する）
 // v2: PR #168 以前は API バグで空配列が永続化されていたため、全クライアントの
 //     キャッシュを強制無効化する
-const SCHEDULE_CACHE_BUSTER = 'v2'
+// v3: 2026-08-04 のデプロイ後、永続キャッシュ起因でログイン不能になるクライアントが
+//     発生（シークレットウィンドウでは正常＝サイトデータ破損で確定）。一斉無効化する
+const SCHEDULE_CACHE_BUSTER = 'v3'
 const SCHEDULE_CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000 // 14日間
 
 const idbPersister = createAsyncStoragePersister({
