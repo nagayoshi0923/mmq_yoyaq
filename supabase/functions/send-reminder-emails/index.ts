@@ -148,6 +148,8 @@ serve(async (req) => {
 
     // テンプレートの変数を置換（基本変数セット対応）
     const appliedTemplate = emailTemplate
+      // 送信タイミング（{day_message} を含むテンプレートのみ影響。issue #389）
+      .replace(/{day_message}/g, getDayMessage(reminderData.daysBefore ?? 1))
       // 顧客情報
       .replace(/{customer_name}/g, reminderData.customerName || 'お客様')
       .replace(/{customer_email}/g, reminderData.customerEmail || '')
