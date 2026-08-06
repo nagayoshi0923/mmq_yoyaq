@@ -28,7 +28,7 @@ Source thread: [SOURCE_THREAD_ID]
 Queue commit: [QUEUE_COMMIT]
 Task IDs: [TASK_IDS]
 
-開始時に.cursorrules、AGENTS.md、docs/CODEX_DASHBOARD.md、yoyaq-auto-deliveryとthread-prompts.mdを全文確認してください。git fetch origin staging後のSHAと全checkoutのdirty状態を記録し、sourceがcommit済みのqueue定義をclaimしてください。claim後の状態遷移、event audit、REPORT/REWORK/DONE、integration/push記録はこの監督が所有してください。実装worker/reviewerは別の可視タスク・隔離worktreeで起動してください。stagingの直列統合・進捗記録・pushはこの監督タスク本人だけが行い、integration taskその他へ委譲しないでください。
+開始時にdocs/agent/INDEX.md、.cursor/rules/（00-core・git-deployと該当領域）、AGENTS.md、docs/CODEX_DASHBOARD.md、yoyaq-auto-deliveryとthread-prompts.mdを確認してください。git fetch origin staging後のSHAと全checkoutのdirty状態を記録し、sourceがcommit済みのqueue定義をclaimしてください。claim後の状態遷移、event audit、REPORT/REWORK/DONE、integration/push記録はこの監督が所有してください。実装worker/reviewerは別の可視タスク・隔離worktreeで起動してください。stagingの直列統合・進捗記録・pushはこの監督タスク本人だけが行い、integration taskその他へ委譲しないでください。
 
 監督起動時、各ユーザー書き込み時、各status監査時に、関連するidle worker/reviewerのterminal turnを確認してください。未claimのREPORT/DONE/REWORKがあればrecovered eventとして `EVENT_CLAIMED`（recovered: true）を記録し、fresh review、同じworkerへのREWORK返送、または監督本人のstaging直列統合を同じturnで実行してください。passive completion、idle、child内finalは配送ではありません。
 
@@ -68,7 +68,7 @@ Preview-first: [YES_OR_NO]
 Implementation gates: [GATES]
 Review gates: [GATES_OR_NONE]
 
-編集前に.cursorrules、AGENTS.md、docs/CODEX_DASHBOARD.mdと関連正本を全文確認してください。git fetch origin staging後、cleanな専用worktreeのcodex/[task-id]-[slug] branchが指定Exact baseと一致することを示し、所有するファイルを宣言してください。許可ファイル以外、dashboard、進捗台帳、共有fixture、他人のdirty変更を編集・revert・吸収しないでください。staging/mainをcheckout・merge・pushしないでください。
+編集前にdocs/agent/INDEX.md、.cursor/rules/（00-core・git-deployと担当ファイルに対応する領域ルール）、AGENTS.md、docs/CODEX_DASHBOARD.mdを確認してください。git fetch origin staging後、cleanな専用worktreeのcodex/[task-id]-[slug] branchが指定Exact baseと一致することを示し、所有するファイルを宣言してください。許可ファイル以外、dashboard、進捗台帳、共有fixture、他人のdirty変更を編集・revert・吸収しないでください。staging/mainをcheckout・merge・pushしないでください。
 
 Preview-first=YESなら、固有portで `npm run dev -- --host 0.0.0.0 --port [PORT]` を起動し、隔離worktreeのPREVIEW URL/スクショと確認導線を返してください。PO visual OK前は最終ゲート、最終commit、REPORT、独立検収、staging統合を行わず、同じworker/worktreeで修正を反復してください。SupervisorからPO OK/確定が明示配送された後だけ、指定ゲートを1回、git diff --check、完全diff監査、1作業1commit、REPORTへ進んでください。
 
@@ -103,7 +103,7 @@ Lane: [FAST_OR_HIGH-RISK]
 Review gates: [GATES]
 PO visual OK: [YES_OR_NOT_APPLICABLE]
 
-.cursorrules、AGENTS.md、docs/CODEX_DASHBOARD.md、docs/templates/review-perspectives.md、docs/templates/test-perspectives.mdを全文確認してください。検収前に次をすべて証明してください。
+docs/agent/INDEX.md、.cursor/rules/、AGENTS.md、docs/CODEX_DASHBOARD.md、docs/templates/review-perspectives.md、docs/templates/test-perspectives.mdを確認してください。検収前に次をすべて証明してください。
 
 1. Exact queue commitが存在し、そのcommitのタスク定義・base SHA・受入条件と今回の依頼が一致する。
 2. `git fetch origin staging`後の`git rev-parse origin/staging`がExpected fetched origin/stagingと一致する。不一致なら検収を開始せず監督へ再claimを依頼する。

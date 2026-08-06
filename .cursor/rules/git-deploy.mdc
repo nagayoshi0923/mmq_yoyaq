@@ -1,0 +1,59 @@
+---
+description: staging/main・DB適用順・環境ID。ブランチ操作・デプロイ・マイグレーション時に必須。
+alwaysApply: true
+---
+
+# Git / デプロイ / DB適用順
+
+## ブランチ
+
+- **通常作業は `staging` で直接**（大きな実験だけ feature 可）
+- `staging` push → Vercel がステージング自動デプロイ
+- `main` マージ → **即座に本番デプロイ**
+
+```bash
+git checkout staging && git pull origin staging
+```
+
+## 本番反映（明示指示時のみ）
+
+1. `git log origin/staging..origin/main --oneline` で分岐確認（差分あれば報告して停止）
+2. 未適用マイグレーションがあれば **先に** `npm run db:push:prod`（成功確認）
+3. staging → main マージ＆push
+4. staging を main に ff resync
+5. Edge Function 変更があれば `npm run functions:deploy:prod`
+
+スキル: `/deploy`
+
+## DBマイグレーション順
+
+```
+staging開発 → db:push:staging → 動作確認
+ →（明示指示後）db:status → db:push:prod → 成功確認 → mainマージ
+```
+
+- AI が `db:push:staging` / `db:push:prod` を実行してよい（実行前に変更内容を提示、実行後に確認を報告）
+- **`supabase db push --linked` 禁止**（本番に繋がる）。必ず npm scripts を使う
+
+## 環境
+
+| 環境 | 値 |
+|------|-----|
+| ステージングURL | `https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app` |
+| ステージングDB | `lavutzztfqbdndjiwluc` |
+| 本番DB | `cznpcewciwywcqcxktba` |
+
+## push後のチェックリスト（必須）
+
+各項目に「どの画面か（ページ・タブ・たどり方）」を書く。詳細は `/smoke`。
+
+```
+## ✅ 動作確認チェックリスト
+### 基本確認
+- [ ] ステージングにデプロイされている
+- [ ] db:status で未適用マイグレーションがない
+### 変更箇所 / リグレッション
+- [ ] 【画面】操作して正常 / 隣接機能が壊れていない
+### 確認後
+- [ ] 問題なければ main 反映を依頼
+```

@@ -1,6 +1,6 @@
 # YOYAQ Codex delivery dashboard
 
-POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.cursorrules`](../.cursorrules)であり、本ファイルはキュー、状態、配送証拠だけを記録する。実行手順は[`yoyaq-auto-delivery`](../.agents/skills/yoyaq-auto-delivery/SKILL.md)を使う。
+POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.cursor/rules/`](../.cursor/rules/)（地図: [`docs/agent/INDEX.md`](agent/INDEX.md)）であり、本ファイルはキュー、状態、配送証拠だけを記録する。実行手順は[`yoyaq-auto-delivery`](../.agents/skills/yoyaq-auto-delivery/SKILL.md)を使う。
 
 ## PO ACK: スピード規約（2026-07-20）
 
@@ -10,7 +10,7 @@ POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.curs
 2. **毎回のPO確認は1行で具体化:** 修正のたびに「どの画面を開くか・何を操作するか・何が見えればOKか」を1行で提示する。番号、commit、URLだけの報告は禁止する。
 3. **検収はPO OK項目を最後に1回だけ:** POがOKした項目だけをまとめ、バッチでfocused検収を1回行う。検収ラウンドの反復はしない。`REWORK`で実装へ戻せるのは、テナント境界（`organization_id`）、認可・RLS、PII露出、データ破壊、migration整合の欠陥だけとする。堅牢性の追加詰め、スタイル、非重大な改善は検収を止めず、所見を記録してbacklog候補にする。
 4. **本番境界は不変:** `main`反映＝本番デプロイはPOの明示指示がある場合だけ行い、自動統合しない。DB変更を含む場合は、従来どおりDB変更・確認をfrontendデプロイより先に行う。
-5. **安全規約は不変:** `.cursorrules` / `AGENTS.md`のテナント・認可・RLS・PII・migration、共通`ConfirmDialog`、`border-l-4`禁止、公演モーダル/公演カード外観保護、dirty変更保存などの規約を維持する。
+5. **安全規約は不変:** `.cursor/rules/` / `AGENTS.md`のテナント・認可・RLS・PII・migration、共通`ConfirmDialog`、`border-l-4`禁止、公演モーダル/公演カード外観保護、dirty変更保存などの規約を維持する。
 
 進行中のYOYAQ-003は未commit差分を失わないため既存worktreeとPREVIEWを維持する。PO visual OK後は、OK済み項目を上記どおり1回だけバッチ検収する。新規タスクは追加せず、YOYAQ-001〜003のscope・依存・現在状態は変更しない。
 

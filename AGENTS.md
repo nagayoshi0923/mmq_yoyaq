@@ -1,101 +1,28 @@
 # AGENTS.md
 
-開発ルールの正規ソースは `.cursorrules`。必ずそちらを参照すること。
-このファイルは最重要ルールの抜粋のみ（CLAUDE.md と内容を同期させること）。
+Codex / 自動エージェント向けエントリ。**共有の正は `.cursor/rules/`**（地図: `docs/agent/INDEX.md`）。  
+安全不変条件・スコープ・デプロイ順は rules にあり、ここへ复制しない。
 
 ---
 
-## 🚨 最重要ルール（必ず守ること）
+## Codexレーン固有
 
-### Codexレーンの完了連絡（2026-08-03 PO指示）
-
-- Codexレーン自身は `discord-post.mjs` などでDiscordへ完了報告を投稿しない。
-- 常駐ブリッジが、レーンの結果と次の実装提案を**発注元のPOメッセージへの返信**として1通だけ投稿する。
-- レーンの最終回答には、次に価値が高い実装を1件だけ `[NEXT_IMPLEMENTATION_PROPOSAL] <提案>` の形式で残す。無ければ `なし` とする。
-- 着手不能・保留・失敗も最終回答と終了コードへ残し、Discordへの連絡は常駐ブリッジに任せる。
-
-### ブランチ戦略
-
-**通常作業は staging ブランチで直接作業する。**
-
-```bash
-git branch --show-current                        # 作業開始前に必ず確認
-git checkout staging && git pull origin staging  # 常に staging の最新から
-```
-
-#### Codex自動配送の限定例外
-
-POとの壁打ち後に明示GOされたタスクは、[yoyaq-auto-delivery](.agents/skills/yoyaq-auto-delivery/SKILL.md)と[CODEX_DASHBOARD](docs/CODEX_DASHBOARD.md)に従う。sourceは新規queue追加だけをcommitし、直後に別の可視監督へeventを送ってclaimを確認する。以降の記録とstaging統合・pushは監督Codex本人だけが行う（source昇格・integration task委譲は禁止）。worker/reviewerは正確な最新`origin/staging`から`codex/*` branch・隔離worktreeへ分け、UIはPO visual OKまでstagingへ統合しない。本番DB・main・本番デプロイは明示PO指示なしに行わない。詳細・優先順位は`.cursorrules`を正とする。
-
-#### Claude実装レーン（2026-07-20 PO GO）
-
-起票時に「実装: Claude(Opus)」と明記されたタスクは、実装・staging統合・pushをClaude側が行う。Codexは実装workerを生成せず、Claudeのstaging push後に**focused検収を1回だけ**行う（diff全読＋指定gate再実行＋テナント境界/認可/PII/回帰の確認）。REWORK指摘は重大欠陥（データ破壊・テナント境界・認可/PII・回帰）に限定して1往復に束ね、修正はClaudeがstagingへの追撃コミットで行う。dashboardの状態・検収・DONE/REWORK記録は従来どおり監督だけが更新する。詳細は`.cursorrules`を正とする。
-
-### main への反映（本番デプロイ）
-
-- **ユーザーの明示的な指示があったときのみ**、staging → main のマージ＋push まで一気に実行してよい
-- 指示なしの main マージ・push は絶対禁止。**force push は常に禁止**
-- マージ前に分岐チェック（`git log origin/staging..origin/main --oneline`）。main に hotfix が直接入っていることがある
-- マージ後は staging を main に ff で resync する
-
-### DBマイグレーションがある場合
-
-**DB変更 → フロントデプロイの順序を絶対に守ること**（逆だと本番エラー、事故実績あり）。
-
-- マイグレーション適用（`npm run db:push:staging` / `db:push:prod`）は AI が実行してOK。
-  実行前に変更内容を提示し、実行後は確認クエリで結果を報告する。
-
-### 作業スコープのルール
-
-**1作業 = 1コミット。依頼された範囲だけをやる。**
-
-- 依頼に含まれていないファイルを勝手に修正しない
-- リファクタ・クリーンアップ・関連改善は、明示的に頼まれない限りやらない
-- 「ついでに」「念のため」でスコープを広げない
-- 複数の修正が必要な場合は、先に分割案をユーザーに提示して確認を取る
-
-### 動作確認の依頼
-
-staging に push したら必ず動作確認チェックリストを出力する。
-各項目に「どの画面か（ページ名・タブ名・たどり方）」を必ず書く。
-
----
-
-## 改善タスク（リファクタ・デザイン統一・性能）を実装する場合
-
-- 運用台帳は `docs/IMPROVEMENT_HANDOFF.md`。着手前に読み、完了したら更新する
-- コミット前に `npm run verify` を実行してグリーンであることを確認する
-- デザイン変更時の絶対制約: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）。詳細は `.cursorrules` のデザインシステム章
-
----
+- Discord へ自分で投稿しない。常駐ブリッジが発注元への返信1通で行う
+- 最終回答に次案を1つ: `[NEXT_IMPLEMENTATION_PROPOSAL] <提案>`（無ければ `なし`）
+- 着手不能・保留・失敗も最終回答と終了コードへ残す
+- PO明示GOの自動配送は `.agents/skills/yoyaq-auto-delivery/SKILL.md` + `docs/CODEX_DASHBOARD.md`
+- 「実装: Claude(Opus)」起票は実装workerを作らず、staging push後の focused 検収1回と DONE/REWORK 記録のみ
+- Claudeへの相談は `scripts/ask-claude.sh`（コード/diff非含有）。見解は自分と区別して書く
 
 ## Review guidelines
 
-**IMPORTANT: Write ALL review comments, summaries, and inline feedback in Japanese (日本語). Do not use English.**
+指摘・要約・インライン・総評は**すべて日本語**。英語禁止。
 
-PRレビュー(Codex等のAIレビュアー)は以下の観点・方針で行うこと。
+- 行コメントで個別指摘。最後にトップレベル「総評」1つ（最重要点 / マージ可否 / 優先順）
+- 優先: バグ・エッジケース → テナント → 認可/PII → 回帰
+- `organization_id`、`reservation_source` 定数、RLS直書き回避、migration時のDB先行、デザイン禁止（`border-l-4` / 公演見た目 / native confirm）を確認
+- 薄いスタイル指摘は省略
 
-### 出力形式
+## 改善タスク
 
-- 指摘・要約・インラインコメントはすべて日本語で書く
-- 個別の指摘は該当行へのインラインコメントで書く
-- **レビューの最後に、必ずトップレベルコメントとして「総評」を1つ投稿する。**内容: ①最重要の指摘は何か ②マージ可否の推奨(そのままマージ可 / 修正後にマージ / 要議論) ③対応の優先順位
-- 重要度の低いスタイル指摘は省略する
-
-### 観点
-
-- バグ・ロジックエラー・エッジケースを最優先で指摘する
-- `organization_id` によるマルチテナント分離が維持されているか確認する
-- `reservation_source` が `src/lib/constants.ts` の定数を使っているか確認する
-- RLSポリシーの直接変更が含まれていないか確認する（SECURITY DEFINER RPC で対応する方針）
-- セキュリティ: 入力検証・認可漏れ・個人情報（メール/電話/PIN）の露出がないか
-- 明らかなパフォーマンス問題（N+1、無制限フェッチなど）
-- migrationを含むPR: 既存データへの影響、一意制約違反の可能性、失敗時に途中状態が残らないか、DB変更→フロントデプロイの順序が守られるかを確認する
-- デザイン変更を含むPR: `border-l-4` アクセント禁止 / 公演モーダル・公演カードの見た目変更禁止 / native `confirm()` 禁止（共通 `ConfirmDialog` を使う）に違反していないか
-
----
-
-## Claude連携ブリッジ（2026-07-19 PO指示）
-
-- POが「Claudeに聞いて」等と指示したとき、または設計・仕様のセカンドオピニオンが有効なときは、`scripts/ask-claude.sh "質問"` でClaude(Fable)へヘッドレス相談する（stdinで文脈を渡せる）。コード/diff非含有の相談に限る（テナント保護がプライベートコードのAnthropic送信を遮断し得る）。Claudeの見解と自分の見解を区別して報告する。
-- POがClaude側（Claude Code）で壁打ちした場合、Claudeが代筆・コミットしたダッシュボード起票と、`scripts/queue-to-codex.sh` 経由で監督スレッドへユーザー書き込みとして届く `YOYAQ_QUEUE_UPDATED` は、PO起票と同格の正規イベントとして扱う。以降のclaim・実装・検収・staging統合・pushは通常の自動連鎖（yoyaq-auto-delivery）に従う。ただし起票に「実装: Claude(Opus)」と明記された場合はClaude実装レーンに従い、監督は実装workerを生成せず、focused検収1回とDONE/REWORK記録だけを行う。
+台帳 `docs/IMPROVEMENT_HANDOFF.md`。着手前に読み完了後に更新。commit前 `npm run verify`。

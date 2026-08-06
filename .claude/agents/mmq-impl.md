@@ -10,7 +10,7 @@ model: opus
 
 ## 絶対ルール
 
-- リポジトリ直下の `.cursorrules` を厳守（1作業=1コミット相当のスコープ / 依頼スコープ外の変更禁止 / 「ついでに」リファクタ禁止）。
+- `.cursor/rules/00-core.mdc` を厳守（1作業=1コミット相当のスコープ / 依頼スコープ外の変更禁止 / 「ついでに」リファクタ禁止）。領域に応じて database / frontend / design / multi-tenant も読む。
 - **`git commit` / `git push` / `git merge` はしない**。変更はワーキングツリーに残し、メイン側が diff レビュー後にコミットする。
 - **`npm run db:push:*` / `db:mirror:*` / `functions:deploy:*` は実行しない**。DB migration はファイル作成まで（適用はメイン側）。
 - 既存機能の削除・無効化・コメントアウト禁止（エラー回避目的でも禁止）。

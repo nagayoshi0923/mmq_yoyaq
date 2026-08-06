@@ -1,0 +1,51 @@
+---
+description: スキーマ正本・RPC・RLS・マイグレ罠。supabase/ や RPC 変更時に適用。
+globs:
+  - supabase/**/*
+alwaysApply: false
+---
+
+# データベース
+
+スキーマ変更は `/db-change` スキルに従う。
+
+## 正本
+
+| 対象 | 場所 |
+|------|------|
+| テーブル定義 | `supabase/schemas/<table>.sql` |
+| RPC | `supabase/rpcs/*.sql` |
+
+- マイグレでカラム追加/変更 → **schemas も同時更新**
+- 新テーブル → schemas に正規定義を作る
+
+## クエリ前
+
+カラム名は `supabase/schemas/` で確認してから書く。
+
+## RPC
+
+- `CREATE OR REPLACE` は **live 定義（`pg_get_functiondef`）確認後**に書く（古いファイル基準は回帰する）
+- API は `{success: false}` を必ず判定（HTTP 200 でも失敗あり）
+- RPC 変更後は `npm run test:rpcs`
+- フロントから `reservations` 直接 UPDATE/DELETE は禁止（RPC/API経由）
+
+## RLS
+
+SELECT ポリシーは行単位。通過行の**全カラム**が読める。  
+`reservations` の PII/金額等を第三者に出してよいか疑問なら、RLS追加ではなく **SECURITY DEFINER RPC で最小カラム**。
+
+マイグレ前チェック:
+- `DROP POLICY IF EXISTS` → `CREATE POLICY`
+- `GRANT` に関数シグネチャを付ける
+- anon 必須テーブルの権限を壊さない
+- schemas 同時更新 / live確認 / `test:rpcs`
+
+**anon SELECT 必須**: organizations, stores, scenario_masters, schedule_events, organization_scenarios, business_hours_settings, booking_notices, private_groups, private_group_members, private_group_candidate_dates, private_group_date_responses, private_group_messages
+
+## 運用の罠
+
+- `db:mirror:staging` 後: `app_config` に本番URLが入り staging が本番 Edge を叩くことがある
+- pg_cron の URL/Secret は `public.app_config` から（`current_setting()` はサイレント失敗）
+- Edge Secrets に `SUPABASE_` 接頭辞は使えない → `MMQ_SB_SECRET_KEY`
+- webhook系 Edge は `.github/workflows/deploy-supabase.yml` の `NO_VERIFY_JWT_FUNCTIONS` にも追加

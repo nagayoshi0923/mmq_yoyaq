@@ -1,0 +1,34 @@
+---
+description: デザイントークン・公演UI保護・店舗色。UIコンポーネント編集時に適用。
+globs:
+  - src/**/*.tsx
+  - src/**/*.css
+alwaysApply: false
+---
+
+# デザイン
+
+- Tailwind の `text-*` / `font-*` / `leading-*` は使わない（`globals.css` 任せ）
+- レイアウト: `container mx-auto px-4` + `space-y-6`
+- UIは ShadCN（`src/components/ui/`）優先。入力背景 `#F6F9FB`
+- `text-gray-` / `text-[` / 素の `rounded` / インライン borderRadius を増やさない（`check:design-tokens`）
+
+## 禁止・保護
+
+- `border-l-4` + ステータス色の左アクセントは全面禁止（バッジ＋薄い tint）
+- **公演モーダル・公演カードの見た目変更は禁止**（機能変更でもレイアウト・色・余白を維持）
+- native dialog 禁止 → `ConfirmDialog`
+- 破壊的操作で可変長リストが消える → 2ステップ確認。destructive ボタンは1画面に1つ
+
+## 店舗色
+
+| 店舗 | Badge | Card |
+|------|-------|------|
+| 高田馬場 | `bg-blue-100 text-blue-800` | `bg-blue-50 border-blue-200` |
+| 別館① | `bg-green-100 text-green-800` | `bg-green-50 border-green-200` |
+| 別館② | `bg-purple-100 text-purple-800` | `bg-purple-50 border-purple-200` |
+| 大久保 | `bg-orange-100 text-orange-800` | `bg-orange-50 border-orange-200` |
+| 大塚 | `bg-red-100 text-red-800` | `bg-red-50 border-red-200` |
+| 埼玉大宮 | `bg-amber-100 text-amber-800` | `bg-amber-50 border-amber-200` |
+
+公演カテゴリ: オープン `blue` / 貸切 `purple` / GMテスト `orange`（上と同じクラス型）

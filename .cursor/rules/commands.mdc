@@ -1,0 +1,42 @@
+---
+description: npm scripts 早見表。dev起動・verify・db・functions・test を実行するとき。
+alwaysApply: false
+---
+
+# コマンド早見
+
+```bash
+# 日常開発
+npm run dev:vercel          # 推奨（5173、/api は staging proxy）
+npm run dev                 # vite のみ
+npm run dev:stop
+
+# 品質
+npm run typecheck
+npm run lint
+npm run verify              # コミット前推奨
+npm run pre-commit
+npm run check:design-tokens
+npm run check:jst-date
+npm run check:multi-tenant
+npm run check:permissions
+
+# DB（linked 直叩き禁止）
+npm run db:status
+npm run db:push:staging
+npm run db:push:prod
+npm run db:mirror:staging
+npm run db:check
+npm run supabase:migration:new
+
+# Edge Functions
+npm run functions:deploy:staging
+npm run functions:deploy:prod
+
+# テスト
+npm run test:unit
+npm run test:rpcs
+npm run test:e2e
+```
+
+`vercel dev` は macOS で EBADF するため使わない。
