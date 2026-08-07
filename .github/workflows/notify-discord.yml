@@ -1,11 +1,13 @@
+# DISABLED 2026-08-08: Discord要人間対応通知は運用していないため停止。
+# 再有効化する場合は issues.labeled トリガーを復元し、GitHub Actions で Enable する。
 name: Notify Discord (要人間対応)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 停止中（手動以外は起動しない）
 
 jobs:
   notify:
-    if: github.event.label.name == 'needs-info' || github.event.label.name == 'needs-human' || github.event.label.name == 'automation-failed'
+    if: false
     runs-on: ubuntu-latest
     permissions:
       issues: read

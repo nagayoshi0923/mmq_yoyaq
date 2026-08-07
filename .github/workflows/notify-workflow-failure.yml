@@ -1,23 +1,13 @@
+# DISABLED 2026-08-08: Discord失敗通知は運用していないため停止。
+# 再有効化する場合は on.workflow_run を復元し、GitHub Actions で Enable する。
 name: Notify Discord (workflow failure)
 
 on:
-  workflow_run:
-    workflows:
-      - CI
-      - E2E Tests
-      - Deploy Supabase
-      - Mirror Production DB to Staging
-      - Cursor Cloud Issue Groomer
-      - Cursor Cloud Implement (ai-todo)
-      - Cursor Cloud Review
-      - Cursor Cloud Agent
-      - Deploy Guard
-      - Release PR (staging → main)
-    types: [completed]
+  workflow_dispatch: # 停止中（手動以外は起動しない）
 
 jobs:
   notify:
-    if: github.event.workflow_run.conclusion == 'failure'
+    if: false
     runs-on: ubuntu-latest
     permissions:
       actions: read

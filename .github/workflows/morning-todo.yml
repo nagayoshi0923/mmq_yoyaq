@@ -1,12 +1,13 @@
+# DISABLED 2026-08-08: 朝TODO Discord通知は運用していないため停止。
+# 再有効化する場合は schedule cron を復元し、GitHub Actions で Enable する。
 name: Morning TODO → Discord
 
 on:
-  schedule:
-    - cron: '30 22 * * *' # 07:30 JST (UTC+9)
-  workflow_dispatch: # 手動テスト用
+  workflow_dispatch: # 停止中（手動以外は起動しない）
 
 jobs:
   todo:
+    if: false
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -59,7 +60,7 @@ jobs:
           [ -n "$DEPLOY" ]  && MSG="$MSG"$'\n\n'"🚀 **デプロイ判断**"$'\n'"$DEPLOY"
           [ -n "$FAILED" ]  && MSG="$MSG"$'\n\n'"🚨 **直近3日の失敗Action**"$'\n'"$FAILED"
           [ -n "$AF" ]      && MSG="$MSG"$'\n\n'"⚠️ **自動処理が失敗(automation-failed)**"$'\n'"$AF"
-          [ -n "$NH" ]      && MSG="$MSG"$'\n\n'"🙋 **あなたの判断待ち**"$'\n'"$NH"
+          [ -n "$NH" ]      && MSG="$MSG"$'\n\n'"🙋 **あなたの判断が必要**"$'\n'"$NH"
           [ -n "$NI" ]      && MSG="$MSG"$'\n\n'"⏳ **報告者の回答待ち(停滞していたら催促)**"$'\n'"$NI"
           [ -n "$NOLABEL" ] && MSG="$MSG"$'\n\n'"🏷 **トリアージ漏れ(ラベル無し)**"$'\n'"$NOLABEL"
           [ -n "$AITODO" ]  && MSG="$MSG"$'\n\n'"🤖 **AI作業中(結果待ち)**"$'\n'"$AITODO"
