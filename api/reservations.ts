@@ -5,12 +5,10 @@ import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistor
 import {
   canCustomerSelfCancel,
   resolveCancellationPolicy,
-  type CalculableCancellationPolicy,
-} from '../src/lib/cancellationPolicy.js'
-import {
   DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-} from '../src/constants/cancellationPolicyDefaults.js'
+  type CalculableCancellationPolicy,
+} from '../src/lib/cancellationPolicy.js'
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
