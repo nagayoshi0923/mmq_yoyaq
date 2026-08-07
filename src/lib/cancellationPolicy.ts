@@ -1,16 +1,21 @@
+/**
+ * api/ からも import される（相対パス）ので、ブラウザ専用APIや
+ * @/ パスエイリアスに依存しないこと（pricing.ts と同じ制約）。
+ * @/ を使うと Vercel の /api/reservations が FUNCTION_INVOCATION_FAILED になる。
+ */
 import {
   DEFAULT_OPEN_CANCELLATION_FEES,
   DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
   DEFAULT_PRIVATE_CANCELLATION_FEES,
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-} from '@/constants/cancellationPolicyDefaults'
-import { RESERVATION_SOURCE } from '@/lib/constants'
+} from '../constants/cancellationPolicyDefaults'
+import { RESERVATION_SOURCE } from './constants'
 import type {
   CancellationFeeBasis,
   CancellationFeeRule,
   CancellationPerformanceType,
   Reservation,
-} from '@/types'
+} from '../types/reservation'
 
 const HOUR_MS = 60 * 60 * 1000
 
