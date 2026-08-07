@@ -1,16 +1,14 @@
-import { logger } from '@/utils/logger'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink } from 'lucide-react'
+import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink, Pencil } from 'lucide-react'
 import { InviteShareButton } from '@/components/InviteShareButton'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -18,8 +16,7 @@ import {
   useCancelReservationMutation, useUpdateParticipantCountMutation,
 } from '../hooks/useReservationDetailQuery'
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
-
-const DEFAULT_CANCEL_DEADLINE_HOURS = 24
+import { DEFAULT_OPEN_CANCEL_DEADLINE_HOURS } from '@/constants/cancellationPolicyDefaults'
 
 export function ReservationDetailPage() {
   const navigate = useNavigate()
@@ -36,8 +33,8 @@ export function ReservationDetailPage() {
   const store = data?.store ?? null
   const scenario = data?.scenario ?? null
   const organization = data?.organization ?? null
-  const cancellationPolicy = data?.cancellationPolicy ?? null
-  const cancelDeadlineHours = data?.cancelDeadlineHours ?? DEFAULT_CANCEL_DEADLINE_HOURS
+  const cancelDeadlineHours = data?.cancelDeadlineHours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+  const canCancelByPolicy = data?.canCancelByPolicy ?? false
 
   const maxParticipants = reservation?.schedule_events?.max_participants ?? scenario?.player_count_max ?? 4
   const { data: remainingSeats = 0 } = useCurrentSeatsQuery(
@@ -148,16 +145,12 @@ export function ReservationDetailPage() {
 
   const canCancel = (() => {
     if (!user || reservation.status !== 'confirmed') return false
-    let eventDateTime: Date
-    if (reservation.schedule_events?.date && reservation.schedule_events?.start_time) {
-      eventDateTime = new Date(`${reservation.schedule_events.date}T${reservation.schedule_events.start_time}+09:00`)
-    } else {
-      eventDateTime = new Date(reservation.requested_datetime)
-    }
-    const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-    logger.log('キャンセル判定:', { hoursUntilEvent: hoursUntilEvent.toFixed(2), cancelDeadlineHours })
-    return hoursUntilEvent >= cancelDeadlineHours
+    return canCancelByPolicy
   })()
+
+  const cancelBlockedReason = !canCancel && reservation.status === 'confirmed'
+    ? `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${cancelDeadlineHours}時間前まで）。店舗へご連絡ください。`
+    : null
 
   const canEdit = reservation?.status === 'confirmed'
   const canDecrease = reservation?.status === 'confirmed' && canCancel
@@ -366,14 +359,24 @@ export function ReservationDetailPage() {
                 <span className="text-sm text-gray-500">予約日</span>
                 <span className="text-sm text-gray-600">{formatJstDateJa(reservation.created_at)}</span>
               </div>
-              {reservation.status === 'confirmed' && !reservation.schedule_events?.is_private_booking && (
+              {reservation.status === 'confirmed' && (
                 <div className="pt-3 mt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm text-gray-500">予約キャンセル</p>
-                      {!canCancel && <p className="text-xs text-red-500 mt-1">期限（{cancelDeadlineHours}時間前）を過ぎています</p>}
+                      {cancelBlockedReason && (
+                        <p className="text-xs text-red-500 mt-1">{cancelBlockedReason}</p>
+                      )}
                     </div>
-                    <Button variant="destructive" size="sm" className="h-8" onClick={() => setCancelDialogOpen(true)} disabled={!canCancel}>キャンセル</Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 shrink-0"
+                      onClick={() => setCancelDialogOpen(true)}
+                      disabled={!canCancel}
+                    >
+                      キャンセル
+                    </Button>
                   </div>
                 </div>
               )}

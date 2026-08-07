@@ -2,6 +2,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
 import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistory.js'
+import {
+  canCustomerSelfCancel,
+  resolveCancellationPolicy,
+  type CalculableCancellationPolicy,
+} from '../src/lib/cancellationPolicy.js'
+import {
+  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+} from '../src/constants/cancellationPolicyDefaults.js'
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
@@ -37,6 +46,94 @@ const SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL =
   'schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)'
 
 const RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS = `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL}`
+
+const CUSTOMER_CANCEL_BLOCKED_MESSAGE =
+  'キャンセル料金が発生する期間のため、マイページからのキャンセルはできません。店舗へご連絡ください。'
+
+type CancelScheduleEvent = {
+  date?: string | null
+  start_time?: string | null
+  store_id?: string | null
+  is_private_booking?: boolean | null
+  category?: string | null
+}
+
+/** 顧客セルフキャンセルの受付期限を超えていないか検証。スタッフはスキップ。 */
+async function assertCustomerSelfCancelAllowed(
+  user: AuthUser,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reservation: any,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  if (user.role !== 'customer') return { ok: true }
+
+  const scheduleEventRaw = reservation.schedule_events
+  const scheduleEvent = (Array.isArray(scheduleEventRaw) ? scheduleEventRaw[0] : scheduleEventRaw) as
+    | CancelScheduleEvent
+    | null
+    | undefined
+
+  if (!scheduleEvent?.date || !scheduleEvent?.start_time) {
+    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
+  }
+
+  const isPrivate = Boolean(
+    reservation.private_group_id
+      || scheduleEvent.is_private_booking
+      || scheduleEvent.category === 'private',
+  )
+
+  let settingsDeadlineHours = isPrivate
+    ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+    : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+  const storeId = scheduleEvent.store_id || reservation.store_id
+  if (storeId && db) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: settingsData } = await (db as any)
+      .from('reservation_settings')
+      .select('cancellation_deadline_hours, private_cancellation_deadline_hours')
+      .eq('store_id', storeId)
+      .maybeSingle()
+    if (settingsData) {
+      settingsDeadlineHours = isPrivate
+        ? (settingsData.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS)
+        : (settingsData.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS)
+    }
+  }
+
+  const resolved = resolveCancellationPolicy(reservation)
+  if (resolved.status !== 'ready') {
+    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
+  }
+
+  const policy: CalculableCancellationPolicy = resolved.source === 'legacy_default'
+    ? { ...resolved, deadlineHours: settingsDeadlineHours }
+    : resolved
+
+  const participantTotal = reservation.final_price
+    ?? reservation.total_price
+    ?? ((reservation.unit_price || 0) * (reservation.participant_count || 0))
+
+  try {
+    const allowed = canCustomerSelfCancel({
+      performanceDate: scheduleEvent.date,
+      performanceStartTime: scheduleEvent.start_time,
+      now: new Date(),
+      policy,
+      basisAmounts: {
+        participant_total: Number(participantTotal) || 0,
+        performance_total: Number(participantTotal) || 0,
+      },
+    })
+    if (!allowed) {
+      return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
+    }
+  } catch (error) {
+    console.error('[reservations:cancel] customer self-cancel check failed:', error)
+    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
+  }
+
+  return { ok: true }
+}
 
 const RESERVATION_SUMMARY_SELECT_FIELDS =
   'schedule_event_id, date, venue, scenario, start_time, end_time, max_participants, current_reservations, available_seats, reservation_count'
@@ -737,6 +834,19 @@ async function handleCancelWithLock(req: VercelRequest, res: VercelResponse, use
   const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
+  if (!db) return res.status(500).json({ error: 'db unavailable' })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reservationForPolicy, error: policyFetchError } = await (db as any)
+    .from('reservations')
+    .select(RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS)
+    .eq('id', id)
+    .maybeSingle()
+  if (policyFetchError || !reservationForPolicy) {
+    return res.status(500).json({ error: '予約取得に失敗しました' })
+  }
+  const customerGate = await assertCustomerSelfCancelAllowed(user, reservationForPolicy)
+  if (!customerGate.ok) return res.status(customerGate.status).json({ error: customerGate.error })
+
   // user-scoped で RPC を呼ぶ（RPC 側で auth.uid() による顧客/スタッフ判定）
   const userClient = createUserScopedClient(user.jwt)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -766,6 +876,19 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
 
   const own = await ensureReservationOwnedByOrg(id, user)
   if (!own.ok) return res.status(own.status).json({ error: own.error })
+
+  if (!db) return res.status(500).json({ error: 'db unavailable' })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reservationForPolicy, error: policyFetchError } = await (db as any)
+    .from('reservations')
+    .select(RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS)
+    .eq('id', id)
+    .maybeSingle()
+  if (policyFetchError || !reservationForPolicy) {
+    return res.status(500).json({ error: '予約取得に失敗しました' })
+  }
+  const customerGate = await assertCustomerSelfCancelAllowed(user, reservationForPolicy)
+  if (!customerGate.ok) return res.status(customerGate.status).json({ error: customerGate.error })
 
   const userClient = createUserScopedClient(user.jwt)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -833,6 +956,9 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
       return res.status(403).json({ error: '他組織の予約は操作できません' })
     }
   }
+
+  const customerGate = await assertCustomerSelfCancelAllowed(user, reservation)
+  if (!customerGate.ok) return res.status(customerGate.status).json({ error: customerGate.error })
 
   // 2) RPC でキャンセル
   const userClient = createUserScopedClient(user.jwt)

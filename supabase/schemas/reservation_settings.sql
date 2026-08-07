@@ -12,13 +12,13 @@ CREATE TABLE public.reservation_settings (
   -- get_private_booking_deadline_days RPC 経由でこの値を参照する（14 を直書きしない）
   private_booking_deadline_days INTEGER DEFAULT 14,
   cancellation_policy TEXT,
-  cancellation_deadline_hours INTEGER DEFAULT 0,
+  cancellation_deadline_hours INTEGER DEFAULT 48,
   cancellation_fees JSONB DEFAULT '[{"hours_before":48,"fee_percentage":50,"description":"前日より50%"},{"hours_before":24,"fee_percentage":100,"description":"当日より100%"},{"hours_before":-1,"fee_percentage":100,"description":"公演開始後・無断100%"}]'::jsonb,
   cancellation_fee_basis TEXT NOT NULL DEFAULT 'participant_total'
     CHECK (cancellation_fee_basis IN ('participant_total', 'performance_total')),
   private_cancellation_policy TEXT,
   private_booking_cancellation_fees JSONB DEFAULT '[]'::jsonb,
-  private_cancellation_deadline_hours INTEGER DEFAULT 0,
+  private_cancellation_deadline_hours INTEGER DEFAULT 720,
   private_cancellation_fees JSONB DEFAULT '[{"hours_before":168,"fee_percentage":50,"description":"7日前より公演価格全額の50%"},{"hours_before":72,"fee_percentage":100,"description":"3日前より公演価格全額の100%"},{"hours_before":-1,"fee_percentage":100,"description":"公演開始後・無断キャンセル100%"}]'::jsonb,
   private_cancellation_fee_basis TEXT NOT NULL DEFAULT 'performance_total'
     CHECK (private_cancellation_fee_basis IN ('participant_total', 'performance_total')),

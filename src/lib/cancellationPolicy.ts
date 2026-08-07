@@ -231,3 +231,44 @@ export function calculateCancellation(input: CalculateCancellationInput): Cancel
     feeAmount,
   }
 }
+
+/**
+ * 顧客セルフキャンセル用の受付期限。
+ * 予約snapshotの deadline=0 は「開演まで料金付き受付可」の旧運用なので、
+ * 顧客経路では無料セルフ期間の既定値へ読み替える。
+ */
+export function resolveCustomerCancelDeadlineHours(
+  policy: CalculableCancellationPolicy,
+): number {
+  if (policy.deadlineHours > 0) return policy.deadlineHours
+  return policy.performanceType === 'private'
+    ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+    : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+}
+
+export interface CustomerSelfCancelEvaluation extends CancellationCalculation {
+  customerDeadlineHours: number
+  canCustomerSelfCancel: boolean
+}
+
+/**
+ * 顧客がマイページ等から自分でキャンセルしてよいか。
+ * 受付期限を過ぎている、またはキャンセル料が発生する時刻は不可（店舗対応）。
+ */
+export function evaluateCustomerSelfCancel(
+  input: CalculateCancellationInput,
+): CustomerSelfCancelEvaluation {
+  const calculation = calculateCancellation(input)
+  const customerDeadlineHours = resolveCustomerCancelDeadlineHours(input.policy)
+  const canCustomerSelfCancel = calculation.feePercentage === 0
+    && calculation.hoursUntilPerformance >= customerDeadlineHours
+  return {
+    ...calculation,
+    customerDeadlineHours,
+    canCustomerSelfCancel,
+  }
+}
+
+export function canCustomerSelfCancel(input: CalculateCancellationInput): boolean {
+  return evaluateCustomerSelfCancel(input).canCustomerSelfCancel
+}
