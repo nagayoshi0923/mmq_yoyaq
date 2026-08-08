@@ -1,14 +1,14 @@
--- 正規ソース。変更後は新規マイグレにこのファイル全文を貼る。
+-- =============================================================================
+-- get_private_booking_deadline_days の集計対象を予約可能店舗に修正
+-- =============================================================================
+-- 背景:
+-- - 旧実装は reservation_settings のみを集計していたため、設定行が無い店舗
+--   （＝実質 14 日運用）が MAX に含まれず、締切が短く出るケースがあった。
+--   また、閉店店舗やオフィス（予約不可）の設定値まで拾っていた。
+-- - stores を起点に LEFT JOIN し、予約可能店舗（active かつ office 以外）のみを
+--   集計する。設定行が無い店舗は 14 日として MAX に含める。
 --
--- 貸切公演の予約受付締切（公演日の何日前まで申込可能か）を返す。
--- 設定は reservation_settings.private_booking_deadline_days（店舗単位）。
--- 公開ページ（anon）からは reservation_settings を直接 SELECT できないため、
--- この RPC 経由で締切日数のみを公開する。
---
--- 集計対象は予約可能な店舗のみ（status = 'active' かつ ownership_type が 'office' 以外）。
--- 設定行が無い店舗は COALESCE(..., 14) で 14 日として MAX に含める。
--- 組織内で店舗ごとに値が異なる場合は MAX（最も厳しい締切）を採用する。
--- 対象店舗が 1 件も無い場合のフォールバックは 14 日。
+-- 正規定義: supabase/rpcs/get_private_booking_deadline_days.sql
 
 CREATE OR REPLACE FUNCTION get_private_booking_deadline_days(
   p_organization_id UUID DEFAULT NULL,
