@@ -1,3 +1,7 @@
+-- 20260810090000: create_private_booking_request で貸切OFF / offsite_only を拒否
+-- accepts_private_booking=false または scenario_kind='offsite_only' のとき P0044
+-- 正規ソース: supabase/rpcs/create_private_booking_request.sql
+
 -- 正規ソース: create_private_booking_request
 -- 最終更新: 20260810090000_enforce_accepts_private_booking_on_private_request.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
@@ -644,3 +648,7 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $$;
+
+-- GRANT は既存シグネチャを維持
+REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) FROM public;
+GRANT EXECUTE ON FUNCTION public.create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) TO authenticated;

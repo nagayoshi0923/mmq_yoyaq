@@ -1247,6 +1247,8 @@ export function PrivateGroupInvite() {
           errorMessage = '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。'
         } else if (rpcError.code === 'P0041' || rpcError.code === 'P0042') {
           errorMessage = '候補日時または希望店舗が正しくありません。再選択してください。'
+        } else if (rpcError.code === 'P0044') {
+          errorMessage = 'この作品は現在貸切リクエストを受け付けていません'
         } else if (rpcError.message) {
           errorMessage = rpcError.message
         }

@@ -35,6 +35,7 @@ const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
   'P0040': '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。',
   'P0041': '候補日時の時間帯が正しくありません。日時を再選択してください。',
   'P0042': '希望店舗が正しくありません。店舗を再選択してください。',
+  'P0044': 'この作品は現在貸切リクエストを受け付けていません',
 }
 
 interface UsePrivateBookingSubmitProps {

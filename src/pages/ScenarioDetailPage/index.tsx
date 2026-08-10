@@ -36,6 +36,7 @@ import { ScenarioAbout } from './components/ScenarioAbout'
 import { Footer } from '@/components/layout/Footer'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -73,6 +74,17 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   
   // データ取得フック（organization_idでフィルタリング）
   const { scenario, events, stores, relatedScenarios, organizationId, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
+  const acceptsPrivateBooking = scenario ? isScenarioAcceptingPrivateBooking(scenario) : true
+
+  // 貸切受付OFFの作品は貸切タブを開かない
+  useEffect(() => {
+    if (!scenario || isLoading) return
+    
+    if (!acceptsPrivateBooking && activeTab === 'private') {
+      setActiveTab('schedule')
+      setPrivateBookingUrlPending(null)
+    }
+  }, [scenario, isLoading, acceptsPrivateBooking, activeTab])
 
   // URLがUUIDでシナリオにslugがある場合、slugのURLにリダイレクト
   useEffect(() => {
@@ -195,7 +207,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     const isUuidLike = (value: string): boolean =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
     
-    if (tabParam === 'private') {
+    if (tabParam === 'private' && acceptsPrivateBooking) {
       setActiveTab('private')
 
       const slotKeys: PrivateBookingUrlSlotKey[] = ['morning', 'afternoon', 'evening']
@@ -220,6 +232,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       }
     } else {
       setPrivateBookingUrlPending(null)
+      if (tabParam === 'private' && !acceptsPrivateBooking) {
+        setActiveTab('schedule')
+      }
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && events.length > 0) {
       // 公演日程タブ: 指定日付（+時間）に一致するイベントを自動選択
       const timeParam = urlParams.get('time')
@@ -237,7 +252,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       }
       }
     }
-  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId])
+  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId, acceptsPrivateBooking])
 
   // URL の slot=morning|afternoon|evening を、カレンダーと同じ getTimeSlotsForDate の実時刻に変換して反映
   useEffect(() => {
@@ -511,7 +526,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* メインエリア - 詳細情報 */}
           <div className="md:col-span-7 space-y-4">
-            <ScenarioHero scenario={scenario} events={events} organizationSlug={organizationSlug} stores={stores} />
+            <ScenarioHero
+              scenario={scenario}
+              events={events}
+              organizationSlug={organizationSlug}
+              stores={stores}
+              showPrivateBookingCta={acceptsPrivateBooking}
+            />
             
             {/* あらすじ・シナリオ情報 */}
             <ScenarioAbout scenario={scenario} stores={stores} />
@@ -524,12 +545,21 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               <Tabs 
                 value={activeTab}
                 className="w-full" 
-                onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
+                onValueChange={(value) => {
+                  if (value === 'private' && !acceptsPrivateBooking) return
+                  setActiveTab(value as 'schedule' | 'private')
+                }}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-2">
-                  <TabsTrigger value="schedule" className="text-sm py-1.5">公演日程</TabsTrigger>
-                  <TabsTrigger value="private" className="text-sm py-1.5">貸切リクエスト</TabsTrigger>
-                </TabsList>
+                {acceptsPrivateBooking ? (
+                  <TabsList className="grid w-full grid-cols-2 mb-2">
+                    <TabsTrigger value="schedule" className="text-sm py-1.5">公演日程</TabsTrigger>
+                    <TabsTrigger value="private" className="text-sm py-1.5">貸切リクエスト</TabsTrigger>
+                  </TabsList>
+                ) : (
+                  <TabsList className="grid w-full grid-cols-1 mb-2">
+                    <TabsTrigger value="schedule" className="text-sm py-1.5">公演日程</TabsTrigger>
+                  </TabsList>
+                )}
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
@@ -564,6 +594,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 </TabsContent>
                 
                 {/* 貸切リクエストタブ */}
+                {acceptsPrivateBooking && (
                 <TabsContent value="private">
                   <div className="space-y-4">
                   {/* 日程を決めないで作成するボタン（一番上） */}
@@ -644,6 +675,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   )}
                   </div>
                 </TabsContent>
+                )}
               </Tabs>
 
 
@@ -664,7 +696,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   />
                 )}
 
-                {activeTab === 'private' && (() => {
+                {acceptsPrivateBooking && activeTab === 'private' && (() => {
                   const todayStr = toJstYmd(new Date())
                   const startDate = scenario.booking_start_date
                   const endDate = scenario.booking_end_date

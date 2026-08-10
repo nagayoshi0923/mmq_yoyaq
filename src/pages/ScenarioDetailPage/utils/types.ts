@@ -61,6 +61,10 @@ export interface ScenarioDetail {
   private_booking_blocked_slots?: string[]  // 貸切受付不可時間帯
   booking_start_date?: string | null  // 貸切募集開始日
   booking_end_date?: string | null  // 貸切募集終了日
+  /** シナリオ種別（offsite_only は貸切不可） */
+  scenario_kind?: string | null
+  /** 貸切受付フラグ（false=休止中） */
+  accepts_private_booking?: boolean | null
   characters?: ScenarioCharacter[]  // キャラクター情報
 }
 

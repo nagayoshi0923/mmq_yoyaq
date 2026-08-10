@@ -120,6 +120,10 @@ export interface Scenario {
   private_booking_blocked_slots?: string[] // 貸切ブロック済み時間枠（廃止予定）
   booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
   booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし
+  /** シナリオ種別: regular / online_item / offsite_only / package */
+  scenario_kind?: 'regular' | 'online_item' | 'offsite_only' | 'package' | string | null
+  /** 貸切受付フラグ（false=休止中） */
+  accepts_private_booking?: boolean | null
   individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文
   character_assignment_method?: 'survey' | 'self' // 配役方法
   org_status?: 'available' | 'unavailable' | 'coming_soon' // 組織側ステータス（生値）
