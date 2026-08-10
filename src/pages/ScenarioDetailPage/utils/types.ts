@@ -62,6 +62,8 @@ export interface ScenarioDetail {
   booking_start_date?: string | null  // 貸切募集開始日
   booking_end_date?: string | null  // 貸切募集終了日
   characters?: ScenarioCharacter[]  // キャラクター情報
+  scenario_kind?: string | null
+  accepts_private_booking?: boolean | null
 }
 
 export interface EventSchedule {

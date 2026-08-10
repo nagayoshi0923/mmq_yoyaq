@@ -217,7 +217,9 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     private_booking_blocked_slots: scenarioData.private_booking_blocked_slots || undefined,
     booking_start_date: scenarioData.booking_start_date || null,
     booking_end_date: scenarioData.booking_end_date || null,
-    characters: (scenarioData as any).characters || []
+    characters: (scenarioData as any).characters || [],
+    scenario_kind: scenarioData.scenario_kind ?? null,
+    accepts_private_booking: scenarioData.accepts_private_booking ?? null,
   }
   
   return {

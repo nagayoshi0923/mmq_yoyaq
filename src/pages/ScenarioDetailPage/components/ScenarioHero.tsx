@@ -19,6 +19,7 @@ import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
+import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -176,7 +177,10 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     toggleFavorite(scenario.scenario_master_id)
   }
 
+  const acceptsPrivateBooking = isScenarioAcceptingPrivateBooking(scenario)
+
   const handleCreateGroup = () => {
+    if (!acceptsPrivateBooking) return
     const params = new URLSearchParams()
     params.set('scenarioId', scenario.scenario_master_id)
     if (organizationSlug) params.set('org', organizationSlug)
@@ -413,13 +417,15 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 <Share2 className="w-3.5 h-3.5" />
                 シェア
               </button>
-              <button
-                className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
-                onClick={handleCreateGroup}
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                貸切リクエストを作成
-              </button>
+              {acceptsPrivateBooking && (
+                <button
+                  className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
+                  onClick={handleCreateGroup}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  貸切リクエストを作成
+                </button>
+              )}
             </div>
           </div>
         </div>

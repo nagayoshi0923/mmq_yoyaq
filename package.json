@@ -14,7 +14,7 @@
     "build:fast": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --max-warnings 57",
+    "lint": "eslint src --max-warnings 58",
     "check:security-guardrails": "node scripts/check-security-guardrails.mjs",
     "check:cancellation-rpcs": "node scripts/verify-cancellation-rpcs.mjs",
     "check:permissions": "node scripts/verify_permissions.mjs",

@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
+import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 
 interface TimeSlot {
   label: string
@@ -90,16 +92,34 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   const loadData = async () => {
     try {
       setLoading(true)
-      
-      // シナリオデータを取得
-      const scenarios = await scenarioApi.getAll()
-      const foundScenario = isUuidLike(scenarioId) ? scenarios.find((s: any) => s.id === scenarioId) : null
-      
+
+      let orgId: string | undefined = organization?.id
+      if (!orgId && organizationSlug) {
+        const org = await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true })
+        orgId = org?.id
+      }
+
+      // シナリオデータを取得（顧客は org 付き getById、スタッフは一覧フォールバック）
+      let foundScenario: any = null
+      if (isUuidLike(scenarioId) && orgId) {
+        foundScenario = await scenarioApi.getById(scenarioId, orgId).catch(() => null)
+      }
+      if (!foundScenario) {
+        const scenarios = await scenarioApi.getAll().catch(() => [])
+        foundScenario = isUuidLike(scenarioId) ? scenarios.find((s: any) => s.id === scenarioId) : null
+      }
+
       if (!foundScenario) {
         logger.error('シナリオが見つかりません')
         return
       }
-      
+
+      if (!isScenarioAcceptingPrivateBooking(foundScenario)) {
+        logger.error('貸切受付が停止されているシナリオです')
+        setScenario({ ...foundScenario, __privateBookingBlocked: true })
+        return
+      }
+
       setScenario(foundScenario)
 
       // 店舗データを取得
@@ -277,11 +297,15 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     )
   }
 
-  if (!scenario) {
+  if (!scenario || scenario.__privateBookingBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <p className="text-muted-foreground">シナリオが見つかりません</p>
+          <p className="text-muted-foreground">
+            {scenario?.__privateBookingBlocked
+              ? 'このシナリオは現在貸切リクエストを受け付けていません'
+              : 'シナリオが見つかりません'}
+          </p>
           <button
             onClick={handleBack}
             className="text-primary hover:underline"

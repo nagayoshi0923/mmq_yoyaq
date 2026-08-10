@@ -1,3 +1,7 @@
+-- #398: 貸切受付OFF / offsite_only 作品の create_private_booking_request を拒否する
+-- 正規ソース: supabase/rpcs/create_private_booking_request.sql
+-- 破壊的変更なし（CREATE OR REPLACE のみ）
+
 -- 正規ソース: create_private_booking_request
 -- 最終更新: 20260810010000_reject_private_booking_when_not_accepted.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
@@ -645,3 +649,6 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) TO authenticated;

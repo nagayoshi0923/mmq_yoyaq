@@ -68,6 +68,13 @@ CREATE TABLE public.organization_scenarios (
   individual_notice_template TEXT,
   character_assignment_method TEXT NOT NULL DEFAULT 'survey'::text,
   private_booking_time_slots TEXT[],
+  -- シナリオ種別（org単位）: regular / online_item / offsite_only
+  scenario_kind TEXT NOT NULL DEFAULT 'regular'::text,
+  -- 貸切受付の一時休止フラグ（false = 貸切休止中。通常公演は継続）
+  accepts_private_booking BOOLEAN NOT NULL DEFAULT TRUE,
+  -- シナリオ全体の公演可能期間（NULL = 制限なし）
+  available_from DATE,
+  available_until DATE,
   -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）
   custom_sensitive_tags TEXT[],
   -- 公式サイト(queenswaltz.jp)への掲載可否。org_status=available かつ true のものだけ公開APIに出る

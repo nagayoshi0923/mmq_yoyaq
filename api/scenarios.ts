@@ -57,6 +57,7 @@ const SELECT_FIELDS = [
   'individual_notice_template', 'character_assignment_method',
   'private_booking_time_slots', 'private_booking_blocked_slots',
   'sensitive_tags',
+  'scenario_kind', 'accepts_private_booking',
 ].join(', ')
 
 // 旧 scenarios テーブル（getAllLegacy 用）
@@ -81,6 +82,7 @@ const PUBLIC_FIELDS = [
   'id', 'title', 'key_visual_url', 'author', 'duration',
   'player_count_min', 'player_count_max', 'genre', 'release_date',
   'status', 'participation_fee', 'scenario_type', 'organization_id',
+  'scenario_kind', 'accepts_private_booking',
 ].join(', ')
 
 // 未ログイン顧客がシナリオ詳細ページで参照する公開フィールド。
@@ -100,6 +102,7 @@ const PUBLIC_DETAIL_FIELDS = [
   'booking_start_date', 'booking_end_date',
   'private_booking_time_slots', 'private_booking_blocked_slots',
   'sensitive_tags',
+  'scenario_kind', 'accepts_private_booking',
 ].join(', ')
 
 // 統計集計用に getScenarioStats が必要とする最小カラム
@@ -949,6 +952,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
     'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing',
     'booking_start_date', 'booking_end_date', 'private_booking_time_slots',
     'kit_count',
+    'scenario_kind', 'accepts_private_booking',
   ] as const
   for (const col of directOrgColumns) {
     if (updates[col] !== undefined) {
