@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { CalendarDays, Users, Coins, AlertCircle, MapPin, Clock, Copy } from 'lucide-react'
+import { CalendarDays, Users, Coins, AlertCircle, MapPin, Copy, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { storeApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
@@ -18,6 +18,7 @@ interface PerformanceDate {
   demoParticipants: number
   staffParticipants: number
   revenue: number
+  licenseCost?: number
   startTime: string
   storeId: string | null
   isCancelled: boolean
@@ -37,18 +38,39 @@ interface PerformancesSectionV2Props {
   totalParticipants?: number  // API側で計算された累計参加者数（スタッフ除外）
   totalStaffParticipants?: number  // 累計スタッフ参加者数
   totalRevenue?: number  // 累計売上（API側で計算）
+  totalLicenseCost?: number  // 累計ライセンス料（API側で計算）
+  licenseAmount?: number  // 通常公演のライセンス単価
+  gmTestLicenseAmount?: number  // GMテストのライセンス単価
   scenarioTitle?: string  // シナリオタイトル（ダウンロードファイル名用）
   futurePerformanceCount?: number  // 将来の公演予定数
   futureReservationCount?: number  // 将来の貸切予約数
 }
 
-// カテゴリの日本語表示
+// カテゴリの日本語表示（schedule_events.category の値と一致させる）
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   open: { label: '通常', color: 'bg-blue-100 text-blue-700' },
   private: { label: '貸切', color: 'bg-purple-100 text-purple-700' },
-  gm_test: { label: 'GMテスト', color: 'bg-yellow-100 text-yellow-700' },
-  internal: { label: '内部', color: 'bg-gray-100 text-gray-700' },
+  gmtest: { label: 'GMテスト', color: 'bg-orange-100 text-orange-800' },
+  testplay: { label: 'テストプレイ', color: 'bg-yellow-100 text-yellow-700' },
   offsite: { label: '出張', color: 'bg-green-100 text-green-700' },
+  package: { label: 'パッケージ', color: 'bg-pink-100 text-pink-700' },
+  venue_rental: { label: '場所貸し', color: 'bg-cyan-100 text-cyan-700' },
+  venue_rental_free: { label: '場所貸無料', color: 'bg-teal-100 text-teal-700' },
+  mtg: { label: 'MTG', color: 'bg-cyan-100 text-cyan-700' },
+}
+
+const isGmTestCategory = (category: string) => category === 'gmtest'
+
+const resolveLicenseCost = (
+  perf: PerformanceDate,
+  licenseAmount: number,
+  gmTestLicenseAmount: number
+): number => {
+  if (perf.isCancelled) return 0
+  if (typeof perf.licenseCost === 'number' && perf.licenseCost > 0) {
+    return perf.licenseCost
+  }
+  return isGmTestCategory(perf.category) ? gmTestLicenseAmount : licenseAmount
 }
 
 // 時間帯の日本語表示と色
@@ -69,12 +91,15 @@ const getTimeSlot = (startTime: string): string => {
 
 export function PerformancesSectionV2({ 
   performanceDates, 
-  participationCosts,
-  gmTestParticipationFee = 0,
-  scenarioParticipationFee = 0,
+  participationCosts: _participationCosts,
+  gmTestParticipationFee: _gmTestParticipationFee = 0,
+  scenarioParticipationFee: _scenarioParticipationFee = 0,
   totalParticipants: apiTotalParticipants = 0,
   totalStaffParticipants: apiTotalStaffParticipants = 0,
   totalRevenue: apiTotalRevenue = 0,
+  totalLicenseCost: apiTotalLicenseCost = 0,
+  licenseAmount = 0,
+  gmTestLicenseAmount = 0,
   scenarioTitle = 'シナリオ',
   futurePerformanceCount = 0,
   futureReservationCount = 0
@@ -82,6 +107,7 @@ export function PerformancesSectionV2({
   const [stores, setStores] = useState<Store[]>([])
   const [includeParticipants, setIncludeParticipants] = useState(true)
   const [includeRevenue, setIncludeRevenue] = useState(true)
+  const [includeLicense, setIncludeLicense] = useState(true)
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
 
@@ -155,6 +181,26 @@ export function PerformancesSectionV2({
   const filteredTotalParticipants = filteredPerformances.reduce((sum, p) => sum + p.participants, 0)
   const filteredTotalStaffParticipants = filteredPerformances.reduce((sum, p) => sum + p.staffParticipants, 0)
   const filteredTotalRevenue = filteredPerformances.reduce((sum, p) => sum + (p.revenue || 0), 0)
+  const filteredTotalLicenseCost = filteredPerformances.reduce(
+    (sum, p) => sum + resolveLicenseCost(p, licenseAmount, gmTestLicenseAmount),
+    0
+  )
+
+  // 全期間のライセンス内訳（通常 / GMテスト）
+  const normalActiveCount = activePerformances.filter(p => !isGmTestCategory(p.category)).length
+  const gmTestActiveCount = activePerformances.filter(p => isGmTestCategory(p.category)).length
+  const normalLicenseTotal = activePerformances
+    .filter(p => !isGmTestCategory(p.category))
+    .reduce((sum, p) => sum + resolveLicenseCost(p, licenseAmount, gmTestLicenseAmount), 0)
+  const gmTestLicenseTotal = activePerformances
+    .filter(p => isGmTestCategory(p.category))
+    .reduce((sum, p) => sum + resolveLicenseCost(p, licenseAmount, gmTestLicenseAmount), 0)
+  const computedTotalLicenseCost = normalLicenseTotal + gmTestLicenseTotal
+  const displayTotalLicenseCost = apiTotalLicenseCost > 0 ? apiTotalLicenseCost : computedTotalLicenseCost
+
+  // 期間フィルタ時の内訳
+  const filteredNormalCount = filteredPerformances.filter(p => !isGmTestCategory(p.category)).length
+  const filteredGmTestCount = filteredPerformances.filter(p => isGmTestCategory(p.category)).length
 
   // 期間でフィルタリングされた全公演（中止含む）を取得
   const filteredAllPerformances = performanceDates.filter(perf => {
@@ -198,7 +244,7 @@ export function PerformancesSectionV2({
     }
     lines.push(`生成日時: ${formatJstDateTime(new Date())}`)
     lines.push('')
-    lines.push(`公演回数: ${filteredPerformances.length}回`)
+    lines.push(`公演回数: ${filteredPerformances.length}回（通常${filteredNormalCount}回 / GMテスト${filteredGmTestCount}回）`)
     if (includeParticipants) {
       lines.push(`累計参加者: ${filteredTotalParticipants.toLocaleString()}名`)
       if (filteredTotalStaffParticipants > 0) {
@@ -208,6 +254,17 @@ export function PerformancesSectionV2({
     if (includeRevenue) {
       lines.push(`累計売上: ¥${filteredTotalRevenue.toLocaleString()}`)
     }
+    if (includeLicense) {
+      lines.push(`合計ライセンス: ¥${filteredTotalLicenseCost.toLocaleString()}`)
+      lines.push(`  通常: ${filteredNormalCount}回 × @¥${licenseAmount.toLocaleString()} = ¥${filteredPerformances
+        .filter(p => !isGmTestCategory(p.category))
+        .reduce((sum, p) => sum + resolveLicenseCost(p, licenseAmount, gmTestLicenseAmount), 0)
+        .toLocaleString()}`)
+      lines.push(`  GMテスト: ${filteredGmTestCount}回 × @¥${gmTestLicenseAmount.toLocaleString()} = ¥${filteredPerformances
+        .filter(p => isGmTestCategory(p.category))
+        .reduce((sum, p) => sum + resolveLicenseCost(p, licenseAmount, gmTestLicenseAmount), 0)
+        .toLocaleString()}`)
+    }
     lines.push('')
     
     // 月毎の公演回数
@@ -216,7 +273,9 @@ export function PerformancesSectionV2({
       sortedMonths.forEach(key => {
         const { year, month, performances, cancelled } = groupedByMonth[key]
         const activeCount = performances.length - cancelled
-        lines.push(`  ${year}年${month}月: ${activeCount}回${cancelled > 0 ? `/${cancelled}回中止` : ''}`)
+        const gmCount = performances.filter(p => !p.isCancelled && isGmTestCategory(p.category)).length
+        const normalCount = activeCount - gmCount
+        lines.push(`  ${year}年${month}月: ${activeCount}回（通常${normalCount}/GMテスト${gmCount}）${cancelled > 0 ? `/${cancelled}回中止` : ''}`)
       })
       lines.push('')
     }
@@ -259,6 +318,12 @@ export function PerformancesSectionV2({
         if (includeRevenue && !perf.isCancelled) {
           const displayRevenue = perf.revenue || 0
           line += ` 売上:¥${displayRevenue.toLocaleString()}`
+        }
+
+        // ライセンス（オプション）
+        if (includeLicense && !perf.isCancelled) {
+          const cost = resolveLicenseCost(perf, licenseAmount, gmTestLicenseAmount)
+          line += ` ライセンス:¥${cost.toLocaleString()}`
         }
         
         lines.push(line)
@@ -338,7 +403,7 @@ export function PerformancesSectionV2({
           
           {/* 出力オプションとコピーボタン */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="include-participants"
@@ -357,6 +422,16 @@ export function PerformancesSectionV2({
                 />
                 <Label htmlFor="include-revenue" className="text-sm cursor-pointer">
                   売上を出力
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="include-license"
+                  checked={includeLicense}
+                  onCheckedChange={(checked) => setIncludeLicense(checked === true)}
+                />
+                <Label htmlFor="include-license" className="text-sm cursor-pointer">
+                  ライセンスを出力
                 </Label>
               </div>
             </div>
@@ -383,6 +458,9 @@ export function PerformancesSectionV2({
               <CalendarDays className="w-4 h-4 text-muted-foreground" />
               <span className="font-medium">公演回数:</span>
               <span className="text-lg font-bold">{activePerformances.length}回</span>
+              <span className="text-xs text-muted-foreground">
+                （通常{normalActiveCount} / GMテスト{gmTestActiveCount}）
+              </span>
               {performanceDates.length !== activePerformances.length && (
                 <span className="text-xs text-muted-foreground">
                   （中止{performanceDates.length - activePerformances.length}回）
@@ -414,6 +492,23 @@ export function PerformancesSectionV2({
               </span>
             </div>
           </div>
+          <div className="pt-2 border-t space-y-1">
+            <div className="flex items-center gap-2 text-sm flex-wrap">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">合計ライセンス:</span>
+              <span className="text-lg font-bold">
+                ¥{displayTotalLicenseCost.toLocaleString()}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground pl-6 space-y-0.5">
+              <div>
+                通常: {normalActiveCount}回 × @¥{licenseAmount.toLocaleString()} = ¥{normalLicenseTotal.toLocaleString()}
+              </div>
+              <div>
+                GMテスト: {gmTestActiveCount}回 × @¥{gmTestLicenseAmount.toLocaleString()} = ¥{gmTestLicenseTotal.toLocaleString()}
+              </div>
+            </div>
+          </div>
       </div>
 
       {/* 年ごとの公演リスト */}
@@ -424,37 +519,53 @@ export function PerformancesSectionV2({
           const { month } = formatDate(perf.date)
           const key = `${year}-${month}`
           if (!acc[key]) {
-            acc[key] = { month, total: 0, cancelled: 0 }
+            acc[key] = { month, total: 0, cancelled: 0, gmtest: 0 }
           }
           acc[key].total++
           if (perf.isCancelled) {
             acc[key].cancelled++
+          } else if (isGmTestCategory(perf.category)) {
+            acc[key].gmtest++
           }
           return acc
-        }, {} as Record<string, { month: string; total: number; cancelled: number }>)
+        }, {} as Record<string, { month: string; total: number; cancelled: number; gmtest: number }>)
         
-        const sortedMonths = Object.keys(monthlyStats).sort((a, b) => {
+        const yearSortedMonths = Object.keys(monthlyStats).sort((a, b) => {
           const monthA = parseInt(a.split('-')[1])
           const monthB = parseInt(b.split('-')[1])
           return monthB - monthA // 降順
         })
 
+        const yearGmTestCount = yearPerformances.filter(p => !p.isCancelled && isGmTestCategory(p.category)).length
+        const yearActiveCount = yearPerformances.filter(p => !p.isCancelled).length
+
         return (
           <div key={year} className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
             <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
-              <CalendarDays className="h-3.5 w-3.5" />{year}年（{groupedByYear[year].length}回）
+              <CalendarDays className="h-3.5 w-3.5" />
+              {year}年（{yearPerformances.length}回
+              {yearActiveCount > 0 && (
+                <span className="font-normal">
+                  ・通常{yearActiveCount - yearGmTestCount}/GMテスト{yearGmTestCount}
+                </span>
+              )}
+              ）
             </p>
             <div>
               {/* 月毎の集計 */}
-              {sortedMonths.length > 0 && (
+              {yearSortedMonths.length > 0 && (
                 <div className="mb-3 pb-2 border-b text-xs">
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                    {sortedMonths.map(key => {
-                      const { month, total, cancelled } = monthlyStats[key]
+                    {yearSortedMonths.map(key => {
+                      const { month, total, cancelled, gmtest } = monthlyStats[key]
                       const active = total - cancelled
+                      const normal = active - gmtest
                       return (
                         <span key={key}>
                           {month}月: <span className="font-medium text-foreground">{active}回</span>
+                          <span className="ml-1">
+                            （通常{normal}/GMテスト{gmtest}）
+                          </span>
                           {cancelled > 0 && (
                             <span className="text-orange-600">/{cancelled}回中止</span>
                           )}
@@ -466,21 +577,24 @@ export function PerformancesSectionV2({
               )}
               
               <div className="space-y-2">
-                {groupedByYear[year].map((perf, index) => {
+                {yearPerformances.map((perf, index) => {
                 const { month, day, weekday } = formatDate(perf.date)
                 const categoryInfo = CATEGORY_LABELS[perf.category] || CATEGORY_LABELS.open
                 const timeSlot = getTimeSlot(perf.startTime)
                 const timeSlotInfo = TIME_SLOT_LABELS[timeSlot] || TIME_SLOT_LABELS['昼']
                 // perf.revenue にはDBに保存されている実際の売上が入っている
                 const displayRevenue = perf.revenue || 0
+                const displayLicense = resolveLicenseCost(perf, licenseAmount, gmTestLicenseAmount)
                 
                 return (
                   <div 
                     key={`${perf.date}-${index}`}
-                    className={`flex items-center gap-3 py-2 px-3 rounded-md transition-colors ${
+                    className={`flex items-center gap-3 py-2 px-3 rounded-md transition-colors flex-wrap ${
                       perf.isCancelled 
                         ? 'bg-red-50 hover:bg-red-100 opacity-70' 
-                        : 'bg-muted/30 hover:bg-muted/50'
+                        : isGmTestCategory(perf.category)
+                          ? 'bg-orange-50/60 hover:bg-orange-50'
+                          : 'bg-muted/30 hover:bg-muted/50'
                     }`}
                   >
                     {/* 日付 */}
@@ -544,6 +658,14 @@ export function PerformancesSectionV2({
                       <div className="flex items-center gap-1 min-w-[80px] text-sm">
                         <Coins className="w-3.5 h-3.5 text-muted-foreground" />
                         <span>¥{displayRevenue.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* ライセンス（中止の場合は非表示） */}
+                    {!perf.isCancelled && (
+                      <div className="flex items-center gap-1 min-w-[90px] text-sm text-muted-foreground">
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>L¥{displayLicense.toLocaleString()}</span>
                       </div>
                     )}
                   </div>

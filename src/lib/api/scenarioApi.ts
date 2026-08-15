@@ -189,7 +189,7 @@ export const scenarioApi = {
     totalVenueCost: number
     venueCostPerPerformance: number
     firstPerformanceDate: string | null
-    performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>
+    performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; licenseCost: number; startTime: string; storeId: string | null; isCancelled: boolean }>
     futurePerformanceCount: number
     futureReservationCount: number
   }> {

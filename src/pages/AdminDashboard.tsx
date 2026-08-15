@@ -325,12 +325,18 @@ export function AdminDashboard() {
       return
     }
     
-    // 顧客/ログアウト状態で管理ページにいる場合は予約サイトにリダイレクト
+    // 顧客/ログアウト状態で管理ページにいる場合は追い出す
+    // 未ログイン → ログインへ（戻り先を保持）。顧客 → 予約サイトへ。
     if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
-      navigate(`/${defaultOrg}`, { replace: true })
+      if (!user) {
+        const redirect = encodeURIComponent(location.pathname + location.search)
+        navigate(`/login?redirect=${redirect}`, { replace: true })
+      } else {
+        navigate(defaultOrg ? `/${defaultOrg}` : '/', { replace: true })
+      }
       return
     }
-  }, [user, currentPage, isInitialized, loading, location.pathname, navigate, organization?.slug])
+  }, [user, currentPage, isInitialized, loading, location.pathname, location.search, navigate, organization?.slug, isCustomer])
 
   // ページ変更ハンドラ（組織スラッグ付き）
   const handlePageChange = useCallback((pageId: string) => {
@@ -407,6 +413,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'staff') {
     // スタッフ管理（招待・アカウント紐付け・権限変更）は管理者(admin/license_admin)専用
+    // 認証確定前に !isAdmin で弾かない（正規管理者まで弾いていた問題の再発防止）
+    if (!isInitialized || loading) {
+      return <LoadingScreen message="権限を確認中..." />
+    }
     if (!isAdmin) {
       return <AdminOnlyNotice currentPage="staff" />
     }
@@ -419,6 +429,9 @@ export function AdminDashboard() {
   
   if (currentPage === 'sales') {
     // 売上（集計・粗利・給与）は管理者(admin/license_admin)専用
+    if (!isInitialized || loading) {
+      return <LoadingScreen message="権限を確認中..." />
+    }
     if (!isAdmin) {
       return <AdminOnlyNotice currentPage="sales" />
     }
@@ -630,6 +643,9 @@ export function AdminDashboard() {
 
   if (currentPage === 'settings') {
     // 設定（組織・給与・メール・データ管理等）は管理者(admin/license_admin)専用
+    if (!isInitialized || loading) {
+      return <LoadingScreen message="権限を確認中..." />
+    }
     if (!isAdmin) {
       return <AdminOnlyNotice currentPage="settings" />
     }

@@ -402,7 +402,7 @@ function AppRoutes() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search, navigate, user?.id, user?.role])
+  }, [location.pathname, location.search, navigate, user])
 
   // クエリパラメータからトークンタイプを確認
   const searchParams = new URLSearchParams(location.search)
@@ -521,7 +521,7 @@ function AppRoutes() {
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
   if (!user || (user && user.role === 'customer')) {
     if (isInitialized) {
-      // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+      // 管理ツールのページ（旧形式 /dashboard 等）への直アクセス
       const adminPaths = [
         '/dashboard',
         '/store-dashboard',
@@ -538,8 +538,14 @@ function AppRoutes() {
         '/settings',
       ]
       if (adminPaths.some((path) => location.pathname.startsWith(path))) {
-        const slug = getOrganizationSlugFromPath()
-        navigate(slug ? `/${slug}` : '/', { replace: true })
+        // 未ログインはログインへ（戻り先保持）。顧客は予約サイトへ。
+        if (!user) {
+          const redirect = encodeURIComponent(location.pathname + location.search)
+          navigate(`/login?redirect=${redirect}`, { replace: true })
+        } else {
+          const slug = getOrganizationSlugFromPath()
+          navigate(slug ? `/${slug}` : '/', { replace: true })
+        }
         return (
           <Suspense fallback={adminDashboardSuspenseFallback}>
             <AdminDashboard />
