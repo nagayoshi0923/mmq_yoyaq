@@ -57,7 +57,7 @@ export function useSendReportsData(
         supabase
           .from('manual_external_performances')
           .select('scenario_id, performance_count, performance_type')
-          .eq('organization_id', organizationId)
+          // org 境界は RLS（get_user_organization_id）に任せる。クライアント直フィルタは増やさない
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
           .then(res => {
