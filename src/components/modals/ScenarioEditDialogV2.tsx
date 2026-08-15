@@ -438,7 +438,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     totalVenueCost: 0,
     venueCostPerPerformance: 0,
     firstPerformanceDate: null as string | null,
-    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>,
+    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; licenseCost: number; startTime: string; storeId: string | null; isCancelled: boolean }>,
     futurePerformanceCount: 0,
     futureReservationCount: 0
   })
@@ -1398,6 +1398,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             totalParticipants={scenarioStats.totalParticipants}
             totalStaffParticipants={scenarioStats.totalStaffParticipants}
             totalRevenue={scenarioStats.totalRevenue}
+            totalLicenseCost={scenarioStats.totalLicenseCost}
+            licenseAmount={formData.license_rewards?.find(r => r.item === 'normal')?.amount ?? formData.license_amount ?? 0}
+            gmTestLicenseAmount={formData.license_rewards?.find(r => r.item === 'gmtest')?.amount ?? formData.gm_test_license_amount ?? 0}
             scenarioTitle={formData.title || 'シナリオ'}
             futurePerformanceCount={scenarioStats.futurePerformanceCount}
             futureReservationCount={scenarioStats.futureReservationCount}

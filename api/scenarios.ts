@@ -619,6 +619,7 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     demoParticipants: number
     staffParticipants: number
     revenue: number
+    licenseCost: number
     startTime: string
     storeId: string | null
     isCancelled: boolean
@@ -640,16 +641,16 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     const eventRevenue = event.total_revenue ?? participants * fee
     const eventGmCost = event.gm_cost ?? (isGmTest ? gmTestGmReward : normalGmReward)
 
+    let licenseCost = event.license_cost ?? 0
+    if (licenseCost === 0) {
+      licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
+    }
+
     if (!isCancelled) {
       totalParticipants += participants
       totalStaffParticipants += staffCount
       totalRevenue += eventRevenue
       totalGmCost += eventGmCost
-
-      let licenseCost = event.license_cost ?? 0
-      if (licenseCost === 0) {
-        licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
-      }
       totalLicenseCost += licenseCost
 
       const venueCost = event.stores?.venue_cost_per_performance ?? 0
@@ -664,6 +665,7 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
       demoParticipants: demoCount,
       staffParticipants: staffCount,
       revenue: eventRevenue,
+      licenseCost: isCancelled ? 0 : licenseCost,
       startTime: event.start_time ?? '',
       storeId: event.store_id ?? null,
       isCancelled,
