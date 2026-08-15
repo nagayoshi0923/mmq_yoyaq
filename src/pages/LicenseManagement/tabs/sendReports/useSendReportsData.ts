@@ -57,9 +57,16 @@ export function useSendReportsData(
         supabase
           .from('manual_external_performances')
           .select('scenario_id, performance_count, performance_type')
+          .eq('organization_id', organizationId)
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
-          .then(res => res.data || []),
+          .then(res => {
+            if (res.error) {
+              logger.warn('manual_external_performances 取得失敗:', res.error.message)
+              return []
+            }
+            return res.data || []
+          }),
         // 自社公演数の手動上書きを取得
         supabase
           .from('manual_internal_performance_overrides')
@@ -67,7 +74,13 @@ export function useSendReportsData(
           .eq('organization_id', organizationId)
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
-          .then(res => res.data || [], () => []),
+          .then(res => {
+            if (res.error) {
+              logger.warn('manual_internal_performance_overrides 取得失敗:', res.error.message)
+              return []
+            }
+            return res.data || []
+          }),
         // 作者データを取得（メモ含む）
         authorApi.getAll().catch(() => [] as Author[])
       ])
@@ -98,10 +111,10 @@ export function useSendReportsData(
       })
       setExternalInputs(manualInputs)
 
-      // 自社公演数の上書き値を設定
+      // 自社公演数の上書き値を設定（0 も上書きとして保持）
       const internalOverrides: Record<string, number> = {}
       internalOverrideData.forEach((item: any) => {
-        if (item.performance_count !== undefined) {
+        if (item.performance_count !== undefined && item.performance_count !== null) {
           internalOverrides[item.scenario_key] = item.performance_count
         }
       })

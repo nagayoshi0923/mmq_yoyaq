@@ -5,7 +5,7 @@
  * - author_email あり → 作者に報告（メール送信）
  * - author_email なし → 管理会社に報告
  */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -147,8 +147,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   
   // 他社公演数の保存（debounce用 - シナリオごとに管理）
   const saveTimeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map())
+  // debounce 待ちの最新値（リロード前に flush するため）
+  const pendingInternalSaves = useRef<Map<string, number>>(new Map())
+  const pendingExternalSaves = useRef<Map<string, number>>(new Map())
   // 保存中のシナリオを追跡
   const savingScenarios = useRef<Set<string>>(new Set())
+  const saveInternalInputRef = useRef<(scenarioKey: string, count: number) => Promise<void>>(async () => {})
+  const saveExternalInputRef = useRef<(scenarioKey: string, count: number) => Promise<void>>(async () => {})
   
   // 他社公演数を保存（scenarioKey = scenarioId or scenarioId_gmtest）
   const saveExternalInput = useCallback(async (scenarioKey: string, count: number) => {
@@ -166,7 +171,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
 
-      const { error } = await supabase.rpc('upsert_manual_external_performance', {
+      const { data, error } = await supabase.rpc('upsert_manual_external_performance', {
         p_organization_id: organizationId,
         p_scenario_id: scenarioId,
         p_year: selectedYear,
@@ -179,6 +184,9 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       if (error) {
         logger.error('Failed to save manual_external_performance:', error)
         showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(error))
+      } else if (data && typeof data === 'object' && (data as { success?: boolean }).success === false) {
+        logger.error('Failed to save manual_external_performance (rpc):', data)
+        showToast.error('他社公演数の保存に失敗しました', String((data as { error?: string }).error || ''))
       }
     } catch (error) {
       logger.error('Failed to save external input:', error)
@@ -199,7 +207,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       setIsSavingInternal(true)
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
-      const { error } = await supabase.rpc('upsert_manual_internal_performance_override', {
+      const { data, error } = await supabase.rpc('upsert_manual_internal_performance_override', {
         p_organization_id: organizationId,
         p_scenario_key: scenarioKey,
         p_year: selectedYear,
@@ -210,6 +218,9 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       if (error) {
         logger.error('Failed to save internal override:', error)
         showToast.error('自社公演数の保存に失敗しました', getSafeErrorMessage(error))
+      } else if (data && typeof data === 'object' && (data as { success?: boolean }).success === false) {
+        logger.error('Failed to save internal override (rpc):', data)
+        showToast.error('自社公演数の保存に失敗しました', String((data as { error?: string }).error || ''))
       }
     } catch (error) {
       logger.error('Failed to save internal override:', error)
@@ -219,6 +230,33 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       if (savingScenarios.current.size === 0) setIsSavingInternal(false)
     }
   }, [organizationId, selectedYear, selectedMonth])
+
+  saveInternalInputRef.current = saveInternalInput
+  saveExternalInputRef.current = saveExternalInput
+
+  // debounce 待ちの保存を即 flush（ページ離脱・アンマウント時）
+  useEffect(() => {
+    const flushPendingSaves = () => {
+      for (const [key, timer] of saveTimeoutRefs.current.entries()) {
+        clearTimeout(timer)
+        saveTimeoutRefs.current.delete(key)
+      }
+      for (const [scenarioKey, count] of pendingInternalSaves.current.entries()) {
+        void saveInternalInputRef.current(scenarioKey, count)
+      }
+      pendingInternalSaves.current.clear()
+      for (const [scenarioKey, count] of pendingExternalSaves.current.entries()) {
+        void saveExternalInputRef.current(scenarioKey, count)
+      }
+      pendingExternalSaves.current.clear()
+    }
+    const onPageHide = () => flushPendingSaves()
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      flushPendingSaves()
+    }
+  }, [])
 
   // 自社公演数の入力ハンドラ（debounce付き）
   const handleInternalInputChange = useCallback((scenarioKey: string, value: number | undefined) => {
@@ -236,10 +274,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
         })
       }
     }
+    const countToSave = value ?? 0
+    pendingInternalSaves.current.set(scenarioKey, countToSave)
     const existingTimer = saveTimeoutRefs.current.get(`internal_${scenarioKey}`)
     if (existingTimer) clearTimeout(existingTimer)
     const timer = setTimeout(() => {
-      saveInternalInput(scenarioKey, value ?? 0)
+      pendingInternalSaves.current.delete(scenarioKey)
+      saveInternalInput(scenarioKey, countToSave)
       saveTimeoutRefs.current.delete(`internal_${scenarioKey}`)
     }, 500)
     saveTimeoutRefs.current.set(`internal_${scenarioKey}`, timer)
@@ -266,10 +307,12 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       }
     }
 
+    pendingExternalSaves.current.set(scenarioKey, value)
     const existingTimer = saveTimeoutRefs.current.get(scenarioKey)
     if (existingTimer) clearTimeout(existingTimer)
 
     const timer = setTimeout(() => {
+      pendingExternalSaves.current.delete(scenarioKey)
       saveExternalInput(scenarioKey, value)
       saveTimeoutRefs.current.delete(scenarioKey)
     }, 500)
