@@ -402,7 +402,7 @@ function AppRoutes() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search, navigate, user?.id, user?.role])
+  }, [location.pathname, location.search, navigate, user])
 
   // クエリパラメータからトークンタイプを確認
   const searchParams = new URLSearchParams(location.search)
