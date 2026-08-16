@@ -12,6 +12,7 @@ import { CategorySelectSection } from './performanceModal/sections/CategorySelec
 import { PerformanceFooter } from './performanceModal/sections/PerformanceFooter'
 import { PerformanceSummary } from './performanceModal/sections/PerformanceSummary'
 import { staffApi } from '@/lib/api'
+import { kitApi } from '@/lib/api/kitApi'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
@@ -519,28 +520,35 @@ export function PerformanceModal({
   }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
 
   // シナリオ変更時にキット配置店舗を取得
+  // scenario_master_id 直叩きだと org_scenario_id のみの行を取りこぼすため、
+  // kitApi（org_scenario_id 解決）経由で全キット配置を取る
   useEffect(() => {
     const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-    const masterId = selectedScenario?.scenario_master_id || selectedScenario?.id
-    if (!masterId) {
+    // organization_scenarios.id があれば優先（API が org_scenario_id で確実に解決できる）
+    const scenarioKey =
+      selectedScenario?.id ||
+      selectedScenario?.scenario_master_id ||
+      null
+    if (!scenarioKey) {
       setKitStoreIds([])
       return
     }
     let cancelled = false
     ;(async () => {
       try {
-        const orgId = await getCurrentOrganizationId()
-        if (!orgId) return
-        const { data, error } = await supabase
-          .from('scenario_kit_locations')
-          .select('store_id')
-          .eq('scenario_master_id', masterId)
-          .eq('organization_id', orgId)
-        if (error || cancelled) return
-        const ids = Array.from(new Set((data || []).map(r => r.store_id).filter(Boolean) as string[]))
+        const locations = await kitApi.getKitLocationsByScenario(scenarioKey)
+        if (cancelled) return
+        const ids = Array.from(
+          new Set(
+            (locations || [])
+              .map(r => r.store_id)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0),
+          ),
+        )
         setKitStoreIds(ids)
       } catch (err) {
         logger.error('キット配置店舗の取得エラー:', err)
+        if (!cancelled) setKitStoreIds([])
       }
     })()
     return () => { cancelled = true }

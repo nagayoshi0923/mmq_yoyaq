@@ -105,13 +105,26 @@ export function PerformanceContentSection({
                   }
                   return null
                 })()}
-                {/* キット配置警告: シナリオに紐づくキットが選択中の店舗に無い時に出す
+                {/* キット配置警告: シナリオに紐づくキットが選択中の店舗（同一キットグループ含む）に無い時に出す
                    (kitStoreIds が空 = キット未登録のシナリオは判定スキップ) */}
-                {formData.scenario && formData.venue && kitStoreIds.length > 0 && !kitStoreIds.includes(formData.venue) && (() => {
+                {formData.scenario && formData.venue && kitStoreIds.length > 0 && (() => {
+                  const venueGroup = stores.find(s => s.id === formData.venue)?.kit_group_id || formData.venue
+                  const hasKitAtVenueOrGroup = kitStoreIds.some((id) => {
+                    const kitGroup = stores.find(s => s.id === id)?.kit_group_id || id
+                    return id === formData.venue || kitGroup === venueGroup
+                  })
+                  if (hasKitAtVenueOrGroup) return null
                   const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
                   const kitStoreNames = kitStoreIds
-                    .map(id => stores.find(s => s.id === id)?.short_name || stores.find(s => s.id === id)?.name)
-                    .filter(Boolean)
+                    .map(id => {
+                      const store = stores.find(s => s.id === id)
+                      return store
+                        ? { name: store.short_name || store.name, order: store.display_order ?? 999 }
+                        : null
+                    })
+                    .filter((x): x is { name: string; order: number } => !!x)
+                    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ja'))
+                    .map(x => x.name)
                     .join(', ')
                   return (
                     <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px]">
