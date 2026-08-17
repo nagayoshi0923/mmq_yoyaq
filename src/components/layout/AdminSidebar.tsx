@@ -217,7 +217,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
             { id: 'send',     label: '公演報告', path: `/${slug}/license-management?tab=send` },
             { id: 'contracts', label: '契約マスタ', path: `/${slug}/license-management?tab=contracts` },
             { id: 'partners', label: '契約店舗', path: `/${slug}/license-management?tab=partners` },
-            { id: 'author-stores', label: '作者報告', path: `/${slug}/license-management?tab=author-stores` },
+            { id: 'author-stores', label: '店舗別報告', path: `/${slug}/license-management?tab=author-stores` },
             { id: 'received', label: '受信',     path: `/${slug}/license-management?tab=received`, roles: ['license_admin'] },
             { id: 'summary',  label: '集計',     path: `/${slug}/license-management?tab=summary`,  roles: ['license_admin'] },
           ],

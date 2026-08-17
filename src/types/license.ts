@@ -100,6 +100,10 @@ export interface LicensePartnerStore {
   created_at: string
   updated_at: string
   contract_count?: number
+  last_submitted_at?: string | null
+  last_report_year?: number | null
+  last_report_month?: number | null
+  last_is_late?: boolean
 }
 
 export interface LicensePartnerContract {

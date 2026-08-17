@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,8 +14,18 @@ function currentMonthDate() {
   return new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0)
 }
 
+function dateFromMonthParam(value: string | null): Date | null {
+  if (!value || !/^\d{4}-\d{2}$/.test(value)) return null
+  const [year, month] = value.split('-').map(Number)
+  if (month < 1 || month > 12) return null
+  return new Date(year, month - 1, 1, 12, 0, 0, 0)
+}
+
 export function AuthorPartnerReports() {
-  const [currentDate, setCurrentDate] = useState(currentMonthDate)
+  const [searchParams] = useSearchParams()
+  const [currentDate, setCurrentDate] = useState(
+    () => dateFromMonthParam(searchParams.get('month')) ?? currentMonthDate()
+  )
   const [view, setView] = useState<'month' | 'year'>('month')
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1

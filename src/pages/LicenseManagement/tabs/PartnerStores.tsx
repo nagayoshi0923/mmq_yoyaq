@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Copy, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,9 +26,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { useOrganization } from '@/hooks/useOrganization'
+import { licensePartnerReportsApi } from '@/lib/api/licensePartnerReportsApi'
 import { licensePartnerStoresApi } from '@/lib/api/licensePartnerStoresApi'
 import { showToast } from '@/utils/toast'
+import { formatJstDateTime } from '@/utils/jstDate'
 import type { LicensePartnerContractInput, LicensePartnerStore } from '@/types'
+import { LatePartnerReportsCard } from '../components/LatePartnerReportsCard'
 
 const partnerKeys = {
   all: ['license-partner-stores'] as const,
@@ -45,6 +50,9 @@ function reportUrl(token: string) {
 
 export function PartnerStores({ canEdit }: PartnerStoresProps) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { organization } = useOrganization()
+  const now = new Date()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createName, setCreateName] = useState('')
@@ -54,6 +62,10 @@ export function PartnerStores({ canEdit }: PartnerStoresProps) {
   const { data: stores = [], isLoading } = useQuery({
     queryKey: partnerKeys.all,
     queryFn: licensePartnerStoresApi.list,
+  })
+  const { data: reportSummary } = useQuery({
+    queryKey: ['license-partner-reports', 'staff', now.getFullYear(), now.getMonth() + 1],
+    queryFn: () => licensePartnerReportsApi.staff(now.getFullYear(), now.getMonth() + 1),
   })
 
   const createMutation = useMutation({
@@ -101,6 +113,16 @@ export function PartnerStores({ canEdit }: PartnerStoresProps) {
 
   return (
     <div className="space-y-4">
+      <LatePartnerReportsCard
+        reports={reportSummary?.late_reports ?? []}
+        onSelectPeriod={(year, month) => {
+          const slug = organization?.slug
+          if (!slug) return
+          navigate(
+            `/${slug}/license-management?tab=author-stores&month=${year}-${String(month).padStart(2, '0')}`
+          )
+        }}
+      />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
@@ -128,6 +150,7 @@ export function PartnerStores({ canEdit }: PartnerStoresProps) {
                   <TableHead>店舗</TableHead>
                   <TableHead>Discordチャンネル</TableHead>
                   <TableHead className="text-right">契約作品</TableHead>
+                  <TableHead>最終報告</TableHead>
                   <TableHead>状態</TableHead>
                   <TableHead className="w-[220px] text-right">操作</TableHead>
                 </TableRow>
@@ -140,6 +163,23 @@ export function PartnerStores({ canEdit }: PartnerStoresProps) {
                       {store.discord_channel_id || '未設定'}
                     </TableCell>
                     <TableCell className="text-right">{store.contract_count ?? 0}</TableCell>
+                    <TableCell>
+                      {store.last_submitted_at ? (
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{formatJstDateTime(store.last_submitted_at)}</span>
+                            {store.last_is_late && <Badge variant="warning">事後</Badge>}
+                          </div>
+                          {store.last_report_year && store.last_report_month && (
+                            <p className="text-xs text-muted-foreground">
+                              {store.last_report_year}年{store.last_report_month}月分
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">未報告</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={store.is_active ? 'success' : 'gray'}>
                         {store.is_active ? '有効' : '停止'}

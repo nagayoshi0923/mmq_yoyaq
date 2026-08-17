@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { ApiError, requireAdmin, requireAuth, requireStaff, type AuthUser } from './_lib/auth.js'
 import { partnerStorePayAmount } from './_lib/partnerLicenseAmount.js'
+import { isLatePartnerReport } from './_lib/partnerReportTiming.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -105,27 +106,56 @@ async function handleList(res: VercelResponse, user: AuthUser) {
 
   const storeIds = (data ?? []).map((row: { id: string }) => row.id)
   const countMap = new Map<string, number>()
+  const lastReportMap = new Map<string, { submitted_at: string; year: number; month: number }>()
   if (storeIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: contracts, error: contractError } = await (db as any)
-      .from('license_partner_contracts')
-      .select('partner_store_id')
-      .eq('organization_id', user.orgId)
-      .in('partner_store_id', storeIds)
-    if (contractError) {
-      console.error('[license-partner-stores:list] contracts DB error:', contractError)
-      return res.status(500).json({ error: '契約数の取得に失敗しました', detail: contractError.message })
+    const [contractsResult, reportsResult] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any)
+        .from('license_partner_contracts')
+        .select('partner_store_id')
+        .eq('organization_id', user.orgId)
+        .in('partner_store_id', storeIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (db as any)
+        .from('license_partner_monthly_reports')
+        .select('partner_store_id, year, month, submitted_at')
+        .eq('organization_id', user.orgId)
+        .in('partner_store_id', storeIds)
+        .order('submitted_at', { ascending: false }),
+    ])
+    if (contractsResult.error) {
+      console.error('[license-partner-stores:list] contracts DB error:', contractsResult.error)
+      return res.status(500).json({ error: '契約数の取得に失敗しました', detail: contractsResult.error.message })
     }
-    for (const row of contracts ?? []) {
+    if (reportsResult.error) {
+      console.error('[license-partner-stores:list] reports DB error:', reportsResult.error)
+      return res.status(500).json({ error: '報告日の取得に失敗しました', detail: reportsResult.error.message })
+    }
+    for (const row of contractsResult.data ?? []) {
       countMap.set(row.partner_store_id, (countMap.get(row.partner_store_id) ?? 0) + 1)
+    }
+    for (const row of reportsResult.data ?? []) {
+      if (!row.submitted_at || lastReportMap.has(row.partner_store_id)) continue
+      lastReportMap.set(row.partner_store_id, {
+        submitted_at: row.submitted_at,
+        year: row.year,
+        month: row.month,
+      })
     }
   }
 
   return res.status(200).json(
-    (data ?? []).map((row: { id: string }) => ({
-      ...row,
-      contract_count: countMap.get(row.id) ?? 0,
-    }))
+    (data ?? []).map((row: { id: string }) => {
+      const last = lastReportMap.get(row.id)
+      return {
+        ...row,
+        contract_count: countMap.get(row.id) ?? 0,
+        last_submitted_at: last?.submitted_at ?? null,
+        last_report_year: last?.year ?? null,
+        last_report_month: last?.month ?? null,
+        last_is_late: last ? isLatePartnerReport(last.year, last.month, last.submitted_at) : false,
+      }
+    })
   )
 }
 
