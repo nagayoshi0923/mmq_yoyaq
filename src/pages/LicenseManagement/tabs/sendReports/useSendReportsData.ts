@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import type { Author } from '@/types'
+import { jstMonthDateRange } from '@/utils/jstDate'
 import { groupReportItems } from './grouping'
 import type { ReportItem, ReportGroup, SentHistoryEntry } from './types'
 
@@ -32,11 +33,7 @@ export function useSendReportsData(
     try {
       setLoading(true)
 
-      // 日付範囲計算
-      const startDate = new Date(selectedYear, selectedMonth - 1, 1)
-      const endDate = new Date(selectedYear, selectedMonth, 0)
-      const startStr = startDate.toISOString().split('T')[0]
-      const endStr = endDate.toISOString().split('T')[0]
+      const { start: startStr, end: endStr } = jstMonthDateRange(selectedYear, selectedMonth)
 
       // データを並行取得
       const [scenarios, stores, performance, externalReports, historyData, manualExternalData, internalOverrideData, authorsData] = await Promise.all([

@@ -108,3 +108,16 @@ export function toJstYmd(value: string | Date | null | undefined): string {
   const t = getJstParts(value)
   return t ? `${t.y}-${t.mo}-${t.d}` : ''
 }
+
+/**
+ * JST の暦月の初日・末日（YYYY-MM-DD）。
+ * `new Date(y, m, 1).toISOString()` は UTC にずれて 6/30〜7/30 になるので使わない。
+ */
+export function jstMonthDateRange(year: number, month: number): { start: string; end: string } {
+  const mm = String(month).padStart(2, '0')
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return {
+    start: `${year}-${mm}-01`,
+    end: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+  }
+}
