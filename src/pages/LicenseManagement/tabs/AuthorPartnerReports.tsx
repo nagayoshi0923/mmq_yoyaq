@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { licensePartnerReportsApi } from '@/lib/api/licensePartnerReportsApi'
+import { LatePartnerReportsCard } from '../components/LatePartnerReportsCard'
 import { PartnerStoreReportTable } from '../components/PartnerStoreReportTable'
 
 function currentMonthDate() {
@@ -53,6 +54,14 @@ export function AuthorPartnerReports() {
           </Button>
         </div>
       </div>
+
+      <LatePartnerReportsCard
+        reports={data?.late_reports ?? []}
+        onSelectPeriod={(nextYear, nextMonth) => {
+          setView('month')
+          setCurrentDate(new Date(nextYear, nextMonth - 1, 1, 12, 0, 0, 0))
+        }}
+      />
 
       <Card>
         <CardContent className="flex flex-wrap gap-6 pt-6">

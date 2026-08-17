@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -8,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { PartnerStoreReportRow } from '@/types'
+import { formatJstDateTime } from '@/utils/jstDate'
 
 type PartnerStoreReportTableProps = {
   rows: PartnerStoreReportRow[]
@@ -69,6 +71,7 @@ export function PartnerStoreReportTable({
                       <TableHeader>
                         <TableRow>
                           <TableHead>店舗</TableHead>
+                          <TableHead>報告日</TableHead>
                           <TableHead className="text-right">回数</TableHead>
                           <TableHead className="text-right">単価</TableHead>
                           <TableHead className="text-right">金額</TableHead>
@@ -78,6 +81,12 @@ export function PartnerStoreReportTable({
                         {scenarioRows.map(row => (
                           <TableRow key={`${row.scenario_master_id}-${row.partner_store_id}`}>
                             <TableCell>{row.partner_store_name}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span>{row.submitted_at ? formatJstDateTime(row.submitted_at) : '—'}</span>
+                                {row.is_late && <Badge variant="warning">事後</Badge>}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right">{row.performance_count}</TableCell>
                             <TableCell className="text-right">¥{row.license_amount.toLocaleString()}</TableCell>
                             <TableCell className="text-right">¥{row.license_fee.toLocaleString()}</TableCell>

@@ -64,7 +64,7 @@ played = reservations(過去・非cancelled/no_show) ∪ manual_play_history −
 
 ### ライセンス
 - store_scenario_license_contracts（billing_status: billable / not_billable / exempt / pending_confirmation）— QW自店舗×シナリオ
-- license_partner_stores / contracts / monthly_reports — 契約先店舗（Discordチャンネル）×管理作品の店別月次。公開はトークンRPCのみ。既定単価は external_license_amount（店舗が払う額）。franchise / license_amount は作者への支払い
+- license_partner_stores / contracts / monthly_reports — 契約先店舗（Discordチャンネル）×管理作品の店別月次。公開はトークンRPCのみ。既定単価は external_license_amount（店舗が払う額）。franchise / license_amount は作者への支払い。submitted_at が対象月末より後なら事後報告として作者・スタッフ画面に出す
 - 報告金額は送信時スナップショットが正。表示とのズレは⚠️バッジで可視化
 
 ## 環境

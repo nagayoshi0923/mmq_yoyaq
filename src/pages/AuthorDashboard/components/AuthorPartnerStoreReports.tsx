@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { licensePartnerReportsApi } from '@/lib/api/licensePartnerReportsApi'
+import { LatePartnerReportsCard } from '@/pages/LicenseManagement/components/LatePartnerReportsCard'
 import { PartnerStoreReportTable } from '@/pages/LicenseManagement/components/PartnerStoreReportTable'
 
 function currentMonthDate() {
@@ -55,6 +56,13 @@ export function AuthorPartnerStoreReports() {
             </Button>
           </div>
         </div>
+        <LatePartnerReportsCard
+          reports={data?.late_reports ?? []}
+          onSelectPeriod={(nextYear, nextMonth) => {
+            setView('month')
+            setCurrentDate(new Date(nextYear, nextMonth - 1, 1, 12, 0, 0, 0))
+          }}
+        />
         <div className="flex flex-wrap gap-6">
           <div>
             <p className="text-sm text-muted-foreground">{periodLabel}の公演回数</p>

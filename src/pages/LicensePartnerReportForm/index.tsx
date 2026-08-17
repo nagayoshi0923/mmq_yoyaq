@@ -13,6 +13,7 @@ import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { formatJstDateTime } from '@/utils/jstDate'
 
 type FormItem = {
   scenario_master_id: string
@@ -20,6 +21,7 @@ type FormItem = {
   author: string
   license_amount: number
   performance_count: number
+  submitted_at: string | null
 }
 
 type FormPayload = {
@@ -213,6 +215,7 @@ export default function LicensePartnerReportForm({ token }: { token: string }) {
                       <p className="font-medium">{item.scenario_title}</p>
                       <p className="text-sm text-muted-foreground">
                         単価 ¥{item.license_amount.toLocaleString()}
+                        {item.submitted_at ? ` · 前回報告 ${formatJstDateTime(item.submitted_at)}` : ''}
                       </p>
                     </div>
                     <Input

@@ -148,12 +148,28 @@ export interface PartnerStoreReportRow {
   performance_count: number
   license_amount: number
   license_fee: number
+  submitted_at: string | null
+  is_late: boolean
+}
+
+export interface PartnerStoreLateReport {
+  year: number
+  month: number
+  author: string
+  scenario_master_id: string
+  scenario_title: string
+  partner_store_id: string
+  partner_store_name: string
+  performance_count: number
+  license_fee: number
+  submitted_at: string
 }
 
 export interface PartnerStoreReportResponse {
   year: number
   month: number | null
   rows: PartnerStoreReportRow[]
+  late_reports: PartnerStoreLateReport[]
   totals: {
     performance_count: number
     license_fee: number

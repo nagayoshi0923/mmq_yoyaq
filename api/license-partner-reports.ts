@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { ApiError, requireAuth, requireStaff, type AuthUser } from './_lib/auth.js'
 import { partnerStorePayAmount } from './_lib/partnerLicenseAmount.js'
+import { daysAgoIso, isLatePartnerReport } from './_lib/partnerReportTiming.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -90,6 +91,7 @@ async function handleAuthor(
       year,
       month,
       rows: [],
+      late_reports: [],
       totals: { performance_count: 0, license_fee: 0 },
     })
   }
@@ -104,34 +106,48 @@ async function loadRows(params: {
   scenarioIds?: string[]
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (db as any)
+  let periodQuery = (db as any)
     .from('license_partner_monthly_reports')
-    .select('partner_store_id, scenario_master_id, organization_id, year, month, performance_count')
+    .select('partner_store_id, scenario_master_id, organization_id, year, month, performance_count, submitted_at')
     .eq('year', params.year)
 
-  if (params.month != null) query = query.eq('month', params.month)
-  if (params.organizationId) query = query.eq('organization_id', params.organizationId)
-  if (params.scenarioIds) query = query.in('scenario_master_id', params.scenarioIds)
+  if (params.month != null) periodQuery = periodQuery.eq('month', params.month)
+  if (params.organizationId) periodQuery = periodQuery.eq('organization_id', params.organizationId)
+  if (params.scenarioIds) periodQuery = periodQuery.in('scenario_master_id', params.scenarioIds)
 
-  const { data: reports, error: reportError } = await query
-  if (reportError) {
-    console.error('[license-partner-reports] reports DB error:', reportError)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let recentQuery = (db as any)
+    .from('license_partner_monthly_reports')
+    .select('partner_store_id, scenario_master_id, organization_id, year, month, performance_count, submitted_at')
+    .gte('submitted_at', daysAgoIso(90))
+    .order('submitted_at', { ascending: false })
+
+  if (params.organizationId) recentQuery = recentQuery.eq('organization_id', params.organizationId)
+  if (params.scenarioIds) recentQuery = recentQuery.in('scenario_master_id', params.scenarioIds)
+
+  const [periodResult, recentResult] = await Promise.all([periodQuery, recentQuery])
+  if (periodResult.error || recentResult.error) {
+    console.error('[license-partner-reports] reports DB error:', periodResult.error ?? recentResult.error)
     throw new ApiError(500, '月次報告の取得に失敗しました')
   }
 
-  const reportRows = reports ?? []
-  if (reportRows.length === 0) {
+  const reportRows = periodResult.data ?? []
+  const recentRows = recentResult.data ?? []
+
+  const lookupRows = [...reportRows, ...recentRows]
+  const storeIds = [...new Set(lookupRows.map((row: { partner_store_id: string }) => row.partner_store_id))]
+  const scenarioIds = [...new Set(lookupRows.map((row: { scenario_master_id: string }) => row.scenario_master_id))]
+  const orgIds = [...new Set(lookupRows.map((row: { organization_id: string }) => row.organization_id))]
+
+  if (storeIds.length === 0) {
     return {
       year: params.year,
       month: params.month,
       rows: [],
+      late_reports: [],
       totals: { performance_count: 0, license_fee: 0 },
     }
   }
-
-  const storeIds = [...new Set(reportRows.map((row: { partner_store_id: string }) => row.partner_store_id))]
-  const scenarioIds = [...new Set(reportRows.map((row: { scenario_master_id: string }) => row.scenario_master_id))]
-  const orgIds = [...new Set(reportRows.map((row: { organization_id: string }) => row.organization_id))]
 
   const [storesResult, contractsResult, scenariosResult] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -196,6 +212,8 @@ async function loadRows(params: {
     performance_count: number
     license_amount: number
     license_fee: number
+    submitted_at: string | null
+    is_late: boolean
   }>()
 
   for (const report of reportRows) {
@@ -205,9 +223,14 @@ async function loadRows(params: {
     const key = `${report.scenario_master_id}:${report.partner_store_id}`
     const current = aggregated.get(key)
     const count = report.performance_count || 0
+    const late = isLatePartnerReport(report.year, report.month, report.submitted_at)
     if (current) {
       current.performance_count += count
       current.license_fee += count * amount
+      current.is_late = current.is_late || late
+      if (report.submitted_at && (!current.submitted_at || report.submitted_at > current.submitted_at)) {
+        current.submitted_at = report.submitted_at
+      }
       continue
     }
     aggregated.set(key, {
@@ -220,6 +243,8 @@ async function loadRows(params: {
       performance_count: count,
       license_amount: amount,
       license_fee: count * amount,
+      submitted_at: report.submitted_at ?? null,
+      is_late: late,
     })
   }
 
@@ -229,10 +254,41 @@ async function loadRows(params: {
     return a.partner_store_name.localeCompare(b.partner_store_name, 'ja')
   })
 
+  const late_reports = recentRows
+    .filter((report: { year: number; month: number; submitted_at: string }) =>
+      isLatePartnerReport(report.year, report.month, report.submitted_at)
+    )
+    .map((report: {
+      year: number
+      month: number
+      organization_id: string
+      scenario_master_id: string
+      partner_store_id: string
+      performance_count: number
+      submitted_at: string
+    }) => {
+      const scenario = scenarioMap.get(`${report.organization_id}:${report.scenario_master_id}`)
+      const override = contractMap.get(`${report.partner_store_id}:${report.scenario_master_id}`)
+      const amount = override ?? scenario?.license_amount ?? 0
+      return {
+        year: report.year,
+        month: report.month,
+        author: scenario?.author || '不明',
+        scenario_master_id: report.scenario_master_id,
+        scenario_title: scenario?.title || '不明な作品',
+        partner_store_id: report.partner_store_id,
+        partner_store_name: storeMap.get(report.partner_store_id) || '不明な店舗',
+        performance_count: report.performance_count || 0,
+        license_fee: (report.performance_count || 0) * amount,
+        submitted_at: report.submitted_at,
+      }
+    })
+
   return {
     year: params.year,
     month: params.month,
     rows,
+    late_reports,
     totals: {
       performance_count: rows.reduce((sum, row) => sum + row.performance_count, 0),
       license_fee: rows.reduce((sum, row) => sum + row.license_fee, 0),

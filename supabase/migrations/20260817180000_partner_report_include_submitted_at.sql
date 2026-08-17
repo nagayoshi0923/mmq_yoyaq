@@ -1,5 +1,6 @@
--- 契約店舗の報告フォーム用。トークンが正しいときだけ契約作品と既存回数を返す。
--- テーブルへの anon SELECT は付けず、この RPC だけを公開する。
+-- フォームRPCに前回報告日時を載せる。
+-- rollback: submitted_at を jsonb から外した 20260817170000 の関数定義に戻す。
+
 CREATE OR REPLACE FUNCTION public.get_license_partner_report_form(
   p_token TEXT,
   p_year INTEGER,
@@ -81,4 +82,4 @@ REVOKE ALL ON FUNCTION public.get_license_partner_report_form(TEXT, INTEGER, INT
 GRANT EXECUTE ON FUNCTION public.get_license_partner_report_form(TEXT, INTEGER, INTEGER) TO anon, authenticated;
 
 COMMENT ON FUNCTION public.get_license_partner_report_form(TEXT, INTEGER, INTEGER) IS
-  '契約店舗の報告トークンで、その店の契約作品と指定月の回数だけを返す。無効トークンは NULL。';
+  '契約店舗の報告トークンで、その店の契約作品・指定月の回数・前回報告日時を返す。無効トークンは NULL。';
