@@ -396,7 +396,7 @@ function PartnerStoreEditDialog({
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>契約している管理作品</Label>
+                <Label>契約している管理作品（既定単価は店舗が支払う額）</Label>
                 <span className="text-xs text-muted-foreground">{selectedCount}作品</span>
               </div>
               <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
@@ -417,7 +417,7 @@ function PartnerStoreEditDialog({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{scenario.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {scenario.author || '作者未設定'} / 既定 ¥{scenario.license_amount.toLocaleString()}
+                          {scenario.author || '作者未設定'} / 支払額 ¥{scenario.license_amount.toLocaleString()}
                         </p>
                       </div>
                       <Input

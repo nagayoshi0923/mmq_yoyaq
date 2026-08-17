@@ -1,5 +1,7 @@
--- 契約店舗の報告フォーム用。トークンが正しいときだけ契約作品と既存回数を返す。
--- テーブルへの anon SELECT は付けず、この RPC だけを公開する。
+-- 契約店舗の既定単価は「店舗が支払う額」(external_license_amount)。
+-- franchise / license_amount は作者へ管理店舗が払う額なので使わない。
+-- rollback: get_license_partner_report_form を 20260817140000 時点の定義に戻す。
+
 CREATE OR REPLACE FUNCTION public.get_license_partner_report_form(
   p_token TEXT,
   p_year INTEGER,
@@ -80,4 +82,4 @@ REVOKE ALL ON FUNCTION public.get_license_partner_report_form(TEXT, INTEGER, INT
 GRANT EXECUTE ON FUNCTION public.get_license_partner_report_form(TEXT, INTEGER, INTEGER) TO anon, authenticated;
 
 COMMENT ON FUNCTION public.get_license_partner_report_form(TEXT, INTEGER, INTEGER) IS
-  '契約店舗の報告トークンで、その店の契約作品と指定月の回数だけを返す。無効トークンは NULL。';
+  '契約店舗の報告トークンで、その店の契約作品と指定月の回数だけを返す。単価は店別上書き、なければ他店受取金額。無効トークンは NULL。';

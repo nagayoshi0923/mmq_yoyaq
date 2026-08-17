@@ -18,13 +18,13 @@ VALUES
   ('35000000-0000-0000-0000-000000000003', 'YOYAQ-005 other work', '作者C', 'author-c@example.com', 4, 6, 180, 'approved');
 
 INSERT INTO public.organization_scenarios (
-  organization_id, scenario_master_id, org_status, scenario_type, license_amount, franchise_license_amount
+  organization_id, scenario_master_id, org_status, scenario_type, license_amount, franchise_license_amount, external_license_amount
 )
 VALUES
-  ('15000000-0000-0000-0000-000000000001', '35000000-0000-0000-0000-000000000001', 'available', 'managed', 2000, 3000),
-  ('15000000-0000-0000-0000-000000000001', '35000000-0000-0000-0000-000000000002', 'available', 'managed', 2500, 0),
-  ('15000000-0000-0000-0000-000000000001', '35000000-0000-0000-0000-000000000003', 'available', 'normal', 1000, 1000),
-  ('15000000-0000-0000-0000-000000000002', '35000000-0000-0000-0000-000000000001', 'available', 'managed', 9999, 9999);
+  ('15000000-0000-0000-0000-000000000001', '35000000-0000-0000-0000-000000000001', 'available', 'managed', 2000, 3000, 5000),
+  ('15000000-0000-0000-0000-000000000001', '35000000-0000-0000-0000-000000000002', 'available', 'managed', 2500, 0, 0),
+  ('15000000-0000-0000-0000-000000000001', '35000000-0000-0000-0000-000000000003', 'available', 'normal', 1000, 1000, 1000),
+  ('15000000-0000-0000-0000-000000000002', '35000000-0000-0000-0000-000000000001', 'available', 'managed', 9999, 9999, 8888);
 
 INSERT INTO public.license_partner_stores (
   id, organization_id, name, discord_channel_id, report_token, is_active
@@ -96,8 +96,8 @@ BEGIN
     RAISE EXCEPTION '管理作品以外がフォームに出た';
   END IF;
 
-  IF (v_form->'items'->0->>'license_amount')::INTEGER NOT IN (3000, 4000)
-     OR (v_form->'items'->1->>'license_amount')::INTEGER NOT IN (3000, 4000) THEN
+  IF (v_form->'items'->0->>'license_amount')::INTEGER NOT IN (5000, 4000)
+     OR (v_form->'items'->1->>'license_amount')::INTEGER NOT IN (5000, 4000) THEN
     RAISE EXCEPTION '単価解決が不正: %', v_form->'items';
   END IF;
 

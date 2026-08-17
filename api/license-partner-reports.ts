@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { ApiError, requireAuth, requireStaff, type AuthUser } from './_lib/auth.js'
+import { partnerStorePayAmount } from './_lib/partnerLicenseAmount.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -15,13 +16,6 @@ function setCors(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
-}
-
-function defaultLicenseAmount(scenario: {
-  franchise_license_amount?: number | null
-  license_amount?: number | null
-}) {
-  return scenario.franchise_license_amount || scenario.license_amount || 0
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -154,7 +148,7 @@ async function loadRows(params: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('organization_scenarios_with_master')
-      .select('organization_id, scenario_master_id, title, author, author_email, license_amount, franchise_license_amount')
+      .select('organization_id, scenario_master_id, title, author, author_email, license_amount, external_license_amount')
       .in('organization_id', orgIds)
       .in('scenario_master_id', scenarioIds),
   ])
@@ -188,7 +182,7 @@ async function loadRows(params: {
       title: scenario.title,
       author: scenario.author || '不明',
       author_email: scenario.author_email ?? null,
-      license_amount: defaultLicenseAmount(scenario),
+      license_amount: partnerStorePayAmount(scenario),
     })
   }
 

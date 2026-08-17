@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { ApiError, requireAdmin, requireAuth, requireStaff, type AuthUser } from './_lib/auth.js'
+import { partnerStorePayAmount } from './_lib/partnerLicenseAmount.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -34,13 +35,6 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 
 function generateReportToken() {
   return randomBytes(32).toString('hex')
-}
-
-function defaultLicenseAmount(scenario: {
-  franchise_license_amount?: number | null
-  license_amount?: number | null
-}) {
-  return scenario.franchise_license_amount || scenario.license_amount || 0
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -140,7 +134,7 @@ async function handleOptions(res: VercelResponse, user: AuthUser) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select('scenario_master_id, title, author, license_amount, franchise_license_amount')
+    .select('scenario_master_id, title, author, license_amount, external_license_amount')
     .eq('organization_id', user.orgId)
     .eq('org_status', 'available')
     .eq('scenario_type', 'managed')
@@ -158,7 +152,7 @@ async function handleOptions(res: VercelResponse, user: AuthUser) {
       id: scenario.scenario_master_id,
       title: scenario.title,
       author: scenario.author ?? null,
-      license_amount: defaultLicenseAmount(scenario),
+      license_amount: partnerStorePayAmount(scenario),
     })
   }
 
@@ -180,7 +174,7 @@ async function handleDetail(res: VercelResponse, user: AuthUser, id: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any)
       .from('organization_scenarios_with_master')
-      .select('scenario_master_id, title, author, license_amount, franchise_license_amount')
+      .select('scenario_master_id, title, author, license_amount, external_license_amount')
       .eq('organization_id', user.orgId)
       .eq('org_status', 'available')
       .eq('scenario_type', 'managed'),
@@ -197,7 +191,7 @@ async function handleDetail(res: VercelResponse, user: AuthUser, id: string) {
     scenarioMap.set(scenario.scenario_master_id, {
       title: scenario.title,
       author: scenario.author ?? null,
-      license_amount: defaultLicenseAmount(scenario),
+      license_amount: partnerStorePayAmount(scenario),
     })
   }
 
