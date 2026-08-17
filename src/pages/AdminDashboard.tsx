@@ -67,6 +67,7 @@ const AuthorDashboard = lazyWithRetry(() => import('./AuthorDashboard'))
 const AuthorLogin = lazyWithRetry(() => import('./AuthorLogin'))
 const ExternalReportForm = lazyWithRetry(() => import('./ExternalReportForm'))
 const RentalReportForm = lazyWithRetry(() => import('./RentalReportForm').then(m => ({ default: m.RentalReportForm })))
+const LicensePartnerReportForm = lazyWithRetry(() => import('./LicensePartnerReportForm'))
 const PlatformScenarioSearch = lazyWithRetry(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
 const PlatformTop = lazyWithRetry(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
 const DesignPreview = lazyWithRetry(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
@@ -167,6 +168,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /group/invite/{code} - 貸切グループ招待
   if (segments[0] === 'group' && segments[1] === 'invite' && segments[2]) {
     return { page: 'group-invite', scenarioId: segments[2], organizationSlug: null }
+  }
+
+  // /partner-report/{token} - 契約店舗の月次報告フォーム
+  if (segments[0] === 'partner-report' && segments[1]) {
+    return { page: 'partner-report', scenarioId: segments[1], organizationSlug: null }
   }
   
   // /group/manage/{id} - 貸切グループ管理
@@ -489,6 +495,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <RentalReportForm organizationSlug={organizationSlug} />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'partner-report' && currentScenarioId) {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <LicensePartnerReportForm token={currentScenarioId} />
       </Suspense>
     )
   }
@@ -1033,7 +1047,7 @@ export function AdminDashboard() {
 
   // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
   const isStaffOrAdmin = isStaff
-  const knownPages = ['dashboard', 'report-form', 'rental-report']
+  const knownPages = ['dashboard', 'report-form', 'rental-report', 'partner-report']
   if (!isStaffOrAdmin && !knownPages.includes(currentPage)) {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>

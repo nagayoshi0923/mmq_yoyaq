@@ -138,6 +138,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'blog',
   'org',
   'group',
+  'partner-report',
 ])
 
 /**
@@ -174,6 +175,7 @@ function shouldShowBookingShellWhileAuthPending(pathname: string): boolean {
   if (segs[0] === 'admin' || segs[0] === 'dev') return false
 
   if (segs[0] === 'scenario') return true
+  if (segs[0] === 'partner-report') return true
 
   if (segs.length === 1) {
     const s = segs[0]
@@ -357,8 +359,9 @@ function AppRoutes() {
     const isAuthPage = ['/signup', '/login', '/register', '/start', '/reset-password', '/set-password'].includes(location.pathname)
     // 招待リンクはゲスト向けのため、ログイン済みでもプロフィールゲート対象外
     const isInvitePage = location.pathname.startsWith('/group/invite/')
+    const isPartnerReportPage = location.pathname.startsWith('/partner-report/')
 
-    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage) {
+    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
       setIsProfileCheckRunning(false)
       return
     }

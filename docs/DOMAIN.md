@@ -63,7 +63,8 @@ played = reservations(過去・非cancelled/no_show) ∪ manual_play_history −
 - **temp-ID 予約者**: 編集で400/500の既知バグ（改善計画B1）
 
 ### ライセンス
-- store_scenario_license_contracts（billing_status: billable / not_billable / exempt / pending_confirmation）
+- store_scenario_license_contracts（billing_status: billable / not_billable / exempt / pending_confirmation）— QW自店舗×シナリオ
+- license_partner_stores / contracts / monthly_reports — 契約先店舗（Discordチャンネル）×管理作品の店別月次。公開はトークンRPCのみ
 - 報告金額は送信時スナップショットが正。表示とのズレは⚠️バッジで可視化
 
 ## 環境

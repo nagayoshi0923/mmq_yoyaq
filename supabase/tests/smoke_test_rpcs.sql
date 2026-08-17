@@ -242,7 +242,38 @@ EXCEPTION WHEN OTHERS THEN
   END IF;
 END $$;
 
--- 17. get_private_booking_deadline_days
+-- 17. get_license_partner_report_form
+DO $$
+BEGIN
+  PERFORM get_license_partner_report_form('dummy-token-that-is-long-enough-xxxx', 2026, 1);
+  INSERT INTO _smoke_results VALUES ('get_license_partner_report_form', 'PASS', NULL);
+EXCEPTION WHEN OTHERS THEN
+  IF SQLSTATE LIKE '42%' THEN
+    INSERT INTO _smoke_results VALUES ('get_license_partner_report_form', 'FAIL', SQLERRM);
+  ELSE
+    INSERT INTO _smoke_results VALUES ('get_license_partner_report_form', 'PASS', 'expected error: ' || SQLERRM);
+  END IF;
+END $$;
+
+-- 18. submit_license_partner_monthly_report
+DO $$
+BEGIN
+  PERFORM submit_license_partner_monthly_report(
+    'dummy-token-that-is-long-enough-xxxx',
+    2026,
+    1,
+    '[]'::jsonb
+  );
+  INSERT INTO _smoke_results VALUES ('submit_license_partner_monthly_report', 'PASS', NULL);
+EXCEPTION WHEN OTHERS THEN
+  IF SQLSTATE LIKE '42%' THEN
+    INSERT INTO _smoke_results VALUES ('submit_license_partner_monthly_report', 'FAIL', SQLERRM);
+  ELSE
+    INSERT INTO _smoke_results VALUES ('submit_license_partner_monthly_report', 'PASS', 'expected error: ' || SQLERRM);
+  END IF;
+END $$;
+
+-- 19. get_private_booking_deadline_days
 DO $$
 BEGIN
   PERFORM get_private_booking_deadline_days('00000000-0000-0000-0000-000000000000'::uuid, NULL);

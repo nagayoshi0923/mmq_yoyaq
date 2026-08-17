@@ -48,6 +48,7 @@ export function getSignOutRedirectPath(): string {
       'login', 'signup', 'reset-password', 'set-password', 'complete-profile',
       'coupon-present', 'license-management', 'staff-profile', 'mypage', 'author',
       'external-reports', 'accept-invitation', 'organization-register',
+      'partner-report',
     ]
     if (!adminPaths.includes(match[1])) {
       return `/${match[1]}`
