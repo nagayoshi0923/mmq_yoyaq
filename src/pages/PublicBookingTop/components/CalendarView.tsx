@@ -305,35 +305,37 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="w-full text-[10px] leading-tight py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex flex-col items-start gap-0"
+                            className="w-full text-[10px] leading-tight py-0.5 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
                           >
                             <span className="whitespace-nowrap">{event.start_time?.slice(0, 5)}</span>
+                            {' '}
                             <span className="whitespace-nowrap">貸切満席</span>
                           </div>
                         )
                       }
-                      
+
+                      const metaColor = isFull ? '#6B7280' : storeColor
+                      const title = event.scenario || event.scenarios?.title
+                      const capacityLabel = isFull ? '満席' : `${currentParticipants}/${maxParticipants}`
+
                       return (
                         <div
                           key={`${event.id || idx}`}
                           onClick={() => scenario && onCardClick(scenario.scenario_id)}
-                          className="text-[10px] transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
+                          className="text-[10px] leading-tight transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
                           style={{
                             borderLeftColor: isFull ? '#9CA3AF' : storeColor,
                             backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
                             padding: '2px 3px'
                           }}
                         >
-                          <div className="flex gap-1 sm:gap-1.5">
-                            {/* 左カラム: 画像（PC版のみ表示）比率1:1.4 */}
-                            <div 
-                              className="hidden sm:block flex-shrink-0 w-[40px] overflow-hidden bg-gray-200"
-                              style={{ aspectRatio: '1 / 1.4' }}
-                            >
+                          <div className="flex gap-1 min-w-0">
+                            {/* 左カラム: 画像（PC版のみ）。高さはテキスト2行に合わせる */}
+                            <div className="hidden sm:block flex-shrink-0 w-7 self-stretch overflow-hidden bg-gray-200">
                               {imageUrl ? (
                                 <OptimizedImage
                                   src={imageUrl}
-                                  alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
+                                  alt={title || scenario?.scenario_title || 'シナリオ画像'}
                                   responsive={false}
                                   useWebP={true}
                                   quality={70}
@@ -342,46 +344,39 @@ export const CalendarView = memo(function CalendarView({
                                   breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
                                   className="w-full h-full object-cover"
                                   fallback={
-                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                      <span className="text-gray-400 text-[8px]">No Image</span>
-                                    </div>
+                                    <div className="w-full h-full bg-gray-200" />
                                   }
                                 />
                               ) : (
-                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                  <span className="text-gray-400 text-[8px]">No Image</span>
-                                </div>
+                                <div className="w-full h-full bg-gray-200" />
                               )}
                             </div>
 
-                            {/* 右カラム: 情報 */}
-                            <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-                              <div className="text-[10px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                {event.start_time?.slice(0, 5)}
-                              </div>
-                              <div className="text-[10px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                {storeName}
-                              </div>
-                              <div
-                                className="text-[10px] leading-tight text-gray-800 overflow-hidden whitespace-nowrap"
-                                style={{ textOverflow: 'clip' }}
-                              >
-                                {event.scenario || event.scenarios?.title}
-                              </div>
-                              <div className={`text-[10px] leading-tight flex flex-col items-start gap-0.5`}>
+                            {/* 右カラム: 1行目=時間・場所・人数 / 2行目=タイトル */}
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <div className="flex items-baseline gap-1 min-w-0">
+                                <span className="whitespace-nowrap flex-shrink-0" style={{ color: metaColor }}>
+                                  {event.start_time?.slice(0, 5)}
+                                </span>
+                                <span className="truncate" style={{ color: metaColor }}>
+                                  {storeName}
+                                </span>
                                 {isConfirmed && (
-                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-blue-100 text-blue-700 whitespace-nowrap">
-                                    開催決定
+                                  <span className="text-[8px] font-bold px-0.5 bg-blue-100 text-blue-700 whitespace-nowrap flex-shrink-0">
+                                    決定
                                   </span>
                                 )}
                                 {isNearlyFull && (
-                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-orange-100 text-orange-600 whitespace-nowrap">
-                                    残りわずか
+                                  <span className="text-[8px] font-bold px-0.5 bg-orange-100 text-orange-600 whitespace-nowrap flex-shrink-0">
+                                    残少
                                   </span>
                                 )}
-                                <span className={`whitespace-nowrap ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                  {isFull ? '満席' : `${currentParticipants}/${maxParticipants}`}
+                                <span className={`ml-auto whitespace-nowrap flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                  {capacityLabel}
                                 </span>
+                              </div>
+                              <div className="text-gray-800 overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>
+                                {title}
                               </div>
                             </div>
                           </div>
