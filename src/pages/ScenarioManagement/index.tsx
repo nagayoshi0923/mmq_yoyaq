@@ -214,7 +214,7 @@ export function ScenarioManagement() {
           onClose={handleCloseEditDialog}
           scenarioId={editingScenarioId}
           onScenarioChange={setEditingScenarioId}
-          sortedScenarioIds={filteredAndSortedScenarios.map(s => s.id)}
+          sortedScenarioIds={filteredAndSortedScenarios.map(s => s.scenario_master_id || s.id)}
           onSaved={() => {
             queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
             queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })

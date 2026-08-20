@@ -20,7 +20,7 @@ const SelectTrigger = React.forwardRef<
       "flex h-7 w-full items-center justify-between rounded border border-input px-2 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
     )}
-    style={{ backgroundColor: '#F6F9FB' }}
+    style={{ backgroundColor: 'var(--input-bg)' }}
     {...props}
   >
     {children}

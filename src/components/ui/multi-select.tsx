@@ -145,7 +145,7 @@ export function MultiSelect({
               className
             )}
             disabled={disabled}
-            style={{ backgroundColor: '#F6F9FB' }}
+            style={{ backgroundColor: 'var(--input-bg)' }}
           >
             <span className="truncate">{getDisplayValue()}</span>
             <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />

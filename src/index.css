@@ -32,6 +32,21 @@ html, body {
 
     /* MMQデザインシステム：統一入力エリア背景色 */
     --input-bg: #F6F9FB;
+
+    /* Figma 壁打ち（シナリオ編集）ニュートラル。画面個別で上書きして使う */
+    --mmq-ink: #1f2126;
+    --mmq-ink-body: #2e3338;
+    --mmq-ink-muted: #737885;
+    --mmq-ink-subtle: #474d57;
+    --mmq-surface: #f6f9fb;
+    --mmq-surface-pill: #f6f8fa;
+    --mmq-line: #e0e5eb;
+    --mmq-line-soft: #e8ebf0;
+    --mmq-line-strong: #d1d9e0;
+    --mmq-line-frame: #e3e8ed;
+    --mmq-primary: #171c24;
+    --mmq-success-bg: #dbfae8;
+    --mmq-success-fg: #177345;
     --booking-primary: #E60012;
     --booking-accent: #10B981;
     --booking-accent-light: #10B98120;

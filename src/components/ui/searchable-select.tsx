@@ -88,7 +88,7 @@ export function SearchableSelect({
             className
           )}
           disabled={disabled}
-          style={{ backgroundColor: '#F6F9FB' }}
+          style={{ backgroundColor: 'var(--input-bg)' }}
         >
           <span className="truncate">
             {selectedOption ? selectedOption.label : placeholder}

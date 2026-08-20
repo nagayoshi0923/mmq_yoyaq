@@ -13,6 +13,7 @@ import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQueryClient } from '@tanstack/react-query'
 import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useOrganizationScenariosQuery } from '@/pages/ScenarioManagement/hooks/useOrganizationScenariosQuery'
 import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMasterApi'
 import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 
@@ -180,15 +181,70 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [loadingMaster, setLoadingMaster] = useState(false)
   
   // 現在編集中のシナリオ（マスター編集用） - useEffectより前に定義する必要あり
-  const currentScenario = scenarioId 
-    ? scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId) 
-    : null
+  const { data: orgScenariosData } = useOrganizationScenariosQuery(currentOrgId)
+  const currentScenario = useMemo(() => {
+    if (!scenarioId) return null
+    const fromList = scenarios.find((s) => s.id === scenarioId || s.scenario_master_id === scenarioId)
+    if (fromList) return fromList
+    const fromOrg = orgScenariosData?.scenarios.find(
+      (s) => s.scenario_master_id === scenarioId || s.id === scenarioId || s.org_scenario_id === scenarioId
+    )
+    return (fromOrg as typeof fromList) ?? null
+  }, [scenarioId, scenarios, orgScenariosData?.scenarios])
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
-  const headerSelectValue = currentScenario && scenarios.some((s) => s.id === currentScenario.id)
-    ? currentScenario.id
-    : scenarioId && scenarios.some((s) => s.id === scenarioId)
-      ? scenarioId
-      : undefined
+
+  const headerScenarioOptions = useMemo(() => {
+    const orgScenarios = orgScenariosData?.scenarios ?? []
+    const titleById = new Map<string, string>()
+    for (const row of orgScenarios) {
+      if (row.title) {
+        if (row.scenario_master_id) titleById.set(row.scenario_master_id, row.title)
+        titleById.set(row.id, row.title)
+        if (row.org_scenario_id) titleById.set(row.org_scenario_id, row.title)
+      }
+    }
+    for (const row of scenarios) {
+      if (!row.title) continue
+      if (!titleById.has(row.id)) titleById.set(row.id, row.title)
+      if (row.scenario_master_id && !titleById.has(row.scenario_master_id)) {
+        titleById.set(row.scenario_master_id, row.title)
+      }
+    }
+
+    const resolveId = (rawId: string) => {
+      const row = orgScenarios.find(
+        (s) => s.scenario_master_id === rawId || s.id === rawId || s.org_scenario_id === rawId
+      )
+      return row?.scenario_master_id || rawId
+    }
+
+    const sourceIds = (sortedScenarioIds && sortedScenarioIds.length > 0)
+      ? sortedScenarioIds
+      : (orgScenarios.length > 0
+        ? orgScenarios.map((s) => s.scenario_master_id || s.id)
+        : scenarios.map((s) => s.scenario_master_id || s.id))
+
+    const options: { id: string; title: string }[] = []
+    const seen = new Set<string>()
+    for (const rawId of sourceIds) {
+      if (!rawId) continue
+      const id = resolveId(rawId)
+      if (seen.has(id)) continue
+      const title = titleById.get(id) || titleById.get(rawId) || (id === scenarioId ? formData.title : '')
+      if (!title) continue
+      seen.add(id)
+      options.push({ id, title })
+    }
+
+    if (scenarioId && formData.title && !seen.has(scenarioId)) {
+      options.unshift({ id: scenarioId, title: formData.title })
+    }
+    return options
+  }, [orgScenariosData?.scenarios, scenarios, sortedScenarioIds, scenarioId, formData.title])
+
+  const headerSelectValue = scenarioId && headerScenarioOptions.some((s) => s.id === scenarioId)
+    ? scenarioId
+    : undefined
   
   // scenario_master_id を直接使用（旧ID解決は不要）
   // staff_scenario_assignments.scenario_id は scenario_master_id と統一済み
@@ -355,8 +411,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
   }
 
-  // ソートされたシナリオIDリスト（sortedScenarioIdsがあればそれを使用、なければscenariosから生成）
-  const scenarioIdList = sortedScenarioIds ?? scenarios.map(s => s.id)
+  const scenarioIdList = headerScenarioOptions.map((s) => s.id)
 
   // 物理矢印キーでシナリオを切り替え（captureフェーズで登録）
   useEffect(() => {
@@ -1427,7 +1482,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             {organizationName && (
               <span className="scenario-edit-dialog__org">{organizationName}</span>
             )}
-            {scenarioId && onScenarioChange && scenarioIdList.length > 1 ? (
+            {onScenarioChange && headerScenarioOptions.length > 1 ? (
               <Select
                 value={headerSelectValue}
                 onValueChange={(value) => onScenarioChange(value)}
@@ -1435,8 +1490,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <SelectTrigger className="scenario-edit-dialog__scenario">
                   <SelectValue placeholder={formData.title || 'シナリオ'} />
                 </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {scenarios.map((s) => (
+                <SelectContent className="scenario-edit-dialog__scenario-menu">
+                  {headerScenarioOptions.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.title}
                     </SelectItem>

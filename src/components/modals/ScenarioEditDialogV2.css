@@ -1,6 +1,14 @@
 /* Figma 壁打ち 2:3 ScenarioEdit / Sidebar Proposal — Dev Mode 実寸 */
 
 .scenario-edit-dialog-host {
+  --input-bg: #ffffff;
+  --foreground: 210 10% 20%;
+  --muted-foreground: 222 8% 49%;
+  --primary: 216 22% 12%;
+  --primary-foreground: 0 0% 100%;
+  --border: 208 19% 85%;
+  --input: 208 19% 85%;
+  --ring: 216 22% 12%;
   display: flex !important;
   flex-direction: column;
   padding: 0 !important;
@@ -10,7 +18,7 @@
   max-width: min(1280px, 96vw) !important;
   height: min(820px, 92vh) !important;
   max-height: 92vh !important;
-  border: 1px solid #e3e8ed !important;
+  border: 1px solid var(--mmq-line-frame, #e3e8ed) !important;
   border-radius: 12px !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18) !important;
   background: #fff !important;
@@ -91,6 +99,15 @@
   flex-shrink: 0;
   width: 10px;
   height: 10px;
+}
+
+.scenario-edit-dialog__scenario-menu {
+  z-index: 80;
+  min-width: 12rem;
+  max-height: 16rem;
+  background: #fff;
+  border: 1px solid var(--mmq-line, #e0e5eb);
+  color: var(--mmq-ink-body, #2e3338);
 }
 
 .scenario-edit-dialog__close {
