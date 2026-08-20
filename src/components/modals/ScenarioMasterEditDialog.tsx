@@ -6,19 +6,16 @@
  * ScenarioEditDialogV2と同じスタイルを使用
  */
 import { useState, useEffect, useMemo } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import './ScenarioEditDialogV2.css'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
-import {
-  Save, FileText, Users, BookOpen, Settings, ChevronLeft, ChevronRight, Images
-} from 'lucide-react'
-import { uploadImage, validateMediaFile, uploadMedia } from '@/lib/uploadImage'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { validateMediaFile, uploadMedia } from '@/lib/uploadImage'
 import { showToast } from '@/utils/toast'
 import { ScenarioMasterTabContent } from './ScenarioMasterEditDialog/ScenarioMasterTabContent'
 
@@ -69,11 +66,11 @@ interface ScenarioMasterEditDialogProps {
 
 // タブ定義（ScenarioEditDialogV2と同じ構造）
 const TABS = [
-  { id: 'basic', label: '基本情報', icon: FileText },
-  { id: 'gallery', label: 'ギャラリー', icon: Images },
-  { id: 'description', label: '説明', icon: BookOpen },
-  { id: 'characters', label: 'キャラクター', icon: Users },
-  { id: 'other', label: 'その他', icon: Settings },
+  { id: 'basic', label: '基本情報' },
+  { id: 'gallery', label: 'ギャラリー' },
+  { id: 'description', label: '説明' },
+  { id: 'characters', label: 'キャラクター' },
+  { id: 'other', label: 'その他' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -140,6 +137,18 @@ export function ScenarioMasterEditDialog({
 
   // マスタIDリスト（矢印キーでの切り替え用）
   const masterIdList = useMemo(() => sortedMasterIds || [], [sortedMasterIds])
+
+  // 新規作成時はキャラクタータブを出さない
+  const visibleTabs = useMemo(
+    () => TABS.filter((tab) => !(tab.id === 'characters' && isNew)),
+    [isNew]
+  )
+  const currentTab: TabId = visibleTabs.some((tab) => tab.id === activeTab) ? activeTab : 'basic'
+
+  const selectTab = (id: TabId) => {
+    setActiveTab(id)
+    localStorage.setItem('scenarioMasterEditDialogTab', id)
+  }
 
   // ファイルアップロード処理（共通）
   const handleFilesUpload = async (files: File[]) => {
@@ -477,19 +486,30 @@ export function ScenarioMasterEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[min(85vh,750px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
-        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-0 shrink-0">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <DialogTitle className="text-base sm:text-xl shrink-0">
+      <DialogContent
+        size="xl"
+        overlayClassName="scenario-edit-dialog-overlay"
+        className="scenario-edit-dialog-host [&>button]:hidden"
+      >
+        <DialogTitle className="sr-only">
+          {isNew ? '新規シナリオマスタ' : 'シナリオマスタ編集'}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {master.title ? `${master.title}の情報を編集します` : 'シナリオマスタの情報を入力してください'}
+        </DialogDescription>
+
+        <header className="scenario-edit-dialog__header">
+          <div className="scenario-edit-dialog__header-left">
+            <span className="scenario-edit-dialog__title">
               {isNew ? '新規シナリオマスタ' : 'シナリオマスタ編集'}
-            </DialogTitle>
+            </span>
             {/* マスタ切り替え */}
-            {onMasterChange && masterId && masterIdList.length > 1 && (
-              <div className="flex items-center gap-1 flex-1 max-w-md">
+            {onMasterChange && masterId && masterIdList.length > 1 ? (
+              <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="h-6 w-6 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -506,17 +526,17 @@ export function ScenarioMasterEditDialog({
                   value={masterId}
                   onValueChange={(value) => onMasterChange(value)}
                 >
-                  <SelectTrigger className="h-8 text-sm flex-1">
+                  <SelectTrigger className="scenario-edit-dialog__scenario">
                     <SelectValue placeholder="マスタを選択" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-80">
+                  <SelectContent className="scenario-edit-dialog__scenario-menu">
                     <SelectItem value={masterId}>{master.title || '(タイトル未設定)'}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="h-6 w-6 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -529,165 +549,127 @@ export function ScenarioMasterEditDialog({
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-              </div>
-            )}
+              </>
+            ) : master.title ? (
+              <span className="scenario-edit-dialog__scenario">{master.title}</span>
+            ) : null}
           </div>
-          <DialogDescription className="text-xs sm:text-sm">
-            {master.title ? `${master.title}の情報を編集します` : 'シナリオマスタの情報を入力してください'}
-          </DialogDescription>
-        </DialogHeader>
+          <button type="button" className="scenario-edit-dialog__close" onClick={() => onOpenChange(false)}>
+            閉じる
+          </button>
+        </header>
 
         {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+          <div className="scenario-edit-dialog__body">
+            <div className="scenario-edit-dialog__content items-center justify-center">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
           </div>
         ) : (
           <>
-            {/* タブナビゲーション */}
-            <Tabs 
-              value={activeTab} 
-              onValueChange={(v) => {
-                setActiveTab(v as TabId)
-                localStorage.setItem('scenarioMasterEditDialogTab', v)
-              }} 
-              className="flex-1 flex flex-col overflow-hidden"
-              onKeyDown={(e) => {
-                // 矢印キーでのタブ切り替えを無効化（マスタ切り替えに使用するため）
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }
-              }}
-            >
-              <div className="px-4 sm:px-6 pt-4 shrink-0 border-b">
-                <TabsList 
-                  className="w-full h-auto flex flex-wrap gap-1 bg-transparent p-0 justify-start"
-                  onKeyDown={(e) => {
-                    // 矢印キーでのタブ切り替えを無効化（マスタ切り替えに使用するため）
-                    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }
-                  }}
-                >
-                  {TABS.map((tab) => {
-                    // 新規作成時はキャラクタータブを非表示
-                    if (tab.id === 'characters' && isNew) return null
-                    
-                    const Icon = tab.icon
-                    return (
-                      <TabsTrigger
-                        key={tab.id}
-                        value={tab.id}
-                        className="flex items-center gap-1.5 px-3 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t-md rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors"
-                        onKeyDown={(e) => {
-                          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                            e.preventDefault()
-                            e.stopPropagation()
-                          }
-                        }}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span className="hidden sm:inline">{tab.label}</span>
-                      </TabsTrigger>
-                    )
-                  })}
-                </TabsList>
-              </div>
+            <div className="scenario-edit-dialog__body">
+              <nav className="scenario-edit-dialog__nav" aria-label="シナリオマスタ編集セクション">
+                {visibleTabs.map((tab) => {
+                  const selected = currentTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => selectTab(tab.id)}
+                      aria-current={selected ? 'page' : undefined}
+                      className={selected ? 'scenario-edit-dialog__nav-item is-selected' : 'scenario-edit-dialog__nav-item'}
+                    >
+                      {tab.label}
+                    </button>
+                  )
+                })}
+              </nav>
 
-              {/* タブコンテンツ */}
-              <div className="flex-1 overflow-y-auto">
-                {TABS.map((tab) => (
-                  <TabsContent
-                    key={tab.id}
-                    value={tab.id}
-                    className="m-0 p-4 sm:p-6 focus-visible:outline-none focus-visible:ring-0"
-                  >
-                    <ScenarioMasterTabContent
-                      tabId={tab.id}
-                      master={master}
-                      setMaster={setMaster}
-                      genreInput={genreInput}
-                      setGenreInput={setGenreInput}
-                      isDragging={isDragging}
-                      uploading={uploading}
-                      uploadProgress={uploadProgress}
-                      isNew={isNew}
-                      characters={characters}
-                      usingOrganizations={usingOrganizations}
-                      addGenre={addGenre}
-                      removeGenre={removeGenre}
-                      addCharacter={addCharacter}
-                      updateCharacter={updateCharacter}
-                      removeCharacter={removeCharacter}
-                      handleFilesUpload={handleFilesUpload}
-                      handleDragOver={handleDragOver}
-                      handleDragLeave={handleDragLeave}
-                      handleDrop={handleDrop}
-                    />
-                  </TabsContent>
-                ))}
+              <div key={currentTab} className="scenario-edit-dialog__content">
+                <h2 className="scenario-edit-dialog__page-title">
+                  {visibleTabs.find((tab) => tab.id === currentTab)?.label}
+                </h2>
+                <ScenarioMasterTabContent
+                  tabId={currentTab}
+                  master={master}
+                  setMaster={setMaster}
+                  genreInput={genreInput}
+                  setGenreInput={setGenreInput}
+                  isDragging={isDragging}
+                  uploading={uploading}
+                  uploadProgress={uploadProgress}
+                  isNew={isNew}
+                  characters={characters}
+                  usingOrganizations={usingOrganizations}
+                  addGenre={addGenre}
+                  removeGenre={removeGenre}
+                  addCharacter={addCharacter}
+                  updateCharacter={updateCharacter}
+                  removeCharacter={removeCharacter}
+                  handleFilesUpload={handleFilesUpload}
+                  handleDragOver={handleDragOver}
+                  handleDragLeave={handleDragLeave}
+                  handleDrop={handleDrop}
+                />
               </div>
-            </Tabs>
+            </div>
 
-            {/* フッター（固定） */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-t bg-muted/30 shrink-0">
-              {/* 現在の設定サマリー（小さい画面では非表示） */}
-              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                <span className="font-medium text-foreground truncate max-w-[120px]">
-                  {master.title || '(タイトル未設定)'}
-                </span>
-                <span className="text-muted-foreground/50">|</span>
+            <footer className="scenario-edit-dialog__footer">
+              <div className="scenario-edit-dialog__meta">
+                <span>{master.title || '(タイトル未設定)'}</span>
+                <span className="scenario-edit-dialog__meta-sep">|</span>
                 <span>{master.official_duration}分</span>
-                <span className="text-muted-foreground/50">|</span>
+                <span className="scenario-edit-dialog__meta-sep">|</span>
                 <span>
                   {master.player_count_min === master.player_count_max 
                     ? `${master.player_count_min}人`
                     : `${master.player_count_min}〜${master.player_count_max}人`
                   }
                 </span>
-                <span className="text-muted-foreground/50">|</span>
-                <Badge variant={master.master_status === 'approved' ? 'default' : 'secondary'} className="text-xs">
-                  {master.master_status === 'draft' ? '下書き' : 
-                   master.master_status === 'pending' ? '承認待ち' : 
-                   master.master_status === 'approved' ? '承認済み' : '却下'}
-                </Badge>
               </div>
 
-              {/* アクションボタン */}
-              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-                {/* ステータスバッジ */}
+              <div className="scenario-edit-dialog__actions">
+                {/* ステータス表示 */}
                 {master.master_status === 'draft' && (
-                  <Badge variant="secondary" className="text-[11px] sm:text-xs">下書き</Badge>
+                  <span className="scenario-edit-dialog__status is-draft">下書き</span>
                 )}
                 {master.master_status === 'pending' && (
-                  <Badge variant="outline" className="text-[11px] sm:text-xs border-yellow-500 text-yellow-600">申請中</Badge>
+                  <span className="scenario-edit-dialog__status is-private">申請中</span>
                 )}
                 {master.master_status === 'approved' && (
-                  <Badge variant="default" className="text-[11px] sm:text-xs bg-green-500">承認済</Badge>
+                  <span className="scenario-edit-dialog__status is-public">承認済</span>
+                )}
+                {master.master_status === 'rejected' && (
+                  <span className="scenario-edit-dialog__status is-private">却下</span>
                 )}
                 {saveMessage && (
-                  <span className="text-green-600 font-medium text-xs sm:text-sm animate-pulse">
-                    ✓ {saveMessage}
-                  </span>
+                  <span className="scenario-edit-dialog__status is-public">{saveMessage}</span>
                 )}
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="text-xs sm:text-sm h-8 sm:h-10">
+                <button
+                  type="button"
+                  className="scenario-edit-dialog__btn"
+                  onClick={() => onOpenChange(false)}
+                >
                   閉じる
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleSave('draft')} 
+                </button>
+                <button
+                  type="button"
+                  className="scenario-edit-dialog__btn"
+                  onClick={() => handleSave('draft')}
                   disabled={saving}
-                  className="text-gray-600 text-xs sm:text-sm h-8 sm:h-10 hidden sm:inline-flex"
                 >
                   下書き保存
-                </Button>
-                <Button onClick={() => handleSave()} disabled={saving} className="w-16 sm:w-24 text-xs sm:text-sm h-8 sm:h-10">
-                  <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                </button>
+                <button
+                  type="button"
+                  className="scenario-edit-dialog__btn-primary"
+                  onClick={() => handleSave()}
+                  disabled={saving}
+                >
                   保存
-                </Button>
+                </button>
               </div>
-            </div>
+            </footer>
           </>
         )}
       </DialogContent>

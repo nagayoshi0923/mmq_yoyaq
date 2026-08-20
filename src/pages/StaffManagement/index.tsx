@@ -573,13 +573,17 @@ export function StaffManagement() {
 
         {/* スタッフ編集モーダル */}
         <Dialog open={isEditModalOpen} onOpenChange={(open) => !open && closeEditModal()}>
-          <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
-            <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
-              <DialogTitle>{editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}</DialogTitle>
-              <DialogDescription>
-                {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent
+            size="xl"
+            overlayClassName="scenario-edit-dialog-overlay"
+            className="scenario-edit-dialog-host [&>button]:hidden"
+          >
+            <DialogTitle className="sr-only">
+              {editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
+            </DialogDescription>
             <StaffEditForm
               staff={editingStaff}
               stores={stores}

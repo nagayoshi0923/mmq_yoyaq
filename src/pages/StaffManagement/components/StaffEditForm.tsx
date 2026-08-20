@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -12,6 +11,7 @@ import { assignmentApi } from '@/lib/assignmentApi'
 import { formatJstDateTime } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { EmptyState } from '@/components/patterns/list'
+import '@/components/modals/ScenarioEditDialogV2.css'
 
 type AssignmentHistoryRow = {
   id: string
@@ -114,6 +114,17 @@ const statusOptions = [
   { value: 'resigned', label: '退職' }
 ]
 
+const BASE_TABS = [
+  { id: 'basic', label: '基本情報' },
+  { id: 'role', label: '役割・店舗' },
+  { id: 'scenarios', label: '担当シナリオ' },
+  { id: 'notes', label: '備考' },
+] as const
+
+const HISTORY_TAB = { id: 'history', label: '担当変更履歴' } as const
+
+type StaffTabId = typeof BASE_TABS[number]['id'] | typeof HISTORY_TAB['id']
+
 export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
   const [formData, setFormData] = useState<Partial<Staff> & { experienced_scenarios?: string[] }>({
     name: '',
@@ -130,6 +141,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     experienced_scenarios: [],
     notes: '',
   })
+  const [activeTab, setActiveTab] = useState<StaffTabId>('basic')
 
   useEffect(() => {
     if (staff) {
@@ -142,7 +154,20 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
       })
     }
   }, [staff])
-  
+
+  // 別のスタッフを開いたときは先頭セクションへ戻す
+  useEffect(() => {
+    setActiveTab('basic')
+  }, [staff?.id])
+
+  const tabs = useMemo(
+    () => (staff?.id ? [...BASE_TABS, HISTORY_TAB] : [...BASE_TABS]),
+    [staff?.id]
+  )
+
+  // 履歴タブを表示中に新規作成へ切り替わっても空表示にならないようフォールバック
+  const currentTab: StaffTabId = tabs.some((tab) => tab.id === activeTab) ? activeTab : 'basic'
+
   // 担当シナリオ変更時：体験済みにも自動追加（担当=体験済み）
   const handleSpecialScenariosChange = (values: string[]) => {
     // 新しく追加されたシナリオを体験済みにも追加
@@ -160,12 +185,6 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     e.preventDefault()
     onSave(formData as Staff)
   }
-
-  const storeOptions: MultiSelectOption[] = stores.map(store => ({
-    id: store.id,
-    name: store.name,
-    displayInfo: store.address || ''
-  }))
 
   // シナリオID→タイトルのマッピング（scenario.idとscenario_master_id両方に対応）
   const scenarioIdToTitle = useMemo(() => {
@@ -186,116 +205,109 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     displayInfo: `${scenario.player_count_min || 0}-${scenario.player_count_max || 0}人`
   }))
 
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
-          {/* 左カラム: 基本情報・連絡先 */}
-          <div className="space-y-6">
-            {/* 基本情報 */}
-            <div>
-              <h3 className="text-lg mb-4 pb-2 border-b">基本情報</h3>
-              <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">名前 *</Label>
-              <Input
-                id="name"
-                value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
+  const renderSection = (tabId: StaffTabId) => {
+    switch (tabId) {
+      case 'basic':
+        return (
+          <>
+            <div className="scenario-edit-card">
+              <div>
+                <Label htmlFor="name">名前 *</Label>
+                <Input
+                  id="name"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div>
-              <Label htmlFor="status">ステータス</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value as Staff['status'] })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label htmlFor="status">ステータス</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value as Staff['status'] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            {/* 連絡先情報 */}
-            <div>
-              <h3 className="text-lg mb-4 pb-2 border-b">連絡先情報</h3>
-              <div className="space-y-4">
-            <div>
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email || ''}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
+            <div className="scenario-edit-card">
+              <p className="scenario-edit-card__title">連絡先情報</p>
 
-            <div>
-              <Label htmlFor="phone">電話番号</Label>
-              <Input
-                id="phone"
-                value={formData.phone || ''}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="email">メールアドレス</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="line_name">LINE名</Label>
-              <Input
-                id="line_name"
-                value={formData.line_name || ''}
-                onChange={(e) => setFormData({ ...formData, line_name: e.target.value })}
-              />
-            </div>
+                <div>
+                  <Label htmlFor="phone">電話番号</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone || ''}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="x_account">X (Twitter)</Label>
-              <Input
-                id="x_account"
-                value={formData.x_account || ''}
-                onChange={(e) => setFormData({ ...formData, x_account: e.target.value })}
-              />
-            </div>
+                <div>
+                  <Label htmlFor="line_name">LINE名</Label>
+                  <Input
+                    id="line_name"
+                    value={formData.line_name || ''}
+                    onChange={(e) => setFormData({ ...formData, line_name: e.target.value })}
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="discord_id">Discord ID</Label>
-              <Input
-                id="discord_id"
-                value={formData.discord_id || ''}
-                onChange={(e) => setFormData({ ...formData, discord_id: e.target.value })}
-              />
-            </div>
+                <div>
+                  <Label htmlFor="x_account">X (Twitter)</Label>
+                  <Input
+                    id="x_account"
+                    value={formData.x_account || ''}
+                    onChange={(e) => setFormData({ ...formData, x_account: e.target.value })}
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
-              <Input
-                id="discord_channel_id"
-                value={formData.discord_channel_id || ''}
-                onChange={(e) => setFormData({ ...formData, discord_channel_id: e.target.value })}
-                placeholder="シフト通知用のチャンネルID"
-              />
-            </div>
+                <div>
+                  <Label htmlFor="discord_id">Discord ID</Label>
+                  <Input
+                    id="discord_id"
+                    value={formData.discord_id || ''}
+                    onChange={(e) => setFormData({ ...formData, discord_id: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
+                  <Input
+                    id="discord_channel_id"
+                    value={formData.discord_channel_id || ''}
+                    onChange={(e) => setFormData({ ...formData, discord_channel_id: e.target.value })}
+                    placeholder="シフト通知用のチャンネルID"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          </>
+        )
 
-          {/* 右カラム: 役割・担当店舗・備考 */}
-          <div className="space-y-6">
-            {/* 役割・担当店舗 */}
-            <div>
-              <h3 className="text-lg mb-4 pb-2 border-b">役割・担当店舗</h3>
-              <div className="space-y-4">
+      case 'role':
+        return (
+          <div className="scenario-edit-card">
             <div>
               <Label>役割</Label>
               <MultiSelect
@@ -321,8 +333,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 placeholder="全店舗担当"
               />
             </div>
+          </div>
+        )
 
-            <div>
+      case 'scenarios':
+        return (
+          <>
+            <div className="scenario-edit-card">
               <Label>担当シナリオ（GM可能）</Label>
               <MultiSelect
                 options={scenarioOptions}
@@ -352,10 +369,10 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-1">※追加すると体験済みにも自動追加されます</p>
+              <p className="scenario-edit-card__note">※追加すると体験済みにも自動追加されます</p>
             </div>
 
-            <div>
+            <div className="scenario-edit-card">
               <Label>体験済みシナリオ</Label>
               <MultiSelect
                 options={scenarioOptions}
@@ -385,73 +402,110 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-1">※GMはできないが体験したシナリオ</p>
+              <p className="scenario-edit-card__note">※GMはできないが体験したシナリオ</p>
             </div>
-              </div>
-            </div>
+          </>
+        )
 
-            {/* 備考 */}
-            <div>
-              <h3 className="text-lg mb-4 pb-2 border-b">備考</h3>
-              <div>
+      case 'notes':
+        return (
+          <div className="scenario-edit-card">
+            <Label htmlFor="notes">備考</Label>
             <Textarea
+              id="notes"
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={10}
               placeholder="メモ・特記事項"
+              className="scenario-edit-card__textarea"
             />
-              </div>
-            </div>
-
-            {/* 担当変更履歴（YOYAQ-011・既存スタッフのみ） */}
-            {staff?.id && (
-              <div>
-                <h3 className="text-lg mb-4 pb-2 border-b">担当変更履歴</h3>
-                <AssignmentHistoryList staffId={staff.id} />
-              </div>
-            )}
           </div>
-        </div>
-      </div>
+        )
 
-      {/* フッターボタン（固定） */}
-      <div className="flex justify-between px-4 sm:px-6 py-4 border-t bg-muted/30 shrink-0">
-        {/* 左側：アクションボタン（既存スタッフのみ） */}
-        <div className="flex gap-2">
-          {staff?.id && (
-            <>
-              {onLink && (
-                <Button type="button" variant="outline" size="sm" onClick={onLink} className="text-muted-foreground">
-                  <Link2 className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">連携</span>
-                </Button>
-              )}
-              {onUnlink && (
-                <Button type="button" variant="outline" size="sm" onClick={onUnlink} className="text-orange-600 border-orange-200 hover:bg-orange-50">
-                  <Unlink className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">連携解除</span>
-                </Button>
-              )}
-              {onDelete && (
-                <Button type="button" variant="outline" size="sm" onClick={onDelete} className="text-red-600 border-red-200 hover:bg-red-50">
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">削除</span>
-                </Button>
-              )}
-            </>
+      case 'history':
+        return staff?.id ? (
+          <div className="scenario-edit-card">
+            <AssignmentHistoryList staffId={staff.id} />
+          </div>
+        ) : null
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-1 flex-col min-h-0 overflow-hidden">
+      <header className="scenario-edit-dialog__header">
+        <div className="scenario-edit-dialog__header-left">
+          <span className="scenario-edit-dialog__title">
+            {staff?.id ? 'スタッフ編集' : '新規スタッフ作成'}
+          </span>
+          {formData.name && (
+            <span className="scenario-edit-dialog__scenario">{formData.name}</span>
           )}
         </div>
-        
-        {/* 右側：保存・キャンセル */}
-        <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          キャンセル
-        </Button>
-        <Button type="submit">
-          保存
-        </Button>
+        <button type="button" className="scenario-edit-dialog__close" onClick={onCancel}>
+          閉じる
+        </button>
+      </header>
+
+      <div className="scenario-edit-dialog__body">
+        <nav className="scenario-edit-dialog__nav" aria-label="スタッフ編集セクション">
+          {tabs.map((tab) => {
+            const selected = currentTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={selected ? 'page' : undefined}
+                className={selected ? 'scenario-edit-dialog__nav-item is-selected' : 'scenario-edit-dialog__nav-item'}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div key={currentTab} className="scenario-edit-dialog__content">
+          <h2 className="scenario-edit-dialog__page-title">
+            {tabs.find((tab) => tab.id === currentTab)?.label}
+          </h2>
+          {renderSection(currentTab)}
         </div>
       </div>
+
+      <footer className="scenario-edit-dialog__footer">
+        <div className="scenario-edit-dialog__meta">
+          <span>{formData.name || '(未設定)'}</span>
+        </div>
+        <div className="scenario-edit-dialog__actions">
+          {staff?.id && onLink && (
+            <button type="button" className="scenario-edit-dialog__btn" onClick={onLink}>
+              <Link2 className="h-4 w-4 mr-1" />
+              連携
+            </button>
+          )}
+          {staff?.id && onUnlink && (
+            <button type="button" className="scenario-edit-dialog__btn" onClick={onUnlink}>
+              <Unlink className="h-4 w-4 mr-1" />
+              連携解除
+            </button>
+          )}
+          {staff?.id && onDelete && (
+            <button type="button" className="scenario-edit-dialog__btn" onClick={onDelete}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              削除
+            </button>
+          )}
+          <button type="button" className="scenario-edit-dialog__btn" onClick={onCancel}>
+            キャンセル
+          </button>
+          <button type="submit" className="scenario-edit-dialog__btn-primary">
+            保存
+          </button>
+        </div>
+      </footer>
     </form>
   )
 }

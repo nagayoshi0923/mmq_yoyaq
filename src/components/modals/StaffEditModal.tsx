@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import './ScenarioEditDialogV2.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -48,6 +49,15 @@ interface ScenarioAssignment {
   status: 'want_to_learn' | 'experienced' | 'can_gm'
 }
 
+const STAFF_TABS = [
+  { id: 'basic', label: '基本情報' },
+  { id: 'role', label: '役割・店舗' },
+  { id: 'scenarios', label: '担当シナリオ' },
+  { id: 'notes', label: '備考' },
+] as const
+
+type StaffTabId = typeof STAFF_TABS[number]['id']
+
 export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenarios }: StaffEditModalProps) {
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
@@ -72,6 +82,14 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false)
   // アサインメントが変更されたかどうか（変更がない場合は更新をスキップ）
   const [assignmentsChanged, setAssignmentsChanged] = useState(false)
+  const [activeTab, setActiveTab] = useState<StaffTabId>('basic')
+
+  // 開き直したときは先頭タブから
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab('basic')
+    }
+  }, [isOpen])
 
   // スタッフデータが変更されたときにフォームを初期化
   useEffect(() => {
@@ -325,179 +343,189 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     displayInfo: `${scenario.duration}分 | ${scenario.player_count_min}-${scenario.player_count_max}人`
   }))
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[480px] max-h-[85vh] overflow-y-auto p-3">
-        <DialogHeader className="pb-2">
-          <DialogTitle className="text-sm">{staff ? 'スタッフ編集' : 'スタッフ新規作成'}</DialogTitle>
-          <DialogDescription className="text-[11px]">
-            基本情報・役割・勤務可能日を設定
-          </DialogDescription>
-        </DialogHeader>
+  const renderTabContent = (tabId: StaffTabId) => {
+    switch (tabId) {
+      case 'basic':
+        return (
+          <>
+            <div className="scenario-edit-card">
+              <div>
+                <Label htmlFor="name">名前 *</Label>
+                <Input
+                  id="name"
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="田中 太郎"
+                />
+              </div>
 
-        <div className="space-y-2">
-          {/* 基本情報 */}
-          <div>
-            <Label htmlFor="name">名前 *</Label>
-            <Input
-              id="name"
-              value={formData.name || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="田中 太郎"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            <div className="space-y-0.5">
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="tanaka@example.com"
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="email">メールアドレス</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="tanaka@example.com"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label htmlFor="phone">電話番号</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="090-1234-5678"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="phone">電話番号</Label>
-              <Input
-                id="phone"
-                value={formData.phone || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="090-1234-5678"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-1.5">
-            <div className="space-y-0.5">
-              <Label htmlFor="x_account">X(Twitter)</Label>
-              <Input
-                id="x_account"
-                value={formData.x_account || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
-                placeholder="@tanaka_gm"
-              />
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="discord_id">Discord ID</Label>
-              <Input
-                id="discord_id"
-                value={formData.discord_id || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, discord_id: e.target.value }))}
-                placeholder="1427064798650040472"
-              />
-              <p className="text-[9px] text-muted-foreground">
-                通知機能で使用
-              </p>
-            </div>
-          </div>
+            <div className="scenario-edit-card">
+              <p className="scenario-edit-card__title">連絡先アカウント</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="x_account">X(Twitter)</Label>
+                  <Input
+                    id="x_account"
+                    value={formData.x_account || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
+                    placeholder="@tanaka_gm"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label htmlFor="discord_id">Discord ID</Label>
+                  <Input
+                    id="discord_id"
+                    value={formData.discord_id || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discord_id: e.target.value }))}
+                    placeholder="1427064798650040472"
+                  />
+                  <p className="scenario-edit-card__note">
+                    通知機能で使用
+                  </p>
+                </div>
+              </div>
 
-          <div className="space-y-0.5">
-            <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
-            <Input
-              id="discord_channel_id"
-              value={formData.discord_channel_id || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, discord_channel_id: e.target.value }))}
-              placeholder="1234567890123456789"
-            />
-            <p className="text-[9px] text-muted-foreground">
-              個別通知用チャンネル
-            </p>
-          </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
+                <Input
+                  id="discord_channel_id"
+                  value={formData.discord_channel_id || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, discord_channel_id: e.target.value }))}
+                  placeholder="1234567890123456789"
+                />
+                <p className="scenario-edit-card__note">
+                  個別通知用チャンネル
+                </p>
+              </div>
+            </div>
 
-          {/* アバター色選択 */}
-          <div className="space-y-0.5">
-            <Label>アバター色</Label>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {[
-                { bg: '#EFF6FF', text: '#2563EB', name: '青' },
-                { bg: '#F0FDF4', text: '#16A34A', name: '緑' },
-                { bg: '#FFFBEB', text: '#D97706', name: '黄' },
-                { bg: '#FEF2F2', text: '#DC2626', name: '赤' },
-                { bg: '#F5F3FF', text: '#7C3AED', name: '紫' },
-                { bg: '#FDF2F8', text: '#DB2777', name: 'ピンク' }
-              ].map((color) => (
-                <Badge
-                  key={color.bg}
-                  variant="outline"
-                  className={`cursor-pointer px-1.5 py-0.5 text-[11px] font-normal transition-all border ${
-                    formData.avatar_color === color.bg 
-                      ? 'ring-1 ring-offset-1' 
-                      : 'hover:scale-105'
-                  }`}
-                  style={{
-                    backgroundColor: color.bg,
-                    color: color.text,
-                    borderColor: color.text + '40'
-                  }}
-                  onClick={() => setFormData(prev => ({ ...prev, avatar_color: color.bg }))}
+            {/* アバター色選択 */}
+            <div className="scenario-edit-card">
+              <p className="scenario-edit-card__title">アバター色</p>
+              <div className="flex flex-wrap items-center gap-1">
+                {[
+                  { bg: '#EFF6FF', text: '#2563EB', name: '青' },
+                  { bg: '#F0FDF4', text: '#16A34A', name: '緑' },
+                  { bg: '#FFFBEB', text: '#D97706', name: '黄' },
+                  { bg: '#FEF2F2', text: '#DC2626', name: '赤' },
+                  { bg: '#F5F3FF', text: '#7C3AED', name: '紫' },
+                  { bg: '#FDF2F8', text: '#DB2777', name: 'ピンク' }
+                ].map((color) => (
+                  <Badge
+                    key={color.bg}
+                    variant="outline"
+                    className={`cursor-pointer px-1.5 py-0.5 text-[11px] font-normal transition-all border ${
+                      formData.avatar_color === color.bg 
+                        ? 'ring-1 ring-offset-1' 
+                        : 'hover:scale-105'
+                    }`}
+                    style={{
+                      backgroundColor: color.bg,
+                      color: color.text,
+                      borderColor: color.text + '40'
+                    }}
+                    onClick={() => setFormData(prev => ({ ...prev, avatar_color: color.bg }))}
+                  >
+                    {color.name}
+                  </Badge>
+                ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
+                  className="text-[11px] h-5 px-1.5"
                 >
-                  {color.name}
-                </Badge>
-              ))}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
-                className="text-[11px] h-5 px-1.5"
-              >
-                自動に戻す
-              </Button>
+                  自動に戻す
+                </Button>
+              </div>
             </div>
-          </div>
+          </>
+        )
 
-          {/* 役割・ステータス */}
-          <div className="grid grid-cols-2 gap-1.5">
-            <div className="space-y-0.5">
-              <Label htmlFor="role">役割</Label>
-              <MultiSelect
-                options={roleOptions}
-                selectedValues={formData.role || []}
-                onSelectionChange={(values) => setFormData(prev => ({ ...prev, role: values }))}
-                placeholder="役割"
-                showBadges={true}
-                useIdAsValue={true}
-              />
+      case 'role':
+        return (
+          <>
+            {/* 役割・ステータス */}
+            <div className="scenario-edit-card">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="role">役割</Label>
+                  <MultiSelect
+                    options={roleOptions}
+                    selectedValues={formData.role || []}
+                    onSelectionChange={(values) => setFormData(prev => ({ ...prev, role: values }))}
+                    placeholder="役割"
+                    showBadges={true}
+                    useIdAsValue={true}
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label htmlFor="status">ステータス</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'active' | 'inactive' | 'on-leave' }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="ステータス" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <Badge size="sm" className={option.color}>
+                            {option.label}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="status">ステータス</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'active' | 'inactive' | 'on-leave' }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="ステータス" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <Badge size="sm" className={option.color}>
-                        {option.label}
-                      </Badge>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            {/* 担当店舗 */}
+            <div className="scenario-edit-card">
+              <div className="space-y-0.5">
+                <Label htmlFor="stores">担当店舗</Label>
+                <StoreMultiSelect
+                  stores={stores}
+                  selectedStoreIds={formData.stores || []}
+                  onStoreIdsChange={(storeIds) => {
+                    setFormData(prev => ({ ...prev, stores: storeIds }))
+                  }}
+                  hideLabel={true}
+                  placeholder="全店舗担当"
+                />
+              </div>
             </div>
-          </div>
+          </>
+        )
 
-          {/* 担当店舗 */}
-          <div className="space-y-0.5">
-            <Label htmlFor="stores">担当店舗</Label>
-            <StoreMultiSelect
-              stores={stores}
-              selectedStoreIds={formData.stores || []}
-              onStoreIdsChange={(storeIds) => {
-                setFormData(prev => ({ ...prev, stores: storeIds }))
-              }}
-              hideLabel={true}
-              placeholder="全店舗担当"
-            />
-          </div>
-
-          {/* 担当シナリオ */}
-          <div className="space-y-1">
+      case 'scenarios':
+        return (
+          <div className="scenario-edit-card">
             <Label htmlFor="special_scenarios">担当シナリオ</Label>
-            
+
             {isLoadingAssignments ? (
               <div className="flex items-center justify-center p-2 text-[11px] text-muted-foreground bg-gray-50 rounded border">
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-1.5"></div>
@@ -513,10 +541,10 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               useIdAsValue={true}
             />
             )}
-            
+
             {/* シナリオ詳細設定リスト */}
             {!isLoadingAssignments && scenarioAssignments.length > 0 && (
-              <ScrollArea className="h-[140px] border rounded p-1.5 mt-1">
+              <ScrollArea className="h-[320px] border rounded p-1.5">
                 <div className="space-y-1">
                   {scenarioAssignments.map(assignment => {
                     const scenario = scenarios.find(s => s.id === assignment.scenarioId)
@@ -572,43 +600,108 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               </ScrollArea>
             )}
           </div>
+        )
 
-          {/* 備考 */}
-          <div className="space-y-0.5">
-            <Label htmlFor="notes">備考</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="特記事項"
-              rows={2}
-            />
+      case 'notes':
+        return (
+          <div className="scenario-edit-card">
+            <div className="space-y-0.5">
+              <Label htmlFor="notes">備考</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="特記事項"
+                rows={2}
+                className="scenario-edit-card__textarea"
+              />
+            </div>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        size="xl"
+        overlayClassName="scenario-edit-dialog-overlay"
+        className="scenario-edit-dialog-host [&>button]:hidden"
+      >
+        <DialogTitle className="sr-only">{staff ? 'スタッフ編集' : 'スタッフ新規作成'}</DialogTitle>
+        <DialogDescription className="sr-only">
+          基本情報・役割・担当シナリオを設定
+        </DialogDescription>
+
+        <header className="scenario-edit-dialog__header">
+          <div className="scenario-edit-dialog__header-left">
+            <span className="scenario-edit-dialog__title">
+              {staff ? 'スタッフ編集' : 'スタッフ新規作成'}
+            </span>
+            {formData.name && (
+              <span className="scenario-edit-dialog__scenario">{formData.name}</span>
+            )}
+          </div>
+          <button type="button" className="scenario-edit-dialog__close" onClick={onClose}>
+            閉じる
+          </button>
+        </header>
+
+        <div className="scenario-edit-dialog__body">
+          <nav className="scenario-edit-dialog__nav" aria-label="スタッフ編集セクション">
+            {STAFF_TABS.map((tab) => {
+              const selected = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-current={selected ? 'page' : undefined}
+                  className={selected ? 'scenario-edit-dialog__nav-item is-selected' : 'scenario-edit-dialog__nav-item'}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
+
+          <div key={activeTab} className="scenario-edit-dialog__content">
+            <h2 className="scenario-edit-dialog__page-title">
+              {STAFF_TABS.find((tab) => tab.id === activeTab)?.label}
+            </h2>
+            {renderTabContent(activeTab)}
           </div>
         </div>
 
-        {/* アクションボタン */}
-        <div className="flex justify-between gap-1.5 pt-2 border-t mt-2">
-          <Button variant="outline" onClick={onClose} size="sm">
-            キャンセル
-          </Button>
-          <div className="flex gap-1.5">
-            <Button 
-              variant="outline" 
+        <footer className="scenario-edit-dialog__footer">
+          <div className="scenario-edit-dialog__meta">
+            <span>{formData.name || '新規スタッフ'}</span>
+          </div>
+          <div className="scenario-edit-dialog__actions">
+            <button type="button" className="scenario-edit-dialog__btn" onClick={onClose}>
+              キャンセル
+            </button>
+            <button
+              type="button"
+              className="scenario-edit-dialog__btn"
               onClick={() => handleSave(false)}
               disabled={isLoadingAssignments}
-              size="sm"
             >
               {staff ? '保存' : '作成'}
-            </Button>
-            <Button 
+            </button>
+            <button
+              type="button"
+              className="scenario-edit-dialog__btn-primary"
               onClick={() => handleSave(true)}
               disabled={isLoadingAssignments}
-              size="sm"
             >
               {isLoadingAssignments ? '読込中...' : (staff ? '保存して閉じる' : '作成して閉じる')}
-            </Button>
+            </button>
           </div>
-        </div>
+        </footer>
       </DialogContent>
     </Dialog>
   )
