@@ -15,6 +15,7 @@ import type { NewParticipant } from './reservationList/newParticipant'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './reservationList/cancellationEmailState'
 import { showToast } from '@/utils/toast'
 import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
+import { ConfirmationEmailOverrideDialog } from '@/components/settings/ConfirmationEmailOverrideDialog'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 
@@ -81,6 +82,7 @@ export function ReservationList({
   const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
   const [isDeletingEvent, setIsDeletingEvent] = useState(false) // イベント削除中フラグ
   const [emailContent, setEmailContent] = useState<ReservationCancellationEmailState>(EMPTY_CANCELLATION_EMAIL_STATE)
+  const [eventConfirmOverrideOpen, setEventConfirmOverrideOpen] = useState(false)
   
   // メール本文の生成は共通モジュール（lib/cancellationEmail）に移動。
   // 公演の中止・削除フロー（DeleteEventCancelDialog）と同じロジックを共有する
@@ -211,6 +213,23 @@ export function ReservationList({
                 className="h-7 text-xs text-purple-700 hover:text-purple-900"
                 unavailableMessage="店舗が未選択のためテンプレートを編集できません"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                disabled={!event?.id}
+                onClick={() => {
+                  if (!event?.id) {
+                    showToast.error('公演を保存してから、この公演用の文面を設定できます')
+                    return
+                  }
+                  setEventConfirmOverrideOpen(true)
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1" />
+                この公演だけ上書き
+              </Button>
               <TemplateEditButton
                 templateKey="booking_change_template"
                 storeId={cancellationTemplateStoreId}
@@ -483,6 +502,14 @@ export function ReservationList({
         onClose={() => setIsDeleteEventDialogOpen(false)}
         isDeleting={isDeletingEvent}
         onConfirm={handleConfirmDeleteEvent}
+      />
+
+      <ConfirmationEmailOverrideDialog
+        open={eventConfirmOverrideOpen}
+        onOpenChange={setEventConfirmOverrideOpen}
+        eventId={event?.id}
+        storeId={cancellationTemplateStoreId}
+        organizationScenarioId={event?.organization_scenario_id || currentEventData.organization_scenario_id}
       />
     </>
   )

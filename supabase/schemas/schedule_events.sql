@@ -25,6 +25,7 @@ CREATE TABLE public.schedule_events (
   reservation_deadline_hours INTEGER DEFAULT 0,
   is_reservation_enabled BOOLEAN DEFAULT TRUE,
   reservation_notes TEXT,
+  reservation_confirmation_template TEXT,
   current_participants INTEGER DEFAULT 0,
   time_slot TEXT,
   gm_roles JSONB DEFAULT '{}'::jsonb,

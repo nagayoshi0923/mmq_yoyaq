@@ -17,7 +17,8 @@ import {
   Download,
   Loader2,
   Search,
-  MessageSquare
+  MessageSquare,
+  Mail
 } from 'lucide-react'
 import {
   DndContext,
@@ -348,6 +349,23 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
           className="text-sm resize-none"
         />
         <p className={hintStyle}>資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。</p>
+      </div>
+
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Mail className="h-3.5 w-3.5" />予約確定メール（この作品だけ上書き）
+        </p>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          空なら店舗の予約確認テンプレを送ります。事前読み込み案内など、この作品だけ変えたいときに記入してください。差し込みは店舗テンプレと同じ変数が使えます。
+        </p>
+        <Textarea
+          value={formData.reservation_confirmation_template || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, reservation_confirmation_template: e.target.value || null }))}
+          placeholder="空欄のままなら、店舗の予約確認メールを使います"
+          rows={8}
+          className="text-sm resize-none font-mono"
+        />
+        <p className={hintStyle}>公演ダイアログで「この公演だけ上書き」すれば、作品の文面よりそちらが優先されます。</p>
       </div>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">

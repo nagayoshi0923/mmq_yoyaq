@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
+import { pickConfirmationEmailTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
@@ -50,7 +51,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id')
+      .select('id, customer_email, organization_id, schedule_event_id')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -109,8 +110,47 @@ serve(async (req) => {
     const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
     const companyPhone = storeEmailSettings?.company_phone || ''
     
-    // カスタムテンプレートの取得
-    const customTemplate = storeEmailSettings?.reservation_confirmation_template
+    // 公演上書き → 作品上書き → 店舗テンプレ
+    let eventTemplate: string | null = null
+    let scenarioTemplate: string | null = null
+    if (reservation.schedule_event_id) {
+      let eventQuery = serviceClient
+        .from('schedule_events')
+        .select('reservation_confirmation_template, organization_scenario_id, organization_id')
+        .eq('id', reservation.schedule_event_id)
+      if (resolvedOrganizationId) {
+        eventQuery = eventQuery.eq('organization_id', resolvedOrganizationId)
+      }
+      const { data: eventRow } = await eventQuery.maybeSingle()
+      const eventOrgOk = !resolvedOrganizationId
+        || !eventRow?.organization_id
+        || eventRow.organization_id === resolvedOrganizationId
+      if (eventRow && eventOrgOk) {
+        eventTemplate = eventRow.reservation_confirmation_template ?? null
+        if (eventRow.organization_scenario_id) {
+          let scenarioQuery = serviceClient
+            .from('organization_scenarios')
+            .select('reservation_confirmation_template, organization_id')
+            .eq('id', eventRow.organization_scenario_id)
+          if (resolvedOrganizationId) {
+            scenarioQuery = scenarioQuery.eq('organization_id', resolvedOrganizationId)
+          }
+          const { data: scenarioRow } = await scenarioQuery.maybeSingle()
+          const scenarioOrgOk = !resolvedOrganizationId
+            || !scenarioRow?.organization_id
+            || scenarioRow.organization_id === resolvedOrganizationId
+          if (scenarioRow && scenarioOrgOk) {
+            scenarioTemplate = scenarioRow.reservation_confirmation_template ?? null
+          }
+        }
+      }
+    }
+    const pickedTemplate = pickConfirmationEmailTemplate({
+      eventTemplate,
+      scenarioTemplate,
+      storeTemplate: storeEmailSettings?.reservation_confirmation_template,
+    })
+    const customTemplate = pickedTemplate.template
 
     // -------------------------------------------------------------------------
     // 冪等性: booking_email_queue に「1予約×1メール種別」で記録し、二重送信を防ぐ
@@ -362,7 +402,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       const appliedTemplate = applyTemplate(customTemplate)
       finalHtml = templateToHtml(appliedTemplate)
       finalText = appliedTemplate
-      console.log('📧 Using custom reservation confirmation template from email_settings')
+      console.log('📧 Using reservation confirmation template:', pickedTemplate.source)
     } else {
       // デフォルトのハードコードテンプレートを使用
       console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: bookingData.storeId, organizationId: resolvedOrganizationId, template: 'reservation_confirmation_template' })

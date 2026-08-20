@@ -637,7 +637,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   {
     key: 'reservation_confirmation_template',
     title: '予約確認メール',
-    description: '予約完了時に自動送信',
+    description: '予約完了時に自動送信。作品または公演で上書きしている場合はそちらを優先',
     category: 'reservation',
     getDefault: getDefaultReservationTemplate
   },

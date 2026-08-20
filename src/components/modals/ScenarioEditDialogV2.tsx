@@ -829,13 +829,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   try {
                     const { data: tplData } = await supabase
                       .from('organization_scenarios')
-                      .select('individual_notice_template')
+                      .select('individual_notice_template, reservation_confirmation_template')
                       .eq('id', osData.id)
                       .maybeSingle()
-                    if ((tplData as any)?.individual_notice_template) {
+                    const notice = (tplData as { individual_notice_template?: string | null } | null)?.individual_notice_template
+                    const confirmTpl = (tplData as { reservation_confirmation_template?: string | null } | null)?.reservation_confirmation_template
+                    if (notice || confirmTpl) {
                       setFormData(prev => ({
                         ...prev,
-                        individual_notice_template: (tplData as any).individual_notice_template,
+                        ...(notice ? { individual_notice_template: notice } : {}),
+                        ...(confirmTpl ? { reservation_confirmation_template: confirmTpl } : {}),
                       }))
                     }
                   } catch {
@@ -1168,12 +1171,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             }
 
             // 定型文を別途安全に保存（カラム未追加の環境でもエラーにならない）
-            if (orgScenarioId && formData.individual_notice_template !== undefined) {
+            if (orgScenarioId && (
+              formData.individual_notice_template !== undefined
+              || formData.reservation_confirmation_template !== undefined
+            )) {
               try {
                 await supabase
                   .from('organization_scenarios')
-                  .update({ individual_notice_template: formData.individual_notice_template || null })
+                  .update({
+                    individual_notice_template: formData.individual_notice_template || null,
+                    reservation_confirmation_template: formData.reservation_confirmation_template?.trim() || null,
+                  })
                   .eq('id', orgScenarioId)
+                  .eq('organization_id', organizationId)
               } catch {
                 // カラムが存在しない場合は無視
               }
