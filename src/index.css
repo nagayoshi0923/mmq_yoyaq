@@ -47,6 +47,7 @@ html, body {
     --mmq-surface: #f6f9fb;
     --mmq-surface-pill: #f6f8fa;
     --mmq-overlay: #26292e;
+    --mmq-overlay-fill: color-mix(in srgb, var(--mmq-overlay) 45%, transparent);
     --mmq-line: #e0e5eb;
     --mmq-line-soft: #e8ebf0;
     --mmq-line-strong: #d1d9e0;

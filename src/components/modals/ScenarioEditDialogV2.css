@@ -441,10 +441,10 @@
   cursor: not-allowed;
 }
 
-/* 背景は Figma アートボード #26292E。#8c9297 だと surface が濁って見える */
+/* Figma 2:2 は #26292E を opacity 45%。100% だと surface が別色に見える */
 .scenario-edit-dialog-overlay {
-  background: var(--mmq-overlay) !important;
-  background-color: var(--mmq-overlay) !important;
+  background: var(--mmq-overlay-fill) !important;
+  background-color: var(--mmq-overlay-fill) !important;
   background-image: none !important;
   opacity: 1 !important;
   backdrop-filter: none !important;
