@@ -136,8 +136,8 @@ export function PerformanceModal({
   // 保存時に handleSave で一括 INSERT する
   type PendingParticipant = { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }
   const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
-  // 選択中シナリオのキット配置店舗一覧 (scenario_master_id 単位)
-  const [kitStoreIds, setKitStoreIds] = useState<string[]>([])
+  // 選択中シナリオのキット配置店舗一覧。null=取得中（誤警告防止）、[]=未登録
+  const [kitStoreIds, setKitStoreIds] = useState<string[] | null>(null)
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
   const [deleteConfirming, setDeleteConfirming] = useState(false)
@@ -534,6 +534,7 @@ export function PerformanceModal({
       return
     }
     let cancelled = false
+    setKitStoreIds(null) // 取得完了まで警告を出さない
     ;(async () => {
       try {
         const locations = await kitApi.getKitLocationsByScenario(scenarioKey)
@@ -548,6 +549,7 @@ export function PerformanceModal({
         setKitStoreIds(ids)
       } catch (err) {
         logger.error('キット配置店舗の取得エラー:', err)
+        // 取得失敗時も空扱いにして未配置警告を出す（表と揃える）
         if (!cancelled) setKitStoreIds([])
       }
     })()

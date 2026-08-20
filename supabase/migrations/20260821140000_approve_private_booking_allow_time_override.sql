@@ -1,3 +1,7 @@
+-- 貸切承認: 希望候補の日付・枠は維持しつつ、開始・終了時刻の上書きを許可する
+-- 正規ソース: supabase/rpcs/approve_private_booking.sql
+-- 破壊的変更なし（CREATE OR REPLACE、シグネチャ不変、GRANT維持）
+
 -- 正規ソース: approve_private_booking
 -- 2026-08-14 承認時の開始・終了時刻上書きを許可（日付・希望枠は保存済み候補で検証）。
 
@@ -487,3 +491,5 @@ BEGIN
   RETURN v_schedule_event_id;
 END;
 $$;
+
+COMMENT ON FUNCTION public.approve_private_booking(UUID, DATE, TIME, TIME, UUID, UUID, JSONB, TEXT, TEXT, UUID) IS '貸切予約承認。確定候補の日付・枠は保存済み申請から検証し、開始・終了はスタッフが承認時に上書きできる。公演の time_slot は開始時刻から再判定する。';

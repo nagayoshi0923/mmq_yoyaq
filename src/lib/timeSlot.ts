@@ -25,6 +25,15 @@ export type TimeSlotEn = 'morning' | 'afternoon' | 'evening'
 /** 形式C: private_group_candidate_dates の time_slot */
 export type CandidateTimeSlot = '午前' | '午後' | '夜間'
 
+/** 開始時刻（HH:mm）から形式Bを判定。0–11時=朝、12–17時=昼、18時以降=夜 */
+export function startTimeToEn(startTime: string | null | undefined): TimeSlotEn {
+  if (!startTime) return 'morning'
+  const hour = parseInt(startTime.split(':')[0] ?? '', 10)
+  if (Number.isNaN(hour) || hour < 12) return 'morning'
+  if (hour <= 17) return 'afternoon'
+  return 'evening'
+}
+
 // ─── 形式A ↔ 形式B ───────────────────────────────────────────
 
 /** 形式A（日本語）→ 形式B（英語） */

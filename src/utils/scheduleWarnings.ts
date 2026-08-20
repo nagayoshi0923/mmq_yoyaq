@@ -53,11 +53,38 @@ function getTodayString(): string {
   return `${year}-${month}-${day}`
 }
 
+/** 出張・場所貸し・MTG はキット不要のため警告対象外 */
+export const KIT_WARNING_EXEMPT_CATEGORIES = [
+  'offsite',
+  'venue_rental',
+  'venue_rental_free',
+  'mtg',
+] as const
+
+export function requiresKitWarningForCategory(category: string | undefined | null): boolean {
+  if (!category) return true
+  return !(KIT_WARNING_EXEMPT_CATEGORIES as readonly string[]).includes(category)
+}
+
 function requiresKitWarningCheck(event: ScheduleEvent): boolean {
   if (event.is_cancelled) return false
   if (event.date < getTodayString()) return false
   if (!event.scenario_master_id && !event.scenarios?.id) return false
-  return !['offsite', 'venue_rental', 'venue_rental_free', 'mtg'].includes(event.category)
+  return requiresKitWarningForCategory(event.category)
+}
+
+/**
+ * 公演店舗（または同一キットグループ）にキットがあるか。
+ * kitStoreIds が空なら false（未登録＝未配置として扱う。スケジュール表と同じ）。
+ */
+export function hasKitAtVenueOrGroup(
+  kitStoreIds: string[],
+  venueId: string,
+  stores: StoreLike[],
+): boolean {
+  if (!venueId || kitStoreIds.length === 0) return false
+  const storeMap = new Map(stores.map((s) => [s.id, s]))
+  return kitStoreIds.some((id) => isSameStoreGroup(storeMap, id, venueId))
 }
 
 export function computeKitWarningEventIds(
@@ -65,7 +92,6 @@ export function computeKitWarningEventIds(
   kitLocations: KitLocation[],
   stores: StoreLike[],
 ): Set<string> {
-  const storeMap = new Map(stores.map((s) => [s.id, s]))
   const locationsByScenario = new Map<string, KitLocation[]>()
 
   for (const loc of kitLocations) {
@@ -83,11 +109,11 @@ export function computeKitWarningEventIds(
     const targetStoreId = event.store_id || event.venue
     const scenarioId = event.scenario_master_id || event.scenarios?.id
     const scenarioLocations = scenarioId ? locationsByScenario.get(scenarioId) : undefined
-    const hasKitAtVenue = scenarioLocations?.some((loc) =>
-      loc.store_id && isSameStoreGroup(storeMap, loc.store_id, targetStoreId)
-    ) ?? false
-
-    if (!hasKitAtVenue) {
+    const kitStoreIds = (scenarioLocations ?? [])
+      .map((loc) => loc.store_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    // 配置0件でも未配置として警告する（表・モーダル共通）
+    if (!hasKitAtVenueOrGroup(kitStoreIds, targetStoreId, stores)) {
       warningIds.add(event.id)
     }
   }

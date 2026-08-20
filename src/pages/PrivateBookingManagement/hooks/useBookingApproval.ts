@@ -20,7 +20,7 @@ import { showToast } from '@/utils/toast'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
-import { toCanonicalPrivateBookingTimeSlot } from '@/lib/privateBookingBlockedSlotAvailability'
+import { startTimeToEn, timeSlotEnToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -87,7 +87,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     selectedSubGmId: string | null,
     selectedStoreId: string,
     selectedCandidateOrder: number | null,
-    stores: any[]
+    stores: any[],
+    overrideStartTime?: string
   ): Promise<{ success: boolean; error?: string }> => {
     if (!selectedGMId || !selectedStoreId || !selectedCandidateOrder) {
       logger.error('承認に必要な情報が不足しています')
@@ -127,6 +128,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
       }
 
+      const selectedStartTime = (overrideStartTime || selectedCandidate.startTime || '').trim().slice(0, 5)
+      if (!/^\d{2}:\d{2}$/.test(selectedStartTime)) {
+        setSubmitting(false)
+        return { success: false, error: '開始時刻が不正です。' }
+      }
+      if (selectedStartTime < '09:00') {
+        setSubmitting(false)
+        return { success: false, error: '開始時刻は9:00以降にしてください。' }
+      }
+
       const resolveEndTime = (
         c: { startTime: string; endTime: string; date: string },
         dateYmd: string
@@ -140,9 +151,21 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             )
           : c.endTime
 
-      const selectedEndTime = resolveEndTime(selectedCandidate, selectedDateYmd)
+      const selectedEndTime = resolveEndTime(
+        { ...selectedCandidate, startTime: selectedStartTime },
+        selectedDateYmd
+      )
+      if (selectedEndTime <= selectedStartTime || selectedEndTime > '23:00') {
+        setSubmitting(false)
+        return {
+          success: false,
+          error: 'この開始時刻では終了が23:00を超えます。もっと早い時刻を選んでください。',
+        }
+      }
 
-      const canonicalTimeSlot = toCanonicalPrivateBookingTimeSlot(selectedCandidate.timeSlot)
+      // 募集停止は「実際に置く枠」（開始時刻から再判定）で見る。
+      // 候補の照合用 timeSlot は元の希望枠のまま RPC に渡す。
+      const canonicalTimeSlot = startTimeToEn(selectedStartTime)
       if (!organizationId || !canonicalTimeSlot) {
         setSubmitting(false)
         return {
@@ -169,7 +192,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         const storeName = stores.find((store) => store.id === selectedStoreId)?.name || '選択店舗'
         return {
           success: false,
-          error: `${selectedDateYmd} ${selectedCandidate.timeSlot}（${storeName}）は現在受付停止中です。募集再開後に承認するか、別の候補・店舗を選択してください。`,
+          error: `${selectedDateYmd} ${timeSlotEnToLabel(canonicalTimeSlot)}（${storeName}）は現在受付停止中です。募集再開後に承認するか、別の候補・店舗・時刻を選択してください。`,
         }
       }
 
@@ -188,7 +211,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         logger.error('既存公演チェックエラー:', checkError)
       } else if (existingEvents && existingEvents.length > 0) {
         // 時間帯の重複チェック
-        const candidateStart = selectedCandidate.startTime
+        const candidateStart = selectedStartTime
         const candidateEnd = selectedEndTime
 
         for (const event of existingEvents) {
@@ -222,11 +245,15 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // 全候補日を保持し、選択された候補のみ 'confirmed' にする（各 date を日本暦 YYYY-MM-DD に正規化して保存）
       const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c: any) => {
         const dateYmd = normalizeToJapanCalendarYmd(c.date) || c.date
+        const isConfirmed = c.order === selectedCandidateOrder
         return {
           ...c,
           date: dateYmd,
-          endTime: resolveEndTime(c, dateYmd),
-          status: c.order === selectedCandidateOrder ? 'confirmed' : 'pending',
+          startTime: isConfirmed ? selectedStartTime : c.startTime,
+          endTime: isConfirmed ? selectedEndTime : resolveEndTime(c, dateYmd),
+          // 照合ヒント用に希望枠の timeSlot は維持する（RPCが開始時刻から公演枠を再判定）
+          timeSlot: isConfirmed ? (c.timeSlot || timeSlotEnToCandidate(canonicalTimeSlot)) : c.timeSlot,
+          status: isConfirmed ? 'confirmed' : 'pending',
         }
       })
 
@@ -252,7 +279,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       const rpcParams: RpcApprovePrivateBookingParams = {
         p_reservation_id: requestId,
         p_selected_date: selectedDateYmd,
-        p_selected_start_time: selectedCandidate.startTime,
+        p_selected_start_time: selectedStartTime,
         p_selected_end_time: selectedEndTime,
         p_selected_store_id: selectedStoreId,
         p_selected_gm_id: selectedGMId,
@@ -303,6 +330,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             error: 'この時間帯は前後の公演と間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。別の候補日時を選んでください。',
           }
         }
+        if (approveError.code === 'P0041') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: '選択した日時が不正です。希望候補の日付で、9:00〜23:00の範囲にしてください。',
+          }
+        }
         if (approveError.code === 'P0018') {
           setSubmitting(false)
           return {
@@ -335,7 +369,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         ])
 
         let notifyEventDate = selectedDateYmd
-        let notifyStartTime = selectedCandidate.startTime
+        let notifyStartTime = selectedStartTime
         let notifyEndTime = selectedEndTime
         if (seResult.data?.date != null && seResult.data.date !== '') {
           const fromRow = normalizeToJapanCalendarYmd(String(seResult.data.date))
@@ -357,7 +391,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 const createdSnapshot = await fetchEventSnapshot(scheduleEventId as string, organizationId)
                 const fallback = {
                   scenario: cleanScenarioTitle, date: selectedDateYmd, store_id: selectedStoreId,
-                  start_time: selectedCandidate.startTime, end_time: selectedEndTime, gms: gmIds,
+                  start_time: selectedStartTime, end_time: selectedEndTime, gms: gmIds,
                   reservation_name: selectedRequest?.customer_name || '',
                 }
                 const cellTimeSlot =
