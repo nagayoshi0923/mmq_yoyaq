@@ -1466,7 +1466,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="scenario-edit-dialog-host [&>button]:hidden">
+      <DialogContent
+        size="xl"
+        overlayClassName="scenario-edit-dialog-overlay"
+        className="scenario-edit-dialog-host [&>button]:hidden"
+      >
         <DialogTitle className="sr-only">
           {scenarioId ? 'シナリオ編集' : '新規シナリオ'}
         </DialogTitle>

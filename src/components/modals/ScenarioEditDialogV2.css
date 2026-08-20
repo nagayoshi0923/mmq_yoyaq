@@ -136,7 +136,7 @@
 .scenario-edit-dialog__nav {
   width: 220px;
   flex-shrink: 0;
-  background: #f6f9fb;
+  background: #f6f9fb !important;
   border-right: 1px solid #e8ebf0;
   padding: 12px 10px;
   display: flex;
@@ -320,8 +320,8 @@
   align-items: stretch;
   gap: 10px;
   width: 100%;
-  background: #f6f9fb;
-  border: 1px solid #e0e5eb;
+  background: #f6f9fb !important;
+  border: 1px solid #e0e5eb !important;
   border-radius: 10px;
   padding: 16px;
 }
@@ -421,4 +421,92 @@
 .scenario-edit-card__quote:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Figma 2:3 の色を、ShadCN / Tailwind のグローバル色より優先する */
+.scenario-edit-dialog-overlay {
+  background-color: #8c9297 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.scenario-edit-dialog-host,
+.scenario-edit-dialog-host .scenario-edit-dialog__header,
+.scenario-edit-dialog-host .scenario-edit-dialog__body,
+.scenario-edit-dialog-host .scenario-edit-dialog__content,
+.scenario-edit-dialog-host .scenario-edit-dialog__footer {
+  background-color: #ffffff !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-dialog__title,
+.scenario-edit-dialog-host .scenario-edit-dialog__page-title {
+  color: #1f2126 !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-dialog__nav-item {
+  background-color: #ffffff !important;
+  color: #474d57 !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-dialog__nav-item.is-selected,
+.scenario-edit-dialog-host .scenario-edit-dialog__nav-item.is-selected:hover {
+  background-color: #171c24 !important;
+  color: #ffffff !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-card__title {
+  color: #474d57 !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-card__help {
+  color: #737885 !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-card__note,
+.scenario-edit-dialog-host .scenario-edit-card__sublabel {
+  color: #80858f !important;
+}
+
+.scenario-edit-dialog-host [class*="text-muted"],
+.scenario-edit-dialog-host [class*="text-slate"],
+.scenario-edit-dialog-host [class*="text-gray"] {
+  color: #737885 !important;
+}
+
+.scenario-edit-dialog-host [class*="bg-muted"] {
+  background-color: #eef2f5 !important;
+}
+
+.scenario-edit-dialog-host [class*="border-input"],
+.scenario-edit-dialog-host [class*="border-gray"],
+.scenario-edit-dialog-host [class*="border-slate"] {
+  border-color: #d1d9e0 !important;
+}
+
+.scenario-edit-dialog-host [class*="bg-primary"] {
+  background-color: #171c24 !important;
+}
+
+.scenario-edit-dialog-host [class*="border-primary"] {
+  border-color: #171c24 !important;
+}
+
+.scenario-edit-dialog-host [class*="text-primary"] {
+  color: #171c24 !important;
+}
+
+.scenario-edit-dialog-host button[role="switch"][data-state="checked"] {
+  background-color: #171c24 !important;
+}
+
+.scenario-edit-dialog-host button[role="switch"][data-state="unchecked"] {
+  background-color: #d1d9e0 !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-card input,
+.scenario-edit-dialog-host .scenario-edit-card textarea,
+.scenario-edit-dialog-host .scenario-edit-card [role="combobox"] {
+  background-color: #ffffff !important;
+  border-color: #d1d9e0 !important;
+  color: #2e3338 !important;
 }
