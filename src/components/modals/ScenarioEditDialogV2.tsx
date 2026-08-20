@@ -24,6 +24,7 @@ import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsS
 import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
+import { EmailSectionV2 } from './ScenarioEditDialogV2/sections/EmailSectionV2'
 import { CharactersSectionV2 } from './ScenarioEditDialogV2/sections/CharactersSectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { logger } from '@/utils/logger'
@@ -58,15 +59,17 @@ const TABS = [
   { id: 'gm', label: 'GM' },
   { id: 'costs', label: '売上' },
   { id: 'performances', label: '公演実績' },
+  { id: 'email', label: 'メール' },
   { id: 'survey', label: '事前配役アンケート' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
+const TAB_IDS: readonly TabId[] = TABS.map((tab) => tab.id)
 
 // localStorageからタブを取得する関数
 const getSavedTab = (): TabId => {
   const saved = localStorage.getItem('scenarioEditDialogTab')
-  if (saved && ['basic', 'game', 'characters', 'pricing', 'gm', 'costs', 'performances', 'survey'].includes(saved)) {
+  if (saved && (TAB_IDS as readonly string[]).includes(saved)) {
     return saved as TabId
   }
   return 'basic'
@@ -1397,6 +1400,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             futureReservationCount={scenarioStats.futureReservationCount}
           />
         )
+      case 'email':
+        return <EmailSectionV2 formData={formData} setFormData={setFormData} />
       case 'survey':
         return <SurveySectionV2 formData={formData} setFormData={setFormData} />
       default:
