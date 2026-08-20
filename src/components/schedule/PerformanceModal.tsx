@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
+import '@/components/modals/ScenarioEditDialogV2.css'
+import './PerformanceModal.css'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { ScenarioChangeConfirmDialog, DeleteEventConfirmDialog } from './performanceModal/dialogs/PerformanceConfirmDialogs'
 import { DateLocationSection } from './performanceModal/sections/DateLocationSection'
@@ -79,6 +79,13 @@ const CATEGORY_TONE: Record<string, { bg: string; section: string; border: strin
   mtg:               { bg: '#ecfeff', section: '#cffafe', border: '#a5f3fc' }, // cyan
   memo:              { bg: '#f9fafb', section: '#f3f4f6', border: '#e5e7eb' }, // gray
 }
+
+const PERF_TABS = [
+  { id: 'edit', label: '公演情報' },
+  { id: 'reservations', label: '予約者' },
+  { id: 'survey', label: 'アンケート' },
+  { id: 'history', label: '更新履歴' },
+] as const
 
 // スタッフの背景色から文字色を取得するマッピング
 const COLOR_MAP: Record<string, string> = {
@@ -928,128 +935,91 @@ export function PerformanceModal({
 
   const modalTitle = mode === 'add' ? '新しい公演を追加' : '公演を編集'
   const modalDescription = mode === 'add' ? '新しい公演の詳細情報を入力してください。' : '公演の詳細情報を編集してください。'
+  const categoryTone = CATEGORY_TONE[formData.category]
+  const activeTabLabel = PERF_TABS.find((tab) => tab.id === activeTab)?.label ?? '公演情報'
 
-  // ヘッダー右側に出すサマリー (旧フッターの内容)
+  const reservationsBadgeText = event
+    ? [
+        event.is_private_request || event.is_private_booking
+          ? '満席'
+          : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`,
+        event.is_cancelled && (event.current_participants ?? 0) > 0
+          ? `中止前${event.current_participants}名`
+          : null,
+        !event.is_cancelled && staffParticipantsFromDB.length > 0
+          ? `内スタッフ${staffParticipantsFromDB.length}`
+          : null,
+      ].filter(Boolean).join(' / ')
+    : null
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        setActiveTab('edit') // タブをリセット
-        onClose()
-      }
-    }}>
-      <DialogContent
-        size="md"
-        data-perf-modal=""
-        className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0 transition-colors"
-        // 編集中のカテゴリ把握用に、ダイアログ全体の背景・枠を該当カテゴリ色で着色
-        style={(() => {
-          const tone = CATEGORY_TONE[formData.category]
-          return tone
-            ? ({ backgroundColor: tone.bg, borderColor: tone.border, ['--input-bg' as string]: tone.bg } as React.CSSProperties)
-            : undefined
-        })()}
-        // 保存後、events 再フェッチでトリガー要素が一時的に消えると Radix の focus
-        // 復元先がなくなり body にフォールバックしてページ最上部までスクロールするため、
-        // close 時の auto-focus 復元を無効化する。
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
-        {/* カテゴリ別 tone.bg を Select/Input/Textarea/PopoverTrigger/タブ/白系ボタン に適用 */}
-        {CATEGORY_TONE[formData.category] && (
-          <style>{`
-            [data-perf-modal] [role="combobox"],
-            [data-perf-modal] button[aria-haspopup="dialog"],
-            [data-perf-modal] input:not([type="checkbox"]):not([type="radio"]),
-            [data-perf-modal] textarea,
-            [data-perf-modal] button.bg-white,
-            [data-perf-modal] button.bg-background {
-              background-color: ${CATEGORY_TONE[formData.category].bg} !important;
-              border-color: ${CATEGORY_TONE[formData.category].border} !important;
-            }
-            [data-perf-modal] [role="combobox"]:focus,
-            [data-perf-modal] input:not([type="checkbox"]):not([type="radio"]):focus,
-            [data-perf-modal] textarea:focus {
-              background-color: #ffffff !important;
-            }
-            /* アクティブタブの白背景を tone.bg に上書き (shadcn デフォルトは bg-background) */
-            [data-perf-modal] [role="tab"][data-state="active"] {
-              background-color: ${CATEGORY_TONE[formData.category].bg} !important;
-            }
-            /* outline 系の Button (キャンセル等) も tone.bg に */
-            [data-perf-modal] button[class*="border-input"]:not([data-state="active"]):not(.bg-slate-900):not(.bg-primary) {
-              background-color: ${CATEGORY_TONE[formData.category].bg} !important;
-              border-color: ${CATEGORY_TONE[formData.category].border} !important;
-            }
-            /* Badge 系 (bg-gray-100 等) は tone.section で内側に少し色がつくように */
-            [data-perf-modal] .bg-gray-100 {
-              background-color: ${CATEGORY_TONE[formData.category].section} !important;
-            }
-          `}</style>
-        )}
-        <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
-          <div className="flex items-start justify-between gap-3 pr-6 sm:pr-8">
-            <div className="flex flex-col min-w-0 shrink-0">
-              <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
-              <DialogDescription className="text-[11px] sm:text-xs">
-                {modalDescription}
-              </DialogDescription>
-            </div>
-            {/* 公演情報サマリー (右上、旧フッターから移動) */}
-            <div className="ml-auto">
-              <PerformanceSummary
-                formData={formData}
-                scenarios={scenarios}
-                staffParticipantsFromDB={staffParticipantsFromDB}
-                CATEGORY_TONE={CATEGORY_TONE}
-                mode={mode}
-                event={event}
-                localCurrentParticipants={localCurrentParticipants}
-              />
-            </div>
-          </div>
-        </DialogHeader>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className={`px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0 ${readOnly ? 'hidden' : ''}`}>
-            <TabsList
-              className="grid w-full grid-cols-4 h-7 sm:h-8"
-              style={CATEGORY_TONE[formData.category] ? { backgroundColor: CATEGORY_TONE[formData.category].section } : undefined}
-            >
-              <TabsTrigger value="edit" className="text-[11px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>
-              <TabsTrigger value="reservations" className="text-[11px] sm:text-xs h-6 sm:h-7">
-                予約者
-                {event && (
-                  <Badge variant="secondary" className="ml-1 h-3.5 sm:h-4 px-1 text-[11px] sm:text-[11px]">
-                    {event.is_private_request || event.is_private_booking
-                      ? '満席'
-                      : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
-                    }
-                    {event.is_cancelled && (event.current_participants ?? 0) > 0 && (
-                      <span className="text-red-500 ml-1">
-                        （中止前{event.current_participants}名）
-                      </span>
-                    )}
-                    {!event.is_cancelled && staffParticipantsFromDB.length > 0 && (
-                      <span className="text-blue-600 ml-1">
-                        （内スタッフ{staffParticipantsFromDB.length}）
-                      </span>
-                    )}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="survey" className="text-[11px] sm:text-xs h-6 sm:h-7">アンケート</TabsTrigger>
-              <TabsTrigger value="history" className="text-[11px] sm:text-xs h-6 sm:h-7">更新履歴</TabsTrigger>
-            </TabsList>
-          </div>
-          
-          <TabsContent value="edit" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <fieldset disabled={readOnly} className="min-w-0 p-0 m-0 border-0" style={readOnly ? { display: 'contents' } : undefined}>
-            <div className="space-y-3 pb-2 sm:pb-0">
+  const renderTabBody = () => {
+    if (activeTab === 'reservations') {
+      return (
+        <ReservationList
+          event={event || null}
+          currentEventData={formData}
+          mode={mode}
+          stores={stores}
+          scenarios={scenarios}
+          staff={staff}
+          onLocalParticipantUpdate={(count) => {
+            setLocalCurrentParticipants(count)
+          }}
+          onParticipantChange={(eventId, newCount) => {
+            setLocalCurrentParticipants(newCount)
+            onParticipantChange?.(eventId, newCount)
+          }}
+          onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
+          onStaffParticipantsChange={setStaffParticipantsFromDB}
+          pendingParticipants={pendingParticipants}
+          onPendingAdd={(p) => setPendingParticipants(prev => [...prev, p])}
+          onPendingRemove={(idx) => setPendingParticipants(prev => prev.filter((_, i) => i !== idx))}
+          pendingStaffGmNames={(formData.gms || []).filter(n => (formData.gmRoles?.[n] === 'staff') && !staffParticipantsFromDB.includes(n))}
+          onPendingStaffGmRemove={(name) => {
+            setFormData((prev: EventFormData) => {
+              const newGms = (prev.gms || []).filter(g => g !== name)
+              const newRoles = { ...prev.gmRoles }
+              delete newRoles[name]
+              return { ...prev, gms: newGms, gmRoles: newRoles }
+            })
+          }}
+          onDeleteEvent={event && onDeleteEvent ? async () => {
+            await onDeleteEvent(event)
+            onClose()
+          } : undefined}
+        />
+      )
+    }
 
-          {/* ── カテゴリ（クイック選択） ── */}
+    if (activeTab === 'survey') {
+      return (
+        <SurveyResponsesTab
+          reservationId={event?.reservation_id}
+          scenarioId={surveyTabScenarioId}
+        />
+      )
+    }
+
+    if (activeTab === 'history') {
+      return (
+        <EventHistoryTab
+          cellInfo={formData.date && formData.venue ? {
+            date: formData.date,
+            storeId: event?.store_id || formData.venue,
+            timeSlot: formData.time_slot || timeSlotEnToSchedule(timeSlot)
+          } : undefined}
+          organizationId={organizationId || undefined}
+          stores={stores}
+          scenarios={scenarios}
+          staff={staff}
+        />
+      )
+    }
+
+    return (
+      <fieldset disabled={readOnly} className="min-w-0 p-0 m-0 border-0" style={readOnly ? { display: 'contents' } : undefined}>
+        <div className="space-y-3 pb-2 sm:pb-0">
           <CategorySelectSection formData={formData} setFormData={setFormData} />
-
-          {/* ── セクション1: 日時・場所 ── */}
           <DateLocationSection
             formData={formData}
             setFormData={setFormData}
@@ -1063,9 +1033,7 @@ export function PerformanceModal({
             timeConflictTriggerClass={timeConflictTriggerClass}
             timeOptions={timeOptions}
             timeConflict={timeConflict}
-          />{/* /セクション1 */}
-
-          {/* ── セクション2: 公演内容 ── */}
+          />
           <PerformanceContentSection
             CATEGORY_TONE={CATEGORY_TONE}
             formData={formData}
@@ -1081,9 +1049,7 @@ export function PerformanceModal({
             stores={stores}
             kitStoreIds={kitStoreIds}
             setEditingScenarioId={setEditingScenarioId}
-          />{/* /セクション2 */}
-
-          {/* ── セクション3: スタッフ・備考 ── */}
+          />
           <StaffNotesSection
             CATEGORY_TONE={CATEGORY_TONE}
             formData={formData}
@@ -1096,85 +1062,108 @@ export function PerformanceModal({
             mode={mode}
             event={event}
             setIsStaffModalOpen={setIsStaffModalOpen}
-          />{/* /セクション3 */}
+          />
+        </div>
+      </fieldset>
+    )
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        setActiveTab('edit') // タブをリセット
+        onClose()
+      }
+    }}>
+      <DialogContent
+        size="xl"
+        data-perf-modal=""
+        overlayClassName="scenario-edit-dialog-overlay"
+        className="scenario-edit-dialog-host [&>button]:hidden"
+        style={categoryTone
+          ? ({
+              ['--perf-tone-bg' as string]: categoryTone.bg,
+              ['--perf-tone-section' as string]: categoryTone.section,
+              ['--perf-tone-border' as string]: categoryTone.border,
+              ['--input-bg' as string]: categoryTone.bg,
+              backgroundColor: categoryTone.bg,
+              borderColor: categoryTone.border,
+            } as React.CSSProperties)
+          : undefined}
+        // 保存後、events 再フェッチでトリガー要素が一時的に消えると Radix の focus
+        // 復元先がなくなり body にフォールバックしてページ最上部までスクロールするため、
+        // close 時の auto-focus 復元を無効化する。
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        <DialogTitle className="sr-only">{modalTitle}</DialogTitle>
+        <DialogDescription className="sr-only">{modalDescription}</DialogDescription>
+
+        <header className="scenario-edit-dialog__header">
+          <div className="scenario-edit-dialog__header-left">
+            <span className="scenario-edit-dialog__title">{modalTitle}</span>
+            {formData.scenario ? (
+              <span className="scenario-edit-dialog__scenario">{formData.scenario}</span>
+            ) : null}
+          </div>
+          <button type="button" className="scenario-edit-dialog__close" onClick={onClose}>
+            閉じる
+          </button>
+        </header>
+
+        <div className="scenario-edit-dialog__body">
+          <nav
+            className={`scenario-edit-dialog__nav${readOnly ? ' hidden' : ''}`}
+            aria-label="公演編集セクション"
+          >
+            {PERF_TABS.map((tab) => {
+              const selected = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  aria-current={selected ? 'page' : undefined}
+                  className={selected ? 'scenario-edit-dialog__nav-item is-selected' : 'scenario-edit-dialog__nav-item'}
+                >
+                  <span>{tab.label}</span>
+                  {tab.id === 'reservations' && reservationsBadgeText ? (
+                    <span className="scenario-edit-dialog__nav-item-badge" title={reservationsBadgeText}>
+                      {reservationsBadgeText}
+                    </span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </nav>
+
+          <div key={activeTab} className="scenario-edit-dialog__content">
+            <h2 className="scenario-edit-dialog__page-title">{activeTabLabel}</h2>
+            {renderTabBody()}
+          </div>
         </div>
 
-          {/* アクションボタン削除 */}
-            </fieldset>
-          </TabsContent>
-          
-          <TabsContent value="reservations" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <ReservationList
-              event={event || null}
-              currentEventData={formData}
+        <footer className="scenario-edit-dialog__footer">
+          <div className="scenario-edit-dialog__meta">
+            <PerformanceSummary
+              formData={formData}
+              scenarios={scenarios}
+              staffParticipantsFromDB={staffParticipantsFromDB}
+              CATEGORY_TONE={CATEGORY_TONE}
               mode={mode}
-              stores={stores}
-              scenarios={scenarios}
-              staff={staff}
-              onLocalParticipantUpdate={(count) => {
-                setLocalCurrentParticipants(count)
-              }}
-              onParticipantChange={(eventId, newCount) => {
-                setLocalCurrentParticipants(newCount)
-                onParticipantChange?.(eventId, newCount)
-              }}
-              onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
-              onStaffParticipantsChange={setStaffParticipantsFromDB}
-              pendingParticipants={pendingParticipants}
-              onPendingAdd={(p) => setPendingParticipants(prev => [...prev, p])}
-              onPendingRemove={(idx) => setPendingParticipants(prev => prev.filter((_, i) => i !== idx))}
-              // GM タブで「スタッフ参加」役割を付けたが、まだ DB 予約として未登録の名前
-              pendingStaffGmNames={(formData.gms || []).filter(n => (formData.gmRoles?.[n] === 'staff') && !staffParticipantsFromDB.includes(n))}
-              onPendingStaffGmRemove={(name) => {
-                // 予約者タブから消すと、GM 側からも完全削除 (gms と gmRoles の両方)
-                setFormData((prev: EventFormData) => {
-                  const newGms = (prev.gms || []).filter(g => g !== name)
-                  const newRoles = { ...prev.gmRoles }
-                  delete newRoles[name]
-                  return { ...prev, gms: newGms, gmRoles: newRoles }
-                })
-              }}
-              onDeleteEvent={event && onDeleteEvent ? async () => {
-                await onDeleteEvent(event)
-                onClose()
-              } : undefined}
+              event={event}
+              localCurrentParticipants={localCurrentParticipants}
             />
-          </TabsContent>
-
-          <TabsContent value="survey" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <SurveyResponsesTab
-              reservationId={event?.reservation_id}
-              scenarioId={surveyTabScenarioId}
-            />
-          </TabsContent>
-
-          <TabsContent value="history" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <EventHistoryTab
-              cellInfo={formData.date && formData.venue ? {
-                date: formData.date,
-                storeId: event?.store_id || formData.venue,
-                timeSlot: formData.time_slot || timeSlotEnToSchedule(timeSlot)
-              } : undefined}
-              organizationId={organizationId || undefined}
-              stores={stores}
-              scenarios={scenarios}
-              staff={staff}
-            />
-          </TabsContent>
-        </Tabs>
-
-        {/* フッターアクションボタン */}
-        <PerformanceFooter
-          CATEGORY_TONE={CATEGORY_TONE}
-          formData={formData}
-          readOnly={readOnly}
-          mode={mode}
-          onDeleteEvent={onDeleteEvent}
-          setDeleteConfirming={setDeleteConfirming}
-          onClose={onClose}
-          handleSave={handleSave}
-          isFormInitializing={isFormInitializing}
-        />
+          </div>
+          <PerformanceFooter
+            readOnly={readOnly}
+            mode={mode}
+            onDeleteEvent={onDeleteEvent}
+            setDeleteConfirming={setDeleteConfirming}
+            onClose={onClose}
+            handleSave={handleSave}
+            isFormInitializing={isFormInitializing}
+          />
+        </footer>
       </DialogContent>
 
       {/* シナリオ変更確認ダイアログ（参加者がいる場合） */}

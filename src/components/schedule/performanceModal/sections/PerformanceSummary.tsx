@@ -84,8 +84,8 @@ export function PerformanceSummary({
       const playerMax = selectedScenario.player_count_max || formData.max_participants || 8
       const showParticipants = mode === 'edit' && event && !event.is_private_request && !event.is_private_booking
       return (
-        <div className="flex flex-col items-end gap-1 min-w-0 max-w-[260px] sm:max-w-[340px]">
-          <div className="flex items-center gap-2 min-w-0 w-full justify-end text-xs">
+        <div className="flex flex-col items-start gap-1 min-w-0 max-w-[420px]">
+          <div className="flex items-center gap-2 min-w-0 w-full justify-start text-xs">
             {categoryBadge}
             <span className="font-semibold truncate min-w-0" title={selectedScenario.title}>{selectedScenario.title}</span>
             {categoryFee && (
@@ -94,7 +94,7 @@ export function PerformanceSummary({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground justify-end w-full">
+          <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground justify-start w-full">
             <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{selectedScenario.duration}h</span>
             <span className="flex items-center gap-0.5">
               <Users className="w-3 h-3" />
@@ -108,7 +108,7 @@ export function PerformanceSummary({
 
     if (categoryFee || hasGms || categoryLabel) {
       return (
-        <div className="flex items-center gap-2 flex-wrap text-[11px] sm:text-xs justify-end max-w-[260px] sm:max-w-[320px]">
+        <div className="flex items-center gap-2 flex-wrap text-[11px] sm:text-xs justify-start max-w-[420px]">
           {categoryBadge}
           {categoryFee && <span className="text-xs font-bold pl-2 border-l border-muted-foreground/20">{categoryFee.fee}</span>}
           {gmList && (
