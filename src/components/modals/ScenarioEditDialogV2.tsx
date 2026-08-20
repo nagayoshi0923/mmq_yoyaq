@@ -121,6 +121,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     required_props: [],
     license_amount: 0,
     gm_test_license_amount: 0,
+    is_license_buyout: false,
     license_rewards: [
       { item: 'normal', amount: 0, type: 'fixed' },
       { item: 'gmtest', amount: 0, type: 'fixed' }
@@ -663,6 +664,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         required_props: [],
         license_amount: 0,
         gm_test_license_amount: 0,
+        is_license_buyout: false,
         scenario_type: 'normal',
         franchise_license_amount: undefined,
         franchise_gm_test_license_amount: undefined,
@@ -773,6 +775,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           required_props: scenario.required_props || [],
           license_amount: (scenario.license_amount ?? 0),
           gm_test_license_amount: (scenario.gm_test_license_amount ?? 0),
+          is_license_buyout: scenario.is_license_buyout === true,
           scenario_type: scenario.scenario_type || 'normal',
           franchise_license_amount: scenario.franchise_license_amount,
           franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
@@ -830,7 +833,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -890,6 +893,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     accepts_private_booking: (osData as any).accepts_private_booking ?? true,
                     available_from: (osData as any).available_from || null,
                     available_until: (osData as any).available_until || null,
+                    is_license_buyout: (osData as { is_license_buyout?: boolean | null }).is_license_buyout === true,
                   }))
 
                   // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
@@ -1037,6 +1041,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         participation_costs: formData.participation_costs || [],
         license_amount: (normalLicenseReward?.amount ?? formData.license_amount ?? 0),
         gm_test_license_amount: (gmtestLicenseReward?.amount ?? formData.gm_test_license_amount ?? 0),
+        is_license_buyout: formData.is_license_buyout === true,
         scenario_type: formData.scenario_type || 'normal',
         // フランチャイズ用ライセンス金額: 配列から取得、なければ従来のフィールドから
         // 0円も保存するため、?? を使用（|| だと0が falsy で null になってしまう）
@@ -1168,6 +1173,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               // ライセンス関連フィールド
               license_amount: scenarioData.license_amount,
               gm_test_license_amount: scenarioData.gm_test_license_amount,
+              is_license_buyout: formData.is_license_buyout === true,
               franchise_license_amount: scenarioData.franchise_license_amount,
               franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
               external_license_amount: formData.external_license_amount,

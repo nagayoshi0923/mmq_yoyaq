@@ -1,5 +1,6 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -205,6 +206,18 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
           <Coins className="h-3.5 w-3.5" />ライセンス料（自店用）
         </p>
         <p className="text-[11px] text-muted-foreground -mt-1">自店で公演した場合に作者に支払う金額</p>
+          <div className="flex items-center gap-3 pb-1">
+            <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">買い切り作品</span>
+            <div className="flex-1 flex items-center gap-2">
+              <Switch
+                checked={formData.is_license_buyout === true}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_license_buyout: checked }))}
+              />
+              <span className="text-[11px] text-muted-foreground">
+                {formData.is_license_buyout ? 'ON（公演報告に出さない）' : 'OFF（公演報告に出す）'}
+              </span>
+            </div>
+          </div>
           <div className="space-y-2">
             {/* プリセット（通常・GMテスト）*/}
             {(formData.license_rewards || [])

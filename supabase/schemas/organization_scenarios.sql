@@ -23,6 +23,8 @@ CREATE TABLE public.organization_scenarios (
   use_flexible_pricing BOOLEAN DEFAULT FALSE,
   license_amount INTEGER,
   gm_test_license_amount INTEGER,
+  -- true=買い切り作品。作者への公演報告（ライセンス管理の送信タブ）に出さない
+  is_license_buyout BOOLEAN NOT NULL DEFAULT FALSE,
   franchise_license_amount INTEGER,
   franchise_gm_test_license_amount INTEGER,
   gm_costs JSONB DEFAULT '[]'::jsonb,

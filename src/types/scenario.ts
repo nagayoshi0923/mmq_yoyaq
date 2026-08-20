@@ -57,6 +57,8 @@ export interface Scenario {
   required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
   // データベースカラム（通常ライセンス料）
   license_amount?: number
+  // 買い切り作品。true のとき公演報告（ライセンス管理・送信）に出さない
+  is_license_buyout?: boolean
   // データベースカラム（GMテストライセンス料）
   gm_test_license_amount?: number
   // データベースカラム（他店用/フランチャイズ通常ライセンス料：作者への支払い）

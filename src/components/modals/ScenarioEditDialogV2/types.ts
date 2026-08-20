@@ -71,6 +71,8 @@ export interface ScenarioFormData {
   // ライセンス金額
   license_amount?: number
   gm_test_license_amount?: number
+  // 買い切り作品。true のとき公演報告に出さない
+  is_license_buyout?: boolean
   // シナリオタイプ
   scenario_type?: 'normal' | 'managed'
   // 他店用（フランチャイズ）ライセンス金額（作者への支払い）

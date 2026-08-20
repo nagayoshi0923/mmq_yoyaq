@@ -17,6 +17,10 @@ import { jstMonthDateRange } from '@/utils/jstDate'
 import { groupReportItems } from './grouping'
 import type { ReportItem, ReportGroup, SentHistoryEntry } from './types'
 
+function isLicenseBuyout(scenario?: { is_license_buyout?: boolean | null }) {
+  return scenario?.is_license_buyout === true
+}
+
 export function useSendReportsData(
   organizationId: string,
   selectedYear: number,
@@ -145,6 +149,7 @@ export function useSendReportsData(
       performance.forEach((perf: any) => {
         const scenario = scenarios.find(s => s.id === perf.id || s.title === perf.title)
         if (!scenario?.author) return
+        if (isLicenseBuyout(scenario)) return
 
         const store = stores.find(s => s.id === perf.store_id)
         const isFranchise = store?.ownership_type === 'franchise'
@@ -229,6 +234,7 @@ export function useSendReportsData(
           if (itemsByScenario.has(scenarioId)) return // 既に存在
 
           const scenario = scenarios.find(s => s.id === scenarioId)
+          if (isLicenseBuyout(scenario)) return
           const externalEvents = externalCountByScenario.get(scenarioId) || 0
 
           // 他社報告の単価（franchise_license_amount優先）
@@ -260,7 +266,7 @@ export function useSendReportsData(
       if (isLicenseManager) {
         const PRESET_COST_SLOTS = new Set(['normal', 'gmtest', 'weekend', 'holiday', 'late_night'])
         scenarios
-          .filter(s => s.author)  // 作者がいるシナリオ全て
+          .filter(s => s.author && !isLicenseBuyout(s))
           .forEach(scenario => {
             // カスタム行でも使うため外側で定義
             const externalLicenseAmount = scenario.franchise_license_amount || scenario.license_amount || 0
