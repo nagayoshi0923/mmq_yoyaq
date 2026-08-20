@@ -972,7 +972,9 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
   }
   for (const [scenarioCol, orgCol] of Object.entries(overrideMapping)) {
     if (updates[scenarioCol] !== undefined) {
-      orgScenarioData[orgCol] = updates[scenarioCol]
+      const value = updates[scenarioCol]
+      // 空文字を書くと COALESCE(override, master) がマスタータイトルを隠す
+      orgScenarioData[orgCol] = value === '' ? null : value
     }
   }
 

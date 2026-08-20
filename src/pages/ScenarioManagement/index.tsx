@@ -83,7 +83,8 @@ export function ScenarioManagement() {
   } = useOrganizationScenariosQuery(organization?.id)
 
   // isPending: disabled時・初回fetch中・retry中すべて true。data受信またはretry上限でfalse
-  const loading = scenariosPending
+  // 再取得中に isPending だけで画面ごと外すと、開いている編集ダイアログが消えてタイトルが空になる
+  const loading = scenariosPending && !orgScenariosData
 
   const allScenarios = (orgScenariosData?.scenarios ?? []) as unknown as Scenario[]
 

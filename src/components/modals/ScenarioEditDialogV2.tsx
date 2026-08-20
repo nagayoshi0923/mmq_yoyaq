@@ -912,10 +912,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       showToast.error('保存できません', 'シナリオが読み込めていません（権限/組織情報の可能性）')
       return
     }
-    if (!formData.title.trim()) {
+    const resolvedTitle = (
+      formData.title.trim()
+      || currentScenario?.title?.trim()
+      || masterData?.title?.trim()
+      || ''
+    )
+    if (!resolvedTitle) {
       showToast.warning('タイトルを入力してください')
       setActiveTab('basic')
       return
+    }
+    if (resolvedTitle !== formData.title) {
+      setFormData(prev => ({ ...prev, title: resolvedTitle }))
     }
 
     // ステータスを上書き（下書き保存の場合）
@@ -942,6 +951,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       
       const scenarioData: any = {
         ...dbFields,
+        title: resolvedTitle,
         // ステータスを上書き
         status: saveStatus,
         // slugが空文字列の場合はnullとして保存

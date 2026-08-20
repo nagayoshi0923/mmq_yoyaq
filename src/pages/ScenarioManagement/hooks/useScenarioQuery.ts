@@ -73,8 +73,10 @@ export function useScenarioMutation() {
       // 楽観的更新: 即座にキャッシュを更新
       queryClient.setQueryData<Scenario[]>(scenarioKeys.all, (old = []) => {
         if (isEdit) {
-          // 更新: 既存のシナリオを置き換え
-          return old.map(s => s.id === scenario.id ? scenario : s)
+          // 部分更新のペイロードでタイトル等が空上書きされないようマージする
+          return old.map(s => s.id === scenario.id || s.scenario_master_id === scenario.id
+            ? { ...s, ...scenario, title: scenario.title || s.title }
+            : s)
         } else {
           // 新規作成: リストの先頭に追加（一時的なID）
           return [{ ...scenario, id: `temp-${Date.now()}` }, ...old]
