@@ -181,6 +181,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     ? scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId) 
     : null
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
+  const headerSelectValue = currentScenario && scenarios.some((s) => s.id === currentScenario.id)
+    ? currentScenario.id
+    : scenarioId && scenarios.some((s) => s.id === scenarioId)
+      ? scenarioId
+      : undefined
   
   // scenario_master_id を直接使用（旧ID解決は不要）
   // staff_scenario_assignments.scenario_id は scenario_master_id と統一済み
@@ -1417,10 +1422,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             {organizationName && (
               <span className="scenario-edit-dialog__org">{organizationName}</span>
             )}
-            {onScenarioChange && scenarioId && scenarioIdList.length > 1 ? (
-              <Select value={scenarioId} onValueChange={(value) => onScenarioChange(value)}>
+            {scenarioId && onScenarioChange && scenarioIdList.length > 1 ? (
+              <Select
+                value={headerSelectValue}
+                onValueChange={(value) => onScenarioChange(value)}
+              >
                 <SelectTrigger className="scenario-edit-dialog__scenario">
-                  <SelectValue placeholder="シナリオ" />
+                  <SelectValue placeholder={formData.title || 'シナリオ'} />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
                   {scenarios.map((s) => (
@@ -1520,12 +1528,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 マスタ編集
               </button>
             )}
-            {currentMasterId && masterDiffs.count > 0 && (
+            {currentMasterId && (
               <button
                 type="button"
                 className="scenario-edit-dialog__btn"
                 onClick={handleSyncFromMaster}
-                disabled={loadingMaster}
+                disabled={loadingMaster || masterDiffs.count === 0}
               >
                 同期
               </button>
@@ -1539,8 +1547,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 マスタから引用
               </button>
             )}
-            {canEditMaster && currentMasterId && masterDiffs.count > 0 && (
-              <button type="button" className="scenario-edit-dialog__btn" onClick={handleApplyToMaster}>
+            {canEditMaster && currentMasterId && (
+              <button
+                type="button"
+                className="scenario-edit-dialog__btn"
+                onClick={handleApplyToMaster}
+                disabled={masterDiffs.count === 0}
+              >
                 マスタ反映
               </button>
             )}

@@ -44,20 +44,29 @@
 }
 
 .scenario-edit-dialog__org {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
+  height: 24px;
   background: #f6f8fa;
   color: #6b7380;
   font-size: 11px;
   font-weight: 400;
-  line-height: normal;
-  padding: 3px 8px;
+  line-height: 1;
+  padding: 0 8px;
   border-radius: 4px;
 }
 
 .scenario-edit-dialog__scenario {
+  box-sizing: border-box;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: space-between;
   height: 24px !important;
-  width: auto !important;
-  max-width: 12rem;
+  min-width: 8.5rem;
+  max-width: 16rem;
+  width: max-content !important;
+  flex: 0 0 auto;
   background: #f6f9fb !important;
   border: 1px solid #e0e5eb !important;
   border-radius: 6px !important;
@@ -65,6 +74,23 @@
   font-size: 12px !important;
   font-weight: 500;
   color: #26292e;
+  line-height: 1 !important;
+}
+
+.scenario-edit-dialog__scenario > span {
+  display: block !important;
+  min-width: 5.5rem;
+  max-width: 13rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-line-clamp: unset;
+}
+
+.scenario-edit-dialog__scenario svg {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
 }
 
 .scenario-edit-dialog__close {
@@ -154,9 +180,11 @@
 .scenario-edit-dialog__footer {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-  height: 64px;
-  padding: 0 20px;
+  min-height: 64px;
+  height: auto;
+  padding: 16px 20px;
   border-top: 1px solid #e8ebf0;
   background: #fff;
   flex-shrink: 0;
@@ -185,6 +213,13 @@
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.scenario-edit-dialog__actions > * {
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .scenario-edit-dialog__status {
@@ -211,15 +246,19 @@
 }
 
 .scenario-edit-dialog__btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 32px;
-  padding: 8px 12px;
+  padding: 0 12px;
   border-radius: 6px;
   border: 1px solid #d1d9e0;
   background: #fff;
   color: #2e3338;
   font-size: 13px;
   font-weight: 500;
-  line-height: normal;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -233,15 +272,19 @@
 }
 
 .scenario-edit-dialog__btn-primary {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 32px;
-  padding: 8px 16px;
+  padding: 0 16px;
   border-radius: 6px;
   border: 1px solid #171c24;
   background: #171c24;
   color: #fff;
   font-size: 13px;
   font-weight: 500;
-  line-height: normal;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -257,7 +300,7 @@
 .scenario-edit-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 10px;
   width: 100%;
   background: #f6f9fb;
@@ -266,12 +309,32 @@
   padding: 16px;
 }
 
+.scenario-edit-card.is-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.scenario-edit-card input,
+.scenario-edit-card textarea,
+.scenario-edit-card [role="combobox"] {
+  background: #fff !important;
+  border-color: #d1d9e0 !important;
+}
+
 .scenario-edit-card__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   font-size: 13px;
   font-weight: 500;
   color: #474d57;
   line-height: 21px;
+}
+
+.scenario-edit-dialog-host button[role="switch"] {
+  flex-shrink: 0;
 }
 
 .scenario-edit-card__help {
@@ -286,6 +349,14 @@
   margin: 0;
   font-size: 11px;
   font-weight: 400;
+  color: #80858f;
+  line-height: 18px;
+}
+
+.scenario-edit-card__sublabel {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 500;
   color: #80858f;
   line-height: 18px;
 }

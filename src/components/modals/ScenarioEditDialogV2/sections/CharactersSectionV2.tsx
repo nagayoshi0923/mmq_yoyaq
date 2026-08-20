@@ -136,9 +136,9 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
   return (
     <div className="space-y-3">
       {/* ── ヘッダー ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 flex items-center justify-between">
+      <div className="scenario-edit-card is-row">
         <div>
-          <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+          <p className="scenario-edit-card__title">
             <ClipboardList className="h-3.5 w-3.5" />キャラクター一覧
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">シナリオ詳細ページに表示されるキャラクター情報</p>

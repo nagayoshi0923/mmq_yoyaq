@@ -346,7 +346,7 @@ export function PerformancesSectionV2({
   if (performanceDates.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border bg-slate-50/70 p-3">
+        <div className="scenario-edit-card">
           <div className="pt-2">
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
@@ -362,8 +362,8 @@ export function PerformancesSectionV2({
   return (
     <div className="space-y-4">
       {/* ダウンロード設定とボタン */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <CalendarDays className="h-3.5 w-3.5" />公演実績フィルター
         </p>
           {/* 期間指定 */}
@@ -449,8 +449,8 @@ export function PerformancesSectionV2({
       </div>
 
       {/* ── サマリー ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Users className="h-3.5 w-3.5" />サマリー
         </p>
           <div className="flex items-center gap-6 text-sm flex-wrap">
@@ -540,8 +540,8 @@ export function PerformancesSectionV2({
         const yearActiveCount = yearPerformances.filter(p => !p.isCancelled).length
 
         return (
-          <div key={year} className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-            <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <div key={year} className="scenario-edit-card">
+            <p className="scenario-edit-card__title">
               <CalendarDays className="h-3.5 w-3.5" />
               {year}年（{yearPerformances.length}回
               {yearActiveCount > 0 && (

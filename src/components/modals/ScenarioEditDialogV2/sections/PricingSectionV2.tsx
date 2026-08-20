@@ -42,7 +42,7 @@ function getStatusLabel(status: 'active' | 'ready' | 'legacy'): string {
 
 function getStatusColor(status: 'active' | 'ready' | 'legacy'): string {
   switch (status) {
-    case 'active': return 'bg-green-100 text-green-800'
+    case 'active': return 'scenario-edit-dialog__status is-public'
     case 'ready': return 'bg-blue-100 text-blue-800'
     case 'legacy': return 'bg-gray-100 text-gray-500'
     default: return 'bg-gray-100'
@@ -133,8 +133,8 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
   return (
     <div className="space-y-4">
       {/* ── 参加費 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Coins className="h-3.5 w-3.5" />参加費
         </p>
         <p className="text-[11px] text-muted-foreground -mt-1">時間帯別のお客様参加料金。期間を設定すると価格改定に対応できます</p>
@@ -200,8 +200,8 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
       </div>
 
       {/* ── ライセンス料（自店用） ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Coins className="h-3.5 w-3.5" />ライセンス料（自店用）
         </p>
         <p className="text-[11px] text-muted-foreground -mt-1">自店で公演した場合に作者に支払う金額</p>
@@ -246,8 +246,8 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
       </div>
 
       {/* ── 他店公演時 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Building2 className="h-3.5 w-3.5" />他店公演時
         </p>
           {/* テーブル形式で表示 */}

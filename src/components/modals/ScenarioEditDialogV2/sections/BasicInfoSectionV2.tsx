@@ -167,8 +167,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     <div className="space-y-3">
 
       {/* ── 基本情報 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <FileText className="h-3.5 w-3.5" />基本情報
         </p>
 
@@ -195,11 +195,11 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2.5 pt-1">
               <Switch id="scenario_type" checked={formData.scenario_type === 'managed'}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, scenario_type: checked ? 'managed' : 'normal' }))}
-                className="h-4 w-7" />
-              <Label htmlFor="scenario_type" className="text-xs cursor-pointer">管理作品</Label>
+                className="shrink-0" />
+              <Label htmlFor="scenario_type" className="text-xs cursor-pointer whitespace-nowrap">管理作品</Label>
               {formData.scenario_type === 'managed' && (
                 <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0">ライセンス管理</Badge>
               )}
@@ -257,8 +257,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── 説明 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <BookOpen className="h-3.5 w-3.5" />説明
         </p>
 
@@ -322,8 +322,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── 公開状態 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Settings className="h-3.5 w-3.5" />公開状態
         </p>
 
@@ -400,8 +400,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── シナリオ属性 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Settings className="h-3.5 w-3.5" />シナリオ属性
         </p>
 
@@ -448,8 +448,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── 期間・時間枠 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Settings className="h-3.5 w-3.5" />期間・時間枠
         </p>
 
@@ -525,7 +525,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               const isEmpty = slots.length === 0
               return (
                 <div key={field}>
-                  <p className="text-[11px] text-slate-500 font-medium mb-1">{label}</p>
+                  <p className="scenario-edit-card__sublabel">{label}</p>
                   <div className="flex gap-2 flex-wrap">
                     {['朝公演', '昼公演', '夜公演'].map((slot) => {
                       const isSelected = slots.includes(slot)
