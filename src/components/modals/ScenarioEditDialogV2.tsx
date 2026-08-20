@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList, UserCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Save } from 'lucide-react'
+import './ScenarioEditDialogV2.css'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
@@ -33,7 +33,6 @@ import { showToast } from '@/utils/toast'
 // API関連
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
-import { formatJstYmd } from '@/utils/jstDate'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -52,14 +51,14 @@ interface ScenarioEditDialogV2Props {
 
 // タブ定義
 const TABS = [
-  { id: 'basic', label: '基本情報', icon: FileText },
-  { id: 'game', label: 'ゲーム設定', icon: Gamepad2 },
-  { id: 'characters', label: 'キャラクター', icon: UserCircle },
-  { id: 'pricing', label: '料金', icon: Coins },
-  { id: 'gm', label: 'GM', icon: Users },
-  { id: 'costs', label: '売上', icon: TrendingUp },
-  { id: 'performances', label: '公演実績', icon: CalendarDays },
-  { id: 'survey', label: '事前配役アンケート', icon: ClipboardList },
+  { id: 'basic', label: '基本情報' },
+  { id: 'game', label: 'ゲーム設定' },
+  { id: 'characters', label: 'キャラクター' },
+  { id: 'pricing', label: '料金' },
+  { id: 'gm', label: 'GM' },
+  { id: 'costs', label: '売上' },
+  { id: 'performances', label: '公演実績' },
+  { id: 'survey', label: '事前配役アンケート' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -1402,269 +1401,153 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        size="xl"
-        className="max-w-[min(1280px,96vw)] w-full h-[min(92vh,900px)] max-h-[92vh] p-0 gap-0 flex flex-col overflow-hidden [&>button]:hidden"
-      >
-        <DialogHeader className="px-4 sm:px-5 pt-4 pb-3 shrink-0 border-b">
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="flex flex-wrap items-center gap-2 min-w-0">
-              <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</span>
-              {organizationName && (
-                <span className="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">
-                  {organizationName}
-                </span>
-              )}
-              {/* MMQ運営者・クインズワルツ管理者用：マスター編集ボタン */}
-              {canEditMaster && currentMasterId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1 text-purple-600 border-purple-300 hover:bg-purple-50 px-2"
-                  onClick={() => setMasterEditDialogOpen(true)}
-                >
-                  <Shield className="w-3 h-3" />
-                  マスタ編集
-                </Button>
-              )}
-              {/* マスターから同期ボタン（相違がある場合のみ表示） */}
-              {currentMasterId && masterDiffs.count > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50 px-2"
-                  onClick={handleSyncFromMaster}
-                  disabled={loadingMaster}
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  同期
-                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0 rounded-full text-xs font-medium">
-                    {masterDiffs.count}
-                  </span>
-                </Button>
-              )}
-            </DialogTitle>
-            {/* マスタから引用ボタン */}
-            {!scenarioId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setMasterSelectOpen(true)}
-                className="shrink-0 h-8 text-xs px-2"
-              >
-                <BookOpen className="h-3.5 w-3.5 mr-1" />
-                マスタから引用
-              </Button>
-            )}
-            {/* シナリオ切り替え */}
-            {onScenarioChange && scenarioId && scenarioIdList.length > 1 && (
-              <div className="flex items-center gap-1 flex-1 max-w-xs">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    const currentIndex = scenarioIdList.indexOf(scenarioId)
-                    if (currentIndex > 0) {
-                      onScenarioChange(scenarioIdList[currentIndex - 1])
-                    }
-                  }}
-                  disabled={scenarioIdList.indexOf(scenarioId) === 0}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Select
-                  value={scenarioId}
-                  onValueChange={(value) => onScenarioChange(value)}
-                >
-                  <SelectTrigger className="h-8 text-xs flex-1">
-                    <SelectValue placeholder="シナリオ" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {scenarios.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    const currentIndex = scenarioIdList.indexOf(scenarioId)
-                    if (currentIndex < scenarioIdList.length - 1) {
-                      onScenarioChange(scenarioIdList[currentIndex + 1])
-                    }
-                  }}
-                  disabled={scenarioIdList.indexOf(scenarioId) === scenarioIdList.length - 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={onClose}>
-              閉じる
-            </Button>
-          </div>
-          <DialogDescription className="sr-only">
-            {formData.title ? `${formData.title}を編集` : 'シナリオ情報を入力'}
-            {scenarioStats.firstPerformanceDate
-              ? `（初演 ${formatJstYmd(scenarioStats.firstPerformanceDate, '.')}〜）`
-              : ''}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent size="xl" className="scenario-edit-dialog-host [&>button]:hidden">
+        <DialogTitle className="sr-only">
+          {scenarioId ? 'シナリオ編集' : '新規シナリオ'}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {formData.title ? `${formData.title}を編集` : 'シナリオ情報を入力'}
+        </DialogDescription>
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <nav
-            className="w-44 sm:w-52 shrink-0 border-r bg-muted/40 overflow-y-auto px-2.5 py-3 flex flex-col gap-1"
-            aria-label="シナリオ編集セクション"
-          >
+        <header className="scenario-edit-dialog__header">
+          <div className="scenario-edit-dialog__header-left">
+            <span className="scenario-edit-dialog__title">
+              {scenarioId ? 'シナリオ編集' : '新規シナリオ'}
+            </span>
+            {organizationName && (
+              <span className="scenario-edit-dialog__org">{organizationName}</span>
+            )}
+            {onScenarioChange && scenarioId && scenarioIdList.length > 1 ? (
+              <Select value={scenarioId} onValueChange={(value) => onScenarioChange(value)}>
+                <SelectTrigger className="scenario-edit-dialog__scenario">
+                  <SelectValue placeholder="シナリオ" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {scenarios.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : formData.title ? (
+              <span className="scenario-edit-dialog__scenario">{formData.title}</span>
+            ) : null}
+          </div>
+          <button type="button" className="scenario-edit-dialog__close" onClick={onClose}>
+            閉じる
+          </button>
+        </header>
+
+        <div className="scenario-edit-dialog__body">
+          <nav className="scenario-edit-dialog__nav" aria-label="シナリオ編集セクション">
             {TABS.map((tab) => {
-              const Icon = tab.icon
               const selected = activeTab === tab.id
-              const diffCount = masterDiffs.byTab[tab.id] || 0
               return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => selectTab(tab.id)}
                   aria-current={selected ? 'page' : undefined}
-                  className={cn(
-                    'w-full text-left px-3 py-2 rounded-md text-xs flex items-center gap-2',
-                    selected
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted'
-                  )}
+                  className={selected ? 'scenario-edit-dialog__nav-item is-selected' : 'scenario-edit-dialog__nav-item'}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="flex-1 min-w-0 truncate">{tab.label}</span>
-                  {diffCount > 0 && (
-                    <span
-                      className={cn(
-                        'shrink-0 px-1.5 py-0 rounded-full text-xs',
-                        selected
-                          ? 'bg-primary-foreground/20 text-primary-foreground'
-                          : 'bg-yellow-100 text-yellow-700'
-                      )}
-                    >
-                      {diffCount}
-                    </span>
-                  )}
+                  {tab.label}
                 </button>
               )
             })}
           </nav>
 
-          <div key={activeTab} className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div key={activeTab} className="scenario-edit-dialog__content">
+            <h2 className="scenario-edit-dialog__page-title">
+              {TABS.find((tab) => tab.id === activeTab)?.label}
+            </h2>
             {renderTabContent(activeTab)}
           </div>
         </div>
 
-        {/* フッター（固定） */}
-        <div className="flex justify-between items-center gap-2 px-4 sm:px-5 py-3 border-t bg-background shrink-0">
-          {/* フッター左：サマリー＋マスター差分 */}
-          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-            <span className="font-medium text-foreground truncate max-w-[160px]">
-              {formData.title || '(未設定)'}
-            </span>
-            <span className="text-muted-foreground/50">|</span>
+        <footer className="scenario-edit-dialog__footer">
+          <div className="scenario-edit-dialog__meta">
+            <span>{formData.title || '(未設定)'}</span>
+            <span className="scenario-edit-dialog__meta-sep">|</span>
             <span>{formData.duration}分</span>
-            <span className="text-muted-foreground/50">|</span>
+            <span className="scenario-edit-dialog__meta-sep">|</span>
             <span>
               {formData.player_count_min === formData.player_count_max
                 ? `${formData.player_count_min}人`
-                : `${formData.player_count_min}〜${formData.player_count_max}人`
-              }
+                : `${formData.player_count_min}〜${formData.player_count_max}人`}
             </span>
-            <span className="text-muted-foreground/50">|</span>
+            <span className="scenario-edit-dialog__meta-sep">|</span>
             <span>
               ¥{(formData.participation_costs?.find(c => c.time_slot === 'normal')?.amount || formData.participation_fee || 0).toLocaleString()}
             </span>
-            {/* マスターとの差分タブ表示 */}
-            {currentMasterId && masterDiffs.count > 0 && (
-              <>
-                <span className="text-muted-foreground/50">|</span>
-                <span className="text-yellow-600 font-medium flex items-center gap-1">
-                  マスターと差分:
-                  {TABS.filter(t => (masterDiffs.byTab[t.id] || 0) > 0).map(t => (
-                    <span key={t.id} className="inline-flex items-center gap-0.5 bg-yellow-100 text-yellow-700 px-1.5 py-0 rounded-full">
-                      {t.label}
-                      <span className="font-bold">{masterDiffs.byTab[t.id]}</span>
-                    </span>
-                  ))}
-                </span>
-              </>
-            )}
           </div>
-
-          {/* アクションボタン */}
-          <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto justify-end">
-            {/* ステータスバッジ */}
+          <div className="scenario-edit-dialog__actions">
             {formData.status === 'draft' && (
-              <span className="text-[11px] bg-gray-100 text-gray-600 px-1 py-0 rounded">下書き</span>
+              <span className="scenario-edit-dialog__status is-draft">下書き</span>
             )}
             {formData.status === 'available' && (
-              <span className="text-[11px] bg-green-100 text-green-700 px-1 py-0 rounded">公開中</span>
-            )}
-            {scenarioId && publicBookingOrgSlug && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-[11px] gap-1 px-2 shrink-0"
-                onClick={() =>
-                  window.open(
-                    `/${publicBookingOrgSlug}/scenario/${formData.slug || scenarioId}`,
-                    '_blank',
-                  )
-                }
-                title="予約サイトのシナリオ詳細を別タブで開く"
-              >
-                <ExternalLink className="h-3 w-3" />
-                シナリオ詳細
-              </Button>
+              <span className="scenario-edit-dialog__status is-public">公開中</span>
             )}
             {formData.status === 'unavailable' && (
-              <span className="text-[11px] bg-yellow-100 text-yellow-700 px-1 py-0 rounded">非公開</span>
+              <span className="scenario-edit-dialog__status is-private">非公開</span>
             )}
-            {saveMessage && (
-              <span className="text-green-600 font-medium text-xs animate-pulse">
-                ✓ {saveMessage}
-              </span>
+            {saveMessage && <span className="scenario-edit-dialog__status is-public">{saveMessage}</span>}
+            {scenarioId && publicBookingOrgSlug && (
+              <button
+                type="button"
+                className="scenario-edit-dialog__btn"
+                onClick={() =>
+                  window.open(`/${publicBookingOrgSlug}/scenario/${formData.slug || scenarioId}`, '_blank')
+                }
+              >
+                シナリオ詳細
+              </button>
             )}
-            <Button 
-              variant="outline"
-              onClick={() => handleSave('draft')} 
+            <button
+              type="button"
+              className="scenario-edit-dialog__btn"
+              onClick={() => handleSave('draft')}
               disabled={scenarioMutation.isPending || isLoadingAssignments}
-              size="sm"
-              className="text-gray-600 hidden sm:inline-flex"
             >
               下書き
-            </Button>
-            {/* マスターに反映ボタン（license_admin or クインズワルツ管理者） */}
-            {canEditMaster && currentMasterId && masterDiffs.count > 0 && (
-              <Button 
-                variant="outline"
-                onClick={handleApplyToMaster}
-                size="sm"
-                className="text-purple-600 border-purple-300 hover:bg-purple-50 hidden sm:inline-flex gap-0.5"
+            </button>
+            {canEditMaster && currentMasterId && (
+              <button
+                type="button"
+                className="scenario-edit-dialog__btn"
+                onClick={() => setMasterEditDialogOpen(true)}
               >
-                <ArrowUp className="h-2.5 w-2.5" />
-                マスタ反映
-              </Button>
+                マスタ編集
+              </button>
             )}
-            {/* MMQへ申請ボタン（保存不要・draft マスタのみ表示） */}
+            {currentMasterId && masterDiffs.count > 0 && (
+              <button
+                type="button"
+                className="scenario-edit-dialog__btn"
+                onClick={handleSyncFromMaster}
+                disabled={loadingMaster}
+              >
+                同期
+              </button>
+            )}
+            {!scenarioId && (
+              <button
+                type="button"
+                className="scenario-edit-dialog__btn"
+                onClick={() => setMasterSelectOpen(true)}
+              >
+                マスタから引用
+              </button>
+            )}
+            {canEditMaster && currentMasterId && masterDiffs.count > 0 && (
+              <button type="button" className="scenario-edit-dialog__btn" onClick={handleApplyToMaster}>
+                マスタ反映
+              </button>
+            )}
             {currentMasterId && currentScenario?.master_status === 'draft' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-blue-600 border-blue-300 hover:bg-blue-50 hidden sm:inline-flex gap-0.5"
+              <button
+                type="button"
+                className="scenario-edit-dialog__btn"
                 disabled={isSubmittingToMMQ}
                 onClick={async () => {
                   setIsSubmittingToMMQ(true)
@@ -1680,14 +1563,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   }
                 }}
               >
-                {isSubmittingToMMQ
-                  ? <RefreshCw className="h-3 w-3 animate-spin" />
-                  : <Shield className="h-3 w-3" />
-                }
-                MMQへ申請
-              </Button>
+                {isSubmittingToMMQ ? '申請中…' : 'MMQへ申請'}
+              </button>
             )}
-            <Button
+            <button
+              type="button"
+              className="scenario-edit-dialog__btn-primary"
               onClick={() => {
                 const currentStatus = formData.status === 'draft' ? 'available' : (formData.status as 'available' | 'unavailable')
                 setSavePublishChoice(currentStatus === 'available' ? 'available' : 'unavailable')
@@ -1695,13 +1576,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 setSaveOptionsOpen(true)
               }}
               disabled={scenarioMutation.isPending || isLoadingAssignments}
-              size="sm"
             >
-              <Save className="h-3 w-3 mr-0.5" />
               保存
-            </Button>
+            </button>
           </div>
-        </div>
+        </footer>
       </DialogContent>
 
       {/* 保存オプションダイアログ */}

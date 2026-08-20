@@ -1,0 +1,336 @@
+/* Figma 壁打ち 2:3 ScenarioEdit / Sidebar Proposal — Dev Mode 実寸 */
+
+.scenario-edit-dialog-host {
+  display: flex !important;
+  flex-direction: column;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  width: min(1280px, 96vw) !important;
+  max-width: min(1280px, 96vw) !important;
+  height: min(820px, 92vh) !important;
+  max-height: 92vh !important;
+  border: 1px solid #e3e8ed !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18) !important;
+  background: #fff !important;
+}
+
+.scenario-edit-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e8ebf0;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.scenario-edit-dialog__header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.scenario-edit-dialog__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2126;
+  line-height: normal;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.scenario-edit-dialog__org {
+  flex-shrink: 0;
+  background: #f6f8fa;
+  color: #6b7380;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: normal;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.scenario-edit-dialog__scenario {
+  height: 24px !important;
+  width: auto !important;
+  max-width: 12rem;
+  background: #f6f9fb !important;
+  border: 1px solid #e0e5eb !important;
+  border-radius: 6px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  color: #26292e;
+}
+
+.scenario-edit-dialog__close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #666b75;
+  line-height: normal;
+  cursor: pointer;
+}
+
+.scenario-edit-dialog__close:hover {
+  color: #1f2126;
+}
+
+.scenario-edit-dialog__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+}
+
+.scenario-edit-dialog__nav {
+  width: 220px;
+  flex-shrink: 0;
+  background: #f6f9fb;
+  border-right: 1px solid #e8ebf0;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.scenario-edit-dialog__nav-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: #474d57;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario-edit-dialog__nav-item:hover {
+  background: #fff;
+}
+
+.scenario-edit-dialog__nav-item.is-selected {
+  background: #171c24;
+  color: #fff;
+  font-weight: 500;
+}
+
+.scenario-edit-dialog__nav-item.is-selected:hover {
+  background: #171c24;
+}
+
+.scenario-edit-dialog__content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px 28px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scenario-edit-dialog__page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2126;
+  line-height: 29px;
+}
+
+.scenario-edit-dialog__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 20px;
+  border-top: 1px solid #e8ebf0;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.scenario-edit-dialog__meta {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2e3338;
+  line-height: normal;
+}
+
+.scenario-edit-dialog__meta-sep {
+  color: #bfc4cc;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.scenario-edit-dialog__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.scenario-edit-dialog__status {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: normal;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.scenario-edit-dialog__status.is-public {
+  background: #dbfae8;
+  color: #177345;
+}
+
+.scenario-edit-dialog__status.is-draft {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.scenario-edit-dialog__status.is-private {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.scenario-edit-dialog__btn {
+  height: 32px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d9e0;
+  background: #fff;
+  color: #2e3338;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: normal;
+  cursor: pointer;
+}
+
+.scenario-edit-dialog__btn:hover {
+  background: #f6f9fb;
+}
+
+.scenario-edit-dialog__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scenario-edit-dialog__btn-primary {
+  height: 32px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #171c24;
+  background: #171c24;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: normal;
+  cursor: pointer;
+}
+
+.scenario-edit-dialog__btn-primary:hover {
+  background: #2a3038;
+}
+
+.scenario-edit-dialog__btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scenario-edit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  background: #f6f9fb;
+  border: 1px solid #e0e5eb;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.scenario-edit-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #474d57;
+  line-height: 21px;
+}
+
+.scenario-edit-card__help {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #737885;
+  line-height: 19px;
+}
+
+.scenario-edit-card__note {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: #80858f;
+  line-height: 18px;
+}
+
+.scenario-edit-card__textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 220px !important;
+  min-height: 220px !important;
+  margin: 0;
+  padding: 12px !important;
+  border: 1px solid #d1d9e0 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  font-size: 12px !important;
+  font-weight: 400;
+  line-height: 19px !important;
+  color: #2e3338;
+  resize: none;
+}
+
+.scenario-edit-card__textarea.is-short {
+  height: 84px !important;
+  min-height: 84px !important;
+}
+
+.scenario-edit-card__quote {
+  height: auto;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d9e0;
+  background: #fff;
+  color: #2e3338;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 19px;
+  cursor: pointer;
+}
+
+.scenario-edit-card__quote:hover {
+  background: #fff;
+}
+
+.scenario-edit-card__quote:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
