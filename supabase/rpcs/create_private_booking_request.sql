@@ -1,6 +1,8 @@
 -- 正規ソース: create_private_booking_request
--- 最終更新: 20260810090000_enforce_accepts_private_booking_on_private_request.sql
+-- 最終更新: 20260819120000_raise_private_booking_participant_cap.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
+-- 注: 本番hotfixは関数全体置換のため P0044（貸切受付可否）がliveから欠落している。
+--     正本には 20260810090000 の受付可否チェックを残す。戻す作業は恒久策issue。
 
 CREATE OR REPLACE FUNCTION create_private_booking_request(
   p_scenario_id UUID,
@@ -255,8 +257,8 @@ BEGIN
     RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED' USING ERRCODE = 'P0044';
   END IF;
 
-  -- 参加人数の上限チェック
-  IF p_participant_count > 10 THEN
+  -- 参加人数の上限チェック（応急: 固定50。恒久策はシナリオ定員照合）
+  IF p_participant_count > 50 THEN
     RAISE EXCEPTION 'Participant count exceeds maximum' USING ERRCODE = 'P0025';
   END IF;
 
