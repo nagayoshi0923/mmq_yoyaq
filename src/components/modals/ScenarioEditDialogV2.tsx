@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList, UserCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
@@ -85,6 +85,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       setActiveTab(getSavedTab())
     }
   }, [isOpen, scenarioId])
+
+  const selectTab = (id: TabId) => {
+    setActiveTab(id)
+    localStorage.setItem('scenarioEditDialogTab', id)
+  }
 
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
@@ -1397,13 +1402,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="lg" className="max-w-[95vw] sm:max-w-3xl h-[85vh] sm:h-[min(80vh,600px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
-        <DialogHeader className="px-2 sm:px-3 pt-2 pb-0 shrink-0">
-          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-            <DialogTitle className="text-sm flex flex-wrap items-center gap-1.5 min-w-0">
+      <DialogContent
+        size="xl"
+        className="max-w-[min(1280px,96vw)] w-full h-[min(92vh,900px)] max-h-[92vh] p-0 gap-0 flex flex-col overflow-hidden [&>button]:hidden"
+      >
+        <DialogHeader className="px-4 sm:px-5 pt-4 pb-3 shrink-0 border-b">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="flex flex-wrap items-center gap-2 min-w-0">
               <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</span>
               {organizationName && (
-                <span className="text-[11px] font-normal text-muted-foreground bg-muted px-1 py-0 rounded">
+                <span className="text-xs font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">
                   {organizationName}
                 </span>
               )}
@@ -1412,10 +1420,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-5 text-[11px] gap-0.5 text-purple-600 border-purple-300 hover:bg-purple-50 px-1.5"
+                  className="h-7 text-xs gap-1 text-purple-600 border-purple-300 hover:bg-purple-50 px-2"
                   onClick={() => setMasterEditDialogOpen(true)}
                 >
-                  <Shield className="w-2.5 h-2.5" />
+                  <Shield className="w-3 h-3" />
                   マスタ編集
                 </Button>
               )}
@@ -1424,30 +1432,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-5 text-[11px] gap-0.5 text-blue-600 border-blue-300 hover:bg-blue-50 px-1.5"
+                  className="h-7 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50 px-2"
                   onClick={handleSyncFromMaster}
                   disabled={loadingMaster}
                 >
-                  <RefreshCw className="w-2.5 h-2.5" />
+                  <RefreshCw className="w-3 h-3" />
                   同期
-                  <span className="bg-blue-100 text-blue-700 px-1 py-0 rounded-full text-[11px] font-medium">
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0 rounded-full text-xs font-medium">
                     {masterDiffs.count}
                   </span>
-                </Button>
-              )}
-              {/* シナリオ詳細ページへのリンク（編集時のみ・公開用組織slug解決後） */}
-              {scenarioId && publicBookingOrgSlug && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 text-[11px] gap-0.5 text-gray-600 hover:text-gray-900 px-1.5"
-                  onClick={() =>
-                    window.open(`/${publicBookingOrgSlug}/scenario/${formData.slug || scenarioId}`, '_blank')
-                  }
-                  title="予約サイトのシナリオ詳細ページを開く"
-                >
-                  <ExternalLink className="w-2.5 h-2.5" />
-                  シナリオ詳細
                 </Button>
               )}
             </DialogTitle>
@@ -1457,19 +1450,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 variant="outline"
                 size="sm"
                 onClick={() => setMasterSelectOpen(true)}
-                className="shrink-0 h-5 text-[11px] px-1.5"
+                className="shrink-0 h-8 text-xs px-2"
               >
-                <BookOpen className="h-3 w-3 mr-0.5" />
+                <BookOpen className="h-3.5 w-3.5 mr-1" />
                 マスタから引用
               </Button>
             )}
             {/* シナリオ切り替え */}
             {onScenarioChange && scenarioId && scenarioIdList.length > 1 && (
-              <div className="flex items-center gap-0.5 flex-1 max-w-xs">
+              <div className="flex items-center gap-1 flex-1 max-w-xs">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 shrink-0"
+                  className="h-8 w-8 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -1480,13 +1473,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   }}
                   disabled={scenarioIdList.indexOf(scenarioId) === 0}
                 >
-                  <ChevronLeft className="h-3 w-3" />
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Select
                   value={scenarioId}
                   onValueChange={(value) => onScenarioChange(value)}
                 >
-                  <SelectTrigger className="h-6 text-[11px] flex-1">
+                  <SelectTrigger className="h-8 text-xs flex-1">
                     <SelectValue placeholder="シナリオ" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
@@ -1500,7 +1493,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 shrink-0"
+                  className="h-8 w-8 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -1511,90 +1504,73 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   }}
                   disabled={scenarioIdList.indexOf(scenarioId) === scenarioIdList.length - 1}
                 >
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             )}
+            <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={onClose}>
+              閉じる
+            </Button>
           </div>
-          <DialogDescription className="flex items-center gap-1.5 text-[11px]">
-            <span className="truncate">{formData.title ? `${formData.title}を編集` : '情報を入力'}</span>
-            {scenarioStats.firstPerformanceDate && (
-              <span className="text-[11px] bg-muted px-1 py-0 rounded shrink-0">
-                {formatJstYmd(scenarioStats.firstPerformanceDate, '.')}〜
-              </span>
-            )}
+          <DialogDescription className="sr-only">
+            {formData.title ? `${formData.title}を編集` : 'シナリオ情報を入力'}
+            {scenarioStats.firstPerformanceDate
+              ? `（初演 ${formatJstYmd(scenarioStats.firstPerformanceDate, '.')}〜）`
+              : ''}
           </DialogDescription>
         </DialogHeader>
 
-        {/* タブナビゲーション */}
-        <Tabs 
-          value={activeTab} 
-          onValueChange={(v) => {
-            setActiveTab(v as TabId)
-            localStorage.setItem('scenarioEditDialogTab', v)
-          }} 
-          className="flex-1 flex flex-col overflow-hidden"
-          onKeyDown={(e) => {
-            // 矢印キーでのタブ切り替えを無効化（シナリオ切り替えに使用するため）
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-              e.preventDefault()
-              e.stopPropagation()
-            }
-          }}
-        >
-          <div className="px-2 sm:px-3 pt-2 shrink-0 border-b">
-            <TabsList 
-              className="w-full h-auto flex flex-wrap gap-0.5 bg-transparent p-0 justify-start"
-              onKeyDown={(e) => {
-                // 矢印キーでのタブ切り替えを無効化（シナリオ切り替えに使用するため）
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }
-              }}
-            >
-              {TABS.map((tab) => {
-                const Icon = tab.icon
-                const diffCount = masterDiffs.byTab[tab.id] || 0
-                return (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    className="flex items-center gap-0.5 px-1.5 py-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors relative"
-                    onKeyDown={(e) => {
-                      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }
-                    }}
-                  >
-                    <Icon className="h-3 w-3" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </TabsTrigger>
-                )
-              })}
-            </TabsList>
-          </div>
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <nav
+            className="w-44 sm:w-52 shrink-0 border-r bg-muted/40 overflow-y-auto px-2.5 py-3 flex flex-col gap-1"
+            aria-label="シナリオ編集セクション"
+          >
+            {TABS.map((tab) => {
+              const Icon = tab.icon
+              const selected = activeTab === tab.id
+              const diffCount = masterDiffs.byTab[tab.id] || 0
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => selectTab(tab.id)}
+                  aria-current={selected ? 'page' : undefined}
+                  className={cn(
+                    'w-full text-left px-3 py-2 rounded-md text-xs flex items-center gap-2',
+                    selected
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1 min-w-0 truncate">{tab.label}</span>
+                  {diffCount > 0 && (
+                    <span
+                      className={cn(
+                        'shrink-0 px-1.5 py-0 rounded-full text-xs',
+                        selected
+                          ? 'bg-primary-foreground/20 text-primary-foreground'
+                          : 'bg-yellow-100 text-yellow-700'
+                      )}
+                    >
+                      {diffCount}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </nav>
 
-          {/* タブコンテンツ */}
-          <div className="flex-1 overflow-y-auto">
-            {TABS.map((tab) => (
-              <TabsContent
-                key={tab.id}
-                value={tab.id}
-                className="m-0 p-2 sm:p-3 focus-visible:outline-none focus-visible:ring-0"
-              >
-                {renderTabContent(tab.id)}
-              </TabsContent>
-            ))}
+          <div key={activeTab} className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {renderTabContent(activeTab)}
           </div>
-        </Tabs>
+        </div>
 
         {/* フッター（固定） */}
-        <div className="flex justify-between items-center gap-1.5 px-2 sm:px-3 py-1.5 border-t bg-muted/30 shrink-0">
+        <div className="flex justify-between items-center gap-2 px-4 sm:px-5 py-3 border-t bg-background shrink-0">
           {/* フッター左：サマリー＋マスター差分 */}
-          <div className="hidden md:flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
-            <span className="font-medium text-foreground truncate max-w-[100px]">
+          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            <span className="font-medium text-foreground truncate max-w-[160px]">
               {formData.title || '(未設定)'}
             </span>
             <span className="text-muted-foreground/50">|</span>
@@ -1658,13 +1634,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               <span className="text-[11px] bg-yellow-100 text-yellow-700 px-1 py-0 rounded">非公開</span>
             )}
             {saveMessage && (
-              <span className="text-green-600 font-medium text-[11px] animate-pulse">
+              <span className="text-green-600 font-medium text-xs animate-pulse">
                 ✓ {saveMessage}
               </span>
             )}
-            <Button type="button" variant="outline" onClick={onClose} size="sm">
-              閉じる
-            </Button>
             <Button 
               variant="outline"
               onClick={() => handleSave('draft')} 
