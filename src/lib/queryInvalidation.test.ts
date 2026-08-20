@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
-import { invalidateEverywhere } from './queryInvalidation'
+import { invalidateAssignmentQueries, invalidateEverywhere } from './queryInvalidation'
 
 describe('invalidateEverywhere', () => {
   it('渡した queryKey のクエリを invalidated 状態にして再取得を発火させる', async () => {
@@ -62,6 +62,27 @@ describe('invalidateEverywhere', () => {
   it('queryKey を渡さなければ何もせず解決する', async () => {
     const queryClient = new QueryClient()
     await expect(invalidateEverywhere(queryClient)).resolves.toBeUndefined()
+    queryClient.clear()
+  })
+})
+
+describe('invalidateAssignmentQueries', () => {
+  it('staff / scenarios / org-scenarios を再取得する', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { refetchOnMount: false } },
+    })
+    const fnStaff = vi.fn(async () => [])
+    const fnScenarios = vi.fn(async () => [])
+    const fnOrg = vi.fn(async () => [])
+    await queryClient.fetchQuery({ queryKey: ['staff'], queryFn: fnStaff })
+    await queryClient.fetchQuery({ queryKey: ['scenarios'], queryFn: fnScenarios })
+    await queryClient.fetchQuery({ queryKey: ['org-scenarios', 'list'], queryFn: fnOrg })
+
+    await invalidateAssignmentQueries(queryClient)
+
+    expect(fnStaff).toHaveBeenCalledTimes(2)
+    expect(fnScenarios).toHaveBeenCalledTimes(2)
+    expect(fnOrg).toHaveBeenCalledTimes(2)
     queryClient.clear()
   })
 })

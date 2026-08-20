@@ -12,9 +12,9 @@ import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQueryClient } from '@tanstack/react-query'
-import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation, scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
-import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
+import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMasterApi'
+import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 
 // V2セクションコンポーネント（カード形式でレイアウト改善）
 import { BasicInfoSectionV2 } from './ScenarioEditDialogV2/sections/BasicInfoSectionV2'
@@ -510,43 +510,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
       try {
         setIsLoadingAssignments(true)
-        const orgId = await getCurrentOrganizationId()
+        const assignmentsData = await assignmentApi.getAllScenarioAssignments(scenarioId)
         
-        // ====================================================
-        // scenario_master_id で直接 staff_scenario_assignments を検索
-        // （scenario_id は scenario_master_id と統一済み）
-        // ====================================================
-        let assignQuery = supabase
-          .from('staff_scenario_assignments')
-          .select(`
-            *,
-            staff:staff_id (
-              id,
-              name,
-              line_name
-            )
-          `)
-          .eq('scenario_master_id', scenarioId)
-          .order('assigned_at', { ascending: false })
-        
-        if (orgId) {
-          assignQuery = assignQuery.eq('organization_id', orgId)
-        }
-        
-        const { data: assignmentsData, error: assignError } = await assignQuery
-        
-        if (assignError) {
-          logger.error('🔍 assignments検索エラー:', assignError.message)
-        }
-        
-        // GM可能なスタッフのみフィルタ
-        const gmAssignments = (assignmentsData || []).filter(a => 
+        // GM可能なスタッフのみ（体験済みのみは担当GMに出さない）
+        const gmAssignments = (assignmentsData || []).filter((a: { can_main_gm?: boolean; can_sub_gm?: boolean }) =>
           a.can_main_gm === true || a.can_sub_gm === true
         )
         
-        // staff_scenario_assignments のデータを使用
         setCurrentAssignments(gmAssignments)
-        setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
+        setSelectedStaffIds(gmAssignments.map((a: { staff_id: string }) => a.staff_id))
         
         // 統計情報を取得
         const statsId = scenarioId
@@ -1026,56 +998,46 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
       if (targetScenarioId) {
         try {
-          // 担当GMの更新（メイン/サブ設定含む）
-          // 1. まず削除対象を特定
           const originalStaffIds = currentAssignments.map(a => a.staff_id)
           const toDelete = originalStaffIds.filter(id => !selectedStaffIds.includes(id))
           const toAdd = selectedStaffIds.filter(id => !originalStaffIds.includes(id))
-          
-          // 削除
+
           for (const staffId of toDelete) {
             await assignmentApi.removeAssignment(staffId, targetScenarioId)
           }
-          
-          // 追加（新しいスタッフ）
-          for (const staffId of toAdd) {
+
+          const upsertFlags = (staffId: string) => {
             const assignment = currentAssignments.find(a => a.staff_id === staffId)
             const can_main_gm = assignment?.can_main_gm ?? true
             const can_sub_gm = assignment?.can_sub_gm ?? true
-            await assignmentApi.addAssignment(staffId, targetScenarioId)
-            // 追加後にフラグを更新
-            await supabase
-              .from('staff_scenario_assignments')
-              .update({ can_main_gm, can_sub_gm })
-              .eq('staff_id', staffId)
-              .eq('scenario_master_id', targetScenarioId)
-          }
-          
-          // 既存スタッフのメイン/サブ設定を更新
-          for (const staffId of selectedStaffIds.filter(id => originalStaffIds.includes(id))) {
-            const assignment = currentAssignments.find(a => a.staff_id === staffId)
-            if (assignment) {
-              await supabase
-                .from('staff_scenario_assignments')
-                .update({ 
-                  can_main_gm: assignment.can_main_gm ?? true, 
-                  can_sub_gm: assignment.can_sub_gm ?? true 
-                })
-                .eq('staff_id', staffId)
-                .eq('scenario_master_id', targetScenarioId)
+            const hasGm = can_main_gm || can_sub_gm
+            return {
+              can_main_gm,
+              can_sub_gm,
+              is_experienced: !hasGm,
             }
           }
-          // NOTE: staff.special_scenarios への同期は廃止
-          // staff_scenario_assignments が唯一のデータソース
 
+          for (const staffId of toAdd) {
+            await assignmentApi.upsertAssignment(staffId, targetScenarioId, upsertFlags(staffId))
+          }
+
+          for (const staffId of selectedStaffIds.filter(id => originalStaffIds.includes(id))) {
+            await assignmentApi.upsertAssignment(staffId, targetScenarioId, upsertFlags(staffId))
+          }
+
+          const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
+          const gmAssignments = (refreshed || []).filter((a: { can_main_gm?: boolean; can_sub_gm?: boolean }) =>
+            a.can_main_gm === true || a.can_sub_gm === true
+          )
+          setCurrentAssignments(gmAssignments)
+          setSelectedStaffIds(gmAssignments.map((a: { staff_id: string }) => a.staff_id))
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
         }
         
-        // 担当GM変更後、関連するキャッシュを無効化
-        queryClient.invalidateQueries({ queryKey: staffKeys.all })
-        queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+        await invalidateAssignmentQueries(queryClient)
       }
 
       // マスタから引用した場合、organization_scenariosにも登録

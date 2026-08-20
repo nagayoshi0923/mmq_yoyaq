@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { storeApi, scenarioApi, staffApi } from '@/lib/api'
-import { assignmentApi } from '@/lib/assignmentApi'
+import { storeApi, scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useStaffQuery } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache, scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
 
@@ -120,14 +121,11 @@ export function useScheduleData(currentDate: Date) {
   })
   // loadEvents 内で staff を参照するための ref（依存配列に入れると二重実行になるため）
   const staffRef = useRef<Staff[]>(staff)
-  const [staffLoading, setStaffLoading] = useState(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleStaff')
-      return !cached
-    } catch {
-      return true
-    }
-  })
+
+  // 担当は staff_scenario_assignments をマージした ['staff'] を正とする。
+  // シナリオ管理・スタッフ管理の保存後 invalidate でここも再取得される。
+  const { data: staffFromQuery, isLoading: staffQueryLoading } = useStaffQuery()
+  const staffLoading = staffQueryLoading && staff.length === 0
   
   // React Queryを使ってシナリオデータを取得（自動更新される）
   const { data: scenariosData = [], isLoading: scenariosLoading } = useScenariosQuery()
@@ -178,6 +176,15 @@ export function useScheduleData(currentDate: Date) {
     }
   }, [scenariosData, orgScenarioOverrides])
 
+  useEffect(() => {
+    if (staffFromQuery === undefined) return
+    staffRef.current = staffFromQuery
+    setStaff(staffFromQuery)
+    if (staffFromQuery.length > 0) {
+      sessionStorage.setItem('scheduleStaff', JSON.stringify(staffFromQuery))
+    }
+  }, [staffFromQuery])
+
   // 組織シナリオの上書き設定を取得（新UIの組織設定を反映）
   useEffect(() => {
     const loadOrgScenarioOverrides = async () => {
@@ -218,29 +225,18 @@ export function useScheduleData(currentDate: Date) {
         // キャッシュがない場合のみローディング状態にする
         // キャッシュがある場合はバックグラウンドで静かに更新
         const hasCachedStores = stores.length > 0
-        const hasCachedStaff = staff.length > 0
         
         if (!hasCachedStores) {
           setStoresLoading(true)
         }
-        if (!hasCachedStaff) {
-          setStaffLoading(true)
-        }
         
-        // 店舗・スタッフを並列で読み込み（シナリオはReact Queryが管理）
+        // 店舗のみここで読む。スタッフ担当は useStaffQuery（['staff']）が正。
         // includeTemporary: false で通常の店舗のみ取得（臨時会場は useTemporaryVenues で管理）
         // excludeOffice: false でオフィスも表示（スケジュール管理では全店舗を表示）
-        const orgId = await getCurrentOrganizationId()
-        const [storeData, staffData] = await Promise.all([
-          storeApi.getAll(false, undefined, undefined, false).catch(err => {
-            logger.error('店舗データの読み込みエラー:', err)
-            return []
-          }),
-          staffApi.getAll().catch(err => {
-            logger.error('スタッフデータの読み込みエラー:', err)
-            return []
-          })
-        ])
+        const storeData = await storeApi.getAll(false, undefined, undefined, false).catch(err => {
+          logger.error('店舗データの読み込みエラー:', err)
+          return []
+        })
         
         setStores(storeData)
         sessionStorage.setItem('scheduleStores', JSON.stringify(storeData))
@@ -249,38 +245,9 @@ export function useScheduleData(currentDate: Date) {
           sessionStorage.setItem('scheduleHasLoaded', 'true')
         }
         setStoresLoading(false)
-
-        // スタッフ基本情報を先に反映（貸切予約のGM名参照用）
-        staffRef.current = staffData
-        setStaff(staffData)
-
-        // スタッフの担当シナリオを 1 リクエスト (最大 50 件) で一括取得
-        // 旧実装は staff ごとの N+1 リクエストでチャンク並列していたが、
-        // 数十人いるとブラウザ→Edge Function 間のラウンドトリップが詰まるため
-        // バッチエンドポイント (/api/assignments?staff_ids=...) に集約
-        let staffWithScenarios = staffData
-        try {
-          const batch = await assignmentApi.getBatchStaffAssignments(
-            staffData.map((s) => s.id),
-            orgId || undefined
-          )
-          staffWithScenarios = staffData.map((staffMember) => ({
-            ...staffMember,
-            special_scenarios: batch.get(staffMember.id)?.gmScenarios ?? [],
-          }))
-        } catch (err) {
-          logger.error('スタッフ担当シナリオ一括取得エラー:', err)
-          staffWithScenarios = staffData.map((s) => ({ ...s, special_scenarios: [] }))
-        }
-
-        staffRef.current = staffWithScenarios
-        setStaff(staffWithScenarios)
-        sessionStorage.setItem('scheduleStaff', JSON.stringify(staffWithScenarios))
-        setStaffLoading(false)
       } catch (err) {
         logger.error('初期データの読み込みエラー:', err)
         setStoresLoading(false)
-        setStaffLoading(false)
       }
     }
     
@@ -306,15 +273,9 @@ export function useScheduleData(currentDate: Date) {
     }
   }
 
-  // スタッフリストを再読み込み
+  // スタッフリストを再読み込み（担当マージ済みの ['staff'] を再取得）
   const refetchStaff = async () => {
-    try {
-      const staffData = await staffApi.getAll()
-      setStaff(staffData)
-      sessionStorage.setItem('scheduleStaff', JSON.stringify(staffData))
-    } catch (err) {
-      logger.error('スタッフデータの再読み込みエラー:', err)
-    }
+    await invalidateAssignmentQueries(queryClient)
   }
 
   // スケジュールデータを再取得する関数（React Queryキャッシュを無効化して再フェッチ）

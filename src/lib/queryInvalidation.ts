@@ -33,3 +33,19 @@ export function invalidateEverywhere(
     )
   ).then(() => undefined)
 }
+
+/** 担当GM（staff_scenario_assignments）を読む画面の queryKey。画面を増やしたらここへ足す。 */
+export const ASSIGNMENT_QUERY_KEYS: QueryKey[] = [
+  ['staff'],
+  ['scenarios'],
+  ['org-scenarios', 'list'],
+  ['org-scenarios-options'],
+]
+
+/**
+ * 担当の保存後に呼ぶ。シナリオ管理・スタッフ管理・担当作品・スケジュールが
+ * 同じ結合テーブルを読み直す。
+ */
+export function invalidateAssignmentQueries(queryClient: QueryClient): Promise<void> {
+  return invalidateEverywhere(queryClient, ...ASSIGNMENT_QUERY_KEYS)
+}
