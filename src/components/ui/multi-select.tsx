@@ -133,7 +133,7 @@ export function MultiSelect({
   }
 
   return (
-    <div>
+    <div className={showBadges ? 'flex flex-col gap-2' : undefined}>
       <Popover open={open} onOpenChange={setOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
@@ -259,7 +259,7 @@ export function MultiSelect({
 
       {/* バッジ表示エリア */}
       {showBadges && selectedValues && selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-2">
           {selectedValues.map((value) => {
             // useIdAsValueがtrueの場合、IDからnameを取得して表示
             const displayValue = useIdAsValue 
@@ -270,14 +270,14 @@ export function MultiSelect({
                 key={value} 
                 variant="outline" 
                 className={cn(
-                  "flex items-center gap-0.5 font-normal text-xs py-0.5 px-1.5 h-auto",
+                  "inline-flex items-center gap-1.5 font-normal text-xs h-6 px-2 py-0",
                   badgeClassName || "bg-gray-100 border-gray-200 text-gray-700"
                 )}
               >
                 {displayValue}
                 <button
                   type="button"
-                  className="ml-0.5 hover:bg-red-100 p-0.5"
+                  className="inline-flex items-center justify-center hover:bg-red-100"
                   onClick={() => handleRemoveValue(value)}
                 >
                   <X className="h-2.5 w-2.5" />
