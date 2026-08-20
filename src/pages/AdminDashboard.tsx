@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { usePrefetch } from '@/hooks/usePrefetch'
+import { useRouteSeo } from '@/components/seo/RouteSeo'
 import { 
   Store, 
   Calendar, 
@@ -294,6 +295,7 @@ export function AdminDashboard() {
 
   // パスを解析（毎回解析することでURLと表示を同期）
   const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
+  useRouteSeo(currentPage)
 
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
   const organizationSlug = pathOrganizationSlug || organization?.slug || ''

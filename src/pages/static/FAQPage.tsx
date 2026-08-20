@@ -14,6 +14,9 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { FAQItem } from '@/types'
 import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { STATIC_PUBLIC_META, buildFaqJsonLd } from '@/lib/seo'
 
 interface FAQPageProps {
   organizationSlug?: string
@@ -121,6 +124,13 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
   const [organizationName, setOrganizationName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const meta = STATIC_PUBLIC_META.faq
+  usePageMeta({
+    title: organizationName ? `${organizationName} よくある質問 | MMQ` : meta.title,
+    description: meta.description,
+    canonicalPath: slug ? `/${slug}/faq` : meta.path,
+  })
+
   // 共通FAQをライセンス管理者組織から取得
   useEffect(() => {
     const fetchCommonFAQ = async () => {
@@ -214,6 +224,7 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
 
   return (
     <PublicLayout organizationSlug={slug} organizationName={organizationName || undefined}>
+      <JsonLd data={buildFaqJsonLd(allFAQ.map((item) => ({ question: item.question, answer: item.answer })))} />
       {/* ヒーロー */}
       <section 
         className="relative overflow-hidden py-12"

@@ -6,22 +6,79 @@
   "framework": "vite",
   "cleanUrls": false,
   "trailingSlash": false,
-  "redirects": [
-    {
-      "source": "/((?!assets/)(?!api/).*)",
-      "missing": [
-        {
-          "type": "query",
-          "key": "_v"
-        }
-      ],
-      "destination": "/$1?_v=2",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=home"
+    },
+    {
+      "source": "/guide",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=guide"
+    },
+    {
+      "source": "/faq",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=faq"
+    },
+    {
+      "source": "/stores",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=stores"
+    },
+    {
+      "source": "/scenario/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=scenario&slug=:slug"
+    },
+    {
+      "source": "/blog/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=blog&slug=:slug"
+    },
+    {
+      "source": "/((?!assets/)(?!api/)(?!robots\\.txt)(?!sitemap\\.xml).*)",
       "destination": "/index.html"
     }
   ],
@@ -51,15 +108,24 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "CDN-Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "Vercel-CDN-Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     },
@@ -126,4 +192,3 @@
     }
   ]
 }
-

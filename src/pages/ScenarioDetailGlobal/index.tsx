@@ -32,6 +32,14 @@ import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 import { getAvailableSeats } from '@/lib/participantUtils'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { JsonLd } from '@/components/seo/JsonLd'
+import {
+  buildCreativeWorkJsonLd,
+  buildEventJsonLd,
+  scenarioPageDescription,
+  scenarioPageTitle,
+} from '@/lib/seo'
 
 interface ScenarioDetailGlobalProps {
   scenarioSlug: string
@@ -289,6 +297,18 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     queryFn: () => fetchScenarioDetail(scenarioSlug),
   })
 
+  const canonicalSlug = data?.redirectSlug || scenarioSlug
+  const canonicalPath = `/scenario/${canonicalSlug}`
+
+  usePageMeta({
+    title: data?.scenario ? scenarioPageTitle(data.scenario.title) : 'マーダーミステリー公演予約 | MMQ',
+    description: data?.scenario
+      ? scenarioPageDescription(data.scenario.title, data.scenario.description || data.scenario.synopsis)
+      : undefined,
+    canonicalPath,
+    image: data?.scenario?.key_visual_url,
+  })
+
   const { data: playedCustomerId } = useQuery({
     queryKey: ['scenario-played-customer-id', user?.email],
     enabled: !!user?.email,
@@ -456,6 +476,23 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
+      <JsonLd data={buildCreativeWorkJsonLd({
+        title: scenario.title,
+        description: scenario.synopsis || scenario.description,
+        author: scenario.author,
+        image: scenario.key_visual_url,
+        canonicalPath,
+      })} />
+      <JsonLd data={buildEventJsonLd({
+        workTitle: scenario.title,
+        canonicalPath,
+        events: events.map((event) => ({
+          date: event.date,
+          startTime: event.start_time,
+          organizationName: event.organization_name,
+          storeName: event.store_name,
+        })),
+      })} />
       <Header />
 
       <section className="relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>

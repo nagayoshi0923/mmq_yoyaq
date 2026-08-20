@@ -17,6 +17,8 @@ import { formatJstDateJa } from '@/utils/jstDate'
 import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { BlogPost } from '@/types'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { blogPageTitle } from '@/lib/seo'
 
 interface BlogDetailPageProps {
   slug: string
@@ -29,6 +31,15 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
   const [post, setPost] = useState<BlogPost | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+
+  const canonicalPath = organizationSlug ? `/${organizationSlug}/blog/${slug}` : `/blog/${slug}`
+  usePageMeta({
+    title: post ? blogPageTitle(post.title) : '記事 | MMQ',
+    description: post?.excerpt || post?.content?.slice(0, 120),
+    canonicalPath,
+    image: post?.cover_image_url,
+    noindex: notFound,
+  })
 
   useEffect(() => {
     fetchPost()

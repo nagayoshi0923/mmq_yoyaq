@@ -37,6 +37,8 @@ import { Footer } from '@/components/layout/Footer'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { scenarioPageDescription, scenarioPageTitle } from '@/lib/seo'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -75,6 +77,15 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   // データ取得フック（organization_idでフィルタリング）
   const { scenario, events, stores, relatedScenarios, organizationId, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
   const acceptsPrivateBooking = scenario ? isScenarioAcceptingPrivateBooking(scenario) : true
+
+  usePageMeta({
+    title: scenario ? scenarioPageTitle(scenario.scenario_title) : 'マーダーミステリー公演予約 | MMQ',
+    description: scenario
+      ? scenarioPageDescription(scenario.scenario_title, scenario.synopsis || scenario.description)
+      : undefined,
+    canonicalPath: scenario?.slug ? `/scenario/${scenario.slug}` : undefined,
+    image: scenario?.key_visual_url,
+  })
 
   // 貸切受付OFFの作品は貸切タブを開かない
   useEffect(() => {
