@@ -42,6 +42,8 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { getDefaultReservationTemplate } from '@/lib/templateRegistry'
+import { ConfirmDialog } from '@/components/patterns/modal'
 import type { ScenarioFormData, SurveyQuestionFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 
 const labelStyle = "text-xs font-medium mb-0.5 block"
@@ -64,6 +66,8 @@ const QUESTION_TYPES = [
 export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props) {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [quotingTemplate, setQuotingTemplate] = useState(false)
+  const [quoteConfirmOpen, setQuoteConfirmOpen] = useState(false)
 
   const questions = formData.survey_questions || []
 
@@ -106,6 +110,44 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
     setImportDialogOpen(false)
     showToast.success(`${importedQuestions.length}件の質問を追加しました`)
   }, [setFormData])
+
+  const applyQuotedStoreTemplate = useCallback(async () => {
+    setQuotingTemplate(true)
+    try {
+      const orgId = await getCurrentOrganizationId()
+      const storeId = formData.available_stores?.[0] || null
+      let query = supabase
+        .from('email_settings')
+        .select('reservation_confirmation_template, company_name, company_phone, company_email')
+      if (storeId) {
+        query = query.eq('store_id', storeId)
+      } else if (orgId) {
+        query = query.eq('organization_id', orgId)
+      } else {
+        setFormData(prev => ({ ...prev, reservation_confirmation_template: getDefaultReservationTemplate() }))
+        return
+      }
+      const { data, error } = await query.limit(1).maybeSingle()
+      if (error) throw error
+      const quoted = data?.reservation_confirmation_template?.trim()
+        || getDefaultReservationTemplate(data?.company_name || '', data?.company_phone || '', data?.company_email || '')
+      setFormData(prev => ({ ...prev, reservation_confirmation_template: quoted }))
+    } catch (e) {
+      logger.error('店舗テンプレの引用エラー:', e)
+      showToast.error('店舗テンプレの読み込みに失敗しました')
+    } finally {
+      setQuotingTemplate(false)
+      setQuoteConfirmOpen(false)
+    }
+  }, [formData.available_stores, setFormData])
+
+  const handleQuoteStoreTemplate = useCallback(() => {
+    if (formData.reservation_confirmation_template?.trim()) {
+      setQuoteConfirmOpen(true)
+      return
+    }
+    void applyQuotedStoreTemplate()
+  }, [formData.reservation_confirmation_template, applyQuotedStoreTemplate])
 
   const addQuestion = useCallback(() => {
     const newQuestion: SurveyQuestionFormData = {
@@ -365,6 +407,17 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
           rows={8}
           className="text-sm resize-none font-mono"
         />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={handleQuoteStoreTemplate}
+          disabled={quotingTemplate}
+        >
+          {quotingTemplate ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Copy className="h-3 w-3 mr-1" />}
+          店舗テンプレを引用
+        </Button>
         <p className={hintStyle}>公演ダイアログで「この公演だけ上書き」すれば、作品の文面よりそちらが優先されます。</p>
       </div>
 
@@ -375,6 +428,17 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
           公演後のアンケート（満足度調査など）は、設定 &gt; 組織情報 で組織全体に共通のURLを設定できます。
         </p>
       </div>
+
+      <ConfirmDialog
+        open={quoteConfirmOpen}
+        onOpenChange={setQuoteConfirmOpen}
+        title="店舗テンプレを引用しますか？"
+        description="今の上書き文面は、店舗の予約確認テンプレで置き換わります。"
+        confirmLabel="引用する"
+        cancelLabel="キャンセル"
+        onConfirm={applyQuotedStoreTemplate}
+        isLoading={quotingTemplate}
+      />
 
       <ImportQuestionsDialog
         open={importDialogOpen}

@@ -201,7 +201,7 @@ export function ConfirmationEmailOverrideDialog({
 
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleCopyFallback} disabled={saving}>
-                下の段の文面をコピー
+                テンプレを引用
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={handleClear} disabled={saving || !value}>
                 上書きをやめる
