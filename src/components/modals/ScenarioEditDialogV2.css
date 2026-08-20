@@ -1,7 +1,9 @@
-/* Figma 壁打ち 2:3 ScenarioEdit / Sidebar Proposal — Dev Mode 実寸 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+/* Figma 壁打ち 2:3 / MMQ トンマナ — Dev Mode 実寸 */
 
 .scenario-edit-dialog-host {
-  --input-bg: #ffffff;
+  --input-bg: var(--mmq-white);
   --foreground: 210 10% 20%;
   --muted-foreground: 222 8% 49%;
   --primary: 216 22% 12%;
@@ -9,6 +11,12 @@
   --border: 208 19% 85%;
   --input: 208 19% 85%;
   --ring: 216 22% 12%;
+  --muted: 210 20% 97%;
+  font-family: 'Noto Sans JP', sans-serif;
+  color-scheme: light;
+  color: var(--mmq-ink-body);
+  isolation: isolate;
+  filter: none;
   display: flex !important;
   flex-direction: column;
   padding: 0 !important;
@@ -18,10 +26,12 @@
   max-width: min(1280px, 96vw) !important;
   height: min(820px, 92vh) !important;
   max-height: 92vh !important;
-  border: 1px solid var(--mmq-line-frame, #e3e8ed) !important;
+  border: 1px solid var(--mmq-line-frame) !important;
   border-radius: 12px !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18) !important;
-  background: #fff !important;
+  background: var(--mmq-white) !important;
+  animation: none !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 .scenario-edit-dialog__header {
@@ -30,9 +40,9 @@
   justify-content: space-between;
   height: 56px;
   padding: 0 20px;
-  border-bottom: 1px solid #e8ebf0;
+  border-bottom: 1px solid var(--mmq-line-soft);
   flex-shrink: 0;
-  background: #fff;
+  background: var(--mmq-white);
 }
 
 .scenario-edit-dialog__header-left {
@@ -45,8 +55,8 @@
 .scenario-edit-dialog__title {
   font-size: 15px;
   font-weight: 700;
-  color: #1f2126;
-  line-height: normal;
+  color: var(--mmq-ink);
+  line-height: 22px;
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -56,11 +66,11 @@
   align-items: center;
   flex-shrink: 0;
   height: 24px;
-  background: #f6f8fa;
-  color: #6b7380;
+  background: var(--mmq-surface-pill);
+  color: var(--mmq-ink-org);
   font-size: 11px;
   font-weight: 400;
-  line-height: 1;
+  line-height: 16px;
   padding: 0 8px;
   border-radius: 4px;
 }
@@ -75,14 +85,15 @@
   max-width: 16rem;
   width: max-content !important;
   flex: 0 0 auto;
-  background: #f6f9fb !important;
-  border: 1px solid #e0e5eb !important;
+  background: var(--mmq-surface) !important;
+  border: 1px solid var(--mmq-line) !important;
   border-radius: 6px !important;
   padding: 0 10px !important;
   font-size: 12px !important;
   font-weight: 500;
-  color: #26292e;
-  line-height: 1 !important;
+  color: var(--mmq-ink-name);
+  line-height: 18px !important;
+  font-family: inherit;
 }
 
 .scenario-edit-dialog__scenario > span {
@@ -105,9 +116,10 @@
   z-index: 80;
   min-width: 12rem;
   max-height: 16rem;
-  background: #fff;
-  border: 1px solid var(--mmq-line, #e0e5eb);
-  color: var(--mmq-ink-body, #2e3338);
+  background: var(--mmq-white);
+  border: 1px solid var(--mmq-line);
+  color: var(--mmq-ink-body);
+  font-family: 'Noto Sans JP', sans-serif;
 }
 
 .scenario-edit-dialog__close {
@@ -117,27 +129,28 @@
   padding: 0;
   font-size: 12px;
   font-weight: 400;
-  color: #666b75;
-  line-height: normal;
+  color: var(--mmq-ink-close);
+  line-height: 18px;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .scenario-edit-dialog__close:hover {
-  color: #1f2126;
+  color: var(--mmq-ink);
 }
 
 .scenario-edit-dialog__body {
   display: flex;
   flex: 1;
   min-height: 0;
-  background: #fff;
+  background: var(--mmq-white);
 }
 
 .scenario-edit-dialog__nav {
   width: 220px;
   flex-shrink: 0;
-  background: #f6f9fb !important;
-  border-right: 1px solid #e8ebf0;
+  background: var(--mmq-surface) !important;
+  border-right: 1px solid var(--mmq-line-soft);
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
@@ -152,27 +165,28 @@
   padding: 9px 12px;
   border: none;
   border-radius: 8px;
-  background: #fff;
-  color: #474d57;
+  background: var(--mmq-white);
+  color: var(--mmq-ink-subtle);
   font-size: 13px;
   font-weight: 400;
-  line-height: normal;
+  line-height: 20px;
   text-align: left;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .scenario-edit-dialog__nav-item:hover {
-  background: #fff;
+  background: var(--mmq-white);
 }
 
 .scenario-edit-dialog__nav-item.is-selected {
-  background: #171c24;
-  color: #fff;
+  background: var(--mmq-primary);
+  color: var(--mmq-white);
   font-weight: 500;
 }
 
 .scenario-edit-dialog__nav-item.is-selected:hover {
-  background: #171c24;
+  background: var(--mmq-primary);
 }
 
 .scenario-edit-dialog__content {
@@ -180,7 +194,7 @@
   min-width: 0;
   overflow-y: auto;
   padding: 24px 28px;
-  background: #fff;
+  background: var(--mmq-white);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -190,7 +204,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1f2126;
+  color: var(--mmq-ink);
   line-height: 29px;
 }
 
@@ -202,8 +216,8 @@
   min-height: 64px;
   height: auto;
   padding: 16px 20px;
-  border-top: 1px solid #e8ebf0;
-  background: #fff;
+  border-top: 1px solid var(--mmq-line-soft);
+  background: var(--mmq-white);
   flex-shrink: 0;
 }
 
@@ -215,12 +229,12 @@
   gap: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #2e3338;
-  line-height: normal;
+  color: var(--mmq-ink-body);
+  line-height: 20px;
 }
 
 .scenario-edit-dialog__meta-sep {
-  color: #bfc4cc;
+  color: var(--mmq-ink-sep);
   font-size: 12px;
   font-weight: 400;
 }
@@ -242,24 +256,24 @@
 .scenario-edit-dialog__status {
   font-size: 11px;
   font-weight: 500;
-  line-height: normal;
+  line-height: 16px;
   padding: 4px 8px;
   border-radius: 4px;
 }
 
 .scenario-edit-dialog__status.is-public {
-  background: #dbfae8;
-  color: #177345;
+  background: var(--mmq-success-bg);
+  color: var(--mmq-success-fg);
 }
 
 .scenario-edit-dialog__status.is-draft {
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--mmq-surface);
+  color: var(--mmq-ink-subtle);
 }
 
 .scenario-edit-dialog__status.is-private {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--mmq-surface-pill);
+  color: var(--mmq-ink-org);
 }
 
 .scenario-edit-dialog__btn {
@@ -270,17 +284,18 @@
   height: 32px;
   padding: 0 12px;
   border-radius: 6px;
-  border: 1px solid #d1d9e0;
-  background: #fff;
-  color: #2e3338;
+  border: 1px solid var(--mmq-line-strong);
+  background: var(--mmq-white);
+  color: var(--mmq-ink-body);
   font-size: 13px;
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .scenario-edit-dialog__btn:hover {
-  background: #f6f9fb;
+  background: var(--mmq-surface);
 }
 
 .scenario-edit-dialog__btn:disabled {
@@ -296,17 +311,18 @@
   height: 32px;
   padding: 0 16px;
   border-radius: 6px;
-  border: 1px solid #171c24;
-  background: #171c24;
-  color: #fff;
+  border: 1px solid var(--mmq-primary);
+  background: var(--mmq-primary);
+  color: var(--mmq-white);
   font-size: 13px;
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .scenario-edit-dialog__btn-primary:hover {
-  background: #2a3038;
+  background: var(--mmq-ink-name);
 }
 
 .scenario-edit-dialog__btn-primary:disabled {
@@ -320,8 +336,8 @@
   align-items: stretch;
   gap: 10px;
   width: 100%;
-  background: #f6f9fb !important;
-  border: 1px solid #e0e5eb !important;
+  background: var(--mmq-surface) !important;
+  border: 1px solid var(--mmq-line) !important;
   border-radius: 10px;
   padding: 16px;
 }
@@ -335,8 +351,8 @@
 .scenario-edit-card input,
 .scenario-edit-card textarea,
 .scenario-edit-card [role="combobox"] {
-  background: #fff !important;
-  border-color: #d1d9e0 !important;
+  background: var(--mmq-white) !important;
+  border-color: var(--mmq-line-strong) !important;
 }
 
 .scenario-edit-card__title {
@@ -346,8 +362,8 @@
   margin: 0;
   font-size: 13px;
   font-weight: 500;
-  color: #474d57;
-  line-height: 21px;
+  color: var(--mmq-ink-subtle);
+  line-height: 20px;
 }
 
 .scenario-edit-dialog-host button[role="switch"] {
@@ -358,24 +374,24 @@
   margin: 0;
   font-size: 12px;
   font-weight: 400;
-  color: #737885;
-  line-height: 19px;
+  color: var(--mmq-ink-muted);
+  line-height: 18px;
 }
 
 .scenario-edit-card__note {
   margin: 0;
   font-size: 11px;
   font-weight: 400;
-  color: #80858f;
-  line-height: 18px;
+  color: var(--mmq-ink-note);
+  line-height: 16px;
 }
 
 .scenario-edit-card__sublabel {
   margin: 0 0 4px;
   font-size: 11px;
   font-weight: 500;
-  color: #80858f;
-  line-height: 18px;
+  color: var(--mmq-ink-note);
+  line-height: 16px;
 }
 
 .scenario-edit-card__textarea {
@@ -386,14 +402,15 @@
   min-height: 220px !important;
   margin: 0;
   padding: 12px !important;
-  border: 1px solid #d1d9e0 !important;
+  border: 1px solid var(--mmq-line-strong) !important;
   border-radius: 8px !important;
-  background: #fff !important;
+  background: var(--mmq-white) !important;
   font-size: 12px !important;
   font-weight: 400;
   line-height: 19px !important;
-  color: #2e3338;
+  color: var(--mmq-ink-body);
   resize: none;
+  font-family: inherit;
 }
 
 .scenario-edit-card__textarea.is-short {
@@ -405,17 +422,18 @@
   height: auto;
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid #d1d9e0;
-  background: #fff;
-  color: #2e3338;
+  border: 1px solid var(--mmq-line-strong);
+  background: var(--mmq-white);
+  color: var(--mmq-ink-body);
   font-size: 12px;
   font-weight: 500;
-  line-height: 19px;
+  line-height: 18px;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .scenario-edit-card__quote:hover {
-  background: #fff;
+  background: var(--mmq-white);
 }
 
 .scenario-edit-card__quote:disabled {
@@ -423,11 +441,15 @@
   cursor: not-allowed;
 }
 
-/* Figma 2:3 の色を、ShadCN / Tailwind のグローバル色より優先する */
+/* 背景は Figma アートボード #26292E。#8c9297 だと surface が濁って見える */
 .scenario-edit-dialog-overlay {
-  background-color: #8c9297 !important;
+  background: var(--mmq-overlay) !important;
+  background-color: var(--mmq-overlay) !important;
+  background-image: none !important;
+  opacity: 1 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  animation: none !important;
 }
 
 .scenario-edit-dialog-host,
@@ -435,78 +457,89 @@
 .scenario-edit-dialog-host .scenario-edit-dialog__body,
 .scenario-edit-dialog-host .scenario-edit-dialog__content,
 .scenario-edit-dialog-host .scenario-edit-dialog__footer {
-  background-color: #ffffff !important;
+  background-color: var(--mmq-white) !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-dialog__nav {
+  background-color: var(--mmq-surface) !important;
+}
+
+.scenario-edit-dialog-host .scenario-edit-card {
+  background-color: var(--mmq-surface) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-dialog__title,
 .scenario-edit-dialog-host .scenario-edit-dialog__page-title {
-  color: #1f2126 !important;
+  color: var(--mmq-ink) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-dialog__nav-item {
-  background-color: #ffffff !important;
-  color: #474d57 !important;
+  background-color: var(--mmq-white) !important;
+  color: var(--mmq-ink-subtle) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-dialog__nav-item.is-selected,
 .scenario-edit-dialog-host .scenario-edit-dialog__nav-item.is-selected:hover {
-  background-color: #171c24 !important;
-  color: #ffffff !important;
+  background-color: var(--mmq-primary) !important;
+  color: var(--mmq-white) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-card__title {
-  color: #474d57 !important;
+  color: var(--mmq-ink-subtle) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-card__help {
-  color: #737885 !important;
+  color: var(--mmq-ink-muted) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-card__note,
 .scenario-edit-dialog-host .scenario-edit-card__sublabel {
-  color: #80858f !important;
+  color: var(--mmq-ink-note) !important;
 }
 
 .scenario-edit-dialog-host [class*="text-muted"],
 .scenario-edit-dialog-host [class*="text-slate"],
 .scenario-edit-dialog-host [class*="text-gray"] {
-  color: #737885 !important;
+  color: var(--mmq-ink-muted) !important;
 }
 
-.scenario-edit-dialog-host [class*="bg-muted"] {
-  background-color: #eef2f5 !important;
+.scenario-edit-dialog-host [class*="bg-muted"],
+.scenario-edit-dialog-host [class*="bg-accent"],
+.scenario-edit-dialog-host [class*="bg-gray-50"],
+.scenario-edit-dialog-host [class*="bg-slate-50"] {
+  background-color: var(--mmq-surface) !important;
 }
 
 .scenario-edit-dialog-host [class*="border-input"],
 .scenario-edit-dialog-host [class*="border-gray"],
 .scenario-edit-dialog-host [class*="border-slate"] {
-  border-color: #d1d9e0 !important;
+  border-color: var(--mmq-line-strong) !important;
 }
 
 .scenario-edit-dialog-host [class*="bg-primary"] {
-  background-color: #171c24 !important;
+  background-color: var(--mmq-primary) !important;
 }
 
 .scenario-edit-dialog-host [class*="border-primary"] {
-  border-color: #171c24 !important;
+  border-color: var(--mmq-primary) !important;
 }
 
 .scenario-edit-dialog-host [class*="text-primary"] {
-  color: #171c24 !important;
+  color: var(--mmq-primary) !important;
 }
 
 .scenario-edit-dialog-host button[role="switch"][data-state="checked"] {
-  background-color: #171c24 !important;
+  background-color: var(--mmq-primary) !important;
 }
 
 .scenario-edit-dialog-host button[role="switch"][data-state="unchecked"] {
-  background-color: #d1d9e0 !important;
+  background-color: var(--mmq-line-strong) !important;
 }
 
 .scenario-edit-dialog-host .scenario-edit-card input,
 .scenario-edit-dialog-host .scenario-edit-card textarea,
 .scenario-edit-dialog-host .scenario-edit-card [role="combobox"] {
-  background-color: #ffffff !important;
-  border-color: #d1d9e0 !important;
-  color: #2e3338 !important;
+  background-color: var(--mmq-white) !important;
+  border-color: var(--mmq-line-strong) !important;
+  color: var(--mmq-ink-body) !important;
 }
