@@ -160,7 +160,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       ) : (
         <div className="space-y-3">
           {characters.map((character, index) => (
-            <div key={character.id} className="rounded-lg border bg-white p-3">
+            <div key={character.id} className="scenario-edit-card">
               <div>
                 <div className="flex flex-col md:flex-row gap-2">
                   {/* ハンドル＋画像（モバイルは上段横並び、md以上は3列の左2列） */}
