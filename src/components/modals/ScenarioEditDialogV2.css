@@ -22,6 +22,7 @@
   padding: 0 !important;
   gap: 0 !important;
   overflow: hidden !important;
+  overflow-x: hidden !important;
   width: min(1280px, 96vw) !important;
   max-width: min(1280px, 96vw) !important;
   height: min(820px, 92vh) !important;
@@ -192,7 +193,9 @@
 .scenario-edit-dialog__content {
   flex: 1;
   min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px 28px;
   background: var(--mmq-white);
   display: flex;
@@ -336,10 +339,51 @@
   align-items: stretch;
   gap: 10px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   background: var(--mmq-surface) !important;
   border: 1px solid var(--mmq-line) !important;
   border-radius: 10px;
   padding: 16px;
+  box-sizing: border-box;
+}
+
+.scenario-edit-card input[type="date"] {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scenario-edit-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.scenario-edit-field__label {
+  width: 88px;
+  flex-shrink: 0;
+  padding-top: 6px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--mmq-ink-muted);
+}
+
+.scenario-edit-field__control {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.scenario-edit-field__control input[type="date"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .scenario-edit-card.is-row {
@@ -684,6 +728,18 @@
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+  }
+
+  .scenario-edit-field {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .scenario-edit-field__label {
+    width: auto;
+    max-width: 100%;
+    text-align: left;
+    padding-top: 0;
   }
 
   /* 料金テーブルなど 4 列グリッドを 2 列に */

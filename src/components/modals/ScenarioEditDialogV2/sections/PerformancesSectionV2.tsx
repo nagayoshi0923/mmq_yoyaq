@@ -367,24 +367,31 @@ export function PerformancesSectionV2({
           <CalendarDays className="h-3.5 w-3.5" />公演実績フィルター
         </p>
           {/* 期間指定 */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-[56px] shrink-0 text-right">期間</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-7 text-xs w-[140px]"
-                placeholder="開始日"
-              />
-              <span className="text-sm text-muted-foreground">〜</span>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-7 text-xs w-[140px]"
-                placeholder="終了日"
-              />
+          <div className="scenario-edit-field">
+            <span className="scenario-edit-field__label">期間</span>
+            <div className="scenario-edit-field__control space-y-2">
+              <div className="grid grid-cols-1 gap-2">
+                <label className="min-w-0 block space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground">開始</span>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="h-7 w-full min-w-0 max-w-full text-xs"
+                    placeholder="開始日"
+                  />
+                </label>
+                <label className="min-w-0 block space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground">終了</span>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="h-7 w-full min-w-0 max-w-full text-xs"
+                    placeholder="終了日"
+                  />
+                </label>
+              </div>
               {(startDate || endDate) && (
                 <Button
                   onClick={() => {
@@ -393,7 +400,7 @@ export function PerformancesSectionV2({
                   }}
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs"
+                  className="h-7 w-fit shrink-0 text-xs"
                 >
                   クリア
                 </Button>
