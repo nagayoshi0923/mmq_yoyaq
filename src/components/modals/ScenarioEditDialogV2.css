@@ -559,3 +559,135 @@
   border-color: var(--mmq-line-strong) !important;
   color: var(--mmq-ink-body) !important;
 }
+
+/* ── モバイル: 左ナビ固定幅のまま横並びだと本文が潰れる ── */
+@media (max-width: 767px) {
+  .scenario-edit-dialog-host {
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    transform: none !important;
+    --tw-translate-x: 0 !important;
+    --tw-translate-y: 0 !important;
+  }
+
+  .scenario-edit-dialog__header {
+    height: auto;
+    min-height: 48px;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .scenario-edit-dialog__header-left {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .scenario-edit-dialog__title {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .scenario-edit-dialog__org {
+    display: none;
+  }
+
+  .scenario-edit-dialog__scenario {
+    min-width: 0;
+    max-width: min(14rem, 55vw);
+    flex: 1 1 8rem;
+  }
+
+  .scenario-edit-dialog__scenario > span {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .scenario-edit-dialog__body {
+    flex-direction: column;
+  }
+
+  .scenario-edit-dialog__nav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--mmq-line-soft);
+    padding: 8px;
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .scenario-edit-dialog__nav-item {
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+
+  .scenario-edit-dialog__content {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .scenario-edit-dialog__page-title {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .scenario-edit-dialog__footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .scenario-edit-dialog__meta {
+    display: none;
+  }
+
+  .scenario-edit-dialog__actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .scenario-edit-dialog__btn,
+  .scenario-edit-dialog__btn-primary {
+    min-height: 36px;
+    height: auto;
+    padding: 8px 12px;
+  }
+
+  .scenario-edit-card {
+    padding: 12px;
+  }
+
+  .scenario-edit-card.is-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* 料金テーブルなど 4 列グリッドを 2 列に */
+  .scenario-edit-dialog-host .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

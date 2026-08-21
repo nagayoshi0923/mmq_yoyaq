@@ -146,7 +146,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               const status = getPeriodStatus(cost.startDate, cost.endDate)
               const isCustom = !PRESET_SLOTS.includes(cost.time_slot as typeof PRESET_SLOTS[number])
               return (
-                <div key={index} className="flex items-center gap-2 py-1.5 border-b last:border-0">
+                <div key={index} className="flex flex-wrap items-center gap-2 py-1.5 border-b last:border-0">
                   {/* 種別 */}
                   {isCustom ? (
                     <Input value={cost.time_slot}
