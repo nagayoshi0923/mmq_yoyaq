@@ -138,7 +138,9 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         <p className="scenario-edit-card__title">
           <Coins className="h-3.5 w-3.5" />参加費
         </p>
-        <p className="text-[11px] text-muted-foreground -mt-1">時間帯別のお客様参加料金。期間を設定すると価格改定に対応できます</p>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          時間帯別のお客様参加料金。ここを変更しても、すでに受け付けた予約の金額は当時のまま残ります。これから取る予約から新料金が適用されます。期間を設定すると価格改定の切替日にも対応できます
+        </p>
           <div className="space-y-1.5">
             {(formData.participation_costs || []).map((cost, index) => {
               const status = getPeriodStatus(cost.startDate, cost.endDate)

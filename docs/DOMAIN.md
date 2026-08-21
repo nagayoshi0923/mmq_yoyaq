@@ -22,6 +22,7 @@ organizations（テナント境界・最上位）
 - **scenario_masters** = 原本（タイトル・作者・人数・公式尺）。org間で共有
 - **organization_scenarios** = org 導入版（参加費・GMコスト・kit_count・配役方式）
 - 公演・予約は両方参照できる。**scenario_master_id が NULL だと給与計算・キット需要から黙って脱落する**（本番273件再リンクの実績あり）
+- **参加費の改定**: 予約作成時に `reservations.base_price` / `unit_price` / `final_price` へスナップショットされる。シナリオ側の参加費を後から変えても受付済み予約の金額は変わらない（新規予約から新料金）
 
 ### 公演枠（schedule_events）
 - `category`: open / private / gmtest / testplay / offsite / venue_rental(+free) / package / mtg
