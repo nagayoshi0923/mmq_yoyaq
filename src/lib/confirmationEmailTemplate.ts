@@ -32,3 +32,11 @@ export const CONFIRMATION_TEMPLATE_SOURCE_LABEL: Record<ConfirmationTemplateSour
   store: '店舗の予約確認テンプレ',
   default: 'システムの既定文面',
 }
+
+export function confirmationSourceLabel(
+  source: ConfirmationTemplateSource,
+  storeLabel = CONFIRMATION_TEMPLATE_SOURCE_LABEL.store,
+): string {
+  if (source === 'store') return storeLabel
+  return CONFIRMATION_TEMPLATE_SOURCE_LABEL[source]
+}

@@ -674,7 +674,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   {
     key: 'private_confirm_template',
     title: '貸切予約確定メール',
-    description: '貸切予約の承認時に自動送信',
+    description: '貸切予約の承認時に自動送信。作品または公演で上書きしている場合はそちらを優先',
     category: 'private',
     getDefault: getDefaultPrivateConfirmTemplate
   },

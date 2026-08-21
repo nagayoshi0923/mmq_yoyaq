@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickConfirmationEmailTemplate } from './confirmationEmailTemplate'
+import { confirmationSourceLabel, pickConfirmationEmailTemplate } from './confirmationEmailTemplate'
 
 describe('pickConfirmationEmailTemplate', () => {
   it('公演上書きを最優先する', () => {
@@ -36,5 +36,10 @@ describe('pickConfirmationEmailTemplate', () => {
       storeTemplate: ' \n',
     })
     expect(result).toEqual({ template: null, source: 'default' })
+  })
+
+  it('店舗ラベルを貸切用に差し替えられる', () => {
+    expect(confirmationSourceLabel('store', '店舗の貸切確定テンプレ')).toBe('店舗の貸切確定テンプレ')
+    expect(confirmationSourceLabel('scenario', '店舗の貸切確定テンプレ')).toBe('この作品の上書き')
   })
 })

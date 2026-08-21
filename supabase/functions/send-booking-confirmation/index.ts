@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
-import { pickConfirmationEmailTemplate } from '../_shared/confirmation-email-template.ts'
+import { loadOverrideTemplates, pickOverrideTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
@@ -51,7 +51,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id, schedule_event_id')
+      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -111,45 +111,16 @@ serve(async (req) => {
     const companyPhone = storeEmailSettings?.company_phone || ''
     
     // 公演上書き → 作品上書き → 店舗テンプレ
-    let eventTemplate: string | null = null
-    let scenarioTemplate: string | null = null
-    if (reservation.schedule_event_id) {
-      let eventQuery = serviceClient
-        .from('schedule_events')
-        .select('reservation_confirmation_template, organization_scenario_id, organization_id')
-        .eq('id', reservation.schedule_event_id)
-      if (resolvedOrganizationId) {
-        eventQuery = eventQuery.eq('organization_id', resolvedOrganizationId)
-      }
-      const { data: eventRow } = await eventQuery.maybeSingle()
-      const eventOrgOk = !resolvedOrganizationId
-        || !eventRow?.organization_id
-        || eventRow.organization_id === resolvedOrganizationId
-      if (eventRow && eventOrgOk) {
-        eventTemplate = eventRow.reservation_confirmation_template ?? null
-        if (eventRow.organization_scenario_id) {
-          let scenarioQuery = serviceClient
-            .from('organization_scenarios')
-            .select('reservation_confirmation_template, organization_id')
-            .eq('id', eventRow.organization_scenario_id)
-          if (resolvedOrganizationId) {
-            scenarioQuery = scenarioQuery.eq('organization_id', resolvedOrganizationId)
-          }
-          const { data: scenarioRow } = await scenarioQuery.maybeSingle()
-          const scenarioOrgOk = !resolvedOrganizationId
-            || !scenarioRow?.organization_id
-            || scenarioRow.organization_id === resolvedOrganizationId
-          if (scenarioRow && scenarioOrgOk) {
-            scenarioTemplate = scenarioRow.reservation_confirmation_template ?? null
-          }
-        }
-      }
-    }
-    const pickedTemplate = pickConfirmationEmailTemplate({
-      eventTemplate,
-      scenarioTemplate,
-      storeTemplate: storeEmailSettings?.reservation_confirmation_template,
+    const overrides = await loadOverrideTemplates(serviceClient, {
+      organizationId: resolvedOrganizationId,
+      scheduleEventId: reservation.schedule_event_id,
+      scenarioMasterId: reservation.scenario_master_id,
     })
+    const pickedTemplate = pickOverrideTemplate(
+      'reservation',
+      overrides,
+      storeEmailSettings?.reservation_confirmation_template,
+    )
     const customTemplate = pickedTemplate.template
 
     // -------------------------------------------------------------------------

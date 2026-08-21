@@ -123,6 +123,8 @@ export interface ScenarioFormData {
   individual_notice_template?: string | null
   // 予約確定メールの作品上書き（空なら店舗テンプレ）
   reservation_confirmation_template?: string | null
+  // 貸切確定メールの作品上書き（空なら店舗テンプレ）
+  private_confirm_template?: string | null
   // 配役方法
   character_assignment_method?: 'survey' | 'self'
   // アンケート設定

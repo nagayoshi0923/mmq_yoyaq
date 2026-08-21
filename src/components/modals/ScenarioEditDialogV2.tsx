@@ -900,16 +900,18 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   try {
                     const { data: tplData } = await supabase
                       .from('organization_scenarios')
-                      .select('individual_notice_template, reservation_confirmation_template')
+                      .select('individual_notice_template, reservation_confirmation_template, private_confirm_template')
                       .eq('id', osData.id)
                       .maybeSingle()
                     const notice = (tplData as { individual_notice_template?: string | null } | null)?.individual_notice_template
                     const confirmTpl = (tplData as { reservation_confirmation_template?: string | null } | null)?.reservation_confirmation_template
-                    if (notice || confirmTpl) {
+                    const privateTpl = (tplData as { private_confirm_template?: string | null } | null)?.private_confirm_template
+                    if (notice || confirmTpl || privateTpl) {
                       setFormData(prev => ({
                         ...prev,
                         ...(notice ? { individual_notice_template: notice } : {}),
                         ...(confirmTpl ? { reservation_confirmation_template: confirmTpl } : {}),
+                        ...(privateTpl ? { private_confirm_template: privateTpl } : {}),
                       }))
                     }
                   } catch {
@@ -1247,16 +1249,22 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             if (orgScenarioId && (
               formData.individual_notice_template !== undefined
               || formData.reservation_confirmation_template !== undefined
+              || formData.private_confirm_template !== undefined
             )) {
               try {
-                await supabase
+                const { error: tplError } = await supabase
                   .from('organization_scenarios')
                   .update({
                     individual_notice_template: formData.individual_notice_template || null,
                     reservation_confirmation_template: formData.reservation_confirmation_template?.trim() || null,
+                    private_confirm_template: formData.private_confirm_template?.trim() || null,
                   })
                   .eq('id', orgScenarioId)
                   .eq('organization_id', organizationId)
+                if (tplError) {
+                  logger.error('メール上書きの保存エラー:', tplError)
+                  showToast.error('メール上書きの保存に失敗しました')
+                }
               } catch {
                 // カラムが存在しない場合は無視
               }

@@ -1,5 +1,5 @@
 /**
- * 予約確定メールの公演上書き編集。
+ * 予約確定 / 貸切確定メールの公演上書き編集。
  * 空で保存すると上書きを消し、作品上書き → 店舗テンプレの順に戻る。
  */
 import { useEffect, useState } from 'react'
@@ -20,17 +20,46 @@ import {
   getTemplateConfig,
   getTemplateVariables,
   renderTemplateWithSamples,
+  type EmailTemplateKey,
 } from '@/lib/templateRegistry'
 import { VariableHintChips } from '@/components/settings/VariableHintChips'
 import {
-  CONFIRMATION_TEMPLATE_SOURCE_LABEL,
+  confirmationSourceLabel,
   pickConfirmationEmailTemplate,
   type ConfirmationTemplateSource,
 } from '@/lib/confirmationEmailTemplate'
 
+export type ConfirmationOverrideKey =
+  | 'reservation_confirmation_template'
+  | 'private_confirm_template'
+
+const OVERRIDE_COPY: Record<ConfirmationOverrideKey, {
+  title: string
+  scope: string
+  storeLabel: string
+  saveSuccess: string
+  placeholder: string
+}> = {
+  reservation_confirmation_template: {
+    title: 'この公演の予約確認メール',
+    scope: 'この公演の通常予約だけに使います',
+    storeLabel: '店舗の予約確認テンプレ',
+    saveSuccess: 'この公演の予約確認メールを保存しました',
+    placeholder: '空欄のままなら、作品または店舗の予約確認テンプレを使います',
+  },
+  private_confirm_template: {
+    title: 'この公演の貸切確定メール',
+    scope: 'この公演の貸切承認だけに使います',
+    storeLabel: '店舗の貸切確定テンプレ',
+    saveSuccess: 'この公演の貸切確定メールを保存しました',
+    placeholder: '空欄のままなら、作品または店舗の貸切確定テンプレを使います',
+  },
+}
+
 interface ConfirmationEmailOverrideDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  templateKey?: ConfirmationOverrideKey
   eventId: string | null | undefined
   storeId: string | null | undefined
   organizationScenarioId?: string | null
@@ -39,11 +68,13 @@ interface ConfirmationEmailOverrideDialogProps {
 export function ConfirmationEmailOverrideDialog({
   open,
   onOpenChange,
+  templateKey = 'reservation_confirmation_template',
   eventId,
   storeId,
   organizationScenarioId,
 }: ConfirmationEmailOverrideDialogProps) {
-  const config = getTemplateConfig('reservation_confirmation_template')
+  const config = getTemplateConfig(templateKey as EmailTemplateKey)
+  const copy = OVERRIDE_COPY[templateKey]
   const [value, setValue] = useState('')
   const [savedOverride, setSavedOverride] = useState('')
   const [fallbackTemplate, setFallbackTemplate] = useState('')
@@ -62,7 +93,7 @@ export function ConfirmationEmailOverrideDialog({
         const orgId = await getCurrentOrganizationId()
         const eventQuery = supabase
           .from('schedule_events')
-          .select('reservation_confirmation_template, organization_id, organization_scenario_id')
+          .select('reservation_confirmation_template, private_confirm_template, organization_id, organization_scenario_id')
           .eq('id', eventId)
         const { data: eventRow, error: eventError } = orgId
           ? await eventQuery.eq('organization_id', orgId).maybeSingle()
@@ -74,16 +105,16 @@ export function ConfirmationEmailOverrideDialog({
         if (scenarioId) {
           let scenarioQuery = supabase
             .from('organization_scenarios')
-            .select('reservation_confirmation_template')
+            .select('reservation_confirmation_template, private_confirm_template')
             .eq('id', scenarioId)
           if (orgId) scenarioQuery = scenarioQuery.eq('organization_id', orgId)
           const { data: scenarioRow } = await scenarioQuery.maybeSingle()
-          scenarioTemplate = scenarioRow?.reservation_confirmation_template ?? null
+          scenarioTemplate = scenarioRow?.[templateKey] ?? null
         }
 
         let storeQuery = supabase
           .from('email_settings')
-          .select('company_name, company_phone, company_email, reservation_confirmation_template')
+          .select('company_name, company_phone, company_email, reservation_confirmation_template, private_confirm_template')
         storeQuery = storeId
           ? storeQuery.eq('store_id', storeId)
           : orgId
@@ -101,11 +132,11 @@ export function ConfirmationEmailOverrideDialog({
           company_email: companyEmail,
         })
 
-        const override = eventRow?.reservation_confirmation_template?.trim() || ''
+        const override = eventRow?.[templateKey]?.trim() || ''
         const fallback = pickConfirmationEmailTemplate({
           eventTemplate: null,
           scenarioTemplate,
-          storeTemplate: storeRow?.reservation_confirmation_template,
+          storeTemplate: storeRow?.[templateKey],
         })
         setSavedOverride(override)
         setValue(override)
@@ -123,7 +154,7 @@ export function ConfirmationEmailOverrideDialog({
     return () => {
       cancelled = true
     }
-  }, [open, eventId, storeId, organizationScenarioId, config])
+  }, [open, eventId, storeId, organizationScenarioId, config, templateKey])
 
   const handleCopyFallback = () => {
     setValue(fallbackTemplate)
@@ -145,12 +176,12 @@ export function ConfirmationEmailOverrideDialog({
       const next = value.trim() || null
       const { error } = await supabase
         .from('schedule_events')
-        .update({ reservation_confirmation_template: next })
+        .update({ [templateKey]: next })
         .eq('id', eventId)
         .eq('organization_id', orgId)
       if (error) throw error
       setSavedOverride(next || '')
-      showToast.success(next ? 'この公演の予約確認メールを保存しました' : '上書きを解除し、下の段のテンプレに戻しました')
+      showToast.success(next ? copy.saveSuccess : '上書きを解除し、下の段のテンプレに戻しました')
       onOpenChange(false)
     } catch (e) {
       logger.error('公演メール上書きの保存エラー:', e)
@@ -163,14 +194,16 @@ export function ConfirmationEmailOverrideDialog({
   const variables = getTemplateVariables(config)
   const hasOverride = Boolean(value.trim())
   const activeSource: ConfirmationTemplateSource = hasOverride ? 'event' : fallbackSource
+  const fallbackLabel = confirmationSourceLabel(fallbackSource, copy.storeLabel)
+  const activeLabel = confirmationSourceLabel(activeSource, copy.storeLabel)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>この公演の予約確認メール</DialogTitle>
+          <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>
-            空欄なら {CONFIRMATION_TEMPLATE_SOURCE_LABEL[fallbackSource]} を送ります。書いた内容はこの公演の予約だけに使います。
+            空欄なら {fallbackLabel} を送ります。書いた内容は{copy.scope}。
           </DialogDescription>
         </DialogHeader>
 
@@ -179,7 +212,7 @@ export function ConfirmationEmailOverrideDialog({
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              今送られる文面: {CONFIRMATION_TEMPLATE_SOURCE_LABEL[activeSource]}
+              今送られる文面: {activeLabel}
               {savedOverride ? '（保存済みの上書きあり）' : ''}
             </p>
             <div className="space-y-1">
@@ -196,7 +229,7 @@ export function ConfirmationEmailOverrideDialog({
               onChange={(e) => setValue(e.target.value)}
               rows={16}
               className="font-mono text-sm"
-              placeholder="空欄のままなら、作品または店舗のテンプレを使います"
+              placeholder={copy.placeholder}
             />
 
             <div className="flex flex-wrap gap-2">

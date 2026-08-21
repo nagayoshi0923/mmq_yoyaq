@@ -15,7 +15,7 @@ import type { NewParticipant } from './reservationList/newParticipant'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './reservationList/cancellationEmailState'
 import { showToast } from '@/utils/toast'
 import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
-import { ConfirmationEmailOverrideDialog } from '@/components/settings/ConfirmationEmailOverrideDialog'
+import { ConfirmationEmailOverrideDialog, type ConfirmationOverrideKey } from '@/components/settings/ConfirmationEmailOverrideDialog'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 
@@ -82,7 +82,7 @@ export function ReservationList({
   const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
   const [isDeletingEvent, setIsDeletingEvent] = useState(false) // イベント削除中フラグ
   const [emailContent, setEmailContent] = useState<ReservationCancellationEmailState>(EMPTY_CANCELLATION_EMAIL_STATE)
-  const [eventConfirmOverrideOpen, setEventConfirmOverrideOpen] = useState(false)
+  const [eventConfirmOverrideKey, setEventConfirmOverrideKey] = useState<ConfirmationOverrideKey | null>(null)
   
   // メール本文の生成は共通モジュール（lib/cancellationEmail）に移動。
   // 公演の中止・削除フロー（DeleteEventCancelDialog）と同じロジックを共有する
@@ -224,11 +224,28 @@ export function ReservationList({
                     showToast.error('公演を保存してから、この公演用の文面を設定できます')
                     return
                   }
-                  setEventConfirmOverrideOpen(true)
+                  setEventConfirmOverrideKey('reservation_confirmation_template')
                 }}
               >
                 <Mail className="h-3 w-3 mr-1" />
-                この公演だけ上書き
+                予約確認を上書き
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                disabled={!event?.id}
+                onClick={() => {
+                  if (!event?.id) {
+                    showToast.error('公演を保存してから、この公演用の文面を設定できます')
+                    return
+                  }
+                  setEventConfirmOverrideKey('private_confirm_template')
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1" />
+                貸切確定を上書き
               </Button>
               <TemplateEditButton
                 templateKey="booking_change_template"
@@ -505,8 +522,9 @@ export function ReservationList({
       />
 
       <ConfirmationEmailOverrideDialog
-        open={eventConfirmOverrideOpen}
-        onOpenChange={setEventConfirmOverrideOpen}
+        open={eventConfirmOverrideKey !== null}
+        onOpenChange={(open) => { if (!open) setEventConfirmOverrideKey(null) }}
+        templateKey={eventConfirmOverrideKey ?? 'reservation_confirmation_template'}
         eventId={event?.id}
         storeId={cancellationTemplateStoreId}
         organizationScenarioId={event?.organization_scenario_id || currentEventData.organization_scenario_id}

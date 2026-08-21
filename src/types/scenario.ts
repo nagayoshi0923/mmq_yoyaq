@@ -128,6 +128,7 @@ export interface Scenario {
   accepts_private_booking?: boolean | null
   individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文
   reservation_confirmation_template?: string | null // 予約確定メールの作品上書き
+  private_confirm_template?: string | null // 貸切確定メールの作品上書き
   character_assignment_method?: 'survey' | 'self' // 配役方法
   org_status?: 'available' | 'unavailable' | 'coming_soon' // 組織側ステータス（生値）
   pricing_patterns?: any[] // 料金パターン

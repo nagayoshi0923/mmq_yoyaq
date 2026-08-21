@@ -421,7 +421,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 storeName, storeAddress: selectedStore?.address || undefined,
                 participantCount: selectedRequest?.participant_count || 0, totalPrice: priceToUse,
                 reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
-                notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined
+                notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined,
+                scheduleEventId: scheduleEventId || undefined,
+                scenarioMasterId: selectedRequest?.scenario_master_id || undefined,
               }
             })
             if (emailErr) logger.error('貸切予約確定メール送信エラー:', emailErr)

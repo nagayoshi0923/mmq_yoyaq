@@ -69,6 +69,7 @@ CREATE TABLE public.organization_scenarios (
   booking_end_date DATE,
   individual_notice_template TEXT,
   reservation_confirmation_template TEXT,
+  private_confirm_template TEXT,
   character_assignment_method TEXT NOT NULL DEFAULT 'survey'::text,
   private_booking_time_slots TEXT[],
   -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）

@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
+import { loadOverrideTemplates, pickOverrideTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
@@ -21,6 +22,8 @@ interface PrivateBookingConfirmationRequest {
   totalPrice: number
   reservationNumber: string
   notes?: string
+  scheduleEventId?: string
+  scenarioMasterId?: string
 }
 
 serve(async (req) => {
@@ -51,7 +54,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id')
+      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -100,8 +103,18 @@ serve(async (req) => {
     const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
     const companyPhone = storeEmailSettings?.company_phone || ''
     
-    // カスタムテンプレートの取得
-    const customTemplate = storeEmailSettings?.private_confirm_template
+    // 公演上書き → 作品上書き → 店舗テンプレ
+    const overrides = await loadOverrideTemplates(serviceClient, {
+      organizationId: resolvedOrganizationId,
+      scheduleEventId: bookingData.scheduleEventId || reservation.schedule_event_id,
+      scenarioMasterId: bookingData.scenarioMasterId || reservation.scenario_master_id,
+    })
+    const pickedTemplate = pickOverrideTemplate(
+      'private',
+      overrides,
+      storeEmailSettings?.private_confirm_template,
+    )
+    const customTemplate = pickedTemplate.template
 
     // 日付フォーマット関数（JST固定）
     const formatDate = (dateStr: string): string => {
@@ -325,7 +338,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       const appliedTemplate = applyTemplate(customTemplate)
       finalHtml = templateToHtml(appliedTemplate)
       finalText = appliedTemplate
-      console.log('📧 Using custom private booking confirmation template from email_settings')
+      console.log('📧 Using private booking confirmation template:', pickedTemplate.source)
     } else {
       // デフォルトのハードコードテンプレートを使用
       console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: bookingData.storeId, organizationId: resolvedOrganizationId, template: 'private_confirm_template' })
