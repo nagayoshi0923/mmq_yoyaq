@@ -128,11 +128,13 @@ function isCancelledChannelName(name?: string | null) {
   return (name || '').startsWith('⚠')
 }
 
-function hasEventEnded(date?: string | null, endTime?: string | null) {
+function isReadyToFinalize(date?: string | null, endTime?: string | null) {
   if (!date || !endTime) return false
   const t = String(endTime)
   const hhmmss = t.length >= 8 ? t.slice(0, 8) : `${t.slice(0, 5)}:00`
-  return Date.parse(`${String(date).slice(0, 10)}T${hhmmss}+09:00`) <= Date.now()
+  const endedAt = Date.parse(`${String(date).slice(0, 10)}T${hhmmss}+09:00`)
+  if (!Number.isFinite(endedAt)) return false
+  return endedAt + 24 * 60 * 60 * 1000 <= Date.now()
 }
 
 function skipFinalizeReason(input: {
@@ -216,8 +218,8 @@ async function finalizeDueRooms() {
       results.push({ reservationId: room.reservation_id, status: 'skipped', reason: skip })
       continue
     }
-    if (!hasEventEnded(event?.date, event?.end_time)) {
-      results.push({ reservationId: room.reservation_id, status: 'skipped', reason: 'not_ended' })
+    if (!isReadyToFinalize(event?.date, event?.end_time)) {
+      results.push({ reservationId: room.reservation_id, status: 'skipped', reason: 'within_1_day' })
       continue
     }
     try {
