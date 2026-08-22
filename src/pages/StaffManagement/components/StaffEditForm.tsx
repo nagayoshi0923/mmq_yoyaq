@@ -5,11 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { Link2, Unlink, Trash2, X, Loader2 } from 'lucide-react'
+import { Link2, Unlink, Trash2, X, Loader2, Copy } from 'lucide-react'
 import type { Staff, Store, Scenario } from '@/types'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatJstDateTime } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { EmptyState } from '@/components/patterns/list'
 import '@/components/modals/ScenarioEditDialogV2.css'
 
@@ -125,6 +126,20 @@ const HISTORY_TAB = { id: 'history', label: '担当変更履歴' } as const
 
 type StaffTabId = typeof BASE_TABS[number]['id'] | typeof HISTORY_TAB['id']
 
+function formatAssignedScenarioCopyLine(scenario: Scenario): string {
+  const min = scenario.player_count_min || 0
+  const max = scenario.player_count_max || 0
+  const playerLabel = min > 0 && min !== max ? `${min}〜${max}人` : `${max}人`
+  const minutes = scenario.duration || 0
+  const hours = minutes / 60
+  const hoursLabel = minutes <= 0
+    ? '時間未設定'
+    : hours % 1 === 0
+      ? `${hours}時間`
+      : `${Number(hours.toFixed(1))}時間`
+  return `${scenario.title}/${playerLabel}/${hoursLabel}`
+}
+
 export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
   const [formData, setFormData] = useState<Partial<Staff> & { experienced_scenarios?: string[] }>({
     name: '',
@@ -186,18 +201,51 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     onSave(formData as Staff)
   }
 
-  // シナリオID→タイトルのマッピング（scenario.idとscenario_master_id両方に対応）
-  const scenarioIdToTitle = useMemo(() => {
-    const map = new Map<string, string>()
+  // シナリオID→本体のマッピング（scenario.idとscenario_master_id両方に対応）
+  const scenarioById = useMemo(() => {
+    const map = new Map<string, Scenario>()
     scenarios.forEach(scenario => {
-      // scenario.id でも scenario_master_id でもタイトルを取得できるようにする
-      map.set(scenario.id, scenario.title)
+      map.set(scenario.id, scenario)
       if (scenario.scenario_master_id) {
-        map.set(scenario.scenario_master_id, scenario.title)
+        map.set(scenario.scenario_master_id, scenario)
       }
     })
     return map
   }, [scenarios])
+
+  const scenarioIdToTitle = useMemo(() => {
+    const map = new Map<string, string>()
+    scenarioById.forEach((scenario, id) => {
+      map.set(id, scenario.title)
+    })
+    return map
+  }, [scenarioById])
+
+  const handleCopyAssignedScenarios = async () => {
+    const ids = formData.special_scenarios || []
+    if (ids.length === 0) {
+      showToast.warning('担当シナリオがありません')
+      return
+    }
+
+    const lines = ids
+      .map((id) => {
+        const scenario = scenarioById.get(id)
+        if (!scenario) {
+          return `${scenarioIdToTitle.get(id) || id}/人数不明/時間不明`
+        }
+        return formatAssignedScenarioCopyLine(scenario)
+      })
+      .sort((a, b) => a.localeCompare(b, 'ja'))
+
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      showToast.success(`${lines.length}件の担当シナリオをコピーしました`)
+    } catch (err) {
+      logger.error('担当シナリオのコピーに失敗:', err)
+      showToast.error('コピーに失敗しました')
+    }
+  }
 
   const scenarioOptions: MultiSelectOption[] = scenarios.map(scenario => ({
     id: scenario.id,
@@ -340,7 +388,18 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
         return (
           <>
             <div className="scenario-edit-card">
-              <Label>担当シナリオ（GM可能）</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>担当シナリオ（GM可能）</Label>
+                <button
+                  type="button"
+                  className="scenario-edit-dialog__btn"
+                  onClick={handleCopyAssignedScenarios}
+                  disabled={(formData.special_scenarios || []).length === 0}
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  リストをコピー
+                </button>
+              </div>
               <MultiSelect
                 options={scenarioOptions}
                 selectedValues={formData.special_scenarios || []}
