@@ -140,6 +140,26 @@ function formatAssignedScenarioCopyLine(scenario: Scenario): string {
   return `${scenario.title}/${playerLabel}/${hoursLabel}`
 }
 
+function sortScenarioIdsByPlayerCount(
+  ids: string[],
+  scenarioById: Map<string, Scenario>,
+  scenarioIdToTitle: Map<string, string>
+): string[] {
+  return [...ids].sort((a, b) => {
+    const scenarioA = scenarioById.get(a)
+    const scenarioB = scenarioById.get(b)
+    const minA = scenarioA?.player_count_min || scenarioA?.player_count_max || 0
+    const minB = scenarioB?.player_count_min || scenarioB?.player_count_max || 0
+    if (minA !== minB) return minA - minB
+    const maxA = scenarioA?.player_count_max || 0
+    const maxB = scenarioB?.player_count_max || 0
+    if (maxA !== maxB) return maxA - maxB
+    const titleA = scenarioA?.title || scenarioIdToTitle.get(a) || a
+    const titleB = scenarioB?.title || scenarioIdToTitle.get(b) || b
+    return titleA.localeCompare(titleB, 'ja')
+  })
+}
+
 export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
   const [formData, setFormData] = useState<Partial<Staff> & { experienced_scenarios?: string[] }>({
     name: '',
@@ -221,22 +241,28 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     return map
   }, [scenarioById])
 
+  const assignedScenarioIdsByPlayerCount = useMemo(
+    () => sortScenarioIdsByPlayerCount(
+      formData.special_scenarios || [],
+      scenarioById,
+      scenarioIdToTitle
+    ),
+    [formData.special_scenarios, scenarioById, scenarioIdToTitle]
+  )
+
   const handleCopyAssignedScenarios = async () => {
-    const ids = formData.special_scenarios || []
-    if (ids.length === 0) {
+    if (assignedScenarioIdsByPlayerCount.length === 0) {
       showToast.warning('担当シナリオがありません')
       return
     }
 
-    const lines = ids
-      .map((id) => {
-        const scenario = scenarioById.get(id)
-        if (!scenario) {
-          return `${scenarioIdToTitle.get(id) || id}/人数不明/時間不明`
-        }
-        return formatAssignedScenarioCopyLine(scenario)
-      })
-      .sort((a, b) => a.localeCompare(b, 'ja'))
+    const lines = assignedScenarioIdsByPlayerCount.map((id) => {
+      const scenario = scenarioById.get(id)
+      if (!scenario) {
+        return `${scenarioIdToTitle.get(id) || id}/人数不明/時間不明`
+      }
+      return formatAssignedScenarioCopyLine(scenario)
+    })
 
     try {
       await navigator.clipboard.writeText(lines.join('\n'))
@@ -412,9 +438,9 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 showBadges={false}
               />
               {/* カスタムバッジ表示（scenario_master_id対応） */}
-              {(formData.special_scenarios || []).length > 0 && (
+              {assignedScenarioIdsByPlayerCount.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {(formData.special_scenarios || []).map(id => (
+                  {assignedScenarioIdsByPlayerCount.map(id => (
                     <span key={id} className="inline-flex items-center gap-0.5 text-xs py-0.5 px-1.5 rounded border bg-blue-50 border-blue-200 text-blue-700">
                       {scenarioIdToTitle.get(id) || id}
                       <button
