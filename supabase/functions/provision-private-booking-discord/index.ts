@@ -128,13 +128,38 @@ function isCancelledChannelName(name?: string | null) {
   return (name || '').startsWith('⚠')
 }
 
+/** schedule_events.date を日本の暦日 YYYY-MM-DD にする。ISO の先頭10文字は使わない（UTCで前日になる） */
+function eventDateToYmdJst(date: string): string | null {
+  const s = String(date || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const instant = new Date(s)
+  if (!Number.isNaN(instant.getTime())) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tokyo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(instant)
+  }
+  const prefix = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  return prefix ? prefix[1] : null
+}
+
+function clockToHms(endTime: string): string | null {
+  const match = String(endTime || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/)
+  if (!match) return null
+  return `${String(parseInt(match[1], 10)).padStart(2, '0')}:${match[2]}:${match[3] || '00'}`
+}
+
+/** 公演終了（JST壁時計）から24時間後。Edge の UTC 現在時刻とは直接足し引きしない */
 function isReadyToFinalize(date?: string | null, endTime?: string | null) {
   if (!date || !endTime) return false
-  const t = String(endTime)
-  const hhmmss = t.length >= 8 ? t.slice(0, 8) : `${t.slice(0, 5)}:00`
-  const endedAt = Date.parse(`${String(date).slice(0, 10)}T${hhmmss}+09:00`)
-  if (!Number.isFinite(endedAt)) return false
-  return endedAt + 24 * 60 * 60 * 1000 <= Date.now()
+  const ymd = eventDateToYmdJst(date)
+  const hms = clockToHms(endTime)
+  if (!ymd || !hms) return false
+  const endedAtJst = Date.parse(`${ymd}T${hms}+09:00`)
+  if (!Number.isFinite(endedAtJst)) return false
+  return endedAtJst + 24 * 60 * 60 * 1000 <= Date.now()
 }
 
 function skipFinalizeReason(input: {
