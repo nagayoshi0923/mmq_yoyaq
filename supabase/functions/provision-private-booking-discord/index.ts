@@ -124,6 +124,115 @@ async function addGmToChannel(token: string, channelId: string, userId: string) 
   )
 }
 
+function isCancelledChannelName(name?: string | null) {
+  return (name || '').startsWith('⚠')
+}
+
+function hasEventEnded(date?: string | null, endTime?: string | null) {
+  if (!date || !endTime) return false
+  const t = String(endTime)
+  const hhmmss = t.length >= 8 ? t.slice(0, 8) : `${t.slice(0, 5)}:00`
+  return Date.parse(`${String(date).slice(0, 10)}T${hhmmss}+09:00`) <= Date.now()
+}
+
+function skipFinalizeReason(input: {
+  reservationStatus?: string | null
+  eventCancelled?: boolean | null
+  playerChannelName?: string | null
+}) {
+  if (input.reservationStatus === 'cancelled') return 'reservation_cancelled'
+  if (input.eventCancelled) return 'event_cancelled'
+  if (isCancelledChannelName(input.playerChannelName)) return 'warning_name'
+  return null
+}
+
+async function finalizeRoom(
+  token: string,
+  existing: {
+    id: string
+    player_channel_id: string
+    spectator_channel_id: string
+    date_role_id?: string | null
+    moved_at?: string | null
+  },
+) {
+  if (!existing.moved_at) {
+    await discordJson(
+      `https://discord.com/api/v10/channels/${existing.player_channel_id}`,
+      token,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ parent_id: SENSHIN_DISCORD.categoryAfter }),
+      },
+    )
+  }
+  if (existing.date_role_id) {
+    await discordJson(
+      `https://discord.com/api/v10/channels/${existing.spectator_channel_id}/permissions/${existing.date_role_id}`,
+      token,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ type: 0, allow: String(1024 + 2048 + 65536), deny: '0' }),
+      },
+    )
+    const playerCh = (await discordJson(
+      `https://discord.com/api/v10/channels/${existing.player_channel_id}`,
+      token,
+    )) as { permission_overwrites?: Array<{ id: string; type: number }> }
+    for (const ow of playerCh.permission_overwrites || []) {
+      if (ow.type !== 1) continue
+      await discordJson(
+        `https://discord.com/api/v10/guilds/${SENSHIN_DISCORD.guildId}/members/${ow.id}/roles/${existing.date_role_id}`,
+        token,
+        { method: 'PUT' },
+      ).catch((e) => console.warn('date role grant skipped', ow.id, e.message))
+    }
+  }
+  await supabase
+    .from('private_booking_discord_rooms')
+    .update({ moved_at: new Date().toISOString() })
+    .eq('id', existing.id)
+}
+
+async function finalizeDueRooms() {
+  const { data: rooms, error } = await supabase
+    .from('private_booking_discord_rooms')
+    .select(
+      'id, organization_id, reservation_id, player_channel_id, spectator_channel_id, date_role_id, player_channel_name, moved_at, reservations(status), schedule_events(date, end_time, is_cancelled)',
+    )
+    .is('moved_at', null)
+  if (error) throw new Error(error.message)
+
+  const results: Array<{ reservationId: string; status: string; reason?: string }> = []
+  for (const room of rooms || []) {
+    const reservation = Array.isArray(room.reservations) ? room.reservations[0] : room.reservations
+    const event = Array.isArray(room.schedule_events) ? room.schedule_events[0] : room.schedule_events
+    const skip = skipFinalizeReason({
+      reservationStatus: reservation?.status,
+      eventCancelled: event?.is_cancelled,
+      playerChannelName: room.player_channel_name,
+    })
+    if (skip) {
+      results.push({ reservationId: room.reservation_id, status: 'skipped', reason: skip })
+      continue
+    }
+    if (!hasEventEnded(event?.date, event?.end_time)) {
+      results.push({ reservationId: room.reservation_id, status: 'skipped', reason: 'not_ended' })
+      continue
+    }
+    try {
+      const token = await getBotToken(room.organization_id)
+      await finalizeRoom(token, room)
+      results.push({ reservationId: room.reservation_id, status: 'finalized' })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      console.error('finalize_due failed', room.reservation_id, message)
+      results.push({ reservationId: room.reservation_id, status: 'error', reason: message })
+    }
+  }
+  return results
+}
+
 serve(async (req) => {
   const origin = req.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
@@ -140,10 +249,31 @@ serve(async (req) => {
       }
     }
 
-    const body = await req.json()
+    const body = await req.json().catch(() => ({}))
     const reservationId = String(body.reservationId || '')
     const organizationId = body.organizationId ? String(body.organizationId) : null
-    const action = body.action === 'finalize' || body.action === 'cancel' ? body.action : 'provision'
+    const action =
+      body.action === 'finalize' || body.action === 'cancel' || body.action === 'finalize_due'
+        ? body.action
+        : 'provision'
+
+    if (action === 'finalize_due') {
+      if (!isSystem) {
+        return errorResponse('finalize_due は cron 専用です', 403, corsHeaders)
+      }
+      const results = await finalizeDueRooms()
+      return new Response(
+        JSON.stringify({
+          success: true,
+          finalized: results.filter((r) => r.status === 'finalized').length,
+          skipped: results.filter((r) => r.status === 'skipped').length,
+          errors: results.filter((r) => r.status === 'error').length,
+          results,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     if (!reservationId) {
       return errorResponse('reservationId が必要です', 400, corsHeaders)
     }
@@ -212,43 +342,18 @@ serve(async (req) => {
       if (!existing) {
         return errorResponse('Discordチャンネルがまだありません', 404, corsHeaders)
       }
+      const skip = skipFinalizeReason({
+        reservationStatus: reservation.status,
+        playerChannelName: existing.player_channel_name,
+      })
+      if (skip) {
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: skip }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
       const token = await getBotToken(reservation.organization_id)
-      if (!existing.moved_at) {
-        await discordJson(
-          `https://discord.com/api/v10/channels/${existing.player_channel_id}`,
-          token,
-          {
-            method: 'PATCH',
-            body: JSON.stringify({ parent_id: SENSHIN_DISCORD.categoryAfter }),
-          },
-        )
-      }
-      if (existing.date_role_id) {
-        await discordJson(
-          `https://discord.com/api/v10/channels/${existing.spectator_channel_id}/permissions/${existing.date_role_id}`,
-          token,
-          {
-            method: 'PUT',
-            body: JSON.stringify({ type: 0, allow: String(1024 + 2048 + 65536), deny: '0' }),
-          },
-        )
-        const playerCh = (await discordJson(
-          `https://discord.com/api/v10/channels/${existing.player_channel_id}`,
-          token,
-        )) as { permission_overwrites?: Array<{ id: string; type: number }> }
-        for (const ow of playerCh.permission_overwrites || []) {
-          if (ow.type !== 1) continue
-          await discordJson(
-            `https://discord.com/api/v10/guilds/${SENSHIN_DISCORD.guildId}/members/${ow.id}/roles/${existing.date_role_id}`,
-            token,
-            { method: 'PUT' },
-          ).catch((e) => console.warn('date role grant skipped', ow.id, e.message))
-        }
-      }
-      await supabase
-        .from('private_booking_discord_rooms')
-        .update({ moved_at: new Date().toISOString() })
-        .eq('id', existing.id)
+      await finalizeRoom(token, existing)
       return new Response(
         JSON.stringify({
           success: true,

@@ -77,6 +77,7 @@ verify_jwt = false
 [functions.send-private-booking-confirmation]
 verify_jwt = false
 
+# 戦塵貸切 Discord（承認時 provision / キャンセル cancel / 終了後 finalize_due）
 [functions.provision-private-booking-discord]
 verify_jwt = false
 
