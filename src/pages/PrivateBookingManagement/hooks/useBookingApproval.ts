@@ -21,6 +21,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
 import { startTimeToEn, timeSlotEnToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
+import { isSenshinPrivateBooking } from '@/lib/senshinPrivateBooking'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -382,6 +383,30 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
         const gmIds = requiredGm >= 2 && selectedSubGmId ? [selectedGMId, selectedSubGmId] : [selectedGMId]
 
+        let discordPlayerUrl: string | undefined
+        let discordSpectatorUrl: string | undefined
+        if (
+          isSenshinPrivateBooking({
+            scenario_master_id: selectedRequest?.scenario_master_id,
+            scenario_title: selectedRequest?.scenario_title,
+          })
+        ) {
+          const { data: discordResult, error: discordErr } = await supabase.functions.invoke(
+            'provision-private-booking-discord',
+            { body: { organizationId, reservationId: requestId, scheduleEventId: scheduleEventId || undefined } },
+          )
+          if (discordErr || discordResult?.success === false) {
+            logger.error('戦塵Discordチャンネル作成エラー:', discordErr || discordResult)
+            showToast.warning('Discordチャンネルの作成に失敗しました。確定メールは送っています。')
+          } else if (!discordResult?.skipped) {
+            discordPlayerUrl = discordResult?.playerInviteUrl || undefined
+            discordSpectatorUrl = discordResult?.spectatorInviteUrl || undefined
+            if (discordPlayerUrl && discordSpectatorUrl) {
+              logger.log('戦塵Discordチャンネル作成成功')
+            }
+          }
+        }
+
         // イベント履歴・確定メール・GM通知・グループ処理を並列実行
         await Promise.all([
           // イベント履歴: フル状態スナップショットを取得して new_values に保存、
@@ -424,6 +449,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined,
                 scheduleEventId: scheduleEventId || undefined,
                 scenarioMasterId: selectedRequest?.scenario_master_id || undefined,
+                discordPlayerUrl,
+                discordSpectatorUrl,
               }
             })
             if (emailErr) logger.error('貸切予約確定メール送信エラー:', emailErr)

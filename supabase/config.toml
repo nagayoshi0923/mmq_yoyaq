@@ -77,6 +77,9 @@ verify_jwt = false
 [functions.send-private-booking-confirmation]
 verify_jwt = false
 
+[functions.provision-private-booking-discord]
+verify_jwt = false
+
 [functions.send-private-booking-rejection]
 verify_jwt = false
 

@@ -24,6 +24,8 @@ interface PrivateBookingConfirmationRequest {
   notes?: string
   scheduleEventId?: string
   scenarioMasterId?: string
+  discordPlayerUrl?: string
+  discordSpectatorUrl?: string
 }
 
 serve(async (req) => {
@@ -304,6 +306,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         // 貸切専用（顧客メールではGM名を出さない）
         .replace(/{gm_name}/g, '')
         .replace(/{notes}/g, bookingData.notes || '')
+        .replace(/{discord_player_url}/g, bookingData.discordPlayerUrl || '')
+        .replace(/{discord_spectator_url}/g, bookingData.discordSpectatorUrl || '')
         // 未置換変数を除去
         .replace(/\{[a-z_]+\}/g, '')
     }

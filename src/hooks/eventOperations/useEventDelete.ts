@@ -27,7 +27,7 @@ import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
-import { reservationApi } from '@/lib/reservationApi'
+import { reservationApi, markSenshinDiscordCancelled } from '@/lib/reservationApi'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 import { getEventTimeSlot } from '@/utils/eventOperationUtils'
@@ -274,6 +274,7 @@ async function handleActiveReservationsBeforeDelete(
         }
         const { error } = await supabase.rpc('admin_update_reservation_fields', params)
         if (error) throw error
+        await markSenshinDiscordCancelled({ reservationId: r.id, organizationId })
       }
     })
   )

@@ -598,6 +598,7 @@ export const ADDITIONAL_VARIABLES: Record<string, string[]> = {
   performance: ['current_participants', 'max_participants'],
   extension: ['current_participants', 'max_participants', 'remaining_seats', 'extension_deadline'],
   private_request: ['stores', 'estimated_price', 'candidate_dates'],
+  private_confirm: ['discord_player_url', 'discord_spectator_url'],
   rejection: ['rejection_reason'],
   change: ['changes', 'old_date', 'new_date', 'old_participants', 'new_participants'],
 }
@@ -676,6 +677,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '貸切予約確定メール',
     description: '貸切予約の承認時に自動送信。作品または公演で上書きしている場合はそちらを優先',
     category: 'private',
+    additionalVariables: ADDITIONAL_VARIABLES.private_confirm,
     getDefault: getDefaultPrivateConfirmTemplate
   },
   {
@@ -787,6 +789,8 @@ export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
   extension_deadline: '6月20日 9:00',
   stores: '高田馬場店 / 新宿店',
   estimated_price: '24,000',
+  discord_player_url: 'https://discord.gg/player-example',
+  discord_spectator_url: 'https://discord.gg/spectator-example',
   candidate_dates: '候補1: 2026年6月20日(土) 13:00 - 17:00\n候補2: 2026年6月21日(日) 13:00 - 17:00',
   rejection_reason: 'ご希望の日程では貸切での受付が難しい状況です。',
   changes: '参加人数: 4名 → 6名',
