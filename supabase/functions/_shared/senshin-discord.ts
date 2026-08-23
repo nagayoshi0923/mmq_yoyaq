@@ -44,7 +44,7 @@ export function buildSenshinChannelNames(input: {
   startTime: string
   storeName?: string | null
   storeShortName?: string | null
-}): { playerName: string; spectatorName: string; roleName: string; weekday: string } {
+}): { playerName: string; spectatorName: string; weekday: string } {
   const ymd = input.eventDate.slice(0, 10)
   const [y, mo, d] = ymd.split('-')
   // その暦日 12:00 JST = 03:00 UTC。getUTCDay がその曜日。
@@ -56,8 +56,19 @@ export function buildSenshinChannelNames(input: {
   return {
     playerName,
     spectatorName: `${playerName}-観戦用`,
-    roleName: `${y}${mo}${d}-${doors.compact}`,
     weekday: wd,
+  }
+}
+
+/** プロフィールに日時・店舗・予約番号が出ない。UUID先頭だけ。 */
+export function buildSenshinRoleNames(reservationId?: string | null): {
+  roleName: string
+  spectatorRoleName: string
+} {
+  const token = (reservationId || '').replace(/-/g, '').slice(0, 10) || 'senshin'
+  return {
+    roleName: `r-${token}`,
+    spectatorRoleName: `r-${token}-s`,
   }
 }
 
@@ -82,6 +93,16 @@ export function spectatorChannelOverwrites(guildId: string) {
 
 export function gmMemberOverwrite(userId: string) {
   return { id: userId, type: 1, allow: String(CHANNEL_VIEW), deny: '0' }
+}
+
+export function buildSenshinOAuthJoinUrl(
+  supabaseUrl: string,
+  reservationId: string,
+  kind: 'player' | 'spectator',
+): string {
+  const base = String(supabaseUrl || '').replace(/\/$/, '')
+  const q = new URLSearchParams({ reservation: reservationId, kind })
+  return `${base}/functions/v1/senshin-discord-join?${q}`
 }
 
 export { VIEW_CHANNEL, CHANNEL_VIEW }
