@@ -16,6 +16,7 @@ import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState 
 import { showToast } from '@/utils/toast'
 import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 import { ConfirmationEmailOverrideDialog, type ConfirmationOverrideKey } from '@/components/settings/ConfirmationEmailOverrideDialog'
+import { ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 
@@ -172,6 +173,11 @@ export function ReservationList({
     setSendingEmail,
     setShouldSendEmail,
   })
+
+  const mailEligibleReservations = reservations.filter(r => ACTIVE_RESERVATION_STATUSES_SET.has(r.status))
+  const selectedMailReservations = mailEligibleReservations.filter(r => selectedReservations.has(r.id))
+  const allMailSelected = mailEligibleReservations.length > 0
+    && selectedMailReservations.length === mailEligibleReservations.length
 
   return (
     <>
@@ -368,20 +374,21 @@ export function ReservationList({
             </div>
           ) : reservations.length === 0 ? null : (
             <div>
-              {selectedReservations.size > 0 && (
+              {selectedMailReservations.length > 0 && (
                 <div className="mb-3 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
                   <span className="text-sm font-medium">
-                    {selectedReservations.size}件選択中
+                    {selectedMailReservations.length}件選択中
                   </span>
                   <Button
                     size="sm"
                     onClick={() => {
-                      const selectedEmails = reservations
-                        .filter(r => selectedReservations.has(r.id))
+                      const selectedEmails = selectedMailReservations
                         .map(r => r.customer_id)
                         .filter(Boolean)
                       if (selectedEmails.length > 0) {
                         setIsEmailModalOpen(true)
+                      } else if (selectedMailReservations.length === 0) {
+                        showToast.warning('送信できる有効な予約がありません')
                       } else {
                         showToast.warning('選択した予約にメールアドレスが設定されていません')
                       }
@@ -397,10 +404,10 @@ export function ReservationList({
                   <div className="flex items-center gap-3 flex-1">
                     <div className="w-[40px] flex items-center justify-center">
                       <Checkbox
-                        checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                        checked={allMailSelected}
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setSelectedReservations(new Set(reservations.map(r => r.id)))
+                            setSelectedReservations(new Set(mailEligibleReservations.map(r => r.id)))
                           } else {
                             setSelectedReservations(new Set())
                           }
@@ -420,10 +427,10 @@ export function ReservationList({
                 <div className="sm:hidden border rounded-t-lg bg-muted/30 p-3 flex items-center justify-between font-medium text-xs">
                   <div className="flex items-center gap-2">
                     <Checkbox
-                      checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                      checked={allMailSelected}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedReservations(new Set(reservations.map(r => r.id)))
+                          setSelectedReservations(new Set(mailEligibleReservations.map(r => r.id)))
                         } else {
                           setSelectedReservations(new Set())
                         }
@@ -467,8 +474,8 @@ export function ReservationList({
       <SendEmailDialog
         open={isEmailModalOpen}
         onOpenChange={setIsEmailModalOpen}
-        recipientCount={selectedReservations.size}
-        recipients={reservations.filter(r => selectedReservations.has(r.id))}
+        recipientCount={selectedMailReservations.length}
+        recipients={selectedMailReservations}
         subject={emailSubject}
         setSubject={setEmailSubject}
         body={emailBody}

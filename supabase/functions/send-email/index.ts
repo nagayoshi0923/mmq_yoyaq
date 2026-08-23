@@ -105,57 +105,81 @@ serve(async (req) => {
       requestedBy: maskEmail(authResult.user?.email || ''),
     })
 
-    // email_logs に送信前エントリを作成（失敗してもメール送信は続行）
-    const emailLogId = await insertEmailLog(serviceClient, {
-      organization_id: organizationId ?? null,
-      email_type: 'other',
-      to_email: recipients[0],
-      subject,
-      body_text: body,
-      status: 'queued',
-    })
-
-    // Resend APIを使ってメール送信
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${senderName} <${senderEmail}>`,
-        to: recipients,
-        subject: subject,
-        text: body,
-      }),
-    })
-
-    if (!resendResponse.ok) {
-      const errorData = await resendResponse.json()
-      console.error('Resend API error:', errorData)
-      await updateEmailLog(serviceClient, emailLogId, {
-        status: 'failed',
-        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
-      })
-      throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
+    // 複数人を同じ To に入れると受信者同士でアドレスが見えるので、必ず1通1宛先にする
+    const uniqueRecipients: string[] = []
+    const seen = new Set<string>()
+    for (const email of recipients) {
+      const trimmed = String(email).trim()
+      const key = trimmed.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      uniqueRecipients.push(trimmed)
     }
 
-    const result = await resendResponse.json()
-    console.log('✅ Email sent successfully via Resend:', {
-      messageId: result.id,
-      recipients: recipients.length,
-    })
-    await updateEmailLog(serviceClient, emailLogId, {
-      status: 'sent',
-      provider_message_id: result.id,
-      sent_at: new Date().toISOString(),
-    })
+    const messageIds: string[] = []
+    let failedCount = 0
+
+    for (const email of uniqueRecipients) {
+      const emailLogId = await insertEmailLog(serviceClient, {
+        organization_id: organizationId ?? null,
+        email_type: 'other',
+        to_email: email,
+        subject,
+        body_text: body,
+        status: 'queued',
+      })
+
+      const resendResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `${senderName} <${senderEmail}>`,
+          to: [email],
+          subject: subject,
+          text: body,
+        }),
+      })
+
+      if (!resendResponse.ok) {
+        const errorData = await resendResponse.json()
+        console.error('Resend API error:', errorData)
+        await updateEmailLog(serviceClient, emailLogId, {
+          status: 'failed',
+          error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+        })
+        failedCount += 1
+        continue
+      }
+
+      const result = await resendResponse.json()
+      console.log('✅ Email sent successfully via Resend:', {
+        messageId: result.id,
+        to: maskEmail(email),
+      })
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'sent',
+        provider_message_id: result.id,
+        sent_at: new Date().toISOString(),
+      })
+      messageIds.push(result.id)
+    }
+
+    if (messageIds.length === 0) {
+      throw new Error('メール送信に失敗しました')
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'メールを送信しました',
-        messageId: result.id,
+        message: failedCount > 0
+          ? `${messageIds.length}件送信、${failedCount}件失敗しました`
+          : 'メールを送信しました',
+        messageId: messageIds[0],
+        sentCount: messageIds.length,
+        failedCount,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
