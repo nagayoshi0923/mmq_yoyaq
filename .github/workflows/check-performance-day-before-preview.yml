@@ -1,0 +1,43 @@
+name: 公演判定予告（21:00）
+
+on:
+  # 本番の定期実行は cron-job.org（23:59 判定・4時間前と同じ）。
+  # ここは失敗時の手動再実行用。数分遅れても予告なので GH schedule も保険で残す。
+  schedule:
+    - cron: '0 12 * * *' # 21:00 JST
+  workflow_dispatch:
+
+jobs:
+  preview:
+    name: 21:00 判定予告
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: target_date を計算（翌日 JST）
+        id: date
+        run: echo "target_date=$(TZ=Asia/Tokyo date -d '+1 day' '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: 公演判定予告 Edge Function を呼び出し（メール・中止はしない）
+        run: |
+          echo "📅 対象日: ${{ steps.date.outputs.target_date }}"
+
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d "{\"check_type\":\"day_before_preview\",\"target_date\":\"${{ steps.date.outputs.target_date }}\"}" \
+            "https://${{ secrets.SUPABASE_PROD_PROJECT_ID }}.supabase.co/functions/v1/check-performance-cancellation")
+
+          echo "📊 レスポンス:"
+          cat /tmp/response.json | python3 -m json.tool 2>/dev/null || cat /tmp/response.json
+          echo ""
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Edge Function がエラーを返しました (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+          echo "✅ 判定予告が正常に完了しました"
