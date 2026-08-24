@@ -19,6 +19,7 @@ interface UsePrivateBookingSlotDataOptions {
   isActive: boolean
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
+  scenarioTitle?: string
 }
 
 interface UsePrivateBookingSlotDataResult {
@@ -39,6 +40,7 @@ export function usePrivateBookingSlotData({
   isActive,
   isCustomHoliday,
   privateBookingTimeSlots,
+  scenarioTitle,
 }: UsePrivateBookingSlotDataOptions): UsePrivateBookingSlotDataResult {
   const [fallbackStoreIds, setFallbackStoreIds] = useState<string[]>([])
   const [fallbackLoading, setFallbackLoading] = useState(false)
@@ -254,11 +256,12 @@ export function usePrivateBookingSlotData({
           allStoreEvents,
           isCustomHoliday,
           privateBookingTimeSlots: resolvedTimeSlots,
+          scenarioTitle,
         })
       }
       return map
     }
-  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots])
+  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots, scenarioTitle])
 
   const blockedSlotIndex = useMemo(
     () => buildPrivateBookingBlockedSlotIndex(blockedSlots),
