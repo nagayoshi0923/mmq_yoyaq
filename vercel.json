@@ -78,6 +78,17 @@
       "destination": "/api/seo?kind=blog&slug=:slug"
     },
     {
+      "source": "/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|baiduspider|twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|whatsapp|applebot).*"
+        }
+      ],
+      "destination": "/api/seo?kind=org&slug=:slug"
+    },
+    {
       "source": "/((?!assets/)(?!api/)(?!robots\\.txt)(?!sitemap\\.xml).*)",
       "destination": "/index.html"
     }

@@ -85,6 +85,25 @@ export function shouldNoindexPath(page: string, pathname: string): boolean {
   return false
 }
 
+/**
+ * `/stores` は公開一覧。`/{org}/stores` は管理画面。
+ * page id が同じ stores でも、ゲストをログインへ送ってよいかは path で分ける。
+ */
+export function isPublicStoresPath(page: string, pathname: string): boolean {
+  if (page !== 'stores') return false
+  const segments = pathname.split('/').filter(Boolean)
+  return segments.length === 1 && segments[0] === 'stores'
+}
+
+/** sitemap に載せる組織: 公開予約できる実店舗が1つ以上ある */
+export function orgHasPublicBookingStore(
+  stores: Array<{ status?: string | null; ownership_type?: string | null }> | null | undefined,
+): boolean {
+  return (stores ?? []).some(
+    (store) => store.status === 'active' && store.ownership_type !== 'office',
+  )
+}
+
 export const STATIC_PUBLIC_META: Record<string, { title: string; description: string; path: string }> = {
   'platform-top': {
     title: DEFAULT_TITLE,
@@ -106,6 +125,11 @@ export const STATIC_PUBLIC_META: Record<string, { title: string; description: st
     title: '参加店舗一覧 | マーダーミステリー MMQ',
     description: 'MMQで公演を予約できるマーダーミステリー店舗・団体の一覧です。',
     path: '/stores',
+  },
+  scenario: {
+    title: 'シナリオを探す | マーダーミステリー予約 | MMQ',
+    description: 'MMQで遊べるマーダーミステリー作品の一覧です。全国の店舗から探せます。',
+    path: '/scenario',
   },
   about: {
     title: '運営会社 | MMQ',
