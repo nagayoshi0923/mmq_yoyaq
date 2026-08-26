@@ -81,6 +81,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     isActive: isActive && !!organizationId,
     isCustomHoliday: isCustomHoliday ?? (() => false),
     privateBookingTimeSlots: scenario?.private_booking_time_slots,
+    scenarioTitle: scenario?.title,
   })
 
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => {
