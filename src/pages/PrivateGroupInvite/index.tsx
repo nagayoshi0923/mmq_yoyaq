@@ -17,7 +17,7 @@ import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
-import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
+import { memberInvitationCap, resolvePrivateGroupBookingParticipantCount } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
 import { getJstParts } from '@/utils/jstDate'
@@ -1182,8 +1182,7 @@ export function PrivateGroupInvite() {
         }))
       }
       
-      // 参加人数: 目標人数があればそれを使用。未設定時は「参加確定メンバー数」（最低1名）。
-      // ※以前は target 未設定で 6 に落ちていて、管理画面の人数が実態とずれていた。
+      // 参加人数は作品定員。今いるメンバー数で受けると、あとから追加できなくなる。
       const scenarioForBookingCap = group.scenario_masters as {
         effective_player_count_max?: number
         player_count_max?: number
@@ -1192,11 +1191,10 @@ export function PrivateGroupInvite() {
         scenarioForBookingCap?.effective_player_count_max ??
         scenarioForBookingCap?.player_count_max ??
         null
-      const joinedForBooking = joinedMembers.length
-      let bookingParticipantCount = Math.max(joinedForBooking, 1)
-      if (scenarioPlayerMax != null && bookingParticipantCount > scenarioPlayerMax) {
-        bookingParticipantCount = scenarioPlayerMax
-      }
+      const bookingParticipantCount = resolvePrivateGroupBookingParticipantCount({
+        scenarioPlayerMax,
+        targetParticipantCount: group.target_participant_count,
+      })
 
       // パラメータの検証
       if (!group.scenario_master_id) {
