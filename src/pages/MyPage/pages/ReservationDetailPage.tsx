@@ -1,4 +1,8 @@
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import {
+  getCustomerPrivateBookingStatusDescription,
+  getCustomerPrivateBookingStatusLabel,
+} from '@/lib/constants/reservationStatus'
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -88,12 +92,16 @@ export function ReservationDetailPage() {
 
   const getStatusDisplay = (status: string, isPrivateBooking: boolean = false) => {
     if (isPrivateBooking) {
-      const m: Record<string, { label: string; color: string; bg: string }> = {
-        'pending': { label: 'GM回答待ち', color: '#d97706', bg: '#fffbeb' }, 'pending_gm': { label: 'GM回答待ち', color: '#d97706', bg: '#fffbeb' },
-        'gm_confirmed': { label: '店舗確認中', color: '#2563eb', bg: '#eff6ff' }, 'pending_store': { label: '店舗確認中', color: '#2563eb', bg: '#eff6ff' },
-        'confirmed': { label: '日程確定', color: '#16a34a', bg: '#f0fdf4' }, 'cancelled': { label: 'キャンセル済み', color: '#dc2626', bg: '#fef2f2' },
+      const colors: Record<string, { color: string; bg: string }> = {
+        pending: { color: '#d97706', bg: '#fffbeb' },
+        pending_gm: { color: '#d97706', bg: '#fffbeb' },
+        gm_confirmed: { color: '#2563eb', bg: '#eff6ff' },
+        pending_store: { color: '#2563eb', bg: '#eff6ff' },
+        confirmed: { color: '#16a34a', bg: '#f0fdf4' },
+        cancelled: { color: '#dc2626', bg: '#fef2f2' },
       }
-      return m[status] || { label: status, color: '#6b7280', bg: '#f3f4f6' }
+      const style = colors[status] || { color: '#6b7280', bg: '#f3f4f6' }
+      return { label: getCustomerPrivateBookingStatusLabel(status), ...style }
     }
     const m: Record<string, { label: string; color: string; bg: string }> = {
       'confirmed': { label: '予約確定', color: '#16a34a', bg: '#f0fdf4' },
@@ -253,8 +261,7 @@ export function ReservationDetailPage() {
             </div>
             <div className="pt-3 border-t border-amber-200">
               <p className="text-xs text-amber-600">
-                {reservation.status === 'pending' || reservation.status === 'pending_gm' ? '担当GMの空き状況を確認中です。確定次第ご連絡いたします。'
-                  : reservation.status === 'gm_confirmed' || reservation.status === 'pending_store' ? 'GMの確認が完了しました。店舗・日程の最終確認中です。' : ''}
+                {getCustomerPrivateBookingStatusDescription(reservation.status)}
               </p>
             </div>
           </div>

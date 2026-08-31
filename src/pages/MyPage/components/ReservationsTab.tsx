@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, ChevronRight, Clock, MapPin, Sparkles, Users, XCircle } from 'lucide-react'
+import { getCustomerPrivateBookingStatusLabel } from '@/lib/constants/reservationStatus'
 import { formatJstDateJa } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
@@ -291,19 +292,22 @@ export function ReservationsTab({
                         requestedStores?: Array<{ storeId: string; storeName: string; storeShortName?: string }>
                       } | null
                       
-                      const getStatusLabel = (status: string) => {
+                      const getStatusStyle = (status: string) => {
                         switch (status) {
                           case 'pending':
                           case 'pending_gm':
-                            return { label: 'GM回答待ち', color: 'bg-amber-100 text-amber-700' }
+                            return 'bg-amber-100 text-amber-700'
                           case 'gm_confirmed':
                           case 'pending_store':
-                            return { label: '店舗確認中', color: 'bg-blue-100 text-blue-700' }
+                            return 'bg-blue-100 text-blue-700'
                           default:
-                            return { label: '調整中', color: 'bg-gray-100 text-gray-700' }
+                            return 'bg-gray-100 text-gray-700'
                         }
                       }
-                      const statusInfo = getStatusLabel(reservation.status)
+                      const statusInfo = {
+                        label: getCustomerPrivateBookingStatusLabel(reservation.status),
+                        color: getStatusStyle(reservation.status),
+                      }
                       
                       // 候補日をフォーマット（最初の3件まで表示）
                       const formatCandidateDate = (date: string, timeSlot: string) => {
