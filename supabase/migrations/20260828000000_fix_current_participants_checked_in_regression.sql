@@ -2,20 +2,20 @@
 -- Fix #420: current_participants が予約合計より1人少なくなる回帰修正
 -- =============================================================================
 --
+-- live (staging 2026-08-31 pg_get_functiondef) を正本にした外科パッチ。
+-- 古い migration ファイル全体置換は禁止（#410 と同じ巻き戻りを防ぐ）。
+--
 -- 原因:
---   20260519030000 (create_reservation_with_lock_v2) が
---     1. 在庫チェックから checked_in を除外
---     2. INSERT 後トリガーの正しい再計算を、checked_in 除外済みの手動 += で上書き
---   20260417130000 (cancel_reservation_with_lock) が
---     キャンセル後の手動再集計から checked_in を除外し、トリガー結果を上書き
+--   create_reservation_with_lock_v2 の在庫チェックと、INSERT 後の手動 += が
+--   checked_in を除外していた。トリガーは正しい合計を書いた直後に上書きされる。
+--   cancel_reservation_with_lock の手動再集計も checked_in を除外していた。
 --
---   公演当日に1名以上 checked_in がある状態で予約作成/キャンセルすると、
---   checked_in 分だけ current_participants が過小になる（典型: 1人少ない）。
---
--- 修正:
---   1. create_reservation_with_lock_v2: checked_in を在庫チェックに含め、手動更新を削除（トリガーに一任）
---   2. cancel_reservation_with_lock: 手動 current_participants 更新を削除（トリガーに一任）
---   3. 既存データを recalc_current_participants_for_event で一括修復
+-- 修正（live との差分はこの3点のみ）:
+--   1. create の在庫 SUM に checked_in を追加
+--   2. create 末尾の手動 current_participants += を削除（トリガーに一任）
+--   3. cancel の再集計 SUM に checked_in を追加
+--      ※ 公演中止時は current_participants を触らない分岐は live のまま維持
+--   4. 開催中イベントの不整合だけ一括修復（中止公演の人数スナップショットは触らない）
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(
@@ -126,11 +126,14 @@ BEGIN
         RAISE EXCEPTION 'FORBIDDEN_ORG' USING ERRCODE = 'P0010';
       END IF;
     ELSE
+      -- customer ロール: 自分自身の予約のみ許可（platform customer は org を問わない）
       IF v_customer_user_id IS DISTINCT FROM auth.uid() THEN
         RAISE EXCEPTION 'FORBIDDEN_CUSTOMER' USING ERRCODE = 'P0011';
       END IF;
     END IF;
 
+    -- platform customer (organization_id = NULL) は全組織で予約可
+    -- guest customer (organization_id IS NOT NULL) は自組織のみ
     IF v_customer_org_id IS NOT NULL AND v_customer_org_id IS DISTINCT FROM v_event_org_id THEN
       RAISE EXCEPTION 'CUSTOMER_ORG_MISMATCH' USING ERRCODE = 'P0012';
     END IF;
@@ -377,6 +380,9 @@ BEGIN
     WHERE id = p_customer_coupon_id;
   END IF;
 
+  -- current_participants は reservations INSERT 後の recalc トリガーが絶対値で再計算する。
+  -- checked_in を含まない手動 += はトリガー結果を過小上書きするため削除。
+
   RETURN v_reservation_id;
 END;
 $$;
@@ -393,8 +399,12 @@ SET row_security = off
 AS $$
 DECLARE
   v_reservation RECORD;
+  v_event_id UUID;
   v_caller_org_id UUID;
+  v_actual_participants INTEGER;
+  v_event_is_cancelled BOOLEAN;
 BEGIN
+  -- 予約をロック
   SELECT id, schedule_event_id, status, customer_id, organization_id
   INTO v_reservation
   FROM public.reservations
@@ -406,18 +416,24 @@ BEGIN
     RAISE EXCEPTION 'RESERVATION_NOT_FOUND' USING ERRCODE = 'P0005';
   END IF;
 
+  v_event_id := v_reservation.schedule_event_id;
+
+  -- 組織境界チェック（自分の予約か、同組織の admin のみ許可）
   v_caller_org_id := get_user_organization_id();
 
   IF NOT (
+    -- 自分の予約（顧客として）
     EXISTS (
       SELECT 1 FROM public.customers c
       WHERE c.id = v_reservation.customer_id AND c.user_id = auth.uid()
     )
     OR (
+      -- 同組織の admin/staff
       is_org_admin()
       AND (v_caller_org_id IS NOT DISTINCT FROM v_reservation.organization_id)
     )
     OR (
+      -- スタッフ権限
       EXISTS (
         SELECT 1 FROM staff
         WHERE user_id = auth.uid()
@@ -429,6 +445,7 @@ BEGIN
     RAISE EXCEPTION 'FORBIDDEN' USING ERRCODE = 'P0009';
   END IF;
 
+  -- ステータスを更新
   UPDATE public.reservations
   SET status = 'cancelled',
       cancelled_at = NOW(),
@@ -436,10 +453,32 @@ BEGIN
       updated_at = NOW()
   WHERE id = p_reservation_id;
 
+  -- 公演の中止状態を確認
+  SELECT is_cancelled INTO v_event_is_cancelled
+  FROM schedule_events
+  WHERE id = v_event_id;
+
+  -- 在庫を再計算（公演が中止済みの場合はスキップ：中止前の人数を保持）
+  IF NOT v_event_is_cancelled THEN
+    SELECT COALESCE(SUM(participant_count), 0)
+    INTO v_actual_participants
+    FROM reservations
+    WHERE schedule_event_id = v_event_id
+      AND status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in');
+
+    UPDATE schedule_events
+    SET current_participants = v_actual_participants,
+        updated_at = NOW()
+    WHERE id = v_event_id;
+  END IF;
+
   RETURN TRUE;
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION cancel_reservation_with_lock(UUID, TEXT) TO authenticated;
+
+-- シグネチャ 2: (UUID, UUID, TEXT) — customer_id 指定版
 CREATE OR REPLACE FUNCTION public.cancel_reservation_with_lock(
   p_reservation_id UUID,
   p_customer_id UUID,
@@ -453,8 +492,12 @@ SET row_security = off
 AS $$
 DECLARE
   v_reservation RECORD;
+  v_event_id UUID;
   v_caller_org_id UUID;
+  v_actual_participants INTEGER;
+  v_event_is_cancelled BOOLEAN;
 BEGIN
+  -- 予約をロック
   SELECT id, schedule_event_id, status, customer_id, organization_id
   INTO v_reservation
   FROM public.reservations
@@ -466,19 +509,25 @@ BEGIN
     RAISE EXCEPTION 'RESERVATION_NOT_FOUND' USING ERRCODE = 'P0005';
   END IF;
 
+  v_event_id := v_reservation.schedule_event_id;
+
+  -- 組織境界チェック
   v_caller_org_id := get_user_organization_id();
 
   IF NOT (
+    -- 自分の予約（顧客として — customer_id で照合）
     EXISTS (
       SELECT 1 FROM public.customers c
       WHERE c.id = COALESCE(p_customer_id, v_reservation.customer_id)
         AND c.user_id = auth.uid()
     )
     OR (
+      -- 同組織の admin
       is_org_admin()
       AND (v_caller_org_id IS NOT DISTINCT FROM v_reservation.organization_id)
     )
     OR (
+      -- スタッフ権限
       EXISTS (
         SELECT 1 FROM staff
         WHERE user_id = auth.uid()
@@ -490,6 +539,7 @@ BEGIN
     RAISE EXCEPTION 'FORBIDDEN' USING ERRCODE = 'P0009';
   END IF;
 
+  -- ステータスを更新
   UPDATE public.reservations
   SET status = 'cancelled',
       cancelled_at = NOW(),
@@ -497,21 +547,36 @@ BEGIN
       updated_at = NOW()
   WHERE id = p_reservation_id;
 
+  -- 公演の中止状態を確認
+  SELECT is_cancelled INTO v_event_is_cancelled
+  FROM schedule_events
+  WHERE id = v_event_id;
+
+  -- 在庫を再計算（公演が中止済みの場合はスキップ：中止前の人数を保持）
+  IF NOT v_event_is_cancelled THEN
+    SELECT COALESCE(SUM(participant_count), 0)
+    INTO v_actual_participants
+    FROM reservations
+    WHERE schedule_event_id = v_event_id
+      AND status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in');
+
+    UPDATE schedule_events
+    SET current_participants = v_actual_participants,
+        updated_at = NOW()
+    WHERE id = v_event_id;
+  END IF;
+
   RETURN TRUE;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION cancel_reservation_with_lock(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION cancel_reservation_with_lock(UUID, UUID, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.create_reservation_with_lock_v2(UUID, INTEGER, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, UUID) IS
-'予約作成RPC。在庫(current_participants)は reservations INSERT 後の recalc トリガーが絶対値で再計算する（checked_in 含む）。';
-
 COMMENT ON FUNCTION cancel_reservation_with_lock(UUID, TEXT) IS
-'予約をキャンセル（2パラメーター版）。current_participants は reservations 更新トリガーが再計算する。';
+'予約をキャンセル（2パラメーター版）。公演が中止済みの場合は current_participants を更新しない（中止前の人数を保持）。再集計は checked_in を含む。';
 
 COMMENT ON FUNCTION cancel_reservation_with_lock(UUID, UUID, TEXT) IS
-'予約をキャンセル（3パラメーター版）。current_participants は reservations 更新トリガーが再計算する。';
+'予約をキャンセル（3パラメーター版）。公演が中止済みの場合は current_participants を更新しない（中止前の人数を保持）。再集計は checked_in を含む。';
 
 DO $$
 DECLARE
@@ -521,16 +586,17 @@ BEGIN
   FOR v_event_id IN
     SELECT se.id
     FROM schedule_events se
-    WHERE se.current_participants IS DISTINCT FROM COALESCE((
-      SELECT SUM(r.participant_count)
-      FROM reservations r
-      WHERE r.schedule_event_id = se.id
-        AND r.status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in')
-    ), 0)
+    WHERE se.is_cancelled = false
+      AND se.current_participants IS DISTINCT FROM COALESCE((
+        SELECT SUM(r.participant_count)
+        FROM reservations r
+        WHERE r.schedule_event_id = se.id
+          AND r.status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in')
+      ), 0)
   LOOP
     PERFORM public.recalc_current_participants_for_event(v_event_id);
     v_fixed_count := v_fixed_count + 1;
   END LOOP;
 
-  RAISE NOTICE '✅ current_participants 不整合を % 件修復しました', v_fixed_count;
+  RAISE NOTICE '✅ current_participants 不整合を開催中 % 件修復しました', v_fixed_count;
 END $$;
