@@ -109,7 +109,7 @@ export function useReservationListData({
             setReservations(data)
             const totalParticipants = sumActiveParticipants(data)
             // DBのcurrent_participantsと実際の予約合計がズレていれば修正
-            if (event.id && totalParticipants !== (event.current_participants ?? -1)) {
+            if (event.id && totalParticipants !== (event.current_participants ?? 0)) {
               recalculateCurrentParticipants(event.id).catch(e =>
                 logger.warn('参加者数のDB修正に失敗（制約違反の可能性）:', e)
               )
