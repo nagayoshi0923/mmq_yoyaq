@@ -77,20 +77,4 @@ describe('AI Manager gateway contract', () => {
     expect(result.errors).toEqual([])
   })
 
-  it('共通案件台帳更新はsingleton・revision・store以外を拒否する', () => {
-    const allowed = validateAiManagerRequest({
-      operationId: 'manager.work-store.update', method: 'PATCH', query: { id: 'singleton' },
-      body: { expected_revision: 0, store: { schema_version: 1, mode: 'PRACTICE', revision: 1, items: [] } },
-      allowedOperations: parseAllowedOperations('manager.work-store.update'),
-    })
-    expect(allowed.errors).toEqual([])
-
-    const rejected = validateAiManagerRequest({
-      operationId: 'manager.work-store.update', method: 'PATCH', query: { id: 'other' },
-      body: { expected_revision: 0, store: {}, organization_id: 'other' },
-      allowedOperations: parseAllowedOperations('manager.work-store.update'),
-    })
-    expect(rejected.errors).toContain('QUERY_VALUE_REQUIRED:id=singleton')
-    expect(rejected.errors).toContain('BODY_KEYS_NOT_ALLOWED:organization_id')
-  })
 })

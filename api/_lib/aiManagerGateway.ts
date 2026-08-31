@@ -69,12 +69,6 @@ const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
     allowedBodyKeys: ['performance_date', 'performance_count', 'participant_count', 'venue_name', 'notes'],
     requiredQuery: { action: 'update' },
   }),
-  'manager.work-store.update': operation({
-    id: 'manager.work-store.update', method: 'PATCH', pathname: '/api/ai-manager-work-store', write: true, risk: 'low',
-    allowedQueryKeys: ['id'],
-    allowedBodyKeys: ['expected_revision', 'store'],
-    requiredQuery: { id: 'singleton' },
-  }),
 })
 
 export function getAiManagerOperation(operationId: string): AiManagerOperation | null {
