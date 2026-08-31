@@ -594,8 +594,13 @@ BEGIN
           AND r.status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in')
       ), 0)
   LOOP
-    PERFORM public.recalc_current_participants_for_event(v_event_id);
-    v_fixed_count := v_fixed_count + 1;
+    BEGIN
+      PERFORM public.recalc_current_participants_for_event(v_event_id);
+      v_fixed_count := v_fixed_count + 1;
+    EXCEPTION WHEN check_violation THEN
+      -- 既に定員超えの売り越し公演は制約で直せない。件数だけ残す。
+      NULL;
+    END;
   END LOOP;
 
   RAISE NOTICE '✅ current_participants 不整合を開催中 % 件修復しました', v_fixed_count;
