@@ -40,6 +40,10 @@ const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
     allowedQueryKeys: ['scope', 'year', 'month'],
     requiredQuery: { scope: 'staff' },
   }),
+  'manager.work-store.read': operation({
+    id: 'manager.work-store.read', method: 'GET', pathname: '/api/ai-manager-work-store', write: false, risk: 'low',
+    allowedQueryKeys: [],
+  }),
   'schedule.notes.update': operation({
     id: 'schedule.notes.update', method: 'PATCH', pathname: '/api/schedule', write: true, risk: 'medium',
     allowedQueryKeys: ['id', 'expected_updated_at'],
@@ -64,6 +68,12 @@ const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
     allowedQueryKeys: ['id', 'action'],
     allowedBodyKeys: ['performance_date', 'performance_count', 'participant_count', 'venue_name', 'notes'],
     requiredQuery: { action: 'update' },
+  }),
+  'manager.work-store.update': operation({
+    id: 'manager.work-store.update', method: 'PATCH', pathname: '/api/ai-manager-work-store', write: true, risk: 'low',
+    allowedQueryKeys: ['id'],
+    allowedBodyKeys: ['expected_revision', 'store'],
+    requiredQuery: { id: 'singleton' },
   }),
 })
 
