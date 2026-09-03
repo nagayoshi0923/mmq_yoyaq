@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createAiManagerDirectReadPlan,
   createAiManagerFingerprint,
+  getAiManagerOperation,
   hashAiManagerToken,
   parseAllowedOperations,
   tokenHashMatches,
@@ -66,5 +68,69 @@ describe('AI Manager gateway contract', () => {
       allowedOperations: parseAllowedOperations('scenario.notes.update'),
     })
     expect(result.errors).toEqual([])
+  })
+
+  it('担当作品の読み取りは組織IDを外部入力させずgateway側で固定する', () => {
+    const operation = getAiManagerOperation('staff-scenario-assignments.read')
+    expect(operation).not.toBeNull()
+    const validation = validateAiManagerRequest({
+      operationId: 'staff-scenario-assignments.read',
+      method: 'GET',
+      query: {},
+      allowedOperations: parseAllowedOperations('staff-scenario-assignments.read'),
+    })
+    expect(validation.errors).toEqual([])
+
+    const plan = createAiManagerDirectReadPlan({
+      operation: operation!,
+      organizationId: 'org-queens-waltz',
+    })
+    expect(plan?.table).toBe('staff_scenario_assignments')
+    expect(plan?.filters).toEqual([
+      { column: 'organization_id', value: 'org-queens-waltz' },
+    ])
+    expect(plan?.select).not.toContain('notes')
+    expect(plan?.pageSize).toBe(1_000)
+    expect(plan?.maxRows).toBe(50_000)
+  })
+
+  it('GM回答は固定した予約UUIDだけを同一組織内で読む', () => {
+    const reservationId = '123e4567-e89b-42d3-a456-426614174000'
+    const operation = getAiManagerOperation('gm-availability-responses.read')
+    expect(operation).not.toBeNull()
+    const validation = validateAiManagerRequest({
+      operationId: 'gm-availability-responses.read',
+      method: 'GET',
+      query: { reservation_id: reservationId },
+      allowedOperations: parseAllowedOperations('gm-availability-responses.read'),
+    })
+    expect(validation.errors).toEqual([])
+
+    const plan = createAiManagerDirectReadPlan({
+      operation: operation!,
+      organizationId: 'org-queens-waltz',
+      query: { reservation_id: reservationId },
+    })
+    expect(plan?.filters).toEqual([
+      { column: 'organization_id', value: 'org-queens-waltz' },
+      { column: 'reservation_id', value: reservationId },
+    ])
+    expect(plan?.select).not.toContain('notes')
+    expect(plan?.select).not.toContain('gm_discord_id')
+  })
+
+  it('GM回答の予約ID欠落・不正形式・組織ID差し込みを拒否する', () => {
+    const allowedOperations = parseAllowedOperations('gm-availability-responses.read')
+    const missing = validateAiManagerRequest({
+      operationId: 'gm-availability-responses.read', method: 'GET', query: {}, allowedOperations,
+    })
+    expect(missing.errors).toContain('QUERY_KEY_REQUIRED:reservation_id')
+
+    const invalid = validateAiManagerRequest({
+      operationId: 'gm-availability-responses.read', method: 'GET',
+      query: { reservation_id: 'all', organization_id: 'other' }, allowedOperations,
+    })
+    expect(invalid.errors).toContain('QUERY_UUID_REQUIRED:reservation_id')
+    expect(invalid.errors).toContain('QUERY_KEYS_NOT_ALLOWED:organization_id')
   })
 })

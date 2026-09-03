@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { db, getMissingEnvError } from './_lib/db.js'
 import {
+  createAiManagerDirectReadPlan,
   createAiManagerFingerprint,
   parseAllowedOperations,
   tokenHashMatches,
@@ -74,6 +75,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const session = await getServiceSession(organizationId)
+    const directReadPlan = createAiManagerDirectReadPlan({
+      operation,
+      organizationId,
+      query: req.query,
+    })
+    if (directReadPlan) {
+      const data = await executeDirectRead(directReadPlan)
+      res.setHeader('Cache-Control', 'no-store')
+      return res.status(200).json(data)
+    }
     const targetUrl = buildTargetUrl(req, operation)
     const upstream = await fetch(targetUrl, {
       method: operation.method,
@@ -170,6 +181,9 @@ async function getServiceSession(expectedOrganizationId: string): Promise<Servic
 }
 
 function buildTargetUrl(req: VercelRequest, operation: AiManagerOperation): URL {
+  if (!operation.pathname) {
+    throw new GatewayError(500, 'AI_MANAGER_OPERATION_CONFIGURATION_INVALID', '内部API接続先が未設定です')
+  }
   const configured = String(process.env.AI_MANAGER_INTERNAL_BASE_URL ?? '').trim()
   let baseUrl = configured
   if (!baseUrl) {
@@ -187,6 +201,34 @@ function buildTargetUrl(req: VercelRequest, operation: AiManagerOperation): URL 
     }
   }
   return target
+}
+
+async function executeDirectRead(plan: ReturnType<typeof createAiManagerDirectReadPlan>): Promise<unknown[]> {
+  if (!db || !plan) throw new GatewayError(503, 'DATABASE_UNAVAILABLE', 'DB接続がありません')
+  // gateway は service role を使うため、RLS任せにせず plan に organization_id を必須注入する。
+  const rows: unknown[] = []
+  for (let from = 0; from < plan.maxRows; from += plan.pageSize) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (db as any)
+      .from(plan.table)
+      .select(plan.select)
+    for (const filter of plan.filters) query = query.eq(filter.column, filter.value)
+    const to = Math.min(from + plan.pageSize, plan.maxRows) - 1
+    const { data, error } = await query
+      .order(plan.orderBy)
+      .range(from, to)
+    if (error) {
+      console.error('[ai-manager-gateway] direct read error:', {
+        table: plan.table,
+        code: error.code,
+      })
+      throw new GatewayError(502, 'AI_MANAGER_DIRECT_READ_FAILED', 'MMQデータの読み取りに失敗しました')
+    }
+    const page = data ?? []
+    rows.push(...page)
+    if (page.length < plan.pageSize) break
+  }
+  return rows
 }
 
 async function reserveWrite(input: {
