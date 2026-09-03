@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
 import { getParticipationFee, getLicenseAmount, sumGmCosts, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
+import { isInternalLicenseReportablePerformance } from '../src/lib/licensePerformance.js'
 
 // NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
 // 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
@@ -511,6 +512,7 @@ async function handleScenarioPerformance(req: VercelRequest, res: VercelResponse
   if (!range) return res.status(400).json({ error: 'start / end クエリパラメータが必要です' })
   const { start, end } = range
   const storeIds = getStoreIds(req)
+  const licenseReportableOnly = req.query.license_reportable === 'true' || req.query.license_reportable === '1'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = (db as any)
@@ -580,6 +582,14 @@ async function handleScenarioPerformance(req: VercelRequest, res: VercelResponse
     }
 
     if (scenarioInfo) {
+      if (
+        licenseReportableOnly
+        && !isInternalLicenseReportablePerformance({
+          category: event.category,
+          scenarioTitle: scenarioInfo.title,
+        })
+      ) return
+
       const category = event.category || 'open'
       const isGMTest = category === 'gmtest'
       const key = isGMTest ? `${scenarioInfo.id}_gmtest` : scenarioInfo.id

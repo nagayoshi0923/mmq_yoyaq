@@ -28,6 +28,78 @@ const STATIC_PAGES: Record<string, { title: string; description: string; heading
     heading: '参加店舗一覧',
     body: 'MMQに参加しているマーダーミステリー店舗・団体の一覧です。',
   },
+  about: {
+    title: '運営会社 | MMQ',
+    description: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
+    heading: '運営会社',
+    body: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
+  },
+  company: {
+    title: '運営会社 | MMQ',
+    description: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
+    heading: '運営会社',
+    body: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
+  },
+  contact: {
+    title: 'お問い合わせ | MMQ',
+    description: 'MMQ（マーダーミステリー公演予約）へのお問い合わせはこちらから。',
+    heading: 'お問い合わせ',
+    body: 'MMQへのお問い合わせはこちらから。',
+  },
+  terms: {
+    title: '利用規約 | MMQ',
+    description: 'MMQ の利用規約です。',
+    heading: '利用規約',
+    body: 'MMQ の利用規約です。',
+  },
+  privacy: {
+    title: 'プライバシーポリシー | MMQ',
+    description: 'MMQ のプライバシーポリシーです。',
+    heading: 'プライバシーポリシー',
+    body: 'MMQ のプライバシーポリシーです。',
+  },
+  legal: {
+    title: '特定商取引法に基づく表記 | MMQ',
+    description: 'MMQ の特定商取引法に基づく表記です。',
+    heading: '特定商取引法に基づく表記',
+    body: 'MMQ の特定商取引法に基づく表記です。',
+  },
+  security: {
+    title: 'セキュリティ | MMQ',
+    description: 'MMQ のセキュリティに関する方針です。',
+    heading: 'セキュリティ',
+    body: 'MMQ のセキュリティに関する方針です。',
+  },
+  'cancel-policy': {
+    title: 'キャンセルポリシー | MMQ',
+    description: 'マーダーミステリー公演予約のキャンセル条件は店舗ごとに異なります。',
+    heading: 'キャンセルポリシー',
+    body: 'キャンセル条件は店舗ごとに異なります。最新のポリシーをご確認ください。',
+  },
+  'for-business': {
+    title: '店舗・団体向け | マーダーミステリー予約システム MMQ',
+    description: 'マーダーミステリー店舗向けの公演管理・オンライン予約システム MMQ のご案内です。',
+    heading: '店舗・団体向け',
+    body: 'マーダーミステリー店舗向けの公演管理・オンライン予約システム MMQ です。',
+  },
+  pricing: {
+    title: '料金 | MMQ',
+    description: 'MMQ の料金プランです。',
+    heading: '料金',
+    body: 'MMQ の料金プランです。',
+  },
+  'getting-started': {
+    title: '導入の流れ | MMQ',
+    description: 'マーダーミステリー店舗が MMQ を導入する流れです。',
+    heading: '導入の流れ',
+    body: 'マーダーミステリー店舗が MMQ を導入する流れです。',
+  },
+  scenario: {
+    title: 'シナリオを探す | マーダーミステリー予約 | MMQ',
+    description: 'MMQで遊べるマーダーミステリー作品の一覧です。全国の店舗から探せます。',
+    heading: 'シナリオを探す',
+    body: 'MMQで遊べるマーダーミステリー作品の一覧です。全国の店舗から探せます。',
+  },
 }
 
 function firstQuery(value: string | string[] | undefined): string {
@@ -102,6 +174,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
     res.status(200).send(page)
+    return
+  }
+
+  if ((kind === 'org' || kind === 'page') && slug && db) {
+    const { data: org } = await db
+      .from('organizations')
+      .select('name, slug, is_active')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (org?.name) {
+      const name = (org as { name: string }).name
+      const description = `${name}のマーダーミステリー公演を検索・予約できます。`
+      const page = htmlPage({
+        title: `${name} | マーダーミステリー予約 | MMQ`,
+        description,
+        canonicalPath: `/${slug}`,
+        heading: name,
+        body: description,
+      })
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
+      res.status(200).send(page)
+      return
+    }
+    const staticBySlug = STATIC_PAGES[slug]
+    if (staticBySlug) {
+      const page = htmlPage({
+        title: staticBySlug.title,
+        description: staticBySlug.description,
+        canonicalPath: `/${slug}`,
+        heading: staticBySlug.heading,
+        body: staticBySlug.body,
+      })
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400')
+      res.status(200).send(page)
+      return
+    }
+    res.status(404).send('not found')
     return
   }
 

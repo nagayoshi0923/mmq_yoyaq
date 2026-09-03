@@ -1,0 +1,11 @@
+{
+  "name": "senshin-discord-join",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

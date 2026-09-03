@@ -15,7 +15,16 @@ const STATIC_PATHS = [
   '/legal',
   '/cancel-policy',
   '/for-business',
+  '/scenario',
 ]
+
+function orgHasPublicBookingStore(
+  stores: Array<{ status?: string | null; ownership_type?: string | null }> | null | undefined,
+): boolean {
+  return (stores ?? []).some(
+    (store) => store.status === 'active' && store.ownership_type !== 'office',
+  )
+}
 
 function escapeXml(value: string): string {
   return value
@@ -49,13 +58,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data: orgs } = await db
     .from('organizations')
-    .select('slug, updated_at')
+    .select('slug, updated_at, stores(status, ownership_type)')
     .eq('is_active', true)
     .not('slug', 'is', null)
 
   for (const org of orgs ?? []) {
     const slug = (org as { slug: string | null }).slug
     if (!slug) continue
+    const stores = (org as { stores?: Array<{ status?: string | null; ownership_type?: string | null }> }).stores
+    if (!orgHasPublicBookingStore(stores)) continue
     entries.push(urlEntry(`/${slug}`, 'daily', '0.8', (org as { updated_at?: string }).updated_at))
   }
 

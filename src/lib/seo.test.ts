@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isPublicStoresPath,
   orgBookingTitle,
+  orgHasPublicBookingStore,
   scenarioPageDescription,
   scenarioPageTitle,
   shouldNoindexPath,
@@ -30,6 +32,20 @@ describe('seo', () => {
     expect(shouldNoindexPath('blog-detail', '/queens-waltz/blog/hello')).toBe(false)
     expect(shouldNoindexPath('blog', '/queens-waltz/blog')).toBe(true)
     expect(shouldNoindexPath('platform-top', '/')).toBe(false)
+  })
+
+  it('公開 /stores はゲスト追い出し対象外、管理 /{org}/stores は対象', () => {
+    expect(isPublicStoresPath('stores', '/stores')).toBe(true)
+    expect(isPublicStoresPath('stores', '/queens-waltz/stores')).toBe(false)
+    expect(isPublicStoresPath('schedule', '/stores')).toBe(false)
+  })
+
+  it('店舗のない組織は sitemap に載せない', () => {
+    expect(orgHasPublicBookingStore([])).toBe(false)
+    expect(orgHasPublicBookingStore([{ status: 'active', ownership_type: 'office' }])).toBe(false)
+    expect(orgHasPublicBookingStore([{ status: 'inactive', ownership_type: 'owned' }])).toBe(false)
+    expect(orgHasPublicBookingStore([{ status: 'active', ownership_type: 'owned' }])).toBe(true)
+    expect(orgHasPublicBookingStore([{ status: 'active', ownership_type: null }])).toBe(true)
   })
 
   it('日本語タイトルの slug は id フォールバックになる', () => {
