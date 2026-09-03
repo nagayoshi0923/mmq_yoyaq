@@ -203,6 +203,17 @@ export const salesApi = {
     return apiClient.get<ScenarioPerformanceItem[]>(`/api/sales?${params.toString()}`)
   },
 
+  // 作者へのライセンス報告対象だけに絞ったシナリオ別公演数
+  async getLicenseScenarioPerformance(startDate: string, endDate: string): Promise<ScenarioPerformanceItem[]> {
+    const params = new URLSearchParams({
+      type: 'scenario-performance',
+      start: startDate,
+      end: endDate,
+      license_reportable: 'true',
+    })
+    return apiClient.get<ScenarioPerformanceItem[]>(`/api/sales?${params.toString()}`)
+  },
+
   // オープン公演分析データを取得
   async getOpenEventAnalysis(
     startDate: string,

@@ -43,7 +43,7 @@ export function useSendReportsData(
       const [scenarios, stores, performance, externalReports, historyData, manualExternalData, internalOverrideData, authorsData] = await Promise.all([
         scenarioApi.getAll(),
         storeApi.getAll(),
-        salesApi.getScenarioPerformance(startStr, endStr),
+        salesApi.getLicenseScenarioPerformance(startStr, endStr),
         isLicenseManager
           ? getAllExternalReports({ status: 'approved', startDate: startStr, endDate: endStr }).catch(() => [])
           : Promise.resolve([]),
