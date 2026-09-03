@@ -196,6 +196,11 @@ interface LicensePerformanceSummary {
 total_license_fee = total_performance_count * license_amount
 ```
 
+自社公演の集計対象は `open`、`private`、`gmtest`、`offsite` とする。
+`testplay`、会場貸し、パッケージ、MTGなどは対象外とする。
+`offsite` はQueen's Waltzが外部会場で実施した出張公演を表すため対象だが、
+シナリオ名が「特別出張公演」から始まる外部団体の招聘公演は、作品ライセンス報告の対象外とする。
+
 ---
 
 ## 5. ライセンス管理組織の判定
@@ -252,5 +257,4 @@ if (isLicenseManager) {
 - [author-portal/](../author-portal/) - 作者ポータル
 - [scenario-management/](../scenario-management/) - シナリオ管理
 - [features/README.md](../README.md) - 機能概要一覧
-
 
