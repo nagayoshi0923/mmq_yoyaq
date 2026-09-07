@@ -30,6 +30,9 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Supabase release scope tests
+        run: node --test scripts/supabase-release-scope.test.mjs
+
       - name: Lint
         run: npm run lint
 
