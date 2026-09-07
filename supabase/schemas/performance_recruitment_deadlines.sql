@@ -6,6 +6,7 @@ CREATE TABLE public.performance_recruitment_deadlines (
   reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 2000),
   was_confirmed boolean NOT NULL DEFAULT false,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'confirmed', 'cancelled')),
+  cycle integer NOT NULL DEFAULT 1 CHECK (cycle > 0),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
