@@ -1,3 +1,5 @@
+ALTER TABLE public.organization_scenarios ADD COLUMN booking_cutoff_minutes integer CHECK (booking_cutoff_minutes BETWEEN 0 AND 1440);
+
 -- 公開済み公演と同じ非機密の締切情報のみ。顧客・社内判断理由は返さない。
 CREATE OR REPLACE FUNCTION public.get_performance_booking_window(p_event_id uuid)
 RETURNS TABLE(judgment_deadline timestamptz, judgment_status text, booking_deadline timestamptz,
