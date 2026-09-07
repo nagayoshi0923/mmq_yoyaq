@@ -19,7 +19,7 @@ export function RecruitmentEmailSample({ masterId, scenarioName }: { masterId?: 
     <p className="scenario-edit-card__help">通常の予約確定メールとは別に、追加募集の開始時に送信します。以下は18:00開演の例です。実際の公演日時・人数・案内済み期限・専用リンクに置き換わります。</p>
     {error && <p className="scenario-edit-card__note" role="alert">設定を取得できなかったため、初期値（不足2名・90分前）で表示しています。</p>}
     <p className="scenario-edit-card__help">件名：{sample.subject}</p>
-    <div className="rounded border bg-muted/30 p-3 text-xs leading-relaxed whitespace-pre-wrap">{sample.text}</div>
+    <div className="rounded-md border bg-muted/30 p-3 text-xs leading-relaxed whitespace-pre-wrap">{sample.text}</div>
     <p className="scenario-edit-card__note">開催決定後の欠員では、その事情に合わせた文面で送信します。このサンプルは送信されません。</p>
   </section>
 }
