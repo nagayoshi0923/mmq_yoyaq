@@ -10,6 +10,8 @@ import { logger } from '@/utils/logger'
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined
 
 export function initSentry(): void {
+  // 無料辞退の専用リンクは認証用トークンを含むため、ページURLを外部監視へ送らない。
+  if (window.location.pathname === '/recruitment-response') return
   if (!SENTRY_DSN) {
     if (import.meta.env.DEV) {
       logger.log('[Sentry] DSN未設定のため無効（VITE_SENTRY_DSN を設定してください）')
