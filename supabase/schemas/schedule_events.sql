@@ -23,6 +23,7 @@ CREATE TABLE public.schedule_events (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   max_participants INTEGER,
   reservation_deadline_hours INTEGER DEFAULT 0,
+  booking_cutoff_minutes INTEGER CHECK (booking_cutoff_minutes BETWEEN 0 AND 1440),
   is_reservation_enabled BOOLEAN DEFAULT TRUE,
   reservation_notes TEXT,
   reservation_confirmation_template TEXT,

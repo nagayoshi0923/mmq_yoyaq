@@ -1,3 +1,4 @@
+import { BookingCutoffSection } from './ScenarioEditDialogV2/sections/BookingCutoffSection'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -1430,7 +1431,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const renderTabContent = (tabId: TabId) => {
     switch (tabId) {
       case 'basic':
-        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
+        return <><BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} /><BookingCutoffSection masterId={currentMasterId} /></>
       case 'game':
         return <GameInfoSectionV2 formData={formData} setFormData={setFormData} />
       case 'characters':

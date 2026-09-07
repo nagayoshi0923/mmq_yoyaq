@@ -21,6 +21,7 @@ import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { toast } from 'sonner'
+import { BookingDeadlineTab } from './BookingDeadlineTab'
 import { ReservationList } from './modal/ReservationList'
 import { EventHistoryTab } from './modal/EventHistoryTab'
 import { SurveyResponsesTab } from './modal/SurveyResponsesTab'
@@ -83,6 +84,7 @@ const CATEGORY_TONE: Record<string, { bg: string; section: string; border: strin
 const PERF_TABS = [
   { id: 'edit', label: '公演情報' },
   { id: 'reservations', label: '予約者' },
+  { id: 'deadlines', label: '募集・締切' },
   { id: 'survey', label: 'アンケート' },
   { id: 'history', label: '更新履歴' },
 ] as const
@@ -953,6 +955,7 @@ export function PerformanceModal({
     : null
 
   const renderTabBody = () => {
+    if (activeTab === 'deadlines') return <BookingDeadlineTab eventId={event?.id} />
     if (activeTab === 'reservations') {
       return (
         <ReservationList
