@@ -1,3 +1,6 @@
+-- 既存組織のあと1人運用を保持し、配備後に承認済み組織だけ2へ変更する。
+ALTER TABLE public.performance_recruitment_policies ADD COLUMN max_missing_participants smallint NOT NULL DEFAULT 1 CHECK (max_missing_participants BETWEEN 1 AND 2);
+
 CREATE OR REPLACE FUNCTION check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
 RETURNS TABLE(
   events_checked INTEGER,

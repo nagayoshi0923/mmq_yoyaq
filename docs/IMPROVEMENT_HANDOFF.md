@@ -386,3 +386,12 @@ invalidateQueries 60箇所中 `refetchType:'all'` は1箇所のみ（既定 refe
 - [x] 予約DBトリガーでも90分期限を検証。発端のキャンセル者・後から予約した顧客は無料辞退の対象外。
 - 検証: 隔離PostgreSQLの既存期限テスト・新規あと1人テスト、unit 261件、verify（型・lint・build・security）、公開ページを含むE2E 8件を実施。CIの画面起動用非機密設定も補完。
 - 配備: migration `20260907100000_one_seat_extension` をDB先行。stagingでは実顧客への二重通知を避け自動実行を無効のまま検証し、本番のWeb/Edge配備後にQueens Waltzだけ有効化する。
+
+
+## QW-20260907-005: あと2人も開始90分前まで延長（2026-09-07）
+
+- [x] あと1人/2人の上限を組織設定で指定し、3人以上へ無承認で拡張しない。
+- [x] 通知文面に延長開始時点の不足人数を反映。既存キューはあと1人として互換維持。
+- [x] あと1人への減少や無料辞退による不足増加で、案内済み期限を変更しない。
+- 検証: 現行本番RPC本文との一致確認、既存SQL回帰・新規あと2人SQL、通知文面テスト、verify。
+- 配備順: migration `20260907110000_two_seat_extension`（上限1を維持）→ Edge → 本番上限2。stagingでは実顧客への自動送信を有効化しない。復旧SQLは `docs/RECRUITMENT_DEADLINES.md`。

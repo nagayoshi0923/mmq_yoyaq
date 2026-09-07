@@ -5,6 +5,7 @@ export interface RecruitmentSnapshot {
   store_name: string | null
   deadline: string
   was_confirmed: boolean
+  missing_participants?: number
   site_url: string
 }
 
@@ -24,7 +25,7 @@ ${snapshot.scenario}
 ${snapshot.date} ${snapshot.start_time.slice(0, 5)} 開演
 会場: ${snapshot.store_name || '別途ご案内'}
 
-${snapshot.was_confirmed ? '開催決定後にキャンセルが出たため、' : '現在、'}最低開催人数まであと1人となっています。
+${snapshot.was_confirmed ? '開催決定後にキャンセルが出たため、' : '現在、'}最低開催人数まであと${snapshot.missing_participants ?? 1}人となっています。
 ${deadline}（開演90分前・日本時間）まで追加募集を続けます。人数が揃い次第、開催を確定します。期限に達しても人数が不足している場合は中止とし、改めてご連絡します。
 
 移動などのご都合で開催判断をお待ちいただけない場合、開催判断待ちの間（最長で上記期限まで）はキャンセル料なしで参加を取りやめられます。以下の専用ページで内容を確認し、「無料で参加を取りやめる」を選んでください。ページを開くだけでは予約は変更されません。
