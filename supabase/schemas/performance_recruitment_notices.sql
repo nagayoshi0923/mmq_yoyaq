@@ -1,6 +1,7 @@
 CREATE TABLE public.performance_recruitment_policies (
  organization_id uuid PRIMARY KEY REFERENCES public.organizations(id),
  one_seat_enabled boolean NOT NULL DEFAULT false,
+ max_missing_participants smallint NOT NULL DEFAULT 1 CHECK (max_missing_participants BETWEEN 1 AND 2),
  customer_site_url text NOT NULL CHECK (customer_site_url ~ '^https://'),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
