@@ -32,7 +32,7 @@ export function Settings() {
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer', 'business-hours']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -57,7 +57,9 @@ export function Settings() {
       case 'reservation':
         return <ReservationSettings storeId={storeId} />
       case 'cancellation':
-        return <CancellationSettings storeId={storeId} />
+        return <CancellationSettings storeId={storeId} page="acceptance" />
+      case 'cancellation-policy':
+        return <CancellationSettings storeId={storeId} page="policy" />
       case 'pricing':
         return <PricingSettings storeId={storeId} />
       case 'salary':

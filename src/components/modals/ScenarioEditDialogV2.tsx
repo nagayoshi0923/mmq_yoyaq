@@ -38,6 +38,7 @@ import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { parseScenarioSlotStartTimes, serializeScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import type { Scenario, Staff } from '@/types'
 import { ConfirmDialog } from '@/components/patterns/modal'
 
@@ -152,6 +153,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     accepts_private_booking: true,
     available_from: null,
     available_until: null,
+    private_booking_slot_start_times: { weekday: {}, weekend: {} },
   })
   const [isScenarioLoaded, setIsScenarioLoaded] = useState<boolean>(!scenarioId) // 新規はloaded扱い
 
@@ -818,6 +820,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           extra_preparation_time: scenario.extra_preparation_time || undefined,
           private_booking_time_slots: scenario.private_booking_time_slots || [],
           private_booking_time_slots_weekend: scenario.private_booking_time_slots_weekend ?? null,
+          private_booking_slot_start_times: parseScenarioSlotStartTimes(scenario.private_booking_slot_start_times),
           caution: '',
           sensitive_tags: [],
           characters: [],  // organization_scenariosから後で取得
@@ -833,7 +836,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout, private_booking_time_slots, private_booking_slot_start_times')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -885,6 +888,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     characters: osData.characters || [],
                     // 貸切受付不可時間帯
                     private_booking_blocked_slots: osData.private_booking_blocked_slots || [],
+                    private_booking_time_slots: osData.private_booking_time_slots || [],
+                    private_booking_slot_start_times: parseScenarioSlotStartTimes(osData.private_booking_slot_start_times),
                     // 貸切募集期間
                     booking_start_date: osData.booking_start_date || null,
                     booking_end_date: osData.booking_end_date || null,
@@ -1199,6 +1204,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               scenario_type: formData.scenario_type || 'normal',
               // 貸切受付不可時間帯
               private_booking_blocked_slots: formData.private_booking_blocked_slots || null,
+              private_booking_time_slots: formData.private_booking_time_slots || null,
+              private_booking_slot_start_times: serializeScenarioSlotStartTimes(
+                formData.private_booking_slot_start_times ?? { weekday: {}, weekend: {} }
+              ),
               // 貸切募集期間
               booking_start_date: formData.booking_start_date || null,
               booking_end_date: formData.booking_end_date || null,

@@ -61,7 +61,7 @@ CREATE TABLE public.reservations (
   cancellation_policy_fees JSONB
     CHECK (cancellation_policy_fees IS NULL OR jsonb_typeof(cancellation_policy_fees) = 'array'),
   cancellation_policy_fee_basis TEXT
-    CHECK (cancellation_policy_fee_basis IN ('participant_total', 'performance_total')),
+    CHECK (cancellation_policy_fee_basis IN ('participant_total', 'performance_total', 'participant_until_capacity')),
   cancellation_policy_updated_at TIMESTAMPTZ
 );
 

@@ -729,7 +729,7 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   {
     key: 'performance_extension_template',
     title: '募集延長メール',
-    description: '前日23:59時点で過半数達成・満席未達の場合に送信（4時間前まで延長）',
+    description: '前日23:59時点で最低開催の半分以上・最低開催人数未満の場合に送信（4時間前まで延長）',
     category: 'other',
     additionalVariables: ADDITIONAL_VARIABLES.extension,
     getDefault: getDefaultPerformanceExtensionTemplate
@@ -826,7 +826,7 @@ const VARIABLE_SOURCES: Record<string, VariableSource> = {
   company_name: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
   company_phone: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
   company_email: { note: 'メール設定の「会社情報」で設定します', settingsTab: 'email' },
-  cancellation_reason: { note: '中止/キャンセル操作時に入力します。定型理由はキャンセル設定で編集できます', settingsTab: 'cancellation' },
+  cancellation_reason: { note: '中止/キャンセル操作時に入力します。定型理由は設定の「キャンセルポリシー」で編集できます', settingsTab: 'cancellation' },
   rejection_reason: { note: 'メール設定の「貸切却下メールの既定理由」で編集します（却下時に本文へ差し込まれます）', settingsTab: 'email' },
 }
 

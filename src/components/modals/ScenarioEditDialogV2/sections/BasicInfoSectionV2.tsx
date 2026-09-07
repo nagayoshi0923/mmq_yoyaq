@@ -24,6 +24,10 @@ import type { Store } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useQueryClient } from '@tanstack/react-query'
+import {
+  SCENARIO_START_TIME_OPTIONS,
+  type SlotKey,
+} from '@/lib/privateBookingSlotStartTimes'
 
 // 統一スタイル（コンパクト）
 const labelStyle = "text-xs font-medium mb-0.5 block"
@@ -569,6 +573,61 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
               )
             })}
+          </div>
+        </div>
+
+        <div className="scenario-edit-field">
+          <span className="scenario-edit-field__label">貸切開始時刻</span>
+          <div className="scenario-edit-field__control space-y-2">
+            {([
+              { label: '平日', bucket: 'weekday' as const },
+              { label: '土日・祝日', bucket: 'weekend' as const },
+            ] as const).map(({ label, bucket }) => (
+              <div key={bucket}>
+                <p className="scenario-edit-card__sublabel">{label}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: 'morning' as SlotKey, name: '朝' },
+                    { key: 'afternoon' as SlotKey, name: '昼' },
+                    { key: 'evening' as SlotKey, name: '夜' },
+                  ]).map(({ key, name }) => {
+                    const value = formData.private_booking_slot_start_times?.[bucket]?.[key] || 'store'
+                    return (
+                      <label key={key} className="space-y-0.5">
+                        <span className="text-[11px] text-muted-foreground">{name}</span>
+                        <Select
+                          value={value}
+                          onValueChange={(next) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              private_booking_slot_start_times: {
+                                weekday: { ...(prev.private_booking_slot_start_times?.weekday || {}) },
+                                weekend: { ...(prev.private_booking_slot_start_times?.weekend || {}) },
+                                [bucket]: {
+                                  ...(prev.private_booking_slot_start_times?.[bucket] || {}),
+                                  [key]: next === 'store' ? null : next,
+                                },
+                              },
+                            }))
+                          }}
+                        >
+                          <SelectTrigger className="h-7 w-full text-xs">
+                            <SelectValue placeholder="店舗設定" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="store" className="text-xs">店舗設定</SelectItem>
+                            {SCENARIO_START_TIME_OPTIONS.map((time) => (
+                              <SelectItem key={time} value={time} className="text-xs">{time}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+            <p className="text-[11px] text-muted-foreground">空欄（店舗設定）はその店の営業時間の開始時刻を使います</p>
           </div>
         </div>
       </div>

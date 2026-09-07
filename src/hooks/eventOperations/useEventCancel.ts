@@ -97,7 +97,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
           cancelledBy: 'store',
         })
       } else {
-        // メールなし: ロックつきキャンセルのみ（在庫返却あり・通知なし）
+        // メールなし: ロックつきキャンセルのみ（在庫返却あり。GM通知は API 側）
         await reservationApi.cancelWithLock(
           targetEvent.reservation_id,
           reservation.customer_id ?? null,

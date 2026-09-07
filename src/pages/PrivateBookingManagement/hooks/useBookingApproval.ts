@@ -197,6 +197,28 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
       }
 
+      const { data: privatePaused, error: privatePauseError } = await supabase.rpc(
+        'is_store_recruitment_paused',
+        {
+          p_store_id: selectedStoreId,
+          p_pause_type: 'private',
+          p_date: selectedDateYmd,
+        }
+      )
+      if (privatePauseError) {
+        logger.error('貸切募集停止チェックエラー:', privatePauseError)
+        setSubmitting(false)
+        return { success: false, error: '募集停止状況の確認に失敗しました。もう一度お試しください。' }
+      }
+      if (privatePaused === true) {
+        setSubmitting(false)
+        const storeName = stores.find((store) => store.id === selectedStoreId)?.name || '選択店舗'
+        return {
+          success: false,
+          error: `${storeName}は ${selectedDateYmd} の貸切募集を停止しています。別の店舗または日付を選んでください。`,
+        }
+      }
+
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
       const existingEventsQuery = supabase
@@ -639,7 +661,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         // 却下メール本文（rejectionReason は全文）はキャンセル記録に流さず、固定の短い理由を渡す。
         // キャンセル確認メールは送らない（後段で却下専用メールを送るため、二重送信になる）。
         // 承認済みの貸切を却下した場合、紐づく公演もスケジュールから中止にする
-        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true, skipCancellationEmail: true, cancelPrivateEvent: true })
+        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true, skipCancellationEmail: true, cancelPrivateEvent: true, cancelledBy: 'store' })
       }
       
       // 関連するグループを候補日選択フェーズに戻し、候補日を rejected にする。

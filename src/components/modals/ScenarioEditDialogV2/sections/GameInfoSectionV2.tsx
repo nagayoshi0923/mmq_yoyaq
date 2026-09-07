@@ -56,6 +56,18 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
     return Array.from(genreMap.values())
   }, [orgGenres, formData.genre])
 
+  const playerCountHint = useMemo(() => {
+    const minHold = formData.player_count_min || 0
+    const half = Math.max(1, Math.ceil(minHold / 2))
+    const extendMax = minHold - 1
+    const canExtend = half < minHold && extendMax >= half
+    const base = `左は最低開催人数（${minHold}人以上で開催確定）。右は予約の定員です。`
+    if (canExtend) {
+      return `${base} 募集延長は最低開催の半分（${half}人）以上〜${extendMax}人です。`
+    }
+    return `${base} この人数だと募集延長は起きません。`
+  }, [formData.player_count_min])
+
   // カテゴリを organization_categories テーブルに自動登録
   const ensureCategoryInTable = async (name: string) => {
     try {
@@ -163,17 +175,26 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
         </div>
 
         {/* プレイ人数 */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">プレイ人数</span>
-          <div className="flex items-center gap-2">
-            <Input id="player_count_min" type="number" min="1" max="20" value={formData.player_count_min}
-              onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 4) }))}
-              className="h-7 text-xs w-14" />
-            <span className="text-xs text-muted-foreground">〜</span>
-            <Input id="player_count_max" type="number" min="1" max="20" value={formData.player_count_max}
-              onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 8) }))}
-              className="h-7 text-xs w-14" />
-            <span className="text-xs text-muted-foreground">人</span>
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right pt-1.5">プレイ人数</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="space-y-0.5">
+                <Input id="player_count_min" type="number" min="1" max="20" value={formData.player_count_min}
+                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 4) }))}
+                  className="h-7 text-xs w-14" />
+                <p className="text-[10px] text-muted-foreground text-center">最低開催</p>
+              </div>
+              <span className="text-xs text-muted-foreground">〜</span>
+              <div className="space-y-0.5">
+                <Input id="player_count_max" type="number" min="1" max="20" value={formData.player_count_max}
+                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 8) }))}
+                  className="h-7 text-xs w-14" />
+                <p className="text-[10px] text-muted-foreground text-center">定員</p>
+              </div>
+              <span className="text-xs text-muted-foreground self-start pt-1.5">人</span>
+            </div>
+            <p className={hintStyle}>{playerCountHint}</p>
           </div>
         </div>
 

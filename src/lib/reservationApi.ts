@@ -527,6 +527,7 @@ export const reservationApi = {
         cancellation_reason: cancellationReason ?? null,
         skip_group_cancel: Boolean(options?.skipGroupCancel),
         cancel_private_event: Boolean(options?.cancelPrivateEvent),
+        cancelled_by: options?.cancelledBy ?? 'customer',
       }
     )
 
@@ -665,7 +666,7 @@ export const reservationApi = {
       | null
       | undefined
 
-    if (scheduleEventForGM?.is_private_booking && (scheduleEventForGM.gms?.length ?? 0) > 0) {
+    if (scheduleEventForGM?.is_private_booking && (scheduleEventForGM.gms?.length ?? 0) > 0 && (options?.cancelledBy ?? 'customer') !== 'store') {
       try {
         const orgId = reservation.organization_id || scheduleEventForGM.organization_id
         const gmNotifyCustomer = joinedCustomerFromReservation(reservation.customers)

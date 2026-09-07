@@ -16,6 +16,8 @@ import { useScheduleTable } from '@/hooks/useScheduleTable'
 import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useBlockedSlots } from '@/hooks/useBlockedSlots'
+import { useStoreRecruitmentPauses } from '@/hooks/useStoreRecruitmentPauses'
+import { getStoreRecruitmentPauseKind, recruitmentPauseCellLabel } from '@/lib/storeRecruitmentPause'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -91,6 +93,12 @@ export function ScheduleManager() {
   
   // 募集中止スロット管理
   const { isSlotBlocked, blockSlot, unblockSlot } = useBlockedSlots()
+  const { periods: recruitmentPauses } = useStoreRecruitmentPauses(organizationId)
+  const getRecruitmentPauseLabel = useCallback(
+    (date: string, storeId: string) =>
+      recruitmentPauseCellLabel(getStoreRecruitmentPauseKind(date, storeId, recruitmentPauses), false),
+    [recruitmentPauses]
+  )
   
   // カスタム休日管理
   const { isCustomHoliday, toggleHoliday } = useCustomHolidays()
@@ -1130,8 +1138,9 @@ export function ScheduleManager() {
       shiftData: filteredShiftData
     },
     isSlotBlocked, // 募集中止状態チェック関数
+    getRecruitmentPauseLabel,
     isCustomHoliday // カスタム休日判定関数
-  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked, isCustomHoliday])
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked, getRecruitmentPauseLabel, isCustomHoliday])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {

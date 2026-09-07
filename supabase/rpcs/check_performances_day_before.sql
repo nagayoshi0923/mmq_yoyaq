@@ -3,7 +3,17 @@
 -- p_target_date: cronから明示的に渡された対象日付。NULLの場合はNOW()+1で計算。
 -- レースコンディション対策: cronがキュー積み時点の日付をbodyに含めて渡すことで、
 -- Edge Functionがいつ実行されても正しい翌日を対象にできる。
-CREATE OR REPLACE FUNCTION check_performances_day_before(p_target_date DATE DEFAULT NULL)
+--
+-- 判定:
+--   open:
+--     最低開催人数以上（>= v_min） → confirmed（開催確定。満席でなくても可。募集受付は継続）
+--     最低開催の半分以上（>= v_half） → extended（4時間前まで募集延長）
+--     最低開催の半分未満             → cancelled（中止）
+--   private / gmtest / testplay / offsite / venue_rental / venue_rental_free / package / mtg:
+--     人数に関係なく confirmed（開催決定。中止にも延長にもしない）
+-- 最低開催人数は override_player_count_min 系。未設定時のみ過半数にフォールバック。
+-- p_dry_run=TRUE のとき書き込みしない（21:00 予告用。中止にもメールにもしない）。
+CREATE OR REPLACE FUNCTION check_performances_day_before(p_target_date DATE DEFAULT NULL, p_dry_run BOOLEAN DEFAULT FALSE)
 RETURNS TABLE(
   events_checked INTEGER,
   events_confirmed INTEGER,
@@ -14,6 +24,7 @@ RETURNS TABLE(
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
+SET timezone TO 'Asia/Tokyo'
 AS $$
 DECLARE
   v_events_checked INTEGER := 0;
@@ -26,12 +37,19 @@ DECLARE
   v_reservation_count INTEGER;
   v_unsynced_staff INTEGER;
   v_max INTEGER;
+  v_min INTEGER;
   v_half INTEGER;
   v_result TEXT;
   v_target_date_jst DATE;
 BEGIN
-  -- 引数が渡された場合はそれを使用、なければ NOW()+1 で計算
-  v_target_date_jst := COALESCE(p_target_date, (timezone('Asia/Tokyo', NOW())::date + 1));
+  -- p_target_date が指定されていれば使用、なければ JST の明日を計算
+  IF p_target_date IS NOT NULL THEN
+    v_target_date_jst := p_target_date;
+  ELSE
+    v_target_date_jst := (timezone('Asia/Tokyo', NOW())::date + 1);
+  END IF;
+
+  RAISE NOTICE '前日チェック開始: 対象日=%, dry_run=%', v_target_date_jst, p_dry_run;
 
   FOR v_event IN
     SELECT
@@ -48,9 +66,25 @@ BEGIN
         s.player_count_max,
         8
       ) AS max_participants,
+      COALESCE(
+        os.override_player_count_min,
+        sm.player_count_min,
+        sm2.player_count_min,
+        s.player_count_min,
+        -- min が一切設定されていない場合のみ旧仕様（定員の半数）にフォールバック
+        CEIL(COALESCE(
+          os.override_player_count_max,
+          sm.player_count_max,
+          sm2.player_count_max,
+          se.max_participants,
+          s.player_count_max,
+          8
+        )::NUMERIC / 2)::INTEGER
+      ) AS min_participants,
       se.organization_id,
       se.gms,
       se.store_id,
+      se.category,
       st.name AS store_name
     FROM schedule_events se
     LEFT JOIN organization_scenarios os ON se.organization_scenario_id = os.id
@@ -61,9 +95,27 @@ BEGIN
     WHERE se.date = v_target_date_jst
       AND se.is_cancelled = FALSE
       AND se.is_recruitment_extended IS NOT TRUE
-      AND se.category = 'open'
-      AND se.scenario IS NOT NULL
-      AND se.scenario != ''
+      AND se.category IN (
+        'open',
+        'private',
+        'gmtest',
+        'testplay',
+        'offsite',
+        'venue_rental',
+        'venue_rental_free',
+        'package',
+        'mtg'
+      )
+      AND (
+        se.category <> 'open'
+        OR (se.scenario IS NOT NULL AND se.scenario != '')
+      )
+      -- 既に処理済みのイベントはスキップ（重複実行・UNIQUE制約違反防止）
+      AND NOT EXISTS (
+        SELECT 1 FROM performance_cancellation_logs pcl
+        WHERE pcl.schedule_event_id = se.id
+          AND pcl.check_type = 'day_before'
+      )
     ORDER BY se.start_time
   LOOP
     v_events_checked := v_events_checked + 1;
@@ -89,47 +141,65 @@ BEGIN
 
     v_current := v_reservation_count + v_unsynced_staff;
     v_max := v_event.max_participants;
-    v_half := CEIL(v_max::NUMERIC / 2);
 
-    IF v_current >= v_max THEN
+    -- 最低開催人数は 1 以上・定員以下に収める（データ不整合で中止が暴発しないようにする）
+    v_min := GREATEST(COALESCE(v_event.min_participants, 1), 1);
+    IF v_min > v_max THEN
+      v_min := GREATEST(v_max, 1);
+    END IF;
+    v_half := GREATEST(CEIL(v_min::NUMERIC / 2)::INTEGER, 1);
+
+    RAISE NOTICE 'イベント: id=%, scenario=%, participants=%, max=%, min=%, half=%',
+      v_event.id, v_event.scenario, v_current, v_max, v_min, v_half;
+
+    -- open 以外は人数に関係なく開催決定。中止にも延長にもしない
+    IF v_event.category IS DISTINCT FROM 'open' THEN
+      v_result := 'confirmed';
+      v_events_confirmed := v_events_confirmed + 1;
+    ELSIF v_current >= v_min THEN
       v_result := 'confirmed';
       v_events_confirmed := v_events_confirmed + 1;
     ELSIF v_current >= v_half THEN
       v_result := 'extended';
       v_events_extended := v_events_extended + 1;
 
-      UPDATE schedule_events
-      SET is_recruitment_extended = TRUE,
-          updated_at = NOW()
-      WHERE id = v_event.id;
+      IF NOT COALESCE(p_dry_run, FALSE) THEN
+        UPDATE schedule_events
+        SET is_recruitment_extended = TRUE,
+            updated_at = NOW()
+        WHERE id = v_event.id;
+      END IF;
     ELSE
       v_result := 'cancelled';
       v_events_cancelled := v_events_cancelled + 1;
 
-      UPDATE schedule_events
-      SET is_cancelled = TRUE,
-          current_participants = v_current,
-          updated_at = NOW()
-      WHERE id = v_event.id;
+      IF NOT COALESCE(p_dry_run, FALSE) THEN
+        UPDATE schedule_events
+        SET is_cancelled = TRUE,
+            updated_at = NOW()
+        WHERE id = v_event.id;
+      END IF;
     END IF;
 
-    INSERT INTO performance_cancellation_logs (
-      schedule_event_id,
-      organization_id,
-      check_type,
-      current_participants,
-      max_participants,
-      result
-    ) VALUES (
-      v_event.id,
-      v_event.organization_id,
-      'day_before',
-      v_current,
-      v_max,
-      v_result
-    );
+    IF NOT COALESCE(p_dry_run, FALSE) THEN
+      INSERT INTO performance_cancellation_logs (
+        schedule_event_id,
+        organization_id,
+        check_type,
+        current_participants,
+        max_participants,
+        result
+      ) VALUES (
+        v_event.id,
+        v_event.organization_id,
+        'day_before',
+        v_current,
+        v_max,
+        v_result
+      );
+    END IF;
 
-    v_details := v_details || jsonb_build_object(
+    v_details := v_details || jsonb_build_array(jsonb_build_object(
       'event_id', v_event.id,
       'date', v_event.date,
       'start_time', v_event.start_time,
@@ -137,12 +207,17 @@ BEGIN
       'store_name', v_event.store_name,
       'current_participants', v_current,
       'max_participants', v_max,
+      'min_required', v_min,
       'half_required', v_half,
       'result', v_result,
+      'category', v_event.category,
       'organization_id', v_event.organization_id,
-      'gms', v_event.gms
-    );
+      'gms', to_jsonb(v_event.gms)
+    ));
   END LOOP;
+
+  RAISE NOTICE '前日チェック完了: checked=%, confirmed=%, extended=%, cancelled=%',
+    v_events_checked, v_events_confirmed, v_events_extended, v_events_cancelled;
 
   RETURN QUERY SELECT
     v_events_checked,
@@ -153,7 +228,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION check_performances_day_before(DATE) IS
-'前日23:59に実行する公演中止判定（実予約＋未同期スタッフ・organization_scenariosの定員反映）。p_target_dateを指定すると任意の日付を対象にできる。';
+COMMENT ON FUNCTION check_performances_day_before(DATE, BOOLEAN) IS
+'前日23:59の中止判断。openは最低開催人数で開催／半分で延長／未満で中止。貸切・GMテスト・出張・テスト・MTG・会場レンタル・パッケージは人数に関係なく開催決定。p_dry_run=TRUE なら書き込みしない（21:00予告）。';
 
-ALTER FUNCTION check_performances_day_before(DATE) SET timezone TO 'Asia/Tokyo';
+ALTER FUNCTION check_performances_day_before(DATE, BOOLEAN) SET timezone TO 'Asia/Tokyo';

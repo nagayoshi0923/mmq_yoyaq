@@ -26,7 +26,7 @@ organizations（テナント境界・最上位）
 
 ### 公演枠（schedule_events）
 - `category`: open / private / gmtest / testplay / offsite / venue_rental(+free) / package / mtg
-- 定員 = max_participants、current_participants はトリガー自動計算
+- 定員 = max_participants（現場では定数とも呼ぶ）、current_participants はトリガー自動計算
 - GM = `gms`（staff id 配列）+ `gm_roles`（JSONB: main/sub/staff）
 - **重複禁止**: UNIQUE (date, store_id, time_slot, organization_id) WHERE is_cancelled=false
 - 60分インターバル: 貸切は<60分ハードブロック。60がハードコード4箇所（負債）
@@ -36,11 +36,14 @@ organizations（テナント境界・最上位）
 - **アクティブ扱い** = `ACTIVE_RESERVATION_STATUSES = ['pending','confirmed','gm_confirmed','checked_in']`（src/lib/constants.ts。DBトリガーと一致）
 - `reservation_source` は必ず constants.ts の定数: web / web_private / phone / walk_in / external / staff_entry / staff_participation / demo_auto / demo
 - payment_status: pending / paid / refunded / cancelled
+- 通常公演のキャンセル料基準 `cancellation_fee_basis`: 参加料金合計 / 公演価格全額 / 定数到達後は公演価格全額（`participant_until_capacity`）
 
 ### 貸切（private_groups）
 - status: gathering → date_adjusting → booking_requested → confirmed（/cancelled）
 - メンバー・候補日・日程回答は別テーブル（private_group_members / _candidate_dates / _date_responses）
 - 配役方式 character_assignment_method: 'survey'（アンケート）or 'self'（自己選択）
+- 貸切の朝/昼/夜開始時刻は `organization_scenarios.private_booking_slot_start_times`（平日/土日祝）。欠落は店舗の営業時間設定。承認画面でずらした時刻がその申込の正
+- 店舗の公演募集停止 / 貸切募集停止は `store_recruitment_pauses`（複数期間可）。日付×枠の `schedule_blocked_slots` は公演も貸切も止まる
 
 ### 体験済み判定（ネタバレ防止の根幹）
 ```

@@ -17,6 +17,10 @@ import {
   PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
   isPrivateBookingSlotAllowedByScenarioSettings,
 } from '@/lib/privateBookingScenarioTime'
+import {
+  pickScenarioSlotStartTime,
+  type ScenarioSlotStartTimes,
+} from '@/lib/privateBookingSlotStartTimes'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
   getPrivateBookingStoreSlotFeasibility,
@@ -41,6 +45,8 @@ export interface ComputePrivateBookingSlotsParams {
   allStoreEvents: ScheduleEventLike[]
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
+  /** シナリオ編集の朝/昼/夜開始時刻。欠落は店舗設定 */
+  scenarioSlotStartTimes?: ScenarioSlotStartTimes | null
 }
 
 export interface PrivateBookingSlot {
@@ -85,6 +91,7 @@ function getBestSlotCandidateAcrossStores(
   isWeekendOrHoliday: boolean,
   durationMinutes: number,
   extraPrepTime: number,
+  scenarioStartOverrideMin?: number | null,
 ): SlotCandidate | null {
   const allowSynthetic = storeIds.length === 1
   const candidates: SlotCandidate[] = []
@@ -96,11 +103,18 @@ function getBestSlotCandidateAcrossStores(
     )
     if (!f) continue
 
+    const configuredBandStart =
+      typeof scenarioStartOverrideMin === 'number' ? scenarioStartOverrideMin : f.slotBandStart
+    const configuredMinAllowed =
+      typeof scenarioStartOverrideMin === 'number'
+        ? Math.max(scenarioStartOverrideMin, f.priorEventEarliestStartMin)
+        : f.minAllowedStart
+
     let startForFeasibility: number
 
     if (
       slotKey === 'evening' &&
-      f.slotBandStart + durationMinutes > HARD_DAY_LIMIT
+      configuredBandStart + durationMinutes > HARD_DAY_LIMIT
     ) {
       const reverseStart = HARD_DAY_LIMIT - durationMinutes
       let latestPriorEnd = 0
@@ -122,7 +136,7 @@ function getBestSlotCandidateAcrossStores(
     } else if (slotKey === 'afternoon') {
       // 午後: configured start (14:00) で開始すると次予約に干渉する場合のみ
       // 「次予約 - 60min - duration」から逆算して前倒し開始する
-      const configuredStart = f.minAllowedStart
+      const configuredStart = configuredMinAllowed
       const configuredEnd = configuredStart + durationMinutes + extraPrepTime
       let endLimitFromNextEvent = f.slotBandEnd
       for (const ev of allStoreEvents) {
@@ -157,7 +171,7 @@ function getBestSlotCandidateAcrossStores(
         startForFeasibility = Math.max(reverseStart, latestPriorEnd)
         // 逆算結果が「午後帯の開始 (slotBandStart, 通常 14:00)」より早い = 実質午前帯のため
         // この店舗は午後候補として push しない (午前スロットと重複表示する原因になる)
-        if (startForFeasibility < f.slotBandStart) {
+        if (startForFeasibility < configuredBandStart) {
           continue
         }
         // 逆算した開始でも次予約までに本編 + 準備時間が収まらなければ枠不成立。
@@ -172,11 +186,11 @@ function getBestSlotCandidateAcrossStores(
         startForFeasibility = configuredStart
       }
     } else {
-      startForFeasibility = f.minAllowedStart
+      startForFeasibility = configuredMinAllowed
     }
 
     const effectiveMin =
-      slotKey === 'evening' && startForFeasibility < f.slotBandStart
+      slotKey === 'evening' && startForFeasibility < configuredBandStart
         ? startForFeasibility
         : startForFeasibility
 
@@ -202,7 +216,7 @@ function getBestSlotCandidateAcrossStores(
     candidates.push({
       earliestStart: startForFeasibility,
       slotEnd: f.slotBandEnd,
-      slotBaselineStart: f.slotBandStart,
+      slotBaselineStart: configuredBandStart,
       priorEventEarliestStartMin: f.priorEventEarliestStartMin,
     })
   }
@@ -226,6 +240,7 @@ export function computePrivateBookingSlots(
     allStoreEvents,
     isCustomHoliday,
     privateBookingTimeSlots,
+    scenarioSlotStartTimes,
   } = params
 
   if (storeIds.length === 0) return []
@@ -245,8 +260,19 @@ export function computePrivateBookingSlots(
   )
   const extraPrepTime = scenarioTiming.extra_preparation_time || 0
 
-  const getFeasibility = (slotKey: SlotKey) =>
-    getBestSlotCandidateAcrossStores(
+  const getFeasibility = (slotKey: SlotKey) => {
+    const override = pickScenarioSlotStartTime(
+      scenarioSlotStartTimes,
+      isWeekendOrHoliday,
+      slotKey,
+    )
+    const overrideMin = override
+      ? (() => {
+          const [h, m] = override.split(':').map(Number)
+          return h * 60 + (m || 0)
+        })()
+      : null
+    return getBestSlotCandidateAcrossStores(
       targetDate,
       storeIds,
       slotKey,
@@ -256,7 +282,9 @@ export function computePrivateBookingSlots(
       isWeekendOrHoliday,
       durationMinutes,
       extraPrepTime,
+      overrideMin,
     )
+  }
 
   const morningCandidate = getFeasibility('morning')
   const afternoonCandidate = getFeasibility('afternoon')

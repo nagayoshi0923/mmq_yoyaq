@@ -1,7 +1,8 @@
 // @ts-nocheck
 // 戦塵貸切: 予約専用 OAuth で本人を特定し、該当チャンネルに本人権限だけ付ける。ロールは付けない。
+// Supabase 共有ドメインは HTML を text/plain にするので、ページは出さず 302 だけ使う。
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { getCorsHeaders, getAnonKey, getServiceRoleKey } from '../_shared/security.ts'
+import { getCorsHeaders, getServiceRoleKey } from '../_shared/security.ts'
 import { CHANNEL_VIEW, SENSHIN_DISCORD } from '../_shared/senshin-discord.ts'
 
 const CLIENT_ID = '1532875462244831302'
@@ -13,6 +14,21 @@ function botToken() {
     Deno.env.get('DISCORD_BOT_TOKEN') ||
     ''
   ).trim()
+}
+
+function clientSecret() {
+  return (Deno.env.get('DISCORD_SENSHIN_OAUTH_CLIENT_SECRET') || '').trim()
+}
+
+function publicOrigin(req) {
+  const fromEnv = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '')
+  if (fromEnv.startsWith('https://')) return fromEnv
+  const host = req.headers.get('x-forwarded-host') || new URL(req.url).host
+  return `https://${host}`
+}
+
+function redirectUri(origin) {
+  return `${origin}/functions/v1/senshin-discord-join`
 }
 
 function parseJoin(reservationRaw, kindRaw) {
@@ -29,107 +45,43 @@ function parseState(raw) {
   return parseJoin(text.slice(0, cut), text.slice(cut + 1))
 }
 
-function htmlPage(origin, join) {
-  const anon = getAnonKey()
-  const redirectUri = `${origin}/functions/v1/senshin-discord-join`
-  const boot = join
-    ? { reservationId: join.reservationId, kind: join.kind }
-    : null
-  return `<!DOCTYPE html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>戦塵 Discord</title></head>
-<body style="font-family:sans-serif;max-width:40rem;margin:2rem auto;line-height:1.6">
-<p id="msg">Discordで確認しています…</p>
-<script>
-const CLIENT_ID = ${JSON.stringify(CLIENT_ID)};
-const REDIRECT = ${JSON.stringify(redirectUri)};
-const FN = ${JSON.stringify(redirectUri)};
-const ANON = ${JSON.stringify(anon)};
-const BOOT = ${JSON.stringify(boot)};
-const hash = new URLSearchParams(location.hash.slice(1));
-const query = new URLSearchParams(location.search);
-const msg = document.getElementById('msg');
-
-function parseState(raw) {
-  const text = String(raw || '');
-  const cut = text.lastIndexOf(':');
-  if (cut <= 0) return null;
-  const reservationId = text.slice(0, cut);
-  const kind = text.slice(cut + 1);
-  if (!reservationId || (kind !== 'player' && kind !== 'spectator')) return null;
-  return { reservationId, kind };
+function text(status, body) {
+  return new Response(body, {
+    status,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+  })
 }
 
-const join = parseState(hash.get('state')) || (
-  query.get('reservation') && (query.get('kind') === 'spectator' || query.get('kind') === 'player')
-    ? { reservationId: query.get('reservation'), kind: query.get('kind') }
-    : BOOT
-);
-const token = hash.get('access_token');
-
-function oauth() {
-  if (!join) {
-    msg.textContent = 'リンクが正しくありません。メールの案内から開き直してください。';
-    return;
-  }
-  const u = new URL('https://discord.com/oauth2/authorize');
-  u.searchParams.set('client_id', CLIENT_ID);
-  u.searchParams.set('redirect_uri', REDIRECT);
-  u.searchParams.set('response_type', 'token');
-  u.searchParams.set('scope', 'identify');
-  u.searchParams.set('state', join.reservationId + ':' + join.kind);
-  location.replace(u.toString());
+function redirect(url) {
+  return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'no-store' } })
 }
 
-async function requestGrant() {
-  const res = await fetch(FN, {
+function authorizeUrl(origin, join) {
+  const u = new URL('https://discord.com/oauth2/authorize')
+  u.searchParams.set('client_id', CLIENT_ID)
+  u.searchParams.set('redirect_uri', redirectUri(origin))
+  u.searchParams.set('response_type', 'code')
+  u.searchParams.set('scope', 'identify')
+  u.searchParams.set('state', `${join.reservationId}:${join.kind}`)
+  return u.toString()
+}
+
+async function exchangeCode(code, origin) {
+  const secret = clientSecret()
+  if (!secret) return null
+  const res = await fetch('https://discord.com/api/v10/oauth2/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: ANON, Authorization: 'Bearer ' + ANON },
-    body: JSON.stringify({
-      accessToken: token,
-      reservationId: join.reservationId,
-      kind: join.kind,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: secret,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri(origin),
     }),
-  });
-  return res.json().catch(() => ({}));
-}
-
-async function grant() {
-  if (!join || !token) {
-    msg.textContent = 'Discord認証に失敗しました。メールの案内から開き直してください。';
-    return;
-  }
-  const data = await requestGrant();
-  if (data.ok && data.channelUrl) {
-    msg.textContent = 'チャンネルを開きます';
-    location.replace(data.channelUrl);
-    return;
-  }
-  if (data.needJoin && data.inviteUrl) {
-    msg.innerHTML = 'サーバーへ参加したあと、自動でチャンネルに入ります。<br><a id="inv" href="#" target="_blank" rel="noopener">サーバーに参加する</a>';
-    document.getElementById('inv').href = data.inviteUrl;
-    const started = Date.now();
-    const timer = setInterval(async () => {
-      if (Date.now() - started > 120000) {
-        clearInterval(timer);
-        msg.textContent = '参加を確認できませんでした。サーバーに入ったあと、メールの案内をもう一度開いてください。';
-        return;
-      }
-      const d2 = await requestGrant();
-      if (d2.ok && d2.channelUrl) {
-        clearInterval(timer);
-        location.replace(d2.channelUrl);
-      }
-    }, 2000);
-    return;
-  }
-  msg.textContent = data.error || '付与に失敗しました';
-}
-
-if (!token) oauth();
-else grant();
-</script>
-</body></html>`
+  })
+  if (!res.ok) return null
+  return await res.json()
 }
 
 async function discordMe(accessToken) {
@@ -151,7 +103,7 @@ async function loadRoom(reservationId) {
   const url = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '')
   const key = getServiceRoleKey()
   const res = await fetch(
-    `${url}/rest/v1/private_booking_discord_rooms?reservation_id=eq.${reservationId}&select=reservation_id,player_channel_id,spectator_channel_id,player_invite_url,spectator_invite_url`,
+    `${url}/rest/v1/private_booking_discord_rooms?reservation_id=eq.${encodeURIComponent(reservationId)}&select=reservation_id,player_channel_id,spectator_channel_id,player_invite_url,spectator_invite_url`,
     {
       headers: {
         apikey: key,
@@ -181,70 +133,59 @@ async function addToChannel(token, userId, channelId) {
 }
 
 serve(async (req) => {
-  const origin = new URL(req.url).origin
+  const origin = publicOrigin(req)
   const cors = { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  if (req.method !== 'GET') return text(405, 'method')
 
-  if (req.method === 'GET') {
-    const url = new URL(req.url)
-    const join = parseJoin(url.searchParams.get('reservation'), url.searchParams.get('kind') || 'player')
-    return new Response(htmlPage(origin, join), {
-      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-    })
+  const url = new URL(req.url)
+  if (url.searchParams.get('error')) {
+    return text(400, 'Discord認証がキャンセルされました。メールの案内から開き直してください。')
   }
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'method' }), { status: 405, headers: cors })
+  const code = (url.searchParams.get('code') || '').trim()
+  const join = parseState(url.searchParams.get('state'))
+    || parseJoin(url.searchParams.get('reservation'), url.searchParams.get('kind') || 'player')
+
+  if (!code) {
+    if (!join) return text(400, 'リンクが正しくありません。メールの案内から開き直してください。')
+    return redirect(authorizeUrl(origin, join))
   }
 
-  const body = await req.json().catch(() => ({}))
-  const join = parseJoin(body.reservationId, body.kind)
-  const accessToken = String(body.accessToken || '')
+  if (!join) return text(400, 'リンクが正しくありません。メールの案内から開き直してください。')
+  if (!clientSecret()) {
+    return text(500, 'OAuthの設定が未完了です。')
+  }
+
+  const exchanged = await exchangeCode(code, origin)
+  const accessToken = exchanged?.access_token
+  if (!accessToken) return text(401, 'Discord認証に失敗しました。メールの案内から開き直してください。')
+
   const token = botToken()
-  if (!join) {
-    return new Response(JSON.stringify({ error: 'リンクが正しくありません' }), { status: 400, headers: cors })
-  }
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'bot token missing' }), { status: 500, headers: cors })
-  }
+  if (!token) return text(500, 'bot token missing')
+
   const me = await discordMe(accessToken)
-  if (!me?.id) {
-    return new Response(JSON.stringify({ error: 'Discord認証に失敗しました' }), { status: 401, headers: cors })
-  }
+  if (!me?.id) return text(401, 'Discord認証に失敗しました。メールの案内から開き直してください。')
 
   let room
   try {
     room = await loadRoom(join.reservationId)
   } catch {
-    return new Response(JSON.stringify({ error: '予約の確認に失敗しました' }), { status: 500, headers: cors })
+    return text(500, '予約の確認に失敗しました。')
   }
-  if (!room) {
-    return new Response(JSON.stringify({ error: 'この予約のDiscord案内が見つかりません' }), { status: 404, headers: cors })
-  }
+  if (!room) return text(404, 'この予約のDiscord案内が見つかりません。')
 
   const channelId = join.kind === 'spectator' ? room.spectator_channel_id : room.player_channel_id
   const inviteUrl = join.kind === 'spectator' ? room.spectator_invite_url : room.player_invite_url
-  if (!channelId) {
-    return new Response(JSON.stringify({ error: 'この予約のDiscord案内が見つかりません' }), { status: 404, headers: cors })
-  }
+  if (!channelId) return text(404, 'この予約のDiscord案内が見つかりません。')
 
   const inGuild = await memberExists(token, me.id)
   if (!inGuild) {
-    return new Response(
-      JSON.stringify({ needJoin: true, inviteUrl: inviteUrl || '' }),
-      { headers: cors },
-    )
+    if (!inviteUrl) return text(404, '参加用URLが見つかりません。サーバーに入ったあと、メールの案内をもう一度開いてください。')
+    return redirect(inviteUrl)
   }
 
   const ok = await addToChannel(token, me.id, channelId)
-  if (!ok) {
-    return new Response(JSON.stringify({ error: 'チャンネルに入れませんでした' }), { status: 500, headers: cors })
-  }
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      channelUrl: `https://discord.com/channels/${SENSHIN_DISCORD.guildId}/${channelId}`,
-    }),
-    { headers: cors },
-  )
+  if (!ok) return text(500, 'チャンネルに入れませんでした。')
+  return redirect(`https://discord.com/channels/${SENSHIN_DISCORD.guildId}/${channelId}`)
 })

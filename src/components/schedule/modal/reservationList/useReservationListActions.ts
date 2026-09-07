@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { reservationApi, RESERVATION_SELECT_FIELDS } from '@/lib/reservationApi'
+import { scheduleApi } from '@/lib/api'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
 import { getDefaultStoreCancellationTemplate } from '@/lib/templateRegistry'
@@ -507,10 +508,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
             }
           })
           
-          await supabase
-            .from('schedule_events')
-            .update({ gms: newGms, gm_roles: newRoles })
-            .eq('id', event.id)
+          await scheduleApi.update(event.id, { gms: newGms, gm_roles: newRoles })
           
           onGmsChange(newGms, newRoles)
         }

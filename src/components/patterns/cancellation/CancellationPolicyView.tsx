@@ -13,6 +13,7 @@ import {
   getOrganizationSlugFromPath,
 } from '@/lib/publicBookingPath'
 import { formatJstDateJa } from '@/utils/jstDate'
+import { groupCancellationJudgmentRulesByTiming } from '@/lib/cancellationJudgmentCopy'
 import type { CancellationFeeBasis, CancellationFeeRule } from '@/types'
 
 interface CancellationPolicyLinkProps {
@@ -129,14 +130,7 @@ export function CancellationPolicyView({
   policy,
   showStoreHeading = true,
 }: CancellationPolicyViewProps) {
-  const rulesByTiming = policy.cancellation_judgment_rules.reduce<Record<string, PublicCancellationPolicy['cancellation_judgment_rules']>>(
-    (grouped, rule) => {
-      grouped[rule.timing] ||= []
-      grouped[rule.timing].push(rule)
-      return grouped
-    },
-    {},
-  )
+  const rulesByTiming = groupCancellationJudgmentRulesByTiming()
 
   if (!policy.is_configured) {
     return (

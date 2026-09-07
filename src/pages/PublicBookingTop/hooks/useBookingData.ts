@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
 import { getAvailableSeats, getAvailabilityStatus } from '@/lib/participantUtils'
+import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 
 export interface ScenarioCard {
   scenario_id: string
@@ -298,6 +299,20 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const storesData = storesResult?.data || []
   const privateBookingDeadlineDays = typeof settingsResult?.data === 'number' ? settingsResult.data : 14
   const allEventsData = eventsResult?.data || []
+
+  let performancePauses: StoreRecruitmentPausePeriod[] = []
+  if (orgId) {
+    try {
+      const { data: pauseRows } = await supabase
+        .from('store_recruitment_pauses')
+        .select('id, store_id, organization_id, pause_type, starts_on, ends_on')
+        .eq('organization_id', orgId)
+        .eq('pause_type', 'performance')
+      performancePauses = (pauseRows || []) as StoreRecruitmentPausePeriod[]
+    } catch (err) {
+      logger.error('store_recruitment_pauses query error:', err)
+    }
+  }
   
   // 予約可能な通常公演のみフィルタリング
   const now = new Date()
@@ -314,6 +329,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     if (event.published === false) return false
 
     // 通常公演・出張公演: category='open' or 'offsite' かつ is_reservation_enabled=true
+    const storeId = event.store_id as string | undefined
+    if (storeId && event.date && storeHasRecruitmentPause(event.date, storeId, 'performance', performancePauses)) {
+      return false
+    }
+
     const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
 
     // 今日の公演で開始時間を過ぎたものは非表示

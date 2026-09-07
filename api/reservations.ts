@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
+import {
+  isPrivateBookingEvent,
+  joinedScheduleEvent,
+  notifyGmAssignmentReleased,
+} from './_lib/notifyGmAssignmentReleased.js'
 import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistory.js'
 import {
   canCustomerSelfCancel,
@@ -9,6 +14,8 @@ import {
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
   type CalculableCancellationPolicy,
 } from '../src/lib/cancellationPolicy.js'
+import { ACTIVE_RESERVATION_STATUSES } from '../src/lib/constants.js'
+import { shouldCancelLinkedPrivateEvent } from '../src/lib/shouldCancelLinkedPrivateEvent.js'
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
@@ -422,12 +429,30 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   // RPC が auth.uid() ベースで安全にチェックするため、ここでは不要
   const { data: ev, error: evError } = await db
     .from('schedule_events')
-    .select('id, organization_id')
+    .select('id, organization_id, store_id, date')
     .eq('id', scheduleEventId)
     .maybeSingle()
   if (evError || !ev) {
     console.error('[reservations:create] schedule_events check error:', evError)
     return res.status(404).json({ error: 'schedule_event が見つかりません' })
+  }
+
+  if (ev.store_id && ev.date) {
+    const { data: paused, error: pauseError } = await db.rpc('is_store_recruitment_paused', {
+      p_store_id: ev.store_id,
+      p_pause_type: 'performance',
+      p_date: ev.date,
+    })
+    if (pauseError) {
+      console.error('[reservations:create] recruitment pause check error:', pauseError)
+      return res.status(500).json({ error: '募集停止状況の確認に失敗しました' })
+    }
+    if (paused === true) {
+      return res.status(400).json({
+        error: 'この店舗は現在公演の募集を停止しています',
+        code: 'P0050',
+      })
+    }
   }
 
   const { data: cust, error: custError } = await db
@@ -861,6 +886,25 @@ async function handleCancelWithLock(req: VercelRequest, res: VercelResponse, use
   if (data !== true) {
     return res.status(500).json({ error: '予約のキャンセルに失敗しました（DB 側で処理できませんでした）' })
   }
+
+  if (user.role !== 'customer') {
+    const scheduleEvent = joinedScheduleEvent(reservationForPolicy)
+    if (isPrivateBookingEvent(reservationForPolicy, scheduleEvent) && Array.isArray(scheduleEvent?.gms) && scheduleEvent.gms.length > 0) {
+      void notifyGmAssignmentReleased({
+        kind: 'private_cancelled_store',
+        organizationId: reservationForPolicy.organization_id || scheduleEvent.organization_id,
+        gms: scheduleEvent.gms as string[],
+        date: scheduleEvent.date as string | undefined,
+        startTime: scheduleEvent.start_time as string | undefined,
+        endTime: scheduleEvent.end_time as string | undefined,
+        storeName: (scheduleEvent.venue as string | undefined) ?? null,
+        scenarioTitle: (reservationForPolicy.title || scheduleEvent.scenario) as string | undefined,
+        customerName: reservationForPolicy.customer_name ?? null,
+        reason,
+      })
+    }
+  }
+
   return res.status(200).json({ success: true })
 }
 
@@ -927,8 +971,10 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   const body = (req.body ?? {}) as Record<string, unknown>
   const reason = (body.cancellation_reason as string | null | undefined) ?? null
   const skipGroupCancel = Boolean(body.skip_group_cancel)
-  // true のとき、紐づく貸切公演(category='private')も中止にする（貸切リクエストの却下フロー）
-  const cancelPrivateEvent = Boolean(body.cancel_private_event)
+  // true のとき、紐づく貸切公演も中止にする（貸切リクエストの却下フロー）
+  const cancelPrivateEventRequested = Boolean(body.cancel_private_event)
+  const isCustomerSelfCancel = user.role === 'customer'
+  const cancelledBy = body.cancelled_by === 'store' ? 'store' : 'customer'
 
   // 1) 予約 + customers + schedule_events を取得（マルチテナント境界チェックも兼ねる）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -990,33 +1036,50 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     }
   }
 
-  // 2-b) 貸切リクエストの却下フロー（cancel_private_event = true）のときだけ、
-  //      紐づく貸切公演（category='private'）も中止にする。
-  //      「有効な予約が0件なら中止」という状態ベースの判定はしない（スタッフが予約を入れ直す運用や、
-  //      予約行を持たない手入力の貸切を巻き込むため）。店舗が能動的に却下した操作のときのみ中止する。
+  // 2-b) 貸切公演の中止。
+  //      - 店舗の却下（cancel_private_event = true）
+  //      - 顧客が予約サイトからキャンセルし、他に有効予約が残っていない
+  //      テナント境界は reservation.organization_id（platform customer は user.orgId が空）。
+  //      スタッフが予約だけ消す操作・手入力の空枠は巻き込まない。
   //      ⚠ 予約キャンセルは既に確定しており巻き戻せないため、ここでの失敗は警告として返すだけにする。
   let eventCancelWarning = false
-  if (cancelPrivateEvent) {
+  const eventOrgId = (reservation.organization_id as string | undefined) || ''
+  if (cancelPrivateEventRequested || isCustomerSelfCancel) {
     try {
       const targetEventId = (reservation.schedule_event_id as string | null | undefined) ?? null
       if (!targetEventId) {
         // 未承認リクエストの却下 → 公演がまだ存在しない（正常系。何もしない）
-      } else if (!user.orgId) {
-        // org を特定できない呼び出し元（platform customer）は公演に触らない
-        console.warn('[reservations:cancel] cancel_private_event skipped: user.orgId が未設定')
+      } else if (!eventOrgId) {
+        console.warn('[reservations:cancel] private event cancel skipped: reservation.organization_id が未設定')
       } else {
-        // org スコープ: 実行ユーザーの組織の公演だけを対象にする（マルチテナント境界）
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: targetEvent, error: eventFetchError } = await (db as any)
           .from('schedule_events')
-          .select('id, category, is_cancelled')
+          .select('id, category, is_cancelled, is_private_booking')
           .eq('id', targetEventId)
-          .eq('organization_id', user.orgId)
+          .eq('organization_id', eventOrgId)
           .maybeSingle()
         if (eventFetchError) throw eventFetchError
 
-        // 貸切公演かつ未中止のときだけ更新する（open など他カテゴリ・中止済みは触らない）
-        if (targetEvent && targetEvent.category === 'private' && targetEvent.is_cancelled !== true) {
+        let remainingActiveReservationCount = 0
+        if (!cancelPrivateEventRequested && isCustomerSelfCancel) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { count, error: remainingError } = await (db as any)
+            .from('reservations')
+            .select('id', { count: 'exact', head: true })
+            .eq('schedule_event_id', targetEventId)
+            .eq('organization_id', eventOrgId)
+            .in('status', [...ACTIVE_RESERVATION_STATUSES])
+          if (remainingError) throw remainingError
+          remainingActiveReservationCount = count ?? 0
+        }
+
+        if (shouldCancelLinkedPrivateEvent({
+          cancelPrivateEventRequested,
+          isCustomerSelfCancel,
+          event: targetEvent,
+          remainingActiveReservationCount,
+        })) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { error: eventUpdateError } = await (db as any)
             .from('schedule_events')
@@ -1026,8 +1089,9 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
               cancellation_reason: reason,
             })
             .eq('id', targetEventId)
-            .eq('organization_id', user.orgId)
-            .eq('category', 'private')
+            .eq('organization_id', eventOrgId)
+            .eq('is_cancelled', false)
+            .or('category.eq.private,is_private_booking.eq.true')
           if (eventUpdateError) throw eventUpdateError
         }
       }
@@ -1150,6 +1214,24 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     orgSlug = (org as { slug?: string } | null)?.slug ?? null
   } catch (orgErr) {
     console.warn('[reservations:cancel] organizations slug fetch error:', orgErr)
+  }
+
+  if (cancelledBy === 'store') {
+    const scheduleEvent = joinedScheduleEvent(reservation)
+    if (isPrivateBookingEvent(reservation, scheduleEvent) && Array.isArray(scheduleEvent?.gms) && scheduleEvent.gms.length > 0) {
+      void notifyGmAssignmentReleased({
+        kind: 'private_cancelled_store',
+        organizationId: reservation.organization_id || scheduleEvent.organization_id,
+        gms: scheduleEvent.gms as string[],
+        date: scheduleEvent.date as string | undefined,
+        startTime: scheduleEvent.start_time as string | undefined,
+        endTime: scheduleEvent.end_time as string | undefined,
+        storeName: (scheduleEvent.venue as string | undefined) ?? null,
+        scenarioTitle: (reservation.title || scheduleEvent.scenario) as string | undefined,
+        customerName: reservation.customer_name ?? null,
+        reason,
+      })
+    }
   }
 
   return res.status(200).json({

@@ -512,7 +512,7 @@ BEGIN
           AND blocked.store_id = v_store_uuid::TEXT
           AND blocked.date = v_cand_date
           AND blocked.time_slot = v_candidate_time_slot
-      ) THEN
+      ) OR public.is_store_recruitment_paused(v_store_uuid, 'private', v_cand_date) THEN
         v_blocked_store_count := v_blocked_store_count + 1;
         CONTINUE;
       END IF;
