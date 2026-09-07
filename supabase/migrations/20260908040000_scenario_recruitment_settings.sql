@@ -1,3 +1,45 @@
+ALTER TABLE public.organization_scenarios
+ ADD COLUMN recruitment_extension_enabled boolean NOT NULL DEFAULT true,
+ ADD COLUMN recruitment_max_missing smallint NOT NULL DEFAULT 2 CHECK (recruitment_max_missing BETWEEN 1 AND 20),
+ ADD COLUMN recruitment_deadline_minutes smallint NOT NULL DEFAULT 90 CHECK (recruitment_deadline_minutes BETWEEN 1 AND 239);
+ALTER TABLE public.performance_recruitment_deadlines
+ ADD COLUMN max_missing_participants smallint NOT NULL DEFAULT 2,
+ ADD COLUMN shortage_alerted_cycle integer;
+CREATE TABLE public.scenario_recruitment_setting_history (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ organization_id uuid NOT NULL REFERENCES public.organizations(id),
+ organization_scenario_id uuid NOT NULL REFERENCES public.organization_scenarios(id),
+ actor_id uuid NOT NULL,
+ before_settings jsonb NOT NULL,
+ after_settings jsonb NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.scenario_recruitment_setting_history ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.scenario_recruitment_setting_history FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT ON public.scenario_recruitment_setting_history TO service_role;
+CREATE INDEX scenario_recruitment_history_org ON public.scenario_recruitment_setting_history(organization_id,organization_scenario_id,created_at DESC);
+
+CREATE FUNCTION public.save_scenario_recruitment_settings(p_organization_id uuid,p_master_id uuid,p_actor_id uuid,p_enabled boolean,p_max_missing integer,p_deadline_minutes integer,p_expected_updated_at timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE s organization_scenarios%ROWTYPE; before_value jsonb; after_value jsonb;
+BEGIN
+ IF p_enabled IS NULL OR p_max_missing IS NULL OR p_max_missing NOT BETWEEN 1 AND 20 OR p_deadline_minutes IS NULL OR p_deadline_minutes NOT BETWEEN 1 AND 239 OR p_actor_id IS NULL THEN
+  RETURN jsonb_build_object('success',false,'error','INVALID_SETTINGS');
+ END IF;
+ SELECT * INTO s FROM organization_scenarios WHERE organization_id=p_organization_id AND scenario_master_id=p_master_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','NOT_FOUND'); END IF;
+ IF s.updated_at IS DISTINCT FROM p_expected_updated_at THEN RETURN jsonb_build_object('success',false,'error','CONFLICT'); END IF;
+ before_value:=jsonb_build_object('enabled',s.recruitment_extension_enabled,'max_missing',s.recruitment_max_missing,'deadline_minutes',s.recruitment_deadline_minutes);
+ after_value:=jsonb_build_object('enabled',p_enabled,'max_missing',p_max_missing,'deadline_minutes',p_deadline_minutes);
+ IF before_value=after_value THEN RETURN jsonb_build_object('success',true,'unchanged',true); END IF;
+ UPDATE organization_scenarios SET recruitment_extension_enabled=p_enabled,recruitment_max_missing=p_max_missing,recruitment_deadline_minutes=p_deadline_minutes,updated_at=clock_timestamp() WHERE id=s.id AND organization_id=p_organization_id;
+ INSERT INTO scenario_recruitment_setting_history(organization_id,organization_scenario_id,actor_id,before_settings,after_settings) VALUES(p_organization_id,s.id,p_actor_id,before_value,after_value);
+ RETURN jsonb_build_object('success',true);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.save_scenario_recruitment_settings(uuid,uuid,uuid,boolean,integer,integer,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.save_scenario_recruitment_settings(uuid,uuid,uuid,boolean,integer,integer,timestamptz) TO service_role;
+
 CREATE OR REPLACE FUNCTION check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
 RETURNS TABLE(
   events_checked INTEGER,
@@ -180,7 +222,7 @@ BEGIN
       FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle) DO NOTHING;
       CONTINUE;
     END IF;
     -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
@@ -218,7 +260,7 @@ BEGIN
       FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle) DO NOTHING;
       IF v_result='cancelled' THEN
         UPDATE reservations SET status='cancelled',cancelled_at=now(),updated_at=now(),
           cancellation_reason='人数未達による公演中止（追加募集期限の判定・キャンセル料0円）'

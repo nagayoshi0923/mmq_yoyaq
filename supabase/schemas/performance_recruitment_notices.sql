@@ -26,7 +26,8 @@ CREATE TABLE public.performance_recruitment_notices (
  first_failed_at timestamptz,
  withdrawn_at timestamptz,
  created_at timestamptz NOT NULL DEFAULT now(),
- UNIQUE(schedule_event_id, reservation_id, kind, cycle)
+ withdrawal_sequence integer NOT NULL DEFAULT 0,
+ UNIQUE(schedule_event_id, reservation_id, kind, cycle, withdrawal_sequence)
 );
 ALTER TABLE public.performance_recruitment_notices ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.performance_recruitment_notices FROM PUBLIC, anon, authenticated;

@@ -1,3 +1,4 @@
+import { recruitmentSettings } from './_lib/recruitmentSettings.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
@@ -213,6 +214,8 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(400).json({ error: 'type クエリパラメータが必要です' })
   }
   switch (type) {
+    case 'recruitment-settings':
+      return await recruitmentSettings(req, res, user)
     case 'scenario-booking-cutoff':
       return await handleScenarioBookingCutoff(req, res, user, false)
     case 'booking-window':
@@ -239,6 +242,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const action = req.query.action as string | undefined
+  if (action === 'recruitment-settings') return await recruitmentSettings(req, res, user, true)
   if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)
   if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)
   if (action === 'extend-recruitment') return await handleExtendRecruitment(req, res, user)
@@ -1402,23 +1406,7 @@ async function handleRemoveDemoReservations(_req: VercelRequest, res: VercelResp
 // 公演ごとの募集期限。組織はリクエスト値ではなく認証済みプロフィールから取得する。
 async function handleExtendRecruitment(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   requireAdmin(user)
-  const id = req.query.id
-  const { deadline, reason } = (req.body ?? {}) as Record<string, unknown>
-  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-    || typeof deadline !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(deadline)
-    || !Number.isFinite(Date.parse(deadline)) || typeof reason !== 'string' || !reason.trim()
-    || reason.trim().length > 2000) {
-    return res.status(400).json({ error: '公演ID・タイムゾーン付き締切日時・延長理由が必要です' })
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
-  const { data, error } = await database.rpc('set_performance_recruitment_deadline', {
-    p_organization_id: user.orgId, p_event_id: id,
-    p_deadline: new Date(deadline).toISOString(), p_reason: reason.trim(),
-  })
-  if (error) return res.status(error.code === '22023' ? 400 : 500).json({ error: '募集期限を設定できませんでした' })
-  if (!data?.success) return res.status(500).json({ error: '募集期限を設定できませんでした' })
-  return res.status(200).json(data)
+  return res.status(409).json({ error: '追加募集はシナリオのゲーム設定で変更してください。公演ごとの期限変更はできません。' })
 }
 
 

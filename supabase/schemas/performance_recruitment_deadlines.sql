@@ -13,3 +13,5 @@ CREATE TABLE public.performance_recruitment_deadlines (
 ALTER TABLE public.performance_recruitment_deadlines ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.performance_recruitment_deadlines FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.performance_recruitment_deadlines TO service_role;
+
+ALTER TABLE public.performance_recruitment_deadlines ADD COLUMN max_missing_participants smallint NOT NULL DEFAULT 2, ADD COLUMN shortage_alerted_cycle integer;

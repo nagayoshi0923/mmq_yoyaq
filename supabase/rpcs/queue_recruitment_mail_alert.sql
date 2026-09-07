@@ -35,11 +35,11 @@ CREATE TRIGGER queue_recruitment_mail_alert BEFORE UPDATE OF status ON public.pe
  FOR EACH ROW EXECUTE FUNCTION public.queue_recruitment_mail_alert();
 
 -- 最終試行の通信断、または締切到達により再送できなくなった失敗を回収する。
-CREATE FUNCTION public.recover_recruitment_mail_alerts() RETURNS void
+CREATE OR REPLACE FUNCTION public.recover_recruitment_mail_alerts() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
  UPDATE discord_notification_queue SET status='pending',updated_at=now()
-  WHERE notification_type IN ('recruitment_mail_failed','recruitment_mail_recovered','recruitment_mail_exhausted')
+  WHERE notification_type IN ('recruitment_mail_failed','recruitment_mail_recovered','recruitment_mail_exhausted','recruitment_shortage','recruitment_x_failed','recruitment_x_attention','recruitment_x_recovered')
    AND status='sending' AND updated_at<now()-interval '5 minutes';
  UPDATE performance_recruitment_notices SET status='failed',lease_until=NULL
   WHERE status='sending' AND attempts>=10 AND lease_until<now();
