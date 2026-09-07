@@ -324,7 +324,7 @@ serve(async (req) => {
 
     const { data: existing } = await supabase
       .from('private_booking_discord_rooms')
-      .select('*')
+      .select('id, organization_id, reservation_id, schedule_event_id, scenario_master_id, player_channel_id, spectator_channel_id, player_invite_url, spectator_invite_url, date_role_id, player_channel_name, spectator_channel_name, created_at, moved_at')
       .eq('reservation_id', reservationId)
       .maybeSingle()
 
