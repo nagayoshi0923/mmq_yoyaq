@@ -139,7 +139,7 @@ serve(async (req) => {
       .limit(10)
 
     if (requestBody.only_recruitment === true) {
-      notificationsQuery = notificationsQuery.in('notification_type', ['recruitment_mail_failed', 'recruitment_mail_recovered', 'recruitment_mail_exhausted'])
+      notificationsQuery = notificationsQuery.in('notification_type', ['recruitment_mail_failed', 'recruitment_mail_recovered', 'recruitment_mail_exhausted', 'recruitment_shortage', 'recruitment_x_failed', 'recruitment_x_attention', 'recruitment_x_recovered'])
     }
     const { data: pendingNotifications, error: fetchError } = await notificationsQuery
 
@@ -164,7 +164,7 @@ serve(async (req) => {
 
     for (const notification of pendingNotifications as QueuedNotification[]) {
       try {
-        if (notification.notification_type.startsWith('recruitment_mail_')) {
+        if (notification.notification_type.startsWith('recruitment_')) {
           const { data: claimed, error: claimError } = await serviceClient.from('discord_notification_queue')
             .update({ status: 'sending', updated_at: new Date().toISOString() })
             .eq('id', notification.id).eq('organization_id', notification.organization_id).eq('status', 'pending')

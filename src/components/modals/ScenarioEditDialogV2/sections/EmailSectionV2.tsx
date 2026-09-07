@@ -1,3 +1,4 @@
+import { RecruitmentEmailSample } from './RecruitmentEmailSample'
 import { useState, useCallback } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
@@ -12,13 +13,14 @@ import { ConfirmDialog } from '@/components/patterns/modal'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 
 interface EmailSectionV2Props {
+  masterId?: string | null
   formData: ScenarioFormData
   setFormData: React.Dispatch<React.SetStateAction<ScenarioFormData>>
 }
 
 type OverrideField = 'reservation_confirmation_template' | 'private_confirm_template'
 
-export function EmailSectionV2({ formData, setFormData }: EmailSectionV2Props) {
+export function EmailSectionV2({ formData, setFormData, masterId }: EmailSectionV2Props) {
   const [quotingField, setQuotingField] = useState<OverrideField | null>(null)
   const [quoteConfirmField, setQuoteConfirmField] = useState<OverrideField | null>(null)
 
@@ -91,6 +93,8 @@ export function EmailSectionV2({ formData, setFormData }: EmailSectionV2Props) {
         onQuote={() => handleQuoteStoreTemplate('private_confirm_template')}
         note="公演ダイアログの「貸切確定を上書き」があれば、そちらが優先されます。"
       />
+
+      <RecruitmentEmailSample masterId={masterId} scenarioName={formData.title || ""} />
 
       <ConfirmDialog
         open={quoteConfirmField !== null}

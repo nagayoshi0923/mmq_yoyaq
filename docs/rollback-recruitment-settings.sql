@@ -1,14 +1,24 @@
-CREATE OR REPLACE FUNCTION check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
-RETURNS TABLE(
-  events_checked INTEGER,
-  events_confirmed INTEGER,
-  events_cancelled INTEGER,
-  details JSONB
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+-- データ保持型ロールバック。フロントを戻す前に適用する。新しい列・辞退履歴・v2 RPC は保持。
+BEGIN;
+UPDATE performance_recruitment_policies SET x_enabled=false;
+DROP TRIGGER IF EXISTS notify_recruitment_shortage ON reservations;
+DROP TRIGGER IF EXISTS enqueue_recruitment_x_post ON performance_recruitment_deadlines;
+CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+ SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
+$function$
+;
+CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET "TimeZone" TO 'Asia/Tokyo'
+AS $function$
 DECLARE
   v_events_checked INTEGER := 0;
   v_events_confirmed INTEGER := 0;
@@ -43,9 +53,8 @@ BEGIN
       se.scenario,
       se.gm_roles,
       se.is_recruitment_extended,
-      (pol.one_seat_enabled AND COALESCE(os.recruitment_extension_enabled,true)) AS one_seat_enabled,
-      COALESCE(rd.max_missing_participants,os.recruitment_max_missing,pol.max_missing_participants,2) AS max_missing_participants,
-      COALESCE(os.recruitment_deadline_minutes,90) AS deadline_minutes,
+      pol.one_seat_enabled,
+      pol.max_missing_participants,
       pol.customer_site_url,
       rd.deadline AS recruitment_deadline,
       rd.status AS recruitment_status,
@@ -80,10 +89,8 @@ BEGIN
     FROM schedule_events se
     LEFT JOIN performance_recruitment_policies pol ON pol.organization_id=se.organization_id
     LEFT JOIN performance_recruitment_deadlines rd ON rd.schedule_event_id = se.id
-      AND rd.organization_id = se.organization_id
-    LEFT JOIN LATERAL (SELECT sc.* FROM organization_scenarios sc WHERE sc.organization_id=se.organization_id AND
-      ((se.organization_scenario_id IS NOT NULL AND sc.id=se.organization_scenario_id) OR
-       (se.organization_scenario_id IS NULL AND sc.scenario_master_id=COALESCE(se.scenario_master_id,se.scenario_id))) LIMIT 1) os ON true
+      AND rd.organization_id = se.organization_id AND rd.status = 'active'
+    LEFT JOIN organization_scenarios os ON se.organization_scenario_id = os.id
     LEFT JOIN scenario_masters sm ON os.scenario_master_id = sm.id
     LEFT JOIN scenario_masters sm2 ON se.scenario_master_id = sm2.id
     LEFT JOIN scenarios s ON se.scenario_id = s.id
@@ -146,7 +153,7 @@ BEGIN
     END IF;
 
     -- 再確定後の再欠員は同じ案内済み期限で再開。通知と辞退リンクは周回別に保持。
-    IF v_status = 'confirmed'
+    IF v_event.one_seat_enabled AND v_status = 'confirmed'
       AND v_min-v_current BETWEEN 1 AND v_event.max_missing_participants THEN
       UPDATE performance_recruitment_deadlines SET status='active', cycle=cycle+1,
         was_confirmed=true, updated_at=now()
@@ -165,12 +172,11 @@ BEGIN
     -- 社長確認済み: 最低開催人数まであと1〜2人なら、予約の増加履歴によらず90分前まで（組織設定で段階適用）。
     IF (v_reopened AND v_deadline>v_now) OR (v_event.one_seat_enabled AND NOT v_has_deadline
       AND v_min-v_current BETWEEN 1 AND v_event.max_missing_participants
-      AND v_event.event_datetime - make_interval(mins=>v_event.deadline_minutes) > v_now) THEN
+      AND v_event.event_datetime - interval '90 minutes' > v_now) THEN
       IF NOT v_reopened THEN
       PERFORM set_performance_recruitment_deadline(v_event.organization_id,v_event.id,
-        v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes),format('最低開催人数まであと%s人のため、開始%s分前まで追加募集',v_min-v_current,v_event.deadline_minutes));
-        v_deadline := v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes);
-        UPDATE performance_recruitment_deadlines SET max_missing_participants=v_event.max_missing_participants WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id;
+        v_event.event_datetime-interval '90 minutes',format('最低開催人数まであと%s人のため、開始90分前まで追加募集',v_min-v_current));
+        v_deadline := v_event.event_datetime-interval '90 minutes';
       END IF;
       INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
       SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
@@ -269,17 +275,55 @@ BEGIN
     v_events_cancelled,
     v_details;
 END;
-$$;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.dispatch_performance_recruitment_checks()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE p record; base_url text; cron_key text;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM performance_recruitment_policies WHERE one_seat_enabled) THEN RETURN; END IF;
+ SELECT value INTO base_url FROM app_config WHERE key='supabase_url';
+ SELECT value INTO cron_key FROM app_config WHERE key='trigger_secret';
+ IF base_url IS NULL OR cron_key IS NULL THEN RAISE EXCEPTION '募集判定の接続設定がありません'; END IF;
+ FOR p IN SELECT organization_id FROM performance_recruitment_policies pol WHERE one_seat_enabled
+   AND (EXISTS(SELECT 1 FROM schedule_events e WHERE e.organization_id=pol.organization_id
+     AND NOT e.is_cancelled AND e.category='open'
+     AND (e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo' <= now()+interval '4 hours'
+     AND ((e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo'>now()
+       OR EXISTS(SELECT 1 FROM performance_recruitment_deadlines d WHERE d.schedule_event_id=e.id AND d.status='active')))
+     OR EXISTS(SELECT 1 FROM performance_recruitment_notices n WHERE n.organization_id=pol.organization_id
+       AND n.kind<>'extension' AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day'))
+ LOOP
+   PERFORM net.http_post(url:=rtrim(base_url,'/')||'/functions/v1/check-performance-cancellation',
+     headers:=jsonb_build_object('Content-Type','application/json','x-recruitment-cron-secret',cron_key),
+     body:=jsonb_build_object('check_type','recruitment_deadline','organization_id',p.organization_id), timeout_milliseconds:=30000);
+ END LOOP;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.recover_recruitment_mail_alerts()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+ UPDATE discord_notification_queue SET status='pending',updated_at=now()
+  WHERE notification_type IN ('recruitment_mail_failed','recruitment_mail_recovered','recruitment_mail_exhausted')
+   AND status='sending' AND updated_at<now()-interval '5 minutes';
+ UPDATE performance_recruitment_notices SET status='failed',lease_until=NULL
+  WHERE status='sending' AND attempts>=10 AND lease_until<now();
+ UPDATE performance_recruitment_notices n SET status='expired',lease_until=NULL
+  FROM performance_recruitment_deadlines d
+  WHERE n.schedule_event_id=d.schedule_event_id AND n.organization_id=d.organization_id
+   AND n.first_failed_at IS NOT NULL AND n.status IN ('pending','failed') AND n.attempts<10
+   AND ((n.kind='extension' AND (d.status<>'active' OR d.deadline<=now())) OR n.created_at<=now()-interval '1 day');
+END;
+$function$
+;
 
-ALTER FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) SET timezone TO 'Asia/Tokyo';
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) TO service_role;
-
--- 既存cronの呼び出しを維持。毎分処理は組織を指定した本体だけを使う。
-CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
-RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
-LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
- SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
-$$;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines() TO service_role;
+COMMIT;

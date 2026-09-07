@@ -1,3 +1,4 @@
+import { RecruitmentSettingsSection } from '@/components/modals/ScenarioEditDialogV2/sections/RecruitmentSettingsSection'
 import { useCallback, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
@@ -49,6 +50,7 @@ export function BookingDeadlineTab({ eventId }: { eventId?: string }) {
   if (!eventId) return <p className="scenario-edit-card__help">公演を保存すると、募集・締切を確認できます。</p>
   if (loading) return <p className="scenario-edit-card__note" role="status">締切を読み込み中…</p>
   return <div className="space-y-3">
+    <RecruitmentSettingsSection eventId={eventId} readOnly />
     {error && <div role="alert" className="space-y-2"><p className="scenario-edit-card__help">{error}</p><Button size="sm" className="h-7 text-xs" variant="outline" onClick={() => void load()}>再読込</Button></div>}
     {window ? <>
       <section className="scenario-edit-card">
