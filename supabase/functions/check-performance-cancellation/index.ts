@@ -1,10 +1,10 @@
 /**
  * 公演中止判定 Edge Function
  * 
- * 機能:
- * 1. 前日23:59チェック: 満席でなければ過半数以上なら延長、未満なら中止
- * 2. 4時間前チェック: 延長された公演で満席でなければ中止
- * 3. 中止時は予約者にメール + Discordに通知（GMメンション付き）
+ * この3つだけ。リマインド・全予定一覧は出さない。
+ * 1. 予告（前日21:00）: 中止判断と同じ計算を見せるだけ。書かない・メールしない。#運営 のみ
+ * 2. 中止判断（前日23:59）: 書いて確定。お客様メール。判定結果を業務連絡
+ * 3. 4時間前判断: 延長中オープンだけ開催／中止。お客様メール。判定があるときだけ業務連絡
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -14,8 +14,12 @@ import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
 interface CheckRequest {
-  check_type: 'day_before' | 'four_hours_before'
+  check_type: 'day_before' | 'day_before_preview' | 'four_hours_before'
 }
+
+/** 21:00予告の送信先。#運営・事務/運営。設定には持たせず予告だけ使う */
+const PREVIEW_OPS_CHANNEL_ID = '1415498605996937236'
+const PREVIEW_OPS_ORG_SLUG = 'queens-waltz'
 
 interface EventDetail {
   event_id: string
@@ -25,10 +29,38 @@ interface EventDetail {
   store_name: string
   current_participants: number
   max_participants: number
+  min_required?: number
   half_required?: number
-  result: 'confirmed' | 'extended' | 'cancelled' | 'already_extended' | 'private'
+  result: string
+  category?: string
   organization_id: string
   gms: string[]
+}
+
+const ALWAYS_HOLD_CATEGORIES = new Set([
+  'private',
+  'gmtest',
+  'testplay',
+  'offsite',
+  'venue_rental',
+  'venue_rental_free',
+  'package',
+  'mtg',
+])
+
+function categoryShortName(category: string | undefined): string {
+  switch (category) {
+    case 'private': return '貸切'
+    case 'gmtest': return 'GMテスト'
+    case 'testplay': return 'テスト'
+    case 'offsite': return '出張'
+    case 'venue_rental':
+    case 'venue_rental_free': return '会場レンタル'
+    case 'package': return 'パッケージ'
+    case 'mtg': return 'MTG'
+    case 'open': return 'オープン'
+    default: return ''
+  }
 }
 
 // Cron Secret / Service Role Key による呼び出しかチェック
@@ -80,15 +112,23 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     let check_type = body.check_type as string | undefined
+    const PREVIEW_TYPE = 'day_before_preview'
+    const allowedTypes = new Set(['day_before', PREVIEW_TYPE, 'four_hours_before'])
 
     // check_typeが未指定の場合、現在時刻に基づいてデフォルトを決定
-    if (!check_type || (check_type !== 'day_before' && check_type !== 'four_hours_before')) {
+    if (!check_type || !allowedTypes.has(check_type)) {
       const now = new Date()
       const jstHour = (now.getUTCHours() + 9) % 24
-      // JST 14:00-15:00 (UTC 5:00-6:00) の場合は day_before、それ以外は four_hours_before
-      check_type = (jstHour >= 23 || jstHour < 1) ? 'day_before' : 'four_hours_before'
+      if (jstHour === 21) {
+        check_type = PREVIEW_TYPE
+      } else if (jstHour >= 23 || jstHour < 1) {
+        check_type = 'day_before'
+      } else {
+        check_type = 'four_hours_before'
+      }
       console.log(`⚠️ check_type未指定/無効: デフォルト "${check_type}" を使用 (JST ${jstHour}時)`)
     }
+    const isPreview = check_type === PREVIEW_TYPE
 
     // target_date: cronがキュー積み時点で計算した対象日付（レースコンディション対策）
     // 渡されない場合は RPC 内で NOW()+1 にフォールバックする
@@ -110,10 +150,12 @@ serve(async (req) => {
     }
 
     // RPC関数を実行（RETURNS TABLEは配列を返すため[0]で取得）
-    if (check_type === 'day_before') {
+    if (check_type === 'day_before' || isPreview) {
       // p_target_date は DATE 型なので文字列のまま渡す（PostgreSQL が自動キャスト）
-      const rpcParams = target_date ? { p_target_date: target_date } : {}
-      const { data, error } = await serviceClient.rpc('check_performances_day_before', rpcParams as Record<string, unknown>)
+      const rpcParams: Record<string, unknown> = {}
+      if (target_date) rpcParams.p_target_date = target_date
+      if (isPreview) rpcParams.p_dry_run = true
+      const { data, error } = await serviceClient.rpc('check_performances_day_before', rpcParams)
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       result = {
@@ -124,7 +166,7 @@ serve(async (req) => {
         details: row?.details ?? []
       }
     } else if (check_type === 'four_hours_before') {
-      const { data, error } = await serviceClient.rpc('check_performances_four_hours_before')
+      const { data, error } = await serviceClient.rpc('check_performances_with_recruitment_deadlines')
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       result = {
@@ -144,34 +186,30 @@ serve(async (req) => {
       cancelled: result.events_cancelled
     })
 
-    // 中止・延長された公演に対して通知を送信
-    const notifications: Promise<void>[] = []
-    
-    for (const event of result.details) {
-      if (event.result === 'cancelled') {
-        // 中止通知を送信
-        notifications.push(
-          sendCancellationNotifications(serviceClient, event, check_type)
-        )
-      } else if (event.result === 'extended') {
-        // RPC関数で既に is_recruitment_extended = true に更新済み
-        // 延長通知を送信（メール + Discord）
-        notifications.push(
-          sendExtensionNotification(serviceClient, event)
-        )
-      } else if (event.result === 'confirmed') {
-        // 開催決定（満席）: お客様へ開催決定メールを送信
-        // 前日満席・募集延長後の4時間前満席の両方がここに該当する
-        notifications.push(
-          sendConfirmationNotification(serviceClient, event)
-        )
+    // 21:00 予告はお客様メール・公演更新をしない。Discord は #運営 だけ。
+    if (!isPreview) {
+      const notifications: Promise<void>[] = []
+
+      for (const event of result.details) {
+        if (event.result === 'cancelled') {
+          notifications.push(
+            sendCancellationNotifications(serviceClient, event, check_type)
+          )
+        } else if (event.result === 'extended') {
+          notifications.push(
+            sendExtensionNotification(serviceClient, event)
+          )
+        } else if (event.result === 'confirmed' && !ALWAYS_HOLD_CATEGORIES.has(event.category || '')) {
+          notifications.push(
+            sendConfirmationNotification(serviceClient, event)
+          )
+        }
       }
+
+      await Promise.allSettled(notifications)
     }
 
-    await Promise.allSettled(notifications)
-
-    // 業務連絡チャンネルにサマリー通知を送信
-    await sendBusinessSummaryNotification(serviceClient, check_type, result)
+    await sendBusinessSummaryNotification(serviceClient, check_type, result, isPreview)
 
     return new Response(
       JSON.stringify({
@@ -897,7 +935,7 @@ async function sendExtensionEmail(
       ${customerName} 様
     </p>
     <p style="font-size: 14px; color: #92400e;">
-      ご予約いただいている公演は、現在定員に達していないため、募集を公演4時間前まで延長いたします。
+      ご予約いただいている公演は、現在満席ではないため、募集を公演4時間前まで延長いたします。
     </p>
   </div>
 
@@ -932,8 +970,8 @@ async function sendExtensionEmail(
   <div style="background-color: #dbeafe; border-left: 4px solid #2563eb; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
     <p style="margin: 0; color: #1e40af; font-size: 14px;">
       <strong>ご案内</strong><br>
-      公演4時間前までに定員に達した場合は、公演を開催いたします。<br>
-      定員に達しない場合は、中止となりメールでお知らせいたします。
+      公演4時間前までに最低開催人数に達した場合は、公演を開催いたします。<br>
+      最低開催人数に達しない場合は、中止となりメールでお知らせいたします。
     </p>
   </div>
 
@@ -965,7 +1003,7 @@ ${customerName} 様
 
 ⏰ 募集延長のお知らせ
 
-ご予約いただいている公演は、現在定員に達していないため、募集を公演4時間前まで延長いたします。
+ご予約いただいている公演は、現在満席ではないため、募集を公演4時間前まで延長いたします。
 
 ━━━━━━━━━━━━━━━━━━━━
 公演情報
@@ -979,8 +1017,8 @@ ${customerName} 様
 ━━━━━━━━━━━━━━━━━━━━
 
 【ご案内】
-公演4時間前までに定員に達した場合は、公演を開催いたします。
-定員に達しない場合は、中止となりメールでお知らせいたします。
+公演4時間前までに最低開催人数に達した場合は、公演を開催いたします。
+最低開催人数に達しない場合は、中止となりメールでお知らせいたします。
 
 【キャンセルについて】
 募集延長中の公演は、キャンセル料無料でキャンセルが可能です。
@@ -1239,7 +1277,7 @@ async function sendConfirmationEmail(
       ${customerName} 様
     </p>
     <p style="font-size: 14px; color: #15803d;">
-      ご予約いただいている公演は、定員に達したため開催が決定いたしました。当日のご来場をお待ちしております。
+      ご予約いただいている公演は、開催が決定いたしました。当日のご来場をお待ちしております。
     </p>
   </div>
 
@@ -1287,7 +1325,7 @@ ${customerName} 様
 
 🎉 公演開催決定のお知らせ
 
-ご予約いただいている公演は、定員に達したため開催が決定いたしました。当日のご来場をお待ちしております。
+ご予約いただいている公演は、開催が決定いたしました。当日のご来場をお待ちしております。
 
 ━━━━━━━━━━━━━━━━━━━━
 公演情報
@@ -1382,7 +1420,8 @@ ${emailSettings.senderName}
 }
 
 /**
- * 業務連絡チャンネルにサマリー通知を送信
+ * 判定した公演だけ Discord に出す。貸切・全予定・延長中の再掲は載せない。
+ * 予告 → #運営。中止判断・4時間前判断 → 業務連絡。
  */
 async function sendBusinessSummaryNotification(
   supabase: ReturnType<typeof createClient>,
@@ -1393,310 +1432,152 @@ async function sendBusinessSummaryNotification(
     events_extended?: number
     events_cancelled: number
     details: EventDetail[]
-  }
+  },
+  isPreview = false
 ): Promise<void> {
-  // 対象イベントがない場合でも通知（確認のため）
-  console.log('📢 業務連絡チャンネルへのサマリー通知開始')
-
-  // 全組織の設定を取得（業務チャンネルIDがあるもの）
-  const { data: orgSettings, error: orgError } = await supabase
-    .from('organization_settings')
-    .select('organization_id, discord_webhook_url, discord_business_channel_id')
-    .not('discord_business_channel_id', 'is', null)
-
-  if (orgError || !orgSettings || orgSettings.length === 0) {
-    console.log('業務連絡チャンネル未設定、サマリー通知スキップ')
+  if (result.details.length === 0) {
+    console.log('ℹ️ 判定した公演なし、Discord スキップ')
     return
   }
 
-  const checkTypeLabel = checkType === 'day_before' ? '前日判定（23:59）' : '4時間前判定'
+  console.log(isPreview ? '📢 予告を #運営 へ送信開始' : '📢 業務連絡へ判定結果を送信開始')
+
+  const { data: previewOrg } = isPreview
+    ? await supabase
+        .from('organizations')
+        .select('id')
+        .eq('slug', PREVIEW_OPS_ORG_SLUG)
+        .maybeSingle()
+    : { data: null }
+
+  if (isPreview && !previewOrg?.id) {
+    console.error('❌ 予告送信先の組織が見つからない:', PREVIEW_OPS_ORG_SLUG)
+    return
+  }
+
+  const settingsQuery = supabase
+    .from('organization_settings')
+    .select('organization_id, discord_webhook_url, discord_business_channel_id')
+
+  const { data: orgSettings, error: orgError } = isPreview
+    ? await settingsQuery.eq('organization_id', previewOrg!.id)
+    : await settingsQuery.not('discord_business_channel_id', 'is', null)
+
+  if (orgError || !orgSettings || orgSettings.length === 0) {
+    console.log(isPreview ? '予告用の組織設定なし、通知スキップ' : '業務連絡チャンネル未設定、通知スキップ')
+    return
+  }
+
+  const kindLabel = isPreview ? '予告' : checkType === 'four_hours_before' ? '4時間前判断' : '中止判断'
   const now = new Date()
   const jstDate = now.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
   const jstTime = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
-  
-  // 対象日を計算（日本時間ベース）
-  // schedule_eventsのdateは日本時間の日付として保存されているため、JSTベースで計算
-  const getTargetDateJST = (checkTypeArg: string): string => {
-    const currentTime = new Date()
-    // JSTオフセット（+9時間）を適用
-    const jstTime = new Date(currentTime.getTime() + 9 * 60 * 60 * 1000)
-    const y = jstTime.getUTCFullYear()
-    const m = jstTime.getUTCMonth()
-    const d = jstTime.getUTCDate()
-    
-    console.log(`🕐 JST計算: year=${y}, month=${m + 1}, date=${d}, checkType=${checkTypeArg}`)
-    
-    if (checkTypeArg === 'day_before') {
-      // 翌日（JST）
-      const targetDate = new Date(Date.UTC(y, m, d + 1))
-      const result = targetDate.toISOString().split('T')[0]
-      console.log(`📅 day_before計算結果: ${result}`)
-      return result
-    } else {
-      // 当日（JST）- 4時間前判定は当日
-      const targetDate = new Date(Date.UTC(y, m, d))
-      const result = targetDate.toISOString().split('T')[0]
-      console.log(`📅 four_hours_before計算結果: ${result}`)
-      return result
+
+  const firstDate = result.details[0].date
+  const targetDateStr = new Date(firstDate + 'T00:00:00+09:00').toLocaleDateString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    month: 'numeric',
+    day: 'numeric',
+  })
+
+  const getResultLabel = (event: EventDetail): string => {
+    if (event.result === 'cancelled') return '【中止】'
+    if (event.result === 'extended') return '【募集延長】'
+    if (event.result === 'confirmed') {
+      const cat = categoryShortName(event.category)
+      return cat && event.category !== 'open' ? `【開催決定｜${cat}】` : '【開催決定】'
     }
-  }
-  
-  let targetDateForQuery: string
-  if (result.details.length > 0 && result.details[0].date) {
-    // 処理されたイベントがあればその日付を使用
-    targetDateForQuery = result.details[0].date
-  } else {
-    // RPCと同じ日付を計算（JSTベース）
-    targetDateForQuery = getTargetDateJST(checkType)
-  }
-  
-  console.log(`📅 クエリ対象日: ${targetDateForQuery} (checkType: ${checkType})`)
-
-  // 既に延長済みのイベントを取得（今回の処理対象外だが通知には含める）
-  // 公演開始時刻を過ぎたイベントは除外
-  const processedEventIds = result.details.map(e => e.event_id)
-  const nowTimeStr = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  console.log(`🕐 現在時刻(JST): ${nowTimeStr}`)
-  
-  const { data: alreadyExtendedEvents } = await supabase
-    .from('schedule_events')
-    .select(`
-      id,
-      date,
-      start_time,
-      scenario,
-      scenario_master_id,
-      current_participants,
-      max_participants,
-      organization_id,
-      gms,
-      store_id,
-      stores!inner(name),
-      scenario_masters:scenario_master_id (player_count_max),
-      organization_scenarios:organization_scenario_id (override_player_count_max, scenario_masters:scenario_master_id (player_count_max))
-    `)
-    .eq('date', targetDateForQuery)
-    .eq('is_recruitment_extended', true)
-    .eq('is_cancelled', false)
-    .eq('category', 'open')
-    .gt('start_time', nowTimeStr)
-
-  // 今回処理されたイベントを除外した、既に延長済みのイベント
-  const alreadyExtendedDetails: EventDetail[] = (alreadyExtendedEvents || [])
-    .filter(e => !processedEventIds.includes(e.id))
-    .map(e => {
-      const orgScenario = e.organization_scenarios as { override_player_count_max?: number; scenario_masters?: { player_count_max?: number } } | null
-      const scenarioMaster = e.scenario_masters as { player_count_max?: number } | null
-      const maxParticipants = orgScenario?.override_player_count_max
-        || orgScenario?.scenario_masters?.player_count_max
-        || scenarioMaster?.player_count_max
-        || e.max_participants
-        || 8
-      return {
-        event_id: e.id,
-        date: e.date,
-        start_time: e.start_time,
-        scenario: e.scenario,
-        store_name: (e.stores as { name: string })?.name || '',
-        current_participants: e.current_participants || 0,
-        max_participants: maxParticipants,
-        result: 'already_extended' as const,
-        organization_id: e.organization_id,
-        gms: e.gms || []
-      }
-    }) as EventDetail[]
-
-  console.log(`📊 既に延長済みのイベント: ${alreadyExtendedDetails.length}件`)
-
-  // 前日判定の場合、貸切公演も取得してGM出勤リマインダーに含める
-  let privateBookingDetails: EventDetail[] = []
-  if (checkType === 'day_before') {
-    const { data: privateEvents } = await supabase
-      .from('schedule_events')
-      .select(`
-        id,
-        date,
-        start_time,
-        scenario,
-        current_participants,
-        max_participants,
-        organization_id,
-        gms,
-        stores!inner(name)
-      `)
-      .eq('date', targetDateForQuery)
-      .eq('is_cancelled', false)
-      .eq('category', 'private')
-
-    privateBookingDetails = (privateEvents || []).map(e => ({
-      event_id: e.id,
-      date: e.date,
-      start_time: e.start_time,
-      scenario: e.scenario,
-      store_name: (e.stores as { name: string })?.name || '',
-      current_participants: e.current_participants || 0,
-      max_participants: e.max_participants || 0,
-      result: 'private' as const,
-      organization_id: e.organization_id,
-      gms: e.gms || []
-    }))
-
-    console.log(`📊 貸切公演: ${privateBookingDetails.length}件`)
+    return '【不明】'
   }
 
-  // 対象日の表示文字列を計算（処理イベント→延長済みイベント→フォールバックの順で取得）
-  let targetDateStr: string
-  if (result.details.length > 0 && result.details[0].date) {
-    const eventDate = new Date(result.details[0].date + 'T00:00:00+09:00')
-    targetDateStr = eventDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
-  } else if (alreadyExtendedDetails.length > 0 && alreadyExtendedDetails[0].date) {
-    const eventDate = new Date(alreadyExtendedDetails[0].date + 'T00:00:00+09:00')
-    targetDateStr = eventDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
-  } else {
-    // フォールバック：クエリ用日付を使用
-    const eventDate = new Date(targetDateForQuery + 'T00:00:00+09:00')
-    targetDateStr = eventDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
-  }
-  
-  console.log(`📅 対象日: ${targetDateStr} (query: ${targetDateForQuery})`)
-
-  // 各組織の業務連絡チャンネルに通知
   for (const org of orgSettings) {
-    // 業務チャンネルIDがない場合はスキップ
-    if (!org.discord_business_channel_id) continue
+    const channelId = isPreview ? PREVIEW_OPS_CHANNEL_ID : org.discord_business_channel_id
+    if (!channelId) continue
+
+    const orgEvents = result.details
+      .filter(e => e.organization_id === org.organization_id)
+      .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+    if (orgEvents.length === 0) {
+      console.log(`ℹ️ 判定した公演なし: org=${org.organization_id}, 通知スキップ`)
+      continue
+    }
 
     try {
-      // Bot APIを使用してチャンネルにメッセージを送信
       const discordSettings = await getDiscordSettings(supabase, org.organization_id)
-      
-      // 今回処理したイベントのみ（実際にキャンセル・延長・開催決定になったもの）
-      const allEvents = [...result.details]
-      // 貸切公演はorg絞り込み
-      const orgPrivateEvents = privateBookingDetails.filter(e => e.organization_id === org.organization_id)
+      const uniqueGMs = [...new Set(orgEvents.flatMap(e => e.gms || []))]
+      const gmMentionMap: Record<string, string> = {}
 
-      // GMのDiscord IDを取得してメンション用マップを作成（貸切公演GMも含む）
-      const allGMs = [...allEvents, ...orgPrivateEvents].flatMap(e => e.gms || [])
-      const uniqueGMs = [...new Set(allGMs)]
-      let gmMentionMap: Record<string, string> = {}
-      
       if (uniqueGMs.length > 0) {
         const { data: staffList } = await supabase
           .from('staff')
           .select('name, discord_user_id')
           .in('name', uniqueGMs)
           .eq('organization_id', org.organization_id)
-        
-        if (staffList) {
-          for (const staff of staffList) {
-            if (staff.discord_user_id) {
-              gmMentionMap[staff.name] = `<@${staff.discord_user_id}>`
-            }
-          }
+
+        for (const staff of staffList || []) {
+          if (staff.discord_user_id) gmMentionMap[staff.name] = `<@${staff.discord_user_id}>`
         }
       }
-      
-      // GM情報をメンション付きでフォーマット
-      const formatGMsWithMention = (gms: string[] | undefined): string => {
+
+      const formatGMs = (gms: string[] | undefined): string => {
         if (!gms || gms.length === 0) return ''
-        const mentions = gms.map(gm => gmMentionMap[gm] || gm)
-        return mentions.join(', ')
+        return gms.map(gm => gmMentionMap[gm] || gm).join(', ')
       }
-      
-      // 結果のラベルを取得
-      const getResultLabel = (r: string): string => {
-        if (r === 'cancelled') return '【中止】'
-        if (r === 'extended') return '【募集延長】'
-        if (r === 'already_extended') return '【延長中】'
-        if (r === 'confirmed') return '【開催決定】'
-        if (r === 'private') return '【貸切】'
-        return '【不明】'
-      }
-      
-      // プレーンテキストメッセージを構築
+
       const lines: string[] = []
-      
-      // ヘッダー
-      lines.push(`📋 **${targetDateStr} 公演中止判定結果** (${checkTypeLabel})`)
-      lines.push('')
-      
-      // サマリー（今回処理した件数のみ）
-      const summaryParts = [
-        `チェック対象: ${result.events_checked}件`,
-        `開催決定: ${result.events_confirmed}件`,
-        `募集延長: ${result.events_extended ?? 0}件`,
-        `中止: ${result.events_cancelled}件`
-      ]
-      lines.push(summaryParts.join(' | '))
-      lines.push('')
-      
-      if (result.details.length === 0 && alreadyExtendedDetails.length === 0 && orgPrivateEvents.length === 0) {
-        // 処理イベントも延長中イベントも貸切もない場合はスキップ
-        console.log(`ℹ️ 対象公演なし: org=${org.organization_id}, 通知スキップ`)
-        continue
-      }
-
-      if (result.details.length === 0 && orgPrivateEvents.length === 0) {
-        // 今回実際に処理したイベントも貸切もなければ通知しない
-        console.log(`ℹ️ 今回処理なし（延長中のみ）: org=${org.organization_id}, 通知スキップ`)
-        continue
+      if (isPreview) {
+        lines.push(`📋 **${targetDateStr} 予告**`)
+        lines.push('23:59 の中止判断と同じ計算です。まだ公演は変えていません。')
       } else {
-        // 公演を時間順にソート（オープン公演 + 貸切公演）
-        const sortedEvents = [...allEvents, ...orgPrivateEvents].sort((a, b) => {
-          const timeA = a.start_time || '00:00'
-          const timeB = b.start_time || '00:00'
-          return timeA.localeCompare(timeB)
-        })
-
-        // 各公演を表示
-        for (const event of sortedEvents) {
-          const label = getResultLabel(event.result)
-          const time = event.start_time?.slice(0, 5) || '??:??'
-          const scenario = event.scenario || '未設定'
-          const participants = `${event.current_participants}/${event.max_participants}名`
-          const gms = formatGMsWithMention(event.gms)
-          const store = event.store_name || ''
-
-          let line = `${label} ${time} **${scenario}** (${participants})`
-          if (store) line += ` @${store}`
-          if (gms) line += ` GM: ${gms}`
-
-          lines.push(line)
-        }
+        lines.push(`📋 **${targetDateStr} ${kindLabel}**`)
       }
-      
+      lines.push('')
+      lines.push([
+        `判定: ${orgEvents.length}件`,
+        `開催決定: ${orgEvents.filter(e => e.result === 'confirmed').length}件`,
+        `募集延長: ${orgEvents.filter(e => e.result === 'extended').length}件`,
+        `中止: ${orgEvents.filter(e => e.result === 'cancelled').length}件`,
+      ].join(' | '))
+      lines.push('')
+
+      for (const event of orgEvents) {
+        const time = event.start_time?.slice(0, 5) || '??:??'
+        const scenario = event.scenario || '未設定'
+        const participants = `${event.current_participants}/${event.max_participants}名`
+        const gms = formatGMs(event.gms)
+        const store = event.store_name || ''
+        let line = `${getResultLabel(event)} ${time} **${scenario}** (${participants})`
+        if (store) line += ` @${store}`
+        if (gms) line += ` GM: ${gms}`
+        lines.push(line)
+      }
+
       lines.push('')
       lines.push(`_実行時刻: ${jstDate} ${jstTime}_`)
-      
-      const messageContent = lines.join('\n')
-      
-      // プレーンテキストメッセージを送信
-      const plainMessage = { 
-        content: messageContent,
-        username: 'MMQ 公演判定システム'
+
+      const plainMessage = {
+        content: lines.join('\n'),
+        username: 'MMQ 公演判定システム',
       }
-      
-      console.log(`🔍 Discord設定: botToken=${discordSettings.botToken ? '✅設定あり' : '❌なし'}, businessChannelId=${org.discord_business_channel_id}, webhookUrl=${org.discord_webhook_url ? '✅設定あり' : '❌なし'}`)
-      
+
       if (discordSettings.botToken) {
-        // Discord Bot APIでチャンネルにメッセージ送信（MMQとして送信）
-        const response = await fetch(`https://discord.com/api/v10/channels/${org.discord_business_channel_id}/messages`, {
+        const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bot ${discordSettings.botToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(plainMessage)
+          body: JSON.stringify(plainMessage),
         })
 
         if (response.ok) {
-          console.log(`✅ 業務連絡通知送信完了: org=${org.organization_id}`)
+          console.log(`✅ ${kindLabel}通知完了: org=${org.organization_id}`)
         } else {
-          const errorText = await response.text()
-          console.error(`❌ 業務連絡通知失敗: org=${org.organization_id}`, response.status, errorText)
+          console.error(`❌ ${kindLabel}通知失敗: org=${org.organization_id}`, response.status, await response.text())
         }
+      } else if (isPreview) {
+        console.error('❌ 予告は Bot 必須。Webhook へは落とさない')
       } else if (org.discord_webhook_url) {
-        // Webhookを使用（フォールバック） - ⚠️ Botトークンがないため貸切予約botから送信される
-        console.log(`⚠️ Botトークンが未設定のためWebhookにフォールバック: org=${org.organization_id}`)
         const success = await sendDiscordNotificationWithRetry(
           supabase,
           org.discord_webhook_url,
@@ -1705,15 +1586,12 @@ async function sendBusinessSummaryNotification(
           'performance_check_summary',
           undefined
         )
-        
-        if (success) {
-          console.log(`✅ 業務連絡通知送信完了（Webhook）: org=${org.organization_id}`)
-        } else {
-          console.log(`⚠️ 業務連絡通知失敗、リトライキューに追加: org=${org.organization_id}`)
-        }
+        console.log(success
+          ? `✅ ${kindLabel}通知完了（Webhook）: org=${org.organization_id}`
+          : `⚠️ ${kindLabel}通知失敗: org=${org.organization_id}`)
       }
     } catch (error) {
-      console.error(`❌ 業務連絡通知エラー: org=${org.organization_id}`, error)
+      console.error(`❌ ${kindLabel}通知エラー: org=${org.organization_id}`, error)
     }
   }
 }
