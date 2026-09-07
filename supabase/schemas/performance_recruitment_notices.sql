@@ -23,6 +23,7 @@ CREATE TABLE public.performance_recruitment_notices (
  attempts integer NOT NULL DEFAULT 0,
  lease_until timestamptz,
  sent_at timestamptz,
+ first_failed_at timestamptz,
  withdrawn_at timestamptz,
  created_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(schedule_event_id, reservation_id, kind, cycle)
