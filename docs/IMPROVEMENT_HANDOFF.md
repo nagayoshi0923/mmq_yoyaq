@@ -372,3 +372,7 @@ invalidateQueries 60箇所中 `refetchType:'all'` は1箇所のみ（既定 refe
 ### - [x] YOYAQ-002: 管理設定から顧客向けキャンセルポリシー表示を動的統一 🔍
 
 管理画面の店舗別キャンセル設定を、公開ポリシー・FAQ案内・通常/貸切予約画面・管理プレビューの共通表示へ接続。公開取得はactiveかつ公開承認済み組織/active店舗だけを返す最小列のSECURITY DEFINER RPCとし、`reservation_settings`へのanon SELECTは追加しない。複数店舗時は任意の先頭店舗を採用せず店舗別表示、予約画面は通常予約の選択店舗または貸切の単一選択店舗を明示する。2026-07-19にdesktop/mobileのPREVIEWをPO確認済み。worker REPORT後の独立検収とstaging直列統合、migration適用は未実施で、適用時はDB→frontendの順を厳守する。
+
+### - [ ] QW-20260907-005: 公演ごとの追加募集期限
+
+管理者API・service role専用RPC・期限を守る判定処理・隔離DBテストを実装。詳細は `docs/RECRUITMENT_DEADLINES.md`。実環境の定義照合とDB適用、開始時メール・無料辞退・AI条件設定の接続は未完了。本番稼働済みと扱わない。

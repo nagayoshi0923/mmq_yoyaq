@@ -124,7 +124,7 @@ serve(async (req) => {
         details: row?.details ?? []
       }
     } else if (check_type === 'four_hours_before') {
-      const { data, error } = await serviceClient.rpc('check_performances_four_hours_before')
+      const { data, error } = await serviceClient.rpc('check_performances_with_recruitment_deadlines')
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       result = {
