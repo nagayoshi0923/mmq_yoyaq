@@ -384,5 +384,5 @@ invalidateQueries 60箇所中 `refetchType:'all'` は1箇所のみ（既定 refe
 - [x] 開始通知・最終開催/中止・無料辞退の確認をDB outboxに確保し、リースと送信冪等性キーで再試行。
 - [x] メール専用ページから、開催判断待ちの間だけ無料辞退。閲覧では変更せず、確認後に予約全員分を処理。
 - [x] 予約DBトリガーでも90分期限を検証。発端のキャンセル者・後から予約した顧客は無料辞退の対象外。
-- 検証: 隔離PostgreSQLの既存期限テスト・新規あと1人テスト、unit 261件、verify（型・lint・build・security）、公開ページE2Eを実施。
+- 検証: 隔離PostgreSQLの既存期限テスト・新規あと1人テスト、unit 261件、verify（型・lint・build・security）、公開ページを含むE2E 8件を実施。CIの画面起動用非機密設定も補完。
 - 配備: migration `20260907100000_one_seat_extension` をDB先行。stagingでは実顧客への二重通知を避け自動実行を無効のまま検証し、本番のWeb/Edge配備後にQueens Waltzだけ有効化する。
