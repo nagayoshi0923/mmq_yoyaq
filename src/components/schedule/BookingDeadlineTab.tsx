@@ -46,32 +46,32 @@ export function BookingDeadlineTab({ eventId }: { eventId?: string }) {
     } catch (e) { setError(e instanceof Error ? e.message : '保存できませんでした。') }
     finally { setSaving(false) }
   }
-  if (!eventId) return <p>公演を保存すると、募集・締切を確認できます。</p>
-  if (loading) return <p role="status">締切を読み込み中…</p>
-  return <div className="space-y-6">
-    {error && <div role="alert" className="space-y-2"><p>{error}</p><Button variant="outline" onClick={() => void load()}>再読込</Button></div>}
+  if (!eventId) return <p className="scenario-edit-card__help">公演を保存すると、募集・締切を確認できます。</p>
+  if (loading) return <p className="scenario-edit-card__note" role="status">締切を読み込み中…</p>
+  return <div className="space-y-3">
+    {error && <div role="alert" className="space-y-2"><p className="scenario-edit-card__help">{error}</p><Button size="sm" className="h-7 text-xs" variant="outline" onClick={() => void load()}>再読込</Button></div>}
     {window ? <>
-      <section className="space-y-2">
-        <h3>開催判断の期限</h3>
-        <p>{formatBookingDeadline(window.judgment_deadline)}（日本時間）</p>
-        <p>{window.judgment_status === 'confirmed' ? '開催決定済み' : window.judgment_status === 'active' ? '追加募集中・開催判断待ち' : '通常の開催判断待ち'}</p>
-        <p>最低開催人数に届くかを判断する期限です。満席になる時刻とは異なります。</p>
+      <section className="scenario-edit-card">
+        <h3 className="scenario-edit-card__title">開催判断の期限</h3>
+        <p className="scenario-edit-card__help">{formatBookingDeadline(window.judgment_deadline)}（日本時間）</p>
+        <p className="scenario-edit-card__help">{window.judgment_status === 'confirmed' ? '開催決定済み' : window.judgment_status === 'active' ? '追加募集中・開催判断待ち' : '通常の開催判断待ち'}</p>
+        <p className="scenario-edit-card__help">最低開催人数に届くかを判断する期限です。満席になる時刻とは異なります。</p>
       </section>
-      <section className="space-y-3">
-        <h3>開催決定後の予約受付締切</h3>
-        <p>{formatBookingDeadline(window.booking_deadline)}（日本時間）</p>
-        <p>開催決定後に空席がある場合、この締切まで予約を受け付けます。</p>
-        {window.judgment_status === 'active' && <p>現在は追加募集の判断待ちのため、{formatBookingDeadline(window.effective_booking_deadline)}まで受付。開催が決まると上記の予約締切に切り替わります。</p>}
-        <Label htmlFor="booking-cutoff-mode">予約締切の設定</Label>
+      <section className="scenario-edit-card">
+        <h3 className="scenario-edit-card__title">開催決定後の予約受付締切</h3>
+        <p className="scenario-edit-card__help">{formatBookingDeadline(window.booking_deadline)}（日本時間）</p>
+        <p className="scenario-edit-card__help">開催決定後に空席がある場合、この締切まで予約を受け付けます。</p>
+        {window.judgment_status === 'active' && <p className="scenario-edit-card__help">現在は追加募集の判断待ちのため、{formatBookingDeadline(window.effective_booking_deadline)}まで受付。開催が決まると上記の予約締切に切り替わります。</p>}
+        <div className="scenario-edit-field"><Label className="scenario-edit-field__label" htmlFor="booking-cutoff-mode">締切設定</Label><div className="scenario-edit-field__control">
         <Select value={mode} onValueChange={setMode} disabled={!canEdit || saving}>
-          <SelectTrigger id="booking-cutoff-mode"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-7 text-xs" id="booking-cutoff-mode"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="default">シナリオ設定を使う（{window.default_minutes}分前）</SelectItem><SelectItem value="custom">この公演だけ指定する</SelectItem></SelectContent>
-        </Select>
-        <p>シナリオ編集で設定した予約締切を使います。シナリオ未設定の場合は、従来の締切を維持します。</p>
-        {mode === 'custom' && <div className="space-y-2"><Label htmlFor="booking-cutoff-minutes">公演開始の何分前まで受け付けるか</Label><Input id="booking-cutoff-minutes" type="number" min={0} max={1440} step={1} value={minutes} onChange={e => setMinutes(e.target.value)} disabled={!canEdit || saving} /><p>0分は公演開始まで。開催判断の期限は変更しません。</p></div>}
-        {canEdit ? <Button onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : '予約締切を保存'}</Button> : <p>変更は管理者が行えます。</p>}
-        {message && <p role="status">{message}</p>}
+        </Select></div></div>
+        <p className="scenario-edit-card__help">シナリオ編集で設定した予約締切を使います。シナリオ未設定の場合は、従来の締切を維持します。</p>
+        {mode === 'custom' && <div className="space-y-2"><div className="scenario-edit-field"><Label className="scenario-edit-field__label" htmlFor="booking-cutoff-minutes">受付締切</Label><div className="scenario-edit-field__control flex items-center gap-2"><Input className="h-7 text-xs w-24" aria-label="公演開始の何分前まで受け付けるか" id="booking-cutoff-minutes" type="number" min={0} max={1440} step={1} value={minutes} onChange={e => setMinutes(e.target.value)} disabled={!canEdit || saving} /><span className="text-xs text-muted-foreground">分前</span></div></div><p className="scenario-edit-card__help">0分は公演開始まで。開催判断の期限は変更しません。</p></div>}
+        {canEdit ? <Button variant="outline" size="sm" className="h-7 text-xs self-end" onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : '予約締切を保存'}</Button> : <p className="scenario-edit-card__help">変更は管理者が行えます。</p>}
+        {message && <p className="scenario-edit-card__note" role="status">{message}</p>}
       </section>
-    </> : !error && <p>中止していないオープン公演で設定できます。</p>}
+    </> : !error && <p className="scenario-edit-card__help">中止していないオープン公演で設定できます。</p>}
   </div>
 }
