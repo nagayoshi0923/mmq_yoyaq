@@ -83,6 +83,30 @@ describe('calculateCancellation', () => {
   it('円未満は四捨五入する', () => {
     expect(calculate('2026-08-06T01:00:00.000Z').feeAmount).toBe(501)
   })
+
+  it('定数到達後は公演価格全額、未達は参加料金合計', () => {
+    const untilCapacity = policy({ feeBasis: 'participant_until_capacity' })
+    const notFull = calculateCancellation({
+      performanceDate: '2026-08-08',
+      performanceStartTime: '10:00:00',
+      now: '2026-08-06T01:00:00.000Z',
+      policy: untilCapacity,
+      basisAmounts: { participant_total: 1001, performance_total: 60000 },
+      isAtCapacity: false,
+    })
+    const full = calculateCancellation({
+      performanceDate: '2026-08-08',
+      performanceStartTime: '10:00:00',
+      now: '2026-08-06T01:00:00.000Z',
+      policy: untilCapacity,
+      basisAmounts: { participant_total: 1001, performance_total: 60000 },
+      isAtCapacity: true,
+    })
+    expect(notFull.feeBasis).toBe('participant_total')
+    expect(notFull.feeAmount).toBe(501)
+    expect(full.feeBasis).toBe('performance_total')
+    expect(full.feeAmount).toBe(30000)
+  })
 })
 
 describe('canCustomerSelfCancel', () => {

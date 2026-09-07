@@ -28,6 +28,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { reservationApi, markSenshinDiscordCancelled } from '@/lib/reservationApi'
+import { notifyGmAssignmentReleased } from '@/lib/notifyGmAssignmentReleased'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 import { getEventTimeSlot } from '@/utils/eventOperationUtils'
@@ -268,12 +269,7 @@ async function handleActiveReservationsBeforeDelete(
           cancelledBy: 'store',
         })
       } else {
-        const params: RpcAdminUpdateReservationFieldsParams = {
-          p_reservation_id: r.id,
-          p_updates: { status: 'cancelled' },
-        }
-        const { error } = await supabase.rpc('admin_update_reservation_fields', params)
-        if (error) throw error
+        await reservationApi.cancelWithLock(r.id, null, reason)
         await markSenshinDiscordCancelled({ reservationId: r.id, organizationId })
       }
     })
@@ -346,6 +342,23 @@ async function deletePrivateBookingEventCore(
   const snapshot = scheduleEventId && organizationId
     ? await fetchEventSnapshot(scheduleEventId, organizationId)
     : null
+
+  const releasedGms = (Array.isArray(snapshot?.gms) ? snapshot.gms : targetEvent.gms) ?? []
+  const alreadyCancelled = reservation?.status === 'cancelled'
+  if (releasedGms.length > 0 && organizationId && !alreadyCancelled) {
+    void notifyGmAssignmentReleased({
+      kind: 'private_cancelled_store',
+      organizationId,
+      gms: releasedGms as string[],
+      date: (snapshot?.date as string | undefined) || targetEvent.date,
+      startTime: (snapshot?.start_time as string | undefined) || targetEvent.start_time,
+      endTime: (snapshot?.end_time as string | undefined) || targetEvent.end_time,
+      storeName: (snapshot?.venue as string | undefined) || targetEvent.venue,
+      scenarioTitle: (snapshot?.scenario as string | undefined) || targetEvent.scenario,
+      customerName: (snapshot?.reservation_name as string | undefined) || targetEvent.reservation_name || null,
+      reason: '店舗操作によるキャンセル',
+    })
+  }
 
   // ② 申込はキャンセル状態で保持（物理削除しない）
   if (reservation && reservation.status !== 'cancelled') {

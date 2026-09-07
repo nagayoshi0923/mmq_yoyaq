@@ -12,12 +12,15 @@ import {
   DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
+import { AcceptanceSection } from './cancellationSettings/AcceptanceSection'
 import { OtherPoliciesSection } from './cancellationSettings/OtherPoliciesSection'
 import { OpenPolicySection } from './cancellationSettings/OpenPolicySection'
 import { PrivatePolicySection } from './cancellationSettings/PrivatePolicySection'
 import type { CancellationFeeBasis } from '@/types'
 import { toJstYmd } from '@/utils/jstDate'
+import { CANONICAL_CANCELLATION_JUDGMENT_RULES } from '@/lib/cancellationJudgmentCopy'
 import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
+import { withAutoCancellationFeeDescriptions } from '@/lib/publicCancellationPolicy'
 import { CancellationPolicyView } from '@/components/patterns/cancellation/CancellationPolicyView'
 import type { PublicCancellationPolicy } from '@/lib/publicCancellationPolicy'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -46,7 +49,7 @@ interface OrganizerCancelReason {
 interface CancellationJudgmentRule {
   id: string
   timing: string  // "前日23:59" など
-  condition: string  // "定員の過半数に満たない場合" など
+  condition: string  // "最低開催人数の半分に満たない場合" など
   result: string  // "中止" "延長" など
 }
 
@@ -86,8 +89,11 @@ export interface CancellationSettings {
   policy_updated_at: string
 }
 
+export type CancellationSettingsPage = 'acceptance' | 'policy'
+
 interface CancellationSettingsProps {
   storeId: string
+  page: CancellationSettingsPage
 }
 
 // デフォルトのポリシー項目
@@ -110,15 +116,45 @@ const DEFAULT_ORGANIZER_CANCEL_REASONS: OrganizerCancelReason[] = [
   { id: '3', content: '店舗の都合によるやむを得ない事情がある場合' }
 ]
 
-// 中止判定ルールのデフォルト
-const DEFAULT_JUDGMENT_RULES: CancellationJudgmentRule[] = [
-  { id: '1', timing: '前日 23:59', condition: '定員の過半数に満たない場合', result: '中止' },
-  { id: '2', timing: '前日 23:59', condition: '過半数以上だが満席でない場合', result: '公演4時間前まで募集を延長' },
-  { id: '3', timing: '前日 23:59', condition: '満席の場合', result: '開催確定' },
-  { id: '4', timing: '公演4時間前（延長された場合）', condition: '満席でない場合', result: '中止' }
-]
+const DEFAULT_JUDGMENT_RULES: CancellationJudgmentRule[] = CANONICAL_CANCELLATION_JUDGMENT_RULES.map(rule => ({ ...rule }))
 
 const generateId = () => Math.random().toString(36).substring(2, 9)
+
+function buildAcceptanceSavePayload(formData: CancellationSettings, policyUpdatedAt: string) {
+  return {
+    cancellation_deadline_hours: formData.cancellation_deadline_hours,
+    cancellation_fees: withAutoCancellationFeeDescriptions(
+      formData.cancellation_fees,
+      formData.cancellation_fee_basis,
+    ),
+    cancellation_fee_basis: formData.cancellation_fee_basis,
+    private_cancellation_deadline_hours: formData.private_cancellation_deadline_hours,
+    private_cancellation_fees: withAutoCancellationFeeDescriptions(
+      formData.private_cancellation_fees,
+      formData.private_cancellation_fee_basis,
+    ),
+    private_cancellation_fee_basis: formData.private_cancellation_fee_basis,
+    reservation_change_deadline_hours: formData.reservation_change_deadline_hours,
+    private_reservation_change_deadline_hours: formData.private_reservation_change_deadline_hours,
+    policy_updated_at: policyUpdatedAt,
+  }
+}
+
+function buildPolicySavePayload(formData: CancellationSettings, policyUpdatedAt: string) {
+  return {
+    cancellation_policy: formData.cancellation_policy,
+    cancellation_policy_items: formData.cancellation_policy_items,
+    private_cancellation_policy: formData.private_cancellation_policy,
+    private_cancellation_policy_items: formData.private_cancellation_policy_items,
+    organizer_cancel_reasons: formData.organizer_cancel_reasons,
+    organizer_cancel_refund_note: formData.organizer_cancel_refund_note,
+    cancellation_notice_note: formData.cancellation_notice_note,
+    reservation_change_note: formData.reservation_change_note,
+    private_reservation_change_note: formData.private_reservation_change_note,
+    refund_method_note: formData.refund_method_note,
+    policy_updated_at: policyUpdatedAt,
+  }
+}
 
 function createDefaultCancellationSettings(storeId: string): CancellationSettings {
   return {
@@ -149,7 +185,7 @@ function createDefaultCancellationSettings(storeId: string): CancellationSetting
   }
 }
 
-export function CancellationSettings({ storeId }: CancellationSettingsProps) {
+export function CancellationSettings({ storeId, page }: CancellationSettingsProps) {
   const { organization } = useOrganization()
   const [formData, setFormData] = useState<CancellationSettings>(() => createDefaultCancellationSettings(storeId))
   const [loading, setLoading] = useState(true)
@@ -158,7 +194,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId])
+  }, [storeId, page])
 
   const fetchData = async () => {
     setLoading(true)
@@ -241,7 +277,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           // 新しいフィールド
           organizer_cancel_reasons: data.organizer_cancel_reasons || DEFAULT_ORGANIZER_CANCEL_REASONS,
           organizer_cancel_refund_note: data.organizer_cancel_refund_note || '参加料金は全額返金いたします。',
-          cancellation_judgment_rules: data.cancellation_judgment_rules || DEFAULT_JUDGMENT_RULES,
+          cancellation_judgment_rules: DEFAULT_JUDGMENT_RULES.map(rule => ({ ...rule })),
           cancellation_notice_note: data.cancellation_notice_note || '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
           reservation_change_deadline_hours: data.reservation_change_deadline_hours ?? 24,
           reservation_change_note: data.reservation_change_note || '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
@@ -263,33 +299,10 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const sortedFees = [...formData.cancellation_fees].sort((a, b) => b.hours_before - a.hours_before)
-      const sortedPrivateFees = [...formData.private_cancellation_fees].sort((a, b) => b.hours_before - a.hours_before)
       const policyUpdatedAt = toJstYmd(new Date())
-
-      const savePayload = {
-        cancellation_policy: formData.cancellation_policy,
-        cancellation_policy_items: formData.cancellation_policy_items,
-        cancellation_deadline_hours: formData.cancellation_deadline_hours,
-        cancellation_fees: sortedFees,
-        cancellation_fee_basis: formData.cancellation_fee_basis,
-        private_cancellation_policy: formData.private_cancellation_policy,
-        private_cancellation_policy_items: formData.private_cancellation_policy_items,
-        private_cancellation_deadline_hours: formData.private_cancellation_deadline_hours,
-        private_cancellation_fees: sortedPrivateFees,
-        private_cancellation_fee_basis: formData.private_cancellation_fee_basis,
-        // 新しいフィールド
-        organizer_cancel_reasons: formData.organizer_cancel_reasons,
-        organizer_cancel_refund_note: formData.organizer_cancel_refund_note,
-        cancellation_judgment_rules: formData.cancellation_judgment_rules,
-        cancellation_notice_note: formData.cancellation_notice_note,
-        reservation_change_deadline_hours: formData.reservation_change_deadline_hours,
-        reservation_change_note: formData.reservation_change_note,
-        private_reservation_change_deadline_hours: formData.private_reservation_change_deadline_hours,
-        private_reservation_change_note: formData.private_reservation_change_note,
-        refund_method_note: formData.refund_method_note,
-        policy_updated_at: policyUpdatedAt
-      }
+      const savePayload = page === 'acceptance'
+        ? buildAcceptanceSavePayload(formData, policyUpdatedAt)
+        : buildPolicySavePayload(formData, policyUpdatedAt)
 
       // 全店舗選択時は全店舗に一括適用
       if (!storeId) {
@@ -404,32 +417,27 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
   // 標準テンプレートを適用
   const applyStandardTemplate = () => {
-    setFormData(prev => ({
-      ...prev,
-      // 通常公演
-      cancellation_policy_items: DEFAULT_POLICY_ITEMS,
-      cancellation_deadline_hours: DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
-      cancellation_fees: [...DEFAULT_OPEN_CANCELLATION_FEES],
-      cancellation_fee_basis: 'participant_total',
-      // 貸切公演
-      private_cancellation_policy_items: DEFAULT_PRIVATE_POLICY_ITEMS,
-      private_cancellation_deadline_hours: DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-      private_cancellation_fees: [...DEFAULT_PRIVATE_CANCELLATION_FEES],
-      private_cancellation_fee_basis: 'performance_total',
-      // 店舗都合キャンセル
-      organizer_cancel_reasons: DEFAULT_ORGANIZER_CANCEL_REASONS,
-      organizer_cancel_refund_note: '参加料金は全額返金いたします。',
-      // 中止判定
-      cancellation_judgment_rules: DEFAULT_JUDGMENT_RULES,
-      cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
-      // 予約変更
-      reservation_change_deadline_hours: 24,
-      reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
-      private_reservation_change_deadline_hours: 168,
-      private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
-      // 返金
-      refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。'
-    }))
+    setFormData(prev => page === 'acceptance'
+      ? {
+          ...prev,
+          cancellation_deadline_hours: DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+          cancellation_fees: [...DEFAULT_OPEN_CANCELLATION_FEES],
+          cancellation_fee_basis: 'participant_total',
+          private_cancellation_deadline_hours: DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+          private_cancellation_fees: [...DEFAULT_PRIVATE_CANCELLATION_FEES],
+          private_cancellation_fee_basis: 'performance_total',
+        }
+      : {
+          ...prev,
+          cancellation_policy_items: DEFAULT_POLICY_ITEMS,
+          private_cancellation_policy_items: DEFAULT_PRIVATE_POLICY_ITEMS,
+          organizer_cancel_reasons: DEFAULT_ORGANIZER_CANCEL_REASONS,
+          organizer_cancel_refund_note: '参加料金は全額返金いたします。',
+          cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
+          reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+          private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
+          refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
+        })
     showToast.success('標準テンプレートを適用しました')
   }
 
@@ -572,6 +580,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   }
 
   const organizationSlug = organization?.slug || null
+  const isAcceptance = page === 'acceptance'
   const previewPolicy: PublicCancellationPolicy = {
     organization_id: 'admin-preview',
     organization_slug: organizationSlug || '',
@@ -610,19 +619,20 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
-        title="キャンセル設定"
-        description="通常公演・貸切公演それぞれのキャンセルポリシーを設定します"
+        title={isAcceptance ? 'キャンセル受付期間' : 'キャンセルポリシー'}
       >
         <div className="flex items-center gap-2">
+          {page === 'policy' && (
           <a
             href={buildPublicCancellationPolicyPath(organizationSlug, storeId || null)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-1.5 ts-muted hover:text-foreground border rounded-md hover:bg-muted transition-colors"
           >
             <ExternalLink className="h-3.5 w-3.5 mr-1" />
             ポリシーページを確認
           </a>
+          )}
           <Button size="sm" onClick={handleSave} disabled={saving}>
             <Save className="w-3.5 h-3.5 mr-1.5" />
             {saving ? '保存中...' : '保存'}
@@ -630,80 +640,65 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         </div>
       </PageHeader>
 
-      {/* テンプレート適用バナー */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-full">
-              <Sparkles className="h-4 w-4 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900 text-sm">標準テンプレートを使う</h3>
-              <p className="text-xs text-gray-600">
-                一般的なキャンセルポリシーを一括で設定できます。後から編集も可能です。
-              </p>
-            </div>
-          </div>
-          <Button
-            onClick={applyStandardTemplate}
-            variant="outline"
-            size="sm"
-            className="border-purple-300 text-purple-700 hover:bg-purple-100"
-          >
-            <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-            テンプレートを適用
-          </Button>
-        </div>
-      </div>
+      {page === 'policy' && (
+        <Button type="button" variant="outline" size="sm" onClick={applyStandardTemplate}>
+          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+          よく使う文を入れる
+        </Button>
+      )}
 
       {!storeId && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-800">
+          <p className="ts-body text-blue-800">
             <strong>全店舗選択中:</strong> 個別店舗の既存値は代表表示していません。保存すると、現在の入力内容が全店舗へ一括適用されます。
           </p>
         </div>
       )}
 
-      {/* 通常公演のキャンセルポリシー */}
-      <OpenPolicySection
-        formData={formData}
-        setFormData={setFormData}
-        addPolicyItem={addPolicyItem}
-        removePolicyItem={removePolicyItem}
-        updatePolicyItem={updatePolicyItem}
-        movePolicyItemUp={movePolicyItemUp}
-        movePolicyItemDown={movePolicyItemDown}
-        addCancellationFee={addCancellationFee}
-        removeCancellationFee={removeCancellationFee}
-        updateCancellationFee={updateCancellationFee}
-      />
+      {isAcceptance ? (
+        <AcceptanceSection
+          formData={formData}
+          setFormData={setFormData}
+          addCancellationFee={addCancellationFee}
+          removeCancellationFee={removeCancellationFee}
+          updateCancellationFee={updateCancellationFee}
+          addPrivateCancellationFee={addPrivateCancellationFee}
+          removePrivateCancellationFee={removePrivateCancellationFee}
+          updatePrivateCancellationFee={updatePrivateCancellationFee}
+        />
+      ) : (
+        <>
+          <OpenPolicySection
+            formData={formData}
+            setFormData={setFormData}
+            addPolicyItem={addPolicyItem}
+            removePolicyItem={removePolicyItem}
+            updatePolicyItem={updatePolicyItem}
+            movePolicyItemUp={movePolicyItemUp}
+            movePolicyItemDown={movePolicyItemDown}
+          />
+          <PrivatePolicySection
+            formData={formData}
+            setFormData={setFormData}
+            addPrivatePolicyItem={addPrivatePolicyItem}
+            removePrivatePolicyItem={removePrivatePolicyItem}
+            updatePrivatePolicyItem={updatePrivatePolicyItem}
+            movePrivatePolicyItemUp={movePrivatePolicyItemUp}
+            movePrivatePolicyItemDown={movePrivatePolicyItemDown}
+          />
+        </>
+      )}
 
-      {/* 貸切公演のキャンセルポリシー */}
-      <PrivatePolicySection
-        formData={formData}
-        setFormData={setFormData}
-        addPrivatePolicyItem={addPrivatePolicyItem}
-        removePrivatePolicyItem={removePrivatePolicyItem}
-        updatePrivatePolicyItem={updatePrivatePolicyItem}
-        movePrivatePolicyItemUp={movePrivatePolicyItemUp}
-        movePrivatePolicyItemDown={movePrivatePolicyItemDown}
-        addPrivateCancellationFee={addPrivateCancellationFee}
-        removePrivateCancellationFee={removePrivateCancellationFee}
-        updatePrivateCancellationFee={updatePrivateCancellationFee}
-      />
+      {page === 'policy' && (
+        <OtherPoliciesSection formData={formData} setFormData={setFormData} generateId={generateId} />
+      )}
 
-      {/* その他のポリシー */}
-      <OtherPoliciesSection formData={formData} setFormData={setFormData} generateId={generateId} />
-
-      <section className="bg-white rounded-xl border p-6 space-y-4">
-        <div>
-          <h2>顧客向け表示プレビュー</h2>
-          <p className="ts-muted">
-            保存後、公開ページではこの料金基準・受付期限・最終更新日を店舗別に表示します。
-          </p>
-        </div>
-        <CancellationPolicyView policy={previewPolicy} />
-      </section>
+      {page === 'policy' && (
+        <section className="bg-white rounded-xl border p-6 space-y-4">
+          <h3 className="ts-label">お客に見えるページ</h3>
+          <CancellationPolicyView policy={previewPolicy} />
+        </section>
+      )}
     </div>
   )
 }

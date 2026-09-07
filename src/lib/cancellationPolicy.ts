@@ -15,7 +15,12 @@ const HOUR_MS = 60 * 60 * 1000
 const RESERVATION_SOURCE_WEB_PRIVATE = 'web_private'
 
 export type CancellationPerformanceType = 'open' | 'private'
-export type CancellationFeeBasis = 'participant_total' | 'performance_total'
+export type CancellationFeeBasis =
+  | 'participant_total'
+  | 'performance_total'
+  | 'participant_until_capacity'
+
+export type ResolvedCancellationFeeBasis = 'participant_total' | 'performance_total'
 
 export interface CancellationFeeRule {
   hours_before: number
@@ -78,6 +83,8 @@ export interface CalculateCancellationInput {
   now: Date | string
   policy: CalculableCancellationPolicy
   basisAmounts: CancellationBasisAmounts
+  /** 通常公演で定数（定員）に達しているか。未指定は未達として扱う */
+  isAtCapacity?: boolean
 }
 
 export interface CancellationCalculation {
@@ -85,7 +92,7 @@ export interface CancellationCalculation {
   performanceStart: Date
   hoursUntilPerformance: number
   feePercentage: number
-  feeBasis: CancellationFeeBasis
+  feeBasis: ResolvedCancellationFeeBasis
   feeBasisAmount: number
   feeAmount: number
 }
@@ -107,7 +114,18 @@ function isPerformanceType(value: unknown): value is CancellationPerformanceType
 }
 
 function isFeeBasis(value: unknown): value is CancellationFeeBasis {
-  return value === 'participant_total' || value === 'performance_total'
+  return value === 'participant_total'
+    || value === 'performance_total'
+    || value === 'participant_until_capacity'
+}
+
+export function resolveEffectiveFeeBasis(
+  feeBasis: CancellationFeeBasis,
+  isAtCapacity = false,
+): ResolvedCancellationFeeBasis {
+  if (feeBasis === 'performance_total') return 'performance_total'
+  if (feeBasis === 'participant_until_capacity' && isAtCapacity) return 'performance_total'
+  return 'participant_total'
 }
 
 function isFeeRule(value: unknown): value is CancellationFeeRule {
@@ -242,7 +260,8 @@ export function calculateCancellation(input: CalculateCancellationInput): Cancel
   const hoursUntilPerformance = (performanceStart.getTime() - now.getTime()) / HOUR_MS
   const canCancel = hoursUntilPerformance >= input.policy.deadlineHours
   const feePercentage = resolveFeePercentage(hoursUntilPerformance, input.policy.fees)
-  const rawBasisAmount = input.basisAmounts[input.policy.feeBasis]
+  const feeBasis = resolveEffectiveFeeBasis(input.policy.feeBasis, input.isAtCapacity === true)
+  const rawBasisAmount = input.basisAmounts[feeBasis]
   const feeBasisAmount = Number.isFinite(rawBasisAmount) ? Math.max(0, rawBasisAmount) : 0
   const feeAmount = Math.round((feeBasisAmount * feePercentage) / 100)
 
@@ -251,7 +270,7 @@ export function calculateCancellation(input: CalculateCancellationInput): Cancel
     performanceStart,
     hoursUntilPerformance,
     feePercentage,
-    feeBasis: input.policy.feeBasis,
+    feeBasis,
     feeBasisAmount,
     feeAmount,
   }

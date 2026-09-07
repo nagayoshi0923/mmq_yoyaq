@@ -37,5 +37,6 @@ describe('public cancellation policy formatting', () => {
     expect(formatPolicyHours(50)).toBe('2日2時間前')
     expect(formatCancellationFeeBasis('participant_total')).toBe('予約時の参加料金合計')
     expect(formatCancellationFeeBasis('performance_total')).toBe('公演価格全額')
+    expect(formatCancellationFeeBasis('participant_until_capacity')).toBe('参加料金合計（定数到達後は公演価格全額）')
   })
 })

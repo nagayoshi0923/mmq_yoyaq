@@ -106,6 +106,7 @@ SELECT
   COALESCE(os.character_assignment_method, 'survey'::text) AS character_assignment_method,
   COALESCE(os.private_booking_time_slots, ARRAY[]::text[]) AS private_booking_time_slots,
   COALESCE(os.private_booking_blocked_slots, ARRAY[]::text[]) AS private_booking_blocked_slots,
+  os.private_booking_slot_start_times,
   -- センシティブ内容セルフ診断用（店舗上書き → マスタ → 空配列）
   COALESCE(os.custom_sensitive_tags, sm.sensitive_tags, ARRAY[]::text[]) AS sensitive_tags
 FROM organization_scenarios os

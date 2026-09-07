@@ -45,11 +45,17 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
+
+  useEffect(() => {
+    if (!storeId || !stores.some(s => s.id === storeId)) return
+    setSelectedStoreId(storeId)
+    void fetchSettings(storeId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId])
 
   const fetchData = async () => {
     setLoading(true)
@@ -59,8 +65,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
 
       if (storesData && storesData.length > 0) {
         setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
+        const initialId = storeId && storesData.some(s => s.id === storeId) ? storeId : storesData[0].id
+        setSelectedStoreId(initialId)
+        await fetchSettings(initialId)
       }
     } catch (error) {
       logger.error('データ取得エラー:', error)
@@ -110,11 +117,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     } catch (error) {
       logger.error('設定取得エラー:', error)
     }
-  }
-
-  const handleStoreChange = async (storeId: string) => {
-    setSelectedStoreId(storeId)
-    await fetchSettings(storeId)
   }
 
   const handleSave = async () => {

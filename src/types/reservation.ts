@@ -2,7 +2,10 @@ import type { Customer } from './customer'
 import type { ScheduleEvent } from './scheduleEvent'
 
 export type CancellationPerformanceType = 'open' | 'private'
-export type CancellationFeeBasis = 'participant_total' | 'performance_total'
+export type CancellationFeeBasis =
+  | 'participant_total'
+  | 'performance_total'
+  | 'participant_until_capacity'
 
 export interface CancellationFeeRule {
   hours_before: number

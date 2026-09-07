@@ -107,6 +107,8 @@ export interface ScenarioFormData {
   private_booking_time_slots?: string[]
   // 貸切受付可能時間枠・土日祝（未設定の場合は平日設定を流用）
   private_booking_time_slots_weekend?: string[] | null
+  // 貸切の朝/昼/夜開始時刻（平日/土日祝）。空は店舗設定
+  private_booking_slot_start_times?: import('@/lib/privateBookingSlotStartTimes').ScenarioSlotStartTimes
   // 貸切受付不可時間帯（廃止予定）
   private_booking_blocked_slots?: string[]
   // 貸切募集期間

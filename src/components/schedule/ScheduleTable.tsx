@@ -135,6 +135,7 @@ export interface ScheduleTableProps {
   hideHeader?: boolean  // テーブルヘッダーを非表示（外部でヘッダーを表示する場合）
   // 募集中止状態チェック関数
   isSlotBlocked?: (date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
+  getRecruitmentPauseLabel?: (date: string, storeId: string) => string | null
   // カスタム休日判定関数
   isCustomHoliday?: (date: string) => boolean
 }
@@ -146,6 +147,7 @@ export function ScheduleTable({
   displayConfig,
   hideHeader = false,
   isSlotBlocked,
+  getRecruitmentPauseLabel,
   isCustomHoliday
 }: ScheduleTableProps) {
   const { monthDays, stores, temporaryVenues = [], getVenueNameForDate } = viewConfig
@@ -292,6 +294,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'morning')}
+                    recruitmentPauseLabel={getRecruitmentPauseLabel?.(day.date, venue.id)}
                     intervalWarningEventIds={intervalWarningEventIds}
                     kitWarningEventIds={kitWarningEventIds}
                   />
@@ -315,6 +318,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'afternoon')}
+                    recruitmentPauseLabel={getRecruitmentPauseLabel?.(day.date, venue.id)}
                     intervalWarningEventIds={intervalWarningEventIds}
                     kitWarningEventIds={kitWarningEventIds}
                   />
@@ -338,6 +342,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'evening')}
+                    recruitmentPauseLabel={getRecruitmentPauseLabel?.(day.date, venue.id)}
                     intervalWarningEventIds={intervalWarningEventIds}
                     kitWarningEventIds={kitWarningEventIds}
                   />

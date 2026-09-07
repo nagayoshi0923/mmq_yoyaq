@@ -81,6 +81,9 @@ verify_jwt = false
 [functions.provision-private-booking-discord]
 verify_jwt = false
 
+[functions.senshin-discord-join]
+verify_jwt = false
+
 [functions.send-private-booking-rejection]
 verify_jwt = false
 
@@ -88,6 +91,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.notify-gm-private-booking-confirmed]
+verify_jwt = false
+
+[functions.notify-gm-assignment-released]
 verify_jwt = false
 
 [functions.notify-waitlist]

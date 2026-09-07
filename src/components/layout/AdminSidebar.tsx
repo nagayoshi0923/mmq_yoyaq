@@ -245,10 +245,10 @@ export const AdminSidebar = memo(function AdminSidebar() {
           path: `/${slug}/settings?tab=store-basic`,
           roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
-            { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
             { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
             { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
-            { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
+            { id: 'cancellation',         label: 'キャンセル受付期間', path: `/${slug}/settings?tab=cancellation` },
+            { id: 'cancellation-policy',  label: 'キャンセルポリシー',   path: `/${slug}/settings?tab=cancellation-policy` },
             { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
             { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
           ],

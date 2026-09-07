@@ -214,6 +214,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     available_stores: scenarioData.available_stores || [],
     extra_preparation_time: scenarioData.extra_preparation_time || 0,
     private_booking_time_slots: scenarioData.private_booking_time_slots || undefined,
+    private_booking_slot_start_times: (scenarioData as { private_booking_slot_start_times?: unknown }).private_booking_slot_start_times ?? null,
     private_booking_blocked_slots: scenarioData.private_booking_blocked_slots || undefined,
     booking_start_date: scenarioData.booking_start_date || null,
     booking_end_date: scenarioData.booking_end_date || null,

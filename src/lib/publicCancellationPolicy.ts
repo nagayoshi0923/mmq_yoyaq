@@ -61,7 +61,9 @@ export interface FetchPublicCancellationPolicyInput {
 }
 
 function isFeeBasis(value: unknown): value is CancellationFeeBasis {
-  return value === 'participant_total' || value === 'performance_total'
+  return value === 'participant_total'
+    || value === 'performance_total'
+    || value === 'participant_until_capacity'
 }
 
 function toNumber(value: unknown): number | null {
@@ -191,6 +193,7 @@ export function formatPolicyHours(hours: number): string {
 export function formatCancellationFeeBasis(basis: CancellationFeeBasis | null): string {
   if (basis === 'performance_total') return '公演価格全額'
   if (basis === 'participant_total') return '予約時の参加料金合計'
+  if (basis === 'participant_until_capacity') return '参加料金合計（定数到達後は公演価格全額）'
   return '設定された料金基準'
 }
 
@@ -202,4 +205,25 @@ export function formatCancellationFeePeriod(
   const start = `${formatPolicyHours(fee.hours_before)}から`
   if (!nextFee || nextFee.hours_before < 0) return `${start}開演時刻まで`
   return `${start}${formatPolicyHours(nextFee.hours_before)}まで`
+}
+
+export function formatCancellationFeeLine(
+  fee: CancellationFeeRule,
+  nextFee: CancellationFeeRule | undefined,
+  basis: CancellationFeeBasis | null,
+): string {
+  const period = formatCancellationFeePeriod(fee, nextFee)
+  if (fee.fee_percentage === 0) return `${period}は無料`
+  return `${period}は${formatCancellationFeeBasis(basis)}の${fee.fee_percentage}%`
+}
+
+export function withAutoCancellationFeeDescriptions<T extends CancellationFeeRule>(
+  fees: T[],
+  basis: CancellationFeeBasis | null,
+): T[] {
+  const sorted = [...fees].sort((a, b) => b.hours_before - a.hours_before)
+  return sorted.map((fee, index) => ({
+    ...fee,
+    description: formatCancellationFeeLine(fee, sorted[index + 1], basis),
+  }))
 }

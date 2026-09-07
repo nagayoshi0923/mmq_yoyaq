@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
+import { notifyGmAssignmentReleased } from './_lib/notifyGmAssignmentReleased.js'
+import { removedGmNames } from '../src/lib/gmAssignmentReleasedCopy.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -1044,7 +1046,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   // 対象イベントが自組織か確認
   const { data: existing, error: existingErr } = await database
     .from('schedule_events')
-    .select('id, organization_id, store_id')
+    .select('id, organization_id, store_id, gms, date, start_time, end_time, venue, scenario, is_cancelled, category, is_private_booking')
     .eq('id', id)
     .maybeSingle()
   if (existingErr) {
@@ -1141,6 +1143,37 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
     console.error('[schedule:update] fetch error:', fetchError)
     return res.status(500).json({ error: '更新後の取得に失敗しました', detail: fetchError.message })
   }
+
+  const becameCancelled = existing.is_cancelled !== true && updateRow.is_cancelled === true
+  if (becameCancelled && Array.isArray(existing.gms) && existing.gms.length > 0) {
+    const isPrivate = existing.is_private_booking === true || existing.category === 'private'
+    void notifyGmAssignmentReleased({
+      kind: isPrivate ? 'private_cancelled_store' : 'performance_cancelled',
+      organizationId: existing.organization_id,
+      gms: existing.gms,
+      date: existing.date,
+      startTime: existing.start_time,
+      endTime: existing.end_time,
+      storeName: existing.venue,
+      scenarioTitle: existing.scenario,
+      reason: typeof updateRow.cancellation_reason === 'string' ? updateRow.cancellation_reason : null,
+    })
+  } else if (Array.isArray(updateRow.gms) && existing.is_cancelled !== true) {
+    const removed = removedGmNames(existing.gms, updateRow.gms as string[])
+    if (removed.length > 0) {
+      void notifyGmAssignmentReleased({
+        kind: 'gm_changed',
+        organizationId: existing.organization_id,
+        gms: removed,
+        date: existing.date,
+        startTime: existing.start_time,
+        endTime: existing.end_time,
+        storeName: existing.venue,
+        scenarioTitle: existing.scenario,
+      })
+    }
+  }
+
   return res.status(200).json(fullEvent)
 }
 
@@ -1158,7 +1191,7 @@ async function handleToggleCancel(req: VercelRequest, res: VercelResponse, user:
   // 自組織のイベントか確認
   const { data: existing, error: existingErr } = await database
     .from('schedule_events')
-    .select('id, organization_id')
+    .select('id, organization_id, gms, date, start_time, end_time, venue, scenario, is_cancelled, category, is_private_booking')
     .eq('id', id)
     .maybeSingle()
   if (existingErr) return res.status(500).json({ error: '公演情報の確認に失敗しました' })
@@ -1192,6 +1225,22 @@ async function handleToggleCancel(req: VercelRequest, res: VercelResponse, user:
   if (fetchError) {
     return res.status(500).json({ error: '取得に失敗しました', detail: fetchError.message })
   }
+
+  if (isCancelled && existing.is_cancelled !== true && Array.isArray(existing.gms) && existing.gms.length > 0) {
+    const isPrivate = existing.is_private_booking === true || existing.category === 'private'
+    void notifyGmAssignmentReleased({
+      kind: isPrivate ? 'private_cancelled_store' : 'performance_cancelled',
+      organizationId: existing.organization_id,
+      gms: existing.gms,
+      date: existing.date,
+      startTime: existing.start_time,
+      endTime: existing.end_time,
+      storeName: existing.venue,
+      scenarioTitle: existing.scenario,
+      reason: cancellationReason,
+    })
+  }
+
   return res.status(200).json(data)
 }
 

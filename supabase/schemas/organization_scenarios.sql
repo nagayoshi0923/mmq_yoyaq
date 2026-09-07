@@ -72,6 +72,8 @@ CREATE TABLE public.organization_scenarios (
   private_confirm_template TEXT,
   character_assignment_method TEXT NOT NULL DEFAULT 'survey'::text,
   private_booking_time_slots TEXT[],
+  -- 貸切の朝/昼/夜開始時刻（平日/土日祝）。欠落キーは店舗営業時間設定
+  private_booking_slot_start_times JSONB,
   -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）
   custom_sensitive_tags TEXT[],
   -- 公式サイト(queenswaltz.jp)への掲載可否。org_status=available かつ true のものだけ公開APIに出る

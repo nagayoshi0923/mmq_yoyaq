@@ -330,7 +330,7 @@ BEGIN
       AND blocked.store_id = p_selected_store_id::TEXT
       AND blocked.date = v_calendar_date
       AND blocked.time_slot = v_event_time_slot
-  ) THEN
+  ) OR public.is_store_recruitment_paused(p_selected_store_id, 'private', v_calendar_date) THEN
     RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_calendar_date, v_event_time_slot
       USING ERRCODE = 'P0040';
   END IF;

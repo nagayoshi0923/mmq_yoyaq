@@ -15,7 +15,7 @@ CREATE TABLE public.reservation_settings (
   cancellation_deadline_hours INTEGER DEFAULT 48,
   cancellation_fees JSONB DEFAULT '[{"hours_before":48,"fee_percentage":50,"description":"前日より50%"},{"hours_before":24,"fee_percentage":100,"description":"当日より100%"},{"hours_before":-1,"fee_percentage":100,"description":"公演開始後・無断100%"}]'::jsonb,
   cancellation_fee_basis TEXT NOT NULL DEFAULT 'participant_total'
-    CHECK (cancellation_fee_basis IN ('participant_total', 'performance_total')),
+    CHECK (cancellation_fee_basis IN ('participant_total', 'performance_total', 'participant_until_capacity')),
   private_cancellation_policy TEXT,
   private_booking_cancellation_fees JSONB DEFAULT '[]'::jsonb,
   private_cancellation_deadline_hours INTEGER DEFAULT 720,
@@ -45,6 +45,6 @@ CREATE TABLE public.reservation_settings (
 );
 
 COMMENT ON COLUMN public.reservation_settings.cancellation_fee_basis IS
-  '通常公演のキャンセル料計算基準（participant_total / performance_total）';
+  '通常公演のキャンセル料計算基準（participant_total / performance_total / participant_until_capacity）';
 COMMENT ON COLUMN public.reservation_settings.private_cancellation_fee_basis IS
   '貸切公演のキャンセル料計算基準（participant_total / performance_total）';

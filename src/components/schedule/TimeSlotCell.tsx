@@ -60,6 +60,8 @@ interface TimeSlotCellProps {
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
   // 募集中止状態（グレーアウト表示用）
   isBlocked?: boolean
+  /** 店舗の公演/貸切募集停止（セルは見るだけ） */
+  recruitmentPauseLabel?: string | null
   // 同日同店舗で前後の公演と間隔が 60 分未満の公演 ID
   intervalWarningEventIds?: Set<string>
   // 公演店舗または同一キットグループにキットが無い公演 ID
@@ -84,6 +86,7 @@ function TimeSlotCellBase({
   onContextMenuCell,
   onContextMenuEvent,
   isBlocked = false,
+  recruitmentPauseLabel = null,
   intervalWarningEventIds,
   kitWarningEventIds,
 }: TimeSlotCellProps) {
@@ -164,8 +167,11 @@ function TimeSlotCellBase({
   })
 
   // セルの背景色クラスを決定
-  const cellBgClass = isBlocked 
-    ? 'bg-gray-300' // 募集中止: グレーアウト（濃い）
+  const pauseLabel = isBlocked ? '募集停止' : recruitmentPauseLabel
+  const cellBgClass = isBlocked
+    ? 'bg-gray-300'
+    : pauseLabel
+      ? 'bg-gray-200'
     : isDragOver 
       ? 'bg-purple-50 border-purple-300' 
       : ''
@@ -182,6 +188,9 @@ function TimeSlotCellBase({
       {events.length > 0 ? (
         // 公演ありの場合: カードを表示（同一枠に複数設置されている場合は件数を控えめに表示）
         <div>
+          {pauseLabel && (
+            <div className="text-[10px] text-gray-500 text-center py-0.5">{pauseLabel}</div>
+          )}
           {events.length > 1 && (
             <div className="flex justify-center py-0.5">
               <Badge variant="secondary" size="sm">{events.length}公演</Badge>
@@ -208,9 +217,10 @@ function TimeSlotCellBase({
       ) : (
         <div className="flex flex-col h-full min-h-[24px] sm:min-h-[28px]">
           <div className="flex flex-col justify-center items-center">
-            {isBlocked ? (
-              <div className="text-xs text-gray-500 py-1">募集中止</div>
-            ) : (
+            {pauseLabel && (
+              <div className="text-xs text-gray-500 py-1">{pauseLabel}</div>
+            )}
+            {!isBlocked && (
               <EmptySlot
                 date={date}
                 venue={venue}
