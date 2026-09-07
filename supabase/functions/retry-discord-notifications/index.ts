@@ -111,8 +111,12 @@ serve(async (req) => {
       getServiceRoleKey()
     )
 
+    const { error: recoveryError } = await serviceClient.rpc('recover_recruitment_mail_alerts')
+    if (recoveryError) throw recoveryError
+
     // キューからリトライ対象を取得
-    const { data: pendingNotifications, error: fetchError } = await serviceClient
+    const requestBody = await req.json().catch(() => ({}))
+    let notificationsQuery = serviceClient
       .from('discord_notification_queue')
       .select([
         'id',
@@ -133,6 +137,11 @@ serve(async (req) => {
       .lt('retry_count', 3) // max_retriesのデフォルト値
       .order('created_at', { ascending: true })
       .limit(10)
+
+    if (requestBody.only_recruitment === true) {
+      notificationsQuery = notificationsQuery.in('notification_type', ['recruitment_mail_failed', 'recruitment_mail_recovered', 'recruitment_mail_exhausted'])
+    }
+    const { data: pendingNotifications, error: fetchError } = await notificationsQuery
 
     if (fetchError) {
       console.error('キュー取得エラー:', fetchError)
@@ -155,6 +164,14 @@ serve(async (req) => {
 
     for (const notification of pendingNotifications as QueuedNotification[]) {
       try {
+        if (notification.notification_type.startsWith('recruitment_mail_')) {
+          const { data: claimed, error: claimError } = await serviceClient.from('discord_notification_queue')
+            .update({ status: 'sending', updated_at: new Date().toISOString() })
+            .eq('id', notification.id).eq('organization_id', notification.organization_id).eq('status', 'pending')
+            .select('id').maybeSingle()
+          if (claimError) throw claimError
+          if (!claimed) continue
+        }
         // 🔒 URL検証（SSRF/任意ホスト送信の防止）
         if (!isAllowedDiscordUrl(notification.webhook_url)) {
           await serviceClient
