@@ -1,3 +1,91 @@
+CREATE TABLE public.performance_recruitment_policies (
+ organization_id uuid PRIMARY KEY REFERENCES public.organizations(id),
+ one_seat_enabled boolean NOT NULL DEFAULT false,
+ customer_site_url text NOT NULL CHECK (customer_site_url ~ '^https://'),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.performance_recruitment_policies ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.performance_recruitment_policies FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.performance_recruitment_policies TO service_role;
+
+CREATE TABLE public.performance_recruitment_notices (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ schedule_event_id uuid NOT NULL REFERENCES public.performance_recruitment_deadlines(schedule_event_id),
+ organization_id uuid NOT NULL REFERENCES public.organizations(id),
+ reservation_id uuid NOT NULL REFERENCES public.reservations(id),
+ response_token uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+ customer_email text,
+ kind text NOT NULL DEFAULT 'extension' CHECK(kind IN ('extension','confirmed','cancelled','withdrawn')),
+ snapshot jsonb NOT NULL,
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sending','sent','failed','expired')),
+ attempts integer NOT NULL DEFAULT 0,
+ lease_until timestamptz,
+ sent_at timestamptz,
+ withdrawn_at timestamptz,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(schedule_event_id, reservation_id, kind)
+);
+ALTER TABLE public.performance_recruitment_notices ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.performance_recruitment_notices FROM PUBLIC, anon, authenticated;
+GRANT SELECT, UPDATE, INSERT ON public.performance_recruitment_notices TO service_role;
+CREATE INDEX performance_recruitment_notices_pending ON public.performance_recruitment_notices(status, lease_until);
+
+
+-- 通知の同時送信を避け、通信断後は同じ冪等性キーで再試行する。
+CREATE FUNCTION public.claim_performance_recruitment_notices() RETURNS SETOF public.performance_recruitment_notices
+LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
+ UPDATE performance_recruitment_notices n SET status='sending', attempts=attempts+1, lease_until=now()+interval '5 minutes'
+ WHERE id IN (SELECT q.id FROM performance_recruitment_notices q
+   JOIN performance_recruitment_deadlines d ON d.schedule_event_id=q.schedule_event_id AND d.organization_id=q.organization_id
+   WHERE (q.status IN ('pending','failed') OR (q.status='sending' AND q.lease_until<now()))
+     AND (q.lease_until IS NULL OR q.lease_until<now()) AND q.attempts<10
+     AND ((q.kind='extension' AND d.status='active' AND d.deadline>now() AND q.withdrawn_at IS NULL)
+       OR (q.kind IN ('confirmed','cancelled') AND d.status=q.kind AND q.created_at>now()-interval '1 day')
+       OR (q.kind='withdrawn' AND q.created_at>now()-interval '1 day'))
+   ORDER BY q.created_at LIMIT 25 FOR UPDATE OF q SKIP LOCKED)
+ RETURNING n.*;
+$$;
+REVOKE ALL ON FUNCTION public.claim_performance_recruitment_notices() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_performance_recruitment_notices() TO service_role;
+
+-- メール内の推測不能な専用トークンだけで利用する。GETでは予約を変更しない。
+CREATE FUNCTION public.respond_to_performance_recruitment(p_token uuid, p_withdraw boolean DEFAULT false)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE n performance_recruitment_notices%ROWTYPE; d performance_recruitment_deadlines%ROWTYPE; e schedule_events%ROWTYPE; r reservations%ROWTYPE;
+BEGIN
+ SELECT * INTO n FROM performance_recruitment_notices WHERE response_token=p_token AND kind='extension';
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','INVALID_LINK'); END IF;
+ -- 判定処理とロック順を合わせる（公演→予約→通知）。
+ SELECT * INTO e FROM schedule_events WHERE id=n.schedule_event_id AND organization_id=n.organization_id FOR UPDATE;
+ SELECT * INTO r FROM reservations WHERE id=n.reservation_id AND organization_id=n.organization_id AND schedule_event_id=n.schedule_event_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','INVALID_LINK'); END IF;
+ SELECT * INTO n FROM performance_recruitment_notices WHERE response_token=p_token AND kind='extension' FOR UPDATE;
+ SELECT * INTO d FROM performance_recruitment_deadlines WHERE schedule_event_id=n.schedule_event_id AND organization_id=n.organization_id;
+ IF n.withdrawn_at IS NOT NULL THEN RETURN jsonb_build_object('success',true,'status','withdrawn','cancellation_fee',0,'event',n.snapshot); END IF;
+ IF p_withdraw THEN
+   IF d.status IS DISTINCT FROM 'active' OR now()>=d.deadline OR e.is_cancelled OR r.status NOT IN ('pending','confirmed','gm_confirmed') THEN
+     RETURN jsonb_build_object('success',false,'error','WITHDRAWAL_CLOSED');
+   END IF;
+   UPDATE reservations SET status='cancelled', cancelled_at=now(),
+     cancellation_reason='追加募集の開催判断待ちによる無料辞退（キャンセル料0円）', updated_at=now()
+     WHERE id=r.id AND organization_id=n.organization_id;
+   UPDATE performance_recruitment_notices SET withdrawn_at=now() WHERE id=n.id;
+   INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,kind)
+     VALUES(n.schedule_event_id,n.organization_id,n.reservation_id,n.customer_email,n.snapshot,'withdrawn')
+     ON CONFLICT(schedule_event_id,reservation_id,kind) DO NOTHING;
+   UPDATE schedule_events SET current_participants=(SELECT COALESCE(sum(participant_count),0) FROM reservations
+     WHERE schedule_event_id=e.id AND organization_id=e.organization_id AND status IN ('pending','confirmed','gm_confirmed','checked_in')),
+     updated_at=now() WHERE id=e.id;
+   RETURN jsonb_build_object('success',true,'status','withdrawn','cancellation_fee',0,'event',n.snapshot);
+ END IF;
+ RETURN jsonb_build_object('success',true,'status',d.status,'event',n.snapshot,
+   'can_withdraw', d.status='active' AND now()<d.deadline AND NOT e.is_cancelled AND r.status IN ('pending','confirmed','gm_confirmed'));
+END;
+$$;
+REVOKE ALL ON FUNCTION public.respond_to_performance_recruitment(uuid,boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.respond_to_performance_recruitment(uuid,boolean) TO service_role;
+
+
 CREATE OR REPLACE FUNCTION check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
 RETURNS TABLE(
   events_checked INTEGER,
@@ -252,3 +340,60 @@ LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
 $$;
 REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines() TO service_role;
+
+
+-- 有効化した組織だけを毎分判定する。接続先・認証情報は既存の環境別設定を使う。
+CREATE OR REPLACE FUNCTION public.dispatch_performance_recruitment_checks() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE p record; base_url text; cron_key text;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM performance_recruitment_policies WHERE one_seat_enabled) THEN RETURN; END IF;
+ SELECT value INTO base_url FROM app_config WHERE key='supabase_url';
+ SELECT value INTO cron_key FROM app_config WHERE key='trigger_secret';
+ IF base_url IS NULL OR cron_key IS NULL THEN RAISE EXCEPTION '募集判定の接続設定がありません'; END IF;
+ FOR p IN SELECT organization_id FROM performance_recruitment_policies pol WHERE one_seat_enabled
+   AND (EXISTS(SELECT 1 FROM schedule_events e WHERE e.organization_id=pol.organization_id
+     AND NOT e.is_cancelled AND e.category='open'
+     AND (e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo' <= now()+interval '4 hours'
+     AND ((e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo'>now()
+       OR EXISTS(SELECT 1 FROM performance_recruitment_deadlines d WHERE d.schedule_event_id=e.id AND d.status='active')))
+     OR EXISTS(SELECT 1 FROM performance_recruitment_notices n WHERE n.organization_id=pol.organization_id
+       AND n.kind<>'extension' AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day'))
+ LOOP
+   PERFORM net.http_post(url:=rtrim(base_url,'/')||'/functions/v1/check-performance-cancellation',
+     headers:=jsonb_build_object('Content-Type','application/json','x-recruitment-cron-secret',cron_key),
+     body:=jsonb_build_object('check_type','recruitment_deadline','organization_id',p.organization_id), timeout_milliseconds:=30000);
+ END LOOP;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.dispatch_performance_recruitment_checks() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.dispatch_performance_recruitment_checks() TO service_role;
+
+
+CREATE FUNCTION public.get_performance_recruitment_deadline(p_event_id uuid)
+RETURNS TABLE(deadline timestamptz) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+ SELECT d.deadline FROM performance_recruitment_deadlines d JOIN schedule_events e ON e.id=d.schedule_event_id AND e.organization_id=d.organization_id
+ WHERE e.id=p_event_id AND e.category='open' AND NOT e.is_cancelled AND d.status='active';
+$$;
+REVOKE ALL ON FUNCTION public.get_performance_recruitment_deadline(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_performance_recruitment_deadline(uuid) TO anon, authenticated, service_role;
+
+-- cronが次に動くまでの数秒にも、期限を過ぎた追加予約は受け付けない。
+CREATE FUNCTION public.enforce_performance_recruitment_booking() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE deadline_at timestamptz;
+BEGIN
+ IF NEW.status NOT IN ('pending','confirmed','gm_confirmed','checked_in') THEN RETURN NEW; END IF;
+ IF TG_OP='UPDATE' AND NEW.schedule_event_id IS NOT DISTINCT FROM OLD.schedule_event_id
+   AND OLD.status IN ('pending','confirmed','gm_confirmed','checked_in') AND NEW.participant_count<=OLD.participant_count THEN RETURN NEW; END IF;
+ PERFORM 1 FROM schedule_events WHERE id=NEW.schedule_event_id FOR UPDATE;
+ SELECT deadline INTO deadline_at FROM performance_recruitment_deadlines WHERE schedule_event_id=NEW.schedule_event_id AND status='active';
+ IF deadline_at IS NOT NULL AND now()>=deadline_at THEN RAISE EXCEPTION '追加募集の受付期限を過ぎています' USING ERRCODE='22023'; END IF;
+ RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.enforce_performance_recruitment_booking() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER enforce_performance_recruitment_booking BEFORE INSERT OR UPDATE OF schedule_event_id,status,participant_count ON public.reservations
+FOR EACH ROW EXECUTE FUNCTION public.enforce_performance_recruitment_booking();
+
+SELECT cron.schedule('performance-recruitment-minute', '* * * * *', 'SELECT public.dispatch_performance_recruitment_checks()');

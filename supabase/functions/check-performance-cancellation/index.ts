@@ -13,6 +13,8 @@ import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timing
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
+import { recruitmentNotice } from '../_shared/recruitment-notice.ts'
+
 interface CheckRequest {
   check_type: 'day_before' | 'day_before_preview' | 'four_hours_before'
 }
@@ -22,6 +24,7 @@ const PREVIEW_OPS_CHANNEL_ID = '1415498605996937236'
 const PREVIEW_OPS_ORG_SLUG = 'queens-waltz'
 
 interface EventDetail {
+  recruitment_deadline?: string | null
   event_id: string
   date: string
   start_time: string
@@ -64,8 +67,13 @@ function categoryShortName(category: string | undefined): string {
 }
 
 // Cron Secret / Service Role Key による呼び出しかチェック
+function isRecruitmentSchedulerCall(req: Request): boolean {
+  const expected = Deno.env.get('RECRUITMENT_CRON_SECRET') || ''
+  const received = req.headers.get('x-recruitment-cron-secret') || ''
+  return !!expected && !!received && timingSafeEqualString(expected, received)
+}
 function isSystemCall(req: Request): boolean {
-  return isCronOrServiceRoleCall(req)
+  return isCronOrServiceRoleCall(req) || isRecruitmentSchedulerCall(req)
 }
 
 serve(async (req) => {
@@ -111,9 +119,12 @@ serve(async (req) => {
     )
 
     const body = await req.json().catch(() => ({}))
+    if (isRecruitmentSchedulerCall(req) && !isCronOrServiceRoleCall(req) && body.check_type !== 'recruitment_deadline') {
+      throw new Error('Invalid recruitment scheduler scope')
+    }
     let check_type = body.check_type as string | undefined
     const PREVIEW_TYPE = 'day_before_preview'
-    const allowedTypes = new Set(['day_before', PREVIEW_TYPE, 'four_hours_before'])
+    const allowedTypes = new Set(['day_before', PREVIEW_TYPE, 'four_hours_before', 'recruitment_deadline'])
 
     // check_typeが未指定の場合、現在時刻に基づいてデフォルトを決定
     if (!check_type || !allowedTypes.has(check_type)) {
@@ -165,8 +176,17 @@ serve(async (req) => {
         events_cancelled: row?.events_cancelled ?? 0,
         details: row?.details ?? []
       }
-    } else if (check_type === 'four_hours_before') {
-      const { data, error } = await serviceClient.rpc('check_performances_with_recruitment_deadlines')
+    } else if (check_type === 'four_hours_before' || check_type === 'recruitment_deadline') {
+      const scoped = check_type === 'recruitment_deadline'
+      if (scoped) {
+        if (!isSystemCall(req) || typeof body.organization_id !== 'string') throw new Error('Invalid recruitment scheduler call')
+        const { data: policy, error: policyError } = await serviceClient.from('performance_recruitment_policies')
+          .select('organization_id').eq('organization_id', body.organization_id).eq('one_seat_enabled', true).maybeSingle()
+        if (policyError || !policy) throw new Error('Recruitment policy is not enabled')
+      }
+      const { data, error } = scoped
+        ? await serviceClient.rpc('check_performances_with_recruitment_deadlines_for_org', { p_organization_id: body.organization_id })
+        : await serviceClient.rpc('check_performances_with_recruitment_deadlines')
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       result = {
@@ -191,9 +211,11 @@ serve(async (req) => {
       const notifications: Promise<void>[] = []
 
       for (const event of result.details) {
+        // 個別期限の最終メールはDB outboxが担う（開催決定済みメールの重複ガードと分離）。
+        if (event.recruitment_deadline) continue
         if (event.result === 'cancelled') {
           notifications.push(
-            sendCancellationNotifications(serviceClient, event, check_type)
+            sendCancellationNotifications(serviceClient, event, event.recruitment_deadline ? 'recruitment_deadline' : check_type)
           )
         } else if (event.result === 'extended') {
           notifications.push(
@@ -210,6 +232,7 @@ serve(async (req) => {
     }
 
     await sendBusinessSummaryNotification(serviceClient, check_type, result, isPreview)
+    if (!isPreview) await sendRecruitmentNotices(serviceClient)
 
     return new Response(
       JSON.stringify({
@@ -278,7 +301,7 @@ async function sendCancellationNotifications(
         cancelled_at: new Date().toISOString(),
         cancellation_reason: checkType === 'day_before' 
           ? '人数未達による公演中止（前日判定）' 
-          : '人数未達による公演中止（4時間前判定）'
+          : checkType === 'recruitment_deadline' ? '人数未達による公演中止（追加募集期限の判定）' : '人数未達による公演中止（4時間前判定）'
       })
       .in('id', reservationIds)
 
@@ -397,7 +420,7 @@ async function sendCancellationNotifications(
       if (cellDate && cellStoreId) {
         const cancelReason = checkType === 'day_before'
           ? '人数未達による公演中止（前日判定）'
-          : '人数未達による公演中止（4時間前判定）'
+          : checkType === 'recruitment_deadline' ? '人数未達による公演中止（追加募集期限の判定）' : '人数未達による公演中止（4時間前判定）'
         const { error: historyError } = await supabase
           .from('schedule_event_history')
           .insert({
@@ -687,7 +710,7 @@ async function sendDiscordCancellationNotification(
     }
   }
 
-  const checkTypeLabel = checkType === 'day_before' ? '前日判定' : '4時間前判定'
+  const checkTypeLabel = checkType === 'day_before' ? '前日判定' : checkType === 'recruitment_deadline' ? '追加募集期限の判定' : '4時間前判定'
 
   const message = {
     content: gmMentions || undefined,
@@ -1468,7 +1491,7 @@ async function sendBusinessSummaryNotification(
     return
   }
 
-  const kindLabel = isPreview ? '予告' : checkType === 'four_hours_before' ? '4時間前判断' : '中止判断'
+  const kindLabel = isPreview ? '予告' : checkType === 'recruitment_deadline' ? '追加募集の判断' : checkType === 'four_hours_before' ? '4時間前判断' : '中止判断'
   const now = new Date()
   const jstDate = now.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
   const jstTime = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
@@ -1596,3 +1619,49 @@ async function sendBusinessSummaryNotification(
   }
 }
 
+
+/** 募集開始と同じDBトランザクションで作られた通知を、リース付きで送信。 */
+async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>): Promise<void> {
+  const { data: notices, error } = await supabase.rpc('claim_performance_recruitment_notices')
+  if (error) throw new Error('追加募集メールの取得に失敗しました')
+  let failed = false
+  for (const notice of notices || []) {
+    try {
+      const settings = await getEmailSettings(supabase, notice.organization_id)
+      if (!notice.customer_email || !settings.resendApiKey) throw new Error('追加募集メールの送信設定が不足しています')
+      // 取得後に開催決定・辞退済みとなった通知は送らない。
+      if (notice.kind === 'extension') {
+      const { data: current, error: currentError } = await supabase.rpc('respond_to_performance_recruitment', {
+        p_token: notice.response_token, p_withdraw: false,
+      })
+      if (currentError) throw currentError
+      if (!current?.can_withdraw) {
+        const { error: expireError } = await supabase.from('performance_recruitment_notices')
+          .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+        if (expireError) throw expireError
+        continue
+      }
+      }
+      const content = recruitmentNotice(notice.snapshot, notice.response_token, notice.kind)
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${settings.resendApiKey}`, 'Content-Type': 'application/json',
+          'Idempotency-Key': `recruitment-${notice.id}` },
+        body: JSON.stringify({ from: `${settings.senderName} <${settings.senderEmail}>`,
+          to: [notice.customer_email], ...content }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!response.ok) throw new Error(`追加募集メール送信失敗: HTTP ${response.status}`)
+      const { error: updateError } = await supabase.from('performance_recruitment_notices')
+        .update({ status: 'sent', sent_at: new Date().toISOString(), lease_until: null })
+        .eq('id', notice.id).eq('organization_id', notice.organization_id)
+      if (updateError) throw updateError
+    } catch {
+      failed = true
+      console.error('追加募集メール未送信。次回再試行:', notice.id)
+      await supabase.from('performance_recruitment_notices').update({ status: 'failed', lease_until: new Date(Date.now()+60000).toISOString() })
+        .eq('id', notice.id).eq('organization_id', notice.organization_id)
+    }
+  }
+  if (failed) throw new Error('追加募集メールに未送信があり、再試行待ちです')
+}

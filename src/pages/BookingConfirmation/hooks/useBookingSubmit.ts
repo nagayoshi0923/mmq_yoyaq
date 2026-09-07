@@ -290,8 +290,15 @@ const checkReservationLimits = async (
       return { allowed: false, reason: 'この公演は既に開始されています' }
     }
 
+    const { data: recruitmentRows, error: recruitmentError } = await supabase.rpc('get_performance_recruitment_deadline', { p_event_id: eventId })
+    if (recruitmentError) return { allowed: false, reason: '追加募集の締切を確認できません。再度お試しください。' }
+    const recruitmentDeadline = recruitmentRows?.[0]?.deadline
+    if (recruitmentDeadline && now.getTime() >= new Date(recruitmentDeadline).getTime()) {
+      return { allowed: false, reason: '追加募集の受付期限を過ぎています' }
+    }
+
     // 予約締切チェック
-    if (eventData.reservation_deadline_hours !== null && eventData.reservation_deadline_hours !== undefined) {
+    if (!recruitmentDeadline && eventData.reservation_deadline_hours !== null && eventData.reservation_deadline_hours !== undefined) {
       const deadlineHours = eventData.reservation_deadline_hours
       const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
       
@@ -306,7 +313,7 @@ const checkReservationLimits = async (
     // 予約設定の制限チェック
     if (reservationSettings) {
       // 当日予約締切（時間前）
-      if (reservationSettings.same_day_booking_cutoff !== null && reservationSettings.same_day_booking_cutoff !== undefined) {
+      if (!recruitmentDeadline && reservationSettings.same_day_booking_cutoff !== null && reservationSettings.same_day_booking_cutoff !== undefined) {
         const todayYmd = now.toISOString().slice(0, 10)
         if (eventDate === todayYmd) {
           const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
