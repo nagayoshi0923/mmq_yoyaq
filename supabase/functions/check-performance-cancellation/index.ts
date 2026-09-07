@@ -1629,6 +1629,18 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
     try {
       const settings = await getEmailSettings(supabase, notice.organization_id)
       if (!notice.customer_email || !settings.resendApiKey) throw new Error('追加募集メールの送信設定が不足しています')
+      if (notice.kind === 'confirmed' || notice.kind === 'cancelled') {
+        const { data: decision, error: decisionError } = await supabase.from('performance_recruitment_deadlines')
+          .select('status,cycle').eq('schedule_event_id', notice.schedule_event_id)
+          .eq('organization_id', notice.organization_id).single()
+        if (decisionError) throw decisionError
+        if (decision.status !== notice.kind || decision.cycle !== notice.cycle) {
+          const { error: expireError } = await supabase.from('performance_recruitment_notices')
+            .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+          if (expireError) throw expireError
+          continue
+        }
+      }
       // 取得後に開催決定・辞退済みとなった通知は送らない。
       if (notice.kind === 'extension') {
       const { data: current, error: currentError } = await supabase.rpc('respond_to_performance_recruitment', {

@@ -18,13 +18,14 @@ CREATE TABLE public.performance_recruitment_notices (
  customer_email text,
  kind text NOT NULL DEFAULT 'extension' CHECK(kind IN ('extension','confirmed','cancelled','withdrawn')),
  snapshot jsonb NOT NULL,
+ cycle integer NOT NULL DEFAULT 1 CHECK (cycle > 0),
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sending','sent','failed','expired')),
  attempts integer NOT NULL DEFAULT 0,
  lease_until timestamptz,
  sent_at timestamptz,
  withdrawn_at timestamptz,
  created_at timestamptz NOT NULL DEFAULT now(),
- UNIQUE(schedule_event_id, reservation_id, kind)
+ UNIQUE(schedule_event_id, reservation_id, kind, cycle)
 );
 ALTER TABLE public.performance_recruitment_notices ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.performance_recruitment_notices FROM PUBLIC, anon, authenticated;
