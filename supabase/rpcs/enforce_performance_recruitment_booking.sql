@@ -7,7 +7,7 @@ REVOKE ALL ON FUNCTION public.get_performance_recruitment_deadline(uuid) FROM PU
 GRANT EXECUTE ON FUNCTION public.get_performance_recruitment_deadline(uuid) TO anon, authenticated, service_role;
 
 -- cronが次に動くまでの数秒にも、期限を過ぎた追加予約は受け付けない。
-CREATE FUNCTION public.enforce_performance_recruitment_booking() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.enforce_performance_recruitment_booking() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE deadline_at timestamptz;
 BEGIN
@@ -15,8 +15,8 @@ BEGIN
  IF TG_OP='UPDATE' AND NEW.schedule_event_id IS NOT DISTINCT FROM OLD.schedule_event_id
    AND OLD.status IN ('pending','confirmed','gm_confirmed','checked_in') AND NEW.participant_count<=OLD.participant_count THEN RETURN NEW; END IF;
  PERFORM 1 FROM schedule_events WHERE id=NEW.schedule_event_id FOR UPDATE;
- SELECT deadline INTO deadline_at FROM performance_recruitment_deadlines WHERE schedule_event_id=NEW.schedule_event_id AND status='active';
- IF deadline_at IS NOT NULL AND now()>=deadline_at THEN RAISE EXCEPTION '追加募集の受付期限を過ぎています' USING ERRCODE='22023'; END IF;
+ SELECT effective_booking_deadline INTO deadline_at FROM get_performance_booking_window(NEW.schedule_event_id);
+ IF deadline_at IS NOT NULL AND now()>=deadline_at THEN RAISE EXCEPTION '予約の受付期限を過ぎています' USING ERRCODE='22023'; END IF;
  RETURN NEW;
 END;
 $$;
