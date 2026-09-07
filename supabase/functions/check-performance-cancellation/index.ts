@@ -1671,9 +1671,13 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
     } catch {
       failed = true
       console.error('追加募集メール未送信。次回再試行:', notice.id)
-      await supabase.from('performance_recruitment_notices').update({ status: 'failed', lease_until: new Date(Date.now()+60000).toISOString() })
+      const { error: failureUpdateError } = await supabase.from('performance_recruitment_notices').update({ status: 'failed', lease_until: new Date(Date.now()+60000).toISOString() })
         .eq('id', notice.id).eq('organization_id', notice.organization_id)
+      if (failureUpdateError) throw failureUpdateError
     }
   }
+  // 初回失敗・復旧通知を、既存Discord送信処理へ直ちに渡す。再試行は既存キューに残る。
+  const { error: discordError } = await supabase.functions.invoke('retry-discord-notifications', { body: { only_recruitment: true } })
+  if (discordError) console.error('追加募集のDiscord通知は再試行待ちです')
   if (failed) throw new Error('追加募集メールに未送信があり、再試行待ちです')
 }
