@@ -15,6 +15,10 @@ describe('追加募集の顧客案内', () => {
   it('開催未決定でキャンセルがあったとは言わない', () => {
     expect(recruitmentNotice({ ...snapshot, was_confirmed: false }, 'token').text).not.toContain('開催決定後にキャンセル')
   })
+  it('あと2人の人数を通知し、既存の通知はあと1人として扱う', () => {
+    expect(recruitmentNotice({ ...snapshot, missing_participants: 2 }, 'token').text).toContain('あと2人')
+    expect(recruitmentNotice(snapshot, 'token').text).toContain('あと1人')
+  })
   it('最終案内と辞退完了を区別する', () => {
     expect(recruitmentNotice(snapshot, 'token', 'confirmed').text).toContain('開催が決定しました')
     expect(recruitmentNotice(snapshot, 'token', 'cancelled').text).toContain('キャンセル料はかかりません')
