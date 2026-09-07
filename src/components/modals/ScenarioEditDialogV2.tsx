@@ -1431,9 +1431,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const renderTabContent = (tabId: TabId) => {
     switch (tabId) {
       case 'basic':
-        return <><BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} /><BookingCutoffSection masterId={currentMasterId} /></>
+        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
-        return <GameInfoSectionV2 formData={formData} setFormData={setFormData} />
+        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><BookingCutoffSection masterId={currentMasterId} /></div>
       case 'characters':
         return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':
