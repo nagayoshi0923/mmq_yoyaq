@@ -429,3 +429,8 @@ invalidateQueries 60箇所中 `refetchType:'all'` は1箇所のみ（既定 refe
 既存Discordキューへ通知ID・段階別に永続登録し、新通知種別だけ送信権を取得する。直後に既存workerを対象種別に絞って呼ぶ。最終試行やDiscord通信断を回収する。顧客メールは本文に入れず内部予約参照を使う。
 
 検証: 隔離DBの初回・繰返し・復旧・最終試行通信断・運営依頼・個人情報非掲載・通知先・Discord回収、対象Edge構文。migration `20260908030000_recruitment_mail_alerts` をDB先行、対象2関数だけ配備。両環境とも従来からverify_jwt=falseで、関数内のサービス認証は変更しない。復旧はqueue_recruitment_mail_alertトリガーを外し旧Edgeへ戻す。追加列・履歴は保持する。
+
+## QW-20260907-005 予約締切UIの調整（2026-09-08）
+
+- [x] シナリオの予約受付締切を基本情報からゲーム設定へ移動。既存カード、ラベル、入力欄、補足文のスタイルを再利用し、公演詳細の募集・締切も統一。
+- 検証: npm run verify、保存・標準復帰のPlaywrightテスト、390px表示確認。

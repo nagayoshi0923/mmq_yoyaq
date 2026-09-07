@@ -39,16 +39,16 @@ export function BookingCutoffSection({ masterId }: { masterId?: string | null })
     } catch (e) { setError(e instanceof Error ? e.message : '保存できませんでした。') }
     finally { setSaving(false) }
   }
-  return <section className="scenario-edit-card space-y-3">
-    <h3 className="scenario-edit-card__title">予約受付締切</h3>
-    <p>このシナリオの公演で、開催決定後に空席がある場合の受付締切です。開催可否を判断する期限とは別に設定します。</p>
-    {error && <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => void load()}>再読込</Button></div>}
-    {loading ? <p role="status">読み込み中…</p> : !revision ? <p>シナリオを保存すると設定できます。</p> : <>
-      <Label htmlFor="scenario-booking-cutoff">公演開始の何分前まで予約を受け付けるか</Label>
-      <Input id="scenario-booking-cutoff" type="number" min={0} max={1440} step={1} placeholder="未設定" value={minutes} onChange={e => setMinutes(e.target.value)} disabled={!canEdit || saving} />
-      <p>0分は公演開始まで。未設定の間は従来の締切を維持します。公演詳細の「募集・締切」で、その公演だけ変更できます。</p>
-      {canEdit && <Button onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : 'シナリオの予約締切を保存'}</Button>}
-      {message && <p role="status">{message}</p>}
+  return <section className="scenario-edit-card">
+    <p className="scenario-edit-card__title">予約受付締切</p>
+    <p className="scenario-edit-card__help">このシナリオの公演で、開催決定後に空席がある場合の受付締切です。開催可否を判断する期限とは別に設定します。</p>
+    {error && <div role="alert"><p className="scenario-edit-card__help">{error}</p><Button size="sm" className="h-7 text-xs" variant="outline" onClick={() => void load()}>再読込</Button></div>}
+    {loading ? <p className="scenario-edit-card__note" role="status">読み込み中…</p> : !revision ? <p className="scenario-edit-card__help">シナリオを保存すると設定できます。</p> : <>
+      <div className="scenario-edit-field"><Label className="scenario-edit-field__label" htmlFor="scenario-booking-cutoff">受付締切</Label><div className="scenario-edit-field__control flex items-center gap-2">
+      <Input className="h-7 text-xs w-24" aria-label="公演開始の何分前まで予約を受け付けるか" id="scenario-booking-cutoff" type="number" min={0} max={1440} step={1} placeholder="未設定" value={minutes} onChange={e => setMinutes(e.target.value)} disabled={!canEdit || saving} /><span className="text-xs text-muted-foreground">分前</span></div></div>
+      <p className="scenario-edit-card__help">0分は公演開始まで。未設定の間は従来の締切を維持します。公演詳細の「募集・締切」で、その公演だけ変更できます。</p>
+      {canEdit && <Button variant="outline" size="sm" className="h-7 text-xs self-end" onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : 'シナリオの予約締切を保存'}</Button>}
+      {message && <p className="scenario-edit-card__note" role="status">{message}</p>}
     </>}
   </section>
 }
