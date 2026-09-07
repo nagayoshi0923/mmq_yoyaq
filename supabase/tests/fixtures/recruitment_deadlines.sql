@@ -19,3 +19,6 @@ INSERT INTO app_config VALUES('supabase_url','https://example.invalid'),('trigge
 CREATE SCHEMA net;
 CREATE TABLE net.requests(body jsonb);
 CREATE FUNCTION net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds integer) RETURNS bigint LANGUAGE plpgsql AS $$ BEGIN INSERT INTO net.requests VALUES(body); RETURN 1; END; $$;
+
+ALTER TABLE schedule_events ADD COLUMN reservation_deadline_hours integer DEFAULT 0;
+CREATE TABLE reservation_settings(store_id uuid UNIQUE, organization_id uuid, same_day_booking_cutoff integer);
