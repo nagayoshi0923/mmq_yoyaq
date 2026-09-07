@@ -213,6 +213,8 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(400).json({ error: 'type クエリパラメータが必要です' })
   }
   switch (type) {
+    case 'scenario-booking-cutoff':
+      return await handleScenarioBookingCutoff(req, res, user, false)
     case 'booking-window':
       return await handleBookingWindow(req, res, user)
     case 'my-schedule':
@@ -237,6 +239,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const action = req.query.action as string | undefined
+  if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)
   if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)
   if (action === 'extend-recruitment') return await handleExtendRecruitment(req, res, user)
   if (action === 'toggle-cancel') return await handleToggleCancel(req, res, user)
@@ -1447,4 +1450,29 @@ async function handleBookingCutoff(req: VercelRequest, res: VercelResponse, user
   if (error) return res.status(500).json({ error: '予約締切を保存できませんでした' })
   if (!data) return res.status(409).json({ error: '公演が変更されています。再読込してください' })
   return res.status(200).json({ success: true })
+}
+
+
+async function handleScenarioBookingCutoff(req: VercelRequest, res: VercelResponse, user: AuthUser, save: boolean) {
+  const id = req.query.id
+  if (typeof id !== 'string') return res.status(400).json({ error: 'シナリオIDが必要です' })
+  if (save) {
+    requireAdmin(user)
+    const { minutes, expected_updated_at: revision } = req.body ?? {}
+    if ((minutes !== null && (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440))
+      || typeof revision !== 'string' || !Number.isFinite(Date.parse(revision))) {
+      return res.status(400).json({ error: '締切は0〜1440分の整数を指定してください' })
+    }
+    const { data, error } = await db!.from('organization_scenarios')
+      .update({ booking_cutoff_minutes: minutes, updated_at: new Date().toISOString() })
+      .eq('scenario_master_id', id).eq('organization_id', user.orgId).eq('updated_at', revision).select('id').maybeSingle()
+    if (error) return res.status(500).json({ error: 'シナリオの予約締切を保存できませんでした' })
+    if (!data) return res.status(409).json({ error: 'シナリオが変更されています。再読込してください' })
+    return res.status(200).json({ success: true })
+  }
+  const { data, error } = await db!.from('organization_scenarios')
+    .select('booking_cutoff_minutes,updated_at').eq('scenario_master_id', id).eq('organization_id', user.orgId).maybeSingle()
+  if (error) return res.status(500).json({ error: 'シナリオの予約締切を読み込めませんでした' })
+  res.setHeader('Cache-Control', 'no-store')
+  return res.status(200).json({ setting: data, can_edit: ['admin','license_admin'].includes(user.role) })
 }

@@ -65,9 +65,9 @@ export function BookingDeadlineTab({ eventId }: { eventId?: string }) {
         <Label htmlFor="booking-cutoff-mode">予約締切の設定</Label>
         <Select value={mode} onValueChange={setMode} disabled={!canEdit || saving}>
           <SelectTrigger id="booking-cutoff-mode"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="default">標準設定を使う（{window.default_minutes}分前）</SelectItem><SelectItem value="custom">この公演だけ指定する</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="default">シナリオ設定を使う（{window.default_minutes}分前）</SelectItem><SelectItem value="custom">この公演だけ指定する</SelectItem></SelectContent>
         </Select>
-        <p>標準は店舗の予約設定を使います。既存の公演設定がある場合は、その制限も引き継ぎます。</p>
+        <p>シナリオ編集で設定した予約締切を使います。シナリオ未設定の場合は、従来の締切を維持します。</p>
         {mode === 'custom' && <div className="space-y-2"><Label htmlFor="booking-cutoff-minutes">公演開始の何分前まで受け付けるか</Label><Input id="booking-cutoff-minutes" type="number" min={0} max={1440} step={1} value={minutes} onChange={e => setMinutes(e.target.value)} disabled={!canEdit || saving} /><p>0分は公演開始まで。開催判断の期限は変更しません。</p></div>}
         {canEdit ? <Button onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : '予約締切を保存'}</Button> : <p>変更は管理者が行えます。</p>}
         {message && <p role="status">{message}</p>}
