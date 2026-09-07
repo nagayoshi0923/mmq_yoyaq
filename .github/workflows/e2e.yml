@@ -32,6 +32,9 @@ jobs:
         run: npm run test:e2e
         env:
           CI: true
+          # ローカル画面を起動するための非機密テスト値。顧客操作はテスト内でmockする。
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: public-test-key
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
