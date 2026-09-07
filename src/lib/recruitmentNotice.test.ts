@@ -5,12 +5,18 @@ describe('追加募集の顧客案内', () => {
   it('日本時間の90分前期限・判断待ちの無料辞退・確認操作を伝える', () => {
     const notice = recruitmentNotice(snapshot, 'token')
     expect(notice.text).toContain('17:30')
-    expect(notice.text).toContain('開演90分前')
+    expect(notice.text).not.toContain('開演90分前')
+    expect(notice.text).toContain('一部の方だけ')
     expect(notice.text).toContain('開催決定後にキャンセル')
     expect(notice.text).toContain('開催判断待ちの間')
     expect(notice.text).toContain('開くだけでは予約は変更されません')
     expect(notice.text).toContain('https://example.invalid/recruitment-response#token')
     expect(notice.html).not.toContain('<script>')
+  })
+  it('部分辞退の人数と残り予約を伝える', () => {
+    const notice = recruitmentNotice({ ...snapshot, withdrawn_count: 1, remaining_count: 2 }, 'token', 'withdrawn')
+    expect(notice.text).toContain('1名の参加取りやめ')
+    expect(notice.text).toContain('残り2名の予約は維持')
   })
   it('開催未決定でキャンセルがあったとは言わない', () => {
     expect(recruitmentNotice({ ...snapshot, was_confirmed: false }, 'token').text).not.toContain('開催決定後にキャンセル')

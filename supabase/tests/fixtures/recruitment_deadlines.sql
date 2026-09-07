@@ -22,3 +22,7 @@ CREATE FUNCTION net.http_post(url text,headers jsonb,body jsonb,timeout_millisec
 
 ALTER TABLE schedule_events ADD COLUMN reservation_deadline_hours integer DEFAULT 0;
 CREATE TABLE reservation_settings(store_id uuid UNIQUE, organization_id uuid, same_day_booking_cutoff integer);
+
+ALTER TABLE reservations ADD COLUMN payment_status text DEFAULT 'pending', ADD COLUMN total_price integer DEFAULT 0, ADD COLUMN discount_amount integer DEFAULT 0, ADD COLUMN final_price integer DEFAULT 0;
+
+ALTER TABLE organization_scenarios ADD COLUMN updated_at timestamptz DEFAULT now();

@@ -89,3 +89,8 @@ CREATE INDEX idx_org_scenarios_slug ON public.organization_scenarios USING btree
 CREATE INDEX idx_org_scenarios_status ON public.organization_scenarios USING btree (org_status);
 CREATE INDEX idx_org_scenarios_web_published ON public.organization_scenarios USING btree (organization_id, web_published) WHERE web_published;
 CREATE UNIQUE INDEX uq_org_scenarios_slug ON public.organization_scenarios USING btree (organization_id, slug) WHERE slug IS NOT NULL;
+
+ALTER TABLE public.organization_scenarios
+ ADD COLUMN recruitment_extension_enabled boolean NOT NULL DEFAULT true,
+ ADD COLUMN recruitment_max_missing smallint NOT NULL DEFAULT 2 CHECK (recruitment_max_missing BETWEEN 1 AND 20),
+ ADD COLUMN recruitment_deadline_minutes smallint NOT NULL DEFAULT 90 CHECK (recruitment_deadline_minutes BETWEEN 1 AND 239);

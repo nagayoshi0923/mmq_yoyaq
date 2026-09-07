@@ -1,3 +1,4 @@
+import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
 /**
  * 公演中止判定 Edge Function
  * 
@@ -232,6 +233,7 @@ serve(async (req) => {
     }
 
     await sendBusinessSummaryNotification(serviceClient, check_type, result, isPreview)
+    if (!isPreview && check_type === 'recruitment_deadline') await sendRecruitmentXPosts(serviceClient, body.organization_id, ['TWITTER_API_KEY', 'TWITTER_API_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_TOKEN_SECRET'].map(name => Deno.env.get(name) || ''))
     if (!isPreview) await sendRecruitmentNotices(serviceClient)
 
     return new Response(

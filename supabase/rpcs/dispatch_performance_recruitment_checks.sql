@@ -14,7 +14,8 @@ BEGIN
      AND ((e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo'>now()
        OR EXISTS(SELECT 1 FROM performance_recruitment_deadlines d WHERE d.schedule_event_id=e.id AND d.status='active')))
      OR EXISTS(SELECT 1 FROM performance_recruitment_notices n WHERE n.organization_id=pol.organization_id
-       AND n.kind<>'extension' AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day'))
+       AND n.kind<>'extension' AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day')
+     OR EXISTS(SELECT 1 FROM recruitment_x_posts x WHERE x.organization_id=pol.organization_id AND x.status IN ('pending','failed','sending') AND x.attempts<10 AND x.created_at>now()-interval '1 day'))
  LOOP
    PERFORM net.http_post(url:=rtrim(base_url,'/')||'/functions/v1/check-performance-cancellation',
      headers:=jsonb_build_object('Content-Type','application/json','x-recruitment-cron-secret',cron_key),
