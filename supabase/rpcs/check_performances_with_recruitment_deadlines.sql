@@ -75,7 +75,7 @@ BEGIN
     FROM schedule_events se
     LEFT JOIN performance_recruitment_policies pol ON pol.organization_id=se.organization_id
     LEFT JOIN performance_recruitment_deadlines rd ON rd.schedule_event_id = se.id
-      AND rd.organization_id = se.organization_id AND rd.status = 'active' 
+      AND rd.organization_id = se.organization_id AND rd.status = 'active'
     LEFT JOIN organization_scenarios os ON se.organization_scenario_id = os.id
     LEFT JOIN scenario_masters sm ON os.scenario_master_id = sm.id
     LEFT JOIN scenario_masters sm2 ON se.scenario_master_id = sm2.id
