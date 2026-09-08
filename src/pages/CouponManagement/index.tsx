@@ -1,3 +1,4 @@
+import { RepresentativeCompensation } from './components/RepresentativeCompensation'
 import { PrivateCouponLink } from './components/PrivateCouponLink'
 import { useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -134,6 +135,7 @@ export function CouponManagement() {
           </PageHeader>
 
           <PrivateCouponLink />
+          <RepresentativeCompensation />
           <CampaignList
             campaigns={campaigns}
             isLoading={isLoading}

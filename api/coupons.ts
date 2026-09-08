@@ -1,3 +1,4 @@
+import { representativeCompensation } from './_lib/representativeCompensation.js'
 import { privateCouponClaims } from './_lib/privateCouponClaims.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
@@ -133,6 +134,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const user = await requireAuth(req)
     const claimAction = String(req.query.action ?? req.query.type ?? '')
+    if ((req.method === 'GET' && claimAction === 'representative-candidates') ||
+      (req.method === 'POST' && ['preview-representative-compensation', 'grant-representative-compensation'].includes(claimAction))) {
+      return await representativeCompensation(req, res, user)
+    }
     if ((req.method === 'GET' && claimAction === 'private-claim-candidates') ||
       (req.method === 'POST' && ['create-private-claim-link', 'private-claim-info', 'claim-private-coupon'].includes(claimAction))) {
       return await privateCouponClaims(req, res, user)
