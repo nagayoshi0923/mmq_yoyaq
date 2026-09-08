@@ -1,0 +1,18 @@
+import { test, expect } from '@playwright/test'
+test('キャンセル料金の受付・保留・freee未接続を区別し、携帯幅でも操作できる', async ({ page }, testInfo) => {
+  await page.goto('/e2e/fixtures/cancellation-billing.html')
+  await expect(page.getByRole('heading', { name: 'キャンセル料・入金確認' })).toBeVisible()
+  await page.getByLabel('キャンセル済みの予約（直近100件）').selectOption('10000000-0000-4000-8000-000000000001')
+  await page.getByLabel('受信記録の参照（メール・電話受付など）').fill('電話の受付記録')
+  await page.getByRole('button', { name: '料金を確認' }).click()
+  await expect(page.locator('pre')).toContainText('料金案内は保留')
+  await page.getByLabel('キャンセル連絡の受付時刻（日本時間）').fill('2026-09-09T12:00')
+  await page.getByRole('button', { name: '料金を確認' }).click()
+  await expect(page.locator('pre')).toContainText('3,000円')
+  await page.getByRole('button', { name: 'freee明細で照合プレビュー' }).click()
+  await expect(page.getByRole('status')).toContainText('未入金とは判定しません')
+  await page.screenshot({ path: testInfo.outputPath('billing-desktop.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: testInfo.outputPath('billing-mobile.png'), fullPage: true })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
