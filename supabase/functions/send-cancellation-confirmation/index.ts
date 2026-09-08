@@ -98,6 +98,13 @@ serve(async (req) => {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
 
+    // Staff handling of a company email must not generate a separate system reply.
+    // Missing/legacy intake routes stay pending until the original channel is confirmed.
+    if (storedEvent?.is_cancelled !== true && billingClaim?.data?.contact?.channel !== 'mmq') {
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'company_or_manual_reply_required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
     // 組織設定からメール設定を取得
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

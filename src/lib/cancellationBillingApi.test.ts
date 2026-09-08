@@ -52,3 +52,26 @@ describe('キャンセル料金APIの境界', () => {
     expect(mocks.from).not.toHaveBeenCalled()
   })
 })
+
+
+it('会社メールの料金案内は元メールの返信待ちとして返し、MMQ配信を呼ばない', async () => {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch')
+  mocks.from.mockImplementation((table: string) => {
+    const data = table === 'cancellation_billing_settings' ? { revision: 1, data: {
+      accounts: [{ id: 'account1', bankName: '銀行', branchName: '支店', accountType: '普通', accountNumber: '1234567', accountHolder: 'テスト', freeeCompanyId: 1, freeeWalletableId: 2 }],
+      activeAccountId: 'account1', operatorEmail: 'operator@example.test', notificationsEnabled: true,
+    } } : table === 'cancellation_billing_claims' ? [{ id: 'claim1', reservation_id: 'reservation1', revision: 1,
+      data: { assessment: { status: 'payable', amount: 3000, reason: '料金' }, amount: 3000, contact: { channel: 'company_email', messageId: 'abc', threadId: 'thread1' }, notifiedAt: null } }] : table === 'cancellation_billing_reconciliations' ? null : []
+    const q = { select: vi.fn(), eq: vi.fn(), order: vi.fn(), maybeSingle: vi.fn(), limit: vi.fn() }
+    q.select.mockReturnValue(q); q.eq.mockReturnValue(q); q.order.mockReturnValue(q)
+    q.maybeSingle.mockResolvedValue({ data, error: null }); q.limit.mockResolvedValue({ data, error: null })
+    return q
+  })
+  const res = response()
+  await handler(request({ apply: true }, 'notices'), res as unknown as VercelResponse)
+  expect(res.status).toHaveBeenLastCalledWith(200)
+  expect(res.json.mock.calls[0][0]).toMatchObject({ sent: [], companyReplies: [{ deliveryChannel: 'company_email', contact: { messageId: 'abc' } }] })
+  expect(fetchSpy).not.toHaveBeenCalled()
+  expect(mocks.rpc).not.toHaveBeenCalled()
+  fetchSpy.mockRestore()
+})

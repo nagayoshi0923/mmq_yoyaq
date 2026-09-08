@@ -20,6 +20,7 @@ export async function recordCancellationIntake(db: SupabaseClient, input: {
   const { error: insertError } = await db.from('cancellation_billing_claims').upsert({ id,
     organization_id: input.organizationId, reservation_id: input.reservationId,
     data: { id, organizationId: input.organizationId, reservationId: input.reservationId,
+      contact: { channel: input.receivedAt ? 'mmq' : 'manual' },
       assessment, amount: assessment.amount ?? 0, payerName: '', accountIds: [], accountId: null,
       receivedAt: input.receivedAt ?? '', processedAt: input.processedAt, actorId: input.actorId,
       receiptEvidence: input.receivedAt ? '顧客本人のMMQキャンセルAPI受付' : 'スタッフ操作。元のキャンセル連絡の受付時刻を要確認。',

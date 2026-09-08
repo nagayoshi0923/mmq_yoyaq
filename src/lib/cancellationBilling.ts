@@ -90,7 +90,15 @@ export function paymentNotice(assessment: FeeAssessment, account: TransferAccoun
   return `${fee}\n\n振込先：${account.bankName} ${account.branchName}\n${account.accountType} ${account.accountNumber}\n口座名義：${account.accountHolder}\n振込期限：${new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(due)}（この案内から1週間以内）\n振込手数料はお客様のご負担となります。`
 }
 
+export type CancellationContact = { channel: 'mmq' | 'company_email' | 'manual'; messageId?: string; threadId?: string }
+
+/** Only an explicitly recorded MMQ intake may use system customer notices. */
+export function cancellationNoticeChannel(contact?: CancellationContact): 'mmq' | 'company_email' | 'manual' {
+  return contact?.channel ?? 'manual'
+}
+
 export interface CancellationInvoice {
+  contact?: CancellationContact
   id: string
   organizationId: string
   reservationId: string
