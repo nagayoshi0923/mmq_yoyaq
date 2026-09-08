@@ -12,6 +12,7 @@ import {
 describe('seo', () => {
   it('_v クエリを canonical から除く', () => {
     expect(stripSeoQuery('/scenario/foo?_v=2')).toBe('/scenario/foo')
+    expect(stripSeoQuery('/scenario/foo?utm_source=google&gclid=abc&_gl=abc')).toBe('/scenario/foo')
     expect(stripSeoQuery('/scenario/foo?tab=private&_v=2')).toBe('/scenario/foo?tab=private')
     expect(toCanonicalUrl('/scenario/foo?_v=2')).toBe('https://mmq.game/scenario/foo')
   })

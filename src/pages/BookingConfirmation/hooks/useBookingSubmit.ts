@@ -1,3 +1,4 @@
+import { trackReservationComplete } from '@/lib/analytics'
 import { useState } from 'react'
 import { useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -603,6 +604,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         discountAmount: reservationData.discount_amount ?? 0
       })
       setSuccess(true)
+      // Analytics must never change a successfully created reservation's outcome.
+      try { trackReservationComplete(reservationData.id, props.organizationSlug) } catch { /* non-critical */ }
 
       // 予約完了後: トップページの残り席数が古い値を表示しないようキャッシュを無効化
       queryClient.invalidateQueries({ queryKey: ['booking-data'] })
