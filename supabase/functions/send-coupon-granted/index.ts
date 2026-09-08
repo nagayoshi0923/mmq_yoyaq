@@ -27,7 +27,8 @@ import { getEmailSettings } from '../_shared/organization-settings.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface SendCouponGrantedRequest {
-  customerCouponId: string
+  customerCouponId?: string
+  customerCouponIds?: string[]
 }
 
 function formatDiscount(type: string, amount: number): string {
@@ -82,23 +83,23 @@ serve(async (req) => {
     }
 
     const body = (await req.json()) as SendCouponGrantedRequest
-    const customerCouponId = body?.customerCouponId
-    if (!customerCouponId) {
-      return errorResponse('customerCouponId が必要です', 400, corsHeaders)
+    const ids = body?.customerCouponIds ?? (body?.customerCouponId ? [body.customerCouponId] : [])
+    if (!Array.isArray(ids) || ids.length < 1 || ids.length > 100 ||
+      new Set(ids).size !== ids.length || ids.some(id => typeof id !== 'string')) {
+      return errorResponse('クーポンIDを1〜100件指定してください', 400, corsHeaders)
     }
-
     const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', getServiceRoleKey())
-
-    // クーポン取得
-    const { data: cc, error: ccError } = await supabase
+    const { data: coupons, error: ccError } = await supabase
       .from('customer_coupons')
       .select('id, campaign_id, customer_id, organization_id, uses_remaining, expires_at')
-      .eq('id', customerCouponId)
-      .maybeSingle()
-
-    if (ccError || !cc) {
-      console.warn('customer_coupon not found:', customerCouponId, ccError?.message)
+      .in('id', ids)
+    const cc = coupons?.[0]
+    if (ccError || !cc || coupons.length !== ids.length) {
       return errorResponse('クーポンが見つかりません', 404, corsHeaders)
+    }
+    if (coupons.some(c => c.customer_id !== cc.customer_id || c.campaign_id !== cc.campaign_id ||
+      c.organization_id !== cc.organization_id || c.expires_at !== cc.expires_at)) {
+      return errorResponse('同じ代表者・種類・有効期限のクーポンを指定してください', 400, corsHeaders)
     }
 
     // キャンペーン取得
@@ -155,13 +156,13 @@ serve(async (req) => {
     const subject = `【新着クーポン】${couponName}が利用できます`
     const text = `${customerName} 様
 
-新しいクーポンが付与されました。
+新しいクーポンが${coupons.length}枚付与されました。
 
 ■ クーポン
 ${couponName}
 
 ■ 割引
-${discountText}
+${discountText}（1枚あたり）
 
 ■ 有効期限
 ${expiryText}
