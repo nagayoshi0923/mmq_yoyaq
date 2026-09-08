@@ -55,13 +55,25 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, customer_id, organization_id')
+      .select('id, status, customer_email, customer_id, organization_id, schedule_events!schedule_event_id(is_cancelled,store_id)')
       .eq('id', cancellationData.reservationId)
       .single()
 
     if (reservationError || !reservation) {
       return errorResponse('予約が見つかりません', 404, corsHeaders)
     }
+    if (reservation.status !== 'cancelled') return errorResponse('キャンセル受付が完了していません', 409, corsHeaders)
+    const storedEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
+    // Operator action is not synonymous with organizer cancellation.
+    cancellationData.cancelledBy = storedEvent?.is_cancelled === true ? 'store' : 'customer'
+    cancellationData.storeId = storedEvent?.store_id ?? undefined
+    const { data: billingClaim, error: billingError } = await supabaseClient.from('cancellation_billing_claims')
+      .select('data').eq('organization_id', reservation.organization_id).eq('reservation_id', reservation.id).maybeSingle()
+    const feeAssessment = !billingError ? billingClaim?.data?.assessment : null
+    cancellationData.cancellationFee = feeAssessment && ['payable', 'free', 'waived'].includes(feeAssessment.status)
+      && Number.isSafeInteger(feeAssessment.amount) && feeAssessment.amount >= 0 ? feeAssessment.amount : undefined
+
+    if (storedEvent?.is_cancelled === true) cancellationData.cancellationFee = 0
 
     // スタッフ予約の場合、customer_emailがnullでも送信可能
     // customer_emailがある場合は一致チェックを行う
@@ -72,6 +84,14 @@ serve(async (req) => {
     // 送信先メールアドレスがない場合はエラー
     if (!cancellationData.customerEmail) {
       return errorResponse('送信先メールアドレスが指定されていません', 400, corsHeaders)
+    }
+    let registeredEmail = reservation.customer_email
+    if (!registeredEmail && reservation.customer_id) {
+      const { data: customer } = await supabaseClient.from('customers').select('email').eq('id', reservation.customer_id).maybeSingle()
+      registeredEmail = customer?.email
+    }
+    if (!registeredEmail || registeredEmail.toLowerCase() !== cancellationData.customerEmail.toLowerCase()) {
+      return errorResponse('予約に登録された送信先を確認できません', 403, corsHeaders)
     }
 
     if (cancellationData.organizationId && reservation.organization_id && cancellationData.organizationId !== reservation.organization_id) {
@@ -321,7 +341,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{participant_count}/g, String(cancellationData.participantCount || ''))
         .replace(/{total_price}/g, (cancellationData.totalPrice || 0).toLocaleString())
         // キャンセル関連
-        .replace(/{cancellation_fee}/g, (cancellationData.cancellationFee || 0).toLocaleString())
+        .replace(/{cancellation_fee}/g, cancellationData.cancellationFee === undefined ? '確認中' : cancellationData.cancellationFee.toLocaleString())
         .replace(/{cancellation_reason}/g, cancellationData.cancellationReason || '')
         // 会社情報
         .replace(/{company_name}/g, companyName)
@@ -371,6 +391,19 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: cancellationData.storeId, organizationId: resolvedOrganizationId, template: isStoreCancellation ? 'event_cancellation_template' : 'cancellation_template' })
       finalHtml = emailHtml
       finalText = emailText
+    }
+
+    if (!isStoreCancellation) {
+      // Legacy/custom templates may claim zero fees or payment on a later visit.
+      // The customer receipt therefore uses the persisted assessment as its sole fee source.
+      const feeText = cancellationData.cancellationFee === undefined
+        ? 'キャンセル連絡は受け付けました。受付時刻・適用条件・免除の有無を確認し、料金をご案内します。現在は料金確認待ちです。'
+        : cancellationData.cancellationFee > 0
+          ? `キャンセル料：${cancellationData.cancellationFee.toLocaleString()}円\n${feeAssessment.reason}\nお支払いは銀行振込です。振込先・期限は別の料金案内でお知らせします。振込手数料はお客様のご負担となります。`
+          : `キャンセル料はかかりません。\n${feeAssessment.reason}`
+      finalText = `${cancellationData.customerName} 様\n\nご予約のキャンセルを承りました。\n予約番号：${cancellationData.reservationNumber}\n公演：${cancellationData.scenarioTitle}\n日時：${formatDate(cancellationData.eventDate)} ${formatTime(cancellationData.startTime)}\n\n${feeText}\n\n${companyName}\n${companyEmail}`
+      const escaped = finalText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      finalHtml = templateToHtml(escaped)
     }
 
     // Resend APIを使ってメール送信
@@ -485,4 +518,3 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     )
   }
 })
-
