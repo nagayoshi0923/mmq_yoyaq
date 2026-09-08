@@ -102,6 +102,21 @@ serve(async (req) => {
       return errorResponse('同じ代表者・種類・有効期限のクーポンを指定してください', 400, corsHeaders)
     }
 
+    // Compensation already accompanies the cancellation notice (including private claims).
+    const { data: grant, error: grantError } = await supabase.from('representative_compensation_grants')
+      .select('reservation_id').contains('coupon_ids', [cc.id]).maybeSingle()
+    const { data: claim, error: claimError } = await supabase.from('private_coupon_claims')
+      .select('private_coupon_claim_links(reservation_id)').eq('customer_coupon_id', cc.id).maybeSingle()
+    if (grantError || claimError) return errorResponse('通知対象を確認できません', 500, corsHeaders)
+    const reservationId = grant?.reservation_id || claim?.private_coupon_claim_links?.reservation_id
+    if (reservationId) {
+      const { data: integrated, error: noticeError } = await supabase.from('compensated_cancellation_notices')
+        .select('reservation_id').eq('reservation_id', reservationId).maybeSingle()
+      if (noticeError) return errorResponse('中止通知を確認できません', 500, corsHeaders)
+      if (integrated) return new Response(JSON.stringify({ success: true, skipped: true, reason: 'included_in_cancellation' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
     // キャンペーン取得
     const { data: campaign, error: campaignError } = await supabase
       .from('coupon_campaigns')

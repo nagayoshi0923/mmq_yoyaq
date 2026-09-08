@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
-import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, isCronOrServiceRoleCall, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface CancellationRequest {
@@ -50,12 +50,22 @@ serve(async (req) => {
     )
 
     // リクエストボディを取得
-    const cancellationData: CancellationRequest = await req.json()
+    let cancellationData: CancellationRequest = await req.json()
+    const { data: combinedNotice, error: combinedError } = await supabaseClient.from('compensated_cancellation_notices')
+      .select('payload,compensation_text,status').eq('reservation_id', cancellationData.reservationId).maybeSingle()
+    if (combinedError) return errorResponse('送信記録を確認できません', 500, corsHeaders)
+    if (combinedNotice) {
+      if (!isCronOrServiceRoleCall(req)) return errorResponse('サーバーからの送信が必要です', 403, corsHeaders)
+      if (combinedNotice.status === 'sent') return new Response(JSON.stringify({ success: true, skipped: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (combinedNotice.status !== 'pending') return errorResponse('送信状況の確認が必要です。再送は停止しています', 409, corsHeaders)
+      cancellationData = combinedNotice.payload
+      cancellationData.customEmailBody = `${cancellationData.customEmailBody}\n\n${combinedNotice.compensation_text}`
+    }
 
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, status, customer_email, customer_id, organization_id, schedule_events!schedule_event_id(is_cancelled,store_id)')
+      .select('id, status, customer_email, customer_id, organization_id, schedule_events!reservations_schedule_event_id_fkey(is_cancelled,store_id)')
       .eq('id', cancellationData.reservationId)
       .single()
 
@@ -418,6 +428,13 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       ? `【公演中止】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
       : `【予約キャンセル】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
 
+    if (combinedNotice) {
+      const { data: claimed, error: claimError } = await serviceClient.from('compensated_cancellation_notices')
+        .update({ status: 'sending', updated_at: new Date().toISOString() })
+        .eq('reservation_id', cancellationData.reservationId).eq('status', 'pending').select('reservation_id').maybeSingle()
+      if (claimError || !claimed) return errorResponse('送信処理中です。メール履歴を確認してください', 409, corsHeaders)
+    }
+
     const emailLogId = await insertEmailLog(serviceClient, {
       organization_id: resolvedOrganizationId ?? null,
       reservation_id:  cancellationData.reservationId,
@@ -459,6 +476,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         status: 'failed',
         error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
       })
+      if (combinedNotice) await serviceClient.from('compensated_cancellation_notices')
+        .update({ status: 'failed', updated_at: new Date().toISOString() }).eq('reservation_id', cancellationData.reservationId)
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
@@ -469,6 +488,9 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       provider_message_id: result.id,
       sent_at: new Date().toISOString(),
     })
+
+    if (combinedNotice) await serviceClient.from('compensated_cancellation_notices')
+      .update({ status: 'sent', updated_at: new Date().toISOString() }).eq('reservation_id', cancellationData.reservationId)
 
     // user_notifications にキャンセル通知を挿入（Service Role で RLS をバイパス）
     if (reservation.customer_id) {
