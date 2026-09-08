@@ -1,3 +1,4 @@
+import { PrivateCouponLink } from './components/PrivateCouponLink'
 import { useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -132,6 +133,7 @@ export function CouponManagement() {
             </Button>
           </PageHeader>
 
+          <PrivateCouponLink />
           <CampaignList
             campaigns={campaigns}
             isLoading={isLoading}
