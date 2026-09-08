@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { representativeCompensation } from '../../api/_lib/representativeCompensation'
 import type { AuthUser } from '../../api/_lib/auth'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn() }))
-vi.mock('../../api/_lib/db.js', () => ({ db: { rpc: mocks.rpc, functions: { invoke: mocks.invoke } } }))
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn(), from: vi.fn() }))
+vi.mock('../../api/_lib/db.js', () => ({ db: { from: mocks.from, rpc: mocks.rpc, functions: { invoke: mocks.invoke } } }))
 const user: AuthUser = { userId: 'actor', orgId: 'trusted-org', role: 'staff', jwt: '' }
 function request(action: string, body: object) { return { query: { action }, body } as unknown as VercelRequest }
 function response() {
@@ -46,4 +46,33 @@ describe('representative compensation notifications', () => {
     await expect(representativeCompensation(request('preview-representative-compensation', {}), response(), { ...user, role: 'customer' })).rejects.toThrow('スタッフ')
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
+})
+
+it('excludes cancellations before the event cancellation and previews every remaining booking without grants', async () => {
+  const chain = (result: object) => {
+    const q: any = {}
+    for (const key of ['select', 'eq', 'order']) q[key] = vi.fn(() => q)
+    q.maybeSingle = vi.fn(async () => result)
+    q.range = vi.fn(async () => result)
+    return q
+  }
+  mocks.from.mockImplementation((table: string) => chain(table === 'schedule_events'
+    ? { data: { id: 'event', cancelled_at: '2026-09-08T01:00:00Z' } }
+    : { data: [
+      { id: 'early', status: 'cancelled', cancelled_at: '2026-09-07T01:00:00Z', participant_count: 1 },
+      { id: 'affected', status: 'cancelled', cancelled_at: '2026-09-08T01:00:00Z', participant_count: 2 },
+      { id: 'pending', status: 'pending', participant_count: 1 },
+    ] }))
+  mocks.rpc.mockReset().mockResolvedValue({ data: { snapshot: { customer_name: '確認用', quantity: 2 } } })
+  mocks.invoke.mockClear()
+  const res = response()
+  await representativeCompensation(request('preview-event-compensation', { event_id: 'event' }), res, user)
+  expect(mocks.rpc).toHaveBeenCalledTimes(1)
+  expect(mocks.rpc.mock.calls[0][1]).toMatchObject({ p_reservation_id: 'affected', p_apply: false })
+  expect(res.json).toHaveBeenCalledWith(expect.arrayContaining([
+    expect.objectContaining({ reservation_id: 'early', state: 'excluded' }),
+    expect.objectContaining({ reservation_id: 'affected', state: 'ready' }),
+    expect.objectContaining({ reservation_id: 'pending', state: 'excluded' }),
+  ]))
+  expect(mocks.invoke).not.toHaveBeenCalled()
 })
