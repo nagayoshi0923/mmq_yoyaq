@@ -1,3 +1,4 @@
+import { compensatedCancellation } from './_lib/compensatedCancellation.js'
 import { representativeCompensation } from './_lib/representativeCompensation.js'
 import { privateCouponClaims } from './_lib/privateCouponClaims.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
@@ -134,6 +135,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const user = await requireAuth(req)
     const claimAction = String(req.query.action ?? req.query.type ?? '')
+    if (req.method === 'POST' && ['preview-compensated-cancellation', 'confirm-compensated-cancellation'].includes(claimAction)) {
+      return await compensatedCancellation(req, res, user)
+    }
     if ((req.method === 'GET' && ['representative-candidates', 'compensation-events'].includes(claimAction)) ||
       (req.method === 'POST' && ['preview-representative-compensation', 'grant-representative-compensation', 'preview-event-compensation'].includes(claimAction))) {
       return await representativeCompensation(req, res, user)
