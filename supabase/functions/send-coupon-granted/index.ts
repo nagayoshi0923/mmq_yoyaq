@@ -47,6 +47,12 @@ function formatExpiry(expiresAt: string | null): string {
 
 function buildConditionsBlock(campaign: any): string {
   const lines: string[] = []
+  if (campaign.coupon_expiry_months) {
+    lines.push(`・有効期間：付与から${campaign.coupon_expiry_months}か月（有効期限は上記参照）`)
+  }
+  if (campaign.murder_mystery_only) {
+    lines.push('・対象：マーダーミステリーの通常公演・貸切（ボードゲーム・箱開け会は対象外）')
+  }
   if (campaign.min_order_amount) {
     lines.push(`・最低利用金額：${Number(campaign.min_order_amount).toLocaleString()}円`)
   }
@@ -98,7 +104,7 @@ serve(async (req) => {
     // キャンペーン取得
     const { data: campaign, error: campaignError } = await supabase
       .from('coupon_campaigns')
-      .select('id, name, display_name, discount_type, discount_amount, min_order_amount, allowed_weekdays, allowed_time_slots, customer_terms, notify_on_grant')
+      .select('id, name, display_name, discount_type, discount_amount, min_order_amount, allowed_weekdays, allowed_time_slots, customer_terms, notify_on_grant, coupon_expiry_months, murder_mystery_only')
       .eq('id', cc.campaign_id)
       .maybeSingle()
 

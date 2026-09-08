@@ -50,6 +50,8 @@ const defaultFormData: CampaignFormData = {
   valid_from: null,
   valid_until: null,
   coupon_expiry_days: null,
+  coupon_expiry_months: null,
+  murder_mystery_only: false,
   usage_valid_from: null,
   usage_valid_until: null,
   max_total_grants: null,
@@ -69,13 +71,13 @@ const defaultFormData: CampaignFormData = {
 
 export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [usageMode, setUsageMode] = useState<'relative' | 'absolute'>('relative')
+  const [usageMode, setUsageMode] = useState<'relative' | 'months' | 'absolute'>('relative')
   const [formData, setFormData] = useState<CampaignFormData>(defaultFormData)
 
   useEffect(() => {
     if (campaign) {
       const hasAbsolute = !!(campaign.usage_valid_from || campaign.usage_valid_until)
-      setUsageMode(hasAbsolute ? 'absolute' : 'relative')
+      setUsageMode(hasAbsolute ? 'absolute' : campaign.coupon_expiry_months ? 'months' : 'relative')
       setFormData({
         name: campaign.name,
         description: campaign.description || '',
@@ -88,6 +90,8 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         valid_from: campaign.valid_from ? campaign.valid_from.slice(0, 10) : null,
         valid_until: campaign.valid_until ? campaign.valid_until.slice(0, 10) : null,
         coupon_expiry_days: campaign.coupon_expiry_days || null,
+        coupon_expiry_months: campaign.coupon_expiry_months ?? null,
+        murder_mystery_only: campaign.murder_mystery_only ?? false,
         usage_valid_from: campaign.usage_valid_from ? campaign.usage_valid_from.slice(0, 10) : null,
         usage_valid_until: campaign.usage_valid_until ? campaign.usage_valid_until.slice(0, 10) : null,
         max_total_grants: campaign.max_total_grants || null,
@@ -120,6 +124,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         valid_until: formData.valid_until ? `${formData.valid_until}T23:59:59+09:00` : null,
         // 排他: 使用期間のモードに応じて片方をクリア
         coupon_expiry_days: usageMode === 'relative' ? formData.coupon_expiry_days : null,
+        coupon_expiry_months: usageMode === 'months' ? formData.coupon_expiry_months : null,
         usage_valid_from: usageMode === 'absolute' && formData.usage_valid_from
           ? `${formData.usage_valid_from}T00:00:00+09:00` : null,
         usage_valid_until: usageMode === 'absolute' && formData.usage_valid_until
@@ -239,7 +244,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
               value={formData.min_order_amount ?? ''}
               onChange={(e) => setFormData(p => ({ ...p, min_order_amount: e.target.value ? parseInt(e.target.value) : null }))}
               placeholder="制限なし" />
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               例: 3000 を設定すると、3000円以上の予約のみで使えるクーポンに
             </p>
           </div>
@@ -297,14 +302,14 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
             <Input id="coupon_code" value={formData.coupon_code ?? ''}
               onChange={(e) => setFormData(p => ({ ...p, coupon_code: e.target.value || null }))}
               placeholder="例: WELCOME2026" />
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               設定すると、顧客がコード入力で取得できるようになります（管理者付与もあわせて可能）
             </p>
           </div>
           <div className="flex items-center justify-between pt-1">
             <div>
               <Label htmlFor="notify_on_grant">付与時にメール通知</Label>
-              <p className="text-[11px] text-muted-foreground">配布した直後に顧客へ案内メールを送信</p>
+              <p className="text-xs text-muted-foreground">配布した直後に顧客へ案内メールを送信</p>
             </div>
             <Switch id="notify_on_grant" checked={formData.notify_on_grant ?? false}
               onCheckedChange={(checked) => setFormData(p => ({ ...p, notify_on_grant: checked }))} />
@@ -329,6 +334,11 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
                 配布から N 日間
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="usage_mode" checked={usageMode === 'months'}
+                  onChange={() => setUsageMode('months')} />
+                配布から N か月
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input type="radio" name="usage_mode" checked={usageMode === 'absolute'}
                   onChange={() => setUsageMode('absolute')} />
                 絶対日付で指定
@@ -339,6 +349,12 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
                 value={formData.coupon_expiry_days ?? ''}
                 onChange={(e) => setFormData(p => ({ ...p, coupon_expiry_days: e.target.value ? parseInt(e.target.value) : null }))}
                 placeholder="無制限（日数）" />
+            )}
+            {usageMode === 'months' && (
+              <Input type="number" min={1} max={120} required aria-label="有効月数"
+                value={formData.coupon_expiry_months ?? ''}
+                onChange={(e) => setFormData(p => ({ ...p, coupon_expiry_months: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="月数（例：6）" />
             )}
             {usageMode === 'absolute' && (
               <div className="grid grid-cols-2 gap-3">
@@ -360,7 +376,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
           <div className="flex items-center justify-between pt-1">
             <div>
               <Label htmlFor="combinable">他のクーポンと併用可</Label>
-              <p className="text-[11px] text-muted-foreground">OFF にすると、このクーポン使用時は他のクーポン適用不可</p>
+              <p className="text-xs text-muted-foreground">OFF にすると、このクーポン使用時は他のクーポン適用不可</p>
             </div>
             <Switch id="combinable" checked={formData.combinable ?? true}
               onCheckedChange={(checked) => setFormData(p => ({ ...p, combinable: checked }))} />
@@ -410,6 +426,12 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="murder_mystery_only">マーダーミステリー公演のみ</Label>
+              <Switch id="murder_mystery_only" checked={formData.murder_mystery_only ?? false}
+                onCheckedChange={checked => setFormData(p => ({ ...p, murder_mystery_only: checked }))} />
+            </div>
+            <p className="text-xs text-muted-foreground">作品登録のある通常公演・貸切が対象。ボードゲーム・箱開け会・会場貸しは対象外。</p>
             <Label>対象範囲</Label>
             <Select value={formData.target_type}
               onValueChange={(v: 'all' | 'specific_scenarios' | 'specific_organization') =>
@@ -421,7 +443,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
                 <SelectItem value="specific_scenarios">特定シナリオのみ</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               特定対象を指定する場合、対象 ID 一覧は今後の UI 拡張で編集できる予定
             </p>
           </div>

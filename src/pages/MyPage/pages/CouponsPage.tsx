@@ -42,6 +42,8 @@ function formatCouponUsagePerformance(usage: CustomerCouponUsageWithReservation)
 interface CurrentReservation {
   id: string
   scenario_title: string
+  organization_id?: string
+  murder_mystery_eligible?: boolean
   store_name: string
   date: string
   time: string
@@ -58,10 +60,17 @@ export function CouponsPage() {
 
   const loading = couponsLoading || reservationsLoading
 
+  const eligibleReservations = (coupon: CustomerCoupon) =>
+    (currentReservations as CurrentReservation[]).filter(r =>
+      !coupon.coupon_campaigns?.murder_mystery_only ||
+      (r.murder_mystery_eligible && r.organization_id === coupon.organization_id))
+  const selectedReservations = selectedCoupon ? eligibleReservations(selectedCoupon.coupon) : []
+
   const handleCouponTap = (coupon: CustomerCoupon, index: number) => {
     if (coupon.status !== 'active') return
     setSelectedCoupon({ coupon, index })
-    setSelectedReservationId((currentReservations as CurrentReservation[]).length === 1 ? (currentReservations as CurrentReservation[])[0].id : null)
+    const eligible = eligibleReservations(coupon)
+    setSelectedReservationId(eligible.length === 1 ? eligible[0].id : null)
     setShowConfirmDialog(true)
   }
 
@@ -275,7 +284,7 @@ export function CouponsPage() {
                         )}
                         {usageRows.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
-                            <p className="text-[11px] font-semibold text-gray-500">使用した公演</p>
+                            <p className="text-xs font-semibold text-gray-500">使用した公演</p>
                             {usageRows.map((u) => (
                               <p
                                 key={u.id}
@@ -340,13 +349,16 @@ export function CouponsPage() {
                 </p>
               </div>
 
-              {(currentReservations as CurrentReservation[]).length > 0 ? (
+              {selectedCoupon.coupon.coupon_campaigns?.murder_mystery_only && (
+                <p className="text-xs text-muted-foreground mb-3">マーダーミステリー公演限定。ボードゲーム・箱開け会は対象外です。</p>
+              )}
+              {selectedReservations.length > 0 ? (
                 <div className="mb-4">
                   <p className="text-xs text-gray-600 font-bold mb-2">
-                    {(currentReservations as CurrentReservation[]).length > 1 ? '紐付ける公演を選択' : '紐付ける公演'}
+                    {selectedReservations.length > 1 ? '紐付ける公演を選択' : '紐付ける公演'}
                   </p>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {(currentReservations as CurrentReservation[]).map((reservation) => (
+                    {selectedReservations.map((reservation) => (
                       <div
                         key={reservation.id}
                         className={`border rounded-lg p-3 cursor-pointer transition-all ${
@@ -382,7 +394,7 @@ export function CouponsPage() {
               ) : (
                 <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4">
                   <p className="text-xs text-yellow-700">
-                    ⚠️ 現在進行中の予約がありません。<br />
+                    ⚠️ このクーポンを利用できる公演がありません。<br />
                     公演の前後3時間以内に使用してください。
                   </p>
                 </div>
