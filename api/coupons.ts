@@ -134,8 +134,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const user = await requireAuth(req)
     const claimAction = String(req.query.action ?? req.query.type ?? '')
-    if ((req.method === 'GET' && claimAction === 'representative-candidates') ||
-      (req.method === 'POST' && ['preview-representative-compensation', 'grant-representative-compensation'].includes(claimAction))) {
+    if ((req.method === 'GET' && ['representative-candidates', 'compensation-events'].includes(claimAction)) ||
+      (req.method === 'POST' && ['preview-representative-compensation', 'grant-representative-compensation', 'preview-event-compensation'].includes(claimAction))) {
       return await representativeCompensation(req, res, user)
     }
     if ((req.method === 'GET' && claimAction === 'private-claim-candidates') ||
