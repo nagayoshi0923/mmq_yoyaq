@@ -33,6 +33,7 @@ const SetPassword = lazyWithRetry(() =>
 const CompleteProfile = lazyWithRetry(() =>
   import('@/pages/CompleteProfile').then((m) => ({ default: m.CompleteProfile }))
 )
+const CouponClaim = lazyWithRetry(() => import('@/pages/CouponClaim').then(m => ({ default: m.CouponClaim })))
 const CouponPresent = lazyWithRetry(() =>
   import('@/pages/CouponPresent').then((m) => ({ default: m.CouponPresent }))
 )
@@ -366,7 +367,7 @@ function AppRoutes() {
     const isInvitePage = location.pathname.startsWith('/group/invite/')
     const isPartnerReportPage = location.pathname.startsWith('/partner-report/')
 
-    if (location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
+    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -431,6 +432,10 @@ function AppRoutes() {
         <CompleteProfile />
       </Suspense>
     )
+  }
+
+  if (location.pathname === '/coupon-claim') {
+    return <Suspense fallback={<FullPageSpinner />}><CouponClaim /></Suspense>
   }
 
   // クーポンプレゼントページ（新規登録完了後）
