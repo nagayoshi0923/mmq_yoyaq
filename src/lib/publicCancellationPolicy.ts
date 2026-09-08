@@ -175,7 +175,11 @@ export async function fetchPublicCancellationPolicies({
     throw error
   }
 
-  return toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const policies = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const response = await fetch(`/api/cancellation-billing?action=public-policy&organization=${encodeURIComponent(slug)}`)
+  if (!response.ok) throw new Error('最新のキャンセル料金案内を取得できません。店舗へお問い合わせください。')
+  const billing = await response.json() as { paymentPolicy?: string | null }
+  return policies.map(policy => billing.paymentPolicy ? { ...policy, refund_method_note: billing.paymentPolicy } : policy)
 }
 
 export function formatPolicyHours(hours: number): string {

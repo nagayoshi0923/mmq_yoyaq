@@ -554,10 +554,8 @@ export const reservationApi = {
         // 却下フローなど、別経路で顧客連絡を行うケースはキャンセル確認メールを送らない
         // （DB キャンセル・在庫返却・キャンセル待ち通知は従来どおり実施する）。
         if (!options?.skipCancellationEmail) {
-          // キャンセル料金を計算（ここでは簡易実装: 24時間前以降は100%）
-          const eventDateTime = new Date(`${scheduleEvent?.date}T${scheduleEvent?.start_time}`)
-          const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-          const cancellationFee = hoursUntilEvent < 24 ? (reservation.total_price || 0) : 0
+          // 料金はサーバーに保存された受付時刻・予約ポリシーから解決する。
+          // ブラウザでは時刻や料金を再計算しない。
 
           // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
           const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
@@ -580,7 +578,6 @@ export const reservationApi = {
               // スタッフ起点の中止・削除は 'store'（公演中止文面・件名）。既定は顧客都合キャンセル。
               cancelledBy: options?.cancelledBy ?? 'customer',
               cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル',
-              cancellationFee,
               // 中止・削除フローのメール編集ダイアログで全文編集された本文（あれば優先）
               customEmailBody: options?.customEmailBody,
               idempotencyKey
