@@ -59,3 +59,12 @@ DB適用→API/Web・対象Edge配備の順で進める。2026-09-08、利用者
 - [freee公式アプリの種類と銀行明細アクセス](https://developer.freee.co.jp/reference/application-types)
 - [freee公式OpenAPI](https://github.com/freee/freee-mcp/blob/341e616be495abf69e3c6630337616cc97ba11ce/openapi/accounting-api-schema.json)
 - 会社ルール: AI Managerリポジトリ `QueensWaltz/01_Rules/Customer_Cancellation_Fee_Notice.md`
+
+
+## 受付経路による返信元（利用者訂正）
+
+会社メールで受けたキャンセルは `contact.channel=company_email` と元メールID/スレッドIDを保持し、料金案内・督促・入金確認・口座変更をMMQ配信から除外する。通知APIは `companyReplies` として会社メール側へ渡す返信候補を返す。元メールの確認と返信の送信結果を台帳へ反映する運用接続は未完了であり、自動返信済みではない。
+
+顧客本人のMMQキャンセルAPI受付だけを `mmq` とする。スタッフ受付・旧記録で経路が不明なら `manual` として送信を保留。既存のキャンセル確認Edgeも会社メール・手動受付から別メールを送らない。公演中止、募集延長・追加募集の既存MMQ通知経路は維持する。
+
+追加検証: 会社メール案件の通知実行が送信provider/RPCへ到達しないAPIテストを含む5件成功。会社メール側のスレッド返信と宛先照合はAI Manager側で検証。

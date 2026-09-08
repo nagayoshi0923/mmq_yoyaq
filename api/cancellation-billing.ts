@@ -5,7 +5,7 @@ import { db } from './_lib/db.js'
 import { requireAuth, ApiError } from './_lib/auth.js'
 import { readFreeeIncome, readFreeeSyncStatus } from './_lib/cancellation-payments/freee.js'
 import { assessCancellationFee, paymentNotice, validTransferAccount, reconcileCancellationInvoices, canRemindInvoice, CANCELLATION_PAYMENT_POLICY,
-  type TransferAccount, type CancellationInvoice, type FeeAssessment, type BankEntry } from '../src/lib/cancellationBilling.js'
+  cancellationNoticeChannel, type TransferAccount, type CancellationInvoice, type FeeAssessment, type BankEntry } from '../src/lib/cancellationBilling.js'
 
 type Settings = { accounts: TransferAccount[]; activeAccountId: string | null; operatorEmail: string;
   matchingApproved: boolean; notificationsEnabled: boolean }
@@ -27,6 +27,7 @@ const settingsSchema = z.object({ revision: z.number().int().min(0), newAccount:
 const intakeSchema = z.object({ reservationId: uuid, receivedAt: time.nullable(), receiptEvidence: z.string().trim().min(1).max(1000),
   cause: z.enum(['customer', 'organizer', 'transport_pending', 'transport_confirmed']),
   evidence: z.string().max(2000).optional(), payerName: z.string().trim().max(100),
+  contact: z.object({ channel: z.enum(['mmq', 'company_email', 'manual']), messageId: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(200).optional(), threadId: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(200).optional() }).optional(),
   revision: z.number().int().min(0), apply: z.boolean().default(false) })
 
 function checked<T>(result: { data: T; error: unknown }): T {
@@ -98,11 +99,13 @@ async function intake(org: string, actorId: string, body: unknown) {
   if (!input.apply) return { assessment, preview }
   const existing = checked(await db!.from('cancellation_billing_claims').select('id,reservation_id,revision,data')
     .eq('organization_id', org).eq('reservation_id', input.reservationId).maybeSingle()) as ClaimRow | null
+  if (input.contact?.channel === 'mmq' && existing?.data.contact?.channel !== 'mmq') throw new ApiError(400, '会社メール・電話の受付をMMQ自動送信へ変更できません。')
   if ((existing?.revision ?? 0) !== input.revision) throw new ApiError(409, '請求が更新されました。再取得してください。')
   if (existing?.data.notifiedAt || existing?.data.paidAt) throw new ApiError(409, '案内済みの請求は変更できません。訂正処理を運営へ確認してください。')
   const id = existing?.id ?? randomUUID()
   const data: ClaimData = { id, organizationId: org, reservationId: input.reservationId, assessment,
     amount: assessment.amount ?? 0, receivedAt: input.receivedAt ?? '', payerName: input.payerName,
+    contact: input.contact ?? existing?.data.contact ?? { channel: 'manual' },
     receiptEvidence: input.receiptEvidence, actorId, needsDecisionNotice: true, accountIds: account ? [account.id] : [], accountId: account?.id ?? null,
     notifiedAt: null, dueAt: null, paidAt: null, reminderSentAt: null, paidNoticeSentAt: null }
   if (existing) await saveClaim(org, existing, data)
@@ -167,10 +170,10 @@ async function reconcile(org: string, body: unknown) {
   return { ...result, entryCount: entries.length, settled, conflicts, verifiedThrough }
 }
 
-type Notice = { claimId: string; key: string; kind: 'initial' | 'reminder' | 'paid' | 'account_changed' | 'review'; text: string; operator: boolean }
+type Notice = { claimId: string; reservationId: string; key: string; kind: 'initial' | 'reminder' | 'paid' | 'account_changed' | 'review'; text: string; operator: boolean }
 function planNotice(row: ClaimRow, settings: Settings, now: string, reconciliation: Reconciliation | null): Notice | null {
   const c = row.data
-  const base = { claimId: row.id, operator: false }
+  const base = { claimId: row.id, reservationId: row.reservation_id, operator: false }
   const active = settings.accounts.find(a => a.id === settings.activeAccountId) ?? null
   if (c.paidAt && !c.paidNoticeSentAt) return { ...base, key: `${row.id}:paid`, kind: 'paid', text: `キャンセル料${c.amount.toLocaleString('ja-JP')}円の入金を確認しました。お振込みありがとうございました。` }
   if (c.paidAt) return null
@@ -202,18 +205,27 @@ async function notices(org: string, body: unknown) {
   const past = checked(await db!.from('cancellation_billing_notices').select('notice_key,status').eq('organization_id', org).limit(10001)) ?? []
   if (past.length > 10000) throw new ApiError(409, '通知履歴の取得上限です。配信を停止しました。')
   const pending = plans.filter(item => !past.some(p => p.notice_key === item.plan.key))
-  if (!input.apply) return { notices: pending.map(p => p.plan), unknown: past.filter(p => p.status !== 'sent'),
+  const routed = pending.map(p => ({ ...p.plan, deliveryChannel: p.plan.operator ? 'operator' : cancellationNoticeChannel(p.row.data.contact), contact: p.row.data.contact ?? null }))
+  if (!input.apply) return { notices: routed, unknown: past.filter(p => p.status !== 'sent'),
     verifiedThrough: verified?.verifiedThrough ?? null }
+  if (!pending.some(p => p.plan.operator || cancellationNoticeChannel(p.row.data.contact) === 'mmq')) {
+    return { sent: [], unknown: [], companyReplies: routed.filter(p => p.deliveryChannel === 'company_email'), manual: routed.filter(p => p.deliveryChannel === 'manual') }
+  }
   if (!settings.data.notificationsEnabled || process.env.CANCELLATION_BILLING_SEND_ENABLED !== 'true'
     || org !== process.env.CANCELLATION_BILLING_ORGANIZATION_ID) throw new ApiError(409, 'この組織の自動連絡は未有効です。プレビューだけ実行できます。')
   const emailSettings = checked(await db!.from('organization_settings').select('resend_api_key,sender_email,reply_to_email')
     .eq('organization_id', org).maybeSingle())
   if (!emailSettings?.resend_api_key || !emailSettings?.sender_email || !settings.data.operatorEmail) throw new ApiError(409, '送信元・API認証・運営通知先を設定してください。')
   const sent: string[] = [], unknown: string[] = []
+  const companyReplies = routed.filter(p => p.deliveryChannel === 'company_email')
+  const manual = routed.filter(p => p.deliveryChannel === 'manual')
   for (const { row } of pending.slice(0, 20)) {
     const dispatchAt = new Date().toISOString()
     const plan = planNotice(row, settings.data, dispatchAt, verified)
     if (!plan) continue
+    // Company correspondence stays in the original company mailbox thread.
+    // No fallback to a new MMQ message, including reminders and payment acknowledgements.
+    if (!plan.operator && cancellationNoticeChannel(row.data.contact) !== 'mmq') continue
     const reservation = checked(await db!.from('reservations').select('customer_email,customer_id')
       .eq('organization_id', org).eq('id', row.reservation_id).maybeSingle())
     if (!reservation) continue
@@ -254,7 +266,7 @@ async function notices(org: string, body: unknown) {
       unknown.push(plan.key)
     }
   }
-  return { sent, unknown }
+  return { sent, unknown, companyReplies, manual }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
