@@ -62,10 +62,10 @@ export function CancellationBilling() {
     <PageHeader title="キャンセル料・入金確認" description="予約の受付記録から料金を確認し、freeeの入金明細と照合します。" />
     {message && <p role="status">{message}</p>}
     <Card><CardHeader><CardTitle>振込先と連絡設定（組織共通）</CardTitle></CardHeader><CardContent className="space-y-4">
-      <p>{snapshot?.freeeConnected ? 'freee APIの認証設定あり（接続結果は照合時に確認）' : 'freee APIは未接続です。銀行とfreeeの連携とは別にAPI認証が必要です。'}</p>
+      <p>{snapshot?.freeeConnected ? 'freee APIの認証設定あり（接続結果は照合時に確認）' : 'freeeの明細はブラウザで確認できます。振込先の登録にAPI接続は不要です。自動取得は未接続です。'}</p>
       <p>現在の振込先：{active ? `${active.bankName} ${active.branchName} ${active.accountType} ${active.accountNumber} ${active.accountHolder}` : '未登録'}</p>
       <div className="grid gap-4 sm:grid-cols-2">
-        {([['bankName', '銀行名'], ['branchName', '支店名'], ['accountNumber', '口座番号（7桁）'], ['accountHolder', '口座名義'], ['freeeCompanyId', 'freee事業所ID'], ['freeeWalletableId', 'freee口座ID']] as const).map(([key, label]) =>
+        {([['bankName', '銀行名'], ['branchName', '支店名'], ['accountNumber', '口座番号（7桁）'], ['accountHolder', '口座名義'], ['freeeCompanyId', 'freee事業所ID（API照合時のみ）'], ['freeeWalletableId', 'freee口座ID（API照合時のみ）']] as const).map(([key, label]) =>
           <div key={key}><Label htmlFor={`billing-${key}`}>{label}</Label><Input id={`billing-${key}`} value={account[key]} onChange={e => setAccount({ ...account, [key]: e.target.value })} /></div>)}
         <div><Label htmlFor="billing-accountType">口座種別</Label><select id="billing-accountType" className="border p-2 w-full" value={account.accountType} onChange={e => setAccount({ ...account, accountType: e.target.value as '普通' | '当座' })}><option>普通</option><option>当座</option></select></div>
         <div><Label htmlFor="billing-operator">運営の通知先メール</Label><Input id="billing-operator" type="email" value={settings.operatorEmail} onChange={e => setSettings({ ...settings, operatorEmail: e.target.value })} /></div>
@@ -78,7 +78,7 @@ export function CancellationBilling() {
         const hasAccount = Object.entries(account).some(([k, v]) => k !== 'accountType' && v !== '')
         await apiClient.post('/api/cancellation-billing?action=settings', { revision: snapshot!.settings.revision, operatorEmail: settings.operatorEmail,
           matchingApproved: settings.matchingApproved, notificationsEnabled: settings.notificationsEnabled,
-          ...(hasAccount ? { newAccount: { ...account, freeeCompanyId: Number(account.freeeCompanyId), freeeWalletableId: Number(account.freeeWalletableId) } } : {}) })
+          ...(hasAccount ? { newAccount: { ...account, freeeCompanyId: account.freeeCompanyId.trim() ? Number(account.freeeCompanyId) : null, freeeWalletableId: account.freeeWalletableId.trim() ? Number(account.freeeWalletableId) : null } } : {}) })
         setAccount(emptyAccount); await load(); setMessage('振込先・連絡設定を保存しました。')
       })}>設定を保存</Button>
     </CardContent></Card>

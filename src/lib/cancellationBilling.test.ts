@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { assessCancellationFee, paymentNotice, reconcileCancellationInvoices, canRemindInvoice,
+import { assessCancellationFee, paymentNotice, validTransferAccount, hasFreeeAccount, reconcileCancellationInvoices, canRemindInvoice,
   type TransferAccount, type CancellationInvoice, type BankEntry } from './cancellationBilling'
 import { readFreeeIncome, readFreeeSyncStatus } from '../../api/_lib/cancellation-payments/freee'
 
@@ -104,5 +104,24 @@ describe('freee明細の読み取り', () => {
         return Response.json({ walletable: value })
       }) as typeof fetch })).toBe(expected)
     }
+  })
+})
+
+
+describe('ブラウザで確認する振込先', () => {
+  const browserAccount = { ...account, freeeCompanyId: null, freeeWalletableId: null }
+  it('API未接続でも正式口座と振込期限を案内できる', () => {
+    expect(validTransferAccount(browserAccount)).toBe(true)
+    expect(hasFreeeAccount(browserAccount)).toBe(false)
+    const text = paymentNotice(assessCancellationFee(input), browserAccount, input.processedAt)
+    expect(text).toContain('1234567')
+    expect(text).toContain('振込期限：')
+    expect(text).not.toContain('正式な振込先を確認中')
+  })
+  it('未設定のAPI口座は明細取得・同期確認の通信前に止まる', async () => {
+    const fetcher = async () => { throw new Error('通信してはいけない') }
+    await expect(readFreeeIncome({ organizationId: 'org', account: browserAccount, accessToken: 'test',
+      startDate: '2026-09-01', endDate: '2026-09-08', fetcher })).rejects.toThrow('対象口座が未設定')
+    await expect(readFreeeSyncStatus({ account: browserAccount, accessToken: 'test', fetcher })).rejects.toThrow('対象口座が未設定')
   })
 })

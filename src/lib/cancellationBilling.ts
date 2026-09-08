@@ -70,15 +70,20 @@ export interface TransferAccount {
   accountType: '普通' | '当座'
   accountNumber: string
   accountHolder: string
-  freeeCompanyId: number
-  freeeWalletableId: number
+  freeeCompanyId?: number | null
+  freeeWalletableId?: number | null
 }
 
 export function validTransferAccount(account: TransferAccount): boolean {
   return Boolean(account.id && account.bankName.trim() && account.branchName.trim()
     && ['普通', '当座'].includes(account.accountType) && /^\d{7}$/.test(account.accountNumber)
-    && account.accountHolder.trim() && Number.isSafeInteger(account.freeeCompanyId) && account.freeeCompanyId > 0
-    && Number.isSafeInteger(account.freeeWalletableId) && account.freeeWalletableId > 0)
+    && account.accountHolder.trim())
+}
+
+/** API identifiers are separate from the customer-facing transfer account. */
+export function hasFreeeAccount(account: TransferAccount): boolean {
+  return Number.isSafeInteger(account.freeeCompanyId) && (account.freeeCompanyId ?? 0) > 0
+    && Number.isSafeInteger(account.freeeWalletableId) && (account.freeeWalletableId ?? 0) > 0
 }
 
 export function paymentNotice(assessment: FeeAssessment, account: TransferAccount | null, sentAt: string): string {

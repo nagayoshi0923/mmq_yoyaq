@@ -1,6 +1,7 @@
-import type { BankEntry, TransferAccount } from '../../../src/lib/cancellationBilling.js'
+import { hasFreeeAccount, type BankEntry, type TransferAccount } from '../../../src/lib/cancellationBilling.js'
 
 export async function readFreeeSyncStatus(input: { account: TransferAccount; accessToken: string; fetcher?: typeof fetch }): Promise<string | null> {
+  if (!hasFreeeAccount(input.account)) throw new Error('freeeの対象口座が未設定です')
   const url = new URL(`https://api.freee.co.jp/api/1/walletables/bank_account/${input.account.freeeWalletableId}`)
   url.search = new URLSearchParams({ company_id: String(input.account.freeeCompanyId), with_last_synced_at: 'true', with_sync_status: 'true' }).toString()
   const response = await (input.fetcher ?? fetch)(url, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15_000),
@@ -22,6 +23,7 @@ export async function readFreeeIncome(input: {
   endDate: string
   fetcher?: typeof fetch
 }): Promise<BankEntry[]> {
+  if (!hasFreeeAccount(input.account)) throw new Error('freeeの対象口座が未設定です')
   if (!input.accessToken) throw new Error('freeeの読み取り認証が未設定です')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(input.endDate)
     || input.startDate > input.endDate) throw new Error('明細取得期間が不正です')
