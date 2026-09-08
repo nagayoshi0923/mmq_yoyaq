@@ -1,4 +1,4 @@
-# QW-20260908-009 SEO改修（配備前・未完了）
+# QW-20260908-009 SEO改修（プレビュー検証済み・本番統合待ち）
 
 2026-09-08。利用者の「最後までがんばって」に基づく実装。公開URLは https://mmq.game 。
 
@@ -18,20 +18,21 @@
 - npm run test:unit: 38ファイル・309件成功。
 - git diff --check: 成功。
 - ステージングDBへのGETのみで、公開HTMLの店舗・作品・組織別作品・404・ログイン・robotsをローカル確認。予約・メール・DB更新は実行していない。
-- 公開リリース前にVercelの関数同梱、rewrite、固定URLを実配備で確認する必要がある。
+- Vercel previewで関数同梱とrewriteを確認。トップ・組織・作品2系統・店舗・ログイン・robots・sitemapは200、不存在作品は404。Reactの作品名・人数・時間・料金と予約導線を実ブラウザ確認。
+- GitHub E2E成功。CI org_scopeガードはbaseline163に対して167で失敗するが、origin/mainもHEADも167で本案件の増加は0。ガードは変更していない。
 
 ## 既存Google設定の確認
 
 Search Console mmq.gameは登録済み。2026-09-04更新データで登録28・未登録31。未登録には正常な代替URLやリダイレクトも含むため、31件すべてを障害としない。
-GA4: Default Account for Firebase / mmq-project-6e47f、property 467599949、stream 9948170371。受信データなし、拡張計測はオフ。
+GA4: Default Account for Firebase / mmq-project-6e47f、property 467599949、stream 9948170371。配備前に受信データなし。拡張計測は本番公開前に管理画面で再確認する。
 HP用GA4はcompany accountのqueenswaltz / property 419196851、stream 6445489904。既存HPとQW予約導線に同一タグを使用。
 
-## 配備待ち
+## 公開作業の進捗（2026-09-08）
 
-自動承認レビューがVercel preview配備を拒否した。理由: 外部サービスへのコード・設定のアップロードについて具体的な宛先・payload・承認が確認できない。
-拒否後は代替手段によるアップロードを行っていない。GitHub push、staging/main統合、本番配備、Google側のサイトマップ送信・キーイベント設定は未実施。
-
-承認対象: 本案件のコミットのみを既存GitHub nagayoshi0923/mmq_yoyaqとVercel mmq-yoyaqへ送り、preview・stagingで検証後にmainへsquash反映し、mmq.gameの実応答を確認する。DB/Edge更新は不要。無関係なstaging差分は本番に混ぜない。
-その後、Search Consoleでsitemap.xml再送信と代表URL検査、既存GA4でreservation_completeのキーイベント設定・実受信確認を行う。計測テストに顧客予約を作成しない。
+- 利用者「すすめて」により既存GitHub/Vercelへの公開を承認。MMQ PR #453を作成し、専用Vercel previewの実配備を確認。
+- mainとstagingが分岐し、stagingに別案件の差分がある。デプロイスキルの規定に従い、SEO専用ブランチだけをmainへ反映する方針を確認中。本番MMQはまだ変更していない。
+- 公式HPはPR #1をsquash merge（90ae83e）し本番公開成功。26URLすべて200・title/canonical各1・noindexなし。Search Consoleでサイトマップ正常処理・26ページ検出を確認。既存GA4でpage_view受信を確認。
+- HPの既存GA4拡張計測は実際にはオン。停止操作は自動承認レビューに拒否され、キャンセル済み。両タグの自動拡張計測を停止して手動実装へ統一する承認を確認中。過去データ削除や新規プロパティ作成は行っていない。
+- 残り: MMQ本番反映、MMQ sitemap送信、GA4計測設定の整理、reservation_completeのキーイベント設定。顧客予約を作成して計測テストしない。
 
 検索順位やインデックス登録の反映はGoogle側で後日進む。配備完了と順位改善を区別する。
