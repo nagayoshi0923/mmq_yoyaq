@@ -20,7 +20,7 @@ export async function privateCouponClaims(req: VercelRequest, res: VercelRespons
   if (action === 'private-claim-candidates') {
     requireStaff(user)
     const { data, error } = await database.from('reservations')
-      .select('id,title,participant_count,schedule_events!inner(id,date,is_cancelled,category)')
+      .select('id,title,participant_count,schedule_events:schedule_events!reservations_schedule_event_id_fkey!inner(id,date,is_cancelled,category)')
       .eq('organization_id', user.orgId).eq('schedule_events.is_cancelled', true)
       .eq('schedule_events.category', 'private').order('requested_datetime', { ascending: false }).limit(100)
     if (error) return res.status(500).json({ error: '貸切予約を取得できませんでした' })
@@ -30,7 +30,7 @@ export async function privateCouponClaims(req: VercelRequest, res: VercelRespons
     requireStaff(user)
     if (req.body?.gm_cancellation_confirmed !== true) return res.status(400).json({ error: 'GM都合の中止を確認してください' })
     const { data: r } = await database.from('reservations')
-      .select('id,status,cancelled_at,organization_id,participant_count,schedule_event_id,schedule_events!inner(id,date,start_time,start_at,cancelled_at,is_cancelled,category,organization_id)')
+      .select('id,status,cancelled_at,organization_id,participant_count,schedule_event_id,schedule_events:schedule_events!reservations_schedule_event_id_fkey!inner(id,date,start_time,start_at,cancelled_at,is_cancelled,category,organization_id)')
       .eq('id', req.body?.reservation_id).eq('organization_id', user.orgId).maybeSingle()
     const e = r?.schedule_events
     if (!e || e.organization_id !== user.orgId || !e.is_cancelled || e.category !== 'private') {
