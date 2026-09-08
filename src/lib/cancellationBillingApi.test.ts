@@ -75,3 +75,16 @@ it('会社メールの料金案内は元メールの返信待ちとして返し�
   expect(mocks.rpc).not.toHaveBeenCalled()
   fetchSpy.mockRestore()
 })
+
+
+it('freee APIのIDなしでも振込先設定を保存できる', async () => {
+  const insert = vi.fn().mockResolvedValue({ data: null, error: null })
+  const q = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }), insert }
+  q.select.mockReturnValue(q); q.eq.mockReturnValue(q); mocks.from.mockReturnValue(q)
+  const res = response()
+  await handler(request({ revision: 0, operatorEmail: 'operator@example.test', matchingApproved: false,
+    notificationsEnabled: false, newAccount: { bankName: '銀行', branchName: '支店', accountType: '普通',
+      accountNumber: '1234567', accountHolder: 'テスト', freeeCompanyId: null, freeeWalletableId: null } }, 'settings'), res as unknown as VercelResponse)
+  expect(res.status).toHaveBeenLastCalledWith(200)
+  expect(insert).toHaveBeenCalledWith(expect.objectContaining({ organization_id: 'org-A' }))
+})

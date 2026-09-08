@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { db } from './_lib/db.js'
 import { requireAuth, ApiError } from './_lib/auth.js'
 import { readFreeeIncome, readFreeeSyncStatus } from './_lib/cancellation-payments/freee.js'
-import { assessCancellationFee, paymentNotice, validTransferAccount, reconcileCancellationInvoices, canRemindInvoice, CANCELLATION_PAYMENT_POLICY,
+import { assessCancellationFee, paymentNotice, validTransferAccount, hasFreeeAccount, reconcileCancellationInvoices, canRemindInvoice, CANCELLATION_PAYMENT_POLICY,
   cancellationNoticeChannel, type TransferAccount, type CancellationInvoice, type FeeAssessment, type BankEntry } from '../src/lib/cancellationBilling.js'
 
 type Settings = { accounts: TransferAccount[]; activeAccountId: string | null; operatorEmail: string;
@@ -19,8 +19,8 @@ const time = z.string().datetime({ offset: true })
 const accountSchema = z.object({
   bankName: z.string().trim().min(1).max(100), branchName: z.string().trim().min(1).max(100),
   accountType: z.enum(['普通', '当座']), accountNumber: z.string().regex(/^\d{7}$/),
-  accountHolder: z.string().trim().min(1).max(100), freeeCompanyId: z.number().int().positive().safe(),
-  freeeWalletableId: z.number().int().positive().safe(),
+  accountHolder: z.string().trim().min(1).max(100), freeeCompanyId: z.number().int().positive().safe().nullish(),
+  freeeWalletableId: z.number().int().positive().safe().nullish(),
 })
 const settingsSchema = z.object({ revision: z.number().int().min(0), newAccount: accountSchema.optional(),
   operatorEmail: z.email(), matchingApproved: z.boolean(), notificationsEnabled: z.boolean() })
@@ -131,6 +131,9 @@ async function reconcile(org: string, body: unknown) {
   const entries: BankEntry[] = []
   // An immutable account version can point to the same freee wallet. Fetch it only once,
   // then use all version IDs when matching (a bank-name edit is not a second deposit).
+  if (!settings.data.accounts.length || settings.data.accounts.some(account => !hasFreeeAccount(account))) {
+    throw new ApiError(409, 'API照合には旧口座を含む全振込先のfreee事業所・口座の確認が必要です。ブラウザでの明細確認とは別に設定してください。')
+  }
   const wallets = new Map<string, TransferAccount>()
   for (const account of settings.data.accounts) wallets.set(`${account.freeeCompanyId}:${account.freeeWalletableId}`, account)
   const synced: (string | null)[] = []
