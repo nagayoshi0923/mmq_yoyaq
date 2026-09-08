@@ -133,6 +133,9 @@ export function CampaignList({
                       {formatDate(campaign.valid_from)} ～ {formatDate(campaign.valid_until)}
                     </span>
                   </div>
+                  {campaign.coupon_expiry_months && (
+                    <p className="text-xs text-muted-foreground">付与から{campaign.coupon_expiry_months}か月</p>
+                  )}
                   {campaign.coupon_expiry_days && (
                     <div className="text-muted-foreground">
                       有効日数: {campaign.coupon_expiry_days}日
