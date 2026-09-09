@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { hasPublicStore } from './_lib/seoShell.js'
 import { db, getMissingEnvError } from './_lib/db.js'
 
 const SITE_ORIGIN = 'https://mmq.game'
@@ -8,6 +9,7 @@ const STATIC_PATHS = [
   '/guide',
   '/faq',
   '/stores',
+  '/scenario',
   '/about',
   '/contact',
   '/terms',
@@ -15,16 +17,7 @@ const STATIC_PATHS = [
   '/legal',
   '/cancel-policy',
   '/for-business',
-  '/scenario',
 ]
-
-function orgHasPublicBookingStore(
-  stores: Array<{ status?: string | null; ownership_type?: string | null }> | null | undefined,
-): boolean {
-  return (stores ?? []).some(
-    (store) => store.status === 'active' && store.ownership_type !== 'office',
-  )
-}
 
 function escapeXml(value: string): string {
   return value
@@ -56,24 +49,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     urlEntry(path, path === '/' ? 'daily' : 'weekly', path === '/' ? '1.0' : '0.6'),
   )
 
-  const { data: orgs } = await db
+  const { data: orgs, error: orgsError } = await db
     .from('organizations')
     .select('slug, updated_at, stores(status, ownership_type)')
     .eq('is_active', true)
     .not('slug', 'is', null)
 
+  if (orgsError) {
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(503).send('sitemap temporarily unavailable')
+  }
+
   for (const org of orgs ?? []) {
     const slug = (org as { slug: string | null }).slug
-    if (!slug) continue
-    const stores = (org as { stores?: Array<{ status?: string | null; ownership_type?: string | null }> }).stores
-    if (!orgHasPublicBookingStore(stores)) continue
+    if (!slug || !hasPublicStore(org.stores)) continue
     entries.push(urlEntry(`/${slug}`, 'daily', '0.8', (org as { updated_at?: string }).updated_at))
   }
 
-  const { data: scenarios } = await db
+  const { data: scenarios, error: scenariosError } = await db
     .from('public_scenarios')
     .select('slug, updated_at')
     .not('slug', 'is', null)
+
+  if (scenariosError) {
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(503).send('sitemap temporarily unavailable')
+  }
 
   const seenSlug = new Set<string>()
   for (const row of scenarios ?? []) {
@@ -83,11 +84,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     entries.push(urlEntry(`/scenario/${slug}`, 'daily', '0.9', (row as { updated_at?: string }).updated_at))
   }
 
-  const { data: posts } = await db
+  const { data: posts, error: postsError } = await db
     .from('blog_posts')
     .select('slug, updated_at, published_at')
     .eq('is_published', true)
     .not('slug', 'is', null)
+
+  if (postsError) {
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(503).send('sitemap temporarily unavailable')
+  }
 
   const seenBlog = new Set<string>()
   for (const row of posts ?? []) {

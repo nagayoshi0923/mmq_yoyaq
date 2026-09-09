@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/apiClient'
 /**
  * F-1: 有効予約のある公演を削除/中止する際の確認ダイアログ（2ステップ）
  *
@@ -27,7 +28,16 @@ export interface CancelMailRecipient {
   email: string | null
 }
 
+export interface CancellationCompensationSnapshot {
+  amount: number
+  category: string
+  coupon_name: string
+  recipients: Array<{id: string; name: string; quantity: number}>
+}
+
 export interface DeleteCancelPrompt {
+  compensationEventId?: string
+
   /** 'delete' = 公演の削除 / 'cancel' = 公演の中止（復活可能）。省略時は delete */
   variant?: 'delete' | 'cancel'
   /** 有効予約の件数 */
@@ -47,6 +57,7 @@ export interface DeleteCancelPrompt {
 }
 
 export interface DeleteCancelDecision {
+  compensationSnapshot?: CancellationCompensationSnapshot
   sendMail: boolean
   reason: string
   /** 全文編集されたメール本文（reservationId → body）。recipients がある場合のみ */
@@ -63,6 +74,21 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
   const [step, setStep] = useState<'confirm' | 'mail'>('confirm')
   const [reason, setReason] = useState('')
   const [sendMail, setSendMail] = useState(true)
+  const [includeCompensation, setIncludeCompensation] = useState(false)
+  const [compensation, setCompensation] = useState<CancellationCompensationSnapshot>()
+  const [compensationBusy, setCompensationBusy] = useState(false)
+  const [compensationError, setCompensationError] = useState('')
+  const loadCompensation = async (enabled: boolean) => {
+    setIncludeCompensation(enabled); setCompensation(undefined); setCompensationError('')
+    if (!enabled) return
+    setSendMail(true); setCompensationBusy(true)
+    try {
+      const result = await apiClient.post<{snapshot?: CancellationCompensationSnapshot}>('/api/coupons?action=preview-compensated-cancellation', { event_id: prompt?.compensationEventId })
+      if (!result.snapshot) throw new Error('この公演は補償付き中止の処理済みです。メール履歴を確認してください。')
+      setCompensation(result.snapshot)
+    } catch (e) { setCompensationError(e instanceof Error ? e.message : '補償内容を確認できませんでした') }
+    finally { setCompensationBusy(false) }
+  }
 
   // メール本文の全文編集（予約者ごと）。
   // dirty=手で編集済み。理由を書き換えたとき、未編集の本文だけ自動で追従させる
@@ -84,6 +110,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
   useEffect(() => {
     if (prompt) {
       setStep('confirm')
+      setIncludeCompensation(false); setCompensation(undefined); setCompensationError('')
       setReason(prompt.defaultReason)
       setSendMail(prompt.recipients ? prompt.recipients.some(r => !!r.email) : true)
       setRecipientIndex(0)
@@ -116,6 +143,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
   }
 
   const buildDecision = (): DeleteCancelDecision => ({
+    compensationSnapshot: includeCompensation ? compensation : undefined,
     sendMail: sendMail && canSendMail,
     reason,
     bodies: hasBodyEditor && recipients
@@ -130,7 +158,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
         if (!open) onResolve(null)
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
         {step === 'confirm' ? (
           <>
             <DialogHeader>
@@ -181,7 +209,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
               <DialogTitle>公演の{actionLabel}（2/2）— メール送信の確認</DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-3 py-2 min-h-0 flex-1 overflow-y-auto">
               <p className="text-sm">
                 対象の予約 <span className="font-bold">{prompt?.count ?? 0} 件</span> をすべてキャンセルします。
                 {hasBodyEditor ? (
@@ -252,6 +280,19 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                 </p>
               </div>
 
+              {isCancelVariant && prompt?.compensationEventId && <div className="rounded-md border p-3 space-y-2">
+                <label className="flex gap-2 items-start text-sm font-medium"><input type="checkbox" checked={includeCompensation}
+                  disabled={compensationBusy || !hasBodyEditor} onChange={e => void loadCompensation(e.target.checked)} />
+                  GMの欠勤・体調不良による中止：お詫びクーポンを中止メールに含める</label>
+                {compensationBusy && <p className="text-sm">補償内容を確認しています…</p>}
+                {compensationError && <p role="alert" className="text-sm">{compensationError}</p>}
+                {includeCompensation && compensation && <>
+                  <p className="text-sm">{compensation.coupon_name}・1人につき{compensation.amount.toLocaleString()}円分</p>
+                  <ul className="text-sm">{compensation.recipients.map(r => <li key={r.id}>{r.name}：{r.quantity}名分</li>)}</ul>
+                  <p className="text-xs text-muted-foreground">中止前にキャンセル済みの方は対象外です。確定すると、中止と補償をまとめて処理し、下のメールに補償案内を自動で追加します。別の付与メールは送りません。</p>
+                </>}
+              </div>}
+
               {/* メール本文（全文編集可・予約一覧の「予約をキャンセル」と同じ作法） */}
               {hasBodyEditor && recipients && (
                 <div>
@@ -295,6 +336,14 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                     className="mt-1 font-mono text-xs"
                     rows={12}
                   />
+                  {includeCompensation && compensation && <div className="mt-2 rounded-md border p-2 text-sm whitespace-pre-wrap">
+                    <p className="font-medium">メール末尾に自動で追加される補償案内</p>
+                    <p>{compensation.coupon_name}</p>
+                    {compensation.category === 'private'
+                      ? <p>参加予定者各自が1枚受け取れる共通URLを記載します。URLは発行から3か月有効、クーポンは受け取りから6か月有効です。</p>
+                      : <p>予約者のアカウントに予約人数分を付与します。有効期限は付与から6か月。実際の期限日とマイページのURLを記載します。</p>}
+                    <p>マーダーミステリー公演のみ。ボードゲーム・箱開け会は対象外です。</p>
+                  </div>}
                   {recipients.length > 1 && (
                     <p className="text-xs text-muted-foreground mt-1">
                       予約番号などは予約者ごとに異なるため、プレビューを切り替えてそれぞれの本文を確認・編集できます
@@ -310,7 +359,7 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                 <Checkbox
                   id="delete-cancel-send-email"
                   checked={sendMail && canSendMail}
-                  disabled={!canSendMail}
+                  disabled={!canSendMail || includeCompensation}
                   onCheckedChange={(checked) => setSendMail(!!checked)}
                 />
                 <label
@@ -347,9 +396,10 @@ export function DeleteEventCancelDialog({ prompt, onResolve }: DeleteEventCancel
                 </Button>
                 <Button
                   variant="destructive"
+                  disabled={compensationBusy || (includeCompensation && (!compensation || !hasBodyEditor || !canSendMail))}
                   onClick={() => onResolve(buildDecision())}
                 >
-                  {sendMail && canSendMail
+                  {includeCompensation ? '中止を確定して補償付きメールを送る' : sendMail && canSendMail
                     ? hasBodyEditor ? `メール対象全員に送信して${actionLabel}` : `メールを送信して${actionLabel}`
                     : `メールを送らずに${actionLabel}`}
                 </Button>

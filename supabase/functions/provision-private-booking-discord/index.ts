@@ -12,6 +12,7 @@ import {
 } from '../_shared/security.ts'
 import {
   SENSHIN_DISCORD,
+  CHANNEL_VIEW,
   buildSenshinChannelNames,
   gmMemberOverwrite,
   isSenshinScenario,
@@ -159,7 +160,7 @@ function isReadyToFinalize(date?: string | null, endTime?: string | null) {
   if (!ymd || !hms) return false
   const endedAtJst = Date.parse(`${ymd}T${hms}+09:00`)
   if (!Number.isFinite(endedAtJst)) return false
-  return endedAtJst + 24 * 60 * 60 * 1000 <= Date.now()
+  return endedAtJst <= Date.now()
 }
 
 function skipFinalizeReason(input: {
@@ -193,27 +194,20 @@ async function finalizeRoom(
       },
     )
   }
-  if (existing.date_role_id) {
+  const playerCh = (await discordJson(
+    `https://discord.com/api/v10/channels/${existing.player_channel_id}`,
+    token,
+  )) as { permission_overwrites?: Array<{ id: string; type: number }> }
+  for (const ow of playerCh.permission_overwrites || []) {
+    if (ow.type !== 1) continue
     await discordJson(
-      `https://discord.com/api/v10/channels/${existing.spectator_channel_id}/permissions/${existing.date_role_id}`,
+      `https://discord.com/api/v10/channels/${existing.spectator_channel_id}/permissions/${ow.id}`,
       token,
       {
         method: 'PUT',
-        body: JSON.stringify({ type: 0, allow: String(1024 + 2048 + 65536), deny: '0' }),
+        body: JSON.stringify({ type: 1, allow: String(CHANNEL_VIEW), deny: '0' }),
       },
-    )
-    const playerCh = (await discordJson(
-      `https://discord.com/api/v10/channels/${existing.player_channel_id}`,
-      token,
-    )) as { permission_overwrites?: Array<{ id: string; type: number }> }
-    for (const ow of playerCh.permission_overwrites || []) {
-      if (ow.type !== 1) continue
-      await discordJson(
-        `https://discord.com/api/v10/guilds/${SENSHIN_DISCORD.guildId}/members/${ow.id}/roles/${existing.date_role_id}`,
-        token,
-        { method: 'PUT' },
-      ).catch((e) => console.warn('date role grant skipped', ow.id, e.message))
-    }
+    ).catch((e) => console.warn('spectator overwrite skipped', ow.id, e.message))
   }
   await supabase
     .from('private_booking_discord_rooms')
@@ -244,7 +238,7 @@ async function finalizeDueRooms() {
       continue
     }
     if (!isReadyToFinalize(event?.date, event?.end_time)) {
-      results.push({ reservationId: room.reservation_id, status: 'skipped', reason: 'within_1_day' })
+      results.push({ reservationId: room.reservation_id, status: 'skipped', reason: 'not_ended' })
       continue
     }
     try {
@@ -324,7 +318,7 @@ serve(async (req) => {
 
     const { data: existing } = await supabase
       .from('private_booking_discord_rooms')
-      .select('*')
+      .select('id, organization_id, reservation_id, schedule_event_id, scenario_master_id, player_channel_id, spectator_channel_id, player_invite_url, spectator_invite_url, date_role_id, player_channel_name, spectator_channel_name, created_at, moved_at')
       .eq('reservation_id', reservationId)
       .maybeSingle()
 
@@ -430,6 +424,7 @@ serve(async (req) => {
       storeName: store?.name,
       storeShortName: store?.short_name,
     })
+    const roleNames = buildSenshinRoleNames(reservation.id)
 
     const gmNames = Array.isArray(event.gms) ? event.gms.filter(Boolean) : []
     const { data: gmStaff } = gmNames.length
@@ -453,7 +448,7 @@ serve(async (req) => {
       token,
       {
         method: 'POST',
-        body: JSON.stringify({ name: names.roleName, mentionable: false, hoist: false }),
+        body: JSON.stringify({ name: roleNames.roleName, mentionable: false, hoist: false }),
       },
     )) as { id: string }
 
@@ -551,3 +546,9 @@ serve(async (req) => {
     return errorResponse(sanitizeErrorMessage(error), 500, corsHeaders)
   }
 })
+
+// 稼働中のロール名形式を保持。共有モジュールの別案件を同時配備しない。
+function buildSenshinRoleNames(reservationId?: string | null) {
+  const token = (reservationId || '').replace(/-/g, '').slice(0, 10) || 'senshin'
+  return { roleName: `r-${token}`, spectatorRoleName: `r-${token}-s` }
+}

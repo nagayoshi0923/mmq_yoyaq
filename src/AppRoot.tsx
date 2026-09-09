@@ -33,9 +33,12 @@ const SetPassword = lazyWithRetry(() =>
 const CompleteProfile = lazyWithRetry(() =>
   import('@/pages/CompleteProfile').then((m) => ({ default: m.CompleteProfile }))
 )
+const CouponClaim = lazyWithRetry(() => import('@/pages/CouponClaim').then(m => ({ default: m.CouponClaim })))
 const CouponPresent = lazyWithRetry(() =>
   import('@/pages/CouponPresent').then((m) => ({ default: m.CouponPresent }))
 )
+
+const RecruitmentResponse = lazyWithRetry(() => import('@/pages/RecruitmentResponse'))
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -129,6 +132,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'faq',
   'guide',
   'cancel-policy',
+  'recruitment-response',
   'stores',
   'company',
   'for-business',
@@ -290,6 +294,8 @@ function HashRedirect() {
   const navigate = useNavigate()
 
   React.useEffect(() => {
+    // 専用メールリンクのトークンをパスへ移さない（アクセスログに残さない）。
+    if (location.pathname === '/recruitment-response') return
     const hash = window.location.hash
     if (hash && hash.startsWith('#')) {
       // 認証トークンを含むハッシュは無視（Supabase が処理する）
@@ -361,7 +367,7 @@ function AppRoutes() {
     const isInvitePage = location.pathname.startsWith('/group/invite/')
     const isPartnerReportPage = location.pathname.startsWith('/partner-report/')
 
-    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
+    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -416,12 +422,20 @@ function AppRoutes() {
   // プロフィール設定ページ（新規登録メール確認後）
   // PKCE フローでは onAuthStateChange でセッションが非同期確立されるため、
   // CompleteProfile に判断を委ねる（LoginForm を表示しない）
+  if (location.pathname === '/recruitment-response') {
+    return <Suspense fallback={<FullPageSpinner />}><RecruitmentResponse /></Suspense>
+  }
+
   if (location.pathname === '/complete-profile') {
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />
       </Suspense>
     )
+  }
+
+  if (location.pathname === '/coupon-claim') {
+    return <Suspense fallback={<FullPageSpinner />}><CouponClaim /></Suspense>
   }
 
   // クーポンプレゼントページ（新規登録完了後）

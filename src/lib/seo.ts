@@ -192,7 +192,9 @@ export function stripSeoQuery(pathWithSearch: string): string {
   const [path, query] = pathWithSearch.split('?')
   if (!query) return path || '/'
   const params = new URLSearchParams(query)
-  params.delete('_v')
+  for (const key of [...params.keys()]) {
+    if (key === '_v' || key === '_gl' || key === 'gclid' || key === 'fbclid' || key.startsWith('utm_')) params.delete(key)
+  }
   const next = params.toString()
   return next ? `${path}?${next}` : (path || '/')
 }

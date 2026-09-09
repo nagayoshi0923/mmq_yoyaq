@@ -1,6 +1,7 @@
+import { recruitmentSettings } from './_lib/recruitmentSettings.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
-import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
+import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -213,6 +214,12 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(400).json({ error: 'type クエリパラメータが必要です' })
   }
   switch (type) {
+    case 'recruitment-settings':
+      return await recruitmentSettings(req, res, user)
+    case 'scenario-booking-cutoff':
+      return await handleScenarioBookingCutoff(req, res, user, false)
+    case 'booking-window':
+      return await handleBookingWindow(req, res, user)
     case 'my-schedule':
       return await handleMySchedule(req, res, user)
     case 'by-month':
@@ -235,6 +242,10 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const action = req.query.action as string | undefined
+  if (action === 'recruitment-settings') return await recruitmentSettings(req, res, user, true)
+  if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)
+  if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)
+  if (action === 'extend-recruitment') return await handleExtendRecruitment(req, res, user)
   if (action === 'toggle-cancel') return await handleToggleCancel(req, res, user)
   return await handleUpdate(req, res, user)
 }
@@ -1390,4 +1401,66 @@ async function handleRemoveDemoReservations(_req: VercelRequest, res: VercelResp
   }
   const deletedCount = Array.isArray(data) ? data.length : 0
   return res.status(200).json({ success: true, deletedCount })
+}
+
+// 公演ごとの募集期限。組織はリクエスト値ではなく認証済みプロフィールから取得する。
+async function handleExtendRecruitment(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  requireAdmin(user)
+  return res.status(409).json({ error: '追加募集はシナリオのゲーム設定で変更してください。公演ごとの期限変更はできません。' })
+}
+
+
+async function handleBookingWindow(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const id = req.query.id
+  if (typeof id !== 'string') return res.status(400).json({ error: '公演IDが必要です' })
+  const { data: event, error: eventError } = await db!.from('schedule_events').select('id')
+    .eq('id', id).eq('organization_id', user.orgId).maybeSingle()
+  if (eventError) return res.status(500).json({ error: '公演を確認できませんでした' })
+  if (!event) return res.status(404).json({ error: '公演が見つかりません' })
+  const { data, error } = await db!.rpc('get_performance_booking_window', { p_event_id: id })
+  if (error) return res.status(500).json({ error: '締切を取得できませんでした' })
+  res.setHeader('Cache-Control', 'no-store')
+  return res.status(200).json({ window: data?.[0] ?? null, can_edit: ['admin','license_admin'].includes(user.role) })
+}
+
+async function handleBookingCutoff(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  requireAdmin(user)
+  const id = req.query.id
+  const { minutes, expected_updated_at: expectedUpdatedAt } = req.body ?? {}
+  if (typeof id !== 'string' || (minutes !== null && (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440))
+    || typeof expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(expectedUpdatedAt))) {
+    return res.status(400).json({ error: '締切は0〜1440分、または標準設定を指定してください' })
+  }
+  const { data, error } = await db!.from('schedule_events')
+    .update({ booking_cutoff_minutes: minutes, updated_at: new Date().toISOString() })
+    .eq('id', id).eq('organization_id', user.orgId).eq('category', 'open').eq('is_cancelled', false)
+    .eq('updated_at', expectedUpdatedAt).select('id').maybeSingle()
+  if (error) return res.status(500).json({ error: '予約締切を保存できませんでした' })
+  if (!data) return res.status(409).json({ error: '公演が変更されています。再読込してください' })
+  return res.status(200).json({ success: true })
+}
+
+
+async function handleScenarioBookingCutoff(req: VercelRequest, res: VercelResponse, user: AuthUser, save: boolean) {
+  const id = req.query.id
+  if (typeof id !== 'string') return res.status(400).json({ error: 'シナリオIDが必要です' })
+  if (save) {
+    requireAdmin(user)
+    const { minutes, expected_updated_at: revision } = req.body ?? {}
+    if ((minutes !== null && (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440))
+      || typeof revision !== 'string' || !Number.isFinite(Date.parse(revision))) {
+      return res.status(400).json({ error: '締切は0〜1440分の整数を指定してください' })
+    }
+    const { data, error } = await db!.from('organization_scenarios')
+      .update({ booking_cutoff_minutes: minutes, updated_at: new Date().toISOString() })
+      .eq('scenario_master_id', id).eq('organization_id', user.orgId).eq('updated_at', revision).select('id').maybeSingle()
+    if (error) return res.status(500).json({ error: 'シナリオの予約締切を保存できませんでした' })
+    if (!data) return res.status(409).json({ error: 'シナリオが変更されています。再読込してください' })
+    return res.status(200).json({ success: true })
+  }
+  const { data, error } = await db!.from('organization_scenarios')
+    .select('booking_cutoff_minutes,updated_at').eq('scenario_master_id', id).eq('organization_id', user.orgId).maybeSingle()
+  if (error) return res.status(500).json({ error: 'シナリオの予約締切を読み込めませんでした' })
+  res.setHeader('Cache-Control', 'no-store')
+  return res.status(200).json({ setting: data, can_edit: ['admin','license_admin'].includes(user.role) })
 }

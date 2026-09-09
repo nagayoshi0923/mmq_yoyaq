@@ -1,3 +1,6 @@
+import { compensatedCancellation } from './_lib/compensatedCancellation.js'
+import { representativeCompensation } from './_lib/representativeCompensation.js'
+import { privateCouponClaims } from './_lib/privateCouponClaims.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
@@ -37,6 +40,9 @@ const CUSTOMER_COUPON_FIELDS = `
     max_uses_per_customer,
     target_type,
     target_ids,
+    murder_mystery_only,
+    coupon_expiry_months,
+    customer_terms,
     trigger_type,
     valid_from,
     valid_until,
@@ -45,7 +51,7 @@ const CUSTOMER_COUPON_FIELDS = `
 `
 
 const COUPON_CAMPAIGN_FIELDS =
-  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, is_active, created_at, updated_at'
+  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, coupon_expiry_months, murder_mystery_only, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, is_active, created_at, updated_at'
 
 const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   id,
@@ -128,6 +134,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const user = await requireAuth(req)
+    const claimAction = String(req.query.action ?? req.query.type ?? '')
+    if (req.method === 'POST' && ['preview-compensated-cancellation', 'confirm-compensated-cancellation'].includes(claimAction)) {
+      return await compensatedCancellation(req, res, user)
+    }
+    if ((req.method === 'GET' && ['representative-candidates', 'compensation-events'].includes(claimAction)) ||
+      (req.method === 'POST' && ['preview-representative-compensation', 'grant-representative-compensation', 'preview-event-compensation'].includes(claimAction))) {
+      return await representativeCompensation(req, res, user)
+    }
+    if ((req.method === 'GET' && claimAction === 'private-claim-candidates') ||
+      (req.method === 'POST' && ['create-private-claim-link', 'private-claim-info', 'claim-private-coupon'].includes(claimAction))) {
+      return await privateCouponClaims(req, res, user)
+    }
 
     if (req.method === 'GET') return handleGet(req, res, user)
     if (req.method === 'POST') return handlePost(req, res, user)
@@ -624,7 +642,7 @@ async function handleCurrentReservations(
     // 既に許可しているので、events 取得時の org フィルタも条件付きにする。
     let evQ = database
       .from('schedule_events')
-      .select('id, date, start_time, end_time, scenario, venue, organization_id, stores (name)')
+      .select('id, date, start_time, end_time, scenario, venue, organization_id, category, scenario_master_id, organization_scenario_id, scenario_id, stores (name)')
       .in('id', Array.from(eventIds))
     if (user.orgId) evQ = evQ.eq('organization_id', user.orgId)
     const { data: events } = await evQ
@@ -695,6 +713,8 @@ async function handleCurrentReservations(
     .map(({ id, event }) => ({
       id,
       scenario_title: event.scenario || '不明なシナリオ',
+      organization_id: event.organization_id,
+      murder_mystery_eligible: ['open', 'private'].includes(event.category) && !!(event.scenario_master_id || event.organization_scenario_id || event.scenario_id),
       store_name: event.stores?.name || event.venue || '不明な店舗',
       date: event.date,
       time: event.start_time.substring(0, 5),
@@ -1286,6 +1306,9 @@ async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: Au
     .insert(usageData)
 
   if (usageError) {
+    if (usageError.code === 'P0028') {
+      return res.status(400).json({ success: false, error: 'このクーポンはマーダーミステリーの通常公演・貸切のみで利用できます（ボードゲーム・箱開け会は対象外）' })
+    }
     console.error('[coupons:use] usage insert error:', usageError)
     if (usageError.code === '23503' && reservationId) {
       const { error: retryError } = await database

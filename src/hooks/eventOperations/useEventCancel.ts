@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/apiClient'
 /**
  * 公演の中止・復活操作（Phase 4-3 で useEventOperations から分割）
  *
@@ -16,6 +17,7 @@ import { useState, useCallback, useRef } from 'react'
 import { scheduleApi } from '@/lib/api'
 import {
   reservationApi,
+  markSenshinDiscordCancelled,
   RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
   joinedCustomerFromReservation,
 } from '@/lib/reservationApi'
@@ -256,12 +258,32 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       // 予約あり: 2ステップダイアログが中止の確定を兼ねる
       const composer = await buildCancelMailComposer(event, active)
       const decision = await askCancelDecision({
+        compensationEventId: /^[a-f0-9-]{36}$/i.test(event.id) ? event.id : undefined,
         count: active.length,
         customers: active.map(formatCustomerLabel),
         ...composer,
       })
       if (!decision) return
       const reason = decision.reason.trim() || DEFAULT_CANCELLATION_REASON
+      if (decision.compensationSnapshot) {
+        const oldSnapshot = organizationId ? await fetchEventSnapshot(event.id, organizationId) : null
+        const result = await apiClient.post<{notification_pending: boolean; reservation_ids: string[]}>('/api/coupons?action=confirm-compensated-cancellation', {
+          event_id: event.id, snapshot: decision.compensationSnapshot, reason, bodies: decision.bodies,
+          gm_cancellation_confirmed: true,
+        })
+        setEvents(prev => prev.map(e => e.id === event.id ? { ...e, is_cancelled: true, cancellation_reason: reason } : e))
+        for (const reservationId of result.reservation_ids) await markSenshinDiscordCancelled({ reservationId }).catch(() => undefined)
+        if (organizationId) {
+          const current = await fetchEventSnapshot(event.id, organizationId)
+          void createEventHistory(event.id, organizationId, 'cancel', oldSnapshot ?? {}, current ?? {}, {
+            date: event.date, storeId: event.venue, timeSlot: event.time_slot ?? null,
+          }).catch(() => undefined)
+        }
+        await fetchSchedule?.()
+        if (result.notification_pending) showToast.warning('中止と補償は確定しました。未送信または送信状況の確認が必要なメールがあります。メール履歴を確認してください。')
+        else showToast.success('公演を中止し、お詫びクーポンの案内を含むメールを送信しました')
+        return
+      }
       showToast.info(`${active.length}件の予約をキャンセルしています…`)
       await executeCancelPerformance(event, reason, decision.sendMail, decision.bodies)
       showToast.success(
@@ -272,7 +294,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       logger.error('公演中止エラー:', error)
       showToast.error(getSafeErrorMessage(error, '公演の中止処理に失敗しました'))
     }
-  }, [organizationId, askCancelDecision, executeCancelPerformance])
+  }, [organizationId, askCancelDecision, executeCancelPerformance, setEvents, fetchSchedule])
 
   // 公演をキャンセル解除
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {

@@ -214,9 +214,8 @@ async function executeDirectRead(plan: ReturnType<typeof createAiManagerDirectRe
       .select(plan.select)
     for (const filter of plan.filters) query = query.eq(filter.column, filter.value)
     const to = Math.min(from + plan.pageSize, plan.maxRows) - 1
-    const { data, error } = await query
-      .order(plan.orderBy)
-      .range(from, to)
+    for (const column of plan.orderBy) query = query.order(column)
+    const { data, error } = await query.range(from, to)
     if (error) {
       console.error('[ai-manager-gateway] direct read error:', {
         table: plan.table,
@@ -227,6 +226,9 @@ async function executeDirectRead(plan: ReturnType<typeof createAiManagerDirectRe
     const page = data ?? []
     rows.push(...page)
     if (page.length < plan.pageSize) break
+    if (rows.length >= plan.maxRows) {
+      throw new GatewayError(503, 'AI_MANAGER_DIRECT_READ_LIMIT', '取得上限に達したため、完全な担当情報を確認できません')
+    }
   }
   return rows
 }

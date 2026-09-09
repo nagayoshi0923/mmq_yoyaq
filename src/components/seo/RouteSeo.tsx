@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { trackPublicPage } from '@/lib/analytics'
 import { useLocation } from 'react-router-dom'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, STATIC_PUBLIC_META, shouldNoindexPath } from '@/lib/seo'
@@ -9,6 +11,7 @@ import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, STATIC_PUBLIC_META, shouldNoindexPa
 export function useRouteSeo(page: string) {
   const location = useLocation()
   const staticMeta = STATIC_PUBLIC_META[page]
+  useEffect(() => { trackPublicPage(location.pathname) }, [location.pathname])
   const noindex = shouldNoindexPath(page, location.pathname)
 
   usePageMeta({

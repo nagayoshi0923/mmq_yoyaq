@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
 import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistory.js'
+import { recordCancellationIntake } from './_lib/cancellation-payments/intake.js'
 import {
   canCustomerSelfCancel,
   resolveCancellationPolicy,
@@ -36,7 +37,7 @@ const CUSTOMER_SELECT_FIELDS =
 const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS = `${RESERVATION_SELECT_FIELDS}, customers(${CUSTOMER_SELECT_FIELDS})`
 
 const SCHEDULE_EVENT_EMBED_FOR_CANCEL =
-  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, gms, store_id)'
+  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, is_cancelled, gms, store_id)'
 
 const RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS = `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_CANCEL}`
 
@@ -820,7 +821,28 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   return res.status(200).json(data)
 }
 
+// Billing failure is reported separately: seat release must not be rolled back or repeated.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function recordBillingForCancellation(user: AuthUser, reservation: any, requestReceivedAt: string): Promise<boolean> {
+  if (!db || reservation.payment_method === 'staff') return false
+  try {
+    const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
+    await recordCancellationIntake(db, {
+      organizationId: reservation.organization_id, reservationId: reservation.id, reservation,
+      eventDate: event?.date ?? '', startTime: event?.start_time ?? '',
+      receivedAt: user.role === 'customer' ? requestReceivedAt : null,
+      processedAt: new Date().toISOString(), actorId: user.userId,
+      previouslyCancelled: reservation.status === 'cancelled', organizerCancelled: event?.is_cancelled === true,
+    })
+    return false
+  } catch {
+    console.warn('[reservations:cancel] fee intake requires operator review', { reservationId: reservation.id })
+    return true
+  }
+}
+
 async function handleCancelWithLock(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const requestReceivedAt = new Date().toISOString()
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
@@ -861,10 +883,12 @@ async function handleCancelWithLock(req: VercelRequest, res: VercelResponse, use
   if (data !== true) {
     return res.status(500).json({ error: '予約のキャンセルに失敗しました（DB 側で処理できませんでした）' })
   }
-  return res.status(200).json({ success: true })
+  const billingWarning = await recordBillingForCancellation(user, reservationForPolicy, requestReceivedAt)
+  return res.status(200).json({ success: true, billingWarning })
 }
 
 async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const requestReceivedAt = new Date().toISOString()
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
@@ -903,7 +927,8 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
   if (data !== true) {
     return res.status(500).json({ error: '予約+グループのキャンセルに失敗しました（DB 側）' })
   }
-  return res.status(200).json({ success: true })
+  const billingWarning = await recordBillingForCancellation(user, reservationForPolicy, requestReceivedAt)
+  return res.status(200).json({ success: true, billingWarning })
 }
 
 // cancel() の DB パートを一括で実行する複合エンドポイント。
@@ -920,6 +945,7 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
 // メール・Discord 通知系（Edge Function 呼び出し）はクライアント側に残す。
 // 戻り値で「次にクライアントが呼ぶべき Edge Function 呼び出しに必要な情報」を返す。
 async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const requestReceivedAt = new Date().toISOString()
   if (!db) return res.status(500).json({ error: 'db unavailable' })
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id が必要です' })
@@ -1152,8 +1178,11 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     console.warn('[reservations:cancel] organizations slug fetch error:', orgErr)
   }
 
+  const billingWarning = await recordBillingForCancellation(user, reservation, requestReceivedAt)
+
   return res.status(200).json({
     reservation: cancelled,
+    billingWarning,
     // クライアントが Edge Function 呼び出しに使う付加情報
     contextForNotifications: {
       reservation, // customers, schedule_events JOIN 込みの完全な予約

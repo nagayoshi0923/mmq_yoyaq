@@ -18,7 +18,7 @@ export type AiManagerDirectReadPlan = {
   table: 'staff_scenario_assignments' | 'gm_availability_responses'
   select: string
   filters: ReadonlyArray<Readonly<{ column: string; value: string }>>
-  orderBy: string
+  orderBy: readonly string[]
   pageSize: number
   maxRows: number
 }
@@ -28,6 +28,11 @@ const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
     id: 'schedule.read', method: 'GET', pathname: '/api/schedule', write: false, risk: 'low',
     allowedQueryKeys: ['type', 'start', 'end', 'include_cancelled'],
     requiredQuery: { type: 'by-date-range' },
+  }),
+  'reservations.cancellation.read': operation({
+    id: 'reservations.cancellation.read', method: 'GET', pathname: '/api/reservations', write: false, risk: 'medium',
+    allowedQueryKeys: ['type', 'schedule_event_id'],
+    requiredQuery: { type: 'by-schedule-event' },
   }),
   'sales.read': operation({
     id: 'sales.read', method: 'GET', pathname: '/api/sales', write: false, risk: 'low',
@@ -113,7 +118,7 @@ export function createAiManagerDirectReadPlan({
       table: 'staff_scenario_assignments',
       select: 'scenario_master_id, staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id,name)',
       filters: Object.freeze([{ column: 'organization_id', value: organizationId }]),
-      orderBy: 'staff_id',
+      orderBy: ['staff_id', 'scenario_master_id'],
       pageSize: 1_000,
       maxRows: 50_000,
     })
@@ -126,7 +131,7 @@ export function createAiManagerDirectReadPlan({
         { column: 'organization_id', value: organizationId },
         { column: 'reservation_id', value: cleanString(query.reservation_id) },
       ]),
-      orderBy: 'staff_id',
+      orderBy: ['staff_id'],
       pageSize: 500,
       maxRows: 500,
     })
@@ -191,6 +196,7 @@ export function validateAiManagerRequest({
     const value = cleanString(normalizedQuery[key])
     if (value && !isUuid(value)) errors.push(`QUERY_UUID_REQUIRED:${key}`)
   }
+  if (operationId === 'reservations.cancellation.read' && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cleanString(normalizedQuery.schedule_event_id))) errors.push('PERFORMANCE_ID_REQUIRED')
   if (operation.write && !cleanString(normalizedQuery.id)) errors.push('TARGET_ID_REQUIRED')
 
   if (operation.write) {
