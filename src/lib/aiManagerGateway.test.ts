@@ -68,3 +68,21 @@ describe('AI Manager gateway contract', () => {
     expect(result.errors).toEqual([])
   })
 })
+
+describe('cancellation reservation read boundary', () => {
+  const base = { operationId: 'reservations.cancellation.read', method: 'GET', allowedOperations: parseAllowedOperations('reservations.cancellation.read') }
+  const query = { type: 'by-schedule-event', schedule_event_id: '00000000-0000-4000-8000-000000000002' }
+  it('allows only one identified performance via the existing organization-scoped API', () => {
+    const result = validateAiManagerRequest({ ...base, query })
+    expect(result.errors).toEqual([])
+    expect(result.operation?.write).toBe(false)
+    expect(result.operation?.pathname).toBe('/api/reservations')
+  })
+  it('rejects unbounded queries, other query modes, array IDs and writes', () => {
+    for (const q of [{ type: 'by-schedule-event' }, { ...query, type: 'all' }, { ...query, schedule_event_id: [query.schedule_event_id] }, { ...query, organization_id: 'other' }]) {
+      expect(validateAiManagerRequest({ ...base, query: q }).errors.length).toBeGreaterThan(0)
+    }
+    expect(validateAiManagerRequest({ ...base, method: 'PATCH', query }).errors).toContain('METHOD_MISMATCH')
+    expect(validateAiManagerRequest({ ...base, query, allowedOperations: new Set() }).errors).toContain('OPERATION_NOT_ALLOWED')
+  })
+})
