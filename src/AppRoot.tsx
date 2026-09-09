@@ -33,9 +33,12 @@ const SetPassword = lazyWithRetry(() =>
 const CompleteProfile = lazyWithRetry(() =>
   import('@/pages/CompleteProfile').then((m) => ({ default: m.CompleteProfile }))
 )
+const CouponClaim = lazyWithRetry(() => import('@/pages/CouponClaim').then(m => ({ default: m.CouponClaim })))
 const CouponPresent = lazyWithRetry(() =>
   import('@/pages/CouponPresent').then((m) => ({ default: m.CouponPresent }))
 )
+
+const RecruitmentResponse = lazyWithRetry(() => import('@/pages/RecruitmentResponse'))
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -129,6 +132,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'faq',
   'guide',
   'cancel-policy',
+  'recruitment-response',
   'stores',
   'company',
   'for-business',
@@ -138,6 +142,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'blog',
   'org',
   'group',
+  'partner-report',
 ])
 
 /**
@@ -174,6 +179,7 @@ function shouldShowBookingShellWhileAuthPending(pathname: string): boolean {
   if (segs[0] === 'admin' || segs[0] === 'dev') return false
 
   if (segs[0] === 'scenario') return true
+  if (segs[0] === 'partner-report') return true
 
   if (segs.length === 1) {
     const s = segs[0]
@@ -288,6 +294,8 @@ function HashRedirect() {
   const navigate = useNavigate()
 
   React.useEffect(() => {
+    // 専用メールリンクのトークンをパスへ移さない（アクセスログに残さない）。
+    if (location.pathname === '/recruitment-response') return
     const hash = window.location.hash
     if (hash && hash.startsWith('#')) {
       // 認証トークンを含むハッシュは無視（Supabase が処理する）
@@ -357,8 +365,9 @@ function AppRoutes() {
     const isAuthPage = ['/signup', '/login', '/register', '/start', '/reset-password', '/set-password'].includes(location.pathname)
     // 招待リンクはゲスト向けのため、ログイン済みでもプロフィールゲート対象外
     const isInvitePage = location.pathname.startsWith('/group/invite/')
+    const isPartnerReportPage = location.pathname.startsWith('/partner-report/')
 
-    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage) {
+    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -402,7 +411,7 @@ function AppRoutes() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search, navigate, user?.id, user?.role])
+  }, [location.pathname, location.search, navigate, user])
 
   // クエリパラメータからトークンタイプを確認
   const searchParams = new URLSearchParams(location.search)
@@ -413,12 +422,20 @@ function AppRoutes() {
   // プロフィール設定ページ（新規登録メール確認後）
   // PKCE フローでは onAuthStateChange でセッションが非同期確立されるため、
   // CompleteProfile に判断を委ねる（LoginForm を表示しない）
+  if (location.pathname === '/recruitment-response') {
+    return <Suspense fallback={<FullPageSpinner />}><RecruitmentResponse /></Suspense>
+  }
+
   if (location.pathname === '/complete-profile') {
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />
       </Suspense>
     )
+  }
+
+  if (location.pathname === '/coupon-claim') {
+    return <Suspense fallback={<FullPageSpinner />}><CouponClaim /></Suspense>
   }
 
   // クーポンプレゼントページ（新規登録完了後）
@@ -521,7 +538,7 @@ function AppRoutes() {
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
   if (!user || (user && user.role === 'customer')) {
     if (isInitialized) {
-      // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+      // 管理ツールのページ（旧形式 /dashboard 等）への直アクセス
       const adminPaths = [
         '/dashboard',
         '/store-dashboard',
@@ -538,8 +555,14 @@ function AppRoutes() {
         '/settings',
       ]
       if (adminPaths.some((path) => location.pathname.startsWith(path))) {
-        const slug = getOrganizationSlugFromPath()
-        navigate(slug ? `/${slug}` : '/', { replace: true })
+        // 未ログインはログインへ（戻り先保持）。顧客は予約サイトへ。
+        if (!user) {
+          const redirect = encodeURIComponent(location.pathname + location.search)
+          navigate(`/login?redirect=${redirect}`, { replace: true })
+        } else {
+          const slug = getOrganizationSlugFromPath()
+          navigate(slug ? `/${slug}` : '/', { replace: true })
+        }
         return (
           <Suspense fallback={adminDashboardSuspenseFallback}>
             <AdminDashboard />

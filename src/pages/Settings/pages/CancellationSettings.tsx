@@ -630,6 +630,8 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         </div>
       </PageHeader>
 
+      <a className="underline" href="?tab=cancellation-billing">キャンセル料・振込先・freee入金確認を開く</a>
+
       {/* テンプレート適用バナー */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
         <div className="flex items-center justify-between">

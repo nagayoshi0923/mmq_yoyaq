@@ -14,6 +14,9 @@ import {
   Search, BookOpen
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { STATIC_PUBLIC_META, buildFaqJsonLd, MURDER_MYSTERY_FAQ } from '@/lib/seo'
 
 interface DemoEvent {
   time: string
@@ -551,9 +554,16 @@ function DemoListContent() {
 export function GuidePage() {
   const [activeTab, setActiveTab] = useState('lineup')
   const [privateMethod, setPrivateMethod] = useState<'scenario-direct' | 'scenario-group' | 'calendar'>('scenario-direct')
+  const meta = STATIC_PUBLIC_META.guide
+  usePageMeta({
+    title: meta.title,
+    description: meta.description,
+    canonicalPath: meta.path,
+  })
 
   return (
     <PublicLayout>
+      <JsonLd data={buildFaqJsonLd([...MURDER_MYSTERY_FAQ])} />
       {/* ヒーロー */}
       <section className="relative overflow-hidden py-10 md:py-14" style={{ backgroundColor: THEME.primary }}>
         <div className="absolute top-0 right-0 w-64 h-64 opacity-20" style={{ background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`, transform: 'translate(30%, -30%)' }} />
@@ -569,6 +579,16 @@ export function GuidePage() {
           </h1>
           <p className="text-base sm:text-lg text-white/90">かんたん4ステップで予約できます</p>
         </div>
+      </section>
+
+      <section className="max-w-3xl mx-auto px-4 pt-10 pb-2 md:pt-14">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3">マーダーミステリー（マダミス）とは</h2>
+        <p className="text-sm sm:text-base text-gray-600 leading-relaxed mb-3">
+          マーダーミステリー（通称マダミス）は、参加者が物語の登場人物になりきり、会話と推理で事件の真相を探る体験型ゲームです。同じ作品は原則一度きり。店舗の公演で、初めての方も楽しめます。
+        </p>
+        <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+          MMQでは全国の参加店舗の公演を検索し、作品名から探してそのまま予約できます。
+        </p>
       </section>
 
       {/* ===== Step 1 ===== */}

@@ -1,5 +1,5 @@
 -- 正規ソース: create_private_booking_request
--- 最終更新: 20260810010000_reject_private_booking_when_not_accepted.sql
+-- 最終更新: 20260909190000_restore_private_booking_acceptance_guard.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
 
 CREATE OR REPLACE FUNCTION create_private_booking_request(
@@ -230,9 +230,9 @@ BEGIN
     RAISE EXCEPTION 'Organization not found for scenario' USING ERRCODE = 'P0026';
   END IF;
 
-  -- 貸切受付可否（organization_scenarios 単位。表示制御だけでは抜け道が残るため RPC でも拒否する）
+  -- 貸切受付OFF / 出張限定（offsite_only）は顧客リクエストを拒否する
   SELECT
-    COALESCE(os.accepts_private_booking, TRUE),
+    COALESCE(os.accepts_private_booking, true),
     COALESCE(os.scenario_kind, 'regular')
   INTO
     v_accepts_private_booking,
@@ -248,16 +248,15 @@ BEGIN
     os.created_at
   LIMIT 1;
 
-  IF NOT FOUND
-     OR v_accepts_private_booking IS NOT TRUE
-     OR v_scenario_kind = 'offsite_only'
-  THEN
-    RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED'
-      USING ERRCODE = 'P0044';
+  IF FOUND AND (
+    v_accepts_private_booking IS FALSE
+    OR v_scenario_kind = 'offsite_only'
+  ) THEN
+    RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED' USING ERRCODE = 'P0044';
   END IF;
 
-  -- 参加人数の上限チェック
-  IF p_participant_count > 10 THEN
+  -- 参加人数の上限チェック（応急: 固定50。恒久策はシナリオ定員照合）
+  IF p_participant_count > 50 THEN
     RAISE EXCEPTION 'Participant count exceeds maximum' USING ERRCODE = 'P0025';
   END IF;
 

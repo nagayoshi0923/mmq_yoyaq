@@ -14,8 +14,7 @@ import { assignmentApi } from '@/lib/assignmentApi'
 import { ApiClientError } from '@/lib/apiClient'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 // scenarioApi は不要（organization_scenarios_with_master ビューを直接使用）
-import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
-import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 import { Loader2, Search, BookOpen, Users, Check, UserCircle } from 'lucide-react'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { EmptyState } from '@/components/patterns/list'
@@ -314,8 +313,7 @@ export function StaffProfile() {
 
       // 関連するキャッシュを無効化（即座に反映されるようにする）
       // refetchType:'all' で別画面（シナリオ側の担当GM表示など）も含めて再取得する
-      queryClient.invalidateQueries({ queryKey: staffKeys.all, refetchType: 'all' })
-      queryClient.invalidateQueries({ queryKey: scenarioKeys.all, refetchType: 'all' })
+      await invalidateAssignmentQueries(queryClient)
 
       setDecreaseGuard(null)
       showToast.success('保存しました')

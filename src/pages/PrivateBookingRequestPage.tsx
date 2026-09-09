@@ -104,7 +104,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       if (isUuidLike(scenarioId) && orgId) {
         foundScenario = await scenarioApi.getById(scenarioId, orgId).catch(() => null)
       }
-      if (!foundScenario) {
+      if (!foundScenario && !orgId && !organizationSlug) {
         const scenarios = await scenarioApi.getAll().catch(() => [])
         foundScenario = isUuidLike(scenarioId) ? scenarios.find((s: any) => s.id === scenarioId) : null
       }
@@ -238,6 +238,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         privateBookingTimeSlots: Array.isArray(scenario.private_booking_time_slots)
           ? scenario.private_booking_time_slots
           : undefined,
+        scenarioTitle: scenario.title,
       })
       const found = slots.find((s) => s.key === slotKey)
       if (cancelled) return

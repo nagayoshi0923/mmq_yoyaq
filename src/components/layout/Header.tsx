@@ -26,7 +26,8 @@ function getOrgSlugFromUrl(): string | null {
       'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation', 
-      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario']
+      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
+      'partner-report']
     if (!excludePaths.includes(match[1])) {
       return match[1]
     }
@@ -138,7 +139,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
       'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
       'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
-      'license-reports', 'customer-management']
+      'license-reports', 'customer-management', 'partner-report']
     const match = location.pathname.match(/^\/([^/]+)/)
     if (!match) return false
     return !adminSegments.includes(match[1])
@@ -156,7 +157,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
       'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
       'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
-      'license-reports', 'customer-management']
+      'license-reports', 'customer-management', 'partner-report']
     return exclude.includes(match[1]) ? null : match[1]
   }, [location.pathname])
   const themePreset = useOrgThemePreset(urlSlug)

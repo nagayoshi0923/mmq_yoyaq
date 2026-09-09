@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
+import { loadOverrideTemplates, pickOverrideTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
@@ -50,7 +51,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id')
+      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -109,8 +110,18 @@ serve(async (req) => {
     const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
     const companyPhone = storeEmailSettings?.company_phone || ''
     
-    // カスタムテンプレートの取得
-    const customTemplate = storeEmailSettings?.reservation_confirmation_template
+    // 公演上書き → 作品上書き → 店舗テンプレ
+    const overrides = await loadOverrideTemplates(serviceClient, {
+      organizationId: resolvedOrganizationId,
+      scheduleEventId: reservation.schedule_event_id,
+      scenarioMasterId: reservation.scenario_master_id,
+    })
+    const pickedTemplate = pickOverrideTemplate(
+      'reservation',
+      overrides,
+      storeEmailSettings?.reservation_confirmation_template,
+    )
+    const customTemplate = pickedTemplate.template
 
     // -------------------------------------------------------------------------
     // 冪等性: booking_email_queue に「1予約×1メール種別」で記録し、二重送信を防ぐ
@@ -362,7 +373,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       const appliedTemplate = applyTemplate(customTemplate)
       finalHtml = templateToHtml(appliedTemplate)
       finalText = appliedTemplate
-      console.log('📧 Using custom reservation confirmation template from email_settings')
+      console.log('📧 Using reservation confirmation template:', pickedTemplate.source)
     } else {
       // デフォルトのハードコードテンプレートを使用
       console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: bookingData.storeId, organizationId: resolvedOrganizationId, template: 'reservation_confirmation_template' })

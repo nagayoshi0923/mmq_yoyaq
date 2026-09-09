@@ -1,0 +1,16 @@
+import { test, expect } from '@playwright/test'
+test('公演ごとに対象者を確認し、キャンセル者を除いた人数分だけ配る', async ({ page }, testInfo) => {
+  await page.goto('/e2e/fixtures/compensation.html')
+  await page.getByRole('button', { name: '公演中止のお詫びクーポンを配る（通常公演）' }).click()
+  await page.getByLabel('1. 中止した公演を選ぶ').selectOption('event')
+  await page.getByRole('button', { name: '対象者を確認', exact: true }).click()
+  await expect(page.getByText('今回の対象：3名分・3枚')).toBeVisible()
+  await expect(page.getByText('公演中止前にキャンセル済み', { exact: true })).toBeVisible()
+  const grant = page.getByRole('button', { name: '対象者全員に配る（3名分）' })
+  await expect(grant).toBeDisabled()
+  await page.screenshot({ path: testInfo.outputPath('compensation.png'), fullPage: true })
+  await page.getByRole('checkbox').check()
+  await grant.click()
+  await expect(page.getByRole('status')).toContainText('3枚を付与しました')
+  await expect(page.getByText('付与済み', { exact: true })).toHaveCount(2)
+})

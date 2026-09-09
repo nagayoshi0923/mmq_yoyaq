@@ -142,6 +142,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
         if (organizationSlug) {
           const org = await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true })
           orgId = org?.id
+          if (!orgId) throw new Error('指定された運営組織を確認できません')
         }
 
         let rows: Scenario[] = []

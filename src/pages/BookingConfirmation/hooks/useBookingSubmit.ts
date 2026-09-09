@@ -1,3 +1,4 @@
+import { trackReservationComplete } from '@/lib/analytics'
 import { useState } from 'react'
 import { useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -161,7 +162,7 @@ export const checkDuplicateReservation = async (
       
       if (!sameTimeError && sameTimeReservations && sameTimeReservations.length > 0) {
         // 予約しようとしている公演の時間帯を計算
-        const targetStartTime = new Date(`${eventDate}T${startTime}`)
+        const targetStartTime = new Date(`${eventDate}T${startTime}+09:00`)
         // デフォルト公演時間: 180分（3時間）
         const DEFAULT_DURATION_MS = 180 * 60 * 1000
         const targetEndTime = new Date(targetStartTime.getTime() + DEFAULT_DURATION_MS)
@@ -284,14 +285,22 @@ const checkReservationLimits = async (
     }
 
     // 過去日付チェック（安全対策）
-    const eventDateTime = new Date(`${eventDate}T${startTime}`)
+    const eventDateTime = new Date(`${eventDate}T${startTime}+09:00`)
     const now = new Date()
     if (eventDateTime < now) {
       return { allowed: false, reason: 'この公演は既に開始されています' }
     }
 
+    // 追加募集の判断待ちと、開催決定後の通常受付をDBと同じ締切で判断する。
+    const { data: bookingWindows, error: bookingWindowError } = await supabase.rpc('get_performance_booking_window', { p_event_id: eventId })
+    if (bookingWindowError) return { allowed: false, reason: '予約締切を確認できません。再度お試しください。' }
+    const bookingDeadline = bookingWindows?.[0]?.effective_booking_deadline
+    if (bookingDeadline && now.getTime() >= new Date(bookingDeadline).getTime()) {
+      return { allowed: false, reason: '予約の受付期限を過ぎています' }
+    }
+
     // 予約締切チェック
-    if (eventData.reservation_deadline_hours !== null && eventData.reservation_deadline_hours !== undefined) {
+    if (!bookingDeadline && eventData.reservation_deadline_hours !== null && eventData.reservation_deadline_hours !== undefined) {
       const deadlineHours = eventData.reservation_deadline_hours
       const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
       
@@ -306,7 +315,7 @@ const checkReservationLimits = async (
     // 予約設定の制限チェック
     if (reservationSettings) {
       // 当日予約締切（時間前）
-      if (reservationSettings.same_day_booking_cutoff !== null && reservationSettings.same_day_booking_cutoff !== undefined) {
+      if (!bookingDeadline && reservationSettings.same_day_booking_cutoff !== null && reservationSettings.same_day_booking_cutoff !== undefined) {
         const todayYmd = now.toISOString().slice(0, 10)
         if (eventDate === todayYmd) {
           const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
@@ -323,7 +332,7 @@ const checkReservationLimits = async (
 
       // 事前予約日数制限
       if (reservationSettings.advance_booking_days) {
-        const eventDateTime = new Date(`${eventDate}T${startTime}`)
+        const eventDateTime = new Date(`${eventDate}T${startTime}+09:00`)
         const now = new Date()
         const daysUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         
@@ -595,6 +604,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         discountAmount: reservationData.discount_amount ?? 0
       })
       setSuccess(true)
+      // Analytics must never change a successfully created reservation's outcome.
+      try { trackReservationComplete(reservationData.id, props.organizationSlug) } catch { /* non-critical */ }
 
       // 予約完了後: トップページの残り席数が古い値を表示しないようキャッシュを無効化
       queryClient.invalidateQueries({ queryKey: ['booking-data'] })

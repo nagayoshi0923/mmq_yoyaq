@@ -18,6 +18,7 @@ import { useCustomerData } from './hooks/useCustomerData'
 import { useBookingForm } from './hooks/useBookingForm'
 import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingSubmit'
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
+import { BookingDeadlineNotice } from '@/components/BookingDeadlineNotice'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import type { CustomerCoupon } from '@/types'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -563,6 +564,7 @@ export function BookingConfirmation({
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           {/* 左側：予約内容 */}
           <div className="md:col-span-8 space-y-2">
+            <BookingDeadlineNotice eventId={eventId} />
             {/* 公演情報 */}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-1">公演情報</h3>

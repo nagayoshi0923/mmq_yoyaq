@@ -1,0 +1,35 @@
+User-agent: *
+Allow: /
+
+Disallow: /login
+Disallow: /signup
+Disallow: /mypage
+Disallow: /my-page
+Disallow: /reset-password
+Disallow: /set-password
+Disallow: /complete-profile
+Disallow: /group/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /dev/
+Disallow: /api/
+
+Disallow: /*/dashboard
+Disallow: /*/store-dashboard
+Disallow: /*/stores
+Disallow: /*/staff
+Disallow: /*/staff-profile
+Disallow: /*/scenarios
+Disallow: /*/schedule
+Disallow: /*/shift-submission
+Disallow: /*/gm-availability
+Disallow: /*/private-booking-management
+Disallow: /*/reservations
+Disallow: /*/accounts
+Disallow: /*/sales
+Disallow: /*/settings
+Disallow: /*/manual
+Disallow: /*/coupons
+Allow: /*/blog/
+
+Sitemap: https://mmq.game/sitemap.xml

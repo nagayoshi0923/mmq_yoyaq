@@ -38,6 +38,7 @@
 | DB変更 | `/db-change` |
 | push後確認項目 | `/smoke` |
 | ドメイン確認 | `/yoyaq-domain` |
+| Figmaを実寸どおり実装 | `/figma-dev-mode` |
 | Codex自動配送 | `yoyaq-auto-delivery` |
 
 ## 変更方針

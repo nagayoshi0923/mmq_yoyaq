@@ -1,0 +1,26 @@
+BEGIN;
+INSERT INTO organizations VALUES('10000000-0000-0000-0000-000000000001');
+INSERT INTO performance_recruitment_policies(organization_id,one_seat_enabled,customer_site_url,max_missing_participants) VALUES('10000000-0000-0000-0000-000000000001',true,'https://example.invalid',2);
+INSERT INTO scenario_masters VALUES('20000000-0000-0000-0000-000000000001',4,4);
+INSERT INTO schedule_events(id,organization_id,date,start_time,scenario,scenario_master_id) VALUES('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',((now()+interval '3 hours') AT TIME ZONE 'Asia/Tokyo')::date,((now()+interval '3 hours') AT TIME ZONE 'Asia/Tokyo')::time,'partial-test','20000000-0000-0000-0000-000000000001');
+INSERT INTO reservations(schedule_event_id,organization_id,participant_count,customer_email,total_price,final_price) SELECT id,organization_id,3,'fixture@example.invalid',12000,12000 FROM schedule_events;
+DO $$ DECLARE t uuid; result jsonb; retry jsonb; BEGIN
+ PERFORM check_performances_with_recruitment_deadlines_for_org('10000000-0000-0000-0000-000000000001');
+ SELECT response_token INTO t FROM performance_recruitment_notices WHERE kind='extension';
+ result:=respond_to_performance_recruitment_v2(t,true,1,'60000000-0000-4000-8000-000000000001',3);
+ ASSERT result->>'participant_count'='2', 'one of three withdraws';
+ ASSERT (SELECT participant_count=2 AND total_price=8000 AND final_price=8000 AND status='confirmed' FROM reservations), 'remaining reservation and amount retained';
+ retry:=respond_to_performance_recruitment_v2(t,true,1,'60000000-0000-4000-8000-000000000001',3);
+ ASSERT result=retry, 'same request replay returns saved result';
+ ASSERT (SELECT count(*)=1 FROM performance_recruitment_withdrawals), 'one ledger record';
+ ASSERT respond_to_performance_recruitment_v2(t,true,1,'60000000-0000-4000-8000-000000000002',3)->>'error'='PARTICIPANT_COUNT_CHANGED', 'stale count cannot double withdraw';
+ UPDATE reservations SET payment_status='paid';
+ ASSERT respond_to_performance_recruitment_v2(t,true,1,'60000000-0000-4000-8000-000000000002',2)->>'error'='PAYMENT_REVIEW_REQUIRED', 'future paid booking requires separate process';
+ UPDATE reservations SET payment_status='pending';
+ ASSERT respond_to_performance_recruitment_v2(t,true,2,'60000000-0000-4000-8000-000000000003',2)->>'status'='withdrawn', 'remaining two can withdraw';
+ ASSERT (SELECT status='cancelled' FROM reservations), 'whole booking now cancelled';
+ ASSERT (SELECT count(*)=2 FROM performance_recruitment_notices WHERE kind='withdrawn'), 'separate receipt for each withdrawal';
+ ASSERT (SELECT current_participants=0 AND NOT is_cancelled FROM schedule_events), 'promised deadline retained despite larger shortage';
+ ASSERT (SELECT bool_and(remaining_count IN (0,2)) FROM performance_recruitment_withdrawals), 'auditable counts';
+END $$;
+ROLLBACK;

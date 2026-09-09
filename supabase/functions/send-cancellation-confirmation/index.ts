@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
-import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, isCronOrServiceRoleCall, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface CancellationRequest {
@@ -50,18 +50,40 @@ serve(async (req) => {
     )
 
     // リクエストボディを取得
-    const cancellationData: CancellationRequest = await req.json()
+    let cancellationData: CancellationRequest = await req.json()
+    const { data: combinedNotice, error: combinedError } = await supabaseClient.from('compensated_cancellation_notices')
+      .select('payload,compensation_text,status').eq('reservation_id', cancellationData.reservationId).maybeSingle()
+    if (combinedError) return errorResponse('送信記録を確認できません', 500, corsHeaders)
+    if (combinedNotice) {
+      if (!isCronOrServiceRoleCall(req)) return errorResponse('サーバーからの送信が必要です', 403, corsHeaders)
+      if (combinedNotice.status === 'sent') return new Response(JSON.stringify({ success: true, skipped: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (combinedNotice.status !== 'pending') return errorResponse('送信状況の確認が必要です。再送は停止しています', 409, corsHeaders)
+      cancellationData = combinedNotice.payload
+      cancellationData.customEmailBody = `${cancellationData.customEmailBody}\n\n${combinedNotice.compensation_text}`
+    }
 
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, customer_id, organization_id')
+      .select('id, status, customer_email, customer_id, organization_id, schedule_events!reservations_schedule_event_id_fkey(is_cancelled,store_id)')
       .eq('id', cancellationData.reservationId)
       .single()
 
     if (reservationError || !reservation) {
       return errorResponse('予約が見つかりません', 404, corsHeaders)
     }
+    if (reservation.status !== 'cancelled') return errorResponse('キャンセル受付が完了していません', 409, corsHeaders)
+    const storedEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
+    // Operator action is not synonymous with organizer cancellation.
+    cancellationData.cancelledBy = storedEvent?.is_cancelled === true ? 'store' : 'customer'
+    cancellationData.storeId = storedEvent?.store_id ?? undefined
+    const { data: billingClaim, error: billingError } = await supabaseClient.from('cancellation_billing_claims')
+      .select('data').eq('organization_id', reservation.organization_id).eq('reservation_id', reservation.id).maybeSingle()
+    const feeAssessment = !billingError ? billingClaim?.data?.assessment : null
+    cancellationData.cancellationFee = feeAssessment && ['payable', 'free', 'waived'].includes(feeAssessment.status)
+      && Number.isSafeInteger(feeAssessment.amount) && feeAssessment.amount >= 0 ? feeAssessment.amount : undefined
+
+    if (storedEvent?.is_cancelled === true) cancellationData.cancellationFee = 0
 
     // スタッフ予約の場合、customer_emailがnullでも送信可能
     // customer_emailがある場合は一致チェックを行う
@@ -73,9 +95,24 @@ serve(async (req) => {
     if (!cancellationData.customerEmail) {
       return errorResponse('送信先メールアドレスが指定されていません', 400, corsHeaders)
     }
+    let registeredEmail = reservation.customer_email
+    if (!registeredEmail && reservation.customer_id) {
+      const { data: customer } = await supabaseClient.from('customers').select('email').eq('id', reservation.customer_id).maybeSingle()
+      registeredEmail = customer?.email
+    }
+    if (!registeredEmail || registeredEmail.toLowerCase() !== cancellationData.customerEmail.toLowerCase()) {
+      return errorResponse('予約に登録された送信先を確認できません', 403, corsHeaders)
+    }
 
     if (cancellationData.organizationId && reservation.organization_id && cancellationData.organizationId !== reservation.organization_id) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
+    }
+
+    // Staff handling of a company email must not generate a separate system reply.
+    // Missing/legacy intake routes stay pending until the original channel is confirmed.
+    if (storedEvent?.is_cancelled !== true && billingClaim?.data?.contact?.channel !== 'mmq') {
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'company_or_manual_reply_required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
     // 組織設定からメール設定を取得
@@ -321,7 +358,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{participant_count}/g, String(cancellationData.participantCount || ''))
         .replace(/{total_price}/g, (cancellationData.totalPrice || 0).toLocaleString())
         // キャンセル関連
-        .replace(/{cancellation_fee}/g, (cancellationData.cancellationFee || 0).toLocaleString())
+        .replace(/{cancellation_fee}/g, cancellationData.cancellationFee === undefined ? '確認中' : cancellationData.cancellationFee.toLocaleString())
         .replace(/{cancellation_reason}/g, cancellationData.cancellationReason || '')
         // 会社情報
         .replace(/{company_name}/g, companyName)
@@ -373,10 +410,30 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       finalText = emailText
     }
 
+    if (!isStoreCancellation) {
+      // Legacy/custom templates may claim zero fees or payment on a later visit.
+      // The customer receipt therefore uses the persisted assessment as its sole fee source.
+      const feeText = cancellationData.cancellationFee === undefined
+        ? 'キャンセル連絡は受け付けました。受付時刻・適用条件・免除の有無を確認し、料金をご案内します。現在は料金確認待ちです。'
+        : cancellationData.cancellationFee > 0
+          ? `キャンセル料：${cancellationData.cancellationFee.toLocaleString()}円\n${feeAssessment.reason}\nお支払いは銀行振込です。振込先・期限は別の料金案内でお知らせします。振込手数料はお客様のご負担となります。`
+          : `キャンセル料はかかりません。\n${feeAssessment.reason}`
+      finalText = `${cancellationData.customerName} 様\n\nご予約のキャンセルを承りました。\n予約番号：${cancellationData.reservationNumber}\n公演：${cancellationData.scenarioTitle}\n日時：${formatDate(cancellationData.eventDate)} ${formatTime(cancellationData.startTime)}\n\n${feeText}\n\n${companyName}\n${companyEmail}`
+      const escaped = finalText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      finalHtml = templateToHtml(escaped)
+    }
+
     // Resend APIを使ってメール送信
     const emailSubject = isStoreCancellation
       ? `【公演中止】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
       : `【予約キャンセル】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
+
+    if (combinedNotice) {
+      const { data: claimed, error: claimError } = await serviceClient.from('compensated_cancellation_notices')
+        .update({ status: 'sending', updated_at: new Date().toISOString() })
+        .eq('reservation_id', cancellationData.reservationId).eq('status', 'pending').select('reservation_id').maybeSingle()
+      if (claimError || !claimed) return errorResponse('送信処理中です。メール履歴を確認してください', 409, corsHeaders)
+    }
 
     const emailLogId = await insertEmailLog(serviceClient, {
       organization_id: resolvedOrganizationId ?? null,
@@ -419,6 +476,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         status: 'failed',
         error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
       })
+      if (combinedNotice) await serviceClient.from('compensated_cancellation_notices')
+        .update({ status: 'failed', updated_at: new Date().toISOString() }).eq('reservation_id', cancellationData.reservationId)
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
@@ -429,6 +488,9 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       provider_message_id: result.id,
       sent_at: new Date().toISOString(),
     })
+
+    if (combinedNotice) await serviceClient.from('compensated_cancellation_notices')
+      .update({ status: 'sent', updated_at: new Date().toISOString() }).eq('reservation_id', cancellationData.reservationId)
 
     // user_notifications にキャンセル通知を挿入（Service Role で RLS をバイパス）
     if (reservation.customer_id) {
@@ -485,4 +547,3 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     )
   }
 })
-

@@ -41,7 +41,7 @@ const SELECT_FIELDS = [
   'release_date', 'official_site_url', 'required_props',
   'participation_fee', 'gm_test_participation_fee', 'participation_costs',
   'flexible_pricing', 'use_flexible_pricing',
-  'license_amount', 'gm_test_license_amount',
+  'license_amount', 'gm_test_license_amount', 'is_license_buyout',
   'franchise_license_amount', 'franchise_gm_test_license_amount',
   'external_license_amount', 'external_gm_test_license_amount',
   'fc_receive_license_amount', 'fc_receive_gm_test_license_amount',
@@ -83,6 +83,7 @@ const PUBLIC_FIELDS = [
   'player_count_min', 'player_count_max', 'genre', 'release_date',
   'status', 'participation_fee', 'scenario_type', 'organization_id',
   'scenario_kind', 'accepts_private_booking',
+  'booking_start_date', 'booking_end_date', 'available_stores',
 ].join(', ')
 
 // 未ログイン顧客がシナリオ詳細ページで参照する公開フィールド。
@@ -618,6 +619,7 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     demoParticipants: number
     staffParticipants: number
     revenue: number
+    licenseCost: number
     startTime: string
     storeId: string | null
     isCancelled: boolean
@@ -639,16 +641,16 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     const eventRevenue = event.total_revenue ?? participants * fee
     const eventGmCost = event.gm_cost ?? (isGmTest ? gmTestGmReward : normalGmReward)
 
+    let licenseCost = event.license_cost ?? 0
+    if (licenseCost === 0) {
+      licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
+    }
+
     if (!isCancelled) {
       totalParticipants += participants
       totalStaffParticipants += staffCount
       totalRevenue += eventRevenue
       totalGmCost += eventGmCost
-
-      let licenseCost = event.license_cost ?? 0
-      if (licenseCost === 0) {
-        licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
-      }
       totalLicenseCost += licenseCost
 
       const venueCost = event.stores?.venue_cost_per_performance ?? 0
@@ -663,6 +665,7 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
       demoParticipants: demoCount,
       staffParticipants: staffCount,
       revenue: eventRevenue,
+      licenseCost: isCancelled ? 0 : licenseCost,
       startTime: event.start_time ?? '',
       storeId: event.store_id ?? null,
       isCancelled,
@@ -834,6 +837,7 @@ async function routePost(req: VercelRequest, res: VercelResponse, orgId: string)
     org_status: orgStatus,
     license_amount: (scenario.license_amount as number | null) ?? null,
     gm_test_license_amount: (scenario.gm_test_license_amount as number | null) ?? null,
+    is_license_buyout: scenario.is_license_buyout === true,
     franchise_license_amount: (scenario.franchise_license_amount as number | null) ?? null,
     franchise_gm_test_license_amount: (scenario.franchise_gm_test_license_amount as number | null) ?? null,
     gm_count: (scenario.gm_count as number | null) ?? null,
@@ -945,6 +949,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
   const directOrgColumns = [
     'slug', 'duration', 'participation_fee', 'gm_test_participation_fee',
     'extra_preparation_time', 'license_amount', 'gm_test_license_amount',
+    'is_license_buyout',
     'franchise_license_amount', 'franchise_gm_test_license_amount',
     'available_gms', 'experienced_staff', 'available_stores',
     'gm_costs', 'gm_count', 'gm_assignments',
@@ -952,7 +957,6 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
     'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing',
     'booking_start_date', 'booking_end_date', 'private_booking_time_slots',
     'kit_count',
-    'scenario_kind', 'accepts_private_booking',
   ] as const
   for (const col of directOrgColumns) {
     if (updates[col] !== undefined) {
@@ -970,7 +974,9 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, orgId: stri
   }
   for (const [scenarioCol, orgCol] of Object.entries(overrideMapping)) {
     if (updates[scenarioCol] !== undefined) {
-      orgScenarioData[orgCol] = updates[scenarioCol]
+      const value = updates[scenarioCol]
+      // 空文字を書くと COALESCE(override, master) がマスタータイトルを隠す
+      orgScenarioData[orgCol] = value === '' ? null : value
     }
   }
 

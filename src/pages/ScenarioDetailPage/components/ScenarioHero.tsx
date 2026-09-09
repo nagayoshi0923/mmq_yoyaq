@@ -19,7 +19,6 @@ import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
-import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -41,12 +40,19 @@ interface ScenarioHeroProps {
   events?: EventSchedule[]
   organizationSlug?: string
   stores?: Store[]
+  showPrivateBookingCta?: boolean
 }
 
 /**
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], organizationSlug, stores = [] }: ScenarioHeroProps) {
+export const ScenarioHero = memo(function ScenarioHero({
+  scenario,
+  events = [],
+  organizationSlug,
+  stores = [],
+  showPrivateBookingCta = true,
+}: ScenarioHeroProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -177,10 +183,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     toggleFavorite(scenario.scenario_master_id)
   }
 
-  const acceptsPrivateBooking = isScenarioAcceptingPrivateBooking(scenario)
-
   const handleCreateGroup = () => {
-    if (!acceptsPrivateBooking) return
     const params = new URLSearchParams()
     params.set('scenarioId', scenario.scenario_master_id)
     if (organizationSlug) params.set('org', organizationSlug)
@@ -374,7 +377,11 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
             {availableStoreNames.length > 0 && (
               <div className="flex items-start gap-1.5 text-xs text-white/70">
                 <Building2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                <span>{availableStoreNames.join('・')}</span>
+                <span>
+                  <span className="text-white/50">公演可能店舗</span>
+                  <span className="mx-1 text-white/40">:</span>
+                  {availableStoreNames.join('・')}
+                </span>
               </div>
             )}
 
@@ -417,7 +424,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 <Share2 className="w-3.5 h-3.5" />
                 シェア
               </button>
-              {acceptsPrivateBooking && (
+              {showPrivateBookingCta && (
                 <button
                   className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
                   onClick={handleCreateGroup}

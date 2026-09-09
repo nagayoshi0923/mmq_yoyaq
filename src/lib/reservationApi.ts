@@ -4,7 +4,45 @@ import { apiClient } from '@/lib/apiClient'
 import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES } from '@/lib/constants'
+import { isSenshinPrivateBooking } from '@/lib/senshinPrivateBooking'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
+
+/** 戦塵貸切の Discord チャンネル名に ⚠️ を付ける。失敗しても呼び出し元のキャンセルは成功とする */
+export async function markSenshinDiscordCancelled(input: {
+  reservationId: string
+  organizationId?: string | null
+  scenario_master_id?: string | null
+  scenario_title?: string | null
+}): Promise<void> {
+  try {
+    let masterId = input.scenario_master_id
+    let title = input.scenario_title
+    let orgId = input.organizationId ?? null
+    if (masterId == null && (title == null || title === '')) {
+      const { data } = await supabase
+        .from('reservations')
+        .select('organization_id, scenario_master_id, title')
+        .eq('id', input.reservationId)
+        .maybeSingle()
+      if (!data) return
+      masterId = data.scenario_master_id
+      title = data.title
+      orgId = orgId || data.organization_id
+    }
+    if (!isSenshinPrivateBooking({ scenario_master_id: masterId, scenario_title: title })) return
+    const { error } = await supabase.functions.invoke('provision-private-booking-discord', {
+      body: {
+        action: 'cancel',
+        reservationId: input.reservationId,
+        organizationId: orgId,
+      },
+    })
+    if (error) logger.error('戦塵Discordキャンセル処理エラー:', error)
+    else logger.log('戦塵Discordチャンネル名に⚠️を付与')
+  } catch (e) {
+    logger.error('戦塵Discordキャンセル処理エラー:', e)
+  }
+}
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const CUSTOMER_SELECT_FIELDS =
@@ -190,6 +228,7 @@ export const reservationApi = {
         cancellation_reason: reason ?? null,
       }
     )
+    await markSenshinDiscordCancelled({ reservationId })
     return true
   },
 
@@ -515,10 +554,8 @@ export const reservationApi = {
         // 却下フローなど、別経路で顧客連絡を行うケースはキャンセル確認メールを送らない
         // （DB キャンセル・在庫返却・キャンセル待ち通知は従来どおり実施する）。
         if (!options?.skipCancellationEmail) {
-          // キャンセル料金を計算（ここでは簡易実装: 24時間前以降は100%）
-          const eventDateTime = new Date(`${scheduleEvent?.date}T${scheduleEvent?.start_time}`)
-          const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-          const cancellationFee = hoursUntilEvent < 24 ? (reservation.total_price || 0) : 0
+          // 料金はサーバーに保存された受付時刻・予約ポリシーから解決する。
+          // ブラウザでは時刻や料金を再計算しない。
 
           // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
           const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
@@ -541,7 +578,6 @@ export const reservationApi = {
               // スタッフ起点の中止・削除は 'store'（公演中止文面・件名）。既定は顧客都合キャンセル。
               cancelledBy: options?.cancelledBy ?? 'customer',
               cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル',
-              cancellationFee,
               // 中止・削除フローのメール編集ダイアログで全文編集された本文（あれば優先）
               customEmailBody: options?.customEmailBody,
               idempotencyKey
@@ -652,6 +688,13 @@ export const reservationApi = {
         // 通知失敗してもキャンセル処理は成功とする
       }
     }
+
+    await markSenshinDiscordCancelled({
+      reservationId: reservation.id,
+      organizationId: reservation.organization_id || scheduleEventForGM?.organization_id,
+      scenario_master_id: reservation.scenario_master_id,
+      scenario_title: reservation.title || scheduleEventForGM?.scenario,
+    })
 
     return data as Reservation
   },

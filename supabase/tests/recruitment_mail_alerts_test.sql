@@ -1,0 +1,28 @@
+BEGIN;
+INSERT INTO organizations VALUES('11000000-0000-0000-0000-000000000001');
+INSERT INTO organization_settings VALUES('11000000-0000-0000-0000-000000000001','123456789012345678');
+INSERT INTO schedule_events(id,organization_id,date,start_time,scenario) VALUES('33000000-0000-0000-0000-000000000001','11000000-0000-0000-0000-000000000001',current_date,'23:59','fixture');
+INSERT INTO performance_recruitment_deadlines(schedule_event_id,organization_id,deadline,reason) SELECT id,organization_id,now()+interval '1 hour','fixture' FROM schedule_events;
+INSERT INTO reservations(id,schedule_event_id,organization_id,participant_count) SELECT '44000000-0000-0000-0000-000000000001',id,organization_id,2 FROM schedule_events;
+INSERT INTO performance_recruitment_notices(id,schedule_event_id,organization_id,reservation_id,customer_email,snapshot) SELECT '55000000-0000-0000-0000-000000000001',id,organization_id,'44000000-0000-0000-0000-000000000001','private@example.invalid','{"scenario":"fixture","date":"2026-09-08","start_time":"18:00"}' FROM schedule_events;
+DO $$ BEGIN
+ UPDATE performance_recruitment_notices SET status='failed',attempts=1;
+ ASSERT (SELECT first_failed_at IS NOT NULL FROM performance_recruitment_notices), '初回失敗を記憶';
+ ASSERT (SELECT count(*)=1 FROM discord_notification_queue WHERE notification_type='recruitment_mail_failed'), '初回失敗で即キュー登録';
+ UPDATE performance_recruitment_notices SET status='failed',attempts=2;
+ ASSERT (SELECT count(*)=1 FROM discord_notification_queue), '同じ失敗を繰り返し通知しない';
+ UPDATE performance_recruitment_notices SET status='sent';
+ UPDATE performance_recruitment_notices SET status='sent';
+ ASSERT (SELECT count(*)=1 FROM discord_notification_queue WHERE notification_type='recruitment_mail_recovered'), '復旧は1回';
+ ASSERT (SELECT bool_and(message_payload::text NOT LIKE '%private@example.invalid%') FROM discord_notification_queue), '顧客メールを載せない';
+ ASSERT (SELECT bool_and(webhook_url='https://discord.com/api/v10/channels/123456789012345678/messages') FROM discord_notification_queue), '開催中止と同じチャンネル';
+ UPDATE performance_recruitment_notices SET status='sending',attempts=10,lease_until=now()-interval '1 minute';
+ PERFORM recover_recruitment_mail_alerts();
+ PERFORM recover_recruitment_mail_alerts();
+ ASSERT (SELECT count(*)=1 FROM discord_notification_queue WHERE notification_type='recruitment_mail_exhausted'), '最終試行の通信断を回収し運営へ1回依頼';
+ ASSERT (SELECT message_payload->>'content' LIKE '%運営担当%' FROM discord_notification_queue WHERE notification_type='recruitment_mail_exhausted'), '運営担当へ引継ぎ';
+ UPDATE discord_notification_queue SET status='sending',updated_at=now()-interval '6 minutes';
+ PERFORM recover_recruitment_mail_alerts();
+ ASSERT (SELECT bool_and(status='pending') FROM discord_notification_queue), 'Discord処理の通信断は再送可能に戻す';
+END $$;
+ROLLBACK;

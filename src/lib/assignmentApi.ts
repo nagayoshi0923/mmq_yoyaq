@@ -66,11 +66,34 @@ export const assignmentApi = {
     )
   },
 
-  // 担当関係を追加（既存の体験済みレコードがあれば昇格）
-  async addAssignment(staffId: string, scenarioId: string, notes?: string, _organizationId?: string) {
+  // 担当関係を upsert（体験済み→GM 昇格、メイン/サブ更新）。client 直書き禁止。
+  async upsertAssignment(
+    staffId: string,
+    scenarioId: string,
+    flags?: {
+      notes?: string | null
+      can_main_gm?: boolean
+      can_sub_gm?: boolean
+      is_experienced?: boolean
+    },
+  ) {
+    const can_main_gm = flags?.can_main_gm ?? true
+    const can_sub_gm = flags?.can_sub_gm ?? true
+    const hasGm = can_main_gm || can_sub_gm
     return apiClient.post<AssignmentRow>('/api/assignments?action=upsert', {
       staff_id: staffId,
       scenario_master_id: scenarioId,
+      notes: flags?.notes ?? null,
+      can_main_gm,
+      can_sub_gm,
+      // DB制約: GM可と is_experienced は同時に true にできない
+      is_experienced: flags?.is_experienced ?? !hasGm,
+    })
+  },
+
+  // 担当関係を追加（既存の体験済みレコードがあれば昇格）
+  async addAssignment(staffId: string, scenarioId: string, notes?: string, _organizationId?: string) {
+    return this.upsertAssignment(staffId, scenarioId, {
       notes: notes ?? null,
       can_main_gm: true,
       can_sub_gm: true,

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from 'path'
+import { copyFileSync, unlinkSync } from 'node:fs'
 
 // 0.0.0.0 は LAN 公開に便利だが、OS によっては os.networkInterfaces() が失敗し Vite 起動が落ちる（uv_interface_addresses 等）
 const devHost = process.env.VITE_DEV_HOST === 'all' ? '0.0.0.0' : '127.0.0.1'
@@ -14,7 +15,16 @@ export default defineConfig(({ mode }) => ({
     drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
   plugins: [
-    react()
+    react(),
+    {
+      name: 'public-seo-shell',
+      closeBundle() {
+        copyFileSync('dist/index.html', 'dist/app.html')
+        // Vercel serves filesystem index.html before rewrites. The root route
+        // must reach the same server-rendered HTML as every public detail page.
+        if (process.env.VERCEL === '1') unlinkSync('dist/index.html')
+      },
+    }
   ],
   resolve: {
     alias: {

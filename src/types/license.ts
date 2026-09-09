@@ -89,6 +89,97 @@ export interface StoreScenarioLicenseContractOptions {
   }>
 }
 
+export interface LicensePartnerStore {
+  id: string
+  organization_id: string
+  name: string
+  discord_channel_id: string | null
+  report_token: string
+  is_active: boolean
+  notes: string | null
+  created_at: string
+  updated_at: string
+  contract_count?: number
+  last_submitted_at?: string | null
+  last_report_year?: number | null
+  last_report_month?: number | null
+  last_is_late?: boolean
+}
+
+export interface LicensePartnerContract {
+  id: string
+  organization_id: string
+  partner_store_id: string
+  scenario_master_id: string
+  license_amount: number | null
+  created_at: string
+  updated_at: string
+  scenario_title?: string
+  author?: string | null
+  default_license_amount?: number
+}
+
+export interface LicensePartnerStoreDetail extends LicensePartnerStore {
+  contracts: LicensePartnerContract[]
+}
+
+export interface LicensePartnerStoreInput {
+  name: string
+  discord_channel_id?: string | null
+  notes?: string | null
+  is_active?: boolean
+}
+
+export interface LicensePartnerContractInput {
+  scenario_master_id: string
+  license_amount?: number | null
+}
+
+export interface LicensePartnerManagedScenario {
+  id: string
+  title: string
+  author: string | null
+  license_amount: number
+}
+
+export interface PartnerStoreReportRow {
+  author: string
+  author_email: string | null
+  scenario_master_id: string
+  scenario_title: string
+  partner_store_id: string
+  partner_store_name: string
+  performance_count: number
+  license_amount: number
+  license_fee: number
+  submitted_at: string | null
+  is_late: boolean
+}
+
+export interface PartnerStoreLateReport {
+  year: number
+  month: number
+  author: string
+  scenario_master_id: string
+  scenario_title: string
+  partner_store_id: string
+  partner_store_name: string
+  performance_count: number
+  license_fee: number
+  submitted_at: string
+}
+
+export interface PartnerStoreReportResponse {
+  year: number
+  month: number | null
+  rows: PartnerStoreReportRow[]
+  late_reports: PartnerStoreLateReport[]
+  totals: {
+    performance_count: number
+    license_fee: number
+  }
+}
+
 export interface LicenseContractInput {
   store_id: string
   scenario_master_id: string

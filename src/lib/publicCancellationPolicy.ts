@@ -175,16 +175,15 @@ export async function fetchPublicCancellationPolicies({
     throw error
   }
 
-  return toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const policies = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  const response = await fetch(`/api/cancellation-billing?action=public-policy&organization=${encodeURIComponent(slug)}`)
+  if (!response.ok) throw new Error('最新のキャンセル料金案内を取得できません。店舗へお問い合わせください。')
+  const billing = await response.json() as { paymentPolicy?: string | null }
+  return policies.map(policy => billing.paymentPolicy ? { ...policy, refund_method_note: billing.paymentPolicy } : policy)
 }
 
 export function formatPolicyHours(hours: number): string {
   if (hours === 0) return '開演時刻'
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24)
-    const remainingHours = hours % 24
-    return remainingHours === 0 ? `${days}日前` : `${days}日${remainingHours}時間前`
-  }
   return `${hours}時間前`
 }
 
@@ -201,5 +200,5 @@ export function formatCancellationFeePeriod(
   if (fee.hours_before < 0) return '公演開始後・無断キャンセル'
   const start = `${formatPolicyHours(fee.hours_before)}から`
   if (!nextFee || nextFee.hours_before < 0) return `${start}開演時刻まで`
-  return `${start}${formatPolicyHours(nextFee.hours_before)}まで`
+  return `${start}${formatPolicyHours(nextFee.hours_before)}になるまで`
 }

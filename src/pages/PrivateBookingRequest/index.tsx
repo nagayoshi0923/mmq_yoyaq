@@ -36,6 +36,14 @@ import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcType
 import { toJstYmd } from '@/utils/jstDate'
 
 const MAX_TIME_SLOTS = 6
+const CANDIDATE_HORIZON_DAYS = 180
+
+/** YYYY-MM-DD の暦日加算（UTC 部品で計算するためローカルTZに依存しない） */
+function addCalendarDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + days))
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`
+}
 
 export function PrivateBookingRequest({
   scenarioTitle,
@@ -128,13 +136,12 @@ export function PrivateBookingRequest({
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
   const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug })
 
-  // 追加可能な日付の範囲（受付締切日数後から60日後まで）
+  // 追加可能な日付の範囲（受付締切日数後から候補取得と同じ 180 日ホライズンまで）
   const dateRange = useMemo(() => {
-    const fmtJst = (d: Date) =>
-      new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(d)
-    const today = new Date()
-    const minDate = fmtJst(new Date(today.getTime() + deadlineDays * 24 * 60 * 60 * 1000))
-    const maxDate = fmtJst(new Date(today.getTime() + Math.max(60, deadlineDays) * 24 * 60 * 60 * 1000))
+    const todayYmd = toJstYmd(new Date())
+    const minDate = addCalendarDaysYmd(todayYmd, deadlineDays)
+    const horizonMax = addCalendarDaysYmd(todayYmd, CANDIDATE_HORIZON_DAYS)
+    const maxDate = horizonMax >= minDate ? horizonMax : minDate
     return { minDate, maxDate }
   }, [deadlineDays])
 
@@ -235,6 +242,7 @@ export function PrivateBookingRequest({
       allStoreEvents: storeEvents,
       isCustomHoliday,
       privateBookingTimeSlots,
+      scenarioTitle,
     })
   }, [
     pickerDate,
@@ -243,6 +251,8 @@ export function PrivateBookingRequest({
     scenarioTiming,
     storeEvents,
     isCustomHoliday,
+    privateBookingTimeSlots,
+    scenarioTitle,
   ])
 
   const handleAddTimeSlot = () => {
@@ -259,6 +269,7 @@ export function PrivateBookingRequest({
       allStoreEvents: storeEvents,
       isCustomHoliday,
       privateBookingTimeSlots,
+      scenarioTitle,
     })
     const picked = daySlots.find((s) => s.label === newSlotLabel)
     if (!picked) {
@@ -335,6 +346,11 @@ export function PrivateBookingRequest({
       return
     }
 
+    if (editableTimeSlots.some((candidate) => candidate.date < dateRange.minDate)) {
+      setError(`候補日は本日より${deadlineDays}日後以降のみ選べます`)
+      return
+    }
+
     if (selectedStoreIds.length === 0) {
       setError('希望店舗を1店舗以上選択してください')
       return
@@ -375,6 +391,7 @@ export function PrivateBookingRequest({
           allStoreEvents: latestEvents,
           isCustomHoliday,
           privateBookingTimeSlots,
+          scenarioTitle,
         })
         return !latestSlots.some((slot) => slot.label === candidate.slot.label)
       })
