@@ -17,6 +17,7 @@ export type InternalLicensePerformance = {
  *
  * offsite は「Queen's Waltz が外部会場で公演した出張公演」を表すため対象。
  * 「特別出張公演」は外部団体を招いた公演の管理用登録であり、対象外とする。
+ * scenarioTitle にはマスタ正式名ではなく schedule_events.scenario（管理用接頭辞付き）を渡す。
  */
 export function isInternalLicenseReportablePerformance({
   category,

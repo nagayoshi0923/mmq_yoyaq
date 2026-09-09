@@ -586,7 +586,9 @@ async function handleScenarioPerformance(req: VercelRequest, res: VercelResponse
         licenseReportableOnly
         && !isInternalLicenseReportablePerformance({
           category: event.category,
-          scenarioTitle: scenarioInfo.title,
+          // 判定は管理用接頭辞を保持する schedule_events.scenario を使う。
+          // scenario_master_id 紐付け時の scenarioInfo.title はマスタ正式名で接頭辞が消える。
+          scenarioTitle: event.scenario,
         })
       ) return
 
