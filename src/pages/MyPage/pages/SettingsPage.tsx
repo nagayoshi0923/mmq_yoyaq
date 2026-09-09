@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +28,8 @@ import {
   MSG_CANNOT_CLEAR_REGISTERED_PHONE,
   hasNonEmptyCustomerPhone,
 } from '@/lib/customerPhonePolicy'
+import { invalidateEverywhere } from '@/lib/queryInvalidation'
+import { myPageKeys } from '../hooks/useMyPageDataQuery'
 
 type DialogType =
   | 'profile'
@@ -40,6 +43,7 @@ type DialogType =
 export function SettingsPage() {
   const { user, signOut } = useAuth()
   const { organizationId } = useOrganization()
+  const queryClient = useQueryClient()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [customerInfo, setCustomerInfo] = useState<any>(null)
@@ -154,8 +158,13 @@ export function SettingsPage() {
       } else if (user?.email) {
         query = query.eq('email', user.email)
       }
-      
-      const { data, error } = await query.maybeSingle()
+
+      // 同一 user_id の重複が残っていても表示・編集対象がぶれないよう最新1件に絞る (#382)
+      const { data, error } = await query
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: true }).order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle()
 
       if (error) throw error
 
@@ -249,6 +258,9 @@ export function SettingsPage() {
           .from('customers')
           .select('id')
           .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: true }).order('id', { ascending: true })
+          .limit(1)
           .maybeSingle()
         
         const { data: savedRows, error } = existingCust
@@ -292,6 +304,9 @@ export function SettingsPage() {
         showToast.success('プロフィールを作成しました')
       }
 
+      // マイページヘッダー等の表示名は mypage-data クエリ経由。グローバル既定が
+      // refetchOnMount:false のため refetchType:'all' で非アクティブ画面まで再取得させる (#382)
+      await invalidateEverywhere(queryClient, myPageKeys.data(user?.id ?? '', user?.email ?? ''))
       fetchCustomerInfo()
       setActiveDialog(null)
     } catch (error: any) {
