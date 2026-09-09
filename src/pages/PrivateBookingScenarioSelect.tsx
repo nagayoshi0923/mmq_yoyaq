@@ -15,7 +15,6 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
-import { supabase } from '@/lib/supabase'
 
 interface Scenario {
   id: string
@@ -147,16 +146,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
         let rows: Scenario[] = []
         if (orgId) {
-          const { data, error } = await supabase
-            .from('organization_scenarios_with_master')
-            .select(
-              'id, title, author, duration, player_count_min, player_count_max, key_visual_url, synopsis, genre, participation_fee, available_stores, booking_start_date, booking_end_date, status, scenario_kind, accepts_private_booking',
-            )
-            .eq('organization_id', orgId)
-            .eq('status', 'available')
-            .order('title', { ascending: true })
-          if (error) throw error
-          rows = (data || []) as Scenario[]
+          rows = await scenarioApi.getPublic(orgId) as Scenario[]
         } else {
           const data = await scenarioApi.getAll()
           rows = data.filter((s) => s.status === 'available') as Scenario[]
