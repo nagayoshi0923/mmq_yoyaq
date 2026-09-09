@@ -1,9 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_lib/db.js'
+import { STATIC_PUBLIC_META, ADMIN_PAGE_IDS } from '../src/lib/seo.js'
+import { buildPrice } from './_lib/publicScenario.js'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { renderSeoShell, escapeHtml, hasPublicStore } from './_lib/seoShell.js'
 
 const SITE_ORIGIN = 'https://mmq.game'
 
 const STATIC_PAGES: Record<string, { title: string; description: string; heading: string; body: string }> = {
+  ...Object.fromEntries(Object.values(STATIC_PUBLIC_META).map(meta => [meta.path.slice(1) || 'home', { ...meta, heading: meta.title.split(' | ')[0], body: meta.description }])),
   home: {
     title: 'マーダーミステリー（マダミス）公演予約 | MMQ',
     description: 'マーダーミステリー（マダミス）の公演検索・予約。全国の店舗から作品を探して、そのまま予約できます。',
@@ -28,233 +34,124 @@ const STATIC_PAGES: Record<string, { title: string; description: string; heading
     heading: '参加店舗一覧',
     body: 'MMQに参加しているマーダーミステリー店舗・団体の一覧です。',
   },
-  about: {
-    title: '運営会社 | MMQ',
-    description: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
-    heading: '運営会社',
-    body: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
-  },
-  company: {
-    title: '運営会社 | MMQ',
-    description: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
-    heading: '運営会社',
-    body: 'マーダーミステリー公演予約サービス MMQ の運営会社情報です。',
-  },
-  contact: {
-    title: 'お問い合わせ | MMQ',
-    description: 'MMQ（マーダーミステリー公演予約）へのお問い合わせはこちらから。',
-    heading: 'お問い合わせ',
-    body: 'MMQへのお問い合わせはこちらから。',
-  },
-  terms: {
-    title: '利用規約 | MMQ',
-    description: 'MMQ の利用規約です。',
-    heading: '利用規約',
-    body: 'MMQ の利用規約です。',
-  },
-  privacy: {
-    title: 'プライバシーポリシー | MMQ',
-    description: 'MMQ のプライバシーポリシーです。',
-    heading: 'プライバシーポリシー',
-    body: 'MMQ のプライバシーポリシーです。',
-  },
-  legal: {
-    title: '特定商取引法に基づく表記 | MMQ',
-    description: 'MMQ の特定商取引法に基づく表記です。',
-    heading: '特定商取引法に基づく表記',
-    body: 'MMQ の特定商取引法に基づく表記です。',
-  },
-  security: {
-    title: 'セキュリティ | MMQ',
-    description: 'MMQ のセキュリティに関する方針です。',
-    heading: 'セキュリティ',
-    body: 'MMQ のセキュリティに関する方針です。',
-  },
-  'cancel-policy': {
-    title: 'キャンセルポリシー | MMQ',
-    description: 'マーダーミステリー公演予約のキャンセル条件は店舗ごとに異なります。',
-    heading: 'キャンセルポリシー',
-    body: 'キャンセル条件は店舗ごとに異なります。最新のポリシーをご確認ください。',
-  },
-  'for-business': {
-    title: '店舗・団体向け | マーダーミステリー予約システム MMQ',
-    description: 'マーダーミステリー店舗向けの公演管理・オンライン予約システム MMQ のご案内です。',
-    heading: '店舗・団体向け',
-    body: 'マーダーミステリー店舗向けの公演管理・オンライン予約システム MMQ です。',
-  },
-  pricing: {
-    title: '料金 | MMQ',
-    description: 'MMQ の料金プランです。',
-    heading: '料金',
-    body: 'MMQ の料金プランです。',
-  },
-  'getting-started': {
-    title: '導入の流れ | MMQ',
-    description: 'マーダーミステリー店舗が MMQ を導入する流れです。',
-    heading: '導入の流れ',
-    body: 'マーダーミステリー店舗が MMQ を導入する流れです。',
-  },
-  scenario: {
-    title: 'シナリオを探す | マーダーミステリー予約 | MMQ',
-    description: 'MMQで遊べるマーダーミステリー作品の一覧です。全国の店舗から探せます。',
-    heading: 'シナリオを探す',
-    body: 'MMQで遊べるマーダーミステリー作品の一覧です。全国の店舗から探せます。',
-  },
 }
 
 function firstQuery(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) return value[0] ?? ''
-  return value ?? ''
+  return (Array.isArray(value) ? value[0] : value) ?? ''
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+const PRIVATE_ROUTES = new Set([...ADMIN_PAGE_IDS, 'login', 'signup', 'reset-password', 'set-password',
+  'complete-profile', 'coupon-present', 'coupon-claim', 'recruitment-response', 'register',
+  'start', 'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page',
+  'dashboard', 'admin', 'lp'])
 
-function htmlPage(input: {
-  title: string
-  description: string
-  canonicalPath: string
-  heading: string
-  body: string
-}): string {
-  const canonical = input.canonicalPath === '/' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}${input.canonicalPath}`
-  return `<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(input.title)}</title>
-  <meta name="description" content="${escapeHtml(input.description)}" />
-  <link rel="canonical" href="${escapeHtml(canonical)}" />
-  <meta property="og:title" content="${escapeHtml(input.title)}" />
-  <meta property="og:description" content="${escapeHtml(input.description)}" />
-  <meta property="og:url" content="${escapeHtml(canonical)}" />
-  <meta property="og:locale" content="ja_JP" />
-</head>
-<body>
-  <h1>${escapeHtml(input.heading)}</h1>
-  <p>${escapeHtml(input.body)}</p>
-  <p><a href="${escapeHtml(canonical)}">このページを開く</a></p>
-</body>
-</html>`
+// Vercel includes the exact Vite output, including hashed JS/CSS assets.
+let shell: string | undefined
+function getShell() {
+  return shell ??= readFileSync(resolve(process.cwd(), 'dist/app.html'), 'utf8')
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') {
-    res.status(405).end()
-    return
-  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') return res.status(405).end()
+  const kind = firstQuery(req.query.kind) || 'home'
+  const slug = firstQuery(req.query.slug)
+  const orgSlug = firstQuery(req.query.org)
+  const path = kind === 'home' ? '/' : kind === 'org' ? `/${slug}`
+    : kind === 'scenario' && slug ? `${orgSlug ? `/${orgSlug}` : ''}/scenario/${slug}`
+    : kind === 'blog' ? `/blog/${slug}` : `/${kind}`
 
-  const kind = firstQuery(req.query.kind as string | string[] | undefined) || 'home'
-  const slug = firstQuery(req.query.slug as string | string[] | undefined)
-
-  if (kind === 'scenario' && slug && db) {
-    const { data } = await db
-      .from('public_scenarios')
-      .select('title, description, author, slug')
-      .eq('slug', slug)
-      .limit(1)
-      .maybeSingle()
-    const title = (data as { title?: string } | null)?.title || slug
-    const description =
-      (data as { description?: string } | null)?.description
-      || `マーダーミステリー作品「${title}」の公演日程・予約。`
-    const page = htmlPage({
-      title: `${title} | マーダーミステリー公演予約 | MMQ`,
-      description,
-      canonicalPath: `/scenario/${slug}`,
-      heading: title,
-      body: description,
-    })
+  function send(title: string, description: string, body: string, status = 200, noindex = false) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
-    res.status(200).send(page)
-    return
+    res.setHeader('Cache-Control', status === 200 && !noindex
+      ? 'public, s-maxage=300, stale-while-revalidate=600' : 'no-store')
+    if (noindex) res.setHeader('X-Robots-Tag', 'noindex')
+    const html = renderSeoShell(getShell(), {title, description, canonical: SITE_ORIGIN + path, body, noindex})
+    return req.method === 'HEAD' ? res.status(status).end() : res.status(status).send(html)
   }
+  const unavailable = () => send('一時的に読み込めません | MMQ', '時間をおいて再度お試しください。',
+    '<h1>一時的に読み込めません</h1><p>時間をおいて再度お試しください。</p>', 503, true)
+  const missing = () => send('ページが見つかりません | MMQ', 'ページが見つかりません。',
+    '<h1>ページが見つかりません</h1><a href="/">公演を探す</a>', 404, true)
+  const list = (rows: Array<{slug: string; title: string}>, prefix = '/scenario/') =>
+    '<ul>' + rows.map(row => `<li><a href="${prefix}${encodeURIComponent(row.slug)}">${escapeHtml(row.title)}</a></li>`).join('') + '</ul>'
 
-  if ((kind === 'org' || kind === 'page') && slug && db) {
-    const { data: org } = await db
-      .from('organizations')
-      .select('name, slug, is_active')
-      .eq('slug', slug)
-      .eq('is_active', true)
-      .maybeSingle()
-    if (org?.name) {
-      const name = (org as { name: string }).name
-      const description = `${name}のマーダーミステリー公演を検索・予約できます。`
-      const page = htmlPage({
-        title: `${name} | マーダーミステリー予約 | MMQ`,
-        description,
-        canonicalPath: `/${slug}`,
-        heading: name,
-        body: description,
-      })
-      res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
-      res.status(200).send(page)
-      return
+  try {
+    if (kind === 'org' && PRIVATE_ROUTES.has(slug) && !STATIC_PAGES[slug]) {
+      return send('MMQ', 'マーダーミステリー公演予約', '', 200, true)
     }
-    const staticBySlug = STATIC_PAGES[slug]
-    if (staticBySlug) {
-      const page = htmlPage({
-        title: staticBySlug.title,
-        description: staticBySlug.description,
-        canonicalPath: `/${slug}`,
-        heading: staticBySlug.heading,
-        body: staticBySlug.body,
-      })
-      res.setHeader('Content-Type', 'text/html; charset=utf-8')
-      res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400')
-      res.status(200).send(page)
-      return
+    const staticPage = STATIC_PAGES[kind === 'org' ? slug : kind]
+    if (staticPage && !(kind === 'scenario' && slug)) {
+      let links = ''
+      if (['home', 'scenario', 'stores'].includes(kind === 'org' ? slug : kind)) {
+        if (!db) return unavailable()
+        const {data: rows, error} = await db.from('public_scenarios')
+          .select('title, slug').not('slug', 'is', null).order('title').limit(1000)
+        if (error) return unavailable()
+        const unique = [...new Map((rows ?? []).map(row => [row.slug, row])).values()]
+        links = '<h2>公開中の作品</h2>' + list(unique)
+      }
+      if (['home', 'stores'].includes(kind === 'org' ? slug : kind)) {
+        if (!db) return unavailable()
+        const {data: orgs, error} = await db.from('organizations')
+          .select('name, slug, stores(status, ownership_type)').eq('is_active', true).not('slug', 'is', null)
+        if (error) return unavailable()
+        const publicOrgs = (orgs ?? []).filter(org => hasPublicStore(org.stores))
+        const orgLinks = '<h2>公演を予約できる店舗・団体</h2>' + list(publicOrgs.map(org => ({slug:org.slug, title:org.name})), '/')
+        links = orgLinks + (kind === 'stores' || slug === 'stores' ? '' : links)
+      }
+      return send(staticPage.title, staticPage.description,
+        `<h1>${escapeHtml(staticPage.heading)}</h1><p>${escapeHtml(staticPage.body)}</p>${links}`)
     }
-    res.status(404).send('not found')
-    return
+    if (!db) return unavailable()
+    if (kind === 'scenario' && slug) {
+      let query = db.from('public_scenarios')
+        .select('title, description, author, slug, player_count_min, player_count_max, duration, participation_fee, participation_costs')
+        .eq('slug', slug)
+      if (orgSlug) {
+        const {data: org, error} = await db.from('organizations').select('id')
+          .eq('slug', orgSlug).eq('is_active', true).maybeSingle()
+        if (error) return unavailable()
+        if (!org) return missing()
+        query = query.eq('organization_id', org.id)
+      }
+      const {data, error} = await query.order('organization_id').limit(1).maybeSingle()
+      if (error) return unavailable()
+      if (!data) return missing()
+      const title = data.title || slug
+      const description = data.description || `マーダーミステリー作品「${title}」の公演日程・予約。`
+      const details = [data.author && `作者：${data.author}`,
+        data.player_count_min != null && `参加人数：${data.player_count_min}${data.player_count_max != null && data.player_count_max !== data.player_count_min ? '〜' + data.player_count_max : ''}人`,
+        data.duration != null && `所要時間：${data.duration}分`,
+        orgSlug && buildPrice(data.participation_costs, data.participation_fee).display && `料金：${buildPrice(data.participation_costs, data.participation_fee).display}`].filter(Boolean)
+      return send(`${title} | マーダーミステリー公演予約 | MMQ`, description.replace(/\s+/g, ' ').slice(0, 160),
+        `<h1>${escapeHtml(title)}</h1><p style="white-space:pre-line">${escapeHtml(description)}</p>` +
+        details.map(text => `<p>${escapeHtml(String(text))}</p>`).join('') +
+        '<p>公演日程・空席・料金は予約画面でご確認ください。</p>')
+    }
+    if (kind === 'org' && slug) {
+      const {data: org, error} = await db.from('organizations').select('id, name')
+        .eq('slug', slug).eq('is_active', true).maybeSingle()
+      if (error) return unavailable()
+      if (!org) return missing()
+      const {data: rows, error: listError} = await db.from('public_scenarios').select('title, slug')
+        .eq('organization_id', org.id).not('slug', 'is', null).order('title').limit(1000)
+      if (listError) return unavailable()
+      const description = `${org.name}のマーダーミステリー公演を検索・予約できます。`
+      return send(`${org.name} | マーダーミステリー予約 | MMQ`, description,
+        `<h1>${escapeHtml(org.name)}</h1><p>${escapeHtml(description)}</p><h2>公演作品</h2>` +
+        list(rows ?? [], `/${encodeURIComponent(slug)}/scenario/`))
+    }
+    if (kind === 'blog' && slug) {
+      const {data, error} = await db.from('blog_posts').select('title, excerpt, content')
+        .eq('slug', slug).eq('is_published', true).maybeSingle()
+      if (error) return unavailable()
+      if (!data) return missing()
+      return send(`${data.title} | MMQ`, data.excerpt || data.title,
+        `<h1>${escapeHtml(data.title)}</h1><div style="white-space:pre-line">${escapeHtml(data.content || data.excerpt || '')}</div>`)
+    }
+    return missing()
+  } catch {
+    // Never turn a data outage into a cacheable "not found" page.
+    return unavailable()
   }
-
-  if (kind === 'blog' && slug && db) {
-    const { data } = await db
-      .from('blog_posts')
-      .select('title, excerpt, content, slug')
-      .eq('slug', slug)
-      .eq('is_published', true)
-      .maybeSingle()
-    if (!data) {
-      res.status(404).send('not found')
-      return
-    }
-    const title = (data as { title: string }).title
-    const description =
-      (data as { excerpt?: string | null; content?: string | null }).excerpt
-      || (data as { content?: string | null }).content?.slice(0, 120)
-      || title
-    const page = htmlPage({
-      title: `${title} | MMQ`,
-      description,
-      canonicalPath: `/blog/${slug}`,
-      heading: title,
-      body: description,
-    })
-    res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.status(200).send(page)
-    return
-  }
-
-  const staticPage = STATIC_PAGES[kind] ?? STATIC_PAGES.home
-  const path = kind === 'home' ? '/' : `/${kind}`
-  const page = htmlPage({
-    title: staticPage.title,
-    description: staticPage.description,
-    canonicalPath: path,
-    heading: staticPage.heading,
-    body: staticPage.body,
-  })
-  res.setHeader('Content-Type', 'text/html; charset=utf-8')
-  res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400')
-  res.status(200).send(page)
 }
