@@ -1,3 +1,4 @@
+-- 既存の50人上限・本人照合・候補検証を保持して貸切OFFの拒否を復元する。
 -- 正規ソース: create_private_booking_request
 -- 最終更新: 20260909190000_restore_private_booking_acceptance_guard.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
