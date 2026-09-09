@@ -1,3 +1,14 @@
+-- Run with psql -v ON_ERROR_STOP=1; all fixtures are rolled back.
+BEGIN;
+CREATE TABLE public.qw_audit_private_fixture (id integer);
+CREATE TABLE public.qw_audit_host_fixture (id integer);
+REVOKE ALL ON public.qw_audit_private_fixture FROM anon;
+GRANT SELECT ON public.qw_audit_host_fixture TO anon;
+ALTER TABLE public.qw_audit_host_fixture ENABLE ROW LEVEL SECURITY;
+CREATE POLICY qw_public ON public.qw_audit_host_fixture FOR SELECT TO public USING (EXISTS (SELECT 1 FROM public.qw_audit_private_fixture));
+CREATE POLICY qw_authenticated ON public.qw_audit_host_fixture FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.qw_audit_private_fixture));
+CREATE POLICY qw_anon_all ON public.qw_audit_host_fixture FOR ALL TO anon USING (EXISTS (SELECT 1 FROM public.qw_audit_private_fixture));
+CREATE TEMP TABLE qw_audit_results AS
 -- anon が SELECT 可能なテーブルの RLS policy が、anon に GRANT のないテーブルを参照していると
 -- planner が permission denied (42501) を投げて PostgREST が 401 を返す時限爆弾になる。
 --
@@ -49,3 +60,10 @@ suspect_policies AS (
 SELECT host_table, polname, refs_anon_blocked
 FROM suspect_policies
 ORDER BY host_table, polname;
+
+DO $$ BEGIN
+  IF (SELECT array_agg(polname::text ORDER BY polname) FROM qw_audit_results WHERE host_table='qw_audit_host_fixture') IS DISTINCT FROM ARRAY['qw_anon_all','qw_public'] THEN
+    RAISE EXCEPTION 'audit must include anonymous SELECT/ALL policies and exclude authenticated-only policies';
+  END IF;
+END $$;
+ROLLBACK;
