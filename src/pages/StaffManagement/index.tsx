@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
+import { ApiClientError } from '@/lib/apiClient'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -245,12 +246,40 @@ export function StaffManagement() {
   const defaultStaffColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
   const [staffColumnPrefs, setStaffColumnPrefs] = useTablePreferences('staff-management', defaultStaffColumnKeys)
 
+  // 担当減少ガード（YOYAQ-011）: 409 を受けたときの確認情報と、承認時に再送する保存データ
+  const [decreaseGuard, setDecreaseGuard] = useState<{
+    staffData: Staff
+    isEdit: boolean
+    existingCount: number
+    incomingCount: number
+    removedNames: string[]
+  } | null>(null)
+
   // スタッフ保存ハンドラ
-  const handleSaveStaff = async (staffData: any) => {
+  const handleSaveStaff = async (staffData: any, confirmDecrease = false) => {
     try {
-      await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff })
+      await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff, confirmDecrease })
+      setDecreaseGuard(null)
       closeEditModal()
     } catch (err: any) {
+      // 🛡 担当が減る保存はサーバーが 409 で拒否する。確認ダイアログを出し、承認時のみ再送する。
+      if (
+        err instanceof ApiClientError &&
+        err.status === 409 &&
+        err.body?.error === 'ASSIGNMENT_DECREASE_REJECTED'
+      ) {
+        const b = err.body
+        setDecreaseGuard({
+          staffData: staffData as Staff,
+          isEdit: !!editingStaff,
+          existingCount: typeof b.existing_count === 'number' ? b.existing_count : 0,
+          incomingCount: typeof b.incoming_count === 'number' ? b.incoming_count : 0,
+          removedNames: Array.isArray(b.removed_scenario_names)
+            ? (b.removed_scenario_names as string[])
+            : [],
+        })
+        return
+      }
       showToast.error(getSafeErrorMessage(err, '保存に失敗しました'))
     }
   }
@@ -544,13 +573,17 @@ export function StaffManagement() {
 
         {/* スタッフ編集モーダル */}
         <Dialog open={isEditModalOpen} onOpenChange={(open) => !open && closeEditModal()}>
-          <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
-            <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
-              <DialogTitle>{editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}</DialogTitle>
-              <DialogDescription>
-                {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent
+            size="xl"
+            overlayClassName="scenario-edit-dialog-overlay"
+            className="scenario-edit-dialog-host [&>button]:hidden"
+          >
+            <DialogTitle className="sr-only">
+              {editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
+            </DialogDescription>
             <StaffEditForm
               staff={editingStaff}
               stores={stores}
@@ -573,6 +606,38 @@ export function StaffManagement() {
           variant="warning"
           confirmLabel="連携解除"
         />
+
+        {/* 担当減少ガードの確認ダイアログ（YOYAQ-011） */}
+        <ConfirmDialog
+          open={decreaseGuard !== null}
+          onOpenChange={(open) => {
+            if (!open) setDecreaseGuard(null)
+          }}
+          title="担当を減らして保存しますか？"
+          description={
+            decreaseGuard
+              ? `登録済みの担当が ${decreaseGuard.existingCount} 件から ${decreaseGuard.incomingCount} 件に減ります。この操作を行うと、外れる担当の記録は失われます。`
+              : undefined
+          }
+          confirmLabel="減らして保存する"
+          variant="destructive"
+          onConfirm={() => {
+            if (decreaseGuard) {
+              return handleSaveStaff(decreaseGuard.staffData, true)
+            }
+          }}
+        >
+          {decreaseGuard && decreaseGuard.removedNames.length > 0 && (
+            <div>
+              <p className="text-foreground">外れる担当</p>
+              <ul className="mt-1 list-disc pl-5 max-h-48 overflow-y-auto">
+                {decreaseGuard.removedNames.map((name, i) => (
+                  <li key={`${name}-${i}`}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </ConfirmDialog>
 
         {/* スタッフ招待モーダル */}
         <Dialog open={isInviteModalOpen} onOpenChange={closeInviteModal}>

@@ -17,7 +17,6 @@ import {
   Download,
   Loader2,
   Search,
-  MessageSquare
 } from 'lucide-react'
 import {
   DndContext,
@@ -201,12 +200,10 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
   }, [setFormData])
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
-          <ClipboardList className="h-3.5 w-3.5" />公演前アンケート
-        </p>
-        <p className="text-[11px] text-muted-foreground -mt-1">貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します</p>
+    <>
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">公演前アンケート</p>
+        <p className="scenario-edit-card__help">貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します</p>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <Switch
@@ -335,25 +332,22 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
         </div>
       </div>
 
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
-          <MessageSquare className="h-3.5 w-3.5" />個別お知らせ定型文
-        </p>
-        <p className="text-[11px] text-muted-foreground -mt-1">アンケート回答確認時に、メンバーへ個別お知らせを送る際に添付できる定型文です</p>
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">個別お知らせ定型文</p>
+        <p className="scenario-edit-card__help">アンケート回答確認時に、メンバーへ個別お知らせを送る際に添付できる定型文です</p>
         <Textarea
           value={formData.individual_notice_template || ''}
           onChange={(e) => setFormData(prev => ({ ...prev, individual_notice_template: e.target.value || null }))}
           placeholder="例: アンケートの回答ありがとうございます。以下の資料を公演前にご確認ください。"
           rows={3}
-          className="text-sm resize-none"
+          className="scenario-edit-card__textarea is-short"
         />
-        <p className={hintStyle}>資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。</p>
+        <p className="scenario-edit-card__note">資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。</p>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-        <p className="text-sm text-amber-800">
-          <span className="font-medium">💡 公演後アンケートについて</span>
-          <br />
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">公演後アンケートについて</p>
+        <p className="scenario-edit-card__help">
           公演後のアンケート（満足度調査など）は、設定 &gt; 組織情報 で組織全体に共通のURLを設定できます。
         </p>
       </div>
@@ -364,7 +358,7 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
         onImport={handleImportQuestions}
         currentScenarioMasterId={formData.scenario_master_id}
       />
-    </div>
+    </>
   )
 }
 

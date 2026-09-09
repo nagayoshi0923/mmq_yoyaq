@@ -1,0 +1,17 @@
+import { test, expect } from '@playwright/test'
+test('シナリオの追加募集設定を保存し、メールの案内例も読める', async ({ page }, testInfo) => {
+ await page.goto('/e2e/fixtures/recruitment-settings.html')
+ await expect(page.getByLabel('追加募集の対象')).toHaveValue('2')
+ await expect(page.getByLabel('追加募集の期限')).toHaveValue('90')
+ await expect(page.getByText(/14:00に判断し、不足2人以内なら16:30まで募集/)).toBeVisible()
+ await page.getByLabel('追加募集の期限').fill('60')
+ await page.getByRole('button', { name: '追加募集設定を保存' }).click()
+ await expect(page.getByRole('status')).toContainText('案内済みの期限は変更しません')
+ await expect(page.getByText(/14:00に判断し、不足2人以内なら17:00まで募集/)).toBeVisible()
+ await expect(page.getByRole('heading', { name: '追加募集メールのサンプル' })).toBeVisible()
+ await expect(page.getByText(/複数名のご予約は一部の方だけ/)).toBeVisible()
+ await page.screenshot({ path: testInfo.outputPath('desktop.png'), fullPage: true })
+ await page.setViewportSize({ width: 390, height: 844 })
+ await page.screenshot({ path: testInfo.outputPath('mobile.png'), fullPage: true })
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})

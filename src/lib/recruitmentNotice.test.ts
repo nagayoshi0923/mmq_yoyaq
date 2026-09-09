@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import { recruitmentNotice } from '../../supabase/functions/_shared/recruitment-notice'
+const snapshot = { scenario: '<script>test</script>', date: '2026-09-07', start_time: '19:00:00', store_name: '本店', deadline: '2026-09-07T08:30:00Z', was_confirmed: true, site_url: 'https://example.invalid/queens-waltz' }
+describe('追加募集の顧客案内', () => {
+  it('日本時間の90分前期限・判断待ちの無料辞退・確認操作を伝える', () => {
+    const notice = recruitmentNotice(snapshot, 'token')
+    expect(notice.text).toContain('17:30')
+    expect(notice.text).not.toContain('開演90分前')
+    expect(notice.text).toContain('一部の方だけ')
+    expect(notice.text).toContain('開催決定後にキャンセル')
+    expect(notice.text).toContain('開催判断待ちの間')
+    expect(notice.text).toContain('開くだけでは予約は変更されません')
+    expect(notice.text).toContain('https://example.invalid/recruitment-response#token')
+    expect(notice.html).not.toContain('<script>')
+  })
+  it('部分辞退の人数と残り予約を伝える', () => {
+    const notice = recruitmentNotice({ ...snapshot, withdrawn_count: 1, remaining_count: 2 }, 'token', 'withdrawn')
+    expect(notice.text).toContain('1名の参加取りやめ')
+    expect(notice.text).toContain('残り2名の予約は維持')
+  })
+  it('開催未決定でキャンセルがあったとは言わない', () => {
+    expect(recruitmentNotice({ ...snapshot, was_confirmed: false }, 'token').text).not.toContain('開催決定後にキャンセル')
+  })
+  it('あと2人の人数を通知し、既存の通知はあと1人として扱う', () => {
+    expect(recruitmentNotice({ ...snapshot, missing_participants: 2 }, 'token').text).toContain('あと2人')
+    expect(recruitmentNotice(snapshot, 'token').text).toContain('あと1人')
+  })
+  it('最終案内と辞退完了を区別する', () => {
+    expect(recruitmentNotice(snapshot, 'token', 'confirmed').text).toContain('開催が決定しました')
+    expect(recruitmentNotice(snapshot, 'token', 'cancelled').text).toContain('キャンセル料はかかりません')
+    expect(recruitmentNotice(snapshot, 'token', 'withdrawn').text).toContain('キャンセル料は0円')
+    expect(recruitmentNotice(snapshot, 'token', 'confirmed').text).not.toContain('recruitment-response')
+  })
+})

@@ -19,6 +19,8 @@ export interface CouponCampaign {
   valid_from?: string | null
   valid_until?: string | null
   coupon_expiry_days?: number | null
+  coupon_expiry_months?: number | null
+  murder_mystery_only?: boolean
   usage_valid_from?: string | null
   usage_valid_until?: string | null
   // 配布拡張

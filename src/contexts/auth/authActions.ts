@@ -11,6 +11,12 @@ import { getSignOutRedirectPath, logAuthEvent } from './authContextHelpers'
  * React フックは使わないため毎レンダーで新しい関数を返す（旧実装＝関数宣言と同じ）。
  * 挙動は AuthContext 内にあった頃と不変。
  */
+/** getSession() の応答を待つ上限（ミリ秒）。超えたらセッション無し扱いで先へ進む */
+const GET_SESSION_TIMEOUT_MS = 3000
+
+/** getSession() がタイムアウトしたことを示す番兵（セッション無しと同じ形） */
+const GET_SESSION_TIMED_OUT: { session: null } = { session: null }
+
 export interface AuthActionsDeps {
   userRef: MutableRefObject<AuthUser | null>
   broadcastChannelRef: MutableRefObject<BroadcastChannel | null>
@@ -34,8 +40,21 @@ export function createAuthActions(deps: AuthActionsDeps) {
     // グローバル loading は立てない（全アプリのスピナーでログインが重く見えるため）。
     // LoginForm の isSubmitting で十分。onAuthStateChange が user を流し込む。
     try {
-      // セッションが無いときは signOut をスキップし、往復を1回減らす
-      const { data: currentSession } = await supabase.auth.getSession()
+      // セッションが無いときは signOut をスキップし、往復を1回減らす。
+      // getSession() は navigator.locks の競合（他タブ／破損状態）で永遠に resolve しない
+      // ことがあるため、3秒で打ち切って「セッション無し扱い」で先へ進む。
+      let getSessionTimer: ReturnType<typeof setTimeout> | undefined
+      const currentSession = await Promise.race([
+        supabase.auth.getSession().then(result => result.data),
+        new Promise<{ session: null }>(resolve => {
+          getSessionTimer = setTimeout(() => resolve(GET_SESSION_TIMED_OUT), GET_SESSION_TIMEOUT_MS)
+        }),
+      ]).finally(() => {
+        if (getSessionTimer !== undefined) clearTimeout(getSessionTimer)
+      })
+      if (currentSession === GET_SESSION_TIMED_OUT) {
+        logger.warn('⚠️ getSession が3秒応答せずスキップ（ロック競合の疑い）')
+      }
       if (currentSession.session) {
         authTrace('🔄 既存セッションを検出、クリアします')
         await supabase.auth.signOut({ scope: 'local' })

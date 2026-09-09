@@ -121,8 +121,8 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
   return (
     <div className="space-y-3">
       {/* ── プレイ情報 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Gamepad2 className="h-3.5 w-3.5" />プレイ情報
         </p>
 
@@ -225,14 +225,15 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       </div>
 
       {/* ── カテゴリ・ステータス ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Tag className="h-3.5 w-3.5" />カテゴリ・ステータス
         </p>
 
+        <div className="flex flex-col gap-2">
         <div className="flex items-start gap-3">
           <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right pt-1.5">カテゴリ</span>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <MultiSelect options={allGenreOptions} selectedValues={formData.genre || []}
               onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
               placeholder="カテゴリを選択" showBadges={true} emptyText="カテゴリが見つかりません"
@@ -252,6 +253,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               </SelectContent>
             </Select>
           </div>
+        </div>
         </div>
       </div>
 

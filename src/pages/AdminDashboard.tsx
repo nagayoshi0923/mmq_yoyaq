@@ -4,12 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { AdminOnlyNotice } from '@/components/layout/AdminOnlyNotice'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { usePrefetch } from '@/hooks/usePrefetch'
+import { useRouteSeo } from '@/components/seo/RouteSeo'
+import { isPublicStoresPath } from '@/lib/seo'
 import { 
   Store, 
   Calendar, 
@@ -48,6 +51,7 @@ const AddDemoParticipants = lazyWithRetry(() => import('./AddDemoParticipants').
 const ScenarioMatcher = lazyWithRetry(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
 const ManualPage = lazyWithRetry(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazyWithRetry(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
+const StoreDashboard = lazyWithRetry(() => import('./StoreDashboard').then(m => ({ default: m.StoreDashboard })))
 const StaffProfile = lazyWithRetry(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
 const OrganizationManagement = lazyWithRetry(() => import('./OrganizationManagement'))
 const ExternalReports = lazyWithRetry(() => import('./ExternalReports'))
@@ -65,6 +69,7 @@ const AuthorDashboard = lazyWithRetry(() => import('./AuthorDashboard'))
 const AuthorLogin = lazyWithRetry(() => import('./AuthorLogin'))
 const ExternalReportForm = lazyWithRetry(() => import('./ExternalReportForm'))
 const RentalReportForm = lazyWithRetry(() => import('./RentalReportForm').then(m => ({ default: m.RentalReportForm })))
+const LicensePartnerReportForm = lazyWithRetry(() => import('./LicensePartnerReportForm'))
 const PlatformScenarioSearch = lazyWithRetry(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
 const PlatformTop = lazyWithRetry(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
 const DesignPreview = lazyWithRetry(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
@@ -108,7 +113,7 @@ const GettingStartedPage = lazyWithRetry(() => import('./static').then(m => ({ d
 
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
-  'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
+  'dashboard', 'store-dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
   'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
@@ -165,6 +170,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /group/invite/{code} - 貸切グループ招待
   if (segments[0] === 'group' && segments[1] === 'invite' && segments[2]) {
     return { page: 'group-invite', scenarioId: segments[2], organizationSlug: null }
+  }
+
+  // /partner-report/{token} - 契約店舗の月次報告フォーム
+  if (segments[0] === 'partner-report' && segments[1]) {
+    return { page: 'partner-report', scenarioId: segments[1], organizationSlug: null }
   }
   
   // /group/manage/{id} - 貸切グループ管理
@@ -286,6 +296,7 @@ export function AdminDashboard() {
 
   // パスを解析（毎回解析することでURLと表示を同期）
   const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
+  useRouteSeo(currentPage)
 
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
   const organizationSlug = pathOrganizationSlug || organization?.slug || ''
@@ -323,12 +334,23 @@ export function AdminDashboard() {
       return
     }
     
-    // 顧客/ログアウト状態で管理ページにいる場合は予約サイトにリダイレクト
-    if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
-      navigate(`/${defaultOrg}`, { replace: true })
+    // 顧客/ログアウト状態で管理ページにいる場合は追い出す
+    // 未ログイン → ログインへ（戻り先を保持）。顧客 → 予約サイトへ。
+    // `/stores` は公開の参加店舗一覧なので対象外。
+    if (
+      isCustomerOrLoggedOut
+      && ADMIN_PATHS.includes(currentPage)
+      && !isPublicStoresPath(currentPage, location.pathname)
+    ) {
+      if (!user) {
+        const redirect = encodeURIComponent(location.pathname + location.search)
+        navigate(`/login?redirect=${redirect}`, { replace: true })
+      } else {
+        navigate(defaultOrg ? `/${defaultOrg}` : '/', { replace: true })
+      }
       return
     }
-  }, [user, currentPage, isInitialized, loading, location.pathname, navigate, organization?.slug])
+  }, [user, currentPage, isInitialized, loading, location.pathname, location.search, navigate, organization?.slug, isCustomer])
 
   // ページ変更ハンドラ（組織スラッグ付き）
   const handlePageChange = useCallback((pageId: string) => {
@@ -379,6 +401,16 @@ export function AdminDashboard() {
       </Suspense>
     )
   }
+
+  if (currentPage === 'store-dashboard') {
+    return (
+      <AppLayout currentPage="store-dashboard" containerPadding="p-0">
+        <Suspense fallback={<LoadingScreen message="店舗ダッシュボードを読み込み中..." />}>
+          <StoreDashboard />
+        </Suspense>
+      </AppLayout>
+    )
+  }
   
   if (currentPage === 'scenarios') {
     return (
@@ -395,6 +427,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'staff') {
     // スタッフ管理（招待・アカウント紐付け・権限変更）は管理者(admin/license_admin)専用
+    // 認証確定前に !isAdmin で弾かない（正規管理者まで弾いていた問題の再発防止）
+    if (!isInitialized || loading) {
+      return <LoadingScreen message="権限を確認中..." />
+    }
     if (!isAdmin) {
       return <AdminOnlyNotice currentPage="staff" />
     }
@@ -407,6 +443,9 @@ export function AdminDashboard() {
   
   if (currentPage === 'sales') {
     // 売上（集計・粗利・給与）は管理者(admin/license_admin)専用
+    if (!isInitialized || loading) {
+      return <LoadingScreen message="権限を確認中..." />
+    }
     if (!isAdmin) {
       return <AdminOnlyNotice currentPage="sales" />
     }
@@ -464,6 +503,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <RentalReportForm organizationSlug={organizationSlug} />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'partner-report' && currentScenarioId) {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <LicensePartnerReportForm token={currentScenarioId} />
       </Suspense>
     )
   }
@@ -618,6 +665,9 @@ export function AdminDashboard() {
 
   if (currentPage === 'settings') {
     // 設定（組織・給与・メール・データ管理等）は管理者(admin/license_admin)専用
+    if (!isInitialized || loading) {
+      return <LoadingScreen message="権限を確認中..." />
+    }
     if (!isAdmin) {
       return <AdminOnlyNotice currentPage="settings" />
     }
@@ -905,9 +955,11 @@ export function AdminDashboard() {
 
   if (currentPage === 'add-demo-participants') {
     return (
-      <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
-        <AddDemoParticipants />
-      </Suspense>
+      <AppLayout currentPage="add-demo-participants">
+        <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
+          <AddDemoParticipants />
+        </Suspense>
+      </AppLayout>
     )
   }
 
@@ -1001,12 +1053,9 @@ export function AdminDashboard() {
     )
   }
 
-  // ナビゲーション表示判定
-  const shouldShowNavigation = isStaff
-
   // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
   const isStaffOrAdmin = isStaff
-  const knownPages = ['dashboard', 'report-form', 'rental-report']
+  const knownPages = ['dashboard', 'report-form', 'rental-report', 'partner-report']
   if (!isStaffOrAdmin && !knownPages.includes(currentPage)) {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
@@ -1016,25 +1065,18 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      <Header onPageChange={handlePageChange} />
-      <div className="flex flex-1 min-h-0">
-        {shouldShowNavigation && <AdminSidebar />}
-        <main data-scroll-container className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-          <div className="max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-            <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
-              {currentPage === 'dashboard' ? (
-                <DashboardHome onPageChange={handlePageChange} />
-              ) : currentPage === 'report-form' ? (
-                <ExternalReportForm />
-              ) : (
-                <DashboardHome onPageChange={handlePageChange} />
-              )}
-            </Suspense>
-          </div>
-        </main>
+    <AppLayout currentPage={currentPage} containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+      <div className="max-w-[1440px] mx-auto">
+        <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
+          {currentPage === 'dashboard' ? (
+            <DashboardHome onPageChange={handlePageChange} />
+          ) : currentPage === 'report-form' ? (
+            <ExternalReportForm />
+          ) : (
+            <DashboardHome onPageChange={handlePageChange} />
+          )}
+        </Suspense>
       </div>
-    </div>
+    </AppLayout>
   )
 }
-

@@ -28,6 +28,7 @@ import {
 import { authorApi } from '@/lib/api/authorApi'
 import type { AuthorPerformanceReport, AuthorSummary } from '@/types'
 import { AuthorReportList } from './components/AuthorReportList'
+import { AuthorPartnerStoreReports } from './components/AuthorPartnerStoreReports'
 
 export default function AuthorDashboard() {
   const [email, setEmail] = useState<string | null>(null)
@@ -123,6 +124,10 @@ export default function AuthorDashboard() {
           <TabsTrigger value="reports" className="gap-2">
             <FileText className="h-4 w-4" />
             公演報告
+          </TabsTrigger>
+          <TabsTrigger value="partner-stores" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            店舗別
           </TabsTrigger>
           <TabsTrigger value="scenarios" className="gap-2">
             <BookOpen className="h-4 w-4" />
@@ -232,6 +237,10 @@ export default function AuthorDashboard() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="partner-stores">
+          <AuthorPartnerStoreReports />
         </TabsContent>
 
         {/* シナリオタブ */}

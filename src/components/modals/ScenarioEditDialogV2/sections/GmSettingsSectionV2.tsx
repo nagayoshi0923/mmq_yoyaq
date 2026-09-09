@@ -112,8 +112,8 @@ export function GmSettingsSectionV2({
   return (
     <div className="space-y-4">
       {/* ── GM設定 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Users className="h-3.5 w-3.5" />GM設定
         </p>
         <div className="flex items-center gap-3">
@@ -128,8 +128,8 @@ export function GmSettingsSectionV2({
       </div>
 
       {/* ── 担当GM ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Users className="h-3.5 w-3.5" />担当GM
         </p>
           {loadingStaff ? (
@@ -200,8 +200,8 @@ export function GmSettingsSectionV2({
       </div>
 
       {/* ── GM報酬 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Award className="h-3.5 w-3.5" />GM報酬
         </p>
           

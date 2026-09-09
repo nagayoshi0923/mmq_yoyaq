@@ -42,9 +42,11 @@ export function getOrganizationSlugFromPath(): string | null {
       'faq',
       'guide',
       'cancel-policy',
+      'recruitment-response',
       'company',
       'about',
       'blog',
+      'partner-report',
     ]
     if (!adminPaths.includes(match[1])) {
       return match[1]

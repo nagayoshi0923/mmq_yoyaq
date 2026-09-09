@@ -1,0 +1,2 @@
+CREATE TABLE organization_settings(organization_id uuid PRIMARY KEY,discord_business_channel_id text);
+CREATE TABLE discord_notification_queue(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid,webhook_url text,message_payload jsonb,notification_type text,reference_id uuid,dedupe_key text,max_retries integer,next_retry_at timestamptz,status text DEFAULT 'pending',updated_at timestamptz DEFAULT now(),UNIQUE(organization_id,notification_type,reference_id,webhook_url),UNIQUE(organization_id,notification_type,dedupe_key));

@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase'
 import { reservationApi } from '@/lib/reservationApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { logger } from '@/utils/logger'
+import {
+  canCustomerSelfCancel,
+  resolveCancellationPolicy,
+  resolveCustomerCancelDeadlineHours,
+  type CalculableCancellationPolicy,
+} from '@/lib/cancellationPolicy'
+import {
+  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+} from '@/constants/cancellationPolicyDefaults'
 
 export const reservationDetailKeys = {
   detail: (reservationId: string) => ['reservation-detail', reservationId] as const,
@@ -16,7 +26,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
     queryFn: async () => {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
-        .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone`)
+        .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
         .eq('id', reservationId!)
         .maybeSingle()
 
@@ -34,7 +44,13 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
           .eq('id', resData.schedule_event_id)
           .maybeSingle()
         if (!eventError && eventData) {
-          scheduleEvent = { date: eventData.date, start_time: eventData.start_time, is_private_booking: eventData.category === 'private', current_participants: eventData.current_participants, max_participants: eventData.max_participants }
+          scheduleEvent = {
+            date: eventData.date,
+            start_time: eventData.start_time,
+            is_private_booking: eventData.category === 'private',
+            current_participants: eventData.current_participants,
+            max_participants: eventData.max_participants,
+          }
           eventStoreId = eventData.store_id
         }
       }
@@ -42,12 +58,25 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
       const reservation = { ...resData, schedule_events: scheduleEvent || undefined }
 
       const storeIdToUse = eventStoreId || resData.store_id
-      let store = null, cancellationPolicy = null, cancelDeadlineHours = 24
+      let store = null
+      let cancellationPolicy = null
+      let openDeadlineHours = DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+      let privateDeadlineHours = DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
       if (storeIdToUse) {
         const { data: storeData } = await supabase.from('stores').select('id, name, address').eq('id', storeIdToUse).single()
         if (storeData) store = storeData
-        const { data: settingsData } = await supabase.from('reservation_settings').select('cancellation_policy, cancellation_deadline_hours').eq('store_id', storeIdToUse).maybeSingle()
-        if (settingsData) { cancellationPolicy = settingsData.cancellation_policy || null; cancelDeadlineHours = settingsData.cancellation_deadline_hours ?? 24 }
+        const { data: settingsData } = await supabase
+          .from('reservation_settings')
+          .select('cancellation_policy, cancellation_deadline_hours, private_cancellation_deadline_hours')
+          .eq('store_id', storeIdToUse)
+          .maybeSingle()
+        if (settingsData) {
+          cancellationPolicy = settingsData.cancellation_policy || null
+          openDeadlineHours = settingsData.cancellation_deadline_hours
+            ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+          privateDeadlineHours = settingsData.private_cancellation_deadline_hours
+            ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+        }
       }
 
       let organization = null
@@ -73,7 +102,49 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
         }
       }
 
-      return { reservation, store, organization, scenario, cancellationPolicy, cancelDeadlineHours }
+      const isPrivate = Boolean(scheduleEvent?.is_private_booking || resData.private_group_id)
+      const resolvedPolicy = resolveCancellationPolicy(reservation)
+      let cancelDeadlineHours = isPrivate ? privateDeadlineHours : openDeadlineHours
+      let canCancelByPolicy = false
+
+      if (resolvedPolicy.status === 'pending') {
+        // 未完成 snapshot は顧客セルフ操作不可
+        cancelDeadlineHours = isPrivate
+          ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+          : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+      } else if (scheduleEvent?.date && scheduleEvent?.start_time) {
+        const policyForCustomer: CalculableCancellationPolicy = resolvedPolicy.source === 'legacy_default'
+          ? {
+              ...resolvedPolicy,
+              deadlineHours: isPrivate ? privateDeadlineHours : openDeadlineHours,
+            }
+          : resolvedPolicy
+
+        cancelDeadlineHours = resolveCustomerCancelDeadlineHours(policyForCustomer)
+        const participantTotal = reservation.final_price
+          ?? reservation.total_price
+          ?? ((reservation.unit_price || 0) * (reservation.participant_count || 0))
+        canCancelByPolicy = canCustomerSelfCancel({
+          performanceDate: scheduleEvent.date,
+          performanceStartTime: scheduleEvent.start_time,
+          now: new Date(),
+          policy: policyForCustomer,
+          basisAmounts: {
+            participant_total: participantTotal || 0,
+            performance_total: participantTotal || 0,
+          },
+        })
+      }
+
+      return {
+        reservation,
+        store,
+        organization,
+        scenario,
+        cancellationPolicy,
+        cancelDeadlineHours,
+        canCancelByPolicy,
+      }
     },
   })
 }

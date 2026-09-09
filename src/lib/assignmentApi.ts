@@ -66,11 +66,34 @@ export const assignmentApi = {
     )
   },
 
-  // 担当関係を追加（既存の体験済みレコードがあれば昇格）
-  async addAssignment(staffId: string, scenarioId: string, notes?: string, _organizationId?: string) {
+  // 担当関係を upsert（体験済み→GM 昇格、メイン/サブ更新）。client 直書き禁止。
+  async upsertAssignment(
+    staffId: string,
+    scenarioId: string,
+    flags?: {
+      notes?: string | null
+      can_main_gm?: boolean
+      can_sub_gm?: boolean
+      is_experienced?: boolean
+    },
+  ) {
+    const can_main_gm = flags?.can_main_gm ?? true
+    const can_sub_gm = flags?.can_sub_gm ?? true
+    const hasGm = can_main_gm || can_sub_gm
     return apiClient.post<AssignmentRow>('/api/assignments?action=upsert', {
       staff_id: staffId,
       scenario_master_id: scenarioId,
+      notes: flags?.notes ?? null,
+      can_main_gm,
+      can_sub_gm,
+      // DB制約: GM可と is_experienced は同時に true にできない
+      is_experienced: flags?.is_experienced ?? !hasGm,
+    })
+  },
+
+  // 担当関係を追加（既存の体験済みレコードがあれば昇格）
+  async addAssignment(staffId: string, scenarioId: string, notes?: string, _organizationId?: string) {
+    return this.upsertAssignment(staffId, scenarioId, {
       notes: notes ?? null,
       can_main_gm: true,
       can_sub_gm: true,
@@ -82,6 +105,24 @@ export const assignmentApi = {
   async removeAssignment(staffId: string, scenarioId: string, _organizationId?: string) {
     await apiClient.delete(
       `/api/assignments?staff_id=${encodeURIComponent(staffId)}&scenario_master_id=${encodeURIComponent(scenarioId)}`
+    )
+  },
+
+  // スタッフの担当変更履歴（直近） — 管理画面のスタッフ詳細で表示
+  async getStaffAssignmentHistory(
+    staffId: string,
+    limit = 20
+  ): Promise<Array<{
+    id: string
+    scenario_master_id: string
+    scenario_title: string
+    action: 'added' | 'removed'
+    changed_by: string | null
+    changed_at: string
+    source: string
+  }>> {
+    return apiClient.get(
+      `/api/assignments?history_staff_id=${encodeURIComponent(staffId)}&limit=${limit}`
     )
   },
 
@@ -169,12 +210,14 @@ export const assignmentApi = {
     scenarioId: string,
     staffIds: string[],
     notes?: string,
-    _organizationId?: string
+    _organizationId?: string,
+    options?: { confirmClear?: boolean }
   ) {
     await apiClient.post('/api/assignments?action=update_scenario_assignments', {
       scenario_master_id: scenarioId,
       staff_ids: staffIds,
       notes: notes ?? null,
+      confirm_clear: options?.confirmClear === true,
     })
   },
 

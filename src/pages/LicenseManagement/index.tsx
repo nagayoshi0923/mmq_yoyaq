@@ -14,6 +14,8 @@ import { ReportsReceived } from './tabs/ReportsReceived'
 import { SendReports } from './tabs/SendReports'
 import { LicenseSummary } from './tabs/LicenseSummary'
 import { ContractMaster } from './tabs/ContractMaster'
+import { PartnerStores } from './tabs/PartnerStores'
+import { AuthorPartnerReports } from './tabs/AuthorPartnerReports'
 
 export default function LicenseManagement() {
   const { organization, staff, isLicenseManager, isLoading } = useOrganization()
@@ -21,8 +23,9 @@ export default function LicenseManagement() {
   const rawTab = searchParams.get('tab') || 'send'
   const canManageContracts = Boolean(staff?.role?.includes('admin') || staff?.role?.includes('license_admin'))
   const canViewContracts = Boolean(canManageContracts || staff?.role?.includes('staff'))
-  // ライセンス管理組織以外は send 固定
-  const effectiveTab = isLicenseManager || rawTab === 'contracts' ? rawTab : 'send'
+  const staffLicenseTabs = ['contracts', 'partners', 'author-stores']
+  // ライセンス管理組織以外は send 固定（契約店舗・作者報告はスタッフも可）
+  const effectiveTab = isLicenseManager || staffLicenseTabs.includes(rawTab) ? rawTab : 'send'
 
   const renderContent = () => {
     if (isLoading) {
@@ -46,6 +49,8 @@ export default function LicenseManagement() {
     }
     switch (effectiveTab) {
       case 'contracts': return canViewContracts ? <ContractMaster canEdit={canManageContracts} /> : null
+      case 'partners': return canViewContracts ? <PartnerStores canEdit={canManageContracts} /> : null
+      case 'author-stores': return canViewContracts ? <AuthorPartnerReports /> : null
       case 'received': return isLicenseManager ? <ReportsReceived staffId={staff.id} /> : null
       case 'summary':  return isLicenseManager ? <LicenseSummary /> : null
       default:         return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />

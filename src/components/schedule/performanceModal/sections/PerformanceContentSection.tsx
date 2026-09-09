@@ -7,6 +7,10 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { EventFormData } from '@/types/schedule'
 import type { Scenario, Store } from '@/types'
+import {
+  hasKitAtVenueOrGroup,
+  requiresKitWarningForCategory,
+} from '@/utils/scheduleWarnings'
 
 interface PerformanceContentSectionProps {
   CATEGORY_TONE: Record<string, { bg: string; section: string; border: string }>
@@ -21,7 +25,8 @@ interface PerformanceContentSectionProps {
   scenarios: Scenario[]
   isScenarioAvailableAtVenue: (scenario: Scenario) => boolean
   stores: Store[]
-  kitStoreIds: string[]
+  /** null = 配置取得中（誤警告防止）。空配列 = 未登録＝未配置として警告 */
+  kitStoreIds: string[] | null
   setEditingScenarioId: Dispatch<SetStateAction<string | null>>
 }
 
@@ -105,23 +110,34 @@ export function PerformanceContentSection({
                   }
                   return null
                 })()}
-                {/* キット配置警告: シナリオに紐づくキットが選択中の店舗に無い時に出す
-                   (kitStoreIds が空 = キット未登録のシナリオは判定スキップ) */}
-                {formData.scenario && formData.venue && kitStoreIds.length > 0 && !kitStoreIds.includes(formData.venue) && (() => {
+                {/* キット配置警告: スケジュール表と同じ判定（配置0件＝未登録＝未配置として警告）
+                   kitStoreIds=null は取得中のためスキップ */}
+                {formData.scenario && formData.venue && kitStoreIds !== null
+                  && requiresKitWarningForCategory(formData.category)
+                  && !hasKitAtVenueOrGroup(kitStoreIds, formData.venue, stores)
+                  && (() => {
                   const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
                   const kitStoreNames = kitStoreIds
-                    .map(id => stores.find(s => s.id === id)?.short_name || stores.find(s => s.id === id)?.name)
-                    .filter(Boolean)
+                    .map(id => {
+                      const store = stores.find(s => s.id === id)
+                      return store
+                        ? { name: store.short_name || store.name, order: store.display_order ?? 999 }
+                        : null
+                    })
+                    .filter((x): x is { name: string; order: number } => !!x)
+                    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ja'))
+                    .map(x => x.name)
                     .join(', ')
+                  const detail = kitStoreIds.length === 0
+                    ? 'キットが未登録です（キット配置管理で設定してください）'
+                    : `この店舗にはキットが置かれていません (現在の配置: ${kitStoreNames})`
                   return (
                     <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px]">
                       <div className="flex items-center gap-1 text-amber-700">
                         <span className="font-semibold">⚠️ キット未配置:</span>
                         <span>{storeName}</span>
                       </div>
-                      <p className="mt-0.5 text-amber-600">
-                        この店舗には{kitStoreNames ? `キットが置かれていません (現在の配置: ${kitStoreNames})` : 'キットが置かれていません'}
-                      </p>
+                      <p className="mt-0.5 text-amber-600">{detail}</p>
                     </div>
                   )
                 })()}

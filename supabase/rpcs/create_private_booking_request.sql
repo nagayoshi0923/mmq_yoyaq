@@ -1,6 +1,8 @@
 -- 正規ソース: create_private_booking_request
--- 最終更新: 20260723210000_enforce_private_booking_blocked_slots.sql
+-- 最終更新: 20260819120000_raise_private_booking_participant_cap.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
+-- 注: 本番hotfixは関数全体置換のため P0044（貸切受付可否）がliveから欠落している。
+--     正本には 20260810090000 の受付可否チェックを残す。戻す作業は恒久策issue。
 
 CREATE OR REPLACE FUNCTION create_private_booking_request(
   p_scenario_id UUID,
@@ -62,6 +64,8 @@ DECLARE
   v_trusted_candidate_datetimes JSONB;
   v_candidate_order INTEGER := 0;
   v_updated_count INTEGER;
+  v_accepts_private_booking BOOLEAN;
+  v_scenario_kind TEXT;
 BEGIN
   -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
   v_caller_user_id := auth.uid();
@@ -228,8 +232,33 @@ BEGIN
     RAISE EXCEPTION 'Organization not found for scenario' USING ERRCODE = 'P0026';
   END IF;
 
-  -- 参加人数の上限チェック
-  IF p_participant_count > 10 THEN
+  -- 貸切受付OFF / 出張限定（offsite_only）は顧客リクエストを拒否する
+  SELECT
+    COALESCE(os.accepts_private_booking, true),
+    COALESCE(os.scenario_kind, 'regular')
+  INTO
+    v_accepts_private_booking,
+    v_scenario_kind
+  FROM organization_scenarios os
+  WHERE os.organization_id = v_org_id
+    AND (
+      os.id = p_scenario_id
+      OR os.scenario_master_id = COALESCE(v_scenario_master_id, p_scenario_id)
+    )
+  ORDER BY
+    CASE WHEN os.id = p_scenario_id THEN 0 ELSE 1 END,
+    os.created_at
+  LIMIT 1;
+
+  IF FOUND AND (
+    v_accepts_private_booking IS FALSE
+    OR v_scenario_kind = 'offsite_only'
+  ) THEN
+    RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED' USING ERRCODE = 'P0044';
+  END IF;
+
+  -- 参加人数の上限チェック（応急: 固定50。恒久策はシナリオ定員照合）
+  IF p_participant_count > 50 THEN
     RAISE EXCEPTION 'Participant count exceeds maximum' USING ERRCODE = 'P0025';
   END IF;
 

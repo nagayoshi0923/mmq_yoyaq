@@ -33,9 +33,12 @@ const SetPassword = lazyWithRetry(() =>
 const CompleteProfile = lazyWithRetry(() =>
   import('@/pages/CompleteProfile').then((m) => ({ default: m.CompleteProfile }))
 )
+const CouponClaim = lazyWithRetry(() => import('@/pages/CouponClaim').then(m => ({ default: m.CouponClaim })))
 const CouponPresent = lazyWithRetry(() =>
   import('@/pages/CouponPresent').then((m) => ({ default: m.CouponPresent }))
 )
+
+const RecruitmentResponse = lazyWithRetry(() => import('@/pages/RecruitmentResponse'))
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -58,7 +61,9 @@ const queryClient = new QueryClient({
 // buster を変えるとキャッシュが自動無効化される（スキーマ変更時に更新する）
 // v2: PR #168 以前は API バグで空配列が永続化されていたため、全クライアントの
 //     キャッシュを強制無効化する
-const SCHEDULE_CACHE_BUSTER = 'v2'
+// v3: 2026-08-04 のデプロイ後、永続キャッシュ起因でログイン不能になるクライアントが
+//     発生（シークレットウィンドウでは正常＝サイトデータ破損で確定）。一斉無効化する
+const SCHEDULE_CACHE_BUSTER = 'v3'
 const SCHEDULE_CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000 // 14日間
 
 const idbPersister = createAsyncStoragePersister({
@@ -76,6 +81,7 @@ const idbPersister = createAsyncStoragePersister({
  */
 const BOOKING_SHELL_ADMIN_SUB_PATHS = new Set([
   'dashboard',
+  'store-dashboard',
   'stores',
   'staff',
   'staff-profile',
@@ -126,6 +132,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'faq',
   'guide',
   'cancel-policy',
+  'recruitment-response',
   'stores',
   'company',
   'for-business',
@@ -135,6 +142,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'blog',
   'org',
   'group',
+  'partner-report',
 ])
 
 /**
@@ -171,6 +179,7 @@ function shouldShowBookingShellWhileAuthPending(pathname: string): boolean {
   if (segs[0] === 'admin' || segs[0] === 'dev') return false
 
   if (segs[0] === 'scenario') return true
+  if (segs[0] === 'partner-report') return true
 
   if (segs.length === 1) {
     const s = segs[0]
@@ -285,6 +294,8 @@ function HashRedirect() {
   const navigate = useNavigate()
 
   React.useEffect(() => {
+    // 専用メールリンクのトークンをパスへ移さない（アクセスログに残さない）。
+    if (location.pathname === '/recruitment-response') return
     const hash = window.location.hash
     if (hash && hash.startsWith('#')) {
       // 認証トークンを含むハッシュは無視（Supabase が処理する）
@@ -330,7 +341,7 @@ function AppRoutes() {
   )
 
   // 開発者モード: ライセンス管理者（license_admin + QW管理者）にdev-modeクラスを付与
-  const { organizationId: devOrgId } = useOrganization()
+  const { organizationId: devOrgId, organization } = useOrganization()
   const isLicAdmin = checkIsLicenseAdmin(user?.role, devOrgId)
   React.useEffect(() => {
     if (isLicAdmin) {
@@ -354,8 +365,9 @@ function AppRoutes() {
     const isAuthPage = ['/signup', '/login', '/register', '/start', '/reset-password', '/set-password'].includes(location.pathname)
     // 招待リンクはゲスト向けのため、ログイン済みでもプロフィールゲート対象外
     const isInvitePage = location.pathname.startsWith('/group/invite/')
+    const isPartnerReportPage = location.pathname.startsWith('/partner-report/')
 
-    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage) {
+    if (location.pathname === '/coupon-claim' || location.pathname === '/recruitment-response' || !user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage || isPartnerReportPage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -399,7 +411,7 @@ function AppRoutes() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search, navigate, user?.id, user?.role])
+  }, [location.pathname, location.search, navigate, user])
 
   // クエリパラメータからトークンタイプを確認
   const searchParams = new URLSearchParams(location.search)
@@ -410,12 +422,20 @@ function AppRoutes() {
   // プロフィール設定ページ（新規登録メール確認後）
   // PKCE フローでは onAuthStateChange でセッションが非同期確立されるため、
   // CompleteProfile に判断を委ねる（LoginForm を表示しない）
+  if (location.pathname === '/recruitment-response') {
+    return <Suspense fallback={<FullPageSpinner />}><RecruitmentResponse /></Suspense>
+  }
+
   if (location.pathname === '/complete-profile') {
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />
       </Suspense>
     )
+  }
+
+  if (location.pathname === '/coupon-claim') {
+    return <Suspense fallback={<FullPageSpinner />}><CouponClaim /></Suspense>
   }
 
   // クーポンプレゼントページ（新規登録完了後）
@@ -461,7 +481,10 @@ function AppRoutes() {
     // モバイルSafariでは IndexedDB 読み込みがタイムアウト後に完了し user がセットされる
     // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
     if (isInitialized && user) {
-      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+      const authenticatedHome = user.isStoreRepresentative
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        : '/dashboard'
+      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -472,7 +495,10 @@ function AppRoutes() {
   if (authPage === 'signup') {
     // ログイン済みなら適切なトップページへ（同上の理由で isInitialized を使用）
     if (isInitialized && user) {
-      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+      const authenticatedHome = user.isStoreRepresentative
+        ? `${organization?.slug ? `/${organization.slug}` : ''}/store-dashboard`
+        : '/dashboard'
+      return <Navigate to={user.role === 'customer' ? '/' : authenticatedHome} replace />
     }
     return (
       <Suspense fallback={<FullPageSpinner />}>
@@ -489,12 +515,33 @@ function AppRoutes() {
     return <FullPageSpinner />
   }
 
+  // 店舗代表の標準着地点は店舗ダッシュボードにする。
+  // セッション復元・リロード・/dashboard直リンクでも同じ遷移になるよう、
+  // ログインフォームの成功時遷移とは別に通常ルート側で判定する。
+  const pathSegments = location.pathname.split('/').filter(Boolean)
+  const isDashboardPath =
+    location.pathname === '/dashboard' ||
+    (pathSegments.length === 2 && pathSegments[1] === 'dashboard')
+  if (
+    isInitialized &&
+    user?.role !== 'customer' &&
+    user?.isStoreRepresentative === true &&
+    isDashboardPath
+  ) {
+    const pathOrganizationSlug = pathSegments.length === 2 ? pathSegments[0] : organization?.slug
+    const storeDashboardPath = pathOrganizationSlug
+      ? `/${pathOrganizationSlug}/store-dashboard`
+      : '/store-dashboard'
+    return <Navigate to={storeDashboardPath} replace />
+  }
+
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
   if (!user || (user && user.role === 'customer')) {
     if (isInitialized) {
-      // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+      // 管理ツールのページ（旧形式 /dashboard 等）への直アクセス
       const adminPaths = [
         '/dashboard',
+        '/store-dashboard',
         '/stores',
         '/staff',
         '/scenarios',
@@ -508,8 +555,14 @@ function AppRoutes() {
         '/settings',
       ]
       if (adminPaths.some((path) => location.pathname.startsWith(path))) {
-        const slug = getOrganizationSlugFromPath()
-        navigate(slug ? `/${slug}` : '/', { replace: true })
+        // 未ログインはログインへ（戻り先保持）。顧客は予約サイトへ。
+        if (!user) {
+          const redirect = encodeURIComponent(location.pathname + location.search)
+          navigate(`/login?redirect=${redirect}`, { replace: true })
+        } else {
+          const slug = getOrganizationSlugFromPath()
+          navigate(slug ? `/${slug}` : '/', { replace: true })
+        }
         return (
           <Suspense fallback={adminDashboardSuspenseFallback}>
             <AdminDashboard />

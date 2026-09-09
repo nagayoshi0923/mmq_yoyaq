@@ -22,6 +22,7 @@ organizations（テナント境界・最上位）
 - **scenario_masters** = 原本（タイトル・作者・人数・公式尺）。org間で共有
 - **organization_scenarios** = org 導入版（参加費・GMコスト・kit_count・配役方式）
 - 公演・予約は両方参照できる。**scenario_master_id が NULL だと給与計算・キット需要から黙って脱落する**（本番273件再リンクの実績あり）
+- **参加費の改定**: 予約作成時に `reservations.base_price` / `unit_price` / `final_price` へスナップショットされる。シナリオ側の参加費を後から変えても受付済み予約の金額は変わらない（新規予約から新料金）
 
 ### 公演枠（schedule_events）
 - `category`: open / private / gmtest / testplay / offsite / venue_rental(+free) / package / mtg
@@ -63,7 +64,8 @@ played = reservations(過去・非cancelled/no_show) ∪ manual_play_history −
 - **temp-ID 予約者**: 編集で400/500の既知バグ（改善計画B1）
 
 ### ライセンス
-- store_scenario_license_contracts（billing_status: billable / not_billable / exempt / pending_confirmation）
+- store_scenario_license_contracts（billing_status: billable / not_billable / exempt / pending_confirmation）— QW自店舗×シナリオ
+- license_partner_stores / contracts / monthly_reports — 契約先店舗（Discordチャンネル）×管理作品の店別月次。公開はトークンRPCのみ。既定単価は external_license_amount（店舗が払う額）。franchise / license_amount は作者への支払い。submitted_at が対象月末より後なら事後報告として作者・スタッフ画面に出す
 - 報告金額は送信時スナップショットが正。表示とのズレは⚠️バッジで可視化
 
 ## 環境

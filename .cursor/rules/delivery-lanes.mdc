@@ -1,0 +1,40 @@
+---
+description: Codex自動配送・Claude実装レーン・ダッシュボード起票。GO配送や台帳作業のときだけ。
+alwaysApply: false
+---
+
+# 配送レーン（該当時のみ）
+
+通常の Cursor 進行は **staging 直接作業**。以下は PO明示GO＋台帳ありのときだけ。
+
+## Codex自動配送
+
+手順の正: `.agents/skills/yoyaq-auto-delivery/SKILL.md` + `docs/CODEX_DASHBOARD.md`
+
+- worker は最新 `origin/staging` から `codex/*` + 隔離 worktree。staging/main を触らない
+- staging 統合・progress・push は**監督だけ**が直列実行
+- UI は PO visual OK まで staging 統合しない
+- 本番DB / main / 本番デプロイはレーン外（別途明示指示）
+
+## Claude実装レーン
+
+起票に「実装: Claude(Opus)」とあるとき:
+
+- 実装は `mmq-impl`、調査 `scout`、検証 `checker`。本体は設計・diffレビュー・commit/push判断
+- staging push 後、監督へ focused 検収1回。REWORKは重大欠陥のみ1往復に束ねる
+- dashboard の状態更新は監督専有
+
+「実装: Codex」なら Codex 連鎖に任せ、Claude/Cursor は直接実装しない。  
+POが台帳不要と明示した小タスクは通常の staging 直接作業。
+
+## 完了報告の分担
+
+| 主体 | Discord |
+|------|---------|
+| Codexレーン | **投稿しない**。常駐ブリッジが発注元への返信1通。最終回答に `[NEXT_IMPLEMENTATION_PROPOSAL]` |
+| Cursor / Claude 進行（PO依頼） | 発注元 `#クインズワルツ👑` へ完了/保留理由を報告 |
+
+```bash
+node /Users/mai/queens-waltz-ops/scripts/discord-post.mjs post 1533296084942586026 \
+  "【完了】<依頼名> / <やったこと> / <PR・コミット>"
+```

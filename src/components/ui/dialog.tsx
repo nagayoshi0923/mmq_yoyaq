@@ -81,12 +81,13 @@ function hasDialogDescription(children: React.ReactNode): boolean {
 
 interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  overlayClassName?: string
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, size = 'md', ...props }, ref) => {
+>(({ className, children, size = 'md', overlayClassName, ...props }, ref) => {
   // 小さい画面（ラップトップ等）でも収まるようにサイズを調整
   const sizeClasses = {
     sm: 'max-w-[95vw] sm:max-w-sm max-h-[90vh] sm:max-h-[min(500px,85vh)]',
@@ -101,7 +102,7 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(

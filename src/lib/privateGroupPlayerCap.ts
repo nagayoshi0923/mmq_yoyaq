@@ -11,6 +11,25 @@ export function memberInvitationCap(
   return bounds.max
 }
 
+/**
+ * グループから貸切申込するときの予約人数。
+ * 今いるメンバー数ではなく作品定員（max）を使う。あとからメンバーを足せるようにする。
+ */
+export function resolvePrivateGroupBookingParticipantCount(opts: {
+  scenarioPlayerMax?: number | null
+  targetParticipantCount?: number | null
+}): number {
+  const max = opts.scenarioPlayerMax
+  if (typeof max === 'number' && Number.isFinite(max) && max > 0) {
+    return Math.floor(max)
+  }
+  const target = opts.targetParticipantCount
+  if (typeof target === 'number' && Number.isFinite(target) && target > 0) {
+    return Math.floor(target)
+  }
+  return 1
+}
+
 
 export async function fetchScenarioPlayerBoundsForOrg(
   supabase: SupabaseClient,

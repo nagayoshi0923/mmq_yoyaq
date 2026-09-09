@@ -13,6 +13,7 @@ import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 
 interface Scenario {
   id: string
@@ -28,6 +29,8 @@ interface Scenario {
   available_stores?: string[]
   booking_start_date?: string | null
   booking_end_date?: string | null
+  scenario_kind?: string | null
+  accepts_private_booking?: boolean | null
 }
 
 interface PrivateBookingScenarioSelectProps {
@@ -136,8 +139,10 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     try {
       setLoading(true)
       const data = await scenarioApi.getAll()
-      // 貸切リクエストでは公開中（status: available）のシナリオのみ表示
-      const publicScenarios = data.filter(s => s.status === 'available')
+      // 貸切リクエストでは公開中（status: available）かつ貸切受付中のシナリオのみ表示
+      const publicScenarios = data.filter(
+        (s) => s.status === 'available' && isScenarioAcceptingPrivateBooking(s)
+      )
       setScenarios(publicScenarios)
     } catch (error) {
       logger.error('シナリオの読み込みエラー:', error)

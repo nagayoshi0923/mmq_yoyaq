@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { AlertTriangle, Check, CheckCircle2, ShieldQuestion } from 'lucide-react'
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ShieldQuestion } from 'lucide-react'
 import { SENSITIVE_TOPICS, SENSITIVITY_DISCLAIMER } from '@/constants/sensitiveTopics'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
 
@@ -20,6 +20,7 @@ export const SensitivityCheck = memo(function SensitivityCheck({ sensitiveTags }
   const preset = useOrgThemePreset()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [submitted, setSubmitted] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   if (sensitiveTags.length === 0) return null
 
@@ -39,95 +40,107 @@ export const SensitivityCheck = memo(function SensitivityCheck({ sensitiveTags }
   const hasMatch = sensitiveTags.some((tag) => selected.has(tag))
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg">
-      <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-200">
-        <ShieldQuestion className="w-3.5 h-3.5" style={{ color: preset.primary }} />
-        <h3 className="font-semibold text-base">センシティブ内容セルフチェック</h3>
-      </div>
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        className="w-full px-4 py-2.5 flex items-center gap-2 border border-gray-200 rounded text-left transition-colors hover:bg-gray-50"
+      >
+        <ShieldQuestion className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="ts-body">センシティブ内容をセルフチェックする</span>
+        <ChevronDown
+          className={`w-4 h-4 text-muted-foreground ml-auto shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
+      </button>
 
-      <div className="px-4 py-3 space-y-3">
-        {!submitted ? (
-          <>
-            <p className="ts-body text-muted-foreground">
-              あなたが避けたい項目を選んで診断すると、この作品に該当する描写が含まれるかを確認できます。
-            </p>
+      {expanded && (
+        <div className="px-4 space-y-3">
+          {!submitted ? (
+            <>
+              <p className="ts-caption">
+                あなたが避けたい項目を選んで診断すると、この作品に該当する描写が含まれるかを確認できます。
+              </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {SENSITIVE_TOPICS.map((topic) => {
-                const isSelected = selected.has(topic.key)
-                return (
-                  <button
-                    key={topic.key}
-                    type="button"
-                    onClick={() => toggle(topic.key)}
-                    aria-pressed={isSelected}
-                    className="flex items-start gap-1.5 px-2 py-2 border text-left transition-colors"
-                    style={
-                      isSelected
-                        ? { backgroundColor: preset.primaryLight, borderColor: preset.primary }
-                        : undefined
-                    }
-                  >
-                    <span className="w-3.5 shrink-0 pt-0.5">
-                      {isSelected && <Check className="w-3.5 h-3.5" style={{ color: preset.primary }} />}
-                    </span>
-                    <span className="ts-body">{topic.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSubmitted(true)}
-              disabled={selected.size === 0}
-              className="w-full px-4 py-2.5 ts-body font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ backgroundColor: preset.primary, color: preset.onPrimary }}
-            >
-              診断する
-            </button>
-
-            <p className="ts-caption">{SENSITIVITY_DISCLAIMER}</p>
-          </>
-        ) : (
-          <>
-            {hasMatch ? (
-              <div className="bg-amber-50 border border-amber-200 px-3 py-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <p className="ts-body font-semibold">該当する描写が含まれています</p>
-                </div>
-                <p className="ts-body">
-                  あなたが選択された項目に該当する描写が、この作品には含まれています。ご不安な場合は、ご予約前にお問い合わせください。
-                </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {SENSITIVE_TOPICS.map((topic) => {
+                  const isSelected = selected.has(topic.key)
+                  return (
+                    <button
+                      key={topic.key}
+                      type="button"
+                      onClick={() => toggle(topic.key)}
+                      aria-pressed={isSelected}
+                      className="flex items-start gap-1.5 px-2 py-1.5 border text-left transition-colors"
+                      style={
+                        isSelected
+                          ? { backgroundColor: preset.primaryLight, borderColor: preset.primary }
+                          : undefined
+                      }
+                    >
+                      <span className="w-3.5 shrink-0 pt-0.5">
+                        {isSelected && <Check className="w-3.5 h-3.5" style={{ color: preset.primary }} />}
+                      </span>
+                      <span className="text-xs">{topic.label}</span>
+                    </button>
+                  )
+                })}
               </div>
-            ) : (
-              <div className="bg-emerald-50 border border-emerald-200 px-3 py-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <p className="ts-body font-semibold">選択された項目は含まれていません</p>
-                </div>
-                <p className="ts-body">
-                  あなたが選択された項目に該当する描写は、この作品の申告内容には含まれていません。
-                </p>
-              </div>
-            )}
 
-            <div className="border border-gray-200 px-3 py-2">
+              <div className="flex">
+                <button
+                  type="button"
+                  onClick={() => setSubmitted(true)}
+                  disabled={selected.size === 0}
+                  className="ml-auto px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: preset.primary, color: preset.onPrimary }}
+                >
+                  診断する
+                </button>
+              </div>
+
               <p className="ts-caption">{SENSITIVITY_DISCLAIMER}</p>
-            </div>
+            </>
+          ) : (
+            <>
+              {hasMatch ? (
+                <div className="bg-amber-50 border border-amber-200 px-3 py-2.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <p className="text-xs font-semibold">該当する描写が含まれています</p>
+                  </div>
+                  <p className="ts-caption">
+                    あなたが選択された項目に該当する描写が、この作品には含まれています。ご不安な場合は、ご予約前にお問い合わせください。
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 px-3 py-2.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <p className="text-xs font-semibold">選択された項目は含まれていません</p>
+                  </div>
+                  <p className="ts-caption">
+                    あなたが選択された項目に該当する描写は、この作品の申告内容には含まれていません。
+                  </p>
+                </div>
+              )}
 
-            <button
-              type="button"
-              onClick={() => setSubmitted(false)}
-              className="w-full px-4 py-2.5 ts-body font-semibold border transition-colors"
-              style={{ borderColor: preset.primary, color: preset.primary }}
-            >
-              選び直す
-            </button>
-          </>
-        )}
-      </div>
+              <p className="ts-caption">{SENSITIVITY_DISCLAIMER}</p>
+
+              <div className="flex">
+                <button
+                  type="button"
+                  onClick={() => setSubmitted(false)}
+                  className="ml-auto px-3 py-1.5 text-xs font-semibold border transition-colors"
+                  style={{ borderColor: preset.primary, color: preset.primary }}
+                >
+                  選び直す
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 })

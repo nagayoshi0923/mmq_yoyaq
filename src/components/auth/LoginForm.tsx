@@ -17,6 +17,12 @@ import {
   Sparkles, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { reportAuthFailure } from '@/contexts/auth/authDiagnostics'
+
+/** ログイン処理が無応答のまま打ち切られたことを示すエラーメッセージ */
+const LOGIN_WATCHDOG_TIMEOUT = 'LOGIN_WATCHDOG_TIMEOUT'
+/** ログイン処理の応答を待つ上限（ミリ秒） */
+const LOGIN_WATCHDOG_TIMEOUT_MS = 15000
 
 // ソーシャルログインアイコン
 function GoogleIcon({ className }: { className?: string }) {
@@ -313,7 +319,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         
       } else {
         // ログイン（signIn は getUser を挟まずセッション確定まで返す）
-        const { user: signedUser } = await signIn(email, password)
+        // supabase-js の auth 呼び出しが navigator.locks 待ちで永遠に resolve しない事故が
+        // あるため、15秒で打ち切って必ずエラー表示に落とす（スピナー固着の防止）
+        let watchdogTimer: ReturnType<typeof setTimeout> | undefined
+        const watchdog = new Promise<never>((_, reject) => {
+          watchdogTimer = setTimeout(
+            () => reject(new Error(LOGIN_WATCHDOG_TIMEOUT)),
+            LOGIN_WATCHDOG_TIMEOUT_MS
+          )
+        })
+        let signedUser: Awaited<ReturnType<typeof signIn>>['user']
+        try {
+          const result = await Promise.race([signIn(email, password), watchdog])
+          signedUser = result.user
+        } finally {
+          if (watchdogTimer !== undefined) clearTimeout(watchdogTimer)
+        }
 
         setMessage('ログイン成功！リダイレクト中...')
         setError('')
@@ -321,6 +342,35 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // リダイレクトは getUser の代わりに signIn 直後の user.id で1クエリにまとめる
         setTimeout(async () => {
           try {
+            let userProfile: {
+              role: string | null
+              organization_id: string | null
+              is_store_representative: boolean | null
+            } | null = null
+            let profileOrgSlug: string | undefined
+
+            const { data: profileData } = await supabase
+              .from('users')
+              .select('role, organization_id, is_store_representative')
+              .eq('id', signedUser.id)
+              .maybeSingle()
+
+            if (profileData) {
+              userProfile = {
+                role: profileData.role,
+                organization_id: profileData.organization_id,
+                is_store_representative: profileData.is_store_representative,
+              }
+              if (profileData.organization_id) {
+                const { data: profileOrganization } = await supabase
+                  .from('organizations')
+                  .select('slug')
+                  .eq('id', profileData.organization_id)
+                  .maybeSingle()
+                profileOrgSlug = profileOrganization?.slug
+              }
+            }
+
             let staffData: {
               organization_id: string | null
               role: string | null
@@ -369,10 +419,18 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               }
             }
 
-            if (staffData?.organization_id) {
-              const slug = orgSlug || ''
+            const organizationId = userProfile?.organization_id ?? staffData?.organization_id
+            const role = userProfile?.role ?? staffData?.role
+            const slug = orgSlug || profileOrgSlug || ''
 
-              if (staffData.role === 'admin' || staffData.role === 'staff') {
+            if (organizationId) {
+              if (userProfile?.is_store_representative === true && role !== 'customer') {
+                sessionStorage.removeItem('returnUrl')
+                navigate(slug ? `/${slug}/store-dashboard` : '/store-dashboard', { replace: true })
+                return
+              }
+
+              if (role === 'admin' || role === 'staff' || role === 'license_admin') {
                 sessionStorage.removeItem('returnUrl')
                 navigate(slug ? `/${slug}/schedule` : '/dashboard', { replace: true })
               } else {
@@ -427,7 +485,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         }
       } else {
         // ログインエラー
-        if (errorMessage.includes('Invalid login credentials')) {
+        if (errorMessage === LOGIN_WATCHDOG_TIMEOUT) {
+          reportAuthFailure('signIn', error, { watchdog: true })
+          setError('ログイン処理が応答しませんでした。ページを再読み込みしてから、もう一度お試しください。改善しない場合は他のMMQのタブを閉じてください。')
+        } else if (errorMessage.includes('Invalid login credentials')) {
           setError('メールアドレスまたはパスワードが正しくありません')
         } else if (errorMessage.includes('Email not confirmed')) {
           setShowResendOption(true)

@@ -71,6 +71,8 @@ export interface ScenarioFormData {
   // ライセンス金額
   license_amount?: number
   gm_test_license_amount?: number
+  // 買い切り作品。true のとき公演報告に出さない
+  is_license_buyout?: boolean
   // シナリオタイプ
   scenario_type?: 'normal' | 'managed'
   // 他店用（フランチャイズ）ライセンス金額（作者への支払い）
@@ -119,6 +121,10 @@ export interface ScenarioFormData {
   available_until?: string | null
   // 個別お知らせ定型文
   individual_notice_template?: string | null
+  // 予約確定メールの作品上書き（空なら店舗テンプレ）
+  reservation_confirmation_template?: string | null
+  // 貸切確定メールの作品上書き（空なら店舗テンプレ）
+  private_confirm_template?: string | null
   // 配役方法
   character_assignment_method?: 'survey' | 'self'
   // アンケート設定

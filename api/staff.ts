@@ -24,17 +24,18 @@ const STAFF_SELECT_FIELDS =
 // 作成可能フィールドのホワイトリスト（Mass Assignment 防止）
 const STAFF_CREATABLE_FIELDS = [
   'name', 'line_name', 'x_account', 'discord_user_id', 'discord_channel_id',
-  'role', 'stores', 'ng_days', 'want_to_learn', 'available_scenarios',
+  'role', 'stores', 'ng_days', 'want_to_learn',
   'notes', 'phone', 'email', 'user_id', 'availability', 'experience',
-  'special_scenarios', 'status', 'avatar_url', 'avatar_color',
+  'status', 'avatar_url', 'avatar_color',
 ] as const
 
 // 更新可能フィールドのホワイトリスト（Mass Assignment 防止）
+// special_scenarios / available_scenarios は書かない。正本は staff_scenario_assignments。
 const STAFF_UPDATABLE_FIELDS = [
   'name', 'line_name', 'x_account', 'discord_user_id', 'discord_channel_id',
-  'role', 'stores', 'ng_days', 'want_to_learn', 'available_scenarios',
+  'role', 'stores', 'ng_days', 'want_to_learn',
   'notes', 'phone', 'email', 'availability', 'experience',
-  'special_scenarios', 'status', 'avatar_url', 'avatar_color',
+  'status', 'avatar_url', 'avatar_color',
 ] as const
 
 function pickFields<T extends readonly string[]>(
@@ -224,13 +225,11 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
 
   const body = (req.body ?? {}) as Record<string, unknown>
 
-  // ─── action=updateSpecialScenarios（担当シナリオ + organization_scenarios.available_gms 同期）
+  // ─── action=updateSpecialScenarios（廃止。正本は /api/assignments）
   if (action === 'updateSpecialScenarios') {
-    const special = body.special_scenarios
-    if (!Array.isArray(special) || !special.every((s) => typeof s === 'string')) {
-      return res.status(400).json({ error: 'special_scenarios は string[] 必須です' })
-    }
-    return await handleUpdateSpecialScenarios(res, database, user.orgId, id, existing.name, special)
+    return res.status(410).json({
+      error: '担当シナリオは /api/assignments で更新してください。staff.special_scenarios への書き込みは廃止しました。',
+    })
   }
 
   // ─── 通常の update
@@ -372,63 +371,6 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-async function handleUpdateSpecialScenarios(
-  res: VercelResponse,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
-  orgId: string,
-  staffId: string,
-  staffName: string,
-  specialScenarios: string[],
-) {
-  // 1. スタッフの special_scenarios を更新
-  const { data: updatedStaff, error: updErr } = await database
-    .from('staff')
-    .update({ special_scenarios: specialScenarios })
-    .eq('id', staffId)
-    .eq('organization_id', orgId)
-    .select(STAFF_SELECT_FIELDS)
-    .single()
-
-  if (updErr) {
-    console.error('[staff:updateSpecialScenarios] DB error:', updErr)
-    return res.status(500).json({ error: '担当シナリオの更新に失敗しました', detail: updErr.message })
-  }
-
-  // 2. 自組織のシナリオを取得して available_gms を同期
-  const { data: scenarios, error: scErr } = await database
-    .from('organization_scenarios')
-    .select('id, scenario_master_id, available_gms')
-    .eq('organization_id', orgId)
-
-  if (scErr) {
-    console.error('[staff:updateSpecialScenarios] scenarios fetch error:', scErr)
-    // 部分成功: スタッフ自体は更新済みなので 200 で返す
-    return res.status(200).json(updatedStaff)
-  }
-
-  const updatePromises = (scenarios ?? []).map(
-    async (s: { id: string; scenario_master_id: string; available_gms: string[] | null }) => {
-      const current: string[] = s.available_gms ?? []
-      const shouldHaveStaff = specialScenarios.includes(s.scenario_master_id)
-      const hasStaff = current.includes(staffName)
-      let next: string[] = current
-      if (shouldHaveStaff && !hasStaff) next = [...current, staffName]
-      else if (!shouldHaveStaff && hasStaff) next = current.filter((g) => g !== staffName)
-      else return
-      if (JSON.stringify([...next].sort()) === JSON.stringify([...current].sort())) return
-      await database
-        .from('organization_scenarios')
-        .update({ available_gms: next })
-        .eq('id', s.id)
-        .eq('organization_id', orgId)
-    },
-  )
-  await Promise.all(updatePromises)
-
-  return res.status(200).json(updatedStaff)
-}
-
 async function syncRenamedStaffReferences(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   database: any,

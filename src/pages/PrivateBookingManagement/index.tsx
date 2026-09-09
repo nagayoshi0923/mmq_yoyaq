@@ -47,6 +47,18 @@ import {
   toCanonicalPrivateBookingTimeSlot,
   type PrivateBookingBlockedSlotRow,
 } from '@/lib/privateBookingBlockedSlotAvailability'
+import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { startTimeToEn } from '@/lib/timeSlot'
+
+const APPROVAL_START_TIME_OPTIONS: string[] = (() => {
+  const options: string[] = []
+  for (let hour = 9; hour <= 22; hour++) {
+    options.push(`${String(hour).padStart(2, '0')}:00`)
+    options.push(`${String(hour).padStart(2, '0')}:30`)
+  }
+  return options
+})()
 
 // 時間帯を正規化する関数（競合キーの一貫性を保つため）
 const normalizeTimeSlot = (timeSlot: string): string => {
@@ -88,6 +100,7 @@ export function PrivateBookingManagement() {
   const [rejectTemplateOrgId, setRejectTemplateOrgId] = useState<string | null>(null)  // store_id 無し時の組織フォールバック
   const [resolvingRejectStore, setResolvingRejectStore] = useState(false)
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
+  const [selectedStartTime, setSelectedStartTime] = useState('')
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
   const [searchText, setSearchText] = useState('')  // フリーワード検索
   const [scenarioFilter, setScenarioFilter] = useState<string>('all')  // シナリオ絞り込み
@@ -128,10 +141,13 @@ export function PrivateBookingManagement() {
   } = useBookingApproval({
     onSuccess: () => {
       setSelectedRequest(null)
+      setSelectedStartTime('')
+
       setSelectedGMId('')
       setSelectedSubGmId('')
       setSelectedStoreId('')
       setSelectedCandidateOrder(null)
+      setSelectedStartTime('')
       // force=true 必須: 引数なしだと loadRequests は何もしない（キャッシュ再取得しない）
       return loadRequests(true)
     }
@@ -148,6 +164,7 @@ export function PrivateBookingManagement() {
     loadAllGMs,
     loadAvailableGMs
   } = useStoreAndGMManagement()
+  const { isCustomHoliday } = useCustomHolidays()
 
   // 全リクエストの候補日に対するグローバル競合マップ（カード表示時点から店舗バッジを出すため）
   const [globalStoreDateConflicts, setGlobalStoreDateConflicts] = useState<Set<string>>(new Set())
@@ -217,7 +234,7 @@ export function PrivateBookingManagement() {
     const req = reapproveTarget?.req
     if (!req) return
     const needTwo = (req.required_gm_count ?? 1) >= 2
-    const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
+    const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores, selectedStartTime)
     if (result?.success) {
       showToast.success('貸切予約を確定しました。確定メールとGM通知を送信します。')
     } else if (result?.error) {
@@ -326,6 +343,37 @@ export function PrivateBookingManagement() {
     selectedRequest?.candidate_datetimes?.candidates,
     conflictInfo,
   ])
+
+  useEffect(() => {
+    const candidate = selectedRequest?.candidate_datetimes?.candidates?.find(
+      (c) => c.order === selectedCandidateOrder
+    )
+    setSelectedStartTime((candidate?.startTime || '').slice(0, 5))
+    // 同じ申請の再フェッチで入力中の時刻を消さないよう、id と候補番号だけ見る
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedRequest 全体を入れると一覧更新で上書きされる
+  }, [selectedRequest?.id, selectedCandidateOrder])
+
+  const selectedApprovalCandidate = selectedRequest?.candidate_datetimes?.candidates?.find(
+    (c) => c.order === selectedCandidateOrder
+  )
+  const approvalEndTime = selectedApprovalCandidate && selectedStartTime
+    ? (selectedRequest?.scenario_timing
+        ? getPrivateBookingDisplayEndTime(
+            selectedStartTime,
+            selectedApprovalCandidate.date,
+            selectedRequest.scenario_timing,
+            isCustomHoliday
+          )
+        : selectedApprovalCandidate.endTime)
+    : ''
+  const approvalEndTooLate = !!approvalEndTime && (
+    approvalEndTime <= selectedStartTime || approvalEndTime > '23:00'
+  )
+  const requestedStartTime = (selectedApprovalCandidate?.startTime || '').slice(0, 5)
+  const approvalStartChanged = !!selectedStartTime && !!requestedStartTime && selectedStartTime !== requestedStartTime
+  const approvalStartTimeOptions = selectedStartTime && !APPROVAL_START_TIME_OPTIONS.includes(selectedStartTime)
+    ? [...APPROVAL_START_TIME_OPTIONS, selectedStartTime].sort()
+    : APPROVAL_START_TIME_OPTIONS
 
   // 初期データロード（loadRequests は useQuery が自動取得するため実質 no-op の互換呼び出し）
   useEffect(() => {
@@ -976,6 +1024,34 @@ export function PrivateBookingManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
+                              {selectedStoreId && selectedCand && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">開始時刻</span>
+                                  <div className="flex-1 space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <Select value={selectedStartTime} onValueChange={setSelectedStartTime}>
+                                        <SelectTrigger className="flex-1 text-sm h-8">
+                                          <SelectValue placeholder="開始時刻" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {approvalStartTimeOptions.map((time) => (
+                                            <SelectItem key={time} value={time}>
+                                              {time}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <span className="text-xs text-muted-foreground shrink-0">〜 {approvalEndTime || selectedCand.endTime}</span>
+                                    </div>
+                                    {approvalStartChanged && !approvalEndTooLate && (
+                                      <p className="text-xs text-purple-700">希望 {requestedStartTime} から変更。確定メールにはこの時刻が入ります。</p>
+                                    )}
+                                    {approvalEndTooLate && (
+                                      <p className="text-xs text-red-700">終了が23:00を超えるため、もっと早い開始時刻を選んでください。</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                               {selectedStoreId && (
                                 <div className="flex justify-end -mt-1">
                                   <Button
@@ -1042,7 +1118,7 @@ export function PrivateBookingManagement() {
                             return
                           }
                           const needTwo = (req.required_gm_count ?? 1) >= 2
-                          const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
+                          const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores, selectedStartTime)
                           if (result?.success) {
                             showToast.success('貸切予約を確定しました。確定メールとGM通知を送信します。')
                           } else if (result?.error) {
@@ -1056,10 +1132,21 @@ export function PrivateBookingManagement() {
                           !selectedStoreId ||
                           !selectedCandidateOrder ||
                           ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId) ||
+                          approvalEndTooLate ||
+                          !selectedStartTime ||
                           isCandidateStoreBlocked(
-                            req.candidate_datetimes?.candidates?.find(
-                              (candidate) => candidate.order === selectedCandidateOrder
-                            ),
+                            (() => {
+                              const candidate = req.candidate_datetimes?.candidates?.find(
+                                (c) => c.order === selectedCandidateOrder
+                              )
+                              if (!candidate) return undefined
+                              return {
+                                date: candidate.date,
+                                timeSlot: selectedStartTime
+                                  ? startTimeToEn(selectedStartTime)
+                                  : candidate.timeSlot,
+                              }
+                            })(),
                             selectedStoreId
                           )
                         }

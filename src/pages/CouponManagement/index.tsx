@@ -1,3 +1,5 @@
+import { RepresentativeCompensation } from './components/RepresentativeCompensation'
+import { PrivateCouponLink } from './components/PrivateCouponLink'
 import { useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -132,6 +134,11 @@ export function CouponManagement() {
             </Button>
           </PageHeader>
 
+          <p className="mb-4 text-sm text-muted-foreground">
+            公演中止のお詫びクーポンは、公演スケジュールの「中止」から、中止メールと一緒に案内できます。下の操作は中止後の追加対応に使います。
+          </p>
+          <PrivateCouponLink />
+          <RepresentativeCompensation />
           <CampaignList
             campaigns={campaigns}
             isLoading={isLoading}

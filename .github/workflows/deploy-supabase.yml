@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -45,10 +47,10 @@ jobs:
         run: |
           supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
 
-      - name: Run Database Migrations
-        run: |
-          echo "📦 Running database migrations on staging..."
-          supabase db push
+      - name: Verify applied migrations and select changed functions
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
+        run: node scripts/supabase-release-scope.mjs
 
       - name: Deploy Edge Functions
         run: |
@@ -65,6 +67,7 @@ jobs:
             "send-booking-confirmation"
             "send-reminder-emails"
             "notify-private-booking-discord"
+            "provision-private-booking-discord"
             "discord-interactions"
             "discord-shift-interactions"
             "notify-shift-request-discord"
@@ -88,9 +91,8 @@ jobs:
             "resend-webhook"
           )
           
-          # すべての関数をデプロイ
-          for func_dir in supabase/functions/*/; do
-            func=$(basename "$func_dir")
+          # 変更された関数・共有依存の影響先だけを配備する
+          while IFS= read -r func; do
             # _shared などのヘルパーディレクトリはスキップ
             if [[ "$func" == _* ]]; then
               continue
@@ -110,7 +112,7 @@ jobs:
               echo "🔒 Deploying $func..."
               supabase functions deploy "$func"
             fi
-          done
+          done < "$RUNNER_TEMP/mmq-deploy-functions.txt"
 
       - name: Notify Success
         if: success()
@@ -131,6 +133,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -141,10 +145,10 @@ jobs:
         run: |
           supabase link --project-ref ${{ secrets.SUPABASE_PROD_PROJECT_ID }}
 
-      - name: Run Database Migrations
-        run: |
-          echo "📦 Running database migrations on production..."
-          supabase db push --include-all
+      - name: Verify applied migrations and select changed functions
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_ID }}
+        run: node scripts/supabase-release-scope.mjs
 
       - name: Deploy Edge Functions
         run: |
@@ -161,6 +165,7 @@ jobs:
             "send-booking-confirmation"
             "send-reminder-emails"
             "notify-private-booking-discord"
+            "provision-private-booking-discord"
             "discord-interactions"
             "discord-shift-interactions"
             "notify-shift-request-discord"
@@ -184,9 +189,8 @@ jobs:
             "resend-webhook"
           )
           
-          # すべての関数をデプロイ
-          for func_dir in supabase/functions/*/; do
-            func=$(basename "$func_dir")
+          # 変更された関数・共有依存の影響先だけを配備する
+          while IFS= read -r func; do
             # _shared などのヘルパーディレクトリはスキップ
             if [[ "$func" == _* ]]; then
               continue
@@ -206,7 +210,7 @@ jobs:
               echo "🔒 Deploying $func..."
               supabase functions deploy "$func"
             fi
-          done
+          done < "$RUNNER_TEMP/mmq-deploy-functions.txt"
 
       - name: Notify Success
         if: success()
@@ -225,6 +229,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1

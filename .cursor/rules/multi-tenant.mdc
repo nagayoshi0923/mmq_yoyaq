@@ -1,0 +1,26 @@
+---
+description: organization_id・顧客モデル・テナント分離。API/DB/予約まわりを触るとき必須。
+globs:
+  - src/**/*.ts
+  - src/**/*.tsx
+  - supabase/**/*
+alwaysApply: false
+---
+
+# マルチテナント
+
+`organization_id` 漏れは他組織データ漏洩につながる。
+
+```typescript
+// INSERT
+await supabase.from('reservations').insert({ ...data, organization_id: orgId })
+
+// SELECT
+let query = supabase.from('reservations').select('*')
+if (orgId) query = query.eq('organization_id', orgId)
+```
+
+- **org 不要テーブル**: `users`, `organizations`, `authors`, `auth_logs`
+- RLS があってもコード側フィルタを省略しない
+- **顧客**（`users.role = 'customer'`）は org に属さない（NULL）。顧客系で org フィルタを安易にかけない（予約は組織横断で成立しうる）
+- 検出: `npm run check:multi-tenant`

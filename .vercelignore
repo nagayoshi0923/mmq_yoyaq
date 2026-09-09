@@ -26,6 +26,7 @@ test-*.ts
 
 # テキスト・データファイル
 *.txt
+!public/robots.txt
 gm_data.txt
 price_data_corrected.txt
 name_mapping.txt

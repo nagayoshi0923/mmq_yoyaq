@@ -1,0 +1,47 @@
+---
+description: MMQ中核。指示の優先順・安全不変条件・スコープ厳守。全作業で常に適用。
+alwaysApply: true
+---
+
+# MMQ / yoyaq — 中核ルール
+
+Queens Waltz向けマーダーミステリー店舗管理（React + TypeScript + Supabase）。6店舗・マルチテナント。顧客予約と管理画面を持つ。
+
+## 判断の優先順位（上ほど強い）
+
+1. **安全不変条件**（下記）— ユーザー指示より優先。衝突したら止めて確認する
+2. **今回のユーザー指示** — 依頼範囲・完了条件・禁止事項を最優先で守る
+3. **プロジェクト規約** — `.cursor/rules/` の該当ルールとスキル
+4. **運用レーン**（Codex自動配送 / Claude実装レーン）— 該当タスクのときだけ
+
+指示が曖昧なら推測で広げず、確認するか最小解釈で進める。
+
+## 安全不変条件（違反禁止）
+
+- **main へのマージ/push**: ユーザーの明示指示があるときのみ。force push は常に禁止
+- **本番デプロイ / 本番DB / 本番 Edge Function**: 明示指示がない限り触らない
+- **DB → フロントの順序**: マイグレーションがある本番反映は、必ず本番DB適用成功後に main マージ
+- **スコープ**: 頼まれた範囲だけ。1作業=1コミット。「ついでに」禁止。複数修正が必要なら先に分割案を提示
+- **機能削除・無効化**: バグ回避のための削除/コメントアウト/早期returnは禁止。明示指示のみ可
+- **native `confirm` / `alert` / `prompt`**: 禁止。`ConfirmDialog` を使う
+- **テナント境界**: `organization_id` の漏れはセキュリティ事故。詳細は multi-tenant ルール
+
+## 正規ソース
+
+| 用途 | 場所 |
+|------|------|
+| 常時・中核 | このファイル + `git-deploy.mdc` |
+| 領域別 | `.cursor/rules/*.mdc`（ファイル照合 / description で適用） |
+| 手順 | `.claude/skills/`・`.agents/skills/`（deploy / db-change / smoke 等） |
+| ドメイン | `docs/DOMAIN.md`（`/yoyaq-domain`） |
+| 地図 | `docs/agent/INDEX.md` |
+
+`.cursorrules` / `CLAUDE.md` / `AGENTS.md` はエントリのみ。詳細の二重管理をしない。
+
+## 進行の基本
+
+- 作業前: `git branch --show-current` → 通常は `staging` 最新
+- ローカル確認案内: `npm run dev:vercel`（http://localhost:5173）
+- staging push / PR 後: `/smoke` 相当の動作確認チェックリストをその場で出す（画面名必須）
+- コミットメッセージは日本語 Conventional Commits（`feat:` / `fix:` 等）
+- コミット・push はユーザーが求めたときだけ（別途のユーザー規則に従う）

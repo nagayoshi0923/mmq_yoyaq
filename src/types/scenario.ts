@@ -57,6 +57,8 @@ export interface Scenario {
   required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
   // データベースカラム（通常ライセンス料）
   license_amount?: number
+  // 買い切り作品。true のとき公演報告（ライセンス管理・送信）に出さない
+  is_license_buyout?: boolean
   // データベースカラム（GMテストライセンス料）
   gm_test_license_amount?: number
   // データベースカラム（他店用/フランチャイズ通常ライセンス料：作者への支払い）
@@ -120,7 +122,13 @@ export interface Scenario {
   private_booking_blocked_slots?: string[] // 貸切ブロック済み時間枠（廃止予定）
   booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
   booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし
+  /** シナリオ種別: regular / online_item / offsite_only / package */
+  scenario_kind?: 'regular' | 'online_item' | 'offsite_only' | 'package' | string | null
+  /** 貸切受付フラグ（false=休止中） */
+  accepts_private_booking?: boolean | null
   individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文
+  reservation_confirmation_template?: string | null // 予約確定メールの作品上書き
+  private_confirm_template?: string | null // 貸切確定メールの作品上書き
   character_assignment_method?: 'survey' | 'self' // 配役方法
   org_status?: 'available' | 'unavailable' | 'coming_soon' // 組織側ステータス（生値）
   pricing_patterns?: any[] // 料金パターン

@@ -1,9 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
-import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
+
+/** staff 行に書いてはいけない担当カラム。正本は staff_scenario_assignments。 */
+function staffRowWithoutAssignments(staff: Staff) {
+  const {
+    special_scenarios: _special,
+    available_scenarios: _available,
+    experienced_scenarios: _experienced,
+    ...row
+  } = staff as Staff & { experienced_scenarios?: string[]; available_scenarios?: string[] }
+  return row
+}
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -57,12 +68,21 @@ export function useStaffMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ staff, isEdit }: { staff: Staff; isEdit: boolean }) => {
+    mutationFn: async ({
+      staff,
+      isEdit,
+      confirmDecrease,
+    }: {
+      staff: Staff
+      isEdit: boolean
+      // 担当減少ガード（YOYAQ-011）を明示承認して再送するとき true
+      confirmDecrease?: boolean
+    }) => {
       let result: Staff
       const staffData = staff as Staff & { experienced_scenarios?: string[] }
       
       if (isEdit) {
-        result = await staffApi.update(staff.id, staff)
+        result = await staffApi.update(staff.id, staffRowWithoutAssignments(staff))
         
         // staff_scenario_assignmentsテーブルを同期更新
         // 担当シナリオ（GM可能）と体験済みシナリオを統合して保存
@@ -117,10 +137,17 @@ export function useStaffMutation() {
         })
         
         if (assignments.length > 0 || gmScenarios.length === 0) {
-          await assignmentApi.updateStaffAssignments(staff.id, assignments)
+          await assignmentApi.updateStaffAssignments(staff.id, assignments, undefined, {
+            confirmClear: confirmDecrease === true,
+          })
         }
       } else {
-        result = await staffApi.create(staff)
+        result = await staffApi.create({
+          ...staffRowWithoutAssignments(staff),
+          // 型上は必須だが API は受け取らない。正本は直後の updateStaffAssignments。
+          special_scenarios: [],
+          available_scenarios: [],
+        })
         
         // 新規作成時もリレーションテーブルに追加
         const gmScenarios = staffData.special_scenarios || []
@@ -179,8 +206,7 @@ export function useStaffMutation() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all })
-      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+      void invalidateAssignmentQueries(queryClient)
     },
   })
 }

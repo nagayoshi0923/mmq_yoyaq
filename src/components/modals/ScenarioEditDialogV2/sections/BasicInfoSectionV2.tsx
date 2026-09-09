@@ -167,8 +167,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     <div className="space-y-3">
 
       {/* ── 基本情報 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <FileText className="h-3.5 w-3.5" />基本情報
         </p>
 
@@ -195,11 +195,11 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2.5 pt-1">
               <Switch id="scenario_type" checked={formData.scenario_type === 'managed'}
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, scenario_type: checked ? 'managed' : 'normal' }))}
-                className="h-4 w-7" />
-              <Label htmlFor="scenario_type" className="text-xs cursor-pointer">管理作品</Label>
+                className="shrink-0" />
+              <Label htmlFor="scenario_type" className="text-xs cursor-pointer whitespace-nowrap">管理作品</Label>
               {formData.scenario_type === 'managed' && (
                 <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0">ライセンス管理</Badge>
               )}
@@ -257,8 +257,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── 説明 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <BookOpen className="h-3.5 w-3.5" />説明
         </p>
 
@@ -322,8 +322,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── 公開状態 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Settings className="h-3.5 w-3.5" />公開状態
         </p>
 
@@ -400,8 +400,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── シナリオ属性 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Settings className="h-3.5 w-3.5" />シナリオ属性
         </p>
 
@@ -448,54 +448,64 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </div>
 
       {/* ── 期間・時間枠 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Settings className="h-3.5 w-3.5" />期間・時間枠
         </p>
 
         {/* シナリオ全体の公演期間（期間限定公演用） */}
-        <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">公演期間</span>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Input type="date" value={formData.available_from || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, available_from: e.target.value || null }))}
-                className="w-36 text-xs h-7" />
-              <span className="text-xs text-muted-foreground">〜</span>
-              <Input type="date" value={formData.available_until || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, available_until: e.target.value || null }))}
-                className="w-36 text-xs h-7" />
-              {(formData.available_from || formData.available_until) && (
-                <button type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, available_from: null, available_until: null }))}
-                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
-              )}
+        <div className="scenario-edit-field">
+          <span className="scenario-edit-field__label">公演期間</span>
+          <div className="scenario-edit-field__control space-y-2">
+            <div className="grid grid-cols-1 gap-2">
+              <label className="min-w-0 block space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">開始</span>
+                <Input type="date" value={formData.available_from || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, available_from: e.target.value || null }))}
+                  className="h-7 w-full min-w-0 max-w-full text-xs" />
+              </label>
+              <label className="min-w-0 block space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">終了</span>
+                <Input type="date" value={formData.available_until || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, available_until: e.target.value || null }))}
+                  className="h-7 w-full min-w-0 max-w-full text-xs" />
+              </label>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            {(formData.available_from || formData.available_until) && (
+              <button type="button"
+                onClick={() => setFormData(prev => ({ ...prev, available_from: null, available_until: null }))}
+                className="text-xs text-red-500 hover:text-red-700">クリア</button>
+            )}
+            <p className="text-[11px] text-muted-foreground break-words">
               期間限定公演用。設定すると掲載・通常公演・貸切すべて期間内のみ。詳細ページとラインナップカードに期間表示
             </p>
           </div>
         </div>
 
         {/* 貸切募集期間 */}
-        <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">貸切募集期間</span>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Input type="date" value={formData.booking_start_date || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, booking_start_date: e.target.value || null }))}
-                className="w-36 text-xs h-7" />
-              <span className="text-xs text-muted-foreground">〜</span>
-              <Input type="date" value={formData.booking_end_date || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, booking_end_date: e.target.value || null }))}
-                className="w-36 text-xs h-7" />
-              {(formData.booking_start_date || formData.booking_end_date) && (
-                <button type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, booking_start_date: null, booking_end_date: null }))}
-                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
-              )}
+        <div className="scenario-edit-field">
+          <span className="scenario-edit-field__label">貸切募集期間</span>
+          <div className="scenario-edit-field__control space-y-2">
+            <div className="grid grid-cols-1 gap-2">
+              <label className="min-w-0 block space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">開始</span>
+                <Input type="date" value={formData.booking_start_date || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, booking_start_date: e.target.value || null }))}
+                  className="h-7 w-full min-w-0 max-w-full text-xs" />
+              </label>
+              <label className="min-w-0 block space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">終了</span>
+                <Input type="date" value={formData.booking_end_date || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, booking_end_date: e.target.value || null }))}
+                  className="h-7 w-full min-w-0 max-w-full text-xs" />
+              </label>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">貸切受付だけの期間。未設定で常時受付</p>
+            {(formData.booking_start_date || formData.booking_end_date) && (
+              <button type="button"
+                onClick={() => setFormData(prev => ({ ...prev, booking_start_date: null, booking_end_date: null }))}
+                className="text-xs text-red-500 hover:text-red-700">クリア</button>
+            )}
+            <p className="text-[11px] text-muted-foreground break-words">貸切受付だけの期間。未設定で常時受付</p>
             {(formData.booking_start_date || formData.booking_end_date) && (() => {
               const now = new Date()
               const jstOffset = 9 * 60
@@ -503,7 +513,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
               const isOutOfPeriod = (formData.booking_start_date && todayStr < formData.booking_start_date) || (formData.booking_end_date && todayStr > formData.booking_end_date)
               return (
-                <p className={`text-[11px] mt-0.5 ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
+                <p className={`text-[11px] ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
                   {isOutOfPeriod ? '※ 現在は募集期間外です' : '※ 現在は募集期間中です'}
                 </p>
               )
@@ -512,9 +522,9 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
         </div>
 
         {/* 貸切受付時間枠（平日/土日祝） */}
-        <div className="flex items-start gap-3">
-          <span className="text-xs text-muted-foreground w-[88px] shrink-0 text-right pt-1.5">貸切時間枠</span>
-          <div className="flex-1 space-y-2">
+        <div className="scenario-edit-field">
+          <span className="scenario-edit-field__label">貸切時間枠</span>
+          <div className="scenario-edit-field__control space-y-2">
             {([
               { label: '平日', field: 'private_booking_time_slots' as const },
               { label: '土日・祝日', field: 'private_booking_time_slots_weekend' as const },
@@ -525,7 +535,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               const isEmpty = slots.length === 0
               return (
                 <div key={field}>
-                  <p className="text-[11px] text-slate-500 font-medium mb-1">{label}</p>
+                  <p className="scenario-edit-card__sublabel">{label}</p>
                   <div className="flex gap-2 flex-wrap">
                     {['朝公演', '昼公演', '夜公演'].map((slot) => {
                       const isSelected = slots.includes(slot)

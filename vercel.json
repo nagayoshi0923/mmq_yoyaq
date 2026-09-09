@@ -6,23 +6,46 @@
   "framework": "vite",
   "cleanUrls": false,
   "trailingSlash": false,
-  "redirects": [
-    {
-      "source": "/((?!assets/)(?!api/).*)",
-      "missing": [
-        {
-          "type": "query",
-          "key": "_v"
-        }
-      ],
-      "destination": "/$1?_v=2",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
-      "destination": "/index.html"
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/",
+      "destination": "/api/seo?kind=home"
+    },
+    {
+      "source": "/guide",
+      "destination": "/api/seo?kind=guide"
+    },
+    {
+      "source": "/faq",
+      "destination": "/api/seo?kind=faq"
+    },
+    {
+      "source": "/stores",
+      "destination": "/api/seo?kind=stores"
+    },
+    {
+      "source": "/scenario/:slug",
+      "destination": "/api/seo?kind=scenario&slug=:slug"
+    },
+    {
+      "source": "/blog/:slug",
+      "destination": "/api/seo?kind=blog&slug=:slug"
+    },
+    {
+      "source": "/:org/scenario/:slug",
+      "destination": "/api/seo?kind=scenario&org=:org&slug=:slug"
+    },
+    {
+      "source": "/:slug",
+      "destination": "/api/seo?kind=org&slug=:slug"
+    },
+    {
+      "source": "/((?!assets/)(?!api/)(?!robots\\.txt)(?!sitemap\\.xml).*)",
+      "destination": "/app.html"
     }
   ],
   "headers": [
@@ -51,15 +74,24 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "CDN-Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "Vercel-CDN-Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     },
@@ -123,7 +155,20 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/app.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
     }
-  ]
+  ],
+  "functions": {
+    "api/seo.ts": {
+      "includeFiles": "dist/app.html"
+    }
+  }
 }
-

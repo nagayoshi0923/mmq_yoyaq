@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { CancellationFeeRule, Reservation } from '@/types'
 import {
   calculateCancellation,
+  canCustomerSelfCancel,
+  evaluateCustomerSelfCancel,
   resolveCancellationPolicy,
+  resolveCustomerCancelDeadlineHours,
   type CalculableCancellationPolicy,
 } from './cancellationPolicy'
 
@@ -82,6 +85,50 @@ describe('calculateCancellation', () => {
   })
 })
 
+describe('canCustomerSelfCancel', () => {
+  it('通常公演は料金発生後（48時間以内）はセルフキャンセル不可', () => {
+    const openWithDeadline = policy({ deadlineHours: 0 })
+    expect(canCustomerSelfCancel({
+      performanceDate: '2026-08-08',
+      performanceStartTime: '10:00:00',
+      now: '2026-08-05T01:00:00.000Z', // 72h前
+      policy: openWithDeadline,
+      basisAmounts: { participant_total: 1000, performance_total: 60000 },
+    })).toBe(true)
+    expect(canCustomerSelfCancel({
+      performanceDate: '2026-08-08',
+      performanceStartTime: '10:00:00',
+      now: '2026-08-06T01:00:00.000Z', // ちょうど48h前 = 50%
+      policy: openWithDeadline,
+      basisAmounts: { participant_total: 1000, performance_total: 60000 },
+    })).toBe(false)
+  })
+
+  it('貸切は legacy deadline=0 でも30日前（720時間）未満は不可', () => {
+    const privateLegacy = policy({
+      performanceType: 'private',
+      deadlineHours: 0,
+      fees: PRIVATE_FEES,
+      feeBasis: 'performance_total',
+    })
+    expect(resolveCustomerCancelDeadlineHours(privateLegacy)).toBe(720)
+    expect(evaluateCustomerSelfCancel({
+      performanceDate: '2026-08-08',
+      performanceStartTime: '10:00:00',
+      now: '2026-07-01T01:00:00.000Z', // 約38日前
+      policy: privateLegacy,
+      basisAmounts: { participant_total: 1000, performance_total: 60000 },
+    }).canCustomerSelfCancel).toBe(true)
+    expect(canCustomerSelfCancel({
+      performanceDate: '2026-08-08',
+      performanceStartTime: '10:00:00',
+      now: '2026-07-20T01:00:00.000Z', // 約19日前（無料期間内だが30日未満）
+      policy: privateLegacy,
+      basisAmounts: { participant_total: 1000, performance_total: 60000 },
+    })).toBe(false)
+  })
+})
+
 describe('resolveCancellationPolicy', () => {
   it('予約snapshotを複製して返し、後続の設定変更を遡及させない', () => {
     const reservation = {
@@ -118,6 +165,7 @@ describe('resolveCancellationPolicy', () => {
     expect(legacy.performanceType).toBe('private')
     if (legacy.status === 'ready') {
       expect(legacy.feeBasis).toBe('performance_total')
+      expect(legacy.deadlineHours).toBe(720)
       expect(legacy.fees.map(fee => [fee.hours_before, fee.fee_percentage])).toEqual([
         [168, 50],
         [72, 100],

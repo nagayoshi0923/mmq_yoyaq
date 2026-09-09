@@ -1,6 +1,6 @@
 # YOYAQ Codex delivery dashboard
 
-POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.cursorrules`](../.cursorrules)であり、本ファイルはキュー、状態、配送証拠だけを記録する。実行手順は[`yoyaq-auto-delivery`](../.agents/skills/yoyaq-auto-delivery/SKILL.md)を使う。
+POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.cursor/rules/`](../.cursor/rules/)（地図: [`docs/agent/INDEX.md`](agent/INDEX.md)）であり、本ファイルはキュー、状態、配送証拠だけを記録する。実行手順は[`yoyaq-auto-delivery`](../.agents/skills/yoyaq-auto-delivery/SKILL.md)を使う。
 
 ## PO ACK: スピード規約（2026-07-20）
 
@@ -10,7 +10,7 @@ POとCodexの自動配送連絡板。運用ルールの正規ソースは[`.curs
 2. **毎回のPO確認は1行で具体化:** 修正のたびに「どの画面を開くか・何を操作するか・何が見えればOKか」を1行で提示する。番号、commit、URLだけの報告は禁止する。
 3. **検収はPO OK項目を最後に1回だけ:** POがOKした項目だけをまとめ、バッチでfocused検収を1回行う。検収ラウンドの反復はしない。`REWORK`で実装へ戻せるのは、テナント境界（`organization_id`）、認可・RLS、PII露出、データ破壊、migration整合の欠陥だけとする。堅牢性の追加詰め、スタイル、非重大な改善は検収を止めず、所見を記録してbacklog候補にする。
 4. **本番境界は不変:** `main`反映＝本番デプロイはPOの明示指示がある場合だけ行い、自動統合しない。DB変更を含む場合は、従来どおりDB変更・確認をfrontendデプロイより先に行う。
-5. **安全規約は不変:** `.cursorrules` / `AGENTS.md`のテナント・認可・RLS・PII・migration、共通`ConfirmDialog`、`border-l-4`禁止、公演モーダル/公演カード外観保護、dirty変更保存などの規約を維持する。
+5. **安全規約は不変:** `.cursor/rules/` / `AGENTS.md`のテナント・認可・RLS・PII・migration、共通`ConfirmDialog`、`border-l-4`禁止、公演モーダル/公演カード外観保護、dirty変更保存などの規約を維持する。
 
 進行中のYOYAQ-003は未commit差分を失わないため既存worktreeとPREVIEWを維持する。PO visual OK後は、OK済み項目を上記どおり1回だけバッチ検収する。新規タスクは追加せず、YOYAQ-001〜003のscope・依存・現在状態は変更しない。
 
@@ -79,6 +79,8 @@ REWORK -> DOING -> REPORT
 
 | supervisor task | integration checkout | current origin/staging | last audit |
 |---|---|---|---|
+| `/root/yoyaq_021_supervisor` | `/private/tmp/yoyaq-021-integration` | `924cdcc68c1fffc6114f2ddfb9946884f76dba72` | 2026-08-03 15:37 JST |
+| `/root/yoyaq_014_supervisor` | `/private/tmp/yoyaq-014-integration` | `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab` | 2026-08-03 10:32 JST |
 | `019f779d-7170-7752-a846-37c593cf3ec8` | `/private/tmp/yoyaq-004-integration` | `6ec0f59e9388b9bde9f3f6afbb0100ed53537fab` | 2026-07-24 11:25 JST |
 
 ## Queue
@@ -92,6 +94,132 @@ REWORK -> DOING -> REPORT
 | YOYAQ-003 | マイページ貸切キャンセル動線・料金表示・API検証 | TODO | HIGH-RISK | 必須 | YOYAQ-001, YOYAQ-002 | 未割当 | - | - |
 | YOYAQ-004 | 募集停止枠の貸切申請・承認を一貫して拒否 | DONE | HIGH-RISK | PO visual OK | なし（YOYAQ-003と非重複で並行可、staging統合は直列） | worker `019f8e6f-2935-7143-b7b2-a03841f62e9f` / fresh review `019f921a-093b-7ae3-a037-63f299ea6c4f` DONE | `a45b989e042e3be0597c21f28160e01ccd1b3377` | staging/prod DB先行、main/staging ff同期、本番READY |
 | YOYAQ-005 | 公演メール送信の顧客名表示・API契約修正 | PREVIEW_WAITING_VISUAL_OK | HIGH-RISK | 必須 | なし（YOYAQ-003と製品ファイル非重複なら並行可、staging統合は直列） | worker `019f9743-28a6-7f13-b22a-a0eda448bd84` / worktree `/Users/mai/.codex/worktrees/661e/mmq_yoyaq-1` / branch `codex/yoyaq-005-performance-email-contract` / port `5188` | - | Vercel Preview `dpl_58WGh5itsRDCy9BQHS9fwEt9WXhW` READY / PO visual OK待ち |
+| YOYAQ-006 | anon権限の参照監査と列レベルGRANT是正の監査 | DOING | HIGH-RISK | 不要 | なし（P0・最優先） | worker `019fbcf5-fb67-7622-9f6a-bab5730b9ae0` / Claude是正 `4cbee1c4` | - | 列レベルGRANT migration `20260801130000`をstaging/prod適用済み。新規REVOKE migrationは中止 |
+| YOYAQ-007 | 公式サイト向け公開シナリオビューとHP掲載カラムのmigration作成 | TODO | HIGH-RISK | 不要 | YOYAQ-006 | 未割当 | - | - |
+| YOYAQ-008 | 公式サイト向け公開シナリオAPI実装 | TODO | HIGH-RISK | 不要 | YOYAQ-007（migration適用済みであること） | 未割当 | - | - |
+| YOYAQ-011 | スタッフ担当シナリオの減少防止 | DOING | HIGH-RISK | 必須 | なし（P0） | worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` / V2 scope corrected | - | 結合テーブル表示を正とする。しらやま112行保持、減少1件でも409、関連query全refetch。migration適用なし |
+| YOYAQ-012 | スタッフ担当シナリオの正を結合テーブルへ一本化（二重管理の解消） | TODO | HIGH-RISK | 必須 | YOYAQ-011（減少ガード実装後） | 未割当 | - | - |
+| YOYAQ-013 | 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる | TODO | UI-INSTANT | 必須 | なし | 未割当 | - | - |
+| YOYAQ-014 | 店舗代表アカウントから個人ダッシュボードを撤去 | DONE | HIGH-RISK | 不要（POがコード上の説明とstaging配送を受入条件に指定） | なし | worker `/root/yoyaq_014_supervisor/yoyaq_014_worker` / reviewer `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` DONE | `45863e102a32f46823e219dc67ee1c9df26871a1` | review済み3ファイル＋dashboardを本commitで`origin/staging`へ直列統合・push |
+| YOYAQ-021 | 出勤打刻をnull安全な独立状態として再実装 | DONE | HIGH-RISK | 内部PREVIEW必須・別途PO visual OK待ちは不要（本依頼が4状態と一連操作の検証後pushを明示） | なし | worker `/root/yoyaq_021_supervisor/yoyaq_021_worker` / reviewer `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` DONE | `8c626c5f625adba0bddd24c0daba603d93dd707b` | review済み13ファイル＋dashboardを本commitで`origin/staging`へ直列統合・push |
+| YOYAQ-009 | anon読み取りを公開専用ビューへ分離しanon権限をゼロにする＋退行防止CIガード | TODO | HIGH-RISK | 不要 | なし（YOYAQ-006の後続・独立実行可） | 未割当 | - | - |
+| YOYAQ-010 | レンタル公演報告フォームの再建（トークン付き公開API化・金額サーバー計算） | TODO | HIGH-RISK | 必須 | YOYAQ-009と製品ファイル非重複なら並行可 | 未割当 | - | - |
+| YOYAQ-011 | スタッフ担当シナリオの消失防止（急減ガード＋変更履歴） | TODO | HIGH-RISK | 必須 | なし（P0・実害発生済み） | 未割当 | - | - |
+
+### YOYAQ-011 queue definition: スタッフ担当シナリオが減らないことの保証
+
+> ⚠️ **2026-08-02 に前提を訂正した。初版の「消失が起きた」は誤りだったため、本節を正とする。**
+> 消失ではなく**二重管理の不整合**であり、復元投入した行はすべて削除して元の状態へ戻してある。
+
+- **GO/source:** 2026-08-02 PO明示「登録されてるものが減らないようにしてください」。
+- **最優先の要件:** **登録済みの担当が減らないこと。** 何を実装するにしても、既存の紐付けを減らす方向の変更を行わない。同期を行う場合も**和集合（増える方向のみ）**とし、削除は PO の明示操作でしか起きないようにする。
+- **背景（本番実測 2026-08-02・訂正後）:**
+  - スタッフとシナリオの紐付けは**2箇所に二重管理**されている。
+    - `staff.available_scenarios` / `staff.special_scenarios`（`scenario_masters.id` の UUID 配列）… **スタッフ画面**が読む
+    - `staff_scenario_assignments`（結合テーブル）… シナリオ側の `available_gms` / `experienced_staff` が読む
+  - active な GM 2名（しらやま / ぽんちゃん）は結合テーブルが 0件だったが、**レガシー配列側にはデータが残っており、スタッフ画面では正常に表示されていた**（しらやま = available 43件 / special 69件）。つまり**消失ではない**。
+  - 対応関係は、直近に新UIで保存された 牡丹 の実データで確認: `special_scenarios` ↔ 結合テーブルの `can_main_gm=true`、`available_scenarios` の件数 = 結合テーブルの総件数。
+  - **active スタッフ46名中、2箇所の件数が一致しているのは1名だけで、45名がズレている。** 結合テーブルを読むシナリオ側の「対応可能GM」表示が実態と合っていない可能性がある。
+  - 保存経路は `api/assignments.ts` の「staff_id 単位で**全削除→再挿入**」。空配列は `confirm_clear` で拒否され、孤児シナリオも delete 前検証で除外済み（いずれも過去事故の対策）。**残る穴は「部分的に欠けた配列での保存」**で、空でないため既存ガードを素通りし、送られなかった分が黙って消える。
+  - `staff_scenario_assignments` には `assigned_at` しか無く **削除の痕跡が一切残らない**ため、いつ誰が何を外したかを事後に追えない。
+  - Claude が公演履歴から復元投入した行（`notes='2026-08-02 公演履歴(schedule_events.gms)から復元'`）は、前提誤りのため**全件削除済み**。この notes を持つ行はもう存在しないので、探したり再投入したりしないこと。
+- **status/lane:** TODO / HIGH-RISK（データ保全・PO最優先要件）。**PREVIEW必須**（確認UIが増えるため）。
+- **scope/acceptance:**
+  - ① **減少ガード（本タスクの中核）**: `api/assignments.ts` の `update_staff_assignments` 相当の処理で、delete 実行前に既存の担当集合を取得し、**新しい配列が既存より1件でも減る場合は 409 で拒否**する。「半分未満」等の閾値方式にはしない（PO要件は「減らないこと」）。レスポンスには `existing_count` / `incoming_count` / **外れることになる具体的なシナリオ名の一覧**を含める。既存の空配列ガードと同じく、`confirm_clear: true`（または減少専用フラグ）が明示された場合のみ通す。
+  - ② `POST /assignments` の GM 一括更新側（`staff_ids` を受ける方、現状 `confirm_clear` で空配列のみ防御）にも同じ減少ガードを入れる。
+  - ③ **変更履歴**: `staff_scenario_assignment_history` テーブルを新設する（`id` / `organization_id` NOT NULL / `staff_id` / `scenario_master_id` / `action`（'added' | 'removed'）/ `changed_by`（auth user id）/ `changed_at` / `source`（'api' 等））。anon には**一切 GRANT しない**。`api/assignments.ts` の更新処理で、delete/insert の差分を履歴として記録する（全行ではなく**実際に増減した分だけ**）。
+  - ④ フロント側で①②の 409 を受けたとき、共通 `ConfirmDialog`（`@/components/patterns/modal`）で「N件からM件に減ります。外れる担当: 〜」を提示し、PO が明示的に承認した場合のみ再送する。native `confirm()` / `alert()` は使わない。
+  - ⑤ 管理画面のスタッフ詳細に、そのスタッフの担当変更履歴（直近20件程度）を表示する。表示先は着手前に監督へ scope request すること。
+  - ⑥ **既存データを1件も減らさないこと。** 本タスクでは `staff_scenario_assignments` と `staff.available_scenarios` / `staff.special_scenarios` のいずれについても、データを削除・縮小する変更を行わない。二重管理の解消（どちらを単一の正とするか、45名分のズレをどう寄せるか）は**仕様判断が必要なため本タスクの対象外**とし、着手しない。必要と判断したら監督経由で PO へ上申すること。
+- **allowed files:** 既存 `api/assignments.ts`、新規 `supabase/migrations/<timestamp>_create_staff_scenario_assignment_history.sql`、担当編集UIの該当ファイル（着手前に監督へ scope request で確定させる）、対象unit test。
+- **禁止:** migrationの適用（`db:push:*` / MCP `apply_migration` 一切禁止）。`staff_scenario_assignments` の既存データの削除・書き換え。`gm_experienced_check` 制約の変更。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。公演モーダル・公演カードの見た目変更。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、急減ガードが「部分欠けの配列」を実際に止めること、`confirm_clear` 明示時のみ通ること、履歴が増減分だけ正しく記録されること、テナント境界（他組織の staff_id を更新できないこと）を重点確認する。
+- **PREVIEW:** 必須。スタッフ管理 > スタッフ詳細 > 担当シナリオ編集で、担当を大幅に減らす保存を試み、確認ダイアログが出ること・キャンセルで元のままであること・承認すると反映されることを desktop/mobile で確認する。実データの担当を減らしたまま放置しないこと。
+
+### YOYAQ-009 queue definition: anon読み取りの公開専用ビュー分離とanon権限ゼロ化
+
+- **GO/source:** 2026-08-01 PO明示。設計の背景は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §1 と、本ダッシュボードのYOYAQ-006。着手前に必読。
+- **背景:** 2026-08-01 に列レベルGRANT（`20260801130000` / `20260801140000`）で機密列の露出は塞いだが、`organization_scenarios_with_master` / `organization_scenarios` / `scenario_masters` は依然 anon が直接読める。ビューは `security_invoker` 未設定（owner=postgres・base tableは FORCE RLS 無し）で **RLSが効かず、anonから非 available 行も見える**。`security_invoker=true` 化は、ビュー定義が参照する機密列の権限を呼び出し元に要求するため anon 側が 42501 で全滅する（2026-04-12 の `20260412110000` で実際に踏んで全面ロールバックされた経緯あり）。したがって **オブジェクトを分離**して解決する。
+- **status/lane:** TODO / HIGH-RISK（顧客向け公開画面のデータ取得経路を全面的に差し替える）。PREVIEW不要（UIの見た目変更なし）だが、後述の実機確認は必須。
+- **scope/acceptance:**
+  - ① 公開専用ビュー `public.public_scenarios_v1` を新規作成する。**`security_invoker` は設定しない**（owner権限で実行させ、anonに基底テーブル権限を要求させないため）。列は現在anonが読める公開列のみ、行は `WHERE org_status = 'available'` で固定する。ライセンス料8種・`production_cost*`・`depreciation_per_performance`・`gm_costs`・`gm_count`・`gm_assignments`・`available_gms`・`experienced_staff`・`notes`・`author_email`・`survey_url`・`individual_notice_template`・`pricing_patterns`・`flexible_pricing`・`use_flexible_pricing`・`play_count`・`gm_test_participation_fee`・`report_display_name`・`external_license_amount` は**含めない**。
+  - ② anon 経路の参照を機械的に差し替える。対象は以下13箇所（2026-08-01 実測・`select('*')` は1つも無いことを確認済み）。各箇所の select 列は**一切変えない**。
+    `src/pages/PublicBookingTop/hooks/useBookingData.ts:136` / `src/pages/ScenarioCatalog/index.tsx:89` / `src/pages/PlatformScenarioSearch/index.tsx:98` / `src/pages/ScenarioDetailGlobal/index.tsx:147`（および同ファイルの `organization_scenarios` / `scenario_masters` 直読み 105,117,121,129,139,171,175,181,188,198） / `src/lib/scenarioRelatedPublic.ts:34` / `src/lib/privateBookingScenarioTime.ts:108,134` / `src/pages/PrivateGroupInvite/index.tsx:341` / `src/pages/PrivateGroupCreate/index.tsx:55` / `src/hooks/privateGroupHelpers.ts:145` / `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts:23` / `src/pages/PlatformTop/index.tsx:127,128,130` / `src/pages/PrivateGroupManage/components/GroupChat.tsx:164,405` / `src/pages/RentalReportForm/index.tsx:88`
+  - ③ `/mypage` 系（`useMyPageDataQuery.ts:108,140,307` / `useReservationDetailQuery.ts:63,67,71` / `useLikedScenariosQuery.ts:35`）はルートガードが無く未ログインでもマウントされるため、**同様に公開ビュー経由へ寄せる**。ログイン必須データを公開ビューから取らせないこと。
+  - ④ ②③が完了し実機確認が通った**後で**、`organization_scenarios_with_master` / `organization_scenarios` / `scenario_masters` から **anon の全権限を REVOKE** する migration を作成する（適用は監督経由でPO/Claude）。
+  - ⑤ **退行防止CIガード**を追加する。`scripts/` に新規スクリプトを置き、`anon` が上記3オブジェクトに対して table 権限・列権限のいずれかを1つでも持っていたら **exit 1** にする。`package.json` に `check:anon-scenario-grants` として登録し、`npm run verify` の系列から呼ばれるようにする。既存の `scripts/audit-anon-rls-grants.sh` は「GRANTが足りず401になる」検出器で方向が逆のため、**別スクリプトとして追加**し既存を書き換えないこと。
+  - ⑥ `scripts/verify_permissions.mjs` の `ANON_REQUIRED_TABLES` から `scenario_masters` / `organization_scenarios` を削除する。この2つが「anonが読めること」を要求する検査に残っていると、④のREVOKEと矛盾して常時赤になる。`FIX_SQL` に両テーブルを**復活させないこと**（2026-04-12 のロールバックはこの `--fix` が一因）。
+- **allowed files:** 新規 `supabase/migrations/<timestamp>_create_public_scenarios_v1_view.sql`、新規 `supabase/migrations/<timestamp>_revoke_all_anon_on_scenario_objects.sql`、新規 `scripts/check-anon-scenario-grants.mjs`、既存 `package.json`（scripts追記のみ）、既存 `scripts/verify_permissions.mjs`、および②③に列挙したフロントのファイル。**列挙外のフロントファイルを触る必要が出たら必ず監督へscope request**。
+- **禁止:** migrationの適用（`db:push:*` / MCP `apply_migration` 一切禁止）。各所の select 列の変更・追加。`organization_scenarios_with_master` の定義変更。`security_invoker=true` 化（上記の理由で anon が全滅する）。`scripts/audit-anon-rls-grants.sh` の書き換え。API層（`api/`）の変更。
+- **gates/review:** `npm run typecheck`、`npm run check:permissions`、`npm run check:anon-scenario-grants`（新規）、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、公開ビューへの機密列混入、`select('*')` の混入、②③の差し替え漏れ（`organization_scenarios_with_master` を anon 経路から参照する箇所が残っていないか）を重点確認する。
+- **staging統合後のPO確認（必須・ページ名とたどり方を明記して提示すること）:** ①`/queens-waltz` 予約トップでシナリオ一覧が出る ②`/queens-waltz/catalog` でカタログが出る ③シナリオ詳細から公演を選び**予約確定画面まで進んで料金が正しく出る** ④貸切申込で所要時間・時間枠が出る ⑤`/group/invite/{code}` がゲストで開ける ⑥`/mypage` が表示される。
+
+### YOYAQ-010 queue definition: レンタル公演報告フォームの再建
+
+- **GO/source:** 2026-08-01 PO明示「A」（トークン付きAPI経由化・金額はサーバー側計算・クライアントに単価を渡さない）。
+- **背景（本番実測 2026-08-01）:** `/{org}/rental-report` は**既に機能不全**。フォームは `external_performance_reports` へ `scenario_id` / `reporter_company_name` / `reporter_email` / `organization_id: null` を INSERT しようとするが、実テーブルの列は `scenario_master_id` / `organization_id`(NOT NULL) / `reported_by`(NOT NULL) で、送信列は存在しない。加えて anon はこのテーブルに SELECT/INSERT いずれの GRANT も持たない。**送信は必ず失敗する**。実効的な作用は他社向けライセンス単価の公開のみだったため、`20260801140000` で `external_license_amount` の anon 権限を剥奪済み（現在この画面の金額は0円表示になる）。
+- **status/lane:** TODO / HIGH-RISK（外部公開フォーム・金額・PII）。**PREVIEW必須**（UIが変わるため）。
+- **scope/acceptance:**
+  - ① トークン管理テーブルを新設する（例 `external_report_tokens`: `id` / `organization_id` NOT NULL / `token` UNIQUE NOT NULL / `partner_label` / `is_active` NOT NULL DEFAULT true / `expires_at` / `last_used_at` / `created_at`）。anon には**一切 GRANT しない**（APIのservice_roleからのみ参照）。トークンは推測不能な長さ（32バイト以上の乱数をbase64url）とする。
+  - ② 公開API `api/public/rental-report.ts` を新設する。認証はクエリ/ボディの `token` のみ。
+    - `GET ?org={slug}&token=...` → トークン検証後に、対象組織の `scenario_type='managed'` かつ `org_status='available'` のシナリオ一覧（`id` / `title` / `author`）と、**単価を含めた表示用データ**を返す。トークンが無効・失効・非活性なら 401 とし、**シナリオ一覧も単価も一切返さない**。
+    - `POST` → トークン検証後、報告を登録する。**クライアントから送られた金額は一切信用せず、サーバー側で DB の `external_license_amount` から再計算する**。書き込みは実テーブルの列（`organization_id` / `scenario_master_id` / `performance_date` / `performance_count` / `status` / `notes` 等）に正しく合わせる。`reported_by` が NOT NULL のため、外部報告をどう表現するか（NULL許容へ変更するか、報告者を別列で持つか）を実装前に監督へ確認すること。
+    - CORS は既存の許可リスト方式に合わせる。`Cache-Control: no-store`。GET/POST/OPTIONS 以外は 405。
+  - ③ `src/pages/RentalReportForm/index.tsx` を、Supabase 直クエリ・直INSERTから②のAPI呼び出しへ全面的に差し替える。URLは `/{org}/rental-report?token=...`。**トークンが無い/無効な場合は、シナリオ一覧も金額も表示せず**「有効な報告用リンクからアクセスしてください」の案内だけを出す。
+  - ④ 単価の画面表示は**トークン検証を通った場合のみ**とする（報告する取引先自身には従来どおり単価・小計・合計を見せてよい）。
+  - ⑤ 管理画面側にトークンの発行・失効UIを追加する。破壊的操作の確認は共通 `ConfirmDialog`（`@/components/patterns/modal`）を使い、native `confirm()` を使わない。
+- **allowed files:** 新規 `supabase/migrations/<timestamp>_create_external_report_tokens.sql`、新規 `api/public/rental-report.ts`、既存 `src/pages/RentalReportForm/index.tsx`、管理UIの追加先は**着手前に監督へscope request**。
+- **禁止:** migrationの適用。`external_performance_reports` への anon GRANT 追加。クライアントが送った金額の採用。トークン未検証での単価・シナリオ一覧の返却。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:permissions`、`git diff --check`。検収では、トークン無しで単価が取れないこと、他組織のトークンで別組織のデータが取れないこと（テナント境界）、金額のサーバー再計算、報告の重複登録防止を重点確認する。
+
+### YOYAQ-006 queue definition: anon権限の参照監査とREVOKE migration作成
+
+- **GO/source:** 2026-08-01 PO明示「codexにここから指示が出せるようにして」。設計の正は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §1 / §4-3。着手前に必読。
+- **背景（本番実測 2026-08-01・project `cznpcewciwywcqcxktba`）:** `public.organization_scenarios_with_master` と `public.organization_scenarios_public` に anon が `DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE` を保持。両ビューとも `reloptions = null`（`security_invoker` 未設定）。未認証でライセンス料8種・`production_cost`・`depreciation_per_performance`・`gm_costs`・`gm_count`・`gm_assignments`・`available_gms`・`experienced_staff`・`notes`・`author_email`・`participation_costs` の `time_slot='gmtest'` 内部価格が読める。
+- **status/lane:** TODO / HIGH-RISK（本番権限とテナント境界に触れる）。PREVIEW不要（UI変更なし）。
+- **scope/acceptance:**
+  - ① `src/` `api/` `supabase/` `scripts/` 全体（`.ts` `.tsx` `.sql` `.mjs`）から `organization_scenarios_with_master` / `organization_scenarios_public` / `organization_scenarios` / `scenario_masters` の参照箇所を漏れなく列挙し、各件について「ファイル:行 / 参照先 / 実行主体（anon・authenticated・service_role） / 未ログインで到達しうるか」を表にする。実行主体はSupabaseクライアント生成元（anon keyクライアントか `api/_lib/db.ts` の service_role か）を実際にたどって判定し、たどれない場合は推測せず「不明」と記す。
+  - ② 「未ログインで到達しうる かつ anon クライアントで読んでいる」箇所を**危険リスト**として別掲する。顧客向け予約サイトのログイン不要画面を重点確認する。
+  - ③ 危険リスト各件に、REVOKE後も動く代替案を1行で提案する（API経由化 / 公開専用ビューへの差し替え等）。
+  - ④ ①〜③を `docs/ANON_GRANT_AUDIT.md` に出力する。
+  - ⑤ 設計書 §4-3 のREVOKE文を **migrationファイルとして作成するだけ** にする。冒頭コメントに「危険リストがゼロ、または代替対応が別タスクで完了してから適用すること」を明記する。
+  - ⑥ 危険リストが空でない場合は**適用可否をREPORTで監督に上申**し、自己判断で先へ進めない。
+- **allowed files:** 新規 `docs/ANON_GRANT_AUDIT.md`、新規 `supabase/migrations/<timestamp>_revoke_anon_grants_on_scenario_views.sql`。それ以外の製品コード変更は禁止（追加が必要なら監督へscope request）。
+- **禁止:** migrationの適用（`npm run db:push:staging` / `db:push:prod` / MCP `apply_migration` を含め一切実行しない）。既存ビュー定義の変更。anonへのGRANT追加。`api/_lib/auth.ts` の変更。
+- **gates/review:** `npm run typecheck`、`npm run check:anon-rls-grants`、`npm run check:multi-tenant`、`git diff --check`。HIGH-RISK focused独立検収で、監査の網羅性（検索漏れがないか）と、REVOKEで壊れる箇所の見落としを重点確認する。DB適用は監督経由でPO判断。
+
+### YOYAQ-007 queue definition: 公開シナリオビューとHP掲載カラムのmigration作成
+
+- **GO/source:** 同上。設計の正は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §4-1 / §4-2 / §6。着手前に必読。
+- **status/lane:** TODO / HIGH-RISK（DBスキーマ変更）。PREVIEW不要。依存: YOYAQ-006（監査完了まで着手しない）。
+- **scope/acceptance:**
+  - ① `public.organization_scenarios` に `web_published boolean NOT NULL DEFAULT true` と `web_display_order integer` を追加。両方に `COMMENT ON COLUMN` を付ける。`DEFAULT true` はPO決定「`org_status='available'` の181件を全部掲載」に対応するもので、値を変えない。
+  - ② 部分インデックス `idx_org_scenarios_web_published (organization_id, web_published) WHERE web_published` を張る。
+  - ③ 部分UNIQUEインデックス `uq_org_scenarios_slug (organization_id, slug) WHERE slug IS NOT NULL` を張る。既存重複で失敗しうるため、migration冒頭コメントに重複検出クエリを記載する。
+  - ④ `public.public_scenarios` ビューを設計書 §4-2 のSQLどおり作成する。`WITH (security_invoker = true)` を必ず付け、`REVOKE ALL ON public.public_scenarios FROM anon, authenticated;` と `GRANT SELECT ON public.public_scenarios TO service_role;` を含める。
+  - ⑤ 設計書 §3-4 のブラックリスト列（ライセンス料8種・`production_cost*`・`depreciation_per_performance`・`gm_costs`・`gm_count`・`gm_assignments`・`available_gms`・`experienced_staff`・`notes`・`author_email`・`author_id`・`survey_*`・`characters`・`available_stores`・`booking_*`・`individual_notice_template`・`private_booking_*`・`play_count`・`kit_count`・`master_status`・`report_display_name`・`required_props`・`gm_test_participation_fee`）が `public_scenarios` に1つも含まれていないことを自分で照合し、照合結果をREPORTに書く。
+  - ⑥ `participation_costs` はビューに**含める**（`gmtest` の除去はAPI層の責務。anonにGRANTしないため漏洩しない）。
+  - ⑦ `supabase/schemas/organization_scenarios.sql` に追加カラムを反映する。
+- **allowed files:** 新規 `supabase/migrations/<timestamp>_add_web_publish_columns_to_org_scenarios.sql`、新規 `supabase/migrations/<timestamp>_create_public_scenarios_view.sql`、既存 `supabase/schemas/organization_scenarios.sql`（カラム追記のみ）。
+- **禁止:** migrationの適用（`db:push:*` / MCP `apply_migration` 一切禁止。適用は監督経由でPO/Claudeが `/db-change` 手順で実行）。既存 `organization_scenarios_with_master` の定義変更。anonへのGRANT追加。設計書に無いカラムの追加。
+- **gates/review:** `npm run typecheck`、`npm run db:check`、`npm run check:anon-rls-grants`、`npm run check:multi-tenant`、`git diff --check`。検収ではブラックリスト列の混入と `security_invoker` の有無を重点確認する。
+
+### YOYAQ-008 queue definition: 公式サイト向け公開シナリオAPI実装
+
+- **GO/source:** 同上。仕様の正は [`docs/HP_PUBLIC_SCENARIO_API.md`](HP_PUBLIC_SCENARIO_API.md) §3。着手前に必読。
+- **status/lane:** TODO / HIGH-RISK（認証不要の公開エンドポイント新設）。PREVIEW不要。依存: YOYAQ-007のmigrationがstagingに**適用済み**であること（未適用なら着手しない）。
+- **参照すべき既存実装:** `api/customers.ts`（serverless基本形・`setCors`）、`api/_lib/db.ts`（service_roleクライアント）、`api/scenarios.ts:160`（認証不要GETの既存例）。
+- **scope/acceptance:**
+  - ① `api/_lib/publicScenario.ts` に `public_scenarios` の行を公開JSONへ変換するシリアライザを**1本だけ**書き、一覧・詳細の両方がこれを使う（フィールドの食い違い事故防止）。
+  - ② 料金は `participation_costs` のうち `time_slot === 'normal'` の要素だけを使う。`'gmtest'` は内部価格につき**絶対に含めない**。返すのは `price: { normal: number|null, display: string }` のみ。平日/土日祝で差がある場合 `display` は `"平日4,500円 / 土日祝5,000円"` 形式。`flexible_pricing` / `pricing_patterns` / `use_flexible_pricing` は生のまま返さない。
+  - ③ `GET /api/public/scenarios` を実装。クエリ `org`（既定 `queens-waltz`、`organizations.slug` から解決、未知は404）、`tag`（カンマ区切り・`genre` とAND一致）、`players`、`q`（title/author部分一致）、`sort`（`recommended`|`newest`|`title`|`duration`、既定 `recommended` = `is_recommended DESC, web_display_order NULLS LAST, title`）、`limit`（既定24・最大100でクランプ）、`offset`。レスポンスは `{ items, total, limit, offset }`。
+  - ④ `GET /api/public/scenarios/[slug]` を実装。`org` クエリ必須、同一シリアライザで単体を返し、存在しない/非公開は404。
+  - ⑤ CORS は環境変数 `PUBLIC_SITE_ORIGINS`（カンマ区切り）の許可リスト方式。`Access-Control-Allow-Credentials` は**付けない**（公開APIで不要かつ危険）。`OPTIONS` は204。
+  - ⑥ 成功レスポンスに `Cache-Control: public, s-maxage=300, stale-while-revalidate=86400` を付ける。GET以外は405。
+  - ⑦ 受け入れ確認: 認証ヘッダなしのcurlで一覧・詳細が取得でき、`items[0]` に license / cost / gm / notes 系のキーが1つも存在しないこと。`?players=6` `?tag=オススメ` `?limit=5&offset=5` `?sort=newest` が期待どおり効くこと。`gmtest` の金額がレスポンスのどこにも現れないこと。これらをREPORTに実出力付きで記す。
+- **allowed files:** 新規 `api/public/scenarios.ts`、新規 `api/public/scenarios/[slug].ts`、新規 `api/_lib/publicScenario.ts`、承認済み新規test `api/_lib/publicScenario.test.ts`。追加ファイルは編集前に監督へscope request必須。
+- **禁止:** `api/_lib/auth.ts` の変更。既存 `api/scenarios.ts` の変更。`organization_scenarios_with_master` の参照（`public_scenarios` だけを読む）。設計書 §3-4 のブラックリスト列を返すこと。DBマイグレーションの作成・適用。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。HIGH-RISK focused独立検収で、公開レスポンスへの機密列混入・`gmtest` 価格の露出・CORS許可リストの緩さ・org解決のテナント境界を重点確認する。staging統合・push後、ページ名/たどり方付きのPO確認項目を提示する。main/production は別の明示PO releaseまで禁止。
 
 ### YOYAQ-005 queue definition: 公演メール送信の顧客名表示・API契約修正
 
@@ -102,7 +230,39 @@ REWORK -> DOING -> REPORT
 - **PREVIEW:** 必須。公演ダイアログ > 予約管理で複数予約を選択しメール送信を開き、予約一覧に表示される顧客名と送信先名が一致することをdesktop/mobileで確認する。実メール送信はPREVIEWでは行わない。認証が必要なため、安定したstaging確認または認証不要・送信不能fixtureを使用し、実顧客PIIを公開PREVIEWへ含めない。
 - **gates/review:** `npm run typecheck`、対象unit test、`npm run check:security-guardrails`、`git diff --check`。HIGH-RISK focused独立検収で、同一組織JOIN、PII非増加、正式payload、既存送信後処理の回帰を確認する。DB/Edge deploy不要。staging統合・push後、ページ名・タブ名・たどり方付きのPO確認項目を提示する。main/productionは別の明示PO releaseまで禁止。
 
+## Follow-up backlog
+
+- **R1:** `/{org}/rental-report` はルートガードなしで `organization_scenarios.external_license_amount` をanonから読むため暫定許可中。ページをAPI経由化してから列レベル許可を追加で塞ぐ。
+- **R2:** `organization_scenarios_with_master` 等のviewが `security_invoker` 未設定で、base tableがFORCE RLSなしのためanonから非available行のタイトル等が見える。`security_invoker=true` 化はstaff画面の可視範囲に影響するため独立タスクとして設計・検証する。
+
 ## Event log
+
+| 2026-08-03 15:37 | `STAGING_INTEGRATED` / `EVENT_CLAIMED` | YOYAQ-021 | 本commit | push直前の最新`origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72`がworker baseから不変であることを再fetch確認し、queue定義とreview済み13ファイル、dashboard監督記録だけを直列統合。製品13ファイルのblobはREPORT commitと完全一致。統合checkoutで対象25 tests、実体のtypecheck＋Vite production build、security、org-scope、JST、diff、production artifact除外がgreen。実ブラウザのみbinding 0件でNOT RUN、8状態HTTP 200とrender/API/ErrorBoundary testで補完。本番DB・main・本番環境は変更せず、`origin/staging`へpushする（recovered: false） |
+
+| 2026-08-03 15:34 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-021 | `8c626c5f625adba0bddd24c0daba603d93dd707b` | fresh reviewer `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` のDONEをclaim。前提4点、13ファイル完全diff、対象25 tests、typecheck、build、security、org-scope、JST、diff、baseline増分0、production artifact除外がgreen。本人/org/JST当日/選択store/DB NOW/23505→409/取消exact id、null安全、5状態、局所ErrorBoundary、退勤0、常時可視取消、ConfirmDialog、既存表示/他ロール非変更を確認しblocking指摘なし。実ブラウザは正規troubleshooting後もbinding 0件でNOT RUN、8状態HTTP 200とrender/API/ErrorBoundary testで補完。監督本人がstaging直列統合を開始（recovered: false） |
+
+| 2026-08-03 15:26 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-021 | `8c626c5f625adba0bddd24c0daba603d93dd707b` | worker REPORTをclaim。exact baseから許可済み13ファイルだけを変更した1日本語commit、worktree clean。対象unit/API/component 25件、typecheck、build、security、org-scope、JST、diff check、preview production artifact除外がPASS。multi-tenant/design-tokenはexact baseと同じ既存baselineのみで増分0。in-memory preview 8状態はport 5197でHTTP 200、実ブラウザは利用可能binding 0件でNOT RUN。fresh HIGH-RISK独立検収 `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` を別worktree `/private/tmp/yoyaq-021-review` のexact REPORT commitで起動（recovered: false） |
+
+| 2026-08-03 15:11 | `YOYAQ_SCOPE_REQUEST` / `PREVIEW_FIXTURE_FILE_APPROVED` / `EVENT_CLAIMED` | YOYAQ-021 | - | workerの内部PREVIEW用追加2ファイルをclaim。独立dev entry `yoyaq-021-preview.html` と、in-memory APIだけを実`StaffCheckinBubble`へ注入する `src/components/store/StaffCheckinPreview.tsx` を限定承認。production build input/AppRoot/通常routeへ接続せず、実DB/session/API mutation/PIIを使わず、loading/unchecked/checked/error/empty/error-boundaryと打刻→取消→打ち直しをport 5197で確認する。その他のscope、DB/migration/main/production禁止は維持（recovered: false） |
+
+| 2026-08-03 15:09 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-021 | `e684ad3305ee7cac8bef0af86e5229f247243590` | source `/root` のP0 queueをclaim。fetch後の最新`origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72`、source commitの親/base一致、全checkout dirty状態を監査し、既存dirtyを保存。可視worker `/root/yoyaq_021_supervisor/yoyaq_021_worker` をexact baseから、worktree `/private/tmp/yoyaq-021-worker`、branch `codex/yoyaq-021-checkin-safe`、port `5197`で起動。監督統合checkoutは`/private/tmp/yoyaq-021-integration`。本番DB・main・本番環境は変更しない（recovered: false） |
+
+| 2026-08-03 10:32 | `STAGING_INTEGRATED` / `EVENT_CLAIMED` | YOYAQ-014 | 本commit | 最新`origin/staging` `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab`がworker baseから不変であることを再fetch確認し、review済み3ファイルとdashboardだけを監督checkoutへ直列適用。worker/reviewerのtypecheck・build、diff check、検索監査はgreenで、統合blobをREPORT commitと照合して`origin/staging`へpush。本番DB・main・本番環境は変更なし（recovered: false） |
+
+| 2026-08-03 10:32 | `YOYAQ_REVIEW_RESULT_EVENT` / `EVENT_CLAIMED` | YOYAQ-014 | `45863e102a32f46823e219dc67ee1c9df26871a1` | fresh reviewer `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` のDONEをclaim。前提4点、許可3ファイルの完全diff、typecheck、build、diff check、全着地経路、role別メニュー、AppLayout/Header/Sidebar、店舗切替、認可・テナント・PII非変更を確認しblocking指摘なし。監督本人がstaging直列統合を開始（recovered: false） |
+
+| 2026-08-03 10:27 | `YOYAQ_WORKER_REPORT_EVENT` / `EVENT_CLAIMED` | YOYAQ-014 | `45863e102a32f46823e219dc67ee1c9df26871a1` | worker REPORTをclaim。exact baseから許可済み3ファイルだけを変更した1日本語commit、worktree clean。typecheck、build、diff check、`view=personal` / 「個人ダッシュボード」0件、role分岐・完全diff監査がPASS。fresh HIGH-RISK独立検収 `/root/yoyaq_014_supervisor/yoyaq_014_reviewer` を別worktree `/private/tmp/yoyaq-014-review` のexact REPORT commitで起動（recovered: false） |
+
+| 2026-08-03 10:22 | `YOYAQ_QUEUE_UPDATED` / `YOYAQ_QUEUE_COMMIT_SHA_CORRECTION` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-014 | `d491230c98e967a7b025c91cc54edf449844b096` | source `/root` のP0 queueとfull SHA訂正をclaim。`origin/staging` exact base `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab`、全checkout dirty監査、source worktree cleanを確認。可視worker `/root/yoyaq_014_supervisor/yoyaq_014_worker` を隔離worktree `/private/tmp/yoyaq-014-worker`、branch `codex/yoyaq-014-remove-personal-dashboard`、portなしで起動。監督統合checkoutは `/private/tmp/yoyaq-014-integration`。本番DB・main・本番環境は変更しない（recovered: false） |
+
+| 2026-08-02 | `YOYAQ_SCOPE_CORRECTED_V2` / `EVENT_CLAIMED` | YOYAQ-011 | - | 表示元はstaff_scenario_assignmentsのみと確定。しらやまの再同期112行を正規データとして保持し、ぽんちゃん0件は再投入しない。二重管理解消は対象外。減少1件でも409、外れるシナリオ名、`confirm_clear`、更新後の関連query `refetchType:'all'` を受入条件へ反映。worker `019fbf7d-46d7-7b70-9a46-bf2071d35f05` を起動。migration適用なし（recovered: false） |
+
+| 2026-08-02 | `YOYAQ_SCOPE_CORRECTED` / `EVENT_CLAIMED` | YOYAQ-011 | `785772f8` | 初版の消失前提を訂正。復元投入行は全削除済みで再投入禁止。二重管理の解消は対象外。新配列が既存より1件でも減る場合に409、外れるシナリオ名を返し、`confirm_clear` 明示時のみ許可する仕様へ変更。worker `019fbe46-48ed-7563-8b44-c54e92af7f8e` を再起動。migration適用なし（recovered: false） |
+
+| 2026-08-02 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-011 | `386de9067d015fd6878b0fc1eb413e6734462467` | P0実害（担当シナリオ消失）をclaim。可視worker `019fbd3a-3fff-7670-b9b3-af5817eac84e` をexact baseから起動。復元済み行（`notes='2026-08-02 公演履歴(schedule_events.gms)から復元'`）の削除・上書き禁止、migration適用禁止を確認。YOYAQ-009継続、YOYAQ-010未着手（recovered: false） |
+
+| 2026-08-01 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` / `QUEUE_CLAIMED` | YOYAQ-006 | `62627677a32c803cbe5b0d148e462927962edfac` | re-deliveryを同一queueとしてclaim。YOYAQ-006のみ着手可能と確認し、可視worker `019fbce5-fdd0-7541-8451-3eb5b844282a` をexact baseから起動。YOYAQ-007/008は依存未充足のためTODO保留。DB適用なし（recovered: false） |
+| 2026-08-01 | `YOYAQ_QUEUE_UPDATED` / `EVENT_CLAIMED` | YOYAQ-006 | `4cbee1c4` | POのスコープ変更をclaim。顧客向け画面が対象viewをanonで直接読むためテーブル単位REVOKE案を破棄し、Claudeの列レベルGRANT是正（migration `20260801130000`）をstaging/prod適用済みとして記録。新規REVOKE migration作成を中止し、監査docのみ継続。可視worker `019fbcf5-fb67-7622-9f6a-bab5730b9ae0` を起動。R1 external_license_amount公開ページAPI化、R2 security_invoker独立タスクを残課題化。DB操作なし（recovered: false） |
 
 | time (JST) | event | task ID | commit | claimed/transition |
 |---|---|---|---|---|
@@ -245,3 +405,62 @@ PO向け報告はPREVIEW判断、materialなREWORK、DONEに絞る。
 - **review:** 初回reviewer `019f91f3-983e-7723-a528-ace3c1ff196c` はtarget `643ff96f...`をREWORK。fresh rereviewer `019f921a-093b-7ae3-a037-63f299ea6c4f` がtarget `a45b989e042e3be0597c21f28160e01ccd1b3377`をDONE。createのcustomer/group認可・DB保存候補/希望店舗の信頼、approveの全caller組織一致、locked reservationからのconfirmed候補/店舗再構築を確認し、重大欠陥なし。保存済みendTimeと現在設定の再計算値がずれた既存pendingや、競合後の直接申請再試行で既作成group候補と再選択候補がずれる場合はmutation前にfail-closedし得るが、既存行を変更せずDB保存候補を信頼元にする契約に沿うため非blocking。
 - **integration:** 最新`origin/staging` `72bbbc94a5f7dae1f493aef7e5439c3d96a58c4c`へreview済み2commitを競合なく直列適用し、累積20ファイルのblobがreview targetと完全一致。統合checkoutで`npm run verify`と対象unit 11件、diff/show checkがPASS。frontend pushより先にstaging DBへ`20260723210000`を適用し、適用済み474・未適用0、pending貸切申請7件・fingerprint `b5ec4cdcd3bdbdd644e804b2538b0a62`前後一致、対象3関数のSECURITY DEFINER/search_path/ACL、YOYAQ-004 policy 0件を確認。review済み20ファイル＋dashboardだけを`origin/staging`へpushし、Vercel Preview READY・外部HTTPS 200を確認。POの本番承認に基づき、mainがstagingの祖先・main直hotfix 0・今回以外の製品差分0を確認後、production DBへ同migration 1件だけを先行適用。prodは適用済み473・未適用0、pending貸切申請11件・fingerprint `880083644cc06eaeb16c3caaea226549`前後一致、対象3関数/RLS不変を確認。既存ドリフト`20260717100000`は今回scope外としてprodへ適用せず、YOYAQ-004依存なし。`origin/main`を`origin/staging`へforceなしでfast-forwardして両branchを`f7b47020b3ba1436e398831aa4feaa1c97279569`へ同期し、Vercel production `dpl_FmuDsXR9jrWZjgXPxdXvo63rcAxT` READY、本番公開入口/貸切導線HTTPS 200、新availability RPC read-only実行、PREVIEW fixture非露出を確認。PO確認用Preview `dpl_EVifNUeWsf6faRkXZKgHGLL7vCV5`はexact target確認後に削除した。
 - **PO check:** 【顧客向け貸切予約 > 候補日時】停止枠が選べず、複数店舗のうち空きがあれば選べること。【貸切確認 > 申請カード > 候補日時】申請後/申請前からの募集停止が区別され、停止中は承認できないこと。
+
+### YOYAQ-013 queue definition: 実HPシナリオカタログの横幅・カード密度をFigmaへ合わせる
+
+- **GO/source:** 2026-08-03 Discord壁打ちで、POが選択肢A「GO（実HPカタログの横幅・カード寸法をFigmaに合わせる → ローカル確認 → push）」を明示選択。
+- **status/lane:** TODO / UI-INSTANT。PREVIEW必須、PO visual OK後にのみ最終gate・commit・staging統合/pushへ進む。
+- **scope/acceptance:** 実HPのシナリオカタログを、デスクトップでコンテンツ幅およそ1280px、カード幅およそ400px、3列の詰まった構図へ合わせる。カード内のポスター・タイトル・作者・料金・バッジの見た目や情報は変更しない。モバイル/タブレットの既存レスポンシブ表示を壊さない。
+- **allowed files:** `src/pages/ScenarioCatalog/index.tsx`のみ。PREVIEW専用fixture等の追加ファイルが必要なら、編集前に監督へscope requestする。
+- **禁止:** カード内部、公演カード/公演モーダル、色、文言、データ取得、フィルター挙動の変更。`border-l-4`、native `confirm()`、新規`text-*` / `font-*` / `leading-*`クラス、DB/Edge Function変更。
+- **gates:** PO visual OK後に`npm run typecheck`、`npm run check:design-tokens`、`git diff --check`、完全diff監査。独立検収は通常省略し、監督が統合前監査する。
+- **PREVIEW:** シナリオカタログをdesktop幅（目安1440px）で開き、左右余白約80pxの範囲に約400pxカードが3列で並ぶことをFigma見本と比較する。mobileでも横overflowやカード崩れがないことを確認する。
+- **priority/dependencies/event source:** P1、依存なし。既存HIGH-RISKレーンと製品ファイルが非重複なら並行可、staging統合は監督が直列化する。source thread: Discord壁打ち席（2026-08-03 A返信）。
+
+### YOYAQ-012 queue definition: スタッフ担当シナリオの正を結合テーブルへ一本化
+
+- **GO/source:** 2026-08-02 PO明示「二重管理は統合するようにして、片方になくても片方があれば採用」。ぽんちゃんの扱いは PO 判断「C（復活してよい）」。
+- **背景（本番実測 2026-08-02）:**
+  - スタッフ×シナリオの紐付けが2箇所に分かれている。
+    - `staff.special_scenarios` / `staff.available_scenarios`（`scenario_masters.id` の UUID 配列）
+    - `staff_scenario_assignments`（結合テーブル）
+  - **画面の表示元は結合テーブルのみ。** `src/pages/StaffManagement/hooks/useStaffQuery.ts:44` が `staff.special_scenarios` を結合テーブル由来の値で上書きするため、配列側にしか無い紐付けは画面に出ず GM 候補にも出ない。
+  - 対応関係: `special_scenarios` → `can_main_gm=true`（「GM可能」）、`available_scenarios` → `is_experienced=true`（「体験済み」）。`gm_experienced_check` 制約により両フラグは排他。
+  - **データ側の統合は Claude が実施済み**（`20260802110000_backfill_staff_scenario_assignments_from_legacy.sql`、staging/prod 適用済み）。和集合で 940件を投入し、結合テーブル 3,050 → **3,990件**。レガシー配列側の取りこぼし **0件**。GM が付いたシナリオ 211 → **217件**。削除は一切していない。
+  - 投入行は `notes LIKE '2026-08-02 二重管理統合%'` で識別できる。**これらは正規の担当データとして扱い、削除・上書きしないこと。**
+- **本タスクの目的:** データは揃ったので、**コード側の正を結合テーブルへ一本化**し、再びズレが生まれないようにする。
+- **status/lane:** TODO / HIGH-RISK（スタッフ担当データの保存経路を変更する）。**PREVIEW必須**。依存: YOYAQ-011（減少ガード）実装後に着手する。
+- **最優先の制約:** **登録済みの担当を1件も減らさないこと。** どの段階でも削除・縮小方向の変更を行わない。
+- **scope/acceptance:**
+  - ① 保存経路の棚卸し: `staff.special_scenarios` / `staff.available_scenarios` に書き込んでいる箇所を全数列挙する（既知: `src/lib/api/staffApi.ts:54`、`api/staff.ts` の許可フィールド、`src/pages/StaffManagement/components/StaffEditForm.tsx`、`api/invitations.ts:369`、`src/pages/OrganizationRegister/index.tsx:243`）。読み取り側も同様に列挙し、`docs/` に対応表を残す。
+  - ② **保存時は結合テーブルを正とする。** 担当編集の保存が `staff_scenario_assignments` を必ず更新するようにし、レガシー配列は当面**同じ内容を書き続ける（二重書き）**にとどめる。配列の廃止（カラム DROP）は本タスクでは行わない。
+  - ③ 読み取り側は結合テーブル由来に統一する。`useStaffQuery.ts` のような「カラムを結合テーブルで上書きする」暗黙の処理をやめ、**どこから来た値かがコード上で明示される**形にする。
+  - ④ 整合性チェックを追加する: レガシー配列と結合テーブルの差分を検出するスクリプトを `scripts/` に置き、`package.json` に `check:staff-scenario-sync` として登録する。**配列にあって結合テーブルに無い**ものが1件でもあれば警告として出力する（CI を落とすかは監督判断）。
+  - ⑤ 招待・組織登録の初期値（`available_scenarios: []` 等）が、既存の紐付けを消す経路になっていないことを確認し、なっていれば直す。
+- **allowed files:** ①で列挙したファイル、新規 `scripts/check-staff-scenario-sync.mjs`、既存 `package.json`（scripts追記のみ）、新規 `docs/` 対応表、対象unit test。列挙外のファイルは監督へ scope request。
+- **禁止:** migrationの適用。`staff.special_scenarios` / `staff.available_scenarios` カラムの DROP。`staff_scenario_assignments` の既存データの削除・書き換え（`notes LIKE '2026-08-02 二重管理統合%'` の940行を含む）。`gm_experienced_check` 制約の変更。native `confirm()` / `alert()`。`border-l-4` のステータス色アクセント。`text-*` / `font-*` / `leading-*` の Tailwind クラス追加。
+- **gates/review:** `npm run typecheck`、対象unit test、`npm run check:staff-scenario-sync`（新規）、`npm run check:multi-tenant`、`npm run check:org-scope`、`git diff --check`。検収では、保存後に両方が同じ内容になること、既存の担当が1件も減らないこと、テナント境界を重点確認する。
+- **PREVIEW:** 必須。スタッフ管理 > スタッフ詳細 > 担当シナリオ編集で、追加・削除・無変更保存の3パターンを試し、一覧の「GM可能」「体験済み」列と件数が即座に一致することを desktop/mobile で確認する（更新後は `invalidateQueries` に `refetchType:'all'` を付け、計算列だけ更新されてチップが古いまま残る状態を作らないこと）。
+
+### YOYAQ-014 queue definition: 店舗代表アカウントから個人ダッシュボードを撤去
+
+- **GO/source:** 2026-08-03 PO明示依頼。`queens.waltz@gmail.com` の店舗代表はスタッフではなく、個人ダッシュボード不要と確定。source thread: Codex `/root`（本依頼）。
+- **status/lane:** TODO / HIGH-RISK（認証後ルーティングとロール別メニュー境界）。PREVIEW不要。POが、コード上の説明、typecheck/build、staging commit/pushを完了条件として指定している。
+- **priority/dependencies:** P0、依存なし。正確な最新 `origin/staging` `5fc7e13e93cd786cb6deaee7111a8c1a38dc2aab` を基点とする。既存のレイアウト復元 `5fc7e13e` / `b73987d4` を維持する。
+- **scope/acceptance:** ① `isStoreRepresentative === true` のログイン後着地を `/{slug}/store-dashboard` にする。② `AdminSidebar.tsx` の店舗代表向け「個人ダッシュボード」ラベル/パス分岐を撤去し、そのダッシュボード項目自体を店舗代表に表示しない。店舗ダッシュボード項目と店舗切替動線は維持する。③ 店舗代表について残る不要な `?view=personal` 分岐を整理する。④ admin / staff / license_admin の着地・メニューは変更せず、スタッフ向け個人ダッシュボード自体を維持する。⑤ 店舗代表の店舗ダッシュボードでもヘッダー・サイドバーが表示される既存レイアウトを維持する。⑥ typecheck / buildを通し、ロール別分岐を完全diffと検索結果で説明する。⑦ 1作業1commit、日本語Conventional Commitの件名と変更内容を記した本文で `origin/staging` へpushする。
+- **allowed files:** `src/AppRoot.tsx`、`src/components/auth/LoginForm.tsx`、`src/components/layout/AdminSidebar.tsx`、当該ロール分岐の既存対象test（存在し、最小修正が必要な場合のみ）。dashboardは監督だけが更新する。追加ファイルは編集前に監督へscope requestする。
+- **禁止:** 本番DB・本番環境・main、DB/Edge Function、依頼範囲外のリファクタ、他ロールの挙動変更、ヘッダー/サイドバーのレイアウト復元の破棄、店舗代表の店舗切替動線の削除。
+- **gates/review:** workerは `npm run typecheck`、`npm run build`、`git diff --check`、`isStoreRepresentative` / `view=personal` / メニューrole条件の検索監査。HIGH-RISK focused独立検収で、店舗代表の全着地経路、AdminSidebarの項目可視性、admin / staff / license_admin回帰、レイアウト保持、認可・テナント・PII非変更を確認する。
+- **PO check after staging push:** 【ログイン画面】店舗代表でログインし、ヘッダー・サイドバー付きの「店舗ダッシュボード」へ着地すること。【管理画面 > サイドメニュー】「個人ダッシュボード」が表示されず「店舗ダッシュボード」が表示されること。【店舗ダッシュボード > 店舗切替】店舗を切り替えられること。【各ロールのログイン画面・サイドメニュー】admin / staff / license_adminの従来着地とダッシュボード項目が変わっていないこと。
+
+### YOYAQ-021 queue definition: 出勤打刻をnull安全な独立状態として再実装
+
+- **GO/source:** 2026-08-03 PO明示依頼「出勤打刻機能を作り直す（初回描画クラッシュを再発させない設計で一括実装）」。source thread: Codex `/root`（本依頼）。復旧済み最新 `origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72` を正とし、過去の打刻実装commitをそのまま復活させない。
+- **status/lane:** DONE / HIGH-RISK（fresh独立検収DONE・staging直列統合/push）。優先度P0、依存なし。本番DB・main・本番デプロイは禁止。staging DBは参照のみで、migration適用・直接レコード削除を行わない。
+- **scope/acceptance:** ① 打刻UIのデータ取得を店舗ダッシュボード本体の取得・描画から分離し、初期値を明示した判別可能な loading / ready-unchecked / ready-checked / error / unavailable 状態で扱う。null/undefined/空レスポンスを直接参照せず、打刻UI自身の取得・描画例外が店舗ダッシュボード全体を落とさないエラー境界を置く。② 未打刻は「出勤打刻がまだです」とクライアント現在時刻HH:MMのボタンを表示する。POSTはstaff_idや公演時刻を信用せず、認証ユーザーとorganizationから本人staffをサーバ側で一意に解決し、選択storeの組織所属を検証して、`staff_checkins.checked_in_at`のDB DEFAULT `NOW()`を正として記録する。退勤action/UIは作らない。③ 打刻済みは「出勤打刻済み（HH:MM）」と常に見える「取り消す」を表示する。共通`ConfirmDialog`を1枚挟み、サーバは認証本人・同一organization・JST当日の打刻だけを対象にして取消し、未打刻へ再取得する。④ 打刻→取消→打ち直しを同一画面で完結させ、既存13:30想定レコードもUIから取消可能にする。staging DBの直接削除は禁止。⑤ 店舗ダッシュボードの参加費、中止公演、店舗代表の個人ダッシュボード撤去、ヘッダー/サイドバー、店舗切替を維持し、admin / staff / license_adminの既存着地・メニュー・画面挙動を変えない。打刻UIは店舗代表だけに表示し、APIでも`users.is_store_representative`をDBから確認してfail-closedにする。⑥ 過去の根本原因 `data === null` でのプロパティ参照を対象testで再現し、loading / unchecked / checked / API failure / empty or malformed response / render error boundaryを固定する。API testは本人解決、別organization/store拒否、DB時刻（checked_in_atをclientから送らない）、当日だけの取消、重複打刻を固定する。
+- **allowed files:** `api/store-dashboard.ts`、`src/lib/api/storeDashboardApi.ts`、`src/pages/StoreDashboard/index.tsx`、新規または復元する `src/components/store/StaffCheckinBubble.tsx` と同階層の対象test/状態helper、API対象test、`docs/PAGES.md`、`docs/development/critical-features.md`、`docs/development/ui-design.md`。内部PREVIEW専用に `yoyaq-021-preview.html` と `src/components/store/StaffCheckinPreview.tsx` を追加承認し、production build input/AppRoot/通常routeへ接続せず、実DB/session/API mutationなしのin-memory fixtureに限定する。dashboardは監督だけが更新する。追加ファイルは編集前に監督へscope requestする。
+- **禁止:** `supabase/migrations/*`、schema/RLS/Edge Function、staging/prod DBへの書込み検証や直接削除、`staff_checkins`既存レコードの手動変更、退勤action/UI、公演開始時刻を打刻値へ使うこと、client指定staff_idの採用、native `confirm()` / `alert()`、`border-l-4`、公演カード/公演モーダルの外観変更、既存参加費・中止公演表示の変更、他ロールの挙動変更。
+- **PREVIEW/gates/review:** 隔離worktreeの固有portで、実DBを書き換えないfixture/mockを使い loading / 未打刻 / 打刻済み / API失敗 / 空データ / error boundaryを実ブラウザ確認する。本依頼でPOがこれらの検証通過後のstaging pushまで明示しているため、別ターンのvisual OK待ちは不要。workerは対象unit/API/component test、`npm run typecheck`、`npm run check:security-guardrails`、`npm run check:multi-tenant`、`npm run check:org-scope`、`npm run check:jst-date`、`npm run build`、`git diff --check`を実行する。HIGH-RISK fresh独立検収で完全diff、本人/当日/organization/store境界、null安全、error isolation、他ロールと参加費・中止公演・個人ダッシュボード撤去の回帰を確認する。監督は全green後だけ最新`origin/staging`へ直列統合・pushする。
+- **REPORT/review:** worker commit `8c626c5f625adba0bddd24c0daba603d93dd707b`、許可済み13ファイル、worktree clean。対象unit/API/component 25件、typecheck、build、security、org-scope、JST、diff、preview production artifact除外がPASS。multi-tenant/design-tokenはexact baseと同じ既存baselineのみで増分0。fresh reviewer `/root/yoyaq_021_supervisor/yoyaq_021_reviewer` は前提4点・完全diff・全指定境界を確認してDONE、blocking指摘なし。実ブラウザはworker/reviewer/監督すべて正規接続後もbinding 0件でNOT RUN、port 5197の8状態HTTP 200とrender/API/ErrorBoundary testで補完。
+- **integration:** 最新`origin/staging` `924cdcc68c1fffc6114f2ddfb9946884f76dba72`へqueue定義とreview済み13ファイル、dashboardだけを監督が直列適用。製品blobはREPORT commitと一致し、統合checkoutで対象25 tests、実体のtypecheck＋Vite production build、security、org-scope、JST、diff、artifact除外を再確認して本commitを`origin/staging`へpush。本番DB・main・本番環境は変更しない。
+- **PO check after staging push:** 【店舗ダッシュボード】初回読み込みでページが落ちず、未打刻では現在時刻の出勤ボタン、打刻済みでは時刻と「取り消す」が見えること。「取り消す」の確認後に未打刻へ戻り、もう一度現在時刻で打刻できること。参加費・中止公演・店舗切替・ヘッダー/サイドバーが従来どおりであること。

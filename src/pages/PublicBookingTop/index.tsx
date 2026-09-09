@@ -27,6 +27,8 @@ import { ListView } from './components/ListView'
 import { ScenarioCard } from './components/ScenarioCard'
 import { Footer } from '@/components/layout/Footer'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { orgBookingDescription, orgBookingTitle } from '@/lib/seo'
 
 const DEFAULT_PUBLIC_BOOKING_HERO =
   'リアルな謎解き体験。あなたは事件の真相を暴けるか？'
@@ -96,6 +98,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const heroDescription = useMemo(() => {
     return organizationPublicBookingHeroDescription?.trim() || DEFAULT_PUBLIC_BOOKING_HERO
   }, [organizationPublicBookingHeroDescription])
+
+  usePageMeta({
+    title: organizationName ? orgBookingTitle(organizationName) : 'マーダーミステリー予約 | MMQ',
+    description: organizationName ? orgBookingDescription(organizationName) : heroDescription,
+    canonicalPath: organizationSlug ? `/${organizationSlug}` : '/',
+  })
   
   useReportRouteScrollRestoration('public-booking-top', {
     isLoading,

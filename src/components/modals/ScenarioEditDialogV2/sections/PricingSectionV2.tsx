@@ -1,5 +1,6 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -42,7 +43,7 @@ function getStatusLabel(status: 'active' | 'ready' | 'legacy'): string {
 
 function getStatusColor(status: 'active' | 'ready' | 'legacy'): string {
   switch (status) {
-    case 'active': return 'bg-green-100 text-green-800'
+    case 'active': return 'scenario-edit-dialog__status is-public'
     case 'ready': return 'bg-blue-100 text-blue-800'
     case 'legacy': return 'bg-gray-100 text-gray-500'
     default: return 'bg-gray-100'
@@ -133,17 +134,19 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
   return (
     <div className="space-y-4">
       {/* ── 参加費 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Coins className="h-3.5 w-3.5" />参加費
         </p>
-        <p className="text-[11px] text-muted-foreground -mt-1">時間帯別のお客様参加料金。期間を設定すると価格改定に対応できます</p>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          時間帯別のお客様参加料金。ここを変更しても、すでに受け付けた予約の金額は当時のまま残ります。これから取る予約から新料金が適用されます。期間を設定すると価格改定の切替日にも対応できます
+        </p>
           <div className="space-y-1.5">
             {(formData.participation_costs || []).map((cost, index) => {
               const status = getPeriodStatus(cost.startDate, cost.endDate)
               const isCustom = !PRESET_SLOTS.includes(cost.time_slot as typeof PRESET_SLOTS[number])
               return (
-                <div key={index} className="flex items-center gap-2 py-1.5 border-b last:border-0">
+                <div key={index} className="flex flex-wrap items-center gap-2 py-1.5 border-b last:border-0">
                   {/* 種別 */}
                   {isCustom ? (
                     <Input value={cost.time_slot}
@@ -200,11 +203,23 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
       </div>
 
       {/* ── ライセンス料（自店用） ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Coins className="h-3.5 w-3.5" />ライセンス料（自店用）
         </p>
         <p className="text-[11px] text-muted-foreground -mt-1">自店で公演した場合に作者に支払う金額</p>
+          <div className="flex items-center gap-3 pb-1">
+            <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">買い切り作品</span>
+            <div className="flex-1 flex items-center gap-2">
+              <Switch
+                checked={formData.is_license_buyout === true}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_license_buyout: checked }))}
+              />
+              <span className="text-[11px] text-muted-foreground">
+                {formData.is_license_buyout ? 'ON（公演報告に出さない）' : 'OFF（公演報告に出す）'}
+              </span>
+            </div>
+          </div>
           <div className="space-y-2">
             {/* プリセット（通常・GMテスト）*/}
             {(formData.license_rewards || [])
@@ -246,8 +261,8 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
       </div>
 
       {/* ── 他店公演時 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Building2 className="h-3.5 w-3.5" />他店公演時
         </p>
           {/* テーブル形式で表示 */}
