@@ -377,7 +377,11 @@ export const ScenarioHero = memo(function ScenarioHero({
             {availableStoreNames.length > 0 && (
               <div className="flex items-start gap-1.5 text-xs text-white/70">
                 <Building2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                <span>{availableStoreNames.join('・')}</span>
+                <span>
+                  <span className="text-white/50">公演可能店舗</span>
+                  <span className="mx-1 text-white/40">:</span>
+                  {availableStoreNames.join('・')}
+                </span>
               </div>
             )}
 
