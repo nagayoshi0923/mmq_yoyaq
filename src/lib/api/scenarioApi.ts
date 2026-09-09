@@ -50,9 +50,10 @@ export const scenarioApi = {
   },
 
   // 公開用シナリオを取得（status='available'のみ、必要なフィールドのみ）
-  // organizationId 引数は後方互換のため残すが、サーバー側で JWT から org_id を取得するため使われない。
-  async getPublic(_organizationId?: string): Promise<Partial<Scenario>[]> {
-    return apiClient.get<Partial<Scenario>[]>('/api/scenarios?type=public')
+  async getPublic(organizationId?: string): Promise<Partial<Scenario>[]> {
+    const params = new URLSearchParams({ type: 'public' })
+    if (organizationId) params.set('org_id', organizationId)
+    return apiClient.get<Partial<Scenario>[]>(`/api/scenarios?${params}`, { allowAnon: Boolean(organizationId) })
   },
 
   // IDでシナリオを取得（scenario_master_id で検索、見つからなければ org_scenario_id でも検索）
