@@ -22,7 +22,9 @@ import {
   getPrivateBookingStoreSlotFeasibility,
   isProposedPrivateBookingStartFeasible,
   PRIVATE_BOOKING_DAY_END_MINUTES,
+  type PrivateBookingStoreSlotFeasibility,
 } from '@/lib/privateBookingStoreSlotFeasibility'
+import { getWeekendEveningStartFloorMinutes } from '@/lib/scenarioWeekendEveningPrivateBooking'
 import { timeStrToMinutes, type ScheduleEventLike } from '@/lib/privateBookingSlotAvailability'
 
 // ---------------------------------------------------------------------------
@@ -41,6 +43,7 @@ export interface ComputePrivateBookingSlotsParams {
   allStoreEvents: ScheduleEventLike[]
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
+  scenarioTitle?: string
 }
 
 export interface PrivateBookingSlot {
@@ -71,6 +74,18 @@ type SlotCandidate = {
   priorEventEarliestStartMin: number
 }
 
+function applyEveningStartFloorToFeasibility(
+  f: PrivateBookingStoreSlotFeasibility,
+  floorMin: number
+): PrivateBookingStoreSlotFeasibility {
+  if (floorMin <= f.slotBandStart) return f
+  return {
+    ...f,
+    slotBandStart: floorMin,
+    minAllowedStart: Math.max(f.minAllowedStart, floorMin),
+  }
+}
+
 /**
  * 指定スロットについて、全候補店舗の中で最も早く開始できるパターンを返す。
  * どの店舗でも枠が成立しなければ null。
@@ -85,16 +100,20 @@ function getBestSlotCandidateAcrossStores(
   isWeekendOrHoliday: boolean,
   durationMinutes: number,
   extraPrepTime: number,
+  eveningStartFloorMinutes: number | null,
 ): SlotCandidate | null {
   const allowSynthetic = storeIds.length === 1
   const candidates: SlotCandidate[] = []
 
   for (const storeId of storeIds) {
     const row = businessHoursByStore.get(storeId)
-    const f = getPrivateBookingStoreSlotFeasibility(
+    let f = getPrivateBookingStoreSlotFeasibility(
       targetDate, storeId, slotKey, row, allStoreEvents, isCustomHoliday, allowSynthetic,
     )
     if (!f) continue
+    if (slotKey === 'evening' && eveningStartFloorMinutes != null) {
+      f = applyEveningStartFloorToFeasibility(f, eveningStartFloorMinutes)
+    }
 
     let startForFeasibility: number
 
@@ -226,6 +245,7 @@ export function computePrivateBookingSlots(
     allStoreEvents,
     isCustomHoliday,
     privateBookingTimeSlots,
+    scenarioTitle,
   } = params
 
   if (storeIds.length === 0) return []
@@ -237,6 +257,10 @@ export function computePrivateBookingSlots(
     dayOfWeek === 6 ||
     isJapaneseHoliday(targetDate) ||
     isCustomHoliday(targetDate)
+  const eveningStartFloorMinutes = getWeekendEveningStartFloorMinutes(
+    isWeekendOrHoliday,
+    scenarioTitle,
+  )
 
   const durationMinutes = getPerformanceDurationMinutesForDate(
     targetDate,
@@ -256,6 +280,7 @@ export function computePrivateBookingSlots(
       isWeekendOrHoliday,
       durationMinutes,
       extraPrepTime,
+      slotKey === 'evening' ? eveningStartFloorMinutes : null,
     )
 
   const morningCandidate = getFeasibility('morning')
