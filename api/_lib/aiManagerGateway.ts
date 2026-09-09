@@ -3,12 +3,24 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 export type AiManagerOperation = {
   id: string
   method: 'GET' | 'POST' | 'PATCH'
-  pathname: string
+  pathname: string | null
+  directRead?: 'staff-scenario-assignments' | 'gm-availability-responses'
   write: boolean
   risk: 'low' | 'medium' | 'high'
   allowedQueryKeys: readonly string[]
   allowedBodyKeys?: readonly string[]
   requiredQuery?: Readonly<Record<string, string>>
+  requiredQueryKeys?: readonly string[]
+  uuidQueryKeys?: readonly string[]
+}
+
+export type AiManagerDirectReadPlan = {
+  table: 'staff_scenario_assignments' | 'gm_availability_responses'
+  select: string
+  filters: ReadonlyArray<Readonly<{ column: string; value: string }>>
+  orderBy: readonly string[]
+  pageSize: number
+  maxRows: number
 }
 
 const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
@@ -45,6 +57,18 @@ const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
     allowedQueryKeys: ['scope', 'year', 'month'],
     requiredQuery: { scope: 'staff' },
   }),
+  'staff-scenario-assignments.read': operation({
+    id: 'staff-scenario-assignments.read', method: 'GET', pathname: null,
+    directRead: 'staff-scenario-assignments', write: false, risk: 'low',
+    allowedQueryKeys: [],
+  }),
+  'gm-availability-responses.read': operation({
+    id: 'gm-availability-responses.read', method: 'GET', pathname: null,
+    directRead: 'gm-availability-responses', write: false, risk: 'low',
+    allowedQueryKeys: ['reservation_id'],
+    requiredQueryKeys: ['reservation_id'],
+    uuidQueryKeys: ['reservation_id'],
+  }),
   'schedule.notes.update': operation({
     id: 'schedule.notes.update', method: 'PATCH', pathname: '/api/schedule', write: true, risk: 'medium',
     allowedQueryKeys: ['id', 'expected_updated_at'],
@@ -78,6 +102,41 @@ export function getAiManagerOperation(operationId: string): AiManagerOperation |
 
 export function listAiManagerOperationIds(): string[] {
   return Object.keys(OPERATIONS)
+}
+
+export function createAiManagerDirectReadPlan({
+  operation,
+  organizationId,
+  query = {},
+}: {
+  operation: AiManagerOperation
+  organizationId: string
+  query?: Record<string, unknown>
+}): AiManagerDirectReadPlan | null {
+  if (operation.directRead === 'staff-scenario-assignments') {
+    return Object.freeze({
+      table: 'staff_scenario_assignments',
+      select: 'scenario_master_id, staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id,name)',
+      filters: Object.freeze([{ column: 'organization_id', value: organizationId }]),
+      orderBy: ['staff_id', 'scenario_master_id'],
+      pageSize: 1_000,
+      maxRows: 50_000,
+    })
+  }
+  if (operation.directRead === 'gm-availability-responses') {
+    return Object.freeze({
+      table: 'gm_availability_responses',
+      select: 'reservation_id, staff_id, response_status, available_candidates, selected_candidate_index, responded_at, staff:staff_id(id,name)',
+      filters: Object.freeze([
+        { column: 'organization_id', value: organizationId },
+        { column: 'reservation_id', value: cleanString(query.reservation_id) },
+      ]),
+      orderBy: ['staff_id'],
+      pageSize: 500,
+      maxRows: 500,
+    })
+  }
+  return null
 }
 
 export function hashAiManagerToken(token: string): string {
@@ -130,6 +189,13 @@ export function validateAiManagerRequest({
   for (const [key, requiredValue] of Object.entries(operation.requiredQuery ?? {})) {
     if (normalizedQuery[key] !== requiredValue) errors.push(`QUERY_VALUE_REQUIRED:${key}=${requiredValue}`)
   }
+  for (const key of operation.requiredQueryKeys ?? []) {
+    if (!cleanString(normalizedQuery[key])) errors.push(`QUERY_KEY_REQUIRED:${key}`)
+  }
+  for (const key of operation.uuidQueryKeys ?? []) {
+    const value = cleanString(normalizedQuery[key])
+    if (value && !isUuid(value)) errors.push(`QUERY_UUID_REQUIRED:${key}`)
+  }
   if (operationId === 'reservations.cancellation.read' && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cleanString(normalizedQuery.schedule_event_id))) errors.push('PERFORMANCE_ID_REQUIRED')
   if (operation.write && !cleanString(normalizedQuery.id)) errors.push('TARGET_ID_REQUIRED')
 
@@ -157,6 +223,8 @@ function operation(value: AiManagerOperation): AiManagerOperation {
     allowedQueryKeys: Object.freeze([...value.allowedQueryKeys]),
     allowedBodyKeys: value.allowedBodyKeys ? Object.freeze([...value.allowedBodyKeys]) : undefined,
     requiredQuery: value.requiredQuery ? Object.freeze({ ...value.requiredQuery }) : undefined,
+    requiredQueryKeys: value.requiredQueryKeys ? Object.freeze([...value.requiredQueryKeys]) : undefined,
+    uuidQueryKeys: value.uuidQueryKeys ? Object.freeze([...value.uuidQueryKeys]) : undefined,
   })
 }
 
@@ -192,4 +260,8 @@ function sortValue(value: unknown): unknown {
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
