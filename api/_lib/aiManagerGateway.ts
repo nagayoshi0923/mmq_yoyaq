@@ -17,6 +17,11 @@ const OPERATIONS: Readonly<Record<string, AiManagerOperation>> = Object.freeze({
     allowedQueryKeys: ['type', 'start', 'end', 'include_cancelled'],
     requiredQuery: { type: 'by-date-range' },
   }),
+  'reservations.cancellation.read': operation({
+    id: 'reservations.cancellation.read', method: 'GET', pathname: '/api/reservations', write: false, risk: 'medium',
+    allowedQueryKeys: ['type', 'schedule_event_id'],
+    requiredQuery: { type: 'by-schedule-event' },
+  }),
   'sales.read': operation({
     id: 'sales.read', method: 'GET', pathname: '/api/sales', write: false, risk: 'low',
     allowedQueryKeys: ['type', 'start', 'end'],
@@ -125,6 +130,7 @@ export function validateAiManagerRequest({
   for (const [key, requiredValue] of Object.entries(operation.requiredQuery ?? {})) {
     if (normalizedQuery[key] !== requiredValue) errors.push(`QUERY_VALUE_REQUIRED:${key}=${requiredValue}`)
   }
+  if (operationId === 'reservations.cancellation.read' && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cleanString(normalizedQuery.schedule_event_id))) errors.push('PERFORMANCE_ID_REQUIRED')
   if (operation.write && !cleanString(normalizedQuery.id)) errors.push('TARGET_ID_REQUIRED')
 
   if (operation.write) {
