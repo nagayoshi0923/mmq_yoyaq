@@ -40,12 +40,19 @@ interface ScenarioHeroProps {
   events?: EventSchedule[]
   organizationSlug?: string
   stores?: Store[]
+  showPrivateBookingCta?: boolean
 }
 
 /**
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], organizationSlug, stores = [] }: ScenarioHeroProps) {
+export const ScenarioHero = memo(function ScenarioHero({
+  scenario,
+  events = [],
+  organizationSlug,
+  stores = [],
+  showPrivateBookingCta = true,
+}: ScenarioHeroProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -370,7 +377,11 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
             {availableStoreNames.length > 0 && (
               <div className="flex items-start gap-1.5 text-xs text-white/70">
                 <Building2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                <span>{availableStoreNames.join('・')}</span>
+                <span>
+                  <span className="text-white/50">公演可能店舗</span>
+                  <span className="mx-1 text-white/40">:</span>
+                  {availableStoreNames.join('・')}
+                </span>
               </div>
             )}
 
@@ -413,13 +424,15 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 <Share2 className="w-3.5 h-3.5" />
                 シェア
               </button>
-              <button
-                className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
-                onClick={handleCreateGroup}
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                貸切リクエストを作成
-              </button>
+              {showPrivateBookingCta && (
+                <button
+                  className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
+                  onClick={handleCreateGroup}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  貸切リクエストを作成
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,63 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
+import { computeAssignmentDiff } from '../src/lib/assignmentDiff.js'
+
+// ─── 担当変更履歴 ────────────────────────────────────────────────────────────
+/**
+ * staff_scenario_assignments の増減差分だけを履歴として記録する。
+ * 履歴 INSERT の失敗は本体更新を壊してはならない（best-effort・warn のみ）。
+ */
+async function recordAssignmentHistory(
+  orgId: string,
+  changedBy: string | null,
+  changes: Array<{ staffId: string; scenarioMasterId: string; action: 'added' | 'removed' }>
+): Promise<void> {
+  if (changes.length === 0) return
+  try {
+    const rows = changes.map((c) => ({
+      organization_id: orgId,
+      staff_id: c.staffId,
+      scenario_master_id: c.scenarioMasterId,
+      action: c.action,
+      changed_by: changedBy,
+      source: 'api',
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (db as any)
+      .from('staff_scenario_assignment_history')
+      .insert(rows)
+    if (error) {
+      console.warn('[assignments] 履歴記録に失敗（本体更新は成功）:', error.message)
+    }
+  } catch (e) {
+    console.warn('[assignments] 履歴記録で例外（本体更新は成功）:', e)
+  }
+}
+
+/** scenario_master_id[] → title のマップを引く（減少ガードの「外れる担当」表示用） */
+async function fetchScenarioTitles(
+  orgId: string,
+  scenarioMasterIds: string[]
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  const ids = Array.from(new Set(scenarioMasterIds)).filter(Boolean)
+  if (ids.length === 0) return map
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any)
+    .from('organization_scenarios_with_master')
+    .select('scenario_master_id, title')
+    .eq('organization_id', orgId)
+    .in('scenario_master_id', ids)
+  if (error) {
+    console.warn('[assignments] シナリオ名解決に失敗:', error.message)
+    return map
+  }
+  for (const r of data ?? []) {
+    if (r.scenario_master_id) map.set(r.scenario_master_id, r.title ?? r.scenario_master_id)
+  }
+  return map
+}
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -50,6 +107,37 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const scenarioId = req.query.scenario_id as string | undefined
   const staffIdsRaw = req.query.staff_ids as string | undefined
   const scenarioIdsRaw = req.query.scenario_ids as string | undefined
+  const historyStaffId = req.query.history_staff_id as string | undefined
+
+  // ─── 担当変更履歴（直近） ?history_staff_id=... ────────────────────────────
+  if (historyStaffId) {
+    await assertStaffOwnedByOrg(historyStaffId, user.orgId)
+    const limitRaw = Number.parseInt((req.query.limit as string | undefined) ?? '20', 10)
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (db as any)
+      .from('staff_scenario_assignment_history')
+      .select('id, scenario_master_id, action, changed_by, changed_at, source')
+      .eq('organization_id', user.orgId)
+      .eq('staff_id', historyStaffId)
+      .order('changed_at', { ascending: false })
+      .limit(limit)
+    if (error) {
+      console.error('[assignments] history DB error:', error)
+      return res.status(500).json({ error: '履歴取得に失敗しました', detail: error.message })
+    }
+    const rows = data ?? []
+    // シナリオ名を解決して付与（表示用）
+    const titleMap = await fetchScenarioTitles(
+      user.orgId,
+      rows.map((r: { scenario_master_id: string }) => r.scenario_master_id)
+    )
+    const withTitles = rows.map((r: { scenario_master_id: string }) => ({
+      ...r,
+      scenario_title: titleMap.get(r.scenario_master_id) ?? r.scenario_master_id,
+    }))
+    return res.status(200).json(withTitles)
+  }
 
   // ─── 一括取得: ?staff_ids=a,b,c ─────────────────────────────────────────
   if (staffIdsRaw) {
@@ -258,6 +346,41 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       console.warn('[assignments] update_staff_assignments: 自組織で扱えないシナリオを除外:', skipped)
     }
 
+    // 🛡 減少ガード（YOYAQ-011）: delete の「前」に既存の担当集合を取得し、
+    // 新しい配列が既存より1件でも減る場合は 409 で拒否する（PO要件「登録済みが減らないこと」）。
+    // confirm_clear: true 明示時のみ通す（部分欠けの配列で担当が黙って消える事故を防ぐ）。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingRows, error: existingError } = await (db as any)
+      .from('staff_scenario_assignments')
+      .select('scenario_master_id')
+      .eq('staff_id', staff_id)
+      .eq('organization_id', user.orgId)
+    if (existingError) {
+      return res.status(500).json({ error: '既存担当の取得に失敗しました', detail: existingError.message })
+    }
+    const existingIds = new Set<string>(
+      (existingRows ?? []).map((r: { scenario_master_id: string }) => r.scenario_master_id)
+    )
+    // 新配列が「保持しようとしている」集合（アクセス不能な孤児も client の意図としては保持扱い）
+    const {
+      existingCount,
+      incomingCount,
+      removed: removedIds,
+      added: addedIds,
+    } = computeAssignmentDiff(existingIds, valid.map((a) => a.scenarioId))
+
+    if (removedIds.length > 0 && confirm_clear !== true) {
+      const titleMap = await fetchScenarioTitles(user.orgId, removedIds)
+      return res.status(409).json({
+        error: 'ASSIGNMENT_DECREASE_REJECTED',
+        message: `担当が ${existingCount} 件から ${incomingCount} 件に減ります。減少を許可する場合は confirm_clear: true を指定してください。`,
+        existing_count: existingCount,
+        incoming_count: incomingCount,
+        removed_scenario_ids: removedIds,
+        removed_scenario_names: removedIds.map((id) => titleMap.get(id) ?? id),
+      })
+    }
+
     // 既存を全削除（自組織分のみ）— 検証を通過した後にのみ実行する
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: deleteError } = await (db as any)
@@ -270,7 +393,14 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       return res.status(500).json({ error: '既存担当の削除に失敗しました', detail: deleteError.message })
     }
 
-    if (insertable.length === 0) return res.status(200).json({ ok: true, inserted: 0, skipped })
+    if (insertable.length === 0) {
+      await recordAssignmentHistory(
+        user.orgId,
+        user.userId,
+        removedIds.map((id) => ({ staffId: staff_id, scenarioMasterId: id, action: 'removed' as const }))
+      )
+      return res.status(200).json({ ok: true, inserted: 0, skipped })
+    }
 
     const records = insertable.map((a) => ({
       staff_id,
@@ -290,6 +420,14 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       console.error('[assignments] insert error:', insertError)
       return res.status(500).json({ error: '担当の保存に失敗しました', detail: insertError.message })
     }
+    // 履歴: 実際に増減した分だけ（孤児で挿入されなかった added は除外）
+    const insertedIds = new Set(insertable.map((a) => a.scenarioId))
+    await recordAssignmentHistory(user.orgId, user.userId, [
+      ...addedIds
+        .filter((id) => insertedIds.has(id))
+        .map((id) => ({ staffId: staff_id, scenarioMasterId: id, action: 'added' as const })),
+      ...removedIds.map((id) => ({ staffId: staff_id, scenarioMasterId: id, action: 'removed' as const })),
+    ])
     return res.status(200).json({ ok: true, inserted: records.length, skipped })
   }
 
@@ -344,6 +482,28 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
     const toDowngrade = currentGmStaffIds.filter((id) => !staff_ids.includes(id))
     const toAdd = staff_ids.filter((id) => !currentGmStaffIds.includes(id))
+
+    // 🛡 減少ガード（YOYAQ-011）: 担当GMが1人でも減る（降格される）場合は 409 で拒否する。
+    // confirm_clear: true 明示時のみ通す。既存の空配列ガードは 0 件だけを見るため部分欠けを素通りする穴を塞ぐ。
+    if (toDowngrade.length > 0 && confirm_clear !== true) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: staffRows } = await (db as any)
+        .from('staff')
+        .select('id, name')
+        .eq('organization_id', user.orgId)
+        .in('id', toDowngrade)
+      const nameMap = new Map<string, string>(
+        (staffRows ?? []).map((s: { id: string; name: string }) => [s.id, s.name])
+      )
+      return res.status(409).json({
+        error: 'ASSIGNMENT_DECREASE_REJECTED',
+        message: `担当GMが ${currentGmStaffIds.length} 人から ${staff_ids.length} 人に減ります。減少を許可する場合は confirm_clear: true を指定してください。`,
+        existing_count: currentGmStaffIds.length,
+        incoming_count: staff_ids.length,
+        removed_staff_ids: toDowngrade,
+        removed_staff_names: toDowngrade.map((id) => nameMap.get(id) ?? id),
+      })
+    }
 
     if (toDowngrade.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -400,6 +560,12 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
         }
       }
     }
+
+    // 履歴: GM担当の増減分だけ（added=GMに昇格/新規、removed=GMから降格）
+    await recordAssignmentHistory(user.orgId, user.userId, [
+      ...toAdd.map((id) => ({ staffId: id, scenarioMasterId: scenario_master_id, action: 'added' as const })),
+      ...toDowngrade.map((id) => ({ staffId: id, scenarioMasterId: scenario_master_id, action: 'removed' as const })),
+    ])
 
     return res.status(200).json({ ok: true })
   }

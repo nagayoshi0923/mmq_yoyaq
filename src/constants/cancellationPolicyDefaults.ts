@@ -50,6 +50,11 @@ export const DEFAULT_PRIVATE_CANCELLATION_FEES: CancellationFeeRow[] = [
   },
 ]
 
-/** 当日キャンセル（100%）を許容するため、受付期限は「開演まで」（0時間前＝開演時刻まで） */
-export const DEFAULT_OPEN_CANCEL_DEADLINE_HOURS = 0
-export const DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS = 0
+/**
+ * マイページ等の顧客セルフキャンセル受付期限。
+ * 料金が発生する期間は店舗対応とし、無料期間内だけセルフ操作を許可する。
+ * 通常: 48時間前まで（料率の無料境界と一致）
+ * 貸切: 30日前（720時間）まで
+ */
+export const DEFAULT_OPEN_CANCEL_DEADLINE_HOURS = 48
+export const DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS = 720

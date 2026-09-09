@@ -11,24 +11,18 @@ export interface SensitiveTopic {
 }
 
 export const SENSITIVE_TOPICS: SensitiveTopic[] = [
-  { key: 'violence', label: '暴力・流血描写' },
-  { key: 'death', label: '死・遺体の描写' },
+  { key: 'gore', label: '流血・残酷（ゴア）' },
   { key: 'suicide', label: '自殺・自傷' },
-  { key: 'sexual', label: '性的描写・性暴力' },
-  { key: 'child_abuse', label: '児童虐待' },
-  { key: 'domestic_abuse', label: '家庭内暴力' },
+  { key: 'sexual', label: '性的描写・性暴力・ストーカー' },
+  { key: 'child_domestic_abuse', label: '児童虐待・家庭内暴力' },
   { key: 'mental_illness', label: '精神疾患・依存症' },
-  { key: 'discrimination', label: '差別（人種・性・障害など）' },
+  { key: 'discrimination', label: '差別（人種・民族・宗教・性別・障害など）' },
   { key: 'animal_harm', label: '動物の死・虐待' },
-  { key: 'medical', label: '医療・手術・注射' },
+  { key: 'insects', label: '虫・昆虫' },
   { key: 'disaster', label: '災害・事故' },
-  { key: 'pregnancy_loss', label: '妊娠・出産・流産' },
+  { key: 'pregnancy', label: '妊娠・出産など' },
   { key: 'bullying', label: 'いじめ・ハラスメント' },
   { key: 'religion_cult', label: '宗教・カルト' },
-  { key: 'confinement', label: '監禁・拘束' },
-  { key: 'horror', label: 'ホラー演出（暗闇・大音量・驚かし）' },
-  { key: 'betrayal_pvp', label: 'プレイヤー間の対立・裏切り' },
-  { key: 'romance_role', label: '恋愛ロール・身体的接触' },
 ]
 
 /** 診断結果に必ず添える免責文 */

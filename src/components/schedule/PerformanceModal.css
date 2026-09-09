@@ -1,0 +1,93 @@
+/* 公演モーダル: ScenarioEditDialogV2 シェルを流用しつつ、カテゴリ tone を優先 */
+
+[data-perf-modal].scenario-edit-dialog-host {
+  --input-bg: var(--perf-tone-bg, var(--mmq-white));
+}
+
+[data-perf-modal].scenario-edit-dialog-host,
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__header,
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__body,
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__content,
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__footer {
+  background-color: var(--perf-tone-bg, var(--mmq-white)) !important;
+  border-color: var(--perf-tone-border, var(--mmq-line-frame));
+}
+
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__nav {
+  background-color: var(--perf-tone-section, var(--mmq-surface)) !important;
+}
+
+/* 旧 TabsList / active tab と同じく section 上に tone.bg の選択 */
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__nav-item {
+  background-color: transparent !important;
+  color: var(--mmq-ink-subtle) !important;
+}
+
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__nav-item:hover {
+  background-color: color-mix(in srgb, var(--perf-tone-bg, #fff) 70%, transparent) !important;
+}
+
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__nav-item.is-selected,
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__nav-item.is-selected:hover {
+  background-color: var(--perf-tone-bg, var(--mmq-white)) !important;
+  color: var(--mmq-ink) !important;
+  font-weight: 500;
+}
+
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__footer {
+  border-top-color: var(--perf-tone-border, var(--mmq-line-soft)) !important;
+}
+
+[data-perf-modal].scenario-edit-dialog-host .scenario-edit-dialog__header {
+  border-bottom-color: var(--perf-tone-border, var(--mmq-line-soft)) !important;
+}
+
+/* 入力・combobox・outline ボタンをカテゴリ色に（旧 inline <style> と同じ意図） */
+[data-perf-modal] [role="combobox"],
+[data-perf-modal] button[aria-haspopup="dialog"],
+[data-perf-modal] input:not([type="checkbox"]):not([type="radio"]),
+[data-perf-modal] textarea,
+[data-perf-modal] button.bg-white,
+[data-perf-modal] button.bg-background {
+  background-color: var(--perf-tone-bg, var(--mmq-white)) !important;
+  border-color: var(--perf-tone-border, var(--mmq-line-strong)) !important;
+}
+
+[data-perf-modal] [role="combobox"]:focus,
+[data-perf-modal] input:not([type="checkbox"]):not([type="radio"]):focus,
+[data-perf-modal] textarea:focus {
+  background-color: #ffffff !important;
+}
+
+[data-perf-modal] button[class*="border-input"]:not([data-state="active"]):not(.bg-slate-900):not(.bg-primary):not(.scenario-edit-dialog__btn-primary) {
+  background-color: var(--perf-tone-bg, var(--mmq-white)) !important;
+  border-color: var(--perf-tone-border, var(--mmq-line-strong)) !important;
+}
+
+[data-perf-modal] .bg-gray-100 {
+  background-color: var(--perf-tone-section, #f3f4f6) !important;
+}
+
+.scenario-edit-dialog__nav-item-badge {
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  background: color-mix(in srgb, var(--perf-tone-bg, #fff) 80%, #fff);
+  color: var(--mmq-ink-subtle);
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-perf-modal] .scenario-edit-dialog__nav-item {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 2px 0;
+}

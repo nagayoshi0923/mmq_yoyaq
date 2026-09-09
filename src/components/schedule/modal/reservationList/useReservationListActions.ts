@@ -875,6 +875,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
     try {
       const selectedEmails = reservations
         .filter(r => selectedReservations.has(r.id))
+        .filter(r => ACTIVE_RESERVATION_STATUSES_SET.has(r.status))
         .map(r => {
           if (r.customers) {
             if (Array.isArray(r.customers)) {
@@ -884,29 +885,51 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
           }
           return null
         })
-        .filter((email): email is string => email !== null && email !== undefined)
+        .filter((email): email is string => typeof email === 'string' && email.trim() !== '')
+        .map(email => email.trim())
 
-      if (selectedEmails.length === 0) {
+      const seenEmails = new Set<string>()
+      const uniqueEmails = selectedEmails.filter(email => {
+        const key = email.toLowerCase()
+        if (seenEmails.has(key)) return false
+        seenEmails.add(key)
+        return true
+      })
+
+      if (uniqueEmails.length === 0) {
         showToast.warning('送信先のメールアドレスが見つかりませんでした')
         return
       }
 
       logger.log('メール送信:', {
-        to: selectedEmails,
+        recipientCount: uniqueEmails.length,
         subject: emailSubject,
-        body: emailBody
       })
 
-      const { error } = await supabase.functions.invoke('send-email', {
-        body: {
-          recipients: selectedEmails,
-          subject: emailSubject,
-          body: emailBody
-        }
-      })
+      // 1通1宛先。複数人を同じ To に入れると受信者同士でアドレスが見える
+      const sendResults = await Promise.all(
+        uniqueEmails.map(async (email) => {
+          const { data, error } = await supabase.functions.invoke('send-email', {
+            body: {
+              to: email,
+              subject: emailSubject,
+              body: emailBody
+            }
+          })
+          if (error || data?.success === false) {
+            logger.error('メール送信エラー:', error || data?.error)
+            return { email, ok: false as const }
+          }
+          return { email, ok: true as const }
+        })
+      )
 
-      if (error) {
-        throw error
+      const sentEmails = sendResults.filter(r => r.ok).map(r => r.email)
+      const failedCount = sendResults.length - sentEmails.length
+
+      if (sentEmails.length === 0) {
+        showToast.error('メール送信に失敗しました')
+        return
       }
 
       // 履歴を記録（モーダル経由の手動メール送信）
@@ -929,8 +952,8 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
               {
                 subject: emailSubject,
                 body: emailBody,
-                recipient_count: selectedEmails.length,
-                recipient_emails: selectedEmails,
+                recipient_count: sentEmails.length,
+                recipient_emails: sentEmails,
               },
               {
                 date: currentEventData.date || event.date,
@@ -938,7 +961,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
                 timeSlot: cellTimeSlot,
               },
               {
-                notes: `${selectedEmails.length}名に「${emailSubject}」を送信`,
+                notes: `${sentEmails.length}名に「${emailSubject}」を送信`,
               }
             )
           }
@@ -947,7 +970,11 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
         }
       }
 
-      showToast.success(`${selectedEmails.length}件のメールを送信しました`)
+      if (failedCount > 0) {
+        showToast.warning(`${sentEmails.length}件送信、${failedCount}件失敗しました`)
+      } else {
+        showToast.success(`${sentEmails.length}件のメールを送信しました`)
+      }
       setIsEmailModalOpen(false)
       setEmailSubject('')
       setEmailBody('')

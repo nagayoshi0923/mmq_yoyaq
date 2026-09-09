@@ -22,11 +22,12 @@ function getOrgSlugFromUrl(): string | null {
   const match = pathname.match(/^\/([^/]+)/)
   if (match) {
     // 管理ページや特殊パスは除外
-    const excludePaths = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 
+    const excludePaths = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
       'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation', 
-      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario']
+      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
+      'partner-report']
     if (!excludePaths.includes(match[1])) {
       return match[1]
     }
@@ -132,13 +133,13 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
   // 公開組織ページ（/{slug} 以下の予約サイト）かどうかを判定
   // 管理ページのセグメントを含む場合は管理ページとみなす
   const isPublicOrgPage = useMemo(() => {
-    const adminSegments = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+    const adminSegments = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
       'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
       'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
       'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
-      'license-reports', 'customer-management']
+      'license-reports', 'customer-management', 'partner-report']
     const match = location.pathname.match(/^\/([^/]+)/)
     if (!match) return false
     return !adminSegments.includes(match[1])
@@ -150,13 +151,13 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
     if (typeof window === 'undefined') return null
     const match = window.location.pathname.match(/^\/([^/]+)/)
     if (!match) return null
-    const exclude = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+    const exclude = ['dashboard', 'store-dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
       'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
       'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
       'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
       'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
       'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
-      'license-reports', 'customer-management']
+      'license-reports', 'customer-management', 'partner-report']
     return exclude.includes(match[1]) ? null : match[1]
   }, [location.pathname])
   const themePreset = useOrgThemePreset(urlSlug)
@@ -165,6 +166,7 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
   const headerBgColor = backgroundColor ?? (isPublicOrgPage ? themePreset.primary : THEME.primary)
 
   return (
+    <>
     <header
       className="h-[44px] sm:h-[48px] md:h-[52px] text-white relative"
       style={{ backgroundColor: headerBgColor, zIndex: 40 }}
@@ -299,5 +301,6 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
         </div>
       </div>
     </header>
+    </>
   )
 })

@@ -25,6 +25,9 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
 import { getAvailableSeats } from '@/lib/participantUtils'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, buildWebsiteJsonLd } from '@/lib/seo'
 
 interface ScenarioWithEvents extends ScenarioCardData {
   organization_id: string
@@ -248,6 +251,11 @@ async function fetchPlatformTopData(): Promise<PlatformTopData> {
 export function PlatformTop() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  usePageMeta({
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    canonicalPath: '/',
+  })
   const { favorites, toggleFavorite } = useFavorites()
   const { isPlayed, customerId, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
@@ -396,6 +404,7 @@ export function PlatformTop() {
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: THEME.background }}>
+      <JsonLd data={buildWebsiteJsonLd()} />
       <Header />
 
       <section className="relative w-full overflow-hidden" style={{ backgroundColor: THEME.primary }}>

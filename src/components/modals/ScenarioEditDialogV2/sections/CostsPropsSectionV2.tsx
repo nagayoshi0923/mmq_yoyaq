@@ -128,9 +128,9 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
   return (
     <div className="space-y-4">
       {/* ── 公演実績・収益 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+      <div className="scenario-edit-card">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+          <p className="scenario-edit-card__title">
             <TrendingUp className="h-3.5 w-3.5" />公演実績
           </p>
             {period && (
@@ -306,8 +306,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
               </div>
 
       {/* ── 制作費・減価償却 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-3">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Package className="h-3.5 w-3.5" />制作費・減価償却
         </p>
           {/* 制作費入力 */}
@@ -463,8 +463,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
       </div>
 
       {/* ── 必要小道具 ── */}
-      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
-        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+      <div className="scenario-edit-card">
+        <p className="scenario-edit-card__title">
           <Package className="h-3.5 w-3.5" />必要小道具
         </p>
           <div className="space-y-2 mt-2">

@@ -5,11 +5,11 @@ description: Queens Waltz予約管理(yoyaq)で、POとの壁打ち後の明示G
 
 # YOYAQ Auto Delivery
 
-合意済みタスクを、POにタスク作成や切替を求めず、Codexの可視タスクだけでstaging配送まで進める。`.cursorrules`を常に最優先する。
+合意済みタスクを、POにタスク作成や切替を求めず、Codexの可視タスクだけでstaging配送まで進める。`.cursor/rules/`（特に`00-core`・`git-deploy`）を常に最優先する。
 
 ## 契約を読む
 
-1. `.cursorrules`、`AGENTS.md`、`docs/CODEX_DASHBOARD.md`を全文読む。
+1. `docs/agent/INDEX.md`で地図を確認し、`.cursor/rules/00-core.mdc`・`git-deploy.mdc`・`AGENTS.md`・`docs/CODEX_DASHBOARD.md`を読む。触る領域のrules（database / frontend / multi-tenant / design / delivery-lanes）も読む。
 2. 実装/検収タスクを作る前に[thread-prompts.md](references/thread-prompts.md)を読む。
 3. 改善タスクなら`docs/IMPROVEMENT_HANDOFF.md`、レビュー時は`docs/templates/review-perspectives.md`と`docs/templates/test-perspectives.md`も読む。
 4. `git fetch origin staging`後の`origin/staging` SHAと全checkoutのdirty状態を確認する。無関係な変更を破棄・吸収しない。
@@ -37,7 +37,7 @@ description: Queens Waltz予約管理(yoyaq)で、POとの壁打ち後の明示G
 - `UI-INSTANT`: 狭いUI、文言、状態表示。PREVIEW-first。PO visual OK後に`npm run typecheck`、必要なら`npm run check:design-tokens`/`npm run check:jst-date`、対象テスト、`git diff --check`、短いdiff監査を行う。通常は独立検収を省略し、監督が統合前監査する。
 - `FAST`: DBを伴わない局所ロジック。`npm run typecheck`に加え、該当する`test:unit`、`test:e2e`、`check:security-guardrails`、`check:cancellation-rpcs`、`check:multi-tenant`、`check:org-scope`、`check:jst-date`、`check:design-tokens`、`build`から選ぶ。境界変更や回帰余地がある場合は独立検収する。
 - `HIGH-RISK`: migration、RLS/RPC、Edge Function、`organization_id`/マルチテナント、認証/PII、予約在庫/決済、メール/通知、日付/締切、並行処理。独立検収を必須とし、`verify`、`db:check`、`test:rpcs`、`check:permissions`、`check:anon-rls-grants`、`check:multi-tenant`、`check:org-scope`、`check:security-guardrails`、`check:cancellation-rpcs`、`check:jst-date`、`test:unit`、対象`test:e2e`、`build`から変更に必要な組合せだけを指定する。
-- 改善タスクでは`.cursorrules`どおりcommit前に`npm run verify`を必須とする。
+- 改善タスクでは`AGENTS.md`どおりcommit前に`npm run verify`を必須とする。
 
 ## 可視workerを起動する
 
@@ -66,13 +66,13 @@ description: Queens Waltz予約管理(yoyaq)で、POとの壁打ち後の明示G
 - 監督タスク本人だけがaccepted commitを1件ずつ、最新`origin/staging`を基点とするcleanな統合checkoutへ取り込む。この権限をintegration taskその他へ委譲しない。push直前にfetchし、基点が動いていれば再統合・再確認する。
 - worker commit、検収証拠、許可範囲、dirty状態を監査してから、対象commitを`git cherry-pick --no-commit`または同等の非破壊手順で適用する。`git add .`、force push、無関係なclean-upを行わない。
 - dashboardのDONE/検収/イベント記録を監督が加え、製品差分と進捗記録を**staging上の1作業1commit**にまとめて`origin/staging`へpushする。次のaccepted laneはその後に扱う。
-- staging push後は`.cursorrules`の形式で、ページ名・タブ名・たどり方を含む動作確認チェックリストをPOへ返す。
+- staging push後は`git-deploy.mdc` / `/smoke`の形式で、ページ名・タブ名・たどり方を含む動作確認チェックリストをPOへ返す。
 
 ## DB・Edge Function境界を守る
 
 - DB変更は常にHIGH-RISKとする。migration全文、既存データへの影響、rollback/互換方針、確認queryをPOへ提示し、現行の承認規則に従ってから`npm run db:push:staging`を実行する。
 - staging DB適用後は確認query結果を記録する。`DB -> 必要なEdge Function -> frontend staging配送`の順を守り、`npm run functions:deploy:staging`の対象と結果も記録する。
-- RLSに関わるタスクもHIGH-RISKとするが、RLSポリシーは直接変更せず、SECURITY DEFINER RPCで必要最小限を返す。`.cursorrules`の全レビュー観点とpermission gateを満たす。
+- RLSに関わるタスクもHIGH-RISKとするが、RLSポリシーは直接変更せず、SECURITY DEFINER RPCで必要最小限を返す。`AGENTS.md`のレビュー観点と permission gateを満たす。
 - production DB/Edge Function、main、本番frontendは明示PO releaseだけで、DB先行を守る。事前に`git log origin/staging..origin/main --oneline`を監査し、mainのhotfix分岐があれば停止・報告する。release後はstagingをmainへff resyncする。
 
 ## イベントを回収する

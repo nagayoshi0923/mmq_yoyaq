@@ -13,6 +13,8 @@ export { memoApi } from './api/memoApi'
 export { salesApi } from './api/salesApi'
 export { scheduleApi } from './api/scheduleApi'
 export { licenseContractsApi } from './api/licenseContractsApi'
+export { licensePartnerStoresApi } from './api/licensePartnerStoresApi'
+export { licensePartnerReportsApi } from './api/licensePartnerReportsApi'
 
 // 型定義の再エクスポート
 export type { CandidateDateTime, GMAvailabilityResponse, PaginatedResponse } from './api/types'

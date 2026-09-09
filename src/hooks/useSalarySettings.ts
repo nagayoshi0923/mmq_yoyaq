@@ -97,12 +97,12 @@ export function useSalarySettings() {
         .lte('effective_from', today)
         .order('effective_from', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       if (currentHistory) {
         effectiveFrom = currentHistory.effective_from
         
-        // 次の設定があれば、その日の前日が終了日
+        // 次の設定があれば、その日の前日が終了日（無いときは 0 件。single() だと 406 になる）
         const { data: nextHistory } = await supabase
           .from('salary_settings_history')
           .select('effective_from')
@@ -110,7 +110,7 @@ export function useSalarySettings() {
           .gt('effective_from', currentHistory.effective_from)
           .order('effective_from', { ascending: true })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (nextHistory) {
           // 次の設定のeffective_fromの前日
@@ -323,7 +323,7 @@ export async function fetchSalarySettingsForDate(performanceDate: string): Promi
       .lte('effective_from', performanceDate)
       .order('effective_from', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (!historyError && historyData) {
       return {

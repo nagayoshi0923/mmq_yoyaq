@@ -173,7 +173,8 @@ jobs:
         if: always() && steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # Discord通知停止 (2026-08-08)。再有効化時は secrets.DISCORD_WEBHOOK_URL に戻す。
+          WEBHOOK: ''
           REPO: ${{ github.repository }}
           ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
           RESULT_FILE: ${{ runner.temp }}/cursor-result.json

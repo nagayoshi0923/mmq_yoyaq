@@ -50,14 +50,13 @@ serve(async (req) => {
           name,
           address
         ),
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title
         )
       `)
       .eq('date', targetDateStr)
       .eq('is_cancelled', false)
-      .eq('is_reservation_enabled', true)
 
     if (eventsError) throw eventsError
 
@@ -105,7 +104,7 @@ serve(async (req) => {
                 storeId: event.store_id,
                 customerEmail: reservation.customers.email,
                 customerName: reservation.customers.name,
-                scenarioTitle: event.scenarios?.title || event.scenario,
+                scenarioTitle: event.scenario_masters?.title || event.scenario,
                 eventDate: event.date,
                 startTime: event.start_time,
                 endTime: event.end_time,
@@ -153,11 +152,11 @@ serve(async (req) => {
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('Error:', sanitizeErrorMessage(msg))
+    console.error('auto-send-reminder-emails Error:', msg)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: sanitizeErrorMessage(msg || 'リマインダーメール送信に失敗しました') 
+      JSON.stringify({
+        success: false,
+        error: sanitizeErrorMessage(msg || 'リマインダーメール送信に失敗しました')
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

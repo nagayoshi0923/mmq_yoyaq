@@ -31,8 +31,10 @@ yarn-error.log*
 # Supabase
 .supabase
 
-# Cursor
-.cursor
+# Cursor（rules は共有の正として追跡。その他ローカル状態は除外）
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # Supabase Access Token (機密情報)
 SUPABASE_ACCESS_TOKEN

@@ -47,12 +47,9 @@ export const staffApi = {
     return apiClient.patch<Staff>(`/api/staff?id=${encodeURIComponent(id)}`, updates)
   },
 
-  // スタッフの担当シナリオを更新（シナリオの available_gms も同期更新）
-  async updateSpecialScenarios(id: string, specialScenarios: string[]): Promise<Staff> {
-    return apiClient.patch<Staff>(
-      `/api/staff?id=${encodeURIComponent(id)}&action=updateSpecialScenarios`,
-      { special_scenarios: specialScenarios },
-    )
+  // 廃止。担当は assignmentApi（/api/assignments）。サーバーは 410 を返す。
+  async updateSpecialScenarios(_id: string, _specialScenarios: string[]): Promise<Staff> {
+    throw new Error('担当シナリオは assignmentApi で更新してください。staff.special_scenarios への書き込みは廃止しました。')
   },
 
   // スタッフを削除（admin 権限が必要）

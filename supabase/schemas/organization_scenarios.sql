@@ -23,6 +23,8 @@ CREATE TABLE public.organization_scenarios (
   use_flexible_pricing BOOLEAN DEFAULT FALSE,
   license_amount INTEGER,
   gm_test_license_amount INTEGER,
+  -- true=買い切り作品。作者への公演報告（ライセンス管理の送信タブ）に出さない
+  is_license_buyout BOOLEAN NOT NULL DEFAULT FALSE,
   franchise_license_amount INTEGER,
   franchise_gm_test_license_amount INTEGER,
   gm_costs JSONB DEFAULT '[]'::jsonb,
@@ -63,13 +65,20 @@ CREATE TABLE public.organization_scenarios (
   scenario_type TEXT DEFAULT 'normal'::text,
   report_display_name TEXT,
   private_booking_blocked_slots TEXT[],
+  booking_cutoff_minutes INTEGER CHECK (booking_cutoff_minutes BETWEEN 0 AND 1440),
   booking_start_date DATE,
   booking_end_date DATE,
   individual_notice_template TEXT,
+  reservation_confirmation_template TEXT,
+  private_confirm_template TEXT,
   character_assignment_method TEXT NOT NULL DEFAULT 'survey'::text,
   private_booking_time_slots TEXT[],
   -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）
   custom_sensitive_tags TEXT[],
+  -- 公式サイト(queenswaltz.jp)への掲載可否。org_status=available かつ true のものだけ公開APIに出る
+  web_published BOOLEAN NOT NULL DEFAULT TRUE,
+  -- 公式サイト一覧の表示順。NULL は末尾
+  web_display_order INTEGER,
   UNIQUE (organization_id, scenario_master_id)
 );
 
@@ -78,3 +87,10 @@ CREATE INDEX idx_org_scenarios_master_id ON public.organization_scenarios USING 
 CREATE INDEX idx_org_scenarios_org_id ON public.organization_scenarios USING btree (organization_id);
 CREATE INDEX idx_org_scenarios_slug ON public.organization_scenarios USING btree (organization_id, slug);
 CREATE INDEX idx_org_scenarios_status ON public.organization_scenarios USING btree (org_status);
+CREATE INDEX idx_org_scenarios_web_published ON public.organization_scenarios USING btree (organization_id, web_published) WHERE web_published;
+CREATE UNIQUE INDEX uq_org_scenarios_slug ON public.organization_scenarios USING btree (organization_id, slug) WHERE slug IS NOT NULL;
+
+ALTER TABLE public.organization_scenarios
+ ADD COLUMN recruitment_extension_enabled boolean NOT NULL DEFAULT true,
+ ADD COLUMN recruitment_max_missing smallint NOT NULL DEFAULT 2 CHECK (recruitment_max_missing BETWEEN 1 AND 20),
+ ADD COLUMN recruitment_deadline_minutes smallint NOT NULL DEFAULT 90 CHECK (recruitment_deadline_minutes BETWEEN 1 AND 239);

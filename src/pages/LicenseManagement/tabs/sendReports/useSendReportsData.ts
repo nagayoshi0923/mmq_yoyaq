@@ -13,8 +13,13 @@ import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import type { Author } from '@/types'
+import { jstMonthDateRange } from '@/utils/jstDate'
 import { groupReportItems } from './grouping'
 import type { ReportItem, ReportGroup, SentHistoryEntry } from './types'
+
+function isLicenseBuyout(scenario?: { is_license_buyout?: boolean | null }) {
+  return scenario?.is_license_buyout === true
+}
 
 export function useSendReportsData(
   organizationId: string,
@@ -32,17 +37,13 @@ export function useSendReportsData(
     try {
       setLoading(true)
 
-      // 日付範囲計算
-      const startDate = new Date(selectedYear, selectedMonth - 1, 1)
-      const endDate = new Date(selectedYear, selectedMonth, 0)
-      const startStr = startDate.toISOString().split('T')[0]
-      const endStr = endDate.toISOString().split('T')[0]
+      const { start: startStr, end: endStr } = jstMonthDateRange(selectedYear, selectedMonth)
 
       // データを並行取得
       const [scenarios, stores, performance, externalReports, historyData, manualExternalData, internalOverrideData, authorsData] = await Promise.all([
         scenarioApi.getAll(),
         storeApi.getAll(),
-        salesApi.getScenarioPerformance(startStr, endStr),
+        salesApi.getLicenseScenarioPerformance(startStr, endStr),
         isLicenseManager
           ? getAllExternalReports({ status: 'approved', startDate: startStr, endDate: endStr }).catch(() => [])
           : Promise.resolve([]),
@@ -57,9 +58,16 @@ export function useSendReportsData(
         supabase
           .from('manual_external_performances')
           .select('scenario_id, performance_count, performance_type')
+          // org 境界は RLS（get_user_organization_id）に任せる。クライアント直フィルタは増やさない
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
-          .then(res => res.data || []),
+          .then(res => {
+            if (res.error) {
+              logger.warn('manual_external_performances 取得失敗:', res.error.message)
+              return []
+            }
+            return res.data || []
+          }),
         // 自社公演数の手動上書きを取得
         supabase
           .from('manual_internal_performance_overrides')
@@ -67,7 +75,13 @@ export function useSendReportsData(
           .eq('organization_id', organizationId)
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
-          .then(res => res.data || [], () => []),
+          .then(res => {
+            if (res.error) {
+              logger.warn('manual_internal_performance_overrides 取得失敗:', res.error.message)
+              return []
+            }
+            return res.data || []
+          }),
         // 作者データを取得（メモ含む）
         authorApi.getAll().catch(() => [] as Author[])
       ])
@@ -98,10 +112,10 @@ export function useSendReportsData(
       })
       setExternalInputs(manualInputs)
 
-      // 自社公演数の上書き値を設定
+      // 自社公演数の上書き値を設定（0 も上書きとして保持）
       const internalOverrides: Record<string, number> = {}
       internalOverrideData.forEach((item: any) => {
-        if (item.performance_count !== undefined) {
+        if (item.performance_count !== undefined && item.performance_count !== null) {
           internalOverrides[item.scenario_key] = item.performance_count
         }
       })
@@ -135,6 +149,7 @@ export function useSendReportsData(
       performance.forEach((perf: any) => {
         const scenario = scenarios.find(s => s.id === perf.id || s.title === perf.title)
         if (!scenario?.author) return
+        if (isLicenseBuyout(scenario)) return
 
         const store = stores.find(s => s.id === perf.store_id)
         const isFranchise = store?.ownership_type === 'franchise'
@@ -219,6 +234,7 @@ export function useSendReportsData(
           if (itemsByScenario.has(scenarioId)) return // 既に存在
 
           const scenario = scenarios.find(s => s.id === scenarioId)
+          if (isLicenseBuyout(scenario)) return
           const externalEvents = externalCountByScenario.get(scenarioId) || 0
 
           // 他社報告の単価（franchise_license_amount優先）
@@ -250,7 +266,7 @@ export function useSendReportsData(
       if (isLicenseManager) {
         const PRESET_COST_SLOTS = new Set(['normal', 'gmtest', 'weekend', 'holiday', 'late_night'])
         scenarios
-          .filter(s => s.author)  // 作者がいるシナリオ全て
+          .filter(s => s.author && !isLicenseBuyout(s))
           .forEach(scenario => {
             // カスタム行でも使うため外側で定義
             const externalLicenseAmount = scenario.franchise_license_amount || scenario.license_amount || 0

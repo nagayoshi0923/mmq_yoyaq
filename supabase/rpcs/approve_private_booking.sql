@@ -1,5 +1,5 @@
 -- 正規ソース: approve_private_booking
--- 2026-07-23 本番 pg_get_functiondef から復元し、募集停止・tenant・候補整合を追加。
+-- 2026-08-14 承認時の開始・終了時刻上書きを許可（日付・希望枠は保存済み候補で検証）。
 
 CREATE OR REPLACE FUNCTION public.approve_private_booking(
   p_reservation_id UUID,
@@ -49,6 +49,8 @@ DECLARE
   v_normalized_candidate JSONB;
   v_rebuilt_candidates JSONB := '[]'::JSONB;
   v_confirmed_candidate_datetimes JSONB;
+  v_hint_time_slot TEXT;
+  v_event_time_slot TEXT;
 BEGIN
   SELECT *
   INTO v_reservation
@@ -132,7 +134,28 @@ BEGIN
     RAISE EXCEPTION 'STORE_NOT_REQUESTED' USING ERRCODE = 'P0042';
   END IF;
 
-  -- clientが送ったconfirmed状態ではなく、予約に保存済みの候補から日付・開始・time_slotを復元する。
+  -- 承認時刻の上書き用: clientのconfirmed候補は「どの希望枠か」のヒントにだけ使う。
+  -- 日付・枠の正は保存済み候補。開始・終了は p_selected_* を採用してよい。
+  SELECT CASE elem->>'timeSlot'
+    WHEN 'morning' THEN 'morning'
+    WHEN '朝' THEN 'morning'
+    WHEN '午前' THEN 'morning'
+    WHEN 'afternoon' THEN 'afternoon'
+    WHEN '昼' THEN 'afternoon'
+    WHEN '午後' THEN 'afternoon'
+    WHEN 'evening' THEN 'evening'
+    WHEN '夜' THEN 'evening'
+    WHEN '夜間' THEN 'evening'
+    ELSE NULL
+  END
+  INTO v_hint_time_slot
+  FROM jsonb_array_elements(
+    COALESCE(p_candidate_datetimes->'candidates', '[]'::jsonb)
+  ) AS elem
+  WHERE elem->>'status' = 'confirmed'
+  LIMIT 1;
+
+  -- clientが送ったconfirmed状態ではなく、予約に保存済みの候補から日付・time_slotを復元する。
   FOR v_candidate, v_candidate_ordinal IN
     SELECT candidate.value, candidate.ordinality
     FROM jsonb_array_elements(
@@ -157,22 +180,32 @@ BEGIN
       CONTINUE;
     END;
 
+    v_candidate_time_slot := CASE v_candidate->>'timeSlot'
+      WHEN 'morning' THEN 'morning'
+      WHEN '朝' THEN 'morning'
+      WHEN '午前' THEN 'morning'
+      WHEN 'afternoon' THEN 'afternoon'
+      WHEN '昼' THEN 'afternoon'
+      WHEN '午後' THEN 'afternoon'
+      WHEN 'evening' THEN 'evening'
+      WHEN '夜' THEN 'evening'
+      WHEN '夜間' THEN 'evening'
+      ELSE NULL
+    END;
+
     IF v_candidate_date = p_selected_date
-       AND v_candidate_start_time = p_selected_start_time
-       AND v_candidate_end_time = p_selected_end_time
+       AND v_candidate_time_slot IS NOT NULL
+       AND (
+         (
+           v_candidate_start_time = p_selected_start_time
+           AND v_candidate_end_time = p_selected_end_time
+         )
+         OR (
+           v_hint_time_slot IS NOT NULL
+           AND v_candidate_time_slot = v_hint_time_slot
+         )
+       )
     THEN
-      v_candidate_time_slot := CASE v_candidate->>'timeSlot'
-        WHEN 'morning' THEN 'morning'
-        WHEN '朝' THEN 'morning'
-        WHEN '午前' THEN 'morning'
-        WHEN 'afternoon' THEN 'afternoon'
-        WHEN '昼' THEN 'afternoon'
-        WHEN '午後' THEN 'afternoon'
-        WHEN 'evening' THEN 'evening'
-        WHEN '夜' THEN 'evening'
-        WHEN '夜間' THEN 'evening'
-        ELSE NULL
-      END;
       v_selected_candidate_ordinal := v_candidate_ordinal;
       v_trusted_candidate_found := true;
       EXIT;
@@ -185,6 +218,15 @@ BEGIN
   IF p_selected_start_time >= p_selected_end_time THEN
     RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE_TIME' USING ERRCODE = 'P0041';
   END IF;
+  IF p_selected_start_time < TIME '09:00' OR p_selected_end_time > TIME '23:00' THEN
+    RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE_TIME' USING ERRCODE = 'P0041';
+  END IF;
+
+  v_event_time_slot := CASE
+    WHEN EXTRACT(HOUR FROM p_selected_start_time) < 12 THEN 'morning'
+    WHEN EXTRACT(HOUR FROM p_selected_start_time) <= 17 THEN 'afternoon'
+    ELSE 'evening'
+  END;
 
   -- live client互換のshapeを維持しつつ、保存済み候補だけからconfirmed状態を再構築する。
   FOR v_candidate, v_candidate_ordinal IN
@@ -224,6 +266,33 @@ BEGIN
       ),
       true
     );
+    IF v_candidate_ordinal = v_selected_candidate_ordinal THEN
+      v_normalized_candidate := jsonb_set(
+        jsonb_set(
+          v_normalized_candidate,
+          '{startTime}',
+          to_jsonb(to_char(p_selected_start_time, 'HH24:MI')),
+          true
+        ),
+        '{endTime}',
+        to_jsonb(to_char(p_selected_end_time, 'HH24:MI')),
+        true
+      );
+      IF v_event_time_slot IS DISTINCT FROM v_candidate_time_slot THEN
+        v_normalized_candidate := jsonb_set(
+          v_normalized_candidate,
+          '{timeSlot}',
+          to_jsonb(
+            CASE v_event_time_slot
+              WHEN 'morning' THEN '午前'
+              WHEN 'afternoon' THEN '午後'
+              ELSE '夜'
+            END
+          ),
+          true
+        );
+      END IF;
+    END IF;
     v_rebuilt_candidates := v_rebuilt_candidates || jsonb_build_array(v_normalized_candidate);
   END LOOP;
 
@@ -244,7 +313,7 @@ BEGIN
   );
 
   v_calendar_date := p_selected_date;
-  v_schedule_time_slot := CASE v_candidate_time_slot
+  v_schedule_time_slot := CASE v_event_time_slot
     WHEN 'morning' THEN '朝'
     WHEN 'afternoon' THEN '昼'
     ELSE '夜'
@@ -260,9 +329,9 @@ BEGIN
     WHERE blocked.organization_id = v_org_id
       AND blocked.store_id = p_selected_store_id::TEXT
       AND blocked.date = v_calendar_date
-      AND blocked.time_slot = v_candidate_time_slot
+      AND blocked.time_slot = v_event_time_slot
   ) THEN
-    RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_calendar_date, v_candidate_time_slot
+    RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_calendar_date, v_event_time_slot
       USING ERRCODE = 'P0040';
   END IF;
 

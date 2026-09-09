@@ -15,6 +15,8 @@ import type { NewParticipant } from './reservationList/newParticipant'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './reservationList/cancellationEmailState'
 import { showToast } from '@/utils/toast'
 import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
+import { ConfirmationEmailOverrideDialog, type ConfirmationOverrideKey } from '@/components/settings/ConfirmationEmailOverrideDialog'
+import { ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 
@@ -81,6 +83,7 @@ export function ReservationList({
   const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
   const [isDeletingEvent, setIsDeletingEvent] = useState(false) // イベント削除中フラグ
   const [emailContent, setEmailContent] = useState<ReservationCancellationEmailState>(EMPTY_CANCELLATION_EMAIL_STATE)
+  const [eventConfirmOverrideKey, setEventConfirmOverrideKey] = useState<ConfirmationOverrideKey | null>(null)
   
   // メール本文の生成は共通モジュール（lib/cancellationEmail）に移動。
   // 公演の中止・削除フロー（DeleteEventCancelDialog）と同じロジックを共有する
@@ -171,6 +174,11 @@ export function ReservationList({
     setShouldSendEmail,
   })
 
+  const mailEligibleReservations = reservations.filter(r => ACTIVE_RESERVATION_STATUSES_SET.has(r.status))
+  const selectedMailReservations = mailEligibleReservations.filter(r => selectedReservations.has(r.id))
+  const allMailSelected = mailEligibleReservations.length > 0
+    && selectedMailReservations.length === mailEligibleReservations.length
+
   return (
     <>
       {loadingReservations ? (
@@ -211,6 +219,40 @@ export function ReservationList({
                 className="h-7 text-xs text-purple-700 hover:text-purple-900"
                 unavailableMessage="店舗が未選択のためテンプレートを編集できません"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                disabled={!event?.id}
+                onClick={() => {
+                  if (!event?.id) {
+                    showToast.error('公演を保存してから、この公演用の文面を設定できます')
+                    return
+                  }
+                  setEventConfirmOverrideKey('reservation_confirmation_template')
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1" />
+                予約確認を上書き
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-purple-700 hover:text-purple-900"
+                disabled={!event?.id}
+                onClick={() => {
+                  if (!event?.id) {
+                    showToast.error('公演を保存してから、この公演用の文面を設定できます')
+                    return
+                  }
+                  setEventConfirmOverrideKey('private_confirm_template')
+                }}
+              >
+                <Mail className="h-3 w-3 mr-1" />
+                貸切確定を上書き
+              </Button>
               <TemplateEditButton
                 templateKey="booking_change_template"
                 storeId={cancellationTemplateStoreId}
@@ -332,20 +374,21 @@ export function ReservationList({
             </div>
           ) : reservations.length === 0 ? null : (
             <div>
-              {selectedReservations.size > 0 && (
+              {selectedMailReservations.length > 0 && (
                 <div className="mb-3 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
                   <span className="text-sm font-medium">
-                    {selectedReservations.size}件選択中
+                    {selectedMailReservations.length}件選択中
                   </span>
                   <Button
                     size="sm"
                     onClick={() => {
-                      const selectedEmails = reservations
-                        .filter(r => selectedReservations.has(r.id))
+                      const selectedEmails = selectedMailReservations
                         .map(r => r.customer_id)
                         .filter(Boolean)
                       if (selectedEmails.length > 0) {
                         setIsEmailModalOpen(true)
+                      } else if (selectedMailReservations.length === 0) {
+                        showToast.warning('送信できる有効な予約がありません')
                       } else {
                         showToast.warning('選択した予約にメールアドレスが設定されていません')
                       }
@@ -361,10 +404,10 @@ export function ReservationList({
                   <div className="flex items-center gap-3 flex-1">
                     <div className="w-[40px] flex items-center justify-center">
                       <Checkbox
-                        checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                        checked={allMailSelected}
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setSelectedReservations(new Set(reservations.map(r => r.id)))
+                            setSelectedReservations(new Set(mailEligibleReservations.map(r => r.id)))
                           } else {
                             setSelectedReservations(new Set())
                           }
@@ -384,10 +427,10 @@ export function ReservationList({
                 <div className="sm:hidden border rounded-t-lg bg-muted/30 p-3 flex items-center justify-between font-medium text-xs">
                   <div className="flex items-center gap-2">
                     <Checkbox
-                      checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                      checked={allMailSelected}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedReservations(new Set(reservations.map(r => r.id)))
+                          setSelectedReservations(new Set(mailEligibleReservations.map(r => r.id)))
                         } else {
                           setSelectedReservations(new Set())
                         }
@@ -431,8 +474,8 @@ export function ReservationList({
       <SendEmailDialog
         open={isEmailModalOpen}
         onOpenChange={setIsEmailModalOpen}
-        recipientCount={selectedReservations.size}
-        recipients={reservations.filter(r => selectedReservations.has(r.id))}
+        recipientCount={selectedMailReservations.length}
+        recipients={selectedMailReservations}
         subject={emailSubject}
         setSubject={setEmailSubject}
         body={emailBody}
@@ -483,6 +526,15 @@ export function ReservationList({
         onClose={() => setIsDeleteEventDialogOpen(false)}
         isDeleting={isDeletingEvent}
         onConfirm={handleConfirmDeleteEvent}
+      />
+
+      <ConfirmationEmailOverrideDialog
+        open={eventConfirmOverrideKey !== null}
+        onOpenChange={(open) => { if (!open) setEventConfirmOverrideKey(null) }}
+        templateKey={eventConfirmOverrideKey ?? 'reservation_confirmation_template'}
+        eventId={event?.id}
+        storeId={cancellationTemplateStoreId}
+        organizationScenarioId={event?.organization_scenario_id || currentEventData.organization_scenario_id}
       />
     </>
   )

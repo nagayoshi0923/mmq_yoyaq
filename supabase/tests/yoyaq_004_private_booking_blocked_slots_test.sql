@@ -923,6 +923,8 @@ BEGIN
     OR position('is_org_admin() OR' IN v_approve_def) > 0
     OR position('NOT is_staff_or_admin()' IN v_approve_def) = 0
     OR position('v_candidate_end_time = p_selected_end_time' IN v_approve_def) = 0
+    OR position('v_hint_time_slot' IN v_approve_def) = 0
+    OR position('v_event_time_slot' IN v_approve_def) = 0
     OR position('v_rebuilt_candidates' IN v_approve_def) = 0
     OR position('candidate_datetimes = v_confirmed_candidate_datetimes' IN v_approve_def) = 0
     OR position('candidate_datetimes = COALESCE(p_candidate_datetimes' IN v_approve_def) > 0

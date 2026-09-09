@@ -1,0 +1,49 @@
+---
+description: React Query・定数・JST・共有API・命名。src の TS/TSX 編集時に適用。
+globs:
+  - src/**/*.ts
+  - src/**/*.tsx
+alwaysApply: false
+---
+
+# フロントエンド実装規約
+
+## データ流
+
+Pages → `src/hooks/` → `src/lib/api/` → Supabase。型は `src/types/index.ts`（DBは snake_case に合わせる）。
+
+## React Query
+
+`staleTime: 5分` + `refetchOnMount: false` のため、mutation後に別画面リストを更新するなら:
+
+```typescript
+queryClient.invalidateQueries({ queryKey: ['reservations'], refetchType: 'all' })
+```
+
+`refetchType: 'all'` なしはキャッシュが古いまま残る。
+
+## 定数・日時
+
+- `reservation_source` / `GLOBAL_SETTINGS_MSG_SELECT` → `src/lib/constants.ts`（文字列直書き禁止）
+- time_slot 変換 → `src/lib/timeSlot.ts` のみ（インライン変換禁止）
+- 日付 → `src/utils/jstDate.ts`。日時文字列は JST `+09:00` を明示。`toISOString()` や TZなし結合は禁止
+- 検出: `npm run check:jst-date`
+
+## 共有APIを変えるとき
+
+変更前に呼び出し元をすべて列挙する。危険: `reservationApi.create()`、RPC置換、`update_staff_assignments`（空配列は `confirm_clear: true` 必須）。
+
+## 命名
+
+| 場所 | ケース |
+|------|--------|
+| DB / TS型フィールド | snake_case |
+| React state / props | camelCase |
+
+同じ概念に別名を増やさない。型エラーがある状態でデプロイしない。
+
+## 重要パス
+
+- `src/lib/reservationApi.ts` — 複数予約タイプ共用
+- `src/components/patterns/modal/ConfirmDialog.tsx`
+- `docs/IMPROVEMENT_HANDOFF.md` — 改善タスク台帳

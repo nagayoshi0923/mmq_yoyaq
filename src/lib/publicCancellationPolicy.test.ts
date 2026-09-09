@@ -27,14 +27,14 @@ describe('public cancellation policy formatting', () => {
     const hundred = { hours_before: 24, fee_percentage: 100, description: '' }
     const after = { hours_before: -1, fee_percentage: 100, description: '' }
 
-    expect(formatCancellationFeePeriod(fifty, hundred)).toBe('2日前から1日前まで')
-    expect(formatCancellationFeePeriod(hundred, after)).toBe('1日前から開演時刻まで')
+    expect(formatCancellationFeePeriod(fifty, hundred)).toBe('48時間前から24時間前になるまで')
+    expect(formatCancellationFeePeriod(hundred, after)).toBe('24時間前から開演時刻まで')
     expect(formatCancellationFeePeriod(after)).toBe('公演開始後・無断キャンセル')
   })
 
   it('期限と料金基準を顧客向けラベルにする', () => {
     expect(formatPolicyHours(0)).toBe('開演時刻')
-    expect(formatPolicyHours(50)).toBe('2日2時間前')
+    expect(formatPolicyHours(50)).toBe('50時間前')
     expect(formatCancellationFeeBasis('participant_total')).toBe('予約時の参加料金合計')
     expect(formatCancellationFeeBasis('performance_total')).toBe('公演価格全額')
   })

@@ -11,6 +11,7 @@ import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
 import { ReservationSettings } from './pages/ReservationSettings'
 import { CancellationSettings } from './pages/CancellationSettings'
+import { CancellationBilling } from './pages/CancellationBilling'
 import { PricingSettings } from './pages/PricingSettings'
 import { SalesReportSettings } from './pages/SalesReportSettings'
 import { NotificationSettings } from './pages/NotificationSettings'
@@ -33,7 +34,7 @@ export function Settings() {
 
   // 店舗セレクターを表示しないページ
   const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
-  const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
+  const showStoreSelector = activeTab !== 'cancellation-billing' && !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
     // 全店舗選択時は店舗IDを空文字列に
@@ -58,6 +59,8 @@ export function Settings() {
         return <ReservationSettings storeId={storeId} />
       case 'cancellation':
         return <CancellationSettings storeId={storeId} />
+      case 'cancellation-billing':
+        return <CancellationBilling />
       case 'pricing':
         return <PricingSettings storeId={storeId} />
       case 'salary':

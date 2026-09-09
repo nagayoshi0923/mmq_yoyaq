@@ -1,18 +1,44 @@
-import {
-  DEFAULT_OPEN_CANCELLATION_FEES,
-  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
-  DEFAULT_PRIVATE_CANCELLATION_FEES,
-  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-} from '@/constants/cancellationPolicyDefaults'
-import { RESERVATION_SOURCE } from '@/lib/constants'
-import type {
-  CancellationFeeBasis,
-  CancellationFeeRule,
-  CancellationPerformanceType,
-  Reservation,
-} from '@/types'
+/**
+ * キャンセルポリシー解決・料金計算・顧客セルフキャンセル可否判定。
+ *
+ * api/ からも import される（相対パス）ので、ブラウザ専用APIや
+ * @/ パスエイリアス、他モジュールへのランタイム import に依存しないこと
+ * （pricing.ts と同じ制約）。外部依存があると Vercel の /api/reservations が
+ * FUNCTION_INVOCATION_FAILED になる。
+ *
+ * 既定値は src/constants/cancellationPolicyDefaults.ts と数値を揃えること。
+ */
 
 const HOUR_MS = 60 * 60 * 1000
+
+/** constants.ts の RESERVATION_SOURCE.WEB_PRIVATE と同値（ここへ依存しない） */
+const RESERVATION_SOURCE_WEB_PRIVATE = 'web_private'
+
+export type CancellationPerformanceType = 'open' | 'private'
+export type CancellationFeeBasis = 'participant_total' | 'performance_total'
+
+export interface CancellationFeeRule {
+  hours_before: number
+  fee_percentage: number
+  description: string
+}
+
+/** オープン公演既定（cancellationPolicyDefaults と同期） */
+const DEFAULT_OPEN_CANCELLATION_FEES: readonly CancellationFeeRule[] = [
+  { hours_before: 48, fee_percentage: 50, description: '前日より50%' },
+  { hours_before: 24, fee_percentage: 100, description: '当日より100%' },
+  { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断100%' },
+]
+
+/** 貸切公演既定（cancellationPolicyDefaults と同期） */
+const DEFAULT_PRIVATE_CANCELLATION_FEES: readonly CancellationFeeRule[] = [
+  { hours_before: 168, fee_percentage: 50, description: '7日前より公演価格全額の50%' },
+  { hours_before: 72, fee_percentage: 100, description: '3日前より公演価格全額の100%' },
+  { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' },
+]
+
+export const DEFAULT_OPEN_CANCEL_DEADLINE_HOURS = 48
+export const DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS = 720
 
 interface CancellationPolicyIdentity {
   performanceType: CancellationPerformanceType
@@ -64,18 +90,17 @@ export interface CancellationCalculation {
   feeAmount: number
 }
 
-type ReservationPolicyFields = Pick<
-  Reservation,
-  | 'private_group_id'
-  | 'reservation_source'
-  | 'cancellation_policy_snapshot_version'
-  | 'cancellation_policy_store_id'
-  | 'cancellation_policy_performance_type'
-  | 'cancellation_policy_deadline_hours'
-  | 'cancellation_policy_fees'
-  | 'cancellation_policy_fee_basis'
-  | 'cancellation_policy_updated_at'
->
+type ReservationPolicyFields = {
+  private_group_id?: string | null
+  reservation_source?: string | null
+  cancellation_policy_snapshot_version?: number | null
+  cancellation_policy_store_id?: string | null
+  cancellation_policy_performance_type?: CancellationPerformanceType | null
+  cancellation_policy_deadline_hours?: number | null
+  cancellation_policy_fees?: CancellationFeeRule[] | null
+  cancellation_policy_fee_basis?: CancellationFeeBasis | null
+  cancellation_policy_updated_at?: string | null
+}
 
 function isPerformanceType(value: unknown): value is CancellationPerformanceType {
   return value === 'open' || value === 'private'
@@ -102,7 +127,7 @@ function inferLegacyPerformanceType(reservation: ReservationPolicyFields): Cance
     return reservation.cancellation_policy_performance_type
   }
   return reservation.private_group_id != null
-    || reservation.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE
+    || reservation.reservation_source === RESERVATION_SOURCE_WEB_PRIVATE
     ? 'private'
     : 'open'
 }
@@ -230,4 +255,45 @@ export function calculateCancellation(input: CalculateCancellationInput): Cancel
     feeBasisAmount,
     feeAmount,
   }
+}
+
+/**
+ * 顧客セルフキャンセル用の受付期限。
+ * 予約snapshotの deadline=0 は「開演まで料金付き受付可」の旧運用なので、
+ * 顧客経路では無料セルフ期間の既定値へ読み替える。
+ */
+export function resolveCustomerCancelDeadlineHours(
+  policy: CalculableCancellationPolicy,
+): number {
+  if (policy.deadlineHours > 0) return policy.deadlineHours
+  return policy.performanceType === 'private'
+    ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+    : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
+}
+
+export interface CustomerSelfCancelEvaluation extends CancellationCalculation {
+  customerDeadlineHours: number
+  canCustomerSelfCancel: boolean
+}
+
+/**
+ * 顧客がマイページ等から自分でキャンセルしてよいか。
+ * 受付期限を過ぎている、またはキャンセル料が発生する時刻は不可（店舗対応）。
+ */
+export function evaluateCustomerSelfCancel(
+  input: CalculateCancellationInput,
+): CustomerSelfCancelEvaluation {
+  const calculation = calculateCancellation(input)
+  const customerDeadlineHours = resolveCustomerCancelDeadlineHours(input.policy)
+  const canCustomerSelfCancel = calculation.feePercentage === 0
+    && calculation.hoursUntilPerformance >= customerDeadlineHours
+  return {
+    ...calculation,
+    customerDeadlineHours,
+    canCustomerSelfCancel,
+  }
+}
+
+export function canCustomerSelfCancel(input: CalculateCancellationInput): boolean {
+  return evaluateCustomerSelfCancel(input).canCustomerSelfCancel
 }

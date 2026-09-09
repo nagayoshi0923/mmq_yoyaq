@@ -1,6 +1,6 @@
 # 重要機能保護ルール
 
-**最終更新**: 2026-07-23
+**最終更新**: 2026-08-03
 
 絶対に削除・劣化させてはいけない重要機能のリスト。
 
@@ -147,7 +147,30 @@ psql "$LOCAL_DATABASE_URL" \
 
 ---
 
+## 🚨 店舗代表の出勤打刻
+
+### 保護要件
+
+- 店舗ダッシュボード本体の取得・描画から打刻状態を分離し、`null`、`undefined`、空、不正レスポンス、API失敗を直接参照しない。
+- 打刻UIを局所ErrorBoundaryに置き、打刻UIの描画例外で参加費・中止公演・店舗切替・ヘッダー/サイドバーを落とさない。
+- APIは`users.is_store_representative`をDBで再確認し、認証userとorganizationから本人staffを一意に解決する。clientの`staff_id`と`checked_in_at`は受理しない。
+- 作成時だけ選択店舗が同一organizationのactive店舗か検証し、時刻は`staff_checkins.checked_in_at`のDB DEFAULT `NOW()`を正とする。
+- 取得・取消は選択店舗に縛らず、認証本人・同一organization・JST当日の打刻を対象にする。店舗切替後も既存打刻と取消導線を隠さない。
+- 退勤操作は提供しない。取消は共通`ConfirmDialog`を1枚挟み、打刻済み状態でも常に画面から到達可能にする。
+
+### 回帰確認
+
+```bash
+npm run test:unit -- --run src/components/store/staffCheckinState.test.ts src/components/store/StaffCheckinBubble.test.tsx src/components/store/StaffCheckinApi.test.ts
+```
+
+---
+
 ## 📋 変更履歴
+
+### 2026-08-03
+- **再実装**: 店舗代表の出勤打刻をnull安全な独立状態と本人・JST当日限定取消へ変更
+- **保護**: 局所ErrorBoundaryにより打刻UIの失敗を店舗ダッシュボード本体から隔離
 
 ### 2026-07-23
 - **修正**: 募集停止枠の貸切申請・承認をclientとDB transactionの両方で拒否
