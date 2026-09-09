@@ -162,7 +162,7 @@ export function SettingsPage() {
       // 同一 user_id の重複が残っていても表示・編集対象がぶれないよう最新1件に絞る (#382)
       const { data, error } = await query
         .order('updated_at', { ascending: false })
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: true }).order('id', { ascending: true })
         .limit(1)
         .maybeSingle()
 
@@ -213,24 +213,6 @@ export function SettingsPage() {
     setSaving(true)
     try {
       if (customerInfo) {
-        // 保存直前に重複行を統合し、統合後に残った行を対象にする。統合で customerInfo.id 側が
-        // 削除されている可能性があるため、id を引き直す (#382)
-        let targetCustomerId = customerInfo.id
-        if (user?.id) {
-          const { error: linkError } = await supabase.rpc('link_current_user_to_customer')
-          if (linkError) logger.warn('顧客レコードの自動紐付け/統合に失敗:', linkError)
-
-          const { data: resolvedCust } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('user_id', user.id)
-            .order('updated_at', { ascending: false })
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .maybeSingle()
-          if (resolvedCust?.id) targetCustomerId = resolvedCust.id
-        }
-
         let profileUpdate = supabase
           .from('customers')
           .update({
@@ -242,7 +224,7 @@ export function SettingsPage() {
             email: user?.email || null,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', targetCustomerId)
+          .eq('id', customerInfo.id)
         if (user?.id) {
           profileUpdate = profileUpdate.eq('user_id', user.id)
         }
@@ -277,7 +259,7 @@ export function SettingsPage() {
           .select('id')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: true }).order('id', { ascending: true })
           .limit(1)
           .maybeSingle()
         

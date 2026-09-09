@@ -93,12 +93,12 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
           else linkedUserIds.add(userId)
         }
         // 同一 user_id の重複行が残っていても表示が非決定的にならないよう1件に絞る (#382)
-        const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').eq('user_id', userId).order('updated_at', { ascending: false }).order('created_at', { ascending: true }).limit(1).maybeSingle()
+        const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').eq('user_id', userId).order('updated_at', { ascending: false }).order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1).maybeSingle()
         if (error && error.code !== 'PGRST116') logger.warn('顧客情報の取得に失敗:', error)
         if (data) customer = data
       }
       if (!customer && email) {
-        const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').ilike('email', email).order('updated_at', { ascending: false }).order('created_at', { ascending: true }).limit(1).maybeSingle()
+        const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').ilike('email', email).order('updated_at', { ascending: false }).order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1).maybeSingle()
         if (error && error.code !== 'PGRST116') throw error
         if (data) customer = data
       }
