@@ -79,7 +79,7 @@ const LEGACY_SCENARIO_FIELDS = [
 
 // 公開用（一般ユーザ向け）。マスタービュー上で必要な最小カラムのみ。
 const PUBLIC_FIELDS = [
-  'id', 'title', 'key_visual_url', 'author', 'duration',
+  'id', 'title', 'key_visual_url', 'author', 'duration', 'synopsis',
   'player_count_min', 'player_count_max', 'genre', 'release_date',
   'status', 'participation_fee', 'scenario_type', 'organization_id',
   'scenario_kind', 'accepts_private_booking',
@@ -158,7 +158,7 @@ async function authenticate(
 
   const authHeader = req.headers['authorization'] as string | undefined
 
-  // 未ログイン GET: 公開シナリオ詳細（id / slug 単発取得）のみ許可。
+  // 未ログイン GET: 公開シナリオ詳細・公開一覧のみ許可（routeGetで制限）。
   // org_id クエリ必須（どの組織のラインナップを引くかを特定する）。
   // 一覧系・統計系・書き込み系は引き続き Authorization 必須。
   if (req.method === 'GET' && !authHeader?.startsWith('Bearer ')) {
@@ -254,13 +254,15 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string, 
   if (id) return await handleGetById(res, orgId, id, isAnon)
   if (slug) return await handleGetBySlug(res, orgId, slug, isAnon)
 
-  // anon でアクセス可能なのは id / slug 単発取得のみ（一覧・統計は admin/staff 専用）
+  // 公開一覧は公開フィールド・有効組織に限定。管理一覧や統計は認証必須。
+  if (type === 'public') return await handleGetPublic(res, orgId)
+
+  // anon は管理一覧・統計へアクセスできない。
   if (isAnon) {
     return res.status(401).json({ error: 'Authorization ヘッダが必要です' })
   }
 
   if (type === 'legacy') return await handleGetAllLegacy(res, orgId)
-  if (type === 'public') return await handleGetPublic(res, orgId)
   if (type === 'paginated') return await handleGetPaginated(req, res, orgId)
   if (type === 'performance-count') return await handleGetPerformanceCount(req, res, orgId)
   if (type === 'stats') return await handleGetScenarioStats(req, res, orgId)
@@ -386,6 +388,11 @@ async function handleGetAllLegacy(res: VercelResponse, orgId: string) {
 // 公開用シナリオ（status='available' のみ、自組織のみ）
 async function handleGetPublic(res: VercelResponse, orgId: string) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
+  if (!orgId) return res.status(400).json({ error: 'org_id is required' })
+  const { data: organization, error: orgError } = await db
+    .from('organizations').select('id').eq('id', orgId).eq('is_active', true).maybeSingle()
+  if (orgError) return res.status(500).json({ error: '組織の確認に失敗しました' })
+  if (!organization) return res.status(404).json({ error: '公開中の組織が見つかりません' })
   const { data, error } = await db
     .from('organization_scenarios_with_master')
     .select(PUBLIC_FIELDS)

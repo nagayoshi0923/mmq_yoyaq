@@ -5,6 +5,7 @@ import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization
 import { loadOverrideTemplates, pickOverrideTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
+import { buildSenshinOAuthJoinUrl } from '../_shared/senshin-discord.ts'
 
 interface PrivateBookingConfirmationRequest {
   reservationId: string
@@ -26,6 +27,10 @@ interface PrivateBookingConfirmationRequest {
   scenarioMasterId?: string
   discordPlayerUrl?: string
   discordSpectatorUrl?: string
+  /** 指定時は確定メール件名の代わりに使う（追送・訂正文面用） */
+  emailSubject?: string
+  /** 指定時は店舗/作品テンプレの代わりに使う。変数は通常どおり置換 */
+  templateOverride?: string
 }
 
 serve(async (req) => {
@@ -116,7 +121,8 @@ serve(async (req) => {
       overrides,
       storeEmailSettings?.private_confirm_template,
     )
-    const customTemplate = pickedTemplate.template
+    const customTemplate = (bookingData.templateOverride || '').trim()
+      || pickedTemplate.template
 
     // 日付フォーマット関数（JST固定）
     const formatDate = (dateStr: string): string => {
@@ -306,8 +312,12 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         // 貸切専用（顧客メールではGM名を出さない）
         .replace(/{gm_name}/g, '')
         .replace(/{notes}/g, bookingData.notes || '')
-        .replace(/{discord_player_url}/g, bookingData.discordPlayerUrl || '')
-        .replace(/{discord_spectator_url}/g, bookingData.discordSpectatorUrl || '')
+        .replace(/{discord_player_url}/g, bookingData.discordPlayerUrl
+          ? buildSenshinOAuthJoinUrl(Deno.env.get('SUPABASE_URL') || '', bookingData.reservationId, 'player')
+          : '')
+        .replace(/{discord_spectator_url}/g, bookingData.discordSpectatorUrl
+          ? buildSenshinOAuthJoinUrl(Deno.env.get('SUPABASE_URL') || '', bookingData.reservationId, 'spectator')
+          : '')
         // 未置換変数を除去
         .replace(/\{[a-z_]+\}/g, '')
     }
@@ -350,12 +360,13 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       finalText = emailText
     }
 
-    const emailSubject = `【貸切予約確定】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
+    const emailSubject = (bookingData.emailSubject || '').trim()
+      || `【貸切予約確定】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
 
     const emailLogId = await insertEmailLog(serviceClient, {
       organization_id: resolvedOrganizationId ?? null,
       reservation_id:  bookingData.reservationId ?? null,
-      email_type:      'reservation_confirmed',
+      email_type:      (bookingData.emailSubject || bookingData.templateOverride) ? 'other' : 'reservation_confirmed',
       to_email:        bookingData.customerEmail,
       to_name:         bookingData.customerName ?? null,
       subject:         emailSubject,

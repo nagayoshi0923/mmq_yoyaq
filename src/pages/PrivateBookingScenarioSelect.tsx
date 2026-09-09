@@ -14,6 +14,7 @@ import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 
 interface Scenario {
   id: string
@@ -131,44 +132,61 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   useReportRouteScrollRestoration('private-booking-scenario-select', { isLoading: loading })
 
   useEffect(() => {
-    loadScenarios()
-    loadStores()
-  }, [])
+    let cancelled = false
 
-  const loadScenarios = async () => {
-    try {
-      setLoading(true)
-      const data = await scenarioApi.getAll()
-      // 貸切リクエストでは公開中（status: available）かつ貸切受付中のシナリオのみ表示
-      const publicScenarios = data.filter(
-        (s) => s.status === 'available' && isScenarioAcceptingPrivateBooking(s)
-      )
-      setScenarios(publicScenarios)
-    } catch (error) {
-      logger.error('シナリオの読み込みエラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadStores = async () => {
-    try {
-      const data = await storeApi.getAll()
-      setAllStores(data)
-      
-      // URLのフィルター店舗を初期選択
-      if (preselectedStoreIds.length > 0) {
-        const validIds = preselectedStoreIds.filter(id =>
-          data.some((s: any) => s.id === id && s.ownership_type !== 'office' && s.status === 'active')
-        )
-        if (validIds.length > 0) {
-          setSelectedStoreIds(validIds)
+    const loadScenarios = async () => {
+      try {
+        setLoading(true)
+        let orgId: string | undefined
+        if (organizationSlug) {
+          const org = await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true })
+          orgId = org?.id
+          if (!orgId) throw new Error('指定された運営組織を確認できません')
         }
+
+        let rows: Scenario[] = []
+        if (orgId) {
+          rows = await scenarioApi.getPublic(orgId) as Scenario[]
+        } else {
+          const data = await scenarioApi.getAll()
+          rows = data.filter((s) => s.status === 'available') as Scenario[]
+        }
+
+        if (!cancelled) {
+          setScenarios(rows.filter((s) => isScenarioAcceptingPrivateBooking(s)))
+        }
+      } catch (error) {
+        logger.error('シナリオの読み込みエラー:', error)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    } catch (error) {
-      logger.error('店舗の読み込みエラー:', error)
     }
-  }
+
+    const loadStores = async () => {
+      try {
+        const data = await storeApi.getAll()
+        if (cancelled) return
+        setAllStores(data)
+
+        if (preselectedStoreIds.length > 0) {
+          const validIds = preselectedStoreIds.filter(id =>
+            data.some((s: any) => s.id === id && s.ownership_type !== 'office' && s.status === 'active')
+          )
+          if (validIds.length > 0) {
+            setSelectedStoreIds(validIds)
+          }
+        }
+      } catch (error) {
+        logger.error('店舗の読み込みエラー:', error)
+      }
+    }
+
+    void loadScenarios()
+    void loadStores()
+    return () => {
+      cancelled = true
+    }
+  }, [organizationSlug, preselectedStoreIds])
 
   const handleProceed = () => {
     if (!selectedScenarioId) {

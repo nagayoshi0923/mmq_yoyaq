@@ -12,8 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import {
@@ -90,37 +89,12 @@ export function ConfirmationEmailOverrideDialog({
     setLoading(true)
     ;(async () => {
       try {
-        const orgId = await getCurrentOrganizationId()
-        const eventQuery = supabase
-          .from('schedule_events')
-          .select('reservation_confirmation_template, private_confirm_template, organization_id, organization_scenario_id')
-          .eq('id', eventId)
-        const { data: eventRow, error: eventError } = orgId
-          ? await eventQuery.eq('organization_id', orgId).maybeSingle()
-          : await eventQuery.maybeSingle()
-        if (eventError) throw eventError
-
-        const scenarioId = organizationScenarioId || eventRow?.organization_scenario_id
-        let scenarioTemplate: string | null = null
-        if (scenarioId) {
-          let scenarioQuery = supabase
-            .from('organization_scenarios')
-            .select('reservation_confirmation_template, private_confirm_template')
-            .eq('id', scenarioId)
-          if (orgId) scenarioQuery = scenarioQuery.eq('organization_id', orgId)
-          const { data: scenarioRow } = await scenarioQuery.maybeSingle()
-          scenarioTemplate = scenarioRow?.[templateKey] ?? null
-        }
-
-        let storeQuery = supabase
-          .from('email_settings')
-          .select('company_name, company_phone, company_email, reservation_confirmation_template, private_confirm_template')
-        storeQuery = storeId
-          ? storeQuery.eq('store_id', storeId)
-          : orgId
-            ? storeQuery.eq('organization_id', orgId)
-            : storeQuery
-        const { data: storeRow } = await storeQuery.limit(1).maybeSingle()
+        const { event: eventRow, scenario: scenarioRow, store: storeRow } = await apiClient.get<{
+          event: Partial<Record<ConfirmationOverrideKey, string | null>>
+          scenario: Partial<Record<ConfirmationOverrideKey, string | null>> | null
+          store: (Partial<Record<ConfirmationOverrideKey, string | null>> & { company_name?: string; company_phone?: string; company_email?: string }) | null
+        }>(`/api/schedule?type=confirmation-templates&id=${encodeURIComponent(eventId)}`)
+        const scenarioTemplate = scenarioRow?.[templateKey] ?? null
 
         if (cancelled) return
         const companyName = storeRow?.company_name || ''
@@ -168,18 +142,8 @@ export function ConfirmationEmailOverrideDialog({
     if (!eventId) return
     setSaving(true)
     try {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) {
-        showToast.error('組織が特定できないため保存できません')
-        return
-      }
       const next = value.trim() || null
-      const { error } = await supabase
-        .from('schedule_events')
-        .update({ [templateKey]: next })
-        .eq('id', eventId)
-        .eq('organization_id', orgId)
-      if (error) throw error
+      await apiClient.patch(`/api/schedule?action=confirmation-templates&id=${encodeURIComponent(eventId)}`, { templateKey, value: next })
       setSavedOverride(next || '')
       showToast.success(next ? copy.saveSuccess : '上書きを解除し、下の段のテンプレに戻しました')
       onOpenChange(false)

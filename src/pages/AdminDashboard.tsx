@@ -12,6 +12,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import { useRouteSeo } from '@/components/seo/RouteSeo'
+import { isPublicStoresPath } from '@/lib/seo'
 import { 
   Store, 
   Calendar, 
@@ -335,7 +336,12 @@ export function AdminDashboard() {
     
     // 顧客/ログアウト状態で管理ページにいる場合は追い出す
     // 未ログイン → ログインへ（戻り先を保持）。顧客 → 予約サイトへ。
-    if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
+    // `/stores` は公開の参加店舗一覧なので対象外。
+    if (
+      isCustomerOrLoggedOut
+      && ADMIN_PATHS.includes(currentPage)
+      && !isPublicStoresPath(currentPage, location.pathname)
+    ) {
       if (!user) {
         const redirect = encodeURIComponent(location.pathname + location.search)
         navigate(`/login?redirect=${redirect}`, { replace: true })
