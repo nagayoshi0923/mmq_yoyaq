@@ -1,6 +1,7 @@
 // 戦塵貸切: 新規参加を見て、該当チャンネルに本人権限だけ付ける。ロールは付けない。
 import http from 'node:http'
 import WebSocket from 'ws'
+import { withManualInvites } from './manual-invites.mjs'
 
 const GUILD = '1466422091598266380'
 const GM_ALERT_CHANNEL = '1478783425010995404'
@@ -64,7 +65,7 @@ async function loadMap() {
     if (p) out[p] = { channelId: row.player_channel_id, label: `${row.reservation_id} player` }
     if (s) out[s] = { channelId: row.spectator_channel_id, label: `${row.reservation_id} spectator` }
   }
-  return out
+  return withManualInvites(out, process.env.SENSHIN_MANUAL_INVITES_JSON || '')
 }
 
 async function addToChannel(userId, channelId, label) {

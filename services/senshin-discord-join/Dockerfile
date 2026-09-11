@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 COPY watch.mjs ./
+COPY manual-invites.mjs ./
 ENV PORT=8080
 EXPOSE 8080
 CMD ["node", "watch.mjs"]
