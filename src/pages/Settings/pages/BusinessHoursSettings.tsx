@@ -6,9 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Clock, CalendarCheck, CalendarX, Plus, X, Save } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -79,15 +77,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     setLoading(true)
     setLoadFailed(false)
     try {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('組織を確認できません')
-      const { data, error } = await supabase
-        .from('business_hours_settings')
-        .select('id, store_id, opening_hours, holidays, special_open_days, special_closed_days')
-        .eq('organization_id', orgId)
-        .eq('store_id', targetStoreId)
-        .maybeSingle()
-      if (error) throw error
+      const data = await storeApi.getBusinessHours(targetStoreId)
       if (version === loadVersion.current) {
         setFormData(normalizeBusinessHoursData(targetStoreId, data))
       }
@@ -192,50 +182,11 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       const targetStores = applyToAll ? stores : [stores.find(s => s.id === selectedStoreId)].filter(Boolean)
       
       if (targetStores.length === 0) throw new Error('対象店舗を確認できません')
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('組織を確認できません')
-      
-      // 保存前にすべての曜日にslot_start_timesを確実に含める
       const fields = businessHoursSaveFields(formData)
-      
       for (const store of targetStores) {
-        if (!store) continue
-        
-        const saveData = {
-          store_id: store.id,
-          ...fields,
-          organization_id: orgId
-        }
-        
-        logger.log('保存データ:', JSON.stringify(saveData, null, 2))
-        
-        // まず既存データを確認（RLS対応のため直接テーブルを確認しない）
-        // 更新が成功し、対象行が存在しない場合だけ新規作成する
-        const { error: updateError, data: updateData } = await supabase
-          .from('business_hours_settings')
-          .update(fields)
-          .eq('organization_id', orgId)
-          .eq('store_id', store.id)
-          .select('id')  // 更新された行を取得
-        
-        const updateCount = updateData?.length ?? 0
-        logger.log('update結果:', { updateError, updateCount, updateData })
-        
-        // 通信・権限エラーはそのまま停止し、新規作成へ切り替えない
-        if (updateError) throw updateError
-        if (updateCount === 0) {
-          logger.log('insertを実行')
-          const { error: insertError } = await supabase
-            .from('business_hours_settings')
-            .insert(saveData)
-          
-          if (insertError) {
-            logger.error('insertエラー:', insertError)
-            throw insertError
-          }
-        }
+        if (store) await storeApi.saveBusinessHours(store.id, fields)
       }
-      
+
       // 保存成功時はフォームデータを維持（再取得しない）
       // 再取得するとRLSの問題でデフォルト値に戻る可能性があるため
       
