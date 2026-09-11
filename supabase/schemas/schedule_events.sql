@@ -12,6 +12,7 @@ CREATE TABLE public.schedule_events (
   reservation_info TEXT,
   notes TEXT,
   is_cancelled BOOLEAN DEFAULT FALSE,
+  gm_cancel_epoch UUID DEFAULT gen_random_uuid(),
   scenario_id UUID,
   store_id UUID REFERENCES public.stores(id),
   start_at TIMESTAMPTZ,

@@ -662,32 +662,7 @@ export const reservationApi = {
       | null
       | undefined
 
-    if (scheduleEventForGM?.is_private_booking && (scheduleEventForGM.gms?.length ?? 0) > 0) {
-      try {
-        const orgId = reservation.organization_id || scheduleEventForGM.organization_id
-        const gmNotifyCustomer = joinedCustomerFromReservation(reservation.customers)
-
-        await supabase.functions.invoke('notify-private-booking-cancelled-discord', {
-          body: {
-            organizationId: orgId,
-            scheduleEventId: scheduleEventForGM.id,
-            gms: scheduleEventForGM.gms,
-            customerName: gmNotifyCustomer?.name || reservation.customer_name || '顧客',
-            scenarioTitle: reservation.title || scheduleEventForGM.scenario || 'シナリオ未定',
-            eventDate: scheduleEventForGM.date,
-            startTime: scheduleEventForGM.start_time,
-            endTime: scheduleEventForGM.end_time,
-            storeName: scheduleEventForGM.venue || '店舗不明',
-            storeId: scheduleEventForGM.store_id,
-            cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル'
-          }
-        })
-        logger.log('貸切キャンセルGM通知送信成功')
-      } catch (gmNotifyError) {
-        logger.error('貸切キャンセルGM通知エラー:', gmNotifyError)
-        // 通知失敗してもキャンセル処理は成功とする
-      }
-    }
+    // GM通知はDBの取消トリガーで永続キューへ記録する（顧客メールと独立）。
 
     await markSenshinDiscordCancelled({
       reservationId: reservation.id,
