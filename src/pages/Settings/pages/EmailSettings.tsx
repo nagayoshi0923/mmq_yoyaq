@@ -18,6 +18,7 @@ import {
   getDefaultReservationTemplate,
   getDefaultCancellationTemplate,
   getDefaultReminderTemplate,
+  getDefaultPrivateReminderTemplate,
   getDefaultBookingChangeTemplate,
   getDefaultPrivateRequestTemplate,
   getDefaultPrivateConfirmTemplate,
@@ -33,13 +34,14 @@ import {
 import { VariableHintChips } from '@/components/settings/VariableHintChips'
 
 const EMAIL_SETTINGS_SELECT_FIELDS =
-  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, performance_confirmation_template, event_cancellation_template, performance_extension_template, store_cancellation_template, private_rejection_reason' as const
+  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, private_reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, performance_confirmation_template, event_cancellation_template, performance_extension_template, store_cancellation_template, private_rejection_reason' as const
 
 // ========== 型定義 ==========
 
 interface EmailTemplates {
   reservation_confirmation_template: string
   cancellation_template: string
+  private_reminder_template: string
   reminder_template: string
   booking_change_template: string
   private_request_template: string
@@ -176,6 +178,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     reservation_confirmation_template: '',
     cancellation_template: '',
     reminder_template: '',
+    private_reminder_template: '',
     booking_change_template: '',
     private_request_template: '',
     private_confirm_template: '',
@@ -257,6 +260,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           // 空のテンプレートはデフォルト値を設定
           reservation_confirmation_template: data.reservation_confirmation_template || getDefaultReservationTemplate(companyName, companyPhone, companyEmail),
           cancellation_template: data.cancellation_template || getDefaultCancellationTemplate(companyName, companyPhone, companyEmail),
+          private_reminder_template: data.private_reminder_template || getDefaultPrivateReminderTemplate(companyName, companyPhone, companyEmail),
           reminder_template: data.reminder_template || getDefaultReminderTemplate(companyName, companyPhone, companyEmail),
           booking_change_template: data.booking_change_template || getDefaultBookingChangeTemplate(companyName, companyPhone, companyEmail),
           private_request_template: data.private_request_template || getDefaultPrivateRequestTemplate(companyName, companyPhone, companyEmail),
@@ -285,6 +289,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           reservation_confirmation_template: getDefaultReservationTemplate(),
           cancellation_template: getDefaultCancellationTemplate(),
           reminder_template: getDefaultReminderTemplate(),
+          private_reminder_template: getDefaultPrivateReminderTemplate(),
           booking_change_template: getDefaultBookingChangeTemplate(),
           private_request_template: getDefaultPrivateRequestTemplate(),
           private_confirm_template: getDefaultPrivateConfirmTemplate(),
@@ -326,6 +331,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       reservation_confirmation_template: formData.reservation_confirmation_template,
       cancellation_template: formData.cancellation_template,
       reminder_template: formData.reminder_template,
+      private_reminder_template: formData.private_reminder_template,
       booking_change_template: formData.booking_change_template,
       private_request_template: formData.private_request_template,
       private_confirm_template: formData.private_confirm_template,
@@ -701,7 +707,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           <div className="flex items-center gap-2 mb-3">
             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
             <h4 className="text-sm font-medium text-gray-700">貸切予約関連メール</h4>
-            <span className="text-xs text-muted-foreground">貸切予約のリクエスト・承認・却下に関するメールテンプレート</span>
+            <span className="text-xs text-muted-foreground">貸切予約のリクエスト・承認・却下・リマインドに関するメールテンプレート</span>
           </div>
           <div className="space-y-3">
             {privateTemplates.map(config => (

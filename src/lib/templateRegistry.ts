@@ -1,3 +1,4 @@
+import { privateReminderDefault } from '../../supabase/functions/_shared/reminder-kind'
 /**
  * メールテンプレート台帳（単一の真実源）
  *
@@ -610,6 +611,7 @@ export const EMAIL_TEMPLATE_KEYS = [
   'reservation_confirmation_template',
   'cancellation_template',
   'reminder_template',
+  'private_reminder_template',
   'booking_change_template',
   'private_request_template',
   'private_confirm_template',
@@ -659,10 +661,17 @@ export const TEMPLATE_CONFIGS: TemplateConfig[] = [
   },
   {
     key: 'reminder_template',
-    title: 'リマインドメール',
+    title: 'オープン公演リマインドメール',
     description: '設定したタイミングで自動送信',
     category: 'reservation',
     getDefault: (cn, cp, ce) => getDefaultReminderTemplate(cn, cp, ce, 1)
+  },
+  {
+    key: 'private_reminder_template',
+    title: '貸切公演リマインドメール',
+    description: '貸切公演の予約者へ送信。オープン公演とは別の文面です',
+    category: 'private',
+    getDefault: privateReminderDefault
   },
   {
     key: 'private_request_template',
@@ -834,3 +843,5 @@ const VARIABLE_SOURCES: Record<string, VariableSource> = {
 export function getVariableSource(variable: string): VariableSource {
   return VARIABLE_SOURCES[variable] ?? { note: '予約・公演データから自動で入ります' }
 }
+
+export { privateReminderDefault as getDefaultPrivateReminderTemplate }
