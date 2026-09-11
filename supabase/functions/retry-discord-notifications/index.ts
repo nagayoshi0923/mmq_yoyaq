@@ -1,3 +1,4 @@
+import { deliverPrivateCancellations } from '../_shared/private-cancellation-delivery.ts'
 /**
  * Discord通知リトライ Edge Function
  * 
@@ -111,11 +112,16 @@ serve(async (req) => {
       getServiceRoleKey()
     )
 
+    const requestBody = await req.json().catch(() => ({}))
+    const privateResult = requestBody.only_recruitment === true ? { succeeded: 0, failed: 0 } : await deliverPrivateCancellations(
+      serviceClient, async (orgId) => (await getDiscordSettings(serviceClient, orgId)).botToken || null
+    )
+    console.log('貸切取消通知処理結果', privateResult)
+
     const { error: recoveryError } = await serviceClient.rpc('recover_recruitment_mail_alerts')
     if (recoveryError) throw recoveryError
 
     // キューからリトライ対象を取得
-    const requestBody = await req.json().catch(() => ({}))
     let notificationsQuery = serviceClient
       .from('discord_notification_queue')
       .select([
@@ -133,6 +139,7 @@ serve(async (req) => {
         'updated_at',
       ].join(','))
       .eq('status', 'pending')
+      .neq('notification_type', 'private_cancellation')
       .lte('next_retry_at', new Date().toISOString())
       .lt('retry_count', 3) // max_retriesのデフォルト値
       .order('created_at', { ascending: true })
