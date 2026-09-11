@@ -1,144 +1,21 @@
 import { PageHeader } from "@/components/layout/PageHeader"
 import { SectionTitle } from '@/components/settings/SectionTitle'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Clock, CalendarCheck, CalendarX, Plus, X, Save } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
-interface SlotTimes {
-  morning: string
-  afternoon: string
-  evening: string
-}
-
-interface DayHours {
-  is_open: boolean
-  open_time: string
-  close_time: string
-  available_slots: ('morning' | 'afternoon' | 'evening')[] // 受付可能な公演枠
-  slot_start_times?: SlotTimes // 公演枠ごとの開始時間（オプション）
-}
-
-interface OpeningHours {
-  monday: DayHours
-  tuesday: DayHours
-  wednesday: DayHours
-  thursday: DayHours
-  friday: DayHours
-  saturday: DayHours
-  sunday: DayHours
-}
-
-interface BusinessHoursData {
-  id: string
-  store_id: string
-  opening_hours: OpeningHours | null
-  holidays: string[] // 特定日の休業日
-  special_open_days: { date: string; note: string }[]
-  special_closed_days: { date: string; note: string }[]
-}
-
-const weekdays = [
-  { value: 'monday', label: '月曜日', short: '月' },
-  { value: 'tuesday', label: '火曜日', short: '火' },
-  { value: 'wednesday', label: '水曜日', short: '水' },
-  { value: 'thursday', label: '木曜日', short: '木' },
-  { value: 'friday', label: '金曜日', short: '金' },
-  { value: 'saturday', label: '土曜日', short: '土' },
-  { value: 'sunday', label: '日曜日', short: '日' }
-] as const
-
-// 公演枠の定義
-const slotOptions = [
-  { value: 'morning' as const, label: '朝公演', defaultTime: '10:00' },
-  { value: 'afternoon' as const, label: '昼公演', defaultTime: '14:00' },
-  { value: 'evening' as const, label: '夜公演', defaultTime: '18:00' }
-]
-
-// デフォルトの開始時間（土日祝用）
-const defaultSlotTimes: SlotTimes = {
-  morning: '10:00',
-  afternoon: '14:00',
-  evening: '19:00'
-}
-
-// 平日用の開始時間（昼公演は13:00開始）
-const weekdaySlotTimes: SlotTimes = {
-  morning: '10:00',
-  afternoon: '13:00',
-  evening: '19:00'
-}
-
-// デフォルトの営業時間設定
-const defaultWeekdayHours: DayHours = { 
-  is_open: true, 
-  open_time: '13:00', 
-  close_time: '23:00',
-  available_slots: ['afternoon', 'evening'],
-  slot_start_times: weekdaySlotTimes
-}
-const defaultWeekendHours: DayHours = { 
-  is_open: true, 
-  open_time: '09:00', 
-  close_time: '23:00',
-  available_slots: ['morning', 'afternoon', 'evening'], // 土日は全公演
-  slot_start_times: defaultSlotTimes
-}
-
-const getDefaultOpeningHours = (): OpeningHours => ({
-  monday: { ...defaultWeekdayHours },
-  tuesday: { ...defaultWeekdayHours },
-  wednesday: { ...defaultWeekdayHours },
-  thursday: { ...defaultWeekdayHours },
-  friday: { ...defaultWeekdayHours },
-  saturday: { ...defaultWeekendHours },
-  sunday: { ...defaultWeekendHours }
-})
-
-// DBから取得したデータにデフォルト値をマージする関数
-// slot_start_timesなどが欠けている古いデータ用
-const mergeWithDefaults = (dbOpeningHours: OpeningHours | null): OpeningHours => {
-  const defaults = getDefaultOpeningHours()
-  if (!dbOpeningHours) return defaults
-  
-  const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
-  const result: OpeningHours = { ...defaults }
-  
-  for (const day of weekdays) {
-    const isWeekend = day === 'saturday' || day === 'sunday'
-    const defaultHours = isWeekend ? defaultWeekendHours : defaultWeekdayHours
-    const dbDay = dbOpeningHours[day]
-    
-    if (dbDay) {
-      // slot_start_timesは個々のプロパティをマージ（部分的に設定されている場合に対応）
-      const mergedSlotTimes: SlotTimes = {
-        morning: dbDay.slot_start_times?.morning || defaultHours.slot_start_times?.morning || '10:00',
-        afternoon: dbDay.slot_start_times?.afternoon || defaultHours.slot_start_times?.afternoon || '13:00',
-        evening: dbDay.slot_start_times?.evening || defaultHours.slot_start_times?.evening || '19:00'
-      }
-      
-      // DBのデータがある場合、デフォルトとマージ
-      result[day] = {
-        ...defaultHours,  // まずデフォルトを適用
-        ...dbDay,         // DBのデータで上書き
-        // slot_start_timesは個々のプロパティをマージ
-        slot_start_times: mergedSlotTimes,
-        // available_slotsも同様
-        available_slots: dbDay.available_slots || defaultHours.available_slots
-      }
-    }
-  }
-  
-  return result
-}
+import {
+  weekdays, slotOptions, defaultSlotTimes, weekdaySlotTimes, defaultWeekdayHours,
+  getDefaultOpeningHours, normalizeBusinessHoursData, businessHoursSaveFields,
+  type OpeningHours, type DayHours, type BusinessHoursData,
+} from '@/lib/storeBusinessHours'
 
 interface BusinessHoursSettingsProps {
   storeId?: string
@@ -156,70 +33,62 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     special_closed_days: []
   })
   const [loading, setLoading] = useState(true)
+  const loadVersion = useRef(0)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [newOpenDay, setNewOpenDay] = useState({ date: '', note: '' })
   const [newClosedDay, setNewClosedDay] = useState({ date: '', note: '' })
 
   useEffect(() => {
     fetchData()
+    return () => { loadVersion.current += 1 }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- storeId変更時のみ実行
   }, [storeId])
 
   const fetchData = async () => {
+    const version = ++loadVersion.current
     setLoading(true)
+    setLoadFailed(false)
     try {
       // 店舗データを取得（組織対応済み、オフィス除外）
       const storesData = await storeApi.getAll(false, undefined, false, true)
 
+      if (version !== loadVersion.current) return
       if (storesData && storesData.length > 0) {
         setStores(storesData)
         const initialStoreId = storeId || storesData[0].id
         setSelectedStoreId(initialStoreId)
         await fetchBusinessHours(initialStoreId)
+      } else {
+        setSelectedStoreId('')
+        setLoading(false)
       }
     } catch (error) {
+      if (version !== loadVersion.current) return
+      setLoadFailed(true)
+      setLoading(false)
       logger.error('データ取得エラー:', error)
       showToast.error('データの取得に失敗しました')
-    } finally {
-      setLoading(false)
     }
   }
 
   const fetchBusinessHours = async (targetStoreId: string) => {
+    const version = ++loadVersion.current
+    setLoading(true)
+    setLoadFailed(false)
     try {
-      // まず基本カラムのみで取得（確実に動作する）
-      const { data: basicData, error: basicError } = await supabase
-        .from('business_hours_settings')
-        .select('id, store_id, opening_hours, holidays')
-        .eq('store_id', targetStoreId)
-        .maybeSingle()
-
-      if (basicError && basicError.code !== 'PGRST116') {
-        throw basicError
-      }
-
-      if (basicData) {
-        // 基本データがあれば設定（slot_start_timesがない古いデータ用にデフォルト値をマージ）
-        setFormData({
-          ...basicData,
-          opening_hours: mergeWithDefaults(basicData.opening_hours),
-          holidays: basicData.holidays || [],
-          special_open_days: [],
-          special_closed_days: []
-        })
-      } else {
-        // データが存在しない場合はデフォルト値
-        setFormData({
-          id: '',
-          store_id: targetStoreId,
-          opening_hours: getDefaultOpeningHours(),
-          holidays: [],
-          special_open_days: [],
-          special_closed_days: []
-        })
+      const data = await storeApi.getBusinessHours(targetStoreId)
+      if (version === loadVersion.current) {
+        setFormData(normalizeBusinessHoursData(targetStoreId, data))
       }
     } catch (error) {
-      logger.error('営業時間取得エラー:', error)
+      if (version === loadVersion.current) {
+        setLoadFailed(true)
+        logger.error('営業時間取得エラー:', error)
+        showToast.error('営業時間を取得できませんでした。再読み込みしてください')
+      }
+    } finally {
+      if (version === loadVersion.current) setLoading(false)
     }
   }
 
@@ -306,56 +175,18 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   }
 
   const handleSave = async (applyToAll: boolean = false) => {
+    if (loading || loadFailed || saving || formData.store_id !== selectedStoreId) return
     setSaving(true)
     try {
       // 対象店舗リスト（全店舗に適用する場合はすべての店舗）
       const targetStores = applyToAll ? stores : [stores.find(s => s.id === selectedStoreId)].filter(Boolean)
       
-      const orgId = await getCurrentOrganizationId()
-      
-      // 保存前にすべての曜日にslot_start_timesを確実に含める
-      const openingHoursToSave = mergeWithDefaults(formData.opening_hours)
-      
+      if (targetStores.length === 0) throw new Error('対象店舗を確認できません')
+      const fields = businessHoursSaveFields(formData)
       for (const store of targetStores) {
-        if (!store) continue
-        
-        const saveData = {
-          store_id: store.id,
-          opening_hours: openingHoursToSave,
-          holidays: formData.holidays,
-          organization_id: orgId
-        }
-        
-        logger.log('保存データ:', JSON.stringify(saveData, null, 2))
-        
-        // まず既存データを確認（RLS対応のため直接テーブルを確認しない）
-        // 単純にupdateを試み、失敗したらinsert
-        const { error: updateError, data: updateData } = await supabase
-          .from('business_hours_settings')
-          .update({
-            opening_hours: openingHoursToSave,
-            holidays: formData.holidays
-          })
-          .eq('store_id', store.id)
-          .select('id')  // 更新された行を取得
-        
-        const updateCount = updateData?.length ?? 0
-        logger.log('update結果:', { updateError, updateCount, updateData })
-        
-        // updateが失敗したか、更新行がなかった場合はinsert
-        if (updateError || updateCount === 0) {
-          logger.log('insertを実行')
-          const { error: insertError } = await supabase
-            .from('business_hours_settings')
-            .insert(saveData)
-          
-          if (insertError) {
-            logger.error('insertエラー:', insertError)
-            throw insertError
-          }
-        }
+        if (store) await storeApi.saveBusinessHours(store.id, fields)
       }
-      
+
       // 保存成功時はフォームデータを維持（再取得しない）
       // 再取得するとRLSの問題でデフォルト値に戻る可能性があるため
       
@@ -389,10 +220,10 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         description="店舗ごとの曜日別営業時間と特別営業日を設定します"
       >
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleSave(true)} disabled={saving}>
+          <Button variant="outline" size="sm" onClick={() => handleSave(true)} disabled={saving || loadFailed || !selectedStoreId}>
             全店舗に適用
           </Button>
-          <Button size="sm" onClick={() => handleSave(false)} disabled={saving}>
+          <Button size="sm" onClick={() => handleSave(false)} disabled={saving || loadFailed || !selectedStoreId}>
             <Save className="w-3.5 h-3.5 mr-1.5" />
             {saving ? '保存中...' : '保存'}
           </Button>
