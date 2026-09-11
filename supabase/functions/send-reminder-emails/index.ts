@@ -1,3 +1,4 @@
+import { isPrivateReminder, privateReminderDefault, selectPrivateReminder } from '../_shared/reminder-kind.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
@@ -54,7 +55,7 @@ serve(async (req) => {
     // 🔒 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id')
+      .select('id, customer_email, organization_id, store_id, private_group_id, reservation_source, schedule_events!schedule_event_id(store_id, organization_id, category, is_private_booking, is_private_request)')
       .eq('id', reminderData.reservationId)
       .single()
 
@@ -100,9 +101,16 @@ serve(async (req) => {
       throw new Error('メール送信サービスが設定されていません')
     }
 
+    const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
+    if (event?.organization_id && event.organization_id !== resolvedOrganizationId) {
+      return errorResponse('公演の組織が一致しません', 403, corsHeaders)
+    }
+    const isPrivate = isPrivateReminder(reservation, event)
+    const authoritativeStoreId = event?.store_id || reservation.store_id
+
     // 店舗のメール設定（テンプレート・会社情報）を取得
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
-      storeId: reminderData.storeId,
+      storeId: authoritativeStoreId,
       organizationId: resolvedOrganizationId,
       reservationId: reminderData.reservationId
     })
@@ -112,8 +120,13 @@ serve(async (req) => {
     const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
     const companyPhone = storeEmailSettings?.company_phone || ''
     
-    // カスタムテンプレートの取得（email_settingsを優先）
-    const customTemplate = storeEmailSettings?.reminder_template
+    let customTemplate = storeEmailSettings?.reminder_template
+    if (isPrivate) {
+      const { data: privateRows, error: privateError } = await serviceClient.from('email_settings')
+        .select('store_id, private_reminder_template').eq('organization_id', resolvedOrganizationId)
+      if (privateError) throw privateError
+      customTemplate = selectPrivateReminder(privateRows || [], authoritativeStoreId)
+    }
 
     // 日付フォーマット関数（JST固定）
     const formatDate = (dateStr: string): string => {
@@ -137,13 +150,13 @@ serve(async (req) => {
     if (customTemplate && customTemplate.trim()) {
       emailTemplate = customTemplate
       console.log('📧 Using custom reminder template from email_settings')
-    } else if (reminderData.template) {
+    } else if (!isPrivate && reminderData.template) {
       emailTemplate = reminderData.template
     } else {
       // デフォルトテンプレートを生成
-      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: reminderData.storeId, organizationId: resolvedOrganizationId, template: 'reminder_template' })
+      console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: reminderData.storeId, organizationId: resolvedOrganizationId, template: isPrivate ? 'private_reminder_template' : 'reminder_template' })
       const dayMessage = getDayMessage(reminderData.daysBefore)
-      emailTemplate = getDefaultReminderTemplate(dayMessage)
+      emailTemplate = isPrivate ? privateReminderDefault(companyName, companyPhone, companyEmail) : getDefaultReminderTemplate(dayMessage)
     }
 
     // テンプレートの変数を置換（基本変数セット対応）
