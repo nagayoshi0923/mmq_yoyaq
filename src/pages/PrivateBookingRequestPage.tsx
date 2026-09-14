@@ -322,7 +322,8 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     <PrivateBookingRequest
       scenarioTitle={scenario.title}
       scenarioId={scenario.id}
-      participationFee={scenario.participation_fee || 0}
+      participationFee={scenario.participation_fee ?? 0}
+      participationCosts={scenario.participation_costs}
       maxParticipants={scenario.player_count_max || 8}
       scenarioDuration={scenario.duration}
       weekendDuration={

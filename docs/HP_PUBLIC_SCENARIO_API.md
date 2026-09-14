@@ -137,7 +137,8 @@ organization_scenarios × scenario_masters
  {"type":"fixed","amount":3500,"time_slot":"gmtest"}]
 ```
 
-- API は **`time_slot='normal'` の要素だけ**を通す。`gmtest` は絶対に含めない。
+- API は通常参加費 `normal`（旧名 `通常`）、`weekend`（土日祝）、`holiday`（祝日のみ）から公開表示を組み立てる。`gmtest`・カスタム項目は絶対に含めない。
+- 金額の大小や複数の `normal` 行から曜日を推測しない。`weekend` があれば予約画面と同じく `holiday` より優先する。
 - `flexible_pricing` / `pricing_patterns` / `use_flexible_pricing` は**生のまま返さない**。
 - 返すのは `price.normal`（数値）と `price.display`（表示用文字列）のみ。
 - 平日/土日祝で差がある場合は `display` を `"平日4,500円 / 土日祝5,000円"` 形式で組み立てる。

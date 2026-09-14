@@ -1,10 +1,11 @@
+import { isParticipationCostActive as isPricingActive } from '@/lib/pricing'
 /**
  * ScenarioDetailPage - 料金計算ユーティリティ
  */
 
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 
-interface ParticipationCost {
+export interface ParticipationCost {
   time_slot: string
   amount: number
   type: 'percentage' | 'fixed'
@@ -19,8 +20,8 @@ interface ParticipationCost {
  * @param isCustomHoliday - カスタム休日判定関数（オプション）
  */
 export function isWeekendOrHoliday(date: string, isCustomHoliday?: (date: string) => boolean): boolean {
-  const dateObj = new Date(date + 'T00:00:00+09:00')
-  const dayOfWeek = dateObj.getDay()
+  const dateObj = new Date(date + 'T00:00:00Z')
+  const dayOfWeek = dateObj.getUTCDay()
   
   // 土曜日(6) または 日曜日(0)
   if (dayOfWeek === 0 || dayOfWeek === 6) return true
@@ -35,28 +36,6 @@ export function isWeekendOrHoliday(date: string, isCustomHoliday?: (date: string
 }
 
 /**
- * 料金設定が有効な期間内かどうかを判定
- */
-function isPricingActive(cost: ParticipationCost): boolean {
-  // statusがlegacyまたはunusedの場合は無効
-  if (cost.status === 'legacy' || cost.status === 'unused') return false
-  
-  // 期間設定がない場合は常に有効
-  if (!cost.startDate && !cost.endDate) return true
-  
-  const now = new Date()
-  const today = now.toISOString().split('T')[0]
-  
-  // 開始日が設定されていて、まだ開始していない場合
-  if (cost.startDate && today < cost.startDate) return false
-  
-  // 終了日が設定されていて、すでに終了している場合
-  if (cost.endDate && today > cost.endDate) return false
-  
-  return true
-}
-
-/**
  * 選択された日付に応じた参加費を計算
  * @param baseFee - 基本参加費
  * @param participationCosts - 料金設定配列
@@ -67,14 +46,15 @@ export function calculateParticipationFee(
   baseFee: number,
   participationCosts: ParticipationCost[] | undefined,
   eventDate?: string,
-  isCustomHoliday?: (date: string) => boolean
+  isCustomHoliday?: (date: string) => boolean,
+  startTime?: string
 ): number {
   if (!participationCosts || participationCosts.length === 0) {
     return baseFee
   }
   
   // アクティブな料金設定のみをフィルタ
-  const activeCosts = participationCosts.filter(isPricingActive)
+  const activeCosts = participationCosts.filter(cost => isPricingActive(cost))
   
   if (activeCosts.length === 0) {
     return baseFee
@@ -102,8 +82,16 @@ export function calculateParticipationFee(
     }
   }
   
+  // 日付別料金がない場合は、従来の時間帯別料金を使用する。
+  if (startTime) {
+    const hour = Number(startTime.slice(0, 2))
+    const slot = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
+    const cost = activeCosts.find(c => c.time_slot === slot)
+    if (cost) return cost.type === 'percentage' ? Math.round(baseFee * (1 + cost.amount / 100)) : cost.amount
+  }
+
   // 通常の料金（normalまたは最初のアクティブな設定）
-  const normalCost = activeCosts.find(cost => cost.time_slot === 'normal')
+  const normalCost = activeCosts.find(cost => cost.time_slot === 'normal') ?? activeCosts.find(cost => cost.time_slot === '通常')
   if (normalCost) {
     if (normalCost.type === 'percentage') {
       return Math.round(baseFee * (1 + normalCost.amount / 100))
@@ -130,4 +118,16 @@ export function getPricingLabel(
   }
   
   return '参加費（1名）'
+}
+
+/** 貸切候補日ごとの見積もり。候補順は受付SQLと同じまま保持する。 */
+export function calculatePrivateCandidateFees(
+  baseFee: number,
+  costs: ParticipationCost[] | undefined,
+  candidates: Array<{ date: string; slot: { startTime: string } }>,
+  isCustomHoliday?: (date: string) => boolean,
+): number[] {
+  return candidates.map(candidate => calculateParticipationFee(
+    baseFee, costs, candidate.date, isCustomHoliday, candidate.slot.startTime,
+  ))
 }

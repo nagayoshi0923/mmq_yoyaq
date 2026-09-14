@@ -19,6 +19,15 @@ export interface ParticipationCost {
   endDate?: string
 }
 
+/** 料金の切替日は予約受付日の日本時間で判定する。 */
+export function isParticipationCostActive(cost: ParticipationCost, now = new Date()): boolean {
+  if (cost.status && cost.status !== 'active' && cost.status !== 'ready') return false
+  const today = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]
+  if (cost.startDate && today < cost.startDate) return false
+  if (cost.endDate && today > cost.endDate) return false
+  return true
+}
+
 export interface LicenseReward {
   item?: string
   amount?: number | null
