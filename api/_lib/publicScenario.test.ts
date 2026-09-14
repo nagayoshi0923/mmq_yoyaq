@@ -3,6 +3,8 @@ import {
   serializePublicScenario,
   buildPrice,
   PUBLIC_SCENARIO_VIEW_COLUMNS,
+  setPublicCache,
+  secondsUntilNextJstMidnight,
   type PublicScenarioRow,
 } from './publicScenario'
 
@@ -187,5 +189,28 @@ describe('PUBLIC_SCENARIO_VIEW_COLUMNS', () => {
     for (const forbidden of forbiddenInSelect) {
       expect(cols).not.toContain(forbidden)
     }
+  })
+})
+
+describe('setPublicCache', () => {
+  it('通常時は s-maxage=300 で長時間 SWR を付けない', () => {
+    const headers: Record<string, string> = {}
+    const res = { setHeader: (k: string, v: string) => { headers[k] = v } }
+    // 2026-09-14 12:00 JST = 2026-09-14 03:00 UTC
+    setPublicCache(res as never, new Date('2026-09-14T03:00:00.000Z'))
+    expect(headers['Cache-Control']).toBe('public, s-maxage=300')
+    expect(headers['Cache-Control']).not.toContain('stale-while-revalidate')
+  })
+
+  it('JST 日付境界直前は s-maxage を境界まで縮める', () => {
+    const headers: Record<string, string> = {}
+    const res = { setHeader: (k: string, v: string) => { headers[k] = v } }
+    // 2026-09-14 23:58:00 JST = 2026-09-14 14:58:00 UTC → 残り120秒
+    setPublicCache(res as never, new Date('2026-09-14T14:58:00.000Z'))
+    expect(headers['Cache-Control']).toBe('public, s-maxage=120')
+  })
+
+  it('secondsUntilNextJstMidnight は JST 深夜までの秒数を返す', () => {
+    expect(secondsUntilNextJstMidnight(new Date('2026-09-14T14:59:30.000Z'))).toBe(30)
   })
 })

@@ -56,22 +56,22 @@ function getNthMondayOfMonth(year: number, month: number, n: number): number {
 }
 
 /**
- * 振替休日をチェック（日曜日が祝日の場合、翌平日が振替休日）
+ * 振替休日をチェック（日曜の祝日を、連続する祝日のあとの最初の非祝日まで繰り越す）
  */
 function isSubstituteHoliday(date: Date, holidayCache: Map<string, string>): string | null {
-  const dayOfWeek = date.getDay()
-  if (dayOfWeek !== 1) return null // 月曜日のみチェック
-  
-  // 前日（日曜日）が祝日かどうか
-  const prevDay = new Date(date)
-  prevDay.setDate(prevDay.getDate() - 1)
-  const prevKey = `${prevDay.getFullYear()}-${prevDay.getMonth() + 1}-${prevDay.getDate()}`
-  
-  if (holidayCache.has(prevKey)) {
-    return '振替休日'
+  const cursor = new Date(date)
+  cursor.setDate(cursor.getDate() - 1)
+
+  while (true) {
+    const key = `${cursor.getFullYear()}-${cursor.getMonth() + 1}-${cursor.getDate()}`
+    if (!holidayCache.has(key)) {
+      return null
+    }
+    if (cursor.getDay() === 0) {
+      return '振替休日'
+    }
+    cursor.setDate(cursor.getDate() - 1)
   }
-  
-  return null
 }
 
 /**
