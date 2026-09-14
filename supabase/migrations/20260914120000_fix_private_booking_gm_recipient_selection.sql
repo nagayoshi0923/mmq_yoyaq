@@ -1,3 +1,9 @@
+-- Fix #471: 貸切GM確認の宛先抽出を scenario_master_id + organization_id に厳格化
+-- - reservations へ scenario_master_id を明示保存（p_scenario_id=org_scenario.id の誤保存を防ぐ）
+-- - staff_scenario_assignments のレガシー scenario_id OR 条件を廃止
+-- - ssa.organization_id でも組織境界を二重に固定
+-- ロールバック: 直前定義 20260909190000_restore_private_booking_acceptance_guard.sql を再適用
+
 -- 正規ソース: create_private_booking_request
 -- 最終更新: 20260914120000_fix_private_booking_gm_recipient_selection.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
@@ -24,10 +30,6 @@ DECLARE
   v_duration INTEGER;
   v_participation_fee NUMERIC;
   v_total_price NUMERIC;
-  v_participation_costs JSONB;
-  v_custom_holidays JSONB;
-  v_unit_price INTEGER;
-  v_pricing_date DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::DATE;
   v_reservation_id UUID;
   v_gm_id UUID;
   v_org_id UUID;
@@ -123,11 +125,11 @@ BEGIN
   SELECT
     COALESCE(os.override_title, sm.title),
     COALESCE(os.duration, sm.official_duration),
-    os.participation_fee, os.participation_costs,
+    os.participation_fee,
     os.organization_id,
     os.scenario_master_id
   INTO
-    v_scenario_title, v_duration, v_participation_fee, v_participation_costs, v_row_org_id, v_scenario_master_id
+    v_scenario_title, v_duration, v_participation_fee, v_row_org_id, v_scenario_master_id
   FROM organization_scenarios os
   JOIN scenario_masters sm ON os.scenario_master_id = sm.id
   WHERE os.id = p_scenario_id
@@ -142,10 +144,10 @@ BEGIN
     SELECT
       COALESCE(os.override_title, sm.title),
       COALESCE(os.duration, sm.official_duration),
-      os.participation_fee, os.participation_costs,
+      os.participation_fee,
       os.scenario_master_id
     INTO
-      v_scenario_title, v_duration, v_participation_fee, v_participation_costs, v_scenario_master_id
+      v_scenario_title, v_duration, v_participation_fee, v_scenario_master_id
     FROM organization_scenarios os
     JOIN scenario_masters sm ON os.scenario_master_id = sm.id
     WHERE os.scenario_master_id = p_scenario_id
@@ -168,11 +170,11 @@ BEGIN
       SELECT
         COALESCE(os.override_title, sm.title),
         COALESCE(os.duration, sm.official_duration),
-        os.participation_fee, os.participation_costs,
+        os.participation_fee,
         os.organization_id,
         os.scenario_master_id
       INTO
-        v_scenario_title, v_duration, v_participation_fee, v_participation_costs, v_row_org_id, v_scenario_master_id
+        v_scenario_title, v_duration, v_participation_fee, v_row_org_id, v_scenario_master_id
       FROM organization_scenarios os
       JOIN scenario_masters sm ON os.scenario_master_id = sm.id
       WHERE os.scenario_master_id = p_scenario_id
@@ -188,8 +190,8 @@ BEGIN
   -- 4) organization_scenarios で見つからない場合は scenarios_v2 ビューから取得
   --    （組織はここでは確定しない — グループ由来の v_org_id のみ有効）
   IF v_scenario_title IS NULL THEN
-    SELECT title, duration, participation_fee, participation_costs
-    INTO v_scenario_title, v_duration, v_participation_fee, v_participation_costs
+    SELECT title, duration, participation_fee
+    INTO v_scenario_title, v_duration, v_participation_fee
     FROM scenarios_v2
     WHERE id = p_scenario_id;
 
@@ -233,10 +235,6 @@ BEGIN
   IF v_org_id IS NULL THEN
     RAISE EXCEPTION 'Organization not found for scenario' USING ERRCODE = 'P0026';
   END IF;
-
-  SELECT COALESCE(os.custom_holidays, '[]'::JSONB) INTO v_custom_holidays
-  FROM organization_settings os WHERE os.organization_id = v_org_id;
-  v_custom_holidays := COALESCE(v_custom_holidays, '[]'::JSONB);
 
   -- 貸切受付OFF / 出張限定（offsite_only）は顧客リクエストを拒否する
   SELECT
@@ -432,11 +430,6 @@ BEGIN
       v_candidate_order := v_group_candidate_order;
     END IF;
 
-    v_unit_price := public.calculate_booking_participation_fee(
-      v_participation_fee::INTEGER, v_participation_costs, v_cand_date, v_cand_start,
-      v_custom_holidays ? v_cand_date::TEXT, v_pricing_date
-    );
-
     v_trusted_candidates := v_trusted_candidates || jsonb_build_array(
       jsonb_build_object(
         'order', v_candidate_order,
@@ -448,9 +441,7 @@ BEGIN
         END,
         'startTime', to_char(v_cand_start, 'HH24:MI'),
         'endTime', to_char(v_cand_end, 'HH24:MI'),
-        'status', 'pending',
-        'unitPrice', v_unit_price,
-        'totalPrice', v_unit_price * p_participant_count
+        'status', 'pending'
       )
     );
   END LOOP;
@@ -559,8 +550,7 @@ BEGIN
   -- =========================================================================
 
   -- 料金計算
-  v_unit_price := (v_trusted_candidate_datetimes->'candidates'->0->>'unitPrice')::INTEGER;
-  v_total_price := p_participant_count * v_unit_price;
+  v_total_price := p_participant_count * v_participation_fee;
 
   -- 最初の候補日時を取得
   v_first_candidate := v_trusted_candidate_datetimes->'candidates'->0;
@@ -586,7 +576,7 @@ BEGIN
     requested_datetime,
     duration,
     participant_count,
-    total_price, base_price, final_price, unit_price,
+    total_price,
     status,
     customer_notes,
     organization_id,
@@ -607,7 +597,7 @@ BEGIN
     v_requested_datetime,
     v_duration,
     p_participant_count,
-    v_total_price, v_total_price, v_total_price, v_unit_price,
+    v_total_price,
     'pending',
     p_notes,
     v_org_id,
@@ -621,13 +611,6 @@ BEGIN
     p_private_group_id
   )
   RETURNING id INTO v_reservation_id;
-
-  INSERT INTO public.private_booking_pricing_snapshots(
-    reservation_id, organization_id, base_fee, participation_costs, custom_holidays, pricing_date
-  ) VALUES (
-    v_reservation_id, v_org_id, v_participation_fee::INTEGER,
-    COALESCE(v_participation_costs, '[]'::JSONB), v_custom_holidays, v_pricing_date
-  );
 
   -- private_group_id が指定されている場合、private_groups.reservation_id を更新
   IF p_private_group_id IS NOT NULL THEN
