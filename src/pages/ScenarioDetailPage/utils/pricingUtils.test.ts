@@ -25,6 +25,12 @@ describe('QW-20260914-003 weekday/weekend pricing', () => {
     expect(isWeekendOrHoliday('2026-09-12')).toBe(true)
     expect(isWeekendOrHoliday('2026-09-14')).toBe(false)
   })
+  it('treats consecutive-holiday substitute days as weekend pricing', () => {
+    // 2026-05-03 憲法記念日(日) → 05-04/05 も祝日 → 05-06 が振替休日
+    expect(isWeekendOrHoliday('2026-05-06')).toBe(true)
+    expect(calculateParticipationFee(4500, costs, '2026-05-06')).toBe(5000)
+    expect(isWeekendOrHoliday('2026-05-07')).toBe(false)
+  })
   it('does not apply a future or expired weekend tariff', () => {
     for (const period of [{startDate:'2099-01-01'},{endDate:'2000-01-01'}]) {
       expect(calculateParticipationFee(4500,[{...costs[1],...period}],'2026-09-12')).toBe(4500)
