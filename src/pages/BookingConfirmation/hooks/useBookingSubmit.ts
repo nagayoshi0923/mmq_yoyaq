@@ -1,3 +1,4 @@
+import { calculateParticipationFee as calculateDateParticipationFee } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import { trackReservationComplete } from '@/lib/analytics'
 import { useState } from 'react'
 import { useRef } from 'react'
@@ -44,35 +45,13 @@ const calculateParticipationFee = async (
     throw new Error('このシナリオの料金設定がありません。管理者にお問い合わせください。')
   }
   
-  let baseFee = baseFeeRaw
-
-  // 時間帯別料金設定をチェック
-  if (scenario.participation_costs && scenario.participation_costs.length > 0) {
-    const timeSlot = getTimeSlot(startTime)
-    const timeSlotCost = scenario.participation_costs.find((cost: { time_slot: string; status: string; type: string; amount: number }) => 
-      cost.time_slot === timeSlot && cost.status === 'active'
-    )
-
-    if (timeSlotCost) {
-      if (timeSlotCost.type === 'percentage') {
-        baseFee = Math.round(baseFee * (1 + timeSlotCost.amount / 100))
-      } else {
-        baseFee = timeSlotCost.amount
-      }
-    }
-  }
-
-  return baseFee
-}
-
-/**
- * 時間帯を判定する関数
- */
-const getTimeSlot = (startTime: string): string => {
-  const hour = parseInt(startTime.slice(0, 2))
-  if (hour < 12) return 'morning'
-  if (hour < 18) return 'afternoon'
-  return 'evening'
+  const { data: holidays, error: holidayError } = await supabase.rpc(
+    'get_public_custom_holidays', { p_organization_id: organizationId }
+  )
+  if (holidayError) throw new Error('休日設定の取得に失敗しました。もう一度お試しください。')
+  const customHolidays: string[] = holidays?.[0]?.custom_holidays ?? []
+  return calculateDateParticipationFee(baseFeeRaw, scenario.participation_costs, date,
+    day => customHolidays.includes(day), startTime)
 }
 
 /**

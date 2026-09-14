@@ -1,3 +1,4 @@
+import { calculatePrivateCandidateFees } from '../ScenarioDetailPage/utils/pricingUtils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -49,6 +50,7 @@ export function PrivateBookingRequest({
   scenarioTitle,
   scenarioId,
   participationFee,
+  participationCosts,
   maxParticipants,
   scenarioDuration,
   weekendDuration,
@@ -92,6 +94,12 @@ export function PrivateBookingRequest({
   
   // 編集可能な候補日時
   const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
+  const candidateFees = useMemo(() => calculatePrivateCandidateFees(
+    participationFee, participationCosts, editableTimeSlots, isCustomHoliday,
+  ), [participationFee, participationCosts, editableTimeSlots, isCustomHoliday])
+  const minFee = candidateFees.length ? Math.min(...candidateFees) : participationFee
+  const maxFee = candidateFees.length ? Math.max(...candidateFees) : participationFee
+
 
   // 親コンポーネントが非同期で selectedTimeSlots を更新した場合に同期
   // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
@@ -328,7 +336,7 @@ export function PrivateBookingRequest({
   const { isSubmitting, success, handleSubmit } = usePrivateBookingSubmit({
     scenarioTitle,
     scenarioId,
-    participationFee,
+    participationFee: candidateFees[0] ?? participationFee,
     maxParticipants,
     selectedTimeSlots: editableTimeSlots,
     selectedStoreIds,
@@ -480,7 +488,8 @@ export function PrivateBookingRequest({
     )
   }
 
-  const totalPrice = participationFee * maxParticipants
+  const totalPrice = minFee * maxParticipants
+  const maxTotalPrice = maxFee * maxParticipants
   const hasFullyBlockedCandidate = editableTimeSlots.some((candidate) =>
     getBlockedState(candidate.date, candidate.slot.label).allStoresBlocked
   )
@@ -789,7 +798,7 @@ export function PrivateBookingRequest({
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">参加費（1名）</span>
-                    <span>¥{participationFee.toLocaleString()}</span>
+                    <span>¥{minFee.toLocaleString()}{maxFee !== minFee ? `〜¥${maxFee.toLocaleString()}` : ''}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
@@ -797,13 +806,20 @@ export function PrivateBookingRequest({
                     <span>{maxParticipants}名</span>
                   </div>
 
+                  {editableTimeSlots.map((candidate, index) => (
+                    <div key={`${candidate.date}-${candidate.slot.startTime}`} className="flex justify-between gap-3 text-xs">
+                      <span>{formatDate(candidate.date)} {candidate.slot.label}</span>
+                      <span>¥{((candidateFees[index] ?? participationFee) * maxParticipants).toLocaleString()}</span>
+                    </div>
+                  ))}
+
                   <div className="border-t pt-3">
                     <div className="flex justify-between items-center">
                       <span className="text-base font-bold">合計</span>
-                      <span className="text-lg text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
+                      <span className="text-lg text-purple-600 font-bold">¥{totalPrice.toLocaleString()}{maxTotalPrice !== totalPrice ? `〜¥${maxTotalPrice.toLocaleString()}` : ''}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      ※ 実際の料金は店舗との調整により変動する場合があります
+                      確定した候補日の料金が適用されます。
                     </p>
                   </div>
                 </CardContent>

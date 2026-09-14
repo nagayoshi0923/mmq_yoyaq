@@ -10,6 +10,8 @@
 //    flexible_pricing / pricing_patterns / use_flexible_pricing はビューに含めておらず、
 //    ここでも生のまま返さない。
 
+import { isParticipationCostActive } from '../../src/lib/pricing'
+
 // public_scenarios ビューの行（ホワイトリスト列のみ）
 export interface PublicScenarioRow {
   id: string
@@ -40,8 +42,11 @@ export interface PublicScenarioRow {
 // api/ は ESM 単独で動くため、公開に必要な最小フィールドだけをここで定義する）。
 interface ParticipationCostEntry {
   time_slot?: string
+  type?: string
   amount?: number | null
   status?: string
+  startDate?: string
+  endDate?: string
 }
 
 export interface PublicScenarioPrice {
@@ -74,47 +79,33 @@ function yen(amount: number): string {
   return `${amount.toLocaleString('ja-JP')}円`
 }
 
-// participation_costs から公開価格を組み立てる。
-// - time_slot='normal' の要素のみを使う。'gmtest' は絶対に含めない。
-// - status が明示的に 'inactive' 等 'active' 以外の場合は除外（active/未指定は採用）。
-// - 平日/土日祝で金額が異なる複数の normal 要素がある場合は
-//   display を "平日4,500円 / 土日祝5,000円" 形式で組み立てる。
+// 公開参加費の明示的な種別だけを使用する。金額の大小から曜日を推測しない。
+// gmtest / カスタム項目や生の料金配列は公開しない。
 export function buildPrice(participationCosts: unknown, participationFee: number | null): PublicScenarioPrice {
-  const entries: ParticipationCostEntry[] = Array.isArray(participationCosts)
-    ? (participationCosts as ParticipationCostEntry[])
-    : []
-
-  const normals = entries.filter((e) => {
-    if (!e || typeof e !== 'object') return false
-    if (e.time_slot !== 'normal') return false
-    if (e.status !== undefined && e.status !== null && e.status !== 'active') return false
-    return typeof e.amount === 'number' && Number.isFinite(e.amount)
-  })
-
-  const amounts = normals
-    .map((e) => e.amount as number)
-    .filter((a) => Number.isFinite(a))
-
-  // participation_costs に normal が無ければ旧カラム participation_fee にフォールバック
-  if (amounts.length === 0) {
-    const fee = typeof participationFee === 'number' && Number.isFinite(participationFee)
-      ? participationFee
-      : null
-    return { normal: fee, display: fee != null ? yen(fee) : '' }
+  const entries = (Array.isArray(participationCosts) ? participationCosts : []) as ParticipationCostEntry[]
+  const amountFor = (slot: string): number | null => {
+    const cost = entries.find(e => e && typeof e === 'object' && e.time_slot === slot
+      && isParticipationCostActive(e)
+      && typeof e.amount === 'number' && Number.isFinite(e.amount))
+    if (!cost) return null
+    if (cost.type === 'percentage') {
+      return participationFee == null ? null : Math.round(participationFee * (1 + cost.amount! / 100))
+    }
+    return cost.amount!
   }
-
-  // 一意な金額を昇順で並べ、複数あれば平日/土日祝表記にする
-  const unique = [...new Set(amounts)].sort((a, b) => a - b)
-  if (unique.length === 1) {
-    return { normal: unique[0], display: yen(unique[0]) }
+  const fallback = typeof participationFee === 'number' && Number.isFinite(participationFee) ? participationFee : null
+  const normal = amountFor('normal') ?? amountFor('通常') ?? fallback
+  const weekend = amountFor('weekend')
+  // 予約画面と同じく weekend（土日祝）が holiday より優先される。
+  const holiday = weekend ?? amountFor('holiday')
+  if (normal == null) return { normal, display: '' }
+  if (weekend != null && weekend !== normal) {
+    return { normal, display: `平日${yen(normal)} / 土日祝${yen(weekend)}` }
   }
-  // 複数金額（平日/土日祝など）: 安いほうを平日、高いほうを土日祝として表示
-  const weekday = unique[0]
-  const weekend = unique[unique.length - 1]
-  return {
-    normal: weekday,
-    display: `平日${yen(weekday)} / 土日祝${yen(weekend)}`,
+  if (weekend == null && holiday != null && holiday !== normal) {
+    return { normal, display: `通常${yen(normal)} / 祝日${yen(holiday)}` }
   }
+  return { normal, display: yen(normal) }
 }
 
 // public_scenarios ビューの1行を公開JSONへ変換する唯一の関数。

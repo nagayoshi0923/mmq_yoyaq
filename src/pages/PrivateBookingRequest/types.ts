@@ -1,3 +1,4 @@
+import type { ParticipationCost } from '../ScenarioDetailPage/utils/pricingUtils'
 /**
  * PrivateBookingRequest関連の型定義
  */
@@ -12,6 +13,7 @@ export interface PrivateBookingRequestProps {
   scenarioTitle: string
   scenarioId: string
   participationFee: number
+  participationCosts?: ParticipationCost[]
   maxParticipants: number
   /** 平日等の公演所要（分）。未指定時は表示・保存計算で180分相当の既定を用いる */
   scenarioDuration?: number
