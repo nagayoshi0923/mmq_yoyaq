@@ -1,3 +1,22 @@
+-- QW-20260914-003 / #469: private candidate quotes and accepted-date pricing.
+BEGIN;
+
+-- Server-owned pricing terms captured at private-booking submission.
+CREATE TABLE IF NOT EXISTS public.private_booking_pricing_snapshots (
+  reservation_id UUID PRIMARY KEY REFERENCES public.reservations(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES public.organizations(id),
+  base_fee INTEGER NOT NULL,
+  participation_costs JSONB NOT NULL DEFAULT '[]'::JSONB,
+  custom_holidays JSONB NOT NULL DEFAULT '[]'::JSONB,
+  pricing_date DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE public.private_booking_pricing_snapshots ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.private_booking_pricing_snapshots FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.private_booking_pricing_snapshots FROM service_role;
+GRANT SELECT ON public.private_booking_pricing_snapshots TO service_role;
+COMMENT ON TABLE public.private_booking_pricing_snapshots IS 'Server-only private booking price terms; preserve accepted prices across scenario edits. No client access.';
+
 -- 正規ソース: create_private_booking_request
 -- 最終更新: 20260909190000_restore_private_booking_acceptance_guard.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと
@@ -667,3 +686,69 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $$;
+
+-- Preserve environment-specific non-pricing guards (e.g. staging recruitment pauses).
+DO $pricing_patch$
+DECLARE
+  definition TEXT;
+  old_fragment TEXT;
+  new_fragment TEXT;
+BEGIN
+  SELECT pg_get_functiondef('public.approve_private_booking(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid)'::regprocedure)
+  INTO definition;
+  old_fragment := $old0$  v_reservation RECORD;$old0$;
+  new_fragment := $new0$  v_reservation RECORD;
+  v_pricing public.private_booking_pricing_snapshots%ROWTYPE;
+  v_priced_booking BOOLEAN := FALSE;
+  v_unit_price INTEGER;
+  v_total_price INTEGER;$new0$;
+  IF (length(definition) - length(replace(definition, old_fragment, ''))) / length(old_fragment) <> 1 THEN
+    RAISE EXCEPTION 'Unexpected approve_private_booking definition: pricing patch aborted';
+  END IF;
+  definition := replace(definition, old_fragment, new_fragment);
+  old_fragment := $old1$  v_event_time_slot := CASE$old1$;
+  new_fragment := $new1$  SELECT * INTO v_pricing FROM public.private_booking_pricing_snapshots
+  WHERE reservation_id = p_reservation_id AND organization_id = v_org_id;
+  v_priced_booking := FOUND;
+  IF v_priced_booking THEN
+    v_unit_price := public.calculate_booking_participation_fee(
+      v_pricing.base_fee, v_pricing.participation_costs, p_selected_date, p_selected_start_time,
+      v_pricing.custom_holidays ? p_selected_date::TEXT, v_pricing.pricing_date
+    );
+    v_total_price := v_unit_price * v_reservation.participant_count;
+  END IF;
+
+  v_event_time_slot := CASE$new1$;
+  IF (length(definition) - length(replace(definition, old_fragment, ''))) / length(old_fragment) <> 1 THEN
+    RAISE EXCEPTION 'Unexpected approve_private_booking definition: pricing patch aborted';
+  END IF;
+  definition := replace(definition, old_fragment, new_fragment);
+  old_fragment := $old2$    IF v_candidate_ordinal = v_selected_candidate_ordinal THEN
+$old2$;
+  new_fragment := $new2$    IF v_candidate_ordinal = v_selected_candidate_ordinal THEN
+      IF v_priced_booking THEN
+        v_normalized_candidate := v_normalized_candidate || jsonb_build_object(
+          'unitPrice', v_unit_price, 'totalPrice', v_total_price);
+      END IF;
+$new2$;
+  IF (length(definition) - length(replace(definition, old_fragment, ''))) / length(old_fragment) <> 1 THEN
+    RAISE EXCEPTION 'Unexpected approve_private_booking definition: pricing patch aborted';
+  END IF;
+  definition := replace(definition, old_fragment, new_fragment);
+  old_fragment := $old3$    status = 'confirmed',
+    gm_staff$old3$;
+  new_fragment := $new3$    status = 'confirmed',
+    unit_price = CASE WHEN v_priced_booking THEN v_unit_price ELSE unit_price END,
+    base_price = CASE WHEN v_priced_booking THEN v_total_price ELSE base_price END,
+    total_price = CASE WHEN v_priced_booking THEN v_total_price + COALESCE(options_price, 0) ELSE total_price END,
+    final_price = CASE WHEN v_priced_booking THEN GREATEST(0, v_total_price + COALESCE(options_price, 0) - COALESCE(discount_amount, 0)) ELSE final_price END,
+    gm_staff$new3$;
+  IF (length(definition) - length(replace(definition, old_fragment, ''))) / length(old_fragment) <> 1 THEN
+    RAISE EXCEPTION 'Unexpected approve_private_booking definition: pricing patch aborted';
+  END IF;
+  definition := replace(definition, old_fragment, new_fragment);
+  EXECUTE definition;
+END;
+$pricing_patch$;
+
+COMMIT;

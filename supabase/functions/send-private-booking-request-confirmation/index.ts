@@ -1,3 +1,4 @@
+import { formatPrivateBookingQuoteTotal } from '../_shared/privateBookingQuote.ts'
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -17,6 +18,7 @@ interface PrivateBookingRequestConfirmationRequest {
     timeSlot: string
     startTime: string
     endTime: string
+    totalPrice?: number
   }>
   requestedStores: Array<{
     storeName: string
@@ -54,7 +56,7 @@ serve(async (req) => {
     // 🔒 予約の正当性を検証（存在確認 + メールアドレス照合）
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id')
+      .select('id, customer_email, organization_id, total_price, candidate_datetimes')
       .eq('id', requestData.reservationId)
       .single()
 
@@ -69,6 +71,10 @@ serve(async (req) => {
     if (requestData.organizationId && reservation.organization_id && requestData.organizationId !== reservation.organization_id) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
+
+    const savedCandidates = reservation.candidate_datetimes?.candidates
+    if (Array.isArray(savedCandidates)) requestData.candidateDates = savedCandidates
+    const estimatedPriceLabel = formatPrivateBookingQuoteTotal(reservation.total_price ?? 0, savedCandidates)
 
     // ログにはマスキングした情報のみ出力
     console.log('📧 Sending private booking request confirmation:', {
@@ -130,12 +136,13 @@ serve(async (req) => {
         <td style="padding: 8px; border: 1px solid #e5e7eb;">
           ${formatDate(candidate.date)}<br>
           ${candidate.timeSlot} ${formatTime(candidate.startTime)} - ${formatTime(candidate.endTime)}
+          ${candidate.totalPrice != null ? `<br>合計 ¥${candidate.totalPrice.toLocaleString()}` : ''}
         </td>
       </tr>
     `).join('')
 
     const candidatesText = requestData.candidateDates.map((candidate, index) => 
-      `候補${index + 1}: ${formatDate(candidate.date)} ${candidate.timeSlot} ${formatTime(candidate.startTime)} - ${formatTime(candidate.endTime)}`
+      `候補${index + 1}: ${formatDate(candidate.date)} ${candidate.timeSlot} ${formatTime(candidate.startTime)} - ${formatTime(candidate.endTime)}${candidate.totalPrice != null ? ` 合計 ¥${candidate.totalPrice.toLocaleString()}` : ''}`
     ).join('\n')
 
     // 希望店舗のリスト
@@ -182,7 +189,7 @@ serve(async (req) => {
     </p>
     
     <p style="margin: 0 0 15px 0; font-size: 15px;">
-      <strong>料金目安:</strong> ¥${requestData.estimatedPrice.toLocaleString()}
+      <strong>料金目安:</strong> ¥${estimatedPriceLabel}
     </p>
 
     <p style="margin: 15px 0 10px 0; font-size: 15px; font-weight: bold;">候補日時:</p>
@@ -237,7 +244,7 @@ ${requestData.customerName} 様
 シナリオ: ${requestData.scenarioTitle}
 参加人数: ${requestData.participantCount}名
 希望店舗: ${storesText}
-料金目安: ¥${requestData.estimatedPrice.toLocaleString()}
+料金目安: ¥${estimatedPriceLabel}
 
 候補日時:
 ${candidatesText}
@@ -281,7 +288,7 @@ MMQ
         reservation_number: requestData.reservationNumber,
         scenario_title: requestData.scenarioTitle,
         participant_count: String(requestData.participantCount),
-        estimated_price: requestData.estimatedPrice.toLocaleString(),
+        estimated_price: estimatedPriceLabel,
         stores: storesText,
         candidate_dates: candidatesText,
         notes: requestData.notes || '',

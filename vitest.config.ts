@@ -5,14 +5,14 @@ import viteConfig from './vite.config'
 // mergeConfig はコールバックを受け付けないため、テスト用の ConfigEnv で評価してから渡す。
 const resolvedViteConfig = viteConfig({ command: 'serve', mode: 'test' })
 
-// ユニットテストは src/ 配下の *.test.ts(x) のみを対象にする。
+// ユニットテストは src/ と api/ 配下の *.test.ts(x) を対象にする。
 // e2e/ (Playwright) と tests/ (旧マルチテナント検証スクリプト)、
 // .claude/worktrees/ (エージェント作業コピー) は vitest の対象外。
 export default mergeConfig(
   resolvedViteConfig,
   defineConfig({
     test: {
-      include: ['src/**/*.test.{ts,tsx}'],
+      include: ['src/**/*.test.{ts,tsx}', 'api/**/*.test.{ts,tsx}'],
       exclude: ['e2e/**', 'tests/**', 'node_modules/**', '.claude/**'],
     },
   })

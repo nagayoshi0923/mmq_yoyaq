@@ -21,6 +21,10 @@ SET row_security = off
 AS $$
 DECLARE
   v_reservation RECORD;
+  v_pricing public.private_booking_pricing_snapshots%ROWTYPE;
+  v_priced_booking BOOLEAN := FALSE;
+  v_unit_price INTEGER;
+  v_total_price INTEGER;
   v_org_id UUID;
   v_caller_org_id UUID;
   v_caller_staff_id UUID;
@@ -222,6 +226,17 @@ BEGIN
     RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE_TIME' USING ERRCODE = 'P0041';
   END IF;
 
+  SELECT * INTO v_pricing FROM public.private_booking_pricing_snapshots
+  WHERE reservation_id = p_reservation_id AND organization_id = v_org_id;
+  v_priced_booking := FOUND;
+  IF v_priced_booking THEN
+    v_unit_price := public.calculate_booking_participation_fee(
+      v_pricing.base_fee, v_pricing.participation_costs, p_selected_date, p_selected_start_time,
+      v_pricing.custom_holidays ? p_selected_date::TEXT, v_pricing.pricing_date
+    );
+    v_total_price := v_unit_price * v_reservation.participant_count;
+  END IF;
+
   v_event_time_slot := CASE
     WHEN EXTRACT(HOUR FROM p_selected_start_time) < 12 THEN 'morning'
     WHEN EXTRACT(HOUR FROM p_selected_start_time) <= 17 THEN 'afternoon'
@@ -267,6 +282,10 @@ BEGIN
       true
     );
     IF v_candidate_ordinal = v_selected_candidate_ordinal THEN
+      IF v_priced_booking THEN
+        v_normalized_candidate := v_normalized_candidate || jsonb_build_object(
+          'unitPrice', v_unit_price, 'totalPrice', v_total_price);
+      END IF;
       v_normalized_candidate := jsonb_set(
         jsonb_set(
           v_normalized_candidate,
@@ -461,6 +480,10 @@ BEGIN
   UPDATE reservations
   SET
     status = 'confirmed',
+    unit_price = CASE WHEN v_priced_booking THEN v_unit_price ELSE unit_price END,
+    base_price = CASE WHEN v_priced_booking THEN v_total_price ELSE base_price END,
+    total_price = CASE WHEN v_priced_booking THEN v_total_price + COALESCE(options_price, 0) ELSE total_price END,
+    final_price = CASE WHEN v_priced_booking THEN GREATEST(0, v_total_price + COALESCE(options_price, 0) - COALESCE(discount_amount, 0)) ELSE final_price END,
     gm_staff = p_selected_gm_id,
     store_id = p_selected_store_id,
     schedule_event_id = v_schedule_event_id,
