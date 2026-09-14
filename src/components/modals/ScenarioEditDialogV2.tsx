@@ -37,6 +37,7 @@ import { showToast } from '@/utils/toast'
 // API関連
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { useScenarioGmAssignments } from '@/hooks/useScenarioGmAssignments'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -78,7 +79,14 @@ const getSavedTab = (): TabId => {
   return 'basic'
 }
 
-export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onScenarioChange, sortedScenarioIds }: ScenarioEditDialogV2Props) {
+// Each scenario/open gets a fresh editor. Late requests from a deleted/previous
+// scenario cannot populate the next scenario's form or GM selection.
+export function ScenarioEditDialogV2(props: ScenarioEditDialogV2Props) {
+  if (!props.isOpen) return null
+  return <ScenarioEditDialogSession key={props.scenarioId || 'new'} {...props} />
+}
+
+function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onScenarioChange, sortedScenarioIds }: ScenarioEditDialogV2Props) {
   const queryClient = useQueryClient()
   
   // 初期値をlocalStorageから取得（コンポーネントマウント時に正しいタブを表示）
@@ -455,11 +463,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
-  const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
-  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
-  // ローディング状態
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
-  
+  const {
+    currentAssignments, setCurrentAssignments, selectedStaffIds, setSelectedStaffIds,
+    isLoadingAssignments, assignmentsReady, assignmentsError, getChanges, acceptAssignments,
+  } = useScenarioGmAssignments(scenarioId)
+  const [isSaving, setIsSaving] = useState(false)
+  const saveInFlight = useRef(false)
+
   // 保存成功メッセージ
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   
@@ -552,65 +562,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
   }, [isOpen])
 
-  // シナリオIDが変わった時（またはモーダルが開いた時）に担当関係と累計公演回数を取得
+  // Statistics are independent of assignment readiness.
   useEffect(() => {
-    const loadAssignments = async () => {
-      if (!isOpen || !scenarioId) {
-        // 新規作成時またはIDなし
-        setCurrentAssignments([])
-        setSelectedStaffIds([])
-        setIsLoadingAssignments(false)
-        setScenarioStats({
-          performanceCount: 0,
-          cancelledCount: 0,
-          totalRevenue: 0,
-          totalParticipants: 0,
-          totalStaffParticipants: 0,
-          totalGmCost: 0,
-          totalLicenseCost: 0,
-          totalVenueCost: 0,
-          venueCostPerPerformance: 0,
-          firstPerformanceDate: null,
-          performanceDates: [],
-          futurePerformanceCount: 0,
-          futureReservationCount: 0
-        })
-        return
-      }
-
+    if (!isOpen || !scenarioId) return
+    let cancelled = false
+    void scenarioApi.getScenarioStats(scenarioId).then(stats => {
+      if (!cancelled) setScenarioStats(stats)
+    }).catch(async () => {
       try {
-        setIsLoadingAssignments(true)
-        const assignmentsData = await assignmentApi.getAllScenarioAssignments(scenarioId)
-        
-        // GM可能なスタッフのみ（体験済みのみは担当GMに出さない）
-        const gmAssignments = (assignmentsData || []).filter((a: { can_main_gm?: boolean; can_sub_gm?: boolean }) =>
-          a.can_main_gm === true || a.can_sub_gm === true
-        )
-        
-        setCurrentAssignments(gmAssignments)
-        setSelectedStaffIds(gmAssignments.map((a: { staff_id: string }) => a.staff_id))
-        
-        // 統計情報を取得
-        const statsId = scenarioId
-        try {
-          const stats = await scenarioApi.getScenarioStats(statsId)
-          setScenarioStats(stats)
-        } catch {
-          try {
-            const count = await scenarioApi.getPerformanceCount(statsId)
-            setScenarioStats(prev => ({ ...prev, performanceCount: count }))
-          } catch {
-            // 統計取得失敗は無視
-          }
-        }
-      } catch (error) {
-        logger.error('Error loading assignments:', error)
-      } finally {
-        setIsLoadingAssignments(false)
-      }
-    }
-
-    loadAssignments()
+        const count = await scenarioApi.getPerformanceCount(scenarioId)
+        if (!cancelled) setScenarioStats(prev => ({ ...prev, performanceCount: count }))
+      } catch { /* Statistics failure must not overwrite the editor. */ }
+    })
+    return () => { cancelled = true }
   }, [isOpen, scenarioId])
 
   // NOTE: フォールバック（organization_scenarios.available_gms / gm_assignments）は廃止
@@ -983,10 +947,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }, [isOpen, scenarioId, scenariosFingerprint, scenariosQueryPending, scenarios.length])
 
   const handleSave = async (statusOverride?: 'available' | 'unavailable' | 'draft') => {
+    if (saveInFlight.current) return
     // 新規作成後のIDがあれば編集モードとして扱う
     const effectiveScenarioId = scenarioId || createdScenarioId
 
-    if (effectiveScenarioId && !isScenarioLoaded) {
+    if (!assignmentsReady) {
+      showToast.error('保存できません', '担当GMを読み込めていません。画面を開き直してください。')
+      return
+    }
+    if (effectiveScenarioId && (!isScenarioLoaded || formLoadedKeyRef.current !== (scenarioId || 'new'))) {
       showToast.error('保存できません', 'シナリオが読み込めていません（権限/組織情報の可能性）')
       return
     }
@@ -1007,6 +976,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
     // ステータスを上書き（下書き保存の場合）
     const saveStatus = statusOverride || formData.status
+    const assignmentChanges = getChanges()
+    saveInFlight.current = true
+    setIsSaving(true)
 
     try {
       // データベースに存在しないUI専用フィールドを除外
@@ -1087,40 +1059,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
       if (targetScenarioId) {
         try {
-          const originalStaffIds = currentAssignments.map(a => a.staff_id)
-          const toDelete = originalStaffIds.filter(id => !selectedStaffIds.includes(id))
-          const toAdd = selectedStaffIds.filter(id => !originalStaffIds.includes(id))
-
-          for (const staffId of toDelete) {
+          const changes = assignmentChanges
+          for (const staffId of changes.removed) {
             await assignmentApi.removeAssignment(staffId, targetScenarioId)
           }
-
-          const upsertFlags = (staffId: string) => {
-            const assignment = currentAssignments.find(a => a.staff_id === staffId)
-            const can_main_gm = assignment?.can_main_gm ?? true
-            const can_sub_gm = assignment?.can_sub_gm ?? true
-            const hasGm = can_main_gm || can_sub_gm
-            return {
-              can_main_gm,
-              can_sub_gm,
-              is_experienced: !hasGm,
-            }
+          for (const { staff_id, ...flags } of changes.upserts) {
+            await assignmentApi.upsertAssignment(staff_id, targetScenarioId, flags)
           }
-
-          for (const staffId of toAdd) {
-            await assignmentApi.upsertAssignment(staffId, targetScenarioId, upsertFlags(staffId))
+          if (changes.removed.length || changes.upserts.length) {
+            const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
+            acceptAssignments(refreshed)
           }
-
-          for (const staffId of selectedStaffIds.filter(id => originalStaffIds.includes(id))) {
-            await assignmentApi.upsertAssignment(staffId, targetScenarioId, upsertFlags(staffId))
-          }
-
-          const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
-          const gmAssignments = (refreshed || []).filter((a: { can_main_gm?: boolean; can_sub_gm?: boolean }) =>
-            a.can_main_gm === true || a.can_sub_gm === true
-          )
-          setCurrentAssignments(gmAssignments)
-          setSelectedStaffIds(gmAssignments.map((a: { staff_id: string }) => a.staff_id))
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
@@ -1407,6 +1356,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       }
       
       showToast.error('保存に失敗しました', errorMessage || getSafeErrorMessage(err, '不明なエラー'))
+    } finally {
+      saveInFlight.current = false
+      setIsSaving(false)
     }
   }
 
@@ -1417,7 +1369,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }
 
   const runDelete = async () => {
-    if (!scenarioId) return
+    if (!scenarioId || saveInFlight.current) return
     try {
       await deleteMutation.mutateAsync(scenarioId)
       showToast.success('シナリオを削除しました')
@@ -1441,16 +1393,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         return <PricingSectionV2 formData={formData} setFormData={setFormData} />
       case 'gm':
         return (
+          <>
+          {assignmentsError && <p role="alert" className="text-sm text-destructive">担当GMを読み込めませんでした。保存せずに画面を開き直してください。</p>}
           <GmSettingsSectionV2 
             formData={formData} 
             setFormData={setFormData} 
             staff={staff}
-            loadingStaff={loadingStaff}
+            loadingStaff={loadingStaff || isLoadingAssignments}
             selectedStaffIds={selectedStaffIds}
             onStaffSelectionChange={setSelectedStaffIds}
             currentAssignments={currentAssignments}
             onAssignmentUpdate={handleAssignmentUpdate}
           />
+          </>
         )
       case 'costs':
         return <CostsPropsSectionV2 formData={formData} setFormData={setFormData} scenarioStats={scenarioStats} />
@@ -1595,7 +1550,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               type="button"
               className="scenario-edit-dialog__btn"
               onClick={() => handleSave('draft')}
-              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              disabled={isSaving || scenarioMutation.isPending || !assignmentsReady}
             >
               下書き
             </button>
@@ -1668,7 +1623,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 setSubmitToMMQ(false)
                 setSaveOptionsOpen(true)
               }}
-              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              disabled={isSaving || scenarioMutation.isPending || !assignmentsReady}
             >
               保存
             </button>
