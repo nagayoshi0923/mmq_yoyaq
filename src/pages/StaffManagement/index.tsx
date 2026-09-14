@@ -261,6 +261,7 @@ export function StaffManagement() {
       await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff, confirmDecrease })
       setDecreaseGuard(null)
       closeEditModal()
+      return true
     } catch (err: any) {
       // 🛡 担当が減る保存はサーバーが 409 で拒否する。確認ダイアログを出し、承認時のみ再送する。
       if (
@@ -278,9 +279,10 @@ export function StaffManagement() {
             ? (b.removed_scenario_names as string[])
             : [],
         })
-        return
+        return false
       }
       showToast.error(getSafeErrorMessage(err, '保存に失敗しました'))
+      return false
     }
   }
 
@@ -623,7 +625,7 @@ export function StaffManagement() {
           variant="destructive"
           onConfirm={() => {
             if (decreaseGuard) {
-              return handleSaveStaff(decreaseGuard.staffData, true)
+              return handleSaveStaff(decreaseGuard.staffData, true).then(() => undefined)
             }
           }}
         >

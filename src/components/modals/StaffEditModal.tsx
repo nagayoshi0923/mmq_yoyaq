@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import './ScenarioEditDialogV2.css'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { Staff, Store, Scenario } from '@/types'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
+import { assignmentSnapshot, type AssignmentSnapshot, type StaffEditData } from '@/lib/staffAssignmentEdit'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -20,7 +21,7 @@ import { showToast } from '@/utils/toast'
 interface StaffEditModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (staff: Staff) => void
+  onSave: (staff: Staff) => Promise<boolean | void> | boolean | void
   staff: Staff | null
   stores: Store[]
   scenarios: Scenario[]
@@ -58,7 +59,16 @@ const STAFF_TABS = [
 
 type StaffTabId = typeof STAFF_TABS[number]['id']
 
-export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenarios }: StaffEditModalProps) {
+export function StaffEditModal(props: StaffEditModalProps) {
+  if (!props.isOpen) return null
+  return <StaffEditModalContent key={props.staff?.id ?? 'new'} {...props} />
+}
+
+function StaffEditModalContent({ isOpen, onClose, onSave, staff: incomingStaff, stores, scenarios }: StaffEditModalProps) {
+  // 開いている間の編集元を固定し、背景refetchで利用者の入力を上書きしない。
+  const staff = useRef(incomingStaff).current
+  const saveInFlight = useRef(false)
+  const [assignmentBaseline, setAssignmentBaseline] = useState<AssignmentSnapshot[]>([])
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
     x_account: '',
@@ -142,18 +152,20 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       
       // APIレスポンスをUI用ステートに変換
       const formattedAssignments: ScenarioAssignment[] = assignments.map((a: any) => ({
-        scenarioId: a.scenario_id,
+        scenarioId: a.scenario_master_id ?? a.scenario_id,
         can_main_gm: a.can_main_gm ?? false,
         can_sub_gm: a.can_sub_gm ?? false,
         is_experienced: a.is_experienced ?? false,
         status: a.status || (a.can_main_gm ? 'can_gm' : a.is_experienced ? 'experienced' : 'want_to_learn')
       }))
       
+      setAssignmentBaseline(assignmentSnapshot(assignments))
       setScenarioAssignments(formattedAssignments)
       setAssignmentsLoaded(true)
     } catch (error) {
       logger.error('Failed to load assignments:', error)
       // エラー時はロード失敗として扱い、保存時にアサインメントを更新しない
+      setScenarioAssignments([])
       setAssignmentsLoaded(false)
     } finally {
       setIsLoadingAssignments(false)
@@ -161,6 +173,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
   }
 
   const handleSave = async (closeAfterSave: boolean = true) => {
+    if (saveInFlight.current) return
     if (!formData.name) {
       showToast.warning('スタッフ名を入力してください')
       return
@@ -172,6 +185,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       return
     }
 
+    saveInFlight.current = true
     try {
       // アサインメントが読み込まれている場合のみ、special_scenariosとexperienced_scenariosを更新
       // 読み込み失敗時は元のデータを維持
@@ -206,7 +220,10 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         }))
       })
 
-      const staffData: Staff & { experienced_scenarios?: string[] } = {
+      const staffData: StaffEditData & { experienced_scenarios?: string[] } = {
+        assignment_edit: assignmentsLoaded && assignmentsChanged
+          ? { records: scenarioAssignments.map(({ status: _status, ...record }) => record), baseline: assignmentBaseline }
+          : undefined,
         id: staff?.id || '',
         name: formData.name!,
         line_name: '', // 削除された項目はデフォルト値
@@ -234,9 +251,9 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       }
 
       // スタッフ情報を保存
-      // onSave内でuseStaffMutationが実行され、special_scenariosとexperienced_scenariosから
-      // アサインメントが自動的に更新されるため、ここでの追加更新は不要
-      await onSave(staffData)
+      // 担当を編集した場合のみ、読込時の一覧と編集結果を一緒に渡す。
+      const saved = await onSave(staffData)
+      if (saved === false) return
       
       if (closeAfterSave) {
         onClose()
@@ -244,6 +261,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     } catch (error) {
       logger.error('Error saving staff:', error)
       showToast.error('保存中にエラーが発生しました')
+    } finally {
+      saveInFlight.current = false
     }
   }
 
@@ -531,6 +550,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-1.5"></div>
                 読み込み中...
               </div>
+            ) : !assignmentsLoaded ? (
+              <p role="alert" className="text-sm text-destructive">担当を読み込めませんでした。画面を開き直してください。基本情報だけの保存は担当を変更しません。</p>
             ) : (
             <MultiSelect
               options={scenarioOptions}

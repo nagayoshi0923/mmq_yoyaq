@@ -3,16 +3,18 @@ import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 import type { Staff } from '@/types'
-import { logger } from '@/utils/logger'
+import type { StaffEditData } from '@/lib/staffAssignmentEdit'
 
 /** staff 行に書いてはいけない担当カラム。正本は staff_scenario_assignments。 */
 function staffRowWithoutAssignments(staff: Staff) {
   const {
+    assignment_edit: _edit,
+    gm_scenario_modes: _modes,
     special_scenarios: _special,
     available_scenarios: _available,
     experienced_scenarios: _experienced,
     ...row
-  } = staff as Staff & { experienced_scenarios?: string[]; available_scenarios?: string[] }
+  } = staff as StaffEditData & { experienced_scenarios?: string[]; available_scenarios?: string[] }
   return row
 }
 
@@ -29,17 +31,7 @@ export function useStaffQuery() {
       
       // 担当シナリオ情報を一括取得（N+1問題の回避）
       const staffIds = staffData.map(s => s.id)
-      const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds).catch((error) => {
-        logger.error('Error loading batch staff assignments:', error)
-        return new Map<
-          string,
-          {
-            gmScenarios: string[]
-            experiencedScenarios: string[]
-            gm_scenario_modes: Record<string, 'main_only' | 'sub_only' | 'main_and_sub'>
-          }
-        >()
-      })
+      const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds)
 
       const emptyAssignments = {
         gmScenarios: [] as string[],
@@ -78,111 +70,21 @@ export function useStaffMutation() {
       // 担当減少ガード（YOYAQ-011）を明示承認して再送するとき true
       confirmDecrease?: boolean
     }) => {
-      let result: Staff
-      const staffData = staff as Staff & { experienced_scenarios?: string[] }
-      
-      if (isEdit) {
-        result = await staffApi.update(staff.id, staffRowWithoutAssignments(staff))
-        
-        // staff_scenario_assignmentsテーブルを同期更新
-        // 担当シナリオ（GM可能）と体験済みシナリオを統合して保存
-        const gmScenarios = staffData.special_scenarios || []
-        const expScenarios = staffData.experienced_scenarios || []
-        
-        // アサインメントオブジェクトを構築
-        // DB制約: GM可能とis_experiencedは排他的
-        // GM可能シナリオ: can_main_gm=true, can_sub_gm=true, is_experienced=false
-        // 体験のみシナリオ: can_main_gm=false, can_sub_gm=false, is_experienced=true
-        const assignments: Array<{
-          scenarioId: string
-          can_main_gm: boolean
-          can_sub_gm: boolean
-          is_experienced: boolean
-        }> = []
-        
-        // GM可能シナリオを追加
-        gmScenarios.forEach(scenarioId => {
-          assignments.push({
-            scenarioId,
-            can_main_gm: true,
-            can_sub_gm: true,
-            is_experienced: false // DB制約: GM可能ならfalse
-          })
+      const edit = (staff as StaffEditData).assignment_edit
+      // 担当タブを変更した保存だけ担当APIを呼ぶ。基本情報の保存で担当を再構築しない。
+      if (isEdit && edit) {
+        await assignmentApi.updateStaffAssignments(staff.id, edit.records, undefined, {
+          confirmClear: confirmDecrease === true,
+          expectedAssignments: edit.baseline,
         })
-        
-        // 体験のみシナリオを追加（GM可能に含まれないもの）
-        expScenarios.forEach(scenarioId => {
-          if (!gmScenarios.includes(scenarioId)) {
-            assignments.push({
-              scenarioId,
-              can_main_gm: false,
-              can_sub_gm: false,
-              is_experienced: true
-            })
-          }
-        })
-        
-        // デバッグログ
-        logger.log('💾 useStaffMutation: アサインメント保存', {
-          staffId: staff.id,
-          gmScenarios: gmScenarios.length,
-          expScenarios: expScenarios.length,
-          totalAssignments: assignments.length,
-          assignments: assignments.map(a => ({
-            scenarioId: a.scenarioId,
-            can_main_gm: a.can_main_gm,
-            can_sub_gm: a.can_sub_gm,
-            is_experienced: a.is_experienced
-          }))
-        })
-        
-        if (assignments.length > 0 || gmScenarios.length === 0) {
-          await assignmentApi.updateStaffAssignments(staff.id, assignments, undefined, {
-            confirmClear: confirmDecrease === true,
-          })
-        }
-      } else {
-        result = await staffApi.create({
-          ...staffRowWithoutAssignments(staff),
-          // 型上は必須だが API は受け取らない。正本は直後の updateStaffAssignments。
-          special_scenarios: [],
-          available_scenarios: [],
-        })
-        
-        // 新規作成時もリレーションテーブルに追加
-        const gmScenarios = staffData.special_scenarios || []
-        const expScenarios = staffData.experienced_scenarios || []
-        
-        const assignments: Array<{
-          scenarioId: string
-          can_main_gm: boolean
-          can_sub_gm: boolean
-          is_experienced: boolean
-        }> = []
-        
-        gmScenarios.forEach(scenarioId => {
-          assignments.push({
-            scenarioId,
-            can_main_gm: true,
-            can_sub_gm: true,
-            is_experienced: false // DB制約: GM可能ならfalse
-          })
-        })
-        
-        expScenarios.forEach(scenarioId => {
-          if (!gmScenarios.includes(scenarioId)) {
-            assignments.push({
-              scenarioId,
-              can_main_gm: false,
-              can_sub_gm: false,
-              is_experienced: true
-            })
       }
+      const result = isEdit
+        ? await staffApi.update(staff.id, staffRowWithoutAssignments(staff))
+        : await staffApi.create({ ...staffRowWithoutAssignments(staff), special_scenarios: [], available_scenarios: [] })
+      if (!isEdit && edit && edit.records.length > 0) {
+        await assignmentApi.updateStaffAssignments(result.id, edit.records, undefined, {
+          expectedAssignments: [],
         })
-        
-        if (assignments.length > 0 && result.id) {
-          await assignmentApi.updateStaffAssignments(result.id, assignments)
-        }
       }
       return result
     },
