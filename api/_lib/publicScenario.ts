@@ -10,7 +10,7 @@
 //    flexible_pricing / pricing_patterns / use_flexible_pricing はビューに含めておらず、
 //    ここでも生のまま返さない。
 
-import { isParticipationCostActive } from '../../src/lib/pricing'
+import { isParticipationCostActive } from '../../src/lib/pricing.js'
 
 // public_scenarios ビューの行（ホワイトリスト列のみ）
 export interface PublicScenarioRow {
