@@ -1,3 +1,9 @@
+-- Fix #471: 貸切GM確認の宛先抽出を scenario_master_id + organization_id に厳格化
+-- - reservations へ scenario_master_id を明示保存（p_scenario_id=org_scenario.id の誤保存を防ぐ）
+-- - staff_scenario_assignments のレガシー scenario_id OR 条件を廃止
+-- - ssa.organization_id でも組織境界を二重に固定
+-- ロールバック: 直前定義 20260909190000_restore_private_booking_acceptance_guard.sql を再適用
+
 -- 正規ソース: create_private_booking_request
 -- 最終更新: 20260914120000_fix_private_booking_gm_recipient_selection.sql
 -- このファイルと migrations 内の最新定義は常に同内容に保つこと

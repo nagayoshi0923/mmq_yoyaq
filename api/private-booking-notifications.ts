@@ -126,6 +126,7 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
       id: bookingId,
       organization_id: reservation.organization_id,
       scenario_id: reservation.scenario_master_id ?? body.scenario_master_id,
+      scenario_master_id: reservation.scenario_master_id ?? body.scenario_master_id,
       scenario_title: body.scenario_title,
       customer_name: body.customer_name,
       customer_email: body.customer_email,
