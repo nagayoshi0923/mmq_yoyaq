@@ -141,7 +141,7 @@ export const assignmentApi = {
     _organizationId?: string,
     options?: { confirmClear?: boolean; expectedAssignments?: AssignmentSnapshot[] }
   ) {
-    const isStringArray = assignments.length === 0 || typeof assignments[0] === 'string'
+    const isStringArray = typeof assignments[0] === 'string'
 
     if (isStringArray) {
       // string[] の場合: GM 更新のみ。体験済みのみレコードは保護する（クライアント側でマージ）

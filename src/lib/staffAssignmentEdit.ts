@@ -36,3 +36,16 @@ export function sameAssignmentState(a: AssignmentSnapshot[], b: AssignmentSnapsh
     .sort((x, y) => x.scenario_master_id.localeCompare(y.scenario_master_id))
   return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b))
 }
+
+// 役割を持たない従来の選択UIでも、既存GMのメイン/サブを保持する。
+export function selectedStaffAssignments(baseline: AssignmentSnapshot[], gmIds: string[], experiencedIds: string[]): StaffAssignmentInput[] {
+  const old = new Map(baseline.map(a => [a.scenario_master_id, a]))
+  const gm = new Set(gmIds)
+  const experienced = new Set(experiencedIds)
+  const ids = new Set([...gm, ...experienced, ...baseline.filter(a => !a.can_main_gm && !a.can_sub_gm && !a.is_experienced).map(a => a.scenario_master_id)])
+  return Array.from(ids, scenarioId => {
+    const previous = old.get(scenarioId)
+    const wasGm = previous?.can_main_gm || previous?.can_sub_gm
+    return { scenarioId, can_main_gm: gm.has(scenarioId) && (wasGm ? previous.can_main_gm : true), can_sub_gm: gm.has(scenarioId) && (wasGm ? previous.can_sub_gm : true), is_experienced: !gm.has(scenarioId) && experienced.has(scenarioId) }
+  })
+}
