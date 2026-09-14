@@ -1125,55 +1125,13 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, orgId: strin
     return res.status(404).json({ error: 'シナリオが見つかりません' })
   }
 
-  // 1. reservations の scenario_master_id を NULL に（自組織のみ）
-  const { error: reservationError } = await db
-    .from('reservations')
-    .update({ scenario_master_id: null })
-    .eq('scenario_master_id', id)
-    .eq('organization_id', orgId)
-  if (reservationError) {
-    console.error('[scenarios:delete] reservations update error:', reservationError)
-  }
-
-  // 2. schedule_events の scenario_master_id を NULL に（自組織のみ）
-  const { error: scheduleError } = await db
-    .from('schedule_events')
-    .update({ scenario_master_id: null })
-    .eq('scenario_master_id', id)
-    .eq('organization_id', orgId)
-  if (scheduleError) {
-    console.error('[scenarios:delete] schedule_events update error:', scheduleError)
-  }
-
-  // 3. staff_scenario_assignments を削除（自組織のみ）
-  const { error: assignmentError } = await db
-    .from('staff_scenario_assignments')
-    .delete()
-    .eq('scenario_master_id', id)
-    .eq('organization_id', orgId)
-  if (assignmentError) {
-    console.error('[scenarios:delete] staff_scenario_assignments delete error:', assignmentError)
-  }
-
-  // 4. performance_kits を削除（自組織分のみ）
-  const { error: kitsError } = await db
-    .from('performance_kits')
-    .delete()
-    .eq('scenario_master_id', id)
-    .eq('organization_id', orgId)
-  if (kitsError) {
-    console.error('[scenarios:delete] performance_kits delete error:', kitsError)
-  }
-
-  // 5. organization_scenarios 本体を削除（scenario_masters は残す）
-  const { error } = await db
-    .from('organization_scenarios')
-    .delete()
-    .eq('id', owned.orgScenarioId)
-    .eq('organization_id', orgId)
-  if (error) {
-    console.error('[scenarios:delete] organization_scenarios delete error:', error)
-    return res.status(500).json({ error: '削除に失敗しました', detail: error.message })
+  const { data, error } = await db.rpc('delete_organization_scenario_atomic', {
+    p_organization_id: orgId,
+    p_scenario_master_id: id,
+  })
+  if (error || data?.success !== true) {
+    console.error('[scenarios:delete] atomic delete failed:', error)
+    return res.status(500).json({ error: '削除に失敗しました。シナリオと担当は変更していません。' })
   }
 
   return res.status(200).json({ success: true })
