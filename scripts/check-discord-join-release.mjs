@@ -25,7 +25,7 @@ export async function smoke(origin, request = fetch) {
     assert.equal(target.origin, 'https://discord.com')
     assert.equal(target.pathname, '/oauth2/authorize')
     assert.equal(target.searchParams.get('response_type'), 'code')
-    assert.equal(target.searchParams.get('scope'), 'identify')
+    assert.equal(target.searchParams.get('scope'), 'identify guilds.join')
     assert.equal(target.searchParams.get('client_id'), '1532875462244831302')
     assert.equal(target.searchParams.get('redirect_uri'), base.href)
     assert.equal(target.searchParams.get('state'), `${reservation}:${kind}`)

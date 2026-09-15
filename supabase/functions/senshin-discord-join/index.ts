@@ -61,7 +61,7 @@ function authorizeUrl(origin, join) {
   u.searchParams.set('client_id', CLIENT_ID)
   u.searchParams.set('redirect_uri', redirectUri(origin))
   u.searchParams.set('response_type', 'code')
-  u.searchParams.set('scope', 'identify')
+  u.searchParams.set('scope', 'identify guilds.join')
   u.searchParams.set('state', `${join.reservationId}:${join.kind}`)
   return u.toString()
 }
@@ -96,14 +96,30 @@ async function memberExists(token, userId) {
   const res = await fetch(`https://discord.com/api/v10/guilds/${SENSHIN_DISCORD.guildId}/members/${userId}`, {
     headers: { Authorization: `Bot ${token}`, 'User-Agent': 'DiscordBot (https://mmq.game, 1.0)' },
   })
-  return res.ok
+  if (res.status === 404) return false
+  if (!res.ok) throw new Error('membership lookup failed')
+  return true
+}
+
+async function joinGuild(token, userId, accessToken) {
+  const res = await fetch(`https://discord.com/api/v10/guilds/${SENSHIN_DISCORD.guildId}/members/${userId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bot ${token}`,
+      'User-Agent': 'DiscordBot (https://mmq.game, 1.0)',
+      'Content-Type': 'application/json',
+    },
+    // Discordの同意画面で許可された本人だけを追加。ロールや審査状態は変更しない。
+    body: JSON.stringify({ access_token: accessToken }),
+  })
+  return res.status === 201 || res.status === 204
 }
 
 async function loadRoom(reservationId) {
   const url = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '')
   const key = getServiceRoleKey()
   const res = await fetch(
-    `${url}/rest/v1/private_booking_discord_rooms?reservation_id=eq.${encodeURIComponent(reservationId)}&select=reservation_id,player_channel_id,spectator_channel_id,player_invite_url,spectator_invite_url`,
+    `${url}/rest/v1/private_booking_discord_rooms?reservation_id=eq.${encodeURIComponent(reservationId)}&select=reservation_id,player_channel_id,spectator_channel_id`,
     {
       headers: {
         apikey: key,
@@ -176,20 +192,21 @@ serve(async (req) => {
   if (!room) return text(404, 'この予約のDiscord案内が見つかりません。')
 
   const channelId = join.kind === 'spectator' ? room.spectator_channel_id : room.player_channel_id
-  const inviteUrl = join.kind === 'spectator' ? room.spectator_invite_url : room.player_invite_url
   if (!channelId) return text(404, 'この予約のDiscord案内が見つかりません。')
 
-  const inGuild = await memberExists(token, me.id)
-  if (!inGuild) {
-    let invite
-    try { invite = new URL(inviteUrl) } catch { /* 下の条件で案内を拒否する */ }
-    if (!invite || invite.protocol !== 'https:' || invite.hostname !== 'discord.gg'
-      || invite.username || invite.password || invite.port || !/^\/[A-Za-z0-9-]+$/.test(invite.pathname)
-      || invite.search || invite.hash) {
-      return text(404, '参加用URLが見つかりません。運営へお問い合わせください。')
+  try {
+    const inGuild = await memberExists(token, me.id)
+    if (!inGuild) {
+      if (!(exchanged.scope || '').split(/\s+/).includes('guilds.join')) {
+        // 修正前の認証画面を開いていた場合も、メールへ戻さず同意画面へ進む。
+        return redirect(authorizeUrl(origin, join))
+      }
+      if (!await joinGuild(token, me.id, accessToken)) {
+        return text(502, 'Discordサーバーへの参加を完了できませんでした。しばらくしてから再度お試しください。解決しない場合は運営へお問い合わせください。')
+      }
     }
-    return text(200, `Discordサーバーへの参加が必要です。\n\n1. 下のURLをコピーして開き、「参加する」を押してください。\n${invite.href}\n\n2. 参加後、元の案内メールに戻り、同じ参加用・観戦用リンクをもう一度開いてください。公演チャンネルが開きます。`)
-
+  } catch {
+    return text(503, 'Discordとの通信に失敗しました。しばらくしてから再度お試しください。')
   }
 
   const ok = await addToChannel(token, me.id, channelId)
