@@ -52,6 +52,9 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
         run: node scripts/supabase-release-scope.mjs
 
+      - name: Check Discord entry configuration
+        run: node scripts/check-discord-join-release.mjs
+
       - name: Deploy Edge Functions
         run: |
           echo "⚡ Deploying Edge Functions to staging..."
@@ -115,6 +118,24 @@ jobs:
             fi
           done < "$RUNNER_TEMP/mmq-deploy-functions.txt"
 
+      - name: Verify deployed Discord entry
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
+          DISCORD_JOIN_REPORT: ${{ runner.temp }}/discord-join-staging.json
+        run: |
+          if grep -Fxq senshin-discord-join "$RUNNER_TEMP/mmq-deploy-functions.txt"; then
+            node scripts/check-discord-join-release.mjs --live
+          fi
+
+      - name: Preserve Discord entry verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discord-join-staging-${{ github.run_id }}
+          path: ${{ runner.temp }}/discord-join-staging.json
+          retention-days: 90
+          if-no-files-found: ignore
+
       - name: Notify Success
         if: success()
         run: |
@@ -150,6 +171,9 @@ jobs:
         env:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_ID }}
         run: node scripts/supabase-release-scope.mjs
+
+      - name: Check Discord entry configuration
+        run: node scripts/check-discord-join-release.mjs
 
       - name: Deploy Edge Functions
         run: |
@@ -213,6 +237,24 @@ jobs:
               supabase functions deploy "$func"
             fi
           done < "$RUNNER_TEMP/mmq-deploy-functions.txt"
+
+      - name: Verify deployed Discord entry
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_ID }}
+          DISCORD_JOIN_REPORT: ${{ runner.temp }}/discord-join-production.json
+        run: |
+          if grep -Fxq senshin-discord-join "$RUNNER_TEMP/mmq-deploy-functions.txt"; then
+            node scripts/check-discord-join-release.mjs --live
+          fi
+
+      - name: Preserve Discord entry verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discord-join-production-${{ github.run_id }}
+          path: ${{ runner.temp }}/discord-join-production.json
+          retention-days: 90
+          if-no-files-found: ignore
 
       - name: Notify Success
         if: success()
