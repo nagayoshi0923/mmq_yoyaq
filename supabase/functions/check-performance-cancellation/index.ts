@@ -10,7 +10,7 @@ import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, getCronSecret, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
@@ -69,9 +69,10 @@ function categoryShortName(category: string | undefined): string {
 
 // Cron Secret / Service Role Key による呼び出しかチェック
 function isRecruitmentSchedulerCall(req: Request): boolean {
-  const expected = Deno.env.get('RECRUITMENT_CRON_SECRET') || ''
-  const received = req.headers.get('x-recruitment-cron-secret') || ''
-  return !!expected && !!received && timingSafeEqualString(expected, received)
+  const received = (req.headers.get('x-recruitment-cron-secret') || '').trim()
+  if (!received) return false
+  const expected = (Deno.env.get('RECRUITMENT_CRON_SECRET') || getCronSecret()).trim()
+  return !!expected && timingSafeEqualString(expected, received)
 }
 function isSystemCall(req: Request): boolean {
   return isCronOrServiceRoleCall(req) || isRecruitmentSchedulerCall(req)
@@ -1643,18 +1644,28 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
           continue
         }
       }
-      // 取得後に開催決定・辞退済みとなった通知は送らない。
       if (notice.kind === 'extension') {
-      const { data: current, error: currentError } = await supabase.rpc('respond_to_performance_recruitment', {
-        p_token: notice.response_token, p_withdraw: false,
-      })
-      if (currentError) throw currentError
-      if (!current?.can_withdraw) {
-        const { error: expireError } = await supabase.from('performance_recruitment_notices')
-          .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
-        if (expireError) throw expireError
-        continue
-      }
+        const [{ data: decision, error: decisionError }, { data: reservation, error: reservationError }] = await Promise.all([
+          supabase.from('performance_recruitment_deadlines')
+            .select('status,cycle,deadline').eq('schedule_event_id', notice.schedule_event_id)
+            .eq('organization_id', notice.organization_id).single(),
+          supabase.from('reservations')
+            .select('status').eq('id', notice.reservation_id).eq('organization_id', notice.organization_id).single(),
+        ])
+        if (decisionError) throw decisionError
+        if (reservationError) throw reservationError
+        const stillActive = decision?.status === 'active'
+          && decision.cycle === notice.cycle
+          && new Date(decision.deadline).getTime() > Date.now()
+          && !notice.withdrawn_at
+          && reservation != null
+          && ['pending', 'confirmed', 'gm_confirmed'].includes(reservation.status)
+        if (!stillActive) {
+          const { error: expireError } = await supabase.from('performance_recruitment_notices')
+            .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+          if (expireError) throw expireError
+          continue
+        }
       }
       const content = recruitmentNotice(notice.snapshot, notice.response_token, notice.kind)
       const response = await fetch('https://api.resend.com/emails', {
