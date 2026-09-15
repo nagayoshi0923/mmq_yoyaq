@@ -56,6 +56,30 @@ function redirect(url) {
   return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'no-store' } })
 }
 
+function safeDiscordInviteUrl(raw) {
+  const text = String(raw || '').trim()
+  if (!text.startsWith('https://discord.gg/')) return ''
+  let invite
+  try {
+    invite = new URL(text)
+  } catch {
+    return ''
+  }
+  if (
+    invite.protocol !== 'https:' ||
+    invite.hostname !== 'discord.gg' ||
+    invite.username ||
+    invite.password ||
+    invite.port ||
+    !/^\/[A-Za-z0-9-]+$/.test(invite.pathname) ||
+    invite.search ||
+    invite.hash
+  ) {
+    return ''
+  }
+  return invite.href
+}
+
 function authorizeUrl(origin, join) {
   const u = new URL('https://discord.com/oauth2/authorize')
   u.searchParams.set('client_id', CLIENT_ID)
@@ -181,18 +205,26 @@ serve(async (req) => {
 
   const inGuild = await memberExists(token, me.id)
   if (!inGuild) {
-    let invite
-    try { invite = new URL(inviteUrl) } catch { /* 下の条件で案内を拒否する */ }
-    if (!invite || invite.protocol !== 'https:' || invite.hostname !== 'discord.gg'
-      || invite.username || invite.password || invite.port || !/^\/[A-Za-z0-9-]+$/.test(invite.pathname)
-      || invite.search || invite.hash) {
+    const safeInvite = safeDiscordInviteUrl(inviteUrl)
+    if (!safeInvite) {
       return text(404, '参加用URLが見つかりません。運営へお問い合わせください。')
     }
-    return text(200, `Discordサーバーへの参加が必要です。\n\n1. 下のURLをコピーして開き、「参加する」を押してください。\n${invite.href}\n\n2. 参加後、元の案内メールに戻り、同じ参加用・観戦用リンクをもう一度開いてください。公演チャンネルが開きます。`)
-
+    return text(
+      200,
+      `Discordサーバーへの参加が必要です。\n\n` +
+        `1. 下のURLをコピーして開き、「参加する」を押してください。\n${safeInvite}\n\n` +
+        `2. 参加後、元の案内メールに戻り、同じ参加用・観戦用リンクをもう一度開いてください。\n` +
+        `認証後に公演チャンネルの権限が付与され、チャンネルが開きます。\n` +
+        `同時に複数の招待へ入った場合は自動付与できないことがあるため、そのときは運営へお問い合わせください。`,
+    )
   }
 
   const ok = await addToChannel(token, me.id, channelId)
-  if (!ok) return text(500, 'チャンネルに入れませんでした。')
+  if (!ok) {
+    return text(
+      500,
+      'チャンネルに入れませんでした。サーバーに参加済みでも権限が付かない場合は、運営へお問い合わせください。',
+    )
+  }
   return redirect(`https://discord.com/channels/${SENSHIN_DISCORD.guildId}/${channelId}`)
 })
