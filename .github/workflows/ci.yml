@@ -33,6 +33,9 @@ jobs:
       - name: GM assignment database regressions
         run: npm run test:gm-assignment-db
 
+      - name: Discord entry release regression
+        run: node --test scripts/check-discord-join-release.test.mjs
+
       - name: Supabase release scope tests
         run: node --test scripts/supabase-release-scope.test.mjs
 
