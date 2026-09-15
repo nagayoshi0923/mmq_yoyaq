@@ -181,8 +181,15 @@ serve(async (req) => {
 
   const inGuild = await memberExists(token, me.id)
   if (!inGuild) {
-    if (!inviteUrl) return text(404, '参加用URLが見つかりません。サーバーに入ったあと、メールの案内をもう一度開いてください。')
-    return redirect(inviteUrl)
+    let invite
+    try { invite = new URL(inviteUrl) } catch { /* 下の条件で案内を拒否する */ }
+    if (!invite || invite.protocol !== 'https:' || invite.hostname !== 'discord.gg'
+      || invite.username || invite.password || invite.port || !/^\/[A-Za-z0-9-]+$/.test(invite.pathname)
+      || invite.search || invite.hash) {
+      return text(404, '参加用URLが見つかりません。運営へお問い合わせください。')
+    }
+    return text(200, `Discordサーバーへの参加が必要です。\n\n1. 下のURLをコピーして開き、「参加する」を押してください。\n${invite.href}\n\n2. 参加後、元の案内メールに戻り、同じ参加用・観戦用リンクをもう一度開いてください。公演チャンネルが開きます。`)
+
   }
 
   const ok = await addToChannel(token, me.id, channelId)
