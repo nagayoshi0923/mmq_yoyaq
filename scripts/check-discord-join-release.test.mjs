@@ -14,7 +14,7 @@ test('設定欠落と各環境の配備リスト欠落を検出', () => {
 const origin = 'https://example.supabase.co'
 function redirect(url) {
   const target = new URL('https://discord.com/oauth2/authorize')
-  target.search = new URLSearchParams({client_id:'1532875462244831302',response_type:'code',scope:'identify',redirect_uri:origin+'/functions/v1/senshin-discord-join',state:url.searchParams.get('reservation')+':'+url.searchParams.get('kind')}).toString()
+  target.search = new URLSearchParams({client_id:'1532875462244831302',response_type:'code',scope:'identify guilds.join',redirect_uri:origin+'/functions/v1/senshin-discord-join',state:url.searchParams.get('reservation')+':'+url.searchParams.get('kind')}).toString()
   return new Response(null, {status:302,headers:{location:target.href}})
 }
 test('認証ヘッダなし・転送追跡なしで参加/観戦/不正リンクを検証', async () => {
