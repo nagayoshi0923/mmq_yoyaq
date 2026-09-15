@@ -21,7 +21,7 @@
     "check:permissions:fix": "node scripts/verify_permissions.mjs --fix",
     "check:design-tokens": "node scripts/check-design-tokens.mjs",
     "check:org-scope": "node scripts/check-org-scope.mjs",
-    "verify": "npm run check:security-guardrails && npm run check:cancellation-rpcs && npm run typecheck && npm run lint && npm run build:fast",
+    "verify": "node scripts/check-discord-join-release.mjs && node --test scripts/check-discord-join-release.test.mjs scripts/discord-join-handler.test.mjs && npm run check:security-guardrails && npm run check:cancellation-rpcs && npm run typecheck && npm run lint && npm run build:fast",
     "db:check": "node scripts/check_schema.js",
     "db:reset": "npx supabase db reset --linked",
     "db:diff": "npx supabase db diff --schema public",
