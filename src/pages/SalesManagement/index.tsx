@@ -1,6 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { TrendingUp } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useLocalState } from '@/hooks/useLocalState'
@@ -28,6 +29,7 @@ const SalesManagement: React.FC = () => {
   const {
     salesData,
     loading,
+    error,
     stores,
     dateRange,
     selectedPeriod,
@@ -187,6 +189,12 @@ const SalesManagement: React.FC = () => {
         title={<><TrendingUp className="h-5 w-5" />売上管理</>}
         description="売上集計・年次分析・スタッフ給与レポート"
       />
+      {error && ['overview', 'franchise-sales'].includes(activeTab) && (
+        <div role="alert" className="space-y-2">
+          <p className="text-destructive">売上を計算できません。{error.message}</p>
+          <Button variant="outline" onClick={() => void loadSalesData(selectedPeriod, selectedStoreIds, activeTab === 'franchise-sales' ? 'franchise' : 'corporate')}>再試行</Button>
+        </div>
+      )}
       <Suspense fallback={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">読み込み中...</div>}>
         {renderContent()}
       </Suspense>
