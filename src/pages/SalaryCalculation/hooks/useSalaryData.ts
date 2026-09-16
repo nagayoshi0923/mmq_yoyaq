@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { salaryReportApi } from '@/lib/api/salaryReportApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { useSalaryOrganization } from '@/hooks/useSalaryOrganization'
 import { logger } from '@/utils/logger'
-import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
+import { fetchSalarySettingsForPeriod, calculateGmWage } from '@/hooks/useSalarySettings'
 import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail, UnresolvedSalaryEvent } from '../types'
 
 // シナリオ不要カテゴリ（出張・場所貸し・MTG）。これらはマスタ未解決でも警告対象にしない
@@ -10,55 +11,21 @@ const NON_SCENARIO_CATEGORIES = ['offsite', 'venue_rental', 'venue_rental_free',
 const normalizeScenarioTitle = (s: string) => (s || '').replace(/[\s\-・／/]/g, '').toLowerCase()
 
 function getMonthRange(year: number, month: number) {
-  const startLocal = new Date(year, month - 1, 1, 0, 0, 0, 0)
-  const endLocal = new Date(year, month, 0, 23, 59, 59, 999)
-
-  const fmt = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
-
-  return { startStr: fmt.format(startLocal), endStr: fmt.format(endLocal) }
+  const startStr = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return { startStr, endStr: `${year}-${String(month).padStart(2, '0')}-${lastDay}` }
 }
 
-async function fetchSalaryData(year: number, month: number, storeIds: string[]): Promise<MonthlySalaryData> {
+export async function fetchSalaryData(year: number, month: number, storeIds: string[], expectedOrgId?: string): Promise<MonthlySalaryData> {
   const { startStr, endStr } = getMonthRange(year, month)
   logger.log('計算された日付範囲:', { startStr, endStr })
 
-  const salarySettings = await fetchSalarySettings()
   const orgId = await getCurrentOrganizationId()
+  if (!orgId || (expectedOrgId && orgId !== expectedOrgId)) throw new Error('組織を確認できないため給与を計算できません。再読み込みしてください。')
+  const settingsForDate = await fetchSalarySettingsForPeriod(startStr, endStr, orgId)
 
-  let staffQuery = supabase.from('staff').select('id, name, role')
-  if (orgId) staffQuery = staffQuery.eq('organization_id', orgId)
-  const { data: staffData, error: staffError } = await staffQuery.order('name')
-  if (staffError) throw staffError
-
-  let gmQuery = supabase
-    .from('schedule_events_staff_view')
-    .select(`
-      id,
-      date,
-      store_id,
-      scenario,
-      scenario_master_id,
-      gms,
-      gm_roles,
-      category,
-      is_cancelled,
-      stores:store_id (name),
-      scenario_masters:scenario_master_id (
-        title,
-        official_duration
-      )
-    `)
-    .gte('date', startStr)
-    .lte('date', endStr)
-
-  if (storeIds.length > 0) gmQuery = gmQuery.in('store_id', storeIds)
-  const { data: gmData, error: gmError } = await gmQuery
-  if (gmError) throw gmError
+  const { staff: staffData, events } = await salaryReportApi.salaryInputs(startStr, endStr, orgId)
+  const gmData = storeIds.length ? events.filter(event => storeIds.includes(event.store_id)) : events
 
   logger.log('取得データ:', { staffData: staffData?.length, gmData: gmData?.length })
 
@@ -154,7 +121,7 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
       }
 
       if (roleType === 'reception') {
-        pay = salarySettings.reception_fixed_pay
+        pay = settingsForDate(event.date).reception_fixed_pay
       } else if (roleType === 'staff' || roleType === 'observer') {
         pay = 0
       } else {
@@ -163,7 +130,7 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
           pay = assignment.reward
         } else {
           const duration = scenario.official_duration || 180
-          pay = calculateGmWage(duration, isGMTest, salarySettings)
+          pay = calculateGmWage(duration, isGMTest, settingsForDate(event.date))
           gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
         }
       }
@@ -227,15 +194,19 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
  * 給与データ取得フック
  */
 export function useSalaryData(year: number, month: number, storeIds: string[]) {
+  const { organizationId, isLoading: organizationLoading, error: organizationError } = useSalaryOrganization()
   const query = useQuery({
-    queryKey: ['salary-data', year, month, storeIds],
-    queryFn: () => fetchSalaryData(year, month, storeIds),
-    enabled: year > 0 && month > 0,
+    queryKey: ['salary-data', organizationId, year, month, storeIds],
+    queryFn: () => fetchSalaryData(year, month, storeIds, organizationId!),
+    enabled: !!organizationId && year > 0 && month > 0,
+    retry: false,
   })
 
+  const error = organizationError ?? query.error ?? (!organizationLoading && !organizationId ? new Error('組織を確認できません。再ログインしてください。') : null)
   return {
-    salaryData: query.data ?? null,
-    loading: query.isLoading,
+    salaryData: error ? null : query.data ?? null,
+    error,
+    loading: organizationLoading || query.isLoading,
     refresh: query.refetch,
   }
 }

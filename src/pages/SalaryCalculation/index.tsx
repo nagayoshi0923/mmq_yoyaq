@@ -29,7 +29,7 @@ export default function SalaryCalculation() {
   }, [])
 
   // データ取得
-  const { salaryData, loading } = useSalaryData(selectedYear, selectedMonth, selectedStoreIds)
+  const { salaryData, loading, error, refresh } = useSalaryData(selectedYear, selectedMonth, selectedStoreIds)
 
   // スタッフ展開トグル
   const toggleStaffExpand = (staffId: string) => {
@@ -95,6 +95,12 @@ export default function SalaryCalculation() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      {error && (
+        <div role="alert" className="space-y-2">
+          <p className="text-destructive">給与を計算できません。{error.message}</p>
+          <Button variant="outline" onClick={() => void refresh()}>再試行</Button>
+        </div>
+      )}
       {/* フィルター */}
       <Card className="shadow-none border">
         <CardHeader className="p-3 sm:p-4 md:p-6">
