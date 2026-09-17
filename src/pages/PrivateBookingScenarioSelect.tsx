@@ -79,6 +79,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const preselectedDate = urlParams.get('date') || ''
   const preselectedStoreParam = urlParams.get('store') || ''
   const preselectedSlot = urlParams.get('slot') || ''
+  const preselectedTime = urlParams.get('time') || ''
   
   // URLの店舗パラメータ（カンマ区切り対応）
   const preselectedStoreIds = useMemo(() => 
@@ -200,8 +201,9 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     const basePath = organizationSlug ? `/${organizationSlug}` : ''
     const storeParam = selectedStoreIds.join(',')
     saveScrollPositionForCurrentUrl()
+    const timeQuery = preselectedTime ? `&time=${encodeURIComponent(preselectedTime)}` : ''
     navigate(
-      `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}`
+      `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}${timeQuery}`
     )
   }
 
