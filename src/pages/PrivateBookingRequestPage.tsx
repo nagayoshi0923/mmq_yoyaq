@@ -11,6 +11,10 @@ import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
+import {
+  resolvePrivateBookingUrlPrefillSlot,
+  slotParamToKey,
+} from '@/lib/privateBookingUrlPrefill'
 
 interface TimeSlot {
   label: string
@@ -20,18 +24,6 @@ interface TimeSlot {
 
 interface PrivateBookingRequestPageProps {
   organizationSlug?: string
-}
-
-function slotParamToKey(param: string): 'morning' | 'afternoon' | 'evening' | null {
-  const map: Record<string, 'morning' | 'afternoon' | 'evening'> = {
-    morning: 'morning',
-    afternoon: 'afternoon',
-    evening: 'evening',
-    午前: 'morning',
-    午後: 'afternoon',
-    夜: 'evening',
-  }
-  return map[param] ?? null
 }
 
 export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRequestPageProps) {
@@ -55,6 +47,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   const dateParam = urlParams.get('date') || ''
   const storeId = urlParams.get('store') || ''
   const slotParam = urlParams.get('slot') || ''
+  const timeParam = urlParams.get('time') || ''
   const groupId = urlParams.get('groupId') || ''
 
   const isUuidLike = (value: string): boolean =>
@@ -82,7 +75,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   }
   
   const date = formatDate(dateParam)
-  const urlSlotPrefillKey = `${scenarioId}|${date}|${storeId}|${slotParam}`
+  const urlSlotPrefillKey = `${scenarioId}|${date}|${storeId}|${slotParam}|${timeParam}`
 
   useEffect(() => {
     loadData()
@@ -153,7 +146,29 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     }
   }
 
-  // URL の slot を営業時間マージ（貸切確認の候補追加と同ロジック）で開始時刻に解決
+  const applyUrlPrefillSlot = (
+    computedSlots: Array<{ key: string; label: string; startTime: string; endTime: string }>
+  ) => {
+    const resolved = resolvePrivateBookingUrlPrefillSlot({
+      slotParam,
+      timeParam,
+      computedSlots,
+    })
+    urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+    if (!resolved) return
+    setSelectedTimeSlots([
+      {
+        date,
+        slot: {
+          label: resolved.label,
+          startTime: resolved.startTime,
+          endTime: resolved.endTime,
+        },
+      },
+    ])
+  }
+
+  // URL の slot/time を営業時間マージで開始時刻に解決。取れなくても候補は落とさない。
   useEffect(() => {
     if (urlSlotPrefillAppliedForKeyRef.current === urlSlotPrefillKey) return
     if (loading || !scenario || customHolidaysLoading) return
@@ -163,8 +178,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       return
     }
 
-    const slotKey = slotParamToKey(slotParam)
-    if (!slotKey) {
+    if (!slotParamToKey(slotParam)) {
       urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
       return
     }
@@ -186,8 +200,9 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         ? urlStoreIds.filter((id) => eligible.some((s: any) => s.id === id))
         : eligible.map((s: any) => s.id)
 
+    // 店舗が解決できない場合でもカレンダー指定の枠は引き継ぐ
     if (storeIdsForSlots.length === 0) {
-      urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+      applyUrlPrefillSlot([])
       return
     }
 
@@ -200,7 +215,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       if (cancelled) return
       if (error) {
         logger.error('貸切リクエストページ: 営業時間取得エラー', error)
-        if (!cancelled) urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+        if (!cancelled) applyUrlPrefillSlot([])
         return
       }
       const map = new Map<string, BusinessHoursSettingRow>()
@@ -240,21 +255,8 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
           : undefined,
         scenarioTitle: scenario.title,
       })
-      const found = slots.find((s) => s.key === slotKey)
       if (cancelled) return
-      urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
-      if (found) {
-        setSelectedTimeSlots([
-          {
-            date,
-            slot: {
-              label: found.label,
-              startTime: found.startTime,
-              endTime: found.endTime,
-            },
-          },
-        ])
-      }
+      applyUrlPrefillSlot(slots)
     })()
 
     return () => {
@@ -266,6 +268,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     stores,
     date,
     slotParam,
+    timeParam,
     storeId,
     isCustomHoliday,
     customHolidaysLoading,
@@ -347,4 +350,3 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     />
   )
 }
-
