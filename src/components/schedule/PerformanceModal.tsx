@@ -13,6 +13,7 @@ import { PerformanceFooter } from './performanceModal/sections/PerformanceFooter
 import { PerformanceSummary } from './performanceModal/sections/PerformanceSummary'
 import { staffApi } from '@/lib/api'
 import { kitApi } from '@/lib/api/kitApi'
+import { getUsableKitStoreIds } from '@/utils/scheduleWarnings'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
@@ -145,7 +146,7 @@ export function PerformanceModal({
   // 保存時に handleSave で一括 INSERT する
   type PendingParticipant = { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }
   const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
-  // 選択中シナリオのキット配置店舗一覧。null=取得中（誤警告防止）、[]=未登録
+  // 選択中シナリオの使用可能なキットの配置店舗。null=取得中、[]=使用可能な配置なし
   const [kitStoreIds, setKitStoreIds] = useState<string[] | null>(null)
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
@@ -532,6 +533,7 @@ export function PerformanceModal({
   // scenario_master_id 直叩きだと org_scenario_id のみの行を取りこぼすため、
   // kitApi（org_scenario_id 解決）経由で全キット配置を取る
   useEffect(() => {
+    if (!isOpen) return
     const selectedScenario = scenarios.find(s => s.title === formData.scenario)
     // organization_scenarios.id があれば優先（API が org_scenario_id で確実に解決できる）
     const scenarioKey =
@@ -548,14 +550,7 @@ export function PerformanceModal({
       try {
         const locations = await kitApi.getKitLocationsByScenario(scenarioKey)
         if (cancelled) return
-        const ids = Array.from(
-          new Set(
-            (locations || [])
-              .map(r => r.store_id)
-              .filter((id): id is string => typeof id === 'string' && id.length > 0),
-          ),
-        )
-        setKitStoreIds(ids)
+        setKitStoreIds(getUsableKitStoreIds(locations || []))
       } catch (err) {
         logger.error('キット配置店舗の取得エラー:', err)
         // 取得失敗時も空扱いにして未配置警告を出す（表と揃える）
@@ -563,7 +558,7 @@ export function PerformanceModal({
       }
     })()
     return () => { cancelled = true }
-  }, [formData.scenario, scenarios])
+  }, [isOpen, formData.scenario, scenarios])
 
   const initForm = async () => {
     setIsFormInitializing(true)
