@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
+import { useSalaryOrganization } from '@/hooks/useSalaryOrganization'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { salesApi } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
+import { salaryReportApi } from '@/lib/api/salaryReportApi'
 import { SalesData } from '@/types'
 import { logger } from '@/utils/logger'
-import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
+import { fetchSalarySettingsForPeriod, calculateGmWage, type SalarySettings, type SalarySettingsResolver } from '@/hooks/useSalarySettings'
 import { getLicenseAmountForStore, type ScenarioPricing, type StoreOwnershipType } from '@/lib/pricing'
 import {
   getThisMonthRangeJST,
@@ -83,14 +85,16 @@ export const salesDataKeys = {
 }
 
 /** 純粋なデータ取得関数（React Query の queryFn） */
-async function fetchSalesDataForPeriod(
+export async function fetchSalesDataForPeriod(
   startDateStr: string,
   endDateStr: string,
   storeIds: string[],
   ownershipFilter: 'corporate' | 'franchise' | undefined,
-  allStores: Store[]
+  allStores: Store[],
+  expectedOrgId: string
 ): Promise<SalesData> {
-  const salarySettings = await fetchSalarySettings()
+  const organizationId = await getCurrentOrganizationId()
+  if (!organizationId || organizationId !== expectedOrgId) throw new Error('組織を確認できないため売上を計算できません。再読み込みしてください。')
 
   const startDate = new Date(startDateStr + 'T00:00:00+09:00')
   const endDate = new Date(endDateStr + 'T23:59:59+09:00')
@@ -107,19 +111,15 @@ async function fetchSalesDataForPeriod(
     chartEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
   }
 
-  const [eventsData, miscResult, staffResult] = await Promise.all([
+  const [eventsData, costInputs, settingsForDate] = await Promise.all([
     salesApi.getSalesByPeriod(formatDateJST(chartStartDate), formatDateJST(chartEndDate)),
-    supabase
-      .from('miscellaneous_transactions')
-      .select('id, date, type, category, amount, description, scenario_id, store_id, schedule_event_id')
-      .gte('date', formatDateJST(chartStartDate))
-      .lte('date', formatDateJST(chartEndDate)),
-    supabase.from('staff').select('id, name, stores'),
+    salaryReportApi.salesCosts(formatDateJST(chartStartDate), formatDateJST(chartEndDate), organizationId),
+    fetchSalarySettingsForPeriod(formatDateJST(chartStartDate), formatDateJST(chartEndDate), organizationId),
   ])
 
   let events = eventsData
-  const miscTransactions = miscResult.data || []
-  const staffList = staffResult.data || []
+  const miscTransactions = costInputs.transactions
+  const staffList = costInputs.staff
   const staffByName = new Map<string, string[]>()
   staffList.forEach(s => staffByName.set(s.name, s.stores || []))
 
@@ -150,7 +150,7 @@ async function fetchSalesDataForPeriod(
     filteredStores = filteredStores.filter(s => storeIds.includes(s.id))
   }
 
-  return calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions, salarySettings, staffByName)
+  return calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions, settingsForDate, staffByName)
 }
 
 interface ActiveSalesParams {
@@ -181,6 +181,7 @@ function periodToDateRange(period: string, customStart: string, customEnd: strin
 }
 
 export function useSalesData() {
+  const { organizationId, isLoading: organizationLoading, error: organizationError } = useSalaryOrganization()
   // localStorage から初期値を復元
   const [selectedPeriod, setSelectedPeriod] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_PERIOD) || 'thisMonth' : 'thisMonth'
@@ -210,8 +211,9 @@ export function useSalesData() {
   }, [customEndDate])
 
   // 店舗一覧（React Query）
-  const { data: stores = [] } = useQuery<Store[]>({
-    queryKey: salesDataKeys.stores,
+  const { data: stores = [], error: storesError } = useQuery<Store[]>({
+    queryKey: [...salesDataKeys.stores, organizationId],
+    enabled: !!organizationId,
     queryFn: () => salesApi.getStores(),
     staleTime: 30 * 60 * 1000,
   })
@@ -226,16 +228,18 @@ export function useSalesData() {
       )
     : null
 
-  const { data: salesData = null, isLoading: loading } = useQuery<SalesData | null>({
-    queryKey: queryKey ?? ['sales-data-disabled'],
+  const { data: salesData = null, isLoading: loading, error: salesError } = useQuery<SalesData | null>({
+    queryKey: [...(queryKey ?? ['sales-data-disabled']), organizationId],
     queryFn: () => fetchSalesDataForPeriod(
       activeParams!.startDate,
       activeParams!.endDate,
       activeParams!.storeIds,
       activeParams!.ownershipFilter,
-      stores
+      stores,
+      organizationId!
     ),
-    enabled: queryKey !== null && stores.length > 0,
+    enabled: !!organizationId && queryKey !== null && stores.length > 0,
+    retry: false,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -263,9 +267,11 @@ export function useSalesData() {
     setActiveParams({ startDate: range.startDate, endDate: range.endDate, storeIds, ownershipFilter })
   }, [customStartDate, customEndDate, queryClient])
 
+  const error = organizationError ?? storesError ?? salesError ?? (!organizationLoading && !organizationId ? new Error('組織を確認できません。再ログインしてください。') : null)
   return {
-    salesData,
-    loading,
+    salesData: error ? null : salesData,
+    error,
+    loading: organizationLoading || loading,
     stores,
     dateRange,
     selectedPeriod,
@@ -299,7 +305,7 @@ function calculateHourlyWage(
 }
 
 // 売上データ計算関数
-function calculateSalesData(
+export function calculateSalesData(
   events: Array<{ 
     id?: string;
     revenue?: number; 
@@ -335,7 +341,7 @@ function calculateSalesData(
     store_id?: string | null;
     schedule_event_id?: string | null;
   }>,
-  salarySettings: SalarySettings,
+  settingsForDate: SalarySettingsResolver,
   staffByName: Map<string, string[]>  // スタッフ名→担当店舗IDの配列
 ): SalesData {
   const totalRevenue = events.reduce((sum, event) => sum + (event.revenue || 0), 0)
@@ -392,7 +398,7 @@ function calculateSalesData(
         const gmCost = applicableGmCosts.reduce((sum, gm) => sum + (gm.reward || 0), 0)
         totalGmCost += gmCost
       } else {
-        // gm_costsがない場合：デフォルト設定（global_settings）を使用
+        // gm_costsがない場合：公演日時点の給与設定を使用
         // イベントのGM数を取得（gms配列から）
         const gmRoles = (event as SalesEvent).gm_roles || {}
         
@@ -402,13 +408,13 @@ function calculateSalesData(
           
           if (role === 'reception') {
             // 受付は固定（salarySettingsから取得）
-            totalGmCost += salarySettings.reception_fixed_pay || 2000
+            totalGmCost += settingsForDate(event.date).reception_fixed_pay
           } else if (role === 'staff' || role === 'observer') {
             // スタッフ参加・見学は0円
             totalGmCost += 0
           } else {
             // main/subはデフォルト設定から計算
-            const wagePerGm = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+            const wagePerGm = calculateHourlyWage(durationMinutes, isGmTest, settingsForDate(event.date))
             totalGmCost += wagePerGm
           }
         })
@@ -665,11 +671,11 @@ function calculateSalesData(
           const role = gmRoles[gmName] || 'main'
           
           if (role === 'reception') {
-            current.gmCost += salarySettings.reception_fixed_pay || 2000
+            current.gmCost += settingsForDate(event.date).reception_fixed_pay
           } else if (role === 'staff' || role === 'observer') {
             current.gmCost += 0
           } else {
-            current.gmCost += calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+            current.gmCost += calculateHourlyWage(durationMinutes, isGmTest, settingsForDate(event.date))
           }
         })
       }
@@ -752,7 +758,7 @@ function calculateSalesData(
         
         if (role === 'reception') {
           // 受付は固定（salarySettingsから取得）
-          const receptionPay = salarySettings.reception_fixed_pay || 2000
+          const receptionPay = settingsForDate(event.date).reception_fixed_pay
           gmCost += receptionPay
           logger.log(`📊 GM[${gmName}] 受付: +${receptionPay}円`)
         } else if (role === 'staff' || role === 'observer') {
@@ -784,8 +790,8 @@ function calculateSalesData(
             logger.log(`📊 GM[${gmName}] 給与設定なし`)
           }
         } else {
-          // gm_costsがない場合：デフォルト設定（global_settings）を使用
-          const defaultWage = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+          // gm_costsがない場合：公演日時点の給与設定を使用
+          const defaultWage = calculateHourlyWage(durationMinutes, isGmTest, settingsForDate(event.date))
           gmCost += defaultWage
           logger.log(`📊 GM[${gmName}] デフォルト設定使用: +${defaultWage}円`, { durationMinutes, isGmTest })
         }
@@ -812,7 +818,7 @@ function calculateSalesData(
         logger.log('📊 GM給与計算結果:', { applicableGmCosts, gmCost })
       } else {
         // gm_costsがない場合：デフォルト設定を使用（GM1人分として計算）
-        gmCost = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+        gmCost = calculateHourlyWage(durationMinutes, isGmTest, settingsForDate(event.date))
         logger.log('📊 GM給与計算結果（デフォルト設定使用）:', { gmCost, durationMinutes, isGmTest })
       }
     }

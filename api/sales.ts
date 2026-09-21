@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { handleSalaryReportData } from './_lib/salaryReportData.js'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
 import { getParticipationFee, getLicenseAmount, sumGmCosts, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
@@ -173,6 +174,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     requireStaff(user)
 
     switch (type) {
+      case 'salary-history':
+      case 'salary-inputs':
+      case 'sales-cost-inputs':
+        return await handleSalaryReportData(req, res, user.orgId)
       case 'by-period':
         return await handleByPeriod(req, res, user.orgId)
       case 'by-store':
