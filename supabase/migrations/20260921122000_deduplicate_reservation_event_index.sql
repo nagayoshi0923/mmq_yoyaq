@@ -9,8 +9,8 @@ DO $$ BEGIN
       AND a.indkey=b.indkey AND a.indclass=b.indclass AND a.indcollation=b.indcollation
       AND a.indoption=b.indoption AND a.indisunique=b.indisunique
       AND a.indnkeyatts=b.indnkeyatts AND a.indnatts=b.indnatts
-      AND a.indpred IS NOT DISTINCT FROM b.indpred
-      AND a.indexprs IS NOT DISTINCT FROM b.indexprs
+      AND a.indpred IS NULL AND b.indpred IS NULL
+      AND a.indexprs IS NULL AND b.indexprs IS NULL
       AND a.indisvalid AND b.indisvalid
   ) THEN RAISE EXCEPTION 'reservation index definitions differ; refusing removal'; END IF;
 END $$;
