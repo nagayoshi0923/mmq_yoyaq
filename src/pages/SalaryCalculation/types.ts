@@ -49,7 +49,7 @@ export interface UnresolvedSalaryStaff {
   date: string
   scenario: string
   staffName: string
-  reason: 'unmatched' | 'duplicate'
+  reason: 'unmatched' | 'duplicate' | 'role_unconfirmed'
 }
 
 export interface MonthlySalaryData {

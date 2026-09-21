@@ -73,9 +73,9 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
 
     event.staff_assignments.forEach(assignment => {
       const staffInfo = assignment.staff_id ? staffById.get(assignment.staff_id) : undefined
-      if (assignment.resolution_status !== 'resolved' || !staffInfo) {
+      if (assignment.resolution_status !== 'resolved' || !staffInfo || assignment.role_confirmed !== true) {
         unresolvedStaff.push({ eventId: event.id, date: event.date, scenario: scenario.title || event.scenario || '(無題)',
-          staffName: assignment.staff_name || '(名前なし)', reason: assignment.resolution_status === 'duplicate' ? 'duplicate' : 'unmatched' })
+          staffName: assignment.staff_name || '(名前なし)', reason: assignment.resolution_status === 'duplicate' ? 'duplicate' : !staffInfo ? 'unmatched' : 'role_unconfirmed' })
         return
       }
 

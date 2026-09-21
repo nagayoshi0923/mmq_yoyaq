@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import type { RpcAdminDeleteReservationsByScheduleEventIdsParams } from '@/lib/rpcTypes'
 import { memoApi } from '@/lib/api/memoApi'
+import { validateScheduleImportStaff } from '@/lib/scheduleImportStaffValidation'
 import { staffApi } from '@/lib/api/staffApi'
 import { scenarioApi } from '@/lib/api/scenarioApi'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -538,6 +539,13 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       }
     })
     
+    const staffErrors = validateScheduleImportStaff(mergedEvents, staffList)
+    if (staffErrors.length > 0) {
+      setResult({ success: 0, failed: 0, errors: ['保存前の確認で停止しました。プレビューの担当者を修正して再実行してください。', ...staffErrors] })
+      setIsImporting(false)
+      return
+    }
+
     setImportProgress({ current: 0, total: mergedEvents.length })
 
     // UIが更新されるのを待つ

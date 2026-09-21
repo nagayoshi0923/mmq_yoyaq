@@ -13,6 +13,7 @@ export interface SalaryEventStaff {
   role: 'main' | 'sub' | 'reception' | 'staff' | 'observer'
   ordinal: number
   resolution_status: 'resolved' | 'unmatched' | 'duplicate'
+  role_confirmed: boolean
 }
 export interface SalaryEvent {
   id: string

@@ -3,7 +3,7 @@ import { db } from './db.js'
 import { ApiError } from './auth.js'
 
 const HISTORY_FIELDS = 'effective_from, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates'
-const EVENT_FIELDS = 'id, date, store_id, scenario, scenario_master_id, gms, gm_roles, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,role,ordinal,resolution_status), category, is_cancelled, stores:store_id(name), scenario_masters:scenario_master_id(title, official_duration)'
+const EVENT_FIELDS = 'id, date, store_id, scenario, scenario_master_id, gms, gm_roles, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,role,ordinal,resolution_status,role_confirmed), category, is_cancelled, stores:store_id(name), scenario_masters:scenario_master_id(title, official_duration)'
 
 /** 認証済みsales APIの内部専用。orgIdはリクエスト値でなくrequireAuthの結果を使う。 */
 export async function handleSalaryReportData(req: VercelRequest, res: VercelResponse, orgId: string) {
