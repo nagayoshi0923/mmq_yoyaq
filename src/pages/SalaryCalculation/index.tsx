@@ -190,13 +190,25 @@ export default function SalaryCalculation() {
             </ul>
           </div>
         )}
+        {salaryData.unresolvedStaff.length > 0 && (
+          <div role="alert" className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs sm:text-sm text-amber-900">
+            <p className="font-semibold">担当者未確認の{salaryData.unresolvedStaff.length}件が給与集計に含まれていません</p>
+            <p className="mt-1">以下は参考集計です。過去の担当者を確認してから支給額を確定してください。</p>
+            <ul className="mt-1.5 list-disc pl-5">
+              {salaryData.unresolvedStaff.slice(0, 20).map((entry, index) => (
+                <li key={`${entry.eventId}-${index}`}>{entry.date}　{entry.scenario}　{entry.staffName}（{entry.reason === 'duplicate' ? '担当名が重複' : 'スタッフ未確認'}）</li>
+              ))}
+              {salaryData.unresolvedStaff.length > 20 && <li>…ほか {salaryData.unresolvedStaff.length - 20} 件</li>}
+            </ul>
+          </div>
+        )}
         <Card className="shadow-none border">
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-start">
               <CardTitle className="text-lg">{salaryData.month}</CardTitle>
               <div className="flex gap-6 sm:gap-8">
                 <div className="text-right">
-                  <div className="text-xs sm:text-sm text-muted-foreground">合計支給額</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">{salaryData.unresolvedEvents.length || salaryData.unresolvedStaff.length ? '合計支給額（未確認分を除く参考値）' : '合計支給額'}</div>
                   <div className="text-lg sm:text-xl font-bold">
                     ¥{salaryData.totalAmount.toLocaleString()}
                   </div>

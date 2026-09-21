@@ -44,6 +44,14 @@ export interface UnresolvedSalaryEvent {
   gmCount: number
 }
 
+export interface UnresolvedSalaryStaff {
+  eventId: string
+  date: string
+  scenario: string
+  staffName: string
+  reason: 'unmatched' | 'duplicate'
+}
+
 export interface MonthlySalaryData {
   month: string
   staffList: StaffSalary[]
@@ -55,5 +63,6 @@ export interface MonthlySalaryData {
   totalGMTestCount: number
   /** scenario_master_id 未設定でタイトル解決もできず集計対象外になった公演（GMあり・非シナリオcat除く） */
   unresolvedEvents: UnresolvedSalaryEvent[]
+  unresolvedStaff: UnresolvedSalaryStaff[]
 }
 
