@@ -118,7 +118,7 @@ const events = dates.map((date, index) => ({
   id: `event-${index}`, date, store_id: 'store-a', scenario: '作品', category: 'open',
   gms: ['メイン', 'サブ', '受付', '参加', '見学'],
   gm_roles: { メイン: 'main', サブ: 'sub', 受付: 'reception', 参加: 'staff', 見学: 'observer' },
-  staff_assignments: ['メイン', 'サブ', '受付', '参加', '見学'].map((name, i) => ({ staff_id: `${i}`, staff_name: name, ordinal: i + 1, role: ['main', 'sub', 'reception', 'staff', 'observer'][i], resolution_status: 'resolved' })),
+  staff_assignments: ['メイン', 'サブ', '受付', '参加', '見学'].map((name, i) => ({ staff_id: `${i}`, staff_name: name, ordinal: i + 1, role: ['main', 'sub', 'reception', 'staff', 'observer'][i], resolution_status: 'resolved', role_confirmed: true })),
   scenarios: { duration: 180 }, scenario_masters: { title: '作品', official_duration: 180 },
   stores: { name: '店舗' }, is_cancelled: false,
 }))
@@ -201,7 +201,7 @@ describe('公演担当のID参照', () => {
     mock.from.mockImplementation(table => query(table === 'staff' ? staff : table === 'salary_settings_history' ? (historyCalls++ === 0 ? old : []) : rows))
   }
   it('名前が変更されてもIDで同一スタッフに集計する', async () => {
-    fixture([{...events[0], gms: ['旧名'], gm_roles: {}, staff_assignments: [{staff_id: '0',staff_name: '旧名',role: 'main',ordinal: 1,resolution_status: 'resolved'}]}])
+    fixture([{...events[0], gms: ['旧名'], gm_roles: {}, staff_assignments: [{staff_id: '0',staff_name: '旧名',role: 'main',ordinal: 1,resolution_status: 'resolved', role_confirmed: true}]}])
     const result = await fetchSalaryData(2020,1,[])
     expect(result.staffList[0].staffName).toBe('改名後')
     expect(result.totalAmount).toBe(4000)
@@ -209,16 +209,22 @@ describe('公演担当のID参照', () => {
   })
   it('未照合や重複を名前で推測せず警告に含める', async () => {
     fixture([{...events[0], gms: ['改名後','重複'], staff_assignments: [
-      {staff_id: null,staff_name: '改名後',role: 'main',ordinal: 1,resolution_status: 'unmatched'},
-      {staff_id: null,staff_name: '重複',role: 'sub',ordinal: 2,resolution_status: 'duplicate'},
+      {staff_id: null,staff_name: '改名後',role: 'main',ordinal: 1,resolution_status: 'unmatched', role_confirmed: true},
+      {staff_id: null,staff_name: '重複',role: 'sub',ordinal: 2,resolution_status: 'duplicate', role_confirmed: true},
     ]}])
     const result = await fetchSalaryData(2020,1,[])
     expect(result.totalAmount).toBe(0)
     expect(result.unresolvedStaff.map(entry => entry.reason)).toEqual(['unmatched','duplicate'])
   })
   it('取得したスタッフに存在しないIDを他の同名スタッフに置き換えない', async () => {
-    fixture([{...events[0], gms: ['改名後'], staff_assignments: [{staff_id: 'foreign',staff_name: '改名後',role: 'main',ordinal: 1,resolution_status: 'resolved'}]}])
+    fixture([{...events[0], gms: ['改名後'], staff_assignments: [{staff_id: 'foreign',staff_name: '改名後',role: 'main',ordinal: 1,resolution_status: 'resolved', role_confirmed: true}]}])
     expect((await fetchSalaryData(2020,1,[])).unresolvedStaff).toHaveLength(1)
+  })
+  it('役割キーのずれをメインGM報酬として確定しない', async () => {
+    fixture([{...events[0],gms:['改名後'],staff_assignments:[{staff_id:'0',staff_name:'改名後',role:'main',ordinal:1,resolution_status:'resolved',role_confirmed:false}]}])
+    const result=await fetchSalaryData(2020,1,[])
+    expect(result.totalAmount).toBe(0)
+    expect(result.unresolvedStaff[0].reason).toBe('role_unconfirmed')
   })
   it('関係の欠損は0名と誤認せず取得エラーにする', async () => {
     fixture([{...events[0], staff_assignments: []}])
