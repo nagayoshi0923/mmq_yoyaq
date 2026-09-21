@@ -364,6 +364,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
     .eq('organization_id', user.orgId)
 
   if (error) {
+    if (error.code === '23503') return res.status(409).json({ error: '公演などの記録があるスタッフは削除できません。在籍状態を非アクティブに変更してください。' })
     console.error('[staff:delete] DB error:', error)
     return res.status(500).json({ error: 'スタッフの削除に失敗しました', detail: error.message })
   }
@@ -378,28 +379,7 @@ async function syncRenamedStaffReferences(
   oldName: string,
   newName: string,
 ) {
-  // schedule_events.gms 配列の同期
-  try {
-    const { data: events } = await database
-      .from('schedule_events')
-      .select('id, gms')
-      .eq('organization_id', orgId)
-      .contains('gms', [oldName])
-    if (events && events.length > 0) {
-      await Promise.all(
-        events.map((ev: { id: string; gms: string[] | null }) => {
-          const nextGms = (ev.gms ?? []).map((g) => (g === oldName ? newName : g))
-          return database
-            .from('schedule_events')
-            .update({ gms: nextGms })
-            .eq('id', ev.id)
-            .eq('organization_id', orgId)
-        }),
-      )
-    }
-  } catch (e) {
-    console.warn('[staff:syncRenamed] schedule_events sync warn:', e)
-  }
+  // 公演の名前と役割はDBトリガーでスタッフ改名と同時に更新する。
 
   // reservations.assigned_staff / gm_staff の同期
   try {

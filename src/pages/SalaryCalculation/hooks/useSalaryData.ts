@@ -4,7 +4,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { useSalaryOrganization } from '@/hooks/useSalaryOrganization'
 import { logger } from '@/utils/logger'
 import { fetchSalarySettingsForPeriod, calculateGmWage } from '@/hooks/useSalarySettings'
-import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail, UnresolvedSalaryEvent } from '../types'
+import type { MonthlySalaryData, StaffSalary, UnresolvedSalaryEvent, UnresolvedSalaryStaff } from '../types'
 
 // シナリオ不要カテゴリ（出張・場所貸し・MTG）。これらはマスタ未解決でも警告対象にしない
 const NON_SCENARIO_CATEGORIES = ['offsite', 'venue_rental', 'venue_rental_free', 'mtg']
@@ -30,6 +30,7 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
   logger.log('取得データ:', { staffData: staffData?.length, gmData: gmData?.length })
 
   const staffMap = new Map<string, StaffSalary>()
+  const staffById = new Map(staffData.map(staff => [staff.id, staff]))
 
   // フォールバック用: 同月内で scenario_master が解決済みの公演から「タイトル→マスタ情報」を学習。
   // scenario_master_id が未設定（貸切作成時に付与漏れ等）でも、同名公演がマスタ解決できていれば集計に拾う。
@@ -44,9 +45,13 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
 
   // タイトル解決もできず集計対象外になった公演（GMあり・非シナリオcat除く）を記録し、画面で警告表示する
   const unresolvedEvents: UnresolvedSalaryEvent[] = []
+  const unresolvedStaff: UnresolvedSalaryStaff[] = []
 
   gmData?.forEach(event => {
     if (!event.gms || !Array.isArray(event.gms) || event.gms.length === 0) return
+    if (!Array.isArray(event.staff_assignments) || event.staff_assignments.length !== event.gms.length) {
+      throw new Error('公演の担当者データが一致しないため給与を計算できません。再読み込みしてください。')
+    }
     let scenario = event.scenario_masters as unknown as { title: string; official_duration: number } | null
     // scenario_master_id 未設定/解決不可でも、フリーテキストの scenario からタイトル解決して集計する
     // （これが無いと「スケジュールにあるのに給与に出ない」公演がサイレントに漏れる）
@@ -63,13 +68,16 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
       return
     }
 
-    const gmAssignments: any[] = []
     const isGMTest = event.category === 'gmtest'
     const isCancelled = event.is_cancelled === true
 
-    event.gms.forEach((gmName: string, index: number) => {
-      const staffInfo = staffData?.find(s => s.name === gmName)
-      if (!staffInfo) return
+    event.staff_assignments.forEach(assignment => {
+      const staffInfo = assignment.staff_id ? staffById.get(assignment.staff_id) : undefined
+      if (assignment.resolution_status !== 'resolved' || !staffInfo) {
+        unresolvedStaff.push({ eventId: event.id, date: event.date, scenario: scenario.title || event.scenario || '(無題)',
+          staffName: assignment.staff_name || '(名前なし)', reason: assignment.resolution_status === 'duplicate' ? 'duplicate' : 'unmatched' })
+        return
+      }
 
       let staff = staffMap.get(staffInfo.id)
       if (!staff) {
@@ -96,8 +104,7 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
       let pay = 0
       let gmRole = 'GM'
 
-      const gmRoles = event.gm_roles || {}
-      const roleType = gmRoles[gmName] || (index === 0 ? 'main' : 'sub')
+      const roleType = assignment.role
 
       if (roleType === 'reception') {
         gmRole = '受付'
@@ -125,14 +132,9 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
       } else if (roleType === 'staff' || roleType === 'observer') {
         pay = 0
       } else {
-        const assignment = gmAssignments.find((a: any) => a.role === roleType)
-        if (assignment && assignment.reward) {
-          pay = assignment.reward
-        } else {
-          const duration = scenario.official_duration || 180
-          pay = calculateGmWage(duration, isGMTest, settingsForDate(event.date))
-          gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
-        }
+        const duration = scenario.official_duration || 180
+        pay = calculateGmWage(duration, isGMTest, settingsForDate(event.date))
+        gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
       }
 
       staff.totalGMCount += 1
@@ -186,7 +188,8 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
     totalEventCount,
     totalNormalCount,
     totalGMTestCount,
-    unresolvedEvents
+    unresolvedEvents,
+    unresolvedStaff
   }
 }
 
