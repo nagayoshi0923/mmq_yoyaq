@@ -1,5 +1,5 @@
 import { confirmationTemplates } from './_lib/confirmationTemplates.js'
-import { recruitmentSettings } from './_lib/recruitmentSettings.js'
+import { recruitmentSettings, commonRecruitmentSettings } from './_lib/recruitmentSettings.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
@@ -217,6 +217,8 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   switch (type) {
     case 'confirmation-templates':
       return await confirmationTemplates(req, res, user)
+    case 'common-recruitment-settings':
+      return await commonRecruitmentSettings(req, res, user)
     case 'recruitment-settings':
       return await recruitmentSettings(req, res, user)
     case 'scenario-booking-cutoff':
@@ -246,6 +248,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const action = req.query.action as string | undefined
   if (action === 'confirmation-templates') return await confirmationTemplates(req, res, user, true)
+  if (action === 'common-recruitment-settings') return await commonRecruitmentSettings(req, res, user, true)
   if (action === 'recruitment-settings') return await recruitmentSettings(req, res, user, true)
   if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)
   if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)

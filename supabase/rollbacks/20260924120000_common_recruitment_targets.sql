@@ -1,3 +1,5 @@
+-- 適用前に新設定・履歴をバックアップする。旧アプリへ戻してから実行。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
  RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
  LANGUAGE plpgsql
@@ -16,7 +18,6 @@ DECLARE
   v_unsynced_staff INTEGER;
   v_max INTEGER;
   v_min INTEGER;
-  v_missing_limit INTEGER;
   v_result TEXT;
   v_now TIMESTAMPTZ;
   v_check_time TIMESTAMPTZ;
@@ -41,9 +42,7 @@ BEGIN
       se.gm_roles,
       se.is_recruitment_extended,
       (pol.one_seat_enabled AND COALESCE(os.recruitment_extension_enabled,true)) AS one_seat_enabled,
-      rd.max_missing_participants AS saved_max_missing,
-      CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_mode ELSE COALESCE(common.mode,'count') END AS target_mode,
-      CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_value ELSE COALESCE(common.value,os.recruitment_max_missing,pol.max_missing_participants,2) END AS target_value,
+      COALESCE(rd.max_missing_participants,os.recruitment_max_missing,pol.max_missing_participants,2) AS max_missing_participants,
       COALESCE(os.recruitment_deadline_minutes,90) AS deadline_minutes,
       pol.customer_site_url,
       rd.deadline AS recruitment_deadline,
@@ -78,7 +77,6 @@ BEGIN
       (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz AS event_datetime
     FROM schedule_events se
     LEFT JOIN performance_recruitment_policies pol ON pol.organization_id=se.organization_id
-    LEFT JOIN organization_recruitment_settings common ON common.organization_id=se.organization_id
     LEFT JOIN performance_recruitment_deadlines rd ON rd.schedule_event_id = se.id
       AND rd.organization_id = se.organization_id
     LEFT JOIN LATERAL (SELECT sc.* FROM organization_scenarios sc WHERE sc.organization_id=se.organization_id AND
@@ -145,12 +143,9 @@ BEGIN
       v_min := GREATEST(v_max, 1);
     END IF;
 
-    -- 案内済み条件は固定。未案内だけ最新の共通/個別設定を使う。
-    v_missing_limit := COALESCE(v_event.saved_max_missing, recruitment_missing_limit(v_min,v_event.target_mode,v_event.target_value));
-
     -- 再確定後の再欠員は同じ案内済み期限で再開。通知と辞退リンクは周回別に保持。
     IF v_status = 'confirmed'
-      AND v_min-v_current BETWEEN 1 AND v_missing_limit THEN
+      AND v_min-v_current BETWEEN 1 AND v_event.max_missing_participants THEN
       UPDATE performance_recruitment_deadlines SET status='active', cycle=cycle+1,
         was_confirmed=true, updated_at=now()
         WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id
@@ -167,13 +162,13 @@ BEGIN
 
     -- 社長確認済み: 最低開催人数まであと1〜2人なら、予約の増加履歴によらず90分前まで（組織設定で段階適用）。
     IF (v_reopened AND v_deadline>v_now) OR (v_event.one_seat_enabled AND NOT v_has_deadline
-      AND v_min-v_current BETWEEN 1 AND v_missing_limit
+      AND v_min-v_current BETWEEN 1 AND v_event.max_missing_participants
       AND v_event.event_datetime - make_interval(mins=>v_event.deadline_minutes) > v_now) THEN
       IF NOT v_reopened THEN
       PERFORM set_performance_recruitment_deadline(v_event.organization_id,v_event.id,
         v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes),format('最低開催人数まであと%s人のため、開始%s分前まで追加募集',v_min-v_current,v_event.deadline_minutes));
         v_deadline := v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes);
-        UPDATE performance_recruitment_deadlines SET max_missing_participants=v_missing_limit WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id;
+        UPDATE performance_recruitment_deadlines SET max_missing_participants=v_event.max_missing_participants WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id;
       END IF;
       INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
       SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
@@ -273,13 +268,35 @@ BEGIN
     v_details;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) TO service_role;
 
-CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
-RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
-LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
- SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
-$$;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines() TO service_role;
+CREATE OR REPLACE FUNCTION public.save_scenario_recruitment_settings(p_organization_id uuid, p_master_id uuid, p_actor_id uuid, p_enabled boolean, p_max_missing integer, p_deadline_minutes integer, p_expected_updated_at timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE s organization_scenarios%ROWTYPE; before_value jsonb; after_value jsonb;
+BEGIN
+ IF p_enabled IS NULL OR p_max_missing IS NULL OR p_max_missing NOT BETWEEN 1 AND 20 OR p_deadline_minutes IS NULL OR p_deadline_minutes NOT BETWEEN 1 AND 239 OR p_actor_id IS NULL THEN
+  RETURN jsonb_build_object('success',false,'error','INVALID_SETTINGS');
+ END IF;
+ SELECT * INTO s FROM organization_scenarios WHERE organization_id=p_organization_id AND scenario_master_id=p_master_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','NOT_FOUND'); END IF;
+ IF s.updated_at IS DISTINCT FROM p_expected_updated_at THEN RETURN jsonb_build_object('success',false,'error','CONFLICT'); END IF;
+ before_value:=jsonb_build_object('enabled',s.recruitment_extension_enabled,'max_missing',s.recruitment_max_missing,'deadline_minutes',s.recruitment_deadline_minutes);
+ after_value:=jsonb_build_object('enabled',p_enabled,'max_missing',p_max_missing,'deadline_minutes',p_deadline_minutes);
+ IF before_value=after_value THEN RETURN jsonb_build_object('success',true,'unchanged',true); END IF;
+ UPDATE organization_scenarios SET recruitment_extension_enabled=p_enabled,recruitment_max_missing=p_max_missing,recruitment_deadline_minutes=p_deadline_minutes,updated_at=clock_timestamp() WHERE id=s.id AND organization_id=p_organization_id;
+ INSERT INTO scenario_recruitment_setting_history(organization_id,organization_scenario_id,actor_id,before_settings,after_settings) VALUES(p_organization_id,s.id,p_actor_id,before_value,after_value);
+ RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+
+DROP FUNCTION public.save_scenario_recruitment_settings_v2(uuid,uuid,uuid,boolean,text,text,integer,integer,timestamptz);
+DROP FUNCTION public.save_organization_recruitment_settings(uuid,uuid,text,integer,timestamptz);
+DROP FUNCTION public.recruitment_missing_limit(integer,text,integer);
+ALTER TABLE public.organization_scenarios DROP COLUMN recruitment_target_source,DROP COLUMN recruitment_target_mode,DROP COLUMN recruitment_target_value;
+DROP TABLE public.organization_recruitment_setting_history;
+DROP TABLE public.organization_recruitment_settings;
+COMMIT;
