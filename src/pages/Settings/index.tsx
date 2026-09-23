@@ -25,6 +25,7 @@ import { OrganizationInfoSettings } from './pages/OrganizationInfoSettings'
 import { CategoryAuthorManagementSettings } from './pages/CategoryAuthorManagementSettings'
 import { OrganizationDesignSettings } from './pages/OrganizationDesignSettings'
 import { FAQSettings } from './pages/FAQSettings'
+import { RecruitmentSettings } from './pages/RecruitmentSettings'
 import { BlogSettings } from './pages/BlogSettings'
 
 export function Settings() {
@@ -33,7 +34,7 @@ export function Settings() {
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
+  const noStoreSelectorPages = ['recruitment', 'organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
   const showStoreSelector = activeTab !== 'cancellation-billing' && !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -41,6 +42,8 @@ export function Settings() {
     const storeId = selectedStoreId === 'all' ? '' : selectedStoreId
 
     switch (activeTab) {
+      case 'recruitment':
+        return <RecruitmentSettings />
       case 'organization-info':
         return <OrganizationInfoSettings />
       case 'organization-design':

@@ -1386,7 +1386,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       case 'basic':
         return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
-        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><RecruitmentSettingsSection masterId={currentMasterId} /><BookingCutoffSection masterId={currentMasterId} /></div>
+        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /></div>
       case 'characters':
         return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':
