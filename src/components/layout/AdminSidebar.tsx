@@ -1,3 +1,4 @@
+import { SETTINGS_PAGES } from '@/components/settings/settingsCatalog'
 /**
  * 管理画面用左サイドバーナビゲーション
  * - カテゴリごとに折り畳み可能
@@ -229,70 +230,19 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: '設定',
       icon: Settings,
       items: [
-        {
-          id: 'cat-org', label: '組織', icon: Building2,
-          path: `/${slug}/settings?tab=organization-info`,
-          roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: [
-            { id: 'organization-info',   label: '組織情報',        path: `/${slug}/settings?tab=organization-info` },
-            { id: 'organization-design', label: '組織デザイン',    path: `/${slug}/settings?tab=organization-design` },
-            { id: 'faq',                 label: 'FAQ設定',         path: `/${slug}/settings?tab=faq` },
-            { id: 'blog',                label: 'ブログ・お知らせ', path: `/${slug}/settings?tab=blog` },
-          ],
-        },
-        {
-          id: 'cat-operations', label: '運用と案内', icon: Settings,
-          path: `/${slug}/settings?tab=recruitment`,
-          roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: [
-            { id: 'recruitment', label: '開催判断・追加募集', path: `/${slug}/settings?tab=recruitment` },
-          ],
-        },
-        {
-          id: 'cat-store', label: '店舗・予約', icon: Store,
-          path: `/${slug}/settings?tab=store-basic`,
-          roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: [
-            { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
-            { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
-            { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
-            { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
-            { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
-            { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
-          ],
-        },
-        {
-          id: 'cat-staff', label: 'スタッフ', icon: UserCog,
-          path: `/${slug}/settings?tab=shift`,
-          roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: [
-            { id: 'shift',         label: 'シフト設定',   path: `/${slug}/settings?tab=shift` },
-            { id: 'salary',        label: '報酬',         path: `/${slug}/settings?tab=salary` },
-          ],
-        },
-        {
-          id: 'cat-mail', label: 'メール・通知', icon: Mail,
-          path: `/${slug}/settings?tab=email`,
-          roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: [
-            { id: 'email',         label: 'メール設定',    path: `/${slug}/settings?tab=email` },
-            { id: 'notifications', label: '通知設定',      path: `/${slug}/settings?tab=notifications` },
-          ],
-        },
-        {
-          id: 'cat-system', label: 'システム', icon: Shield,
-          path: `/${slug}/settings?tab=system`,
-          roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: [
-            { id: 'system', label: 'システム設定', path: `/${slug}/settings?tab=system` },
-            { id: 'data',   label: 'データ管理',  path: `/${slug}/settings?tab=data` },
-          ],
-        },
+        { id: 'settings-overview', label: '設定一覧', icon: Settings, path: `/${slug}/settings?tab=overview`, roles: ['admin', 'license_admin'] },
+        ...(['organization', 'store'] as const).map(scope => ({
+          id: `cat-${scope}`, label: scope === 'organization' ? '組織共通' : '店舗別', icon: scope === 'organization' ? Building2 : Store,
+          path: `/${slug}/settings?tab=overview&scope=${scope}`, roles: ['admin', 'license_admin'], isGroupHeader: true,
+          subItems: SETTINGS_PAGES.filter(page => page.scope === scope && !page.legacy).map(page => ({ id: page.id, label: page.label, path: `/${slug}/settings?tab=${page.id}` })),
+        })),
+        { id: 'settings-scenario', label: '作品別', icon: Settings, path: `/${slug}/settings?tab=overview&scope=scenario`, roles: ['admin', 'license_admin'] },
+        { id: 'settings-performance', label: '公演別', icon: Settings, path: `/${slug}/settings?tab=overview&scope=performance`, roles: ['admin', 'license_admin'] },
       ],
     },
     {
       id: 'mmq',
-      label: 'MMQ運営',
+      label: 'MMQ全体の管理',
       icon: Shield,
       items: [
         { id: 'accounts', label: 'ユーザー管理', icon: UserCog, path: `/${slug}/accounts?tab=users`, roles: ['license_admin'] },
@@ -346,7 +296,8 @@ export const AdminSidebar = memo(function AdminSidebar() {
     }
     if (query) {
       const tabParam = new URLSearchParams(query).get('tab')
-      return pathname === basePath && currentTab === tabParam
+      const targetScope = new URLSearchParams(query).get('scope')
+      return pathname === basePath && currentTab === tabParam && new URLSearchParams(search).get('scope') === targetScope
     }
     return pathname === basePath || pathname.startsWith(basePath + '/')
   }, [location, slug])

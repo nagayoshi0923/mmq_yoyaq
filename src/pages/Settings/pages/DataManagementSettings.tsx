@@ -50,6 +50,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
   const [formData, setFormData] = useState<DataManagementData>({
     id: '', store_id: '', export_format: 'excel'
   })
+  const [settingsLoadError, setSettingsLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -70,10 +71,13 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     try {
       const storesData = await storeApi.getAll()
       if (storesData && storesData.length > 0) {
+        if (storeId && !storesData.some(s => s.id === storeId)) throw new Error('選択した店舗を確認できません')
+        const initialStoreId = storeId || storesData[0].id
         setStores(storesData)
-        await fetchSettings(storesData[0].id)
+        await fetchSettings(initialStoreId)
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('データ取得エラー:', error)
       showToast.error('データの取得に失敗しました')
     } finally {
@@ -93,7 +97,8 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
       } else {
         setFormData({ id: '', store_id: storeId, export_format: 'excel' })
       }
-    } catch (error) { logger.error('設定取得エラー:', error) }
+    } catch (error) { setSettingsLoadError(true)
+      logger.error('設定取得エラー:', error) }
   }
 
   const handleSave = async () => {
@@ -250,6 +255,8 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
       showToast.error('エクスポートに失敗しました')
     } finally { setExportingScenarios(false) }
   }
+
+  if (settingsLoadError) return <p role="alert">設定を取得できませんでした。ページを再読み込みしてください。</p>
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
 
