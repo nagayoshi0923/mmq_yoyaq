@@ -241,6 +241,14 @@ export const AdminSidebar = memo(function AdminSidebar() {
           ],
         },
         {
+          id: 'cat-operations', label: '運用と案内', icon: Settings,
+          path: `/${slug}/settings?tab=recruitment`,
+          roles: ['admin', 'license_admin'], isGroupHeader: true,
+          subItems: [
+            { id: 'recruitment', label: '開催判断・追加募集', path: `/${slug}/settings?tab=recruitment` },
+          ],
+        },
+        {
           id: 'cat-store', label: '店舗・予約', icon: Store,
           path: `/${slug}/settings?tab=store-basic`,
           roles: ['admin', 'license_admin'], isGroupHeader: true,
