@@ -142,7 +142,7 @@ export function PrivateBookingRequest({
   }, [initialStoreIds, displayStores, scenarioAvailableSet])
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
-  const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug })
+  const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug, scenarioId })
 
   // 追加可能な日付の範囲（受付締切日数後から候補取得と同じ 180 日ホライズンまで）
   const dateRange = useMemo(() => {

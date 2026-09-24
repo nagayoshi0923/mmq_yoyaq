@@ -29,7 +29,7 @@ describe('追加の人数・同日件数制限を廃止した予約判定', () =
   afterEach(() => vi.useRealTimers())
   it('古い人数・件数設定が1でも、残席以内の12名を許可し顧客の件数を照会しない', async () => {
     expect(await check(12)).toEqual({ allowed: true })
-    expect(state.tables).toEqual(['schedule_events_public', 'reservation_settings'])
+    expect(state.tables).toEqual(['schedule_events_public'])
   })
   it('公演の定員を超える人数は拒否する', async () => {
     expect(await check(13)).toMatchObject({ allowed: false, reason: '最大参加人数は12名です' })
@@ -43,11 +43,11 @@ describe('追加の人数・同日件数制限を廃止した予約判定', () =
     state.event.current_participants = 12
     expect(await check(1)).toMatchObject({ allowed: false, reason: 'この公演は満席です' })
   })
-  it('受付締切と事前予約可能期間を維持する', async () => {
+  it('公演の受付締切は維持し、旧事前予約可能日数は使わない', async () => {
     state.deadline = '2026-09-23T00:00:00Z'
     expect(await check(1)).toMatchObject({ allowed: false, reason: '予約の受付期限を過ぎています' })
     state.deadline = '2026-10-01T01:00:00Z'; state.settings.advance_booking_days = 1
-    expect(await check(1)).toMatchObject({ allowed: false, reason: '最大1日前まで予約可能です' })
+    expect(await check(1)).toEqual({ allowed: true })
   })
   it('取得失敗を予約許可にしない', async () => {
     state.error = true

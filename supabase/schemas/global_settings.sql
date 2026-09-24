@@ -1,6 +1,7 @@
 -- 正規ソース: supabase/schemas/global_settings.sql
 -- 最終更新: 2026-04-10
 CREATE TABLE public.global_settings (
+  private_booking_deadline_days INTEGER DEFAULT 14 CHECK (private_booking_deadline_days BETWEEN 0 AND 90),
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   shift_submission_start_day INTEGER DEFAULT 1,
   shift_submission_end_day INTEGER DEFAULT 15,
