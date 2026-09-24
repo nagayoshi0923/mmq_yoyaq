@@ -8,9 +8,9 @@ import '../../src/index.css'
 import '../../src/components/modals/ScenarioEditDialogV2.css'
 const fixture = { judgment_deadline: '2026-09-08T16:30:00+09:00', judgment_status: 'active', booking_deadline: '2026-09-08T18:00:00+09:00', effective_booking_deadline: '2026-09-08T16:30:00+09:00', override_minutes: null as number | null, default_minutes: 0, updated_at: '2026-09-08T00:00:00+09:00' }
 let scenarioMinutes: number | null = null
-apiClient.get = async (path) => { if (path.includes('scenario-booking-cutoff')) return { setting: { booking_cutoff_minutes: scenarioMinutes, updated_at: fixture.updated_at }, can_edit: true } as never; if (!path.startsWith('/api/schedule?')) throw Error('wrong path'); return { window: fixture, can_edit: true } as never }
+apiClient.get = async (path) => { if (path.includes('recruitment-settings')) return {setting:null,common:{enabled:true,deadline_minutes:90,mode:'count',value:2},history:[],can_edit:true} as never; if (path.includes('booking-cutoff-settings')) return { setting: { booking_cutoff_minutes: scenarioMinutes, updated_at: fixture.updated_at }, common_minutes: 0, can_edit: true } as never; if (!path.startsWith('/api/schedule?')) throw Error('wrong path'); return { window: fixture, can_edit: true } as never }
 apiClient.patch = async (path, body) => {
- if (path.includes('scenario-booking-cutoff')) { scenarioMinutes=(body as { minutes: number | null }).minutes; return { success: true } as never }
+ if (path.includes('booking-cutoff-settings')) { scenarioMinutes=(body as { minutes: number | null }).minutes; return { success: true } as never }
  if (!path.startsWith('/api/schedule?action=booking-cutoff')) throw Error('wrong path')
  fixture.override_minutes = (body as { minutes: number | null }).minutes
  fixture.booking_deadline = fixture.override_minutes === null ? '2026-09-08T18:00:00+09:00' : '2026-09-08T17:30:00+09:00'

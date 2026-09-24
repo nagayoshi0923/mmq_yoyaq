@@ -31,6 +31,8 @@ test('シナリオで共通から個別へ切替え、割合と人数を保存�
  await page.getByRole('option', { name: '割合で指定' }).click()
  await page.getByLabel('不足人数の割合').fill('20')
  await expect(page.getByTestId('recruitment-example')).toContainText('不足1人以内')
+ await page.getByLabel('期限の設定元').click()
+ await page.getByRole('option', { name: 'このシナリオだけ指定', exact: true }).click()
  await page.getByLabel('追加募集の期限').fill('60')
  await page.getByRole('button', { name: '追加募集設定を保存' }).click()
  await expect(page.getByRole('status')).toContainText('保存しました')
