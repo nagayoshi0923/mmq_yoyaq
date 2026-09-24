@@ -106,7 +106,7 @@ export function Settings() {
     <AppLayout
       currentPage="settings"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      containerPadding="px-4 md:px-6 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       <PageHeader
