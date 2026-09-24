@@ -58,3 +58,5 @@ $function$;
 
 
 -- 新列は保持。旧フロントへ戻した後に実行し、新しい個別指定を参照しない状態に戻す。
+DROP TRIGGER IF EXISTS enforce_private_group_candidate_deadline ON public.private_group_candidate_dates;
+DROP TRIGGER IF EXISTS enforce_private_reservation_deadline ON public.reservations;

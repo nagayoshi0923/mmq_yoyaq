@@ -36,7 +36,7 @@ export function PrivateBookingDeadlineSection({ masterId, common = false }: { ma
     if (value !== null && (days.trim() === '' || !Number.isInteger(value) || value < 0 || value > 90)) { setError('0〜90日の整数を入力してください。'); return }
     setSaving(true); setError(''); setMessage('')
     try {
-      await apiClient.patch(`/api/schedule?action=private-booking-settings${common ? '' : `&id=${encodeURIComponent(masterId!)}`}`, { days: value, expected_updated_at: data.setting?.updated_at ?? null })
+      await apiClient.patch(`/api/schedule?action=private-booking-settings${common ? '' : `&id=${encodeURIComponent(masterId!)}`}`, { days: value, expected_days: data.setting?.private_booking_deadline_days ?? null, expected_updated_at: data.setting?.updated_at ?? null })
       await Promise.all([
         client.invalidateQueries({ queryKey: ['private-booking-deadline-days'], refetchType: 'all' }),
         client.invalidateQueries({ queryKey: ['booking-data'], refetchType: 'all' }),
