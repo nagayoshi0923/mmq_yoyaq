@@ -18,9 +18,13 @@ export async function privateBookingSettings(req: VercelRequest, res: VercelResp
     const updated_at = new Date().toISOString()
     if (masterId) {
       if (!revision) return res.status(409).json({ error: '再読込してください' })
-      const { data, error } = await db!.from('organization_scenarios')
+      const expected = req.body?.expected_days
+      if (expected !== null && (!Number.isInteger(expected) || expected < 0 || expected > 90)) return res.status(400).json({ error: '読み込んだ締切を確認できません。再読込してください' })
+      let query = db!.from('organization_scenarios')
         .update({ private_booking_deadline_days: days, updated_at }).eq('organization_id', user.orgId)
-        .eq('scenario_master_id', masterId).eq('updated_at', revision).select('id').maybeSingle()
+        .eq('scenario_master_id', masterId)
+      query = expected === null ? query.is('private_booking_deadline_days', null) : query.eq('private_booking_deadline_days', expected)
+      const { data, error } = await query.select('id').maybeSingle()
       if (error) return res.status(500).json({ error: '締切を保存できませんでした' })
       if (!data) return res.status(409).json({ error: 'シナリオが変更されています。再読込してください' })
     } else if (revision) {

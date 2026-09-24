@@ -77,3 +77,5 @@ CREATE INDEX idx_reservations_scenario_master_id ON public.reservations USING bt
 CREATE INDEX idx_reservations_schedule_event_id ON public.reservations USING btree (schedule_event_id);
 CREATE INDEX idx_reservations_source ON public.reservations USING btree (reservation_source);
 CREATE INDEX idx_reservations_status ON public.reservations USING btree (status);
+
+CREATE TRIGGER enforce_private_reservation_deadline BEFORE INSERT OR UPDATE OF candidate_datetimes,scenario_id,organization_id,reservation_source ON public.reservations FOR EACH ROW EXECUTE FUNCTION public.enforce_private_reservation_deadline();

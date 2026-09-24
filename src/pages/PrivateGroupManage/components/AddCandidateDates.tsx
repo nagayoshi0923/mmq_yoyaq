@@ -315,7 +315,7 @@ export function AddCandidateDates({
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: string }).message)
           : '候補日の保存に失敗しました'
-      showToast.error(msg)
+      showToast.error(err && typeof err === 'object' && 'code' in err && err.code === 'P0045' ? '受付締切を過ぎた候補日があります。日程を選び直してください。' : msg)
     } finally {
       setSaving(false)
     }

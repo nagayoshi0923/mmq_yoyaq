@@ -10,12 +10,12 @@ const revision = '2026-09-24T00:00:00Z'
 function response() { const r = { status: vi.fn(), json: vi.fn(), setHeader: vi.fn() }; r.status.mockReturnValue(r); return r }
 async function save(days: unknown, id: string | undefined = master, actor = user) {
  const r = response()
- await privateBookingSettings({ query: { id }, body: { days, expected_updated_at: revision, organization_id: 'other-org' } } as unknown as VercelRequest, r as unknown as VercelResponse, actor, true)
+ await privateBookingSettings({ query: { id }, body: { days, expected_updated_at: revision, expected_days: null, organization_id: 'other-org' } } as unknown as VercelRequest, r as unknown as VercelResponse, actor, true)
  return r
 }
 beforeEach(() => {
  vi.clearAllMocks(); mocks.result = { data: { id: 'saved' }, error: null }
- const chain = { select: () => chain, eq: mocks.eq, update: mocks.update, insert: mocks.insert, maybeSingle: async () => mocks.result }
+ const chain = { select: () => chain, eq: mocks.eq, is: mocks.eq, update: mocks.update, insert: mocks.insert, maybeSingle: async () => mocks.result }
  mocks.eq.mockReturnValue(chain); mocks.update.mockReturnValue(chain); mocks.insert.mockResolvedValue(mocks.result); mocks.from.mockReturnValue(chain)
 })
 describe('貸切締切設定の権限と継承', () => {
@@ -24,10 +24,10 @@ describe('貸切締切設定の権限と継承', () => {
  })
  it('組織なしでは保存しない', async () => { expect((await save(7, master, { ...user, orgId: '' })).status).toHaveBeenCalledWith(403) })
  it.each([-1,91,1.5,'7',undefined])('不正値%sは保存しない', async days => { expect((await save(days)).status).toHaveBeenCalledWith(400); expect(mocks.update).not.toHaveBeenCalled() })
- it('0日を継承扱いせず保存し、認証済み組織と更新前版で限定する', async () => {
+ it('0日を継承扱いせず保存し、認証済み組織と更新前の締切で限定する', async () => {
   expect((await save(0)).status).toHaveBeenCalledWith(200)
   expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ private_booking_deadline_days: 0 }))
-  expect(mocks.eq).toHaveBeenCalledWith('organization_id', 'own-org'); expect(mocks.eq).toHaveBeenCalledWith('updated_at', revision)
+  expect(mocks.eq).toHaveBeenCalledWith('organization_id', 'own-org'); expect(mocks.eq).toHaveBeenCalledWith('private_booking_deadline_days', null)
  })
  it('共通設定に戻すとNULLを保存する', async () => { await save(null); expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ private_booking_deadline_days: null })) })
  it('組織共通値をNULLにできない', async () => {
