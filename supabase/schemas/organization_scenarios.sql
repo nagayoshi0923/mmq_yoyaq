@@ -101,3 +101,7 @@ ALTER TABLE public.organization_scenarios
  ADD COLUMN recruitment_target_mode text NOT NULL DEFAULT 'count' CHECK (recruitment_target_mode IN ('count','percent')),
  ADD COLUMN recruitment_target_value integer NOT NULL DEFAULT 2,
  ADD CONSTRAINT recruitment_target_value_check CHECK ((recruitment_target_mode='count' AND recruitment_target_value BETWEEN 1 AND 20) OR (recruitment_target_mode='percent' AND recruitment_target_value BETWEEN 1 AND 100));
+
+ALTER TABLE public.organization_scenarios
+ ADD COLUMN recruitment_enabled_source text NOT NULL DEFAULT 'common' CHECK (recruitment_enabled_source IN ('common','custom')),
+ ADD COLUMN recruitment_deadline_source text NOT NULL DEFAULT 'common' CHECK (recruitment_deadline_source IN ('common','custom'));

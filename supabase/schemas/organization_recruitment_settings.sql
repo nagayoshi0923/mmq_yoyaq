@@ -1,6 +1,8 @@
 -- 共通設定は管理APIのみからアクセスする。
 CREATE TABLE public.organization_recruitment_settings (
  organization_id uuid PRIMARY KEY REFERENCES public.organizations(id),
+ enabled boolean NOT NULL DEFAULT true,
+ deadline_minutes integer NOT NULL DEFAULT 90 CHECK (deadline_minutes BETWEEN 1 AND 239),
  mode text NOT NULL DEFAULT 'count' CHECK (mode IN ('count','percent')),
  value integer NOT NULL DEFAULT 2,
  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
