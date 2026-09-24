@@ -52,3 +52,9 @@ it.each([0,240,null,1.5])('rejects invalid common deadline %s',async deadline_mi
  const res=response();await commonRecruitmentSettings(request({enabled:true,deadline_minutes,mode:'count',value:2,expected_updated_at:null}),res as unknown as VercelResponse,user,true)
  expect(res.status).toHaveBeenCalledWith(400);expect(mocks.rpc).not.toHaveBeenCalled()
 })
+
+it('allows returning to common even when dormant inputs are invalid',async()=>{
+ const res=response();await recruitmentSettings(request({enabled_source:'common',deadline_source:'common',source:'common',enabled:null,deadline_minutes:null,mode:'invalid',value:null,expected_updated_at:'2026-09-24T00:00:00Z'}),res as unknown as VercelResponse,user,true)
+ expect(res.status).toHaveBeenCalledWith(200)
+ expect(mocks.rpc).toHaveBeenCalledWith('save_scenario_recruitment_settings_v3',expect.objectContaining({p_enabled:null,p_deadline_minutes:null,p_mode:null,p_value:null}))
+})

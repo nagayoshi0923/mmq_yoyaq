@@ -49,4 +49,10 @@ DO $$ BEGIN
  ASSERT (SELECT deadline=now()+interval '150 minutes' FROM performance_recruitment_deadlines WHERE schedule_event_id='dddddddd-0000-4000-8000-000000000013'), 'custom deadline and enabled applied';
  ASSERT NOT EXISTS(SELECT 1 FROM performance_recruitment_notices WHERE organization_id='dddddddd-0000-4000-8000-000000000001'), 'no customer notifications';
 END $$;
+DO $$ DECLARE rev timestamptz; r jsonb; BEGIN
+ SELECT updated_at INTO rev FROM organization_scenarios WHERE organization_id='dddddddd-0000-4000-8000-000000000001';
+ r:=save_scenario_recruitment_settings_v3('dddddddd-0000-4000-8000-000000000001','dddddddd-0000-4000-8000-000000000003','dddddddd-0000-4000-8000-000000000004',NULL,'common',NULL,NULL,NULL,rev,'common','common');
+ ASSERT r->>'success'='true';
+ ASSERT (SELECT recruitment_enabled_source='common' AND recruitment_deadline_source='common' AND recruitment_extension_enabled=true AND recruitment_deadline_minutes=30 FROM organization_scenarios WHERE organization_id='dddddddd-0000-4000-8000-000000000001'), 'returning to common preserves dormant overrides';
+END $$;
 ROLLBACK;
