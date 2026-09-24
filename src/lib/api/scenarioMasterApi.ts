@@ -26,6 +26,7 @@ export interface ScenarioMaster {
   difficulty: string | null
   synopsis: string | null
   caution: string | null
+  sensitive_tags?: string[] | null
   required_items: string[] | null
   master_status: 'draft' | 'pending' | 'approved' | 'rejected'
   submitted_by_organization_id: string | null
