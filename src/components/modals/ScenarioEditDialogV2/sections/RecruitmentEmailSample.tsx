@@ -8,8 +8,8 @@ export function RecruitmentEmailSample({ masterId, scenarioName }: { masterId?: 
   const [error, setError] = useState(false)
   useEffect(() => {
     let active = true
-    if (masterId) void apiClient.get<{ setting: { recruitment_deadline_minutes: number; recruitment_max_missing: number } | null; effective_max_missing: number }>(`/api/schedule?type=recruitment-settings&id=${encodeURIComponent(masterId)}`).then(({ setting, effective_max_missing }) => {
-      if (active && setting) { setMinutes(setting.recruitment_deadline_minutes); setMissing(effective_max_missing) }
+    if (masterId) void apiClient.get<{ setting: { recruitment_deadline_minutes: number; recruitment_max_missing: number } | null; effective_max_missing: number; effective_deadline_minutes: number }>(`/api/schedule?type=recruitment-settings&id=${encodeURIComponent(masterId)}`).then(({ setting, effective_max_missing, effective_deadline_minutes }) => {
+      if (active && setting) { setMinutes(effective_deadline_minutes); setMissing(effective_max_missing) }
     }).catch(() => { if (active) setError(true) })
     return () => { active = false }
   }, [masterId])

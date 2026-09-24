@@ -32,11 +32,29 @@ describe('recruitment settings API', () => {
   const res = response(); await commonRecruitmentSettings(request({ mode: 'count', value: 2, expected_updated_at: null }), res as unknown as VercelResponse, user, true)
   expect(res.status).toHaveBeenCalledWith(409)
  })
- it('saves custom percent through the atomic v2 RPC', async () => {
+ it('saves custom percent through the atomic v3 RPC', async () => {
   const res = response(); await recruitmentSettings(request({ enabled: true, source: 'custom', mode: 'percent', value: 30, deadline_minutes: 90, expected_updated_at: '2026-09-24T00:00:00Z' }), res as unknown as VercelResponse, user, true)
-  expect(mocks.rpc).toHaveBeenCalledWith('save_scenario_recruitment_settings_v2', expect.objectContaining({ p_organization_id: user.orgId, p_master_id: 'master', p_source: 'custom', p_mode: 'percent', p_value: 30 }))
+  expect(mocks.rpc).toHaveBeenCalledWith('save_scenario_recruitment_settings_v3', expect.objectContaining({ p_organization_id: user.orgId, p_master_id: 'master', p_source: 'custom', p_mode: 'percent', p_value: 30 }))
  })
  it.each([[50, 3], [30, 2], [20, 1], [1, 0], [100, 7]])('floors 7 players at %s percent to %s missing', (value, expected) => {
   expect(recruitmentMissingLimit(7, { mode: 'percent', value })).toBe(expected)
  })
+})
+
+it('saves independent inheritance sources and common operating values', async () => {
+ const res=response()
+ await recruitmentSettings(request({ enabled: false, enabled_source: 'common', deadline_source: 'custom', source: 'common', mode: 'count', value: 2, deadline_minutes: 60, expected_updated_at: '2026-09-24T00:00:00Z' }),res as unknown as VercelResponse,user,true)
+ expect(mocks.rpc).toHaveBeenCalledWith('save_scenario_recruitment_settings_v3',expect.objectContaining({p_enabled_source:'common',p_deadline_source:'custom',p_deadline_minutes:60}))
+ await commonRecruitmentSettings(request({enabled:false,deadline_minutes:120,mode:'count',value:2,expected_updated_at:null}),res as unknown as VercelResponse,user,true)
+ expect(mocks.rpc).toHaveBeenCalledWith('save_organization_recruitment_settings_v2',expect.objectContaining({p_enabled:false,p_deadline_minutes:120,p_organization_id:user.orgId}))
+})
+it.each([0,240,null,1.5])('rejects invalid common deadline %s',async deadline_minutes=>{
+ const res=response();await commonRecruitmentSettings(request({enabled:true,deadline_minutes,mode:'count',value:2,expected_updated_at:null}),res as unknown as VercelResponse,user,true)
+ expect(res.status).toHaveBeenCalledWith(400);expect(mocks.rpc).not.toHaveBeenCalled()
+})
+
+it('allows returning to common even when dormant inputs are invalid',async()=>{
+ const res=response();await recruitmentSettings(request({enabled_source:'common',deadline_source:'common',source:'common',enabled:null,deadline_minutes:null,mode:'invalid',value:null,expected_updated_at:'2026-09-24T00:00:00Z'}),res as unknown as VercelResponse,user,true)
+ expect(res.status).toHaveBeenCalledWith(200)
+ expect(mocks.rpc).toHaveBeenCalledWith('save_scenario_recruitment_settings_v3',expect.objectContaining({p_enabled:null,p_deadline_minutes:null,p_mode:null,p_value:null}))
 })

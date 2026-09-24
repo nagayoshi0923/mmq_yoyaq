@@ -1,3 +1,4 @@
+import { bookingCutoffSettings } from './_lib/bookingCutoffSettings.js'
 import { privateBookingSettings } from './_lib/privateBookingSettings.js'
 import { confirmationTemplates } from './_lib/confirmationTemplates.js'
 import { recruitmentSettings, commonRecruitmentSettings } from './_lib/recruitmentSettings.js'
@@ -224,6 +225,8 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
       return await commonRecruitmentSettings(req, res, user)
     case 'recruitment-settings':
       return await recruitmentSettings(req, res, user)
+    case 'booking-cutoff-settings':
+      return await bookingCutoffSettings(req, res, user)
     case 'scenario-booking-cutoff':
       return await handleScenarioBookingCutoff(req, res, user, false)
     case 'booking-window':
@@ -254,6 +257,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   if (action === 'private-booking-settings') return await privateBookingSettings(req, res, user, true)
   if (action === 'common-recruitment-settings') return await commonRecruitmentSettings(req, res, user, true)
   if (action === 'recruitment-settings') return await recruitmentSettings(req, res, user, true)
+  if (action === 'booking-cutoff-settings') return await bookingCutoffSettings(req, res, user, true)
   if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)
   if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)
   if (action === 'extend-recruitment') return await handleExtendRecruitment(req, res, user)

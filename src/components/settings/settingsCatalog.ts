@@ -33,6 +33,7 @@ export const SETTINGS_PAGES: SettingsPageDefinition[] = [
   { id: 'system', label: 'システムの表示名', scope: 'organization', description: '自社で使用するシステム名', effect: '自社の設定です。MMQ全体の管理設定ではありません。' },
   { id: 'business-hours', label: '営業時間', scope: 'store', description: '曜日別の営業時間・休業日', effect: '選択した店舗に保存します。「全店舗に適用」は各店舗への一括保存です。共通設定の継承ではありません。' },
   { id: 'performance-schedule', label: '標準の公演時間', scope: 'store', description: '作品未選択時の標準所要時間', effect: '選択した店舗の公演を新規作成するときに使います。作成済み公演の日時は変更しません。', related: ['organization-time-slots'] },
+  { id: 'booking-cutoff', label: '通常予約の受付締切', scope: 'organization', description: '開催決定後の予約受付締切', effect: '組織共通の値をシナリオ・公演ごとに上書きできます。', related: ['private-booking', 'recruitment'] },
   { id: 'private-booking', label: '貸切予約の受付締切', scope: 'organization', description: 'シナリオ共通の受付締切と個別指定', effect: '共通設定を使うシナリオに適用します。シナリオ編集で個別に上書きできます。' },
   { id: 'reservation', label: '支払い方法の案内', scope: 'store', description: '予約時に表示する支払い方法', effect: '選択した店舗の支払い案内です。', related: ['private-booking', 'cancellation', 'email'] },
   { id: 'cancellation', label: 'キャンセル・変更', scope: 'store', description: '通常・貸切の規定、期限、料金・返金案内', effect: '選択した店舗の規定を保存します。「全店舗へ一括設定」を選ぶと全店舗へ保存します。保存済み予約の条件や請求を一括変更する操作ではありません。', related: ['cancellation-billing', 'booking-notice'] },
