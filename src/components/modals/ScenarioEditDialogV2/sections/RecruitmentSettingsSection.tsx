@@ -38,7 +38,7 @@ export function RecruitmentSettingsSection({ masterId, eventId, readOnly = false
   useEffect(() => { void load(); return () => { generation.current++ } }, [load])
   async function save() {
     if (!data?.setting || !masterId) return
-    if (!isRecruitmentTarget(value.mode, value.value) || !Number.isInteger(value.deadline_minutes) || value.deadline_minutes < 1 || value.deadline_minutes > 239) {
+    if ((value.source === 'custom' && !isRecruitmentTarget(value.mode, value.value)) || (value.deadline_source === 'custom' && (!Number.isInteger(value.deadline_minutes) || value.deadline_minutes < 1 || value.deadline_minutes > 239))) {
       setError('対象は1〜20人または1〜100％、期限は開始1〜239分前の整数で指定してください。'); return
     }
     setSaving(true); setError(''); setMessage('')
@@ -62,7 +62,7 @@ export function RecruitmentSettingsSection({ masterId, eventId, readOnly = false
     {error && <p className="scenario-edit-card__help" role="alert">{error} <Button variant="outline" size="sm" onClick={() => void load()}>再読込</Button></p>}
     {loading ? <p className="scenario-edit-card__note" role="status">読み込み中…</p> : !data?.setting ? !error && <p className="scenario-edit-card__help">シナリオを保存すると設定できます。</p> : <>
       <div className="scenario-edit-field"><Label className="scenario-edit-field__label" htmlFor="recruitment-enabled">追加募集の延長</Label><div className="scenario-edit-field__control">
-        <Select value={value.enabled_source === 'common' ? 'common' : value.enabled ? 'yes' : 'no'} onValueChange={v => setValue({ ...value, enabled_source: v === 'common' ? 'common' : 'custom', enabled: v === 'yes' })} disabled={disabled}>
+        <Select value={value.enabled_source === 'common' ? 'common' : value.enabled ? 'yes' : 'no'} onValueChange={v => setValue({ ...value, enabled_source: v === 'common' ? 'common' : 'custom', enabled: v === 'common' ? value.enabled : v === 'yes' })} disabled={disabled}>
           <SelectTrigger className="h-7 text-xs" id="recruitment-enabled"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="common">共通設定を使う（{data.common.enabled ? '延長する' : '延長しない'}）</SelectItem><SelectItem value="yes">このシナリオは延長する</SelectItem><SelectItem value="no">このシナリオは延長しない</SelectItem></SelectContent>
         </Select></div></div>
       <p className="scenario-edit-card__help">通常は開始4時間前に開催を判断します。</p>

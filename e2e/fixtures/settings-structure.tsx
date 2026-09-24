@@ -59,7 +59,7 @@ apiClient.get = async (url) => {
 apiClient.patch = async (url, payload: any) => {
  if (url.includes('booking-cutoff-settings')) { cutoff=payload.minutes; document.documentElement.dataset.cutoffSaved=JSON.stringify(payload) }
  else if (url.includes('common-recruitment-settings')) { recruitmentCommon={...recruitmentCommon,...payload}; document.documentElement.dataset.commonSaved=JSON.stringify(payload) }
- else if (url.includes('recruitment-settings')) { recruitment={...recruitment,recruitment_extension_enabled:payload.enabled,recruitment_enabled_source:payload.enabled_source,recruitment_deadline_source:payload.deadline_source,recruitment_deadline_minutes:payload.deadline_minutes}; document.documentElement.dataset.recruitmentSaved=JSON.stringify(payload) }
+ else if (url.includes('recruitment-settings')) { recruitment={...recruitment,recruitment_extension_enabled:payload.enabled_source === 'common' ? recruitment.recruitment_extension_enabled : payload.enabled,recruitment_enabled_source:payload.enabled_source,recruitment_deadline_source:payload.deadline_source,recruitment_deadline_minutes:payload.deadline_source === 'common' ? recruitment.recruitment_deadline_minutes : payload.deadline_minutes}; document.documentElement.dataset.recruitmentSaved=JSON.stringify(payload) }
  else { privateDays = payload.days; document.documentElement.dataset.privateSaved = JSON.stringify(payload) }
  return { success: true } as never
 }

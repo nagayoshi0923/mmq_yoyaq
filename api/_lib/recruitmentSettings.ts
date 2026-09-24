@@ -26,14 +26,14 @@ export async function recruitmentSettings(req: VercelRequest, res: VercelRespons
     const deadlineSource = req.body?.deadline_source ?? 'custom'
     const mode = req.body?.mode ?? 'count'
     const value = req.body?.value ?? max_missing
-    if (!['common', 'custom'].includes(enabledSource) || !['common', 'custom'].includes(deadlineSource) || typeof enabled !== 'boolean' || !['common', 'custom'].includes(source) || !isRecruitmentTarget(mode, value)
-      || !Number.isInteger(deadline_minutes) || deadline_minutes < 1 || deadline_minutes > 239
+    if (!['common', 'custom'].includes(enabledSource) || !['common', 'custom'].includes(deadlineSource) || (enabledSource === 'custom' && typeof enabled !== 'boolean') || !['common', 'custom'].includes(source) || (source === 'custom' && !isRecruitmentTarget(mode, value))
+      || (deadlineSource === 'custom' && (!Number.isInteger(deadline_minutes) || deadline_minutes < 1 || deadline_minutes > 239))
       || typeof expected_updated_at !== 'string' || !Number.isFinite(Date.parse(expected_updated_at))) {
       return res.status(400).json({ error: '対象は1〜20人または1〜100％、期限は開始1〜239分前で指定してください' })
     }
     const { data, error } = await db!.rpc('save_scenario_recruitment_settings_v3', {
       p_organization_id: user.orgId, p_master_id: masterId, p_actor_id: user.userId,
-      p_enabled: enabled, p_enabled_source: enabledSource, p_deadline_source: deadlineSource, p_source: source, p_mode: mode, p_value: value, p_deadline_minutes: deadline_minutes, p_expected_updated_at: expected_updated_at,
+      p_enabled: enabledSource === 'common' ? null : enabled, p_enabled_source: enabledSource, p_deadline_source: deadlineSource, p_source: source, p_mode: source === 'common' ? null : mode, p_value: source === 'common' ? null : value, p_deadline_minutes: deadlineSource === 'common' ? null : deadline_minutes, p_expected_updated_at: expected_updated_at,
     })
     if (error) return res.status(500).json({ error: '追加募集設定を保存できませんでした' })
     if (!data?.success) return res.status(data?.error === 'NOT_FOUND' ? 404 : 409).json({ error: '設定が変更されています。再読込してください' })
