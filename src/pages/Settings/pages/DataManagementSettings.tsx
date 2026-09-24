@@ -261,7 +261,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
   if (loading) return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title="データ管理" description="データのエクスポートと出力形式の設定">
         <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />

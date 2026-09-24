@@ -199,7 +199,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="料金設定"
         description="参加費・時間帯別料金・割引設定を管理します"

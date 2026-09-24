@@ -195,7 +195,7 @@ export function PerformanceScheduleSettings({ storeId, scope = 'store' }: Perfor
   const slotLabels: Record<string, string> = { morning: '朝', afternoon: '昼', evening: '夜' }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title={scope === 'organization' ? '公演の時間帯（組織共通）' : '標準の公演時間（店舗別）'} description="公演を作成するときの初期値を設定します">
         {scope === 'store' && <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />

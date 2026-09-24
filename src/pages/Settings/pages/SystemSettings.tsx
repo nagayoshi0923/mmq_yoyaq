@@ -71,7 +71,7 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title="システム設定" description="システム名とメンテナンスモードの設定">
         <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />

@@ -133,7 +133,7 @@ export function FAQSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title="よくある質問" description="予約サイトのFAQページ（/{slug}/faq）に表示される質問と回答を管理します">
         <Button variant="ghost" size="sm" onClick={handleRefresh} className="shrink-0">
           <Loader2 className="w-4 h-4 mr-1" />
