@@ -442,7 +442,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   const otherTemplates = TEMPLATE_CONFIGS.filter(c => c.category === 'other')
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="メール設定"
         description="メールテンプレートと送信設定"

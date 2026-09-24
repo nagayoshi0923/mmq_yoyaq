@@ -99,7 +99,7 @@ export function ShiftSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="シフト設定"
         description="シフト提出期間・編集期限の設定"
