@@ -14,7 +14,6 @@ export interface SettingsPageDefinition {
   description: string
   effect: string
   related?: string[]
-  legacy?: boolean
 }
 
 export const SETTINGS_PAGES: SettingsPageDefinition[] = [
@@ -39,8 +38,6 @@ export const SETTINGS_PAGES: SettingsPageDefinition[] = [
   { id: 'email', label: 'メール・リマインド', scope: 'store', description: '差出人情報・文面・リマインド日程', effect: '予約確定・貸切確定の文面は、公演の個別文面 → 作品の文面 → 店舗の文面 → 標準文面の順です。送信済みメールは変更しません。', related: ['notifications', 'email-logs'] },
   { id: 'store-notifications', label: '店舗の予約通知', scope: 'store', description: '新規予約・キャンセルの通知とWebhook', effect: '選択した店舗の通知設定です。組織全体の通知スイッチは組織共通で設定します。', related: ['notifications'] },
   { id: 'data', label: 'データ出力', scope: 'store', description: '出力形式の保存とデータの書き出し', effect: '出力形式は選択した店舗に保存します。書き出すデータの範囲は各出力処理の説明を確認してください。' },
-  { id: 'pricing', label: '料金設定（既存）', scope: 'store', description: '既存の基本料金・割引設定', effect: 'この画面の設定と予約料金の連動は確認が必要です。実際に販売する料金は作品・公演の料金を確認してください。', legacy: true },
-  { id: 'sales-report', label: '売上レポート設定（既存）', scope: 'store', description: '締め日・報告先・出力形式', effect: '自動送信は設定だけで稼働を保証するものではありません。配信処理と送信履歴を別途確認してください。', legacy: true },
 ]
 
 export function getSettingsPage(tab: string) {

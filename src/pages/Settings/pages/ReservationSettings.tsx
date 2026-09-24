@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
-import { Save, CalendarDays, ShieldCheck } from 'lucide-react'
+import { Save, CalendarDays, CreditCard } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -17,7 +16,6 @@ interface ReservationSettings {
   advance_booking_days: number
   same_day_booking_cutoff: number
   private_booking_deadline_days: number
-  require_phone_verification: boolean
   payment_method_label: string
   payment_method_description: string
 }
@@ -35,7 +33,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     advance_booking_days: 90,
     same_day_booking_cutoff: 0,
     private_booking_deadline_days: 14,
-    require_phone_verification: false,
     payment_method_label: '現地決済',
     payment_method_description: 'ご来店時にお支払いください'
   })
@@ -74,7 +71,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('id, store_id, organization_id, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, require_phone_verification, payment_method_label, payment_method_description, updated_at')
+        .select('id, store_id, organization_id, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, payment_method_label, payment_method_description, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 
@@ -87,7 +84,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           advance_booking_days: data.advance_booking_days ?? 90,
           same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
           private_booking_deadline_days: data.private_booking_deadline_days ?? 14,
-          require_phone_verification: data.require_phone_verification ?? false,
           payment_method_label: data.payment_method_label ?? '現地決済',
           payment_method_description: data.payment_method_description ?? 'ご来店時にお支払いください'
         })
@@ -98,7 +94,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           advance_booking_days: 90,
           same_day_booking_cutoff: 0,
           private_booking_deadline_days: 14,
-          require_phone_verification: false,
           payment_method_label: '現地決済',
           payment_method_description: 'ご来店時にお支払いください'
         })
@@ -124,7 +119,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
-            require_phone_verification: formData.require_phone_verification,
             payment_method_label: formData.payment_method_label,
             payment_method_description: formData.payment_method_description
           })
@@ -141,7 +135,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
-            require_phone_verification: formData.require_phone_verification,
             payment_method_label: formData.payment_method_label,
             payment_method_description: formData.payment_method_description
           })
@@ -156,7 +149,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             advance_booking_days: data.advance_booking_days ?? 90,
             same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
             private_booking_deadline_days: data.private_booking_deadline_days ?? 14,
-            require_phone_verification: data.require_phone_verification ?? false,
             payment_method_label: data.payment_method_label ?? '現地決済',
             payment_method_description: data.payment_method_description ?? 'ご来店時にお支払いください'
           })
@@ -182,7 +174,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="予約設定"
-        description="予約の受付期間・認証・支払い方法を店舗ごとに設定します"
+        description="予約の受付期間・支払い方法を店舗ごとに設定します"
       >
         <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />
@@ -247,26 +239,15 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
         </div>
       </section>
 
-      {/* 本人確認・支払い */}
+      {/* 支払い方法の案内 */}
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle
-          icon={ShieldCheck}
-          label="本人確認・支払い"
-          description="電話番号確認の要否と、予約確認画面に表示される支払い方法の表示内容を設定します"
+          icon={CreditCard}
+          label="支払い方法の案内"
+          description="予約確認画面に表示する支払い方法の名称と説明文を設定します"
         />
         <div className="space-y-4">
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="text-sm font-medium">電話番号認証を要求</p>
-              <p className="text-xs text-muted-foreground">有効にすると、予約時に電話番号の認証が必須になります</p>
-            </div>
-            <Switch
-              checked={formData.require_phone_verification}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, require_phone_verification: checked }))}
-            />
-          </div>
-
-          <div className="border-t pt-4 space-y-4">
+          <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">支払い方法の名称</Label>
               <Input

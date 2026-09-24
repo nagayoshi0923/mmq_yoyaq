@@ -234,7 +234,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
         ...(['organization', 'store'] as const).map(scope => ({
           id: `cat-${scope}`, label: scope === 'organization' ? '組織共通' : '店舗別', icon: scope === 'organization' ? Building2 : Store,
           path: `/${slug}/settings?tab=overview&scope=${scope}`, roles: ['admin', 'license_admin'], isGroupHeader: true,
-          subItems: SETTINGS_PAGES.filter(page => page.scope === scope && !page.legacy).map(page => ({ id: page.id, label: page.label, path: `/${slug}/settings?tab=${page.id}` })),
+          subItems: SETTINGS_PAGES.filter(page => page.scope === scope).map(page => ({ id: page.id, label: page.label, path: `/${slug}/settings?tab=${page.id}` })),
         })),
         { id: 'settings-scenario', label: '作品別', icon: Settings, path: `/${slug}/settings?tab=overview&scope=scenario`, roles: ['admin', 'license_admin'] },
         { id: 'settings-performance', label: '公演別', icon: Settings, path: `/${slug}/settings?tab=overview&scope=performance`, roles: ['admin', 'license_admin'] },
