@@ -3,6 +3,7 @@ import { scenarioEffectiveFields, scenarioSourcePayload, type ScenarioSourceStat
 import { settingsPath } from '@/components/settings/settingsCatalog'
 import { apiClient } from '@/lib/apiClient'
 import { RecruitmentSettingsSection } from './ScenarioEditDialogV2/sections/RecruitmentSettingsSection'
+import { PrivateBookingDeadlineSection } from '@/components/settings/PrivateBookingDeadlineSection'
 import { BookingCutoffSection } from './ScenarioEditDialogV2/sections/BookingCutoffSection'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -1392,7 +1393,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       case 'basic':
         return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
-        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /></div>
+        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
       case 'characters':
         return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':

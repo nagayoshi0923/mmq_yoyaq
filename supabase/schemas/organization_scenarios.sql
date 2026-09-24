@@ -1,6 +1,7 @@
 -- 正規ソース: supabase/schemas/organization_scenarios.sql
 -- 最終更新: 2026-04-10
 CREATE TABLE public.organization_scenarios (
+  private_booking_deadline_days INTEGER CHECK (private_booking_deadline_days BETWEEN 0 AND 90),
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id),
   scenario_master_id UUID NOT NULL REFERENCES public.scenario_masters(id),

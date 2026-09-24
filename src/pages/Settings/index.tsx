@@ -28,6 +28,7 @@ import { OrganizationInfoSettings } from './pages/OrganizationInfoSettings'
 import { CategoryAuthorManagementSettings } from './pages/CategoryAuthorManagementSettings'
 import { OrganizationDesignSettings } from './pages/OrganizationDesignSettings'
 import { FAQSettings } from './pages/FAQSettings'
+import { PrivateBookingSettings } from './pages/PrivateBookingSettings'
 import { RecruitmentSettings } from './pages/RecruitmentSettings'
 import { BlogSettings } from './pages/BlogSettings'
 
@@ -57,6 +58,8 @@ export function Settings() {
         return <PerformanceScheduleSettings scope="organization" />
       case 'store-notifications':
         return <NotificationSettings storeId={storeId} scope="store" />
+      case 'private-booking':
+        return <PrivateBookingSettings />
       case 'recruitment':
         return <RecruitmentSettings />
       case 'organization-info':

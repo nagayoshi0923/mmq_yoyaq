@@ -139,7 +139,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）
-  const privateBookingDeadlineDays = usePrivateBookingDeadlineDays({ organizationId, organizationSlug })
+  const privateBookingDeadlineDays = usePrivateBookingDeadlineDays({ organizationId, organizationSlug, scenarioId: scenario?.scenario_master_id })
   
   // 貸切リクエストロジックフック
   const {
