@@ -34,7 +34,7 @@ export const SETTINGS_PAGES: SettingsPageDefinition[] = [
   { id: 'system', label: 'システムの表示名', scope: 'organization', description: '自社で使用するシステム名', effect: '自社の設定です。MMQ全体の管理設定ではありません。' },
   { id: 'business-hours', label: '営業時間', scope: 'store', description: '曜日別の営業時間・休業日', effect: '選択した店舗に保存します。「全店舗に適用」は各店舗への一括保存です。共通設定の継承ではありません。' },
   { id: 'performance-schedule', label: '標準の公演時間', scope: 'store', description: '作品未選択時の標準所要時間', effect: '選択した店舗の公演を新規作成するときに使います。作成済み公演の日時は変更しません。', related: ['organization-time-slots'] },
-  { id: 'reservation', label: '予約の受付', scope: 'store', description: '受付期間・人数制限・支払い方法の案内', effect: '選択した店舗の予約受付設定です。作品・公演の締切も別に確認してください。既存予約の人数・金額を変更する操作ではありません。', related: ['cancellation', 'email'] },
+  { id: 'reservation', label: '予約の受付', scope: 'store', description: '受付期間・支払い方法の案内', effect: '選択した店舗の予約受付設定です。作品・公演の締切も別に確認してください。既存予約の人数・金額を変更する操作ではありません。', related: ['cancellation', 'email'] },
   { id: 'cancellation', label: 'キャンセル・変更', scope: 'store', description: '通常・貸切の規定、期限、料金・返金案内', effect: '選択した店舗の規定を保存します。「全店舗へ一括設定」を選ぶと全店舗へ保存します。保存済み予約の条件や請求を一括変更する操作ではありません。', related: ['cancellation-billing', 'booking-notice'] },
   { id: 'email', label: 'メール・リマインド', scope: 'store', description: '差出人情報・文面・リマインド日程', effect: '予約確定・貸切確定の文面は、公演の個別文面 → 作品の文面 → 店舗の文面 → 標準文面の順です。送信済みメールは変更しません。', related: ['notifications', 'email-logs'] },
   { id: 'store-notifications', label: '店舗の予約通知', scope: 'store', description: '新規予約・キャンセルの通知とWebhook', effect: '選択した店舗の通知設定です。組織全体の通知スイッチは組織共通で設定します。', related: ['notifications'] },
