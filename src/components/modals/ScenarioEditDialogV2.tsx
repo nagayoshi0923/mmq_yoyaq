@@ -493,18 +493,14 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   
   // マスタから引用
   const handleMasterSelect = (master: any) => {
+    const baseline = scenarioEffectiveFields({}, master)
+    setSourceState({ stored: {}, baseline })
+    setSourceResets({})
+    setMasterData(master)
     setFormData(prev => ({
       ...prev,
       scenario_master_id: master.id,  // マスタIDを記録
-      title: master.title || prev.title,
-      author: master.author || prev.author,
-      description: master.description || prev.description,
-      duration: master.official_duration || prev.duration,
-      player_count_min: master.player_count_min || prev.player_count_min,
-      player_count_max: master.player_count_max || prev.player_count_max,
-      difficulty: master.difficulty ? parseInt(master.difficulty) : prev.difficulty,
-      genre: master.genre || prev.genre,
-      key_visual_url: master.key_visual_url || prev.key_visual_url
+      ...baseline,
     }))
     showToast.success('マスタから情報を引用しました')
   }
