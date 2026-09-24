@@ -1,3 +1,4 @@
+import { privateBookingSettings } from './_lib/privateBookingSettings.js'
 import { confirmationTemplates } from './_lib/confirmationTemplates.js'
 import { recruitmentSettings, commonRecruitmentSettings } from './_lib/recruitmentSettings.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
@@ -217,6 +218,8 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   switch (type) {
     case 'confirmation-templates':
       return await confirmationTemplates(req, res, user)
+    case 'private-booking-settings':
+      return await privateBookingSettings(req, res, user)
     case 'common-recruitment-settings':
       return await commonRecruitmentSettings(req, res, user)
     case 'recruitment-settings':
@@ -248,6 +251,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const action = req.query.action as string | undefined
   if (action === 'confirmation-templates') return await confirmationTemplates(req, res, user, true)
+  if (action === 'private-booking-settings') return await privateBookingSettings(req, res, user, true)
   if (action === 'common-recruitment-settings') return await commonRecruitmentSettings(req, res, user, true)
   if (action === 'recruitment-settings') return await recruitmentSettings(req, res, user, true)
   if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)

@@ -222,23 +222,6 @@ export const checkReservationLimits = async (
       return { allowed: false, reason: '予約制限の確認に失敗しました。時間をおいて再度お試しください。' }
     }
 
-    // 予約設定を取得（正しいstore_idを使用）
-    let reservationSettings = null
-    if (eventData.store_id) {
-      const { data: settings, error: settingsError } = await supabase
-        .from('reservation_settings')
-        .select('advance_booking_days, same_day_booking_cutoff')
-        .eq('store_id', eventData.store_id)
-        .maybeSingle()
-
-      if (settingsError && settingsError.code !== 'PGRST116') {
-        logger.error('予約設定取得エラー:', settingsError)
-        return { allowed: false, reason: '予約制限の確認に失敗しました。時間をおいて再度お試しください。' }
-      } else {
-        reservationSettings = settings
-      }
-    }
-
     // 最大参加人数（max_participants か capacity を使用）
     const maxParticipants = eventData.max_participants || eventData.capacity || 8
 
@@ -290,32 +273,7 @@ export const checkReservationLimits = async (
       }
     }
 
-    // 予約設定の制限チェック
-    if (reservationSettings) {
-      // 当日予約締切（時間前）
-      if (!bookingDeadline && reservationSettings.same_day_booking_cutoff !== null && reservationSettings.same_day_booking_cutoff !== undefined) {
-        const todayYmd = now.toISOString().slice(0, 10)
-        if (eventDate === todayYmd) {
-          const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
-          if (hoursUntilEvent < reservationSettings.same_day_booking_cutoff) {
-            return { allowed: false, reason: `当日予約は公演開始の${reservationSettings.same_day_booking_cutoff}時間前までです` }
-          }
-        }
-      }
 
-      // 事前予約日数制限
-      if (reservationSettings.advance_booking_days) {
-        const eventDateTime = new Date(`${eventDate}T${startTime}+09:00`)
-        const now = new Date()
-        const daysUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        
-        if (daysUntilEvent > reservationSettings.advance_booking_days) {
-          return { allowed: false, reason: `最大${reservationSettings.advance_booking_days}日前まで予約可能です` }
-        }
-      }
-
-
-    }
 
     return { allowed: true }
   } catch (error) {
