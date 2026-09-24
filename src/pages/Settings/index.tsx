@@ -1,9 +1,14 @@
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Settings as SettingsIcon } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
+import { SettingsOverview } from '@/components/settings/SettingsOverview'
+import { getSettingsPage, settingsPath, SETTINGS_SCOPES } from '@/components/settings/settingsCatalog'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
+import { useAuth } from '@/contexts/AuthContext'
+import { Badge } from '@/components/ui/badge'
 
 // 設定ページコンポーネント
 import { ShiftSettings } from './pages/ShiftSettings'
@@ -30,18 +35,26 @@ import { BlogSettings } from './pages/BlogSettings'
 
 export function Settings() {
   const [searchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'organization-info'
-  const { selectedStoreId, handleStoreChange } = useSettingsStore()
-
-  // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['recruitment', 'organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
-  const showStoreSelector = activeTab !== 'cancellation-billing' && !noStoreSelectorPages.includes(activeTab)
+  const activeTab = searchParams.get('tab') || 'overview'
+  const page = getSettingsPage(activeTab)
+  const allowAll = activeTab === 'cancellation'
+  const { selectedStoreId, handleStoreChange, stores, loading, error } = useSettingsStore(allowAll)
+  const { organization, organizationId } = useOrganization()
+  const { user } = useAuth()
+  const slug = organization?.slug
+  const showStoreSelector = page?.scope === 'store'
+  const selectedStore = stores.find(store => store.id === selectedStoreId)
+  const scope = SETTINGS_SCOPES.find(item => item.id === searchParams.get('scope'))?.id
 
   const renderContent = () => {
     // 全店舗選択時は店舗IDを空文字列に
     const storeId = selectedStoreId === 'all' ? '' : selectedStoreId
 
     switch (activeTab) {
+      case 'organization-time-slots':
+        return <PerformanceScheduleSettings scope="organization" />
+      case 'store-notifications':
+        return <NotificationSettings storeId={storeId} scope="store" />
       case 'recruitment':
         return <RecruitmentSettings />
       case 'organization-info':
@@ -57,7 +70,7 @@ export function Settings() {
       case 'business-hours':
         return <BusinessHoursSettings storeId={storeId} />
       case 'performance-schedule':
-        return <PerformanceScheduleSettings storeId={storeId} />
+        return <PerformanceScheduleSettings storeId={storeId} scope="store" />
       case 'reservation':
         return <ReservationSettings storeId={storeId} />
       case 'cancellation':
@@ -71,7 +84,7 @@ export function Settings() {
       case 'sales-report':
         return <SalesReportSettings storeId={storeId} />
       case 'notifications':
-        return <NotificationSettings storeId={storeId} />
+        return <NotificationSettings scope="organization" />
       case 'system':
         return <SystemSettings storeId={storeId} />
       case 'email':
@@ -85,7 +98,7 @@ export function Settings() {
       case 'categories':
         return <CategoryAuthorManagementSettings />
       default:
-        return <OrganizationInfoSettings />
+        return slug ? <SettingsOverview slug={slug} scope={scope} storeId={selectedStoreId === 'all' ? undefined : selectedStoreId} isPlatformAdmin={checkIsLicenseAdmin(user?.role, organizationId)} /> : null
     }
   }
 
@@ -98,14 +111,24 @@ export function Settings() {
     >
       <PageHeader
         title={<><SettingsIcon className="h-5 w-5" />設定</>}
-        description="組織情報・店舗・通知・連携などの各種設定"
+        description="組織共通・店舗別・作品別・公演別の設定"
       />
+      {slug && page && <div className="space-y-3 mb-6">
+        <Link className="underline" to={settingsPath(slug)}>設定一覧</Link>
+        <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{page.scope === 'organization' ? '組織共通' : '店舗別'}</Badge><span>{page.scope === 'organization' ? organization?.name : selectedStoreId === 'all' ? '全店舗へ一括設定' : selectedStore?.name || '店舗を選択してください'}</span></div>
+        <p>{page.effect}</p>
+        {page.related && <nav aria-label="関連する設定" className="flex flex-wrap gap-4">{page.related.map(id => <Link className="underline" key={id} to={settingsPath(slug, id, getSettingsPage(id)?.scope === 'store' ? selectedStoreId : undefined)}>{getSettingsPage(id)?.label}</Link>)}</nav>}
+      </div>}
       <SettingsLayout
+        stores={stores}
+        allowAll={allowAll}
         selectedStoreId={selectedStoreId}
         onStoreChange={handleStoreChange}
         showStoreSelector={showStoreSelector}
       >
-        {renderContent()}
+        {showStoreSelector && (loading || error || !selectedStoreId)
+          ? <p role="status">{loading ? '店舗を確認しています…' : error || (stores.length ? 'この店舗は選択できません。店舗を選び直してください。' : '設定する店舗を店舗管理から登録してください。')}</p>
+          : <div key={`${organizationId}:${activeTab}:${showStoreSelector ? selectedStoreId : ''}`}>{renderContent()}</div>}
       </SettingsLayout>
     </AppLayout>
   )

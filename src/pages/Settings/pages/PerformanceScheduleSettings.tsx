@@ -41,9 +41,9 @@ const timeSlotOptions = [
   { value: 'late_night', label: '深夜公演' },
 ]
 
-interface PerformanceScheduleSettingsProps { storeId?: string }
+interface PerformanceScheduleSettingsProps { storeId?: string; scope?: 'organization' | 'store' }
 
-export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSettingsProps) {
+export function PerformanceScheduleSettings({ storeId, scope = 'store' }: PerformanceScheduleSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [formData, setFormData] = useState<PerformanceScheduleData>({
     id: '', store_id: '', performances_per_day: 2,
@@ -53,6 +53,7 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
     ],
     preparation_time: 30, default_duration: 180
   })
+  const [settingsLoadError, setSettingsLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -61,8 +62,8 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
   const [isSavingTimeSlots, setIsSavingTimeSlots] = useState(false)
 
   useEffect(() => {
-    fetchData()
-    fetchTimeSlotSettings()
+    if (scope === 'store') fetchData()
+    else { setLoading(false); fetchTimeSlotSettings() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -71,10 +72,13 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
     try {
       const storesData = await storeApi.getAll()
       if (storesData && storesData.length > 0) {
+        if (storeId && !storesData.some(s => s.id === storeId)) throw new Error('選択した店舗を確認できません')
+        const initialStoreId = storeId || storesData[0].id
         setStores(storesData)
-        await fetchSettings(storesData[0].id)
+        await fetchSettings(initialStoreId)
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('データ取得エラー:', error)
       showToast.error('データの取得に失敗しました')
     } finally {
@@ -88,6 +92,7 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
       const settings = await organizationSettingsApi.getTimeSlotSettings()
       setTimeSlotSettings(settings)
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('時間帯設定取得エラー:', error)
     } finally {
       setIsLoadingTimeSlots(false)
@@ -133,7 +138,8 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
           performance_times: [{ slot: 'afternoon', start_time: '14:00' }, { slot: 'evening', start_time: '18:00' }],
           preparation_time: 30, default_duration: 180 })
       }
-    } catch (error) { logger.error('設定取得エラー:', error) }
+    } catch (error) { setSettingsLoadError(true)
+      logger.error('設定取得エラー:', error) }
   }
 
   const handlePerformancesPerDayChange = (count: number) => {
@@ -182,20 +188,22 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
     } finally { setSaving(false) }
   }
 
+  if (settingsLoadError) return <p role="alert">設定を取得できませんでした。ページを再読み込みしてください。</p>
+
   if (loading) return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
 
   const slotLabels: Record<string, string> = { morning: '朝', afternoon: '昼', evening: '夜' }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      <PageHeader title="公演スケジュール設定" description="イベント作成時のデフォルト公演時間・時間帯設定">
-        <Button size="sm" onClick={handleSave} disabled={saving}>
+      <PageHeader title={scope === 'organization' ? '公演の時間帯（組織共通）' : '標準の公演時間（店舗別）'} description="公演を作成するときの初期値を設定します">
+        {scope === 'store' && <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
-        </Button>
+        </Button>}
       </PageHeader>
 
-      {/* デフォルト公演時間 */}
+      {scope === 'store' && <>
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle
           icon={Calendar}
@@ -217,7 +225,8 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
         </div>
       </section>
 
-      {/* デフォルト公演時間帯（組織共通） */}
+      </>}
+      {scope === 'organization' && <>
       <section className="bg-white rounded-xl border p-6">
         <div className="flex items-start justify-between mb-4">
           <SectionTitle
@@ -225,7 +234,7 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
             label="デフォルト公演時間帯（組織共通）"
             description="朝・昼・夜公演のデフォルト開始・終了時間を平日と休日で設定します。スケジュール作成時のデフォルト時間枠として使われます。"
           />
-          <Button size="sm" variant="outline" onClick={handleSaveTimeSlots} disabled={isSavingTimeSlots}>
+          <Button size="sm" variant="outline" onClick={handleSaveTimeSlots} disabled={isSavingTimeSlots || isLoadingTimeSlots}>
             {isSavingTimeSlots ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
             保存
           </Button>
@@ -263,6 +272,7 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
           </div>
         )}
       </section>
+      </>}
     </div>
   )
 }

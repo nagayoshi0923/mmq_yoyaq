@@ -59,6 +59,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
     group_discount: { enabled: false, min_people: 6, discount: 500 },
     cancellation_fee: { days_before: 3, fee: 1000 }
   })
+  const [settingsLoadError, setSettingsLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newTimePricing, setNewTimePricing] = useState({ time_slot: '', price: 0 })
@@ -75,11 +76,14 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
       const storesData = await storeApi.getAll()
 
       if (storesData && storesData.length > 0) {
+        if (storeId && !storesData.some(s => s.id === storeId)) throw new Error('選択した店舗を確認できません')
+        const initialStoreId = storeId || storesData[0].id
         setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
+        setSelectedStoreId(initialStoreId)
+        await fetchSettings(initialStoreId)
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('データ取得エラー:', error)
       showToast.error('データの取得に失敗しました')
     } finally {
@@ -111,6 +115,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
         })
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('設定取得エラー:', error)
     }
   }
@@ -186,6 +191,8 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
       setSaving(false)
     }
   }
+
+  if (settingsLoadError) return <p role="alert">設定を取得できませんでした。ページを再読み込みしてください。</p>
 
   if (loading) {
     return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
