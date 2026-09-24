@@ -16,13 +16,12 @@ export function SettingsOverview({ slug, isPlatformAdmin, scope, storeId }: { sl
             <CardHeader><CardTitle>{item.label}</CardTitle><CardDescription>{item.description}</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               {item.id === 'store' && <Link className="underline" to={`/${slug}/stores`}>店舗情報・設備・費用を編集</Link>}
-              {SETTINGS_PAGES.filter(page => page.scope === item.id && !page.legacy).map(page => (
+              {SETTINGS_PAGES.filter(page => page.scope === item.id).map(page => (
                 <div key={page.id} className="space-y-1">
                   <Link className="underline underline-offset-4" to={settingsPath(slug, page.id, page.scope === 'store' ? storeId : undefined)}>{page.label}</Link>
                   <p className="text-muted-foreground">{page.description}</p>
                 </div>
               ))}
-              {item.id === 'store' && <details><summary className="cursor-pointer">その他の既存設定</summary><div className="space-y-3 pt-3">{SETTINGS_PAGES.filter(page => page.legacy).map(page => <div key={page.id}><Link className="underline" to={settingsPath(slug, page.id, storeId)}>{page.label}</Link><p className="text-muted-foreground">{page.effect}</p></div>)}</div></details>}
               {item.id === 'scenario' && <>
                 <p>共通の作品情報をもとに、自社の料金・GM・公演可能店舗・貸切条件を設定します。</p>
                 <p>作品編集の「共通情報と自社設定」で設定元を確認できます。募集基準は組織共通の参照か作品独自の指定を選びます。</p>
