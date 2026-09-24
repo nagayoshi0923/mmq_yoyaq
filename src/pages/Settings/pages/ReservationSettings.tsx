@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
-import { Save, CalendarDays, Users, ShieldCheck } from 'lucide-react'
+import { Save, CalendarDays, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -14,11 +14,9 @@ import { showToast } from '@/utils/toast'
 interface ReservationSettings {
   id: string
   store_id: string
-  max_participants_per_booking: number
   advance_booking_days: number
   same_day_booking_cutoff: number
   private_booking_deadline_days: number
-  max_bookings_per_customer: number | null
   require_phone_verification: boolean
   payment_method_label: string
   payment_method_description: string
@@ -34,11 +32,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
   const [formData, setFormData] = useState<ReservationSettings>({
     id: '',
     store_id: '',
-    max_participants_per_booking: 8,
     advance_booking_days: 90,
     same_day_booking_cutoff: 0,
     private_booking_deadline_days: 14,
-    max_bookings_per_customer: null,
     require_phone_verification: false,
     payment_method_label: '現地決済',
     payment_method_description: 'ご来店時にお支払いください'
@@ -78,7 +74,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('id, store_id, organization_id, max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, max_bookings_per_customer, require_phone_verification, payment_method_label, payment_method_description, updated_at')
+        .select('id, store_id, organization_id, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, require_phone_verification, payment_method_label, payment_method_description, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 
@@ -88,11 +84,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
         setFormData({
           id: data.id,
           store_id: data.store_id,
-          max_participants_per_booking: data.max_participants_per_booking ?? 8,
           advance_booking_days: data.advance_booking_days ?? 90,
           same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
           private_booking_deadline_days: data.private_booking_deadline_days ?? 14,
-          max_bookings_per_customer: data.max_bookings_per_customer,
           require_phone_verification: data.require_phone_verification ?? false,
           payment_method_label: data.payment_method_label ?? '現地決済',
           payment_method_description: data.payment_method_description ?? 'ご来店時にお支払いください'
@@ -101,11 +95,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
         setFormData({
           id: '',
           store_id: storeId,
-          max_participants_per_booking: 8,
           advance_booking_days: 90,
           same_day_booking_cutoff: 0,
           private_booking_deadline_days: 14,
-          max_bookings_per_customer: null,
           require_phone_verification: false,
           payment_method_label: '現地決済',
           payment_method_description: 'ご来店時にお支払いください'
@@ -129,11 +121,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
         const { error } = await supabase
           .from('reservation_settings')
           .update({
-            max_participants_per_booking: formData.max_participants_per_booking,
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
-            max_bookings_per_customer: formData.max_bookings_per_customer,
             require_phone_verification: formData.require_phone_verification,
             payment_method_label: formData.payment_method_label,
             payment_method_description: formData.payment_method_description
@@ -148,11 +138,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           .insert({
             store_id: formData.store_id,
             organization_id: store?.organization_id,
-            max_participants_per_booking: formData.max_participants_per_booking,
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
-            max_bookings_per_customer: formData.max_bookings_per_customer,
             require_phone_verification: formData.require_phone_verification,
             payment_method_label: formData.payment_method_label,
             payment_method_description: formData.payment_method_description
@@ -165,11 +153,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           setFormData({
             id: data.id,
             store_id: data.store_id,
-            max_participants_per_booking: data.max_participants_per_booking ?? 8,
             advance_booking_days: data.advance_booking_days ?? 90,
             same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
             private_booking_deadline_days: data.private_booking_deadline_days ?? 14,
-            max_bookings_per_customer: data.max_bookings_per_customer,
             require_phone_verification: data.require_phone_verification ?? false,
             payment_method_label: data.payment_method_label ?? '現地決済',
             payment_method_description: data.payment_method_description ?? 'ご来店時にお支払いください'
@@ -196,7 +182,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="予約設定"
-        description="予約の受付期間・人数制限・認証・支払い方法を店舗ごとに設定します"
+        description="予約の受付期間・認証・支払い方法を店舗ごとに設定します"
       >
         <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />
@@ -257,44 +243,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
               公演日の{formData.private_booking_deadline_days}日前まで貸切申込を受付。貸切申込フォームの締切に使用されます。
               店舗ごとに異なる値を設定した場合、貸切申込カレンダーでは組織内で最も長い日数が適用されます
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 参加人数 */}
-      <section className="bg-white rounded-xl border p-6">
-        <SectionTitle
-          icon={Users}
-          label="参加人数"
-          description="1回の予約で申し込める最大人数を設定します。予約フォームの人数上限として機能します"
-        />
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">1回の予約の最大人数</Label>
-              <Input
-                type="number"
-                value={formData.max_participants_per_booking}
-                onChange={(e) => setFormData(prev => ({ ...prev, max_participants_per_booking: parseInt(e.target.value) || 0 }))}
-                min="1"
-                max="50"
-              />
-              <p className="text-xs text-muted-foreground">予約フォームで選択できる人数の上限です</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">顧客あたりの最大予約数</Label>
-              <Input
-                type="number"
-                value={formData.max_bookings_per_customer || 0}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value) || 0
-                  setFormData(prev => ({ ...prev, max_bookings_per_customer: value === 0 ? null : value }))
-                }}
-                min="0"
-                max="20"
-              />
-              <p className="text-xs text-muted-foreground">0 = 制限なし</p>
-            </div>
           </div>
         </div>
       </section>
