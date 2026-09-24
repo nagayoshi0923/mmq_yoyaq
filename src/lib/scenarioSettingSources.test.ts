@@ -32,7 +32,8 @@ it('共通と自社の実効値はnullだけを継承し、空文字・空配列
 })
 
 it('新規作品のマスタ選択後、未編集項目は共通参照し変更した項目だけ固定する', () => {
-  const baseline = scenarioEffectiveFields({}, { title: '共通作品', official_duration: 180, player_count_min: 5, player_count_max: 6, caution: '共通の注意' })
+  const baseline = scenarioEffectiveFields({}, { title: '共通作品', official_duration: 180, player_count_min: 5, player_count_max: 6, caution: '共通の注意', sensitive_tags: ['暴力表現'] })
+  expect(baseline.sensitive_tags).toEqual(['暴力表現'])
   const state = { stored: {}, baseline }
   expect(Object.values(scenarioSourcePayload(baseline, state, {})).every(value => value === null)).toBe(true)
   expect(scenarioSourcePayload({ ...baseline, title: '自社表記' }, state, {})).toMatchObject({ override_title: '自社表記', duration: null, override_player_count_min: null, custom_caution: null })
