@@ -518,7 +518,7 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title={scope === 'organization' ? '通知・共通メッセージ' : '店舗の予約通知'}
         description="各種通知の設定"

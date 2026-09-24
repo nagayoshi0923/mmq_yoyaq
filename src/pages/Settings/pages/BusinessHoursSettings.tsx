@@ -383,7 +383,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="営業時間設定"
         description="店舗ごとの曜日別営業時間と特別営業日を設定します"

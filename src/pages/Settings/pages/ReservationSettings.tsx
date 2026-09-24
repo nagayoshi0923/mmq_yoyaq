@@ -193,7 +193,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="予約設定"
         description="予約の受付期間・人数制限・認証・支払い方法を店舗ごとに設定します"

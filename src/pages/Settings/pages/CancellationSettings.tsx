@@ -608,7 +608,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="キャンセル設定"
         description="通常公演・貸切公演それぞれのキャンセルポリシーを設定します"
