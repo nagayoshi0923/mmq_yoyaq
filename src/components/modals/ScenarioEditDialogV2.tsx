@@ -1,6 +1,7 @@
 import { ScenarioSettingSources } from '@/components/settings/ScenarioSettingSources'
 import { scenarioEffectiveFields, scenarioSourcePayload, type ScenarioSourceState, type SourceValues } from '@/lib/scenarioSettingSources'
 import { settingsPath } from '@/components/settings/settingsCatalog'
+import { apiClient } from '@/lib/apiClient'
 import { RecruitmentSettingsSection } from './ScenarioEditDialogV2/sections/RecruitmentSettingsSection'
 import { BookingCutoffSection } from './ScenarioEditDialogV2/sections/BookingCutoffSection'
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -802,14 +803,9 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             try {
               const loadOrgId = await getCurrentOrganizationId()
               if (loadOrgId) {
-                const { data: osData, error: sourceError } = await supabase
-                  .from('organization_scenarios')
-                  .select('id, duration, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout')
-                  .eq('scenario_master_id', masterId)
-                  .eq('organization_id', loadOrgId)
-                  .maybeSingle()
-                
-                if (sourceError) throw sourceError
+                const osData = await apiClient.get<Record<string, any> | null>(
+                  `/api/org-scenarios?${new URLSearchParams({ type: 'settings-source', masterId })}`
+                )
                 // A master may be unreadable (for example an older private master).
                 // Preserve the loaded effective values and raw override state in that case.
                 const sourceMaster = await scenarioMasterApi.getById(masterId).catch(() => null)
@@ -1783,4 +1779,3 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
     </Dialog>
   )
 }
-
