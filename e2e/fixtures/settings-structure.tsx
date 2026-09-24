@@ -1,3 +1,6 @@
+import { BookingCutoffSection } from '../../src/components/modals/ScenarioEditDialogV2/sections/BookingCutoffSection'
+import { RecruitmentSettingsSection } from '../../src/components/modals/ScenarioEditDialogV2/sections/RecruitmentSettingsSection'
+import { RecruitmentSettings } from '../../src/pages/Settings/pages/RecruitmentSettings'
 import { PrivateBookingDeadlineSection } from '../../src/components/settings/PrivateBookingDeadlineSection'
 import { apiClient } from '../../src/lib/apiClient'
 import React, { useState } from 'react'
@@ -44,8 +47,22 @@ organizationSettingsApi.getTimeSlotSettings = async () => ({ weekday: times, hol
 organizationSettingsApi.updateTimeSlotSettings = async (payload) => { document.documentElement.dataset.timeSaved = JSON.stringify(payload); return {} as never }
 
 let privateDays: number | null = null
-apiClient.get = async () => ({ setting: { private_booking_deadline_days: privateDays, updated_at: '2026-09-24T00:00:00Z' }, common_days: 7, can_edit: true }) as never
-apiClient.patch = async (_url, payload: any) => { privateDays = payload.days; document.documentElement.dataset.privateSaved = JSON.stringify(payload); return { success: true } as never }
+let cutoff: number | null = null
+let recruitment = { recruitment_extension_enabled: true, recruitment_enabled_source: 'common', recruitment_deadline_source: 'common', recruitment_target_source: 'common', recruitment_target_mode: 'count', recruitment_target_value: 2, recruitment_deadline_minutes: 90, updated_at: '2026-09-24T00:00:00Z' }
+let recruitmentCommon = { enabled: true, deadline_minutes: 60, mode: 'count', value: 2, updated_at: '2026-09-24T00:00:00Z' }
+apiClient.get = async (url) => {
+ if (url.includes('booking-cutoff-settings')) return { setting: { booking_cutoff_minutes: cutoff, updated_at: '2026-09-24T00:00:00Z' }, common_minutes: 30, can_edit: true } as never
+ if (url.includes('common-recruitment-settings')) return { setting: recruitmentCommon, can_edit: true, common_count: 3, custom_count: 1 } as never
+ if (url.includes('recruitment-settings')) return { setting: recruitment, common: recruitmentCommon, can_edit: true, min_required: 7, history: [] } as never
+ return { setting: { private_booking_deadline_days: privateDays, updated_at: '2026-09-24T00:00:00Z' }, common_days: 7, can_edit: true } as never
+}
+apiClient.patch = async (url, payload: any) => {
+ if (url.includes('booking-cutoff-settings')) { cutoff=payload.minutes; document.documentElement.dataset.cutoffSaved=JSON.stringify(payload) }
+ else if (url.includes('common-recruitment-settings')) { recruitmentCommon={...recruitmentCommon,...payload}; document.documentElement.dataset.commonSaved=JSON.stringify(payload) }
+ else if (url.includes('recruitment-settings')) { recruitment={...recruitment,recruitment_extension_enabled:payload.enabled,recruitment_enabled_source:payload.enabled_source,recruitment_deadline_source:payload.deadline_source,recruitment_deadline_minutes:payload.deadline_minutes}; document.documentElement.dataset.recruitmentSaved=JSON.stringify(payload) }
+ else { privateDays = payload.days; document.documentElement.dataset.privateSaved = JSON.stringify(payload) }
+ return { success: true } as never
+}
 
 function Fixture() {
   const mode = new URLSearchParams(location.search).get('mode')
@@ -55,6 +72,9 @@ function Fixture() {
   const baseline = scenarioEffectiveFields(stored, master)
   const [values, setValues] = useState(baseline)
   const [resets, setResets] = useState<Record<string, unknown>>({})
+  if (mode === 'booking-cutoff') return <BookingCutoffSection masterId="11111111-1111-4111-8111-111111111111" />
+  if (mode === 'recruitment') return <RecruitmentSettingsSection masterId="11111111-1111-4111-8111-111111111111" />
+  if (mode === 'common-recruitment') return <RecruitmentSettings />
   if (mode === 'private-deadline') return <PrivateBookingDeadlineSection masterId="11111111-1111-4111-8111-111111111111" />
   if (mode === 'scenario') return <>
     <ScenarioSettingSources state={{ stored, baseline }} current={values} master={master} resets={resets} onReset={(field, value) => { setValues(v => ({ ...v, [field]: value })); setResets(v => ({ ...v, [field]: value })) }} />

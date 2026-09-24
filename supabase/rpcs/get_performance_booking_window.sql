@@ -7,10 +7,11 @@ AS $function$
  WITH settings AS (
   SELECT e.id,e.updated_at,e.booking_cutoff_minutes,
     (e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo' AS starts_at,
-    COALESCE(os.booking_cutoff_minutes,GREATEST(COALESCE(e.reservation_deadline_hours,0),0)*60) AS default_minutes,
+    COALESCE(os.booking_cutoff_minutes,common.booking_cutoff_minutes,0) AS default_minutes,
     d.deadline,d.status,
     EXISTS(SELECT 1 FROM performance_cancellation_logs l WHERE l.schedule_event_id=e.id AND l.organization_id=e.organization_id AND l.result='confirmed') AS was_confirmed
   FROM schedule_events e
+  LEFT JOIN global_settings common ON common.organization_id=e.organization_id
   LEFT JOIN LATERAL (
     SELECT sc.booking_cutoff_minutes FROM organization_scenarios sc
     WHERE sc.organization_id=e.organization_id AND

@@ -1,3 +1,94 @@
+-- Execute only as an application rollback before changing the newly introduced common values.
+-- Keep added columns and audit history. Revert the app to the previous release as well.
+CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+ SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_performance_booking_window(p_event_id uuid)
+ RETURNS TABLE(judgment_deadline timestamp with time zone, judgment_status text, booking_deadline timestamp with time zone, effective_booking_deadline timestamp with time zone, override_minutes integer, default_minutes integer, updated_at timestamp with time zone)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+ WITH settings AS (
+  SELECT e.id,e.updated_at,e.booking_cutoff_minutes,
+    (e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo' AS starts_at,
+    COALESCE(os.booking_cutoff_minutes,GREATEST(COALESCE(e.reservation_deadline_hours,0),0)*60) AS default_minutes,
+    d.deadline,d.status,
+    EXISTS(SELECT 1 FROM performance_cancellation_logs l WHERE l.schedule_event_id=e.id AND l.organization_id=e.organization_id AND l.result='confirmed') AS was_confirmed
+  FROM schedule_events e
+  LEFT JOIN LATERAL (
+    SELECT sc.booking_cutoff_minutes FROM organization_scenarios sc
+    WHERE sc.organization_id=e.organization_id AND
+      ((e.organization_scenario_id IS NOT NULL AND sc.id=e.organization_scenario_id)
+       OR (e.organization_scenario_id IS NULL AND sc.scenario_master_id=COALESCE(e.scenario_master_id,e.scenario_id)))
+    LIMIT 1
+  ) os ON true
+  LEFT JOIN performance_recruitment_deadlines d ON d.schedule_event_id=e.id AND d.organization_id=e.organization_id
+  WHERE e.id=p_event_id AND e.category='open' AND NOT e.is_cancelled
+ ), resolved AS (
+  SELECT *,starts_at-make_interval(mins=>COALESCE(booking_cutoff_minutes,default_minutes)) AS cutoff FROM settings
+ )
+ SELECT COALESCE(deadline,starts_at-interval '4 hours'),
+   COALESCE(status,CASE WHEN was_confirmed THEN 'confirmed' ELSE 'pending' END),cutoff,
+   CASE WHEN status='active' THEN deadline ELSE cutoff END,booking_cutoff_minutes,default_minutes,updated_at
+ FROM resolved;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.save_organization_recruitment_settings(p_organization_id uuid, p_actor_id uuid, p_mode text, p_value integer, p_expected_updated_at timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE s organization_recruitment_settings%ROWTYPE; before_value jsonb; after_value jsonb;
+BEGIN
+ IF p_actor_id IS NULL OR recruitment_missing_limit(7,p_mode,p_value) IS NULL THEN RETURN jsonb_build_object('success',false,'error','INVALID_SETTINGS'); END IF;
+ -- 初回作成も直列化し、空の設定に対する同時保存を防ぐ。
+ PERFORM 1 FROM organizations WHERE id=p_organization_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','NOT_FOUND'); END IF;
+ SELECT * INTO s FROM organization_recruitment_settings WHERE organization_id=p_organization_id FOR UPDATE;
+ IF s.updated_at IS DISTINCT FROM p_expected_updated_at THEN RETURN jsonb_build_object('success',false,'error','CONFLICT'); END IF;
+ before_value:=jsonb_build_object('mode',COALESCE(s.mode,'count'),'value',COALESCE(s.value,2));
+ after_value:=jsonb_build_object('mode',p_mode,'value',p_value);
+ IF before_value=after_value AND s.organization_id IS NOT NULL THEN RETURN jsonb_build_object('success',true,'unchanged',true); END IF;
+ INSERT INTO organization_recruitment_settings(organization_id,mode,value) VALUES(p_organization_id,p_mode,p_value)
+ ON CONFLICT(organization_id) DO UPDATE SET mode=excluded.mode,value=excluded.value,updated_at=clock_timestamp();
+ INSERT INTO organization_recruitment_setting_history(organization_id,actor_id,before_settings,after_settings) VALUES(p_organization_id,p_actor_id,before_value,after_value);
+ RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.save_scenario_recruitment_settings_v2(p_organization_id uuid, p_master_id uuid, p_actor_id uuid, p_enabled boolean, p_source text, p_mode text, p_value integer, p_deadline_minutes integer, p_expected_updated_at timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE s organization_scenarios%ROWTYPE; before_value jsonb; after_value jsonb;
+BEGIN
+ IF p_enabled IS NULL OR p_source IS NULL OR p_source NOT IN ('common','custom') OR recruitment_missing_limit(7,p_mode,p_value) IS NULL OR p_deadline_minutes IS NULL OR p_deadline_minutes NOT BETWEEN 1 AND 239 OR p_actor_id IS NULL THEN
+  RETURN jsonb_build_object('success',false,'error','INVALID_SETTINGS');
+ END IF;
+ SELECT * INTO s FROM organization_scenarios WHERE organization_id=p_organization_id AND scenario_master_id=p_master_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','NOT_FOUND'); END IF;
+ IF s.updated_at IS DISTINCT FROM p_expected_updated_at THEN RETURN jsonb_build_object('success',false,'error','CONFLICT'); END IF;
+ before_value:=jsonb_build_object('enabled',s.recruitment_extension_enabled,'source',s.recruitment_target_source,'mode',s.recruitment_target_mode,'value',s.recruitment_target_value,'deadline_minutes',s.recruitment_deadline_minutes);
+ after_value:=jsonb_build_object('enabled',p_enabled,'source',p_source,'mode',p_mode,'value',p_value,'deadline_minutes',p_deadline_minutes);
+ IF before_value=after_value THEN RETURN jsonb_build_object('success',true,'unchanged',true); END IF;
+ UPDATE organization_scenarios SET recruitment_extension_enabled=p_enabled,recruitment_target_source=p_source,recruitment_target_mode=p_mode,recruitment_target_value=p_value,
+ recruitment_max_missing=CASE WHEN p_mode='count' THEN p_value ELSE recruitment_max_missing END,
+ recruitment_deadline_minutes=p_deadline_minutes,updated_at=clock_timestamp() WHERE id=s.id AND organization_id=p_organization_id;
+ INSERT INTO scenario_recruitment_setting_history(organization_id,organization_scenario_id,actor_id,before_settings,after_settings) VALUES(p_organization_id,s.id,p_actor_id,before_value,after_value);
+ RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
  RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
  LANGUAGE plpgsql
@@ -40,11 +131,11 @@ BEGIN
       se.scenario,
       se.gm_roles,
       se.is_recruitment_extended,
-      (pol.one_seat_enabled AND CASE WHEN os.recruitment_enabled_source='custom' THEN os.recruitment_extension_enabled ELSE COALESCE(common.enabled,true) END) AS one_seat_enabled,
+      (pol.one_seat_enabled AND COALESCE(os.recruitment_extension_enabled,true)) AS one_seat_enabled,
       rd.max_missing_participants AS saved_max_missing,
       CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_mode ELSE COALESCE(common.mode,'count') END AS target_mode,
       CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_value ELSE COALESCE(common.value,os.recruitment_max_missing,pol.max_missing_participants,2) END AS target_value,
-      CASE WHEN os.recruitment_deadline_source='custom' THEN os.recruitment_deadline_minutes ELSE COALESCE(common.deadline_minutes,90) END AS deadline_minutes,
+      COALESCE(os.recruitment_deadline_minutes,90) AS deadline_minutes,
       pol.customer_site_url,
       rd.deadline AS recruitment_deadline,
       rd.status AS recruitment_status,
@@ -273,13 +364,4 @@ BEGIN
     v_details;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) TO service_role;
 
-CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
-RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
-LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
- SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
-$$;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines() TO service_role;

@@ -67,9 +67,9 @@ export function BookingDeadlineTab({ eventId }: { eventId?: string }) {
         <div className="scenario-edit-field"><Label className="scenario-edit-field__label" htmlFor="booking-cutoff-mode">締切設定</Label><div className="scenario-edit-field__control">
         <Select value={mode} onValueChange={setMode} disabled={!canEdit || saving}>
           <SelectTrigger className="h-7 text-xs" id="booking-cutoff-mode"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="default">シナリオ設定を使う（{window.default_minutes}分前）</SelectItem><SelectItem value="custom">この公演だけ指定する</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="default">共通・シナリオ設定を使う（{window.default_minutes}分前）</SelectItem><SelectItem value="custom">この公演だけ指定する</SelectItem></SelectContent>
         </Select></div></div>
-        <p className="scenario-edit-card__help">シナリオ編集で設定した予約締切を使います。シナリオ未設定の場合は、従来の締切を維持します。</p>
+        <p className="scenario-edit-card__help">シナリオで個別指定している場合はその値、それ以外は組織共通の締切を使います。</p>
         {mode === 'custom' && <div className="space-y-2"><div className="scenario-edit-field"><Label className="scenario-edit-field__label" htmlFor="booking-cutoff-minutes">受付締切</Label><div className="scenario-edit-field__control flex items-center gap-2"><Input className="h-7 text-xs w-24" aria-label="公演開始の何分前まで受け付けるか" id="booking-cutoff-minutes" type="number" min={0} max={1440} step={1} value={minutes} onChange={e => setMinutes(e.target.value)} disabled={!canEdit || saving} /><span className="text-xs text-muted-foreground">分前</span></div></div><p className="scenario-edit-card__help">0分は公演開始まで。開催判断の期限は変更しません。</p></div>}
         {canEdit ? <Button variant="outline" size="sm" className="h-7 text-xs self-end" onClick={() => void save()} disabled={saving}>{saving ? '保存中…' : '予約締切を保存'}</Button> : <p className="scenario-edit-card__help">変更は管理者が行えます。</p>}
         {message && <p className="scenario-edit-card__note" role="status">{message}</p>}
