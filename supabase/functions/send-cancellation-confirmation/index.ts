@@ -147,9 +147,9 @@ serve(async (req) => {
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || cancellationData.organizationName || senderName
-    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? cancellationData.organizationName ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? replyToEmail ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
     
     // カスタムテンプレートの取得（店舗都合中止の場合は別テンプレート）
     const isStoreCancellation = cancellationData.cancelledBy === 'store'
@@ -456,8 +456,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     }
     
     // 返信先メールアドレスが設定されている場合は追加
-    if (companyEmail || replyToEmail) {
-      emailPayload.reply_to = companyEmail || replyToEmail
+    if (companyEmail) {
+      emailPayload.reply_to = companyEmail
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {

@@ -1,10 +1,12 @@
+import { SETTING_DEFAULTS } from '../../../../supabase/functions/_shared/setting-defaults'
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
+import { SETTING_DEFINITIONS } from '../../../../supabase/functions/_shared/setting-definitions'
+import { SETTING_SCOPE_LABELS, type SettingScope, type SettingValue } from '../../../../supabase/functions/_shared/settings-inheritance'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Save, Sparkles, ExternalLink } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { storeApi } from '@/lib/api/storeApi'
-import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import {
   DEFAULT_OPEN_CANCELLATION_FEES,
@@ -21,9 +23,6 @@ import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
 import { CancellationPolicyView } from '@/components/patterns/cancellation/CancellationPolicyView'
 import type { PublicCancellationPolicy } from '@/lib/publicCancellationPolicy'
 import { useOrganization } from '@/hooks/useOrganization'
-
-const RESERVATION_SETTINGS_SELECT_FIELDS =
-  'id, store_id, cancellation_policy, cancellation_policy_items, cancellation_deadline_hours, cancellation_fees, cancellation_fee_basis, private_cancellation_policy, private_cancellation_policy_items, private_cancellation_deadline_hours, private_cancellation_fees, private_cancellation_fee_basis, organizer_cancel_reasons, organizer_cancel_refund_note, cancellation_judgment_rules, cancellation_notice_note, reservation_change_deadline_hours, reservation_change_note, private_reservation_change_deadline_hours, private_reservation_change_note, refund_method_note, auto_refund_enabled, refund_processing_days, policy_updated_at' as const
 
 export interface CancellationFee {
   hours_before: number
@@ -87,7 +86,9 @@ export interface CancellationSettings {
 }
 
 interface CancellationSettingsProps {
-  storeId: string
+  storeId?: string
+  scope?: SettingScope
+  targetId?: string
 }
 
 // デフォルトのポリシー項目
@@ -113,9 +114,9 @@ const DEFAULT_ORGANIZER_CANCEL_REASONS: OrganizerCancelReason[] = [
 // 中止判定ルールのデフォルト
 const DEFAULT_JUDGMENT_RULES: CancellationJudgmentRule[] = [
   { id: '1', timing: '前日 23:59', condition: '定員の過半数に満たない場合', result: '中止' },
-  { id: '2', timing: '前日 23:59', condition: '過半数以上だが満席でない場合', result: '公演4時間前まで募集を延長' },
-  { id: '3', timing: '前日 23:59', condition: '満席の場合', result: '開催確定' },
-  { id: '4', timing: '公演4時間前（延長された場合）', condition: '満席でない場合', result: '中止' }
+  { id: '2', timing: '前日 23:59', condition: '過半数以上だが最低開催人数に満たない場合', result: '公演ごとの開催判断期限まで募集を延長' },
+  { id: '3', timing: '前日 23:59', condition: '最低開催人数に達した場合', result: '開催確定' },
+  { id: '4', timing: '公演ごとの開催判断期限（延長された場合）', condition: '最低開催人数に満たない場合', result: '中止' }
 ]
 
 const generateId = () => Math.random().toString(36).substring(2, 9)
@@ -139,9 +140,9 @@ function createDefaultCancellationSettings(storeId: string): CancellationSetting
     cancellation_judgment_rules: DEFAULT_JUDGMENT_RULES.map(rule => ({ ...rule })),
     cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
     reservation_change_deadline_hours: 24,
-    reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+    reservation_change_note: '参加人数の変更は、マイページに表示された変更期限まで行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
     private_reservation_change_deadline_hours: 168,
-    private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
+    private_reservation_change_note: '貸切予約の変更は、表示された変更期限まで可能です。日程変更は空き状況によります。',
     refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
     auto_refund_enabled: false,
     refund_processing_days: 7,
@@ -149,259 +150,25 @@ function createDefaultCancellationSettings(storeId: string): CancellationSetting
   }
 }
 
-export function CancellationSettings({ storeId }: CancellationSettingsProps) {
+export function CancellationSettings({ storeId = '', scope = 'store', targetId }: CancellationSettingsProps) {
   const { organization } = useOrganization()
-  const [formData, setFormData] = useState<CancellationSettings>(() => createDefaultCancellationSettings(storeId))
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId])
-
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      await fetchSettings(storeId)
-    } catch (error) {
-      logger.error('データ取得エラー:', error)
-      showToast.error('データの取得に失敗しました')
-    } finally {
-      setLoading(false)
+  const state = useOperatingSettings(scope, targetId ?? storeId)
+  const { loading, saving } = state
+  const defaults = { ...createDefaultCancellationSettings(storeId), ...SETTING_DEFAULTS } as CancellationSettings
+  const keys = Object.keys(SETTING_DEFINITIONS).filter(key => SETTING_DEFINITIONS[key].group === 'cancellation')
+  const formData = { ...defaults, ...Object.fromEntries(keys.map(key => [key,
+    state.resolve(key, defaults[key as keyof CancellationSettings] as SettingValue).value,
+  ])) } as CancellationSettings
+  const setFormData: Dispatch<SetStateAction<CancellationSettings>> = action => {
+    const next = typeof action === 'function' ? action(formData) : action
+    for (const key of keys) {
+      const value = next[key as keyof CancellationSettings]
+      if (JSON.stringify(value) !== JSON.stringify(formData[key as keyof CancellationSettings])) {
+        state.set(key, value as SettingValue)
+      }
     }
   }
-
-  const fetchSettings = async (storeId: string) => {
-    try {
-      // 全店舗選択時は任意店舗の設定を代表表示しない。
-      if (!storeId) {
-        setFormData(createDefaultCancellationSettings(''))
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('reservation_settings')
-        .select(RESERVATION_SETTINGS_SELECT_FIELDS)
-        .eq('store_id', storeId)
-        .maybeSingle()
-
-      if (error && error.code !== 'PGRST116') throw error
-
-      if (data) {
-        // 既存のcancellation_policyテキストをpolicy_itemsに変換（マイグレーション対応）
-        let policyItems = data.cancellation_policy_items
-        if ((!policyItems || policyItems.length === 0) && data.cancellation_policy) {
-          // 既存のテキストを行ごとに分割してpolicy_itemsに変換
-          const lines = data.cancellation_policy.split('\n').filter((line: string) => line.trim())
-          if (lines.length > 0) {
-            policyItems = lines.map((line: string, index: number) => ({
-              id: generateId(),
-              content: line.replace(/^[・•\-*]\s*/, '').trim() // 先頭の箇条書き記号を除去
-            }))
-          } else {
-            policyItems = DEFAULT_POLICY_ITEMS
-          }
-        } else if (!policyItems || policyItems.length === 0) {
-          policyItems = DEFAULT_POLICY_ITEMS
-        }
-
-        let privatePolicyItems = data.private_cancellation_policy_items
-        if ((!privatePolicyItems || privatePolicyItems.length === 0) && data.private_cancellation_policy) {
-          const lines = data.private_cancellation_policy.split('\n').filter((line: string) => line.trim())
-          if (lines.length > 0) {
-            privatePolicyItems = lines.map((line: string, index: number) => ({
-              id: generateId(),
-              content: line.replace(/^[・•\-*]\s*/, '').trim()
-            }))
-          } else {
-            privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
-          }
-        } else if (!privatePolicyItems || privatePolicyItems.length === 0) {
-          privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
-        }
-
-        setFormData({
-          id: data.id,
-          store_id: data.store_id,
-          cancellation_policy: data.cancellation_policy || '',
-          cancellation_policy_items: policyItems,
-          cancellation_deadline_hours:
-            data.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
-          cancellation_fees: data.cancellation_fees || [...DEFAULT_OPEN_CANCELLATION_FEES],
-          cancellation_fee_basis: data.cancellation_fee_basis || 'participant_total',
-          private_cancellation_policy: data.private_cancellation_policy || '',
-          private_cancellation_policy_items: privatePolicyItems,
-          private_cancellation_deadline_hours:
-            data.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-          private_cancellation_fees: data.private_cancellation_fees || [
-            ...DEFAULT_PRIVATE_CANCELLATION_FEES,
-          ],
-          private_cancellation_fee_basis: data.private_cancellation_fee_basis || 'performance_total',
-          // 新しいフィールド
-          organizer_cancel_reasons: data.organizer_cancel_reasons || DEFAULT_ORGANIZER_CANCEL_REASONS,
-          organizer_cancel_refund_note: data.organizer_cancel_refund_note || '参加料金は全額返金いたします。',
-          cancellation_judgment_rules: data.cancellation_judgment_rules || DEFAULT_JUDGMENT_RULES,
-          cancellation_notice_note: data.cancellation_notice_note || '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
-          reservation_change_deadline_hours: data.reservation_change_deadline_hours ?? 24,
-          reservation_change_note: data.reservation_change_note || '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
-          private_reservation_change_deadline_hours: data.private_reservation_change_deadline_hours ?? 168,
-          private_reservation_change_note: data.private_reservation_change_note || '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
-          refund_method_note: data.refund_method_note || '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
-          auto_refund_enabled: data.auto_refund_enabled || false,
-          refund_processing_days: data.refund_processing_days || 7,
-          policy_updated_at: data.policy_updated_at || toJstYmd(new Date())
-        })
-      } else {
-        setFormData(createDefaultCancellationSettings(storeId))
-      }
-    } catch (error) {
-      logger.error('設定取得エラー:', error)
-    }
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const sortedFees = [...formData.cancellation_fees].sort((a, b) => b.hours_before - a.hours_before)
-      const sortedPrivateFees = [...formData.private_cancellation_fees].sort((a, b) => b.hours_before - a.hours_before)
-      const policyUpdatedAt = toJstYmd(new Date())
-
-      const savePayload = {
-        cancellation_policy: formData.cancellation_policy,
-        cancellation_policy_items: formData.cancellation_policy_items,
-        cancellation_deadline_hours: formData.cancellation_deadline_hours,
-        cancellation_fees: sortedFees,
-        cancellation_fee_basis: formData.cancellation_fee_basis,
-        private_cancellation_policy: formData.private_cancellation_policy,
-        private_cancellation_policy_items: formData.private_cancellation_policy_items,
-        private_cancellation_deadline_hours: formData.private_cancellation_deadline_hours,
-        private_cancellation_fees: sortedPrivateFees,
-        private_cancellation_fee_basis: formData.private_cancellation_fee_basis,
-        // 新しいフィールド
-        organizer_cancel_reasons: formData.organizer_cancel_reasons,
-        organizer_cancel_refund_note: formData.organizer_cancel_refund_note,
-        cancellation_judgment_rules: formData.cancellation_judgment_rules,
-        cancellation_notice_note: formData.cancellation_notice_note,
-        reservation_change_deadline_hours: formData.reservation_change_deadline_hours,
-        reservation_change_note: formData.reservation_change_note,
-        private_reservation_change_deadline_hours: formData.private_reservation_change_deadline_hours,
-        private_reservation_change_note: formData.private_reservation_change_note,
-        refund_method_note: formData.refund_method_note,
-        policy_updated_at: policyUpdatedAt
-      }
-
-      // 全店舗選択時は全店舗に一括適用
-      if (!storeId) {
-        const allStores = await storeApi.getAll()
-        logger.log('全店舗一括適用開始:', allStores.length, '店舗')
-        
-        if (allStores.length === 0) {
-          showToast.warning('店舗が登録されていません')
-          setSaving(false)
-          return
-        }
-
-        let successCount = 0
-        let errorCount = 0
-
-        for (const store of allStores) {
-          try {
-            const { data: existing, error: selectError } = await supabase
-              .from('reservation_settings')
-              .select('id')
-              .eq('store_id', store.id)
-              .maybeSingle()
-
-            if (selectError) {
-              logger.error(`店舗 ${store.name} の設定取得エラー:`, selectError)
-            }
-
-            if (existing) {
-              logger.log(`店舗 ${store.name}: 既存設定を更新`, existing.id)
-              const { error } = await supabase
-                .from('reservation_settings')
-                .update(savePayload)
-                .eq('id', existing.id)
-              if (error) {
-                logger.error(`店舗 ${store.name} の更新エラー:`, error)
-                throw error
-              }
-            } else {
-              logger.log(`店舗 ${store.name}: 新規設定を作成`)
-              const { error } = await supabase
-                .from('reservation_settings')
-                .insert({
-                  store_id: store.id,
-                  organization_id: store.organization_id,
-                  ...savePayload
-                })
-              if (error) {
-                logger.error(`店舗 ${store.name} の作成エラー:`, error)
-                throw error
-              }
-            }
-            successCount++
-          } catch (err) {
-            logger.error(`店舗 ${store.name} の設定保存エラー:`, err)
-            errorCount++
-          }
-        }
-
-        logger.log('全店舗適用完了:', successCount, '成功,', errorCount, 'エラー')
-        if (errorCount === 0) {
-          showToast.success(`全${successCount}店舗に設定を適用しました`)
-        } else {
-          showToast.warning(`${successCount}店舗に適用、${errorCount}店舗でエラー`)
-        }
-        if (successCount > 0) {
-          setFormData(prev => ({ ...prev, policy_updated_at: policyUpdatedAt }))
-        }
-        setSaving(false)
-        return
-      }
-
-      // 特定店舗選択時
-      if (formData.id) {
-        const { error } = await supabase
-          .from('reservation_settings')
-          .update(savePayload)
-          .eq('id', formData.id)
-
-        if (error) throw error
-      } else {
-        const { data: storeData } = await supabase
-          .from('stores')
-          .select('organization_id')
-          .eq('id', formData.store_id)
-          .single()
-        
-        const { data, error } = await supabase
-          .from('reservation_settings')
-          .insert({
-            store_id: formData.store_id,
-            organization_id: storeData?.organization_id,
-            ...savePayload
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-        if (data) {
-          setFormData(prev => ({ ...prev, id: data.id }))
-        }
-      }
-
-      setFormData(prev => ({ ...prev, policy_updated_at: policyUpdatedAt }))
-      showToast.success('設定を保存しました')
-    } catch (error) {
-      logger.error('保存エラー:', error)
-      showToast.error('保存に失敗しました')
-    } finally {
-      setSaving(false)
-    }
-  }
-
+  const handleSave = () => void state.save()
   // 標準テンプレートを適用
   const applyStandardTemplate = () => {
     setFormData(prev => ({
@@ -424,9 +191,9 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
       // 予約変更
       reservation_change_deadline_hours: 24,
-      reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+      reservation_change_note: '参加人数の変更は、マイページに表示された変更期限まで行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
       private_reservation_change_deadline_hours: 168,
-      private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
+      private_reservation_change_note: '貸切予約の変更は、表示された変更期限まで可能です。日程変更は空き状況によります。',
       // 返金
       refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。'
     }))
@@ -603,6 +370,8 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     source: 'rpc',
   }
 
+  if (scope !== 'organization' && !(targetId ?? storeId)) return <p>設定する対象を選択してください。</p>
+  if (state.error && !state.data) return <div role="alert"><p>{state.error}</p><Button onClick={() => void state.reload()}>再読み込み</Button></div>
   if (loading) {
     return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
   }
@@ -623,7 +392,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
             <ExternalLink className="h-3.5 w-3.5 mr-1" />
             ポリシーページを確認
           </a>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Button size="sm" onClick={handleSave} disabled={saving || !state.data?.can_edit || !state.dirty}>
             <Save className="w-3.5 h-3.5 mr-1.5" />
             {saving ? '保存中...' : '保存'}
           </Button>
@@ -648,6 +417,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           </div>
           <Button
             onClick={applyStandardTemplate}
+            disabled={saving || !state.data?.can_edit}
             variant="outline"
             size="sm"
             className="border-purple-300 text-purple-700 hover:bg-purple-100"
@@ -658,14 +428,28 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         </div>
       </div>
 
-      {!storeId && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-800">
-            <strong>全店舗選択中:</strong> 個別店舗の既存値は代表表示していません。保存すると、現在の入力内容が全店舗へ一括適用されます。
-          </p>
-        </div>
-      )}
+      {state.error && <p role="alert">{state.error}</p>}
+      {state.message && <p role="status">{state.message}</p>}
+      <section className="rounded-xl border p-4 space-y-3">
+        <p className="text-sm">{scope === 'organization' ? '組織共通の規定です。個別指定のない項目に適用します。' : '共通の規定を引き継ぎ、変更した項目だけこの対象で個別指定します。'}</p>
+        <p className="text-sm text-muted-foreground">予約済みのお客様のキャンセル料・受付期限は、予約時の条件を維持します。</p>
+        <details><summary className="cursor-pointer">項目ごとの設定元を確認・変更</summary>
+          <div className="grid gap-4 mt-4">{keys.map(key => {
+            const resolved = state.resolve(key, defaults[key as keyof CancellationSettings] as SettingValue)
+            const inherited = state.inherited(key, defaults[key as keyof CancellationSettings] as SettingValue)
+            return <div key={key} className="space-y-1"><p className="text-sm">{SETTING_DEFINITIONS[key].label}：{SETTING_SCOPE_LABELS[resolved.source]}</p>
+              {scope !== 'organization' && <Select value={resolved.source === scope ? 'custom' : 'common'} disabled={saving || !state.data?.can_edit}
+                onValueChange={value => state.set(key, value === 'common' ? null : resolved.value)}>
+                <SelectTrigger aria-label={`${SETTING_DEFINITIONS[key].label}の設定元`}><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="common">共通設定を使う（{SETTING_SCOPE_LABELS[inherited.source]}）</SelectItem>
+                <SelectItem value="custom">この{SETTING_SCOPE_LABELS[scope]}で指定</SelectItem></SelectContent>
+              </Select>}
+            </div>
+          })}</div>
+        </details>
+      </section>
 
+      <fieldset disabled={saving || !state.data?.can_edit} className="space-y-6">
       {/* 通常公演のキャンセルポリシー */}
       <OpenPolicySection
         formData={formData}
@@ -696,6 +480,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
       {/* その他のポリシー */}
       <OtherPoliciesSection formData={formData} setFormData={setFormData} generateId={generateId} />
+      </fieldset>
 
       <section className="bg-white rounded-xl border p-6 space-y-4">
         <div>

@@ -1,3 +1,4 @@
+import { getGroupsSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -111,7 +112,6 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       }
 
       const groupIds = (data || []).map(g => g.id)
-      const scenarioMasterIds = [...new Set((data || []).map(g => g.scenario_master_id).filter(Boolean))]
 
       // 主催者情報・survey_enabled・確定日を並列取得
       const [
@@ -128,19 +128,13 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           if (allUserIds.length === 0) return { data: [] }
           return supabase.from('customers').select('user_id, name, nickname').in('user_id', allUserIds)
         })(),
-        // シナリオのsurvey_enabled
-        scenarioMasterIds.length > 0
-          ? supabase
-              .from('organization_scenarios_with_master')
-              .select('scenario_master_id, survey_enabled')
-              .eq('organization_id', orgId)
-              .in('scenario_master_id', scenarioMasterIds)
-          : Promise.resolve({ data: [] }),
+        getGroupsSurveySettings(groupIds),
         // 確定済み予約の公演日・GM・時間・店舗（reservationsテーブルから取得）
         groupIds.length > 0
           ? supabase
               .from('reservations')
               .select('private_group_id, candidate_datetimes, gm_staff, store_id, customer_email')
+              .eq('organization_id', orgId)
               .in('private_group_id', groupIds)
               .eq('status', 'confirmed')
               .eq('reservation_source', 'web_private')
@@ -150,11 +144,6 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       const organizerMap = new Map<string, { name: string; nickname?: string }>()
       ;(customersResult.data || []).forEach((c: any) => {
         organizerMap.set(c.user_id, { name: c.name, nickname: c.nickname || undefined })
-      })
-
-      const surveyMap = new Map<string, boolean>()
-      ;(surveyResult.data || []).forEach((s: any) => {
-        surveyMap.set(s.scenario_master_id, s.survey_enabled ?? false)
       })
 
       // グループIDごとの確定公演日・時間・GMスタッフID・店舗IDマップ
@@ -220,7 +209,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
               null,
           })),
           organizer: organizerMap.get(g.organizer_id) || { name: '不明' },
-          survey_enabled: surveyMap.get(g.scenario_master_id) ?? false,
+          survey_enabled: surveyResult[g.id]?.survey_enabled ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
           confirmed_time: confirmedTimeMap.get(g.id),
           confirmed_gm_name: gmStaffId ? gmNameMap.get(gmStaffId) : undefined,

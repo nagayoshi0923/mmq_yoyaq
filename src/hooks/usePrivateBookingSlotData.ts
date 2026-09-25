@@ -114,8 +114,8 @@ export function usePrivateBookingSlotData({
           .select('id, date, store_id, start_time, end_time, is_cancelled')
           .eq('organization_id', organizationId)
           .in('store_id', effectiveStoreIds)
-          .gte('date', toJstYmd(today))
-          .lte('date', toJstYmd(windowEnd))
+          .gte('date', toJstYmd(new Date(today.getTime() - 2 * 86400000)))
+          .lte('date', toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
           .eq('is_cancelled', false)
 
         if (error) throw error
