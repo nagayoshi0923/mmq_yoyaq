@@ -1224,6 +1224,7 @@ async function handleUpdateParticipantsWithLock(
     console.error('[reservations:update-participants-with-lock] RPC error:', error)
     const code = String((error as { code?: string }).code || '')
     const known: Record<string, string> = {
+      P0050: '予約変更の受付期限を過ぎています。店舗へお問い合わせください',
       P0006: '参加人数が不正です',
       P0007: '予約が見つかりません',
       P0008: '選択した人数分の空席がありません',

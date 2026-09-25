@@ -1,4 +1,4 @@
-import { isPrivateReminder, privateReminderDefault, selectPrivateReminder } from '../_shared/reminder-kind.ts'
+import { isPrivateReminder, privateReminderDefault } from '../_shared/reminder-kind.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
@@ -22,6 +22,8 @@ interface ReminderEmailRequest {
   reservationNumber: string
   daysBefore: number
   template?: string
+  deliveryId?: string
+  deliveryLeaseToken?: string
 }
 
 serve(async (req) => {
@@ -71,6 +73,18 @@ serve(async (req) => {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
 
+    if (reminderData.deliveryId) {
+      if (!isServiceCall || !reminderData.deliveryLeaseToken) return errorResponse('Unauthorized delivery', 403, corsHeaders)
+      const { data: delivery, error } = await supabaseClient.from('scheduled_reminder_deliveries')
+        .select('id,event_date,days_before,status').eq('id', reminderData.deliveryId)
+        .eq('organization_id', reservation.organization_id).eq('reservation_id', reservation.id)
+        .eq('lease_token', reminderData.deliveryLeaseToken).maybeSingle()
+      if (error) throw error
+      if (!delivery || delivery.status !== 'sending' || delivery.event_date !== reminderData.eventDate || delivery.days_before !== reminderData.daysBefore) {
+        return errorResponse('Invalid reminder delivery', 409, corsHeaders)
+      }
+    }
+
     // ログにはマスキングした情報のみ出力
     console.log('📧 Sending reminder email:', {
       reservationId: reminderData.reservationId,
@@ -116,17 +130,13 @@ serve(async (req) => {
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || senderName
-    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? replyToEmail ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
     
-    let customTemplate = storeEmailSettings?.reminder_template
-    if (isPrivate) {
-      const { data: privateRows, error: privateError } = await serviceClient.from('email_settings')
-        .select('store_id, private_reminder_template').eq('organization_id', resolvedOrganizationId)
-      if (privateError) throw privateError
-      customTemplate = selectPrivateReminder(privateRows || [], authoritativeStoreId)
-    }
+    const customTemplate = isPrivate
+      ? storeEmailSettings?.private_reminder_template
+      : storeEmailSettings?.reminder_template
 
     // 日付フォーマット関数（JST固定）
     const formatDate = (dateStr: string): string => {
@@ -235,8 +245,8 @@ serve(async (req) => {
     }
     
     // 返信先メールアドレスが設定されている場合は追加
-    if (companyEmail || replyToEmail) {
-      emailPayload.reply_to = companyEmail || replyToEmail
+    if (companyEmail) {
+      emailPayload.reply_to = companyEmail
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -244,6 +254,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
+        ...(reminderData.deliveryId ? { 'Idempotency-Key': `scheduled-reminder/${reminderData.deliveryId}` } : {}),
       },
       body: JSON.stringify(emailPayload),
     })

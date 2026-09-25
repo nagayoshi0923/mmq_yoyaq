@@ -124,3 +124,21 @@ export function checkTimeOverlap(
 
   return { overlap: false }
 }
+
+/** 解決済みの合計準備時間を使う。0分も明示値として扱う。 */
+export function checkTimeOverlapWithPreparation(start1: string,end1: string,start2: string,end2: string,preparation1: number,preparation2: number,date1?: string,date2?: string) {
+  if (!date1 || !date2) return checkTimeOverlap(start1,end1,start2,end2,preparation1-PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,preparation2-PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
+  const offset = (Date.parse(`${date1.split('T')[0]}T00:00:00+09:00`) - Date.parse(`${date2.split('T')[0]}T00:00:00+09:00`)) / 60000
+  const s1 = offset + timeToMinutes(start1)
+  const e1 = offset + timeToMinutes(end1) + (timeToMinutes(end1) < timeToMinutes(start1) ? 1440 : 0)
+  const s2 = timeToMinutes(start2)
+  const e2 = timeToMinutes(end2) + (timeToMinutes(end2) < s2 ? 1440 : 0)
+  if (s1 < e2 && e1 > s2) return { overlap: true, reason: '時間が重複' }
+  if (e1 <= s2 && e1 + preparation2 > s2) return { overlap: true, reason: `間隔不足（前の公演の後に${preparation2}分必要）` }
+  if (e2 <= s1 && e2 + preparation1 > s1) return { overlap: true, reason: `間隔不足（次の公演の前に${preparation1}分必要）` }
+  return { overlap: false }
+}
+
+export function computePlacedStartTimeWithPreparation(defaultStart: string, events: Array<{ start_time: string; end_time?: string | null }>, preparation: number) {
+  return computePlacedStartTime(defaultStart,events,preparation-PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
+}

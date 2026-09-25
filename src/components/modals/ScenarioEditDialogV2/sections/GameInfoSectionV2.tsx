@@ -149,19 +149,6 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
           </div>
         </div>
 
-        {/* 追加準備時間 */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">追加準備</span>
-          <div className="relative w-24">
-            <Input id="extra_preparation_time" type="text" inputMode="numeric"
-              value={formData.extra_preparation_time ? String(formData.extra_preparation_time) : ''}
-              onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setFormData(prev => ({ ...prev, extra_preparation_time: val === '' ? undefined : parseInt(val, 10) || undefined })) }}
-              className="h-7 text-xs pr-7" />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">分</span>
-          </div>
-          <span className="text-[11px] text-muted-foreground">通常60分に加算</span>
-        </div>
-
         {/* プレイ人数 */}
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground w-[80px] shrink-0 text-right">プレイ人数</span>
