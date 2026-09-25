@@ -26,7 +26,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
     queryFn: async () => {
       const { data: resData, error: resError } = await supabase
         .from('reservations')
-        .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
+        .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, reservation_change_deadline_hours_snapshot, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
         .eq('id', reservationId!)
         .maybeSingle()
 
@@ -136,7 +136,16 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
         })
       }
 
+      const changeHours = resData.reservation_change_deadline_hours_snapshot
+      const performanceStart = scheduleEvent?.date && scheduleEvent?.start_time
+        ? new Date(`${scheduleEvent.date}T${scheduleEvent.start_time}+09:00`).getTime()
+        : new Date(resData.requested_datetime).getTime()
+      const changeDeadline = changeHours == null || !Number.isFinite(performanceStart)
+        ? null : new Date(performanceStart - changeHours * 3600000).toISOString()
+      const canChangeByPolicy = changeHours == null || (changeDeadline !== null && Date.now() < Date.parse(changeDeadline))
       return {
+        changeDeadline,
+        canChangeByPolicy,
         reservation,
         store,
         organization,

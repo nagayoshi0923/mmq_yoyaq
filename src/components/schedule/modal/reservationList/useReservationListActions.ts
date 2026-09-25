@@ -10,7 +10,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { reservationApi, RESERVATION_SELECT_FIELDS } from '@/lib/reservationApi'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
-import { buildCancellationEmailBody } from '@/lib/cancellationEmail'
+import { buildCancellationEmailBody, fetchStoreCancellationEmailContext } from '@/lib/cancellationEmail'
 import { getDefaultStoreCancellationTemplate } from '@/lib/templateRegistry'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { findMatchingStaff } from '@/utils/staffUtils'
@@ -242,9 +242,9 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       let cancellationPolicy = ''
       let organizationName = ''
       let cancellationEmailTemplate = ''
-      let companyName = ''
-      let companyPhone = ''
-      let companyEmail = ''
+      const companyName = ''
+      const companyPhone = ''
+      const companyEmail = ''
       const totalPrice = reservation.total_price || reservation.final_price || 0
 
       // 店舗都合のキャンセルなのでキャンセル料は0
@@ -252,40 +252,10 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       const cancellationFee = 0
 
       if (storeId) {
-        try {
-          const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
-            supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
-            supabase.from('email_settings').select('store_cancellation_template, company_name, company_phone, company_email').eq('store_id', storeId).maybeSingle(),
-            supabase.from('stores').select('organization_id, organizations(name)').eq('id', storeId).single(),
-          ])
-
-          if (settingsResult.data) {
-            cancellationPolicy = settingsResult.data.cancellation_policy || ''
-          }
-
-          if (emailSettingsResult.data?.store_cancellation_template) {
-            cancellationEmailTemplate = emailSettingsResult.data.store_cancellation_template
-          }
-          // 「テンプレを編集」の registry デフォルトと同じ会社情報を使うため取得
-          companyName = (emailSettingsResult.data as Record<string, string | null> | null)?.company_name || ''
-          companyPhone = (emailSettingsResult.data as Record<string, string | null> | null)?.company_phone || ''
-          companyEmail = (emailSettingsResult.data as Record<string, string | null> | null)?.company_email || ''
-
-          if (storeResult.data?.organizations) {
-            // リレーション結果がオブジェクトか配列かを判定
-            const org = storeResult.data.organizations as { name: string } | { name: string }[]
-            if (Array.isArray(org)) {
-              organizationName = org[0]?.name || ''
-            } else {
-              organizationName = org.name || ''
-            }
-          }
-          if (!organizationName && emailSettingsResult.data?.company_name) {
-            organizationName = emailSettingsResult.data.company_name
-          }
-        } catch (settingsError) {
-          logger.warn('キャンセル設定取得エラー:', settingsError)
-        }
+        const context = await fetchStoreCancellationEmailContext(storeId, 'store_cancellation_template', event.id)
+        cancellationPolicy = context.cancellationPolicy
+        organizationName = context.organizationName
+        cancellationEmailTemplate = context.template
       }
 
       const newEmailContent = {

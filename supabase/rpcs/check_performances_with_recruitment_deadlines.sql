@@ -19,7 +19,6 @@ DECLARE
   v_missing_limit INTEGER;
   v_result TEXT;
   v_now TIMESTAMPTZ;
-  v_check_time TIMESTAMPTZ;
   v_deadline timestamptz;
   v_active boolean;
   v_has_decision boolean;
@@ -30,7 +29,7 @@ DECLARE
   v_reopened boolean;
 BEGIN
   v_now := NOW();
-  v_check_time := v_now + INTERVAL '4 hours';
+
 
   FOR v_event IN
     SELECT
@@ -89,12 +88,12 @@ BEGIN
     LEFT JOIN scenarios s ON se.scenario_id = s.id
     LEFT JOIN stores st ON se.store_id = st.id
     WHERE (p_organization_id IS NULL OR se.organization_id=p_organization_id)
-      AND (se.is_recruitment_extended = TRUE OR (pol.one_seat_enabled AND EXISTS(SELECT 1 FROM performance_cancellation_logs c WHERE c.schedule_event_id=se.id AND c.result='confirmed')))
       AND se.is_cancelled = FALSE
       AND se.category = 'open'
       AND se.scenario IS NOT NULL
       AND se.scenario != ''
-      AND (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz <= v_check_time
+      -- 案内済みの追加募集期限は、後から変更された共通判断時刻より優先する。
+      AND (rd.status = 'active' OR public.get_performance_judgment_deadline(se.organization_id,se.id) <= v_now)
       AND ((se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz > v_now
         OR rd.status = 'active')
       AND (rd.status = 'active' OR pol.one_seat_enabled OR NOT EXISTS (
@@ -187,7 +186,7 @@ BEGIN
       CONTINUE;
     END IF;
     -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
-    IF v_active IS NOT TRUE AND (v_has_decision OR v_event.is_recruitment_extended IS NOT TRUE) THEN CONTINUE; END IF;
+    IF v_active IS NOT TRUE AND (v_has_decision OR v_prior_confirmed) THEN CONTINUE; END IF;
 
     -- 人数が揃えば即確定。未達でも指定締切前は終端ログ・通知を作らない。
     IF v_current < v_min AND v_active AND v_deadline > v_now THEN CONTINUE; END IF;

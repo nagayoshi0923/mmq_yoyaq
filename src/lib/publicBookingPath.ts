@@ -59,13 +59,15 @@ export function getOrganizationSlugFromPath(): string | null {
 export function buildPublicCancellationPolicyPath(
   organizationSlug?: string | null,
   storeId?: string | null,
+  context?: { eventId?: string | null; scenarioMasterId?: string | null },
 ): string {
   const slug = organizationSlug?.trim()
   if (!slug) return '/cancel-policy'
 
   const basePath = `/${encodeURIComponent(slug)}/cancel-policy`
-  if (!storeId) return basePath
-
-  const search = new URLSearchParams({ store: storeId })
-  return `${basePath}?${search.toString()}`
+  const search = new URLSearchParams()
+  if (storeId) search.set('store', storeId)
+  if (context?.eventId) search.set('event', context.eventId)
+  if (context?.scenarioMasterId) search.set('scenario', context.scenarioMasterId)
+  return search.size ? `${basePath}?${search.toString()}` : basePath
 }

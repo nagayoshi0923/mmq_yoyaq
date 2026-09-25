@@ -1,0 +1,21 @@
+const fs=require('fs/promises');
+const path=require('path');
+const root=process.cwd();
+const {build}=require(root+'/node_modules/@vercel/node');
+const {glob,download}=require(root+'/node_modules/@vercel/build-utils');
+(async()=>{
+ const dir=await fs.mkdtemp(path.join(require('os').tmpdir(),'mmq-node-bundle-'));
+ for(const name of ['api','shared','supabase/functions/_shared','src','package.json','tsconfig.json']) await fs.cp(path.join(root,name),path.join(dir,name),{recursive:true});
+ await fs.symlink(root+'/node_modules',dir+'/node_modules','dir');
+ const files=await glob('**',{cwd:dir,ignore:['node_modules/**']});
+ const work=await fs.mkdtemp(path.join(require('os').tmpdir(),'mmq-node-build-'));
+ await fs.symlink(root+'/node_modules',work+'/node_modules','dir');
+ const entrypoint=process.argv[2] || 'api/schedule.ts';
+ const result=await build({files,entrypoint,workPath:work,repoRootPath:work,config:{zeroConfig:true,projectSettings:{installCommand:'',buildCommand:'true'}},meta:{},considerBuildCommand:true});
+ const out=dir+'-output';
+ await download(result.output.files,out);
+ console.log('Built',result.output.handler);
+ await import(path.join(out,result.output.handler));
+ console.log('NODE_IMPORT_OK');
+ await Promise.all([dir,work,out].map(p=>fs.rm(p,{recursive:true,force:true})));
+})().catch(e=>{console.error(e);process.exitCode=1});

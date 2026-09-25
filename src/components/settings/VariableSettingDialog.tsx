@@ -18,9 +18,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { supabase } from '@/lib/supabase'
-import { logger } from '@/utils/logger'
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
+import { resolveSetting, SETTING_SCOPE_LABELS } from '../../../supabase/functions/_shared/settings-inheritance'
 import { showToast } from '@/utils/toast'
+import { SETTING_DEFINITIONS } from '../../../supabase/functions/_shared/setting-definitions'
 
 interface CancelReason {
   id: string
@@ -58,76 +59,27 @@ interface VariableSettingDialogProps {
 
 export function VariableSettingDialog({ variable, storeId, organizationId, open, onOpenChange, onSaved }: VariableSettingDialogProps) {
   const spec = variable ? EDITORS[variable] : undefined
-  const [rowId, setRowId] = useState<string | null>(null)
+  const state = useOperatingSettings(storeId ? 'store' : 'organization', storeId ?? undefined, open && Boolean(spec))
   const [text, setText] = useState('')
   const [reasons, setReasons] = useState<CancelReason[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const { loading, saving, data } = state
 
   useEffect(() => {
-    if (!open || !spec || (!storeId && !organizationId)) return
-    let cancelled = false
-    setLoading(true)
-    ;(async () => {
-      try {
-        let query = supabase.from(spec.table).select(`id, ${spec.column}`)
-        query = storeId ? query.eq('store_id', storeId) : query.eq('organization_id', organizationId as string)
-        const { data, error } = await query.limit(1).maybeSingle()
-        if (error && error.code !== 'PGRST116') throw error
-        if (cancelled) return
-
-        setRowId((data as { id?: string } | null)?.id ?? null)
-        const current = (data as Record<string, unknown> | null)?.[spec.column]
-        if (spec.kind === 'reasonList') {
-          setReasons(Array.isArray(current) ? (current as CancelReason[]) : [])
-        } else {
-          setText(typeof current === 'string' ? current : '')
-        }
-      } catch (e) {
-        logger.error('設定値の取得エラー:', e)
-        if (!cancelled) showToast.error('設定の読み込みに失敗しました')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [open, spec, storeId, organizationId])
+    if (!open || !spec || !data) return
+    const current = resolveSetting(spec.column, spec.kind === 'reasonList' ? [] : '', data.layers, SETTING_DEFINITIONS[spec.column]?.scopes).value
+    if (spec.kind === 'reasonList') setReasons(Array.isArray(current) ? current as CancelReason[] : [])
+    else setText(typeof current === 'string' ? current : '')
+  }, [open, spec, data])
 
   if (!spec) return null
 
   const value = spec.kind === 'reasonList' ? reasons.filter(r => r.content.trim()) : text
 
   const handleSave = async () => {
-    if (!storeId && !organizationId) return
-    setSaving(true)
-    try {
-      if (rowId) {
-        const { error } = await supabase.from(spec.table).update({ [spec.column]: value }).eq('id', rowId)
-        if (error) throw error
-      } else if (storeId) {
-        const { data: store } = await supabase.from('stores').select('organization_id').eq('id', storeId).maybeSingle()
-        const { data: inserted, error } = await supabase
-          .from(spec.table)
-          .insert({ store_id: storeId, organization_id: store?.organization_id, [spec.column]: value })
-          .select('id').single()
-        if (error) throw error
-        setRowId(inserted?.id ?? null)
-      } else if (organizationId) {
-        const { data: inserted, error } = await supabase
-          .from(spec.table)
-          .insert({ organization_id: organizationId, [spec.column]: value })
-          .select('id').single()
-        if (error) throw error
-        setRowId(inserted?.id ?? null)
-      }
+    if (await state.save({ [spec.column]: value })) {
       showToast.success(`${spec.label}を保存しました`)
       if (variable && spec.kind !== 'reasonList') onSaved?.(variable, text)
       onOpenChange(false)
-    } catch (e) {
-      logger.error('設定値の保存エラー:', e)
-      showToast.error('保存に失敗しました')
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -139,10 +91,12 @@ export function VariableSettingDialog({ variable, storeId, organizationId, open,
           <DialogDescription>{spec.description}</DialogDescription>
         </DialogHeader>
 
+        {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
         {loading ? (
           <div className="py-10 text-center text-sm text-muted-foreground">読み込み中...</div>
         ) : (
           <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">現在の設定元：{SETTING_SCOPE_LABELS[state.resolve(spec.column, '').source]}</p>
             {spec.kind === 'text' && (
               <Input value={text} onChange={(e) => setText(e.target.value)} className="text-sm" />
             )}
@@ -173,8 +127,15 @@ export function VariableSettingDialog({ variable, storeId, organizationId, open,
             )}
 
             <div className="flex justify-end gap-2 pt-2">
+              {storeId && <Button type="button" variant="outline" disabled={saving || !data?.can_edit} onClick={async () => {
+                const inherited = state.inherited(spec.column, spec.kind === 'reasonList' ? [] : '').value
+                if (await state.save({ [spec.column]: null })) {
+                  if (variable && spec.kind !== 'reasonList') onSaved?.(variable, String(inherited))
+                  onOpenChange(false)
+                }
+              }}>共通設定を使う</Button>}
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>キャンセル</Button>
-              <Button type="button" onClick={handleSave} disabled={saving || (!storeId && !organizationId)}>
+              <Button type="button" onClick={handleSave} disabled={saving || !state.data?.can_edit}>
                 {saving ? '保存中...' : '保存'}
               </Button>
             </div>

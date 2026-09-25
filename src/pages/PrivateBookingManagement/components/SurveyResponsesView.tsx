@@ -1,3 +1,4 @@
+import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ClipboardList, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
@@ -111,21 +112,7 @@ export function SurveyResponsesView({
         })
         setMembers(membersData)
 
-        let { data: orgScenario } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('org_scenario_id, survey_enabled, characters')
-          .eq('scenario_master_id', scenarioId)
-          .eq('organization_id', organizationId)
-          .maybeSingle()
-
-        if (!orgScenario) {
-          const { data: byOrgScenarioId } = await supabase
-            .from('organization_scenarios_with_master')
-            .select('org_scenario_id, survey_enabled, characters')
-            .eq('org_scenario_id', scenarioId)
-            .maybeSingle()
-          orgScenario = byOrgScenarioId
-        }
+        const orgScenario = await getGroupSurveySettings(groupId)
 
         if (!orgScenario?.survey_enabled || !orgScenario.org_scenario_id) {
           setLoading(false)

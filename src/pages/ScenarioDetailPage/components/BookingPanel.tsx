@@ -128,6 +128,7 @@ export const BookingPanel = memo(function BookingPanel({
         hasPreReading={hasPreReading}
         mode="schedule"
         storeId={selectedEvent?.store_id || null}
+        eventId={selectedEventId}
       />
 
       {/* 予約確認ボタン */}
