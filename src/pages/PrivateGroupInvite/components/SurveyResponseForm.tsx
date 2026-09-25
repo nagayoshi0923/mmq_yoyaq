@@ -39,12 +39,15 @@ export function SurveyResponseForm({
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [externalSurveyUrl, setExternalSurveyUrl] = useState('')
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
   const [localCharacters, setLocalCharacters] = useState<Array<{ id: string; name: string; gender?: string }>>(characters)
   const [surveyStatus, setSurveyStatus] = useState<'loading' | 'not_found' | 'disabled' | 'no_questions' | 'ready'>('loading')
 
   useEffect(() => {
     const loadSurveyData = async () => {
+      setExternalSurveyUrl('')
+      setLoading(true)
       logger.log('📋 SurveyForm: loading', { groupId, memberId })
 
       try {
@@ -76,11 +79,13 @@ export function SurveyResponseForm({
           return
         }
 
+        if (typeof data.survey_url === 'string' && /^https?:\/\//i.test(data.survey_url)) setExternalSurveyUrl(data.survey_url)
+
         // 期限を計算
-        if (performanceDate && data.survey_deadline_days != null) {
-          const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
-          perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
-          perfDate.setHours(23, 59, 59, 999)
+        if (data.survey_deadline_at) {
+          setDeadlineDate(new Date(data.survey_deadline_at))
+        } else if (performanceDate && data.survey_deadline_days != null) {
+          const perfDate = new Date(new Date(performanceDate + 'T23:59:59.999+09:00').getTime() - data.survey_deadline_days * 86400000)
           setDeadlineDate(perfDate)
         } else {
           setDeadlineDate(null)
@@ -204,16 +209,6 @@ export function SurveyResponseForm({
     return null // アンケートが無効なら何も表示しない
   }
 
-  // 質問が設定されていない場合
-  if (surveyStatus === 'no_questions' || questions.length === 0) {
-    return (
-      <div className="text-center py-4 text-muted-foreground">
-        <ClipboardList className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-        <p className="text-sm">アンケートの質問が設定されていません</p>
-      </div>
-    )
-  }
-
   const isPastDeadline = Boolean(deadlineDate && new Date() > deadlineDate)
   const isPastPerformance = Boolean(performanceDate && new Date() > new Date(performanceDate + 'T23:59:59+09:00'))
 
@@ -230,6 +225,24 @@ export function SurveyResponseForm({
           </p>
         </CardContent>
       </Card>
+    )
+  }
+
+  if (externalSurveyUrl) return (
+    <Card className="mb-6 border-purple-200"><CardContent className="p-4 space-y-3">
+      <h3 className="text-base font-semibold">公演前アンケート</h3>
+      {deadlineDate && <p className="text-sm text-muted-foreground">回答期限（目安）：{formatDeadline(deadlineDate)}</p>}
+      <a href={externalSurveyUrl} target="_blank" rel="noopener noreferrer" className="underline">アンケートに回答する</a>
+    </CardContent></Card>
+  )
+
+  // 質問が設定されていない場合
+  if (surveyStatus === 'no_questions' || questions.length === 0) {
+    return (
+      <div className="text-center py-4 text-muted-foreground">
+        <ClipboardList className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+        <p className="text-sm">アンケートの質問が設定されていません</p>
+      </div>
     )
   }
 

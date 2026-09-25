@@ -21,6 +21,8 @@ export function CancelPolicyPage() {
     if (typeof window === 'undefined') return null
     return new URLSearchParams(window.location.search).get('store')
   }, [])
+  const requestedEventId = new URLSearchParams(window.location.search).get('event')
+  const requestedScenarioId = new URLSearchParams(window.location.search).get('scenario')
   const [policies, setPolicies] = useState<PublicCancellationPolicy[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -38,6 +40,8 @@ export function CancelPolicyPage() {
         const data = await fetchPublicCancellationPolicies({
           organizationSlug,
           storeId: requestedStoreId,
+          eventId: requestedEventId,
+          scenarioMasterId: requestedScenarioId,
         })
         if (active) setPolicies(data)
       } catch (error) {
@@ -53,7 +57,7 @@ export function CancelPolicyPage() {
 
     void fetchPolicies()
     return () => { active = false }
-  }, [organizationSlug, requestedStoreId])
+  }, [organizationSlug, requestedStoreId, requestedEventId, requestedScenarioId])
 
   const organizationName = policies[0]?.organization_name
   const homePath = organizationSlug ? `/${organizationSlug}` : '/'

@@ -1,8 +1,9 @@
--- 管理 API / AI Manager のサーバーからのみ実行。締切の既定値は設けない。
-CREATE FUNCTION public.set_performance_recruitment_deadline(
-  p_organization_id uuid, p_event_id uuid, p_deadline timestamptz, p_reason text
-) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.set_performance_recruitment_deadline(p_organization_id uuid, p_event_id uuid, p_deadline timestamp with time zone, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_event public.schedule_events%ROWTYPE;
   v_existing public.performance_recruitment_deadlines%ROWTYPE;
@@ -16,8 +17,8 @@ BEGIN
   IF v_event.category <> 'open' OR v_event.is_cancelled IS DISTINCT FROM false THEN
     RAISE EXCEPTION '中止していないオープン公演のみ延長できます' USING ERRCODE = '22023';
   END IF;
-  IF p_deadline IS NULL OR p_deadline <= now() OR p_deadline >= v_start OR p_deadline < v_start - interval '4 hours' THEN
-    RAISE EXCEPTION '締切は現在より後かつ公演4時間前以降、公演開始より前を指定してください' USING ERRCODE = '22023';
+  IF p_deadline IS NULL OR p_deadline <= now() OR p_deadline >= v_start OR p_deadline < v_start - make_interval(mins=>(public.resolve_operating_setting(p_organization_id,'judgment_minutes_before','240'::jsonb,NULL,NULL,p_event_id)->>'value')::integer) THEN
+    RAISE EXCEPTION '締切は現在より後かつ設定された最終判断時刻以降、公演開始より前を指定してください' USING ERRCODE = '22023';
   END IF;
   IF p_reason IS NULL OR length(btrim(p_reason)) NOT BETWEEN 1 AND 2000 THEN
     RAISE EXCEPTION '延長理由を1〜2000文字で指定してください' USING ERRCODE = '22023';
@@ -43,6 +44,4 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'deadline', p_deadline,
     'was_confirmed', v_confirmed, 'replayed', false);
 END;
-$$;
-REVOKE ALL ON FUNCTION public.set_performance_recruitment_deadline(uuid, uuid, timestamptz, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.set_performance_recruitment_deadline(uuid, uuid, timestamptz, text) TO service_role;
+$function$;

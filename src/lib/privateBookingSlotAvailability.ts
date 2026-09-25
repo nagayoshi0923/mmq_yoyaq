@@ -12,6 +12,8 @@ import {
 
 /** schedule_events 等の最小形 */
 export type ScheduleEventLike = {
+  id?: string
+  preparation_minutes?: number
   start_time?: string | null
   end_time?: string | null
   date?: string | null
@@ -32,7 +34,7 @@ export function timeStrToMinutes(t: string | null | undefined): number | null {
 
 export type PrivateBookingScenarioTimingSlice = Pick<
   ScenarioTimingFromDb,
-  'duration' | 'weekend_duration' | 'extra_preparation_time'
+  'duration' | 'weekend_duration' | 'extra_preparation_time' | 'preparation_minutes_by_store' | 'preparation_minutes_by_event'
 >
 
 /**
@@ -52,6 +54,8 @@ export function isPrivateBookingSlotAvailableForStore(
   allowSyntheticWhenMissingRow: boolean
 ): boolean {
   const day = dateStr.split('T')[0]
+  const preparation = scenarioTiming.preparation_minutes_by_store?.[storeId]
+  events = events.map(event => ({ ...event, preparation_minutes: (event.id ? scenarioTiming.preparation_minutes_by_event?.[event.id] : undefined) ?? event.preparation_minutes }))
   const f = getPrivateBookingStoreSlotFeasibility(
     day,
     storeId,
@@ -59,11 +63,12 @@ export function isPrivateBookingSlotAvailableForStore(
     businessRow,
     events,
     isCustomHoliday,
-    allowSyntheticWhenMissingRow
+    allowSyntheticWhenMissingRow,
+    preparation
   )
   if (!f) return false
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
-  const extraPrep = scenarioTiming.extra_preparation_time || 0
+  const extraPrep = preparation === undefined ? scenarioTiming.extra_preparation_time || 0 : 0
   // 夜枠は最終枠のため、準備時間は営業終了後に延長可能
   const occupancyEndOverride =
     proposedStartMin + durationMin + extraPrep > f.slotBandEnd
@@ -83,7 +88,7 @@ export function isPrivateBookingSlotAvailableForStore(
       const eStart = timeStrToMinutes(e.start_time)
       if (eStart === null || eStart > proposedStartMin) continue
       const eEnd = e.end_time ? (timeStrToMinutes(e.end_time) ?? eStart + 240) : eStart + 240
-      const endBuf = eEnd + 60
+      const endBuf = eEnd + (preparation ?? 60)
       if (endBuf > latestPriorEndWithBuffer) latestPriorEndWithBuffer = endBuf
     }
     effectiveMinStartMin = latestPriorEndWithBuffer

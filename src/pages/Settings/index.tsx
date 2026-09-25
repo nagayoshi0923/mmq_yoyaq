@@ -1,3 +1,5 @@
+import { OperatingScalarSettings } from '@/components/settings/OperatingScalarSettings'
+import { OPERATION_SETTING_KEYS, SURVEY_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Settings as SettingsIcon } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -79,8 +81,16 @@ export function Settings() {
         return <BusinessHoursSettings storeId={storeId} />
       case 'performance-schedule':
         return <PerformanceScheduleSettings storeId={storeId} scope="store" />
+      case 'operations-common':
+        return <OperatingScalarSettings scope="organization" keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="開催判断・準備・事前配役アンケート" />
+      case 'store-operations':
+        return <OperatingScalarSettings scope="store" targetId={storeId} keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="店舗の開催判断・準備・事前配役アンケート" />
+      case 'payment-common':
+        return <ReservationSettings common />
       case 'reservation':
         return <ReservationSettings storeId={storeId} />
+      case 'cancellation-common':
+        return <CancellationSettings scope="organization" />
       case 'cancellation':
         return <CancellationSettings storeId={storeId} />
       case 'cancellation-billing':
@@ -91,6 +101,8 @@ export function Settings() {
         return <NotificationSettings scope="organization" />
       case 'system':
         return <SystemSettings storeId={storeId} />
+      case 'email-common':
+        return <EmailSettings scope="organization" />
       case 'email':
         return <EmailSettings storeId={storeId} />
       case 'email-logs':

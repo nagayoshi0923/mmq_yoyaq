@@ -18,6 +18,8 @@ import type { CancellationFeeBasis, CancellationFeeRule } from '@/types'
 interface CancellationPolicyLinkProps {
   organizationSlug?: string | null
   storeId?: string | null
+  eventId?: string | null
+  scenarioMasterId?: string | null
   children?: ReactNode
   className?: string
 }
@@ -25,13 +27,15 @@ interface CancellationPolicyLinkProps {
 export function CancellationPolicyLink({
   organizationSlug,
   storeId,
+  eventId,
+  scenarioMasterId,
   children = '最新のキャンセルポリシーを確認',
   className,
 }: CancellationPolicyLinkProps) {
   const slug = organizationSlug || getOrganizationSlugFromPath()
   return (
     <Link
-      to={buildPublicCancellationPolicyPath(slug, storeId)}
+      to={buildPublicCancellationPolicyPath(slug, storeId, { eventId, scenarioMasterId })}
       className={className || 'inline-flex items-center gap-1 underline text-primary'}
     >
       {children}
