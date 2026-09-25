@@ -19,6 +19,8 @@ export interface BookingNoticeProps {
   hasPreReading?: boolean
   mode?: 'schedule' | 'private'
   storeId?: string | null
+  eventId?: string | null
+  scenarioMasterId?: string | null
   organizationSlug?: string | null
 }
 
@@ -37,6 +39,8 @@ export const BookingNotice = memo(function BookingNotice({
   hasPreReading,
   mode = 'schedule',
   storeId = null,
+  eventId = null,
+  scenarioMasterId = null,
   organizationSlug = null,
 }: BookingNoticeProps) {
   const [notices, setNotices] = useState<Notice[]>([])
@@ -123,6 +127,8 @@ export const BookingNotice = memo(function BookingNotice({
         const data = await fetchPublicCancellationPolicies({
           organizationSlug: currentOrganizationSlug,
           storeId,
+          eventId,
+          scenarioMasterId,
         })
         if (active) setPolicies(data)
       } catch (error) {
@@ -138,7 +144,7 @@ export const BookingNotice = memo(function BookingNotice({
 
     void fetchPolicies()
     return () => { active = false }
-  }, [isPolicyOpen, storeId, currentOrganizationSlug])
+  }, [isPolicyOpen, storeId, currentOrganizationSlug, eventId, scenarioMasterId])
 
   return (
     <div>

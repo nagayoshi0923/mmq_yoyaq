@@ -1,3 +1,5 @@
+import { loadPreparationNeighborEvents } from '@/lib/preparationNeighborEvents'
+import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 /**
  * 公演の保存本体と重複チェックフロー（Phase 4-3 で useEventOperations から分割）。
  *
@@ -21,7 +23,7 @@ import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { checkTimeOverlap } from '@/utils/eventOperationUtils'
+import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -110,6 +112,7 @@ export function useEventSave({
   modalMode,
   organizationId,
 }: UseEventSaveProps) {
+  const { fetch: fetchPreparation } = usePreparationSettings()
   // 重複警告ダイアログ状態
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
@@ -133,7 +136,11 @@ export function useEventSave({
     // checkTimeOverlap が拾うのは「時間が完全に重複(overlap)」か「間隔不足(interval)」のみ。
     // ※ 警告を確認しても既存公演は絶対に削除しない（30分間隔の連続公演や2部屋同時公演を許容するため）。
     const newScenario = scenarios.find(s => s.title === performanceData.scenario)
-    const newPrepMinutes = newScenario?.extra_preparation_time || 0
+    let preparation: Awaited<ReturnType<typeof fetchPreparation>>
+    let neighborEvents: ScheduleEvent[]
+    try { [preparation, neighborEvents] = await Promise.all([fetchPreparation(), loadPreparationNeighborEvents(performanceData.date)]) }
+    catch { showToast.error('準備時間を取得できませんでした。再読み込みしてから保存してください'); return false }
+    const newPrepMinutes = preparation({ storeId: performanceData.store_id || performanceData.venue, scenarioId: newScenario?.id, scenarioMasterId: performanceData.scenario_master_id || newScenario?.scenario_master_id, eventId: performanceData.id })
 
     logger.log('🔍 準備時間チェック:', JSON.stringify({
       scenarioTitle: performanceData.scenario,
@@ -145,29 +152,31 @@ export function useEventSave({
     // 完全重複(overlap)を最優先で確定。無ければ最初の間隔不足(interval)を採用する。
     let timeConflict: { event: ScheduleEvent; reason: string; kind: 'overlap' | 'interval' } | null = null
 
-    for (const event of events) {
+    for (const event of neighborEvents) {
       // 編集中の公演自身は除外
       if (modalMode === 'edit' && event.id === performanceData.id) {
         continue
       }
 
       // 同じ日・同じ店舗の公演のみ対象
-      if (event.date !== performanceData.date || event.venue !== performanceData.venue || event.is_cancelled) {
+      if (event.venue !== performanceData.venue || event.is_cancelled) {
         continue
       }
 
       // 既存公演のシナリオから準備時間を取得
       const existingScenario = scenarios.find(s => s.title === event.scenario)
-      const existingPrepMinutes = existingScenario?.extra_preparation_time || 0
+      const existingPrepMinutes = preparation({ storeId: event.store_id || event.venue, scenarioId: existingScenario?.id, scenarioMasterId: event.scenario_master_id || existingScenario?.scenario_master_id, eventId: event.id })
 
       // 時間の重複をチェック（両方向の準備時間を考慮）
-      const result = checkTimeOverlap(
+      const result = checkTimeOverlapWithPreparation(
         event.start_time,
         event.end_time,
         performanceData.start_time,
         performanceData.end_time,
         existingPrepMinutes,
-        newPrepMinutes
+        newPrepMinutes,
+        event.date,
+        performanceData.date
       )
 
       if (result.overlap) {
@@ -212,7 +221,7 @@ export function useEventSave({
     // 重複がない場合は直接保存
     return await doSavePerformance(performanceData)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- doSavePerformanceは後で定義されるため意図的に省略
-  }, [events, stores, scenarios, modalMode])
+  }, [events, stores, scenarios, modalMode, fetchPreparation])
 
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {

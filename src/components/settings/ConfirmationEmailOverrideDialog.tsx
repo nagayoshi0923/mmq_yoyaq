@@ -1,6 +1,6 @@
 /**
  * 予約確定 / 貸切確定メールの公演上書き編集。
- * 空で保存すると上書きを消し、作品上書き → 店舗テンプレの順に戻る。
+ * 空で保存すると上書きを消し、シナリオ → 店舗 → 組織共通の順に戻る。
  */
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -12,9 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { apiClient } from '@/lib/apiClient'
-import { logger } from '@/utils/logger'
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
+import { SETTING_SCOPE_LABELS, resolveSetting, resolveInheritedSetting, type SettingSource } from '../../../supabase/functions/_shared/settings-inheritance'
 import { showToast } from '@/utils/toast'
+import { SETTING_DEFINITIONS } from '../../../supabase/functions/_shared/setting-definitions'
 import {
   getTemplateConfig,
   getTemplateVariables,
@@ -22,11 +23,7 @@ import {
   type EmailTemplateKey,
 } from '@/lib/templateRegistry'
 import { VariableHintChips } from '@/components/settings/VariableHintChips'
-import {
-  confirmationSourceLabel,
-  pickConfirmationEmailTemplate,
-  type ConfirmationTemplateSource,
-} from '@/lib/confirmationEmailTemplate'
+
 
 export type ConfirmationOverrideKey =
   | 'reservation_confirmation_template'
@@ -44,14 +41,14 @@ const OVERRIDE_COPY: Record<ConfirmationOverrideKey, {
     scope: 'この公演の通常予約だけに使います',
     storeLabel: '店舗の予約確認テンプレ',
     saveSuccess: 'この公演の予約確認メールを保存しました',
-    placeholder: '空欄のままなら、作品または店舗の予約確認テンプレを使います',
+    placeholder: '空欄のままなら、シナリオ・店舗・組織共通の予約確認テンプレを使います',
   },
   private_confirm_template: {
     title: 'この公演の貸切確定メール',
     scope: 'この公演の貸切承認だけに使います',
     storeLabel: '店舗の貸切確定テンプレ',
     saveSuccess: 'この公演の貸切確定メールを保存しました',
-    placeholder: '空欄のままなら、作品または店舗の貸切確定テンプレを使います',
+    placeholder: '空欄のままなら、シナリオ・店舗・組織共通の貸切確定テンプレを使います',
   },
 }
 
@@ -77,89 +74,39 @@ export function ConfirmationEmailOverrideDialog({
   const [value, setValue] = useState('')
   const [savedOverride, setSavedOverride] = useState('')
   const [fallbackTemplate, setFallbackTemplate] = useState('')
-  const [fallbackSource, setFallbackSource] = useState<ConfirmationTemplateSource>('store')
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [fallbackSource, setFallbackSource] = useState<SettingSource>('default')
+  const state = useOperatingSettings('performance', eventId ?? undefined, open)
+  const { loading, saving, data } = state
   const [showPreview, setShowPreview] = useState(false)
   const [previewOverrides, setPreviewOverrides] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (!open || !eventId) return
-    let cancelled = false
-    setLoading(true)
-    ;(async () => {
-      try {
-        const { event: eventRow, scenario: scenarioRow, store: storeRow } = await apiClient.get<{
-          event: Partial<Record<ConfirmationOverrideKey, string | null>>
-          scenario: Partial<Record<ConfirmationOverrideKey, string | null>> | null
-          store: (Partial<Record<ConfirmationOverrideKey, string | null>> & { company_name?: string; company_phone?: string; company_email?: string }) | null
-        }>(`/api/schedule?type=confirmation-templates&id=${encodeURIComponent(eventId)}`)
-        const scenarioTemplate = scenarioRow?.[templateKey] ?? null
+    if (!open || !data) return
+    const get = (key: string) => String(resolveSetting(key, '', data.layers, SETTING_DEFINITIONS[key]?.scopes).value)
+    const name = get('company_name'), phone = get('company_phone'), email = get('company_email')
+    setPreviewOverrides({ company_name: name, company_phone: phone, company_email: email })
+    const override = data.layers.performance?.[templateKey]
+    const fallback = resolveInheritedSetting(templateKey, '', data.layers, 'performance')
+    setValue(typeof override === 'string' ? override : '')
+    setSavedOverride(typeof override === 'string' ? override : '')
+    setFallbackTemplate(String(fallback.value) || config.getDefault(name, phone, email))
+    setFallbackSource(fallback.source)
+  }, [open, data, config, templateKey])
 
-        if (cancelled) return
-        const companyName = storeRow?.company_name || ''
-        const companyPhone = storeRow?.company_phone || ''
-        const companyEmail = storeRow?.company_email || ''
-        setPreviewOverrides({
-          company_name: companyName,
-          company_phone: companyPhone,
-          company_email: companyEmail,
-        })
-
-        const override = eventRow?.[templateKey]?.trim() || ''
-        const fallback = pickConfirmationEmailTemplate({
-          eventTemplate: null,
-          scenarioTemplate,
-          storeTemplate: storeRow?.[templateKey],
-        })
-        setSavedOverride(override)
-        setValue(override)
-        setFallbackTemplate(fallback.template || config.getDefault(companyName, companyPhone, companyEmail))
-        setFallbackSource(fallback.source)
-      } catch (e) {
-        logger.error('公演メール上書きの読み込みエラー:', e)
-        if (!cancelled) {
-          showToast.error('テンプレートの読み込みに失敗しました')
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [open, eventId, storeId, organizationScenarioId, config, templateKey])
-
-  const handleCopyFallback = () => {
-    setValue(fallbackTemplate)
-  }
-
-  const handleClear = () => {
-    setValue('')
-  }
-
+  const handleCopyFallback = () => setValue(fallbackTemplate)
+  const handleClear = () => setValue('')
   const handleSave = async () => {
-    if (!eventId) return
-    setSaving(true)
-    try {
-      const next = value.trim() || null
-      await apiClient.patch(`/api/schedule?action=confirmation-templates&id=${encodeURIComponent(eventId)}`, { templateKey, value: next })
-      setSavedOverride(next || '')
-      showToast.success(next ? copy.saveSuccess : '上書きを解除し、下の段のテンプレに戻しました')
+    if (await state.save({ [templateKey]: value.trim() || null })) {
+      showToast.success(value.trim() ? copy.saveSuccess : '個別指定を解除し、共通設定に戻しました')
       onOpenChange(false)
-    } catch (e) {
-      logger.error('公演メール上書きの保存エラー:', e)
-      showToast.error('保存に失敗しました')
-    } finally {
-      setSaving(false)
     }
   }
 
   const variables = getTemplateVariables(config)
   const hasOverride = Boolean(value.trim())
-  const activeSource: ConfirmationTemplateSource = hasOverride ? 'event' : fallbackSource
-  const fallbackLabel = confirmationSourceLabel(fallbackSource, copy.storeLabel)
-  const activeLabel = confirmationSourceLabel(activeSource, copy.storeLabel)
+  const activeSource: SettingSource = hasOverride ? 'performance' : fallbackSource
+  const fallbackLabel = SETTING_SCOPE_LABELS[fallbackSource]
+  const activeLabel = SETTING_SCOPE_LABELS[activeSource]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,6 +118,7 @@ export function ConfirmationEmailOverrideDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
         {loading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">読み込み中...</div>
         ) : (
@@ -228,7 +176,7 @@ export function ConfirmationEmailOverrideDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
                 キャンセル
               </Button>
-              <Button type="button" onClick={handleSave} disabled={saving || !eventId}>
+              <Button type="button" onClick={handleSave} disabled={saving || !state.data?.can_edit}>
                 {saving ? '保存中...' : '保存'}
               </Button>
             </div>

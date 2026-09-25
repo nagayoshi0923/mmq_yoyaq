@@ -1,3 +1,7 @@
+import { apiClient } from '@/lib/apiClient'
+import { resolveSetting, type SettingLayers } from '../../supabase/functions/_shared/settings-inheritance'
+import { SETTING_DEFAULTS } from '../../supabase/functions/_shared/setting-defaults'
+import { SETTING_DEFINITIONS } from '../../supabase/functions/_shared/setting-definitions'
 /**
  * キャンセル確認メールの本文生成（共通モジュール）
  *
@@ -93,6 +97,7 @@ export interface StoreCancellationEmailContext {
   organizationName: string
   cancellationPolicy: string
   template: string
+  organizerCancelReasons?: unknown
 }
 
 /**
@@ -114,7 +119,8 @@ export type CancellationTemplateKey =
  */
 export async function fetchStoreCancellationEmailContext(
   storeId: string | null | undefined,
-  templateKey: CancellationTemplateKey = 'store_cancellation_template'
+  templateKey: CancellationTemplateKey = 'store_cancellation_template',
+  eventId?: string
 ): Promise<StoreCancellationEmailContext> {
   const ctx: StoreCancellationEmailContext = {
     storeName: '',
@@ -124,15 +130,17 @@ export async function fetchStoreCancellationEmailContext(
   }
   if (!storeId) return ctx
   try {
-    const [settingsResult, emailSettingsResult, storeResult] = await Promise.all([
-      supabase.from('reservation_settings').select('cancellation_policy').eq('store_id', storeId).maybeSingle(),
-      supabase.from('email_settings').select(`${templateKey}, company_name, company_phone, company_email`).eq('store_id', storeId).maybeSingle(),
+    const scope = eventId ? 'performance' : 'store'
+    const [settingsResult, storeResult] = await Promise.all([
+      apiClient.get<{ layers: SettingLayers }>(`/api/schedule?type=operating-settings&scope=${scope}&target_id=${encodeURIComponent(eventId || storeId)}`),
       supabase.from('stores').select('name, organization_id, organizations(name)').eq('id', storeId).maybeSingle(),
     ])
-
-    const emailSettings = emailSettingsResult.data as Record<string, string | null> | null
-    ctx.cancellationPolicy = settingsResult.data?.cancellation_policy || ''
-    ctx.template = emailSettings?.[templateKey] || ''
+    const get = (key: string) => resolveSetting(key, SETTING_DEFAULTS[key] ?? '', settingsResult.layers, SETTING_DEFINITIONS[key]?.scopes)
+    const text = (key: string) => { const result = get(key); return result.source === 'default' && SETTING_DEFINITIONS[key]?.group === 'email' ? null : String(result.value) }
+    const emailSettings = { company_name: text('company_name'), company_phone: text('company_phone'), company_email: text('company_email') }
+    ctx.cancellationPolicy = String(get('cancellation_policy').value)
+    ctx.organizerCancelReasons = get('organizer_cancel_reasons').value
+    ctx.template = text(templateKey) ?? ''
     ctx.storeName = storeResult.data?.name || ''
 
     if (storeResult.data?.organizations) {
@@ -146,9 +154,9 @@ export async function fetchStoreCancellationEmailContext(
     // テンプレ未保存のときは「テンプレを編集」(TemplateEditDialog)と同じ registry
     // デフォルトを使い、編集画面とプレビュー/送信本文の文面構成を一致させる
     if (!ctx.template) {
-      const companyName = emailSettings?.company_name || ctx.organizationName || ''
-      const companyPhone = emailSettings?.company_phone || ''
-      const companyEmail = emailSettings?.company_email || ''
+      const companyName = emailSettings?.company_name ?? ctx.organizationName ?? ''
+      const companyPhone = emailSettings?.company_phone ?? ''
+      const companyEmail = emailSettings?.company_email ?? ''
       ctx.template =
         templateKey === 'event_cancellation_template'
           ? getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail)
@@ -156,6 +164,7 @@ export async function fetchStoreCancellationEmailContext(
     }
   } catch (error) {
     logger.warn('キャンセルメール設定取得エラー:', error)
+    throw error
   }
   return ctx
 }

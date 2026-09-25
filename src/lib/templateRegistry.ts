@@ -459,7 +459,7 @@ export function getDefaultPerformanceExtensionTemplate(companyName = 'クイー�
 
 ご予約いただいている公演について、ご連絡いたします。
 
-現在、定員に達していないため、募集を公演4時間前まで延長いたします。
+現在、定員に達していないため、募集を{extension_deadline}まで延長いたします。
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ■ 公演情報
@@ -474,8 +474,8 @@ export function getDefaultPerformanceExtensionTemplate(companyName = 'クイー�
 ■ 今後の流れ
 ━━━━━━━━━━━━━━━━━━━━━━
 
-・公演4時間前までに定員に達した場合 → 公演開催
-・定員に達しない場合 → 中止（改めてご連絡いたします）
+・{extension_deadline}までに最低開催人数に達した場合 → 公演開催
+・最低開催人数に達しない場合 → 中止（改めてご連絡いたします）
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ■ キャンセルについて

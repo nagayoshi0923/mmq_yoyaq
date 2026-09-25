@@ -50,13 +50,24 @@ let privateDays: number | null = null
 let cutoff: number | null = null
 let recruitment = { recruitment_extension_enabled: true, recruitment_enabled_source: 'common', recruitment_deadline_source: 'common', recruitment_target_source: 'common', recruitment_target_mode: 'count', recruitment_target_value: 2, recruitment_deadline_minutes: 90, updated_at: '2026-09-24T00:00:00Z' }
 let recruitmentCommon = { enabled: true, deadline_minutes: 60, mode: 'count', value: 2, updated_at: '2026-09-24T00:00:00Z' }
+const paymentOverrides: Record<string, Record<string, unknown>> = {}
 apiClient.get = async (url) => {
+ if (url.includes('operating-settings')) {
+  const id = new URL(url, location.origin).searchParams.get('target_id') || 'a'
+  return { layers: { organization: {}, store: { payment_method_label: id === 'b' ? '店舗Bの案内' : '店舗Aの案内', ...paymentOverrides[id] } }, revisions: { store: 1 }, can_edit: true } as never
+ }
  if (url.includes('booking-cutoff-settings')) return { setting: { booking_cutoff_minutes: cutoff, updated_at: '2026-09-24T00:00:00Z' }, common_minutes: 30, can_edit: true } as never
  if (url.includes('common-recruitment-settings')) return { setting: recruitmentCommon, can_edit: true, common_count: 3, custom_count: 1 } as never
  if (url.includes('recruitment-settings')) return { setting: recruitment, common: recruitmentCommon, can_edit: true, min_required: 7, history: [] } as never
  return { setting: { private_booking_deadline_days: privateDays, updated_at: '2026-09-24T00:00:00Z' }, common_days: 7, can_edit: true } as never
 }
 apiClient.patch = async (url, payload: any) => {
+ if (url.includes('operating-settings')) {
+  const id = new URL(url, location.origin).searchParams.get('target_id') || 'a'
+  paymentOverrides[id] = { ...paymentOverrides[id], ...payload.settings }
+  writes.push({ scope: 'store', target_id: id, payload }); document.documentElement.dataset.writes = JSON.stringify(writes)
+  return {} as never
+ }
  if (url.includes('booking-cutoff-settings')) { cutoff=payload.minutes; document.documentElement.dataset.cutoffSaved=JSON.stringify(payload) }
  else if (url.includes('common-recruitment-settings')) { recruitmentCommon={...recruitmentCommon,...payload}; document.documentElement.dataset.commonSaved=JSON.stringify(payload) }
  else if (url.includes('recruitment-settings')) { recruitment={...recruitment,recruitment_extension_enabled:payload.enabled_source === 'common' ? recruitment.recruitment_extension_enabled : payload.enabled,recruitment_enabled_source:payload.enabled_source,recruitment_deadline_source:payload.deadline_source,recruitment_deadline_minutes:payload.deadline_source === 'common' ? recruitment.recruitment_deadline_minutes : payload.deadline_minutes}; document.documentElement.dataset.recruitmentSaved=JSON.stringify(payload) }
