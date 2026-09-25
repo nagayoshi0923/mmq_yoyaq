@@ -1,16 +1,10 @@
--- 正規ソース。変更後は新規マイグレにこのファイル全文を貼る。中止判定は day_before / four_hours をセットで同期すること。
-
-CREATE OR REPLACE FUNCTION check_performances_four_hours_before()
-RETURNS TABLE(
-  events_checked INTEGER,
-  events_confirmed INTEGER,
-  events_cancelled INTEGER,
-  details JSONB
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+CREATE OR REPLACE FUNCTION public.check_performances_four_hours_before()
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET "TimeZone" TO 'Asia/Tokyo'
+AS $function$
 DECLARE
   v_events_checked INTEGER := 0;
   v_events_confirmed INTEGER := 0;
@@ -21,12 +15,12 @@ DECLARE
   v_reservation_count INTEGER;
   v_unsynced_staff INTEGER;
   v_max INTEGER;
+  v_min INTEGER;
   v_result TEXT;
   v_now TIMESTAMPTZ;
-  v_check_time TIMESTAMPTZ;
 BEGIN
   v_now := NOW();
-  v_check_time := v_now + INTERVAL '4 hours';
+
 
   FOR v_event IN
     SELECT
@@ -43,6 +37,21 @@ BEGIN
         s.player_count_max,
         8
       ) AS max_participants,
+      COALESCE(
+        os.override_player_count_min,
+        sm.player_count_min,
+        sm2.player_count_min,
+        s.player_count_min,
+        -- min が一切設定されていない場合のみ旧仕様（定員の過半数）にフォールバック
+        CEIL(COALESCE(
+          os.override_player_count_max,
+          sm.player_count_max,
+          sm2.player_count_max,
+          se.max_participants,
+          s.player_count_max,
+          8
+        )::NUMERIC / 2)::INTEGER
+      ) AS min_participants,
       se.organization_id,
       se.gms,
       se.store_id,
@@ -59,7 +68,7 @@ BEGIN
       AND se.category = 'open'
       AND se.scenario IS NOT NULL
       AND se.scenario != ''
-      AND (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz <= v_check_time
+      AND public.get_performance_judgment_deadline(se.organization_id,se.id) <= v_now
       AND (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz > v_now
       AND NOT EXISTS (
         SELECT 1 FROM performance_cancellation_logs pcl
@@ -92,7 +101,13 @@ BEGIN
     v_current := v_reservation_count + v_unsynced_staff;
     v_max := v_event.max_participants;
 
-    IF v_current >= v_max THEN
+    -- 最低開催人数は 1 以上・定員以下に収める（データ不整合で中止が暴発しないようにする）
+    v_min := GREATEST(COALESCE(v_event.min_participants, 1), 1);
+    IF v_min > v_max THEN
+      v_min := GREATEST(v_max, 1);
+    END IF;
+
+    IF v_current >= v_min THEN
       v_result := 'confirmed';
       v_events_confirmed := v_events_confirmed + 1;
 
@@ -135,6 +150,9 @@ BEGIN
       'store_name', v_event.store_name,
       'current_participants', v_current,
       'max_participants', v_max,
+      'min_required', v_min,
+      -- half_required は旧キーの後方互換（値は min_required と同じ）
+      'half_required', v_min,
       'result', v_result,
       'organization_id', v_event.organization_id,
       'gms', v_event.gms
@@ -147,9 +165,4 @@ BEGIN
     v_events_cancelled,
     v_details;
 END;
-$$;
-
-COMMENT ON FUNCTION check_performances_four_hours_before() IS
-'4時間前に実行する公演中止判定（募集延長のみ・満席で開催確定・未満で中止・定員はorganization_scenarios反映）';
-
-ALTER FUNCTION check_performances_four_hours_before() SET timezone TO 'Asia/Tokyo';
+$function$;

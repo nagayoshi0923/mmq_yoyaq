@@ -1,3 +1,5 @@
+import { addJstDays } from '@/utils/jstDate'
+import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
@@ -96,6 +98,16 @@ export function PrivateGroupInvite() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
+  const { data: effectiveSurvey } = useQuery({
+    queryKey: ['group-survey-settings', group?.id, existingMemberId],
+    enabled: Boolean(group?.id && existingMemberId),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_survey_data_for_member', { p_group_id: group!.id, p_member_id: existingMemberId! })
+      if (error) throw error
+      return data as { survey_enabled?: boolean; survey_url?: string }
+    },
+  })
+
 
   // 確認ダイアログ（グループキャンセル / メンバー退出）
   const [confirmAction, setConfirmAction] = useState<
@@ -1050,15 +1062,20 @@ export function PrivateGroupInvite() {
         p_start_date: selectedDates[0],
         p_end_date: selectedDates[selectedDates.length - 1],
       }
+      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
+        organizationId: orgId,
+        scenarioLookupId: group.scenario_master_id,
+        scenarioMasterId: group.scenario_master_id,
+      })
       const [blockedResult, eventsResult] = await Promise.all([
         supabase.rpc('get_public_private_booking_availability', availabilityParams),
         supabase
           .from('schedule_events_for_availability')
-          .select('date, store_id, start_time, end_time, is_cancelled')
+          .select('id, date, store_id, start_time, end_time, is_cancelled')
           .filter('organization_id', 'eq', orgId)
           .in('store_id', requestedStoreIds)
-          .gte('date', selectedDates[0])
-          .lte('date', selectedDates[selectedDates.length - 1])
+          .gte('date', addJstDays(selectedDates[0], -2))
+          .lte('date', addJstDays(selectedDates[selectedDates.length - 1], 2))
           .eq('is_cancelled', false),
       ])
       if (blockedResult.error) throw blockedResult.error
@@ -1077,11 +1094,11 @@ export function PrivateGroupInvite() {
         if (start == null || end == null) return true
         return !blockedState.availableStoreIds.some((storeId) =>
           !eventRows.some((event) => {
-            if (event.store_id !== storeId || event.date !== candidate.date) return false
+            if (event.store_id !== storeId) return false
             const eventStart = timeStrToMinutes(event.start_time)
             const eventEnd = timeStrToMinutes(event.end_time)
             if (eventStart == null || eventEnd == null) return true
-            return eventStart < end + 60 && eventEnd > start - 60
+            return checkTimeOverlapWithPreparation(event.start_time, event.end_time, candidate.start_time, candidate.end_time, scenarioTiming.preparation_minutes_by_event?.[event.id] ?? 60, scenarioTiming.preparation_minutes_by_store?.[storeId] ?? 60, event.date, candidate.date).overlap
           })
         )
       })
@@ -1154,11 +1171,7 @@ export function PrivateGroupInvite() {
       const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
       const baseReservationNumber = `${dateStr}-${randomStr}`
       
-      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
-        organizationId: orgId,
-        scenarioLookupId: group.scenario_master_id,
-        scenarioMasterId: group.scenario_master_id,
-      })
+
 
       // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
       const candidateDatetimes = {
@@ -1371,7 +1384,7 @@ export function PrivateGroupInvite() {
   // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
   const charAssignmentMethod = (group as any).character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
-  const scenarioSurveyEnabled = !!(group.scenario_masters as any)?.survey_enabled
+  const scenarioSurveyEnabled = effectiveSurvey?.survey_enabled === true && !effectiveSurvey.survey_url
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
   // 進捗ステップ数の計算

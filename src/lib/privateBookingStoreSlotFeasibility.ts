@@ -16,6 +16,7 @@ export type PrivateBookingSlotKey = 'morning' | 'afternoon' | 'evening'
 
 export type PrivateBookingStoreSlotFeasibility = {
   /** 営業枠の開始（分） */
+  preparationMinutes?: number
   slotBandStart: number
   /** 営業枠の終了（分） */
   slotBandEnd: number
@@ -29,6 +30,7 @@ export type PrivateBookingStoreSlotFeasibility = {
 }
 
 type EventWithStore = {
+  preparation_minutes?: number
   start_time?: string | null
   end_time?: string | null
   date?: string | null
@@ -39,6 +41,18 @@ type EventWithStore = {
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number)
   return h * 60 + (m || 0)
+}
+
+/** 対象日の午前0時を基準に、前後日の公演も同じ分単位へ揃える。 */
+function eventInterval(e: EventWithStore, targetDate: string): { start: number; end: number } | null {
+  if (!e.date || !e.start_time) return null
+  const date = String(e.date).split('T')[0]
+  const offset = (Date.parse(`${date}T00:00:00+09:00`) - Date.parse(`${targetDate}T00:00:00+09:00`)) / 60000
+  if (!Number.isFinite(offset)) return null
+  const start = timeToMinutes(e.start_time)
+  let end = e.end_time ? timeToMinutes(e.end_time) : start + 240
+  if (end < start) end += 1440
+  return { start: offset + start, end: offset + end }
 }
 
 function eventStoreId(e: EventWithStore): string | null {
@@ -57,7 +71,8 @@ export function getPrivateBookingStoreSlotFeasibility(
   row: BusinessHoursSettingRow | undefined,
   allEvents: EventWithStore[],
   isCustomHoliday: (d: string) => boolean,
-  allowSyntheticWhenMissingRow: boolean
+  allowSyntheticWhenMissingRow: boolean,
+  preparationMinutes: number = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
 ): PrivateBookingStoreSlotFeasibility | null {
   const perSlots = getPerStoreSlotsForDate(targetDateYmd, row, isCustomHoliday, {
     allowSyntheticWhenMissingRow,
@@ -69,27 +84,22 @@ export function getPrivateBookingStoreSlotFeasibility(
   const slotBandStart = bounds.startMin
   const slotBandEnd = bounds.endMin
 
-  const dayEvents = allEvents.filter((e) => {
-    const ed = e.date ? String(e.date).split('T')[0] : ''
-    if (ed !== targetDateYmd) return false
-    return eventStoreId(e) === storeId
-  })
-
+  const intervals = allEvents.filter(e => eventStoreId(e) === storeId)
+    .map(e => eventInterval(e, targetDateYmd))
+    .filter((interval): interval is {start: number; end: number} => interval !== null)
+    .sort((a,b) => a.start-b.start)
   let latestEventEnd = 0
-  for (const e of dayEvents) {
-    const st = e.start_time || ''
-    if (!st) continue
-    const eventStart = timeToMinutes(st)
-    const eventEnd = e.end_time ? timeToMinutes(e.end_time) : eventStart + 240
-    const eventEndWithBuffer = eventEnd + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
-    if (eventStart < slotBandEnd && eventEndWithBuffer > slotBandStart) {
-      if (eventEndWithBuffer > latestEventEnd) latestEventEnd = eventEndWithBuffer
+  for (const interval of intervals) {
+    const eventEndWithBuffer = interval.end + preparationMinutes
+    if (interval.start <= Math.max(slotBandStart, latestEventEnd) && eventEndWithBuffer > slotBandStart) {
+      latestEventEnd = Math.max(latestEventEnd, eventEndWithBuffer)
     }
   }
 
   const minAllowedStart =
     latestEventEnd > 0 ? Math.max(slotBandStart, latestEventEnd) : slotBandStart
   return {
+    preparationMinutes,
     slotBandStart,
     slotBandEnd,
     minAllowedStart,
@@ -127,18 +137,21 @@ export function isProposedPrivateBookingStartFeasible(
   let effectiveOccupancyEndLimit = occupancyEndOverride ?? f.slotBandEnd
   if (eventCtx) {
     for (const e of eventCtx.dayEvents) {
-      const ed = e.date ? String(e.date).split('T')[0] : ''
-      if (ed !== eventCtx.targetDateYmd) continue
       if (eventStoreId(e) !== eventCtx.storeId) continue
-      const st = e.start_time || ''
-      if (!st) continue
-      const eventStart = timeToMinutes(st)
+      const interval = eventInterval(e, eventCtx.targetDateYmd)
+      if (!interval) continue
+      const eventStart = interval.start
+      const eventEnd = interval.end
+      if (eventStart < proposedStartMin &&
+          eventEnd + (f.preparationMinutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES) > proposedStartMin) {
+        return false
+      }
       // 提案開始と同時刻にスタートする予約も「直接 collide」として枠を狭める。
       // strict > にしていると、たとえば 14:00 に既存予約があるとき 14:00 開始を許してしまう。
       if (eventStart >= proposedStartMin) {
         effectiveOccupancyEndLimit = Math.min(
           effectiveOccupancyEndLimit,
-          eventStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+          eventStart - (e.preparation_minutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
         )
       }
     }

@@ -1,3 +1,9 @@
+import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
+import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
+import { OperatingTextSettings } from '@/components/settings/OperatingTextSettings'
+import { PAYMENT_SETTING_FIELDS } from '@/components/settings/operatingSettingFields'
+import { OperatingScalarSettings } from '@/components/settings/OperatingScalarSettings'
+import { OPERATION_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
 import { ScenarioSettingSources } from '@/components/settings/ScenarioSettingSources'
 import { scenarioEffectiveFields, scenarioSourcePayload, type ScenarioSourceState, type SourceValues } from '@/lib/scenarioSettingSources'
 import { settingsPath } from '@/components/settings/settingsCatalog'
@@ -32,7 +38,6 @@ import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsS
 import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
-import { EmailSectionV2 } from './ScenarioEditDialogV2/sections/EmailSectionV2'
 import { CharactersSectionV2 } from './ScenarioEditDialogV2/sections/CharactersSectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { logger } from '@/utils/logger'
@@ -65,6 +70,7 @@ const TABS = [
   { id: 'game', label: 'ゲーム設定' },
   { id: 'characters', label: 'キャラクター' },
   { id: 'pricing', label: '料金' },
+  { id: 'booking-policy', label: '予約条件' },
   { id: 'gm', label: 'GM' },
   { id: 'costs', label: '売上' },
   { id: 'performances', label: '公演実績' },
@@ -210,6 +216,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
     return (fromOrg as typeof fromList) ?? null
   }, [scenarioId, scenarios, orgScenariosData?.scenarios])
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
+  const currentOrgScenarioId = orgScenariosData?.scenarios.find(row => row.scenario_master_id === currentMasterId)?.org_scenario_id
 
   const headerScenarioOptions = useMemo(() => {
     const orgScenarios = orgScenariosData?.scenarios ?? []
@@ -1393,7 +1400,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       case 'basic':
         return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
-        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
+        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
       case 'characters':
         return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':
@@ -1433,10 +1440,12 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             futureReservationCount={scenarioStats.futureReservationCount}
           />
         )
+      case 'booking-policy':
+        return <div className="space-y-6"><OperatingTextSettings scope="scenario" targetId={currentOrgScenarioId} fields={PAYMENT_SETTING_FIELDS} /><CancellationSettings scope="scenario" targetId={currentOrgScenarioId} /></div>
       case 'email':
-        return <EmailSectionV2 masterId={currentMasterId} formData={formData} setFormData={setFormData} />
+        return <EmailSettings scope="scenario" targetId={currentOrgScenarioId} />
       case 'survey':
-        return <SurveySectionV2 formData={formData} setFormData={setFormData} />
+        return <SurveySectionV2 formData={formData} setFormData={setFormData} organizationScenarioId={currentOrgScenarioId} />
       default:
         return null
     }

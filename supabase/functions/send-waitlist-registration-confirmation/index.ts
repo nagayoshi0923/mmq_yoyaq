@@ -13,6 +13,7 @@ import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 interface WaitlistRegistrationRequest {
   organizationId: string
   storeId?: string
+  scheduleEventId?: string
   customerName: string
   customerEmail: string
   scenarioTitle: string
@@ -65,13 +66,14 @@ serve(async (req) => {
     // 店舗のメール設定（テンプレート・会社情報）を取得
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
       storeId: data.storeId,
-      organizationId: data.organizationId
+      organizationId: data.organizationId,
+      scheduleEventId: data.scheduleEventId
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || senderName
-    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? replyToEmail ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
 
     // メールテンプレート取得
     const emailTemplates = await getEmailTemplates(serviceClient, data.organizationId)

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
+import { toJstYmd } from '@/utils/jstDate'
 import { getDayOfWeekJST } from '@/utils/dateUtils'
 
 /** PerformanceModal の calculateEndTime と同様、公演本体の所要時間のみ（分） */
@@ -51,6 +52,8 @@ export function getPrivateBookingDisplayEndTime(
 }
 
 export type ScenarioTimingFromDb = {
+  preparation_minutes_by_store?: Record<string, number>
+  preparation_minutes_by_event?: Record<string, number>
   duration: number
   weekend_duration: number | null
   /** 追加準備分。通常貸切と同様にインターバル60分に加算して空き判定する */
@@ -103,6 +106,17 @@ export async function fetchScenarioTimingFromDb(
     return { duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
   }
 
+  let preparation: Pick<ScenarioTimingFromDb, 'preparation_minutes_by_store' | 'preparation_minutes_by_event'> = {}
+  if (organizationId) {
+    const today = new Date()
+    const { data, error } = await supabase.rpc('get_public_preparation_context', {
+      p_organization_id: organizationId, p_scenario_lookup_id: lookup,
+      p_start_date: toJstYmd(today), p_end_date: toJstYmd(new Date(today.getTime() + 180 * 86400000)),
+    })
+    if (error) throw error
+    preparation = { preparation_minutes_by_store: data.stores, preparation_minutes_by_event: data.events }
+  }
+
   if (organizationId) {
     const { data: viewRow } = await supabase
       .from('organization_scenarios_with_master')
@@ -118,6 +132,7 @@ export async function fetchScenarioTimingFromDb(
           ? viewRow.extra_preparation_time
           : 0
       return {
+        ...preparation,
         duration: viewRow.duration,
         weekend_duration:
           typeof viewRow.weekend_duration === 'number' && viewRow.weekend_duration > 0
@@ -137,10 +152,10 @@ export async function fetchScenarioTimingFromDb(
     .maybeSingle()
 
   if (sm && typeof sm.official_duration === 'number' && sm.official_duration > 0) {
-    return { duration: sm.official_duration, weekend_duration: null, extra_preparation_time: 0 }
+    return { ...preparation, duration: sm.official_duration, weekend_duration: null, extra_preparation_time: 0 }
   }
 
-  return { duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
+  return { ...preparation, duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
 }
 
 /**

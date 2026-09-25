@@ -48,6 +48,7 @@ export interface Reservation {
   cancellation_reason?: string | null
   cancelled_at?: string | null
   /** 予約時キャンセルポリシー。version=NULLはmigration以前の互換予約。 */
+  reservation_change_deadline_hours_snapshot?: number | null
   cancellation_policy_snapshot_version?: number | null
   cancellation_policy_store_id?: string | null
   cancellation_policy_performance_type?: CancellationPerformanceType | null
