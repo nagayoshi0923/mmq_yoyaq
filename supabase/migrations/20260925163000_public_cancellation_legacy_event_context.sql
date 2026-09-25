@@ -1,3 +1,4 @@
+-- Preserve scenario overrides for events using the legacy scenario_id field.
 -- 組織・店舗の公開条件を維持し、作品／公演の規定を同じ順位で解決する。
 CREATE OR REPLACE FUNCTION public.get_public_cancellation_policy_for_context(
   p_organization_slug text, p_store_id uuid, p_scenario_master_id uuid, p_event_id uuid

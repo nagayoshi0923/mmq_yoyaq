@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test'
-test('公演の0分指定、解除後の継承値と各階層の設定を表示する',async({page})=>{
+test('公演の0分指定、解除後の継承値と各階層の設定を表示する',async({page},info)=>{
  await page.goto('/e2e/fixtures/operating-settings.html')
  const prep=page.locator('#operating-performance-preparation_minutes')
  await expect(prep).toHaveValue('0')
@@ -15,7 +15,7 @@ test('公演の0分指定、解除後の継承値と各階層の設定を表示�
  }
  await page.setViewportSize({width:375,height:812})
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
- await page.screenshot({path:'/private/tmp/qw-operating-settings-mobile.png',fullPage:true})
+ await page.screenshot({path:info.outputPath('operating-settings-mobile.png'),fullPage:true})
 })
 test('閲覧権限だけでは設定を書き換えられない',async({page})=>{
  await page.goto('/e2e/fixtures/operating-settings.html?readonly')
