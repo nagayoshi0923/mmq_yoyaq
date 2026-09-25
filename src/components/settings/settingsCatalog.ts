@@ -42,7 +42,7 @@ export const SETTINGS_PAGES: SettingsPageDefinition[] = [
   { id: 'cancellation-common', label: 'キャンセル・予約変更', scope: 'organization', description: '組織共通の規定・期限・料率', effect: '個別指定のない店舗・シナリオ・公演に適用します。予約済みの条件は維持します。', related: ['cancellation', 'cancellation-billing'] },
   { id: 'cancellation', label: 'キャンセル・変更', scope: 'store', description: '通常・貸切の規定、期限、料金・返金案内', effect: '選択した店舗の規定を保存します。「全店舗へ一括設定」を選ぶと全店舗へ保存します。保存済み予約の条件や請求を一括変更する操作ではありません。', related: ['cancellation-billing', 'booking-notice'] },
   { id: 'email-common', label: 'メール・リマインド', scope: 'organization', description: '共通のメール文面と送信日程', effect: '個別指定のない店舗・シナリオ・公演に適用します。', related: ['email'] },
-  { id: 'email', label: 'メール・リマインド', scope: 'store', description: '差出人情報・文面・リマインド日程', effect: '予約確定・貸切確定の文面は、公演の個別文面 → 作品の文面 → 店舗の文面 → 標準文面の順です。送信済みメールは変更しません。', related: ['notifications', 'email-logs'] },
+  { id: 'email', label: 'メール・リマインド', scope: 'store', description: '差出人情報・文面・リマインド日程', effect: '予約確定・貸切確定の文面は、公演 → シナリオ → 店舗 → 組織共通 → 標準文面の順です。送信済みメールは変更しません。', related: ['notifications', 'email-logs'] },
   { id: 'store-notifications', label: '店舗の予約通知', scope: 'store', description: '新規予約・キャンセルの通知とWebhook', effect: '選択した店舗の通知設定です。組織全体の通知スイッチは組織共通で設定します。', related: ['notifications'] },
   { id: 'data', label: 'データ出力', scope: 'store', description: '出力形式の保存とデータの書き出し', effect: '出力形式は選択した店舗に保存します。書き出すデータの範囲は各出力処理の説明を確認してください。' },
 ]
