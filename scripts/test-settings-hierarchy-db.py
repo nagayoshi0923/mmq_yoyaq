@@ -111,7 +111,7 @@ def build_rollback():
     return sql
 
 def build_preparation():
-    migrations=['20260925150000_operating_setting_overrides.sql','20260925151000_cancellation_setting_inheritance.sql','20260925157000_preparation_setting_inheritance.sql','20260925158000_public_preparation_context.sql','20260925159000_preparation_cross_day.sql']
+    migrations=['20260925150000_operating_setting_overrides.sql','20260925151000_cancellation_setting_inheritance.sql','20260925157000_preparation_setting_inheritance.sql','20260925158000_public_preparation_context.sql','20260925159000_preparation_cross_day.sql','20260925165000_public_preparation_visibility.sql']
     tests=['operating_setting_overrides.sql','preparation_setting_inheritance.sql','public_preparation_context.sql']
     return 'BEGIN;\n'+''.join((ROOT/'supabase/migrations'/p).read_text()+'\n' for p in migrations)+''.join(re.sub(r'^(BEGIN|ROLLBACK);\s*$', '', (ROOT/'supabase/tests'/p).read_text(), flags=re.M)+'\n' for p in tests)+'ROLLBACK;'
 

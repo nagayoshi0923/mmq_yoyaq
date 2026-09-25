@@ -13,4 +13,9 @@ DO $$ DECLARE ctx jsonb; BEGIN
   PERFORM public.get_public_preparation_context('eeeeeeee-1000-4000-8000-000000000001','eeeeeeee-1000-4000-8000-000000000003','2099-01-01','2100-01-02');
   RAISE EXCEPTION '過大な期間で取得できた';
  EXCEPTION WHEN SQLSTATE 'P0041' THEN NULL; END;
+ UPDATE organizations SET booking_site_status='pending' WHERE id='eeeeeeee-1000-4000-8000-000000000001';
+ BEGIN
+  PERFORM public.get_public_preparation_context('eeeeeeee-1000-4000-8000-000000000001','eeeeeeee-1000-4000-8000-000000000003','2099-01-01','2099-01-02');
+  RAISE EXCEPTION '未公開の準備情報が参照できた';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;

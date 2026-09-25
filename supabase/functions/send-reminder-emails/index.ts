@@ -245,8 +245,9 @@ serve(async (req) => {
     }
     
     // 返信先メールアドレスが設定されている場合は追加
-    if (companyEmail) {
-      emailPayload.reply_to = companyEmail
+    const replyTo = (companyEmail || replyToEmail || '').trim()
+    if (replyTo) {
+      emailPayload.reply_to = replyTo
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
