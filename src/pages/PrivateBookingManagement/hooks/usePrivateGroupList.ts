@@ -1,3 +1,4 @@
+import { RESERVATION_SOURCE } from '@/lib/constants'
 import { getGroupsSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -137,7 +138,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
               .eq('organization_id', orgId)
               .in('private_group_id', groupIds)
               .eq('status', 'confirmed')
-              .eq('reservation_source', 'web_private')
+              .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
           : Promise.resolve({ data: [] }),
       ])
 

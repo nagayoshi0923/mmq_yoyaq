@@ -1,3 +1,4 @@
+-- Match the visibility boundary of public payment/cancellation RPCs.
 -- 公開の空き判定に必要な分数だけを返す。予約・顧客・メール設定は返さない。
 CREATE OR REPLACE FUNCTION public.get_public_preparation_context(p_organization_id uuid,p_scenario_lookup_id uuid,p_start_date date,p_end_date date)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$

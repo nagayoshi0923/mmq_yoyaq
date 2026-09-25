@@ -394,8 +394,9 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       text: finalText,
     }
     // reply_toが設定されていれば追加
-    if (companyEmail) {
-      emailPayload.reply_to = companyEmail
+    const replyTo = (companyEmail || replyToEmail || '').trim()
+    if (replyTo) {
+      emailPayload.reply_to = replyTo
     }
     
     const resendResponse = await fetch('https://api.resend.com/emails', {
