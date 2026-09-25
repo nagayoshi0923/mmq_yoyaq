@@ -1,3 +1,6 @@
+import { loadPreparationNeighborEvents } from '@/lib/preparationNeighborEvents'
+import { usePreparationSettings } from '@/hooks/usePreparationSettings'
+import type { PreparationContext } from '../../../supabase/functions/_shared/preparation-settings'
 /**
  * 公演のドラッグ&ドロップによる移動・複製操作（Phase 4-3 で useEventOperations から分割）。
  *
@@ -12,7 +15,7 @@ import { useCallback, useRef, useState } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getEventTimeSlot, calcEndTime, computePlacedStartTime, timeToMinutes, checkTimeOverlap } from '@/utils/eventOperationUtils'
+import { getEventTimeSlot, calcEndTime, computePlacedStartTimeWithPreparation, timeToMinutes, checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -80,11 +83,14 @@ function findTimeOverlapConflict(
   scenarios: Scenario[],
   startTime: string,
   endTime: string,
-  newPrepMinutes: number
+  newPrepMinutes: number,
+  preparation: (context: PreparationContext) => number,
+  targetDate: string
 ): { event: ScheduleEvent; reason: string } | null {
   for (const e of events) {
-    const existingPrep = scenarios.find(s => s.title === e.scenario)?.extra_preparation_time || 0
-    const r = checkTimeOverlap(e.start_time, e.end_time, startTime, endTime, existingPrep, newPrepMinutes)
+    const scenario = scenarios.find(s => s.title === e.scenario)
+    const existingPrep = preparation({ storeId: e.store_id || e.venue, scenarioId: scenario?.id, scenarioMasterId: e.scenario_master_id, eventId: e.id })
+    const r = checkTimeOverlapWithPreparation(e.start_time, e.end_time, startTime, endTime, existingPrep, newPrepMinutes, e.date, targetDate)
     if (r.overlap) return { event: e, reason: r.reason || '時間が重複' }
   }
   return null
@@ -102,6 +108,7 @@ export function useEventMoveCopy({
   setDraggedEvent,
   setDropTarget,
 }: UseEventMoveCopyProps) {
+  const { fetch: fetchPreparation } = usePreparationSettings()
   // 重複/間隔不足の確認ダイアログ（window.confirm の置き換え）。
   // Promise の resolver を ref に保持し、ダイアログの決定で解決する（useEventDelete と同型）。
   const [moveCopyConfirm, setMoveCopyConfirm] = useState<MoveCopyConfirm | null>(null)
@@ -168,15 +175,16 @@ export function useEventMoveCopy({
       // 基準開始は「同枠なら元の開始 / 別枠なら枠デフォルト」。同枠移動でも、移動先に
       // 長い直前公演（例: 昼まで延びる朝公演）があれば繰り下げて重複を防ぐ。
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
-      const newPrepMinutes = matchingScenario?.extra_preparation_time || 0
-      const sameStoreDayEvents = events.filter(e =>
+      const [preparation, neighborEvents] = await Promise.all([fetchPreparation(), loadPreparationNeighborEvents(dropTarget.date)])
+      const newPrepMinutes = preparation({ storeId: dropTarget.venue, scenarioId: matchingScenario?.id, scenarioMasterId: draggedEvent.scenario_master_id, eventId: draggedEvent.id })
+      const sameStoreDayEvents = neighborEvents.filter(e =>
         e.date === dropTarget.date &&
         e.venue === dropTarget.venue &&
         !e.is_cancelled &&
         e.id !== draggedEvent.id
       )
       const baseStart = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
-      const startTime = computePlacedStartTime(baseStart, sameStoreDayEvents, newPrepMinutes)
+      const startTime = computePlacedStartTimeWithPreparation(baseStart, sameStoreDayEvents, newPrepMinutes)
       // 公演の長さを保つ（別枠でシナリオ所要時間が分かる場合はそれを優先）
       const originalDurationMin = timeToMinutes(draggedEvent.end_time) - timeToMinutes(draggedEvent.start_time)
       const endTime = isSameTimeSlot
@@ -187,7 +195,7 @@ export function useEventMoveCopy({
 
       // 繰り下げ後も同店舗・同日の他公演と重なる場合（後続公演への食い込み等）は警告。
       // 繰り下げでは後続公演との重複は解消できないため、続行可否をユーザーに委ねる。
-      const moveOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
+      const moveOverlap = findTimeOverlapConflict(neighborEvents.filter(e => e.venue === dropTarget.venue && !e.is_cancelled && e.id !== draggedEvent.id), scenarios, startTime, endTime, newPrepMinutes, preparation, dropTarget.date)
       const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
 
       if (conflict) {
@@ -423,7 +431,7 @@ export function useEventMoveCopy({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios, askConfirm])
+  }, [draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios, askConfirm, fetchPreparation])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -449,15 +457,16 @@ export function useEventMoveCopy({
       // 基準開始は「同枠なら元の開始 / 別枠なら枠デフォルト」。同枠移動でも、移動先に
       // 長い直前公演（例: 昼まで延びる朝公演）があれば繰り下げて重複を防ぐ。
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
-      const newPrepMinutes = matchingScenario?.extra_preparation_time || 0
-      const sameStoreDayEvents = events.filter(e =>
+      const [preparation, neighborEvents] = await Promise.all([fetchPreparation(), loadPreparationNeighborEvents(dropTarget.date)])
+      const newPrepMinutes = preparation({ storeId: dropTarget.venue, scenarioId: matchingScenario?.id, scenarioMasterId: draggedEvent.scenario_master_id })
+      const sameStoreDayEvents = neighborEvents.filter(e =>
         e.date === dropTarget.date &&
         e.venue === dropTarget.venue &&
         !e.is_cancelled &&
         e.id !== draggedEvent.id
       )
       const baseStart = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
-      const startTime = computePlacedStartTime(baseStart, sameStoreDayEvents, newPrepMinutes)
+      const startTime = computePlacedStartTimeWithPreparation(baseStart, sameStoreDayEvents, newPrepMinutes)
       // 公演の長さを保つ（別枠でシナリオ所要時間が分かる場合はそれを優先）
       const originalDurationMin = timeToMinutes(draggedEvent.end_time) - timeToMinutes(draggedEvent.start_time)
       const endTime = isSameTimeSlot
@@ -467,7 +476,7 @@ export function useEventMoveCopy({
           : defaults.end_time
 
       // 繰り下げ後も同店舗・同日の他公演と重なる場合（後続公演への食い込み等）は警告
-      const copyOverlap = findTimeOverlapConflict(sameStoreDayEvents, scenarios, startTime, endTime, newPrepMinutes)
+      const copyOverlap = findTimeOverlapConflict(neighborEvents.filter(e => e.venue === dropTarget.venue && !e.is_cancelled && e.id !== draggedEvent.id), scenarios, startTime, endTime, newPrepMinutes, preparation, dropTarget.date)
       const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
 
       if (conflict) {
@@ -578,7 +587,7 @@ export function useEventMoveCopy({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [events, draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios, askConfirm])
+  }, [draggedEvent, dropTarget, stores, setEvents, setDraggedEvent, setDropTarget, checkConflict, organizationId, getSlotDefaults, scenarios, askConfirm, fetchPreparation])
 
   return {
     handleMoveEvent,

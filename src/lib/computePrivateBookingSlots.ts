@@ -39,6 +39,8 @@ export interface ComputePrivateBookingSlotsParams {
     duration: number
     weekend_duration: number | null
     extra_preparation_time?: number
+    preparation_minutes_by_store?: Record<string, number>
+    preparation_minutes_by_event?: Record<string, number>
   }
   allStoreEvents: ScheduleEventLike[]
   isCustomHoliday: (date: string) => boolean
@@ -68,6 +70,7 @@ function minutesToTime(minutes: number): string {
 }
 
 type SlotCandidate = {
+  preparationMinutes: number
   earliestStart: number
   slotEnd: number
   slotBaselineStart: number
@@ -99,16 +102,19 @@ function getBestSlotCandidateAcrossStores(
   isCustomHoliday: (d: string) => boolean,
   isWeekendOrHoliday: boolean,
   durationMinutes: number,
-  extraPrepTime: number,
+  legacyExtraPrepTime: number,
   eveningStartFloorMinutes: number | null,
+  preparationByStore?: Record<string, number>,
 ): SlotCandidate | null {
   const allowSynthetic = storeIds.length === 1
   const candidates: SlotCandidate[] = []
 
   for (const storeId of storeIds) {
+    const preparation = preparationByStore?.[storeId]
+    const extraPrepTime = preparation === undefined ? legacyExtraPrepTime : 0
     const row = businessHoursByStore.get(storeId)
     let f = getPrivateBookingStoreSlotFeasibility(
-      targetDate, storeId, slotKey, row, allStoreEvents, isCustomHoliday, allowSynthetic,
+      targetDate, storeId, slotKey, row, allStoreEvents, isCustomHoliday, allowSynthetic, preparation,
     )
     if (!f) continue
     if (slotKey === 'evening' && eveningStartFloorMinutes != null) {
@@ -134,7 +140,7 @@ function getBestSlotCandidateAcrossStores(
         const eEnd = ev.end_time
           ? (timeStrToMinutes(String(ev.end_time)) ?? eStart + 240)
           : eStart + 240
-        const endBuf = eEnd + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+        const endBuf = eEnd + (preparation ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
         if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
       }
       startForFeasibility = Math.max(reverseStart, latestPriorEnd)
@@ -153,7 +159,7 @@ function getBestSlotCandidateAcrossStores(
         const eStart = timeStrToMinutes(String(ev.start_time))
         if (eStart === null) continue
         if (eStart < f.slotBandStart) continue
-        const candidate = eStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+        const candidate = eStart - (ev.preparation_minutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
         if (candidate < endLimitFromNextEvent) endLimitFromNextEvent = candidate
       }
       if (configuredEnd > endLimitFromNextEvent) {
@@ -170,7 +176,7 @@ function getBestSlotCandidateAcrossStores(
           const eEnd = ev.end_time
             ? (timeStrToMinutes(String(ev.end_time)) ?? eStart + 240)
             : eStart + 240
-          const endBuf = eEnd + PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+          const endBuf = eEnd + (preparation ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
           if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
         }
         startForFeasibility = Math.max(reverseStart, latestPriorEnd)
@@ -219,6 +225,7 @@ function getBestSlotCandidateAcrossStores(
     }
 
     candidates.push({
+      preparationMinutes: preparation ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
       earliestStart: startForFeasibility,
       slotEnd: f.slotBandEnd,
       slotBaselineStart: f.slotBandStart,
@@ -242,13 +249,14 @@ export function computePrivateBookingSlots(
     storeIds,
     businessHoursByStore,
     scenarioTiming,
-    allStoreEvents,
+    allStoreEvents: rawEvents,
     isCustomHoliday,
     privateBookingTimeSlots,
     scenarioTitle,
   } = params
 
   if (storeIds.length === 0) return []
+  const allStoreEvents = rawEvents.map(event => ({ ...event, preparation_minutes: (event.id ? scenarioTiming.preparation_minutes_by_event?.[event.id] : undefined) ?? event.preparation_minutes }))
 
   const targetDate = date.split('T')[0]
   const dayOfWeek = getDayOfWeekJST(targetDate)
@@ -267,7 +275,7 @@ export function computePrivateBookingSlots(
     scenarioTiming,
     isCustomHoliday,
   )
-  const extraPrepTime = scenarioTiming.extra_preparation_time || 0
+  const extraPrepTime = scenarioTiming.preparation_minutes_by_store ? 0 : scenarioTiming.extra_preparation_time || 0
 
   const getFeasibility = (slotKey: SlotKey) =>
     getBestSlotCandidateAcrossStores(
@@ -281,6 +289,7 @@ export function computePrivateBookingSlots(
       durationMinutes,
       extraPrepTime,
       slotKey === 'evening' ? eveningStartFloorMinutes : null,
+      scenarioTiming.preparation_minutes_by_store,
     )
 
   const morningCandidate = getFeasibility('morning')
@@ -292,7 +301,7 @@ export function computePrivateBookingSlots(
   if (!isWeekendOrHoliday) {
     const eveningBaseStart = eveningCandidate?.slotBaselineStart ?? 19 * 60
     const eveningDeadline =
-      eveningBaseStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+      eveningBaseStart - (eveningCandidate?.preparationMinutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
     const reverseFromEvening =
       eveningDeadline - durationMinutes - extraPrepTime
     const afternoonDefault = afternoonCandidate?.slotBaselineStart ?? 13 * 60
@@ -343,7 +352,7 @@ export function computePrivateBookingSlots(
     ) {
       const eveningBaseStart = eveningCandidate?.slotBaselineStart ?? 19 * 60
       const eveningDeadline =
-        eveningBaseStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+        eveningBaseStart - (eveningCandidate?.preparationMinutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
       const reverseFromEvening =
         eveningDeadline - durationMinutes - extraPrepTime
       const priorFloor = def.candidate.priorEventEarliestStartMin
@@ -388,8 +397,9 @@ export function computePrivateBookingSlots(
           if (!ev.start_time) continue
           const evStart = timeStrToMinutes(String(ev.start_time))
           if (evStart !== null && evStart > startMinutes) {
-            if (storeNextEventStart === null || evStart < storeNextEventStart) {
-              storeNextEventStart = evStart
+            const deadline = evStart - (ev.preparation_minutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
+            if (storeNextEventStart === null || deadline < storeNextEventStart) {
+              storeNextEventStart = deadline
             }
           }
         }
@@ -402,7 +412,7 @@ export function computePrivateBookingSlots(
         }
       }
 
-      const bufferNeeded = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES + extraPrepTime
+      const bufferNeeded = extraPrepTime
       const effectiveEndLimit = anyStoreWithoutNext
         ? HARD_DAY_LIMIT - extraPrepTime
         : (bestNextEventStart ?? HARD_DAY_LIMIT) - bufferNeeded

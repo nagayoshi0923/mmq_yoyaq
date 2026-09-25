@@ -194,8 +194,8 @@ export function PrivateBookingRequest({
         .select('id, date, start_time, end_time, store_id, is_cancelled')
         .filter('organization_id', 'eq', organizationId)
         .in('store_id', storeIdsForSlotResolution)
-        .gte('date', toJstYmd(today))
-        .lte('date', toJstYmd(windowEnd))
+        .gte('date', toJstYmd(new Date(today.getTime() - 2 * 86400000)))
+        .lte('date', toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
         .eq('is_cancelled', false)
       if (error) { logger.error('貸切確認: イベント取得エラー', error); return [] }
       return data || []
@@ -829,6 +829,8 @@ export function PrivateBookingRequest({
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               mode="private"
+              scenarioMasterId={scenarioId}
+              organizationSlug={organizationSlug}
               storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
             />
 

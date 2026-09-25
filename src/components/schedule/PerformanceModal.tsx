@@ -1,3 +1,5 @@
+import { usePreparationSettings } from '@/hooks/usePreparationSettings'
+import { PerformanceOperatingSettings } from '@/components/settings/PerformanceOperatingSettings'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
@@ -17,7 +19,7 @@ import { getUsableKitStoreIds } from '@/utils/scheduleWarnings'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
-import { calcEndTime, checkTimeOverlap } from '@/utils/eventOperationUtils'
+import { calcEndTime, checkTimeOverlapWithPreparation, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -86,6 +88,7 @@ const PERF_TABS = [
   { id: 'edit', label: '公演情報' },
   { id: 'reservations', label: '予約者' },
   { id: 'deadlines', label: '募集・締切' },
+  { id: 'operating-settings', label: '個別設定' },
   { id: 'survey', label: 'アンケート' },
   { id: 'history', label: '更新履歴' },
 ] as const
@@ -177,6 +180,7 @@ export function PerformanceModal({
   
   // 組織IDを取得（履歴表示用）
   const { organizationId } = useOrganization()
+  const { data: preparationData, resolve: resolvePreparation } = usePreparationSettings()
 
   // 時間帯のデフォルト設定（設定から動的に取得）
   const [timeSlotDefaults, setTimeSlotDefaults] = useState({
@@ -710,10 +714,10 @@ export function PerformanceModal({
       setFormData((prev: EventFormData) => ({ ...prev, scenario: scenarioTitle }))
       return
     }
-    // 終了時間の自動計算
-    // 準備時間ぶん開始を後ろ倒し（calcEndTime を再利用。prep=0 なら元の開始時刻のまま）
-    const prepMinutes = selectedScenario.extra_preparation_time ?? 0
-    const adjustedStartTime = prepMinutes > 0 ? calcEndTime(formData.start_time, prepMinutes) : formData.start_time
+    const preparation = resolvePreparation({ storeId: formData.venue, scenarioId: selectedScenario.id, eventId: mode === 'edit' ? event?.id : undefined })
+    if (preparation === undefined) { showToast.error('準備時間の設定を読み込んでから変更してください'); return }
+    const priorEvents = (events || []).filter(candidate => candidate.id !== event?.id && !candidate.is_cancelled && candidate.date === formData.date && candidate.venue === formData.venue)
+    const adjustedStartTime = computePlacedStartTimeWithPreparation(formData.start_time, priorEvents, preparation)
     const endTime = calculateEndTime(adjustedStartTime, scenarioTitle)
     setFormData((prev: EventFormData) => ({
       ...prev,
@@ -731,14 +735,16 @@ export function PerformanceModal({
   const timeConflict = useMemo<{ kind: 'overlap' | 'interval'; reason: string; event: ScheduleEvent } | null>(() => {
     if (formData.is_private_request) return null // 貸切は日時変更不可
     if (!formData.start_time || !formData.end_time || !formData.date || !formData.venue) return null
-    const newPrep = scenarios.find(s => s.title === formData.scenario)?.extra_preparation_time || 0
+    if (!preparationData) return null
+    const newScenario = scenarios.find(s => s.title === formData.scenario)
+    const newPrep = resolvePreparation({ storeId: formData.venue, scenarioId: newScenario?.id, eventId: mode === 'edit' ? event?.id : undefined })!
     let best: { kind: 'overlap' | 'interval'; reason: string; event: ScheduleEvent } | null = null
     for (const ev of (events || [])) {
       if (mode === 'edit' && event?.id && ev.id === event.id) continue
       if (ev.date !== formData.date || ev.venue !== formData.venue || ev.is_cancelled) continue
       if (!ev.start_time || !ev.end_time) continue
-      const exPrep = scenarios.find(s => s.title === ev.scenario)?.extra_preparation_time || 0
-      const r = checkTimeOverlap(ev.start_time, ev.end_time, formData.start_time, formData.end_time, exPrep, newPrep)
+      const exPrep = resolvePreparation({ storeId: ev.store_id || ev.venue, scenarioId: scenarios.find(s => s.title === ev.scenario)?.id, eventId: ev.id })!
+      const r = checkTimeOverlapWithPreparation(ev.start_time, ev.end_time, formData.start_time, formData.end_time, exPrep, newPrep)
       if (r.overlap) {
         const kind: 'overlap' | 'interval' = r.reason === '時間が重複' ? 'overlap' : 'interval'
         if (kind === 'overlap') { best = { kind, reason: r.reason || '時間が重複', event: ev }; break }
@@ -746,7 +752,7 @@ export function PerformanceModal({
       }
     }
     return best
-  }, [formData.is_private_request, formData.start_time, formData.end_time, formData.date, formData.venue, formData.scenario, events, scenarios, mode, event?.id])
+  }, [formData.is_private_request, formData.start_time, formData.end_time, formData.date, formData.venue, formData.scenario, events, scenarios, mode, event?.id, preparationData, resolvePreparation])
 
   // 時間プルダウンのハイライト色（overlap=赤 / interval=黄）
   const timeConflictTriggerClass = timeConflict
@@ -950,6 +956,7 @@ export function PerformanceModal({
     : null
 
   const renderTabBody = () => {
+    if (activeTab === 'operating-settings') return <PerformanceOperatingSettings eventId={event?.id} />
     if (activeTab === 'deadlines') return <BookingDeadlineTab eventId={event?.id} />
     if (activeTab === 'reservations') {
       return (

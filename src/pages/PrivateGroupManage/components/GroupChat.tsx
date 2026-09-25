@@ -156,24 +156,22 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       ? 'ゲストの投稿は許可されていません（MMQアカウントでログインしてください）'
       : null
 
-  // 回答期限を取得
+  // 回答画面と同じ公演・店舗・作品・組織の適用値を使う。
   useEffect(() => {
-    if (!scenarioId || !organizationId || !performanceDate) return
-    ;(async () => {
-      const { data } = await supabase
-        .from('organization_scenarios')
-        .select('survey_deadline_days')
-        .eq('scenario_master_id', scenarioId)
-        .eq('organization_id', organizationId)
-        .maybeSingle()
-      if (data?.survey_deadline_days !== undefined && data.survey_deadline_days !== null) {
-        const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
-        perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
-        const p = getJstParts(perfDate)
+    setDeadlineText('')
+    if (!currentMemberId || !performanceDate) return
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase.rpc('get_survey_data_for_member', { p_group_id: groupId, p_member_id: currentMemberId })
+      if (error) { logger.error('アンケート期限の取得エラー:', error); return }
+      if (!cancelled && data?.survey_enabled && data.survey_deadline_days != null) {
+        const deadline = data.survey_deadline_at ? new Date(data.survey_deadline_at) : new Date(new Date(performanceDate + 'T23:59:59.999+09:00').getTime() - data.survey_deadline_days * 86400000)
+        const p = getJstParts(deadline)
         if (p) setDeadlineText(`${Number(p.mo)}月${Number(p.d)}日まで`)
       }
     })()
-  }, [scenarioId, organizationId, performanceDate])
+    return () => { cancelled = true }
+  }, [groupId, currentMemberId, performanceDate])
 
   // pre_reading_notice が送信済みであれば配役フローを表示する
   // enrichGroupWithViewData が RLS 制限等で失敗した場合のフォールバック
