@@ -7,7 +7,7 @@ export function SettingSourceControls({ state, scope, keys, defaults }: {
   state: ReturnType<typeof useOperatingSettings>; scope: SettingScope; keys: string[]; defaults: Record<string, SettingValue>
 }) {
   return <section className="rounded-xl border p-4 space-y-3">
-    <p className="text-sm">{scope === 'organization' ? '組織共通の設定です。個別指定のない項目に適用します。' : '共通設定を引き継ぎ、変更した項目だけこの対象で個別指定します。'}</p>
+    <p className="text-sm">{scope === 'organization' ? '組織共通の設定です。従来の店舗・シナリオの値は個別指定として保持しています。共通値を反映するには、対象側で「共通設定を使う」に戻してください。' : '共通設定を引き継ぎ、変更した項目だけこの対象で個別指定します。'}</p>
     {state.error && <p role="alert">{state.error}</p>}
     {state.message && <p role="status">{state.message}</p>}
     <details><summary className="cursor-pointer">項目ごとの設定元を確認・変更</summary>

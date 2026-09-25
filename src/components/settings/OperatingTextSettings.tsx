@@ -13,6 +13,7 @@ export function OperatingTextSettings({ scope, targetId, fields }: {
   const state = useOperatingSettings(scope, targetId)
   const disabled = !state.data?.can_edit || state.saving || state.loading
   return <div className="space-y-6">
+    {scope === 'organization' && <p className="text-sm text-muted-foreground">従来の個別指定は保持しています。共通値を使う対象は、店舗・シナリオ・公演側で「共通設定を使う」に戻してください。</p>}
     {state.error && <div role="alert" className="space-y-2"><p>{state.error}</p><Button variant="outline" onClick={() => void state.reload()}>再読み込み</Button></div>}
     {state.loading ? <p role="status">読み込み中…</p> : state.data && <>
       {fields.map(field => {
