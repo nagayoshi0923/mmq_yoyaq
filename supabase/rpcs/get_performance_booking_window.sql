@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION public.get_performance_booking_window(p_event_id uuid
 AS $function$
  WITH settings AS (
   SELECT e.id,e.updated_at,e.booking_cutoff_minutes,
+    public.get_performance_judgment_deadline(e.organization_id,e.id) AS initial_judgment_deadline,
     (e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo' AS starts_at,
     COALESCE(os.booking_cutoff_minutes,common.booking_cutoff_minutes,0) AS default_minutes,
     d.deadline,d.status,
@@ -24,7 +25,7 @@ AS $function$
  ), resolved AS (
   SELECT *,starts_at-make_interval(mins=>COALESCE(booking_cutoff_minutes,default_minutes)) AS cutoff FROM settings
  )
- SELECT COALESCE(deadline,starts_at-interval '4 hours'),
+ SELECT COALESCE(deadline,initial_judgment_deadline),
    COALESCE(status,CASE WHEN was_confirmed THEN 'confirmed' ELSE 'pending' END),cutoff,
    CASE WHEN status='active' THEN deadline ELSE cutoff END,booking_cutoff_minutes,default_minutes,updated_at
  FROM resolved;

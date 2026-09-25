@@ -74,19 +74,18 @@ export function BookingConfirmation({
 
   // 支払い方法設定
   const { data: paymentSettings } = useQuery({
-    queryKey: ['booking-payment-settings', storeId],
-    enabled: !!storeId,
+    queryKey: ['booking-payment-settings', organizationSlug, eventId],
+    enabled: !!organizationSlug && !!eventId,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('reservation_settings')
-        .select('payment_method_label, payment_method_description')
-        .eq('store_id', storeId!)
-        .maybeSingle()
-      return data
+      const { data, error } = await supabase.rpc('get_public_payment_settings', {
+        p_organization_slug: organizationSlug!, p_event_id: eventId,
+      })
+      if (error) throw error
+      return data?.[0] ?? null
     },
   })
-  const paymentMethodLabel = paymentSettings?.payment_method_label || '現地決済'
-  const paymentMethodDescription = paymentSettings?.payment_method_description || 'ご来店時にお支払いください'
+  const paymentMethodLabel = paymentSettings?.payment_method_label ?? '現地決済'
+  const paymentMethodDescription = paymentSettings?.payment_method_description ?? 'ご来店時にお支払いください'
 
   // キャンセル待ち用のstate
   const [waitlistMode, setWaitlistMode] = useState(false)
@@ -339,6 +338,7 @@ export function BookingConfirmation({
           body: {
             organizationId: eventData.organization_id,
             storeId: eventData.store_id,
+            scheduleEventId: eventId,
             customerName,
             customerEmail,
             scenarioTitle,
@@ -749,6 +749,7 @@ export function BookingConfirmation({
 
             {/* 注意事項（DBから取得） */}
             <BookingNotice
+              eventId={eventId}
               mode="schedule"
               storeId={storeId}
               organizationSlug={organizationSlug}
@@ -765,6 +766,7 @@ export function BookingConfirmation({
                       中止判定の条件・タイミング・連絡方法は、選択店舗の最新ポリシーをご確認ください。
                     </p>
                     <CancellationPolicyLink
+                      eventId={eventId}
                       organizationSlug={organizationSlug}
                       storeId={storeId}
                       className="inline-flex items-center gap-1 text-amber-900 underline mt-1"

@@ -2,7 +2,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
-import { loadOverrideTemplates, pickOverrideTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { buildSenshinOAuthJoinUrl } from '../_shared/senshin-discord.ts'
@@ -106,23 +105,12 @@ serve(async (req) => {
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || senderName
-    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? replyToEmail ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
     
-    // 公演上書き → 作品上書き → 店舗テンプレ
-    const overrides = await loadOverrideTemplates(serviceClient, {
-      organizationId: resolvedOrganizationId,
-      scheduleEventId: bookingData.scheduleEventId || reservation.schedule_event_id,
-      scenarioMasterId: bookingData.scenarioMasterId || reservation.scenario_master_id,
-    })
-    const pickedTemplate = pickOverrideTemplate(
-      'private',
-      overrides,
-      storeEmailSettings?.private_confirm_template,
-    )
-    const customTemplate = (bookingData.templateOverride || '').trim()
-      || pickedTemplate.template
+    // 組織共通を含む統一された優先順位で取得済み。旧列で再上書きしない。
+    const customTemplate = (bookingData.templateOverride || '').trim() || storeEmailSettings?.private_confirm_template
 
     // 日付フォーマット関数（JST固定）
     const formatDate = (dateStr: string): string => {
@@ -352,7 +340,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       const appliedTemplate = applyTemplate(customTemplate)
       finalHtml = templateToHtml(appliedTemplate)
       finalText = appliedTemplate
-      console.log('📧 Using private booking confirmation template:', pickedTemplate.source)
+      console.log('📧 Using private booking confirmation template:', 'effective-setting')
     } else {
       // デフォルトのハードコードテンプレートを使用
       console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: bookingData.storeId, organizationId: resolvedOrganizationId, template: 'private_confirm_template' })
@@ -385,8 +373,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     }
     
     // 返信先メールアドレスが設定されている場合は追加
-    if (companyEmail || replyToEmail) {
-      emailPayload.reply_to = companyEmail || replyToEmail
+    if (companyEmail) {
+      emailPayload.reply_to = companyEmail
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
