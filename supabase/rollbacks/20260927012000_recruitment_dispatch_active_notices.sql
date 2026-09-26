@@ -1,3 +1,4 @@
+BEGIN;
 CREATE OR REPLACE FUNCTION public.dispatch_performance_recruitment_checks()
  RETURNS void
  LANGUAGE plpgsql
@@ -18,13 +19,7 @@ BEGIN
      AND ((e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo'>now()
        OR EXISTS(SELECT 1 FROM performance_recruitment_deadlines d WHERE d.schedule_event_id=e.id AND d.status='active')))
      OR EXISTS(SELECT 1 FROM performance_recruitment_notices n WHERE n.organization_id=pol.id
-       AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day'
-       AND (n.kind<>'extension' OR (n.withdrawn_at IS NULL AND EXISTS(
-         SELECT 1 FROM performance_recruitment_deadlines notice_deadline
-         WHERE notice_deadline.schedule_event_id=n.schedule_event_id
-           AND notice_deadline.organization_id=n.organization_id
-           AND notice_deadline.cycle=n.cycle AND notice_deadline.status='active'
-           AND notice_deadline.deadline>now()))))
+       AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day')
      OR EXISTS(SELECT 1 FROM recruitment_x_posts x WHERE x.organization_id=pol.id AND x.status IN ('pending','failed','sending') AND x.attempts<10 AND x.created_at>now()-interval '1 day'))
  LOOP
    PERFORM net.http_post(url:=rtrim(base_url,'/')||'/functions/v1/check-performance-cancellation',
@@ -34,3 +29,7 @@ BEGIN
 END;
 $function$
 ;
+
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;

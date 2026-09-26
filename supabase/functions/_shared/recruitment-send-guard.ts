@@ -6,16 +6,19 @@ export async function isRecruitmentExtensionCurrent(db: any, notice: {
   const results = await Promise.all([
     db.from('performance_recruitment_deadlines').select('status,cycle,deadline')
       .eq('schedule_event_id', notice.schedule_event_id).eq('organization_id', notice.organization_id).maybeSingle(),
-    db.from('reservations').select('status').eq('id', notice.reservation_id)
+    db.from('reservations').select('status,schedule_event_id').eq('id', notice.reservation_id)
+      .eq('organization_id', notice.organization_id).maybeSingle(),
+    db.from('schedule_events').select('is_cancelled').eq('id', notice.schedule_event_id)
       .eq('organization_id', notice.organization_id).maybeSingle(),
     db.from('performance_recruitment_notices').select('status,cycle,withdrawn_at,sent_at,attempts,lease_until')
       .eq('id', notice.id).eq('organization_id', notice.organization_id).maybeSingle(),
   ])
   for (const result of results) if (result.error) throw result.error
-  const [decision, reservation, current] = results.map(result => result.data)
+  const [decision, reservation, event, current] = results.map(result => result.data)
   return decision?.status === 'active' && decision.cycle === notice.cycle
     && Date.parse(decision.deadline) > now
-    && !!reservation && ['pending', 'confirmed', 'gm_confirmed'].includes(reservation.status)
+    && event?.is_cancelled === false
+    && reservation?.schedule_event_id === notice.schedule_event_id && ['pending', 'confirmed', 'gm_confirmed'].includes(reservation.status)
     && current?.status === 'sending' && current.cycle === notice.cycle
     && !current.withdrawn_at && !current.sent_at && current.attempts === notice.attempts
     && Date.parse(current.lease_until) === Date.parse(notice.lease_until)
