@@ -212,7 +212,7 @@ BEGIN
    IF v_manager IS DISTINCT FROM 'staff' THEN RAISE EXCEPTION '参加者情報の変更権限がありません' USING ERRCODE='42501'; END IF;
    IF NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.is_organizer IS DISTINCT FROM OLD.is_organizer THEN RAISE EXCEPTION '本人情報を変更できません' USING ERRCODE='42501'; END IF;
   ELSE
-   IF OLD.is_organizer OR (v_manager IS NULL AND OLD.user_id IS DISTINCT FROM auth.uid()) THEN RAISE EXCEPTION '退出・削除の権限がありません' USING ERRCODE='42501'; END IF;
+   IF (OLD.is_organizer AND v_manager IS DISTINCT FROM 'staff') OR (v_manager IS NULL AND OLD.user_id IS DISTINCT FROM auth.uid()) THEN RAISE EXCEPTION '退出・削除の権限がありません' USING ERRCODE='42501'; END IF;
   END IF;
  ELSIF TG_TABLE_NAME='private_group_candidate_dates' THEN
   IF v_manager IS NULL THEN RAISE EXCEPTION '候補日を変更する権限がありません' USING ERRCODE='42501'; END IF;
