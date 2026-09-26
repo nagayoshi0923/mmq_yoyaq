@@ -160,7 +160,7 @@ export function ReservationDetailPage() {
     ? `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${cancelDeadlineHours}時間前まで）。店舗へご連絡ください。`
     : null
 
-  const canEdit = reservation?.status === 'confirmed'
+  const canEdit = reservation?.status === 'confirmed' && data?.canChangeByPolicy === true
   const canDecrease = reservation?.status === 'confirmed' && canCancel
 
   return (
@@ -451,7 +451,7 @@ export function ReservationDetailPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={updateCountMutation.isPending}>キャンセル</Button>
-            <Button onClick={handleEditConfirm} disabled={updateCountMutation.isPending || editParticipantCount === reservation?.participant_count}>
+            <Button onClick={handleEditConfirm} disabled={!canEdit || updateCountMutation.isPending || editParticipantCount === reservation?.participant_count}>
               {updateCountMutation.isPending ? '変更中...' : '変更する'}
             </Button>
           </DialogFooter>

@@ -1,3 +1,5 @@
+import { isRecruitmentSchedulerCall } from '../_shared/recruitment-auth.ts'
+import { isRecruitmentExtensionCurrent } from '../_shared/recruitment-send-guard.ts'
 import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
 /**
  * 公演中止判定 Edge Function
@@ -9,8 +11,8 @@ import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
@@ -25,6 +27,7 @@ const PREVIEW_OPS_CHANNEL_ID = '1415498605996937236'
 const PREVIEW_OPS_ORG_SLUG = 'queens-waltz'
 
 interface EventDetail {
+  judgment_deadline?: string | null
   recruitment_deadline?: string | null
   event_id: string
   date: string
@@ -68,11 +71,7 @@ function categoryShortName(category: string | undefined): string {
 }
 
 // Cron Secret / Service Role Key による呼び出しかチェック
-function isRecruitmentSchedulerCall(req: Request): boolean {
-  const expected = Deno.env.get('RECRUITMENT_CRON_SECRET') || ''
-  const received = req.headers.get('x-recruitment-cron-secret') || ''
-  return !!expected && !!received && timingSafeEqualString(expected, received)
-}
+
 function isSystemCall(req: Request): boolean {
   return isCronOrServiceRoleCall(req) || isRecruitmentSchedulerCall(req)
 }
@@ -181,9 +180,9 @@ serve(async (req) => {
       const scoped = check_type === 'recruitment_deadline'
       if (scoped) {
         if (!isSystemCall(req) || typeof body.organization_id !== 'string') throw new Error('Invalid recruitment scheduler call')
-        const { data: policy, error: policyError } = await serviceClient.from('performance_recruitment_policies')
-          .select('organization_id').eq('organization_id', body.organization_id).eq('one_seat_enabled', true).maybeSingle()
-        if (policyError || !policy) throw new Error('Recruitment policy is not enabled')
+        const { data: policy, error: policyError } = await serviceClient.from('organizations')
+          .select('id').eq('id', body.organization_id).eq('is_active', true).maybeSingle()
+        if (policyError || !policy) throw new Error('Organization is not active')
       }
       const { data, error } = scoped
         ? await serviceClient.rpc('check_performances_with_recruitment_deadlines_for_org', { p_organization_id: body.organization_id })
@@ -283,7 +282,8 @@ async function sendCancellationNotifications(
   
   // 2.5. カスタムテンプレートを取得
   const storeEmailSettings = await getStoreEmailSettings(supabase, {
-    organizationId: event.organization_id
+    organizationId: event.organization_id,
+    scheduleEventId: event.event_id
   })
   const customTemplate = storeEmailSettings?.performance_cancellation_template
   
@@ -303,7 +303,7 @@ async function sendCancellationNotifications(
         cancelled_at: new Date().toISOString(),
         cancellation_reason: checkType === 'day_before' 
           ? '人数未達による公演中止（前日判定）' 
-          : checkType === 'recruitment_deadline' ? '人数未達による公演中止（追加募集期限の判定）' : '人数未達による公演中止（4時間前判定）'
+          : checkType === 'recruitment_deadline' ? '人数未達による公演中止（追加募集期限の判定）' : '人数未達による公演中止（開催判断期限の判定）'
       })
       .in('id', reservationIds)
 
@@ -375,8 +375,8 @@ async function sendCancellationNotifications(
             reservationNumber: reservation.reservation_number,
             participantCount: reservation.participant_count,
             totalPrice: reservation.total_price,
-            companyPhone: storeEmailSettings?.company_phone || '',
-            companyEmail: storeEmailSettings?.company_email || ''
+            companyPhone: storeEmailSettings?.company_phone ?? '',
+            companyEmail: storeEmailSettings?.company_email ?? ''
           }
         )
         console.log('✅ 中止メール送信:', maskEmail(emailToSend))
@@ -422,7 +422,7 @@ async function sendCancellationNotifications(
       if (cellDate && cellStoreId) {
         const cancelReason = checkType === 'day_before'
           ? '人数未達による公演中止（前日判定）'
-          : checkType === 'recruitment_deadline' ? '人数未達による公演中止（追加募集期限の判定）' : '人数未達による公演中止（4時間前判定）'
+          : checkType === 'recruitment_deadline' ? '人数未達による公演中止（追加募集期限の判定）' : '人数未達による公演中止（開催判断期限の判定）'
         const { error: historyError } = await supabase
           .from('schedule_event_history')
           .insert({
@@ -712,7 +712,7 @@ async function sendDiscordCancellationNotification(
     }
   }
 
-  const checkTypeLabel = checkType === 'day_before' ? '前日判定' : checkType === 'recruitment_deadline' ? '追加募集期限の判定' : '4時間前判定'
+  const checkTypeLabel = checkType === 'day_before' ? '前日判定' : checkType === 'recruitment_deadline' ? '追加募集期限の判定' : '開催判断期限の判定'
 
   const message = {
     content: gmMentions || undefined,
@@ -779,10 +779,14 @@ async function sendDiscordCancellationNotification(
  * 募集延長通知を送信（メール + Discord）
  */
 async function sendExtensionNotification(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   event: EventDetail
 ): Promise<void> {
   console.log('📧 募集延長通知送信開始:', event.event_id)
+  const { data: judgmentDeadline, error: deadlineError } = await supabase.rpc('get_performance_judgment_deadline', { p_organization_id: event.organization_id, p_event_id: event.event_id })
+  if (deadlineError || !judgmentDeadline) throw new Error('開催判断期限を取得できません')
+  event = { ...event, judgment_deadline: judgmentDeadline }
+
 
   // 1. 予約者一覧を取得
   const { data: reservations, error: resError } = await supabase
@@ -800,7 +804,8 @@ async function sendExtensionNotification(
   
   // 2.5. カスタムテンプレートを取得
   const storeEmailSettings = await getStoreEmailSettings(supabase, {
-    organizationId: event.organization_id
+    organizationId: event.organization_id,
+    scheduleEventId: event.event_id
   })
   const customTemplate = storeEmailSettings?.performance_extension_template
 
@@ -839,8 +844,8 @@ async function sendExtensionNotification(
             reservationNumber: reservation.reservation_number,
             participantCount: reservation.participant_count,
             totalPrice: reservation.total_price,
-            companyPhone: storeEmailSettings?.company_phone || '',
-            companyEmail: storeEmailSettings?.company_email || ''
+            companyPhone: storeEmailSettings?.company_phone ?? '',
+            companyEmail: storeEmailSettings?.company_email ?? ''
           }
         )
         console.log('✅ 延長通知メール送信:', maskEmail(emailToSend))
@@ -881,6 +886,7 @@ async function sendExtensionEmail(
   }
 
   const remainingSeats = event.max_participants - event.current_participants
+  const deadlineLabel = new Date(event.judgment_deadline!).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   // テンプレート変数（基本変数セット対応）
   const templateVariables: Record<string, string> = {
@@ -908,7 +914,7 @@ async function sendExtensionEmail(
     current_participants: String(event.current_participants),
     max_participants: String(event.max_participants),
     remaining_seats: String(remainingSeats),
-    extension_deadline: '公演4時間前'
+    extension_deadline: deadlineLabel
   }
 
   // カスタムテンプレートをHTMLに変換
@@ -960,7 +966,7 @@ async function sendExtensionEmail(
       ${customerName} 様
     </p>
     <p style="font-size: 14px; color: #92400e;">
-      ご予約いただいている公演は、現在満席ではないため、募集を公演4時間前まで延長いたします。
+      ご予約いただいている公演は、現在満席ではないため、募集を${deadlineLabel}まで延長いたします。
     </p>
   </div>
 
@@ -995,7 +1001,7 @@ async function sendExtensionEmail(
   <div style="background-color: #dbeafe; border-left: 4px solid #2563eb; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
     <p style="margin: 0; color: #1e40af; font-size: 14px;">
       <strong>ご案内</strong><br>
-      公演4時間前までに最低開催人数に達した場合は、公演を開催いたします。<br>
+      ${deadlineLabel}までに最低開催人数に達した場合は、公演を開催いたします。<br>
       最低開催人数に達しない場合は、中止となりメールでお知らせいたします。
     </p>
   </div>
@@ -1028,7 +1034,7 @@ ${customerName} 様
 
 ⏰ 募集延長のお知らせ
 
-ご予約いただいている公演は、現在満席ではないため、募集を公演4時間前まで延長いたします。
+ご予約いただいている公演は、現在満席ではないため、募集を${deadlineLabel}まで延長いたします。
 
 ━━━━━━━━━━━━━━━━━━━━
 公演情報
@@ -1042,7 +1048,7 @@ ${customerName} 様
 ━━━━━━━━━━━━━━━━━━━━
 
 【ご案内】
-公演4時間前までに最低開催人数に達した場合は、公演を開催いたします。
+${deadlineLabel}までに最低開催人数に達した場合は、公演を開催いたします。
 最低開催人数に達しない場合は、中止となりメールでお知らせいたします。
 
 【キャンセルについて】
@@ -1130,7 +1136,8 @@ async function sendConfirmationNotification(
   // 2.5. カスタムテンプレートを取得（店舗設定を優先し、無ければ組織設定にフォールバック）
   const storeEmailSettings = await getStoreEmailSettings(supabase, {
     storeId: eventStoreId,
-    organizationId: event.organization_id
+    organizationId: event.organization_id,
+    scheduleEventId: event.event_id
   })
   const customTemplate = storeEmailSettings?.performance_confirmation_template
 
@@ -1187,8 +1194,8 @@ async function sendConfirmationNotification(
             reservationNumber: reservation.reservation_number,
             participantCount: reservation.participant_count,
             totalPrice: reservation.total_price,
-            companyPhone: storeEmailSettings?.company_phone || '',
-            companyEmail: storeEmailSettings?.company_email || ''
+            companyPhone: storeEmailSettings?.company_phone ?? '',
+            companyEmail: storeEmailSettings?.company_email ?? ''
           }
         )
         alreadyNotifiedEmails.add(emailToSend.toLowerCase())
@@ -1493,7 +1500,7 @@ async function sendBusinessSummaryNotification(
     return
   }
 
-  const kindLabel = isPreview ? '予告' : checkType === 'recruitment_deadline' ? '追加募集の判断' : checkType === 'four_hours_before' ? '4時間前判断' : '中止判断'
+  const kindLabel = isPreview ? '予告' : checkType === 'recruitment_deadline' ? '開催・追加募集の判断' : checkType === 'four_hours_before' ? '開催判断' : '中止判断'
   const now = new Date()
   const jstDate = now.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
   const jstTime = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
@@ -1639,22 +1646,20 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
         if (decision.status !== notice.kind || decision.cycle !== notice.cycle) {
           const { error: expireError } = await supabase.from('performance_recruitment_notices')
             .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
           if (expireError) throw expireError
           continue
         }
       }
-      // 取得後に開催決定・辞退済みとなった通知は送らない。
       if (notice.kind === 'extension') {
-      const { data: current, error: currentError } = await supabase.rpc('respond_to_performance_recruitment', {
-        p_token: notice.response_token, p_withdraw: false,
-      })
-      if (currentError) throw currentError
-      if (!current?.can_withdraw) {
-        const { error: expireError } = await supabase.from('performance_recruitment_notices')
-          .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
-        if (expireError) throw expireError
-        continue
-      }
+        const stillActive = await isRecruitmentExtensionCurrent(supabase, notice)
+        if (!stillActive) {
+          const { error: expireError } = await supabase.from('performance_recruitment_notices')
+            .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
+          if (expireError) throw expireError
+          continue
+        }
       }
       const content = recruitmentNotice(notice.snapshot, notice.response_token, notice.kind)
       const response = await fetch('https://api.resend.com/emails', {
@@ -1669,12 +1674,14 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
       const { error: updateError } = await supabase.from('performance_recruitment_notices')
         .update({ status: 'sent', sent_at: new Date().toISOString(), lease_until: null })
         .eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
       if (updateError) throw updateError
     } catch {
       failed = true
       console.error('追加募集メール未送信。次回再試行:', notice.id)
       const { error: failureUpdateError } = await supabase.from('performance_recruitment_notices').update({ status: 'failed', lease_until: new Date(Date.now()+60000).toISOString() })
         .eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
       if (failureUpdateError) throw failureUpdateError
     }
   }

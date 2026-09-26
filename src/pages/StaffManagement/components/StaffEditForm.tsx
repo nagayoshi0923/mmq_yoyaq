@@ -111,8 +111,8 @@ const roleOptions: MultiSelectOption[] = [
 
 const statusOptions = [
   { value: 'active', label: 'アクティブ' },
-  { value: 'inactive', label: '非アクティブ' },
-  { value: 'on_leave', label: '休職中' },
+  { value: 'inactive', label: '利用停止' },
+  { value: 'on-leave', label: '休職中' },
   { value: 'resigned', label: '退職' }
 ]
 

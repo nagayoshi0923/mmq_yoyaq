@@ -31,6 +31,7 @@ interface NotificationSettings {
 
 interface NotificationSettingsProps {
   storeId?: string
+  scope?: 'organization' | 'store'
 }
 
 // Tailwind JIT は動的クラス（`bg-${color}-50` 等）を生成できないため、
@@ -42,7 +43,7 @@ const ANNOUNCEMENT_COLOR_CLASSES: Record<string, { bg: string; heading: string }
   gray: { bg: 'bg-gray-50', heading: 'text-gray-800' },
 }
 
-export function NotificationSettings({ storeId }: NotificationSettingsProps) {
+export function NotificationSettings({ storeId, scope = 'organization' }: NotificationSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<NotificationSettings>({
@@ -57,6 +58,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
     sales_report_notification: true,
     discord_webhook_url: ''
   })
+  const [settingsLoadError, setSettingsLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -89,10 +91,12 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
 
   useEffect(() => {
-    fetchData()
-    fetchStaffList()
-    fetchScenarioList()
-    fetchGlobalSettings()
+    if (scope === 'store') fetchData()
+    else {
+      fetchStaffList()
+      fetchScenarioList()
+      fetchGlobalSettings().finally(() => setLoading(false))
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
   
@@ -333,11 +337,14 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
       const storesData = await storeApi.getAll()
 
       if (storesData && storesData.length > 0) {
+        if (storeId && !storesData.some(s => s.id === storeId)) throw new Error('選択した店舗を確認できません')
+        const initialStoreId = storeId || storesData[0].id
         setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
+        setSelectedStoreId(initialStoreId)
+        await fetchSettings(initialStoreId)
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('データ取得エラー:', error)
       showToast.error('データの取得に失敗しました')
     } finally {
@@ -372,6 +379,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
         })
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('設定取得エラー:', error)
     }
   }
@@ -387,7 +395,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
         .eq('organization_id', orgId)
         .single()
 
-      if (error) { logger.error('全体通知設定の取得に失敗:', error); return }
+      if (error) throw error
       if (data) {
         setGlobalSettingsId(data.id)
         setGlobalFormData({
@@ -408,6 +416,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
         })
       }
     } catch (error) {
+      setSettingsLoadError(true)
       logger.error('全体通知設定取得エラー:', error)
     }
   }
@@ -420,50 +429,54 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      if (formData.id) {
-        const { error } = await supabase
-          .from('notification_settings')
-          .update({
-            new_reservation_email: formData.new_reservation_email,
-            new_reservation_discord: formData.new_reservation_discord,
-            cancellation_email: formData.cancellation_email,
-            cancellation_discord: formData.cancellation_discord,
-            shift_reminder_days: formData.shift_reminder_days,
-            performance_reminder_days: formData.performance_reminder_days,
-            sales_report_notification: formData.sales_report_notification,
-            discord_webhook_url: formData.discord_webhook_url
-          })
-          .eq('id', formData.id)
+      if (scope === 'store') {
+        if (!formData.store_id) throw new Error('店舗を選択してください')
+        if (formData.id) {
+          const { error } = await supabase
+            .from('notification_settings')
+            .update({
+              new_reservation_email: formData.new_reservation_email,
+              new_reservation_discord: formData.new_reservation_discord,
+              cancellation_email: formData.cancellation_email,
+              cancellation_discord: formData.cancellation_discord,
+              shift_reminder_days: formData.shift_reminder_days,
+              performance_reminder_days: formData.performance_reminder_days,
+              sales_report_notification: formData.sales_report_notification,
+              discord_webhook_url: formData.discord_webhook_url
+            })
+            .eq('id', formData.id)
 
-        if (error) throw error
-      } else {
-        // 店舗からorganization_idを取得
-        const store = stores.find(s => s.id === formData.store_id)
-        const { data, error } = await supabase
-          .from('notification_settings')
-          .insert({
-            store_id: formData.store_id,
-            organization_id: store?.organization_id,
-            new_reservation_email: formData.new_reservation_email,
-            new_reservation_discord: formData.new_reservation_discord,
-            cancellation_email: formData.cancellation_email,
-            cancellation_discord: formData.cancellation_discord,
-            shift_reminder_days: formData.shift_reminder_days,
-            performance_reminder_days: formData.performance_reminder_days,
-            sales_report_notification: formData.sales_report_notification,
-            discord_webhook_url: formData.discord_webhook_url
-          })
-          .select()
-          .single()
+          if (error) throw error
+        } else {
+          // 店舗からorganization_idを取得
+          const store = stores.find(s => s.id === formData.store_id)
+          const { data, error } = await supabase
+            .from('notification_settings')
+            .insert({
+              store_id: formData.store_id,
+              organization_id: store?.organization_id,
+              new_reservation_email: formData.new_reservation_email,
+              new_reservation_discord: formData.new_reservation_discord,
+              cancellation_email: formData.cancellation_email,
+              cancellation_discord: formData.cancellation_discord,
+              shift_reminder_days: formData.shift_reminder_days,
+              performance_reminder_days: formData.performance_reminder_days,
+              sales_report_notification: formData.sales_report_notification,
+              discord_webhook_url: formData.discord_webhook_url
+            })
+            .select()
+            .single()
 
-        if (error) throw error
-        if (data) {
-          setFormData(prev => ({ ...prev, id: data.id }))
+          if (error) throw error
+          if (data) {
+            setFormData(prev => ({ ...prev, id: data.id }))
+          }
         }
-      }
 
-      // 全体通知設定（global_settings）も保存
-      if (globalSettingsId) {
+      }
+      // このページに表示している範囲だけ保存する。
+      if (scope === 'organization') {
+        if (!globalSettingsId) throw new Error('組織設定を読み込めていません。ページを再読み込みしてください。')
         const { error: globalError } = await supabase
           .from('global_settings')
           .update({
@@ -485,7 +498,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
           .eq('id', globalSettingsId)
 
         if (globalError) {
-          logger.error('全体通知設定の保存エラー:', globalError)
+          throw globalError
         }
       }
 
@@ -498,25 +511,28 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
     }
   }
 
+  if (settingsLoadError) return <p role="alert">設定を取得できませんでした。ページを再読み込みしてください。</p>
+
   if (loading) {
     return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
-        title="通知設定"
+        title={scope === 'organization' ? '通知・共通メッセージ' : '店舗の予約通知'}
         description="各種通知の設定"
       >
-        <Button size="sm" onClick={handleSave} disabled={saving}>
+        <Button size="sm" onClick={handleSave} disabled={saving || (scope === 'organization' ? !globalSettingsId : !formData.store_id)}>
           <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
+      {scope === 'organization' && <>
       {/* 全体通知設定 */}
       <section className="bg-white rounded-xl border p-6">
-        <SectionTitle icon={Bell} label="全体通知設定" description="メール・Discord通知機能の全体的な有効/無効を設定します（組織全体に適用）" />
+        <SectionTitle icon={Bell} label="組織全体の通知設定" description="メール・Discord通知機能の全体的な有効/無効を設定します（組織全体に適用）" />
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div>
@@ -611,6 +627,8 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
         </div>
       </section>
 
+      </>}
+      {scope === 'store' && <>
       {/* 予約関連通知 */}
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle icon={CalendarCheck} label="予約関連通知" description="新規予約とキャンセルの通知設定" />
@@ -695,6 +713,8 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
         </div>
       </section>
 
+      </>}
+      {scope === 'organization' && <>
       {/* Discord通知テスト */}
       <section className="bg-white rounded-xl border border-purple-200 bg-purple-50/50 p-6">
         <SectionTitle icon={TestTube} label="Discord通知テスト" description="各種Discord通知をテスト送信して動作確認できます" />
@@ -797,6 +817,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
           </p>
         </div>
       </section>
+      </>}
     </div>
   )
 }

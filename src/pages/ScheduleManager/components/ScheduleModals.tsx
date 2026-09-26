@@ -520,7 +520,10 @@ export function ScheduleModals({
       {/* キット配置管理ダイアログ */}
       <KitManagementDialog
         isOpen={isKitManagementOpen}
-        onClose={() => setIsKitManagementOpen(false)}
+        onClose={() => {
+          setIsKitManagementOpen(false)
+          scheduleTableProps.fetchSchedule?.()
+        }}
       />
       </Suspense>
 

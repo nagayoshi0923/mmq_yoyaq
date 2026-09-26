@@ -165,70 +165,8 @@ BEGIN
   v_total_price := v_unit_price * p_participant_count;
 
   IF p_customer_coupon_id IS NOT NULL THEN
-    SELECT cc.*
-    INTO v_coupon
-    FROM customer_coupons cc
-    WHERE cc.id = p_customer_coupon_id
-      AND cc.customer_id = p_customer_id
-    FOR UPDATE;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'COUPON_NOT_FOUND: 指定されたクーポンが見つかりません' USING ERRCODE = 'P0020';
-    END IF;
-
-    IF v_coupon.status != 'active' THEN
-      RAISE EXCEPTION 'COUPON_NOT_ACTIVE: このクーポンは利用できません（ステータス: %）', v_coupon.status USING ERRCODE = 'P0021';
-    END IF;
-
-    IF v_coupon.uses_remaining <= 0 THEN
-      RAISE EXCEPTION 'COUPON_EXHAUSTED: このクーポンの利用回数を超えています' USING ERRCODE = 'P0022';
-    END IF;
-
-    IF v_coupon.expires_at IS NOT NULL AND v_coupon.expires_at < now() THEN
-      UPDATE customer_coupons SET status = 'expired' WHERE id = v_coupon.id;
-      RAISE EXCEPTION 'COUPON_EXPIRED: このクーポンは有効期限を過ぎています' USING ERRCODE = 'P0023';
-    END IF;
-
-    SELECT camp.*
-    INTO v_campaign
-    FROM coupon_campaigns camp
-    WHERE camp.id = v_coupon.campaign_id;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'CAMPAIGN_NOT_FOUND: キャンペーン情報が見つかりません' USING ERRCODE = 'P0024';
-    END IF;
-
-    IF NOT v_campaign.is_active THEN
-      RAISE EXCEPTION 'CAMPAIGN_INACTIVE: このキャンペーンは終了しています' USING ERRCODE = 'P0025';
-    END IF;
-
-    IF v_campaign.valid_from IS NOT NULL AND v_campaign.valid_from > now() THEN
-      RAISE EXCEPTION 'CAMPAIGN_NOT_STARTED: このキャンペーンはまだ開始されていません' USING ERRCODE = 'P0026';
-    END IF;
-
-    IF v_campaign.valid_until IS NOT NULL AND v_campaign.valid_until < now() THEN
-      RAISE EXCEPTION 'CAMPAIGN_ENDED: このキャンペーンは終了しています' USING ERRCODE = 'P0027';
-    END IF;
-
-    IF v_campaign.target_type = 'specific_organization' THEN
-      IF NOT (v_event_org_id = ANY(v_campaign.target_ids)) THEN
-        RAISE EXCEPTION 'COUPON_NOT_APPLICABLE: このクーポンはこの組織の予約には使用できません' USING ERRCODE = 'P0028';
-      END IF;
-    ELSIF v_campaign.target_type = 'specific_scenarios' THEN
-      IF NOT (COALESCE(v_scenario_id, v_org_scenario_id) = ANY(v_campaign.target_ids)) THEN
-        RAISE EXCEPTION 'COUPON_NOT_APPLICABLE: このクーポンはこのシナリオの予約には使用できません' USING ERRCODE = 'P0028';
-      END IF;
-    END IF;
-
-    IF v_campaign.discount_type = 'fixed' THEN
-      v_discount_amount := v_campaign.discount_amount;
-    ELSIF v_campaign.discount_type = 'percentage' THEN
-      v_discount_amount := ROUND(v_total_price * v_campaign.discount_amount / 100.0)::INTEGER;
-    END IF;
-
-    IF v_discount_amount > v_total_price THEN
-      v_discount_amount := v_total_price;
-    END IF;
+    v_discount_amount := public.coupon_discount_for_event(
+      p_customer_coupon_id, p_schedule_event_id, v_total_price, p_customer_id, NULL);
   END IF;
 
   v_final_price := v_total_price - v_discount_amount;
@@ -309,10 +247,6 @@ BEGIN
 
     UPDATE reservations SET coupon_usage_id = v_coupon_usage_id WHERE id = v_reservation_id;
 
-    UPDATE customer_coupons
-    SET uses_remaining = uses_remaining - 1,
-        status = CASE WHEN uses_remaining - 1 <= 0 THEN 'fully_used' ELSE 'active' END
-    WHERE id = p_customer_coupon_id;
   END IF;
 
   -- current_participants は reservations INSERT 後の recalc トリガーが絶対値で再計算する。
@@ -320,4 +254,5 @@ BEGIN
 
   RETURN v_reservation_id;
 END;
-$function$;
+$function$
+;

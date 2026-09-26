@@ -2,8 +2,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
-import { loadOverrideTemplates, pickOverrideTemplate } from '../_shared/confirmation-email-template.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { confirmedReservationPrice } from '../_shared/confirmed-reservation-price.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface BookingConfirmationRequest {
@@ -51,7 +51,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id')
+      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id, final_price, total_price, discount_amount, participant_count')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -66,6 +66,11 @@ serve(async (req) => {
     if (bookingData.organizationId && reservation.organization_id && bookingData.organizationId !== reservation.organization_id) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
+
+    // 確定済みの割引後金額を正本にする。ブラウザ申告額をメール・再送キューへ渡さない。
+    try { bookingData.totalPrice = confirmedReservationPrice(reservation) }
+    catch { return errorResponse('予約の確定金額を確認できません', 409, corsHeaders) }
+    bookingData.participantCount = reservation.participant_count
 
     // ログにはマスキングした情報のみ出力
     console.log('📧 Sending booking confirmation:', {
@@ -106,22 +111,12 @@ serve(async (req) => {
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || senderName
-    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? replyToEmail ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
     
-    // 公演上書き → 作品上書き → 店舗テンプレ
-    const overrides = await loadOverrideTemplates(serviceClient, {
-      organizationId: resolvedOrganizationId,
-      scheduleEventId: reservation.schedule_event_id,
-      scenarioMasterId: reservation.scenario_master_id,
-    })
-    const pickedTemplate = pickOverrideTemplate(
-      'reservation',
-      overrides,
-      storeEmailSettings?.reservation_confirmation_template,
-    )
-    const customTemplate = pickedTemplate.template
+    // 組織共通を含む統一された優先順位で取得済み。旧列で再上書きしない。
+    const customTemplate = storeEmailSettings?.reservation_confirmation_template
 
     // -------------------------------------------------------------------------
     // 冪等性: booking_email_queue に「1予約×1メール種別」で記録し、二重送信を防ぐ
@@ -373,7 +368,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       const appliedTemplate = applyTemplate(customTemplate)
       finalHtml = templateToHtml(appliedTemplate)
       finalText = appliedTemplate
-      console.log('📧 Using reservation confirmation template:', pickedTemplate.source)
+      console.log('📧 Using reservation confirmation template:', 'effective-setting')
     } else {
       // デフォルトのハードコードテンプレートを使用
       console.error('⚠️ メールテンプレート未設定のため既定文面で送信します:', { storeId: bookingData.storeId, organizationId: resolvedOrganizationId, template: 'reservation_confirmation_template' })
@@ -405,8 +400,9 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       text: finalText,
     }
     // reply_toが設定されていれば追加
-    if (companyEmail || replyToEmail) {
-      emailPayload.reply_to = companyEmail || replyToEmail
+    const replyTo = (companyEmail || replyToEmail || '').trim()
+    if (replyTo) {
+      emailPayload.reply_to = replyTo
     }
     
     const resendResponse = await fetch('https://api.resend.com/emails', {

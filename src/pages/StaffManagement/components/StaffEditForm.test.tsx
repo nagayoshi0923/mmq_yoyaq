@@ -35,3 +35,10 @@ it('load failure permits basic save without treating missing assignments as an e
   await render('alice'); await click('担当シナリオ'); expect(container.textContent).toContain('担当を読み込めませんでした'); await submit()
   expect(save.mock.calls[0][0].assignment_edit).toBeUndefined()
 })
+it.each([['inactive','利用停止'],['on-leave','休職中'],['resigned','退職']])('保存済み状態%sを表示し正規値で再保存できる',async(status,label)=>{
+ vi.mocked(assignmentApi.getAllStaffAssignments).mockResolvedValue([])
+ await act(async()=>root.render(<StaffEditForm staff={{...staff('state-fixture'),status:status as Staff['status']}} stores={[]} scenarios={[]} onSave={save} onCancel={()=>{}} />))
+ expect(Array.from(container.querySelectorAll('[role="combobox"]')).some(element=>element.textContent===label)).toBe(true)
+ await submit()
+ expect(save.mock.calls[0][0].status).toBe(status)
+})

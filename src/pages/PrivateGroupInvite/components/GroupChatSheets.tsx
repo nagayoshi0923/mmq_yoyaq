@@ -1,3 +1,4 @@
+import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ チャット画面のオーバーレイシート群（候補日/招待/設定/店舗編集/予約申請）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
 import React, { useEffect, useState } from 'react'
@@ -123,10 +124,7 @@ export function GroupChatSheets({
   const handleConfirmLeaveGroup = async () => {
     try {
       if (existingMemberId) {
-        const { error: deleteError } = await supabase.rpc('delete_guest_member', {
-          p_member_id: existingMemberId,
-          p_invite_code: code ?? null,
-        })
+        const { error: deleteError } = await privateGroupMemberAction(group.id, existingMemberId, 'leave')
         if (deleteError) throw deleteError
         toast.success('グループから退出しました')
         setExistingMemberId(null)

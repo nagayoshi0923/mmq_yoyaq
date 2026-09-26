@@ -1,14 +1,10 @@
-CREATE OR REPLACE FUNCTION check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
-RETURNS TABLE(
-  events_checked INTEGER,
-  events_confirmed INTEGER,
-  events_cancelled INTEGER,
-  details JSONB
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET "TimeZone" TO 'Asia/Tokyo'
+AS $function$
 DECLARE
   v_events_checked INTEGER := 0;
   v_events_confirmed INTEGER := 0;
@@ -20,9 +16,9 @@ DECLARE
   v_unsynced_staff INTEGER;
   v_max INTEGER;
   v_min INTEGER;
+  v_missing_limit INTEGER;
   v_result TEXT;
   v_now TIMESTAMPTZ;
-  v_check_time TIMESTAMPTZ;
   v_deadline timestamptz;
   v_active boolean;
   v_has_decision boolean;
@@ -33,7 +29,7 @@ DECLARE
   v_reopened boolean;
 BEGIN
   v_now := NOW();
-  v_check_time := v_now + INTERVAL '4 hours';
+
 
   FOR v_event IN
     SELECT
@@ -43,9 +39,11 @@ BEGIN
       se.scenario,
       se.gm_roles,
       se.is_recruitment_extended,
-      (pol.one_seat_enabled AND COALESCE(os.recruitment_extension_enabled,true)) AS one_seat_enabled,
-      COALESCE(rd.max_missing_participants,os.recruitment_max_missing,pol.max_missing_participants,2) AS max_missing_participants,
-      COALESCE(os.recruitment_deadline_minutes,90) AS deadline_minutes,
+      (pol.one_seat_enabled AND CASE WHEN os.recruitment_enabled_source='custom' THEN os.recruitment_extension_enabled ELSE COALESCE(common.enabled,true) END) AS one_seat_enabled,
+      rd.max_missing_participants AS saved_max_missing,
+      CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_mode ELSE COALESCE(common.mode,'count') END AS target_mode,
+      CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_value ELSE COALESCE(common.value,os.recruitment_max_missing,pol.max_missing_participants,2) END AS target_value,
+      CASE WHEN os.recruitment_deadline_source='custom' THEN os.recruitment_deadline_minutes ELSE COALESCE(common.deadline_minutes,90) END AS deadline_minutes,
       pol.customer_site_url,
       rd.deadline AS recruitment_deadline,
       rd.status AS recruitment_status,
@@ -79,6 +77,7 @@ BEGIN
       (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz AS event_datetime
     FROM schedule_events se
     LEFT JOIN performance_recruitment_policies pol ON pol.organization_id=se.organization_id
+    LEFT JOIN organization_recruitment_settings common ON common.organization_id=se.organization_id
     LEFT JOIN performance_recruitment_deadlines rd ON rd.schedule_event_id = se.id
       AND rd.organization_id = se.organization_id
     LEFT JOIN LATERAL (SELECT sc.* FROM organization_scenarios sc WHERE sc.organization_id=se.organization_id AND
@@ -89,12 +88,12 @@ BEGIN
     LEFT JOIN scenarios s ON se.scenario_id = s.id
     LEFT JOIN stores st ON se.store_id = st.id
     WHERE (p_organization_id IS NULL OR se.organization_id=p_organization_id)
-      AND (se.is_recruitment_extended = TRUE OR (pol.one_seat_enabled AND EXISTS(SELECT 1 FROM performance_cancellation_logs c WHERE c.schedule_event_id=se.id AND c.result='confirmed')))
       AND se.is_cancelled = FALSE
       AND se.category = 'open'
       AND se.scenario IS NOT NULL
       AND se.scenario != ''
-      AND (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz <= v_check_time
+      -- 案内済みの追加募集期限は、後から変更された共通判断時刻より優先する。
+      AND (rd.status = 'active' OR public.get_performance_judgment_deadline(se.organization_id,se.id) <= v_now)
       AND ((se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz > v_now
         OR rd.status = 'active')
       AND (rd.status = 'active' OR pol.one_seat_enabled OR NOT EXISTS (
@@ -145,9 +144,12 @@ BEGIN
       v_min := GREATEST(v_max, 1);
     END IF;
 
+    -- 案内済み条件は固定。未案内だけ最新の共通/個別設定を使う。
+    v_missing_limit := COALESCE(v_event.saved_max_missing, recruitment_missing_limit(v_min,v_event.target_mode,v_event.target_value));
+
     -- 再確定後の再欠員は同じ案内済み期限で再開。通知と辞退リンクは周回別に保持。
     IF v_status = 'confirmed'
-      AND v_min-v_current BETWEEN 1 AND v_event.max_missing_participants THEN
+      AND v_min-v_current BETWEEN 1 AND v_missing_limit THEN
       UPDATE performance_recruitment_deadlines SET status='active', cycle=cycle+1,
         was_confirmed=true, updated_at=now()
         WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id
@@ -164,13 +166,13 @@ BEGIN
 
     -- 社長確認済み: 最低開催人数まであと1〜2人なら、予約の増加履歴によらず90分前まで（組織設定で段階適用）。
     IF (v_reopened AND v_deadline>v_now) OR (v_event.one_seat_enabled AND NOT v_has_deadline
-      AND v_min-v_current BETWEEN 1 AND v_event.max_missing_participants
+      AND v_min-v_current BETWEEN 1 AND v_missing_limit
       AND v_event.event_datetime - make_interval(mins=>v_event.deadline_minutes) > v_now) THEN
       IF NOT v_reopened THEN
       PERFORM set_performance_recruitment_deadline(v_event.organization_id,v_event.id,
         v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes),format('最低開催人数まであと%s人のため、開始%s分前まで追加募集',v_min-v_current,v_event.deadline_minutes));
         v_deadline := v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes);
-        UPDATE performance_recruitment_deadlines SET max_missing_participants=v_event.max_missing_participants WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id;
+        UPDATE performance_recruitment_deadlines SET max_missing_participants=v_missing_limit WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id;
       END IF;
       INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
       SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
@@ -180,14 +182,37 @@ BEGIN
       FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
+        SET status = 'pending', lease_until = NULL
+        WHERE performance_recruitment_notices.kind = 'extension'
+          AND performance_recruitment_notices.status = 'expired'
+          AND performance_recruitment_notices.withdrawn_at IS NULL
+          AND performance_recruitment_notices.sent_at IS NULL
+          AND performance_recruitment_notices.attempts < 10;
       CONTINUE;
     END IF;
     -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
-    IF v_active IS NOT TRUE AND (v_has_decision OR v_event.is_recruitment_extended IS NOT TRUE) THEN CONTINUE; END IF;
+    IF v_active IS NOT TRUE AND (v_has_decision OR v_prior_confirmed) THEN CONTINUE; END IF;
 
     -- 人数が揃えば即確定。未達でも指定締切前は終端ログ・通知を作らない。
-    IF v_current < v_min AND v_active AND v_deadline > v_now THEN CONTINUE; END IF;
+    IF v_current < v_min AND v_active AND v_deadline > v_now THEN
+      INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
+      SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
+        jsonb_build_object('scenario',v_event.scenario,'date',v_event.date,'start_time',v_event.start_time,
+          'store_name',v_event.store_name,'deadline',v_deadline,
+          'was_confirmed',v_prior_confirmed,'site_url',v_event.customer_site_url,'missing_participants',v_min-v_current),v_cycle
+      FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
+      WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
+        AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
+        SET status = 'pending', lease_until = NULL
+        WHERE performance_recruitment_notices.kind = 'extension'
+          AND performance_recruitment_notices.status = 'expired'
+          AND performance_recruitment_notices.withdrawn_at IS NULL
+          AND performance_recruitment_notices.sent_at IS NULL
+          AND performance_recruitment_notices.attempts < 10;
+      CONTINUE;
+    END IF;
     v_events_checked := v_events_checked + 1;
 
     IF v_current >= v_min THEN
@@ -269,13 +294,11 @@ BEGIN
     v_events_cancelled,
     v_details;
 END;
-$$;
-
-ALTER FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) SET timezone TO 'Asia/Tokyo';
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC, anon, authenticated;
+$function$
+;
+REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) TO service_role;
 
--- 既存cronの呼び出しを維持。毎分処理は組織を指定した本体だけを使う。
 CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
 RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
 LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$

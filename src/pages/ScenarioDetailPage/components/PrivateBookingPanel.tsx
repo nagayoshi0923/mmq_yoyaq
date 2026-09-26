@@ -103,6 +103,8 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
         reservationDeadlineHours={reservationDeadlineHours}
         hasPreReading={hasPreReading}
         mode="private"
+        scenarioMasterId={scenarioId}
+        organizationSlug={organizationSlug}
       />
 
       {/* 貸切リクエスト送信ボタン */}

@@ -1,3 +1,5 @@
+import { useOrganization } from '@/hooks/useOrganization'
+import { settingsPath } from '@/components/settings/settingsCatalog'
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -34,6 +36,7 @@ export function StoreEditModal({
   allStores = [],
   travelTimes = []
 }: StoreEditModalProps) {
+  const { organization } = useOrganization()
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [travelTimeDrafts, setTravelTimeDrafts] = useState<Record<string, { minutes: string; memo: string }>>({})
   const [loading, setLoading] = useState(false)
@@ -318,6 +321,10 @@ export function StoreEditModal({
           </DialogDescription>
         </DialogHeader>
 
+        {store?.id && organization?.slug && <nav aria-label="この店舗の設定" className="flex flex-wrap gap-3 px-6 py-2">
+          {([['business-hours', '営業時間'], ['reservation', '予約の受付'], ['cancellation', 'キャンセル'], ['email', 'メール']] as const).map(([tab, label]) => <a key={tab} className="underline" href={settingsPath(organization.slug, tab, store.id)} target="_blank" rel="noopener noreferrer">{label} ↗</a>)}
+          <span className="text-muted-foreground">別タブで開きます。店舗情報の未保存の入力はこの画面に残ります。</span>
+        </nav>}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">

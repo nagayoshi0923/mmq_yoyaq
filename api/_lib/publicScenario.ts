@@ -168,9 +168,19 @@ export function setPublicCors(req: VercelRequest, res: VercelResponse): void {
   // Access-Control-Allow-Credentials は付けない（公開・非認証）
 }
 
-// 成功レスポンス用のキャッシュヘッダ（CDNキャッシュ + stale-while-revalidate）
-export function setPublicCache(res: VercelResponse): void {
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
+/** JST の次の日付境界まで何秒あるか（公開料金は日本日付で選ぶため）。 */
+export function secondsUntilNextJstMidnight(now = new Date()): number {
+  const jstMs = now.getTime() + 9 * 60 * 60 * 1000
+  const dayMs = 24 * 60 * 60 * 1000
+  const msIntoJstDay = ((jstMs % dayMs) + dayMs) % dayMs
+  return Math.max(0, Math.floor((dayMs - msIntoJstDay) / 1000))
+}
+
+// 日付依存の公開料金が JST 日付境界をまたいで前日単価のまま残らないよう、
+// s-maxage を「5分」と「次の JST 深夜まで」の短い方に抑え、長時間 SWR は使わない。
+export function setPublicCache(res: VercelResponse, now = new Date()): void {
+  const sMaxAge = Math.min(300, secondsUntilNextJstMidnight(now))
+  res.setHeader('Cache-Control', `public, s-maxage=${sMaxAge}`)
 }
 
 export const DEFAULT_ORG_SLUG = 'queens-waltz'
