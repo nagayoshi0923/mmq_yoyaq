@@ -33,6 +33,9 @@ jobs:
       - name: Coupon rules database regressions
         run: npm run test:coupon-rules-db
 
+      - name: Staff account lifecycle database regressions
+        run: npm run test:staff-account-db
+
       - name: Guest PIN security database regressions
         run: npm run test:guest-pin-db
 

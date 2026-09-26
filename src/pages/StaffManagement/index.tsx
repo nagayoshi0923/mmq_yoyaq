@@ -298,39 +298,7 @@ export function StaffManagement() {
 
     setLinkLoading(true)
     try {
-      // 1. 既に同じuser_idを持つスタッフレコードを検索
-      const { data: existingStaff, error: searchError } = await supabase
-        .from('staff')
-        .select('id, name')
-        .eq('user_id', searchedUser.id)
-        .neq('id', linkingStaff.id)
-
-      if (searchError) {
-        logger.error('既存スタッフ検索エラー:', searchError)
-      }
-
-      // 2. 既存の紐付けを解除（user_idをNULLに）
-      if (existingStaff && existingStaff.length > 0) {
-        logger.log(`既存の紐付けを解除: ${existingStaff.map(s => s.name).join(', ')}`)
-        
-        const { error: unlinkError } = await supabase
-          .from('staff')
-          .update({ user_id: null, email: null })
-          .eq('user_id', searchedUser.id)
-          .neq('id', linkingStaff.id)
-
-        if (unlinkError) {
-          logger.warn('既存紐付け解除エラー:', unlinkError)
-        }
-      }
-
-      // 3. 新しいスタッフレコードにuser_idを設定
-      //    staffApi.update（サーバー API / service_role）が users.role='staff' と organization_id を同期する。
-      await staffApi.update(linkingStaff.id, {
-        ...linkingStaff,
-        user_id: searchedUser.id,
-        email: searchedUser.email
-      })
+      await staffApi.linkAccount(linkingStaff.id, searchedUser.id, searchedUser.email)
 
       // React Queryのキャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: ['staff'] })

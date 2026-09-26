@@ -168,24 +168,46 @@ serve(async (req) => {
       }
       if (users.length < PER_PAGE) break // 最終ページ
     }
+    // メール一致だけで別組織・別アカウントの連携を書き換えない。
+    // Auth作成やusersの保存より前に確認し、失敗時は何も変更しない。
+    const { data: emailStaff, error: emailStaffError } = await supabase
+      .from('staff').select('organization_id, user_id').eq('email', email).maybeSingle()
+    if (emailStaffError) throw new Error('招待先スタッフの所属を確認できませんでした')
+    if (emailStaff && (emailStaff.organization_id !== requestedOrganizationId ||
+      (emailStaff.user_id && emailStaff.user_id !== existingUser?.id))) {
+      return new Response(JSON.stringify({ success: false, error: '別組織または別アカウントに連携済みのスタッフは招待できません' }), { status: 403, headers: corsHeaders })
+    }
+    if (existingUser) {
+      const { data: linkedStaff, error: linkedStaffError } = await supabase
+        .from('staff').select('organization_id').eq('user_id', existingUser.id).maybeSingle()
+      if (linkedStaffError) throw new Error('招待先アカウントの所属を確認できませんでした')
+      if (linkedStaff && linkedStaff.organization_id !== requestedOrganizationId) {
+        return new Response(JSON.stringify({ success: false, error: '他組織のスタッフを招待することはできません' }), { status: 403, headers: corsHeaders })
+      }
+    }
     let userId: string
     let isNewUser = false
 
-    let currentRole = 'staff'
+    let currentRole = 'customer'
     if (existingUser) {
       userId = existingUser.id
       console.log('✅ Existing auth user found:', userId)
       
       // 既存ユーザーの現在のロールを確認（adminなら上書きしない）
-      const { data: currentUserData } = await supabase
+      const { data: currentUserData, error: currentUserError } = await supabase
         .from('users')
-        .select('role')
+        .select('role, organization_id')
         .eq('id', userId)
         .single()
       
-      if (currentUserData && currentUserData.role === 'admin') {
-        currentRole = 'admin'
-        console.log('ℹ️ User is admin, keeping admin role')
+      if (currentUserError && currentUserError.code !== 'PGRST116') throw new Error('招待先プロフィールの取得に失敗しました')
+      if (currentUserData?.organization_id && currentUserData.organization_id !== requestedOrganizationId) {
+        return new Response(JSON.stringify({ success: false, error: '他組織のアカウントを招待することはできません' }), { status: 403, headers: corsHeaders })
+      }
+      if (currentUserData?.role) {
+        // スタッフ保存と同じtransactionで権限を決めるため、先に別権限へ変更しない。
+        // license_admin はスタッフの役割とは独立して保持する。
+        currentRole = currentUserData.role
       }
     } else {
       console.log('🆕 Creating auth user:', maskEmail(email))
