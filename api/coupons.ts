@@ -171,6 +171,11 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
 
   // 顧客向け read（requireAuth のみで OK）
   if (type === 'available') {
+    if (req.query.event_id) {
+      const { data: event, error } = await db!.from('schedule_events').select('organization_id').eq('id', String(req.query.event_id)).maybeSingle()
+      if (error || !event) return res.status(400).json({ error: '公演を確認できませんでした' })
+      return handleAvailable(req, res, user.userId, event.organization_id)
+    }
     return handleAvailable(req, res, user.userId, requestedOrgId ?? user.orgId)
   }
   if (type === 'all') {
@@ -229,6 +234,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   const action = req.query.action as string | undefined
 
   // 顧客向け write（requireAuth のみで OK）
+  if (action === 'preview-booking') return handlePreviewBooking(req, res, user)
   if (action === 'use' || action === 'preview-use') {
     return handleUseCoupon(req, res, user)
   }
@@ -1095,6 +1101,23 @@ async function handleAdjustCouponUses(req: VercelRequest, res: VercelResponse, u
 // =========================================
 // 顧客向け: クーポンを使用（もぎる）
 // =========================================
+async function handlePreviewBooking(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const body = req.body ?? {}
+  if (typeof body.customer_coupon_id !== 'string' || typeof body.event_id !== 'string'
+    || !Number.isInteger(body.participant_count) || body.participant_count < 1 || body.participant_count > 100) {
+    return res.status(400).json({ success: false, error: 'クーポン・公演・人数を確認してください' })
+  }
+  const { data, error } = await db!.rpc('preview_booking_coupon', {
+    p_user: user.userId, p_coupon: body.customer_coupon_id, p_event: body.event_id, p_participants: body.participant_count,
+  })
+  if (error) {
+    if (error.code === 'P0028' || error.code === '22P02') return res.status(400).json({ success: false, error: error.code === 'P0028' ? error.message : '指定を確認してください' })
+    console.error('[coupons:preview-booking] DB error:', error)
+    return res.status(500).json({ success: false, error: 'クーポンの利用条件を確認できませんでした' })
+  }
+  return res.status(200).json(data)
+}
+
 async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const body = (req.body ?? {}) as { customer_coupon_id?: string; reservation_id?: string }
   if (!body.customer_coupon_id || !body.reservation_id) return res.status(400).json({ success: false, error: 'クーポンと利用する予約を選択してください' })

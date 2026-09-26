@@ -41,7 +41,17 @@ await db.exec(fs.readFileSync('supabase/rpcs/get_operating_setting_default.sql',
 await db.exec(fs.readFileSync('supabase/rpcs/resolve_operating_setting.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/20260926100000_unify_coupon_rules.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926120000_booking_coupon_preview.sql','utf8'))
+await db.exec('CREATE TABLE IF NOT EXISTS performance_schedule_settings (organization_id uuid, store_id uuid, default_duration integer)')
+await db.exec(fs.readFileSync('supabase/migrations/20260926121000_common_performance_duration.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926122000_preserve_legacy_performance_duration.sql','utf8'))
 await db.exec(`INSERT INTO organizations VALUES('${id(1)}'),('${id(9)}'); INSERT INTO customers VALUES('${id(3)}','${id(2)}',NULL),('${id(4)}','${id(5)}',NULL); INSERT INTO stores VALUES('${id(6)}','${id(1)}'); INSERT INTO scenario_masters VALUES('${id(7)}','架空作品',120); INSERT INTO organization_scenarios(id,organization_id,scenario_master_id,participation_fee,duration) VALUES('${id(8)}','${id(1)}','${id(7)}',4000,120); INSERT INTO schedule_events(id,organization_id,store_id,scenario_master_id,organization_scenario_id,category,date,start_time,time_slot) VALUES('${id(10)}','${id(1)}','${id(6)}','${id(7)}','${id(8)}','open','2099-01-01','13:00','昼'); INSERT INTO reservations(id,schedule_event_id,organization_id,customer_id,total_price) VALUES('${id(11)}','${id(10)}','${id(1)}','${id(3)}',4000),('${id(12)}','${id(10)}','${id(1)}','${id(4)}',4000);`)
+await db.query('INSERT INTO performance_schedule_settings VALUES($1,$2,240)',[null,id(6)])
+assert.deepEqual((await db.query("SELECT resolve_operating_setting($1,'default_performance_duration','180',$2) AS result",[id(1),id(6)])).rows[0].result,{value:240,source:'store'})
+await db.query(`INSERT INTO operating_setting_overrides(organization_id,settings) VALUES($1,'{"default_performance_duration":210}')`,[id(1)])
+await db.query(`INSERT INTO operating_setting_overrides(organization_id,store_id,settings) VALUES($1,$2,'{"default_performance_duration":null}')`,[id(1),id(6)])
+assert.deepEqual((await db.query("SELECT resolve_operating_setting($1,'default_performance_duration','180',$2) AS result",[id(1),id(6)])).rows[0].result,{value:210,source:'organization'})
+await db.query('DELETE FROM operating_setting_overrides')
 let seq=100
 async function coupon(overrides={}) {
  const campaign=id(seq++),coupon=id(seq++)
@@ -52,6 +62,12 @@ async function coupon(overrides={}) {
 }
 const use=async c=>(await db.query(`SELECT use_customer_coupon($1,$2,$3) AS result`,[id(2),c,id(11)])).rows[0].result
 const reject=async(fn,message)=>{let error;try{await fn()}catch(e){error=e}assert.ok(error,message);assert.equal(error.code,'P0028',error.message)}
+const previewBooking = await coupon({same_scenario_once:false})
+const bookingQuote = (await db.query('SELECT preview_booking_coupon($1,$2,$3,2) AS result',[id(2),previewBooking.coupon,id(10)])).rows[0].result
+assert.deepEqual(bookingQuote,{success:true,total_price:8000,discount_amount:2000,final_price:6000})
+assert.equal((await db.query('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[previewBooking.coupon])).rows[0].uses_remaining,3)
+await reject(()=>db.query('SELECT preview_booking_coupon($1,$2,$3,2)',[id(5),previewBooking.coupon,id(10)]),'preview wrong owner')
+await reject(()=>db.query('SELECT preview_booking_coupon($1,$2,$3,0)',[id(2),previewBooking.coupon,id(10)]),'preview invalid quantity')
 const a=await coupon()
 assert.equal((await use(a.coupon)).discount_amount,1000)
 assert.equal((await use(a.coupon)).already_used,true)
@@ -147,4 +163,8 @@ await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,4000,$3,NULL)`
 console.log('PASS: coupon eligibility, tenant/owner, idempotency, frozen rules, amount, single consumption, inheritance')
 await db.exec(fs.readFileSync('supabase/rollbacks/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926120000_booking_coupon_preview.sql','utf8'))
+await db.exec('CREATE TABLE IF NOT EXISTS performance_schedule_settings (organization_id uuid, store_id uuid, default_duration integer)')
+await db.exec(fs.readFileSync('supabase/migrations/20260926121000_common_performance_duration.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926122000_preserve_legacy_performance_duration.sql','utf8'))
 await db.close()

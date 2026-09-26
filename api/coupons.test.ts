@@ -18,6 +18,16 @@ describe('クーポン利用API',()=>{
     expect(mock.rpc).toHaveBeenCalledWith(action==='use'?'use_customer_coupon':'preview_customer_coupon',{p_user:'verified-user',p_coupon:'coupon',p_reservation:'reservation'})
     expect(r.status).toHaveBeenCalledWith(200)
   })
+  it('予約前確認は本人と人数だけを渡し、クライアント申告金額を使わない', async () => {
+    const r = response()
+    await handler({method:'POST',headers:{},query:{action:'preview-booking'},body:{customer_coupon_id:'coupon',event_id:'event',participant_count:2,p_user:'forged',total_price:1}} as unknown as VercelRequest,r as unknown as VercelResponse)
+    expect(mock.rpc).toHaveBeenCalledWith('preview_booking_coupon',{p_user:'verified-user',p_coupon:'coupon',p_event:'event',p_participants:2})
+  })
+  it.each([0,-1,1.5,'2',null,101])('予約前確認の不正人数 %j を拒否する', async participant_count => {
+    const r=response()
+    await handler({method:'POST',headers:{},query:{action:'preview-booking'},body:{customer_coupon_id:'coupon',event_id:'event',participant_count}} as unknown as VercelRequest,r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(400);expect(mock.rpc).not.toHaveBeenCalled()
+  })
   it('予約なしでは使用せず、紐付けなしの再試行へ回避しない',async()=>{
     const r=response();await handler({method:'POST',headers:{},query:{action:'use'},body:{customer_coupon_id:'coupon'}} as unknown as VercelRequest,r as unknown as VercelResponse)
     expect(r.status).toHaveBeenCalledWith(400);expect(mock.rpc).not.toHaveBeenCalled()

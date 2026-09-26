@@ -20,7 +20,8 @@ import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingS
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
 import { BookingDeadlineNotice } from '@/components/BookingDeadlineNotice'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
-import type { CustomerCoupon } from '@/types'
+import { BookingCouponSelector } from './components/BookingCouponSelector'
+import { useBookingCoupon } from './hooks/useBookingCoupon'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
@@ -67,10 +68,6 @@ export function BookingConfirmation({
       duplicateWarningRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [duplicateWarning.show])
-
-  // クーポン関連のstate（未実装: 将来のための placeholder）
-  const availableCoupons: CustomerCoupon[] = []
-  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
 
   // 支払い方法設定
   const { data: paymentSettings } = useQuery({
@@ -155,15 +152,8 @@ export function BookingConfirmation({
     organizationSlug
   })
 
-  // 選択中のクーポン情報
-  const selectedCoupon = availableCoupons.find(c => c.id === selectedCouponId)
-  const couponDiscountRaw = selectedCoupon?.coupon_campaigns?.discount_type === 'fixed'
-    ? selectedCoupon.coupon_campaigns.discount_amount
-    : selectedCoupon?.coupon_campaigns?.discount_type === 'percentage'
-      ? Math.round((participationFee * participantCount) * (selectedCoupon.coupon_campaigns?.discount_amount || 0) / 100)
-      : 0
-  // 割引額は合計金額を超えない
-  const couponDiscount = Math.min(couponDiscountRaw, participationFee * participantCount)
+  const couponState = useBookingCoupon(user?.id, eventId, participantCount)
+  const { selectedCouponId, selectedCoupon, couponPreview, couponReady, couponDiscount } = couponState
 
   // 予約成功後の自動遷移は削除（ユーザーが確認できるよう手動遷移に変更）
   // ユーザーは「戻る」ボタンまたはナビゲーションで遷移する
@@ -171,6 +161,7 @@ export function BookingConfirmation({
   // 予約送信ハンドラ
   const onSubmit = async () => {
     setError(null)
+    if (!couponReady) { setError('クーポンの確認完了を待つか、選択を解除してください'); return }
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
@@ -492,7 +483,7 @@ export function BookingConfirmation({
     )
   }
 
-  const totalPrice = participationFee * participantCount
+  const totalPrice = selectedCouponId && couponReady ? couponPreview.data!.total_price : participationFee * participantCount
 
   return (
     <div className="booking-shell min-h-screen bg-background overflow-x-clip">
@@ -715,7 +706,7 @@ export function BookingConfirmation({
                     <div className="flex justify-between items-center">
                       <span className="ts-muted">合計</span>
                       <span className="text-base font-bold text-primary">
-                        ¥{formatPrice(Math.max(0, totalPrice - (selectedCoupon ? couponDiscount : 0)))}
+                        ¥{formatPrice(selectedCouponId && couponReady ? couponPreview.data!.final_price : totalPrice)}
                       </span>
                     </div>
                     {selectedCoupon && couponDiscount > 0 && (
@@ -728,8 +719,7 @@ export function BookingConfirmation({
               </Card>
             </div>
 
-            {/* クーポン選択 - 一時的に無効化 */}
-            {/* TODO: クーポン機能を再度有効にする場合はコメントを解除 */}
+            {user && <BookingCouponSelector state={couponState} disabled={isSubmitting} />}
 
             {/* お支払い方法 */}
             <div>
@@ -864,7 +854,7 @@ export function BookingConfirmation({
             ) : (
               <Button
                 onClick={onSubmit}
-                disabled={isSubmitting || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
+                disabled={isSubmitting || !couponReady || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
                 className="w-full h-9 text-sm"
               >
                 {isSubmitting ? '予約処理中...' : (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) ? '重複のため予約不可' : '予約を確定する'}

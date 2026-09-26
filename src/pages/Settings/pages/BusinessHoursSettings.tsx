@@ -390,7 +390,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       >
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => handleSave(true)} disabled={saving}>
-            全店舗に適用
+            現在の内容を全店舗へ保存
           </Button>
           <Button size="sm" onClick={() => handleSave(false)} disabled={saving}>
             <Save className="w-3.5 h-3.5 mr-1.5" />
@@ -398,6 +398,8 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           </Button>
         </div>
       </PageHeader>
+
+      <p className="text-sm text-muted-foreground">営業時間は店舗ごとの設定です。全店舗への保存は、現在の内容を各店舗へ一括で書き込みます。その後の変更は他の店舗へ自動反映されません。</p>
 
       {/* 営業時間帯 */}
       <section className="bg-white rounded-xl border p-6">
