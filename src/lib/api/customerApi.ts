@@ -32,6 +32,9 @@ export type CustomerFormInput = Pick<Customer, 'name'> & {
 }
 
 export const customerApi = {
+  async playedScenarioOptions(): Promise<Array<{ scenario_master_id: string; title: string }>> {
+    return apiClient.get('/api/customers?action=playedScenarioOptions')
+  },
   async reservationHistory(customerId: string): Promise<CustomerReservationHistory[]> {
     return apiClient.get<CustomerReservationHistory[]>(`/api/customers?action=reservationHistory&customerId=${encodeURIComponent(customerId)}`)
   },

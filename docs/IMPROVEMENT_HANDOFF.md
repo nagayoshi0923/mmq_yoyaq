@@ -864,3 +864,4 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - DB240は新関数のみ。旧テーブル権限は新フロント配信後の第2段階で閉じるため、このPRだけでB29完了ではない。RLSポリシー変更なし。
 - 842単体テスト、verify、PGlite認可/上限/日付変更/NULL拒否/復元再適用、全src直接アクセス0件検査成功。独立レビュー初回NULL操作指摘を修正後P1/P2なし。
 - DB240ステージング適用済み。手動4950件/除外2件の全行hash不変、実admin snapshotとNULL拒否をTXで確認。本番は未適用。
+- 追加CIのorg_scopeガードに合わせ、管理画面の作品選択も`/api/customers?action=playedScenarioOptions`へ集約。組織・公開状態・全ページ取得をAPIで固定し、フロント直フィルタのbaselineを変更せずガード成功。作品選択API回帰2件・verify成功。
