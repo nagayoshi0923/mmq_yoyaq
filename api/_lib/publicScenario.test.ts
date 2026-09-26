@@ -193,6 +193,13 @@ describe('PUBLIC_SCENARIO_VIEW_COLUMNS', () => {
 })
 
 describe('setPublicCache', () => {
+  it('JST深夜まで1秒未満ならキャッシュ寿命を0にして日付をまたがない', () => {
+    const headers: Record<string, string> = {}
+    const res = { setHeader: (k: string, v: string) => { headers[k] = v } }
+    setPublicCache(res as never, new Date('2026-09-14T14:59:59.999Z'))
+    expect(headers['Cache-Control']).toBe('public, s-maxage=0')
+  })
+
   it('通常時は s-maxage=300 で長時間 SWR を付けない', () => {
     const headers: Record<string, string> = {}
     const res = { setHeader: (k: string, v: string) => { headers[k] = v } }
