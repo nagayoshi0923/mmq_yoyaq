@@ -7,9 +7,9 @@ BEGIN
  IF auth.uid() IS NULL THEN RETURN NULL; END IF;
  SELECT organizer_id,organization_id INTO v_group FROM private_groups WHERE id=p_group_id FOR UPDATE;
  IF NOT FOUND THEN RETURN NULL; END IF;
- IF v_group.organizer_id=auth.uid() THEN RETURN 'organizer'; END IF;
  IF EXISTS(SELECT 1 FROM users WHERE id=auth.uid() AND role IN ('admin','staff') AND organization_id=v_group.organization_id)
  AND NOT EXISTS(SELECT 1 FROM staff WHERE user_id=auth.uid() AND status IN ('inactive','resigned')) THEN RETURN 'staff'; END IF;
+ IF v_group.organizer_id=auth.uid() THEN RETURN 'organizer'; END IF;
  RETURN NULL;
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_actor_role(uuid) FROM PUBLIC;
@@ -50,7 +50,7 @@ BEGIN
   END IF;
   IF TG_OP='INSERT' THEN
    -- The only direct insert left is the creator becoming the organizer. Joins use the atomic RPC.
-   IF v_manager IS DISTINCT FROM 'organizer' OR NEW.user_id IS DISTINCT FROM auth.uid() OR NOT NEW.is_organizer
+   IF NOT EXISTS(SELECT 1 FROM private_groups WHERE id=v_group AND organizer_id=auth.uid()) OR NEW.user_id IS DISTINCT FROM auth.uid() OR NOT NEW.is_organizer
     OR EXISTS(SELECT 1 FROM private_group_members WHERE group_id=v_group AND is_organizer)
     OR NEW.coupon_id IS NOT NULL OR coalesce(NEW.coupon_discount,0)<>0 OR NEW.payment_status='paid' THEN
     RAISE EXCEPTION '招待ページから参加してください' USING ERRCODE='42501';
