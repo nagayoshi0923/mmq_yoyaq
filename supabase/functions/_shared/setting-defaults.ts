@@ -118,6 +118,7 @@ export const SETTING_DEFAULTS: Record<string, SettingValue> = {
   "refund_method_note": "当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。",
   "payment_method_label": "現地決済",
   "payment_method_description": "ご来店時にお支払いください",
+  "default_performance_duration": 180,
   "preparation_minutes": 60,
   "judgment_minutes_before": 240,
   "coupon_usage_enabled": true,

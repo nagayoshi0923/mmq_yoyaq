@@ -3,7 +3,7 @@ const { db, state } = vi.hoisted(() => {
   const state = { missing: false, filters: [] as string[], writes: [] as unknown[] }
   const db = { from: vi.fn((table: string) => {
     const q = {
-      select: () => q, order: () => q, limit: () => q, is: () => q,
+      select: () => q, or: () => q, order: () => q, limit: () => q, is: () => q,
       eq: (key: string, value: string) => { state.filters.push(`${table}:${key}=${value}`); return q },
       update: (body: unknown) => { state.writes.push(body); return q },
       maybeSingle: async () => ({ error: null, data: table === 'schedule_events' ? (state.missing ? null : { id: 'event-a', store_id: 'store-a', organization_scenario_id: 'scenario-a' }) : table === 'operating_setting_overrides' ? {settings:{},revision:3} : {} }),

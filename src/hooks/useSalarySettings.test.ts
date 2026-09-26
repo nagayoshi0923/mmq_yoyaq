@@ -138,8 +138,26 @@ describe('給与・売上の回帰', () => {
     const report = sales(events)
     expect(salary.totalAmount).toBe(22500)
     expect(report.totalGmCost).toBe(salary.totalAmount)
+    expect(report.storeRanking.reduce((sum, row) => sum + row.gmCost, 0)).toBe(report.totalGmCost)
+    expect(report.scenarioRanking.reduce((sum, row) => sum + row.gmCost, 0)).toBe(report.totalGmCost)
     expect(report.eventList?.map(event => event.gm_cost)).toEqual([8000, 14500])
     expect(performances.eq).toHaveBeenCalledWith('organization_id', 'org-a')
+  })
+
+  it('役割を配列順と取り違えず、個別0円・受付・交通費を全集計で揃える', () => {
+    const row = { ...events[0], gms: ['受付', 'サブ', 'メイン'], scenarios: { duration: 180, gm_costs: [{ role: 'main', reward: 0 }, { role: 'sub', reward: 2000 }] } }
+    const report = calculateSalesData([row], [{ ...stores[0], transport_allowance: 500 }], new Date('2020-01-01'), new Date('2020-01-31'), [], createSalarySettingsResolver([old]), new Map([['メイン', []], ['サブ', ['store-a']]]))
+    expect(report.totalGmCost).toBe(2500)
+    expect(report.storeRanking[0].gmCost).toBe(2500)
+    expect(report.scenarioRanking[0].gmCost).toBe(2500)
+    expect(report.eventList?.[0].gm_cost).toBe(2500)
+  })
+  it('通常公演のみ個別報酬があってもGMテストは共通報酬で計算する', () => {
+    const row = { ...events[0], category: 'gmtest', gms: ['メイン'], scenarios: { duration: 180, gm_costs: [{ role: 'main', reward: 9000, category: 'normal' as const }] } }
+    const report = sales([row])
+    expect(report.totalGmCost).toBe(1500)
+    expect(report.storeRanking[0].gmCost).toBe(1500)
+    expect(report.eventList?.[0].gm_cost).toBe(1500)
   })
 
   it('GMテストを通常給与で計算しない', () => {

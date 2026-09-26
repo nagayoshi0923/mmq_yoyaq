@@ -1,3 +1,4 @@
+-- 店舗の所属を先に検証したうえで、組織ID未設定の旧行も維持する。値の更新なし。
 CREATE OR REPLACE FUNCTION public.resolve_operating_setting(p_organization_id uuid, p_key text, p_default jsonb DEFAULT 'null'::jsonb, p_store_id uuid DEFAULT NULL::uuid, p_scenario_id uuid DEFAULT NULL::uuid, p_event_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -87,3 +88,5 @@ BEGIN
 END;
 $function$
 ;
+
+NOTIFY pgrst, 'reload schema';

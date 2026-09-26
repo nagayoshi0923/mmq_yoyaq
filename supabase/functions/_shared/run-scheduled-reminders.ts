@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { loadEffectiveEmailSettings } from './effective-email-settings.ts'
+import { confirmedReservationPrice } from './confirmed-reservation-price.ts'
 import { dueReminderSchedules } from './reminder-schedule.ts'
 
 async function readPages(makeQuery) {
@@ -40,7 +41,7 @@ export async function runScheduledReminders(db, now = new Date()) {
         const due = dueReminderSchedules(event.date, event.start_time, settings.reminder_schedule, now)
         if (!due.length) continue
         const reservations = await readPages(() => db.from('reservations')
-          .select('id,organization_id,customer_email,customer_name,participant_count,total_price,reservation_number')
+          .select('id,organization_id,customer_email,customer_name,participant_count,total_price,final_price,discount_amount,reservation_number')
           .eq('organization_id', event.organization_id).eq('schedule_event_id', event.id)
           .in('status', ['confirmed', 'pending', 'gm_confirmed']).not('customer_email', 'is', null).order('id'))
         for (const schedule of due) for (const reservation of reservations) {
@@ -57,7 +58,7 @@ export async function runScheduledReminders(db, now = new Date()) {
               customerEmail: reservation.customer_email, customerName: reservation.customer_name,
               scenarioTitle: event.scenario, eventDate: event.date, startTime: event.start_time, endTime: event.end_time,
               storeName: event.stores?.name || event.venue, storeAddress: event.stores?.address,
-              participantCount: reservation.participant_count, totalPrice: reservation.total_price ?? 0,
+              participantCount: reservation.participant_count, totalPrice: confirmedReservationPrice(reservation),
               reservationNumber: reservation.reservation_number, daysBefore: schedule.days_before, template: schedule.template,
               deliveryId: claim.delivery_id, deliveryLeaseToken: claim.lease_token,
             } })

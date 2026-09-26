@@ -53,11 +53,12 @@ test('組織通知と店舗通知を別々に保存し、隠れた範囲を上�
   expect(writes[0]).toMatchObject({ table: 'notification_settings', filters: { id: 'setting-b' } })
 })
 
-test('公演の組織共通時間帯は店舗の所要時間を保存しない', async ({ page }) => {
+test('組織共通の時間帯保存は公演時間や店舗の個別値を変更しない', async ({ page }) => {
   await page.goto('/e2e/fixtures/settings-structure.html?mode=org-time')
   await expect(page.getByText('デフォルト公演時間', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '保存', exact: true })).toHaveCount(1)
-  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.getByLabel('作品未選択時の公演時間（分）', { exact: true })).toHaveValue('180')
+  const timeSlots = page.locator('section').filter({ has: page.getByText('デフォルト公演時間帯（組織共通）', { exact: true }) })
+  await timeSlots.getByRole('button', { name: '保存', exact: true }).click()
   await expect.poll(() => page.evaluate(() => !!document.documentElement.dataset.timeSaved)).toBe(true)
   expect(await page.evaluate(() => document.documentElement.dataset.writes)).toBeUndefined()
 })
