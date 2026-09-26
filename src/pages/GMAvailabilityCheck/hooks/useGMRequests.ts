@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCurrentOrganizationId } from '@/lib/organization'
-import { supabase } from '@/lib/supabase'
-import { sanitizeForPostgRestFilter } from '@/lib/utils'
+import { getGmResponses, getMyGmResponses } from '@/lib/gmResponseApi'
 import * as storeApi from '@/lib/api'
 import { logger } from '@/utils/logger'
 
@@ -47,92 +45,16 @@ export const gmRequestKeys = {
   stores: ['gm-request-stores'] as const,
 }
 
-async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMRequest[]; staffName: string }> {
-  const orgId = await getCurrentOrganizationId()
-  if (!orgId) throw new Error('組織情報を取得できません')
-  const { data: staffData, error: staffError } = await supabase
-    .from('staff')
-    .select('id, discord_id:discord_user_id, name')
-    .eq('user_id', userId)
-    .eq('organization_id', orgId)
-    .single()
-
-  if (staffError || !staffData) {
-    logger.error('スタッフ情報取得エラー:', staffError)
-    return { requests: [], staffName: '' }
-  }
-
-  const staffId = staffData.id
-
-  const { data: responsesData, error: responsesError } = await supabase
-    .from('gm_availability_responses')
-    .select(`
-      staff:staff_id!inner(id),
-      id,
-      reservation_id,
-      response_status,
-      available_candidates,
-      notes,
-      response_type,
-      selected_candidate_index,
-      gm_discord_id,
-      gm_name,
-      response_datetime,
-      reservations:reservation_id!inner (
-        reservation_number,
-        title,
-        customer_name,
-        candidate_datetimes,
-        status,
-        store_id,
-        created_at,
-        stores:store_id (
-          id,
-          name,
-          short_name
-        )
-      )
-    `)
-    .eq('organization_id', orgId)
-    .eq('reservations.organization_id', orgId)
-    .eq('staff.organization_id', orgId)
-    .or(`staff_id.eq.${sanitizeForPostgRestFilter(staffId) || staffId}${staffData.discord_id ? `,gm_discord_id.eq.${sanitizeForPostgRestFilter(staffData.discord_id) || staffData.discord_id}` : ''}`)
-    .order('response_datetime', { ascending: false })
-
-  if (responsesError) {
-    logger.error('GMリクエスト取得エラー:', responsesError)
-    return { requests: [], staffName: staffData.name || '' }
-  }
-
+async function fetchGMRequestsForUser(): Promise<{ requests: GMRequest[]; staffName: string }> {
+  const { responses: responsesData, staffId, staffName } = await getMyGmResponses()
   const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)
   const otherGMResponses = new Set<string>()
 
   if (reservationIds.length > 0) {
-    // ⚠️ PostgREST の max_rows (1000) 制限を回避するため、reservation_id を
-    //    100 件ずつチャンク化して並列フェッチする。
-    //    一括 .in() のままだと予約数が多いとき後半の reservation が拾えず、
-    //    「他 GM が回答済み」判定が落ちて UI 上で重複表示される（PR #235 と同パターン）。
-    const chunkSize = 100
-    const chunks: string[][] = []
-    for (let i = 0; i < reservationIds.length; i += chunkSize) {
-      chunks.push(reservationIds.slice(i, i + chunkSize))
-    }
-    const results = await Promise.all(
-      chunks.map(chunk =>
-        supabase
-          .from('gm_availability_responses')
-          .select('reservation_id, response_status, staff_id, staff:staff_id!inner(id)')
-          .eq('organization_id', orgId)
-          .eq('staff.organization_id', orgId)
-          .in('reservation_id', chunk)
-          .neq('staff_id', staffId)
-          .in('response_status', ['available', 'all_unavailable']),
-      ),
-    )
-    const allResponsesData = results.flatMap(r => r.data || [])
+    const allResponsesData = (await getGmResponses(reservationIds)).filter(r => r.staff_id !== staffId)
 
     allResponsesData.forEach((r: any) => {
-      if (r.response_status && r.response_status !== 'pending') {
+      if (['available', 'all_unavailable'].includes(r.response_status)) {
         otherGMResponses.add(r.reservation_id)
       }
     })
@@ -168,15 +90,15 @@ async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMReq
   })
 
   logger.log('🔍 GM確認ページ - 取得完了:', requests.length, '件')
-  return { requests, staffName: staffData.name || '' }
+  return { requests, staffName }
 }
 
 export function useGMRequests({ userId }: UseGMRequestsProps) {
   const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: userId ? gmRequestKeys.byUser(userId) : ['gm-requests-disabled'],
-    queryFn: () => fetchGMRequestsForUser(userId!),
+    queryFn: () => fetchGMRequestsForUser(),
     enabled: !!userId,
     staleTime: 2 * 60 * 1000, // 2分間キャッシュ
   })
@@ -262,6 +184,8 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
   return {
     requests,
     isLoading,
+    isError,
+    retryRequests: refetch,
     stores,
     staffName,
     activeTab,
