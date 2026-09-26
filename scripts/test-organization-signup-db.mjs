@@ -13,7 +13,7 @@ CREATE TYPE public.app_role AS ENUM ('admin','staff','customer','license_admin')
 CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,raw_user_meta_data jsonb DEFAULT '{}');
 CREATE TABLE organizations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text,slug text UNIQUE,plan text,contact_email text,is_active boolean,is_license_manager boolean,settings jsonb,created_at timestamptz DEFAULT now());
 CREATE TABLE users(id uuid PRIMARY KEY REFERENCES auth.users,organization_id uuid REFERENCES organizations,role public.app_role NOT NULL,email text,created_at timestamptz,updated_at timestamptz);
-CREATE TABLE staff(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid NOT NULL REFERENCES organizations,name text,role text[] DEFAULT '{}',status text DEFAULT 'active',user_id uuid UNIQUE REFERENCES users,email text,phone text,stores text[],ng_days text[],want_to_learn text[],available_scenarios text[],availability text[],experience int,special_scenarios text[],updated_at timestamptz);
+CREATE TABLE staff(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid NOT NULL REFERENCES organizations,name text,role text[] DEFAULT '{}',status text DEFAULT 'active' CONSTRAINT staff_status_check CHECK(status IN('active','inactive','on-leave')),user_id uuid UNIQUE REFERENCES users,email text,phone text,stores text[],ng_days text[],want_to_learn text[],available_scenarios text[],availability text[],experience int,special_scenarios text[],updated_at timestamptz);
 CREATE TABLE stores(id uuid DEFAULT gen_random_uuid(),organization_id uuid REFERENCES organizations,name text,short_name text,address text,phone_number text,status text,capacity int,rooms int,color text,opening_date date,is_temporary boolean,created_at timestamptz,updated_at timestamptz);
 CREATE TABLE customers(user_id uuid,organization_id uuid,name text,email text,phone text,prefecture text,birth_date date,notification_settings jsonb,created_at timestamptz,updated_at timestamptz);
 CREATE TABLE organization_settings(organization_id uuid); CREATE TABLE global_settings(organization_id uuid);
@@ -24,6 +24,7 @@ await db.exec(fs.readFileSync('supabase/migrations/20260927002000_staff_account_
 const migration=fs.readFileSync('supabase/migrations/20260927003000_organization_signup_ownership.sql','utf8')
 await db.exec(migration)
 await db.exec(fs.readFileSync('supabase/migrations/20260927004000_signup_customer_profile_columns.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260927005000_staff_lifecycle_resigned_org.sql','utf8'))
 await db.exec('CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()')
 const as=async(role,user,email,sql,args=[])=>{
  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.role',$2,false),set_config('request.jwt.claim.email',$3,false)",[user??'',role,email??''])
@@ -84,9 +85,18 @@ assert.equal((await db.query('SELECT consumed_at FROM organization_signup_claims
 await db.exec('DROP TRIGGER fail_staff ON staff')
 await signup(15,'failure@example.invalid',metadata(e))
 assert.equal((await profile(15)).role,'admin')
+// An unlinked former staff member can legitimately own a NEW org, but cannot reuse old proof to restore permissions later.
+await db.query('DELETE FROM staff WHERE user_id=$1',[id(10)])
+assert.deepEqual(await profile(10),{role:'customer',organization_id:null})
+const next=await register('owner@example.invalid',id(10))
+await claim(next,10,'owner@example.invalid')
+assert.deepEqual(await profile(10),{role:'admin',organization_id:next.id})
+await db.query('DELETE FROM staff WHERE user_id=$1',[id(10)])
+await assert.rejects(()=>db.query("UPDATE users SET role='admin',organization_id=$1 WHERE id=$2",[next.id,id(10)]),/解除済み/)
 // No direct claim table/helper access from public clients.
 await assert.rejects(()=>as('anon',null,null,'SELECT * FROM organization_signup_claims'),/permission denied/)
 await assert.rejects(()=>as('authenticated',id(13),'license@example.invalid','SELECT consume_organization_signup_claim($1,$2,$3,$4)',[a.id,a.claim_token,id(13),'license@example.invalid']),/permission denied/)
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927005000_staff_lifecycle_resigned_org.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927004000_signup_customer_profile_columns.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927003000_organization_signup_ownership.sql','utf8'))
 await db.exec(migration)
