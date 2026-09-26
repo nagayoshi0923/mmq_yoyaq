@@ -14,6 +14,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { getCustomerEditAccess } from '../utils/customerEditAccess'
 
 interface CustomerEditModalProps {
   isOpen: boolean
@@ -23,8 +24,9 @@ interface CustomerEditModalProps {
 }
 
 export function CustomerEditModal({ isOpen, onClose, customer, onSave }: CustomerEditModalProps) {
-  // 組織IDを取得（マルチテナント対応）
   const { organizationId } = useOrganization()
+  const editAccess = getCustomerEditAccess(customer, organizationId)
+  const isForeignOwned = customer != null && editAccess === false
   
   const [formData, setFormData] = useState({
     name: '',
@@ -52,17 +54,31 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
     }
   }, [customer, isOpen])
 
+  useEffect(() => {
+    if (!isOpen || !isForeignOwned) return
+    showToast.error('他組織の顧客情報は編集できません')
+    onClose()
+  }, [isOpen, isForeignOwned, onClose])
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       showToast.warning('顧客名を入力してください')
       return
     }
 
+    if (customer != null && editAccess !== true) {
+      showToast.error('他組織の顧客情報は編集できません')
+      return
+    }
+
     setSaving(true)
     try {
       if (customer) {
-        // 更新（組織境界の二重指定: 改ざんされた id でも他組織行に当たらないよう RLS と併用）
-        const { error } = await supabase
+        if (!organizationId) {
+          throw new Error('組織情報が取得できません。再ログインしてください。')
+        }
+
+        const { data, error } = await supabase
           .from('customers')
           .update({
             name: formData.name,
@@ -72,11 +88,15 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
             updated_at: new Date().toISOString(),
           })
           .eq('id', customer.id)
+          .eq('organization_id', organizationId)
+          .select('id')
 
         if (error) throw error
+        if (!data || data.length === 0) {
+          throw new Error('更新対象の顧客が見つかりません')
+        }
         logger.log('顧客情報更新成功:', customer.id)
       } else {
-        // 新規作成
         if (!organizationId) {
           throw new Error('組織情報が取得できません。再ログインしてください。')
         }
@@ -104,6 +124,10 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
     } finally {
       setSaving(false)
     }
+  }
+
+  if (isForeignOwned) {
+    return null
   }
 
   return (
@@ -160,7 +184,7 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
           <Button variant="outline" onClick={onClose} disabled={saving}>
             キャンセル
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || (customer != null && editAccess !== true)}>
             {saving ? '保存中...' : '保存'}
           </Button>
         </DialogFooter>
@@ -168,4 +192,3 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
     </Dialog>
   )
 }
-

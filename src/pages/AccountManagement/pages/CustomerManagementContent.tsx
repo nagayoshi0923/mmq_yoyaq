@@ -7,13 +7,16 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { HelpButton } from '@/components/ui/help-button'
 import { UserPlus, Search } from 'lucide-react'
+import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomerData } from '@/pages/CustomerManagement/hooks/useCustomerData'
 import { CustomerRow } from '@/pages/CustomerManagement/components/CustomerRow'
 import { CustomerEditModal } from '@/pages/CustomerManagement/components/CustomerEditModal'
+import { isCustomerOwnedByOrganization } from '@/pages/CustomerManagement/utils/customerEditAccess'
 import type { Customer } from '@/types'
 
 export function CustomerManagementContent() {
   const [searchTerm, setSearchTerm] = useState('')
+  const { organizationId } = useOrganization()
   const {
     customers,
     loading,
@@ -31,6 +34,7 @@ export function CustomerManagementContent() {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   const handleEdit = (customer: Customer) => {
+    if (!isCustomerOwnedByOrganization(customer, organizationId)) return
     setSelectedCustomer(customer)
     setIsEditModalOpen(true)
   }
@@ -100,6 +104,7 @@ export function CustomerManagementContent() {
                 isExpanded={expandedCustomerId === customer.id}
                 onToggleExpand={() => handleToggleExpand(customer.id)}
                 onEdit={() => handleEdit(customer)}
+                canEdit={isCustomerOwnedByOrganization(customer, organizationId)}
                 couponStats={couponStats[customer.id]}
               />
             ))}
@@ -150,4 +155,3 @@ export function CustomerManagementContent() {
     </div>
   )
 }
-

@@ -18,7 +18,7 @@ beforeEach(() => {
 })
 afterEach(async () => { await act(async () => root.unmount()); host.remove() })
 async function render() {
-  await act(async () => root.render(<CustomerRow customer={{ id: 'customer', name: '検証顧客' } as Customer} isExpanded onToggleExpand={() => {}} onEdit={() => {}} couponStats={{ total_coupons: 1, used_coupons: 1, remaining_coupons: 1 }} />))
+  await act(async () => root.render(<CustomerRow customer={{ id: 'customer', name: '検証顧客' } as Customer} isExpanded onToggleExpand={() => {}} onEdit={() => {}} canEdit couponStats={{ total_coupons: 1, used_coupons: 1, remaining_coupons: 1 }} />))
 }
 it('読込中は履歴なしと表示せず、APIの履歴を表示する', async () => {
   let resolve!: (value: unknown) => void
