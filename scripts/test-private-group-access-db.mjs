@@ -67,6 +67,8 @@ await assert.rejects(()=>action('validate',{},second.guest_token,second.member.i
 assert.equal((await db.query('SELECT count(*)::int n FROM private_group_guest_sessions WHERE member_id=$1',[second.member.id])).rows[0].n,0,'leave revokes all sessions')
 const logged=await join('invite-two',null,null,id(50))
 assert.equal(logged.member.user_id,id(50));assert.equal(logged.guest_token,null)
+await assert.rejects(()=>db.query("INSERT INTO private_group_members(group_id,user_id,status) VALUES($1,$2,'joined')",[id(2),id(50)]),/private_group_joined_user_unique/)
+await assert.rejects(()=>db.query("INSERT INTO private_group_members(group_id,guest_email,status) VALUES($1,$2,'joined')",[id(1),' A@example.invalid ']),/private_group_joined_guest_email_unique/)
 assert.deepEqual(await action('validate',{},null,logged.member.id,id(2),id(50)),{valid:true})
 await assert.rejects(()=>action('validate',{},null,logged.member.id,id(2),id(51)),/本人確認/)
 // The boundary must reject old RPC/direct-table bypasses, not only validate the new RPC.

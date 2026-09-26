@@ -151,6 +151,10 @@ END $$;
 REVOKE ALL ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.private_group_member_action(uuid,uuid,text,jsonb,text) TO anon,authenticated,service_role;
 
+-- Prevent duplicate active identities even outside the join RPC.
+CREATE UNIQUE INDEX private_group_joined_user_unique ON public.private_group_members(group_id,user_id) WHERE status='joined' AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX private_group_joined_guest_email_unique ON public.private_group_members(group_id,lower(trim(guest_email))) WHERE status='joined' AND user_id IS NULL AND nullif(trim(guest_email),'') IS NOT NULL;
+
 -- QW-20260917-001 A02/A03. Install together with the authenticated guest callers.
 -- Existing RLS policies are unchanged; the trigger checks direct browser writes.
 CREATE FUNCTION public.private_group_actor_role(p_group_id uuid)
