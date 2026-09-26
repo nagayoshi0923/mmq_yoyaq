@@ -1,3 +1,4 @@
+BEGIN;
 -- 新規申込時に固定し、店舗未確定の新規貸切だけ初回店舗確定時に補完する。
 CREATE OR REPLACE FUNCTION public.set_reservation_change_policy_snapshot()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -49,3 +50,5 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.set_reservation_change_policy_snapshot() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.set_reservation_change_policy_snapshot() TO service_role;
+
+COMMIT;

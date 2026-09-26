@@ -79,17 +79,17 @@ def build_change():
     import re,subprocess,os
     root=ROOT
     sql='BEGIN;\n'
-    for name in ['20260925150000_operating_setting_overrides.sql','20260925160000_reservation_change_policy_snapshot.sql']:
-     sql+=(root/'supabase/migrations'/name).read_text()+'\n'
-    sql+='''CREATE TEMP TABLE change_reservations(id uuid,organization_id uuid,store_id uuid,scenario_master_id uuid,schedule_event_id uuid,private_group_id uuid,reservation_source text,reservation_type text,requested_datetime timestamptz,participant_count integer,reservation_change_deadline_hours_snapshot integer);
-    CREATE TEMP TABLE change_events(id uuid,organization_id uuid,category text,is_private_booking boolean,date date,start_time time);
+    # この回帰は一時テーブルだけを使い、適用済みの本番DDLを再実行しない。
+    sql+='''CREATE TEMP TABLE change_reservations(id uuid,organization_id uuid,store_id uuid,scenario_master_id uuid,schedule_event_id uuid,private_group_id uuid,reservation_source text,reservation_type text,requested_datetime timestamptz,participant_count integer,reservation_change_deadline_hours_snapshot integer,cancellation_policy_snapshot_version integer,cancellation_policy_store_id uuid);
+    CREATE TEMP TABLE change_stores(id uuid,organization_id uuid);
+    CREATE TEMP TABLE change_events(id uuid,organization_id uuid,store_id uuid,category text,is_private_booking boolean,date date,start_time time);
     CREATE TEMP TABLE change_users(id uuid,organization_id uuid,role text);
     CREATE TEMP TABLE change_staff(user_id uuid,organization_id uuid,status text);
     CREATE TEMP TABLE change_scenarios(id uuid,organization_id uuid,scenario_master_id uuid);
     CREATE FUNCTION pg_temp.change_resolve(o uuid,k text,d jsonb,s uuid,c uuid,e uuid) RETURNS jsonb LANGUAGE sql AS $$ SELECT jsonb_build_object('value',CASE WHEN k LIKE 'private_%' THEN 168 ELSE 24 END) $$;
     '''
     s=(root/'supabase/rpcs/set_reservation_change_policy_snapshot.sql').read_text().split('REVOKE ALL')[0].replace('public.set_reservation_change_policy_snapshot','pg_temp.change_snapshot').replace('public.resolve_operating_setting','pg_temp.change_resolve').replace('public.users','pg_temp.change_users')
-    for a,b in [('schedule_events','change_events'),('staff','change_staff'),('organization_scenarios','change_scenarios')]:s=re.sub(r'\b'+a+r'\b','pg_temp.'+b,s)
+    for a,b in [('schedule_events','change_events'),('stores','change_stores'),('staff','change_staff'),('organization_scenarios','change_scenarios')]:s=re.sub(r'\b'+a+r'\b','pg_temp.'+b,s)
     sql+=s+(root/'supabase/tests/reservation_change_snapshot.sql').read_text()+'\nROLLBACK;'
     return sql
 
