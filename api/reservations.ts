@@ -1,4 +1,4 @@
-import { readGmResponses } from './_lib/gmResponses.js'
+import { readGmResponses, readGmPendingCount } from './_lib/gmResponses.js'
 import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
@@ -184,6 +184,9 @@ async function routeGet(req: VercelRequest, res: VercelResponse, user: AuthUser)
   }
 
   switch (type) {
+    case 'gm-pending-count':
+      requireStaff(user)
+      return res.status(200).json(await readGmPendingCount(db!, user))
     case 'gm-responses':
       requireStaff(user)
       return res.status(200).json(await readGmResponses(db!, user, req.query))

@@ -1,3 +1,4 @@
+import { RESERVATION_SOURCE } from '../../src/lib/constants.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, type AuthUser } from './auth.js'
 
@@ -36,4 +37,19 @@ export async function readGmResponses(database: SupabaseClient, user: AuthUser, 
     if (!data || data.length < 1000) break
   }
   return { responses, staffId, staffName }
+}
+
+export async function readGmPendingCount(database: SupabaseClient, user: AuthUser) {
+  const base = () => database.from('reservations')
+  const [known, pending] = await Promise.all([
+    base().select('id', { count: 'exact', head: true }).eq('organization_id', user.orgId)
+      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE).in('status', ['gm_confirmed', 'pending_store']),
+    base().select('id,gm_responses:gm_availability_responses!gm_availability_responses_reservation_id_fkey!inner(staff:staff_id!inner(id))', { count: 'exact', head: true })
+      .eq('organization_id', user.orgId).eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+      .in('status', ['pending', 'pending_gm']).eq('gm_responses.organization_id', user.orgId)
+      .eq('gm_responses.staff.organization_id', user.orgId)
+      .not('gm_responses.available_candidates', 'is', null).neq('gm_responses.available_candidates', '[]'),
+  ])
+  if (known.error || pending.error) throw new ApiError(500, '店舗承認待ち件数を取得できませんでした')
+  return { count: (known.count || 0) + (pending.count || 0) }
 }
