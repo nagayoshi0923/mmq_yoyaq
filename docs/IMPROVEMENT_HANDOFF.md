@@ -778,3 +778,10 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - PGliteで既存補正・中止時同期・組織境界・送信履歴保持・中止解除・復元再適用を検証。実stagingでも復元→再適用→ROLLBACK成功。verify成功。全体案件は継続中。
 
 - 追加受入：Supabase内部用serviceキーと外部API旧JWTが異なる環境に対応。`MMQ_LEGACY_SERVICE_ROLE_KEY`へ同一プロジェクト管理APIの既存service_roleキーを設定し、secret metadataのdigestで保存を確認。新規キー発行なし。旧JWTをローテーションした際はこの設定も更新する。名前付き`SUPABASE_SECRET_KEYS`も検証対象。9テスト・Deno check成功。staging実Edgeで正規キーは認証通過後の対象検証403、偽造JWT/不正キーは認証401を確認。
+
+## QW-20260917-001 / 貸切人数の作品定員照合（2026-09-27）
+
+- 固定50人の応急上限を廃止し、作品マスターと組織導入作品の上書きから実効最小・最大人数を解決。NULL/0/負数/範囲外は拒否。不正な作品人数設定は別エラーで案内する。旧店舗人数制限は復活させない。
+- DB150をstaging・本番へ適用。本番受付対象230作品の人数設定が有効であることを事前確認。既存予約は変更しない。適用直前の本番関数をrollbackへ保存。
+- 実RPCを使うPGliteで境界値、組織上書き、master/導入作品ID、未設定、失敗時の予約未作成、rollback/reapplyを検証。実stagingのAuth・顧客・グループで人数検証を確認し、全fixtureをROLLBACK。verify成功。
+- 共通Edge認証PR541はmain2f748d6c、本番関数配備36266714005成功。46関数の共有コード一致、49関数の既存JWT設定保持、正規外部キー通過・偽造/不正キー401を確認。Vercel7r8paAmPUHk5xPpRRb7tdYxSPHZw成功。全体案件は継続中。

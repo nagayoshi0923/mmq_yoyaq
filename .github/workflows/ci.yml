@@ -48,6 +48,9 @@ jobs:
       - name: Structure and kit transfer database regressions
         run: node scripts/test-structure-cleanup-db.mjs && node scripts/test-kit-transfer-identity-db.mjs
 
+      - name: Private booking scenario capacity
+        run: node scripts/test-private-booking-capacity-db.mjs
+
       - name: Shared Edge authentication boundary
         run: node --test scripts/edge-security-boundary.test.mjs
 
