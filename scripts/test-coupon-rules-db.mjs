@@ -145,4 +145,6 @@ await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,4000,$3,NULL)`
 await db.query(`UPDATE schedule_events SET scenario_master_id=$1 WHERE id IN ($2,$3)`,[id(7),id(10),id(40)])
 await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,4000,$3,NULL)`,[id(42),id(40),id(3)]),'cross organization same scenario master')
 console.log('PASS: coupon eligibility, tenant/owner, idempotency, frozen rules, amount, single consumption, inheritance')
+await db.exec(fs.readFileSync('supabase/rollbacks/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
 await db.close()
