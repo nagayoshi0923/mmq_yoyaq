@@ -68,7 +68,6 @@ CREATE TABLE public.reservations (
 -- Indexes
 CREATE INDEX idx_reservations_confirmed_by ON public.reservations USING btree (confirmed_by);
 CREATE INDEX idx_reservations_datetime ON public.reservations USING btree (requested_datetime);
-CREATE INDEX idx_reservations_event ON public.reservations USING btree (schedule_event_id);
 CREATE INDEX idx_reservations_event_status ON public.reservations USING btree (schedule_event_id, status);
 CREATE INDEX idx_reservations_org_status ON public.reservations USING btree (organization_id, status);
 CREATE INDEX idx_reservations_organization_id ON public.reservations USING btree (organization_id);
