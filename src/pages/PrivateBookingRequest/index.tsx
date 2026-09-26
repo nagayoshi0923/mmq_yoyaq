@@ -215,7 +215,7 @@ export function PrivateBookingRequest({
     data: blockedSlotRows = [],
     refetch: refetchBlockedSlotRows,
   } = useQuery({
-    queryKey: ['private-booking-request', 'blocked-slots', storeIdsKey],
+    queryKey: ['private-booking-request', 'blocked-slots', storeIdsKey, organizationSlug, scenarioId, dateRange.minDate, dateRange.maxDate],
     enabled: storeIdsForSlotResolution.length > 0,
     queryFn: async () => {
       const organizationId = await resolveOrgIdFromPageContext()
@@ -224,7 +224,7 @@ export function PrivateBookingRequest({
         p_organization_id: organizationId,
         p_store_ids: storeIdsForSlotResolution,
         p_start_date: dateRange.minDate,
-        p_end_date: toJstYmd(new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)),
+        p_end_date: dateRange.maxDate,
       }
       const { data, error } = await supabase.rpc(
         'get_public_private_booking_availability',
