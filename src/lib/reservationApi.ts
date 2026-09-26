@@ -777,6 +777,27 @@ export const reservationApi = {
         }))
       })
 
+      // 満席での交代を許可するため、自動作成した旧スタッフ枠を先に解放する。
+      // 削除（キャンセル）- staff_entry が対象
+      // バックエンド経由で一括ステータス更新する（旧実装の for-await update よりも N+1 回避）
+      const activeToRemoveIds = toRemove
+        .filter(r => r.status !== 'cancelled')
+        .map(r => r.id)
+      if (activeToRemoveIds.length > 0) {
+        try {
+          await apiClient.patch('/api/reservations?action=sync-staff-reservation-statuses', {
+            reservation_ids: activeToRemoveIds,
+            status: 'cancelled',
+          })
+          for (const res of toRemove.filter(r => r.status !== 'cancelled')) {
+            logger.log('🗑️ スタッフ予約を削除:', { name: res.participant_names, source: res.reservation_source })
+          }
+        } catch (removeError) {
+          logger.error('スタッフ予約一括キャンセルエラー:', removeError)
+          throw removeError
+        }
+      }
+
       // 7. 実行
       // 追加: 専用エンドポイント /api/reservations?action=create-staff-entry を呼ぶ
       // （通常の create_reservation_with_lock_v2 RPC は payment_method='staff' /
@@ -803,25 +824,6 @@ export const reservationApi = {
             throw insertError
           }
         }))
-      }
-
-      // 削除（キャンセル）- staff_entry が対象
-      // バックエンド経由で一括ステータス更新する（旧実装の for-await update よりも N+1 回避）
-      const activeToRemoveIds = toRemove
-        .filter(r => r.status !== 'cancelled')
-        .map(r => r.id)
-      if (activeToRemoveIds.length > 0) {
-        try {
-          await apiClient.patch('/api/reservations?action=sync-staff-reservation-statuses', {
-            reservation_ids: activeToRemoveIds,
-            status: 'cancelled',
-          })
-          for (const res of toRemove.filter(r => r.status !== 'cancelled')) {
-            logger.log('🗑️ スタッフ予約を削除:', { name: res.participant_names, source: res.reservation_source })
-          }
-        } catch (removeError) {
-          logger.error('スタッフ予約一括キャンセルエラー:', removeError)
-        }
       }
 
       // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新

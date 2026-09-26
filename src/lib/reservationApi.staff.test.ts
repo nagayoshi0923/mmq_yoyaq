@@ -21,4 +21,18 @@ describe('スタッフ参加の保存結果', () => {
     expect(mocks.post).not.toHaveBeenCalled()
     expect(mocks.patch).not.toHaveBeenCalled()
   })
+  it('満席でのスタッフ交代は旧枠のキャンセル後に追加する', async () => {
+    mocks.get.mockResolvedValue([{ id: 'old', status: 'confirmed', reservation_source: 'staff_entry', participant_names: ['旧スタッフ'] }])
+    await reservationApi.syncStaffReservations('event', ['新スタッフ'], { 新スタッフ: 'staff' }, details)
+    expect(mocks.patch).toHaveBeenCalled()
+    expect(mocks.post).toHaveBeenCalled()
+    expect(mocks.patch.mock.invocationCallOrder[0]).toBeLessThan(mocks.post.mock.invocationCallOrder[0])
+  })
+  it('旧枠のキャンセル失敗時は追加しない', async () => {
+    mocks.get.mockResolvedValue([{ id: 'old', status: 'confirmed', reservation_source: 'staff_entry', participant_names: ['旧スタッフ'] }])
+    mocks.patch.mockRejectedValue(new Error('通信エラー'))
+    await expect(reservationApi.syncStaffReservations('event', ['新スタッフ'], { 新スタッフ: 'staff' }, details)).rejects.toThrow('通信エラー')
+    expect(mocks.post).not.toHaveBeenCalled()
+  })
+
 })
