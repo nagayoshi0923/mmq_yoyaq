@@ -10,7 +10,7 @@ import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'luc
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
-import { isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
+import { getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
 
@@ -259,9 +259,8 @@ export function CouponsPage() {
                 ? `¥${campaign.discount_amount.toLocaleString()} OFF`
                 : `${campaign.discount_amount}% OFF`
 
-              const usedAt = coupon.updated_at
-                ? formatJstDateTime(coupon.updated_at)
-                : null
+              const lastUsedAt = getLastCouponUsedAt(coupon)
+              const usedAt = lastUsedAt ? formatJstDateTime(lastUsedAt) : null
 
               const usageRows = (coupon.coupon_usages ?? [])
                 .slice()
@@ -280,8 +279,8 @@ export function CouponsPage() {
                           <span className="text-sm font-medium text-gray-500">{discountLabel}</span>
                           <span className="text-xs text-gray-500 truncate">- {campaign.name}</span>
                         </div>
-                        {usedAt && coupon.status === 'fully_used' && (
-                          <p className="text-xs text-gray-400 mt-0.5">{usedAt} 使用</p>
+                        {coupon.status === 'fully_used' && (
+                          <p className="text-xs text-gray-400 mt-0.5">{usedAt ? `${usedAt} 使用` : '使用日時を確認できません'}</p>
                         )}
                         {usageRows.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">

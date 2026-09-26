@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getExpiredRetentionDeadline,
+  getLastCouponUsedAt,
   isUsedCouponVisible,
   resolveCouponDisplayStatus,
 } from './couponListVisibility'
@@ -39,7 +40,7 @@ describe('resolveCouponDisplayStatus', () => {
 })
 
 describe('getExpiredRetentionDeadline', () => {
-  it('expires_at を優先し、なければ usage_valid_until', () => {
+  it('個別期限とキャンペーン期限の早い方を使う', () => {
     expect(
       getExpiredRetentionDeadline({
         status: 'expired',
@@ -48,7 +49,7 @@ describe('getExpiredRetentionDeadline', () => {
         created_at: '2026-01-01T00:00:00Z',
         coupon_campaigns: { usage_valid_until: '2026-08-01T00:00:00Z' },
       }),
-    ).toBe('2026-09-25T00:00:00Z')
+    ).toBe('2026-08-01T00:00:00Z')
 
     expect(
       getExpiredRetentionDeadline({
@@ -116,42 +117,17 @@ describe('isUsedCouponVisible', () => {
     ).toBe(false)
   })
 
-  it('fully_used は updated_at（なければ created_at）基準のまま', () => {
-    expect(
-      isUsedCouponVisible(
-        {
-          status: 'fully_used',
-          expires_at: '2026-12-01T00:00:00+09:00',
-          updated_at: '2026-09-20T00:00:00Z',
-          created_at: '2026-01-01T00:00:00Z',
-        },
-        now,
-      ),
-    ).toBe(true)
-
-    expect(
-      isUsedCouponVisible(
-        {
-          status: 'fully_used',
-          expires_at: '2026-12-01T00:00:00+09:00',
-          updated_at: '2026-07-01T00:00:00Z',
-          created_at: '2026-01-01T00:00:00Z',
-        },
-        now,
-      ),
-    ).toBe(false)
-
-    expect(
-      isUsedCouponVisible(
-        {
-          status: 'fully_used',
-          expires_at: '2026-12-01T00:00:00+09:00',
-          updated_at: '2026-07-01T00:00:00Z',
-          created_at: '2026-09-20T00:00:00Z',
-        },
-        now,
-      ),
-    ).toBe(true)
+  it('使用済みは設定更新日ではなく最終利用日を使う', () => {
+    const coupon = { status: 'fully_used' as const, created_at: '2026-01-01', updated_at: now.toISOString() }
+    expect(isUsedCouponVisible({ ...coupon, coupon_usages: [{ used_at: '2026-07-01T00:00:00Z' }] }, now)).toBe(false)
+    expect(isUsedCouponVisible({ ...coupon, updated_at: '2026-01-01', coupon_usages: [{ used_at: '2026-09-20T00:00:00Z' }] }, now)).toBe(true)
+    expect(isUsedCouponVisible(coupon, now)).toBe(true)
+  })
+  it('月末の1か月前をJSTの前月末に丸める', () => {
+    const coupon = { status: 'expired' as const, created_at: '2026-01-01', updated_at: '2026-01-01' }
+    const monthEnd = new Date('2026-03-31T00:30:00+09:00')
+    expect(isUsedCouponVisible({ ...coupon, expires_at: '2026-02-28T00:30:00+09:00' }, monthEnd)).toBe(true)
+    expect(isUsedCouponVisible({ ...coupon, expires_at: '2026-02-28T00:29:59+09:00' }, monthEnd)).toBe(false)
   })
 
   it('active は used 欄に出さない', () => {
@@ -167,4 +143,10 @@ describe('isUsedCouponVisible', () => {
       ),
     ).toBe(false)
   })
+})
+
+it('最終利用日時は利用履歴の最新の有効日時であり更新日時ではない', () => {
+  const coupon = { status: 'fully_used' as const, created_at: '2026-01-01', updated_at: '2026-09-26', coupon_usages: [{ used_at: '2026-09-20T00:00:00Z' }, { used_at: 'invalid' }, { used_at: '2026-09-24T00:00:00Z' }] }
+  expect(getLastCouponUsedAt(coupon)).toBe('2026-09-24T00:00:00Z')
+  expect(getLastCouponUsedAt({ ...coupon, coupon_usages: [] })).toBeNull()
 })
