@@ -1,15 +1,4 @@
--- QW-20260917-001 A05/A06: staff/account access changes share the staff transaction.
--- Keep the existing full UNIQUE(user_id) index: handle_new_user uses ON CONFLICT(user_id).
--- Follow-up #523: resigned revokes access; customerization clears users.organization_id.
-CREATE TABLE IF NOT EXISTS public.staff_account_access (
- user_id uuid PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
- organization_id uuid NOT NULL REFERENCES public.organizations(id),
- managed_since timestamptz NOT NULL DEFAULT clock_timestamp()
-);
-ALTER TABLE public.staff_account_access ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.staff_account_access FROM PUBLIC,anon,authenticated;
-GRANT SELECT ON public.staff_account_access TO service_role;
-
+-- Roll back #523 follow-up: restore inactive-only revoke and org coalesce behavior.
 CREATE OR REPLACE FUNCTION public.guard_staff_account_change()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
 DECLARE v_org uuid; v_actor public.users%ROWTYPE; v_target public.users%ROWTYPE;
@@ -24,7 +13,7 @@ BEGIN
    AND NOT (auth.uid() IS NULL AND session_user IN ('postgres','supabase_admin','supabase_auth_admin') AND current_setting('role') IN ('none','postgres','supabase_admin','supabase_auth_admin')) THEN
    SELECT * INTO v_actor FROM public.users WHERE id=auth.uid();
    IF NOT FOUND OR v_actor.organization_id IS DISTINCT FROM v_org OR v_actor.role NOT IN ('admin','license_admin')
-      OR (v_actor.role <> 'license_admin' AND EXISTS(SELECT 1 FROM public.staff WHERE user_id=v_actor.id AND status IN ('inactive','resigned'))) THEN
+      OR (v_actor.role <> 'license_admin' AND EXISTS(SELECT 1 FROM public.staff WHERE user_id=v_actor.id AND status='inactive')) THEN
      RAISE EXCEPTION 'スタッフの連携・役割・利用状態の変更には管理者権限が必要です' USING ERRCODE='42501';
    END IF;
  END IF;
@@ -39,9 +28,6 @@ BEGIN
  RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.guard_staff_account_change() FROM PUBLIC,anon,authenticated;
-CREATE TRIGGER guard_staff_account_change BEFORE INSERT OR DELETE OR UPDATE ON public.staff
- FOR EACH ROW EXECUTE FUNCTION public.guard_staff_account_change();
 
 CREATE OR REPLACE FUNCTION public.sync_staff_account_access()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
@@ -56,7 +42,6 @@ BEGIN
    SELECT * INTO v_user FROM public.users WHERE id=v_id FOR UPDATE;
    IF NOT FOUND THEN CONTINUE; END IF;
    SELECT * INTO v_staff FROM public.staff WHERE user_id=v_id;
-   -- A license administrator's permission is independent of staff membership.
    IF v_user.role='license_admin' THEN
      IF v_staff.id IS NOT NULL AND v_user.organization_id IS NULL THEN
        UPDATE public.users SET organization_id=v_staff.organization_id WHERE id=v_id;
@@ -64,30 +49,24 @@ BEGIN
      CONTINUE;
    END IF;
    INSERT INTO public.staff_account_access(user_id,organization_id) VALUES(v_id,coalesce(v_staff.organization_id,v_user.organization_id)) ON CONFLICT(user_id) DO NOTHING;
-   v_role := CASE WHEN v_staff.id IS NULL OR v_staff.status IN ('inactive','resigned') THEN 'customer'::public.app_role
+   v_role := CASE WHEN v_staff.id IS NULL OR v_staff.status='inactive' THEN 'customer'::public.app_role
      WHEN coalesce(v_staff.role,'{}'::text[]) && ARRAY['admin','管理者'] THEN 'admin'::public.app_role
      ELSE 'staff'::public.app_role END;
    UPDATE public.users SET role=v_role,
-      organization_id=CASE WHEN v_role='customer' THEN NULL ELSE coalesce(v_staff.organization_id,v_user.organization_id) END,
-      updated_at=clock_timestamp() WHERE id=v_id;
+      organization_id=coalesce(v_user.organization_id,v_staff.organization_id),updated_at=clock_timestamp() WHERE id=v_id;
  END LOOP;
  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
  RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.sync_staff_account_access() FROM PUBLIC,anon,authenticated;
-DROP TRIGGER IF EXISTS staff_unlink_trigger ON public.staff;
-CREATE TRIGGER sync_staff_account_access AFTER INSERT OR DELETE OR UPDATE ON public.staff
- FOR EACH ROW EXECUTE FUNCTION public.sync_staff_account_access();
 
--- Transfer an existing account without a partially unlinked intermediate result.
 CREATE OR REPLACE FUNCTION public.admin_link_staff_account(p_actor_id uuid,p_staff_id uuid,p_user_id uuid,p_email text DEFAULT NULL)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
 DECLARE v_actor public.users%ROWTYPE; v_staff public.staff%ROWTYPE; v_user public.users%ROWTYPE;
 BEGIN
  SELECT * INTO v_actor FROM public.users WHERE id=p_actor_id;
  IF NOT FOUND OR v_actor.role NOT IN ('admin','license_admin') OR v_actor.organization_id IS NULL
-   OR (v_actor.role<>'license_admin' AND EXISTS(SELECT 1 FROM public.staff WHERE user_id=p_actor_id AND status IN ('inactive','resigned'))) THEN
+   OR (v_actor.role<>'license_admin' AND EXISTS(SELECT 1 FROM public.staff WHERE user_id=p_actor_id AND status='inactive')) THEN
    RAISE EXCEPTION '管理者権限が必要です' USING ERRCODE='42501';
  END IF;
  PERFORM 1 FROM public.organizations WHERE id=v_actor.organization_id FOR UPDATE;
@@ -110,11 +89,7 @@ BEGIN
  RETURN p_staff_id;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.admin_link_staff_account(uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_link_staff_account(uuid,uuid,uuid,text) TO service_role;
 
--- Old API versions used a second users.role update after saving staff. Reject a
--- contradictory update so an old tab cannot re-enable an inactive account.
 CREATE OR REPLACE FUNCTION public.guard_staff_derived_user_role()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
 DECLARE v_staff public.staff%ROWTYPE; v_expected public.app_role;
@@ -127,7 +102,7 @@ BEGIN
    END IF;
    RETURN NEW;
  END IF;
- v_expected:=CASE WHEN v_staff.status IN ('inactive','resigned') THEN 'customer'::public.app_role
+ v_expected:=CASE WHEN v_staff.status='inactive' THEN 'customer'::public.app_role
    WHEN coalesce(v_staff.role,'{}'::text[]) && ARRAY['admin','管理者'] THEN 'admin'::public.app_role ELSE 'staff'::public.app_role END;
  IF NEW.role IS DISTINCT FROM v_expected THEN
    RAISE EXCEPTION '連携済みアカウントの権限はスタッフの役割・利用状態から変更してください' USING ERRCODE='42501';
@@ -135,6 +110,3 @@ BEGIN
  RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.guard_staff_derived_user_role() FROM PUBLIC,anon,authenticated;
-CREATE TRIGGER guard_staff_derived_user_role BEFORE UPDATE OF role ON public.users
- FOR EACH ROW EXECUTE FUNCTION public.guard_staff_derived_user_role();

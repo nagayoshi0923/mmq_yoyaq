@@ -171,7 +171,7 @@ serve(async (req) => {
     // メール一致だけで別組織・別アカウントの連携を書き換えない。
     // Auth作成やusersの保存より前に確認し、失敗時は何も変更しない。
     const { data: emailStaff, error: emailStaffError } = await supabase
-      .from('staff').select('organization_id, user_id').eq('email', email).maybeSingle()
+      .from('staff').select('organization_id, user_id').ilike('email', normalizedEmail).maybeSingle()
     if (emailStaffError) throw new Error('招待先スタッフの所属を確認できませんでした')
     if (emailStaff && (emailStaff.organization_id !== requestedOrganizationId ||
       (emailStaff.user_id && emailStaff.user_id !== existingUser?.id))) {
@@ -279,7 +279,7 @@ serve(async (req) => {
       const { data: staffByEmail, error: staffByEmailError } = await supabase
         .from('staff')
         .select(staffFields)
-        .eq('email', email)
+        .ilike('email', normalizedEmail)
         .maybeSingle()
 
       if (staffByEmailError && staffByEmailError.code !== 'PGRST116') {
