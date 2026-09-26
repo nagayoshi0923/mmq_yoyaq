@@ -57,29 +57,6 @@ const CUSTOMER_UPDATABLE_FIELDS = [
   'notification_settings',
 ] as const
 
-// プラットフォーム顧客（organization_id IS NULL）はこの組織への接点があるか確認する
-async function filterToOrgCustomers(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dbClient: any,
-  customers: Record<string, unknown>[],
-  orgId: string,
-): Promise<Record<string, unknown>[]> {
-  const result: Record<string, unknown>[] = []
-  for (const c of customers) {
-    if (c.organization_id === orgId) { result.push(c); continue }
-    // プラットフォーム顧客: reservations 経由の接点を確認
-    const { data } = await dbClient
-      .from('reservations')
-      .select('id')
-      .eq('customer_id', c.id)
-      .eq('organization_id', orgId)
-      .limit(1)
-      .maybeSingle()
-    if (data) result.push(c)
-  }
-  return result
-}
-
 // org がこの顧客を操作できるか確認（ゲスト: org_id 一致、プラットフォーム: 予約接点あり）
 async function assertOrgOwnsCustomer(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -191,19 +168,18 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const email = req.query.email as string | undefined
     if (!email) return res.status(400).json({ error: 'email が必要です' })
 
-    // メールで検索: 自組織のゲスト顧客 or プラットフォーム顧客（接点あり）
+    // 通常一覧と同じ組織への予約・貸切参加の接点で検索。変更権限とは分離。
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allMatches, error } = await (db as any)
-      .from('customers')
+      .rpc('get_org_customers', { p_org_id: orgId })
       .select(SELECT_FIELDS)
       .eq('email', email)
-      .or(`organization_id.eq.${orgId},organization_id.is.null`)
 
     if (error) {
       console.error('[customers:findByEmail] DB error:', error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
     }
-    const data = await filterToOrgCustomers(db, allMatches ?? [], orgId)
+    const data = allMatches ?? []
     return res.status(200).json(data[0] ?? null)
   }
 
@@ -213,16 +189,15 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allMatches, error } = await (db as any)
-      .from('customers')
+      .rpc('get_org_customers', { p_org_id: orgId })
       .select(SELECT_FIELDS)
       .eq('phone', phone)
-      .or(`organization_id.eq.${orgId},organization_id.is.null`)
 
     if (error) {
       console.error('[customers:findByPhone] DB error:', error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
     }
-    const data = await filterToOrgCustomers(db, allMatches ?? [], orgId)
+    const data = allMatches ?? []
     return res.status(200).json(data[0] ?? null)
   }
 
