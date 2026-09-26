@@ -33,4 +33,5 @@ BEGIN
  END IF;
  RETURN NEW;
 END $function$;
+ALTER TABLE public.reservations DROP COLUMN reservation_change_policy_snapshot_version;
 COMMIT;

@@ -52,6 +52,18 @@ assert.equal(await value(15),72,'expired customer cannot bypass old deadline whi
 await db.query("INSERT INTO staff VALUES($1,$2,'active')",[id(20),id(1)])
 await db.query('UPDATE reservations SET store_id=$1,participant_count=5 WHERE id=$2',[id(2),id(15)])
 assert.equal(await value(15),null)
+// Cancellation snapshots existed before change-deadline snapshots. Preserve those old NULLs.
+await db.exec('ALTER TABLE reservations DISABLE TRIGGER a_change_policy')
+await db.query("INSERT INTO reservations(id,organization_id,reservation_source,reservation_type,requested_datetime,reservation_change_deadline_hours_snapshot) VALUES($1,$2,'web_private','private_booking',now()+interval '20 days',NULL),($3,$2,'web_private','private_booking',now()+interval '20 days',72)",[id(16),id(1),id(17)])
+await db.exec('ALTER TABLE reservations ENABLE TRIGGER a_change_policy')
+await db.query('UPDATE fixture_settings SET value=$1 WHERE scope=$2',[JSON.stringify({value:48}),id(2)])
+for(const [n,expected] of [[16,null],[17,48]]){
+ await db.query('UPDATE reservations SET store_id=$1 WHERE id=$2',[id(2),id(n)]);assert.equal(await value(n),expected)
+}
+await db.query('UPDATE fixture_settings SET value=$1 WHERE scope=$2',[JSON.stringify({value:null}),id(1)])
+await create(18);assert.equal(await value(18),null)
+await db.query('UPDATE reservations SET store_id=$1 WHERE id=$2',[id(2),id(18)])
+assert.equal(await value(18),48,'new NULL is distinguishable from legacy unrestricted history')
 await db.exec(fs.readFileSync('supabase/rollbacks/'+migration,'utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'))
 assert.equal(await value(10),24)

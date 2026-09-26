@@ -80,7 +80,7 @@ def build_change():
     root=ROOT
     sql='BEGIN;\n'
     # この回帰は一時テーブルだけを使い、適用済みの本番DDLを再実行しない。
-    sql+='''CREATE TEMP TABLE change_reservations(id uuid,organization_id uuid,store_id uuid,scenario_master_id uuid,schedule_event_id uuid,private_group_id uuid,reservation_source text,reservation_type text,requested_datetime timestamptz,participant_count integer,reservation_change_deadline_hours_snapshot integer,cancellation_policy_snapshot_version integer,cancellation_policy_store_id uuid);
+    sql+='''CREATE TEMP TABLE change_reservations(id uuid,organization_id uuid,store_id uuid,scenario_master_id uuid,schedule_event_id uuid,private_group_id uuid,reservation_source text,reservation_type text,requested_datetime timestamptz,participant_count integer,reservation_change_deadline_hours_snapshot integer,cancellation_policy_snapshot_version integer,cancellation_policy_store_id uuid,reservation_change_policy_snapshot_version integer);
     CREATE TEMP TABLE change_stores(id uuid,organization_id uuid);
     CREATE TEMP TABLE change_events(id uuid,organization_id uuid,store_id uuid,category text,is_private_booking boolean,date date,start_time time);
     CREATE TEMP TABLE change_users(id uuid,organization_id uuid,role text);

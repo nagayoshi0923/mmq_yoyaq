@@ -1,13 +1,22 @@
 BEGIN;
+ALTER TABLE public.reservations ADD COLUMN reservation_change_policy_snapshot_version integer;
+COMMENT ON COLUMN public.reservations.reservation_change_policy_snapshot_version IS '変更期限の導入マーカー。旧NULL期限と、新規の未設定期限を区別。';
 -- 新規申込時に固定し、店舗未確定の新規貸切だけ初回店舗確定時に補完する。
 CREATE OR REPLACE FUNCTION public.set_reservation_change_policy_snapshot()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE scenario_id uuid; is_private boolean; setting_key text; performance_start timestamptz; refresh_on_first_store boolean:=false;
 BEGIN
+ IF TG_OP='INSERT' THEN
+  NEW.reservation_change_policy_snapshot_version:=1;
+ ELSE
+  NEW.reservation_change_policy_snapshot_version:=OLD.reservation_change_policy_snapshot_version;
+ END IF;
  IF TG_OP='UPDATE' THEN
   -- キャンセル規定の固定マーカーを共有し、店舗の解除→再設定でも再固定しない。
-  -- 導入前の履歴（version NULL）と既に店舗確定済みの予約は元の時間数を保持する。
-  refresh_on_first_store:=OLD.cancellation_policy_snapshot_version=1
+  -- 旧NULLは制限なしの履歴として保持。変更期限専用マーカーまたは既存の時間数で導入後を識別する。
+  refresh_on_first_store:=(OLD.reservation_change_policy_snapshot_version=1
+      OR OLD.reservation_change_deadline_hours_snapshot IS NOT NULL)
+    AND OLD.cancellation_policy_snapshot_version=1
     AND OLD.cancellation_policy_store_id IS NULL AND OLD.store_id IS NULL
     AND NEW.store_id IS NOT NULL AND NEW.organization_id=OLD.organization_id
     AND (OLD.private_group_id IS NOT NULL OR OLD.reservation_source='web_private'
