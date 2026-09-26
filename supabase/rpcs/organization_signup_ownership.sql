@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.organization_signup_claims (
  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
  expires_at timestamptz NOT NULL DEFAULT (clock_timestamp()+interval '30 minutes'),
  consumed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+ consumed_transaction bigint,
  consumed_at timestamptz
 );
 ALTER TABLE public.organization_signup_claims ENABLE ROW LEVEL SECURITY;
@@ -33,7 +34,7 @@ BEGIN
    OR EXISTS(SELECT 1 FROM public.staff WHERE organization_id=p_org_id) THEN
    RAISE EXCEPTION '登録済みの組織を新規取得することはできません' USING ERRCODE='42501';
  END IF;
- UPDATE public.organization_signup_claims SET consumed_by=p_user_id,consumed_at=clock_timestamp() WHERE organization_id=p_org_id;
+ UPDATE public.organization_signup_claims SET consumed_by=p_user_id,consumed_at=clock_timestamp(),consumed_transaction=txid_current() WHERE organization_id=p_org_id;
 END;
 $function$;
 REVOKE ALL ON FUNCTION public.consume_organization_signup_claim(uuid,text,uuid,text) FROM PUBLIC,anon,authenticated,service_role;

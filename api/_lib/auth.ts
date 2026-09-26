@@ -74,14 +74,14 @@ export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
       .eq('user_id', user.id)
       .eq('organization_id', profile.organization_id)
     if (staffError) throw new ApiError(503, 'スタッフの利用状態を確認できませんでした')
-    if (staffRows?.length && staffRows.every(row => row.status === 'inactive')) {
+    if (staffRows?.length && staffRows.every(row => row.status === 'inactive' || row.status === 'resigned')) {
       effectiveRole = 'customer'
     }
   }
 
   return {
     userId: user.id,
-    orgId: (profile.organization_id as string | null) ?? '',
+    orgId: effectiveRole === 'customer' && profile.role !== 'customer' ? '' : (profile.organization_id as string | null) ?? '',
     role: effectiveRole,
     jwt,
   }

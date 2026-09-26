@@ -1,15 +1,32 @@
--- QW-20260917-001 A05/A06: staff/account access changes share the staff transaction.
--- Keep the existing full UNIQUE(user_id) index: handle_new_user uses ON CONFLICT(user_id).
--- Follow-up #523: resigned revokes access; customerization clears users.organization_id.
-CREATE TABLE IF NOT EXISTS public.staff_account_access (
- user_id uuid PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
- organization_id uuid NOT NULL REFERENCES public.organizations(id),
- managed_since timestamptz NOT NULL DEFAULT clock_timestamp()
-);
-ALTER TABLE public.staff_account_access ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.staff_account_access FROM PUBLIC,anon,authenticated;
-GRANT SELECT ON public.staff_account_access TO service_role;
-
+ALTER TABLE public.organization_signup_claims ADD COLUMN IF NOT EXISTS consumed_transaction bigint;
+CREATE OR REPLACE FUNCTION public.consume_organization_signup_claim(p_org_id uuid,p_token text,p_user_id uuid,p_email text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public,extensions,pg_temp AS $function$
+DECLARE v_claim public.organization_signup_claims%ROWTYPE;
+BEGIN
+ PERFORM 1 FROM public.organizations WHERE id=p_org_id AND is_active=true FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION '登録対象の組織が見つかりません' USING ERRCODE='42501'; END IF;
+ SELECT * INTO v_claim FROM public.organization_signup_claims WHERE organization_id=p_org_id FOR UPDATE;
+ IF NOT FOUND OR p_user_id IS NULL OR p_email IS NULL OR v_claim.email<>lower(trim(p_email))
+   OR NOT (coalesce(v_claim.token_hash=extensions.digest(p_token,'sha256'),false)
+       OR coalesce(v_claim.created_by=p_user_id AND auth.uid()=p_user_id,false)) THEN
+   RAISE EXCEPTION '組織の登録権限を確認できません。登録画面からやり直してください' USING ERRCODE='42501';
+ END IF;
+ IF v_claim.consumed_at IS NOT NULL THEN
+   IF v_claim.consumed_by=p_user_id AND EXISTS(SELECT 1 FROM public.users WHERE id=p_user_id AND organization_id=p_org_id AND role='admin') THEN RETURN; END IF;
+   RAISE EXCEPTION 'この組織の登録手続きは完了しています' USING ERRCODE='42501';
+ END IF;
+ IF v_claim.expires_at<=clock_timestamp() THEN RAISE EXCEPTION '組織登録の有効期限が切れました。登録画面からやり直してください' USING ERRCODE='42501'; END IF;
+ IF EXISTS(SELECT 1 FROM public.users WHERE organization_id=p_org_id)
+   OR EXISTS(SELECT 1 FROM public.staff WHERE organization_id=p_org_id) THEN
+   RAISE EXCEPTION '登録済みの組織を新規取得することはできません' USING ERRCODE='42501';
+ END IF;
+ UPDATE public.organization_signup_claims SET consumed_by=p_user_id,consumed_at=clock_timestamp(),consumed_transaction=txid_current() WHERE organization_id=p_org_id;
+END;
+$function$;
+-- QW-20260917-001 #523. Preserve the UI's explicit retirement state.
+ALTER TABLE public.staff DROP CONSTRAINT staff_status_check;
+ALTER TABLE public.staff ADD CONSTRAINT staff_status_check CHECK(status IN('active','inactive','on-leave','resigned'));
+-- Follow-up #523: treat resigned as revoked; clear users.organization_id on customerization.
 CREATE OR REPLACE FUNCTION public.guard_staff_account_change()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
 DECLARE v_org uuid; v_actor public.users%ROWTYPE; v_target public.users%ROWTYPE;
@@ -39,9 +56,6 @@ BEGIN
  RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.guard_staff_account_change() FROM PUBLIC,anon,authenticated;
-CREATE TRIGGER guard_staff_account_change BEFORE INSERT OR DELETE OR UPDATE ON public.staff
- FOR EACH ROW EXECUTE FUNCTION public.guard_staff_account_change();
 
 CREATE OR REPLACE FUNCTION public.sync_staff_account_access()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
@@ -75,12 +89,7 @@ BEGIN
  RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.sync_staff_account_access() FROM PUBLIC,anon,authenticated;
-DROP TRIGGER IF EXISTS staff_unlink_trigger ON public.staff;
-CREATE TRIGGER sync_staff_account_access AFTER INSERT OR DELETE OR UPDATE ON public.staff
- FOR EACH ROW EXECUTE FUNCTION public.sync_staff_account_access();
 
--- Transfer an existing account without a partially unlinked intermediate result.
 CREATE OR REPLACE FUNCTION public.admin_link_staff_account(p_actor_id uuid,p_staff_id uuid,p_user_id uuid,p_email text DEFAULT NULL)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
 DECLARE v_actor public.users%ROWTYPE; v_staff public.staff%ROWTYPE; v_user public.users%ROWTYPE;
@@ -110,11 +119,7 @@ BEGIN
  RETURN p_staff_id;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.admin_link_staff_account(uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_link_staff_account(uuid,uuid,uuid,text) TO service_role;
 
--- Old API versions used a second users.role update after saving staff. Reject a
--- contradictory update so an old tab cannot re-enable an inactive account.
 CREATE OR REPLACE FUNCTION public.guard_staff_derived_user_role()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO public, pg_temp AS $function$
 DECLARE v_staff public.staff%ROWTYPE; v_expected public.app_role;
@@ -141,6 +146,25 @@ BEGIN
  RETURN NEW;
 END;
 $function$;
-REVOKE ALL ON FUNCTION public.guard_staff_derived_user_role() FROM PUBLIC,anon,authenticated;
-CREATE TRIGGER guard_staff_derived_user_role BEFORE UPDATE OF role,organization_id ON public.users
- FOR EACH ROW EXECUTE FUNCTION public.guard_staff_derived_user_role();
+
+CREATE OR REPLACE FUNCTION public.get_user_organization_id()
+RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO public,pg_temp AS $function$
+DECLARE v_user public.users%ROWTYPE; v_staff public.staff%ROWTYPE;
+BEGIN
+ SELECT * INTO v_user FROM public.users WHERE id=auth.uid();
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ -- License administration is independent of staff employment.
+ IF v_user.role='license_admin' THEN RETURN v_user.organization_id; END IF;
+ SELECT * INTO v_staff FROM public.staff WHERE user_id=auth.uid();
+ IF FOUND THEN
+   IF v_staff.status IN ('inactive','resigned') THEN RETURN NULL; END IF;
+   RETURN coalesce(v_user.organization_id,v_staff.organization_id);
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.staff_account_access WHERE user_id=auth.uid()) THEN RETURN NULL; END IF;
+ -- Preserve pre-existing profiles without a staff lifecycle (including invitations).
+ RETURN v_user.organization_id;
+END;
+$function$;
+
+DROP TRIGGER guard_staff_derived_user_role ON public.users;
+CREATE TRIGGER guard_staff_derived_user_role BEFORE UPDATE OF role,organization_id ON public.users FOR EACH ROW EXECUTE FUNCTION public.guard_staff_derived_user_role();

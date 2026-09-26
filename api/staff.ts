@@ -47,7 +47,11 @@ function pickFields<T extends readonly string[]>(
   for (const key of Object.keys(src)) {
     const targetKey = renameMap?.[key] ?? key
     if ((allowed as readonly string[]).includes(targetKey)) {
-      out[targetKey] = src[key]
+      if (targetKey === 'status') {
+        const status = src[key] === 'on_leave' ? 'on-leave' : src[key]
+        if (typeof status !== 'string' || !['active','inactive','on-leave','resigned'].includes(status)) throw new ApiError(400, 'スタッフの利用状態が不正です')
+        out[targetKey] = status
+      } else out[targetKey] = src[key]
     }
   }
   return out

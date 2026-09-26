@@ -16,7 +16,7 @@ CREATE TABLE public.staff (
   availability TEXT[] DEFAULT '{}'::text[],
   experience INTEGER DEFAULT 0,
   special_scenarios TEXT[] DEFAULT '{}'::text[],
-  status TEXT NOT NULL DEFAULT 'active'::text,
+  status TEXT NOT NULL DEFAULT 'active'::text CONSTRAINT staff_status_check CHECK(status IN ('active','inactive','on-leave','resigned')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   avatar_url TEXT,
