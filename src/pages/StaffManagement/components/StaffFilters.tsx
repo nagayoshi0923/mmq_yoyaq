@@ -56,8 +56,9 @@ export const StaffFilters = memo(function StaffFilters({
           <SelectContent>
             <SelectItem value="all">全ステータス</SelectItem>
             <SelectItem value="active">在籍中</SelectItem>
-            <SelectItem value="inactive">休職中</SelectItem>
-            <SelectItem value="on_leave">休暇中</SelectItem>
+            <SelectItem value="inactive">利用停止</SelectItem>
+            <SelectItem value="on-leave">休職中</SelectItem>
+            <SelectItem value="resigned">退職</SelectItem>
           </SelectContent>
         </Select>
       </div>

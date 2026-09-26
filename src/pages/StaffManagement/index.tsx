@@ -84,9 +84,10 @@ export function StaffManagement() {
     return restored || ''
   })
   const [statusFilter, setStatusFilter] = useState<string>(() => {
-    const restored = restoreState('statusFilter', 'all')
+    const saved = restoreState<string>('statusFilter', 'all')
+    const restored = saved === 'on_leave' ? 'on-leave' : saved
     // 有効な値かチェック
-    const validStatuses = ['all', 'active', 'inactive', 'on_leave']
+    const validStatuses = ['all', 'active', 'inactive', 'on-leave', 'resigned']
     if (restored && validStatuses.includes(restored)) {
       return restored
     }

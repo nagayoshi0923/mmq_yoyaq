@@ -18,8 +18,13 @@ describe('スタッフ停止と顧客アクセスの境界',()=>{
  it.each(['staff','admin'])('停止した%sは業務権限を使えないが顧客として認証できる',async role=>{
   mock.role=role;mock.states=[{status:'inactive'}]
   const user=await requireAuth(request)
-  expect(user.role).toBe('customer');expect(()=>requireStaff(user)).toThrow();expect(()=>requireAdmin(user)).toThrow()
+  expect(user.role).toBe('customer');expect(user.orgId).toBe('');expect(()=>requireStaff(user)).toThrow();expect(()=>requireAdmin(user)).toThrow()
   expect(mock.filters).toContainEqual(['staff','user_id','actor']);expect(mock.filters).toContainEqual(['staff','organization_id','own-org'])
+ })
+ it.each(['staff','admin'])('退職した%sも業務権限を使えない',async role=>{
+  mock.role=role;mock.states=[{status:'resigned'}]
+  const user=await requireAuth(request)
+  expect(user.role).toBe('customer');expect(user.orgId).toBe('');expect(()=>requireStaff(user)).toThrow()
  })
  it.each(['active','on-leave'])('%sは業務権限を維持する',async status=>{mock.states=[{status}];expect((await requireAuth(request)).role).toBe('staff')})
  it('スタッフ行のない既存管理者を停止扱いにしない',async()=>{mock.role='admin';expect((await requireAuth(request)).role).toBe('admin')})

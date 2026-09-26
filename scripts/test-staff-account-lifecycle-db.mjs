@@ -10,7 +10,7 @@ CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT nullif(curren
 CREATE TYPE public.app_role AS ENUM ('admin','staff','customer','license_admin');
 CREATE TABLE organizations(id uuid PRIMARY KEY);
 CREATE TABLE users(id uuid PRIMARY KEY,organization_id uuid REFERENCES organizations,role public.app_role NOT NULL,updated_at timestamptz);
-CREATE TABLE staff(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid NOT NULL REFERENCES organizations,name text,role text[] DEFAULT '{}',status text DEFAULT 'active',user_id uuid UNIQUE REFERENCES users,email text);
+CREATE TABLE staff(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid NOT NULL REFERENCES organizations,name text,role text[] DEFAULT '{}',status text DEFAULT 'active' CONSTRAINT staff_status_check CHECK(status IN('active','inactive','on-leave')),user_id uuid UNIQUE REFERENCES users,email text);
 CREATE FUNCTION update_user_role_on_staff_unlink() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.user_id IS NOT NULL AND NEW.user_id IS NULL THEN UPDATE users SET role='customer' WHERE id=OLD.user_id AND role<>'admin'; END IF; RETURN NEW; END $$;
 CREATE TRIGGER staff_unlink_trigger AFTER UPDATE ON staff FOR EACH ROW EXECUTE FUNCTION update_user_role_on_staff_unlink();
 INSERT INTO organizations VALUES('${id(1)}'),('${id(2)}');
@@ -18,14 +18,19 @@ INSERT INTO users(id,organization_id,role) VALUES('${id(10)}','${id(1)}','admin'
 GRANT USAGE ON SCHEMA public,auth TO authenticated,service_role;
 GRANT ALL ON staff,users,organizations TO authenticated,service_role;`)
 const migration=fs.readFileSync('supabase/migrations/20260927002000_staff_account_lifecycle.sql','utf8')
+const followUp=fs.readFileSync('supabase/migrations/20260927005000_staff_lifecycle_resigned_org.sql','utf8')
 await db.exec(migration)
+await db.exec("CREATE TABLE organization_signup_claims(organization_id uuid,consumed_by uuid,consumed_at timestamptz);")
+await db.exec(followUp)
 const role=async n=>(await db.query('SELECT role FROM users WHERE id=$1',[id(n)])).rows[0].role
+const orgOf=async n=>(await db.query('SELECT organization_id FROM users WHERE id=$1',[id(n)])).rows[0].organization_id
 const staff=async n=>(await db.query('SELECT * FROM staff WHERE id=$1',[id(n)])).rows[0]
 const runAs=async(actor,sql,args=[])=>{
  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.role','authenticated',false)",[id(actor)])
  await db.exec('SET ROLE authenticated')
  try{return await db.query(sql,args)}finally{await db.exec('RESET ROLE');await db.exec("SELECT set_config('request.jwt.claim.sub','',false),set_config('request.jwt.claim.role','',false)")}
 }
+const scope=async(actor)=>(await runAs(actor,'SELECT get_user_organization_id() AS org')).rows[0].org
 const link=async(actor,s,u,email=null)=>{
  await db.exec("SET ROLE service_role; SELECT set_config('request.jwt.claim.role','service_role',false)")
  try{return await db.query('SELECT admin_link_staff_account($1,$2,$3,$4)',[id(actor),id(s),u===null?null:id(u),email])}
@@ -33,7 +38,7 @@ const link=async(actor,s,u,email=null)=>{
 }
 await runAs(10,"INSERT INTO staff(id,organization_id,user_id,role) VALUES($1,$2,$3,ARRAY['gm'])",[id(21),id(1),id(11)])
 assert.equal(await role(11),'staff')
-assert.equal((await db.query('SELECT organization_id FROM users WHERE id=$1',[id(11)])).rows[0].organization_id,id(1))
+assert.equal(await orgOf(11),id(1))
 await assert.rejects(()=>runAs(11,"UPDATE staff SET role=ARRAY['admin'] WHERE id=$1",[id(21)]),/管理者権限/)
 await assert.rejects(()=>runAs(11,"UPDATE staff SET status='inactive' WHERE id=$1",[id(21)]),/管理者権限/)
 await runAs(11,"UPDATE staff SET name='本人プロフィール' WHERE id=$1",[id(21)])
@@ -45,11 +50,26 @@ await runAs(10,"UPDATE staff SET role=ARRAY['gm'] WHERE id=$1",[id(21)])
 assert.equal(await role(11),'staff','explicit removal of admin must revoke admin access')
 await runAs(10,"UPDATE staff SET status='inactive' WHERE id=$1",[id(21)])
 assert.equal(await role(11),'customer')
+assert.equal(await orgOf(11),null,'inactive clears organization membership')
+assert.equal(await scope(11),null,'staff fallback cannot restore stopped organization access')
+await db.query('UPDATE users SET organization_id=$1 WHERE id=$2',[id(1),id(11)])
+assert.equal(await orgOf(11),null,'old invite writes cannot restore stopped membership')
 await assert.rejects(()=>db.query("UPDATE users SET role='staff' WHERE id=$1",[id(11)]),/スタッフの役割/)
 await runAs(10,"UPDATE staff SET status='on-leave' WHERE id=$1",[id(21)])
 assert.equal(await role(11),'staff','leave is not termination')
+assert.equal(await orgOf(11),id(1),'resume restores organization from staff')
+assert.equal(await scope(11),id(1))
+await runAs(10,"UPDATE staff SET status='resigned' WHERE id=$1",[id(21)])
+assert.equal(await role(11),'customer','resigned revokes business access')
+assert.equal(await orgOf(11),null,'resigned clears organization membership')
+assert.equal(await scope(11),null)
+await assert.rejects(()=>db.query("UPDATE users SET role='staff' WHERE id=$1",[id(11)]),/スタッフの役割/)
+await runAs(10,"UPDATE staff SET status='active' WHERE id=$1",[id(21)])
+assert.equal(await role(11),'staff')
+assert.equal(await orgOf(11),id(1))
 await runAs(10,"UPDATE staff SET user_id=$1 WHERE id=$2",[id(12),id(21)])
-assert.equal(await role(11),'customer');assert.equal(await role(12),'staff')
+assert.equal(await role(11),'customer');assert.equal(await orgOf(11),null,'unlink clears organization membership')
+assert.equal(await role(12),'staff');assert.equal(await orgOf(12),id(1))
 await runAs(10,"INSERT INTO staff(id,organization_id,role,email) VALUES($1,$2,ARRAY['gm'],'original@example.invalid')",[id(22),id(1)])
 await assert.rejects(()=>runAs(10,"UPDATE staff SET user_id=$1 WHERE id=$2",[id(12),id(22)]),/unique/)
 await assert.rejects(()=>runAs(11,'SELECT admin_link_staff_account($1,$2,$3,NULL)',[id(10),id(22),id(12)]),/permission denied/)
@@ -64,7 +84,19 @@ await runAs(10,'UPDATE staff SET user_id=NULL WHERE id=$1',[id(23)])
 assert.equal(await role(14),'license_admin')
 await runAs(10,'DELETE FROM staff WHERE id=$1',[id(22)])
 assert.equal(await role(12),'customer','delete revokes derived staff access')
+assert.equal(await orgOf(12),null,'delete clears organization membership')
 await assert.rejects(()=>db.query("UPDATE users SET role='staff' WHERE id=$1",[id(12)]),/解除済み/)
+// Unlink/delete after an earlier stop must not fail on the retained provenance's NOT NULL org.
+await runAs(10,"UPDATE staff SET user_id=$1 WHERE id=$2",[id(11),id(21)])
+await runAs(10,"UPDATE staff SET status='resigned' WHERE id=$1",[id(21)])
+await runAs(10,"UPDATE staff SET user_id=NULL WHERE id=$1",[id(21)])
+assert.equal(await scope(11),null)
+await runAs(10,"INSERT INTO staff(id,organization_id,user_id,role,status) VALUES($1,$2,$3,ARRAY['gm'],'inactive')",[id(25),id(1),id(12)])
+await runAs(10,'DELETE FROM staff WHERE id=$1',[id(25)])
+assert.equal(await orgOf(12),null)
+assert.equal(await scope(12),null)
+assert.equal(await scope(14),id(1),'license administration remains independent')
+assert.equal(await scope(10),id(1),'existing admin without staff remains valid')
 // Auth's internal signup trigger has no caller JWT.
 await db.exec(`CREATE FUNCTION simulate_signup() RETURNS void LANGUAGE sql SECURITY DEFINER AS $$ INSERT INTO staff(id,organization_id,user_id,role) VALUES('${id(24)}','${id(1)}','${id(15)}',ARRAY['gm']) $$; GRANT USAGE ON SCHEMA public TO supabase_auth_admin; GRANT EXECUTE ON FUNCTION simulate_signup() TO supabase_auth_admin; SET SESSION AUTHORIZATION supabase_auth_admin; SELECT simulate_signup(); SET SESSION AUTHORIZATION postgres; RESET ROLE;`)
 assert.equal((await staff(24)).user_id,id(15))
@@ -74,7 +106,9 @@ CREATE TRIGGER fail_profile_write BEFORE UPDATE ON users FOR EACH ROW EXECUTE FU
 await assert.rejects(()=>runAs(10,'UPDATE staff SET user_id=$1 WHERE id=$2',[id(11),id(21)]),/simulated users failure/)
 assert.equal((await staff(21)).user_id,null);assert.equal(await role(11),'customer')
 await db.exec('DROP TRIGGER fail_profile_write ON users')
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927005000_staff_lifecycle_resigned_org.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927002000_staff_account_lifecycle.sql','utf8'))
 await db.exec(migration)
+await db.exec(followUp)
 await db.close()
-console.log('PASS staff lifecycle: atomic role/org/link, admin removal, inactive/leave, transfer, cross-org, self-escalation, license role, rollback/reapply')
+console.log('PASS staff lifecycle: atomic role/org/link, resigned/inactive org clear, leave restore, transfer, cross-org, self-escalation, license role, rollback/reapply')

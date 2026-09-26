@@ -6,6 +6,7 @@ CREATE TABLE public.organization_signup_claims (
  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
  expires_at timestamptz NOT NULL DEFAULT (clock_timestamp()+interval '30 minutes'),
  consumed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+ consumed_transaction bigint,
  consumed_at timestamptz
 );
 ALTER TABLE public.organization_signup_claims ENABLE ROW LEVEL SECURITY;

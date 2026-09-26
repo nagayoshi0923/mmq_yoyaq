@@ -16,6 +16,9 @@ async function patch(body:unknown,action?:string){
  return res
 }
 describe('staff API account mutation boundary',()=>{
+ it.each(['on-leave','resigned'])('正規状態%sを保存する',async status=>{expect((await patch({status})).status).toHaveBeenCalledWith(200);expect(m.update).toHaveBeenCalledWith(expect.objectContaining({status}))})
+ it('旧画面の休職値も正規状態へ変換する',async()=>{expect((await patch({status:'on_leave'})).status).toHaveBeenCalledWith(200);expect(m.update).toHaveBeenCalledWith(expect.objectContaining({status:'on-leave'}))})
+ it('不正な状態は書込前に拒否する',async()=>{expect((await patch({status:'unknown'})).status).toHaveBeenCalledWith(400);expect(m.update).not.toHaveBeenCalled()})
  it('連携は旧連携解除を含む1つのRPCへ渡す',async()=>{
   expect((await patch({user_id:target,email:'test@example.invalid'},'linkAccount')).status).toHaveBeenCalledWith(200)
   expect(m.rpc).toHaveBeenCalledExactlyOnceWith('admin_link_staff_account',{p_actor_id:'actor',p_staff_id:'staff',p_user_id:target,p_email:'test@example.invalid'})
