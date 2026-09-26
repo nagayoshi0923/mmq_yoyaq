@@ -7,9 +7,11 @@ import { HelpButton } from '@/components/ui/help-button'
 import { SearchInput } from '@/components/patterns/filter'
 import { EmptyState, ListSkeleton } from '@/components/patterns/list'
 import { UserPlus, Users } from 'lucide-react'
+import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
+import { isCustomerOwnedByOrganization } from './utils/customerEditAccess'
 import type { Customer } from '@/types'
 
 export default function CustomerManagement() {
@@ -19,6 +21,7 @@ export default function CustomerManagement() {
     v ? { search: v } : {},
     { replace: true }
   )
+  const { organizationId } = useOrganization()
   const {
     customers,
     loading,
@@ -36,6 +39,7 @@ export default function CustomerManagement() {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   const handleEdit = (customer: Customer) => {
+    if (!isCustomerOwnedByOrganization(customer, organizationId)) return
     setSelectedCustomer(customer)
     setIsEditModalOpen(true)
   }
@@ -110,6 +114,7 @@ export default function CustomerManagement() {
                   isExpanded={expandedCustomerId === customer.id}
                   onToggleExpand={() => handleToggleExpand(customer.id)}
                   onEdit={() => handleEdit(customer)}
+                  canEdit={isCustomerOwnedByOrganization(customer, organizationId)}
                   couponStats={couponStats[customer.id]}
                 />
               ))}

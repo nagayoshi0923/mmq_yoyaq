@@ -17,10 +17,11 @@ interface CustomerRowProps {
   isExpanded: boolean
   onToggleExpand: () => void
   onEdit: () => void
+  canEdit: boolean
   couponStats?: CustomerCouponStats
 }
 
-export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, couponStats }: CustomerRowProps) {
+export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, canEdit, couponStats }: CustomerRowProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [couponUsages, setCouponUsages] = useState<CustomerCouponUsageHistory[]>([])
   const [couponLoading, setCouponLoading] = useState(false)
@@ -141,9 +142,11 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
           {formatDate(customer.last_visit ?? null)}
         </div>
         <div className="col-span-1 flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
-            <Edit2 className="h-4 w-4" />
-          </Button>
+          {canEdit && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} aria-label="顧客を編集">
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleExpand}>
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
@@ -179,10 +182,12 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
           <div className="font-bold">{formatCurrency(customer.total_spent ?? 0)}</div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{formatDate(customer.last_visit ?? null)}</span>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-              <Edit2 className="h-3 w-3 mr-1" />
-              編集
-            </Button>
+            {canEdit && (
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                <Edit2 className="h-3 w-3 mr-1" />
+                編集
+              </Button>
+            )}
           </div>
         </div>
       </div>
