@@ -35,3 +35,13 @@ test('レート制限の正常結果と超過を維持',async()=>{
 for(const [label,rpc] of [['error',async()=>({error:{message:'unavailable'}})],['throw',async()=>{throw Error('offline')}],['empty',async()=>({data:null,error:null})]])test(`レート制限取得${label}は拒否`,async()=>{
  const result=await setup().checkRateLimit({rpc},'caller','fixture',10,60);assert.equal(result.allowed,false)
 })
+
+test('内部用キーと外部旧JWTを別々に明示して検証する',()=>{
+ const s=setup({SUPABASE_SERVICE_ROLE_KEY:'internal',MMQ_LEGACY_SERVICE_ROLE_KEY:'external'})
+ for(const key of ['internal','external'])assert.equal(s.isCronOrServiceRoleCall(request(key)),true)
+ assert.equal(s.isCronOrServiceRoleCall(request(forged)),false)
+})
+test('名前付きsecretキーを許可し不正な設定は無視',()=>{
+ assert.equal(setup({SUPABASE_SECRET_KEYS:'{"default":"named-secret"}'}).isCronOrServiceRoleCall(request('named-secret')),true)
+ for(const config of ['invalid','null','["untrusted-array"]','{"default":42}'])assert.equal(setup({SUPABASE_SECRET_KEYS:config}).isCronOrServiceRoleCall(request('untrusted-array')),false)
+})

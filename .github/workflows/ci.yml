@@ -51,6 +51,9 @@ jobs:
       - name: Shared Edge authentication boundary
         run: node --test scripts/edge-security-boundary.test.mjs
 
+      - name: Cancelled recruitment database regressions
+        run: node scripts/test-recruitment-cancelled-event-db.mjs
+
       - name: Discord entry release regression
         run: node --test scripts/check-discord-join-release.test.mjs scripts/discord-join-handler.test.mjs
 
