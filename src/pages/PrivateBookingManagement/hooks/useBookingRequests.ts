@@ -1,3 +1,4 @@
+import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
 import { getGmResponses } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -78,32 +79,29 @@ async function fetchRawBookingRequests(
 
   if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) return []
 
-  let query = supabase
-    .from('reservations')
-    .select(`
-      *,
-      scenario_masters:scenario_master_id(title, official_duration),
-      customers:customer_id(name, phone),
-      private_groups:private_group_id(invite_code, scenario_master_id),
-      confirmer:staff!reservations_confirmed_by_fkey(name),
-      canceller:staff!reservations_cancelled_by_fkey(name)
-    `)
-    .eq('organization_id', orgId)
-    .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-    .order('created_at', { ascending: false })
+  const reservationsList = await fetchBookingRows<any>((from, to) => {
+    let query = supabase
+      .from('reservations')
+      .select(`
+        *,
+        scenario_masters:scenario_master_id(title, official_duration),
+        customers:customer_id(name, phone),
+        private_groups:private_group_id(invite_code, scenario_master_id),
+        confirmer:staff!reservations_confirmed_by_fkey(name),
+        canceller:staff!reservations_cancelled_by_fkey(name)
+      `)
+      .eq('organization_id', orgId)
+      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
 
-  if (allowedScenarioIds !== null) {
-    query = query.in('scenario_master_id', allowedScenarioIds)
-  }
-  query = query.in('status', [...PRIVATE_BOOKING_LIST_STATUSES])
+    if (allowedScenarioIds !== null) {
+      query = query.in('scenario_master_id', allowedScenarioIds)
+    }
+    query = query.in('status', [...PRIVATE_BOOKING_LIST_STATUSES])
 
-  const { data, error } = await query
-  if (error) {
-    logger.error('Supabaseエラー:', error)
-    throw error
-  }
-
-  const reservationsList = data || []
+    return query.range(from, to)
+  })
   privateBookingTrace(`取得: ${reservationsList.length} 件`)
 
   // グループID一覧
@@ -122,13 +120,13 @@ async function fetchRawBookingRequests(
     allGmResponsesResult,
     allCandidateDatesResult,
   ] = await Promise.all([
-    privateGroupIds.length > 0
-      ? supabase
+    fetchBookingRelatedRows<any>(privateGroupIds, (batch, from, to) => supabase
           .from('private_group_members')
           .select('group_id')
-          .in('group_id', privateGroupIds)
+          .in('group_id', batch)
           .eq('status', 'joined')
-      : Promise.resolve({ data: [], error: null }),
+          .order('id')
+          .range(from, to)),
     (() => {
       const masterIds = [
         ...new Set(
@@ -137,22 +135,22 @@ async function fetchRawBookingRequests(
             .filter(Boolean)
         ),
       ] as string[]
-      return masterIds.length > 0
-        ? supabase
+      return fetchBookingRelatedRows<any>(masterIds, (batch, from, to) => supabase
             .from('organization_scenarios_with_master')
             .select('scenario_master_id, gm_count, player_count_min, player_count_max, duration, weekend_duration, extra_preparation_time, private_booking_time_slots')
             .eq('organization_id', orgId)
-            .in('scenario_master_id', masterIds)
-        : Promise.resolve({ data: [], error: null })
+            .in('scenario_master_id', batch)
+            .order('scenario_master_id')
+            .range(from, to))
     })(),
     getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
-    privateGroupIds.length > 0
-      ? supabase
+    fetchBookingRelatedRows<any>(privateGroupIds, (batch, from, to) => supabase
           .from('private_group_candidate_dates')
           .select('group_id, id, date, time_slot, start_time, end_time, status')
-          .in('group_id', privateGroupIds)
+          .in('group_id', batch)
           .order('date', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
+          .order('id')
+          .range(from, to)),
   ])
 
   // マップ構築
