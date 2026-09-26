@@ -8,6 +8,7 @@ DECLARE
   m INTEGER;
   n INTEGER;
   first_day DATE;
+  d DATE;
 BEGIN
   IF p_date IS NULL THEN RETURN FALSE; END IF;
   dates := ARRAY[make_date(y,1,1),make_date(y,2,11),make_date(y,2,23),
@@ -20,9 +21,22 @@ BEGIN
     first_day := make_date(y,m,1);
     dates := array_append(dates, first_day + ((8-EXTRACT(DOW FROM first_day)::int)%7) + 7*(n-1));
   END LOOP;
-  RETURN p_date = ANY(dates)
-    OR (EXTRACT(DOW FROM p_date)=1 AND p_date-1 = ANY(dates))
-    OR (p_date-1 = ANY(dates) AND p_date+1 = ANY(dates));
+  IF p_date = ANY(dates) THEN
+    RETURN TRUE;
+  END IF;
+  -- 国民の休日（祝日に挟まれた平日）
+  IF p_date-1 = ANY(dates) AND p_date+1 = ANY(dates) THEN
+    RETURN TRUE;
+  END IF;
+  -- 振替休日: 連続する祝日を遡り、日曜の祝日があれば最初の非祝日まで繰り越す
+  d := p_date - 1;
+  WHILE d = ANY(dates) LOOP
+    IF EXTRACT(DOW FROM d) = 0 THEN
+      RETURN TRUE;
+    END IF;
+    d := d - 1;
+  END LOOP;
+  RETURN FALSE;
 END;
 $$;
 
