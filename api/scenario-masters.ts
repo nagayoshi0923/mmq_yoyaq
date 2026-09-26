@@ -45,7 +45,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 }
 
 const SCENARIO_MASTER_SELECT_FIELDS =
-  'id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by'
+  'id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, sensitive_tags, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by'
 
 // master 上で許可された更新可能フィールド（任意のカラムを無制限に更新させない）
 const ALLOWED_UPDATE_FIELDS = new Set([

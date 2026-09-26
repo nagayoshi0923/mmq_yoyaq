@@ -1,5 +1,10 @@
+import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
+import { preparationSettings } from './_lib/preparationSettings.js'
+import { operatingSettings, groupSurveySettings, effectiveEmailSettings } from './_lib/operatingSettings.js'
+import { bookingCutoffSettings } from './_lib/bookingCutoffSettings.js'
+import { privateBookingSettings } from './_lib/privateBookingSettings.js'
 import { confirmationTemplates } from './_lib/confirmationTemplates.js'
-import { recruitmentSettings } from './_lib/recruitmentSettings.js'
+import { recruitmentSettings, commonRecruitmentSettings } from './_lib/recruitmentSettings.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
@@ -217,8 +222,22 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   switch (type) {
     case 'confirmation-templates':
       return await confirmationTemplates(req, res, user)
+    case 'private-booking-settings':
+      return await privateBookingSettings(req, res, user)
+    case 'common-recruitment-settings':
+      return await commonRecruitmentSettings(req, res, user)
     case 'recruitment-settings':
       return await recruitmentSettings(req, res, user)
+    case 'group-survey-settings':
+      return await groupSurveySettings(req, res, user)
+    case 'preparation-settings':
+      return await preparationSettings(req, res, user)
+    case 'effective-email-settings':
+      return await effectiveEmailSettings(req, res, user)
+    case 'operating-settings':
+      return await operatingSettings(req, res, user)
+    case 'booking-cutoff-settings':
+      return await bookingCutoffSettings(req, res, user)
     case 'scenario-booking-cutoff':
       return await handleScenarioBookingCutoff(req, res, user, false)
     case 'booking-window':
@@ -246,7 +265,12 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const action = req.query.action as string | undefined
   if (action === 'confirmation-templates') return await confirmationTemplates(req, res, user, true)
+  if (action === 'private-booking-settings') return await privateBookingSettings(req, res, user, true)
+  if (action === 'common-recruitment-settings') return await commonRecruitmentSettings(req, res, user, true)
   if (action === 'recruitment-settings') return await recruitmentSettings(req, res, user, true)
+  if (action === 'freeze-group-survey-deadline') return await groupSurveySettings(req, res, user, true)
+  if (action === 'operating-settings') return await operatingSettings(req, res, user, true)
+  if (action === 'booking-cutoff-settings') return await bookingCutoffSettings(req, res, user, true)
   if (action === 'scenario-booking-cutoff') return await handleScenarioBookingCutoff(req, res, user, true)
   if (action === 'booking-cutoff') return await handleBookingCutoff(req, res, user)
   if (action === 'extend-recruitment') return await handleExtendRecruitment(req, res, user)
@@ -1059,7 +1083,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   // 対象イベントが自組織か確認
   const { data: existing, error: existingErr } = await database
     .from('schedule_events')
-    .select('id, organization_id, store_id')
+    .select('id, organization_id, store_id, max_participants, capacity, current_participants')
     .eq('id', id)
     .maybeSingle()
   if (existingErr) {
@@ -1070,6 +1094,9 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (existing.organization_id !== user.orgId) {
     return res.status(403).json({ error: '他組織の公演は編集できません' })
   }
+
+  const capacityMessage = capacityError(existing, updateRow.capacity)
+  if (capacityMessage) return res.status(409).json({ error: capacityMessage, code: 'CAPACITY_EXCEEDED' })
 
   // store_id を変える場合、移動先店舗も自組織か確認
   if (typeof updateRow.store_id === 'string' && updateRow.store_id !== existing.store_id) {
@@ -1142,6 +1169,9 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   if (!updateSucceeded) {
+    if (isCapacityConstraintError(lastError)) {
+      return res.status(409).json({ error: CAPACITY_CHANGED_MESSAGE, code: 'CAPACITY_EXCEEDED' })
+    }
     console.error('[schedule:update] update error:', lastError)
     return res.status(500).json({ error: '公演の更新に失敗しました', detail: lastError?.message })
   }

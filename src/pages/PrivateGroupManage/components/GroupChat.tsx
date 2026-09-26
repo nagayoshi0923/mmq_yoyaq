@@ -1,3 +1,4 @@
+import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { RpcSetCharacterPreferenceParams, RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
+import type { RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { Sentry } from '@/lib/sentry'
@@ -156,24 +157,22 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       ? 'ゲストの投稿は許可されていません（MMQアカウントでログインしてください）'
       : null
 
-  // 回答期限を取得
+  // 回答画面と同じ公演・店舗・作品・組織の適用値を使う。
   useEffect(() => {
-    if (!scenarioId || !organizationId || !performanceDate) return
-    ;(async () => {
-      const { data } = await supabase
-        .from('organization_scenarios')
-        .select('survey_deadline_days')
-        .eq('scenario_master_id', scenarioId)
-        .eq('organization_id', organizationId)
-        .maybeSingle()
-      if (data?.survey_deadline_days !== undefined && data.survey_deadline_days !== null) {
-        const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
-        perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
-        const p = getJstParts(perfDate)
+    setDeadlineText('')
+    if (!currentMemberId || !performanceDate) return
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await privateGroupMemberAction(groupId, currentMemberId, 'survey_read')
+      if (error) { logger.error('アンケート期限の取得エラー:', error); return }
+      if (!cancelled && data?.survey_enabled && data.survey_deadline_days != null) {
+        const deadline = data.survey_deadline_at ? new Date(data.survey_deadline_at) : new Date(new Date(performanceDate + 'T23:59:59.999+09:00').getTime() - data.survey_deadline_days * 86400000)
+        const p = getJstParts(deadline)
         if (p) setDeadlineText(`${Number(p.mo)}月${Number(p.d)}日まで`)
       }
     })()
-  }, [scenarioId, organizationId, performanceDate])
+    return () => { cancelled = true }
+  }, [groupId, currentMemberId, performanceDate])
 
   // pre_reading_notice が送信済みであれば配役フローを表示する
   // enrichGroupWithViewData が RLS 制限等で失敗した場合のフォールバック
@@ -328,12 +327,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     setCharPreferences(prev => ({ ...prev, [currentMemberId]: charId }))
     setCharSaving(true)
     try {
-      const charPrefParams: RpcSetCharacterPreferenceParams = {
-        p_group_id: groupId,
-        p_member_id: currentMemberId,
-        p_character_id: charId,
-      }
-      const { error } = await supabase.rpc('set_character_preference', charPrefParams)
+      const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'character_preference', { characterId: charId })
       if (error) throw error
     } catch (err) {
       logger.error('キャラクター選択エラー:', err)
@@ -534,11 +528,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
     setSending(true)
     try {
-      const { error } = await supabase.from('private_group_messages').insert({
-        group_id: groupId,
-        member_id: currentMemberId,
-        message: newMessage.trim(),
-      })
+      const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'message', { message: newMessage.trim() })
 
       if (error) throw error
       setNewMessage('')

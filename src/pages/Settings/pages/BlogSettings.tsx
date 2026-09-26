@@ -307,7 +307,7 @@ export function BlogSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title="ブログ・お知らせ" description="予約サイトのお知らせページ（/{slug}/blog）に公開する記事を管理します" />
 
       <section className="bg-white rounded-xl border p-6">

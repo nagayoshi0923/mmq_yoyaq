@@ -1,24 +1,10 @@
--- 正規ソース: approve_private_booking
--- 2026-08-14 承認時の開始・終了時刻上書きを許可（日付・希望枠は保存済み候補で検証）。
-
-CREATE OR REPLACE FUNCTION public.approve_private_booking(
-  p_reservation_id UUID,
-  p_selected_date DATE,
-  p_selected_start_time TIME WITHOUT TIME ZONE,
-  p_selected_end_time TIME WITHOUT TIME ZONE,
-  p_selected_store_id UUID,
-  p_selected_gm_id UUID,
-  p_candidate_datetimes JSONB,
-  p_scenario_title TEXT,
-  p_customer_name TEXT,
-  p_selected_sub_gm_id UUID DEFAULT NULL
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-SET row_security = off
-AS $$
+CREATE OR REPLACE FUNCTION public.approve_private_booking(p_reservation_id uuid, p_selected_date date, p_selected_start_time time without time zone, p_selected_end_time time without time zone, p_selected_store_id uuid, p_selected_gm_id uuid, p_candidate_datetimes jsonb, p_scenario_title text, p_customer_name text, p_selected_sub_gm_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET row_security TO 'off'
+AS $function$
 DECLARE
   v_reservation RECORD;
   v_pricing public.private_booking_pricing_snapshots%ROWTYPE;
@@ -416,11 +402,11 @@ BEGIN
   PERFORM 1
   FROM schedule_events
   WHERE organization_id = v_org_id
-    AND date = v_calendar_date
+    AND date BETWEEN v_calendar_date - 2 AND v_calendar_date + 2
     AND store_id = p_selected_store_id
     AND is_cancelled = false
-    AND start_time < p_selected_end_time + INTERVAL '60 minutes'
-    AND end_time > p_selected_start_time - INTERVAL '60 minutes'
+    AND date + start_time < v_calendar_date + p_selected_end_time + CASE WHEN p_selected_end_time < p_selected_start_time THEN interval '1 day' ELSE interval '0 days' END + make_interval(mins => public.resolve_preparation_minutes(v_org_id,NULL,NULL,id))
+    AND date + end_time + CASE WHEN end_time < start_time THEN interval '1 day' ELSE interval '0 days' END > v_calendar_date + p_selected_start_time - make_interval(mins => public.resolve_preparation_minutes(v_org_id,p_selected_store_id,v_reservation.scenario_master_id,NULL))
     AND id != COALESCE(v_existing_event_id, '00000000-0000-0000-0000-000000000000'::UUID)
   FOR UPDATE NOWAIT;
 
@@ -509,4 +495,4 @@ BEGIN
 
   RETURN v_schedule_event_id;
 END;
-$$;
+$function$;

@@ -3,6 +3,10 @@
  * @purpose 多項目のクーポン設定を1ページにまとめる（モーダルだと収まらないため）
  */
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Checkbox } from '@/components/ui/checkbox'
+import { getCouponTargetOptions } from '@/lib/api/couponApi'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,6 +50,8 @@ const defaultFormData: CampaignFormData = {
   max_uses_per_customer: 1,
   target_type: 'all',
   target_ids: null,
+  target_store_ids: null,
+  same_scenario_once: true,
   trigger_type: 'manual',
   valid_from: null,
   valid_until: null,
@@ -70,6 +76,9 @@ const defaultFormData: CampaignFormData = {
 }
 
 export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) {
+  const { user } = useAuth()
+  const targets = useQuery({ queryKey: ['coupon-target-options', user?.id], queryFn: getCouponTargetOptions })
+  const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [usageMode, setUsageMode] = useState<'relative' | 'months' | 'absolute'>('relative')
   const [formData, setFormData] = useState<CampaignFormData>(defaultFormData)
@@ -86,6 +95,8 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         max_uses_per_customer: campaign.max_uses_per_customer,
         target_type: campaign.target_type,
         target_ids: campaign.target_ids || null,
+        target_store_ids: campaign.target_store_ids || null,
+        same_scenario_once: campaign.same_scenario_once ?? true,
         trigger_type: campaign.trigger_type,
         valid_from: campaign.valid_from ? campaign.valid_from.slice(0, 10) : null,
         valid_until: campaign.valid_until ? campaign.valid_until.slice(0, 10) : null,
@@ -116,6 +127,11 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError(null)
+    if (formData.target_type !== 'all' && !formData.target_ids?.length) {
+      setFormError('対象シナリオを1件以上選択してください')
+      return
+    }
     setIsSubmitting(true)
     try {
       const submitData: CampaignFormData = {
@@ -155,7 +171,7 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
   const isEdit = !!campaign
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl mx-auto pb-12">
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-3xl pb-12">
       {/* ヘッダー */}
       <div className="flex items-center justify-between gap-2 sticky top-0 z-10 bg-background py-3 -mx-3 px-3 border-b">
         <div className="flex items-center gap-2">
@@ -178,6 +194,8 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
         </div>
       </div>
 
+      <p className="text-muted-foreground">クーポンはこの組織内で利用できます。利用条件の変更は変更後に配布する分へ適用し、配布済みの条件・期限は保持します。配布の停止と、配布済みクーポンの取消は別の操作です。</p>
+      <p className="text-muted-foreground">公演でクーポンを受け付けるかは、設定の運用項目で組織共通 → 店舗 → シナリオ → 公演の順に上書きできます。予約成立時の受付設定を保持します。</p>
       {/* ① 基本 */}
       <Card>
         <CardHeader>
@@ -435,17 +453,47 @@ export function CampaignEdit({ campaign, onSave, onCancel }: CampaignEditProps) 
             <Label>対象範囲</Label>
             <Select value={formData.target_type}
               onValueChange={(v: 'all' | 'specific_scenarios' | 'specific_organization') =>
-                setFormData(p => ({ ...p, target_type: v }))}>
+                setFormData(p => ({ ...p, target_type: v, target_ids: v === 'specific_organization' ? [targets.data!.organization_id] : null }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全予約対象</SelectItem>
-                <SelectItem value="specific_organization">特定組織のみ</SelectItem>
+                <SelectItem value="all">自組織の全シナリオ</SelectItem>
+                <SelectItem value="specific_organization" disabled={!targets.data}>自組織のみ（旧設定）</SelectItem>
                 <SelectItem value="specific_scenarios">特定シナリオのみ</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              特定対象を指定する場合、対象 ID 一覧は今後の UI 拡張で編集できる予定
-            </p>
+            {targets.isPending && <p>対象一覧を読み込んでいます…</p>}
+            {targets.isError && <div role="alert">対象一覧を取得できません。<Button type="button" variant="outline" onClick={() => targets.refetch()}>再読み込み</Button></div>}
+            {formData.target_type === 'specific_scenarios' && <div className="space-y-2 max-h-64 overflow-y-auto">
+              {targets.data?.scenarios.map(scenario => (
+                <label key={scenario.id} className="flex items-center gap-2">
+                  <Checkbox checked={(formData.target_ids ?? []).some(id => id === scenario.id || id === scenario.scenario_master_id)}
+                    onCheckedChange={checked => setFormData(p => ({ ...p, target_ids: checked
+                      ? [...(p.target_ids ?? []).filter(id => id !== scenario.id && id !== scenario.scenario_master_id), scenario.id]
+                      : (p.target_ids ?? []).filter(id => id !== scenario.id && id !== scenario.scenario_master_id) }))} />
+                  {scenario.scenario_masters?.title ?? '名称未設定のシナリオ'}
+                </label>
+              ))}
+            </div>}
+            <Label>対象店舗</Label>
+            <p className="text-muted-foreground">未選択なら自組織の全店舗で利用できます。</p>
+            <div className="flex flex-wrap gap-4">
+              {targets.data?.stores.map(store => (
+                <label key={store.id} className="flex items-center gap-2">
+                  <Checkbox checked={(formData.target_store_ids ?? []).includes(store.id)}
+                    onCheckedChange={checked => setFormData(p => ({ ...p, target_store_ids: checked
+                      ? [...(p.target_store_ids ?? []), store.id]
+                      : (p.target_store_ids ?? []).filter(id => id !== store.id) }))} />
+                  {store.name}
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="same_scenario_once">同じ作品では別の予約に繰り返し使わない</Label>
+              <Switch id="same_scenario_once" checked={formData.same_scenario_once ?? true}
+                onCheckedChange={checked => setFormData(p => ({ ...p, same_scenario_once: checked }))} />
+            </div>
+            <p className="text-muted-foreground">オンの場合、他のクーポンも含め過去に利用した作品には使えません。同じ予約内の複数枚利用は「併用可」の設定に従います。</p>
+            {formError && <p role="alert">{formError}</p>}
           </div>
         </CardContent>
       </Card>

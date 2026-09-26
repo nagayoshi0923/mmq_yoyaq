@@ -1,24 +1,9 @@
--- 正規ソース: create_private_booking_request
--- 最終更新: 20260909190000_restore_private_booking_acceptance_guard.sql
--- このファイルと migrations 内の最新定義は常に同内容に保つこと
-
-CREATE OR REPLACE FUNCTION create_private_booking_request(
-  p_scenario_id UUID,
-  p_customer_id UUID,
-  p_customer_name TEXT,
-  p_customer_email TEXT,
-  p_customer_phone TEXT,
-  p_participant_count INTEGER,
-  p_candidate_datetimes JSONB,
-  p_notes TEXT DEFAULT NULL,
-  p_reservation_number TEXT DEFAULT NULL,
-  p_private_group_id UUID DEFAULT NULL
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_scenario_title TEXT;
   v_duration INTEGER;
@@ -535,10 +520,10 @@ BEGIN
         FROM schedule_events event
         WHERE event.organization_id = v_org_id
           AND event.store_id = v_store_uuid
-          AND event.date = v_cand_date
+          AND event.date BETWEEN v_cand_date - 2 AND v_cand_date + 2
           AND event.is_cancelled = false
-          AND event.start_time < v_cand_end + INTERVAL '60 minutes'
-          AND event.end_time > v_cand_start - INTERVAL '60 minutes'
+          AND event.date + event.start_time < v_cand_date + v_cand_end + CASE WHEN v_cand_end < v_cand_start THEN interval '1 day' ELSE interval '0 days' END + make_interval(mins => public.resolve_preparation_minutes(v_org_id,NULL,NULL,event.id))
+          AND event.date + event.end_time + CASE WHEN event.end_time < event.start_time THEN interval '1 day' ELSE interval '0 days' END > v_cand_date + v_cand_start - make_interval(mins => public.resolve_preparation_minutes(v_org_id,v_store_uuid,COALESCE(v_scenario_master_id,p_scenario_id),NULL))
       ) THEN
         CONTINUE;
       END IF;
@@ -666,4 +651,4 @@ BEGIN
 
   RETURN v_reservation_id;
 END;
-$$;
+$function$;

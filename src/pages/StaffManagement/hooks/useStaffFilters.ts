@@ -36,7 +36,8 @@ export function useStaffFilters({ staff, searchTerm, statusFilter }: UseStaffFil
       all: staff.length,
       active: staff.filter(s => s.status === 'active').length,
       inactive: staff.filter(s => s.status === 'inactive').length,
-      'on-leave': staff.filter(s => s.status === 'on-leave').length
+      'on-leave': staff.filter(s => s.status === 'on-leave').length,
+      resigned: staff.filter(s => s.status === 'resigned').length
     }
   }, [staff])
 

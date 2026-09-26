@@ -25,6 +25,7 @@
     "db:check": "node scripts/check_schema.js",
     "db:reset": "npx supabase db reset --linked",
     "db:diff": "npx supabase db diff --schema public",
+    "test:coupon-rules-db": "node scripts/test-coupon-rules-db.mjs",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
@@ -53,7 +54,10 @@
     "functions:deploy:prod": "npx supabase functions deploy --project-ref cznpcewciwywcqcxktba",
     "deploy:staging": "npm run db:push:staging && npm run functions:deploy:staging",
     "deploy:prod": "npm run db:push:prod && npm run functions:deploy:prod",
-    "test:gm-assignment-db": "node scripts/test-gm-assignment-sync-db.mjs && node scripts/test-gm-assignment-operations-db.mjs"
+    "test:gm-assignment-db": "node scripts/test-gm-assignment-sync-db.mjs && node scripts/test-gm-assignment-operations-db.mjs",
+    "test:organization-signup-db": "node scripts/test-organization-signup-db.mjs",
+    "test:guest-pin-db": "node scripts/test-guest-pin-security-db.mjs && node scripts/test-private-group-access-db.mjs && node --test scripts/guest-pin-email-boundary.test.mjs && node scripts/test-private-group-create-db.mjs && node scripts/test-private-booking-delete-db.mjs",
+    "test:staff-account-db": "node scripts/test-staff-account-lifecycle-db.mjs && node --test scripts/invite-staff-boundary.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

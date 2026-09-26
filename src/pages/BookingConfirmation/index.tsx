@@ -20,7 +20,8 @@ import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingS
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
 import { BookingDeadlineNotice } from '@/components/BookingDeadlineNotice'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
-import type { CustomerCoupon } from '@/types'
+import { BookingCouponSelector } from './components/BookingCouponSelector'
+import { useBookingCoupon } from './hooks/useBookingCoupon'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
@@ -68,25 +69,20 @@ export function BookingConfirmation({
     }
   }, [duplicateWarning.show])
 
-  // クーポン関連のstate（未実装: 将来のための placeholder）
-  const availableCoupons: CustomerCoupon[] = []
-  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
-
   // 支払い方法設定
   const { data: paymentSettings } = useQuery({
-    queryKey: ['booking-payment-settings', storeId],
-    enabled: !!storeId,
+    queryKey: ['booking-payment-settings', organizationSlug, eventId],
+    enabled: !!organizationSlug && !!eventId,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('reservation_settings')
-        .select('payment_method_label, payment_method_description')
-        .eq('store_id', storeId!)
-        .maybeSingle()
-      return data
+      const { data, error } = await supabase.rpc('get_public_payment_settings', {
+        p_organization_slug: organizationSlug!, p_event_id: eventId,
+      })
+      if (error) throw error
+      return data?.[0] ?? null
     },
   })
-  const paymentMethodLabel = paymentSettings?.payment_method_label || '現地決済'
-  const paymentMethodDescription = paymentSettings?.payment_method_description || 'ご来店時にお支払いください'
+  const paymentMethodLabel = paymentSettings?.payment_method_label ?? '現地決済'
+  const paymentMethodDescription = paymentSettings?.payment_method_description ?? 'ご来店時にお支払いください'
 
   // キャンセル待ち用のstate
   const [waitlistMode, setWaitlistMode] = useState(false)
@@ -156,15 +152,8 @@ export function BookingConfirmation({
     organizationSlug
   })
 
-  // 選択中のクーポン情報
-  const selectedCoupon = availableCoupons.find(c => c.id === selectedCouponId)
-  const couponDiscountRaw = selectedCoupon?.coupon_campaigns?.discount_type === 'fixed'
-    ? selectedCoupon.coupon_campaigns.discount_amount
-    : selectedCoupon?.coupon_campaigns?.discount_type === 'percentage'
-      ? Math.round((participationFee * participantCount) * (selectedCoupon.coupon_campaigns?.discount_amount || 0) / 100)
-      : 0
-  // 割引額は合計金額を超えない
-  const couponDiscount = Math.min(couponDiscountRaw, participationFee * participantCount)
+  const couponState = useBookingCoupon(user?.id, eventId, participantCount)
+  const { selectedCouponId, selectedCoupon, couponPreview, couponReady, couponDiscount } = couponState
 
   // 予約成功後の自動遷移は削除（ユーザーが確認できるよう手動遷移に変更）
   // ユーザーは「戻る」ボタンまたはナビゲーションで遷移する
@@ -172,6 +161,7 @@ export function BookingConfirmation({
   // 予約送信ハンドラ
   const onSubmit = async () => {
     setError(null)
+    if (!couponReady) { setError('クーポンの確認完了を待つか、選択を解除してください'); return }
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
@@ -198,6 +188,7 @@ export function BookingConfirmation({
       await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes, customerNickname, selectedCouponId)
       // 成功画面表示後にuseEffectで自動遷移を処理
     } catch (error: any) {
+      couponState.resetAfterFailure()
       setError(error.message || '予約処理中にエラーが発生しました')
     } finally {
       setPendingSubmit(false)
@@ -339,6 +330,7 @@ export function BookingConfirmation({
           body: {
             organizationId: eventData.organization_id,
             storeId: eventData.store_id,
+            scheduleEventId: eventId,
             customerName,
             customerEmail,
             scenarioTitle,
@@ -492,7 +484,7 @@ export function BookingConfirmation({
     )
   }
 
-  const totalPrice = participationFee * participantCount
+  const totalPrice = selectedCouponId && couponReady ? couponPreview.data!.total_price : participationFee * participantCount
 
   return (
     <div className="booking-shell min-h-screen bg-background overflow-x-clip">
@@ -715,7 +707,7 @@ export function BookingConfirmation({
                     <div className="flex justify-between items-center">
                       <span className="ts-muted">合計</span>
                       <span className="text-base font-bold text-primary">
-                        ¥{formatPrice(Math.max(0, totalPrice - (selectedCoupon ? couponDiscount : 0)))}
+                        ¥{formatPrice(selectedCouponId && couponReady ? couponPreview.data!.final_price : totalPrice)}
                       </span>
                     </div>
                     {selectedCoupon && couponDiscount > 0 && (
@@ -728,8 +720,7 @@ export function BookingConfirmation({
               </Card>
             </div>
 
-            {/* クーポン選択 - 一時的に無効化 */}
-            {/* TODO: クーポン機能を再度有効にする場合はコメントを解除 */}
+            {user && <BookingCouponSelector state={couponState} disabled={isSubmitting} />}
 
             {/* お支払い方法 */}
             <div>
@@ -749,6 +740,7 @@ export function BookingConfirmation({
 
             {/* 注意事項（DBから取得） */}
             <BookingNotice
+              eventId={eventId}
               mode="schedule"
               storeId={storeId}
               organizationSlug={organizationSlug}
@@ -765,6 +757,7 @@ export function BookingConfirmation({
                       中止判定の条件・タイミング・連絡方法は、選択店舗の最新ポリシーをご確認ください。
                     </p>
                     <CancellationPolicyLink
+                      eventId={eventId}
                       organizationSlug={organizationSlug}
                       storeId={storeId}
                       className="inline-flex items-center gap-1 text-amber-900 underline mt-1"
@@ -862,7 +855,7 @@ export function BookingConfirmation({
             ) : (
               <Button
                 onClick={onSubmit}
-                disabled={isSubmitting || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
+                disabled={isSubmitting || !couponReady || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
                 className="w-full h-9 text-sm"
               >
                 {isSubmitting ? '予約処理中...' : (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) ? '重複のため予約不可' : '予約を確定する'}

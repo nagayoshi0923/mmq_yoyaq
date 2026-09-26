@@ -282,7 +282,7 @@ export function SalarySettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="報酬"
         description="GM報酬の計算方法を設定します"
