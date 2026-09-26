@@ -5,7 +5,8 @@ const notice = { id:'n',organization_id:'org',schedule_event_id:'e',reservation_
 function setup(overrides: Record<string, unknown> = {}) {
   const rows: Record<string,unknown> = {
     performance_recruitment_deadlines:{status:'active',cycle:2,deadline:'2026-09-27T11:00:00Z'},
-    reservations:{status:'confirmed'},
+    reservations:{status:'confirmed',schedule_event_id:'e'},
+    schedule_events:{is_cancelled:false},
     performance_recruitment_notices:{status:'sending',cycle:2,withdrawn_at:null,sent_at:null,attempts:1,lease_until:notice.lease_until},
     ...overrides,
   }
@@ -20,11 +21,11 @@ describe('追加募集の送信直前確認',()=>{
   it('sendingの未送信案内を回答RPCや書込なしで送信対象にする',async()=>{
     const {db,filters}=setup()
     expect(await isRecruitmentExtensionCurrent(db,notice,now)).toBe(true)
-    expect(filters.filter(([,key])=>key==='organization_id')).toHaveLength(3)
+    expect(filters.filter(([,key])=>key==='organization_id')).toHaveLength(4)
     expect(filters.every(([,key,value])=>key!=='organization_id'||value==='org')).toBe(true)
   })
   it.each(['cancelled','checked_in'])('予約が%sなら送らない',async(status)=>{
-    expect(await isRecruitmentExtensionCurrent(setup({reservations:{status}}).db,notice,now)).toBe(false)
+    expect(await isRecruitmentExtensionCurrent(setup({reservations:{status,schedule_event_id:'e'}}).db,notice,now)).toBe(false)
   })
   it.each([
     {status:'confirmed',cycle:2,deadline:'2026-09-27T11:00:00Z'},
@@ -36,6 +37,9 @@ describe('追加募集の送信直前確認',()=>{
   it.each([{withdrawn_at:'2026-09-27T10:00:00Z'},{sent_at:'2026-09-27T10:00:00Z'},{status:'expired'},{attempts:2},{lease_until:'2026-09-27T10:06:00Z'}])('取得後の辞退・送信・リース変更を反映する',async(change)=>{
     const {db,rows}=setup();rows.performance_recruitment_notices={...(rows.performance_recruitment_notices as object),...change}
     expect(await isRecruitmentExtensionCurrent(db,notice,now)).toBe(false)
+  })
+  it.each([{reservations:{status:'confirmed',schedule_event_id:'other'}},{schedule_events:{is_cancelled:true}},{schedule_events:null}])('振替・中止・公演削除後は送らない',async(change)=>{
+    expect(await isRecruitmentExtensionCurrent(setup(change).db,notice,now)).toBe(false)
   })
   it('参照先が消えた案内は送らない',async()=>{
     expect(await isRecruitmentExtensionCurrent(setup({reservations:null}).db,notice,now)).toBe(false)

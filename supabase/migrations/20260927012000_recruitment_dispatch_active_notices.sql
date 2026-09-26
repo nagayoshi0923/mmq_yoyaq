@@ -1,3 +1,5 @@
+-- 追加募集メールの再試行は現周回・有効期限内だけに限定する。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.dispatch_performance_recruitment_checks()
  RETURNS void
  LANGUAGE plpgsql
@@ -34,3 +36,7 @@ BEGIN
 END;
 $function$
 ;
+
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
