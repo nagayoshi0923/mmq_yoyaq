@@ -776,3 +776,5 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - 中止確定と同一トランザクションで、同じ組織・公演の募集中deadlineをcancelled、未送信の追加募集通知をexpiredへ同期する。送信済み履歴・予約・公演内容を保持する。中止解除で募集を自動再開しない。
 - migration 20260927014000をstaging・本番へ適用し、本番の既存4件を補正。中止公演のactive募集・未送信追加募集通知は各0件。
 - PGliteで既存補正・中止時同期・組織境界・送信履歴保持・中止解除・復元再適用を検証。実stagingでも復元→再適用→ROLLBACK成功。verify成功。全体案件は継続中。
+
+- 追加受入：Supabase内部用serviceキーと外部API旧JWTが異なる環境に対応。`MMQ_LEGACY_SERVICE_ROLE_KEY`へ同一プロジェクト管理APIの既存service_roleキーを設定し、secret metadataのdigestで保存を確認。新規キー発行なし。旧JWTをローテーションした際はこの設定も更新する。名前付き`SUPABASE_SECRET_KEYS`も検証対象。9テスト・Deno check成功。staging実Edgeで正規キーは認証通過後の対象検証403、偽造JWT/不正キーは認証401を確認。
