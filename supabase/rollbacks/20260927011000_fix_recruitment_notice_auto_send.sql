@@ -1,3 +1,4 @@
+BEGIN;
 CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
  RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
  LANGUAGE plpgsql
@@ -182,37 +183,14 @@ BEGIN
       FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
-        SET status = 'pending', lease_until = NULL
-        WHERE performance_recruitment_notices.kind = 'extension'
-          AND performance_recruitment_notices.status = 'expired'
-          AND performance_recruitment_notices.withdrawn_at IS NULL
-          AND performance_recruitment_notices.sent_at IS NULL
-          AND performance_recruitment_notices.attempts < 10;
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
       CONTINUE;
     END IF;
     -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
     IF v_active IS NOT TRUE AND (v_has_decision OR v_prior_confirmed) THEN CONTINUE; END IF;
 
     -- 人数が揃えば即確定。未達でも指定締切前は終端ログ・通知を作らない。
-    IF v_current < v_min AND v_active AND v_deadline > v_now THEN
-      INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
-      SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
-        jsonb_build_object('scenario',v_event.scenario,'date',v_event.date,'start_time',v_event.start_time,
-          'store_name',v_event.store_name,'deadline',v_deadline,
-          'was_confirmed',v_prior_confirmed,'site_url',v_event.customer_site_url,'missing_participants',v_min-v_current),v_cycle
-      FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
-      WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
-        AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
-        SET status = 'pending', lease_until = NULL
-        WHERE performance_recruitment_notices.kind = 'extension'
-          AND performance_recruitment_notices.status = 'expired'
-          AND performance_recruitment_notices.withdrawn_at IS NULL
-          AND performance_recruitment_notices.sent_at IS NULL
-          AND performance_recruitment_notices.attempts < 10;
-      CONTINUE;
-    END IF;
+    IF v_current < v_min AND v_active AND v_deadline > v_now THEN CONTINUE; END IF;
     v_events_checked := v_events_checked + 1;
 
     IF v_current >= v_min THEN
@@ -296,13 +274,38 @@ BEGIN
 END;
 $function$
 ;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) TO service_role;
+CREATE OR REPLACE FUNCTION public.dispatch_performance_recruitment_checks()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE p record; base_url text; cron_key text;
+BEGIN
+ SELECT value INTO base_url FROM app_config WHERE key='supabase_url';
+ SELECT value INTO cron_key FROM app_config WHERE key='trigger_secret';
+ IF base_url IS NULL OR cron_key IS NULL THEN RAISE EXCEPTION '募集判定の接続設定がありません'; END IF;
+ FOR p IN SELECT id AS organization_id FROM organizations pol WHERE is_active
+   AND (EXISTS(SELECT 1 FROM schedule_events e WHERE e.organization_id=pol.id
+     AND NOT e.is_cancelled AND e.category='open'
+     AND (EXISTS(SELECT 1 FROM performance_recruitment_deadlines active_deadline
+       WHERE active_deadline.schedule_event_id=e.id AND active_deadline.organization_id=e.organization_id AND active_deadline.status='active')
+       OR (public.get_performance_judgment_deadline(e.organization_id,e.id) <= now() AND NOT EXISTS(SELECT 1 FROM performance_cancellation_logs l WHERE l.schedule_event_id=e.id AND (l.check_type='four_hours_before' OR l.result='confirmed'))))
+     AND ((e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo'>now()
+       OR EXISTS(SELECT 1 FROM performance_recruitment_deadlines d WHERE d.schedule_event_id=e.id AND d.status='active')))
+     OR EXISTS(SELECT 1 FROM performance_recruitment_notices n WHERE n.organization_id=pol.id
+       AND n.kind<>'extension' AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day')
+     OR EXISTS(SELECT 1 FROM recruitment_x_posts x WHERE x.organization_id=pol.id AND x.status IN ('pending','failed','sending') AND x.attempts<10 AND x.created_at>now()-interval '1 day'))
+ LOOP
+   PERFORM net.http_post(url:=rtrim(base_url,'/')||'/functions/v1/check-performance-cancellation',
+     headers:=jsonb_build_object('Content-Type','application/json','x-recruitment-cron-secret',cron_key),
+     body:=jsonb_build_object('check_type','recruitment_deadline','organization_id',p.organization_id), timeout_milliseconds:=30000);
+ END LOOP;
+END;
+$function$
+;
 
-CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
-RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
-LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
- SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
-$$;
-REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines() TO service_role;
+
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;

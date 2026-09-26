@@ -734,3 +734,12 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 確定失敗後に成功済みのプレビューキャッシュを削除する。実useBookingCouponとQueryClientProviderを使い、初回割引成功→失敗リセット→同じクーポン再選択→応答待ちは割引0/確定不可→再検証不許可でも確定不可を確認。旧invalidateQueriesへ戻すと再選択後にcouponReadyがtrueのままとなり、この回帰テストが失敗することも確認した。
 
 最新main535へ統合し701 unit/verify成功。全額割引の0円、3人目以降GM報酬、公演時間480分上限の既存修正テストを保持。DB変更なし。staging/本番画面の配信は次の確認対象。
+
+## QW-20260917-001：追加募集通知の再送整理（2026-09-27、検証中）
+- PR483を最新mainへ統合。DBの現物を取得してmigrationを再生成し、組織・作品の設定継承、開催判断時刻、案内済み締切を保持。
+- extensionもdispatch対象にする。未送信expiredだけを再キューし、snapshot・トークン・試行回数は変更しない。failedの待機、送信済み、辞退済み、上限到達、過去周回を維持。
+- `scripts/test-settings-hierarchy-db.py recruitment-requeue` に一時表だけの回帰を追加。staging実DBの一時表で既存判断継承＋再送境界を実行、ROLLBACK成功。実予約・通知は未操作。711 unit/verify成功。
+- DB・Edgeの適用は未実施。送信前確認と認証の追加テスト、dispatchの確認、rollback/reapply、DB先行適用・Edge配備・本番検収が残る。
+- 追加検証：送信直前の読み取り専用ガード13件、実Deno環境で専用/共通Cronキー・不一致・空白の認証テスト成功。取得後の辞退・送信・リース変更を検査し、送信結果更新も元リースで条件付きにした。
+- 定期dispatchは一時表＋HTTP代替関数で、extensionのみの失敗再試行、試行上限、送信済み、無効組織を確認。rollback→再適用の関数定義一致も実DBトランザクションで確認済み。
+- migration `20260927011000` と対象Edgeをstagingへ適用。724 unit/verify・Edge compile成功。Deno型検査は変更していないsecurity.tsの既存RPC型推論5件で失敗するため、ランタイムテストはno-checkで別途実施（未解決事項として保持）。本番DB/Edgeはまだ未適用。
