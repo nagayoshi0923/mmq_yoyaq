@@ -110,6 +110,33 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
 
   const action = req.query.action as string | undefined
 
+  if (action === 'reservationHistory') {
+    const customerId = req.query.customerId
+    if (typeof customerId !== 'string' || !customerId) {
+      return res.status(400).json({ error: 'customerId が必要です' })
+    }
+    // History is tenant-owned even when the customer profile is shared.
+    // Fetch every page in a stable order; do not return partial history on failure.
+    const rows: Record<string, unknown>[] = []
+    const pageSize = 500
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await db.from('reservations')
+        .select('id, title, requested_datetime, participant_count, final_price, status')
+        .eq('organization_id', orgId)
+        .eq('customer_id', customerId)
+        .order('requested_datetime', { ascending: false })
+        .order('id', { ascending: false })
+        .range(offset, offset + pageSize - 1)
+      if (error) {
+        console.error('[customers:reservationHistory] DB error:', error)
+        return res.status(500).json({ error: '予約履歴を取得できませんでした' })
+      }
+      rows.push(...(data ?? []))
+      if (!data || data.length < pageSize) break
+    }
+    return res.status(200).json(rows)
+  }
+
   if (action === 'listWithStats') {
     const search = (req.query.search as string | undefined)?.trim() || undefined
     const rawPage = Number.parseInt(req.query.page as string, 10)
