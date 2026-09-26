@@ -1,4 +1,5 @@
--- 正本: 20260927013000_private_booking_notification_recipients.sql
+-- 予約とGM回答を組織・作品マスタ・有効な担当者で統一する。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -662,3 +663,8 @@ BEGIN
 END;
 $function$
 ;
+
+
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
