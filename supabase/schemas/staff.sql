@@ -38,3 +38,6 @@ CREATE INDEX idx_staff_user_id ON public.staff USING btree (user_id);
 
 -- Existing production constraint used by Auth bootstrap ON CONFLICT(user_id).
 CREATE UNIQUE INDEX staff_user_id_unique ON public.staff(user_id);
+
+-- GM回答の同組織複合FKが参照するキー。
+CREATE UNIQUE INDEX staff_id_organization_id_key ON public.staff(id, organization_id);

@@ -234,13 +234,17 @@ export function useStoreAndGMManagement() {
   // 利用可能なGMの読み込み（スタッフのavatar_colorと名前も取得）
   const loadAvailableGMs = useCallback(async (reservationId: string) => {
     try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('組織情報を取得できません')
       // まず全てのレスポンスを取得してからフィルタリング（スタッフのavatar_colorと名前も含める）
       const { data: responses, error } = await supabase
         .from('gm_availability_responses')
         .select(
-          'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)'
+          'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id!inner(name, avatar_color)'
         )
         .eq('reservation_id', reservationId)
+        .eq('organization_id', orgId)
+        .eq('staff.organization_id', orgId)
       
       if (error) {
         logger.error('GM可否情報取得エラー:', error)

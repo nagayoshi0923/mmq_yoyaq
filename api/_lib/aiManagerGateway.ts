@@ -116,8 +116,11 @@ export function createAiManagerDirectReadPlan({
   if (operation.directRead === 'staff-scenario-assignments') {
     return Object.freeze({
       table: 'staff_scenario_assignments',
-      select: 'scenario_master_id, staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id,name)',
-      filters: Object.freeze([{ column: 'organization_id', value: organizationId }]),
+      select: 'scenario_master_id, staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id!inner(id,name)',
+      filters: Object.freeze([
+        { column: 'organization_id', value: organizationId },
+        { column: 'staff.organization_id', value: organizationId },
+      ]),
       orderBy: ['staff_id', 'scenario_master_id'],
       pageSize: 1_000,
       maxRows: 50_000,
@@ -126,10 +129,12 @@ export function createAiManagerDirectReadPlan({
   if (operation.directRead === 'gm-availability-responses') {
     return Object.freeze({
       table: 'gm_availability_responses',
-      select: 'reservation_id, staff_id, response_status, available_candidates, selected_candidate_index, responded_at, staff:staff_id(id,name)',
+      select: 'reservation_id, staff_id, response_status, available_candidates, selected_candidate_index, responded_at, staff:staff_id!inner(id,name), reservation:reservation_id!inner(organization_id)',
       filters: Object.freeze([
         { column: 'organization_id', value: organizationId },
         { column: 'reservation_id', value: cleanString(query.reservation_id) },
+        { column: 'staff.organization_id', value: organizationId },
+        { column: 'reservation.organization_id', value: organizationId },
       ]),
       orderBy: ['staff_id'],
       pageSize: 500,

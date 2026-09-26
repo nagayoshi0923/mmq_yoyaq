@@ -29,3 +29,9 @@ CREATE INDEX idx_gm_responses_reservation ON public.gm_availability_responses US
 CREATE INDEX idx_gm_responses_staff ON public.gm_availability_responses USING btree (staff_id);
 CREATE INDEX idx_gm_responses_status ON public.gm_availability_responses USING btree (response_status);
 CREATE INDEX idx_gm_responses_type ON public.gm_availability_responses USING btree (response_type);
+
+-- 旧所属不一致の履歴を保持。スタッフ側は事実確認後にVALIDATEする。
+ALTER TABLE public.gm_availability_responses ADD CONSTRAINT gm_responses_staff_org_fkey
+  FOREIGN KEY (staff_id, organization_id) REFERENCES public.staff(id, organization_id) ON DELETE CASCADE NOT VALID;
+ALTER TABLE public.gm_availability_responses ADD CONSTRAINT gm_responses_reservation_org_fkey
+  FOREIGN KEY (reservation_id, organization_id) REFERENCES public.reservations(id, organization_id) ON DELETE CASCADE;

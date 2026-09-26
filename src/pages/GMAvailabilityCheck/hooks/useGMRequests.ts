@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import * as storeApi from '@/lib/api'
@@ -47,10 +48,13 @@ export const gmRequestKeys = {
 }
 
 async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMRequest[]; staffName: string }> {
+  const orgId = await getCurrentOrganizationId()
+  if (!orgId) throw new Error('組織情報を取得できません')
   const { data: staffData, error: staffError } = await supabase
     .from('staff')
     .select('id, discord_id:discord_user_id, name')
     .eq('user_id', userId)
+    .eq('organization_id', orgId)
     .single()
 
   if (staffError || !staffData) {
@@ -63,6 +67,7 @@ async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMReq
   const { data: responsesData, error: responsesError } = await supabase
     .from('gm_availability_responses')
     .select(`
+      staff:staff_id!inner(id),
       id,
       reservation_id,
       response_status,
@@ -73,7 +78,7 @@ async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMReq
       gm_discord_id,
       gm_name,
       response_datetime,
-      reservations:reservation_id (
+      reservations:reservation_id!inner (
         reservation_number,
         title,
         customer_name,
@@ -88,6 +93,9 @@ async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMReq
         )
       )
     `)
+    .eq('organization_id', orgId)
+    .eq('reservations.organization_id', orgId)
+    .eq('staff.organization_id', orgId)
     .or(`staff_id.eq.${sanitizeForPostgRestFilter(staffId) || staffId}${staffData.discord_id ? `,gm_discord_id.eq.${sanitizeForPostgRestFilter(staffData.discord_id) || staffData.discord_id}` : ''}`)
     .order('response_datetime', { ascending: false })
 
@@ -113,7 +121,9 @@ async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMReq
       chunks.map(chunk =>
         supabase
           .from('gm_availability_responses')
-          .select('reservation_id, response_status, staff_id')
+          .select('reservation_id, response_status, staff_id, staff:staff_id!inner(id)')
+          .eq('organization_id', orgId)
+          .eq('staff.organization_id', orgId)
           .in('reservation_id', chunk)
           .neq('staff_id', staffId)
           .in('response_status', ['available', 'all_unavailable']),
