@@ -1,3 +1,4 @@
+import { getGmResponses } from '@/lib/gmResponseApi'
 import { supabase } from '@/lib/supabase'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 import {
@@ -37,10 +38,7 @@ export async function isReservationReadyForStoreAfterGmResponses(
     requiredGm = resolveStaffProfileGmSlotCount({ gm_count: viewRow?.gm_count })
   }
 
-  const { data: responses } = await supabase
-    .from('gm_availability_responses')
-    .select('staff_id, response_status, available_candidates, responded_at, response_datetime')
-    .eq('reservation_id', reservationId)
+  const responses = await getGmResponses([reservationId])
 
   const rows = (responses || []).filter(shouldIncludeGmResponseRow).filter(isGmMarkedAvailable)
   if (rows.length === 0 || nCand === 0) return false

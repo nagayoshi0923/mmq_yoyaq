@@ -80,3 +80,6 @@ CREATE INDEX idx_reservations_source ON public.reservations USING btree (reserva
 CREATE INDEX idx_reservations_status ON public.reservations USING btree (status);
 
 CREATE TRIGGER enforce_private_reservation_deadline BEFORE INSERT OR UPDATE OF candidate_datetimes,scenario_id,organization_id,reservation_source ON public.reservations FOR EACH ROW EXECUTE FUNCTION public.enforce_private_reservation_deadline();
+
+-- GM回答の同組織複合FKが参照するキー。
+CREATE UNIQUE INDEX reservations_id_organization_id_key ON public.reservations(id, organization_id);

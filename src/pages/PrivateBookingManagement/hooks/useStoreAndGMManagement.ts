@@ -1,3 +1,4 @@
+import { getGmResponses } from '@/lib/gmResponseApi'
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
@@ -234,18 +235,7 @@ export function useStoreAndGMManagement() {
   // 利用可能なGMの読み込み（スタッフのavatar_colorと名前も取得）
   const loadAvailableGMs = useCallback(async (reservationId: string) => {
     try {
-      // まず全てのレスポンスを取得してからフィルタリング（スタッフのavatar_colorと名前も含める）
-      const { data: responses, error } = await supabase
-        .from('gm_availability_responses')
-        .select(
-          'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)'
-        )
-        .eq('reservation_id', reservationId)
-      
-      if (error) {
-        logger.error('GM可否情報取得エラー:', error)
-        throw error
-      }
+      const responses = await getGmResponses([reservationId])
 
       // 回答済み・意思表示がある行のみ（pending かつ未回答は除外）
       const filteredResponses = (responses || []).filter((response: any) =>

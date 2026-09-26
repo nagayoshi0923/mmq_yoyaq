@@ -88,7 +88,9 @@ describe('AI Manager gateway contract', () => {
     expect(plan?.table).toBe('staff_scenario_assignments')
     expect(plan?.filters).toEqual([
       { column: 'organization_id', value: 'org-queens-waltz' },
+      { column: 'staff.organization_id', value: 'org-queens-waltz' },
     ])
+    expect(plan?.select).toContain('staff:staff_id!inner')
     expect(plan?.select).not.toContain('notes')
     expect(plan?.pageSize).toBe(1_000)
     expect(plan?.maxRows).toBe(50_000)
@@ -115,7 +117,10 @@ describe('AI Manager gateway contract', () => {
     expect(plan?.filters).toEqual([
       { column: 'organization_id', value: 'org-queens-waltz' },
       { column: 'reservation_id', value: reservationId },
+      { column: 'staff.organization_id', value: 'org-queens-waltz' },
+      { column: 'reservation.organization_id', value: 'org-queens-waltz' },
     ])
+    expect(plan?.select).toContain('staff:staff_id!inner')
     expect(plan?.select).not.toContain('notes')
     expect(plan?.select).not.toContain('gm_discord_id')
   })

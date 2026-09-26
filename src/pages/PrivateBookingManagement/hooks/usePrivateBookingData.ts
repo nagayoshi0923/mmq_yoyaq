@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { getGmResponses } from '@/lib/gmResponseApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { RESERVATION_SOURCE } from '@/lib/constants'
@@ -201,12 +202,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
       const formattedData: PrivateBookingRequest[] = await Promise.all(
         (data || []).map(async (req: ReservationData) => {
           // GM回答を別途取得（スタッフの名前も含める）
-          const { data: gmResponses } = await supabase
-            .from('gm_availability_responses')
-            .select(
-              'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name)'
-            )
-            .eq('reservation_id', req.id)
+          const gmResponses = await getGmResponses([req.id])
 
           // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
           const transformedGMResponses = sortGmResponsesByReplyTime(
