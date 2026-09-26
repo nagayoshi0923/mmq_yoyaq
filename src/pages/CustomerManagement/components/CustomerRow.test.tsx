@@ -3,22 +3,23 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Customer } from '@/types'
-const mocks = vi.hoisted(() => ({ get: vi.fn() }))
+const mocks = vi.hoisted(() => ({ get: vi.fn(), history: vi.fn() }))
 vi.mock('@/lib/api/couponApi', () => ({ getCustomerCouponUsages: mocks.get }))
 vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn() } }))
 vi.mock('@/components/ui/DevField', () => ({ devDb: () => ({}) }))
 vi.mock('./CustomerPlayedManager', () => ({ CustomerPlayedManager: () => null }))
 vi.mock('./CustomerCouponManager', () => ({ CustomerCouponManager: () => null }))
+vi.mock('@/lib/api/customerApi', () => ({ customerApi: { reservationHistory: mocks.history } }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }) }) } }))
 import { CustomerRow } from './CustomerRow'
 let root: Root, host: HTMLDivElement
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
-  vi.clearAllMocks(); host = document.createElement('div'); document.body.append(host); root = createRoot(host)
+  vi.resetAllMocks(); mocks.get.mockResolvedValue([]); mocks.history.mockResolvedValue([]); host = document.createElement('div'); document.body.append(host); root = createRoot(host)
 })
 afterEach(async () => { await act(async () => root.unmount()); host.remove() })
-async function render() {
-  await act(async () => root.render(<CustomerRow customer={{ id: 'customer', name: '検証顧客' } as Customer} isExpanded onToggleExpand={() => {}} onEdit={() => {}} couponStats={{ total_coupons: 1, used_coupons: 1, remaining_coupons: 1 }} />))
+async function render(id = 'customer') {
+  await act(async () => root.render(<CustomerRow customer={{ id, name: '検証顧客' } as Customer} isExpanded onToggleExpand={() => {}} onEdit={() => {}} couponStats={{ total_coupons: 1, used_coupons: 1, remaining_coupons: 1 }} />))
 }
 it('読込中は履歴なしと表示せず、APIの履歴を表示する', async () => {
   let resolve!: (value: unknown) => void
@@ -40,4 +41,29 @@ it('履歴取得失敗を明示して再試行できる', async () => {
   expect(mocks.get).toHaveBeenCalledTimes(2)
   expect(host.textContent).toContain('使用履歴なし')
   expect(host.querySelector('[role="alert"]')).toBeNull()
+})
+
+it('予約取得失敗を履歴なしとして扱わず再試行する', async () => {
+  mocks.history.mockRejectedValueOnce(new Error('unavailable')).mockResolvedValueOnce([])
+  await render()
+  expect(host.textContent).toContain('予約履歴を取得できませんでした')
+  expect(host.textContent).not.toContain('予約履歴がありません')
+  const retry = host.querySelector('[role="alert"] button') as HTMLButtonElement
+  await act(async () => retry.click())
+  expect(mocks.history).toHaveBeenCalledTimes(2)
+  expect(host.textContent).toContain('予約履歴がありません')
+})
+it('顧客切替後に古い予約・クーポンの応答を表示しない', async () => {
+  let oldHistory!: (value: unknown) => void
+  let oldCoupon!: (value: unknown) => void
+  mocks.history.mockImplementationOnce(() => new Promise(resolve => { oldHistory=resolve })).mockResolvedValueOnce([])
+  mocks.get.mockImplementationOnce(() => new Promise(resolve => { oldCoupon=resolve })).mockResolvedValueOnce([])
+  await render('old'); await render('new')
+  await act(async () => {
+    oldHistory([{ id: 'old', title: '旧組織の履歴', requested_datetime: '2026-09-25T00:00:00Z', participant_count: 1, final_price: 1000, status: 'confirmed' }])
+    oldCoupon([{ id: 'old', used_at: '2026-09-25T00:00:00Z', discount_amount: 1000, reservation: { id: 'old', title: '旧クーポン' } }])
+  })
+  expect(host.textContent).not.toContain('旧組織の履歴')
+  expect(host.textContent).not.toContain('旧クーポン')
+  expect(mocks.history).toHaveBeenLastCalledWith('new')
 })

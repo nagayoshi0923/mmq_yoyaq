@@ -5,7 +5,7 @@
  * org_id はサーバー側で JWT から取得するため、クライアントからは渡さない。
  */
 import { apiClient } from '@/lib/apiClient'
-import type { Customer } from '@/types'
+import type { Customer, Reservation } from '@/types'
 
 // get_org_customers_with_stats RPC が customers の列に加えて返す集計フィールド
 export interface CustomerWithStats extends Customer {
@@ -23,6 +23,8 @@ export interface ListCustomersWithStatsResult {
   totalCount: number
 }
 
+export type CustomerReservationHistory = Pick<Reservation, 'id' | 'title' | 'requested_datetime' | 'participant_count' | 'final_price' | 'status'>
+
 export type CustomerFormInput = Pick<Customer, 'name'> & {
   email: string | null
   phone: string | null
@@ -30,6 +32,9 @@ export type CustomerFormInput = Pick<Customer, 'name'> & {
 }
 
 export const customerApi = {
+  async reservationHistory(customerId: string): Promise<CustomerReservationHistory[]> {
+    return apiClient.get<CustomerReservationHistory[]>(`/api/customers?action=reservationHistory&customerId=${encodeURIComponent(customerId)}`)
+  },
   async create(customer: CustomerFormInput): Promise<Customer> {
     return apiClient.post<Customer>('/api/customers', { customer })
   },

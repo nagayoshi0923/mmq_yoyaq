@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar, Ticket } from 'lucide-react'
-import type { Customer, Reservation } from '@/types'
+import type { Customer } from '@/types'
 import { getCustomerCouponUsages, type CustomerCouponUsageHistory } from '@/lib/api/couponApi'
-import { supabase } from '@/lib/supabase'
+import { customerApi, type CustomerReservationHistory } from '@/lib/api/customerApi'
 import { formatJstYmd, formatJstDateTime } from '@/utils/jstDate'
 import { devDb } from '@/components/ui/DevField'
 import type { CustomerCouponStats } from '../hooks/useCustomerData'
@@ -21,55 +21,59 @@ interface CustomerRowProps {
 }
 
 export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, couponStats }: CustomerRowProps) {
-  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [reservations, setReservations] = useState<CustomerReservationHistory[]>([])
   const [couponUsages, setCouponUsages] = useState<CustomerCouponUsageHistory[]>([])
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [reservationError, setReservationError] = useState(false)
+  const reservationRequest = useRef(0)
+  const couponRequest = useRef(0)
   // 予約履歴の「もっと見る」（初期は最新5件のみ表示）
   const [showAllReservations, setShowAllReservations] = useState(false)
   const RESERVATION_PREVIEW_COUNT = 5
 
-  // 展開時に予約履歴とクーポン使用履歴を取得
-  useEffect(() => {
-    if (isExpanded) {
-      if (reservations.length === 0) {
-        fetchReservations()
-      }
-      fetchCouponUsages()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpanded])
-
-  const fetchReservations = async () => {
+  const fetchReservations = useCallback(async () => {
+    const request = ++reservationRequest.current
     setLoading(true)
+    setReservationError(false)
+    setReservations([])
+    setShowAllReservations(false)
     try {
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('id, organization_id, reservation_number, reservation_page_id, title, scenario_master_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes')
-        .eq('customer_id', customer.id)
-        .order('requested_datetime', { ascending: false })
-
-      if (error) throw error
-      setReservations(data || [])
+      const data = await customerApi.reservationHistory(customer.id)
+      if (request === reservationRequest.current) setReservations(data)
     } catch (error) {
+      if (request === reservationRequest.current) setReservationError(true)
       logger.error('予約履歴の取得エラー:', error)
     } finally {
-      setLoading(false)
+      if (request === reservationRequest.current) setLoading(false)
     }
-  }
+  }, [customer.id])
+
+  useEffect(() => {
+    if (isExpanded) {
+      void fetchReservations()
+      void fetchCouponUsages()
+    }
+    // Ignore responses after switching customer/organization or closing this row.
+    const pendingRequests = [reservationRequest, couponRequest]
+    return () => { pendingRequests.forEach(request => { request.current++ }) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, fetchReservations])
 
   const fetchCouponUsages = async () => {
+    const request = ++couponRequest.current
     setCouponLoading(true)
     setCouponError(false)
     setCouponUsages([])
     try {
-      setCouponUsages(await getCustomerCouponUsages(customer.id))
+      const data = await getCustomerCouponUsages(customer.id)
+      if (request === couponRequest.current) setCouponUsages(data)
     } catch (error) {
-      setCouponError(true)
+      if (request === couponRequest.current) setCouponError(true)
       logger.error('クーポン使用履歴の取得エラー:', error)
     } finally {
-      setCouponLoading(false)
+      if (request === couponRequest.current) setCouponLoading(false)
     }
   }
 
@@ -281,9 +285,14 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
 
           {/* ④ 予約履歴 */}
           <div>
-            <h4 className="mb-2 font-bold text-sm">予約履歴 ({reservations.length}件)</h4>
+            <h4 className="mb-2 font-bold text-sm">予約履歴{!loading && !reservationError && ` (${reservations.length}件)`}</h4>
             {loading ? (
               <div className="text-center py-4 text-xs text-muted-foreground">読み込み中...</div>
+            ) : reservationError ? (
+              <div role="alert" className="py-4 text-xs text-destructive">
+                予約履歴を取得できませんでした
+                <Button variant="ghost" size="sm" onClick={() => void fetchReservations()}>再試行</Button>
+              </div>
             ) : reservations.length === 0 ? (
               <div className="text-center py-4 text-xs text-muted-foreground">予約履歴がありません</div>
             ) : (
