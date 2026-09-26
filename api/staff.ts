@@ -143,7 +143,6 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   }
 
   // user_id を指定する場合、自組織のユーザーかチェック（別組織のユーザーを strap しない）
-  let linkTargetUser: { role: string | null; organization_id: string | null } | null = null
   if (insertRow.user_id) {
     if (typeof insertRow.user_id !== 'string') {
       return res.status(400).json({ error: 'user_id が不正です' })
@@ -163,10 +162,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     if (targetUser.organization_id && targetUser.organization_id !== user.orgId) {
       return res.status(403).json({ error: '他組織のユーザーをスタッフとして登録できません' })
     }
-    linkTargetUser = {
-      role: (targetUser.role as string | null) ?? null,
-      organization_id: (targetUser.organization_id as string | null) ?? null,
-    }
+
   }
 
   // organization_id はサーバー側で強制（フロントからの上書きを許可しない）
@@ -181,19 +177,6 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (error) {
     console.error('[staff:create] DB error:', error)
     return res.status(500).json({ error: 'スタッフの作成に失敗しました', detail: error.message })
-  }
-
-  // ─── user_id 紐付けの副作用: users.role / organization_id を service_role で同期
-  //     クライアント直の users.update は RLS(H-1) により対象ユーザーの org が NULL だと 0 行更新で
-  //     握り潰されるため、service_role を持つサーバー側でここで同期する。
-  if (typeof insertRow.user_id === 'string' && linkTargetUser) {
-    await syncUserOnStaffLink(
-      database,
-      user.orgId,
-      insertRow.user_id,
-      linkTargetUser.role,
-      linkTargetUser.organization_id,
-    )
   }
 
   return res.status(201).json(data)
@@ -225,6 +208,26 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
 
   const body = (req.body ?? {}) as Record<string, unknown>
 
+  if (action === 'linkAccount') {
+    requireAdmin(user)
+    const targetUserId = body.user_id
+    if (targetUserId !== null && (typeof targetUserId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId))) {
+      return res.status(400).json({ error: '連携先アカウントが不正です' })
+    }
+    if (body.email !== undefined && (typeof body.email !== 'string' || body.email.length > 320)) {
+      return res.status(400).json({ error: 'メールアドレスが不正です' })
+    }
+    const { error: linkError } = await database.rpc('admin_link_staff_account', {
+      p_actor_id: user.userId, p_staff_id: id, p_user_id: targetUserId, p_email: body.email ?? null,
+    })
+    if (linkError) {
+      console.error('[staff:linkAccount] transaction failed:', linkError)
+      return res.status(linkError.code === '42501' ? 403 : linkError.code === '23505' ? 409 : 500)
+        .json({ error: 'アカウント連携を保存できませんでした。変更は反映されていません。' })
+    }
+    return res.status(200).json({ id })
+  }
+
   // ─── action=updateSpecialScenarios（廃止。正本は /api/assignments）
   if (action === 'updateSpecialScenarios') {
     return res.status(410).json({
@@ -236,17 +239,13 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   const renameMap: Record<string, string> = { discord_id: 'discord_user_id' }
   const updateRow = pickFields(body, STAFF_UPDATABLE_FIELDS, renameMap)
 
-  // role 変更は admin のみ
-  if ('role' in updateRow) {
+  // role / 利用状態の変更は admin のみ
+  if ('role' in updateRow || 'status' in updateRow) {
     requireAdmin(user)
   }
 
   // ─── user_id（アカウント紐付け/解除）は権限操作として個別に処理する
   //     Mass Assignment 防止のため updatable whitelist には含めず、ここで明示的に検証・付与する。
-  let linkChange:
-    | { kind: 'link'; targetUserId: string; targetRole: string | null; targetOrg: string | null }
-    | { kind: 'unlink'; targetUserId: string }
-    | null = null
   if ('user_id' in body) {
     const rawUserId = body.user_id
     const newUserId = typeof rawUserId === 'string' && rawUserId.length > 0 ? rawUserId : null
@@ -271,14 +270,6 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
         if (targetUser.organization_id && targetUser.organization_id !== user.orgId) {
           return res.status(403).json({ error: '他組織のユーザーをスタッフとして登録できません' })
         }
-        linkChange = {
-          kind: 'link',
-          targetUserId: newUserId,
-          targetRole: (targetUser.role as string | null) ?? null,
-          targetOrg: (targetUser.organization_id as string | null) ?? null,
-        }
-      } else {
-        linkChange = { kind: 'unlink', targetUserId: oldUserId as string }
       }
       // staff.user_id 自体の更新を反映（whitelist 外なので明示的に付与）
       updateRow.user_id = newUserId
@@ -307,26 +298,6 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   const oldName = existing.name as string | null
   if (newName && oldName && newName !== oldName) {
     await syncRenamedStaffReferences(database, user.orgId, oldName, newName)
-  }
-
-  // ─── role 変更時の副作用: users.role の同期
-  if ('role' in updateRow && existing.user_id) {
-    await syncStaffRoleToUser(database, existing.user_id as string, updateRow.role)
-  }
-
-  // ─── user_id 紐付け/解除の副作用: users.role / organization_id を service_role で同期
-  //     クライアント直の users.update は RLS(H-1) により対象ユーザーの org が NULL だと 0 行更新で
-  //     握り潰されるため、service_role を持つサーバー側でここで同期する。
-  if (linkChange?.kind === 'link') {
-    await syncUserOnStaffLink(
-      database,
-      user.orgId,
-      linkChange.targetUserId,
-      linkChange.targetRole,
-      linkChange.targetOrg,
-    )
-  } else if (linkChange?.kind === 'unlink') {
-    await syncUserOnStaffUnlink(database, linkChange.targetUserId)
   }
 
   return res.status(200).json(data)
@@ -449,79 +420,5 @@ async function syncRenamedStaffReferences(
     }
   } catch (e) {
     console.warn('[staff:syncRenamed] reservations sync warn:', e)
-  }
-}
-
-async function syncStaffRoleToUser(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
-  userId: string,
-  role: unknown,
-) {
-  const roles = Array.isArray(role) ? role : [role]
-  const isAdmin = roles.some((r) => r === 'admin' || r === '管理者')
-  const userRole = isAdmin ? 'admin' : 'staff'
-
-  try {
-    const { data: existingUser } = await database
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .maybeSingle()
-    // 既存が admin で、更新後が staff なら降格しない
-    if (existingUser?.role === 'admin' && userRole === 'staff') return
-    await database
-      .from('users')
-      .update({ role: userRole, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-  } catch (e) {
-    console.warn('[staff:syncRole] users.role sync warn:', e)
-  }
-}
-
-// アカウント紐付け時: 対象ユーザーを staff 権限に昇格し、organization_id が未設定なら自組織を付与する。
-// admin / license_admin は権限を降格させない。service_role（database）で実行するため RLS を経由しない。
-async function syncUserOnStaffLink(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
-  orgId: string,
-  userId: string,
-  currentRole: string | null,
-  currentOrg: string | null,
-) {
-  const isPrivileged = currentRole === 'admin' || currentRole === 'license_admin'
-  const patch: Record<string, unknown> = {}
-  if (!isPrivileged) patch.role = 'staff'
-  if (!currentOrg) patch.organization_id = orgId
-  if (Object.keys(patch).length === 0) return
-  patch.updated_at = new Date().toISOString()
-  try {
-    await database.from('users').update(patch).eq('id', userId)
-  } catch (e) {
-    console.error('[staff:linkUser] users.role/org sync error:', e)
-  }
-}
-
-// アカウント連携解除時: 対象ユーザーの role が admin / license_admin でなければ customer に戻す。
-// service_role（database）で実行するため RLS を経由しない。
-async function syncUserOnStaffUnlink(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
-  userId: string,
-) {
-  try {
-    const { data: targetUser } = await database
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .maybeSingle()
-    if (!targetUser) return
-    if (targetUser.role === 'admin' || targetUser.role === 'license_admin') return
-    await database
-      .from('users')
-      .update({ role: 'customer', updated_at: new Date().toISOString() })
-      .eq('id', userId)
-  } catch (e) {
-    console.error('[staff:unlinkUser] users.role sync error:', e)
   }
 }
