@@ -16,7 +16,7 @@ CREATE TABLE public.staff (
   availability TEXT[] DEFAULT '{}'::text[],
   experience INTEGER DEFAULT 0,
   special_scenarios TEXT[] DEFAULT '{}'::text[],
-  status TEXT NOT NULL DEFAULT 'active'::text,
+  status TEXT NOT NULL DEFAULT 'active'::text CONSTRAINT staff_status_check CHECK(status IN ('active','inactive','on-leave','resigned')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   avatar_url TEXT,
@@ -35,3 +35,6 @@ CREATE INDEX idx_staff_discord_user_id ON public.staff USING btree (discord_user
 CREATE INDEX idx_staff_organization_id ON public.staff USING btree (organization_id);
 CREATE INDEX idx_staff_status ON public.staff USING btree (status);
 CREATE INDEX idx_staff_user_id ON public.staff USING btree (user_id);
+
+-- Existing production constraint used by Auth bootstrap ON CONFLICT(user_id).
+CREATE UNIQUE INDEX staff_user_id_unique ON public.staff(user_id);

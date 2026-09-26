@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { assignmentSnapshot, type AssignmentSnapshot } from '@/lib/staffAssignmentEdit'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { ApiClientError } from '@/lib/apiClient'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
@@ -77,6 +78,11 @@ interface Assignment {
 
 export function StaffProfile() {
   const { user } = useAuth()
+  return <StaffProfileContent key={user?.id ?? 'signed-out'} />
+}
+
+function StaffProfileContent() {
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [staffId, setStaffId] = useState<string | null>(null)
   const [staffName, setStaffName] = useState<string>('')
@@ -84,6 +90,8 @@ export function StaffProfile() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const saveInFlight = useRef(false)
+  const [assignmentBaseline, setAssignmentBaseline] = useState<AssignmentSnapshot[] | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [isClearAllConfirmOpen, setIsClearAllConfirmOpen] = useState(false)
   // 減少ガード（YOYAQ-011）: 409 を受けたときに確認ダイアログを出すための情報
@@ -100,6 +108,7 @@ export function StaffProfile() {
 
       try {
         setLoading(true)
+        setAssignmentBaseline(null)
 
         // ユーザーに紐づくスタッフを取得
         const { data: staffData, error: staffError } = await supabase
@@ -143,6 +152,7 @@ export function StaffProfile() {
         setScenarios(scenariosList)
 
         const assignmentsData = await assignmentApi.getAllStaffAssignments(staffData.id)
+        setAssignmentBaseline(assignmentSnapshot(assignmentsData || []))
         setAssignments(
           (assignmentsData || []).map((row) => {
             const r = row as Assignment
@@ -272,7 +282,7 @@ export function StaffProfile() {
   // 保存
   const handleSave = async () => {
     if (!staffId) return
-    if (loading) {
+    if (loading || assignmentBaseline === null) {
       showToast.error('読み込み中です。少し待ってから保存してください')
       return
     }
@@ -287,7 +297,12 @@ export function StaffProfile() {
   }
 
   const runSave = async (confirmClear: boolean) => {
-    if (!staffId) return
+    if (!staffId || saveInFlight.current) return
+    if (assignmentBaseline === null) {
+      showToast.error('担当情報を読み込めていません。開き直してください。')
+      return
+    }
+    saveInFlight.current = true
     try {
       setSaving(true)
 
@@ -306,7 +321,9 @@ export function StaffProfile() {
         is_experienced: a.is_experienced
       }))
 
-      await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId, { confirmClear })
+      await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId, { confirmClear, expectedAssignments: assignmentBaseline })
+
+      setAssignmentBaseline(assignmentSnapshot(assignments))
 
       // NOTE: staff.special_scenarios への同期は廃止
       // staff_scenario_assignments が唯一のデータソース
@@ -338,6 +355,7 @@ export function StaffProfile() {
       logger.error('保存エラー:', error)
       showToast.error('保存に失敗しました')
     } finally {
+      saveInFlight.current = false
       setSaving(false)
     }
   }

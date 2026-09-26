@@ -11,7 +11,7 @@ import { privateGroupTimeSlotFromDb, privateGroupTimeSlotToDb } from '@/lib/priv
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
-import { usePrivateBookingDeadlineDays, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
+import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
 import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
@@ -74,7 +74,7 @@ export function AddCandidateDates({
   const MAX_SELECTIONS = 100
 
   // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
-  const minAdvanceDays = usePrivateBookingDeadlineDays({ organizationId })
+  const { days: minAdvanceDays, loading: deadlineLoading } = usePrivateBookingDeadlineState({ organizationId, scenarioId })
 
   const {
     loading,
@@ -184,7 +184,7 @@ export function AddCandidateDates({
       emptyMonthAutoSkipRef.current = 0
       return
     }
-    if (loading) return
+    if (loading || deadlineLoading) return
 
     if (!wasOpenRef.current) {
       wasOpenRef.current = true
@@ -200,7 +200,7 @@ export function AddCandidateDates({
     if (emptyMonthAutoSkipRef.current >= 24) return
     emptyMonthAutoSkipRef.current += 1
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-  }, [isOpen, loading, availableDates.length, currentMonth, minAdvanceDays])
+  }, [isOpen, loading, deadlineLoading, availableDates.length, currentMonth, minAdvanceDays])
 
   const handleSlotToggle = useCallback((date: string, slot: PrivateBookingSlot) => {
     setSelectedSlots(prev => {
@@ -315,7 +315,7 @@ export function AddCandidateDates({
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: string }).message)
           : '候補日の保存に失敗しました'
-      showToast.error(msg)
+      showToast.error(err && typeof err === 'object' && 'code' in err && err.code === 'P0045' ? '受付締切を過ぎた候補日があります。日程を選び直してください。' : msg)
     } finally {
       setSaving(false)
     }

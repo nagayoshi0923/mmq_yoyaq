@@ -102,9 +102,9 @@ serve(async (req) => {
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || senderName
-    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? replyToEmail ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
     
     // カスタムテンプレートの取得
     const customTemplate = storeEmailSettings?.booking_change_template
@@ -385,8 +385,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     }
     
     // 返信先メールアドレスが設定されている場合は追加
-    if (companyEmail || replyToEmail) {
-      emailPayload.reply_to = companyEmail || replyToEmail
+    if (companyEmail) {
+      emailPayload.reply_to = companyEmail
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {

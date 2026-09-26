@@ -13,7 +13,7 @@ import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 
 // 分離された型定義
-import { calculateParticipationFee } from './utils/pricingUtils'
+import { calculateParticipationFee, calculatePrivateCandidateFees } from './utils/pricingUtils'
 
 // 分離されたフック
 import { useScenarioDetail } from './hooks/useScenarioDetail'
@@ -139,7 +139,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）
-  const privateBookingDeadlineDays = usePrivateBookingDeadlineDays({ organizationId, organizationSlug })
+  const privateBookingDeadlineDays = usePrivateBookingDeadlineDays({ organizationId, organizationSlug, scenarioId: scenario?.scenario_master_id })
   
   // 貸切リクエストロジックフック
   const {
@@ -159,6 +159,10 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive: activeTab === 'private' })
 
+  const privateCandidateFees = useMemo(() => scenario ? calculatePrivateCandidateFees(
+    scenario.participation_fee, scenario.participation_costs, selectedTimeSlots, isCustomHoliday,
+  ) : [], [scenario, selectedTimeSlots, isCustomHoliday])
+
   // 選択されたイベントの日付に応じた参加費を計算
   const calculatedParticipationFee = useMemo(() => {
     if (!scenario) return 0
@@ -171,7 +175,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       scenario.participation_fee,
       scenario.participation_costs,
       eventDate,
-      isCustomHoliday
+      isCustomHoliday,
+      selectedEvent?.start_time
     )
   }, [scenario, selectedEventId, events, isCustomHoliday])
 
@@ -333,6 +338,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         scenarioTitle={scenario.scenario_title}
         scenarioId={scenario.scenario_master_id}
         participationFee={scenario.participation_fee}
+        participationCosts={scenario.participation_costs}
         maxParticipants={scenario.player_count_max}
         scenarioDuration={scenario.duration}
         weekendDuration={scenario.weekend_duration ?? null}
@@ -747,7 +753,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         />
                       )}
                       <PrivateBookingPanel
-                        participationFee={scenario.participation_fee}
+                        participationFee={privateCandidateFees.length ? Math.min(...privateCandidateFees) : scenario.participation_fee}
+                        maxParticipationFee={privateCandidateFees.length ? Math.max(...privateCandidateFees) : undefined}
                         maxParticipants={scenario.player_count_max}
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}

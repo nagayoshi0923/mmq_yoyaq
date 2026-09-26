@@ -58,7 +58,7 @@ export function CancellationBilling() {
     if (apply) await load()
   }
   const active = settings.accounts.find(a => a.id === settings.activeAccountId)
-  return <div className="space-y-6 max-w-4xl mx-auto pb-12">
+  return <div className="space-y-6 max-w-4xl pb-12">
     <PageHeader title="キャンセル料・入金確認" description="予約の受付記録から料金を確認し、freeeの入金明細と照合します。" />
     {message && <p role="status">{message}</p>}
     <Card><CardHeader><CardTitle>振込先と連絡設定（組織共通）</CardTitle></CardHeader><CardContent className="space-y-4">

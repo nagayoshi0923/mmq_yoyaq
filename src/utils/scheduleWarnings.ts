@@ -87,6 +87,14 @@ export function hasKitAtVenueOrGroup(
   return kitStoreIds.some((id) => isSameStoreGroup(storeMap, id, venueId))
 }
 
+/** 配置警告では「良好」のキットだけを使用可能として数える。 */
+export function getUsableKitStoreIds(kitLocations: KitLocation[]): string[] {
+  return Array.from(new Set(kitLocations
+    .filter((loc) => loc.condition === 'good')
+    .map((loc) => loc.store_id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)))
+}
+
 export function computeKitWarningEventIds(
   events: ScheduleEvent[],
   kitLocations: KitLocation[],
@@ -109,9 +117,7 @@ export function computeKitWarningEventIds(
     const targetStoreId = event.store_id || event.venue
     const scenarioId = event.scenario_master_id || event.scenarios?.id
     const scenarioLocations = scenarioId ? locationsByScenario.get(scenarioId) : undefined
-    const kitStoreIds = (scenarioLocations ?? [])
-      .map((loc) => loc.store_id)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    const kitStoreIds = getUsableKitStoreIds(scenarioLocations ?? [])
     // 配置0件でも未配置として警告する（表・モーダル共通）
     if (!hasKitAtVenueOrGroup(kitStoreIds, targetStoreId, stores)) {
       warningIds.add(event.id)

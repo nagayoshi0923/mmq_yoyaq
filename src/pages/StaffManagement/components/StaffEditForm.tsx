@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -8,6 +8,7 @@ import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Link2, Unlink, Trash2, X, Loader2, Copy } from 'lucide-react'
 import type { Staff, Store, Scenario } from '@/types'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { assignmentSnapshot, selectedStaffAssignments, type AssignmentSnapshot, type StaffEditData } from '@/lib/staffAssignmentEdit'
 import { formatJstDateTime } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -93,7 +94,7 @@ interface StaffEditFormProps {
   staff: Staff | null
   stores: Store[]
   scenarios: Scenario[]
-  onSave: (staff: Staff) => void
+  onSave: (staff: StaffEditData) => Promise<boolean | void> | boolean | void
   onCancel: () => void
   onLink?: () => void
   onUnlink?: () => void
@@ -110,8 +111,8 @@ const roleOptions: MultiSelectOption[] = [
 
 const statusOptions = [
   { value: 'active', label: 'アクティブ' },
-  { value: 'inactive', label: '非アクティブ' },
-  { value: 'on_leave', label: '休職中' },
+  { value: 'inactive', label: '利用停止' },
+  { value: 'on-leave', label: '休職中' },
   { value: 'resigned', label: '退職' }
 ]
 
@@ -160,7 +161,26 @@ function sortScenarioIdsByPlayerCount(
   })
 }
 
-export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
+export function StaffEditForm(props: StaffEditFormProps) {
+  return <StaffEditFormContent key={props.staff?.id || 'new'} {...props} />
+}
+
+function StaffEditFormContent({ staff: incomingStaff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
+  const staff = useRef(incomingStaff).current
+  const [baseline, setBaseline] = useState<AssignmentSnapshot[] | null>(staff?.id ? null : [])
+  const [assignmentError, setAssignmentError] = useState(false)
+  const [assignmentsChanged, setAssignmentsChanged] = useState(false)
+  const saveInFlight = useRef(false)
+  useEffect(() => {
+    if (!staff?.id) return
+    let active = true
+    assignmentApi.getAllStaffAssignments(staff.id).then(rows => {
+      if (!active) return
+      setBaseline(assignmentSnapshot(rows))
+      setFormData(current => ({ ...current, special_scenarios: rows.filter(a => a.can_main_gm || a.can_sub_gm).map(a => a.scenario_master_id), experienced_scenarios: rows.filter(a => a.is_experienced).map(a => a.scenario_master_id) }))
+    }).catch(() => { if (active) setAssignmentError(true) })
+    return () => { active = false }
+  }, [staff])
   const [formData, setFormData] = useState<Partial<Staff> & { experienced_scenarios?: string[] }>({
     name: '',
     x_account: '',
@@ -205,6 +225,8 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
 
   // 担当シナリオ変更時：体験済みにも自動追加（担当=体験済み）
   const handleSpecialScenariosChange = (values: string[]) => {
+    if (!baseline) return
+    setAssignmentsChanged(true)
     // 新しく追加されたシナリオを体験済みにも追加
     const currentExperienced = formData.experienced_scenarios || []
     const newExperienced = [...new Set([...currentExperienced, ...values])]
@@ -216,9 +238,23 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleExperiencedChange = (values: string[]) => {
+    if (!baseline) return
+    setAssignmentsChanged(true)
+    setFormData({ ...formData, experienced_scenarios: values })
+  }
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSave(formData as Staff)
+    if (saveInFlight.current || (assignmentsChanged && !baseline)) return
+    saveInFlight.current = true
+    try {
+      const data = { ...formData } as StaffEditData
+      if (assignmentsChanged && baseline) {
+        const masterId = (id: string) => scenarioById.get(id)?.scenario_master_id || id
+        data.assignment_edit = { baseline, records: selectedStaffAssignments(baseline, (formData.special_scenarios || []).map(masterId), (formData.experienced_scenarios || []).map(masterId)) }
+      }
+      await onSave(data)
+    } finally { saveInFlight.current = false }
   }
 
   // シナリオID→本体のマッピング（scenario.idとscenario_master_id両方に対応）
@@ -274,7 +310,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
   }
 
   const scenarioOptions: MultiSelectOption[] = scenarios.map(scenario => ({
-    id: scenario.id,
+    id: scenario.scenario_master_id || scenario.id,
     name: scenario.title,
     displayInfo: `${scenario.player_count_min || 0}-${scenario.player_count_max || 0}人`
   }))
@@ -411,6 +447,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
         )
 
       case 'scenarios':
+        if (!baseline) return <p role="alert">{assignmentError ? '担当を読み込めませんでした。基本情報のみ保存できます。担当編集は開き直してください。' : '担当を読み込み中です…'}</p>
         return (
           <>
             <div className="scenario-edit-card">
@@ -462,7 +499,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
               <MultiSelect
                 options={scenarioOptions}
                 selectedValues={formData.experienced_scenarios || []}
-                onSelectionChange={(values) => setFormData({ ...formData, experienced_scenarios: values })}
+                onSelectionChange={handleExperiencedChange}
                 placeholder="体験済みシナリオを選択"
                 searchPlaceholder="シナリオ名で検索..."
                 emptyText="シナリオがありません"
@@ -479,7 +516,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                       <button
                         type="button"
                         className="ml-0.5 hover:bg-red-100 p-0.5"
-                        onClick={() => setFormData({ ...formData, experienced_scenarios: (formData.experienced_scenarios || []).filter(v => v !== id) })}
+                        onClick={() => handleExperiencedChange((formData.experienced_scenarios || []).filter(v => v !== id))}
                       >
                         <X className="h-2.5 w-2.5" />
                       </button>

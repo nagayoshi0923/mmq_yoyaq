@@ -1,0 +1,367 @@
+-- Execute only as an application rollback before changing the newly introduced common values.
+-- Keep added columns and audit history. Revert the app to the previous release as well.
+CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines()
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+ SELECT * FROM public.check_performances_with_recruitment_deadlines_for_org(NULL);
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_performance_booking_window(p_event_id uuid)
+ RETURNS TABLE(judgment_deadline timestamp with time zone, judgment_status text, booking_deadline timestamp with time zone, effective_booking_deadline timestamp with time zone, override_minutes integer, default_minutes integer, updated_at timestamp with time zone)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+ WITH settings AS (
+  SELECT e.id,e.updated_at,e.booking_cutoff_minutes,
+    (e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo' AS starts_at,
+    COALESCE(os.booking_cutoff_minutes,GREATEST(COALESCE(e.reservation_deadline_hours,0),0)*60) AS default_minutes,
+    d.deadline,d.status,
+    EXISTS(SELECT 1 FROM performance_cancellation_logs l WHERE l.schedule_event_id=e.id AND l.organization_id=e.organization_id AND l.result='confirmed') AS was_confirmed
+  FROM schedule_events e
+  LEFT JOIN LATERAL (
+    SELECT sc.booking_cutoff_minutes FROM organization_scenarios sc
+    WHERE sc.organization_id=e.organization_id AND
+      ((e.organization_scenario_id IS NOT NULL AND sc.id=e.organization_scenario_id)
+       OR (e.organization_scenario_id IS NULL AND sc.scenario_master_id=COALESCE(e.scenario_master_id,e.scenario_id)))
+    LIMIT 1
+  ) os ON true
+  LEFT JOIN performance_recruitment_deadlines d ON d.schedule_event_id=e.id AND d.organization_id=e.organization_id
+  WHERE e.id=p_event_id AND e.category='open' AND NOT e.is_cancelled
+ ), resolved AS (
+  SELECT *,starts_at-make_interval(mins=>COALESCE(booking_cutoff_minutes,default_minutes)) AS cutoff FROM settings
+ )
+ SELECT COALESCE(deadline,starts_at-interval '4 hours'),
+   COALESCE(status,CASE WHEN was_confirmed THEN 'confirmed' ELSE 'pending' END),cutoff,
+   CASE WHEN status='active' THEN deadline ELSE cutoff END,booking_cutoff_minutes,default_minutes,updated_at
+ FROM resolved;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.save_organization_recruitment_settings(p_organization_id uuid, p_actor_id uuid, p_mode text, p_value integer, p_expected_updated_at timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE s organization_recruitment_settings%ROWTYPE; before_value jsonb; after_value jsonb;
+BEGIN
+ IF p_actor_id IS NULL OR recruitment_missing_limit(7,p_mode,p_value) IS NULL THEN RETURN jsonb_build_object('success',false,'error','INVALID_SETTINGS'); END IF;
+ -- 初回作成も直列化し、空の設定に対する同時保存を防ぐ。
+ PERFORM 1 FROM organizations WHERE id=p_organization_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','NOT_FOUND'); END IF;
+ SELECT * INTO s FROM organization_recruitment_settings WHERE organization_id=p_organization_id FOR UPDATE;
+ IF s.updated_at IS DISTINCT FROM p_expected_updated_at THEN RETURN jsonb_build_object('success',false,'error','CONFLICT'); END IF;
+ before_value:=jsonb_build_object('mode',COALESCE(s.mode,'count'),'value',COALESCE(s.value,2));
+ after_value:=jsonb_build_object('mode',p_mode,'value',p_value);
+ IF before_value=after_value AND s.organization_id IS NOT NULL THEN RETURN jsonb_build_object('success',true,'unchanged',true); END IF;
+ INSERT INTO organization_recruitment_settings(organization_id,mode,value) VALUES(p_organization_id,p_mode,p_value)
+ ON CONFLICT(organization_id) DO UPDATE SET mode=excluded.mode,value=excluded.value,updated_at=clock_timestamp();
+ INSERT INTO organization_recruitment_setting_history(organization_id,actor_id,before_settings,after_settings) VALUES(p_organization_id,p_actor_id,before_value,after_value);
+ RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.save_scenario_recruitment_settings_v2(p_organization_id uuid, p_master_id uuid, p_actor_id uuid, p_enabled boolean, p_source text, p_mode text, p_value integer, p_deadline_minutes integer, p_expected_updated_at timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE s organization_scenarios%ROWTYPE; before_value jsonb; after_value jsonb;
+BEGIN
+ IF p_enabled IS NULL OR p_source IS NULL OR p_source NOT IN ('common','custom') OR recruitment_missing_limit(7,p_mode,p_value) IS NULL OR p_deadline_minutes IS NULL OR p_deadline_minutes NOT BETWEEN 1 AND 239 OR p_actor_id IS NULL THEN
+  RETURN jsonb_build_object('success',false,'error','INVALID_SETTINGS');
+ END IF;
+ SELECT * INTO s FROM organization_scenarios WHERE organization_id=p_organization_id AND scenario_master_id=p_master_id FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','NOT_FOUND'); END IF;
+ IF s.updated_at IS DISTINCT FROM p_expected_updated_at THEN RETURN jsonb_build_object('success',false,'error','CONFLICT'); END IF;
+ before_value:=jsonb_build_object('enabled',s.recruitment_extension_enabled,'source',s.recruitment_target_source,'mode',s.recruitment_target_mode,'value',s.recruitment_target_value,'deadline_minutes',s.recruitment_deadline_minutes);
+ after_value:=jsonb_build_object('enabled',p_enabled,'source',p_source,'mode',p_mode,'value',p_value,'deadline_minutes',p_deadline_minutes);
+ IF before_value=after_value THEN RETURN jsonb_build_object('success',true,'unchanged',true); END IF;
+ UPDATE organization_scenarios SET recruitment_extension_enabled=p_enabled,recruitment_target_source=p_source,recruitment_target_mode=p_mode,recruitment_target_value=p_value,
+ recruitment_max_missing=CASE WHEN p_mode='count' THEN p_value ELSE recruitment_max_missing END,
+ recruitment_deadline_minutes=p_deadline_minutes,updated_at=clock_timestamp() WHERE id=s.id AND organization_id=p_organization_id;
+ INSERT INTO scenario_recruitment_setting_history(organization_id,organization_scenario_id,actor_id,before_settings,after_settings) VALUES(p_organization_id,s.id,p_actor_id,before_value,after_value);
+ RETURN jsonb_build_object('success',true);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
+ RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET "TimeZone" TO 'Asia/Tokyo'
+AS $function$
+DECLARE
+  v_events_checked INTEGER := 0;
+  v_events_confirmed INTEGER := 0;
+  v_events_cancelled INTEGER := 0;
+  v_details JSONB := '[]'::JSONB;
+  v_event RECORD;
+  v_current INTEGER;
+  v_reservation_count INTEGER;
+  v_unsynced_staff INTEGER;
+  v_max INTEGER;
+  v_min INTEGER;
+  v_missing_limit INTEGER;
+  v_result TEXT;
+  v_now TIMESTAMPTZ;
+  v_check_time TIMESTAMPTZ;
+  v_deadline timestamptz;
+  v_active boolean;
+  v_has_decision boolean;
+  v_prior_confirmed boolean;
+  v_has_deadline boolean;
+  v_status text;
+  v_cycle integer;
+  v_reopened boolean;
+BEGIN
+  v_now := NOW();
+  v_check_time := v_now + INTERVAL '4 hours';
+
+  FOR v_event IN
+    SELECT
+      se.id,
+      se.date,
+      se.start_time,
+      se.scenario,
+      se.gm_roles,
+      se.is_recruitment_extended,
+      (pol.one_seat_enabled AND COALESCE(os.recruitment_extension_enabled,true)) AS one_seat_enabled,
+      rd.max_missing_participants AS saved_max_missing,
+      CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_mode ELSE COALESCE(common.mode,'count') END AS target_mode,
+      CASE WHEN os.recruitment_target_source='custom' THEN os.recruitment_target_value ELSE COALESCE(common.value,os.recruitment_max_missing,pol.max_missing_participants,2) END AS target_value,
+      COALESCE(os.recruitment_deadline_minutes,90) AS deadline_minutes,
+      pol.customer_site_url,
+      rd.deadline AS recruitment_deadline,
+      rd.status AS recruitment_status,
+      COALESCE(
+        os.override_player_count_max,
+        sm.player_count_max,
+        sm2.player_count_max,
+        se.max_participants,
+        s.player_count_max,
+        8
+      ) AS max_participants,
+      COALESCE(
+        os.override_player_count_min,
+        sm.player_count_min,
+        sm2.player_count_min,
+        s.player_count_min,
+        -- min が一切設定されていない場合のみ旧仕様（定員の過半数）にフォールバック
+        CEIL(COALESCE(
+          os.override_player_count_max,
+          sm.player_count_max,
+          sm2.player_count_max,
+          se.max_participants,
+          s.player_count_max,
+          8
+        )::NUMERIC / 2)::INTEGER
+      ) AS min_participants,
+      se.organization_id,
+      se.gms,
+      se.store_id,
+      st.name AS store_name,
+      (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz AS event_datetime
+    FROM schedule_events se
+    LEFT JOIN performance_recruitment_policies pol ON pol.organization_id=se.organization_id
+    LEFT JOIN organization_recruitment_settings common ON common.organization_id=se.organization_id
+    LEFT JOIN performance_recruitment_deadlines rd ON rd.schedule_event_id = se.id
+      AND rd.organization_id = se.organization_id
+    LEFT JOIN LATERAL (SELECT sc.* FROM organization_scenarios sc WHERE sc.organization_id=se.organization_id AND
+      ((se.organization_scenario_id IS NOT NULL AND sc.id=se.organization_scenario_id) OR
+       (se.organization_scenario_id IS NULL AND sc.scenario_master_id=COALESCE(se.scenario_master_id,se.scenario_id))) LIMIT 1) os ON true
+    LEFT JOIN scenario_masters sm ON os.scenario_master_id = sm.id
+    LEFT JOIN scenario_masters sm2 ON se.scenario_master_id = sm2.id
+    LEFT JOIN scenarios s ON se.scenario_id = s.id
+    LEFT JOIN stores st ON se.store_id = st.id
+    WHERE (p_organization_id IS NULL OR se.organization_id=p_organization_id)
+      AND (se.is_recruitment_extended = TRUE OR (pol.one_seat_enabled AND EXISTS(SELECT 1 FROM performance_cancellation_logs c WHERE c.schedule_event_id=se.id AND c.result='confirmed')))
+      AND se.is_cancelled = FALSE
+      AND se.category = 'open'
+      AND se.scenario IS NOT NULL
+      AND se.scenario != ''
+      AND (se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz <= v_check_time
+      AND ((se.date::text || ' ' || se.start_time::text || '+09:00')::timestamptz > v_now
+        OR rd.status = 'active')
+      AND (rd.status = 'active' OR pol.one_seat_enabled OR NOT EXISTS (
+        SELECT 1 FROM performance_cancellation_logs pcl
+        WHERE pcl.schedule_event_id = se.id
+          AND pcl.check_type = 'four_hours_before'
+      )
+      )
+    ORDER BY se.date, se.start_time
+    FOR UPDATE OF se SKIP LOCKED
+  LOOP
+    -- 公演ロックの取得直前に延長設定が完了した場合も、新しい文のスナップショットで再読込。
+    SELECT deadline, status = 'active', status, cycle INTO v_deadline, v_active, v_status, v_cycle
+      FROM performance_recruitment_deadlines
+      WHERE schedule_event_id = v_event.id AND organization_id = v_event.organization_id;
+    v_has_deadline := FOUND;
+    v_cycle := COALESCE(v_cycle, 1);
+    v_reopened := false;
+    SELECT EXISTS(SELECT 1 FROM performance_cancellation_logs WHERE schedule_event_id=v_event.id AND check_type='four_hours_before'),
+      EXISTS(SELECT 1 FROM performance_cancellation_logs WHERE schedule_event_id=v_event.id AND result='confirmed')
+      INTO v_has_decision, v_prior_confirmed;
+
+    SELECT COALESCE(SUM(r.participant_count), 0) INTO v_reservation_count
+    FROM reservations r
+    WHERE r.schedule_event_id = v_event.id
+      AND r.status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in');
+
+    SELECT COUNT(*) INTO v_unsynced_staff
+    FROM (
+      SELECT key AS staff_name, value AS staff_role
+      FROM jsonb_each_text(COALESCE(v_event.gm_roles, '{}'::jsonb))
+    ) AS gm_staff
+    WHERE gm_staff.staff_role = 'staff'
+      AND NOT EXISTS (
+        SELECT 1 FROM reservations r2
+        WHERE r2.schedule_event_id = v_event.id
+          AND r2.status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in')
+          AND r2.reservation_source = 'staff_entry'
+          AND gm_staff.staff_name = ANY(r2.participant_names)
+      );
+
+    v_current := v_reservation_count + v_unsynced_staff;
+    v_max := v_event.max_participants;
+
+    -- 最低開催人数は 1 以上・定員以下に収める（データ不整合で中止が暴発しないようにする）
+    v_min := GREATEST(COALESCE(v_event.min_participants, 1), 1);
+    IF v_min > v_max THEN
+      v_min := GREATEST(v_max, 1);
+    END IF;
+
+    -- 案内済み条件は固定。未案内だけ最新の共通/個別設定を使う。
+    v_missing_limit := COALESCE(v_event.saved_max_missing, recruitment_missing_limit(v_min,v_event.target_mode,v_event.target_value));
+
+    -- 再確定後の再欠員は同じ案内済み期限で再開。通知と辞退リンクは周回別に保持。
+    IF v_status = 'confirmed'
+      AND v_min-v_current BETWEEN 1 AND v_missing_limit THEN
+      UPDATE performance_recruitment_deadlines SET status='active', cycle=cycle+1,
+        was_confirmed=true, updated_at=now()
+        WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id
+        RETURNING cycle INTO v_cycle;
+      UPDATE schedule_events SET is_recruitment_extended=true, updated_at=now()
+        WHERE id=v_event.id AND organization_id=v_event.organization_id;
+      v_active := true;
+      v_reopened := true;
+      -- 旧周回の未送信通知は新しい状態へ持ち越さない。送信済み履歴は保持する。
+      UPDATE performance_recruitment_notices SET status='expired', lease_until=NULL
+        WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id
+          AND cycle<v_cycle AND kind<>'withdrawn' AND status IN ('pending','failed','sending');
+    END IF;
+
+    -- 社長確認済み: 最低開催人数まであと1〜2人なら、予約の増加履歴によらず90分前まで（組織設定で段階適用）。
+    IF (v_reopened AND v_deadline>v_now) OR (v_event.one_seat_enabled AND NOT v_has_deadline
+      AND v_min-v_current BETWEEN 1 AND v_missing_limit
+      AND v_event.event_datetime - make_interval(mins=>v_event.deadline_minutes) > v_now) THEN
+      IF NOT v_reopened THEN
+      PERFORM set_performance_recruitment_deadline(v_event.organization_id,v_event.id,
+        v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes),format('最低開催人数まであと%s人のため、開始%s分前まで追加募集',v_min-v_current,v_event.deadline_minutes));
+        v_deadline := v_event.event_datetime-make_interval(mins=>v_event.deadline_minutes);
+        UPDATE performance_recruitment_deadlines SET max_missing_participants=v_missing_limit WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id;
+      END IF;
+      INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
+      SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
+        jsonb_build_object('scenario',v_event.scenario,'date',v_event.date,'start_time',v_event.start_time,
+          'store_name',v_event.store_name,'deadline',v_deadline,
+          'was_confirmed',v_prior_confirmed,'site_url',v_event.customer_site_url,'missing_participants',v_min-v_current),v_cycle
+      FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
+      WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
+        AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
+      CONTINUE;
+    END IF;
+    -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
+    IF v_active IS NOT TRUE AND (v_has_decision OR v_event.is_recruitment_extended IS NOT TRUE) THEN CONTINUE; END IF;
+
+    -- 人数が揃えば即確定。未達でも指定締切前は終端ログ・通知を作らない。
+    IF v_current < v_min AND v_active AND v_deadline > v_now THEN CONTINUE; END IF;
+    v_events_checked := v_events_checked + 1;
+
+    IF v_current >= v_min THEN
+      v_result := 'confirmed';
+      v_events_confirmed := v_events_confirmed + 1;
+
+      UPDATE schedule_events
+      SET is_recruitment_extended = FALSE,
+          updated_at = NOW()
+      WHERE id = v_event.id;
+    ELSE
+      v_result := 'cancelled';
+      v_events_cancelled := v_events_cancelled + 1;
+
+      UPDATE schedule_events
+      SET is_cancelled = TRUE,
+          is_recruitment_extended = FALSE,
+          updated_at = NOW()
+      WHERE id = v_event.id;
+    END IF;
+
+    IF v_active THEN
+      -- 最終通知も同じトランザクションで確保。過去の開催決定メールとは別に送る。
+      INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,kind,cycle)
+      SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
+        jsonb_build_object('scenario',v_event.scenario,'date',v_event.date,'start_time',v_event.start_time,
+          'store_name',v_event.store_name,'deadline',v_deadline,'was_confirmed',v_prior_confirmed,'site_url',v_event.customer_site_url),v_result,v_cycle
+      FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
+      WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
+        AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
+      IF v_result='cancelled' THEN
+        UPDATE reservations SET status='cancelled',cancelled_at=now(),updated_at=now(),
+          cancellation_reason='人数未達による公演中止（追加募集期限の判定・キャンセル料0円）'
+          WHERE schedule_event_id=v_event.id AND organization_id=v_event.organization_id AND status IN ('pending','confirmed','gm_confirmed');
+      END IF;
+      UPDATE performance_recruitment_deadlines SET status = v_result, updated_at = now()
+        WHERE schedule_event_id = v_event.id AND organization_id = v_event.organization_id;
+    END IF;
+
+    -- 以前の開催決定を保持する。追加募集の最終結果は期限テーブルにも残る。
+    INSERT INTO performance_cancellation_logs (
+      schedule_event_id,
+      organization_id,
+      check_type,
+      current_participants,
+      max_participants,
+      result
+    ) VALUES (
+      v_event.id,
+      v_event.organization_id,
+      'four_hours_before',
+      v_current,
+      v_max,
+      v_result
+    ) ON CONFLICT (schedule_event_id, check_type) DO NOTHING;
+
+    v_details := v_details || jsonb_build_object(
+      'recruitment_deadline', CASE WHEN v_active THEN v_deadline ELSE NULL END,
+      'event_id', v_event.id,
+      'date', v_event.date,
+      'start_time', v_event.start_time,
+      'scenario', v_event.scenario,
+      'store_name', v_event.store_name,
+      'current_participants', v_current,
+      'max_participants', v_max,
+      'min_required', v_min,
+      -- half_required は旧キーの後方互換（値は min_required と同じ）
+      'half_required', v_min,
+      'result', v_result,
+      'organization_id', v_event.organization_id,
+      'gms', v_event.gms
+    );
+  END LOOP;
+
+  RETURN QUERY SELECT
+    v_events_checked,
+    v_events_confirmed,
+    v_events_cancelled,
+    v_details;
+END;
+$function$;
+

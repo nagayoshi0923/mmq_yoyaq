@@ -144,7 +144,7 @@ export function OrganizationDesignSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title="デザイン設定" description="予約サイトの見た目・ブランド表示を管理します">
         <Button size="sm" onClick={handleSave} disabled={saving || uploading || uploadingFavicon}>
           {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
