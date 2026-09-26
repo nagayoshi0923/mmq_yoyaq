@@ -20,7 +20,8 @@ export async function isReservationReadyForStoreAfterGmResponses(
     .eq('id', reservationId)
     .maybeSingle()
 
-  if (error || !res) return false
+  if (error) throw error
+  if (!res) throw new Error('予約が見つかりません')
 
   const scenarioMasterId = res.scenario_master_id as string | null
   const orgId = res.organization_id as string | null

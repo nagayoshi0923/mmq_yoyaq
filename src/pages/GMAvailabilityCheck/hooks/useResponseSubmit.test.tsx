@@ -41,3 +41,10 @@ it('回答保存自体の失敗を保存済みと案内しない', async()=>{
   expect(mocks.toast).toHaveBeenCalledWith('回答を保存できませんでした。再度お試しください。')
   expect(mocks.refreshed).not.toHaveBeenCalled();expect(mocks.ready).not.toHaveBeenCalled()
 })
+it('通常成功時は予約更新と再取得が走る', async()=>{
+  await act(async()=>state.handleSubmit('response'))
+  expect(mocks.ready).toHaveBeenCalledTimes(1)
+  expect(mocks.rpc).toHaveBeenCalledTimes(1)
+  expect(mocks.refreshed).toHaveBeenCalledTimes(1)
+  expect(mocks.toast).not.toHaveBeenCalled()
+})

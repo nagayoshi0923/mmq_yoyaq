@@ -33,14 +33,25 @@ export const privateBookingKeys = {
   list: (userId: string, userRole: string) => ['private-bookings', userId, userRole] as const,
 }
 
+export type BookingRequestsQueryData = {
+  requests: PrivateBookingRequest[]
+  /** GM回答だけ取得失敗（予約一覧は返す） */
+  gmResponsesError: boolean
+}
+
+const emptyBookingRequestsResult = (): BookingRequestsQueryData => ({
+  requests: [],
+  gmResponsesError: false,
+})
+
 /** 生データ（endTime未計算）を取得する純粋関数 */
 async function fetchRawBookingRequests(
   userId: string,
   userRole: string
-): Promise<PrivateBookingRequest[]> {
+): Promise<BookingRequestsQueryData> {
   if (userId == null || userRole == null) {
     privateBookingTrace('ユーザー情報未確定のため取得をスキップ')
-    return []
+    return emptyBookingRequestsResult()
   }
 
   const isOrgWideAccess = userRole === 'admin' || userRole === 'license_admin'
@@ -73,10 +84,12 @@ async function fetchRawBookingRequests(
   const orgId = await getCurrentOrganizationId()
   if (!orgId) {
     logger.warn('📋 貸切リクエスト: organization_id を取得できません')
-    return []
+    return emptyBookingRequestsResult()
   }
 
-  if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) return []
+  if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) {
+    return emptyBookingRequestsResult()
+  }
 
   let query = supabase
     .from('reservations')
@@ -145,7 +158,13 @@ async function fetchRawBookingRequests(
             .in('scenario_master_id', masterIds)
         : Promise.resolve({ data: [], error: null })
     })(),
-    getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
+    getGmResponses(reservationsList.map((r: any) => r.id)).then(
+      data => ({ data, error: null as Error | null }),
+      (error: unknown) => ({
+        data: [] as any[],
+        error: error instanceof Error ? error : new Error(String(error)),
+      }),
+    ),
     privateGroupIds.length > 0
       ? supabase
           .from('private_group_candidate_dates')
@@ -154,6 +173,10 @@ async function fetchRawBookingRequests(
           .order('date', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
   ])
+
+  if (allGmResponsesResult.error) {
+    logger.error('GM回答の一括取得に失敗:', allGmResponsesResult.error)
+  }
 
   // マップ構築
   const joinedMemberCountByGroupId = new Map<string, number>()
@@ -197,7 +220,7 @@ async function fetchRawBookingRequests(
   }
 
   // 組み立て（endTime計算は呼び出し側で行う）
-  return reservationsList.map((req: any) => {
+  const requests = reservationsList.map((req: any) => {
     const gmResponses = gmResponsesByReservationId.get(req.id) || []
     const transformedGMResponses = sortGmResponsesByReplyTime(
       gmResponses.filter((gm: any) => shouldIncludeGmResponseRow(gm)).map((gm: any) => ({
@@ -269,6 +292,11 @@ async function fetchRawBookingRequests(
       invite_code: req.private_groups?.invite_code || '',
     } as PrivateBookingRequest
   })
+
+  return {
+    requests,
+    gmResponsesError: Boolean(allGmResponsesResult.error),
+  }
 }
 
 export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps) {
@@ -276,7 +304,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
   const queryClient = useQueryClient()
 
   const enabled = userId != null && userRole != null
-  const { data: rawRequests = [], isLoading: loading, isError, refetch } = useQuery<PrivateBookingRequest[]>({
+  const { data, isLoading: loading, isError, refetch } = useQuery<BookingRequestsQueryData>({
     queryKey: enabled ? privateBookingKeys.list(userId!, userRole!) : ['private-bookings-disabled'],
     queryFn: () => fetchRawBookingRequests(userId!, userRole!),
     enabled,
@@ -288,8 +316,11 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     refetchOnMount: 'always',
   })
 
+  const gmResponsesError = data?.gmResponsesError ?? false
+
   // endTime を isCustomHoliday で補正（サーバーデータと分離してキャッシュを壊さない）
   const requests = useMemo<PrivateBookingRequest[]>(() => {
+    const rawRequests = data?.requests ?? []
     return rawRequests.map(req => {
       const candidates = (req.candidate_datetimes?.candidates || []).map((c: any) => ({
         ...c,
@@ -297,7 +328,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
       }))
       return { ...req, candidate_datetimes: { ...req.candidate_datetimes, candidates } }
     })
-  }, [rawRequests, isCustomHoliday])
+  }, [data?.requests, isCustomHoliday])
 
   const loadRequests = useCallback((force = false) => {
     if (!enabled) return
@@ -316,5 +347,13 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     })
   }, [])
 
-  return { requests, loading, isError, retryRequests: refetch, loadRequests, filterByMonth }
+  return {
+    requests,
+    loading,
+    isError,
+    gmResponsesError,
+    retryRequests: refetch,
+    loadRequests,
+    filterByMonth,
+  }
 }

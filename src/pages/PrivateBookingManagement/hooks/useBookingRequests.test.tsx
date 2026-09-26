@@ -19,16 +19,18 @@ let client: QueryClient
 let state: ReturnType<typeof useBookingRequests>
 function Probe() { state = useBookingRequests({ userId: 'user', userRole: 'admin' }); return null }
 afterEach(async () => { if (root) await act(async () => root!.unmount()); client?.clear() })
-it('GM回答の取得失敗を空の正常結果と区別し、再試行で予約を復元する', async () => {
+it('GM回答の取得失敗でも予約一覧は保持し、再試行できる', async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   mocks.responses.mockRejectedValueOnce(new Error('network unavailable')).mockResolvedValue([])
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   root = createRoot(document.createElement('div'))
   await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
-  expect(state.isError).toBe(true)
-  await act(async () => { await state.retryRequests(); await new Promise(resolve => setTimeout(resolve, 20)) })
   expect(state.isError).toBe(false)
+  expect(state.gmResponsesError).toBe(true)
+  expect(state.requests).toHaveLength(1)
+  await act(async () => { await state.retryRequests(); await new Promise(resolve => setTimeout(resolve, 20)) })
+  expect(state.gmResponsesError).toBe(false)
   expect(state.requests).toHaveLength(1)
   expect(mocks.responses).toHaveBeenCalledTimes(2)
 })

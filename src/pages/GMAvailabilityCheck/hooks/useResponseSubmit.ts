@@ -129,7 +129,7 @@ export function useResponseSubmit({
     } catch (error) {
       logger.error('送信エラー:', error)
       showToast.error(responseSaved
-        ? '回答は保存済みですが、予約の状態確認・更新に失敗しました。再度送信してください。'
+        ? '回答は保存済みですが、予約の状態確認・更新に失敗しました。画面を再読み込みしたので内容を確認し、必要なら再度送信してください。'
         : '回答を保存できませんでした。再度お試しください。')
     } finally {
       setSubmitting(null)
