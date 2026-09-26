@@ -1,4 +1,5 @@
--- 正本: 20260927013000_private_booking_notification_recipients.sql
+-- 適用直前の本番関数へ復元。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -556,16 +557,11 @@ BEGIN
     '+09:00'
   )::TIMESTAMPTZ;
 
-  IF v_scenario_master_id IS NULL THEN
-    RAISE EXCEPTION 'Scenario master not resolved: %', p_scenario_id USING ERRCODE = 'P0001';
-  END IF;
-
   -- 予約を作成
   INSERT INTO reservations (
     title,
     reservation_number,
     scenario_id,
-    scenario_master_id,
     customer_id,
     requested_datetime,
     duration,
@@ -585,8 +581,7 @@ BEGIN
   ) VALUES (
     '【貸切希望】' || v_scenario_title,
     COALESCE(p_reservation_number, 'PB-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(gen_random_uuid()::text, 1, 8)),
-    v_scenario_master_id,
-    v_scenario_master_id,
+    p_scenario_id,
     p_customer_id,
     v_requested_datetime,
     v_duration,
@@ -636,11 +631,9 @@ BEGIN
     SELECT ssa.staff_id
     FROM staff_scenario_assignments ssa
     JOIN staff s ON s.id = ssa.staff_id
-    WHERE ssa.scenario_master_id = v_scenario_master_id
-      AND ssa.organization_id = v_org_id
+    WHERE (ssa.scenario_id = p_scenario_id OR ssa.scenario_id = v_scenario_master_id)
       AND (ssa.can_main_gm = true OR ssa.can_sub_gm = true)
       AND s.organization_id = v_org_id
-      AND s.status = 'active'
   LOOP
     INSERT INTO gm_availability_responses (
       organization_id,
@@ -662,3 +655,8 @@ BEGIN
 END;
 $function$
 ;
+
+
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
