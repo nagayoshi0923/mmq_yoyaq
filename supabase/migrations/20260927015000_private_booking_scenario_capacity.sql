@@ -1,4 +1,5 @@
--- 正本: 20260927015000_private_booking_scenario_capacity.sql
+-- QW-20260917-001 A13: 貸切の受付人数を導入作品の定員に合わせる。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -673,3 +674,4 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
+COMMIT;
