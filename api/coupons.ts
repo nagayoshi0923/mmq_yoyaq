@@ -542,11 +542,8 @@ async function handleCurrentReservations(
 
   if (!customer && !staffRecord) return res.status(200).json([])
 
-  // JSTで今日の日付
-  const now = new Date()
-  const jstOffset = 9 * 60
-  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
-  const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+  // 日付境界はサーバーのタイムゾーンに依存させない。
+  const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   // 1. 通常予約（自分が customer_id の予約 / 組織スコープも検証）
   // ⚠️ platform customer (user.orgId='') の場合、reservations.organization_id は実際の
@@ -562,7 +559,7 @@ async function handleCurrentReservations(
       .in('status', ['confirmed', 'checked_in'])
     if (user.orgId) q = q.eq('organization_id', user.orgId)
     const { data, error } = await q
-    if (error) console.error('[coupons:current-reservations] direct error:', error)
+    if (error) return res.status(500).json({ error: '予約を取得できませんでした' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     directReservations = (data as any[]) ?? []
   }
@@ -573,11 +570,13 @@ async function handleCurrentReservations(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const privateGroupReservations: Array<{ reservation_id: string; schedule_event_id: string | null; reservation_status: string; group_status: string }> = []
   {
-    const { data: members } = await database
+    const { data: members, error: membersError } = await database
       .from('private_group_members')
       .select('group_id')
       .eq('user_id', user.userId)
       .eq('status', 'joined')
+
+    if (membersError) return res.status(500).json({ error: '貸切の参加情報を取得できませんでした' })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupIds = ((members as any[]) ?? []).map((m: any) => m.group_id).filter(Boolean)
@@ -589,7 +588,8 @@ async function handleCurrentReservations(
         .in('id', groupIds)
         .not('reservation_id', 'is', null)
       if (user.orgId) groupsQ = groupsQ.eq('organization_id', user.orgId)
-      const { data: groups } = await groupsQ
+      const { data: groups, error: groupsError } = await groupsQ
+      if (groupsError) return res.status(500).json({ error: '貸切の予約を取得できませんでした' })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reservationIds = ((groups as any[]) ?? [])
@@ -605,7 +605,8 @@ async function handleCurrentReservations(
           .select('id, schedule_event_id, status, organization_id')
           .in('id', reservationIds)
         if (user.orgId) resQ = resQ.eq('organization_id', user.orgId)
-        const { data: reservationRows } = await resQ
+        const { data: reservationRows, error: reservationsError } = await resQ
+        if (reservationsError) return res.status(500).json({ error: '予約を取得できませんでした' })
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const r of ((reservationRows as any[]) ?? [])) {
@@ -631,7 +632,7 @@ async function handleCurrentReservations(
       .or('payment_method.eq.staff,reservation_source.eq.staff_entry,reservation_source.eq.staff_participation')
       .in('status', ['confirmed', 'checked_in'])
       .eq('organization_id', user.orgId)
-    if (error) console.error('[coupons:current-reservations] staff error:', error)
+    if (error) return res.status(500).json({ error: '予約を取得できませんでした' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     staffReservations = (data as any[]) ?? []
   }
@@ -652,7 +653,8 @@ async function handleCurrentReservations(
       .select('id, date, start_time, end_time, scenario, venue, organization_id, category, scenario_master_id, organization_scenario_id, scenario_id, stores (name)')
       .in('id', Array.from(eventIds))
     if (user.orgId) evQ = evQ.eq('organization_id', user.orgId)
-    const { data: events } = await evQ
+    const { data: events, error: eventsError } = await evQ
+    if (eventsError) return res.status(500).json({ error: '公演情報を取得できませんでした' })
     if (events) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const ev of events as any[]) {
@@ -672,7 +674,7 @@ async function handleCurrentReservations(
 
   for (const r of privateGroupReservations) {
     if (r.group_status !== 'confirmed') continue
-    if (r.reservation_status !== 'confirmed') continue
+    if (!['confirmed', 'checked_in'].includes(r.reservation_status)) continue
     const event = r.schedule_event_id ? eventsMap[r.schedule_event_id] : undefined
     if (event && !allReservations.some(existing => existing.id === r.reservation_id)) {
       allReservations.push({ id: r.reservation_id, event })
@@ -695,28 +697,10 @@ async function handleCurrentReservations(
     }
   }
 
-  // 今日の公演で、開始3時間前〜終了1時間後の範囲のものをフィルタ
-  const currentHour = jstNow.getHours()
-  const currentMinute = jstNow.getMinutes()
-  const currentTotalMinutes = currentHour * 60 + currentMinute
-
+  // 利用予定の確定予約も表示する。実際の利用条件は共通RPCで再確認する。
   const filtered = allReservations
-    .filter(({ event }) => {
-      if (!event) return false
-      if (event.date !== todayStr) return false
-
-      const [startHour, startMinute] = event.start_time.split(':').map(Number)
-      const startTotalMinutes = startHour * 60 + startMinute
-
-      if (currentTotalMinutes < startTotalMinutes - 180) return false
-
-      if (event.end_time) {
-        const [endHour, endMinute] = event.end_time.split(':').map(Number)
-        const endTotalMinutes = endHour * 60 + endMinute
-        return currentTotalMinutes <= endTotalMinutes + 60
-      }
-      return currentTotalMinutes <= startTotalMinutes + 180
-    })
+    .filter(({ event }) => event?.date >= todayStr)
+    .sort((a, b) => `${a.event.date} ${a.event.start_time}`.localeCompare(`${b.event.date} ${b.event.start_time}`))
     .map(({ id, event }) => ({
       id,
       scenario_title: event.scenario || '不明なシナリオ',
