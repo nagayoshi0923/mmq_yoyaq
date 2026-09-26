@@ -290,7 +290,7 @@ export function ScheduleManager() {
 
       setIsExportModalOpen(false)
     } catch (e) {
-      showToast.error('CSVエクスポートに失敗しました')
+      showToast.error(e instanceof Error ? e.message : 'CSVエクスポートに失敗しました')
     } finally {
       setIsExporting(false)
     }

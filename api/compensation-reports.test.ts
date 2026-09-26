@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => {
   process.env.SUPABASE_URL='https://compensation-fixture.invalid'
   process.env.SUPABASE_SERVICE_ROLE_KEY='compensation-fixture-key'
-  return { date:'2020-01-15',category:'open',recorded:null as number|null,historyError:false,costs:[] as {role:string;reward:number;category?:string}[],tables:[] as string[] }
+  return { date:'2020-01-15',category:'open',recorded:null as number|null,historyError:false,legacy:false,ambiguous:false,costs:[] as {role:string;reward:number;category?:string}[],tables:[] as string[] }
 })
 const database=vi.hoisted(()=>({from:vi.fn()}))
 vi.mock('./_lib/db.js',()=>({db:database,getMissingEnvError:()=>null}))
@@ -29,12 +29,13 @@ function builder(table:string){
   }
   if(table==='staff')data=names.map((name,i)=>({id:String(i),name,stores:i===2?[]:['store']}))
   if(table==='stores')data=[{id:'store',name:'店舗',short_name:'店',transport_allowance:500}]
-  if(table==='organization_scenarios_with_master')data=[{id:'master',scenario_master_id:'master',duration:240,gm_costs:mock.costs,player_count_max:6}]
+  if(table==='organization_scenarios_with_master')data=[{id:'master',scenario_master_id:'master',title:'作品',duration:240,gm_costs:mock.costs,player_count_max:6}]
+  if(table==='organization_scenarios_with_master' && mock.ambiguous)data.push({...data[0],id:'other',scenario_master_id:'other'})
   if(table==='organization_scenarios'){
    data=[]
    if(fields.split(',').map(field=>field.trim()).includes('license_rewards')) error={message:'column organization_scenarios.license_rewards does not exist'}
   }
-  if(table==='schedule_events')data=[{id:'event',date:mock.date,category:mock.category,scenario_master_id:'master',scenario:'作品',store_id:'store',gms:names,gm_roles:Object.fromEntries(names.map((n,i)=>[n,roles[i]])),gm_cost:mock.recorded,is_cancelled:false,start_time:'14:00',end_time:'17:00',stores:{transport_allowance:500}}]
+  if(table==='schedule_events')data=[{id:'event',date:mock.date,category:mock.category,scenario_master_id:mock.legacy?null:'master',scenario:'作品',store_id:'store',gms:names,gm_roles:Object.fromEntries(names.map((n,i)=>[n,roles[i]])),gm_cost:mock.recorded,is_cancelled:false,start_time:'14:00',end_time:'17:00',stores:{transport_allowance:500}}]
   if(single&&Array.isArray(data))data=data[0]??null
   if(head)data=null
   return {data,error,count:1}
@@ -48,13 +49,19 @@ async function request(handler:typeof salesHandler,type:string){
  await handler({method:'GET',headers:{authorization:'Bearer fixture'},query:{type,start:'2020-01-01',end:'2020-01-31',scenarioId:'master'}} as any,res)
  return {status:res.status.mock.calls.at(-1)?.[0],data:res.json.mock.calls.at(-1)?.[0]}
 }
-beforeEach(()=>{mock.date='2020-01-15';mock.category='open';mock.recorded=null;mock.historyError=false;mock.tables=[];mock.costs=[{role:'main',reward:0},{role:'sub',reward:2000},{role:'gm3',reward:1234}];database.from.mockImplementation(builder)})
+beforeEach(()=>{mock.date='2020-01-15';mock.category='open';mock.recorded=null;mock.historyError=false;mock.legacy=false;mock.ambiguous=false;mock.tables=[];mock.costs=[{role:'main',reward:0},{role:'sub',reward:2000},{role:'gm3',reward:1234}];database.from.mockImplementation(builder)})
 describe('CSVと作品統計の報酬計算',()=>{
  it('個別0円・GM3・受付・交通費を同じ値で計算する',async()=>{
   const csv=await request(salesHandler,'schedule-export');const stats=await request(scenariosHandler,'stats')
   expect(csv.status).toBe(200);expect(stats.status).toBe(200)
   expect(csv.data[0].gm_cost).toBe(3734);expect(stats.data.totalGmCost).toBe(3734)
   expect(mock.tables).not.toContain('global_settings')
+ })
+ it('作品ID未設定でも一意な作品名から組織の実効時間を解決し、同名別作品なら拒否する',async()=>{
+  mock.legacy=true;mock.costs=[]
+  expect((await request(salesHandler,'schedule-export')).data[0].gm_cost).toBe(15500)
+  mock.ambiguous=true
+  expect((await request(salesHandler,'schedule-export')).status).toBe(422)
  })
  it('GMテストは通常の個別報酬を引き継がず実効240分を使う',async()=>{
   mock.category='gmtest'

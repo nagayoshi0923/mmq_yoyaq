@@ -732,16 +732,25 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
   )
 
   // ScenarioInfo は ScenarioPricing を継承し、id を必須にしただけ
-  type ScenarioInfo = ScenarioPricing & { id: string; scenario_master_id?: string; duration?: number | null }
+  type ScenarioInfo = ScenarioPricing & { id: string; scenario_master_id?: string; title?: string; duration?: number | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scenariosData, error: scenariosError } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select(`id, scenario_master_id, duration, ${SCENARIO_PRICING_COLUMNS}`)
+    .select(`id, scenario_master_id, title, duration, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
   if (scenariosError) throw scenariosError
   const scenarioByMasterId = new Map<string, ScenarioInfo>(
     (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.scenario_master_id ?? s.id, s]) || []
   )
+
+  const normalizeTitle = (title: string) => title.replace(/[\s\-・／/]/g, '').toLowerCase()
+  const scenarioByTitle = new Map<string, ScenarioInfo | null>()
+  for (const scenario of (scenariosData ?? []) as ScenarioInfo[]) {
+    if (!scenario.title) continue
+    const key = normalizeTitle(scenario.title)
+    if (!scenarioByTitle.has(key)) scenarioByTitle.set(key, scenario)
+    else if (scenarioByTitle.get(key)?.scenario_master_id !== scenario.scenario_master_id) scenarioByTitle.set(key, null)
+  }
 
   type OrgScenarioOverride = ScenarioPricing & { id: string; scenario_master_id: string | null; duration: number | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -832,6 +841,12 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           participation_costs: ((override.participation_costs?.length ?? 0) > 0 ? override.participation_costs : scenarioInfo?.participation_costs) ?? null,
         }
       }
+    }
+
+    if (!scenarioInfo && event.scenario) scenarioInfo = scenarioByTitle.get(normalizeTitle(event.scenario)) ?? null
+    if (!isVenueRental && !event.is_cancelled && !scenarioInfo && (event.gms ?? []).some(name =>
+      !['staff', 'observer', 'reception'].includes(event.gm_roles?.[name] ?? 'main'))) {
+      throw new ApiError(422, `${event.date} ${event.scenario ?? ''} の作品設定を特定できないため、公演CSVを出力できません。公演のシナリオを設定してください。`)
     }
 
     const cat = isGmTest ? 'gmtest' : 'normal'
