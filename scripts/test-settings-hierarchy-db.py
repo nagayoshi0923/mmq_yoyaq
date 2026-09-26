@@ -59,7 +59,20 @@ def build_judgment():
 
 def build_recruitment_requeue():
     sql=build_judgment()
-    return sql[:sql.rfind('ROLLBACK;')]+(ROOT/'supabase/tests/recruitment_notice_requeue_test.sql').read_text()+'\nROLLBACK;'
+    sql=sql[:sql.rfind('ROLLBACK;')]+(ROOT/'supabase/tests/recruitment_notice_requeue_test.sql').read_text()
+    sql+="""
+    CREATE TEMP TABLE j_organizations(id uuid,is_active boolean);
+    CREATE TEMP TABLE j_app_config(key text,value text);
+    CREATE TEMP TABLE j_recruitment_x_posts(organization_id uuid,status text,attempts integer,created_at timestamptz);
+    CREATE TEMP TABLE dispatch_requests(url text,headers jsonb,body jsonb);
+    CREATE FUNCTION pg_temp.capture_dispatch(url text,headers jsonb,body jsonb,timeout_milliseconds integer) RETURNS bigint LANGUAGE plpgsql AS $$ BEGIN INSERT INTO dispatch_requests VALUES(url,headers,body); RETURN 1; END; $$;
+    """
+    dispatch=(ROOT/'supabase/rpcs/dispatch_performance_recruitment_checks.sql').read_text().split('REVOKE ALL')[0]
+    dispatch=dispatch.replace('public.dispatch_performance_recruitment_checks','pg_temp.dispatch_checks').replace('net.http_post','pg_temp.capture_dispatch').replace('public.get_performance_judgment_deadline','pg_temp.get_performance_judgment_deadline')
+    for table in ['organizations','app_config','schedule_events','performance_recruitment_deadlines','performance_cancellation_logs','performance_recruitment_notices','recruitment_x_posts']:
+        dispatch=re.sub(r'\b'+table+r'\b','pg_temp.j_'+table,dispatch)
+    sql+=dispatch+(ROOT/'supabase/tests/recruitment_dispatch_retry_test.sql').read_text()
+    return sql+'\nROLLBACK;'
 
 def build_change():
     from pathlib import Path
