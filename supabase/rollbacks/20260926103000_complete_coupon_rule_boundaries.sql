@@ -103,7 +103,7 @@ BEGIN
  IF discount IS NULL OR discount<=0 THEN RAISE EXCEPTION '割引できる金額がありません' USING ERRCODE='P0028'; END IF;
  RETURN discount;
 END;
-$function$
+$function$;
 
 
 
