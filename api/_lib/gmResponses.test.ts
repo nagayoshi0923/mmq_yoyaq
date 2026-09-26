@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { readGmResponses } from './gmResponses'
+import { readGmResponses, readGmPendingCount } from './gmResponses'
 import type { AuthUser } from './auth'
 const id = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
 const user = { userId: 'user', orgId: 'org', role: 'staff', jwt: '' } as AuthUser
@@ -44,4 +44,14 @@ describe('GM回答の組織境界', () => {
     await expect(readGmResponses(db,user,query)).rejects.toThrow('予約ID')
     expect(from).not.toHaveBeenCalled()
   })
+})
+
+it('承認待ち件数はどちらかの取得失敗でも不完全な件数を返さない', async () => {
+  const from = vi.fn(() => {
+    const q: any = {}
+    for (const name of ['select','eq','in','not','neq']) q[name] = () => q
+    q.then = (resolve: (result: unknown) => unknown) => Promise.resolve({ count: 2, error: { message: 'unavailable' } }).then(resolve)
+    return q
+  })
+  await expect(readGmPendingCount({from} as unknown as SupabaseClient,user)).rejects.toThrow('店舗承認待ち件数')
 })
