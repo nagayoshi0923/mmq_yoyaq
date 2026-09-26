@@ -1,4 +1,5 @@
--- 正本: 20260927015000_private_booking_scenario_capacity.sql
+-- 適用直前の本番関数を復元。既存予約は変更しない。
+BEGIN;
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -53,8 +54,6 @@ DECLARE
   v_candidate_order INTEGER := 0;
   v_updated_count INTEGER;
   v_accepts_private_booking BOOLEAN;
-  v_player_count_min INTEGER;
-  v_player_count_max INTEGER;
   v_scenario_kind TEXT;
 BEGIN
   -- 20260414150000 の認可境界を維持する。SECURITY DEFINERでもanon/なりすましを許可しない。
@@ -251,19 +250,9 @@ BEGIN
     RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED' USING ERRCODE = 'P0044';
   END IF;
 
-  -- 店舗側の不要な人数制限ではなく、導入作品の実効プレイ人数を検証する。
-  SELECT COALESCE(os.override_player_count_min,sm.player_count_min),
-         COALESCE(os.override_player_count_max,sm.player_count_max)
-    INTO v_player_count_min,v_player_count_max
-  FROM public.organization_scenarios os
-  JOIN public.scenario_masters sm ON sm.id=os.scenario_master_id
-  WHERE os.organization_id=v_org_id AND os.scenario_master_id=v_scenario_master_id;
-  IF NOT FOUND OR v_player_count_min IS NULL OR v_player_count_max IS NULL
-     OR v_player_count_min<1 OR v_player_count_max<v_player_count_min THEN
-    RAISE EXCEPTION 'PRIVATE_BOOKING_PLAYER_COUNT_NOT_CONFIGURED' USING ERRCODE='P0051';
-  END IF;
-  IF p_participant_count IS NULL OR p_participant_count<v_player_count_min OR p_participant_count>v_player_count_max THEN
-    RAISE EXCEPTION 'Participant count must be between % and %',v_player_count_min,v_player_count_max USING ERRCODE='P0025';
+  -- 参加人数の上限チェック（応急: 固定50。恒久策はシナリオ定員照合）
+  IF p_participant_count > 50 THEN
+    RAISE EXCEPTION 'Participant count exceeds maximum' USING ERRCODE = 'P0025';
   END IF;
 
   IF jsonb_typeof(p_candidate_datetimes) IS DISTINCT FROM 'object'
@@ -673,3 +662,4 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
+COMMIT;
