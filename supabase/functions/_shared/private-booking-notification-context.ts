@@ -5,7 +5,7 @@ export async function loadPrivateBookingNotificationContext(db: any, reservation
   if (result.error) throw result.error
   const booking = result.data
   if (!booking?.organization_id) throw new Error('Reservation not found')
-  if (booking.reservation_type !== 'private_booking' || ['cancelled', 'completed'].includes(booking.status)) throw new Error('Reservation is not accepting GM responses')
+  if (!['private_booking', 'private'].includes(booking.reservation_type) || ['cancelled', 'completed'].includes(booking.status)) throw new Error('Reservation is not accepting GM responses')
   if (callerUserId) {
     const caller = await db.from('users').select('organization_id,role').eq('id', callerUserId).maybeSingle()
     if (caller.error) throw caller.error
@@ -26,7 +26,7 @@ export async function loadPrivateBookingNotificationContext(db: any, reservation
   const scenario = await db.from('organization_scenarios').select('scenario_master_id').eq('scenario_master_id', masterId).eq('organization_id', booking.organization_id).maybeSingle()
   if (scenario.error) throw scenario.error
   if (!scenario.data) throw new Error('Scenario not found in reservation organization')
-  return { ...booking, notes: booking.customer_notes, scenario_master_id: masterId, scenario_id: masterId }
+  return { ...booking, scenario_title: (booking.title ?? '').replace(/^【貸切希望】\s*/, ''), notes: booking.customer_notes, scenario_master_id: masterId, scenario_id: masterId }
 }
 
 /** 未回答行の作成対象も通知対象も、同じ有効な担当者集合を使う。 */

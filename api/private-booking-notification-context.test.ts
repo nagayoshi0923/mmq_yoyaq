@@ -17,7 +17,7 @@ function database(rows: Record<string, any[]>, failures: string[] = []) {
 }
 function fixture() {
   return {
-    reservations: [{ id: 'booking', reservation_type: 'private_booking', status: 'pending', organization_id: 'org', scenario_id: 'legacy', customer_name: 'Saved customer' }],
+    reservations: [{ id: 'booking', reservation_type: 'private_booking', status: 'pending', title: '【貸切希望】Fixture scenario', organization_id: 'org', scenario_id: 'legacy', customer_name: 'Saved customer' }],
     organization_scenarios: [{ id: 'legacy', organization_id: 'org', scenario_master_id: 'master' }],
     users: [{ id: 'admin', organization_id: 'org', role: 'admin' }],
     staff: [] as any[],
@@ -27,6 +27,11 @@ describe('saved private booking notification context', () => {
   it('resolves legacy organization scenario using the saved booking', async () => {
     const context = await loadPrivateBookingNotificationContext(database(fixture()), 'booking', 'admin')
     expect(context).toMatchObject({ organization_id: 'org', scenario_id: 'master', scenario_master_id: 'master', customer_name: 'Saved customer' })
+  })
+  it('accepts legacy private reservations and uses the saved scenario title without its prefix', async () => {
+    const rows = fixture(); rows.reservations[0].reservation_type = 'private'
+    const booking = await loadPrivateBookingNotificationContext(database(rows), 'booking', null)
+    expect(booking.scenario_title).toBe('Fixture scenario')
   })
   it('rejects regular and cancelled reservations', async () => {
     const rows = fixture(); rows.reservations[0].reservation_type = 'normal'
