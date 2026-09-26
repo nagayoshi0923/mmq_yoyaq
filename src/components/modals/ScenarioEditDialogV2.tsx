@@ -1400,7 +1400,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       case 'basic':
         return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
-        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
+        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
       case 'characters':
         return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':

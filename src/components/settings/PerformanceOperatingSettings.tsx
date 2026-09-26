@@ -15,7 +15,7 @@ export function PerformanceOperatingSettings({ eventId }: { eventId?: string | n
     <div className="flex flex-wrap gap-2">{[
       ['operations', '開催判断・準備'], ['payment', '支払い案内'], ['cancellation', 'キャンセル・変更'], ['email', 'メール'], ['survey', '事前配役アンケート'],
     ].map(([key, label]) => <Button key={key} variant={section === key ? 'default' : 'outline'} onClick={() => setSection(key)}>{label}</Button>)}</div>
-    {section === 'operations' && <OperatingScalarSettings scope="performance" targetId={eventId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間" />}
+    {section === 'operations' && <OperatingScalarSettings scope="performance" targetId={eventId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" />}
     {section === 'payment' && <OperatingTextSettings scope="performance" targetId={eventId} fields={PAYMENT_SETTING_FIELDS} />}
     {section === 'cancellation' && <CancellationSettings scope="performance" targetId={eventId} />}
     {section === 'email' && <EmailSettings scope="performance" targetId={eventId} />}

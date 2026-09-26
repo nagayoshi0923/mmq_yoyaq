@@ -30,6 +30,9 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Coupon rules database regressions
+        run: npm run test:coupon-rules-db
+
       - name: GM assignment database regressions
         run: npm run test:gm-assignment-db
 
