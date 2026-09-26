@@ -3,20 +3,26 @@ const state = vi.hoisted(() => ({
   event: { max_participants: 12, capacity: 12, current_participants: 0, reservation_deadline_hours: 0, store_id: 'store' },
   settings: { max_participants_per_booking: 1, max_bookings_per_customer: 1, advance_booking_days: 30, same_day_booking_cutoff: 0 },
   deadline: '2026-10-01T01:00:00Z',
+  holidayError: false,
   error: false,
   tables: [] as string[],
 }))
 vi.mock('@/lib/supabase', () => ({ supabase: {
   from: (table: string) => {
     state.tables.push(table)
+    if (table === 'organization_scenarios_with_master') {
+      const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: { participation_fee: 4500, participation_costs: [{ time_slot: 'weekend', amount: 5000 }] }, error: state.error ? { message: 'unavailable' } : null }) }; return chain
+    }
     if (!['schedule_events_public', 'reservation_settings'].includes(table)) throw new Error(`Unexpected query: ${table}`)
     const result = () => ({ data: table === 'schedule_events_public' ? state.event : state.settings, error: state.error ? { message: 'unavailable' } : null })
     const chain = { select: () => chain, eq: () => chain, single: async () => result(), maybeSingle: async () => result() }
     return chain
   },
-  rpc: async () => ({ data: [{ effective_booking_deadline: state.deadline }], error: null }),
+  rpc: async (name: string) => name === 'get_public_custom_holidays'
+    ? { data: state.holidayError ? null : [{ custom_holidays: ['2026-05-07'] }], error: state.holidayError ? { message: 'temporary failure' } : null }
+    : { data: [{ effective_booking_deadline: state.deadline }], error: null },
 } }))
-import { checkReservationLimits } from './useBookingSubmit'
+import { checkReservationLimits, calculateParticipationFee } from './useBookingSubmit'
 const check = (count: number) => checkReservationLimits('event', count, '2026-10-01', '10:00')
 describe('追加の人数・同日件数制限を廃止した予約判定', () => {
   beforeEach(() => {
@@ -52,5 +58,21 @@ describe('追加の人数・同日件数制限を廃止した予約判定', () =
   it('取得失敗を予約許可にしない', async () => {
     state.error = true
     expect(await check(1)).toMatchObject({ allowed: false })
+  })
+})
+
+
+describe('予約前の表示料金取得', () => {
+  beforeEach(() => { state.error = false; state.holidayError = false })
+  it('独自休日取得が一時失敗しても予約前の計算を中断しない', async () => {
+    state.holidayError = true
+    await expect(calculateParticipationFee('scenario','15:00','2026-05-06','org')).resolves.toBe(5000)
+  })
+  it('取得できた独自休日の土日祝料金を維持する', async () => {
+    await expect(calculateParticipationFee('scenario','15:00','2026-05-07','org')).resolves.toBe(5000)
+  })
+  it('作品の料金そのものを取得できない場合は保存へ進めない', async () => {
+    state.error = true
+    await expect(calculateParticipationFee('scenario','15:00','2026-05-07','org')).rejects.toThrow('料金情報の取得に失敗')
   })
 })
