@@ -675,8 +675,8 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 
 組織UUIDや自己申告の `invited_as` だけで管理者権限を取得できた経路を廃止。登録時に32byteの登録証明を返し、DBはハッシュ・登録者メール・ログイン済み作成者・30分の期限を保持する。新規組織のみ取得でき、登録済み組織の取得・他人の未登録組織の削除を拒否する。Authプロフィール/管理者staffの作成失敗はAuth登録と証明消費を同時にロールバックする。一般のstaff/license_admin metadataは権限の根拠にしない。旧/register画面の未使用登録実装を削除し/startへ統一。
 
-- 変更: 20260927003000、OrgSignup、旧register入口、DB回帰/CI。
+- 変更: 20260927003000/004000、OrgSignup、旧register入口、DB回帰/CI。
 - 検証: PGliteの所有権/NULL証明/偽装/期限/再利用/失敗原子性/020連携/rollback・再適用、644 unit、verify、独立レビュー指摘なし。staging実DBでもAuthトリガー・所有者制限・失敗時の原子性を確認、全fixture rollback。
 - 状態: staging DB適用済み。本番DB/画面反映・画面受入は未完了。旧タブの匿名登録は証明を送れず拒否されるため再読み込みが必要。
-- 既存の任意customers生成失敗は引き続き管理者登録と分離される。stagingの実DBテストで警告あり。顧客プロフィール生成経路は残件として追跡し、今回の権限修正で解決済みとはしない。
+- 登録時customers生成失敗は、削除済みvisit_count/total_spent列への書き込みが原因と確認。04000で除去し、現行スキーマのローカルDBとstaging実DBで顧客行の作成まで検証済み（警告解消）。過去に欠落した顧客行の補完は別途確認する。
 - スタッフA05/A06: PR522、main4dd8ff81、本番DB020/Edge invite-staff/Vercel反映済み。実配備Edgeソース一致、匿名API/Edge401を確認。スタッフ全域の監査や他の残件の完了とは区別する。

@@ -279,7 +279,6 @@ BEGIN
         INSERT INTO public.customers (
           user_id, organization_id, name, email, phone,
           prefecture, birth_date,
-          visit_count, total_spent,
           notification_settings,
           created_at, updated_at
         ) VALUES (
@@ -289,7 +288,6 @@ BEGIN
           v_phone,
           v_prefecture,
           v_birth_date,
-          0, 0,
           jsonb_build_object(
             'email_notifications',    true,
             'reminder_notifications', true,
