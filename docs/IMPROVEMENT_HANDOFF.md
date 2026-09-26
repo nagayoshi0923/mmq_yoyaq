@@ -764,3 +764,9 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - 個別再送のキュー削除は当該組織・予約・選択チャンネルに限定。全体メンションを廃止しDiscordの許可対象を明示。
 - 旧PRの20260914120000は既存の料金移行と番号が重複するため削除し、現物取得から20260927013000へ集約。予約の両作品IDにmasterを保存し同組織のactive担当者を選ぶ。既存予約の一括変更なし。
 - 実RPCのPGlite試験（legacy/master入力、main/sub、退職/他組織/担当外除外、rollback/reapply）とEdge共有ヘルパー試験を追加。DB130はstaging適用済み。本番適用・Edge配備・受入は継続中。
+
+## QW-20260917-001 / 共通Edge認証境界（2026-09-27）
+
+- service_roleを自己申告するJWT payloadを認証根拠から除外。環境に設定したservice JWT/secretキーまたはcron秘密との一致のみ許可する。
+- checkRateLimitのSupabaseClient型を明示しDeno型検査のneverエラーを解消。取得失敗時の拒否を維持。
+- 偽造JWT、未知・空キー、正規キー各別名、cronヘッダー、レート制限正常/超過/例外を検証。Deno check成功。本番配備は別途受入記録まで未完了。
