@@ -1,0 +1,21 @@
+TRUNCATE j_schedule_events,j_performance_recruitment_deadlines,j_performance_recruitment_notices;
+INSERT INTO j_organizations VALUES('dddddddd-1000-4000-8000-000000000099',true);
+INSERT INTO j_app_config VALUES('supabase_url','https://fixture.invalid'),('trigger_secret','fixture-only');
+INSERT INTO j_performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,snapshot,kind,status)
+VALUES('dddddddd-1000-4000-8000-000000000002','dddddddd-1000-4000-8000-000000000099','dddddddd-1000-4000-8000-000000000010','{}','extension','failed');
+DO $$ BEGIN
+ PERFORM pg_temp.dispatch_checks();
+ ASSERT (SELECT count(*)=1 FROM dispatch_requests), '判定対象公演がなくても失敗したextensionを再試行する';
+ ASSERT (SELECT headers->>'x-cron-secret'='fixture-only' AND headers->>'x-recruitment-cron-secret'='fixture-only' AND body->>'organization_id'='dddddddd-1000-4000-8000-000000000099' FROM dispatch_requests), '既存共有キーのヘッダーと組織を渡す';
+ TRUNCATE dispatch_requests;
+ UPDATE j_performance_recruitment_notices SET attempts=10;
+ PERFORM pg_temp.dispatch_checks();
+ ASSERT NOT EXISTS(SELECT FROM dispatch_requests), '試行上限では起動しない';
+ UPDATE j_performance_recruitment_notices SET attempts=1,status='sent';
+ PERFORM pg_temp.dispatch_checks();
+ ASSERT NOT EXISTS(SELECT FROM dispatch_requests), '送信済みだけでは起動しない';
+ UPDATE j_performance_recruitment_notices SET status='failed';
+ UPDATE j_organizations SET is_active=false;
+ PERFORM pg_temp.dispatch_checks();
+ ASSERT NOT EXISTS(SELECT FROM dispatch_requests), '無効組織では起動しない';
+END $$;

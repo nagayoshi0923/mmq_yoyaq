@@ -1,3 +1,5 @@
+import { isRecruitmentSchedulerCall } from '../_shared/recruitment-auth.ts'
+import { isRecruitmentExtensionCurrent } from '../_shared/recruitment-send-guard.ts'
 import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
 /**
  * 公演中止判定 Edge Function
@@ -10,7 +12,7 @@ import { sendRecruitmentXPosts } from '../_shared/recruitment-x.ts'
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
@@ -69,11 +71,7 @@ function categoryShortName(category: string | undefined): string {
 }
 
 // Cron Secret / Service Role Key による呼び出しかチェック
-function isRecruitmentSchedulerCall(req: Request): boolean {
-  const expected = Deno.env.get('RECRUITMENT_CRON_SECRET') || ''
-  const received = req.headers.get('x-recruitment-cron-secret') || ''
-  return !!expected && !!received && timingSafeEqualString(expected, received)
-}
+
 function isSystemCall(req: Request): boolean {
   return isCronOrServiceRoleCall(req) || isRecruitmentSchedulerCall(req)
 }
@@ -1648,22 +1646,20 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
         if (decision.status !== notice.kind || decision.cycle !== notice.cycle) {
           const { error: expireError } = await supabase.from('performance_recruitment_notices')
             .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
           if (expireError) throw expireError
           continue
         }
       }
-      // 取得後に開催決定・辞退済みとなった通知は送らない。
       if (notice.kind === 'extension') {
-      const { data: current, error: currentError } = await supabase.rpc('respond_to_performance_recruitment', {
-        p_token: notice.response_token, p_withdraw: false,
-      })
-      if (currentError) throw currentError
-      if (!current?.can_withdraw) {
-        const { error: expireError } = await supabase.from('performance_recruitment_notices')
-          .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
-        if (expireError) throw expireError
-        continue
-      }
+        const stillActive = await isRecruitmentExtensionCurrent(supabase, notice)
+        if (!stillActive) {
+          const { error: expireError } = await supabase.from('performance_recruitment_notices')
+            .update({ status: 'expired', lease_until: null }).eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
+          if (expireError) throw expireError
+          continue
+        }
       }
       const content = recruitmentNotice(notice.snapshot, notice.response_token, notice.kind)
       const response = await fetch('https://api.resend.com/emails', {
@@ -1678,12 +1674,14 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
       const { error: updateError } = await supabase.from('performance_recruitment_notices')
         .update({ status: 'sent', sent_at: new Date().toISOString(), lease_until: null })
         .eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
       if (updateError) throw updateError
     } catch {
       failed = true
       console.error('追加募集メール未送信。次回再試行:', notice.id)
       const { error: failureUpdateError } = await supabase.from('performance_recruitment_notices').update({ status: 'failed', lease_until: new Date(Date.now()+60000).toISOString() })
         .eq('id', notice.id).eq('organization_id', notice.organization_id)
+          .eq('status', 'sending').eq('attempts', notice.attempts).eq('lease_until', notice.lease_until)
       if (failureUpdateError) throw failureUpdateError
     }
   }
