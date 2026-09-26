@@ -6,12 +6,10 @@ import { customerPlayHistory } from '@/lib/customerPlayHistory'
  * スタッフがこの顧客の体験済みを操作できる:
  *  - 予約由来: 「未体験に戻す/体験済みに戻す」= customer_played_overrides の追加/削除（予約は触らない・表示判定のみ）
  *  - 手動登録: 追加（manual_play_history insert）/ 削除
- * RLS は manual_play_history・customer_played_overrides とも「本人 or スタッフ」許可済み。
+ * 履歴操作は顧客本人・有効スタッフと組織接点を検証するRPCに集約する。
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { customerApi } from '@/lib/api/customerApi'
-import { getCurrentOrganizationId } from '@/lib/organization'
-import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { Button } from '@/components/ui/button'
@@ -61,16 +59,11 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
     setLoadError(false)
     setLoading(true)
     try {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('組織情報を取得できませんでした')
-      const [reservations, history, scenariosRes] = await Promise.all([
+      const [reservations, history, scenarios] = await Promise.all([
         customerApi.reservationHistory(customerId),
         customerPlayHistory.snapshot(customerId),
-        supabase.from('organization_scenarios_with_master')
-          .select('scenario_master_id, title, org_status')
-          .eq('organization_id', orgId).eq('org_status', 'available').order('title'),
+        customerApi.playedScenarioOptions(),
       ])
-      if (scenariosRes.error) throw scenariosRes.error
       if (request !== requestGeneration.current) return
       const resvRes = { data: reservations.filter(row => ACTIVE_PLAYED_STATUSES.includes(row.status)
         && new Date(row.requested_datetime).getTime() <= Date.now()) }
@@ -103,7 +96,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
 
       const opts: SearchableSelectOption[] = []
       const optSeen = new Set<string>()
-      for (const s of (scenariosRes.data ?? []) as Array<{ scenario_master_id: string; title: string }>) {
+      for (const s of scenarios as Array<{ scenario_master_id: string; title: string }>) {
         if (!s.scenario_master_id || optSeen.has(s.scenario_master_id)) continue
         optSeen.add(s.scenario_master_id)
         opts.push({ value: s.scenario_master_id, label: s.title })
