@@ -30,6 +30,13 @@ RETURNS TABLE(member_id uuid,guest_name text,guest_email text,locked boolean,gue
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_result record;
 BEGIN
+ -- Match v2's deterministic member selection, but lock the member before its PII.
+ -- Otherwise concurrent deletion can hold member -> wait PII while session FK waits member.
+ PERFORM m.id FROM public.private_group_members m
+ JOIN public.private_group_members_pii pii ON pii.member_id=m.id
+ WHERE m.group_id=p_group_id AND m.user_id IS NULL AND m.status='joined'
+ AND lower(pii.guest_email)=lower(trim(p_email))
+ ORDER BY m.id LIMIT 1 FOR UPDATE OF m;
  FOR v_result IN SELECT * FROM public.authenticate_guest_by_pin_v2(p_group_id,p_email,p_pin) LOOP
   RETURN QUERY SELECT v_result.member_id,v_result.guest_name,v_result.guest_email,v_result.locked,
     CASE WHEN v_result.member_id IS NOT NULL AND NOT v_result.locked
