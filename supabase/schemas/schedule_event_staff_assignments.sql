@@ -99,6 +99,9 @@ EXCEPTION WHEN lock_not_available THEN
 END $function$
 ;
 
+CREATE TRIGGER sync_event_staff_identity AFTER INSERT OR UPDATE OF gms,gm_roles,organization_id
+ON public.schedule_events FOR EACH ROW EXECUTE FUNCTION public.sync_event_staff_identity();
+
 CREATE FUNCTION public.rename_event_staff_identity() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN
