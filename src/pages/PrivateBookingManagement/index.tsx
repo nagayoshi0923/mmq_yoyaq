@@ -118,7 +118,7 @@ export function PrivateBookingManagement() {
   }, [])
 
   // リクエストデータ管理
-  const { requests, loading, loadRequests } = useBookingRequests({
+  const { requests, loading, isError: requestsError, retryRequests, loadRequests } = useBookingRequests({
     userId: user?.id,
     userRole: user?.role,
   })
@@ -733,7 +733,7 @@ export function PrivateBookingManagement() {
           : visibleRequests
   const filteredRequests = applyLimit(baseRequests)
 
-  if (loading) {
+  if (loading || requestsError) {
     return (
       <AppLayout
         currentPage="private-booking"
@@ -746,7 +746,10 @@ export function PrivateBookingManagement() {
             title={<><Calendar className="h-5 w-5 text-primary" />貸切予約管理</>}
             description="貸切予約リクエストの承認・却下・店舗調整を行います"
           />
-          <ListSkeleton rows={4} variant="card" />
+          {requestsError ? <div role="alert">
+            <p>貸切予約・GM回答を取得できませんでした。</p>
+            <Button variant="outline" onClick={() => retryRequests()}>再試行</Button>
+          </div> : <ListSkeleton rows={4} variant="card" />}
         </div>
       </AppLayout>
     )

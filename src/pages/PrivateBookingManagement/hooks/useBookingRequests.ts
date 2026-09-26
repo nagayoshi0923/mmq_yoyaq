@@ -276,7 +276,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
   const queryClient = useQueryClient()
 
   const enabled = userId != null && userRole != null
-  const { data: rawRequests = [], isLoading: loading } = useQuery<PrivateBookingRequest[]>({
+  const { data: rawRequests = [], isLoading: loading, isError, refetch } = useQuery<PrivateBookingRequest[]>({
     queryKey: enabled ? privateBookingKeys.list(userId!, userRole!) : ['private-bookings-disabled'],
     queryFn: () => fetchRawBookingRequests(userId!, userRole!),
     enabled,
@@ -316,5 +316,5 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     })
   }, [])
 
-  return { requests, loading, loadRequests, filterByMonth }
+  return { requests, loading, isError, retryRequests: refetch, loadRequests, filterByMonth }
 }
