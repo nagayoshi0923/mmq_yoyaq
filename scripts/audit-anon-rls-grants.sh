@@ -39,7 +39,7 @@ run_via_management_api() {
     echo
     echo "$response" | jq -r '.[] | "  - \(.host_table) | \(.polname) | refs: \(.refs_anon_blocked)"'
     echo
-    echo "対処: 参照先テーブルに GRANT SELECT ON ... TO anon を付与するか、policy を書き直してください。"
+    echo "対処: 参照先の公開範囲と必要列を確認し、権限または参照方法を修正してください。"
     echo "詳細: scripts/audit-anon-rls-grants.sql のコメント参照"
     exit 1
   fi
@@ -56,7 +56,7 @@ run_via_psql() {
     echo "host_table | policy | refs_anon_blocked"
     echo "$result" | sed 's/^/  /'
     echo
-    echo "対処: 参照先テーブルに GRANT SELECT ON ... TO anon を付与するか、policy を書き直してください。"
+    echo "対処: 参照先の公開範囲と必要列を確認し、権限または参照方法を修正してください。"
     exit 1
   fi
   echo "✅ anon RLS / GRANT 整合性: OK (psql)"

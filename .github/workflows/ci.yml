@@ -60,6 +60,8 @@ jobs:
       - name: Customer coupon stats DB regression
         run: node scripts/test-customer-coupon-stats-db.mjs
 
+      - name: Store public column boundary
+        run: node scripts/test-store-public-columns.mjs
       - name: Duplicate unique constraint cleanup
         run: node scripts/test-duplicate-unique-constraints.mjs
       - name: GM response tenant integrity
