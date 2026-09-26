@@ -90,4 +90,13 @@ describe('クーポンの予約候補と期限', () => {
     expect(r.json).toHaveBeenCalledWith({ error: '予約を取得できませんでした' })
   })
 
+  it('管理者の保有クーポン照会も配布済みの割引額を返す', async () => {
+    mock.role = 'admin'
+    seed({ customer_coupons: [{ id: 'issued', coupon_campaigns: { discount_amount: 2000 }, rules_snapshot: { discount_amount: 500 } }] })
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'customer-coupons', customer_id: 'customer' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(r.json.mock.calls[0][0][0].coupon_campaigns.discount_amount).toBe(500)
+  })
+
 })

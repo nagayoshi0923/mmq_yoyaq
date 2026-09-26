@@ -45,3 +45,12 @@ test('期限切れを利用可能に出さず、併用の案内を実際の条�
   await expect(page.getByText('他のクーポンと併用可（相手のクーポンも併用可の場合）', {exact:true})).toBeVisible()
   await expect(page.getByText('同じ作品の別予約には繰り返し利用できません', {exact:true})).toBeVisible()
 })
+
+
+test('予約取得エラーを表示して再読み込みで復旧できる', async ({page}) => {
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1&reservation-error=1')
+  await page.getByText('25%クーポン', {exact:true}).click()
+  await expect(page.getByRole('alert')).toHaveText('予約を取得できませんでした。再読み込みしてください。予約を再読み込み')
+  await page.getByRole('button', {name:'予約を再読み込み'}).click()
+  await expect(page.getByText('利用対象の作品', {exact:true})).toBeVisible()
+})

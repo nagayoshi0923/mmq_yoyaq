@@ -122,6 +122,10 @@ export function CouponsPage() {
       if (createdAt && createdAt >= oneMonthAgo) return true
       return false
     }
+    if (c.status === 'expired') {
+      const deadlines = [c.expires_at, c.coupon_campaigns?.usage_valid_until].filter(Boolean).map(value => new Date(value!).getTime())
+      if (deadlines.length) return Math.min(...deadlines) >= oneMonthAgo.getTime()
+    }
     if (!c.updated_at) return true
     return new Date(c.updated_at) >= oneMonthAgo
   })
@@ -177,7 +181,7 @@ export function CouponsPage() {
           </span>
         </div>
         <p className="ts-muted">
-          利用可能なクーポンは予約時に適用できます
+          利用条件を確認して、対象の予約に使用できます
         </p>
       </div>
 
