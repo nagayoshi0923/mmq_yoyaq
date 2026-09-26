@@ -743,3 +743,9 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - 追加検証：送信直前の読み取り専用ガード13件、実Deno環境で専用/共通Cronキー・不一致・空白の認証テスト成功。取得後の辞退・送信・リース変更を検査し、送信結果更新も元リースで条件付きにした。
 - 定期dispatchは一時表＋HTTP代替関数で、extensionのみの失敗再試行、試行上限、送信済み、無効組織を確認。rollback→再適用の関数定義一致も実DBトランザクションで確認済み。
 - migration `20260927011000` と対象Edgeをstagingへ適用。724 unit/verify・Edge compile成功。Deno型検査は変更していないsecurity.tsの既存RPC型推論5件で失敗するため、ランタイムテストはno-checkで別途実施（未解決事項として保持）。本番DB/Edgeはまだ未適用。
+
+## QW-20260917-001：追加募集通知の公演整合性・期限確認（2026-09-27）
+- PR483の後続レビューで、予約振替後・公演中止直後の送信条件と、期限切れextensionだけで毎分dispatchされる問題を確認。
+- 送信前に予約のschedule_event_id一致、公演の未中止を確認。dispatchは現周回・active・締切前・未辞退のextensionだけを対象にする。
+- 送信前16件を含む727 unit/verify、Edge compile成功。実DB一時表で期限切れ・旧周回・募集終了・辞退のdispatch除外を確認。関数の適用・復元一致・再適用をROLLBACK内で検証。
+- DB migration20260927012000と対象Edgeをstagingへ適用中。本番反映・受入確認は追跡を継続。
