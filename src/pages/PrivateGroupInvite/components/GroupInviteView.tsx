@@ -1,3 +1,4 @@
+import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
 import React, { useState } from 'react'
@@ -133,10 +134,7 @@ export function GroupInviteView({
     try {
       if (existingMemberId) {
         // RPC経由で削除（RLSを回避）
-        const { error: deleteError } = await supabase.rpc('delete_guest_member', {
-          p_member_id: existingMemberId,
-          p_invite_code: code ?? null,
-        })
+        const { error: deleteError } = await privateGroupMemberAction(group.id, existingMemberId, 'leave')
         if (deleteError) throw deleteError
         toast.success('グループから退出しました')
         setExistingMemberId(null)
@@ -182,10 +180,10 @@ export function GroupInviteView({
             <CardContent className="p-4">
               <div className="flex-1">
                 <p className="text-sm font-medium">
-                  参加にはログインが必要です
+                  アカウントで参加すると、マイページから確認できます
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  アカウントをお持ちでない方は新規登録から参加できます
+                  ゲストのまま参加する場合は、下のお名前とメールアドレスを入力してください
                 </p>
               </div>
               <div className="flex gap-2 mt-3">

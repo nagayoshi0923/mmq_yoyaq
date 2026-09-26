@@ -1,3 +1,4 @@
+import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -51,10 +52,7 @@ export function SurveyResponseForm({
       logger.log('📋 SurveyForm: loading', { groupId, memberId })
 
       try {
-        const { data, error } = await supabase.rpc('get_survey_data_for_member', {
-          p_group_id: groupId,
-          p_member_id: memberId,
-        })
+        const { data, error } = await privateGroupMemberAction(groupId, memberId, 'survey_read')
 
         logger.log('📋 SurveyForm: rpc result', { data, error })
 
@@ -155,11 +153,7 @@ export function SurveyResponseForm({
 
     setSubmitting(true)
     try {
-      const { data: responseId, error } = await supabase.rpc('upsert_survey_response_for_member', {
-        p_group_id: groupId,
-        p_member_id: memberId,
-        p_responses: responses,
-      })
+      const { data: responseId, error } = await privateGroupMemberAction(groupId, memberId, 'survey_write', responses)
 
       if (error) {
         logger.error('📋 SurveyForm: upsert error', error)

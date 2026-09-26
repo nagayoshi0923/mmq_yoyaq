@@ -1,3 +1,4 @@
+import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { RpcSetCharacterPreferenceParams, RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
+import type { RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { Sentry } from '@/lib/sentry'
@@ -162,7 +163,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     if (!currentMemberId || !performanceDate) return
     let cancelled = false
     void (async () => {
-      const { data, error } = await supabase.rpc('get_survey_data_for_member', { p_group_id: groupId, p_member_id: currentMemberId })
+      const { data, error } = await privateGroupMemberAction(groupId, currentMemberId, 'survey_read')
       if (error) { logger.error('アンケート期限の取得エラー:', error); return }
       if (!cancelled && data?.survey_enabled && data.survey_deadline_days != null) {
         const deadline = data.survey_deadline_at ? new Date(data.survey_deadline_at) : new Date(new Date(performanceDate + 'T23:59:59.999+09:00').getTime() - data.survey_deadline_days * 86400000)
@@ -326,12 +327,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     setCharPreferences(prev => ({ ...prev, [currentMemberId]: charId }))
     setCharSaving(true)
     try {
-      const charPrefParams: RpcSetCharacterPreferenceParams = {
-        p_group_id: groupId,
-        p_member_id: currentMemberId,
-        p_character_id: charId,
-      }
-      const { error } = await supabase.rpc('set_character_preference', charPrefParams)
+      const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'character_preference', { characterId: charId })
       if (error) throw error
     } catch (err) {
       logger.error('キャラクター選択エラー:', err)
@@ -532,11 +528,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
     setSending(true)
     try {
-      const { error } = await supabase.from('private_group_messages').insert({
-        group_id: groupId,
-        member_id: currentMemberId,
-        message: newMessage.trim(),
-      })
+      const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'message', { message: newMessage.trim() })
 
       if (error) throw error
       setNewMessage('')

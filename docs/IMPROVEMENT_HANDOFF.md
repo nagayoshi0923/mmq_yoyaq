@@ -671,3 +671,12 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - migration 20260927005000。既存PR525の030番号衝突と不足を修正した後継変更であり、PR525をそのまま配備しない。
 - 650unit/verify、DBスタッフ・登録連携回帰、招待境界13件、独立レビュー完了。staging DB適用済み。実DBの退職保存/停止org失効/休職復帰/削除/遅延書込/ライセンス保持、登録プロフィール作成を確認（全fixture rollback）。本番はまだ未適用。
 - rollbackでは退職状態や登録transaction監査列を消さず、関数を前定義へ戻す。原文migrationのrollback/reapplyテスト済み。
+
+### QW-20260917-001 A02/A03: private-group member authentication
+
+- PIN v3 issues a 30-day random guest credential; only its hash is stored in DB. A member UUID alone no longer authorizes dates, chat, survey, character preferences, or leave. Expiry restores the PIN entry flow.
+- Joining locks the group and atomically saves the member, PIN, credential and join announcement after duplicate/capacity checks.
+- Legacy member RPC grants are revoked; direct browser writes are guarded for the actual member, organizer or same-organization staff. Existing RLS policies are unchanged.
+- PIN mail requires the guest credential, derives scenario/link from DB, and redacts the PIN in email history. Existing mail history is not deleted.
+- 2026-09-27: DB060/061 applied to STAGING ONLY. Verified DB regression, legacy bypass rejection, real staging RLS/survey RPC, 4 simultaneous requests for 1 remaining slot (1 success/3 capped), and CUA PIN login/chat/expired-session recovery. Test fixtures cleaned; no email sent.
+- Whole QW-20260917-001 remains in progress. Private-group create/delete atomicity, read visibility, existing data consistency, other domains and ER remain separate open work.
