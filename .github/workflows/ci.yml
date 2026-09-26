@@ -58,7 +58,7 @@ jobs:
         run: node scripts/test-unrecorded-gm-cost-db.mjs
 
       - name: Customer coupon stats DB regression
-        run: node scripts/test-customer-coupon-stats-db.mjs
+        run: node scripts/test-customer-coupon-stats-db.mjs && node scripts/test-customer-contact-scope-db.mjs
 
       - name: Store public column boundary
         run: node scripts/test-store-public-columns.mjs

@@ -1,3 +1,4 @@
+BEGIN;
 CREATE OR REPLACE FUNCTION public.get_org_customers_with_stats(p_org_id uuid, p_search text DEFAULT NULL::text, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0)
  RETURNS TABLE(id uuid, organization_id uuid, user_id uuid, name text, nickname character varying, email text, email_verified boolean, phone text, address text, line_id text, avatar_url text, birth_date date, prefecture text, preferences text[], notification_settings jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, reservation_count bigint, total_paid bigint, last_visit timestamp with time zone, visit_count bigint, total_coupons bigint, used_coupons bigint, remaining_coupons bigint, total_count bigint)
  LANGUAGE sql
@@ -13,7 +14,26 @@ AS $function$
   base AS (
     SELECT c.*
     FROM public.customers c, escaped e
-    WHERE c.id IN (SELECT id FROM public.get_org_customers(p_org_id))
+    WHERE (
+        c.organization_id = p_org_id
+        OR (
+          c.organization_id IS NULL
+          AND (
+            EXISTS (
+              SELECT 1 FROM public.reservations r
+              WHERE r.customer_id = c.id
+                AND r.organization_id = p_org_id
+            )
+            OR EXISTS (
+              SELECT 1 FROM public.private_groups pg
+              JOIN public.private_group_members pgm ON pgm.group_id = pg.id
+              WHERE pg.organization_id = p_org_id
+                AND c.user_id IS NOT NULL
+                AND pgm.user_id = c.user_id
+            )
+          )
+        )
+      )
       AND (
         e.pattern IS NULL
         OR c.name ILIKE e.pattern ESCAPE '\'
@@ -100,3 +120,4 @@ AS $function$
   LEFT JOIN coupon_stats cs ON cs.customer_id = p.id
   ORDER BY p.created_at DESC
 $function$;
+COMMIT;
