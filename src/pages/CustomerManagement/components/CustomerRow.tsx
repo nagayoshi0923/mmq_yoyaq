@@ -160,7 +160,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
           {couponStats ? (
             <Badge variant="outline" className="font-normal text-xs">
               <Ticket className="h-3 w-3 mr-1" />
-              {couponStats.remaining_coupons}/{couponStats.total_coupons}
+              残り{couponStats.remaining_coupons}回
             </Badge>
           ) : (
             <span className="text-xs text-muted-foreground/50">-</span>
@@ -263,17 +263,18 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* クーポン残高 */}
               <div className="p-3 bg-background rounded-lg border">
-                <div className="text-xs text-muted-foreground mb-1">クーポン残高</div>
+                <div className="text-xs text-muted-foreground mb-1">有効な残り回数</div>
                 {couponStats ? (
                   <div className="flex items-center gap-3">
-                    <div className="text-lg font-bold text-primary">{couponStats.remaining_coupons}枚</div>
+                    <div className="text-lg font-bold text-primary">{couponStats.remaining_coupons}回</div>
                     <div className="text-xs text-muted-foreground">
-                      (取得: {couponStats.total_coupons}枚 / 使用済: {couponStats.used_coupons}枚)
+                      (発行: {couponStats.total_coupons}枚 / 使用: {couponStats.used_coupons}回)
                     </div>
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">クーポンなし</div>
                 )}
+                <p className="mt-2 text-xs text-muted-foreground">対象作品・店舗などの条件は予約時に確認します。</p>
               </div>
 
               {/* クーポン使用履歴 */}
