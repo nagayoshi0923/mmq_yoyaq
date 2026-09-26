@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
-import { requireAuth, requireStaff, requireAdmin, ApiError } from './_lib/auth.js'
+import { requireAuth, requireStaff, requireAdmin, createUserScopedClient, type AuthUser, ApiError } from './_lib/auth.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -57,32 +57,6 @@ const CUSTOMER_UPDATABLE_FIELDS = [
   'notification_settings',
 ] as const
 
-// org がこの顧客を操作できるか確認（ゲスト: org_id 一致、プラットフォーム: 予約接点あり）
-async function assertOrgOwnsCustomer(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dbClient: any,
-  customerId: string,
-  orgId: string,
-): Promise<boolean> {
-  const { data: c } = await dbClient
-    .from('customers')
-    .select('id, organization_id')
-    .eq('id', customerId)
-    .maybeSingle()
-  if (!c) return false
-  if (c.organization_id === orgId) return true
-  if (c.organization_id !== null) return false
-  // プラットフォーム顧客: reservations 接点チェック
-  const { data: r } = await dbClient
-    .from('reservations')
-    .select('id')
-    .eq('customer_id', customerId)
-    .eq('organization_id', orgId)
-    .limit(1)
-    .maybeSingle()
-  return !!r
-}
-
 function pickFields<T extends readonly string[]>(
   source: Record<string, unknown>,
   allowed: T,
@@ -114,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (method === 'GET') return await routeGet(req, res, user.orgId)
     if (method === 'POST') return await routePost(req, res, user.orgId)
-    if (method === 'PATCH') return await routePatch(req, res, user.orgId)
+    if (method === 'PATCH') return await routePatch(req, res, user)
     if (method === 'DELETE') {
       requireAdmin(user)
       return await routeDelete(req, res, user.orgId)
@@ -281,7 +255,7 @@ async function routePost(req: VercelRequest, res: VercelResponse, orgId: string)
 // ─── PATCH: update ───────────────────────────────────────────────────────────
 // /api/customers?id=<uuid>
 // 自組織が所有する顧客のみ更新可能
-async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string) {
+async function routePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
   const id = req.query.id as string | undefined
@@ -293,28 +267,28 @@ async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string
     return res.status(400).json({ error: 'updates が必要です' })
   }
 
-  // マルチテナント境界チェック
-  const canEdit = await assertOrgOwnsCustomer(db, id, orgId)
-  if (!canEdit) return res.status(404).json({ error: '顧客が見つかりません' })
-
   // ホワイトリストでフィルタ
   const safeUpdates = pickFields(updates, CUSTOMER_UPDATABLE_FIELDS)
   if (Object.keys(safeUpdates).length === 0) {
     return res.status(400).json({ error: '更新可能なフィールドがありません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  // Use the verified user's JWT so the existing UPDATE policy is checked at
+  // write time, including reservation OR private-group contact for shared profiles.
+  let query = createUserScopedClient(user.jwt)
     .from('customers')
-    .update(safeUpdates)
+    .update({ ...safeUpdates, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .select(SELECT_FIELDS)
-    .single()
+  if (user.role !== 'license_admin') {
+    query = query.or(`organization_id.eq.${user.orgId},organization_id.is.null,user_id.eq.${user.userId}`)
+  }
+  const { data, error } = await query.select(SELECT_FIELDS).maybeSingle()
 
   if (error) {
     console.error('[customers:update] DB error:', error)
     return res.status(500).json({ error: '顧客の更新に失敗しました', detail: error.message })
   }
+  if (!data) return res.status(404).json({ error: '顧客が見つからないか、編集権限がありません' })
   return res.status(200).json(data)
 }
 
