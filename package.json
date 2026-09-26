@@ -56,7 +56,7 @@
     "deploy:prod": "npm run db:push:prod && npm run functions:deploy:prod",
     "test:gm-assignment-db": "node scripts/test-gm-assignment-sync-db.mjs && node scripts/test-gm-assignment-operations-db.mjs && node scripts/test-event-staff-identity-db.mjs",
     "test:organization-signup-db": "node scripts/test-organization-signup-db.mjs",
-    "test:guest-pin-db": "node scripts/test-guest-pin-security-db.mjs && node scripts/test-private-group-access-db.mjs && node --test scripts/guest-pin-email-boundary.test.mjs",
+    "test:guest-pin-db": "node scripts/test-guest-pin-security-db.mjs && node scripts/test-private-group-access-db.mjs && node --test scripts/guest-pin-email-boundary.test.mjs && node scripts/test-private-group-create-db.mjs",
     "test:staff-account-db": "node scripts/test-staff-account-lifecycle-db.mjs && node --test scripts/invite-staff-boundary.test.mjs"
   },
   "dependencies": {
