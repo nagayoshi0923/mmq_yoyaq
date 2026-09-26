@@ -24,4 +24,3 @@ export function useBookingCoupon(userId: string | undefined, eventId: string, pa
   const couponDiscount = selectedCouponId && couponReady ? couponPreview.data?.discount_amount ?? 0 : 0
   return { selectedCouponId, setSelectedCouponId, selectedCoupon, availableCoupons, couponsQuery, couponPreview, couponReady, couponDiscount }
 }
-
