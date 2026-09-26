@@ -47,6 +47,11 @@ export const staffApi = {
     return apiClient.patch<Staff>(`/api/staff?id=${encodeURIComponent(id)}`, updates)
   },
 
+  // 既存連携の解除・新規連携・権限同期を一つのDBトランザクションで保存する。
+  async linkAccount(id: string, userId: string | null, email?: string): Promise<void> {
+    await apiClient.patch(`/api/staff?id=${encodeURIComponent(id)}&action=linkAccount`, { user_id: userId, email })
+  },
+
   // 廃止。担当は assignmentApi（/api/assignments）。サーバーは 410 を返す。
   async updateSpecialScenarios(_id: string, _specialScenarios: string[]): Promise<Staff> {
     throw new Error('担当シナリオは assignmentApi で更新してください。staff.special_scenarios への書き込みは廃止しました。')

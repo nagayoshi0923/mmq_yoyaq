@@ -79,4 +79,5 @@ BEGIN
   RETURN NEW;
 END $function$
 ;
+NOTIFY pgrst, 'reload schema';
 COMMIT;

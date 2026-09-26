@@ -67,13 +67,11 @@
 - [x] 第2段階の公演staff_id保持、改名時の役割保護、未確認担当・役割の表示を実装。PR493で検証中。
 - [x] DB変更あり：20260921120000をstagingに適用。未登録/重複履歴を保持。続く20260921123000は既存の役割キーずれを未確認扱いにする補強。
 - [x] 未確認公演・担当・役割がある給与CSVを停止。月次インポートはDB書込み前に担当名と重複を検証し、修正が必要な公演を表示。
-- [ ] 第2段階のstaging新版画面を確認。固定URL配信問題は後続案件で解消済み。
+- [ ] 第2段階のstaging新版画面を確認。固定URLのキャッシュが旧版を返す問題を切り分け中。
 - [ ] 第2段階は本番DBへ両migrationを適用・読戻し確認した後にmainを反映する。DB先行が必須。本番未適用。
 - [ ] 作品不明の9/1・11・15・24・25公演、未登録担当、役割キーずれは根拠確認待ち。旧配列廃止・予約側ID入力専用化は未実施。
 
 第2段階の移行・検証・復旧手順：`docs/reports/QW-20260917-001-event-staff-identity.md`。
-
-第2段階は別案件QW-20260917-001で継続。共有台帳ではPR493/494・DB5件と無題5公演の確認が残る。
 
 
 既存のシナリオ固有報酬・交通費・GM未配置時の見込計上などのルールは今回変更していない。売上ランキングのGM費用欠落はQW-20260926-006で集計を統一する。
@@ -585,6 +583,9 @@ DBで取消・中止・削除を捕捉し永続キューへ統一。顧客メー
 
 貸切専用列・設定欄・送信分岐を追加し、混在本文をQW限定でハッシュ照合して分離する。料金・期限の設定変更や顧客への試験送信なし。詳細: `docs/releases/QW-20260911-004-reminder-restore.md`。
 
+### QW-20260909-011：店舗設定の保存修正（分離第1段）
+
+PR431からの一括取込を避け、営業時間設定の特別営業日・休業日の読込と保存を修正。旧holidaysの保持、保存失敗の安全停止、組織・店舗絞り込み、共通処理の抽出を実施。unit375件・verify・模擬APIによる画面試験3件成功。サーバーの店舗APIで認証組織を強制し管理者だけ保存可能。本番未反映。店舗編集への集約、募集停止、貸切時刻、GM解除・取消連動は残る。詳細：`docs/releases/QW-20260909-011-store-settings.md`。
 ## QW-20260914-002 / Issue #467 貸切キャンセル失敗
 
 - [x] 通知トリガーのevent_id変数と予約列の衝突（42702）を再現・修正。正規RPCと前進migrationを更新。
@@ -656,3 +657,63 @@ DBの担当→staff旧配列→担当という再帰で、メインのみがメ�
 本番反映前の追加検証：満席のスタッフ交代は旧自動枠を先に解除。公演作成済みで参加登録だけ失敗した場合は部分成功を明示して追加モーダルを閉じ、再試行による重複作成を防止。時間重複の続行結果を元の保存Promiseへ返し、保留参加者の保存を継続。単体606件・npm run verify成功。
 
 QW-20260926-006 本番反映前の補完：全額割引の確定金額0円を売上に保持し、定期リマインドも確定金額を使用。3人目以降のGMにはgm3以降の個別報酬を適用。クーポン確定失敗時は選択とプレビューを更新し、P0028を利用者向けエラーとして返す。公演時間設定の上限を従来の480分へ戻した。単体624件・verify・クーポンDB回帰成功。
+
+
+### QW-20260917-001 全領域整理（利用者指示：本番反映まで）
+
+全体は進行中。個別PRの完了を全体完了と扱わない。共有正本の棚卸しA01〜A28/B01〜B20を追跡する。
+第1変更は貸切PIN：10回失敗で15分ロック、旧RPCも同じ判定、既存PINの無認証上書き拒否、画面案内、PIIログ除去。migration 20260927001000。検証環境は適用済み。実PostgreSQLで10並列失敗・ロック・旧RPC・期限後復帰を確認し、隔離fixtureを削除済み。本番DB・画面はPR521（bbe5b61c）で反映済み。本番mmq.gameの配布JSにv2とロック文言を確認。グループの書込権限/参加RPC/スタッフ権限等は後続であり、本変更だけで全体の認証整理完了とはしない。
+
+### QW-20260917-001 スタッフアカウントの整合性（進行中）
+
+連携/解除/役割変更/停止/削除とusers権限を同一transactionで同期。停止は顧客権限へ、休職は業務権限維持、license_adminは独立維持。staff_account_accessで解除済み由来を保持し旧APIの遅延書込による再昇格を拒否する。直接の本人role変更をDBで拒否。付替はservice_role専用RPCに集約し、メールや旧スタッフ情報を削除しない。招待も他組織・別アカウントを変更前に拒否し、先にstaffへ昇格しない。
+
+migration20260927002000はstaging適用済み、本番未適用。644単体・verify、PGlite DB回帰、招待境界9件成功。独立レビューのAuth内部接続と解除後の遅延再昇格を修正して再確認済み。既存inactive+業務権限不整合は両環境0件。全体は未完了。
+
+追加発見：組織登録の権限取得に所有権チェック不足（handle_new_user / claim_organization_as_admin）。新規組織の作成者と検証トークンに限定する修正を次に行う。今回のスタッフ修正だけで認可全体の完了とはしない。
+
+### QW-20260917-001 A29 — 組織登録の所有権検証（2026-09-27）
+
+組織UUIDや自己申告の `invited_as` だけで管理者権限を取得できた経路を廃止。登録時に32byteの登録証明を返し、DBはハッシュ・登録者メール・ログイン済み作成者・30分の期限を保持する。新規組織のみ取得でき、登録済み組織の取得・他人の未登録組織の削除を拒否する。Authプロフィール/管理者staffの作成失敗はAuth登録と証明消費を同時にロールバックする。一般のstaff/license_admin metadataは権限の根拠にしない。旧/register画面の未使用登録実装を削除し/startへ統一。
+
+- 変更: 20260927003000/004000、OrgSignup、旧register入口、DB回帰/CI。
+- 検証: PGliteの所有権/NULL証明/偽装/期限/再利用/失敗原子性/020連携/rollback・再適用、644 unit、verify、独立レビュー指摘なし。staging実DBでもAuthトリガー・所有者制限・失敗時の原子性を確認、全fixture rollback。
+- 状態: staging DB適用済み。本番DB/画面反映・画面受入は未完了。旧タブの匿名登録は証明を送れず拒否されるため再読み込みが必要。
+- 登録時customers生成失敗は、削除済みvisit_count/total_spent列への書き込みが原因と確認。04000で除去し、現行スキーマのローカルDBとstaging実DBで顧客行の作成まで検証済み（警告解消）。過去に欠落した顧客行の補完は別途確認する。
+- スタッフA05/A06: PR522、main4dd8ff81、本番DB020/Edge invite-staff/Vercel反映済み。実配備Edgeソース一致、匿名API/Edge401を確認。スタッフ全域の監査や他の残件の完了とは区別する。
+
+### QW-20260917-001 #523 — 退職・休職と組織権限（2026-09-27）
+
+画面のresigned/on_leaveが本番status制約に合わず保存できなかったため、休職をon-leaveに統一、退職resignedを追加する。表示・フィルタ・型・旧API入力互換も統一。停止/退職/連携解除/削除は顧客権限と所属なしへ同一transactionで変更し、復帰時はstaffから復元する。DB組織解決のstaff fallback、APIとクライアントのfallbackも停止者を除外。ライセンス管理権限は雇用状態と独立して保持する。
+
+再招待でプロフィールの組織所属を先行書込せず、停止後の遅延org単独更新も抑止する。招待メールは大小文字非依存かつ記号を文字として照合。元スタッフの新規組織登録は、登録証明を消費した同じDB transactionだけ昇格でき、過去証明や遅延APIでは復活しない。旧組織のstaff行に連携が残る場合、別組織への付替は引き続き拒否する。
+
+- migration 20260927005000。既存PR525の030番号衝突と不足を修正した後継変更であり、PR525をそのまま配備しない。
+- 650unit/verify、DBスタッフ・登録連携回帰、招待境界13件、独立レビュー完了。staging DB適用済み。実DBの退職保存/停止org失効/休職復帰/削除/遅延書込/ライセンス保持、登録プロフィール作成を確認（全fixture rollback）。本番はまだ未適用。
+- rollbackでは退職状態や登録transaction監査列を消さず、関数を前定義へ戻す。原文migrationのrollback/reapplyテスト済み。
+
+### QW-20260917-001 A02/A03: private-group member authentication
+
+- PIN v3 issues a 30-day random guest credential; only its hash is stored in DB. A member UUID alone no longer authorizes dates, chat, survey, character preferences, or leave. Expiry restores the PIN entry flow.
+- Joining locks the group and atomically saves the member, PIN, credential and join announcement after duplicate/capacity checks.
+- Legacy member RPC grants are revoked; direct browser writes are guarded for the actual member, organizer or same-organization staff. Existing RLS policies are unchanged.
+- PIN mail requires the guest credential, derives scenario/link from DB, and redacts the PIN in email history. Existing mail history is not deleted.
+- 2026-09-27: DB060/061 applied to STAGING ONLY. Verified DB regression, legacy bypass rejection, real staging RLS/survey RPC, 4 simultaneous requests for 1 remaining slot (1 success/3 capped), and CUA PIN login/chat/expired-session recovery. Test fixtures cleaned; no email sent.
+- Whole QW-20260917-001 remains in progress. Private-group create/delete atomicity, read visibility, existing data consistency, other domains and ER remain separate open work.
+
+## QW-20260917-001 — 貸切グループ作成の原子化（2026-09-27）
+
+作成途中の幹事保存失敗を無視し、候補日時保存失敗時にグループが残る経路を廃止。`create_private_group_atomic` が認証ユーザーを幹事に固定し、組織・作品・店舗を検証した上でグループ、幹事、候補日時、組織設定の初回メッセージを同一トランザクションに保存する。既存の候補日締切triggerも適用され、失敗時は全件戻る。日程未定の作成を維持。招待コードは暗号学的乱数16byteを使用。
+
+- DB070はstaging適用・実Auth/PII/候補日締切triggerを含むROLLBACK検証済み。本番未適用。
+- 657 unit、verify、既存PIN/ゲストDB回帰、新規作成DB回帰（異組織店舗拒否、途中/最後の失敗で全件rollback、戻し/再適用）成功。
+- 全体案件は進行中。予約申込までの一括処理・管理画面の完全削除経路は別の残件として継続。
+
+## QW-20260917-001 — 貸切申込の完全削除を一括化（2026-09-27）
+
+管理画面の独立したDELETE連続実行を`delete_private_booking_request_atomic`へ統一。同組織の有効なスタッフ権限を確認し、申込とグループをロックして監査・予約・関連グループを同一トランザクションで処理する。公演/支払履歴、別予約と共有するグループ、請求・補償・通知等の制限FKがある申込は理由を表示し、取消による履歴保持へ案内する。失敗時に成功扱いにしない。
+
+- 既存承認/取消RPCは予約→グループのロック順のため、新削除ではグループ取得後の予約ロックをNOWAITとし循環待ちを回避。実staging別接続で競合案内と予約保持を確認。
+- DB080 staging適用。実Auth/監査/予約履歴/PII/cascadeのROLLBACK検証、DB権限・早期/後半失敗の全体rollback、実hookの成功/失敗表示2件を検証。
+- 本番DB080/mainは未反映。既存PR531作成一括化はmain fc5b58e6、本番配信usePrivateGroup-R4byVEii.jsまで確認済み。
+- 全体案件は進行中。予約申込までの原子性、他の棚卸し残件とER/共有記録は継続。

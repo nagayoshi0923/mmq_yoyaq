@@ -3,10 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
-import {
-  fetchScenarioPlayerBoundsForOrg,
-  memberInvitationCap,
-} from '@/lib/privateGroupPlayerCap'
+import { privateGroupMemberAction, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import type {
   PrivateGroup,
   PrivateGroupMember,
@@ -14,8 +11,6 @@ import type {
   DateResponse,
 } from '@/types'
 import {
-  getSystemMessageSettings,
-  sendSystemMessage,
   enrichGroupWithViewData,
 } from './privateGroupHelpers'
 
@@ -37,6 +32,8 @@ interface CreateGroupParams {
 
 interface JoinGroupParams {
   groupId: string
+  inviteCode: string
+  pin?: string
   userId?: string
   guestName?: string
   guestEmail?: string
@@ -54,15 +51,6 @@ export function usePrivateGroup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const generateInviteCode = async (): Promise<string> => {
-    const { data, error } = await supabase.rpc('generate_invite_code')
-    if (error) {
-      logger.error('Failed to generate invite code', error)
-      throw new Error('招待コードの生成に失敗しました')
-    }
-    return data as string
-  }
-
   const createGroup = async (params: CreateGroupParams): Promise<PrivateGroup> => {
     setLoading(true)
     setError(null)
@@ -77,110 +65,22 @@ export function usePrivateGroup() {
       const organizationId = await resolveOrgIdFromPageContext()
       if (!organizationId) throw new Error('組織情報が取得できません')
 
-      let inviteCode = await generateInviteCode()
-      let attempts = 0
-      const maxAttempts = 5
-
-      while (attempts < maxAttempts) {
-        const { data: existing } = await supabase
-          .from('private_groups')
-          .select('id')
-          .eq('invite_code', inviteCode)
-          .maybeSingle()
-
-        if (!existing) break
-        inviteCode = await generateInviteCode()
-        attempts++
-      }
-
-      if (attempts >= maxAttempts) {
-        throw new Error('招待コードの生成に失敗しました。再度お試しください')
-      }
-
-      const { data: group, error: groupError } = await supabase
-        .from('private_groups')
-        .insert({
-          organization_id: organizationId,
-          scenario_master_id: params.scenarioId,
-          organizer_id: user.id,
-          name: params.name || null,
-          invite_code: inviteCode,
-          status: 'gathering',
-          preferred_store_ids: params.preferredStoreIds || [],
-          notes: params.notes || null,
-        })
-        .select()
-        .single()
-
+      // グループ・幹事・候補日・初回メッセージを同じトランザクションで保存する。
+      const { data: group, error: groupError } = await supabase.rpc('create_private_group_atomic', {
+        p_organization_id: organizationId,
+        p_scenario_master_id: params.scenarioId,
+        p_name: params.name || null,
+        p_preferred_store_ids: params.preferredStoreIds || [],
+        p_candidate_dates: params.candidateDates.map((cd, index) => ({
+          ...cd,
+          time_slot: privateGroupTimeSlotToDb(cd.time_slot),
+          order_num: cd.order_num || index + 1,
+        })),
+        p_notes: params.notes || null,
+      })
       if (groupError) {
         logger.error('Failed to create group', groupError)
-        throw new Error('グループの作成に失敗しました')
-      }
-
-      // ユーザーのニックネームを取得（customersテーブルから）
-      let organizerDisplayName = user.email?.split('@')[0] || '主催者'
-      try {
-        const { data: customerInfo } = await supabase
-          .from('customers')
-          .select('nickname, name')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        if (customerInfo?.nickname) {
-          organizerDisplayName = customerInfo.nickname
-        } else if (customerInfo?.name) {
-          organizerDisplayName = customerInfo.name
-        }
-      } catch (err) {
-        logger.warn('ユーザーニックネーム取得エラー:', err)
-      }
-
-      const { data: memberData, error: memberError } = await supabase
-        .from('private_group_members')
-        .insert({
-          group_id: group.id,
-          user_id: user.id,
-          guest_name: organizerDisplayName, // ログインユーザーの表示名を設定
-          is_organizer: true,
-          status: 'joined',
-          joined_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single()
-
-      if (memberError) {
-        logger.error('Failed to add organizer as member', memberError)
-      }
-
-      // グループ作成のウェルカムメッセージを送信
-      if (memberData?.id) {
-        // 設定からメッセージ文言を取得
-        const msgSettings = await getSystemMessageSettings(organizationId)
-        await sendSystemMessage(group.id, memberData.id, 'group_created', {
-          organizerName: user.email?.split('@')[0] || '主催者',
-          title: msgSettings?.system_msg_group_created_title || '貸切リクエストグループを作成しました',
-          body: msgSettings?.system_msg_group_created_body || '招待リンクを共有して、参加メンバーを招待してください。',
-          note: msgSettings?.system_msg_group_created_note || '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'
-        })
-      }
-
-      if (params.candidateDates.length > 0) {
-        const candidateDatesData = params.candidateDates.map((cd, index) => ({
-          group_id: group.id,
-          date: cd.date,
-          time_slot: privateGroupTimeSlotToDb(cd.time_slot),
-          start_time: cd.start_time,
-          end_time: cd.end_time,
-          order_num: cd.order_num || index + 1,
-        }))
-
-        const { error: datesError } = await supabase
-          .from('private_group_candidate_dates')
-          .insert(candidateDatesData)
-
-        if (datesError) {
-          logger.error('Failed to add candidate dates', datesError)
-          throw new Error('候補日時の追加に失敗しました')
-        }
+        throw new Error(groupError.message || 'グループの作成に失敗しました')
       }
 
       return group as PrivateGroup
@@ -316,87 +216,16 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
-      // メンバー重複チェック（RPC 経由 - PII 保護）
-      const { data: memberExists } = await supabase.rpc('check_member_exists', {
-        p_group_id: params.groupId,
-        p_user_id: params.userId || null,
+      const { data, error } = await supabase.rpc('join_private_group', {
+        p_invite_code: params.inviteCode,
+        p_guest_name: params.guestName || null,
         p_guest_email: params.guestEmail || null,
+        p_guest_phone: params.guestPhone || null,
+        p_pin: params.pin || null,
       })
-
-      if (memberExists) {
-        throw new Error('既にグループに参加しています')
-      }
-
-      const { data: groupData } = await supabase
-        .from('private_groups')
-        .select('organization_id, scenario_master_id')
-        .eq('id', params.groupId)
-        .single()
-
-      if (groupData?.organization_id && groupData.scenario_master_id) {
-        const bounds = await fetchScenarioPlayerBoundsForOrg(
-          supabase,
-          groupData.organization_id,
-          groupData.scenario_master_id
-        )
-        if (bounds) {
-          const cap = memberInvitationCap(bounds)
-          // メンバー数チェック（RPC 経由 - PII 保護）
-          const { data: currentMemberCount } = await supabase.rpc('get_group_member_count', {
-            p_group_id: params.groupId,
-          })
-
-          if (currentMemberCount !== null && currentMemberCount >= cap) {
-            throw new Error(`参加人数が上限（${cap}名）に達しています`)
-          }
-        }
-      }
-
-      // ログインユーザーの場合、ニックネームを取得（customersテーブルから）
-      let guestName = params.guestName || null
-      if (params.userId && !guestName) {
-        try {
-          const { data: customerInfo } = await supabase
-            .from('customers')
-            .select('nickname, name')
-            .eq('user_id', params.userId)
-            .maybeSingle()
-          if (customerInfo?.nickname) {
-            guestName = customerInfo.nickname
-          } else if (customerInfo?.name) {
-            guestName = customerInfo.name
-          }
-        } catch (err) {
-          logger.warn('ユーザーニックネーム取得エラー:', err)
-        }
-      }
-
-      const { data: member, error } = await supabase
-        .from('private_group_members')
-        .insert({
-          group_id: params.groupId,
-          user_id: params.userId || null,
-          guest_name: guestName,
-          guest_email: params.guestEmail || null,
-          guest_phone: params.guestPhone || null,
-          is_organizer: false,
-          status: 'joined',
-          joined_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
-
-      if (error) {
-        logger.error('Failed to join group', error)
-        throw new Error('グループへの参加に失敗しました')
-      }
-
-      // メンバー参加のシステムメッセージを送信
-      const memberName = params.guestName || params.guestEmail?.split('@')[0] || 'メンバー'
-      await sendSystemMessage(params.groupId, member.id, 'member_joined', {
-        memberName,
-        memberId: member.id
-      })
+      if (error) throw new Error(error.message || 'グループへの参加に失敗しました')
+      const member = data.member
+      if (data.guest_token) savePrivateGroupGuestToken(params.groupId, data.guest_token)
 
       return member as PrivateGroupMember
 
@@ -417,22 +246,11 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
-      const responseData = responses.map(r => ({
-        group_id: groupId,
-        member_id: memberId,
-        candidate_date_id: r.candidateDateId,
-        response: r.response,
-      }))
-
-      const { error } = await supabase
-        .from('private_group_date_responses')
-        .upsert(responseData, {
-          onConflict: 'member_id,candidate_date_id',
-        })
+      const { error } = await privateGroupMemberAction(groupId, memberId, 'date_responses', responses)
 
       if (error) {
         logger.error('Failed to submit date responses', error)
-        throw new Error('日程回答の送信に失敗しました')
+        throw new Error(error.message || '日程回答の送信に失敗しました')
       }
 
     } catch (err: any) {
