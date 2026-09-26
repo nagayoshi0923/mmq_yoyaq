@@ -10,7 +10,7 @@ CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ S
 CREATE TABLE private_groups(id uuid PRIMARY KEY,invite_code text UNIQUE,status text,organization_id uuid,scenario_master_id uuid,character_assignments jsonb);
 CREATE TABLE private_group_members(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),group_id uuid REFERENCES private_groups,user_id uuid,guest_name text,guest_email text,guest_phone text,is_organizer boolean,status text,joined_at timestamptz);
 CREATE TABLE private_group_members_pii(member_id uuid PRIMARY KEY REFERENCES private_group_members ON DELETE CASCADE,guest_name text,guest_email text,access_pin text,access_pin_hash text,failed_attempts integer NOT NULL DEFAULT 0,locked_until timestamptz,updated_at timestamptz);
-CREATE TABLE private_group_messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),group_id uuid,member_id uuid REFERENCES private_group_members ON DELETE SET NULL,message text,sender_type text);
+CREATE TABLE private_group_messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),group_id uuid,member_id uuid REFERENCES private_group_members ON DELETE SET NULL,message text);
 CREATE TABLE private_group_candidate_dates(id uuid PRIMARY KEY,group_id uuid);
 CREATE TABLE private_group_date_responses(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),group_id uuid,member_id uuid REFERENCES private_group_members ON DELETE CASCADE,candidate_date_id uuid,response text,updated_at timestamptz,UNIQUE(member_id,candidate_date_id));
 CREATE TABLE organization_scenarios_with_master(organization_id uuid,scenario_master_id uuid,player_count_min integer,player_count_max integer);
