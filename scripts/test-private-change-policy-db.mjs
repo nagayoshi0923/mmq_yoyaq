@@ -26,6 +26,7 @@ await db.query("INSERT INTO schedule_events VALUES($1,$2,$3,'private',true,curre
 for(const [n,value] of [[1,72],[2,48],[3,12],[5,24]])await db.query('INSERT INTO fixture_settings VALUES($1,$2)',[id(n),JSON.stringify({value})])
 const migration='20260927016000_private_change_policy_first_store.sql'
 await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'))
+await db.exec(fs.readFileSync('supabase/rpcs/set_reservation_change_policy_snapshot.sql','utf8'))
 await db.exec('CREATE TRIGGER a_change_policy BEFORE INSERT OR UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION set_reservation_change_policy_snapshot()')
 async function create(n,{version=1,privateBooking=true}={}){
  await db.query("INSERT INTO reservations(id,organization_id,reservation_source,reservation_type,requested_datetime,cancellation_policy_snapshot_version) VALUES($1,$2,$3,$4,now()+interval '1 day',$5)",[id(n),id(1),privateBooking?'web_private':'web',privateBooking?'private_booking':'normal',version])
@@ -52,6 +53,14 @@ assert.equal(await value(15),72,'expired customer cannot bypass old deadline whi
 await db.query("INSERT INTO staff VALUES($1,$2,'active')",[id(20),id(1)])
 await db.query('UPDATE reservations SET store_id=$1,participant_count=5 WHERE id=$2',[id(2),id(15)])
 assert.equal(await value(15),null)
+// A longer final deadline cannot be bypassed in the same customer update.
+await db.query("DELETE FROM staff WHERE user_id=$1",[id(20)])
+await db.query('UPDATE fixture_settings SET value=$1 WHERE scope=$2',[JSON.stringify({value:0}),id(1)])
+await db.query('UPDATE fixture_settings SET value=$1 WHERE scope=$2',[JSON.stringify({value:72}),id(2)])
+await create(19)
+await assert.rejects(db.query('UPDATE reservations SET store_id=$1,participant_count=5 WHERE id=$2',[id(2),id(19)]),e=>e.code==='P0050')
+assert.equal(await value(19),0)
+await db.query("SELECT set_config('fixture.user','',false)")
 // Cancellation snapshots existed before change-deadline snapshots. Preserve those old NULLs.
 await db.exec('ALTER TABLE reservations DISABLE TRIGGER a_change_policy')
 await db.query("INSERT INTO reservations(id,organization_id,reservation_source,reservation_type,requested_datetime,reservation_change_deadline_hours_snapshot) VALUES($1,$2,'web_private','private_booking',now()+interval '20 days',NULL),($3,$2,'web_private','private_booking',now()+interval '20 days',72)",[id(16),id(1),id(17)])
