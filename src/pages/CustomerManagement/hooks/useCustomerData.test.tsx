@@ -4,7 +4,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ org: 'a' as string | null, fetch: vi.fn(), refetchOrg: vi.fn() }))
-vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organizationId: mock.org, isLoading: false, error: null, refetch: mock.refetchOrg }) }))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: mock.org || 'unresolved-admin', role: 'admin' }, loading: false }) }))
+vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: () => mock.refetchOrg() }))
 vi.mock('@/lib/api/customerApi', () => ({ customerApi: { listWithStats: mock.fetch } }))
 vi.mock('@/lib/queryInvalidation', () => ({ invalidateEverywhere: (client: QueryClient, key: readonly string[]) => client.invalidateQueries({ queryKey: key }) }))
 import { useCustomerData } from './useCustomerData'
@@ -24,13 +25,13 @@ async function setup() {
 }
 afterEach(async () => { await act(async () => root?.unmount()); client?.clear() })
 async function waitFor(check: () => void) { await settle(); check() }
-beforeEach(() => { mock.org = 'a'; mock.fetch.mockReset(); mock.refetchOrg.mockReset() })
+beforeEach(() => { mock.org = 'a'; mock.fetch.mockReset(); mock.refetchOrg.mockReset().mockImplementation(async () => mock.org) })
 it('does not show the previous organization while the next request is pending', async () => {
  let resolve!: (value: ReturnType<typeof rows>) => void
  mock.fetch.mockResolvedValueOnce(rows('a')).mockImplementationOnce(() => new Promise(r => { resolve = r }))
  const { result, rerender } = await setup()
  await waitFor(() => expect(result.current.customers[0]?.id).toBe('a'))
- mock.org = 'b'; await rerender()
+ mock.org = 'b'; await rerender(); await settle()
  expect(result.current.customers).toEqual([])
  await act(async () => resolve(rows('b')))
  await waitFor(() => expect(result.current.customers[0]?.id).toBe('b'))
@@ -56,11 +57,11 @@ it('hides stale rows on refetch failure and supports retry', async () => {
 
 it('retries organization loading before querying customers', async () => {
  mock.org = null
- mock.refetchOrg.mockImplementation(async () => { mock.org = 'a' })
+ mock.refetchOrg.mockResolvedValueOnce(null).mockResolvedValue('a')
  mock.fetch.mockResolvedValue(rows('a'))
  const { result, rerender } = await setup()
  await act(async () => { await result.current.refreshCustomers() })
- expect(mock.refetchOrg).toHaveBeenCalledOnce()
+ expect(mock.refetchOrg).toHaveBeenCalledTimes(2)
  await rerender()
  await waitFor(() => expect(result.current.customers[0]?.id).toBe('a'))
 })

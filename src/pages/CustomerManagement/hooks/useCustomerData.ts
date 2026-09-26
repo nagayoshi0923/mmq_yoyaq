@@ -4,7 +4,8 @@ import { customerApi, type CustomerWithStats } from '@/lib/api/customerApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
-import { useOrganization } from '@/hooks/useOrganization'
+import { useAuth } from '@/contexts/AuthContext'
+import { getCurrentOrganizationId } from '@/lib/organization'
 
 export interface CustomerCouponStats {
   total_coupons: number
@@ -65,7 +66,17 @@ async function fetchCustomersWithStats(search: string, page: number, pageSize: n
  */
 export function useCustomerData(searchTerm = '') {
   const queryClient = useQueryClient()
-  const { organizationId, isLoading: organizationLoading, error: organizationError, refetch: refetchOrganization } = useOrganization()
+  const { user, loading: authLoading } = useAuth()
+  const organizationQuery = useQuery({
+    queryKey: ['customer-organization', user?.id],
+    queryFn: getCurrentOrganizationId,
+    enabled: !!user && !authLoading,
+    retry: false,
+  })
+  const organizationId = user ? organizationQuery.data ?? null : null
+  const organizationLoading = authLoading || organizationQuery.isLoading
+  const organizationError = organizationQuery.error
+  const refetchOrganization = organizationQuery.refetch
   const [page, setPage] = useState(1)
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm)
 
