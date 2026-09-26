@@ -1,3 +1,6 @@
+import { apiClient } from '@/lib/apiClient'
+import { formatJstMonthDay } from '@/utils/jstDate'
+import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -518,14 +521,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             // アンケート通知
             const scenarioMasterId = selectedRequest?.scenario_master_id
             if (!scenarioMasterId) return
-            const { data: orgScenarioData } = await supabase
-              .from('organization_scenarios_with_master')
-              .select('survey_enabled, survey_deadline_days, characters')
-              .eq('scenario_master_id', scenarioMasterId).eq('organization_id', organizationId).maybeSingle()
+            const orgScenarioData = await getGroupSurveySettings(groupId, true)
             if (!orgScenarioData?.survey_enabled) return
 
             const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) && orgScenarioData.characters.some((c: any) => !c.is_npc)
-            if (hasPlayableCharacters) {
+            if (hasPlayableCharacters && !orgScenarioData.survey_url) {
               const { data: globalSettings } = await supabase.from('global_settings').select('pre_reading_notice_message').eq('organization_id', organizationId).maybeSingle()
               const preReadingMessage = globalSettings?.pre_reading_notice_message || '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
               await Promise.all([
@@ -533,14 +533,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 selectedRequest?.customer_email ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: preReadingMessage }) : Promise.resolve()
               ])
             } else {
-              const confirmedCandidate = selectedRequest?.candidate_datetimes?.candidates?.find((c: any) => c.order === selectedCandidateOrder)
-              let deadlineText = ''
-              if (confirmedCandidate?.date && orgScenarioData.survey_deadline_days !== undefined) {
-                const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
-                perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
-                deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
-              }
-              const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+              const deadlineText = orgScenarioData.survey_deadline_at ? `\n\n回答期限: ${formatJstMonthDay(orgScenarioData.survey_deadline_at)}まで` : ''
+              const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n${orgScenarioData.survey_url ? `次のURLからアンケートにお答えください。\n${orgScenarioData.survey_url}` : '上記の「日程を確認・回答する」ボタンからアンケートにお答えください。'}${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
               await Promise.all([
                 supabase.from('private_group_messages').insert({ group_id: groupId, member_id: organizerMember.id, message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage }) }),
                 selectedRequest?.customer_email ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: surveyMessage }) : Promise.resolve()
@@ -568,11 +562,12 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     setRejectBodyLoading(true)
     setShowRejectDialog(true)
     try {
-      // 貸切リクエストは store_id が無いことが多い。送信側と同じく
-      // store_id → 無ければ organization_id で email_settings を引く。
+      if (!organizationId) throw new Error('組織情報が必要です')
+      // 予約と同じ組織の設定だけをプレビューする。
       const { data: reservation } = await supabase
         .from('reservations')
         .select('store_id, organization_id, title, customer_name')
+        .eq('organization_id', organizationId)
         .eq('id', requestId)
         .maybeSingle()
 
@@ -582,14 +577,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       let companyName = ''
       let companyPhone = ''
       let companyEmail = ''
-      const settingsSelect = 'private_rejection_template, private_rejection_reason, company_name, company_phone, company_email'
-      let settings: { private_rejection_template?: string | null; private_rejection_reason?: string | null; company_name?: string | null; company_phone?: string | null; company_email?: string | null } | null = null
-      if (storeId) {
-        settings = (await supabase.from('email_settings').select(settingsSelect).eq('store_id', storeId).maybeSingle()).data
-      }
-      if (!settings && orgId) {
-        settings = (await supabase.from('email_settings').select(settingsSelect).eq('organization_id', orgId).limit(1).maybeSingle()).data
-      }
+      const settings = await apiClient.get<Record<string,string | null>>(`/api/schedule?type=effective-email-settings&reservation_id=${encodeURIComponent(requestId)}`)
       template = settings?.private_rejection_template || ''
       companyName = settings?.company_name || ''
       companyPhone = settings?.company_phone || ''
@@ -602,7 +590,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         customerName: request?.customer_name || reservation?.customer_name || '',
         scenarioTitle: request?.scenario_title || reservation?.title || '',
         // メール設定で編集できる既定理由。未設定ならアプリの固定既定文。
-        rejectionReason: settings?.private_rejection_reason || DEFAULT_REJECTION_REASON,
+        rejectionReason: settings?.private_rejection_reason ?? DEFAULT_REJECTION_REASON,
         candidateDatesText: buildRejectionCandidateDatesText(request?.candidate_datetimes?.candidates),
         companyName,
       })
@@ -613,7 +601,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     } finally {
       setRejectBodyLoading(false)
     }
-  }, [])
+  }, [organizationId])
 
   // 却下確定
   const handleRejectConfirm = useCallback(async (selectedRequest?: PrivateBookingRequest | null) => {
@@ -759,79 +747,14 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
     setSubmitting(true)
     try {
-      // 予約情報を取得
-      const { data: reservation, error: fetchError } = await supabase
-        .from('reservations')
-        .select('id, private_group_id')
-        .eq('id', requestId)
-        .single()
-      
-      if (fetchError) {
-        logger.error('予約情報取得エラー:', fetchError)
-        throw new Error('予約情報の取得に失敗しました')
-      }
-      
-      const privateGroupId = reservation?.private_group_id
-      
-      // グループが紐づいている場合は関連データも削除
-      if (privateGroupId) {
-        // グループメッセージを削除
-        await supabase
-          .from('private_group_messages')
-          .delete()
-          .eq('group_id', privateGroupId)
-        
-        // 候補日程の回答を削除
-        const { data: candidateDates } = await supabase
-          .from('private_group_candidate_dates')
-          .select('id')
-          .eq('group_id', privateGroupId)
-        
-        if (candidateDates && candidateDates.length > 0) {
-          const dateIds = candidateDates.map(d => d.id)
-          await supabase
-            .from('private_group_date_responses')
-            .delete()
-            .in('candidate_date_id', dateIds)
-        }
-        
-        // 候補日程を削除
-        await supabase
-          .from('private_group_candidate_dates')
-          .delete()
-          .eq('group_id', privateGroupId)
-        
-        // グループメンバーを削除
-        await supabase
-          .from('private_group_members')
-          .delete()
-          .eq('group_id', privateGroupId)
-        
-        // グループを削除
-        await supabase
-          .from('private_groups')
-          .delete()
-          .eq('id', privateGroupId)
-      }
-      
-      // GM回答を削除
-      await supabase
-        .from('gm_availability_responses')
-        .delete()
-        .eq('reservation_id', requestId)
-      
-      // 予約を削除
-      // eslint-disable-next-line no-restricted-syntax -- 貸切予約リクエストの却下処理のため直接削除が必要
-      const { error: deleteError } = await supabase
-        .from('reservations')
-        .delete()
-        .eq('id', requestId)
-      
+      const { error: deleteError } = await supabase.rpc('delete_private_booking_request_atomic', {
+        p_reservation_id: requestId,
+      })
       if (deleteError) {
         logger.error('予約削除エラー:', deleteError)
-        throw new Error('予約の削除に失敗しました')
+        throw new Error(deleteError.message || '予約の削除に失敗しました')
       }
-      
+
       logger.log('貸切申込を完全に削除しました:', requestId)
       setDeleteConfirmRequestId(null)
       onSuccess()

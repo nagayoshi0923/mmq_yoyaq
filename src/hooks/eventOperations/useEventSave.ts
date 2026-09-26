@@ -1,3 +1,5 @@
+import { loadPreparationNeighborEvents } from '@/lib/preparationNeighborEvents'
+import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 /**
  * 公演の保存本体と重複チェックフロー（Phase 4-3 で useEventOperations から分割）。
  *
@@ -14,14 +16,14 @@
  * 重複警告ダイアログの state（isConflictWarningOpen / conflictInfo /
  * pendingPerformanceData）もこのフックが保持する。
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { ApiClientError } from '@/lib/apiClient'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { checkTimeOverlap } from '@/utils/eventOperationUtils'
+import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import {
   diffScheduleSnapshotsForCustomerEmail,
@@ -110,8 +112,20 @@ export function useEventSave({
   modalMode,
   organizationId,
 }: UseEventSaveProps) {
+  const { fetch: fetchPreparation } = usePreparationSettings()
   // 重複警告ダイアログ状態
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
+  const conflictResult = useRef<((success: boolean) => void) | null>(null)
+  const continuingConflict = useRef(false)
+  useEffect(() => () => { conflictResult.current?.(false) }, [])
+  const setConflictWarningOpen = useCallback((open: boolean) => {
+    if (!open && continuingConflict.current) return
+    setIsConflictWarningOpen(open)
+    if (!open) {
+      conflictResult.current?.(false)
+      conflictResult.current = null
+    }
+  }, [])
   const [conflictInfo, setConflictInfo] = useState<any>(null)
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
 
@@ -133,7 +147,11 @@ export function useEventSave({
     // checkTimeOverlap が拾うのは「時間が完全に重複(overlap)」か「間隔不足(interval)」のみ。
     // ※ 警告を確認しても既存公演は絶対に削除しない（30分間隔の連続公演や2部屋同時公演を許容するため）。
     const newScenario = scenarios.find(s => s.title === performanceData.scenario)
-    const newPrepMinutes = newScenario?.extra_preparation_time || 0
+    let preparation: Awaited<ReturnType<typeof fetchPreparation>>
+    let neighborEvents: ScheduleEvent[]
+    try { [preparation, neighborEvents] = await Promise.all([fetchPreparation(), loadPreparationNeighborEvents(performanceData.date)]) }
+    catch { showToast.error('準備時間を取得できませんでした。再読み込みしてから保存してください'); return false }
+    const newPrepMinutes = preparation({ storeId: performanceData.store_id || performanceData.venue, scenarioId: newScenario?.id, scenarioMasterId: performanceData.scenario_master_id || newScenario?.scenario_master_id, eventId: performanceData.id })
 
     logger.log('🔍 準備時間チェック:', JSON.stringify({
       scenarioTitle: performanceData.scenario,
@@ -145,29 +163,31 @@ export function useEventSave({
     // 完全重複(overlap)を最優先で確定。無ければ最初の間隔不足(interval)を採用する。
     let timeConflict: { event: ScheduleEvent; reason: string; kind: 'overlap' | 'interval' } | null = null
 
-    for (const event of events) {
+    for (const event of neighborEvents) {
       // 編集中の公演自身は除外
       if (modalMode === 'edit' && event.id === performanceData.id) {
         continue
       }
 
       // 同じ日・同じ店舗の公演のみ対象
-      if (event.date !== performanceData.date || event.venue !== performanceData.venue || event.is_cancelled) {
+      if (event.venue !== performanceData.venue || event.is_cancelled) {
         continue
       }
 
       // 既存公演のシナリオから準備時間を取得
       const existingScenario = scenarios.find(s => s.title === event.scenario)
-      const existingPrepMinutes = existingScenario?.extra_preparation_time || 0
+      const existingPrepMinutes = preparation({ storeId: event.store_id || event.venue, scenarioId: existingScenario?.id, scenarioMasterId: event.scenario_master_id || existingScenario?.scenario_master_id, eventId: event.id })
 
       // 時間の重複をチェック（両方向の準備時間を考慮）
-      const result = checkTimeOverlap(
+      const result = checkTimeOverlapWithPreparation(
         event.start_time,
         event.end_time,
         performanceData.start_time,
         performanceData.end_time,
         existingPrepMinutes,
-        newPrepMinutes
+        newPrepMinutes,
+        event.date,
+        performanceData.date
       )
 
       if (result.overlap) {
@@ -206,16 +226,29 @@ export function useEventSave({
       })
       setPendingPerformanceData(performanceData)
       setIsConflictWarningOpen(true)
-      return false  // 警告表示時はダイアログを閉じない
+      return new Promise<boolean>(resolve => {
+        conflictResult.current = resolve
+      })
     }
 
     // 重複がない場合は直接保存
     return await doSavePerformance(performanceData)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- doSavePerformanceは後で定義されるため意図的に省略
-  }, [events, stores, scenarios, modalMode])
+  }, [events, stores, scenarios, modalMode, fetchPreparation])
 
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
+    let staffSyncFailed = false
+    // 公演本体が保存済みなら追加モードで再試行させない。部分成功を明示して閉じる。
+    const syncStaff = async (...args: Parameters<typeof reservationApi.syncStaffReservations>) => {
+      try {
+        await reservationApi.syncStaffReservations(...args)
+      } catch (error) {
+        staffSyncFailed = true
+        const detail = error instanceof ApiClientError ? error.message : 'スタッフ参加の登録を完了できませんでした。'
+        showToast.warning('公演情報は保存しましたが、スタッフ参加の反映が未完了です。', `${detail} 公演を開き直して予約者一覧を確認してください。`)
+      }
+    }
     try {
       if (modalMode === 'add') {
         // 新規追加
@@ -378,7 +411,7 @@ export function useEventSave({
 
         // GM欄で「スタッフ参加」を選択した場合、予約も作成する
         if (performanceData.gm_roles && Object.values(performanceData.gm_roles).includes('staff')) {
-          await reservationApi.syncStaffReservations(
+          await syncStaff(
             savedEvent.id,
             performanceData.gms || [],
             performanceData.gm_roles,
@@ -716,7 +749,7 @@ export function useEventSave({
 
           // GM欄で「スタッフ参加」を選択した場合、予約も同期する
           if (performanceData.gm_roles) {
-            await reservationApi.syncStaffReservations(
+            await syncStaff(
               performanceData.id!,
               performanceData.gms || [],
               performanceData.gm_roles,
@@ -739,7 +772,7 @@ export function useEventSave({
         }
       }
 
-      showToast.success('保存しました')
+      if (!staffSyncFailed) showToast.success('保存しました')
       // ダイアログは閉じない（ユーザーが明示的に閉じる）
       return true
     } catch (error) {
@@ -756,19 +789,25 @@ export function useEventSave({
   // （前後30分など間隔が短い連続公演・2部屋同時公演を許容するため、保存が他公演を消すことはしない。
   //   既存公演を消したい場合は右クリックの削除・中止など明示的な操作で行う。）
   const handleConflictContinue = useCallback(async () => {
-    if (!pendingPerformanceData) return
-    // doSavePerformance が成否トーストを出す
-    await doSavePerformance(pendingPerformanceData)
-    setPendingPerformanceData(null)
-    setIsConflictWarningOpen(false)
-    setConflictInfo(null)
+    if (!pendingPerformanceData || continuingConflict.current) return
+    continuingConflict.current = true
+    try {
+      const success = await doSavePerformance(pendingPerformanceData)
+      conflictResult.current?.(success)
+      conflictResult.current = null
+      setPendingPerformanceData(null)
+      setIsConflictWarningOpen(false)
+      setConflictInfo(null)
+    } finally {
+      continuingConflict.current = false
+    }
   }, [pendingPerformanceData, doSavePerformance])
 
   return {
     isConflictWarningOpen,
     conflictInfo,
     pendingPerformanceData,
-    setIsConflictWarningOpen,
+    setIsConflictWarningOpen: setConflictWarningOpen,
     setConflictInfo,
     setPendingPerformanceData,
     handleSavePerformance,

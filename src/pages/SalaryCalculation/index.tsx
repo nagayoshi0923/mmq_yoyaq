@@ -29,7 +29,7 @@ export default function SalaryCalculation() {
   }, [])
 
   // データ取得
-  const { salaryData, loading } = useSalaryData(selectedYear, selectedMonth, selectedStoreIds)
+  const { salaryData, loading, error, refresh } = useSalaryData(selectedYear, selectedMonth, selectedStoreIds)
 
   // スタッフ展開トグル
   const toggleStaffExpand = (staffId: string) => {
@@ -52,8 +52,14 @@ export default function SalaryCalculation() {
     return true
   }) || []
 
+  const hasUnresolvedData = !!salaryData && (salaryData.unresolvedEvents.length > 0 || salaryData.unresolvedStaff.length > 0)
+
   // CSV エクスポート
   const handleExportCSV = () => {
+    if (hasUnresolvedData) {
+      showToast.warning('未確認の公演・担当者・役割があります。確認後にCSVを出力してください。')
+      return
+    }
     if (!salaryData || filteredStaffList.length === 0) {
       showToast.warning('エクスポートするデータがありません')
       return
@@ -95,6 +101,12 @@ export default function SalaryCalculation() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      {error && (
+        <div role="alert" className="space-y-2">
+          <p className="text-destructive">給与を計算できません。{error.message}</p>
+          <Button variant="outline" onClick={() => void refresh()}>再試行</Button>
+        </div>
+      )}
       {/* フィルター */}
       <Card className="shadow-none border">
         <CardHeader className="p-3 sm:p-4 md:p-6">
@@ -117,7 +129,8 @@ export default function SalaryCalculation() {
                 />
                 <Button
                   onClick={handleExportCSV}
-                  disabled={loading || filteredStaffList.length === 0}
+                  disabled={loading || hasUnresolvedData || filteredStaffList.length === 0}
+                  title={hasUnresolvedData ? '未確認の公演・担当者・役割を確認してから出力してください' : undefined}
                   className="flex items-center gap-2 sm:ml-auto"
                 >
                   <Download className="h-4 w-4" />
@@ -184,13 +197,25 @@ export default function SalaryCalculation() {
             </ul>
           </div>
         )}
+        {salaryData.unresolvedStaff.length > 0 && (
+          <div role="alert" className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs sm:text-sm text-amber-900">
+            <p className="font-semibold">担当者未確認の{salaryData.unresolvedStaff.length}件が給与集計に含まれていません</p>
+            <p className="mt-1">以下は参考集計です。過去の担当者を確認してから支給額を確定してください。</p>
+            <ul className="mt-1.5 list-disc pl-5">
+              {salaryData.unresolvedStaff.slice(0, 20).map((entry, index) => (
+                <li key={`${entry.eventId}-${index}`}>{entry.date}　{entry.scenario}　{entry.staffName}（{entry.reason === 'duplicate' ? '担当名が重複' : entry.reason === 'role_unconfirmed' ? '役割未確認' : 'スタッフ未確認'}）</li>
+              ))}
+              {salaryData.unresolvedStaff.length > 20 && <li>…ほか {salaryData.unresolvedStaff.length - 20} 件</li>}
+            </ul>
+          </div>
+        )}
         <Card className="shadow-none border">
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-start">
               <CardTitle className="text-lg">{salaryData.month}</CardTitle>
               <div className="flex gap-6 sm:gap-8">
                 <div className="text-right">
-                  <div className="text-xs sm:text-sm text-muted-foreground">合計支給額</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">{salaryData.unresolvedEvents.length || salaryData.unresolvedStaff.length ? '合計支給額（未確認分を除く参考値）' : '合計支給額'}</div>
                   <div className="text-lg sm:text-xl font-bold">
                     ¥{salaryData.totalAmount.toLocaleString()}
                   </div>

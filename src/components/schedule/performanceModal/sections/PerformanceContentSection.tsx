@@ -25,7 +25,7 @@ interface PerformanceContentSectionProps {
   scenarios: Scenario[]
   isScenarioAvailableAtVenue: (scenario: Scenario) => boolean
   stores: Store[]
-  /** null = 配置取得中（誤警告防止）。空配列 = 未登録＝未配置として警告 */
+  /** null = 配置取得中（誤警告防止）。空配列 = 使用可能なキットなしとして警告 */
   kitStoreIds: string[] | null
   setEditingScenarioId: Dispatch<SetStateAction<string | null>>
 }
@@ -110,7 +110,7 @@ export function PerformanceContentSection({
                   }
                   return null
                 })()}
-                {/* キット配置警告: スケジュール表と同じ判定（配置0件＝未登録＝未配置として警告）
+                {/* キット配置警告: スケジュール表と同じ判定（良好なキットの配置0件＝未配置として警告）
                    kitStoreIds=null は取得中のためスキップ */}
                 {formData.scenario && formData.venue && kitStoreIds !== null
                   && requiresKitWarningForCategory(formData.category)
@@ -129,8 +129,8 @@ export function PerformanceContentSection({
                     .map(x => x.name)
                     .join(', ')
                   const detail = kitStoreIds.length === 0
-                    ? 'キットが未登録です（キット配置管理で設定してください）'
-                    : `この店舗にはキットが置かれていません (現在の配置: ${kitStoreNames})`
+                    ? '使用可能なキットがありません（キット配置管理で配置と状態を確認してください）'
+                    : `この店舗には使用可能なキットがありません (使用可能なキットの配置: ${kitStoreNames})`
                   return (
                     <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px]">
                       <div className="flex items-center gap-1 text-amber-700">

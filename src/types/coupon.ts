@@ -15,6 +15,8 @@ export interface CouponCampaign {
   max_uses_per_customer: number
   target_type: 'all' | 'specific_scenarios' | 'specific_organization'
   target_ids?: string[] | null
+  target_store_ids?: string[] | null
+  same_scenario_once?: boolean
   trigger_type: 'registration' | 'manual'
   valid_from?: string | null
   valid_until?: string | null

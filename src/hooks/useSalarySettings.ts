@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { salaryReportApi } from '@/lib/api/salaryReportApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
@@ -307,43 +308,46 @@ function calculateGmWageFromSettings(
  * @param performanceDate 公演日（YYYY-MM-DD形式）
  * @returns その日付時点で有効だった報酬設定
  */
-export async function fetchSalarySettingsForDate(performanceDate: string): Promise<SalarySettings> {
+export type SalarySettingsResolver = (performanceDate: string) => SalarySettings
+
+/** 履歴が欠けている公演を現在の設定で再計算しない。解決は実際に報酬が必要な時だけ行う。 */
+export function createSalarySettingsResolver(history: SalarySettings[]): SalarySettingsResolver {
+  const sorted = [...history].sort((a, b) => (b.effective_from ?? '').localeCompare(a.effective_from ?? ''))
+  return (performanceDate) => {
+    const settings = sorted.find(row => row.effective_from && row.effective_from <= performanceDate)
+    if (!settings) throw new Error(`${performanceDate} に有効な給与設定の履歴がありません。給与設定の履歴を確認してください。`)
+    const amounts = [settings.gm_base_pay, settings.gm_hourly_rate, settings.gm_test_base_pay,
+      settings.gm_test_hourly_rate, settings.reception_fixed_pay]
+    const validRates = (rates: HourlyRate[]) => Array.isArray(rates) && rates.every(rate =>
+      Number.isFinite(rate.hours) && rate.hours > 0 && Number.isFinite(rate.amount) && rate.amount >= 0)
+    if (amounts.some(value => typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+      || typeof settings.use_hourly_table !== 'boolean'
+      || (settings.use_hourly_table && (!validRates(settings.hourly_rates) || !validRates(settings.gm_test_hourly_rates)))) {
+      throw new Error(`${settings.effective_from} の給与設定の履歴が不完全です。給与設定の履歴を確認してください。`)
+    }
+    return settings
+  }
+}
+
+/** 期間開始以前の直近1件と期間中の変更を組織単位でまとめて取得する。 */
+export async function fetchSalarySettingsForPeriod(
+  startDate: string, endDate: string, organizationId: string
+): Promise<SalarySettingsResolver> {
+  if (!organizationId) throw new Error('組織を確認できないため給与を計算できません。再ログインしてください。')
+  if (startDate > endDate) throw new Error('給与設定の取得期間が不正です。')
   try {
-    const organizationId = await getCurrentOrganizationId()
-    if (!organizationId) {
-      logger.error('組織IDが取得できませんでした')
-      return DEFAULT_SETTINGS
-    }
-
-    // 履歴テーブルから、公演日以前で最新の設定を取得
-    const { data: historyData, error: historyError } = await supabase
-      .from('salary_settings_history')
-      .select('effective_from, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates')
-      .eq('organization_id', organizationId)
-      .lte('effective_from', performanceDate)
-      .order('effective_from', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (!historyError && historyData) {
-      return {
-        gm_base_pay: historyData.gm_base_pay ?? DEFAULT_SETTINGS.gm_base_pay,
-        gm_hourly_rate: historyData.gm_hourly_rate ?? DEFAULT_SETTINGS.gm_hourly_rate,
-        gm_test_base_pay: historyData.gm_test_base_pay ?? DEFAULT_SETTINGS.gm_test_base_pay,
-        gm_test_hourly_rate: historyData.gm_test_hourly_rate ?? DEFAULT_SETTINGS.gm_test_hourly_rate,
-        reception_fixed_pay: historyData.reception_fixed_pay ?? DEFAULT_SETTINGS.reception_fixed_pay,
-        use_hourly_table: historyData.use_hourly_table ?? DEFAULT_SETTINGS.use_hourly_table,
-        hourly_rates: (historyData.hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.hourly_rates,
-        gm_test_hourly_rates: (historyData.gm_test_hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.gm_test_hourly_rates
-      }
-    }
-
-    // 履歴がない場合は現在の設定を使用
-    return fetchSalarySettings()
+    const { history } = await salaryReportApi.history(startDate, endDate, organizationId)
+    return createSalarySettingsResolver(history)
   } catch (error) {
     logger.error('報酬設定履歴取得エラー:', error)
-    return DEFAULT_SETTINGS
+    throw new Error('給与設定の履歴を取得できませんでした。通信状況と閲覧権限を確認して再試行してください。')
   }
+}
+
+export async function fetchSalarySettingsForDate(performanceDate: string): Promise<SalarySettings> {
+  const organizationId = await getCurrentOrganizationId()
+  const resolve = await fetchSalarySettingsForPeriod(performanceDate, performanceDate, organizationId ?? '')
+  return resolve(performanceDate)
 }
 
 /**

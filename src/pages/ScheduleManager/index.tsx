@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { settingsPath } from '@/components/settings/settingsCatalog'
 // React
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
@@ -87,7 +89,7 @@ export function ScheduleManager() {
   const { temporaryVenues, availableVenues, getVenueNameForDate, addTemporaryVenue, updateVenueName, removeTemporaryVenue } = useTemporaryVenues(currentDate)
   
   // 組織ID（履歴モーダル用）
-  const { organizationId } = useOrganization()
+  const { organizationId, organization } = useOrganization()
   
   // 募集中止スロット管理
   const { isSlotBlocked, blockSlot, unblockSlot } = useBlockedSlots()
@@ -1165,7 +1167,9 @@ export function ScheduleManager() {
           title={<><CalendarDays className="h-5 w-5 text-primary" />スケジュール管理</>}
           description={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`}
           className="mb-2 pt-2"
-        />
+        >
+          {isAdminOrLicenseAdmin && organization?.slug && <Link className="underline" to={`${settingsPath(organization.slug)}&scope=performance`}>公演の設定と適用範囲</Link>}
+        </PageHeader>
         <ScheduleToolbar
           currentDate={currentDate}
           setCurrentDate={setCurrentDate}

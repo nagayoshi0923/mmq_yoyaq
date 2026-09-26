@@ -14,10 +14,10 @@ export function getStatusBadge(status: string) {
       return <Badge size="sm" variant="success">在籍中</Badge>
     case 'inactive':
       // @ts-ignore
-      return <Badge size="sm" variant="warning">休職中</Badge>
-    case 'on_leave':
+      return <Badge size="sm" variant="warning">利用停止</Badge>
+    case 'on-leave':
       // @ts-ignore
-      return <Badge size="sm" variant="warning">休暇中</Badge>
+      return <Badge size="sm" variant="warning">休職中</Badge>
     case 'resigned':
       // @ts-ignore
       return <Badge size="sm" variant="gray">退職</Badge>

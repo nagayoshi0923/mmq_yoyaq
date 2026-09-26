@@ -36,6 +36,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await requireAuth(req)
     requireStaff(user)
 
+    // 設定元は共通値を合成せず返す。組織はリクエスト値ではなく認証から確定する。
+    if (req.query.type === 'settings-source') {
+      const masterId = req.query.masterId
+      if (typeof masterId !== 'string' || !masterId) {
+        return res.status(400).json({ error: 'masterId が必要です' })
+      }
+      const { data, error } = await db
+        .from('organization_scenarios')
+        .select('id, duration, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout')
+        .eq('organization_id', user.orgId)
+        .eq('scenario_master_id', masterId)
+        .maybeSingle()
+      if (error) return res.status(500).json({ error: '作品の設定元を取得できませんでした' })
+      return res.status(200).json(data ?? null)
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = (db as any)
       .from('organization_scenarios_with_master')

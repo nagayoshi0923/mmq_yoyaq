@@ -24,6 +24,7 @@ interface ScenarioMaster {
   genre: string[]
   difficulty: string | null
   caution: string | null
+  sensitive_tags: string[] | null
   required_items: string[] | null
   gallery_images: string[] | null
   master_status: string
@@ -53,7 +54,7 @@ export function MasterSelectDialog({
       try {
         const { data, error } = await supabase
           .from('scenario_masters')
-          .select('id, title, author, author_id, key_visual_url, gallery_images, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
+          .select('id, title, author, author_id, key_visual_url, gallery_images, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, sensitive_tags, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
           .in('master_status', ['approved', 'pending'])
           .order('title')
         
@@ -168,4 +169,3 @@ export function MasterSelectDialog({
     </Dialog>
   )
 }
-

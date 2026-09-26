@@ -121,3 +121,10 @@ export function jstMonthDateRange(year: number, month: number): { start: string;
     end: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
   }
 }
+
+/** JSTの暦日に日数を足す。ブラウザのタイムゾーンには依存しない。 */
+export function addJstDays(date: string, days: number): string {
+  const instant = toInstant(date)
+  if (!instant) throw new Error('日付が正しくありません')
+  return toJstYmd(new Date(instant.getTime() + days * 86400000))
+}

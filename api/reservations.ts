@@ -1,3 +1,4 @@
+import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
@@ -505,6 +506,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
       P0002: '公演が見つかりません',
       P0003: 'この公演は満席です',
       P0004: '選択した人数分の空席がありません',
+      P0028: '選択したクーポンは現在利用できません。有効期限や利用状況を確認して選び直してください。',
     }
     if (known[code]) {
       return res.status(400).json({ error: known[code], code, detail: msg })
@@ -596,7 +598,7 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
   // NOTE: schedule_events に `duration` カラムは存在しない (start_time/end_time から算出)
   const { data: ev, error: evError } = await db
     .from('schedule_events')
-    .select('id, organization_id, date, start_time, end_time, scenario, scenario_master_id, store_id')
+    .select('id, organization_id, date, start_time, end_time, scenario, scenario_master_id, store_id, max_participants, capacity, current_participants')
     .eq('id', scheduleEventId)
     .maybeSingle()
   if (evError) {
@@ -609,6 +611,9 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
   if (ev.organization_id !== user.orgId) {
     return res.status(403).json({ error: '他組織の schedule_event は指定できません' })
   }
+
+  const capacityMessage = capacityError(ev, undefined, 1)
+  if (capacityMessage) return res.status(409).json({ error: capacityMessage, code: 'CAPACITY_EXCEEDED' })
 
   const reservationNumber = generateReservationNumber()
   const date = eventDetails.date || ev.date
@@ -658,6 +663,9 @@ async function handleCreateStaffEntry(req: VercelRequest, res: VercelResponse, u
     .single()
 
   if (insertError) {
+    if (isCapacityConstraintError(insertError)) {
+      return res.status(409).json({ error: CAPACITY_CHANGED_MESSAGE, code: 'CAPACITY_EXCEEDED' })
+    }
     console.error('[reservations:create-staff-entry] insert error:', insertError)
     return res.status(500).json({ error: 'スタッフ予約の作成に失敗しました', detail: insertError.message })
   }
@@ -1224,6 +1232,7 @@ async function handleUpdateParticipantsWithLock(
     console.error('[reservations:update-participants-with-lock] RPC error:', error)
     const code = String((error as { code?: string }).code || '')
     const known: Record<string, string> = {
+      P0050: '予約変更の受付期限を過ぎています。店舗へお問い合わせください',
       P0006: '参加人数が不正です',
       P0007: '予約が見つかりません',
       P0008: '選択した人数分の空席がありません',
