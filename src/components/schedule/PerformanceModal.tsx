@@ -796,22 +796,24 @@ export function PerformanceModal({
       void clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
     }
     
-    // 楽観的クローズ: onSave の完了を待たずにダイアログを閉じて体感速度を上げる。
-    // 重複/通信エラー時は useEventOperations 側で toast 表示されるので、ユーザは
-    // toast を見て必要に応じてモーダルを開き直す。
-    // 保存中の体感フィードバックとして loading toast を出し、完了で dismiss する。
+    // 保存失敗時は入力を保持し、その場で予約・スタッフ参加を修正できるようにする。
     const loadingToastId = toast.loading('保存中...')
-    const savePromise = onSave(saveData).finally(() => {
+    let success: boolean
+    try {
+      success = await onSave(saveData)
+    } catch (error) {
+      logger.error('公演保存エラー:', error)
+      showToast.error('保存できませんでした。入力内容を確認してもう一度お試しください。')
+      return
+    } finally {
       isSavingRef.current = false
-    })
+      toast.dismiss(loadingToastId)
+    }
+    if (!success) return
     onClose()
 
-    // 残りの post-save 処理 (pending 参加者 INSERT) はバックグラウンドで実行
+    // 保存成功後に、バッファされた参加者を登録する。
     void (async () => {
-      const success = await savePromise
-      toast.dismiss(loadingToastId)
-      if (!success) return // error toast は useEventOperations 側で出る
-
       // バッファされた一般参加者 (+ 参加者を追加で追加された分) を並列 INSERT
       try {
         if (pendingParticipants.length > 0) {
