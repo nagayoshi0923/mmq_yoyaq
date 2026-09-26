@@ -99,7 +99,14 @@ export function CouponsPage() {
   }
 
   const statusOrder: Record<string, number> = { active: 0, fully_used: 1, expired: 2, revoked: 3 }
-  const sortedCoupons = [...coupons].sort(
+  const now = new Date()
+  const sortedCoupons = coupons.map(coupon => ({
+    ...coupon,
+    status: coupon.status === 'active' && (
+      (coupon.expires_at && new Date(coupon.expires_at) < now) ||
+      (coupon.coupon_campaigns?.usage_valid_until && new Date(coupon.coupon_campaigns.usage_valid_until) < now)
+    ) ? 'expired' as const : coupon.status,
+  })).sort(
     (a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
   )
 
@@ -220,22 +227,22 @@ export function CouponsPage() {
                       {coupon.expires_at && (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {formatJstDateJa(coupon.expires_at)}まで
+                          {formatJstDateTime(coupon.expires_at)}まで
                         </span>
                       )}
                     </div>
                     <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-xs text-gray-500">
                       <div className="flex items-start gap-1.5">
                         <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <span>MMQで予約した公演にご利用いただけます</span>
+                        <span>発行元の組織の対象公演にご利用いただけます</span>
                       </div>
                       <div className="flex items-start gap-1.5">
                         <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <span>1回のご予約につき1枚使用可能</span>
+                        <span>{campaign.same_scenario_once ? '同じ作品の別予約には繰り返し利用できません' : '同じ作品の別予約にも利用できます'}</span>
                       </div>
                       <div className="flex items-start gap-1.5">
                         <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <span>他のクーポンとの併用不可</span>
+                        <span>{campaign.combinable ? '他のクーポンと併用可（相手のクーポンも併用可の場合）' : '他のクーポンとの併用不可'}</span>
                       </div>
                       <div className="flex items-start gap-1.5">
                         <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
