@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test'
+test('店舗と作品を指定し、利用条件を保存できる', async ({page},testInfo)=>{
+  page.on('pageerror',error=>console.error(error.message))
+  await page.goto('/e2e/fixtures/coupon-rules.html')
+  await page.locator('#name').fill('検証用キャンペーン')
+  await page.getByRole('combobox').filter({hasText:'自組織の全シナリオ'}).click()
+  await page.getByRole('option',{name:'特定シナリオのみ'}).click()
+  await page.getByRole('button',{name:'作成',exact:true}).click()
+  await expect(page.getByRole('alert')).toHaveText('対象シナリオを1件以上選択してください')
+  await page.getByRole('checkbox',{name:'架空作品',exact:true}).check()
+  await page.getByRole('checkbox',{name:'架空店舗',exact:true}).check()
+  await page.getByRole('switch',{name:'同じ作品では別の予約に繰り返し使わない'}).uncheck()
+  await page.getByRole('switch',{name:'他のクーポンと併用可'}).uncheck()
+  await page.getByRole('button',{name:'作成',exact:true}).click()
+  const data=JSON.parse(await page.getByLabel('保存内容').textContent() ?? '{}')
+  expect(data.target_ids).toEqual(['00000000-0000-0000-0000-000000000003'])
+  expect(data.target_store_ids).toEqual(['00000000-0000-0000-0000-000000000002'])
+  expect(data.same_scenario_once).toBe(false)
+  expect(data.combinable).toBe(false)
+  await page.screenshot({path:testInfo.outputPath('desktop.png'),fullPage:true})
+  await page.setViewportSize({width:390,height:844})
+  // Output is fixture-only; remove it before layout inspection.
+  await page.locator('output').evaluate(el=>el.remove())
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+  await page.screenshot({path:testInfo.outputPath('mobile.png'),fullPage:true})
+})
+
+test('使用前に実際の割引額・対象外の理由を確認できる',async({page})=>{
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1')
+  await page.getByText('25%クーポン',{exact:true}).click()
+  await page.getByText('対象外の作品',{exact:true}).click()
+  await expect(page.getByRole('alert')).toHaveText('対象シナリオではありません')
+  await expect(page.getByRole('button',{name:'もぎる',exact:true})).toBeDisabled()
+  await page.getByText('利用対象の作品',{exact:true}).click()
+  await expect(page.getByText('今回の割引額：¥1,000')).toBeVisible()
+  await expect(page.getByRole('button',{name:'もぎる',exact:true})).toBeEnabled()
+})
+
+
+test('期限切れを利用可能に出さず、併用の案内を実際の条件に合わせる', async ({page}) => {
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1&expired=1')
+  await expect(page.getByText('タップして使う', {exact:true})).toHaveCount(0)
+  await expect(page.getByText('期限切れ', {exact:true})).toBeVisible()
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1')
+  await expect(page.getByText('他のクーポンと併用可（相手のクーポンも併用可の場合）', {exact:true})).toBeVisible()
+  await expect(page.getByText('同じ作品の別予約には繰り返し利用できません', {exact:true})).toBeVisible()
+})
+
+
+test('予約取得エラーを表示して再読み込みで復旧できる', async ({page}) => {
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1&reservation-error=1')
+  await page.getByText('25%クーポン', {exact:true}).click()
+  await expect(page.getByRole('alert')).toHaveText('予約を取得できませんでした。再読み込みしてください。予約を再読み込み')
+  await page.getByRole('button', {name:'予約を再読み込み'}).click()
+  await expect(page.getByText('利用対象の作品', {exact:true})).toBeVisible()
+})

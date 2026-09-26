@@ -1,68 +1,36 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { salaryReportApi } from '@/lib/api/salaryReportApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { useSalaryOrganization } from '@/hooks/useSalaryOrganization'
 import { logger } from '@/utils/logger'
-import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
-import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail, UnresolvedSalaryEvent } from '../types'
+import { fetchSalarySettingsForPeriod, calculateGmWage } from '@/hooks/useSalarySettings'
+import type { MonthlySalaryData, StaffSalary, UnresolvedSalaryEvent, UnresolvedSalaryStaff } from '../types'
 
 // シナリオ不要カテゴリ（出張・場所貸し・MTG）。これらはマスタ未解決でも警告対象にしない
 const NON_SCENARIO_CATEGORIES = ['offsite', 'venue_rental', 'venue_rental_free', 'mtg']
 const normalizeScenarioTitle = (s: string) => (s || '').replace(/[\s\-・／/]/g, '').toLowerCase()
 
 function getMonthRange(year: number, month: number) {
-  const startLocal = new Date(year, month - 1, 1, 0, 0, 0, 0)
-  const endLocal = new Date(year, month, 0, 23, 59, 59, 999)
-
-  const fmt = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
-
-  return { startStr: fmt.format(startLocal), endStr: fmt.format(endLocal) }
+  const startStr = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return { startStr, endStr: `${year}-${String(month).padStart(2, '0')}-${lastDay}` }
 }
 
-async function fetchSalaryData(year: number, month: number, storeIds: string[]): Promise<MonthlySalaryData> {
+export async function fetchSalaryData(year: number, month: number, storeIds: string[], expectedOrgId?: string): Promise<MonthlySalaryData> {
   const { startStr, endStr } = getMonthRange(year, month)
   logger.log('計算された日付範囲:', { startStr, endStr })
 
-  const salarySettings = await fetchSalarySettings()
   const orgId = await getCurrentOrganizationId()
+  if (!orgId || (expectedOrgId && orgId !== expectedOrgId)) throw new Error('組織を確認できないため給与を計算できません。再読み込みしてください。')
+  const settingsForDate = await fetchSalarySettingsForPeriod(startStr, endStr, orgId)
 
-  let staffQuery = supabase.from('staff').select('id, name, role')
-  if (orgId) staffQuery = staffQuery.eq('organization_id', orgId)
-  const { data: staffData, error: staffError } = await staffQuery.order('name')
-  if (staffError) throw staffError
-
-  let gmQuery = supabase
-    .from('schedule_events_staff_view')
-    .select(`
-      id,
-      date,
-      store_id,
-      scenario,
-      scenario_master_id,
-      gms,
-      gm_roles,
-      category,
-      is_cancelled,
-      stores:store_id (name),
-      scenario_masters:scenario_master_id (
-        title,
-        official_duration
-      )
-    `)
-    .gte('date', startStr)
-    .lte('date', endStr)
-
-  if (storeIds.length > 0) gmQuery = gmQuery.in('store_id', storeIds)
-  const { data: gmData, error: gmError } = await gmQuery
-  if (gmError) throw gmError
+  const { staff: staffData, events } = await salaryReportApi.salaryInputs(startStr, endStr, orgId)
+  const gmData = storeIds.length ? events.filter(event => storeIds.includes(event.store_id)) : events
 
   logger.log('取得データ:', { staffData: staffData?.length, gmData: gmData?.length })
 
   const staffMap = new Map<string, StaffSalary>()
+  const staffById = new Map(staffData.map(staff => [staff.id, staff]))
 
   // フォールバック用: 同月内で scenario_master が解決済みの公演から「タイトル→マスタ情報」を学習。
   // scenario_master_id が未設定（貸切作成時に付与漏れ等）でも、同名公演がマスタ解決できていれば集計に拾う。
@@ -77,9 +45,13 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
 
   // タイトル解決もできず集計対象外になった公演（GMあり・非シナリオcat除く）を記録し、画面で警告表示する
   const unresolvedEvents: UnresolvedSalaryEvent[] = []
+  const unresolvedStaff: UnresolvedSalaryStaff[] = []
 
   gmData?.forEach(event => {
     if (!event.gms || !Array.isArray(event.gms) || event.gms.length === 0) return
+    if (!Array.isArray(event.staff_assignments) || event.staff_assignments.length !== event.gms.length) {
+      throw new Error('公演の担当者データが一致しないため給与を計算できません。再読み込みしてください。')
+    }
     let scenario = event.scenario_masters as unknown as { title: string; official_duration: number } | null
     // scenario_master_id 未設定/解決不可でも、フリーテキストの scenario からタイトル解決して集計する
     // （これが無いと「スケジュールにあるのに給与に出ない」公演がサイレントに漏れる）
@@ -96,13 +68,16 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
       return
     }
 
-    const gmAssignments: any[] = []
     const isGMTest = event.category === 'gmtest'
     const isCancelled = event.is_cancelled === true
 
-    event.gms.forEach((gmName: string, index: number) => {
-      const staffInfo = staffData?.find(s => s.name === gmName)
-      if (!staffInfo) return
+    event.staff_assignments.forEach(assignment => {
+      const staffInfo = assignment.staff_id ? staffById.get(assignment.staff_id) : undefined
+      if (assignment.resolution_status !== 'resolved' || !staffInfo || assignment.role_confirmed !== true) {
+        unresolvedStaff.push({ eventId: event.id, date: event.date, scenario: scenario.title || event.scenario || '(無題)',
+          staffName: assignment.staff_name || '(名前なし)', reason: assignment.resolution_status === 'duplicate' ? 'duplicate' : !staffInfo ? 'unmatched' : 'role_unconfirmed' })
+        return
+      }
 
       let staff = staffMap.get(staffInfo.id)
       if (!staff) {
@@ -129,8 +104,7 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
       let pay = 0
       let gmRole = 'GM'
 
-      const gmRoles = event.gm_roles || {}
-      const roleType = gmRoles[gmName] || (index === 0 ? 'main' : 'sub')
+      const roleType = assignment.role
 
       if (roleType === 'reception') {
         gmRole = '受付'
@@ -154,18 +128,13 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
       }
 
       if (roleType === 'reception') {
-        pay = salarySettings.reception_fixed_pay
+        pay = settingsForDate(event.date).reception_fixed_pay
       } else if (roleType === 'staff' || roleType === 'observer') {
         pay = 0
       } else {
-        const assignment = gmAssignments.find((a: any) => a.role === roleType)
-        if (assignment && assignment.reward) {
-          pay = assignment.reward
-        } else {
-          const duration = scenario.official_duration || 180
-          pay = calculateGmWage(duration, isGMTest, salarySettings)
-          gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
-        }
+        const duration = scenario.official_duration || 180
+        pay = calculateGmWage(duration, isGMTest, settingsForDate(event.date))
+        gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
       }
 
       staff.totalGMCount += 1
@@ -219,7 +188,8 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
     totalEventCount,
     totalNormalCount,
     totalGMTestCount,
-    unresolvedEvents
+    unresolvedEvents,
+    unresolvedStaff
   }
 }
 
@@ -227,15 +197,19 @@ async function fetchSalaryData(year: number, month: number, storeIds: string[]):
  * 給与データ取得フック
  */
 export function useSalaryData(year: number, month: number, storeIds: string[]) {
+  const { organizationId, isLoading: organizationLoading, error: organizationError } = useSalaryOrganization()
   const query = useQuery({
-    queryKey: ['salary-data', year, month, storeIds],
-    queryFn: () => fetchSalaryData(year, month, storeIds),
-    enabled: year > 0 && month > 0,
+    queryKey: ['salary-data', organizationId, year, month, storeIds],
+    queryFn: () => fetchSalaryData(year, month, storeIds, organizationId!),
+    enabled: !!organizationId && year > 0 && month > 0,
+    retry: false,
   })
 
+  const error = organizationError ?? query.error ?? (!organizationLoading && !organizationId ? new Error('組織を確認できません。再ログインしてください。') : null)
   return {
-    salaryData: query.data ?? null,
-    loading: query.isLoading,
+    salaryData: error ? null : query.data ?? null,
+    error,
+    loading: organizationLoading || query.isLoading,
     refresh: query.refetch,
   }
 }

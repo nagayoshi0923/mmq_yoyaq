@@ -1,3 +1,4 @@
+import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 /**
  * 組織シナリオ一覧（マスタ連携版）
  * @purpose organization_scenarios_with_master ビューを使用した一覧表示
@@ -63,6 +64,7 @@ const ORG_HEADER_CLASS = '!bg-blue-100'
 const ORG_CELL_CLASS = '!bg-blue-50/50'
 
 export function OrganizationScenarioList({ onEdit, canEdit = true }: OrganizationScenarioListProps) {
+  const { resolve: resolvePreparation } = usePreparationSettings()
   const { organizationId } = useOrganization()
   const queryClient = useQueryClient()
   const { data, isLoading, error: queryError } = useOrganizationScenariosQuery(organizationId)
@@ -422,11 +424,11 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
     {
       key: 'extra_preparation_time',
       header: '準備',
-      helpText: '公演前の追加準備時間（スケジュール枠に加算される。組織で設定）',
+      helpText: '組織共通と作品の指定から決まる準備時間。店舗・公演の個別指定は各公演で適用します。',
       width: 'w-14',
       headerClassName: ORG_HEADER_CLASS,
       cellClassName: ORG_CELL_CLASS,
-      render: (scenario) => <p className="text-sm">{scenario.extra_preparation_time ? `+${scenario.extra_preparation_time}分` : '-'}</p>
+      render: (scenario) => <p className="text-sm">{resolvePreparation({ scenarioId: scenario.org_scenario_id, scenarioMasterId: scenario.scenario_master_id }) ?? '…'}分</p>
     },
     {
       key: 'participation_fee',
@@ -598,7 +600,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
           <span className="text-xs text-muted-foreground">-</span>
         )
     }
-  ], [canEdit, onEdit, storeMap, submittingMasterId, handleSubmitToMMQ])
+  ], [canEdit, onEdit, storeMap, submittingMasterId, handleSubmitToMMQ, resolvePreparation])
 
   const defaultOrgColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
   const [orgColumnPrefs, setOrgColumnPrefs] = useTablePreferences('org-scenario-list', defaultOrgColumnKeys)
@@ -822,9 +824,9 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
                             <JapaneseYen className="w-2.5 h-2.5 inline" />{scenario.participation_fee.toLocaleString()}
                           </span>
                         )}
-                        {scenario.extra_preparation_time && scenario.extra_preparation_time > 0 && (
+                        {resolvePreparation({ scenarioId: scenario.org_scenario_id, scenarioMasterId: scenario.scenario_master_id }) !== undefined && (
                           <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
-                            準備+{scenario.extra_preparation_time}分
+                            準備{resolvePreparation({ scenarioId: scenario.org_scenario_id, scenarioMasterId: scenario.scenario_master_id })}分
                           </span>
                         )}
                       </div>

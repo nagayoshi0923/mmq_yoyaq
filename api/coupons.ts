@@ -1,3 +1,4 @@
+import { validateCouponCampaign } from './_lib/couponRules.js'
 import { compensatedCancellation } from './_lib/compensatedCancellation.js'
 import { representativeCompensation } from './_lib/representativeCompensation.js'
 import { privateCouponClaims } from './_lib/privateCouponClaims.js'
@@ -26,6 +27,7 @@ const CUSTOMER_COUPON_FIELDS = `
   customer_id,
   organization_id,
   uses_remaining,
+  rules_snapshot,
   expires_at,
   status,
   created_at,
@@ -51,7 +53,7 @@ const CUSTOMER_COUPON_FIELDS = `
 `
 
 const COUPON_CAMPAIGN_FIELDS =
-  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, coupon_expiry_months, murder_mystery_only, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, is_active, created_at, updated_at'
+  'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, target_store_ids, same_scenario_once, trigger_type, valid_from, valid_until, coupon_expiry_days, coupon_expiry_months, murder_mystery_only, usage_valid_from, usage_valid_until, max_total_grants, max_grants_per_customer, coupon_code, notify_on_grant, min_order_amount, combinable, allowed_weekdays, allowed_time_slots, display_name, display_image_url, customer_terms, internal_memo, is_active, created_at, updated_at'
 
 const CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS = `
   id,
@@ -169,6 +171,11 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
 
   // 顧客向け read（requireAuth のみで OK）
   if (type === 'available') {
+    if (req.query.event_id) {
+      const { data: event, error } = await db!.from('schedule_events').select('organization_id').eq('id', String(req.query.event_id)).maybeSingle()
+      if (error || !event) return res.status(400).json({ error: '公演を確認できませんでした' })
+      return handleAvailable(req, res, user.userId, event.organization_id)
+    }
     return handleAvailable(req, res, user.userId, requestedOrgId ?? user.orgId)
   }
   if (type === 'all') {
@@ -179,6 +186,16 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   }
   if (type === 'current-reservations') {
     return handleCurrentReservations(req, res, user)
+  }
+
+  if (type === 'target-options') {
+    requireStaff(user)
+    const [{ data: stores, error: se }, { data: scenarios, error: ce }] = await Promise.all([
+      db!.from('stores').select('id, name').eq('organization_id', user.orgId).order('name'),
+      db!.from('organization_scenarios').select('id, scenario_master_id, scenario_masters(title)').eq('organization_id', user.orgId).order('id'),
+    ])
+    if (se || ce) return res.status(500).json({ error: '対象一覧を取得できませんでした' })
+    return res.status(200).json({ organization_id: user.orgId, stores, scenarios })
   }
 
   // 管理者向け read（requireStaff）
@@ -217,7 +234,8 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   const action = req.query.action as string | undefined
 
   // 顧客向け write（requireAuth のみで OK）
-  if (action === 'use') {
+  if (action === 'preview-booking') return handlePreviewBooking(req, res, user)
+  if (action === 'use' || action === 'preview-use') {
     return handleUseCoupon(req, res, user)
   }
   if (action === 'grant-registration') {
@@ -310,18 +328,13 @@ async function handleAvailable(
 
   const now = new Date()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const filtered = ((data as any[]) ?? []).filter((coupon: any) => {
+  const filtered = ((data as any[]) ?? []).map((coupon: any) => ({
+    ...coupon, coupon_campaigns: { ...coupon.coupon_campaigns, ...coupon.rules_snapshot },
+  })).filter((coupon: any) => {
     if (coupon.expires_at && new Date(coupon.expires_at) < now) return false
-    const campaign = coupon.coupon_campaigns
-    if (campaign) {
-      if (!campaign.is_active) return false
-      // 配布期間（顧客が新規に受け取れる期間）
-      if (campaign.valid_from && new Date(campaign.valid_from) > now) return false
-      if (campaign.valid_until && new Date(campaign.valid_until) < now) return false
-      // 使用期間（絶対日付）: 配布済みでも期間外は使えない
-      if (campaign.usage_valid_from && new Date(campaign.usage_valid_from) > now) return false
-      if (campaign.usage_valid_until && new Date(campaign.usage_valid_until) < now) return false
-    }
+    const rules = coupon.rules_snapshot
+    if (rules?.usage_valid_from && new Date(rules.usage_valid_from) > now) return false
+    if (rules?.usage_valid_until && new Date(rules.usage_valid_until) < now) return false
     return true
   })
 
@@ -380,7 +393,7 @@ async function handleAll(
   if (usageError) {
     console.warn('[coupons:all] usages fetch failed:', usageError)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return res.status(200).json(rows.map((c: any) => ({ ...c, coupon_usages: [] })))
+    return res.status(200).json(rows.map((c: any) => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: [] })))
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -442,7 +455,7 @@ async function handleAll(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = rows.map((c: any) => ({ ...c, coupon_usages: byCoupon[c.id] ?? [] }))
+  const result = rows.map((c: any) => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: byCoupon[c.id] ?? [] }))
   return res.status(200).json(result)
 }
 
@@ -535,11 +548,8 @@ async function handleCurrentReservations(
 
   if (!customer && !staffRecord) return res.status(200).json([])
 
-  // JSTで今日の日付
-  const now = new Date()
-  const jstOffset = 9 * 60
-  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
-  const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+  // 日付境界はサーバーのタイムゾーンに依存させない。
+  const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   // 1. 通常予約（自分が customer_id の予約 / 組織スコープも検証）
   // ⚠️ platform customer (user.orgId='') の場合、reservations.organization_id は実際の
@@ -555,7 +565,7 @@ async function handleCurrentReservations(
       .in('status', ['confirmed', 'checked_in'])
     if (user.orgId) q = q.eq('organization_id', user.orgId)
     const { data, error } = await q
-    if (error) console.error('[coupons:current-reservations] direct error:', error)
+    if (error) return res.status(500).json({ error: '予約を取得できませんでした' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     directReservations = (data as any[]) ?? []
   }
@@ -566,11 +576,13 @@ async function handleCurrentReservations(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const privateGroupReservations: Array<{ reservation_id: string; schedule_event_id: string | null; reservation_status: string; group_status: string }> = []
   {
-    const { data: members } = await database
+    const { data: members, error: membersError } = await database
       .from('private_group_members')
       .select('group_id')
       .eq('user_id', user.userId)
       .eq('status', 'joined')
+
+    if (membersError) return res.status(500).json({ error: '貸切の参加情報を取得できませんでした' })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupIds = ((members as any[]) ?? []).map((m: any) => m.group_id).filter(Boolean)
@@ -582,7 +594,8 @@ async function handleCurrentReservations(
         .in('id', groupIds)
         .not('reservation_id', 'is', null)
       if (user.orgId) groupsQ = groupsQ.eq('organization_id', user.orgId)
-      const { data: groups } = await groupsQ
+      const { data: groups, error: groupsError } = await groupsQ
+      if (groupsError) return res.status(500).json({ error: '貸切の予約を取得できませんでした' })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reservationIds = ((groups as any[]) ?? [])
@@ -598,7 +611,8 @@ async function handleCurrentReservations(
           .select('id, schedule_event_id, status, organization_id')
           .in('id', reservationIds)
         if (user.orgId) resQ = resQ.eq('organization_id', user.orgId)
-        const { data: reservationRows } = await resQ
+        const { data: reservationRows, error: reservationsError } = await resQ
+        if (reservationsError) return res.status(500).json({ error: '予約を取得できませんでした' })
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const r of ((reservationRows as any[]) ?? [])) {
@@ -624,7 +638,7 @@ async function handleCurrentReservations(
       .or('payment_method.eq.staff,reservation_source.eq.staff_entry,reservation_source.eq.staff_participation')
       .in('status', ['confirmed', 'checked_in'])
       .eq('organization_id', user.orgId)
-    if (error) console.error('[coupons:current-reservations] staff error:', error)
+    if (error) return res.status(500).json({ error: '予約を取得できませんでした' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     staffReservations = (data as any[]) ?? []
   }
@@ -645,7 +659,8 @@ async function handleCurrentReservations(
       .select('id, date, start_time, end_time, scenario, venue, organization_id, category, scenario_master_id, organization_scenario_id, scenario_id, stores (name)')
       .in('id', Array.from(eventIds))
     if (user.orgId) evQ = evQ.eq('organization_id', user.orgId)
-    const { data: events } = await evQ
+    const { data: events, error: eventsError } = await evQ
+    if (eventsError) return res.status(500).json({ error: '公演情報を取得できませんでした' })
     if (events) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const ev of events as any[]) {
@@ -665,7 +680,7 @@ async function handleCurrentReservations(
 
   for (const r of privateGroupReservations) {
     if (r.group_status !== 'confirmed') continue
-    if (r.reservation_status !== 'confirmed') continue
+    if (!['confirmed', 'checked_in'].includes(r.reservation_status)) continue
     const event = r.schedule_event_id ? eventsMap[r.schedule_event_id] : undefined
     if (event && !allReservations.some(existing => existing.id === r.reservation_id)) {
       allReservations.push({ id: r.reservation_id, event })
@@ -688,28 +703,10 @@ async function handleCurrentReservations(
     }
   }
 
-  // 今日の公演で、開始3時間前〜終了1時間後の範囲のものをフィルタ
-  const currentHour = jstNow.getHours()
-  const currentMinute = jstNow.getMinutes()
-  const currentTotalMinutes = currentHour * 60 + currentMinute
-
+  // 利用予定の確定予約も表示する。実際の利用条件は共通RPCで再確認する。
   const filtered = allReservations
-    .filter(({ event }) => {
-      if (!event) return false
-      if (event.date !== todayStr) return false
-
-      const [startHour, startMinute] = event.start_time.split(':').map(Number)
-      const startTotalMinutes = startHour * 60 + startMinute
-
-      if (currentTotalMinutes < startTotalMinutes - 180) return false
-
-      if (event.end_time) {
-        const [endHour, endMinute] = event.end_time.split(':').map(Number)
-        const endTotalMinutes = endHour * 60 + endMinute
-        return currentTotalMinutes <= endTotalMinutes + 60
-      }
-      return currentTotalMinutes <= startTotalMinutes + 180
-    })
+    .filter(({ event }) => event?.date >= todayStr)
+    .sort((a, b) => `${a.event.date} ${a.event.start_time}`.localeCompare(`${b.event.date} ${b.event.start_time}`))
     .map(({ id, event }) => ({
       id,
       scenario_title: event.scenario || '不明なシナリオ',
@@ -986,7 +983,10 @@ async function handleCustomerCoupons(req: VercelRequest, res: VercelResponse, us
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
   }
 
-  return res.status(200).json(data ?? [])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return res.status(200).json((data ?? []).map((coupon: any) => ({
+    ...coupon, coupon_campaigns: { ...coupon.coupon_campaigns, ...coupon.rules_snapshot },
+  })))
 }
 
 // =========================================
@@ -1101,233 +1101,35 @@ async function handleAdjustCouponUses(req: VercelRequest, res: VercelResponse, u
 // =========================================
 // 顧客向け: クーポンを使用（もぎる）
 // =========================================
+async function handlePreviewBooking(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const body = req.body ?? {}
+  if (typeof body.customer_coupon_id !== 'string' || typeof body.event_id !== 'string'
+    || !Number.isInteger(body.participant_count) || body.participant_count < 1 || body.participant_count > 100) {
+    return res.status(400).json({ success: false, error: 'クーポン・公演・人数を確認してください' })
+  }
+  const { data, error } = await db!.rpc('preview_booking_coupon', {
+    p_user: user.userId, p_coupon: body.customer_coupon_id, p_event: body.event_id, p_participants: body.participant_count,
+  })
+  if (error) {
+    if (error.code === 'P0028' || error.code === '22P02') return res.status(400).json({ success: false, error: error.code === 'P0028' ? error.message : '指定を確認してください' })
+    console.error('[coupons:preview-booking] DB error:', error)
+    return res.status(500).json({ success: false, error: 'クーポンの利用条件を確認できませんでした' })
+  }
+  return res.status(200).json(data)
+}
+
 async function handleUseCoupon(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const body = (req.body ?? {}) as { customer_coupon_id?: string; reservation_id?: string | null }
-  const customerCouponId = body.customer_coupon_id
-  const reservationId = body.reservation_id ?? null
-
-  if (!customerCouponId) {
-    return res.status(400).json({ error: 'customer_coupon_id が必要です' })
+  const body = (req.body ?? {}) as { customer_coupon_id?: string; reservation_id?: string }
+  if (!body.customer_coupon_id || !body.reservation_id) return res.status(400).json({ success: false, error: 'クーポンと利用する予約を選択してください' })
+  const { data, error } = await db!.rpc(req.query.action === 'preview-use' ? 'preview_customer_coupon' : 'use_customer_coupon', {
+    p_user: user.userId, p_coupon: body.customer_coupon_id, p_reservation: body.reservation_id,
+  })
+  if (error) {
+    if (error.code === 'P0028' || error.code === '22P02') return res.status(400).json({ success: false, error: error.code === '22P02' ? '指定を確認してください' : error.message })
+    console.error('[coupons:use] DB error:', error)
+    return res.status(500).json({ success: false, error: 'クーポンの使用に失敗しました' })
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
-
-  const { data: coupon, error: couponError } = await database
-    .from('customer_coupons')
-    .select(`
-      id,
-      customer_id,
-      organization_id,
-      uses_remaining,
-      status,
-      expires_at,
-      coupon_campaigns (
-        discount_type,
-        discount_amount,
-        min_order_amount,
-        allowed_weekdays,
-        allowed_time_slots
-      )
-    `)
-    .eq('id', customerCouponId)
-    .maybeSingle()
-
-  if (couponError) {
-    console.error('[coupons:use] coupon fetch error:', couponError)
-    return res.status(500).json({ success: false, error: 'クーポン取得に失敗しました' })
-  }
-  if (!coupon) {
-    return res.status(404).json({ success: false, error: 'クーポンが見つかりません' })
-  }
-
-  // 本人検証: customer_id が JWT user_id の顧客 (customers から引いた本人) であることを保証する。
-  // platform_customers_phase1 以降ログイン済み顧客の customers.organization_id は NULL
-  // なので、coupon.organization_id との一致チェックを行うと platform 顧客は常に
-  // owner 検証で 0 行になり「クーポンが見つかりません」と返ってしまう。
-  // customers.id は PK で id + user_id だけで本人特定として十分なので org 一致は要求しない。
-  const ownerQuery = database
-    .from('customers')
-    .select('id, organization_id')
-    .eq('id', coupon.customer_id)
-    .eq('user_id', user.userId)
-  const { data: ownerRows } = await ownerQuery.limit(1)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const customer = ((ownerRows as any[]) ?? [])[0]
-
-  if (!customer) {
-    return res.status(403).json({ success: false, error: 'クーポンが見つかりません' })
-  }
-
-  // 有効性チェック
-  if (coupon.status !== 'active') {
-    return res.status(400).json({ success: false, error: 'このクーポンは利用できません' })
-  }
-  if (coupon.uses_remaining <= 0) {
-    return res.status(400).json({ success: false, error: 'このクーポンは使い切りました' })
-  }
-  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-    return res.status(400).json({ success: false, error: 'このクーポンは有効期限が切れています' })
-  }
-
-  // タイトル（シナリオ）に既にクーポン使用済みかチェック
-  if (reservationId) {
-    // 対象予約が自組織のものか軽く検証（NULL の場合は何もしない）
-    const { data: selectedReservation } = await database
-      .from('reservations')
-      .select('schedule_event_id, organization_id')
-      .eq('id', reservationId)
-      .maybeSingle()
-
-    if (selectedReservation?.organization_id && coupon.organization_id && selectedReservation.organization_id !== coupon.organization_id) {
-      return res.status(400).json({ success: false, error: '予約と組織が一致しません' })
-    }
-
-    if (selectedReservation?.schedule_event_id) {
-      const { data: selectedEvent } = await database
-        .from('schedule_events')
-        .select('scenario_master_id, scenario, organization_id')
-        .eq('id', selectedReservation.schedule_event_id)
-        .maybeSingle()
-
-      if (selectedEvent && (selectedEvent.scenario_master_id || selectedEvent.scenario)) {
-        const { data: myCoupons } = await database
-          .from('customer_coupons')
-          .select('id')
-          .eq('customer_id', customer.id)
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const myCouponIds = ((myCoupons as any[]) ?? []).map((c: any) => c.id)
-        if (myCouponIds.length > 0) {
-          const { data: usages } = await database
-            .from('coupon_usages')
-            .select('reservation_id')
-            .in('customer_coupon_id', myCouponIds)
-            .not('reservation_id', 'is', null)
-
-          const usedReservationIds: string[] = [
-            ...new Set(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ((usages as any[]) ?? []).map((u: any) => u.reservation_id).filter((x: unknown) => typeof x === 'string'),
-            ),
-          ] as string[]
-          if (usedReservationIds.length > 0) {
-            const { data: usedReservations } = await database
-              .from('reservations')
-              .select('schedule_event_id')
-              .in('id', usedReservationIds)
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const usedEventIds = ((usedReservations as any[]) ?? [])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .map((r: any) => r.schedule_event_id)
-              .filter((x: unknown): x is string => typeof x === 'string')
-
-            if (usedEventIds.length > 0) {
-              let sameScenarioQuery = database
-                .from('schedule_events')
-                .select('id')
-                .in('id', usedEventIds)
-              if (selectedEvent.scenario_master_id) {
-                sameScenarioQuery = sameScenarioQuery.eq('scenario_master_id', selectedEvent.scenario_master_id)
-              } else if (selectedEvent.scenario) {
-                sameScenarioQuery = sameScenarioQuery.eq('scenario', selectedEvent.scenario)
-              }
-              const { data: sameScenarioEvents } = await sameScenarioQuery
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              if (((sameScenarioEvents as any[]) ?? []).length > 0) {
-                return res.status(400).json({ success: false, error: 'このタイトルには既にクーポンをご利用済みです' })
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const campaign = coupon.coupon_campaigns as any
-  const campaignObj = Array.isArray(campaign) ? campaign[0] : campaign
-  const discountAmount = campaignObj?.discount_amount ?? 0
-
-  // 利用条件チェック: 最低利用金額・利用可能曜日・時間帯
-  if (reservationId && campaignObj) {
-    const minOrder: number | null = campaignObj.min_order_amount ?? null
-    const allowedWeekdays: number[] | null = campaignObj.allowed_weekdays ?? null
-    const allowedTimeSlots: string[] | null = campaignObj.allowed_time_slots ?? null
-
-    if (minOrder != null || allowedWeekdays || allowedTimeSlots) {
-      const { data: r } = await database
-        .from('reservations')
-        .select('total_amount, schedule_event_id')
-        .eq('id', reservationId)
-        .maybeSingle()
-      if (r) {
-        if (minOrder != null && (r.total_amount ?? 0) < minOrder) {
-          return res.status(400).json({ success: false, error: `このクーポンは ¥${minOrder.toLocaleString()} 以上の予約で利用できます` })
-        }
-        if (r.schedule_event_id && (allowedWeekdays || allowedTimeSlots)) {
-          const { data: ev } = await database
-            .from('schedule_events')
-            .select('date, time_slot')
-            .eq('id', r.schedule_event_id)
-            .maybeSingle()
-          if (ev) {
-            if (allowedWeekdays && allowedWeekdays.length > 0 && ev.date) {
-              // ev.date は 'YYYY-MM-DD' 形式 — 日本ローカルの曜日として扱う
-              const [y, m, d] = ev.date.split('-').map(Number)
-              const dt = new Date(Date.UTC(y, m - 1, d))
-              const wd = dt.getUTCDay()
-              if (!allowedWeekdays.includes(wd)) {
-                return res.status(400).json({ success: false, error: 'このクーポンはご利用可能な曜日ではありません' })
-              }
-            }
-            if (allowedTimeSlots && allowedTimeSlots.length > 0 && ev.time_slot) {
-              if (!allowedTimeSlots.includes(ev.time_slot)) {
-                return res.status(400).json({ success: false, error: 'このクーポンはご利用可能な時間帯ではありません' })
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // coupon_usages に記録（DB トリガーが uses_remaining と status を更新）
-  const usageData: Record<string, unknown> = {
-    customer_coupon_id: customerCouponId,
-    discount_amount: discountAmount,
-    used_at: new Date().toISOString(),
-  }
-  if (reservationId) usageData.reservation_id = reservationId
-
-  const { error: usageError } = await database
-    .from('coupon_usages')
-    .insert(usageData)
-
-  if (usageError) {
-    if (usageError.code === 'P0028') {
-      return res.status(400).json({ success: false, error: 'このクーポンはマーダーミステリーの通常公演・貸切のみで利用できます（ボードゲーム・箱開け会は対象外）' })
-    }
-    console.error('[coupons:use] usage insert error:', usageError)
-    if (usageError.code === '23503' && reservationId) {
-      const { error: retryError } = await database
-        .from('coupon_usages')
-        .insert({
-          customer_coupon_id: customerCouponId,
-          discount_amount: discountAmount,
-          used_at: new Date().toISOString(),
-        })
-      if (retryError) {
-        console.error('[coupons:use] retry error:', retryError)
-        return res.status(500).json({ success: false, error: 'クーポン使用の記録に失敗しました' })
-      }
-    } else {
-      return res.status(500).json({ success: false, error: 'クーポン使用の記録に失敗しました' })
-    }
-  }
-
-  return res.status(200).json({ success: true })
+  return res.status(200).json(data)
 }
 
 /**
@@ -1456,9 +1258,11 @@ async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResp
 // =========================================
 async function handleCreateCampaign(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const body = (req.body ?? {}) as Record<string, unknown>
-  // クライアントから organization_id を受け付けない（JWT 由来のみ）
-  const { organization_id: _ignoredOrgId, id: _ignoredId, created_at: _ignoredCreated, updated_at: _ignoredUpdated, ...formData } = body
-  void _ignoredOrgId; void _ignoredId; void _ignoredCreated; void _ignoredUpdated
+  let formData: Record<string, unknown>
+  try { formData = validateCouponCampaign(body) } catch (error) {
+    return res.status(400).json({ success: false, error: error instanceof Error ? error.message : '入力を確認してください' })
+  }
+  if (!await validateCampaignTargets(formData, user.orgId)) return res.status(400).json({ success: false, error: '対象は自組織の店舗・シナリオから選択してください' })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const database = db as any
@@ -1485,9 +1289,11 @@ async function handleUpdateCampaign(req: VercelRequest, res: VercelResponse, use
   }
 
   const body = (req.body ?? {}) as Record<string, unknown>
-  // クライアントから organization_id / id を受け付けない（自組織にバインド）
-  const { organization_id: _ignoredOrgId, id: _ignoredId, created_at: _ignoredCreated, updated_at: _ignoredUpdated, ...formData } = body
-  void _ignoredOrgId; void _ignoredId; void _ignoredCreated; void _ignoredUpdated
+  let formData: Record<string, unknown>
+  try { formData = validateCouponCampaign(body) } catch (error) {
+    return res.status(400).json({ success: false, error: error instanceof Error ? error.message : '入力を確認してください' })
+  }
+  if (!await validateCampaignTargets(formData, user.orgId)) return res.status(400).json({ success: false, error: '対象は自組織の店舗・シナリオから選択してください' })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const database = db as any
@@ -1775,62 +1581,25 @@ async function handleRestoreCouponUsage(req: VercelRequest, res: VercelResponse,
     return res.status(400).json({ success: false, error: 'usage_id と customer_coupon_id が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const { data, error } = await db!.rpc('restore_coupon_usage', {
+    p_organization: user.orgId, p_coupon: customerCouponId, p_usage: couponUsageId,
+  })
+  if (error) return res.status(error.code === 'P0028' ? 400 : 500).json({ success: false, error: error.code === 'P0028' ? error.message : '使用の取消に失敗しました' })
+  return res.status(200).json(data)
+}
 
-  // 顧客クーポンが自組織のもので、かつ usage がこのクーポンに属しているか検証
-  const { data: coupon, error: couponError } = await database
-    .from('customer_coupons')
-    .select('id, uses_remaining, status, organization_id')
-    .eq('id', customerCouponId)
-    .eq('organization_id', user.orgId)
-    .maybeSingle()
-
-  if (couponError) {
-    console.error('[coupons:restore-usage] coupon fetch error:', couponError)
-    return res.status(500).json({ success: false, error: couponError.message })
+async function validateCampaignTargets(data: Record<string, unknown>, orgId: string): Promise<boolean> {
+  if (!orgId) return false
+  const ids = (data.target_ids ?? []) as string[]
+  if (data.target_type === 'specific_organization' && (ids.length !== 1 || ids[0] !== orgId)) return false
+  if (data.target_type === 'specific_scenarios') {
+    const { data: rows, error } = await db!.from('organization_scenarios').select('id, scenario_master_id').eq('organization_id', orgId)
+    if (error || ids.some(id => !rows?.some(row => row.id === id || row.scenario_master_id === id))) return false
   }
-  if (!coupon) {
-    return res.status(404).json({ success: false, error: 'クーポンが見つかりません' })
+  const stores = (data.target_store_ids ?? []) as string[]
+  if (stores.length) {
+    const { data: rows, error } = await db!.from('stores').select('id').eq('organization_id', orgId).in('id', stores)
+    if (error || stores.some(id => !rows?.some(row => row.id === id))) return false
   }
-
-  // 使用記録の所属チェック（customer_coupon_id を必ず合わせる）
-  const { data: usage } = await database
-    .from('coupon_usages')
-    .select('id, customer_coupon_id')
-    .eq('id', couponUsageId)
-    .eq('customer_coupon_id', customerCouponId)
-    .maybeSingle()
-
-  if (!usage) {
-    return res.status(404).json({ success: false, error: '使用履歴が見つかりません' })
-  }
-
-  const { error: deleteError } = await database
-    .from('coupon_usages')
-    .delete()
-    .eq('id', couponUsageId)
-    .eq('customer_coupon_id', customerCouponId)
-
-  if (deleteError) {
-    console.error('[coupons:restore-usage] delete error:', deleteError)
-    return res.status(500).json({ success: false, error: '使用記録の削除に失敗しました' })
-  }
-
-  const { error: updateError } = await database
-    .from('customer_coupons')
-    .update({
-      uses_remaining: coupon.uses_remaining + 1,
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', customerCouponId)
-    .eq('organization_id', user.orgId)
-
-  if (updateError) {
-    console.error('[coupons:restore-usage] update error:', updateError)
-    return res.status(500).json({ success: false, error: '残数の復元に失敗しました' })
-  }
-
-  return res.status(200).json({ success: true })
+  return true
 }

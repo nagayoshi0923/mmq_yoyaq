@@ -104,6 +104,18 @@ describe('serializePublicScenario', () => {
 })
 
 describe('buildPrice', () => {
+  it('予約受付日時点で未開始・終了済みの土日料金は表示しない', () => {
+    for (const period of [{ startDate: '2099-01-01' }, { endDate: '2000-01-01' }]) {
+      expect(buildPrice([{ time_slot: 'weekend', amount: 5000, ...period }], 4500))
+        .toEqual({ normal: 4500, display: '4,500円' })
+    }
+  })
+
+  it('期間が始まったreadyの土日料金を予約計算と同じく表示する', () => {
+    expect(buildPrice([{ time_slot: 'weekend', amount: 5000, status: 'ready', startDate: '2000-01-01' }], 4500))
+      .toEqual({ normal: 4500, display: '平日4,500円 / 土日祝5,000円' })
+  })
+
   it('normal 要素のみ採用する', () => {
     const p = buildPrice(
       [
@@ -119,12 +131,27 @@ describe('buildPrice', () => {
     const p = buildPrice(
       [
         { amount: 4500, time_slot: 'normal' },
-        { amount: 5000, time_slot: 'normal' },
+        { amount: 5000, time_slot: 'weekend' },
       ],
       null,
     )
     expect(p.normal).toBe(4500)
     expect(p.display).toBe('平日4,500円 / 土日祝5,000円')
+  })
+
+  it('複数の通常料金を勝手に土日祝料金にしない', () => {
+    expect(buildPrice([{ time_slot: 'normal', amount: 4500 }, { time_slot: 'normal', amount: 5000 }], null))
+      .toEqual({ normal: 4500, display: '4,500円' })
+  })
+
+  it('土日祝の方が安い場合も種別どおり表示する', () => {
+    expect(buildPrice([{ time_slot: 'normal', amount: 5500 }, { time_slot: 'weekend', amount: 5000 }], null))
+      .toEqual({ normal: 5500, display: '平日5,500円 / 土日祝5,000円' })
+  })
+
+  it('祝日のみの料金を土日料金として表示しない', () => {
+    expect(buildPrice([{ time_slot: 'holiday', amount: 5000 }], 4500))
+      .toEqual({ normal: 4500, display: '通常4,500円 / 祝日5,000円' })
   })
 
   it('participation_costs に normal が無ければ participation_fee にフォールバック', () => {

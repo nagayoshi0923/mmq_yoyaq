@@ -201,7 +201,7 @@ export function EmailLogsSettings() {
   const filteredLogs = logs
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="メール送信ログ"
         description="アプリが記録したメール送信ログ。送信日時・宛先・本文を確認できます"

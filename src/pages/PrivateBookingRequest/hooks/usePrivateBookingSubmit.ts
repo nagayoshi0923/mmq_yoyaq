@@ -1,3 +1,6 @@
+import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
+import { addJstDays } from '@/utils/jstDate'
+import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
@@ -35,6 +38,7 @@ const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
   'P0040': '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。',
   'P0041': '候補日時の時間帯が正しくありません。日時を再選択してください。',
   'P0042': '希望店舗が正しくありません。店舗を再選択してください。',
+  'P0045': '貸切の受付締切を過ぎた候補日があります。画面を再読み込みして日程を選び直してください。',
   'P0044': 'この作品は現在貸切リクエストを受け付けていません',
 }
 
@@ -109,15 +113,16 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_start_date: sortedDates[0],
         p_end_date: sortedDates[sortedDates.length - 1],
       }
+      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, { organizationId, scenarioLookupId: props.scenarioId })
       const [blockedResult, eventsResult] = await Promise.all([
         supabase.rpc('get_public_private_booking_availability', availabilityParams),
         supabase
           .from('schedule_events_for_availability')
-          .select('date, store_id, start_time, end_time, is_cancelled')
+          .select('id, date, store_id, start_time, end_time, is_cancelled')
           .filter('organization_id', 'eq', organizationId)
           .in('store_id', props.selectedStoreIds)
-          .gte('date', sortedDates[0])
-          .lte('date', sortedDates[sortedDates.length - 1])
+          .gte('date', addJstDays(sortedDates[0], -2))
+          .lte('date', addJstDays(sortedDates[sortedDates.length - 1], 2))
           .eq('is_cancelled', false),
       ])
       if (blockedResult.error) throw blockedResult.error
@@ -136,11 +141,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           const end = timeStrToMinutes(candidate.slot.endTime)
           if (start == null || end == null) return false
           return !latestEvents.some((event) => {
-            if (event.store_id !== storeId || event.date !== candidate.date) return false
+            if (event.store_id !== storeId) return false
             const eventStart = timeStrToMinutes(event.start_time)
             const eventEnd = timeStrToMinutes(event.end_time)
             if (eventStart == null || eventEnd == null) return true
-            return eventStart < end + 60 && eventEnd > start - 60
+            return checkTimeOverlapWithPreparation(event.start_time, event.end_time, candidate.slot.startTime, candidate.slot.endTime, scenarioTiming.preparation_minutes_by_event?.[event.id] ?? 60, scenarioTiming.preparation_minutes_by_store?.[storeId] ?? 60, event.date, candidate.date).overlap
           })
         })
         if (viableStoreIds.length > 0) return []

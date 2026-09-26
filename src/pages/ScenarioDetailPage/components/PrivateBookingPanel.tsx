@@ -7,6 +7,7 @@ import { BookingNotice } from './BookingNotice'
 
 interface PrivateBookingPanelProps {
   participationFee: number
+  maxParticipationFee?: number
   maxParticipants: number
   selectedTimeSlotsCount: number
   isLoggedIn: boolean
@@ -19,6 +20,7 @@ interface PrivateBookingPanelProps {
 
 export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   participationFee,
+  maxParticipationFee,
   maxParticipants,
   selectedTimeSlotsCount,
   isLoggedIn,
@@ -75,7 +77,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
           <CardContent className="p-4 space-y-2">
             <div className="flex justify-between">
               <span className="ts-muted">参加費（1名）</span>
-              <span className="ts-body font-medium">¥{participationFee.toLocaleString()}</span>
+              <span className="ts-body font-medium">¥{participationFee.toLocaleString()}{maxParticipationFee != null && maxParticipationFee !== participationFee ? `〜¥${maxParticipationFee.toLocaleString()}` : selectedTimeSlotsCount === 0 ? '〜' : ''}</span>
             </div>
             <div className="flex justify-between">
               <span className="ts-muted">人数</span>
@@ -85,7 +87,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
               <div className="flex justify-between items-center">
                 <span className="ts-muted">合計</span>
                 <span className="ts-emph text-purple-600">
-                  ¥{(participationFee * maxParticipants).toLocaleString()}
+                  ¥{(participationFee * maxParticipants).toLocaleString()}{maxParticipationFee != null && maxParticipationFee !== participationFee ? `〜¥${(maxParticipationFee * maxParticipants).toLocaleString()}` : selectedTimeSlotsCount === 0 ? '〜' : ''}
                 </span>
               </div>
               <p className="ts-caption mt-1">
@@ -101,6 +103,8 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
         reservationDeadlineHours={reservationDeadlineHours}
         hasPreReading={hasPreReading}
         mode="private"
+        scenarioMasterId={scenarioId}
+        organizationSlug={organizationSlug}
       />
 
       {/* 貸切リクエスト送信ボタン */}

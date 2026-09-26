@@ -1,45 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { logger } from '@/utils/logger'
 import { storeApi } from '@/lib/api/storeApi'
+import { useOrganization } from '@/hooks/useOrganization'
+import { resolveSettingsStore } from '@/components/settings/settingsCatalog'
 
-interface Store {
-  id: string
-  name: string
-}
-
-export const useSettingsStore = () => {
-  const [stores, setStores] = useState<Store[]>([])
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-
+export const useSettingsStore = (allowAll = false) => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { organizationId } = useOrganization()
+  const [result, setResult] = useState<{ organizationId: string; stores: { id: string; name: string }[]; error: string } | null>(null)
   useEffect(() => {
-    fetchStores()
-  }, [])
-
-  const fetchStores = async () => {
-    try {
-      // 組織対応済みの店舗取得
-      const data = await storeApi.getAll()
-
-      setStores(data || [])
-      
-      // デフォルトで「全店舗」を選択
-      setSelectedStoreId('all')
-    } catch (error) {
+    let cancelled = false
+    if (!organizationId) return
+    storeApi.getAll().then(stores => {
+      if (!cancelled) setResult({ organizationId, stores, error: '' })
+    }).catch(error => {
       logger.error('店舗取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+      if (!cancelled) setResult({ organizationId, stores: [], error: '店舗を取得できませんでした。ページを再読み込みしてください。' })
+    })
+    return () => { cancelled = true }
+  }, [organizationId])
+  const ready = result?.organizationId === organizationId && !!organizationId
+  const stores = ready ? result.stores : []
+  const selectedStoreId = resolveSettingsStore(stores, searchParams.get('store'), allowAll)
   const handleStoreChange = (storeId: string) => {
-    setSelectedStoreId(storeId)
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      next.set('store', storeId)
+      return next
+    })
   }
-
-  return {
-    stores,
-    selectedStoreId,
-    loading,
-    handleStoreChange
-  }
+  return { stores, selectedStoreId, loading: !ready, error: ready ? result.error : '', handleStoreChange }
 }

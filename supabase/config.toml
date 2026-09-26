@@ -112,3 +112,7 @@ verify_jwt = false
 # 公演中止判定（cron-job.org / GitHub Actions から x-cron-secret で認証）
 [functions.check-performance-cancellation]
 verify_jwt = false
+
+# メールから開く公開OAuth入口。Discord本人確認は関数内で行う。
+[functions.senshin-discord-join]
+verify_jwt = false

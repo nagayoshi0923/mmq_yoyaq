@@ -5,7 +5,7 @@ const db=new PGlite();
 await db.exec(`CREATE ROLE anon;CREATE ROLE authenticated;
 CREATE TABLE schedule_events(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid,date date DEFAULT '2026-09-20',start_time time DEFAULT '10:00',end_time time DEFAULT '13:00',scenario text DEFAULT '試験作品',venue text DEFAULT '試験会場',gms text[] DEFAULT ARRAY['GM1','GM2'],is_cancelled boolean DEFAULT false,is_private_booking boolean DEFAULT true,category text DEFAULT 'private');
 CREATE TABLE staff(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid,name text,discord_channel_id text);
-CREATE TABLE reservations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),schedule_event_id uuid REFERENCES schedule_events ON DELETE SET NULL,organization_id uuid,reservation_source text,payment_method text,status text DEFAULT 'confirmed');
+CREATE TABLE reservations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),schedule_event_id uuid REFERENCES schedule_events ON DELETE SET NULL,event_id uuid REFERENCES schedule_events,organization_id uuid,reservation_source text,payment_method text,status text DEFAULT 'confirmed');
 CREATE TABLE discord_notification_queue(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),organization_id uuid,notification_type text,reference_id uuid,dedupe_key text,webhook_url text,message_payload jsonb,max_retries int,last_error text,updated_at timestamptz,status text DEFAULT 'pending',UNIQUE(organization_id,notification_type,dedupe_key));
 INSERT INTO staff(organization_id,name,discord_channel_id) VALUES ('00000000-0000-0000-0000-000000000001','GM1','123'),('00000000-0000-0000-0000-000000000001','GM2',NULL),('00000000-0000-0000-0000-000000000002','GM1','999');`);
 await db.exec(fs.readFileSync('supabase/migrations/20260911090000_private_cancellation_notifications.sql','utf8'));
@@ -14,6 +14,14 @@ const event=async(extra='')=>(await db.query(`INSERT INTO schedule_events(organi
 const reserve=async(id,status='confirmed')=>(await db.query(`INSERT INTO reservations(schedule_event_id,organization_id,status) VALUES ($1,$2,$3) RETURNING id`,[id,org,status])).rows[0].id;
 const count=async()=>(await db.query('select count(*)::int n from discord_notification_queue')).rows[0].n;
 let e=await event(), a=await reserve(e), b=await reserve(e,'checked_in');
+// 本番に実在する reservations.event_id を含めると旧定義は42702で失敗する。
+// 取消失敗時に予約と通知が部分更新されないことも確認する。
+await assert.rejects(db.query("update reservations set status='cancelled' where id=$1",[a]),
+  error => error.code === '42702' && error.message.includes('event_id'));
+assert.equal((await db.query('select status from reservations where id=$1',[a])).rows[0].status,'confirmed');
+assert.equal(await count(),0);
+await db.exec(fs.readFileSync('supabase/migrations/20260914090000_fix_private_cancellation_trigger_column_ambiguity.sql','utf8'));
+
 await db.query("update reservations set status='cancelled' where id=$1",[a]);assert.equal(await count(),0);
 await db.query("update reservations set status='cancelled' where id=$1",[b]);assert.equal(await count(),2);
 await db.query('update schedule_events set is_cancelled=true where id=$1',[e]);assert.equal(await count(),2);
@@ -31,4 +39,11 @@ await db.exec('BEGIN');e=await event();await db.query('delete from schedule_even
 e=await event();a=await reserve(e);await db.query("INSERT INTO reservations(schedule_event_id,organization_id,reservation_source,status) VALUES ($1,$2,'staff_entry','confirmed')",[e,org]);await db.query("update reservations set status='cancelled' where id=$1",[a]);assert.equal(await count(),14);
 await reserve(e);await db.query("update reservations set status='cancelled' where schedule_event_id=$1 and reservation_source IS NULL",[e]);assert.equal(await count(),16);
 assert.equal((await db.query("select count(*)::int n from discord_notification_queue where last_error='superseded_by_restoration'")).rows[0].n,6);
-console.log('PASS: final cancellation, checked-in retention, cancel/delete dedupe, restore/recancel, delete, tenant boundary, missing channel retained, transaction rollback');await db.close();
+// 同名の旧列に別公演IDが入っていても schedule_event_id を基準にする。
+e=await event();const unrelatedEvent=await event();a=await reserve(e);
+await db.query('update reservations set event_id=$1 where id=$2',[unrelatedEvent,a]);
+await db.query("update reservations set status='cancelled' where id=$1",[a]);assert.equal(await count(),18);
+assert.equal((await db.query("select count(*)::int n from discord_notification_queue where message_payload->>'event_id'=$1",[unrelatedEvent])).rows[0].n,0);
+e=await event();a=await reserve(e);await db.query('delete from reservations where id=$1',[a]);assert.equal(await count(),20);
+e=await event(",'open',false");a=await reserve(e);await db.query("update reservations set status='cancelled' where id=$1",[a]);assert.equal(await count(),20);
+console.log('PASS: production event_id ambiguity reproduced and repaired, final cancellation, checked-in retention, cancel/delete dedupe, restore/recancel, delete, tenant boundary, missing channel retained, transaction rollback, legacy event_id isolation, reservation delete, open cancellation');await db.close();

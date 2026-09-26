@@ -25,3 +25,7 @@ CREATE INDEX idx_private_group_members_coupon_id ON public.private_group_members
 CREATE INDEX idx_private_group_members_group_id ON public.private_group_members USING btree (group_id);
 CREATE INDEX idx_private_group_members_payment_status ON public.private_group_members USING btree (payment_status);
 CREATE INDEX idx_private_group_members_user_id ON public.private_group_members USING btree (user_id);
+
+-- Prevent duplicate active identities even outside the join RPC.
+CREATE UNIQUE INDEX private_group_joined_user_unique ON public.private_group_members(group_id,user_id) WHERE status='joined' AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX private_group_joined_guest_email_unique ON public.private_group_members(group_id,lower(trim(guest_email))) WHERE status='joined' AND user_id IS NULL AND nullif(trim(guest_email),'') IS NOT NULL;
