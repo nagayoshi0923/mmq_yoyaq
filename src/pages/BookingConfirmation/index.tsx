@@ -188,6 +188,7 @@ export function BookingConfirmation({
       await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes, customerNickname, selectedCouponId)
       // 成功画面表示後にuseEffectで自動遷移を処理
     } catch (error: any) {
+      couponState.resetAfterFailure()
       setError(error.message || '予約処理中にエラーが発生しました')
     } finally {
       setPendingSubmit(false)

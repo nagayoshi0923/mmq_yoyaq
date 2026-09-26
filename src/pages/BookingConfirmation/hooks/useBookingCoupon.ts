@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import type { CustomerCoupon } from '@/types'
 export function useBookingCoupon(userId: string | undefined, eventId: string, participantCount: number) {
+  const queryClient = useQueryClient()
   const [selection, setSelection] = useState<{ userId: string | undefined; eventId: string; id: string | null }>({ userId, eventId, id: null })
   // 対象変更の描画時点から旧選択を無効にする。
   const selectedCouponId = selection.userId === userId && selection.eventId === eventId ? selection.id : null
@@ -22,5 +23,10 @@ export function useBookingCoupon(userId: string | undefined, eventId: string, pa
   })
   const couponReady = !selectedCouponId || (!!couponPreview.data?.success && !couponPreview.isFetching && !couponPreview.error)
   const couponDiscount = selectedCouponId && couponReady ? couponPreview.data?.discount_amount ?? 0 : 0
-  return { selectedCouponId, setSelectedCouponId, selectedCoupon, availableCoupons, couponsQuery, couponPreview, couponReady, couponDiscount }
+  const resetAfterFailure = () => {
+    setSelectedCouponId(null)
+    void queryClient.invalidateQueries({ queryKey: ['booking-coupon-preview', userId, eventId] })
+    void couponsQuery.refetch()
+  }
+  return { resetAfterFailure, selectedCouponId, setSelectedCouponId, selectedCoupon, availableCoupons, couponsQuery, couponPreview, couponReady, couponDiscount }
 }

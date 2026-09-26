@@ -61,7 +61,7 @@ export const SETTING_DEFINITIONS: Record<string, SettingDefinition> = {
   store_cancellation_template: text('email', '店舗からのキャンセルメール'),
   private_rejection_reason: text('email', '貸切見送りの既定理由'),
   judgment_minutes_before: integer('operations', '開催の最終判断（分前）', 1, 10080),
-  default_performance_duration: { ...integer('operations', '作品未選択時の公演時間（分）', 30, 1440), scopes: identity },
+  default_performance_duration: { ...integer('operations', '作品未選択時の公演時間（分）', 30, 480), scopes: identity },
   preparation_minutes: integer('operations', '準備時間（分）', 0, 1440),
   coupon_usage_enabled: structure('operations', 'クーポンの利用を受け付ける', 'boolean'),
   survey_enabled: structure('operations', '事前配役アンケート', 'boolean'),

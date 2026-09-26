@@ -1,3 +1,4 @@
+import { salesGmCostRole } from '@/lib/salesGmCostRole'
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
@@ -364,8 +365,11 @@ export function calculateSalesData(
     const gms = event.gms ?? []
     const roles = (event as SalesEvent).gm_roles ?? {}
     const defaultWage = () => calculateHourlyWage(scenario?.duration || 180, isGmTest, settingsForDate(event.date))
-    let gmCost = gms.reduce((sum, name, index) => {
-      const role = roles[name] || (index === 0 ? 'main' : 'sub')
+    let gmOrdinal = 0
+    let gmCost = gms.reduce((sum, name) => {
+      const assignedRole = roles[name]
+      if (assignedRole !== 'staff' && assignedRole !== 'observer' && assignedRole !== 'reception') gmOrdinal++
+      const role = salesGmCostRole(assignedRole, gmOrdinal)
       if (role === 'staff' || role === 'observer') return sum
       if (role === 'reception') return sum + settingsForDate(event.date).reception_fixed_pay
       const explicit = applicableCosts.find(cost => cost.role.toLowerCase() === role.toLowerCase())
