@@ -1,4 +1,4 @@
-import { salesGmCostRole } from '@/lib/salesGmCostRole'
+import { calculateEventGmCost } from '@/lib/compensation'
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
@@ -8,7 +8,7 @@ import { salesApi } from '@/lib/api'
 import { salaryReportApi } from '@/lib/api/salaryReportApi'
 import { SalesData } from '@/types'
 import { logger } from '@/utils/logger'
-import { fetchSalarySettingsForPeriod, calculateGmWage, type SalarySettings, type SalarySettingsResolver } from '@/hooks/useSalarySettings'
+import { fetchSalarySettingsForPeriod, type SalarySettingsResolver } from '@/hooks/useSalarySettings'
 import { getLicenseAmountForStore, type ScenarioPricing, type StoreOwnershipType } from '@/lib/pricing'
 import {
   getThisMonthRangeJST,
@@ -288,23 +288,6 @@ export function useSalesData() {
 // getLicenseAmountForStore に統合しました。SELECT 漏れ防止のため
 // SCENARIO_PRICING_COLUMNS 定数を SELECT に使うこと。
 
-/**
- * GM給与を計算（新方式）
- * 計算式: 基本給 + 時給 × 公演時間（時間単位）
- * 
- * @param durationMinutes 公演時間（分）
- * @param isGmTest GMテストかどうか
- * @param salarySettings 給与設定
- * @returns 給与額
- */
-function calculateHourlyWage(
-  durationMinutes: number, 
-  isGmTest: boolean, 
-  salarySettings: SalarySettings
-): number {
-  return calculateGmWage(durationMinutes, isGmTest, salarySettings)
-}
-
 // 売上データ計算関数
 export function calculateSalesData(
   events: Array<{ 
@@ -360,31 +343,13 @@ export function calculateSalesData(
       scenario as ScenarioPricing, store?.ownership_type as StoreOwnershipType,
       isGmTest ? 'gmtest' : 'normal',
     ) : 0
-    const applicableCosts = (scenario?.gm_costs ?? []).filter(cost =>
-      (cost.category ?? 'normal') === (isGmTest ? 'gmtest' : 'normal'))
-    const gms = event.gms ?? []
-    const roles = (event as SalesEvent).gm_roles ?? {}
-    const defaultWage = () => calculateHourlyWage(scenario?.duration || 180, isGmTest, settingsForDate(event.date))
-    let gmOrdinal = 0
-    let gmCost = gms.reduce((sum, name) => {
-      const assignedRole = roles[name]
-      if (assignedRole !== 'staff' && assignedRole !== 'observer' && assignedRole !== 'reception') gmOrdinal++
-      const role = salesGmCostRole(assignedRole, gmOrdinal)
-      if (role === 'staff' || role === 'observer') return sum
-      if (role === 'reception') return sum + settingsForDate(event.date).reception_fixed_pay
-      const explicit = applicableCosts.find(cost => cost.role.toLowerCase() === role.toLowerCase())
-      return sum + (explicit?.reward ?? defaultWage())
-    }, 0)
-    // 未配置公演は既存の明細と同じく見積額を表示する（実際の給与支払とは別）。
-    if (!gms.length && scenario) {
-      gmCost = applicableCosts.length ? applicableCosts.reduce((sum, cost) => sum + cost.reward, 0) : defaultWage()
-    }
-    if (store?.transport_allowance) {
-      for (const name of gms) {
-        const homeStores = staffByName.get(name)
-        if (homeStores && !homeStores.includes(event.store_id)) gmCost += store.transport_allowance
-      }
-    }
+    const gmCost = calculateEventGmCost({
+      gms: event.gms ?? [], roles: (event as SalesEvent).gm_roles ?? {},
+      duration: scenario?.duration ?? 180, isGmTest, costs: scenario?.gm_costs ?? [],
+      getSettings: () => settingsForDate(event.date), storeId: event.store_id,
+      homeStores: staffByName, transportAllowance: store?.transport_allowance,
+      estimateUnassigned: Boolean(scenario),
+    })
     return [event, { licenseCost, gmCost }] as const
   }))
   const totalLicenseCost = [...costs.values()].reduce((sum, cost) => sum + cost.licenseCost, 0)

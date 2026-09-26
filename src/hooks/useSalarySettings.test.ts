@@ -253,3 +253,48 @@ describe('公演担当のID参照', () => {
     expect((await fetchSalaryData(2020,1,[])).totalAmount).toBe(0)
   })
 })
+
+describe('作品別報酬・実効時間・交通費の画面間一致', () => {
+  it('受付を含む並びでもGM3・個別0円・組織時間・交通費を給与と売上で揃える', async () => {
+    const names = ['受付', 'サブ', 'メイン', '三人目', '参加', '見学']
+    const roles = ['reception', 'sub', 'main', 'sub', 'staff', 'observer']
+    const staff = names.map((name, i) => ({id: String(i), name, role:['gm'], stores: i === 2 ? [] : ['store-a']}))
+    const scenario = {scenario_master_id:'master',duration:240,gm_costs:[{role:'main',reward:0},{role:'sub',reward:2000},{role:'gm3',reward:1234}]}
+    const row = {...events[0],scenario_master_id:'master',gms:names,gm_roles:Object.fromEntries(names.map((name,i)=>[name,roles[i]])),scenarios:scenario,
+      stores:{name:'店舗',transport_allowance:500},staff_assignments:names.map((name,i)=>({staff_id:String(i),staff_name:name,ordinal:i+1,role:roles[i],resolution_status:'resolved',role_confirmed:true})).reverse()}
+    let historyCalls=0
+    mock.from.mockImplementation(table => query(table==='staff'?staff:table==='organization_scenarios_with_master'?[scenario]:table==='salary_settings_history'?(historyCalls++===0?old:[]):[row]))
+    const salary=await fetchSalaryData(2020,1,[])
+    const report=calculateSalesData([row],[{...stores[0],transport_allowance:500}],new Date('2020-01-01'),new Date('2020-01-31'),[],createSalarySettingsResolver([old]),new Map(staff.map(person=>[person.name,person.stores])))
+    expect(salary.totalAmount).toBe(3734)
+    expect(report.totalGmCost).toBe(salary.totalAmount)
+    expect(salary.staffList.find(person=>person.staffName==='メイン')?.totalGMPay).toBe(500)
+  })
+  it('個別設定のないGMテストは原本の180分ではなく組織の240分を採用する',async()=>{
+    const scenario={scenario_master_id:'master',duration:240,gm_costs:[]}
+    const row={...events[0],scenario_master_id:'master',category:'gmtest',gms:['メイン'],gm_roles:{...events[0].gm_roles},staff_assignments:[events[0].staff_assignments[0]],scenarios:scenario}
+    let historyCalls=0
+    mock.from.mockImplementation(table=>query(table==='staff'?[{id:'0',name:'メイン',role:['gm'],stores:['store-a']}]:table==='organization_scenarios_with_master'?[scenario]:table==='salary_settings_history'?(historyCalls++===0?old:[]):[row]))
+    expect((await fetchSalaryData(2020,1,[])).totalAmount).toBe(2000)
+    expect(sales([row]).totalGmCost).toBe(2000)
+  })
+})
+
+it('旧公演のタイトル解決でも同じ組織作品の報酬・時間を引き継ぐ',async()=>{
+  const scenario={scenario_master_id:'master',duration:240,gm_costs:[{role:'main',reward:8000}]}
+  const base={...events[0],gms:['メイン'],gm_roles:{メイン:'main'},staff_assignments:[events[0].staff_assignments[0]]}
+  const rows=[{...base,scenario_master_id:'master'},{...base,id:'legacy',scenario_master_id:null,scenario_masters:null}]
+  let historyCalls=0
+  mock.from.mockImplementation(table=>query(table==='staff'?[{id:'0',name:'メイン',role:['gm'],stores:['store-a']}]:table==='organization_scenarios_with_master'?[scenario]:table==='salary_settings_history'?(historyCalls++===0?old:[]):rows))
+  const salary=await fetchSalaryData(2020,1,[])
+  expect(salary.totalAmount).toBe(16000)
+  expect(salary.staffList[0].gmAssignments.map(assignment=>assignment.pay)).toEqual([8000,8000])
+})
+
+it('同じタイトルが別作品IDに対応する時は旧公演を推測せず未解決にする',async()=>{
+  const base={...events[0],gms:['メイン'],gm_roles:{メイン:'main'},staff_assignments:[events[0].staff_assignments[0]]}
+  const rows=[{...base,scenario_master_id:'master-1'},{...base,id:'other',scenario_master_id:'master-2'},{...base,id:'legacy',scenario_master_id:null,scenario_masters:null}]
+  let historyCalls=0
+  mock.from.mockImplementation(table=>query(table==='staff'?[{id:'0',name:'メイン',role:['gm'],stores:['store-a']}]:table==='organization_scenarios_with_master'?[]:table==='salary_settings_history'?(historyCalls++===0?old:[]):rows))
+  expect((await fetchSalaryData(2020,1,[])).unresolvedEvents).toHaveLength(1)
+})

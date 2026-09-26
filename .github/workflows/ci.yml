@@ -54,6 +54,9 @@ jobs:
       - name: Private booking change policy
         run: node scripts/test-private-change-policy-db.mjs
 
+      - name: Unrecorded GM cost DB regression
+        run: node scripts/test-unrecorded-gm-cost-db.mjs
+
       - name: Shared Edge authentication boundary
         run: node --test scripts/edge-security-boundary.test.mjs
 

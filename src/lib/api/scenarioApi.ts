@@ -175,10 +175,7 @@ export const scenarioApi = {
   // 今日までの公演のみ計算（未来の公演は含めない）
   // scenarioId は scenario_master_id
   //
-  // NOTE: 旧実装はカスタム GM コスト未設定時にフロントの useSalarySettings を使って
-  // GM 報酬を動的計算していたが、サーバ実装では salary_settings をまだ参照していない。
-  // 影響: gm_costs を設定していないシナリオで GM コスト集計が 0 になる可能性がある。
-  // TODO: サーバ側でも calculateGmWage 相当を実装する。
+  // 保存済み公演費用を保持し、未記録分は公演日時点の共通報酬計算を使用する。
   async getScenarioStats(scenarioId: string): Promise<{
     performanceCount: number
     cancelledCount: number

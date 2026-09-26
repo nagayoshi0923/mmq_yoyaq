@@ -1,7 +1,9 @@
 import { requireAuth, requireStaff, requireAdmin, ApiError } from './_lib/auth.js'
+import { calculateEventGmCost, type IndividualGmCost } from '../src/lib/compensation.js'
+import { loadCompensationHistory } from './_lib/compensationHistory.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-import { getParticipationFee, getLicenseAmount, sumGmCosts, type ScenarioPricing } from '../src/lib/pricing.js'
+import { getParticipationFee, getLicenseAmount, type ScenarioPricing } from '../src/lib/pricing.js'
 
 // ─── DB（service_role）────────────────────────────────────────────────────────
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
@@ -118,7 +120,7 @@ const STATS_SCHEDULE_EVENT_COUNT_FIELDS = 'id'
 
 const STATS_SCHEDULE_EVENT_DETAIL_FIELDS =
   'id, date, category, current_participants, total_revenue, gm_cost, license_cost, ' +
-  'start_time, store_id, is_cancelled, stores:store_id(venue_cost_per_performance)'
+  'start_time, store_id, is_cancelled, gms, gm_roles, stores:store_id(venue_cost_per_performance,transport_allowance)'
 
 const STATS_ALL_SCHEDULE_EVENT_FIELDS =
   'scenario_master_id, is_cancelled, total_revenue, date, category'
@@ -451,12 +453,14 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
   const today = new Date().toISOString().split('T')[0]
 
   // ── シナリオの料金・GM報酬等のメタ情報を取得（自組織） ───────────────────
-  const { data: _scenarioRaw } = await db
+  const { data: _scenarioRaw, error: scenarioError } = await db
     .from('organization_scenarios_with_master')
     .select(STATS_SCENARIO_FIELDS)
     .eq('id', scenarioId)
     .eq('organization_id', orgId)
     .maybeSingle()
+  if (scenarioError) throw scenarioError
+  if (!_scenarioRaw) return res.status(404).json({ error: 'シナリオが見つかりません' })
   const scenarioData = _scenarioRaw as {
     player_count_max?: number
     license_amount?: number
@@ -465,7 +469,7 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     participation_fee?: number
     gm_test_participation_fee?: number
     participation_costs?: Array<{ time_slot: string; amount: number }>
-    gm_costs?: Array<{ category?: string; reward?: number }>
+    gm_costs?: IndividualGmCost[]
     duration?: number
   } | null
 
@@ -476,22 +480,6 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
   const gmTestLicenseAmount = getLicenseAmount(pricing, 'gmtest')
   const normalParticipationFee = getParticipationFee(pricing, 'normal')
   const gmTestParticipationFee = getParticipationFee(pricing, 'gmtest')
-
-  const gmAssignments = scenarioData?.gm_costs
-  const hasCustomGmCosts = !!gmAssignments && gmAssignments.length > 0
-  let normalGmReward = 0
-  let gmTestGmReward = 0
-  if (hasCustomGmCosts) {
-    normalGmReward = sumGmCosts(pricing, 'normal')
-    // GMテスト固有設定がない場合は normalGmReward から 2000 を引いた値を旧来挙動として残す
-    const gmTestFromCosts = sumGmCosts(pricing, 'gmtest')
-    gmTestGmReward = gmTestFromCosts || Math.max(0, normalGmReward - 2000)
-  }
-  // NOTE: 旧実装ではフロントの useSalarySettings を使ってカスタム GM コストが無い場合に
-  // 給与設定から動的計算していた。サーバ側からは fetchSalarySettings を呼べないため、
-  // ここでは normalGmReward=0 / gmTestGmReward=0 のまま進める。
-  // 影響: 旧実装で自動計算されていた GM コスト集計が 0 になる可能性がある。
-  // TODO: salary_settings を読み込んでサーバ側でも calculateGmWage 相当を実装する。
 
   // ── 公演回数 ────────────────────────────────────────────────────────────
   const { count: performanceCount, error: perfError } = await db
@@ -549,9 +537,17 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     start_time: string | null
     store_id: string | null
     is_cancelled: boolean | null
-    stores?: { venue_cost_per_performance?: number | null } | null
+    gms: string[] | null
+    gm_roles: Record<string,string> | null
+    stores?: { venue_cost_per_performance?: number | null; transport_allowance?: number | null } | null
   }
   const eventList = (events ?? []) as unknown as EventRow[]
+  const unrecordedEvents = eventList.filter(event => event.gm_cost === null && !event.is_cancelled)
+  const dates = unrecordedEvents.map(event => event.date).sort()
+  const settingsForDate = dates.length ? await loadCompensationHistory(db, orgId, dates[0], dates.at(-1)!) : null
+  const { data: staff, error: staffError } = dates.length ? await db.from('staff').select('name,stores').eq('organization_id',orgId) : {data:[],error:null}
+  if (staffError) throw staffError
+  const homeStores = new Map<string,string[]>((staff ?? []).filter(person => Array.isArray(person.stores)).map(person => [person.name, person.stores as string[]]))
   const eventIds = eventList.map((e) => e.id)
   const demoParticipantsMap: Record<string, number> = {}
   const actualParticipantsMap: Record<string, number> = {}
@@ -628,7 +624,12 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     const isGmTest = event.category === 'gmtest'
     const fee = isGmTest ? gmTestParticipationFee : normalParticipationFee
     const eventRevenue = event.total_revenue ?? participants * fee
-    const eventGmCost = event.gm_cost ?? (isGmTest ? gmTestGmReward : normalGmReward)
+    const eventGmCost = event.gm_cost ?? calculateEventGmCost({
+      gms: event.gms ?? [], roles: event.gm_roles ?? {}, duration: scenarioData?.duration ?? 180,
+      isGmTest, costs: scenarioData?.gm_costs ?? [], getSettings: () => { if (!settingsForDate) throw new Error('報酬履歴が取得されていません'); return settingsForDate(event.date) },
+      storeId: event.store_id ?? '', homeStores, transportAllowance: event.stores?.transport_allowance,
+      isCancelled, estimateUnassigned: Boolean(scenarioData),
+    })
 
     let licenseCost = event.license_cost ?? 0
     if (licenseCost === 0) {

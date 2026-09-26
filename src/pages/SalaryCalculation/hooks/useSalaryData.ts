@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { salaryReportApi } from '@/lib/api/salaryReportApi'
+import { salaryReportApi, type SalaryEvent } from '@/lib/api/salaryReportApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useSalaryOrganization } from '@/hooks/useSalaryOrganization'
 import { logger } from '@/utils/logger'
-import { fetchSalarySettingsForPeriod, calculateGmWage } from '@/hooks/useSalarySettings'
+import { fetchSalarySettingsForPeriod } from '@/hooks/useSalarySettings'
+import { calculateAssignmentPay, calculateTransportAllowance } from '@/lib/compensation'
 import type { MonthlySalaryData, StaffSalary, UnresolvedSalaryEvent, UnresolvedSalaryStaff } from '../types'
 
 // シナリオ不要カテゴリ（出張・場所貸し・MTG）。これらはマスタ未解決でも警告対象にしない
@@ -34,12 +35,14 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
 
   // フォールバック用: 同月内で scenario_master が解決済みの公演から「タイトル→マスタ情報」を学習。
   // scenario_master_id が未設定（貸切作成時に付与漏れ等）でも、同名公演がマスタ解決できていれば集計に拾う。
-  const scenarioByTitle = new Map<string, { title: string; official_duration: number }>()
+  const scenarioByTitle = new Map<string, { master: { title: string; official_duration: number }; compensation: SalaryEvent['scenarios']; masterId: string | null } | null>()
   gmData?.forEach(event => {
     const sc = event.scenario_masters as unknown as { title: string; official_duration: number } | null
     if (sc && event.scenario) {
       const key = normalizeScenarioTitle(event.scenario)
-      if (!scenarioByTitle.has(key)) scenarioByTitle.set(key, sc)
+      const candidate = { master: sc, compensation: event.scenarios, masterId: event.scenario_master_id }
+      if (!scenarioByTitle.has(key)) scenarioByTitle.set(key, candidate)
+      else if (scenarioByTitle.get(key)?.masterId !== candidate.masterId) scenarioByTitle.set(key, null)
     }
   })
 
@@ -52,12 +55,13 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
     if (!Array.isArray(event.staff_assignments) || event.staff_assignments.length !== event.gms.length) {
       throw new Error('公演の担当者データが一致しないため給与を計算できません。再読み込みしてください。')
     }
+    let compensation = event.scenarios
     let scenario = event.scenario_masters as unknown as { title: string; official_duration: number } | null
     // scenario_master_id 未設定/解決不可でも、フリーテキストの scenario からタイトル解決して集計する
     // （これが無いと「スケジュールにあるのに給与に出ない」公演がサイレントに漏れる）
     if (!scenario && event.scenario) {
       const fallback = scenarioByTitle.get(normalizeScenarioTitle(event.scenario))
-      if (fallback) scenario = fallback
+      if (fallback) { scenario = fallback.master; compensation = fallback.compensation }
     }
     if (!scenario) {
       // 出張・場所貸し・MTG 等の非シナリオ公演は対象外。それ以外でGM付きなのに解決できないものは
@@ -71,7 +75,9 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
     const isGMTest = event.category === 'gmtest'
     const isCancelled = event.is_cancelled === true
 
-    event.staff_assignments.forEach(assignment => {
+    let gmOrdinal = 0
+    ;[...event.staff_assignments].sort((a, b) => a.ordinal - b.ordinal).forEach(assignment => {
+      if (assignment.role === 'main' || assignment.role === 'sub') gmOrdinal++
       const staffInfo = assignment.staff_id ? staffById.get(assignment.staff_id) : undefined
       if (assignment.resolution_status !== 'resolved' || !staffInfo || assignment.role_confirmed !== true) {
         unresolvedStaff.push({ eventId: event.id, date: event.date, scenario: scenario.title || event.scenario || '(無題)',
@@ -127,15 +133,9 @@ export async function fetchSalaryData(year: number, month: number, storeIds: str
         return
       }
 
-      if (roleType === 'reception') {
-        pay = settingsForDate(event.date).reception_fixed_pay
-      } else if (roleType === 'staff' || roleType === 'observer') {
-        pay = 0
-      } else {
-        const duration = scenario.official_duration || 180
-        pay = calculateGmWage(duration, isGMTest, settingsForDate(event.date))
-        gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
-      }
+      const duration = compensation?.duration ?? scenario.official_duration ?? 180
+      pay = calculateAssignmentPay(roleType, gmOrdinal, duration, isGMTest, compensation?.gm_costs ?? [], () => settingsForDate(event.date))
+      pay += calculateTransportAllowance(event.store_id, staffInfo.stores, event.stores?.transport_allowance)
 
       staff.totalGMCount += 1
       staff.totalGMPay += pay
