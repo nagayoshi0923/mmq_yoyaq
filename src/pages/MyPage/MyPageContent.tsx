@@ -1,3 +1,4 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 // マイページ本体（プロフィール/アルバム/タブ・renderAlbumCard 含む）
 // MyPage/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
 import React, { Suspense } from 'react'
@@ -277,15 +278,8 @@ export function MyPageContent({
       return
     }
     try {
-      const { data, error } = await supabase
-        .from('manual_play_history')
-        .update({ played_at: newDate })
-        .eq('id', manualId)
-        .eq('customer_id', customerId)
-        .select('id')
-
-      if (error) throw error
-      if (!data?.length) {
+      const updated = await customerPlayHistory.updateDate(customerId, manualId, newDate)
+      if (!updated) {
         logger.error('手動履歴日付更新: 0件（RLSまたはID不一致）', { manualId, customerId })
         showToast.error('更新できませんでした。ページを再読み込みしてから再度お試しください。')
         return

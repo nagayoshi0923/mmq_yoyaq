@@ -23,7 +23,7 @@ export interface ListCustomersWithStatsResult {
   totalCount: number
 }
 
-export type CustomerReservationHistory = Pick<Reservation, 'id' | 'title' | 'requested_datetime' | 'participant_count' | 'final_price' | 'status'>
+export type CustomerReservationHistory = Pick<Reservation, 'id' | 'title' | 'scenario_master_id' | 'requested_datetime' | 'participant_count' | 'final_price' | 'status'>
 
 export type CustomerFormInput = Pick<Customer, 'name'> & {
   email: string | null

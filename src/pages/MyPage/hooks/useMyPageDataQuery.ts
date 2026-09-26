@@ -1,3 +1,4 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -105,12 +106,13 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       if (!customer) return { reservations: [], customerInfo: null, customerId: null, avatarUrl: null, stats: { participationCount: 0, points: 0 }, scheduleEvents: {}, orgSlugs: {}, orgNames: {}, scenarioImages: {}, scenarioSlugs: {}, scenarioInfo: {}, stores: {}, playedScenarios: [], playedOverrideIds: new Set(), privateGroups: [], ratingsMap: {} }
 
+      const historySnapshot = customerPlayHistory.snapshot(customer.id)
       const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult] = await Promise.all([
         supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customer.id).order('requested_datetime', { ascending: false }).limit(50),
         supabase.from('private_group_members').select(`id, is_organizer, status, group_id, private_groups:group_id (id, name, invite_code, status, created_at, reservation_id, scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_max))`).eq('user_id', userId!).eq('status', 'joined'),
-        supabase.from('manual_play_history').select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id').eq('customer_id', customer.id).order('created_at', { ascending: false }).limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER),
+        historySnapshot.then(history => ({ data: history.manual, error: null })),
         supabase.from('scenario_ratings').select('scenario_master_id, rating').eq('customer_id', customer.id),
-        supabase.from('customer_played_overrides').select('scenario_master_id').eq('customer_id', customer.id),
+        historySnapshot.then(history => ({ data: history.overrides, error: null })),
       ])
 
       if (reservationResult.error) throw reservationResult.error
@@ -330,9 +332,7 @@ export function useAddManualHistoryMutation(customerId: string | null, userId: s
       if (isManualPlayHistoryAtCap(manualCount)) throw new Error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
       const scenarioTitle = scenarioOptions.find(s => s.id === scenarioId)?.title || ''
       const storeName = storeOptions.find(s => s.id === storeId)?.name || null
-      const { data, error } = await supabase.from('manual_play_history').insert({ customer_id: customerId, scenario_title: scenarioTitle, scenario_master_id: scenarioId, played_at: playedAt || null, venue: storeName }).select()
-      if (error) throw error
-      if (!data?.length) throw new Error('データの追加に失敗しました（権限エラーの可能性）')
+      await customerPlayHistory.add(customerId, { scenario_title: scenarioTitle, scenario_master_id: scenarioId, played_at: playedAt || null, venue: storeName })
     },
     onSuccess: () => {
       showToast.success('プレイ履歴を追加しました')
@@ -350,9 +350,8 @@ export function useDeleteManualHistoryMutation(customerId: string | null, userId
   return useMutation({
     mutationFn: async (manualId: string) => {
       if (!customerId) throw new Error('顧客情報が取得できません。再ログインしてお試しください。')
-      const { data, error } = await supabase.from('manual_play_history').delete().eq('id', manualId).eq('customer_id', customerId).select('id')
-      if (error) throw error
-      if (!data?.length) throw new Error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
+      const removed = await customerPlayHistory.remove(customerId, manualId)
+      if (!removed) throw new Error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
     },
     onSuccess: () => {
       showToast.success('削除しました')

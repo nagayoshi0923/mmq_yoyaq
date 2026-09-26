@@ -1,8 +1,8 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
-import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { addPlayedOverride, fetchPlayedOverrideIds } from '@/lib/playedOverrides'
 
 /**
@@ -55,11 +55,7 @@ export function usePlayedScenarios() {
         }
       })
 
-      const { data: manualHistory } = await supabase
-        .from('manual_play_history')
-        .select('scenario_master_id')
-        .eq('customer_id', customer.id)
-        .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
+      const { manual: manualHistory } = await customerPlayHistory.snapshot(customer.id)
 
       manualHistory?.forEach(m => {
         if (m.scenario_master_id) {

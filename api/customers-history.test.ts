@@ -21,7 +21,7 @@ it('restricts every page to the verified organization and requested customer', a
  expect(mock.calls.filter(c=>c[0]==='eq')).toEqual([['eq','organization_id','verified-org'],['eq','customer_id','customer'],['eq','organization_id','verified-org'],['eq','customer_id','customer'],['eq','organization_id','verified-org'],['eq','customer_id','customer']])
  expect(mock.calls.filter(c=>c[0]==='range')).toEqual([['range',0,499],['range',500,999],['range',1000,1499]])
  expect(mock.calls).toContainEqual(['order','id',{ascending:false}])
- expect(mock.calls).toContainEqual(['select','id, title, requested_datetime, participant_count, final_price, status'])
+ expect(mock.calls).toContainEqual(['select','id, title, scenario_master_id, requested_datetime, participant_count, final_price, status'])
 })
 it('does not return a partial success when a later page fails', async () => {
  mock.pages=[{data:Array.from({length:500},()=>({id:'fixture'})),error:null},{data:null,error:{message:'unavailable'}}]

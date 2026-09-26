@@ -1,9 +1,9 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
@@ -48,16 +48,9 @@ export function PlayedRegistrationDialog({
           return
         }
 
-        const { error } = await supabase
-          .from('manual_play_history')
-          .insert({
-            customer_id: customerId,
-            scenario_title: scenarioTitle,
-            scenario_master_id: scenarioMasterId,
-            played_at: playedDate || null,
-          })
-
-        if (error) throw error
+        await customerPlayHistory.add(customerId, {
+          scenario_title: scenarioTitle, scenario_master_id: scenarioMasterId, played_at: playedDate || null,
+        })
       }
 
       onOpenChange(false)
