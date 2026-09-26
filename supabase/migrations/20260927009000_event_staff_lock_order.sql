@@ -1,25 +1,5 @@
--- QW-20260917-001: identity-preserving adapter for existing name-based writers.
--- No event/legacy columns are removed. All changes share the event transaction.
--- Backfill is maintained only in migration 20260921120000.
-
-CREATE TABLE public.schedule_event_staff_assignments (
-  event_id uuid NOT NULL REFERENCES public.schedule_events(id) ON DELETE CASCADE,
-  ordinal integer NOT NULL CHECK (ordinal > 0),
-  organization_id uuid NOT NULL REFERENCES public.organizations(id),
-  staff_id uuid REFERENCES public.staff(id) ON DELETE RESTRICT,
-  staff_name text,
-  role text NOT NULL CHECK (role IN ('main','sub','reception','staff','observer')),
-  resolution_status text NOT NULL CHECK (resolution_status IN ('resolved','unmatched','duplicate')),
-  role_confirmed boolean NOT NULL DEFAULT true,
-  PRIMARY KEY (event_id, ordinal),
-  CHECK ((resolution_status = 'resolved') = (staff_id IS NOT NULL))
-);
-CREATE UNIQUE INDEX event_staff_identity_unique ON public.schedule_event_staff_assignments(event_id,staff_id) WHERE staff_id IS NOT NULL;
-CREATE INDEX event_staff_identity_org_staff ON public.schedule_event_staff_assignments(organization_id,staff_id);
-ALTER TABLE public.schedule_event_staff_assignments ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.schedule_event_staff_assignments FROM PUBLIC, anon, authenticated, service_role;
-GRANT SELECT ON public.schedule_event_staff_assignments TO service_role;
-
+-- QW-20260917-001: avoid event/staff lock inversion during concurrent renames.
+BEGIN;
 CREATE OR REPLACE FUNCTION public.sync_event_staff_identity()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -98,28 +78,5 @@ EXCEPTION WHEN lock_not_available THEN
   RAISE EXCEPTION '担当スタッフが別の処理で更新中です。少し待って再度保存してください' USING ERRCODE='23514';
 END $function$
 ;
-
-CREATE FUNCTION public.rename_event_staff_identity() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-BEGIN
-  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id AND EXISTS(
-    SELECT 1 FROM public.schedule_event_staff_assignments WHERE staff_id=NEW.id) THEN
-    RAISE EXCEPTION '公演担当記録のあるスタッフは組織を変更できません' USING ERRCODE='23514';
-  END IF;
-  IF NEW.name IS DISTINCT FROM OLD.name THEN
-    UPDATE public.schedule_events e SET
-      gms=array_replace(e.gms,OLD.name,NEW.name),
-      gm_roles=CASE WHEN coalesce(e.gm_roles,'{}'::jsonb) ? OLD.name
-        THEN (e.gm_roles - OLD.name) || jsonb_build_object(NEW.name,e.gm_roles->OLD.name)
-        ELSE e.gm_roles END
-    WHERE e.organization_id=NEW.organization_id AND EXISTS(
-      SELECT 1 FROM public.schedule_event_staff_assignments a WHERE a.event_id=e.id AND a.staff_id=NEW.id);
-  END IF;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER rename_event_staff_identity AFTER UPDATE OF name,organization_id ON public.staff
-FOR EACH ROW EXECUTE FUNCTION public.rename_event_staff_identity();
-REVOKE ALL ON FUNCTION public.sync_event_staff_identity() FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION public.rename_event_staff_identity() FROM PUBLIC,anon,authenticated,service_role;
-COMMENT ON TABLE public.schedule_event_staff_assignments IS '公演のスタッフID・役割・表示順。旧名入力は公演トリガーで同一トランザクション内変換。未照合履歴は推測せず保持。';
-
+NOTIFY pgrst, 'reload schema';
+COMMIT;
