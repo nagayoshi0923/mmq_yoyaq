@@ -82,9 +82,9 @@ export function Settings() {
       case 'performance-schedule':
         return <PerformanceScheduleSettings storeId={storeId} scope="store" />
       case 'operations-common':
-        return <OperatingScalarSettings scope="organization" keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="開催判断・準備・事前配役アンケート" />
+        return <OperatingScalarSettings scope="organization" keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="開催判断・準備・クーポン・事前配役アンケート" />
       case 'store-operations':
-        return <OperatingScalarSettings scope="store" targetId={storeId} keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="店舗の開催判断・準備・事前配役アンケート" />
+        return <OperatingScalarSettings scope="store" targetId={storeId} keys={[...OPERATION_SETTING_KEYS,...SURVEY_SETTING_KEYS]} title="店舗の開催判断・準備・クーポン・事前配役アンケート" />
       case 'payment-common':
         return <ReservationSettings common />
       case 'reservation':

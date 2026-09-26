@@ -19,6 +19,7 @@ export function OperatingScalarSettings({ scope, targetId, keys, title }: { scop
     <h3 className="font-semibold">{title}</h3>
     {keys.includes('judgment_minutes_before') && <p className="text-sm text-muted-foreground">案内済みの開催判断・追加募集の期限は変更されません。</p>}
     {keys.includes('survey_deadline_days') && <p className="text-sm text-muted-foreground">変更した回答期限は、これから案内するグループに適用します。案内済みの期限は維持します。</p>}
+    {keys.includes('coupon_usage_enabled') && <p className="text-muted-foreground">変更はこれから成立する予約へ適用します。予約済みの受付条件と配布済みクーポンの利用条件は保持します。</p>}
     <SettingSourceControls state={state} scope={scope} keys={keys} defaults={SETTING_DEFAULTS} />
     {keys.map(key => {
       const definition = SETTING_DEFINITIONS[key]

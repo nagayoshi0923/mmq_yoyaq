@@ -4,6 +4,8 @@
  * クーポンをタップしてもぎる機能付き
  */
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { previewCouponUse } from '@/lib/api/couponApi'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
@@ -55,15 +57,22 @@ export function CouponsPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   const { data: coupons = [], isLoading: couponsLoading } = useCouponsQuery()
-  const { data: currentReservations = [], isLoading: reservationsLoading } = useCurrentReservationsQuery()
+  const { data: currentReservations = [], isLoading: reservationsLoading, isError: reservationsError, refetch: reloadReservations } = useCurrentReservationsQuery()
   const useCouponMutation = useUseCouponMutation()
 
+  const preview = useQuery({
+    queryKey: ['coupon-use-preview', selectedCoupon?.coupon.id, selectedReservationId],
+    queryFn: () => previewCouponUse(selectedCoupon!.coupon.id, selectedReservationId!),
+    enabled: !!selectedCoupon && !!selectedReservationId && showConfirmDialog,
+    retry: false,
+    staleTime: 0,
+  })
   const loading = couponsLoading || reservationsLoading
 
   const eligibleReservations = (coupon: CustomerCoupon) =>
     (currentReservations as CurrentReservation[]).filter(r =>
-      !coupon.coupon_campaigns?.murder_mystery_only ||
-      (r.murder_mystery_eligible && r.organization_id === coupon.organization_id))
+      r.organization_id === coupon.organization_id &&
+      (!coupon.coupon_campaigns?.murder_mystery_only || r.murder_mystery_eligible))
   const selectedReservations = selectedCoupon ? eligibleReservations(selectedCoupon.coupon) : []
 
   const handleCouponTap = (coupon: CustomerCoupon, index: number) => {
@@ -75,7 +84,7 @@ export function CouponsPage() {
   }
 
   const handleUseCoupon = async () => {
-    if (!selectedCoupon || !selectedReservationId) return
+    if (!selectedCoupon || !selectedReservationId || !preview.data?.success || preview.isFetching || preview.isError) return
     const result = await useCouponMutation.mutateAsync({
       couponId: selectedCoupon.coupon.id,
       reservationId: selectedReservationId,
@@ -91,7 +100,7 @@ export function CouponsPage() {
 
   const statusOrder: Record<string, number> = { active: 0, fully_used: 1, expired: 2, revoked: 3 }
   const sortedCoupons = [...coupons].sort(
-    (a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
+    (a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
   )
 
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
@@ -352,7 +361,12 @@ export function CouponsPage() {
               {selectedCoupon.coupon.coupon_campaigns?.murder_mystery_only && (
                 <p className="text-xs text-muted-foreground mb-3">マーダーミステリー公演限定。ボードゲーム・箱開け会は対象外です。</p>
               )}
-              {selectedReservations.length > 0 ? (
+              {reservationsError ? (
+                <div role="alert" className="mb-4">
+                  <p>予約を取得できませんでした。再読み込みしてください。</p>
+                  <Button variant="outline" onClick={() => void reloadReservations()}>予約を再読み込み</Button>
+                </div>
+              ) : selectedReservations.length > 0 ? (
                 <div className="mb-4">
                   <p className="text-xs text-gray-600 font-bold mb-2">
                     {selectedReservations.length > 1 ? '紐付ける公演を選択' : '紐付ける公演'}
@@ -383,7 +397,7 @@ export function CouponsPage() {
                           <div className="text-sm flex-1">
                             <p className="font-bold text-gray-900">{reservation.scenario_title}</p>
                             <p className="text-gray-600 text-xs mt-0.5">
-                              {reservation.store_name} ｜ {reservation.time}〜
+                              {reservation.store_name} ｜ {formatJstDateJa(reservation.date)} {reservation.time}〜
                             </p>
                           </div>
                         </div>
@@ -395,7 +409,7 @@ export function CouponsPage() {
                 <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4">
                   <p className="text-xs text-yellow-700">
                     ⚠️ このクーポンを利用できる公演がありません。<br />
-                    公演の前後3時間以内に使用してください。
+                    この組織の本日以降の確定予約が対象です。
                   </p>
                 </div>
               )}
@@ -404,6 +418,11 @@ export function CouponsPage() {
                 使用後は元に戻せません
               </p>
 
+              {selectedReservationId && <div className="mb-4" aria-live="polite">
+                {preview.isFetching ? <p>利用条件を確認しています…</p>
+                  : preview.isError ? <p role="alert">{preview.error.message}</p>
+                  : preview.data?.success && <p>今回の割引額：¥{preview.data.discount_amount.toLocaleString()}</p>}
+              </div>}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -420,7 +439,7 @@ export function CouponsPage() {
                 <Button
                   className={`flex-1 ${selectedReservationId ? 'bg-mypage-primary hover:bg-mypage-primary-hover' : 'bg-gray-400 hover:bg-gray-400'}`}
                   onClick={handleUseCoupon}
-                  disabled={useCouponMutation.isPending || !selectedReservationId}
+                  disabled={useCouponMutation.isPending || !selectedReservationId || preview.isFetching || preview.isError || !preview.data?.success}
                 >
                   {useCouponMutation.isPending ? '処理中...' : 'もぎる'}
                 </Button>
