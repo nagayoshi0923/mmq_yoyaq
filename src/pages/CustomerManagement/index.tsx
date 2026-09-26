@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -20,8 +20,10 @@ export default function CustomerManagement() {
     { replace: true }
   )
   const {
+    organizationId,
     customers,
     loading,
+    error,
     couponStats,
     refreshCustomers,
     totalCount,
@@ -32,6 +34,12 @@ export default function CustomerManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsEditModalOpen(false)
+    setSelectedCustomer(null)
+    setExpandedCustomerId(null)
+  }, [organizationId])
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
@@ -80,7 +88,12 @@ export default function CustomerManagement() {
             <h2 className="text-lg font-bold tracking-tight">顧客一覧 ({totalCount}件)</h2>
           </div>
 
-          {loading ? (
+          {error ? (
+            <div role="alert" className="space-y-2">
+              <p>顧客情報を取得できませんでした。再試行してください。</p>
+              <Button variant="outline" onClick={() => refreshCustomers()}>再試行</Button>
+            </div>
+          ) : loading ? (
             <ListSkeleton variant="table" rows={8} />
           ) : customers.length === 0 ? (
             <EmptyState
