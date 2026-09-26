@@ -1,5 +1,5 @@
 -- 正規ソース: supabase/schemas/reservations.sql
--- 最終更新: 2026-07-19
+-- 最終更新: 2026-09-27
 CREATE TABLE public.reservations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   reservation_number TEXT UNIQUE DEFAULT generate_reservation_number(),
@@ -52,6 +52,8 @@ CREATE TABLE public.reservations (
   reservation_type TEXT DEFAULT 'normal'::text,
   scenario_title TEXT,
   confirmed_by UUID REFERENCES public.staff(id),
+  reservation_change_deadline_hours_snapshot INTEGER,
+  reservation_change_policy_snapshot_version INTEGER,
   cancellation_policy_snapshot_version SMALLINT
     CHECK (cancellation_policy_snapshot_version IS NULL OR cancellation_policy_snapshot_version = 1),
   cancellation_policy_store_id UUID,
