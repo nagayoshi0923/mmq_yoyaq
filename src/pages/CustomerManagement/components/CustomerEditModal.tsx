@@ -9,8 +9,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { supabase } from '@/lib/supabase'
-import { useOrganization } from '@/hooks/useOrganization'
+import { customerApi } from '@/lib/api/customerApi'
+import { ApiClientError } from '@/lib/apiClient'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -23,9 +23,6 @@ interface CustomerEditModalProps {
 }
 
 export function CustomerEditModal({ isOpen, onClose, customer, onSave }: CustomerEditModalProps) {
-  // 組織IDを取得（マルチテナント対応）
-  const { organizationId } = useOrganization()
-  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -60,47 +57,23 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
 
     setSaving(true)
     try {
-      if (customer) {
-        // 更新（組織境界の二重指定: 改ざんされた id でも他組織行に当たらないよう RLS と併用）
-        const { error } = await supabase
-          .from('customers')
-          .update({
-            name: formData.name,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            line_id: formData.line_id || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', customer.id)
-
-        if (error) throw error
-        logger.log('顧客情報更新成功:', customer.id)
-      } else {
-        // 新規作成
-        if (!organizationId) {
-          throw new Error('組織情報が取得できません。再ログインしてください。')
-        }
-        
-        const { error } = await supabase
-          .from('customers')
-          .insert({
-            name: formData.name,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            line_id: formData.line_id || null,
-            organization_id: organizationId,
-          })
-
-        if (error) throw error
-        logger.log('顧客作成成功')
+      const values = {
+        name: formData.name.trim(),
+        email: formData.email || null,
+        phone: formData.phone || null,
+        line_id: formData.line_id || null,
       }
+      const saved = customer
+        ? await customerApi.update(customer.id, values)
+        : await customerApi.create(values)
+      if (!saved?.id) throw new Error('保存結果を確認できませんでした')
 
       showToast.success(customer ? '顧客情報を更新しました' : '顧客を作成しました')
       onSave()
       onClose()
     } catch (error) {
       logger.error('顧客保存エラー:', error)
-      showToast.error('保存に失敗しました')
+      showToast.error(error instanceof ApiClientError ? error.message : '保存に失敗しました')
     } finally {
       setSaving(false)
     }
