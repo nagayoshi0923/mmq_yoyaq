@@ -1,5 +1,3 @@
--- #481: 現行の設定継承・案内済み締切を保持し、未送信extensionだけを再キューする。
--- 送信済み・辞退済み・試行上限・再試行待ちの通知には触れない。snapshotは冪等性のため保持。
 BEGIN;
 CREATE OR REPLACE FUNCTION public.check_performances_with_recruitment_deadlines_for_org(p_organization_id uuid)
  RETURNS TABLE(events_checked integer, events_confirmed integer, events_cancelled integer, details jsonb)
@@ -185,37 +183,14 @@ BEGIN
       FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
-        SET status = 'pending', lease_until = NULL
-        WHERE performance_recruitment_notices.kind = 'extension'
-          AND performance_recruitment_notices.status = 'expired'
-          AND performance_recruitment_notices.withdrawn_at IS NULL
-          AND performance_recruitment_notices.sent_at IS NULL
-          AND performance_recruitment_notices.attempts < 10;
+      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO NOTHING;
       CONTINUE;
     END IF;
     -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
     IF v_active IS NOT TRUE AND (v_has_decision OR v_prior_confirmed) THEN CONTINUE; END IF;
 
     -- 人数が揃えば即確定。未達でも指定締切前は終端ログ・通知を作らない。
-    IF v_current < v_min AND v_active AND v_deadline > v_now THEN
-      INSERT INTO performance_recruitment_notices(schedule_event_id,organization_id,reservation_id,customer_email,snapshot,cycle)
-      SELECT v_event.id,v_event.organization_id,r.id,COALESCE(NULLIF(btrim(r.customer_email),''),NULLIF(btrim(c.email),'')),
-        jsonb_build_object('scenario',v_event.scenario,'date',v_event.date,'start_time',v_event.start_time,
-          'store_name',v_event.store_name,'deadline',v_deadline,
-          'was_confirmed',v_prior_confirmed,'site_url',v_event.customer_site_url,'missing_participants',v_min-v_current),v_cycle
-      FROM reservations r LEFT JOIN customers c ON c.id=r.customer_id
-      WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
-        AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
-      ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
-        SET status = 'pending', lease_until = NULL
-        WHERE performance_recruitment_notices.kind = 'extension'
-          AND performance_recruitment_notices.status = 'expired'
-          AND performance_recruitment_notices.withdrawn_at IS NULL
-          AND performance_recruitment_notices.sent_at IS NULL
-          AND performance_recruitment_notices.attempts < 10;
-      CONTINUE;
-    END IF;
+    IF v_current < v_min AND v_active AND v_deadline > v_now THEN CONTINUE; END IF;
     v_events_checked := v_events_checked + 1;
 
     IF v_current >= v_min THEN
@@ -319,17 +294,18 @@ BEGIN
      AND ((e.date+e.start_time) AT TIME ZONE 'Asia/Tokyo'>now()
        OR EXISTS(SELECT 1 FROM performance_recruitment_deadlines d WHERE d.schedule_event_id=e.id AND d.status='active')))
      OR EXISTS(SELECT 1 FROM performance_recruitment_notices n WHERE n.organization_id=pol.id
-       AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day')
+       AND n.kind<>'extension' AND n.status IN ('pending','failed','sending') AND n.attempts<10 AND n.created_at>now()-interval '1 day')
      OR EXISTS(SELECT 1 FROM recruitment_x_posts x WHERE x.organization_id=pol.id AND x.status IN ('pending','failed','sending') AND x.attempts<10 AND x.created_at>now()-interval '1 day'))
  LOOP
    PERFORM net.http_post(url:=rtrim(base_url,'/')||'/functions/v1/check-performance-cancellation',
-     headers:=jsonb_build_object('Content-Type','application/json','x-recruitment-cron-secret',cron_key,'x-cron-secret',cron_key),
+     headers:=jsonb_build_object('Content-Type','application/json','x-recruitment-cron-secret',cron_key),
      body:=jsonb_build_object('check_type','recruitment_deadline','organization_id',p.organization_id), timeout_milliseconds:=30000);
  END LOOP;
 END;
 $function$
 ;
-REVOKE ALL ON FUNCTION public.dispatch_performance_recruitment_checks() FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.dispatch_performance_recruitment_checks() TO service_role;
+
+
+
 NOTIFY pgrst, 'reload schema';
 COMMIT;

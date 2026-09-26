@@ -734,3 +734,9 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 確定失敗後に成功済みのプレビューキャッシュを削除する。実useBookingCouponとQueryClientProviderを使い、初回割引成功→失敗リセット→同じクーポン再選択→応答待ちは割引0/確定不可→再検証不許可でも確定不可を確認。旧invalidateQueriesへ戻すと再選択後にcouponReadyがtrueのままとなり、この回帰テストが失敗することも確認した。
 
 最新main535へ統合し701 unit/verify成功。全額割引の0円、3人目以降GM報酬、公演時間480分上限の既存修正テストを保持。DB変更なし。staging/本番画面の配信は次の確認対象。
+
+## QW-20260917-001：追加募集通知の再送整理（2026-09-27、検証中）
+- PR483を最新mainへ統合。DBの現物を取得してmigrationを再生成し、組織・作品の設定継承、開催判断時刻、案内済み締切を保持。
+- extensionもdispatch対象にする。未送信expiredだけを再キューし、snapshot・トークン・試行回数は変更しない。failedの待機、送信済み、辞退済み、上限到達、過去周回を維持。
+- `scripts/test-settings-hierarchy-db.py recruitment-requeue` に一時表だけの回帰を追加。staging実DBの一時表で既存判断継承＋再送境界を実行、ROLLBACK成功。実予約・通知は未操作。711 unit/verify成功。
+- DB・Edgeの適用は未実施。送信前確認と認証の追加テスト、dispatchの確認、rollback/reapply、DB先行適用・Edge配備・本番検収が残る。

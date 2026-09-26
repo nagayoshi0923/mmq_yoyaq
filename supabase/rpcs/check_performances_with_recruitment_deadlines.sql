@@ -183,11 +183,12 @@ BEGIN
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
       ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
-        SET snapshot = EXCLUDED.snapshot,
-            status = 'pending',
-            lease_until = NULL
+        SET status = 'pending', lease_until = NULL
         WHERE performance_recruitment_notices.kind = 'extension'
-          AND performance_recruitment_notices.status IN ('expired','failed');
+          AND performance_recruitment_notices.status = 'expired'
+          AND performance_recruitment_notices.withdrawn_at IS NULL
+          AND performance_recruitment_notices.sent_at IS NULL
+          AND performance_recruitment_notices.attempts < 10;
       CONTINUE;
     END IF;
     -- 確定済みの公演を毎分再確定しない。設定を超える欠員は今回の自動延長ルールに含めない。
@@ -204,11 +205,12 @@ BEGIN
       WHERE r.schedule_event_id=v_event.id AND r.organization_id=v_event.organization_id
         AND r.status IN ('pending','confirmed','gm_confirmed') AND r.reservation_source IS DISTINCT FROM 'staff_entry'
       ON CONFLICT(schedule_event_id,reservation_id,kind,cycle,withdrawal_sequence) DO UPDATE
-        SET snapshot = EXCLUDED.snapshot,
-            status = 'pending',
-            lease_until = NULL
+        SET status = 'pending', lease_until = NULL
         WHERE performance_recruitment_notices.kind = 'extension'
-          AND performance_recruitment_notices.status IN ('expired','failed');
+          AND performance_recruitment_notices.status = 'expired'
+          AND performance_recruitment_notices.withdrawn_at IS NULL
+          AND performance_recruitment_notices.sent_at IS NULL
+          AND performance_recruitment_notices.attempts < 10;
       CONTINUE;
     END IF;
     v_events_checked := v_events_checked + 1;
@@ -292,7 +294,8 @@ BEGIN
     v_events_cancelled,
     v_details;
 END;
-$function$;
+$function$
+;
 REVOKE ALL ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.check_performances_with_recruitment_deadlines_for_org(uuid) TO service_role;
 

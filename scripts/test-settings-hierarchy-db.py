@@ -57,6 +57,10 @@ def build_judgment():
     sql+=(root/'supabase/tests/judgment_inheritance.sql').read_text()+'\nROLLBACK;'
     return sql
 
+def build_recruitment_requeue():
+    sql=build_judgment()
+    return sql[:sql.rfind('ROLLBACK;')]+(ROOT/'supabase/tests/recruitment_notice_requeue_test.sql').read_text()+'\nROLLBACK;'
+
 def build_change():
     from pathlib import Path
     import re,subprocess,os
@@ -124,7 +128,7 @@ def build_reminders():
     return sql+fixture.replace('-- CLAIM_FUNCTION',function)+'\nROLLBACK;'
 
 if __name__=='__main__':
-    checks={'preparation':build_preparation,'reminders':build_reminders,'survey':build_survey,'judgment':build_judgment,'change':build_change,'email-parity':build_email_parity,'rollback':build_rollback}
+    checks={'preparation':build_preparation,'reminders':build_reminders,'survey':build_survey,'judgment':build_judgment,'recruitment-requeue':build_recruitment_requeue,'change':build_change,'email-parity':build_email_parity,'rollback':build_rollback}
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('checks',nargs='+',choices=list(checks))
     args=parser.parse_args()

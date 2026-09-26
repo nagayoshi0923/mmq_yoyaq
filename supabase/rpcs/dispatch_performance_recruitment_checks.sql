@@ -26,4 +26,5 @@ BEGIN
      body:=jsonb_build_object('check_type','recruitment_deadline','organization_id',p.organization_id), timeout_milliseconds:=30000);
  END LOOP;
 END;
-$function$;
+$function$
+;
