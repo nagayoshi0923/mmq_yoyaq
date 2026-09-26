@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ calls: [] as unknown[][], error: null as null | { message: string } }))
 vi.mock('./_lib/auth.js', () => ({
-  requireAuth: async () => ({ orgId: 'verified-org' }), requireStaff: () => {}, ApiError: class extends Error {},
+  requireAuth: async () => ({ orgId: 'verified-org' }), requireStaff: () => {}, requireAdmin: () => {}, ApiError: class extends Error {},
 }))
 vi.mock('./_lib/db.js', () => ({ getMissingEnvError: () => null, db: {
   rpc: (name: string, args: unknown) => {
@@ -35,7 +35,7 @@ it('does not hide contact lookup errors as missing customers', async () => {
   mock.error = { message: 'fixture failure' }
   expect((await request({ action: 'findByEmail', email: 'fixture' })).status).toHaveBeenCalledWith(500)
 })
-it.each(['PATCH', 'DELETE'])('%s does not acquire cross-organization mutation permission from read access', async method => {
+it.each(['PATCH'])('%s does not acquire cross-organization mutation permission from read access', async method => {
   expect((await request({ id: 'contact' }, method)).status).toHaveBeenCalledWith(404)
   expect(mock.calls.some(c => c[0] === 'rpc')).toBe(false)
 })

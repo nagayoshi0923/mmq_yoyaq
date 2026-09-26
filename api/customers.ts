@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
-import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
+import { requireAuth, requireStaff, requireAdmin, ApiError } from './_lib/auth.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -115,7 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (method === 'GET') return await routeGet(req, res, user.orgId)
     if (method === 'POST') return await routePost(req, res, user.orgId)
     if (method === 'PATCH') return await routePatch(req, res, user.orgId)
-    if (method === 'DELETE') return await routeDelete(req, res, user.orgId)
+    if (method === 'DELETE') {
+      requireAdmin(user)
+      return await routeDelete(req, res, user.orgId)
+    }
   } catch (err) {
     if (err instanceof ApiError) return res.status(err.status).json({ error: err.message })
     console.error('[customers] unexpected error:', err)
@@ -297,19 +300,20 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, orgId: strin
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
-  // マルチテナント境界チェック
-  const canDelete = await assertOrgOwnsCustomer(db, id, orgId)
-  if (!canDelete) return res.status(404).json({ error: '顧客が見つかりません' })
-
+  // Scope the write itself; a booking connection does not confer deletion ownership.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { data, error } = await (db as any)
     .from('customers')
     .delete()
     .eq('id', id)
+    .eq('organization_id', orgId)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     console.error('[customers:delete] DB error:', error)
     return res.status(500).json({ error: '顧客の削除に失敗しました', detail: error.message })
   }
+  if (!data) return res.status(404).json({ error: '顧客が見つかりません' })
   return res.status(200).json({ success: true })
 }
