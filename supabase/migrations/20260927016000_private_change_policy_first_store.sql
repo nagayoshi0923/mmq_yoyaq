@@ -1,3 +1,6 @@
+BEGIN;
+ALTER TABLE public.reservations ADD COLUMN reservation_change_policy_snapshot_version integer;
+COMMENT ON COLUMN public.reservations.reservation_change_policy_snapshot_version IS '変更期限の導入マーカー。旧NULL期限と、新規の未設定期限を区別。';
 -- 新規申込時に固定し、店舗未確定の新規貸切だけ初回店舗確定時に補完する。
 CREATE OR REPLACE FUNCTION public.set_reservation_change_policy_snapshot()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -40,24 +43,15 @@ BEGIN
  END IF;
  IF TG_OP='UPDATE' THEN
   IF NEW.participant_count IS DISTINCT FROM OLD.participant_count
+    AND OLD.reservation_change_deadline_hours_snapshot IS NOT NULL
     AND auth.uid() IS NOT NULL
     AND NOT EXISTS(SELECT 1 FROM staff WHERE user_id=auth.uid() AND organization_id=OLD.organization_id AND status='active')
     AND NOT EXISTS(SELECT 1 FROM public.users WHERE id=auth.uid() AND organization_id=OLD.organization_id AND role='admin') THEN
-   IF OLD.reservation_change_deadline_hours_snapshot IS NOT NULL THEN
-    SELECT (e.date + e.start_time) AT TIME ZONE 'Asia/Tokyo' INTO performance_start
-     FROM schedule_events e WHERE e.id=OLD.schedule_event_id AND e.organization_id=OLD.organization_id;
-    performance_start:=COALESCE(performance_start,OLD.requested_datetime);
-    IF performance_start IS NULL OR now() >= performance_start - make_interval(hours=>OLD.reservation_change_deadline_hours_snapshot) THEN
-     RAISE EXCEPTION 'RESERVATION_CHANGE_DEADLINE_PASSED' USING ERRCODE='P0050';
-    END IF;
-   END IF;
-   IF refresh_on_first_store AND NEW.reservation_change_deadline_hours_snapshot IS NOT NULL THEN
-    SELECT (e.date + e.start_time) AT TIME ZONE 'Asia/Tokyo' INTO performance_start
-     FROM schedule_events e WHERE e.id=NEW.schedule_event_id AND e.organization_id=NEW.organization_id;
-    performance_start:=COALESCE(performance_start,NEW.requested_datetime);
-    IF performance_start IS NULL OR now() >= performance_start - make_interval(hours=>NEW.reservation_change_deadline_hours_snapshot) THEN
-     RAISE EXCEPTION 'RESERVATION_CHANGE_DEADLINE_PASSED' USING ERRCODE='P0050';
-    END IF;
+   SELECT (e.date + e.start_time) AT TIME ZONE 'Asia/Tokyo' INTO performance_start
+    FROM schedule_events e WHERE e.id=OLD.schedule_event_id AND e.organization_id=OLD.organization_id;
+   performance_start:=COALESCE(performance_start,OLD.requested_datetime);
+   IF performance_start IS NULL OR now() >= performance_start - make_interval(hours=>OLD.reservation_change_deadline_hours_snapshot) THEN
+    RAISE EXCEPTION 'RESERVATION_CHANGE_DEADLINE_PASSED' USING ERRCODE='P0050';
    END IF;
   END IF;
  END IF;
@@ -65,3 +59,5 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.set_reservation_change_policy_snapshot() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.set_reservation_change_policy_snapshot() TO service_role;
+
+COMMIT;

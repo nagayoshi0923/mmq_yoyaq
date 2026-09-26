@@ -51,6 +51,9 @@ jobs:
       - name: Private booking scenario capacity
         run: node scripts/test-private-booking-capacity-db.mjs
 
+      - name: Private booking change policy
+        run: node scripts/test-private-change-policy-db.mjs
+
       - name: Shared Edge authentication boundary
         run: node --test scripts/edge-security-boundary.test.mjs
 
