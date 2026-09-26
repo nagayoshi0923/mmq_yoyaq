@@ -58,6 +58,7 @@ export function useResponseSubmit({
 
   const runSubmit = async (requestId: string, allUnavailable: boolean) => {
     setSubmitting(requestId)
+    let responseSaved = false
 
     try {
       const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
@@ -76,20 +77,22 @@ export function useResponseSubmit({
         .eq('id', requestId)
       
       if (error) {
-        logger.error('回答送信エラー:', error)
-        return
+        throw error
       }
       
+      responseSaved = true
+
       // 必要GM数が2人以上のシナリオは、同一候補で人数が揃いメイン／サブ役がカバーできるまで店舗確認待ちにしない
       if (availableCandidates.length > 0) {
         const request = requests.find(r => r.id === requestId)
         if (request) {
-          const { data: curRow } = await supabase
+          const { data: curRow, error: statusError } = await supabase
             .from('reservations')
             .select('status')
             .eq('id', request.reservation_id)
             .maybeSingle()
-          const prevStatus = curRow?.status || 'pending'
+          if (statusError || !curRow) throw statusError || new Error('予約が見つかりません')
+          const prevStatus = curRow.status
 
           const readyForStore = await isReservationReadyForStoreAfterGmResponses(request.reservation_id)
           // validate_reservation_status_transition: gm_confirmed → pending_gm は不可のため、店側待ち済みは据え置き
@@ -111,10 +114,10 @@ export function useResponseSubmit({
             p_reservation_id: request.reservation_id,
             p_updates: updateData,
           }
-          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
+          const { data: reservationResult, error: reservationError } = await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
 
-          if (reservationError) {
-            logger.error('予約更新エラー:', reservationError)
+          if (reservationError || reservationResult?.success === false) {
+            throw reservationError || new Error(reservationResult.error || '予約更新に失敗しました')
           } else if (!readyForStore && prevStatus !== 'gm_confirmed') {
             showToast.info(
               '回答を保存しました。2人以上GMが必要な作品は、同一候補で必要人数が揃い、メイン／サブの両方を担える人が含まれるまで店舗確認待ちになりません。'
@@ -123,12 +126,14 @@ export function useResponseSubmit({
         }
       }
       
-      // 成功したらリロード
-      onSubmitSuccess()
     } catch (error) {
       logger.error('送信エラー:', error)
+      showToast.error(responseSaved
+        ? '回答は保存済みですが、予約の状態確認・更新に失敗しました。再度送信してください。'
+        : '回答を保存できませんでした。再度お試しください。')
     } finally {
       setSubmitting(null)
+      if (responseSaved) onSubmitSuccess()
     }
   }
 
