@@ -35,3 +35,22 @@ test('使用前に実際の割引額・対象外の理由を確認できる',asy
   await expect(page.getByText('今回の割引額：¥1,000')).toBeVisible()
   await expect(page.getByRole('button',{name:'もぎる',exact:true})).toBeEnabled()
 })
+
+
+test('期限切れを利用可能に出さず、併用の案内を実際の条件に合わせる', async ({page}) => {
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1&expired=1')
+  await expect(page.getByText('タップして使う', {exact:true})).toHaveCount(0)
+  await expect(page.getByText('期限切れ', {exact:true})).toBeVisible()
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1')
+  await expect(page.getByText('他のクーポンと併用可（相手のクーポンも併用可の場合）', {exact:true})).toBeVisible()
+  await expect(page.getByText('同じ作品の別予約には繰り返し利用できません', {exact:true})).toBeVisible()
+})
+
+
+test('予約取得エラーを表示して再読み込みで復旧できる', async ({page}) => {
+  await page.goto('/e2e/fixtures/coupon-rules.html?customer=1&reservation-error=1')
+  await page.getByText('25%クーポン', {exact:true}).click()
+  await expect(page.getByRole('alert')).toHaveText('予約を取得できませんでした。再読み込みしてください。予約を再読み込み')
+  await page.getByRole('button', {name:'予約を再読み込み'}).click()
+  await expect(page.getByText('利用対象の作品', {exact:true})).toBeVisible()
+})

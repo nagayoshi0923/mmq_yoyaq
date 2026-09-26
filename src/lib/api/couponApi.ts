@@ -158,8 +158,8 @@ export async function getCurrentReservations(): Promise<Array<{
       time: string
     }>>('/api/coupons?type=current-reservations')
   } catch (err) {
-    logger.error('現在進行中の予約取得エラー:', err)
-    return []
+    logger.error('予約取得エラー:', err)
+    throw err
   }
 }
 

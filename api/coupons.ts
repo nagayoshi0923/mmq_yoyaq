@@ -977,7 +977,10 @@ async function handleCustomerCoupons(req: VercelRequest, res: VercelResponse, us
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
   }
 
-  return res.status(200).json(data ?? [])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return res.status(200).json((data ?? []).map((coupon: any) => ({
+    ...coupon, coupon_campaigns: { ...coupon.coupon_campaigns, ...coupon.rules_snapshot },
+  })))
 }
 
 // =========================================

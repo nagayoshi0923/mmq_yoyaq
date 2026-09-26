@@ -20,7 +20,7 @@ CREATE TABLE organization_settings(organization_id uuid,custom_holidays jsonb);
 CREATE TABLE global_settings(organization_id uuid);
 CREATE TABLE reservation_settings(organization_id uuid,store_id uuid);
 CREATE TABLE email_settings(id uuid,organization_id uuid,store_id uuid);
-CREATE TABLE schedule_events(id uuid primary key,organization_id uuid,store_id uuid,scenario_id uuid,organization_scenario_id uuid,scenario_master_id uuid,category text,date date,start_time time,time_slot text,is_cancelled boolean default false,max_participants integer default 100,capacity integer);
+CREATE TABLE schedule_events(id uuid primary key,organization_id uuid,store_id uuid,scenario_id uuid,organization_scenario_id uuid,scenario_master_id uuid,scenario text,category text,date date,start_time time,time_slot text,is_cancelled boolean default false,max_participants integer default 100,capacity integer);
 CREATE TABLE reservations(id uuid primary key default gen_random_uuid(),schedule_event_id uuid,organization_id uuid,customer_id uuid,status text default 'confirmed',total_price integer,store_id uuid,scenario_id uuid,scenario_master_id uuid,participant_count integer default 1,participant_names text[],title text,customer_name text,customer_email text,customer_phone text,requested_datetime timestamptz,duration integer,base_price integer,options_price integer,discount_amount integer,final_price integer,unit_price integer,payment_method text,payment_status text,customer_notes text,reservation_number text,created_by uuid,coupon_usage_id uuid);
 CREATE TABLE private_groups(id uuid,organization_id uuid,reservation_id uuid);
 CREATE TABLE private_group_members(group_id uuid,user_id uuid,status text);
@@ -40,6 +40,7 @@ await db.exec(fs.readFileSync('supabase/schemas/operating_setting_overrides.sql'
 await db.exec(fs.readFileSync('supabase/rpcs/get_operating_setting_default.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/rpcs/resolve_operating_setting.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/20260926100000_unify_coupon_rules.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
 await db.exec(`INSERT INTO organizations VALUES('${id(1)}'),('${id(9)}'); INSERT INTO customers VALUES('${id(3)}','${id(2)}',NULL),('${id(4)}','${id(5)}',NULL); INSERT INTO stores VALUES('${id(6)}','${id(1)}'); INSERT INTO scenario_masters VALUES('${id(7)}','架空作品',120); INSERT INTO organization_scenarios(id,organization_id,scenario_master_id,participation_fee,duration) VALUES('${id(8)}','${id(1)}','${id(7)}',4000,120); INSERT INTO schedule_events(id,organization_id,store_id,scenario_master_id,organization_scenario_id,category,date,start_time,time_slot) VALUES('${id(10)}','${id(1)}','${id(6)}','${id(7)}','${id(8)}','open','2099-01-01','13:00','昼'); INSERT INTO reservations(id,schedule_event_id,organization_id,customer_id,total_price) VALUES('${id(11)}','${id(10)}','${id(1)}','${id(3)}',4000),('${id(12)}','${id(10)}','${id(1)}','${id(4)}',4000);`)
 let seq=100
 async function coupon(overrides={}) {
@@ -134,5 +135,16 @@ await db.query(`INSERT INTO reservations(id,schedule_event_id,organization_id,cu
 assert.equal((await db.query(`SELECT coupon_discount_for_event($1,$2,99999,$3,$4) AS amount`,[fresh.coupon,id(10),id(3),id(30)])).rows[0].amount,500)
 await db.query(`UPDATE reservations SET status='cancelled' WHERE id=$1`,[id(30)])
 await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,99999,$3,$4)`,[fresh.coupon,id(10),id(3),id(30)]),'cancelled after read')
+// Legacy title-only events still enforce same-scenario usage, including across issuers.
+await db.query(`UPDATE schedule_events SET scenario_master_id=NULL,organization_scenario_id=NULL,scenario_id=NULL,scenario='タイトルだけの作品' WHERE id=$1`,[id(10)])
+await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,4000,$3,NULL)`,[once.coupon,id(10),id(3)]),'legacy title same scenario')
+await db.query(`INSERT INTO schedule_events(id,organization_id,scenario,date,start_time,category) VALUES($1,$2,'タイトルだけの作品','2099-01-01','13:00','open')`,[id(40),id(9)])
+await db.query(`INSERT INTO coupon_campaigns(id,organization_id,name,discount_type,discount_amount,max_uses_per_customer) VALUES($1,$2,'別組織','fixed',500,1)`,[id(41),id(9)])
+await db.query(`INSERT INTO customer_coupons(id,campaign_id,customer_id,organization_id,uses_remaining) VALUES($1,$2,$3,$4,1)`,[id(42),id(41),id(3),id(9)])
+await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,4000,$3,NULL)`,[id(42),id(40),id(3)]),'cross organization same scenario title')
+await db.query(`UPDATE schedule_events SET scenario_master_id=$1 WHERE id IN ($2,$3)`,[id(7),id(10),id(40)])
+await reject(()=>db.query(`SELECT coupon_discount_for_event($1,$2,4000,$3,NULL)`,[id(42),id(40),id(3)]),'cross organization same scenario master')
 console.log('PASS: coupon eligibility, tenant/owner, idempotency, frozen rules, amount, single consumption, inheritance')
+await db.exec(fs.readFileSync('supabase/rollbacks/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260926103000_complete_coupon_rule_boundaries.sql','utf8'))
 await db.close()
