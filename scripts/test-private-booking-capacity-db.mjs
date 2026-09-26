@@ -90,5 +90,25 @@ await db.exec(fs.readFileSync('supabase/rollbacks/'+capacityMigration,'utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/'+capacityMigration,'utf8'))
 assert.equal((await db.query('SELECT count(*)::int n FROM reservations')).rows[0].n,before)
 await rejected(7)
+// Exercise real request -> approval -> deadline trigger together.
+await db.exec(`ALTER TABLE schedule_events ADD COLUMN scenario_master_id uuid, ADD COLUMN organization_scenario_id uuid, ADD COLUMN is_private_booking boolean;
+ALTER TABLE reservations ADD COLUMN cancellation_policy_snapshot_version integer DEFAULT 1, ADD COLUMN cancellation_policy_store_id uuid, ADD COLUMN reservation_change_deadline_hours_snapshot integer;
+CREATE TABLE users(id uuid,organization_id uuid,role text);
+CREATE FUNCTION resolve_operating_setting(o uuid,k text,d jsonb,s uuid,sc uuid,e uuid) RETURNS jsonb LANGUAGE plpgsql AS $$ BEGIN
+ IF e IS NOT NULL AND NOT EXISTS(SELECT 1 FROM schedule_events WHERE id=e AND organization_scenario_id IS NOT DISTINCT FROM sc AND store_id IS NOT DISTINCT FROM s) THEN RAISE EXCEPTION 'event context mismatch'; END IF;
+ RETURN jsonb_build_object('value',CASE WHEN s IS NULL THEN 72 ELSE 48 END);
+END $$;`)
+await db.exec(fs.readFileSync('supabase/migrations/20260927016000_private_change_policy_first_store.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260927017000_private_approval_policy_context.sql','utf8'))
+await db.exec('CREATE TRIGGER change_policy BEFORE INSERT OR UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION set_reservation_change_policy_snapshot()')
+const approved=await request(scenario,['2026-12-29'])
+assert.equal((await read(approved)).reservation_change_deadline_hours_snapshot,72)
+await approve(approved,'2026-12-29')
+const saved=await read(approved)
+assert.equal(saved.reservation_change_deadline_hours_snapshot,48)
+const event=(await db.query('SELECT scenario_master_id,organization_scenario_id FROM schedule_events WHERE id=$1',[saved.schedule_event_id])).rows[0]
+assert.equal(event.scenario_master_id,scenario);assert.equal(event.organization_scenario_id,orgScenario)
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927017000_private_approval_policy_context.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20260927017000_private_approval_policy_context.sql','utf8'))
 await db.close()
 console.log('PASS private booking capacity: master/organization bounds, null/nonpositive count, invalid configuration, no partial reservation, rollback/reapply')
