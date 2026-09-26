@@ -11,10 +11,6 @@ import { supabase } from '../supabase'
 import { apiClient } from '@/lib/apiClient'
 import type { Store, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const STORE_SELECT_FIELDS =
-  'id, organization_id, name, short_name, address, access_info, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, franchise_fee_type, franchise_fee_percent, capacity, rooms, notes, color, fixed_costs, venue_cost_per_performance, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, kit_group_id, created_at, updated_at' as const
-
 export const storeApi = {
   async getBusinessHours(storeId: string) {
     return apiClient.get<import('../storeBusinessHours').BusinessHoursData | null>(`/api/stores?action=businessHours&id=${encodeURIComponent(storeId)}`)
@@ -27,23 +23,13 @@ export const storeApi = {
   // 全店舗を取得
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
   // @param organizationId - 後方互換のため引数は残すがバックエンド経由ではサーバー側で JWT から取得するため未使用
-  // @param skipOrgFilter - trueの場合、組織フィルタをスキップ（全組織のデータを取得、Supabase 直接クエリ）
+  // @param skipOrgFilter - 互換用。組織境界は常にサーバー側で強制し、この値は使用しない。
   // @param excludeOffice - trueの場合、オフィス（ownership_type='office'）を除外（デフォルト: false）
   //
   // 通常時はバックエンド API (/api/stores) 経由で取得し、org_id をサーバー側で強制フィルタする。
   // includeTemporary/excludeOffice はクライアント側でフィルタリング。
-  async getAll(includeTemporary: boolean = false, organizationId?: string, skipOrgFilter?: boolean, excludeOffice: boolean = false): Promise<Store[]> {
-    let rawData: Store[]
-
-    if (skipOrgFilter) {
-      // skipOrgFilter=true（ライセンス管理者の全組織取得）は Supabase 直接クエリ
-      const { data, error } = await supabase.from('stores').select(STORE_SELECT_FIELDS)
-      if (error) throw error
-      rawData = (data || []) as Store[]
-    } else {
-      // バックエンド API 経由: org_id をサーバー側で強制フィルタ
-      rawData = await apiClient.get<Store[]>('/api/stores')
-    }
+  async getAll(includeTemporary: boolean = false, _organizationId?: string, _skipOrgFilter?: boolean, excludeOffice: boolean = false): Promise<Store[]> {
+    const rawData = await apiClient.get<Store[]>('/api/stores')
 
     // 臨時会場フィルタ（クライアント側）
     let filtered = rawData

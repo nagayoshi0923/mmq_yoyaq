@@ -39,3 +39,12 @@ CREATE INDEX idx_stores_display_order ON public.stores USING btree (display_orde
 CREATE INDEX idx_stores_kit_group_id ON public.stores USING btree (kit_group_id);
 CREATE INDEX idx_stores_organization_id ON public.stores USING btree (organization_id);
 CREATE INDEX idx_stores_status ON public.stores USING btree (status);
+
+-- 公開列のみ直接参照可能。内部情報は認証API経由。
+REVOKE SELECT ON public.stores FROM anon, authenticated;
+GRANT SELECT (
+  id, organization_id, name, short_name, address, access_info, opening_date,
+  status, ownership_type, capacity, rooms, color, is_temporary, temporary_date,
+  temporary_dates, temporary_venue_names, display_order, region, kit_group_id,
+  created_at, updated_at
+) ON public.stores TO anon, authenticated;
