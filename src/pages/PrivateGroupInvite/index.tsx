@@ -1270,7 +1270,9 @@ export function PrivateGroupInvite() {
         if (rpcError.code === 'P0001') {
           errorMessage = 'シナリオが見つかりません'
         } else if (rpcError.code === 'P0025') {
-          errorMessage = '参加人数が上限を超えています'
+          errorMessage = '参加人数が作品の対応人数の範囲外です。作品の人数をご確認ください'
+        } else if (rpcError.code === 'P0051') {
+          errorMessage = '作品の対応人数が未設定です。店舗へお問い合わせください'
         } else if (rpcError.code === 'P0026') {
           errorMessage = '組織情報が見つかりません'
         } else if (rpcError.code === 'P0030' || (rpcError.message && rpcError.message.includes('conflict'))) {
