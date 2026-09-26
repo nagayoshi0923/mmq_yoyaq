@@ -85,6 +85,10 @@ BEGIN
       PERFORM id FROM public.staff WHERE id=gm_id AND organization_id=NEW.organization_id FOR KEY SHARE NOWAIT;
       IF NOT FOUND THEN RAISE EXCEPTION '別組織のスタッフは登録できません' USING ERRCODE='23514'; END IF;
     END IF;
+    IF prior IS NULL AND gm_id IS NOT NULL THEN
+      -- A rename changes the name key, not the already-resolved person's identity.
+      SELECT value INTO prior FROM jsonb_array_elements(previous) WHERE value->>'staff_id'=gm_id::text LIMIT 1;
+    END IF;
     gm_role := coalesce(nullif(NEW.gm_roles->>gm_name,''),CASE WHEN position=1 THEN 'main' ELSE 'sub' END);
     gm_role_confirmed := CASE
       WHEN nullif(NEW.gm_roles->>gm_name,'') IS NOT NULL THEN true
