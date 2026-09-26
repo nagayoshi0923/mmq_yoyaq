@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
 import { errorResponse, getCorsHeaders, sanitizeErrorMessage, timingSafeEqualString, verifyAuth, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { loadPrivateBookingNotificationContext, loadPrivateBookingAssignedStaff } from '../_shared/private-booking-notification-context.ts'
 import { buildDiscordUserMentions } from '../_shared/discord-mentions.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -183,7 +184,7 @@ async function fetchScenarioTitle(scenarioMasterId: string, organizationId?: str
 }
 
 // 個別チャンネルに通知をキューへ積む
-async function sendNotificationToGMChannels(booking: any, targetStaffId?: string) {
+async function sendNotificationToGMChannels(booking: any, targetStaffId?: string, isResend = false) {
   console.log('📤 Sending notifications to individual GM channels...' + (targetStaffId ? ` (single GM: ${targetStaffId})` : ''))
   console.log(`📋 Scenario ID (raw): ${booking.scenario_id}, scenario_master_id: ${booking.scenario_master_id}`)
 
@@ -201,25 +202,8 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
 
   console.log(`📋 Scenario Master ID: ${scenarioMasterId} / org: ${orgIdForBooking}`)
 
-  const { data: assignments, error: assignmentError } = await supabase
-    .from('staff_scenario_assignments')
-    .select('staff_id')
-    .eq('scenario_master_id', scenarioMasterId)
-    .eq('organization_id', orgIdForBooking)
-    .or('can_main_gm.eq.true,can_sub_gm.eq.true')
-  
-  if (assignmentError) {
-    console.error('❌ Error fetching scenario assignments:', assignmentError)
-    return
-  }
-  
-  if (!assignments || assignments.length === 0) {
-    console.log('⚠️ No GMs assigned to this scenario (with can_main_gm or can_sub_gm = true)')
-    return
-  }
-  
-  const assignedStaffIds = [...new Set(assignments.map(a => a.staff_id))]
-  console.log(`📋 Found ${assignedStaffIds.length} GM(s) assigned to this scenario`)
+  const eligibleStaff = await loadPrivateBookingAssignedStaff(supabase, orgIdForBooking, scenarioMasterId)
+  const assignedStaffIds = eligibleStaff.map((staff: any) => staff.id)
 
   // 「未回答(pending)」行を担当GM全員に確保する。
   // pending 行は通常 create_private_booking_request RPC が予約作成時の担当GMに対して作るが、
@@ -253,20 +237,8 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
     return
   }
 
-  // 担当GMのDiscordチャンネル情報を取得（自組織のみ）
-  const { data: gmStaff, error: staffError } = await supabase
-    .from('staff')
-    .select('id, name, discord_channel_id, discord_user_id')
-    .in('id', sendStaffIds)
-    .eq('organization_id', orgIdForBooking)
-    .eq('status', 'active')
-    .not('discord_channel_id', 'is', null)
-  
-  if (staffError) {
-    console.error('❌ Error fetching GM staff:', staffError)
-    return
-  }
-  
+  const gmStaff = eligibleStaff.filter((staff: any) => sendStaffIds.includes(staff.id) && staff.discord_channel_id)
+
   if (!gmStaff || gmStaff.length === 0) {
     console.log('⚠️ No assigned GMs with Discord channels found')
     return
@@ -299,6 +271,15 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
   
   console.log(`📋 Unique channels to notify: ${uniqueChannels.size} (from ${gmStaff.length} GMs)`)
   
+  if (isResend && uniqueChannels.size > 0) {
+    const { error } = await supabase.from('discord_notification_queue').delete()
+      .eq('organization_id', orgIdForBooking)
+      .eq('reference_id', booking.id)
+      .eq('notification_type', 'private_booking_request')
+      .in('webhook_url', [...uniqueChannels.keys()].map(id => `https://discord.com/api/v10/channels/${id}/messages`))
+    if (error) throw error
+  }
+
   // 各ユニークなチャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
   const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames, userIds }) => {
     console.log(`📥 Queuing notification to channel ${channelId} (GMs: ${gmNames.join(', ')}, UserIDs: ${userIds.join(', ')})`)
@@ -327,6 +308,7 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
       .from('gm_availability_responses')
       .update({ notified_at: new Date().toISOString() })
       .eq('reservation_id', booking.id)
+      .eq('organization_id', orgIdForBooking)
       .in('staff_id', sentStaffIds)
     if (notifiedErr) {
       console.error('⚠️ notified_at の更新に失敗:', notifiedErr)
@@ -530,11 +512,13 @@ serve(async (req) => {
     // 🔒 認可:
     // - DB Webhook / cron（service role）からの呼び出しを許可
     // - それ以外は admin / license_admin / owner のみ許可（誤爆防止）
+    let callerUserId: string | null = null
     if (!isSystemCall(req)) {
       const auth = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
       if (!auth.success) {
         return errorResponse(auth.error || 'forbidden', auth.statusCode || 403, corsHeaders)
       }
+      callerUserId = auth.user!.id
     }
 
     const body = await req.text()
@@ -550,23 +534,14 @@ serve(async (req) => {
 
     const isResend = payloadType === 'resend'
     console.log(`✅ Processing ${isResend ? 'resend' : 'insert'} operation`)
-    const booking = payload.record
-
-    // 再送信の場合、既存のキューエントリを削除して重複防止を回避
-    if (isResend && booking.id) {
-      const { error: deleteError } = await supabase
-        .from('discord_notification_queue')
-        .delete()
-        .eq('reference_id', booking.id)
-        .eq('notification_type', 'private_booking_request')
-      
-      if (deleteError) {
-        console.warn('⚠️ 既存キューの削除に失敗（続行）:', deleteError)
-      } else {
-        console.log('🗑️ 既存のキューエントリを削除しました')
-      }
+    let booking
+    try {
+      booking = await loadPrivateBookingNotificationContext(supabase, payload.record?.id, callerUserId)
+    } catch (error) {
+      console.error('Notification context rejected:', error)
+      return errorResponse('Notification request is not permitted', 403, corsHeaders)
     }
-    
+
     // デモ予約の場合は通知をスキップ
     if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {
       return new Response(
@@ -623,7 +598,7 @@ serve(async (req) => {
     }
     
     // 各GMの個別チャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
-    await sendNotificationToGMChannels(booking, payload.target_staff_id)
+    await sendNotificationToGMChannels(booking, payload.target_staff_id, isResend)
 
     return new Response(
       JSON.stringify({ 

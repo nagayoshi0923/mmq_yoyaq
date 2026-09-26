@@ -77,7 +77,7 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reservation, error: lookupErr } = await (db as any)
     .from('reservations')
-    .select('id, organization_id, scenario_master_id')
+    .select('id, organization_id, scenario_master_id, scenario_id')
     .eq('id', bookingId)
     .maybeSingle()
   if (lookupErr) {
@@ -125,8 +125,8 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
     record: {
       id: bookingId,
       organization_id: reservation.organization_id,
-      scenario_id: reservation.scenario_master_id ?? body.scenario_master_id,
-      scenario_master_id: reservation.scenario_master_id ?? body.scenario_master_id,
+      scenario_id: reservation.scenario_master_id ?? reservation.scenario_id,
+      scenario_master_id: reservation.scenario_master_id ?? reservation.scenario_id,
       scenario_title: body.scenario_title,
       customer_name: body.customer_name,
       customer_email: body.customer_email,
