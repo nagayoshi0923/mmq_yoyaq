@@ -55,6 +55,7 @@
     "deploy:staging": "npm run db:push:staging && npm run functions:deploy:staging",
     "deploy:prod": "npm run db:push:prod && npm run functions:deploy:prod",
     "test:gm-assignment-db": "node scripts/test-gm-assignment-sync-db.mjs && node scripts/test-gm-assignment-operations-db.mjs && node scripts/test-event-staff-identity-db.mjs",
+    "test:organization-signup-db": "node scripts/test-organization-signup-db.mjs",
     "test:guest-pin-db": "node scripts/test-guest-pin-security-db.mjs",
     "test:staff-account-db": "node scripts/test-staff-account-lifecycle-db.mjs && node --test scripts/invite-staff-boundary.test.mjs"
   },

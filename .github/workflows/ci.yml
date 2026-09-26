@@ -36,6 +36,9 @@ jobs:
       - name: Staff account lifecycle database regressions
         run: npm run test:staff-account-db
 
+      - name: Verify organization signup ownership
+        run: npm run test:organization-signup-db
+
       - name: Guest PIN security database regressions
         run: npm run test:guest-pin-db
 
