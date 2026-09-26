@@ -14,7 +14,7 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 /**
  * 参加費を計算する関数
  */
-const calculateParticipationFee = async (
+export const calculateParticipationFee = async (
   scenarioId: string,
   startTime: string,
   date: string,
