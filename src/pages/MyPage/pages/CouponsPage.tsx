@@ -10,6 +10,7 @@ import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'luc
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
+import { getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
 
@@ -102,33 +103,13 @@ export function CouponsPage() {
   const now = new Date()
   const sortedCoupons = coupons.map(coupon => ({
     ...coupon,
-    status: coupon.status === 'active' && (
-      (coupon.expires_at && new Date(coupon.expires_at) < now) ||
-      (coupon.coupon_campaigns?.usage_valid_until && new Date(coupon.coupon_campaigns.usage_valid_until) < now)
-    ) ? 'expired' as const : coupon.status,
+    status: resolveCouponDisplayStatus(coupon, now),
   })).sort(
     (a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
   )
 
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
-  const oneMonthAgo = new Date()
-  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-  const usedCoupons = sortedCoupons.filter(c => {
-    if (c.status === 'active') return false
-    if (c.status === 'fully_used') {
-      const updatedAt = c.updated_at ? new Date(c.updated_at) : null
-      const createdAt = c.created_at ? new Date(c.created_at) : null
-      if (updatedAt && updatedAt >= oneMonthAgo) return true
-      if (createdAt && createdAt >= oneMonthAgo) return true
-      return false
-    }
-    if (c.status === 'expired') {
-      const deadlines = [c.expires_at, c.coupon_campaigns?.usage_valid_until].filter(Boolean).map(value => new Date(value!).getTime())
-      if (deadlines.length) return Math.min(...deadlines) >= oneMonthAgo.getTime()
-    }
-    if (!c.updated_at) return true
-    return new Date(c.updated_at) >= oneMonthAgo
-  })
+  const usedCoupons = sortedCoupons.filter(c => isUsedCouponVisible(c, now))
 
   const totalAvailableCount = activeCoupons.reduce((sum, c) => sum + c.uses_remaining, 0)
 
@@ -278,9 +259,8 @@ export function CouponsPage() {
                 ? `¥${campaign.discount_amount.toLocaleString()} OFF`
                 : `${campaign.discount_amount}% OFF`
 
-              const usedAt = coupon.updated_at
-                ? formatJstDateTime(coupon.updated_at)
-                : null
+              const lastUsedAt = getLastCouponUsedAt(coupon)
+              const usedAt = lastUsedAt ? formatJstDateTime(lastUsedAt) : null
 
               const usageRows = (coupon.coupon_usages ?? [])
                 .slice()
@@ -299,8 +279,8 @@ export function CouponsPage() {
                           <span className="text-sm font-medium text-gray-500">{discountLabel}</span>
                           <span className="text-xs text-gray-500 truncate">- {campaign.name}</span>
                         </div>
-                        {usedAt && coupon.status === 'fully_used' && (
-                          <p className="text-xs text-gray-400 mt-0.5">{usedAt} 使用</p>
+                        {coupon.status === 'fully_used' && (
+                          <p className="text-xs text-gray-400 mt-0.5">{usedAt ? `${usedAt} 使用` : '使用日時を確認できません'}</p>
                         )}
                         {usageRows.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
