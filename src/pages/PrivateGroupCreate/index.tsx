@@ -158,8 +158,8 @@ export function PrivateGroupCreate() {
       return
     }
 
-    if (!scenarioId) {
-      setError('シナリオが選択されていません')
+    if (!scenario?.scenario_master_id) {
+      setError('シナリオ情報が取得できません。ページを再読み込みしてください。')
       return
     }
 
@@ -170,7 +170,7 @@ export function PrivateGroupCreate() {
 
     try {
       const group = await createGroup({
-        scenarioId,
+        scenarioId: scenario.scenario_master_id,
         name: groupName || undefined,
         preferredStoreIds: selectedStoreIds,
         candidateDates: [],
