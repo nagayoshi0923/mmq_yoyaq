@@ -770,3 +770,9 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - service_roleを自己申告するJWT payloadを認証根拠から除外。環境に設定したservice JWT/secretキーまたはcron秘密との一致のみ許可する。
 - checkRateLimitのSupabaseClient型を明示しDeno型検査のneverエラーを解消。取得失敗時の拒否を維持。
 - 偽造JWT、未知・空キー、正規キー各別名、cronヘッダー、レート制限正常/超過/例外を検証。Deno check成功。本番配備は別途受入記録まで未完了。
+
+## QW-20260917-001 / 中止公演の募集終了同期（2026-09-27）
+
+- 中止確定と同一トランザクションで、同じ組織・公演の募集中deadlineをcancelled、未送信の追加募集通知をexpiredへ同期する。送信済み履歴・予約・公演内容を保持する。中止解除で募集を自動再開しない。
+- migration 20260927014000をstaging・本番へ適用し、本番の既存4件を補正。中止公演のactive募集・未送信追加募集通知は各0件。
+- PGliteで既存補正・中止時同期・組織境界・送信履歴保持・中止解除・復元再適用を検証。実stagingでも復元→再適用→ROLLBACK成功。verify成功。全体案件は継続中。
