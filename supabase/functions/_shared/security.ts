@@ -56,27 +56,26 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
   // 互換: Authorization: Bearer <service_role> の場合は許可
   const authHeader = (req.headers.get('Authorization') || '').trim()
   const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
-  const serviceRoleKey = getServiceRoleKey().trim()
-
-  // 1. キーが完全一致する場合（旧JWT形式）
-  if (serviceRoleKey && bearer && timingSafeEqualString(bearer, serviceRoleKey)) {
-    return true
+  // Supabaseの内部用キーと外部APIの旧service JWTは異なる場合がある。
+  // 旧JWTは管理APIから取得した同一プロジェクトの値を明示的に配備する。
+  const trustedServiceKeys = [
+    getServiceRoleKey(),
+    Deno.env.get('SERVICE_ROLE_KEY'),
+    Deno.env.get('SUPABASE_SECRET_KEY'),
+    Deno.env.get('MMQ_SB_SECRET_KEY'),
+    Deno.env.get('SB_SECRET_KEY'),
+    Deno.env.get('MMQ_LEGACY_SERVICE_ROLE_KEY'),
+  ]
+  // 新しいSupabaseランタイムが提供する名前付きsecretキーも許可する。
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
+    if (keys && typeof keys === 'object' && !Array.isArray(keys)) {
+      trustedServiceKeys.push(...Object.values(keys).filter((key): key is string => typeof key === 'string'))
+    }
+  } catch {
+    // 不正な設定は認証根拠にしない。
   }
-
-  // 1b. 新形式 (sb_secret_*) の secret key と完全一致する場合。
-  // Supabase platform は publishable/secret 移行後も SUPABASE_SERVICE_ROLE_KEY に
-  // 旧 JWT を自動注入し続けるため、getServiceRoleKey() は JWT を返す。
-  // 一方で Vercel 等の外部から呼ぶ場合は sb_secret_* を Bearer に乗せるケースが多いので、
-  // 別途文字列比較する。
-  // Edge Function Secrets では SUPABASE_ 接頭辞が禁止されているため、
-  // MMQ_SB_SECRET_KEY または SB_SECRET_KEY のどちらかを使う。
-  const secretKey = (
-    Deno.env.get('MMQ_SB_SECRET_KEY') ??
-    Deno.env.get('SB_SECRET_KEY') ??
-    ''
-  ).trim()
-  if (secretKey && bearer && timingSafeEqualString(bearer, secretKey)) {
-    console.log('✅ sb_secret_* キー一致')
+  if (bearer && trustedServiceKeys.some(key => key?.trim() && timingSafeEqualString(bearer, key.trim()))) {
     return true
   }
 
