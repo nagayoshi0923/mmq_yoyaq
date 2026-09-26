@@ -3,7 +3,7 @@
  * 認証チェック、CORS設定、ログマスキングなどを提供
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * 環境変数取得（Secrets UIの制約に対応）
@@ -56,45 +56,31 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
   // 互換: Authorization: Bearer <service_role> の場合は許可
   const authHeader = (req.headers.get('Authorization') || '').trim()
   const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
-  const serviceRoleKey = getServiceRoleKey().trim()
-
-  // 1. キーが完全一致する場合（旧JWT形式）
-  if (serviceRoleKey && bearer && timingSafeEqualString(bearer, serviceRoleKey)) {
-    return true
-  }
-
-  // 1b. 新形式 (sb_secret_*) の secret key と完全一致する場合。
-  // Supabase platform は publishable/secret 移行後も SUPABASE_SERVICE_ROLE_KEY に
-  // 旧 JWT を自動注入し続けるため、getServiceRoleKey() は JWT を返す。
-  // 一方で Vercel 等の外部から呼ぶ場合は sb_secret_* を Bearer に乗せるケースが多いので、
-  // 別途文字列比較する。
-  // Edge Function Secrets では SUPABASE_ 接頭辞が禁止されているため、
-  // MMQ_SB_SECRET_KEY または SB_SECRET_KEY のどちらかを使う。
-  const secretKey = (
-    Deno.env.get('MMQ_SB_SECRET_KEY') ??
-    Deno.env.get('SB_SECRET_KEY') ??
-    ''
-  ).trim()
-  if (secretKey && bearer && timingSafeEqualString(bearer, secretKey)) {
-    console.log('✅ sb_secret_* キー一致')
-    return true
-  }
-
-  // 2. bearerがJWTの場合、デコードしてroleを確認
-  if (bearer && bearer.startsWith('eyJ')) {
-    try {
-      const parts = bearer.split('.')
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]))
-        if (payload.role === 'service_role') {
-          console.log('✅ service_role JWT検証成功')
-          return true
-        }
-      }
-    } catch {
-      // JWT解析失敗は無視
+  // Supabaseの内部用キーと外部APIの旧service JWTは異なる場合がある。
+  // 旧JWTは管理APIから取得した同一プロジェクトの値を明示的に配備する。
+  const trustedServiceKeys = [
+    getServiceRoleKey(),
+    Deno.env.get('SERVICE_ROLE_KEY'),
+    Deno.env.get('SUPABASE_SECRET_KEY'),
+    Deno.env.get('MMQ_SB_SECRET_KEY'),
+    Deno.env.get('SB_SECRET_KEY'),
+    Deno.env.get('MMQ_LEGACY_SERVICE_ROLE_KEY'),
+  ]
+  // 新しいSupabaseランタイムが提供する名前付きsecretキーも許可する。
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
+    if (keys && typeof keys === 'object' && !Array.isArray(keys)) {
+      trustedServiceKeys.push(...Object.values(keys).filter((key): key is string => typeof key === 'string'))
     }
+  } catch {
+    // 不正な設定は認証根拠にしない。
   }
+  if (bearer && trustedServiceKeys.some(key => key?.trim() && timingSafeEqualString(bearer, key.trim()))) {
+    return true
+  }
+
+  // JWT payloadのroleは署名なしでも偽造できるため認証根拠にしない。
+  // 正規のservice role JWTも上記の環境設定キーとの完全一致で検証する。
 
   return false
 }
@@ -474,7 +460,7 @@ export interface RateLimitResult {
  * @returns レートリミット結果
  */
 export async function checkRateLimit(
-  serviceClient: ReturnType<typeof createClient>,
+  serviceClient: SupabaseClient,
   identifier: string,
   endpoint: string,
   maxRequests = 60,
