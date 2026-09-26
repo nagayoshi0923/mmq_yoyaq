@@ -1,51 +1,32 @@
--- anon が SELECT 可能なテーブルの RLS policy が、anon に GRANT のないテーブルを参照していると
--- planner が permission denied (42501) を投げて PostgREST が 401 を返す時限爆弾になる。
---
--- このクエリは、その時限爆弾を検出する。1 行でも返れば CI を落とす。
---
--- 過去事例: 2026-05-22 にゲスト招待ページが Phase 2 RLS hardening 由来で 401 化した。
--- 参考: feedback_no_silent_scope_creep, project_org_scope_api_migration
-
-WITH anon_grants AS (
-  SELECT table_name FROM information_schema.table_privileges
-  WHERE table_schema = 'public'
-    AND grantee = 'anon'
-    AND privilege_type = 'SELECT'
-),
-anon_blocked AS (
-  -- anon が SELECT GRANT を持たない public テーブル
-  SELECT tablename
-  FROM pg_tables
-  WHERE schemaname = 'public'
-    AND tablename NOT IN (SELECT table_name FROM anon_grants)
-),
-suspect_policies AS (
-  SELECT
-    c.relname AS host_table,
-    pol.polname,
-    (
-      SELECT string_agg(b.tablename, ', ' ORDER BY b.tablename)
-      FROM anon_blocked b
-      WHERE pg_get_expr(pol.polqual, pol.polrelid) ~ ('\m' || b.tablename || '\M')
-    ) AS refs_anon_blocked
-  FROM pg_policy pol
-  JOIN pg_class c ON c.oid = pol.polrelid
-  JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public'
-    AND pol.polcmd IN ('r', '*')  -- SELECT and ALL policies
-    AND (
-      0 = ANY(pol.polroles)  -- PUBLIC applies to anon
-      OR EXISTS (
-        SELECT 1 FROM pg_roles r
-        WHERE r.oid = ANY(pol.polroles) AND pg_has_role('anon', r.oid, 'USAGE')
-      )
-    )  -- authenticated-only policies are not evaluated for anon
-    AND c.relname IN (SELECT table_name FROM anon_grants)  -- anon-accessible host
-    AND EXISTS (
-      SELECT 1 FROM anon_blocked b
-      WHERE pg_get_expr(pol.polqual, pol.polrelid) ~ ('\m' || b.tablename || '\M')
-    )
+-- anonが読めるテーブルのRLSが、参照先の必要列を読めず42501になる経路を検出。
+-- SQL文字列の表名検索ではなく、PostgreSQLが記録したポリシーの依存列で判定する。
+-- 列単位SELECTを許可した公開テーブルを、全列GRANTがないだけで誤検知しない。
+WITH accessible_policies AS (
+  SELECT p.oid, p.polrelid, p.polname, c.relname AS host_table
+  FROM pg_policy p
+  JOIN pg_class c ON c.oid=p.polrelid
+  JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='public' AND p.polcmd IN ('r','*')
+    AND has_any_column_privilege('anon',c.oid,'SELECT')
+    AND (0=ANY(p.polroles) OR EXISTS (
+      SELECT 1 FROM pg_roles r
+      WHERE r.oid=ANY(p.polroles) AND pg_has_role('anon',r.oid,'USAGE')
+    ))
+), blocked_dependencies AS (
+  SELECT DISTINCT p.host_table,p.polname,
+    c.relname || CASE WHEN d.refobjsubid>0 THEN '.' || a.attname ELSE '' END AS blocked_ref
+  FROM accessible_policies p
+  JOIN pg_depend d ON d.classid='pg_policy'::regclass AND d.objid=p.oid
+    AND d.refclassid='pg_class'::regclass AND d.refobjid<>p.polrelid
+  JOIN pg_class c ON c.oid=d.refobjid
+  JOIN pg_namespace n ON n.oid=c.relnamespace
+  LEFT JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum=d.refobjsubid
+  WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m')
+    AND NOT CASE WHEN d.refobjsubid>0
+      THEN has_column_privilege('anon',c.oid,a.attname,'SELECT')
+      ELSE has_any_column_privilege('anon',c.oid,'SELECT') END
 )
-SELECT host_table, polname, refs_anon_blocked
-FROM suspect_policies
-ORDER BY host_table, polname;
+SELECT host_table,polname,string_agg(blocked_ref,', ' ORDER BY blocked_ref) AS refs_anon_blocked
+FROM blocked_dependencies
+GROUP BY host_table,polname
+ORDER BY host_table,polname;

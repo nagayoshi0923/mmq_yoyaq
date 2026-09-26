@@ -26,5 +26,14 @@ assert.equal((await db.query('SELECT notes FROM stores')).rows[0].notes,'Private
 await db.exec('RESET ROLE')
 await db.exec(migration)
 assert.equal((await db.query('SELECT notes FROM stores')).rows[0].notes,'Private notes')
+// 監査は公開列を参照するポリシーを通し、非公開列への依存だけを検出する。
+await db.exec(`CREATE TABLE audit_host(id text); ALTER TABLE audit_host ENABLE ROW LEVEL SECURITY; GRANT SELECT(id) ON audit_host TO anon;
+CREATE POLICY safe ON audit_host FOR SELECT TO anon USING(EXISTS(SELECT 1 FROM stores WHERE stores.id=audit_host.id));
+CREATE POLICY unsafe ON audit_host FOR SELECT TO anon USING(EXISTS(SELECT 1 FROM stores WHERE stores.notes=audit_host.id));
+CREATE POLICY auth_only ON audit_host FOR SELECT TO authenticated USING(EXISTS(SELECT 1 FROM stores WHERE stores.notes=audit_host.id));`)
+const audit=fs.readFileSync('scripts/audit-anon-rls-grants.sql','utf8')
+assert.deepEqual((await db.query(audit)).rows,[{host_table:'audit_host',polname:'unsafe',refs_anon_blocked:'stores.notes'}])
+await db.exec('DROP POLICY unsafe ON audit_host')
+assert.deepEqual((await db.query(audit)).rows,[])
 await db.close()
 console.log('PASS stores public projection / private fields and predicates denied / service role preserved / rollback and reapply')
