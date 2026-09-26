@@ -1,8 +1,10 @@
+import { calculateEventGmCost } from '../src/lib/compensation.js'
+import { loadCompensationHistory } from './_lib/compensationHistory.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { handleSalaryReportData } from './_lib/salaryReportData.js'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
-import { getParticipationFee, getLicenseAmount, sumGmCosts, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
+import { getParticipationFee, getLicenseAmount, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
 import { isInternalLicenseReportablePerformance } from '../src/lib/licensePerformance.js'
 
 // NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
@@ -628,41 +630,6 @@ async function handleScenarioPerformance(req: VercelRequest, res: VercelResponse
   return res.status(200).json(result)
 }
 
-// ─── 給与計算ヘルパー ────────────────────────────────────────────────────────
-function calcDurationMinutes(startTime: string | null, endTime: string | null): number {
-  if (!startTime || !endTime) return 90
-  const [sh, sm] = startTime.split(':').map(Number)
-  const [eh, em] = endTime.split(':').map(Number)
-  const diff = (eh * 60 + em) - (sh * 60 + sm)
-  return diff > 0 ? diff : 90
-}
-
-type SalarySettingsLike = {
-  gm_base_pay: number; gm_hourly_rate: number
-  gm_test_base_pay: number; gm_test_hourly_rate: number
-  use_hourly_table: boolean
-  hourly_rates: Array<{ hours: number; amount: number }> | null
-  gm_test_hourly_rates: Array<{ hours: number; amount: number }> | null
-}
-
-function calcGmWageFromSettings(durationMinutes: number, isGmTest: boolean, s: SalarySettingsLike): number {
-  const hours = durationMinutes / 60
-  if (s.use_hourly_table) {
-    const rates = (isGmTest ? s.gm_test_hourly_rates : s.hourly_rates) ?? []
-    const fallbackRate = isGmTest ? s.gm_test_hourly_rate : s.gm_hourly_rate
-    const fallbackBase = isGmTest ? s.gm_test_base_pay : s.gm_base_pay
-    const roundedHours = Math.ceil(hours * 2) / 2
-    const sorted = [...rates].sort((a, b) => a.hours - b.hours)
-    const match = sorted.find(r => r.hours >= roundedHours)
-    if (match) return match.amount
-    const maxRate = sorted[sorted.length - 1]
-    if (maxRate) return maxRate.amount + Math.round(fallbackRate * (roundedHours - maxRate.hours))
-    return fallbackBase + Math.round(fallbackRate * hours)
-  }
-  if (isGmTest) return s.gm_test_base_pay + Math.round(s.gm_test_hourly_rate * hours)
-  return s.gm_base_pay + Math.round(s.gm_hourly_rate * hours)
-}
-
 // ─── オープン公演分析 (getOpenEventAnalysis 相当) ───────────────────────────
 async function handleOpenEventAnalysis(req: VercelRequest, res: VercelResponse, orgId: string) {
   const range = getStartEnd(req)
@@ -742,66 +709,56 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
 
   // スタッフ名
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staffData } = await (db as any)
+  const { data: staffData, error: staffError } = await (db as any)
     .from('staff')
-    .select('name')
+    .select('name,stores')
     .eq('organization_id', orgId)
+  if (staffError) throw staffError
   const staffNames = new Set((staffData as { name: string }[] | null | undefined)?.map(s => s.name) || [])
 
-  // 給与設定（gm_costs 未設定時のフォールバック用）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: salaryData } = await (db as any)
-    .from('global_settings')
-    .select('gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, use_hourly_table, hourly_rates, gm_test_hourly_rates')
-    .eq('organization_id', orgId)
-    .single()
-  // フロントエンドの DEFAULT_SETTINGS と同じデフォルト値を使用し、フィールド単位でフォールバック
-  const DEFAULT_HOURLY_RATES: Array<{ hours: number; amount: number }> = [
-    { hours: 1, amount: 3300 }, { hours: 1.5, amount: 3950 }, { hours: 2, amount: 4600 },
-    { hours: 2.5, amount: 5250 }, { hours: 3, amount: 5900 }, { hours: 3.5, amount: 6550 },
-    { hours: 4, amount: 7200 },
-  ]
-  const DEFAULT_GM_TEST_HOURLY_RATES: Array<{ hours: number; amount: number }> = [
-    { hours: 1, amount: 1300 }, { hours: 1.5, amount: 1950 }, { hours: 2, amount: 2600 },
-    { hours: 2.5, amount: 3250 }, { hours: 3, amount: 3900 }, { hours: 3.5, amount: 4550 },
-    { hours: 4, amount: 5200 },
-  ]
-  const salarySettings: SalarySettingsLike = {
-    gm_base_pay: salaryData?.gm_base_pay ?? 2000,
-    gm_hourly_rate: salaryData?.gm_hourly_rate ?? 1300,
-    gm_test_base_pay: salaryData?.gm_test_base_pay ?? 0,
-    gm_test_hourly_rate: salaryData?.gm_test_hourly_rate ?? 1300,
-    use_hourly_table: salaryData?.use_hourly_table ?? false,
-    hourly_rates: (salaryData?.hourly_rates as Array<{ hours: number; amount: number }> | null) ?? DEFAULT_HOURLY_RATES,
-    gm_test_hourly_rates: (salaryData?.gm_test_hourly_rates as Array<{ hours: number; amount: number }> | null) ?? DEFAULT_GM_TEST_HOURLY_RATES,
-  }
+  const settingsForDate = await loadCompensationHistory(db!, orgId, start, end)
+
+  const homeStores = new Map<string,string[]>((staffData ?? []).filter((staff: {stores: unknown}) => Array.isArray(staff.stores)).map((staff: {name: string; stores: string[]}) => [staff.name,staff.stores]))
 
   // 店舗
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: stores } = await (db as any)
+  const { data: stores, error: storesError } = await (db as any)
     .from('stores')
-    .select('id, name, short_name')
-  const storeMap = new Map<string, { id: string; name: string; short_name: string | null }>(
-    (stores as Array<{ id: string; name: string; short_name: string | null }> | null | undefined)?.map(s => [s.id, s]) || []
+    .select('id, name, short_name, transport_allowance')
+    .eq('organization_id', orgId)
+  if (storesError) throw storesError
+  const storeMap = new Map<string, { id: string; name: string; short_name: string | null; transport_allowance: number | null }>(
+    (stores as Array<{ id: string; name: string; short_name: string | null; transport_allowance: number | null }> | null | undefined)?.map(s => [s.id, s]) || []
   )
 
   // ScenarioInfo は ScenarioPricing を継承し、id を必須にしただけ
-  type ScenarioInfo = ScenarioPricing & { id: string }
+  type ScenarioInfo = ScenarioPricing & { id: string; scenario_master_id?: string; title?: string; duration?: number | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scenariosData } = await (db as any)
+  const { data: scenariosData, error: scenariosError } = await (db as any)
     .from('organization_scenarios_with_master')
-    .select(`id, ${SCENARIO_PRICING_COLUMNS}`)
+    .select(`id, scenario_master_id, title, duration, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
+  if (scenariosError) throw scenariosError
   const scenarioByMasterId = new Map<string, ScenarioInfo>(
-    (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.id, s]) || []
+    (scenariosData as ScenarioInfo[] | null | undefined)?.map(s => [s.scenario_master_id ?? s.id, s]) || []
   )
 
-  type OrgScenarioOverride = ScenarioPricing & { id: string; scenario_master_id: string | null }
+  const normalizeTitle = (title: string) => title.replace(/[\s\-・／/]/g, '').toLowerCase()
+  const scenarioByTitle = new Map<string, ScenarioInfo | null>()
+  for (const scenario of (scenariosData ?? []) as ScenarioInfo[]) {
+    if (!scenario.title) continue
+    const key = normalizeTitle(scenario.title)
+    if (!scenarioByTitle.has(key)) scenarioByTitle.set(key, scenario)
+    else if (scenarioByTitle.get(key)?.scenario_master_id !== scenario.scenario_master_id) scenarioByTitle.set(key, null)
+  }
+
+  type OrgScenarioOverride = ScenarioPricing & { id: string; scenario_master_id: string | null; duration: number | null }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orgScenariosData } = await (db as any)
+  const { data: orgScenariosData, error: orgScenariosError } = await (db as any)
     .from('organization_scenarios')
-    .select(`id, scenario_master_id, ${SCENARIO_PRICING_COLUMNS}`)
+    .select('id, scenario_master_id, duration, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
     .eq('organization_id', orgId)
+  if (orgScenariosError) throw orgScenariosError
   const orgScenarioById = new Map<string, OrgScenarioOverride>(
     (orgScenariosData as OrgScenarioOverride[] | null | undefined)?.map(s => [s.id, s]) || []
   )
@@ -872,9 +829,11 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     if (event.organization_scenario_id) {
       const override = orgScenarioById.get(event.organization_scenario_id)
       if (override) {
+        scenarioInfo = scenarioByMasterId.get(override.scenario_master_id ?? '') ?? scenarioInfo
         scenarioInfo = {
           ...scenarioInfo,
           id: scenarioInfo?.id ?? '',
+          duration: override.duration ?? scenarioInfo?.duration,
           gm_costs: ((override.gm_costs?.length ?? 0) > 0 ? override.gm_costs : scenarioInfo?.gm_costs) ?? null,
           license_amount: override.license_amount ?? scenarioInfo?.license_amount ?? null,
           gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
@@ -883,6 +842,12 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
           participation_costs: ((override.participation_costs?.length ?? 0) > 0 ? override.participation_costs : scenarioInfo?.participation_costs) ?? null,
         }
       }
+    }
+
+    if (!scenarioInfo && event.scenario) scenarioInfo = scenarioByTitle.get(normalizeTitle(event.scenario)) ?? null
+    if (!isVenueRental && !event.is_cancelled && !scenarioInfo && (event.gms ?? []).some(name =>
+      !['staff', 'observer', 'reception'].includes(event.gm_roles?.[name] ?? 'main'))) {
+      throw new ApiError(422, `${event.date} ${event.scenario ?? ''} の作品設定を特定できないため、公演CSVを出力できません。公演のシナリオを設定してください。`)
     }
 
     const cat = isGmTest ? 'gmtest' : 'normal'
@@ -903,14 +868,12 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     )
     const actualGmCount = activeGmNames.size
 
-    let gmCost = 0
-    const hasGmCostsForCat = scenarioInfo?.gm_costs?.some(g => (g.category || 'normal') === cat) ?? false
-    if (hasGmCostsForCat) {
-      gmCost = sumGmCosts(scenarioInfo as ScenarioPricing | null, cat, actualGmCount)
-    } else if (actualGmCount > 0 && !isVenueRental) {
-      const durationMinutes = calcDurationMinutes(event.start_time, event.end_time)
-      gmCost = calcGmWageFromSettings(durationMinutes, isGmTest, salarySettings) * actualGmCount
-    }
+    const gmCost = isVenueRental ? 0 : calculateEventGmCost({
+      gms: event.gms ?? [], roles: event.gm_roles ?? {}, duration: scenarioInfo?.duration ?? 180,
+      isGmTest, costs: scenarioInfo?.gm_costs ?? [], getSettings: () => settingsForDate(event.date),
+      storeId: event.store_id ?? '', homeStores, transportAllowance: store?.transport_allowance,
+      isCancelled: Boolean(event.is_cancelled), estimateUnassigned: Boolean(scenarioInfo),
+    })
 
     let totalParticipants = 0
     let staffParticipants = 0

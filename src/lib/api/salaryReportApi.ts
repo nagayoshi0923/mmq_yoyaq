@@ -26,7 +26,8 @@ export interface SalaryEvent {
   staff_assignments: SalaryEventStaff[]
   category: string
   is_cancelled: boolean
-  stores: { name: string } | null
+  stores: { name: string; transport_allowance?: number | null } | null
+  scenarios?: { duration: number | null; gm_costs: import('@/lib/compensation').IndividualGmCost[] | null } | null
   scenario_masters: { title: string; official_duration: number } | null
 }
 export interface SalaryTransaction {
