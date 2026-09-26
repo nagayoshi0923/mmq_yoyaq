@@ -62,6 +62,7 @@ export const SETTING_DEFINITIONS: Record<string, SettingDefinition> = {
   private_rejection_reason: text('email', '貸切見送りの既定理由'),
   judgment_minutes_before: integer('operations', '開催の最終判断（分前）', 1, 10080),
   preparation_minutes: integer('operations', '準備時間（分）', 0, 1440),
+  coupon_usage_enabled: structure('operations', 'クーポンの利用を受け付ける', 'boolean'),
   survey_enabled: structure('operations', '事前配役アンケート', 'boolean'),
   survey_deadline_days: integer('operations', '事前配役アンケートの締切（日前）', 0, 90),
   survey_url: text('operations', '事前配役アンケートのURL'),

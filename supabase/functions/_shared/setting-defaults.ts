@@ -120,6 +120,7 @@ export const SETTING_DEFAULTS: Record<string, SettingValue> = {
   "payment_method_description": "ご来店時にお支払いください",
   "preparation_minutes": 60,
   "judgment_minutes_before": 240,
+  "coupon_usage_enabled": true,
   "survey_enabled": false,
   "survey_deadline_days": 1,
   "survey_url": ""

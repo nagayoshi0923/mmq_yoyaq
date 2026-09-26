@@ -1,5 +1,5 @@
 import type { TextSettingField } from './OperatingTextSettings'
-export const OPERATION_SETTING_KEYS = ['judgment_minutes_before', 'preparation_minutes']
+export const OPERATION_SETTING_KEYS = ['judgment_minutes_before', 'preparation_minutes', 'coupon_usage_enabled']
 export const SURVEY_SETTING_KEYS = ['survey_enabled', 'survey_deadline_days', 'survey_url']
 
 export const PAYMENT_SETTING_FIELDS: TextSettingField[] = [

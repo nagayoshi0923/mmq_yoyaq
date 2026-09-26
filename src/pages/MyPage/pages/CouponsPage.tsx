@@ -4,6 +4,8 @@
  * クーポンをタップしてもぎる機能付き
  */
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { previewCouponUse } from '@/lib/api/couponApi'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
@@ -58,12 +60,19 @@ export function CouponsPage() {
   const { data: currentReservations = [], isLoading: reservationsLoading } = useCurrentReservationsQuery()
   const useCouponMutation = useUseCouponMutation()
 
+  const preview = useQuery({
+    queryKey: ['coupon-use-preview', selectedCoupon?.coupon.id, selectedReservationId],
+    queryFn: () => previewCouponUse(selectedCoupon!.coupon.id, selectedReservationId!),
+    enabled: !!selectedCoupon && !!selectedReservationId && showConfirmDialog,
+    retry: false,
+    staleTime: 0,
+  })
   const loading = couponsLoading || reservationsLoading
 
   const eligibleReservations = (coupon: CustomerCoupon) =>
     (currentReservations as CurrentReservation[]).filter(r =>
-      !coupon.coupon_campaigns?.murder_mystery_only ||
-      (r.murder_mystery_eligible && r.organization_id === coupon.organization_id))
+      r.organization_id === coupon.organization_id &&
+      (!coupon.coupon_campaigns?.murder_mystery_only || r.murder_mystery_eligible))
   const selectedReservations = selectedCoupon ? eligibleReservations(selectedCoupon.coupon) : []
 
   const handleCouponTap = (coupon: CustomerCoupon, index: number) => {
@@ -75,7 +84,7 @@ export function CouponsPage() {
   }
 
   const handleUseCoupon = async () => {
-    if (!selectedCoupon || !selectedReservationId) return
+    if (!selectedCoupon || !selectedReservationId || !preview.data?.success || preview.isFetching || preview.isError) return
     const result = await useCouponMutation.mutateAsync({
       couponId: selectedCoupon.coupon.id,
       reservationId: selectedReservationId,
@@ -404,6 +413,11 @@ export function CouponsPage() {
                 使用後は元に戻せません
               </p>
 
+              {selectedReservationId && <div className="mb-4" aria-live="polite">
+                {preview.isFetching ? <p>利用条件を確認しています…</p>
+                  : preview.isError ? <p role="alert">{preview.error.message}</p>
+                  : preview.data?.success && <p>今回の割引額：¥{preview.data.discount_amount.toLocaleString()}</p>}
+              </div>}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -420,7 +434,7 @@ export function CouponsPage() {
                 <Button
                   className={`flex-1 ${selectedReservationId ? 'bg-mypage-primary hover:bg-mypage-primary-hover' : 'bg-gray-400 hover:bg-gray-400'}`}
                   onClick={handleUseCoupon}
-                  disabled={useCouponMutation.isPending || !selectedReservationId}
+                  disabled={useCouponMutation.isPending || !selectedReservationId || preview.isFetching || preview.isError || !preview.data?.success}
                 >
                   {useCouponMutation.isPending ? '処理中...' : 'もぎる'}
                 </Button>
