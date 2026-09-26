@@ -138,12 +138,13 @@ type ReservationRow = {
   unit_price: number | null
   total_price: number | null
   final_price: number | null
+  discount_amount?: number | null
 }
 
 const ADMIN_ENTERED_REVENUE_SOURCES = new Set(['walk_in', 'demo', 'demo_auto'])
 
 export function getReservationRevenue(
-  reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'total_price' | 'final_price'>,
+  reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'total_price' | 'final_price' | 'discount_amount'>,
   participantCount: number,
   scenarioUnitFee: number,
 ): number {
@@ -152,6 +153,14 @@ export function getReservationRevenue(
       ? reservation.unit_price
       : scenarioUnitFee
     return unitPrice * participantCount
+  }
+  // 旧貸切受付は合計だけを保存し、final_price はDB初期値0のまま。
+  // 割引なしと確認できる旧データに限り合計を使う。全額割引の0円は維持する。
+  if (reservation.reservation_source === 'web_private'
+    && reservation.final_price === 0
+    && reservation.discount_amount === 0
+    && (reservation.total_price ?? 0) > 0) {
+    return reservation.total_price!
   }
   if (reservation.final_price != null && reservation.final_price >= 0) return reservation.final_price
   if (reservation.total_price && reservation.total_price > 0) return reservation.total_price
@@ -310,13 +319,14 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
     unit_price: number | null
     total_price: number | null
     final_price: number | null
+    discount_amount: number | null
   }> = []
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batchIds = eventIds.slice(i, i + BATCH_SIZE)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: batch, error: batchError } = await (db as any)
       .from('reservations')
-      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price, discount_amount')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
@@ -795,6 +805,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     unit_price: number | null
     total_price: number | null
     final_price: number | null
+    discount_amount: number | null
   }> = []
 
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
@@ -802,7 +813,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: batch } = await (db as any)
       .from('reservations')
-      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price')
+      .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price, discount_amount')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
