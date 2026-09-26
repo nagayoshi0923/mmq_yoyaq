@@ -130,7 +130,7 @@ BEGIN
    EXCEPTION WHEN invalid_text_representation THEN NULL;
    END;
   END IF;
-  INSERT INTO private_group_messages(group_id,member_id,message,sender_type) VALUES(p_group_id,p_member_id,v_message,'member') RETURNING id INTO v_result;
+  INSERT INTO private_group_messages(group_id,member_id,message) VALUES(p_group_id,p_member_id,v_message) RETURNING id INTO v_result;
   RETURN to_jsonb(v_result);
  WHEN 'survey_read' THEN RETURN public.get_survey_data_for_member(p_group_id,p_member_id);
  WHEN 'survey_write' THEN
