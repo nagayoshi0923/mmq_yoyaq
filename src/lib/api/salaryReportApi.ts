@@ -7,6 +7,14 @@ export interface SalaryStaff {
   role: string[] | null
   stores: string[] | null
 }
+export interface SalaryEventStaff {
+  staff_id: string | null
+  staff_name: string | null
+  role: 'main' | 'sub' | 'reception' | 'staff' | 'observer'
+  ordinal: number
+  resolution_status: 'resolved' | 'unmatched' | 'duplicate'
+  role_confirmed: boolean
+}
 export interface SalaryEvent {
   id: string
   date: string
@@ -15,6 +23,7 @@ export interface SalaryEvent {
   scenario_master_id: string | null
   gms: string[] | null
   gm_roles: Record<string, string> | null
+  staff_assignments: SalaryEventStaff[]
   category: string
   is_cancelled: boolean
   stores: { name: string } | null

@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import type { RpcAdminDeleteReservationsByScheduleEventIdsParams } from '@/lib/rpcTypes'
 import { memoApi } from '@/lib/api/memoApi'
+import { validateScheduleImportStaff } from '@/lib/scheduleImportStaffValidation'
 import { staffApi } from '@/lib/api/staffApi'
 import { scenarioApi } from '@/lib/api/scenarioApi'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -216,17 +217,25 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
   
   // マスターデータ
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string }>>([])
+  const [staffLoading, setStaffLoading] = useState(true)
+  const [staffError, setStaffError] = useState<string | null>(null)
+  const [staffReload, setStaffReload] = useState(0)
   const [scenarioList, setScenarioList] = useState<Array<{ id: string; title: string }>>([])
   // シナリオエイリアスマップ（DBから取得）
   const [scenarioAliasMap, setScenarioAliasMap] = useState<Record<string, string>>({})
 
   // マスターデータを取得（組織対応済み）
   useEffect(() => {
+    let cancelled = false
     if (isOpen) {
+      setStaffLoading(true)
+      setStaffError(null)
       // スタッフ一覧を取得
       staffApi.getAll().then((data) => {
-        setStaffList(data.map(s => ({ id: s.id, name: s.name })))
-      })
+        if (!cancelled) setStaffList(data.map(s => ({ id: s.id, name: s.name })))
+      }).catch(() => {
+        if (!cancelled) { setStaffList([]); setStaffError('スタッフ一覧を取得できませんでした。再試行してください。') }
+      }).finally(() => { if (!cancelled) setStaffLoading(false) })
 
       // シナリオ一覧を取得
       scenarioApi.getAll().then((data) => {
@@ -239,7 +248,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         scenarioMatchCache.clear()
       })
     }
-  }, [isOpen])
+    return () => { cancelled = true }
+  }, [isOpen, staffReload])
   
   // スタッフ名からマッピングを動的に生成
   const dynamicStaffMapping = useMemo(() => {
@@ -515,6 +525,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
 
   // インポート処理（プレビュー済みのデータを使用）
   const handleImport = async () => {
+    if (staffLoading || staffError) return
     if (previewEvents.length === 0) {
       setResult({ success: 0, failed: 0, errors: ['インポートするデータがありません'] })
       return
@@ -574,6 +585,11 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       
       // 重複したイベントを除外
       const filteredEvents = mergedEvents.filter((_: any, index: number) => !duplicateIndices.has(index))
+      const staffErrors = validateScheduleImportStaff(filteredEvents, staffList)
+      if (staffErrors.length > 0) {
+        setPreviewErrors(['保存前の確認で停止しました。プレビューの担当者を修正して再実行してください。', ...staffErrors])
+        return
+      }
 
       // 既存データを削除するオプションが有効な場合
       let deletedCount = 0
@@ -975,6 +991,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
   
   // プレビュー処理（パースのみ）
   const handlePreview = async () => {
+    if (staffLoading || staffError) return
     setShowPreview(false)
     setPreviewEvents([])
     setPreviewErrors([])
@@ -1344,6 +1361,10 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
 
         </div>
 
+        {staffLoading && <p role="status" className="text-sm">スタッフ一覧を取得中...</p>}
+        {staffError && <div role="alert" className="text-sm text-destructive">
+          {staffError}<Button variant="outline" onClick={() => setStaffReload(value => value + 1)}>再試行</Button>
+        </div>}
         <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
           {result ? (
             // インポート完了後は「完了」ボタンのみ表示
@@ -1362,7 +1383,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
               </Button>
               <Button 
                 onClick={handlePreview} 
-                disabled={!scheduleText.trim()}
+                disabled={!scheduleText.trim() || staffLoading || !!staffError}
               >
                 プレビュー
               </Button>
@@ -1378,7 +1399,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
               </Button>
               <Button 
                 onClick={handleImport} 
-                disabled={previewEvents.length === 0 || isImporting}
+                disabled={previewEvents.length === 0 || isImporting || staffLoading || !!staffError}
               >
                 {isImporting ? (
                   <>

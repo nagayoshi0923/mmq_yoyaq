@@ -1046,6 +1046,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   if (!insertedId) {
+    if (lastError?.code === '23514') return res.status(400).json({ error: lastError.message })
     console.error('[schedule:create] insert error:', lastError)
     return res.status(500).json({ error: '公演の作成に失敗しました', detail: lastError?.message })
   }
@@ -1172,6 +1173,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
     if (isCapacityConstraintError(lastError)) {
       return res.status(409).json({ error: CAPACITY_CHANGED_MESSAGE, code: 'CAPACITY_EXCEEDED' })
     }
+    if (lastError?.code === '23514') return res.status(400).json({ error: lastError.message })
     console.error('[schedule:update] update error:', lastError)
     return res.status(500).json({ error: '公演の更新に失敗しました', detail: lastError?.message })
   }
