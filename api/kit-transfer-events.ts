@@ -64,8 +64,8 @@ async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<vo
 }
 
 async function validateTransferInput(input: TransferEventInput, orgId: string): Promise<void> {
-  if (!input.org_scenario_id || !Number.isInteger(input.kit_number) || !input.transfer_date) {
-    throw new ApiError(400, 'org_scenario_id / kit_number / transfer_date が必要です')
+  if (!input.org_scenario_id || !Number.isInteger(input.kit_number) || (input.kit_number ?? 0) < 1 || !input.transfer_date || !input.from_store_id || !input.to_store_id) {
+    throw new ApiError(400, '作品・1以上のキット番号・移動日・移動元店舗・移動先店舗を指定してください')
   }
   await assertOrgScenarioOwnedByOrg(input.org_scenario_id, orgId)
   if (input.from_store_id) await assertStoreOwnedByOrg(input.from_store_id, orgId)
@@ -158,6 +158,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       .insert(records)
       .select(SELECT)
     if (error) {
+      if (error.code === '23514') return res.status(400).json({ error: error.message })
       console.error('[kit-transfer-events] bulk insert error:', error)
       return res.status(500).json({ error: '移動イベントの一括作成に失敗しました', detail: error.message })
     }
@@ -179,6 +180,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     .select(SELECT)
     .single()
   if (error) {
+    if (error.code === '23514') return res.status(400).json({ error: error.message })
     console.error('[kit-transfer-events] insert error:', error)
     return res.status(500).json({ error: '移動イベントの作成に失敗しました', detail: error.message })
   }
@@ -206,6 +208,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
     .select(SELECT)
     .single()
   if (error) {
+    if (error.code === '23514') return res.status(400).json({ error: error.message })
     console.error('[kit-transfer-events] patch error:', error)
     return res.status(500).json({ error: 'ステータス更新に失敗しました', detail: error.message })
   }

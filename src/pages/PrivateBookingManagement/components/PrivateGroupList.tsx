@@ -1,3 +1,5 @@
+import { formatJstMonthDay } from '@/utils/jstDate'
+import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { useState } from 'react'
 import { logger } from '@/utils/logger'
 import { useNavigate } from 'react-router-dom'
@@ -138,12 +140,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('組織情報が取得できません')
 
-      const { data: orgScenarioData } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('survey_enabled, survey_deadline_days, characters')
-        .eq('scenario_master_id', selectedGroupForSurvey.scenario_master_id)
-        .eq('organization_id', orgId)
-        .maybeSingle()
+      const orgScenarioData = await getGroupSurveySettings(selectedGroupForSurvey.id, true)
 
       if (!orgScenarioData?.survey_enabled) {
         showToast.error('このシナリオにはアンケートが設定されていません')
@@ -158,7 +155,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
 
       const customerEmail = selectedGroupForSurvey.confirmed_customer_email
 
-      if (hasPlayableCharacters) {
+      if (hasPlayableCharacters && !orgScenarioData.survey_url) {
         const { data: globalSettings } = await supabase
           .from('global_settings')
           .select('pre_reading_notice_message')
@@ -184,14 +181,8 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
           })
         }
       } else {
-        let deadlineText = ''
-        if (selectedGroupForSurvey.confirmed_date && orgScenarioData.survey_deadline_days !== undefined) {
-          const perfDate = new Date(selectedGroupForSurvey.confirmed_date + 'T00:00:00+09:00')
-          perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
-          deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
-        }
-
-        const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+        const deadlineText = orgScenarioData.survey_deadline_at ? `\n\n回答期限: ${formatJstMonthDay(orgScenarioData.survey_deadline_at)}まで` : ''
+        const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n${orgScenarioData.survey_url ? `次のURLからアンケートにお答えください。\n${orgScenarioData.survey_url}` : '上記の「日程を確認・回答する」ボタンからアンケートにお答えください。'}${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
 
         const { error: msgError } = await supabase.from('private_group_messages').insert({
           group_id: selectedGroupForSurvey.id,

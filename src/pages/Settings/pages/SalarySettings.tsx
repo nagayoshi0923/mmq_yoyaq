@@ -1,6 +1,9 @@
 import { PageHeader } from "@/components/layout/PageHeader"
 import { SectionTitle } from "@/components/settings/SectionTitle"
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { invalidateEverywhere } from '@/lib/queryInvalidation'
+import { formatDateJST } from '@/utils/dateUtils'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -69,6 +72,7 @@ interface SalarySettingsData {
  * @organization 組織ごとに設定
  */
 export function SalarySettings() {
+  const queryClient = useQueryClient()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<SalarySettingsData | null>(null)
@@ -186,6 +190,7 @@ export function SalarySettings() {
           gm_test_hourly_rates: formData.gm_test_hourly_rates
         })
         .eq('id', settings.id)
+        .eq('organization_id', organizationId)
 
       if (error) {
         logger.error('設定保存エラー:', error)
@@ -194,7 +199,7 @@ export function SalarySettings() {
       }
 
       // 2. 履歴テーブルにも保存（有効開始日は今日）
-      const today = new Date().toISOString().split('T')[0]
+      const today = formatDateJST(new Date())
       const { error: historyError } = await supabase
         .from('salary_settings_history')
         .upsert({
@@ -213,10 +218,12 @@ export function SalarySettings() {
         })
 
       if (historyError) {
-        // 履歴テーブルがまだ存在しない場合はスキップ（警告のみ）
-        logger.warn('報酬設定履歴の保存に失敗（テーブルが未作成の可能性）:', historyError)
+        logger.error('報酬設定履歴の保存に失敗:', historyError)
+        showToast.error('現在の設定は保存されましたが、給与計算用の履歴を保存できませんでした。再保存してください。')
+        return
       }
 
+      await invalidateEverywhere(queryClient, ['salary-data'], ['sales-data'])
       showToast.success('設定を保存しました')
       await fetchSettings()
     } catch (error) {
@@ -275,7 +282,7 @@ export function SalarySettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="報酬"
         description="GM報酬の計算方法を設定します"

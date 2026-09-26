@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { settingsPath } from '@/components/settings/settingsCatalog'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -207,6 +209,7 @@ export function StoreManagement() {
           }
           description={`全${stores.length}店舗の管理`}
         >
+          {organization?.slug && <Button variant="outline" size="sm" asChild><Link to={`${settingsPath(organization.slug)}&scope=store`}>店舗別の設定</Link></Button>}
           <HelpButton topic="store" label="店舗管理マニュアル" />
         </PageHeader>
 

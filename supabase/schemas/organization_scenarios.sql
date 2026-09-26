@@ -1,6 +1,7 @@
 -- 正規ソース: supabase/schemas/organization_scenarios.sql
 -- 最終更新: 2026-04-10
 CREATE TABLE public.organization_scenarios (
+  private_booking_deadline_days INTEGER CHECK (private_booking_deadline_days BETWEEN 0 AND 90),
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id),
   scenario_master_id UUID NOT NULL REFERENCES public.scenario_masters(id),
@@ -94,3 +95,13 @@ ALTER TABLE public.organization_scenarios
  ADD COLUMN recruitment_extension_enabled boolean NOT NULL DEFAULT true,
  ADD COLUMN recruitment_max_missing smallint NOT NULL DEFAULT 2 CHECK (recruitment_max_missing BETWEEN 1 AND 20),
  ADD COLUMN recruitment_deadline_minutes smallint NOT NULL DEFAULT 90 CHECK (recruitment_deadline_minutes BETWEEN 1 AND 239);
+
+ALTER TABLE public.organization_scenarios
+ ADD COLUMN recruitment_target_source text NOT NULL DEFAULT 'common' CHECK (recruitment_target_source IN ('common','custom')),
+ ADD COLUMN recruitment_target_mode text NOT NULL DEFAULT 'count' CHECK (recruitment_target_mode IN ('count','percent')),
+ ADD COLUMN recruitment_target_value integer NOT NULL DEFAULT 2,
+ ADD CONSTRAINT recruitment_target_value_check CHECK ((recruitment_target_mode='count' AND recruitment_target_value BETWEEN 1 AND 20) OR (recruitment_target_mode='percent' AND recruitment_target_value BETWEEN 1 AND 100));
+
+ALTER TABLE public.organization_scenarios
+ ADD COLUMN recruitment_enabled_source text NOT NULL DEFAULT 'common' CHECK (recruitment_enabled_source IN ('common','custom')),
+ ADD COLUMN recruitment_deadline_source text NOT NULL DEFAULT 'common' CHECK (recruitment_deadline_source IN ('common','custom'));

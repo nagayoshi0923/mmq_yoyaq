@@ -149,7 +149,9 @@ serve(async (req) => {
     // ログにはマスキングした情報のみ出力
     console.log('📨 Staff invitation request:', { email: maskEmail(email), name: maskName(name) })
 
-    const normalizedEmail = email.toLowerCase()
+    const normalizedEmail = email.trim().toLowerCase()
+    // ILIKE must compare a literal email, including underscores and percent signs.
+    const emailPattern = normalizedEmail.replace(/[\\%_]/g, '\\$&')
     // listUsers はデフォルト 50 件のみ取得するので、対象 email がページ後方にいると
     // 「未登録」と誤判定 → createUser → 「Email already registered」で 500 になる。
     // ページネーションで全件走査して既存ユーザーを探す。
@@ -168,24 +170,48 @@ serve(async (req) => {
       }
       if (users.length < PER_PAGE) break // 最終ページ
     }
+    // メール一致だけで別組織・別アカウントの連携を書き換えない。
+    // Auth作成やusersの保存より前に確認し、失敗時は何も変更しない。
+    const { data: emailStaff, error: emailStaffError } = await supabase
+      .from('staff').select('organization_id, user_id').ilike('email', emailPattern).maybeSingle()
+    if (emailStaffError) throw new Error('招待先スタッフの所属を確認できませんでした')
+    if (emailStaff && (emailStaff.organization_id !== requestedOrganizationId ||
+      (emailStaff.user_id && emailStaff.user_id !== existingUser?.id))) {
+      return new Response(JSON.stringify({ success: false, error: '別組織または別アカウントに連携済みのスタッフは招待できません' }), { status: 403, headers: corsHeaders })
+    }
+    if (existingUser) {
+      const { data: linkedStaff, error: linkedStaffError } = await supabase
+        .from('staff').select('organization_id').eq('user_id', existingUser.id).maybeSingle()
+      if (linkedStaffError) throw new Error('招待先アカウントの所属を確認できませんでした')
+      if (linkedStaff && linkedStaff.organization_id !== requestedOrganizationId) {
+        return new Response(JSON.stringify({ success: false, error: '他組織のスタッフを招待することはできません' }), { status: 403, headers: corsHeaders })
+      }
+    }
     let userId: string
     let isNewUser = false
 
-    let currentRole = 'staff'
+    let currentRole = 'customer'
+    let currentOrganizationId: string | null = null
     if (existingUser) {
       userId = existingUser.id
       console.log('✅ Existing auth user found:', userId)
       
       // 既存ユーザーの現在のロールを確認（adminなら上書きしない）
-      const { data: currentUserData } = await supabase
+      const { data: currentUserData, error: currentUserError } = await supabase
         .from('users')
-        .select('role')
+        .select('role, organization_id')
         .eq('id', userId)
         .single()
       
-      if (currentUserData && currentUserData.role === 'admin') {
-        currentRole = 'admin'
-        console.log('ℹ️ User is admin, keeping admin role')
+      if (currentUserError && currentUserError.code !== 'PGRST116') throw new Error('招待先プロフィールの取得に失敗しました')
+      if (currentUserData?.organization_id && currentUserData.organization_id !== requestedOrganizationId) {
+        return new Response(JSON.stringify({ success: false, error: '他組織のアカウントを招待することはできません' }), { status: 403, headers: corsHeaders })
+      }
+      currentOrganizationId = currentUserData?.organization_id ?? null
+      if (currentUserData?.role) {
+        // スタッフ保存と同じtransactionで権限を決めるため、先に別権限へ変更しない。
+        // license_admin はスタッフの役割とは独立して保持する。
+        currentRole = currentUserData.role
       }
     } else {
       console.log('🆕 Creating auth user:', maskEmail(email))
@@ -216,7 +242,7 @@ serve(async (req) => {
       id: userId,
       email,
       role: currentRole,
-      organization_id: userOrganizationId,  // マルチテナント対応
+      organization_id: currentOrganizationId,  // 所属はスタッフ保存時に同期する
       updated_at: now,
     }
     if (isNewUser) {
@@ -257,7 +283,7 @@ serve(async (req) => {
       const { data: staffByEmail, error: staffByEmailError } = await supabase
         .from('staff')
         .select(staffFields)
-        .eq('email', email)
+        .ilike('email', emailPattern)
         .maybeSingle()
 
       if (staffByEmailError && staffByEmailError.code !== 'PGRST116') {

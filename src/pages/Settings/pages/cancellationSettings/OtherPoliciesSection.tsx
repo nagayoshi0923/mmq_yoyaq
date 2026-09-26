@@ -306,14 +306,7 @@ export function OtherPoliciesSection({ formData, setFormData, generateId }: Othe
 
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">ポリシー最終更新日</Label>
-            <Input
-              id="policy_updated_at"
-              type="date"
-              value={formData.policy_updated_at}
-              onChange={(e) => setFormData(prev => ({ ...prev, policy_updated_at: e.target.value }))}
-              className="w-48"
-            />
-            <p className="text-xs text-muted-foreground">キャンセルポリシーページに「最終更新日」として表示されます</p>
+            <p className="text-sm text-muted-foreground">設定を保存した日を公開規定の最終更新日に反映します。日付の手入力は不要です。</p>
           </div>
         </div>
       </div>

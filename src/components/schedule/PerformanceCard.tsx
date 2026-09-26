@@ -217,7 +217,7 @@ function PerformanceCardBase({
               variant="outline"
               size="sm"
               className="font-bold text-[8px] px-0.5 py-0 h-3.5 whitespace-nowrap bg-red-600 text-white border-red-600 inline-flex items-center gap-px"
-              title="キット未配置: この店舗または同じキットグループにキットがありません"
+              title="キット未配置: この店舗または同じキットグループに使用可能なキットがありません"
             >
               <Package className="w-2 h-2" />
               キット未配置

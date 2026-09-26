@@ -300,13 +300,14 @@ serve(async (req) => {
     // 店舗のメール設定（テンプレート・会社情報）を取得
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
       storeId: storeId,
-      organizationId: data.organizationId
+      organizationId: data.organizationId,
+      scheduleEventId: data.scheduleEventId
     })
     
     // 会社情報（デフォルト値付き）
-    const companyName = storeEmailSettings?.company_name || senderName
-    const companyEmail = storeEmailSettings?.company_email || ''
-    const companyPhone = storeEmailSettings?.company_phone || ''
+    const companyName = storeEmailSettings?.company_name ?? senderName
+    const companyEmail = storeEmailSettings?.company_email ?? ''
+    const companyPhone = storeEmailSettings?.company_phone ?? ''
     
     // カスタムテンプレートの取得
     const customTemplate = storeEmailSettings?.waitlist_notify_template

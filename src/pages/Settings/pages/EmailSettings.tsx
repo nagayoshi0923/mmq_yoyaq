@@ -1,40 +1,24 @@
 import { PageHeader } from "@/components/layout/PageHeader"
 import { SectionTitle } from '@/components/settings/SectionTitle'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, type Dispatch, type SetStateAction } from 'react'
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
+import { SettingSourceControls } from '@/components/settings/SettingSourceControls'
+import { SETTING_DEFINITIONS } from '../../../../supabase/functions/_shared/setting-definitions'
+import type { SettingScope, SettingValue } from '../../../../supabase/functions/_shared/settings-inheritance'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Save, ChevronDown, ChevronRight, Mail, Building2, Bell } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { storeApi } from '@/lib/api/storeApi'
-import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import {
   TEMPLATE_CONFIGS,
   type TemplateConfig,
   BASE_VARIABLES,
   VARIABLE_DESCRIPTIONS,
-  getDefaultReservationTemplate,
-  getDefaultCancellationTemplate,
   getDefaultReminderTemplate,
-  getDefaultPrivateReminderTemplate,
-  getDefaultBookingChangeTemplate,
-  getDefaultPrivateRequestTemplate,
-  getDefaultPrivateConfirmTemplate,
-  getDefaultPrivateRejectionTemplate,
-  getDefaultWaitlistNotifyTemplate,
-  getDefaultWaitlistRegistrationTemplate,
-  getDefaultPerformanceCancellationTemplate,
-  getDefaultPerformanceConfirmationTemplate,
-  getDefaultEventCancellationTemplate,
-  getDefaultPerformanceExtensionTemplate,
-  getDefaultStoreCancellationTemplate,
 } from '@/lib/templateRegistry'
 import { VariableHintChips } from '@/components/settings/VariableHintChips'
-
-const EMAIL_SETTINGS_SELECT_FIELDS =
-  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, private_reminder_template, booking_change_template, private_request_template, private_confirm_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, performance_confirmation_template, event_cancellation_template, performance_extension_template, store_cancellation_template, private_rejection_reason' as const
 
 // ========== 型定義 ==========
 
@@ -80,6 +64,8 @@ interface EmailSettings extends EmailTemplates {
 
 interface EmailSettingsProps {
   storeId?: string
+  scope?: SettingScope
+  targetId?: string
 }
 
 // ========== アコーディオンアイテム ==========
@@ -163,51 +149,26 @@ function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle, sto
 
 // ========== メインコンポーネント ==========
 
-export function EmailSettings({ storeId }: EmailSettingsProps) {
-  const [stores, setStores] = useState<any[]>([])
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('')
-  const [formData, setFormData] = useState<EmailSettings>({
-    id: '',
-    store_id: '',
-    from_email: '',
-    from_name: '',
-    company_name: '',
-    company_phone: '',
-    company_email: '',
-    company_address: '',
-    reservation_confirmation_template: '',
-    cancellation_template: '',
-    reminder_template: '',
-    private_reminder_template: '',
-    booking_change_template: '',
-    private_request_template: '',
-    private_confirm_template: '',
-    private_rejection_template: '',
-    waitlist_notify_template: '',
-    waitlist_registration_template: '',
-    performance_cancellation_template: '',
-    performance_confirmation_template: '',
-    event_cancellation_template: '',
-    performance_extension_template: '',
-    store_cancellation_template: '',
-    reminder_enabled: true,
-    reminder_schedule: [
-      { days_before: 7, time: '10:00', enabled: true },
-      { days_before: 1, time: '10:00', enabled: true }
-    ],
-    reminder_time: '10:00',
-    reminder_send_time: 'morning',
-    private_rejection_reason: ''
-  })
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+export function EmailSettings({ storeId = '', scope = 'store', targetId }: EmailSettingsProps) {
+  const state = useOperatingSettings(scope, targetId ?? storeId)
+  const { loading, saving } = state
+  const keys = Object.keys(SETTING_DEFINITIONS).filter(key => SETTING_DEFINITIONS[key].group === 'email' && SETTING_DEFINITIONS[key].scopes.includes(scope))
+  const defaults: Record<string, SettingValue> = { reminder_enabled: false, reminder_schedule: [] }
+  const values = Object.fromEntries(keys.map(key => [key, state.resolve(key, defaults[key] ?? '').value]))
+  const formData = { id: '', store_id: storeId, from_email: '', from_name: '', reminder_time: '09:00', reminder_send_time: 'morning',
+    company_name: '', company_phone: '', company_email: '', company_address: '', ...values } as unknown as EmailSettings
+  for (const config of TEMPLATE_CONFIGS) {
+    if (!formData[config.key]) formData[config.key] = config.getDefault(formData.company_name, formData.company_phone, formData.company_email)
+  }
+  const setFormData: Dispatch<SetStateAction<EmailSettings>> = action => {
+    const next = typeof action === 'function' ? action(formData) : action
+    for (const key of keys) {
+      const value = next[key as keyof EmailSettings]
+      if (JSON.stringify(value) !== JSON.stringify(formData[key as keyof EmailSettings])) state.set(key, value as SettingValue)
+    }
+  }
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
-  }, [])
-
+  const handleSave = () => void state.save()
   const toggleAccordion = useCallback((key: string) => {
     setOpenAccordions(prev => {
       const next = new Set(prev)
@@ -220,184 +181,16 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     })
   }, [])
 
-  const fetchData = async () => {
-    setLoading(true)
-    try {
-      const storesData = await storeApi.getAll()
+  const updateTemplate = (key: keyof EmailTemplates, value: string) => state.set(key, value)
 
-      if (storesData && storesData.length > 0) {
-        setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
-      }
-    } catch (error) {
-      logger.error('データ取得エラー:', error)
-      showToast.error('データの取得に失敗しました')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchSettings = async (storeId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('email_settings')
-        .select(EMAIL_SETTINGS_SELECT_FIELDS)
-        .eq('store_id', storeId)
-        .maybeSingle()
-
-      if (error && error.code !== 'PGRST116') throw error
-
-      if (data) {
-        // 会社情報（デフォルト値の生成に使用）
-        const companyName = data.company_name || ''
-        const companyPhone = data.company_phone || ''
-        const companyEmail = data.company_email || ''
-        
-        setFormData({
-          ...data,
-          reminder_schedule: data.reminder_schedule || [],
-          // 空のテンプレートはデフォルト値を設定
-          reservation_confirmation_template: data.reservation_confirmation_template || getDefaultReservationTemplate(companyName, companyPhone, companyEmail),
-          cancellation_template: data.cancellation_template || getDefaultCancellationTemplate(companyName, companyPhone, companyEmail),
-          private_reminder_template: data.private_reminder_template || getDefaultPrivateReminderTemplate(companyName, companyPhone, companyEmail),
-          reminder_template: data.reminder_template || getDefaultReminderTemplate(companyName, companyPhone, companyEmail),
-          booking_change_template: data.booking_change_template || getDefaultBookingChangeTemplate(companyName, companyPhone, companyEmail),
-          private_request_template: data.private_request_template || getDefaultPrivateRequestTemplate(companyName, companyPhone, companyEmail),
-          private_confirm_template: data.private_confirm_template || getDefaultPrivateConfirmTemplate(companyName, companyPhone, companyEmail),
-          private_rejection_template: data.private_rejection_template || getDefaultPrivateRejectionTemplate(companyName, companyPhone, companyEmail),
-          waitlist_notify_template: data.waitlist_notify_template || getDefaultWaitlistNotifyTemplate(companyName, companyPhone, companyEmail),
-          waitlist_registration_template: data.waitlist_registration_template || getDefaultWaitlistRegistrationTemplate(companyName, companyPhone, companyEmail),
-          performance_cancellation_template: data.performance_cancellation_template || getDefaultPerformanceCancellationTemplate(companyName, companyPhone, companyEmail),
-          performance_confirmation_template: data.performance_confirmation_template || getDefaultPerformanceConfirmationTemplate(companyName, companyPhone, companyEmail),
-          event_cancellation_template: data.event_cancellation_template || getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail),
-          performance_extension_template: data.performance_extension_template || getDefaultPerformanceExtensionTemplate(companyName, companyPhone, companyEmail),
-          store_cancellation_template: data.store_cancellation_template || getDefaultStoreCancellationTemplate(companyName, companyPhone, companyEmail),
-          private_rejection_reason: data.private_rejection_reason || ''
-        } as EmailSettings)
-      } else {
-        // 新規作成時はデフォルト値を設定
-        const defaults = {
-          id: '',
-          store_id: storeId,
-          from_email: '',
-          from_name: '',
-          company_name: '',
-          company_phone: '',
-          company_email: '',
-          company_address: '',
-          reservation_confirmation_template: getDefaultReservationTemplate(),
-          cancellation_template: getDefaultCancellationTemplate(),
-          reminder_template: getDefaultReminderTemplate(),
-          private_reminder_template: getDefaultPrivateReminderTemplate(),
-          booking_change_template: getDefaultBookingChangeTemplate(),
-          private_request_template: getDefaultPrivateRequestTemplate(),
-          private_confirm_template: getDefaultPrivateConfirmTemplate(),
-          private_rejection_template: getDefaultPrivateRejectionTemplate(),
-          waitlist_notify_template: getDefaultWaitlistNotifyTemplate(),
-          waitlist_registration_template: getDefaultWaitlistRegistrationTemplate(),
-          performance_cancellation_template: getDefaultPerformanceCancellationTemplate(),
-          performance_confirmation_template: getDefaultPerformanceConfirmationTemplate(),
-          event_cancellation_template: getDefaultEventCancellationTemplate(),
-          performance_extension_template: getDefaultPerformanceExtensionTemplate(),
-          store_cancellation_template: getDefaultStoreCancellationTemplate(),
-          reminder_enabled: false,
-          reminder_schedule: [],
-          reminder_time: '10:00',
-          reminder_send_time: 'morning' as const,
-          private_rejection_reason: ''
-        }
-        setFormData(defaults)
-      }
-    } catch (error) {
-      logger.error('設定取得エラー:', error)
-    }
-  }
-
-  const handleStoreChange = async (storeId: string) => {
-    setSelectedStoreId(storeId)
-    await fetchSettings(storeId)
-  }
-
-  const handleSave = async () => {
-    const savePayload = {
-      // 返信先は会社メールアドレスを使用（未設定の場合はデフォルト）
-      from_email: formData.company_email || formData.from_email,
-      from_name: formData.company_name || formData.from_name || '予約システム',
-      company_name: formData.company_name,
-      company_phone: formData.company_phone,
-      company_email: formData.company_email,
-      company_address: formData.company_address,
-      reservation_confirmation_template: formData.reservation_confirmation_template,
-      cancellation_template: formData.cancellation_template,
-      reminder_template: formData.reminder_template,
-      private_reminder_template: formData.private_reminder_template,
-      booking_change_template: formData.booking_change_template,
-      private_request_template: formData.private_request_template,
-      private_confirm_template: formData.private_confirm_template,
-      private_rejection_template: formData.private_rejection_template,
-      waitlist_notify_template: formData.waitlist_notify_template,
-      waitlist_registration_template: formData.waitlist_registration_template,
-      performance_cancellation_template: formData.performance_cancellation_template,
-      performance_confirmation_template: formData.performance_confirmation_template,
-      event_cancellation_template: formData.event_cancellation_template,
-      performance_extension_template: formData.performance_extension_template,
-      store_cancellation_template: formData.store_cancellation_template,
-      reminder_enabled: formData.reminder_enabled,
-      reminder_schedule: formData.reminder_schedule,
-      reminder_time: formData.reminder_time,
-      reminder_send_time: formData.reminder_send_time,
-      private_rejection_reason: formData.private_rejection_reason
-    }
-
-    setSaving(true)
-    try {
-      if (formData.id) {
-        const { error } = await supabase
-          .from('email_settings')
-          .update(savePayload)
-          .eq('id', formData.id)
-
-        if (error) throw error
-      } else {
-        const store = stores.find(s => s.id === formData.store_id)
-        const { data, error } = await supabase
-          .from('email_settings')
-          .insert({
-            store_id: formData.store_id,
-            organization_id: store?.organization_id,
-            ...savePayload
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-        if (data) {
-          setFormData(prev => ({ ...prev, id: data.id }))
-        }
-      }
-
-      showToast.success('保存しました')
-    } catch (error) {
-      logger.error('保存エラー:', error)
-      showToast.error('保存に失敗しました')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const updateTemplate = useCallback((key: keyof EmailTemplates, value: string) => {
-    setFormData(prev => ({ ...prev, [key]: value }))
-  }, [])
-
-  const resetTemplate = useCallback((config: TemplateConfig) => {
+  const resetTemplate = (config: TemplateConfig) => {
     const defaultValue = config.getDefault(
       formData.company_name,
       formData.company_phone,
       formData.company_email
     )
     setFormData(prev => ({ ...prev, [config.key]: defaultValue }))
-  }, [formData.company_name, formData.company_phone, formData.company_email])
+  }
 
   // リマインドスケジュール管理関数
   const addReminderSchedule = () => {
@@ -426,6 +219,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     }))
   }
 
+  if (scope !== 'organization' && !(targetId ?? storeId)) return <p>設定する対象を選択してください。</p>
+  if (state.error && !state.data) return <div role="alert"><p>{state.error}</p><Button onClick={() => void state.reload()}>再読み込み</Button></div>
+
   if (loading) {
     return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
   }
@@ -435,18 +231,21 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   const otherTemplates = TEMPLATE_CONFIGS.filter(c => c.category === 'other')
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="メール設定"
         description="メールテンプレートと送信設定"
       >
-        <Button size="sm" onClick={handleSave} disabled={saving}>
+        <Button size="sm" onClick={handleSave} disabled={saving || !state.data?.can_edit || !state.dirty}>
           <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
+      <SettingSourceControls state={state} scope={scope} keys={keys} defaults={defaults} />
+      <fieldset disabled={saving || !state.data?.can_edit} className="space-y-6">
       {/* 送信者情報 */}
+      {['organization', 'store'].includes(scope) && <>
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle icon={Building2} label="送信者情報" description="メールの署名・返信先に使用される情報" />
         <div className="grid grid-cols-3 gap-4">
@@ -485,6 +284,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
         </p>
       </section>
 
+      </>}
       {/* リマインダー設定 */}
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle icon={Bell} label="リマインダー設定" description="公演前に送信される自動リマインドメールの設定" />
@@ -631,45 +431,6 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 </p>
               </div>
 
-              {/* 送信時間帯の選択 */}
-              <div>
-                <Label>送信時間帯の目安</Label>
-                <div className="flex gap-4 mt-2">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="reminder_send_time"
-                      value="morning"
-                      checked={formData.reminder_send_time === 'morning'}
-                      onChange={(e) => setFormData(prev => ({ ...prev, reminder_send_time: e.target.value as 'morning' | 'afternoon' | 'evening' }))}
-                      className="mr-2"
-                    />
-                    朝（9:00-12:00）
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="reminder_send_time"
-                      value="afternoon"
-                      checked={formData.reminder_send_time === 'afternoon'}
-                      onChange={(e) => setFormData(prev => ({ ...prev, reminder_send_time: e.target.value as 'morning' | 'afternoon' | 'evening' }))}
-                      className="mr-2"
-                    />
-                    午後（13:00-17:00）
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="reminder_send_time"
-                      value="evening"
-                      checked={formData.reminder_send_time === 'evening'}
-                      onChange={(e) => setFormData(prev => ({ ...prev, reminder_send_time: e.target.value as 'morning' | 'afternoon' | 'evening' }))}
-                      className="mr-2"
-                    />
-                    夜（18:00-21:00）
-                  </label>
-                </div>
-              </div>
             </>
           )}
         </div>
@@ -763,6 +524,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
         </div>
       </section>
 
+      </fieldset>
     </div>
   )
 }

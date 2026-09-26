@@ -127,10 +127,11 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
   try {
     const { data: staff } = await supabase
       .from('staff')
-      .select('organization_id')
+      .select('organization_id, status')
       .eq('user_id', user.id)
       .maybeSingle()
 
+    if (staff?.status === 'inactive' || staff?.status === 'resigned') return null
     if (staff?.organization_id) {
       currentOrgIdCache = { userId: user.id, orgId: staff.organization_id, timestamp: Date.now() }
       return staff.organization_id

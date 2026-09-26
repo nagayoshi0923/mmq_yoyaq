@@ -1,3 +1,4 @@
+import { type AssignmentSnapshot } from './staffAssignmentEdit'
 import { apiClient } from '@/lib/apiClient'
 import {
   buildGmScenarioModesFromAssignments,
@@ -135,12 +136,12 @@ export const assignmentApi = {
       can_sub_gm: boolean
       is_experienced: boolean
       status?: 'want_to_learn' | 'experienced' | 'can_gm'
-      notes?: string
+      notes?: string | null
     }>,
     _organizationId?: string,
-    options?: { confirmClear?: boolean }
+    options?: { confirmClear?: boolean; expectedAssignments?: AssignmentSnapshot[] }
   ) {
-    const isStringArray = assignments.length === 0 || typeof assignments[0] === 'string'
+    const isStringArray = typeof assignments[0] === 'string'
 
     if (isStringArray) {
       // string[] の場合: GM 更新のみ。体験済みのみレコードは保護する（クライアント側でマージ）
@@ -161,10 +162,12 @@ export const assignmentApi = {
         { scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean }
       >()
       for (const id of newGmScenarioIds) {
+        const existing = current.find((a: AssignmentRow) => a.scenario_master_id === id)
+        const wasGm = existing?.can_main_gm || existing?.can_sub_gm
         combinedMap.set(id, {
           scenarioId: id,
-          can_main_gm: true,
-          can_sub_gm: true,
+          can_main_gm: wasGm ? existing.can_main_gm : true,
+          can_sub_gm: wasGm ? existing.can_sub_gm : true,
           is_experienced: false,
         })
       }
@@ -182,9 +185,9 @@ export const assignmentApi = {
       await apiClient.post('/api/assignments?action=update_staff_assignments', {
         staff_id: staffId,
         assignments: Array.from(combinedMap.values()),
-        // string[] 経路 (旧スタッフ管理モーダル) は意図的に全件入れ替えるケースなので
-        // 空配列でも全削除を許可（GM個人ページからの保存は別経路で confirmClear を制御）
-        confirm_clear: true,
+        // 減少確認と編集開始時の担当一覧は呼出元で保持する。
+        confirm_clear: options?.confirmClear === true,
+        expected_assignments: options?.expectedAssignments,
       })
     } else {
       // 詳細オブジェクト配列の場合: 全レコードを置き換え
@@ -194,13 +197,14 @@ export const assignmentApi = {
           can_main_gm: boolean
           can_sub_gm: boolean
           is_experienced: boolean
-          notes?: string
+          notes?: string | null
         }>
       ).filter((a) => a.scenarioId && typeof a.scenarioId === 'string')
       await apiClient.post('/api/assignments?action=update_staff_assignments', {
         staff_id: staffId,
         assignments: records,
         confirm_clear: options?.confirmClear === true,
+        expected_assignments: options?.expectedAssignments,
       })
     }
   },
@@ -211,12 +215,13 @@ export const assignmentApi = {
     staffIds: string[],
     notes?: string,
     _organizationId?: string,
-    options?: { confirmClear?: boolean }
+    options?: { confirmClear?: boolean; expectedAssignments?: Array<AssignmentSnapshot & { staff_id: string }> }
   ) {
     await apiClient.post('/api/assignments?action=update_scenario_assignments', {
       scenario_master_id: scenarioId,
       staff_ids: staffIds,
       notes: notes ?? null,
+      expected_assignments: options?.expectedAssignments,
       confirm_clear: options?.confirmClear === true,
     })
   },
@@ -226,7 +231,7 @@ export const assignmentApi = {
     staffId: string,
     scenarioId: string,
     updates: {
-      notes?: string
+      notes?: string | null
       assigned_at?: string
     },
     _organizationId?: string

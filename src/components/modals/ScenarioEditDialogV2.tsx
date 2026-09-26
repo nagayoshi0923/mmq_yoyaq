@@ -1,4 +1,15 @@
+import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
+import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
+import { OperatingTextSettings } from '@/components/settings/OperatingTextSettings'
+import { PAYMENT_SETTING_FIELDS } from '@/components/settings/operatingSettingFields'
+import { OperatingScalarSettings } from '@/components/settings/OperatingScalarSettings'
+import { OPERATION_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
+import { ScenarioSettingSources } from '@/components/settings/ScenarioSettingSources'
+import { scenarioEffectiveFields, scenarioSourcePayload, type ScenarioSourceState, type SourceValues } from '@/lib/scenarioSettingSources'
+import { settingsPath } from '@/components/settings/settingsCatalog'
+import { apiClient } from '@/lib/apiClient'
 import { RecruitmentSettingsSection } from './ScenarioEditDialogV2/sections/RecruitmentSettingsSection'
+import { PrivateBookingDeadlineSection } from '@/components/settings/PrivateBookingDeadlineSection'
 import { BookingCutoffSection } from './ScenarioEditDialogV2/sections/BookingCutoffSection'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -27,7 +38,6 @@ import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsS
 import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
-import { EmailSectionV2 } from './ScenarioEditDialogV2/sections/EmailSectionV2'
 import { CharactersSectionV2 } from './ScenarioEditDialogV2/sections/CharactersSectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { logger } from '@/utils/logger'
@@ -37,6 +47,7 @@ import { showToast } from '@/utils/toast'
 // API関連
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { useScenarioGmAssignments } from '@/hooks/useScenarioGmAssignments'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -59,6 +70,7 @@ const TABS = [
   { id: 'game', label: 'ゲーム設定' },
   { id: 'characters', label: 'キャラクター' },
   { id: 'pricing', label: '料金' },
+  { id: 'booking-policy', label: '予約条件' },
   { id: 'gm', label: 'GM' },
   { id: 'costs', label: '売上' },
   { id: 'performances', label: '公演実績' },
@@ -78,7 +90,14 @@ const getSavedTab = (): TabId => {
   return 'basic'
 }
 
-export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onScenarioChange, sortedScenarioIds }: ScenarioEditDialogV2Props) {
+// Each scenario/open gets a fresh editor. Late requests from a deleted/previous
+// scenario cannot populate the next scenario's form or GM selection.
+export function ScenarioEditDialogV2(props: ScenarioEditDialogV2Props) {
+  if (!props.isOpen) return null
+  return <ScenarioEditDialogSession key={props.scenarioId || 'new'} {...props} />
+}
+
+function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onScenarioChange, sortedScenarioIds }: ScenarioEditDialogV2Props) {
   const queryClient = useQueryClient()
   
   // 初期値をlocalStorageから取得（コンポーネントマウント時に正しいタブを表示）
@@ -180,6 +199,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [isDeleteScenarioConfirmOpen, setIsDeleteScenarioConfirmOpen] = useState(false)
   
   // マスターデータ（相違検出用）
+  const [sourceState, setSourceState] = useState<ScenarioSourceState | null>(null)
+  const [sourceResets, setSourceResets] = useState<SourceValues>({})
   const [masterData, setMasterData] = useState<ScenarioMaster | null>(null)
   const [loadingMaster, setLoadingMaster] = useState(false)
   
@@ -195,6 +216,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     return (fromOrg as typeof fromList) ?? null
   }, [scenarioId, scenarios, orgScenariosData?.scenarios])
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
+  const currentOrgScenarioId = orgScenariosData?.scenarios.find(row => row.scenario_master_id === currentMasterId)?.org_scenario_id
 
   const headerScenarioOptions = useMemo(() => {
     const orgScenarios = orgScenariosData?.scenarios ?? []
@@ -455,11 +477,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
-  const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
-  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
-  // ローディング状態
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
-  
+  const {
+    currentAssignments, setCurrentAssignments, selectedStaffIds, setSelectedStaffIds,
+    isLoadingAssignments, assignmentsReady, assignmentsError, getChanges, acceptAssignments,
+  } = useScenarioGmAssignments(scenarioId)
+  const [isSaving, setIsSaving] = useState(false)
+  const saveInFlight = useRef(false)
+
   // 保存成功メッセージ
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   
@@ -477,18 +501,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   
   // マスタから引用
   const handleMasterSelect = (master: any) => {
+    const baseline = scenarioEffectiveFields({}, master)
+    setSourceState({ stored: {}, baseline })
+    setSourceResets({})
+    setMasterData(master)
     setFormData(prev => ({
       ...prev,
       scenario_master_id: master.id,  // マスタIDを記録
-      title: master.title || prev.title,
-      author: master.author || prev.author,
-      description: master.description || prev.description,
-      duration: master.official_duration || prev.duration,
-      player_count_min: master.player_count_min || prev.player_count_min,
-      player_count_max: master.player_count_max || prev.player_count_max,
-      difficulty: master.difficulty ? parseInt(master.difficulty) : prev.difficulty,
-      genre: master.genre || prev.genre,
-      key_visual_url: master.key_visual_url || prev.key_visual_url
+      ...baseline,
     }))
     showToast.success('マスタから情報を引用しました')
   }
@@ -552,65 +572,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
   }, [isOpen])
 
-  // シナリオIDが変わった時（またはモーダルが開いた時）に担当関係と累計公演回数を取得
+  // Statistics are independent of assignment readiness.
   useEffect(() => {
-    const loadAssignments = async () => {
-      if (!isOpen || !scenarioId) {
-        // 新規作成時またはIDなし
-        setCurrentAssignments([])
-        setSelectedStaffIds([])
-        setIsLoadingAssignments(false)
-        setScenarioStats({
-          performanceCount: 0,
-          cancelledCount: 0,
-          totalRevenue: 0,
-          totalParticipants: 0,
-          totalStaffParticipants: 0,
-          totalGmCost: 0,
-          totalLicenseCost: 0,
-          totalVenueCost: 0,
-          venueCostPerPerformance: 0,
-          firstPerformanceDate: null,
-          performanceDates: [],
-          futurePerformanceCount: 0,
-          futureReservationCount: 0
-        })
-        return
-      }
-
+    if (!isOpen || !scenarioId) return
+    let cancelled = false
+    void scenarioApi.getScenarioStats(scenarioId).then(stats => {
+      if (!cancelled) setScenarioStats(stats)
+    }).catch(async () => {
       try {
-        setIsLoadingAssignments(true)
-        const assignmentsData = await assignmentApi.getAllScenarioAssignments(scenarioId)
-        
-        // GM可能なスタッフのみ（体験済みのみは担当GMに出さない）
-        const gmAssignments = (assignmentsData || []).filter((a: { can_main_gm?: boolean; can_sub_gm?: boolean }) =>
-          a.can_main_gm === true || a.can_sub_gm === true
-        )
-        
-        setCurrentAssignments(gmAssignments)
-        setSelectedStaffIds(gmAssignments.map((a: { staff_id: string }) => a.staff_id))
-        
-        // 統計情報を取得
-        const statsId = scenarioId
-        try {
-          const stats = await scenarioApi.getScenarioStats(statsId)
-          setScenarioStats(stats)
-        } catch {
-          try {
-            const count = await scenarioApi.getPerformanceCount(statsId)
-            setScenarioStats(prev => ({ ...prev, performanceCount: count }))
-          } catch {
-            // 統計取得失敗は無視
-          }
-        }
-      } catch (error) {
-        logger.error('Error loading assignments:', error)
-      } finally {
-        setIsLoadingAssignments(false)
-      }
-    }
-
-    loadAssignments()
+        const count = await scenarioApi.getPerformanceCount(scenarioId)
+        if (!cancelled) setScenarioStats(prev => ({ ...prev, performanceCount: count }))
+      } catch { /* Statistics failure must not overwrite the editor. */ }
+    })
+    return () => { cancelled = true }
   }, [isOpen, scenarioId])
 
   // NOTE: フォールバック（organization_scenarios.available_gms / gm_assignments）は廃止
@@ -833,13 +807,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             try {
               const loadOrgId = await getCurrentOrganizationId()
               if (loadOrgId) {
-                const { data: osData } = await supabase
-                  .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout')
-                  .eq('scenario_master_id', masterId)
-                  .eq('organization_id', loadOrgId)
-                  .maybeSingle()
-                
+                const osData = await apiClient.get<Record<string, any> | null>(
+                  `/api/org-scenarios?${new URLSearchParams({ type: 'settings-source', masterId })}`
+                )
+                // A master may be unreadable (for example an older private master).
+                // Preserve the loaded effective values and raw override state in that case.
+                const sourceMaster = await scenarioMasterApi.getById(masterId).catch(() => null)
+                const sourceBaseline = scenarioEffectiveFields(osData || {}, sourceMaster
+                  ? { ...sourceMaster }
+                  : { ...scenario, official_duration: scenario.duration })
                 if (osData) {
                   // アンケート質問を取得
                   let surveyQuestions: any[] = []
@@ -856,17 +832,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   
                   setFormData(prev => ({
                     ...prev,
-                    // override 値があればそちらを優先（なければ scenarios テーブルから読んだ値をそのまま使用）
-                    title: osData.override_title || prev.title,
-                    author: osData.override_author || prev.author,
-                    genre: osData.override_genre || prev.genre,
-                    difficulty: osData.override_difficulty ? parseInt(osData.override_difficulty) : prev.difficulty,
-                    player_count_min: osData.override_player_count_min || prev.player_count_min,
-                    player_count_max: osData.override_player_count_max || prev.player_count_max,
-                    key_visual_url: osData.custom_key_visual_url || prev.key_visual_url,
-                    description: osData.custom_description || prev.description,
-                    caution: osData.custom_caution || prev.caution || '',
-                    sensitive_tags: osData.custom_sensitive_tags || prev.sensitive_tags || [],
+                    ...sourceBaseline,
                     // 対応店舗: organization_scenarios側のデータを優先
                     available_stores: (osData.available_stores && osData.available_stores.length > 0) 
                       ? osData.available_stores 
@@ -898,6 +864,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     is_license_buyout: (osData as { is_license_buyout?: boolean | null }).is_license_buyout === true,
                   }))
 
+                  setSourceState({ stored: osData, baseline: sourceBaseline })
                   // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
                   try {
                     const { data: tplData } = await supabase
@@ -920,18 +887,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     // カラムが存在しない場合は無視
                   }
                 } else {
-                  // organization_scenarios がなければ scenario_masters.caution / sensitive_tags を取得
-                  const { data: masterCaution } = await supabase
-                    .from('scenario_masters')
-                    .select('caution, sensitive_tags')
-                    .eq('id', masterId)
-                    .maybeSingle()
-                  if (masterCaution?.caution) {
-                    setFormData(prev => ({ ...prev, caution: masterCaution.caution || '' }))
-                  }
-                  if (masterCaution?.sensitive_tags) {
-                    setFormData(prev => ({ ...prev, sensitive_tags: masterCaution.sensitive_tags || [] }))
-                  }
+                  setFormData(prev => ({ ...prev, ...sourceBaseline }))
+                  setSourceState({ stored: {}, baseline: sourceBaseline })
+
                 }
               }
             } catch (e) {
@@ -983,10 +941,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }, [isOpen, scenarioId, scenariosFingerprint, scenariosQueryPending, scenarios.length])
 
   const handleSave = async (statusOverride?: 'available' | 'unavailable' | 'draft') => {
+    if (saveInFlight.current) return
     // 新規作成後のIDがあれば編集モードとして扱う
     const effectiveScenarioId = scenarioId || createdScenarioId
 
-    if (effectiveScenarioId && !isScenarioLoaded) {
+    if (effectiveScenarioId && currentMasterId && !sourceState) {
+      showToast.error('設定元を読み込めていません。画面を開き直してください。')
+      return
+    }
+    if (!assignmentsReady) {
+      showToast.error('保存できません', '担当GMを読み込めていません。画面を開き直してください。')
+      return
+    }
+    if (effectiveScenarioId && (!isScenarioLoaded || formLoadedKeyRef.current !== (scenarioId || 'new'))) {
       showToast.error('保存できません', 'シナリオが読み込めていません（権限/組織情報の可能性）')
       return
     }
@@ -1007,6 +974,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
     // ステータスを上書き（下書き保存の場合）
     const saveStatus = statusOverride || formData.status
+    const assignmentChanges = getChanges()
+    saveInFlight.current = true
+    setIsSaving(true)
 
     try {
       // データベースに存在しないUI専用フィールドを除外
@@ -1087,40 +1057,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
       if (targetScenarioId) {
         try {
-          const originalStaffIds = currentAssignments.map(a => a.staff_id)
-          const toDelete = originalStaffIds.filter(id => !selectedStaffIds.includes(id))
-          const toAdd = selectedStaffIds.filter(id => !originalStaffIds.includes(id))
-
-          for (const staffId of toDelete) {
+          const changes = assignmentChanges
+          for (const staffId of changes.removed) {
             await assignmentApi.removeAssignment(staffId, targetScenarioId)
           }
-
-          const upsertFlags = (staffId: string) => {
-            const assignment = currentAssignments.find(a => a.staff_id === staffId)
-            const can_main_gm = assignment?.can_main_gm ?? true
-            const can_sub_gm = assignment?.can_sub_gm ?? true
-            const hasGm = can_main_gm || can_sub_gm
-            return {
-              can_main_gm,
-              can_sub_gm,
-              is_experienced: !hasGm,
-            }
+          for (const { staff_id, ...flags } of changes.upserts) {
+            await assignmentApi.upsertAssignment(staff_id, targetScenarioId, flags)
           }
-
-          for (const staffId of toAdd) {
-            await assignmentApi.upsertAssignment(staffId, targetScenarioId, upsertFlags(staffId))
+          if (changes.removed.length || changes.upserts.length) {
+            const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
+            acceptAssignments(refreshed)
           }
-
-          for (const staffId of selectedStaffIds.filter(id => originalStaffIds.includes(id))) {
-            await assignmentApi.upsertAssignment(staffId, targetScenarioId, upsertFlags(staffId))
-          }
-
-          const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
-          const gmAssignments = (refreshed || []).filter((a: { can_main_gm?: boolean; can_sub_gm?: boolean }) =>
-            a.can_main_gm === true || a.can_sub_gm === true
-          )
-          setCurrentAssignments(gmAssignments)
-          setSelectedStaffIds(gmAssignments.map((a: { staff_id: string }) => a.staff_id))
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
@@ -1136,16 +1083,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         try {
           const organizationId = await getCurrentOrganizationId()
           if (!organizationId) {
-            logger.warn('organization_id取得失敗: organization_scenariosへの登録をスキップ')
+            throw new Error('組織を確認できないため作品設定を保存できません')
           } else {
             // 既存のレコードがあるか確認
-            const { data: existingOrgScenario } = await supabase
+            const { data: existingOrgScenario, error: existingOrgError } = await supabase
               .from('organization_scenarios')
               .select('id')
               .eq('scenario_master_id', masterIdForOrgSave)
               .eq('organization_id', organizationId)
               .maybeSingle()
             
+            if (existingOrgError) throw existingOrgError
             // organization_scenarios に保存するデータ（override/custom フィールド含む）
             const orgScenarioPayload = {
               organization_id: organizationId,
@@ -1168,6 +1116,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               custom_caution: formData.caution || null,
               // 空配列 = マスタ (scenario_masters.sensitive_tags) 準拠にフォールバック
               custom_sensitive_tags: formData.sensitive_tags && formData.sensitive_tags.length > 0 ? formData.sensitive_tags : null,
+              ...(sourceState ? scenarioSourcePayload({ ...formData, title: resolvedTitle }, sourceState, sourceResets) : {}),
               // 運用フィールド
               available_stores: scenarioData.available_stores || [],
               participation_costs: scenarioData.participation_costs || [],
@@ -1223,6 +1172,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               
               if (orgScenarioError) {
                 logger.error('organization_scenarios登録エラー:', orgScenarioError)
+                throw orgScenarioError
               } else {
                 logger.log('organization_scenariosに登録しました')
                 orgScenarioId = insertedData?.id || null
@@ -1237,10 +1187,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', existingOrgScenario.id)
+                .eq('organization_id', organizationId)
               
               if (updateError) {
                 logger.error('organization_scenarios更新エラー:', updateError)
                 logger.error('🚨 organization_scenarios UPDATE失敗:', updateError.message, updateError.code)
+                throw updateError
               } else {
                 logger.log('organization_scenariosを更新しました（override含む）')
                 logger.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
@@ -1348,6 +1300,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           }
         } catch (orgErr) {
           logger.error('organization_scenarios処理エラー:', orgErr)
+          throw orgErr
         }
         
         // NOTE: scenario_masters への書き込みは行わない。
@@ -1365,6 +1318,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         }
       }
 
+      if (sourceState) {
+        setSourceState({ stored: { ...sourceState.stored, ...scenarioSourcePayload({ ...formData, title: resolvedTitle }, sourceState, sourceResets) }, baseline: { ...formData, title: resolvedTitle } })
+        setSourceResets({})
+      }
+      // Direct organization overrides are saved after the general mutation.
+      // Refresh after both writes, including lists that are currently unmounted.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'], refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: ['scenarios'], refetchType: 'all' }),
+      ])
       // 保存完了通知
       if (onSaved) {
         try { 
@@ -1407,6 +1370,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       }
       
       showToast.error('保存に失敗しました', errorMessage || getSafeErrorMessage(err, '不明なエラー'))
+    } finally {
+      saveInFlight.current = false
+      setIsSaving(false)
     }
   }
 
@@ -1417,7 +1383,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }
 
   const runDelete = async () => {
-    if (!scenarioId) return
+    if (!scenarioId || saveInFlight.current) return
     try {
       await deleteMutation.mutateAsync(scenarioId)
       showToast.success('シナリオを削除しました')
@@ -1434,23 +1400,26 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       case 'basic':
         return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
-        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><RecruitmentSettingsSection masterId={currentMasterId} /><BookingCutoffSection masterId={currentMasterId} /></div>
+        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
       case 'characters':
         return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':
         return <PricingSectionV2 formData={formData} setFormData={setFormData} />
       case 'gm':
         return (
+          <>
+          {assignmentsError && <p role="alert" className="text-sm text-destructive">担当GMを読み込めませんでした。保存せずに画面を開き直してください。</p>}
           <GmSettingsSectionV2 
             formData={formData} 
             setFormData={setFormData} 
             staff={staff}
-            loadingStaff={loadingStaff}
+            loadingStaff={loadingStaff || isLoadingAssignments}
             selectedStaffIds={selectedStaffIds}
             onStaffSelectionChange={setSelectedStaffIds}
             currentAssignments={currentAssignments}
             onAssignmentUpdate={handleAssignmentUpdate}
           />
+          </>
         )
       case 'costs':
         return <CostsPropsSectionV2 formData={formData} setFormData={setFormData} scenarioStats={scenarioStats} />
@@ -1471,10 +1440,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             futureReservationCount={scenarioStats.futureReservationCount}
           />
         )
+      case 'booking-policy':
+        return <div className="space-y-6"><OperatingTextSettings scope="scenario" targetId={currentOrgScenarioId} fields={PAYMENT_SETTING_FIELDS} /><CancellationSettings scope="scenario" targetId={currentOrgScenarioId} /></div>
       case 'email':
-        return <EmailSectionV2 masterId={currentMasterId} formData={formData} setFormData={setFormData} />
+        return <EmailSettings scope="scenario" targetId={currentOrgScenarioId} />
       case 'survey':
-        return <SurveySectionV2 formData={formData} setFormData={setFormData} />
+        return <SurveySectionV2 formData={formData} setFormData={setFormData} organizationScenarioId={currentOrgScenarioId} />
       default:
         return null
     }
@@ -1549,7 +1520,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <h2 className="scenario-edit-dialog__page-title">
               {TABS.find((tab) => tab.id === activeTab)?.label}
             </h2>
-            {renderTabContent(activeTab)}
+            {currentMasterId && <ScenarioSettingSources state={sourceState} current={{ ...formData }} master={masterData ? { ...masterData } : null} resets={sourceResets} onReset={(field, value) => {
+              setSourceResets(prev => ({ ...prev, [field]: value }))
+              setFormData(prev => ({ ...prev, [field]: value }))
+            }} />}
+            {publicBookingOrgSlug && <nav aria-label="関連する共通設定" className="flex flex-wrap gap-3 mb-4">
+              <a className="underline" href={settingsPath(publicBookingOrgSlug, 'recruitment')} target="_blank" rel="noopener noreferrer">共通の募集基準 ↗</a>
+              <a className="underline" href={settingsPath(publicBookingOrgSlug, 'salary')} target="_blank" rel="noopener noreferrer">報酬の共通基準 ↗</a>
+              <a className="underline" href={settingsPath(publicBookingOrgSlug, 'email', formData.available_stores?.[0])} target="_blank" rel="noopener noreferrer">店舗のメール設定 ↗</a>
+            </nav>}
+            {scenarioId && currentMasterId && !sourceState ? <p role="status">作品の設定元を確認しています。読み込めない場合は画面を開き直してください。</p> : renderTabContent(activeTab)}
           </div>
         </div>
 
@@ -1595,7 +1575,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               type="button"
               className="scenario-edit-dialog__btn"
               onClick={() => handleSave('draft')}
-              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              disabled={isSaving || scenarioMutation.isPending || !assignmentsReady || (!!scenarioId && !!currentMasterId && !sourceState)}
             >
               下書き
             </button>
@@ -1615,7 +1595,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 onClick={handleSyncFromMaster}
                 disabled={loadingMaster || masterDiffs.count === 0}
               >
-                同期
+                共通情報の値をコピー
               </button>
             )}
             {!scenarioId && (
@@ -1668,7 +1648,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 setSubmitToMMQ(false)
                 setSaveOptionsOpen(true)
               }}
-              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              disabled={isSaving || scenarioMutation.isPending || !assignmentsReady || (!!scenarioId && !!currentMasterId && !sourceState)}
             >
               保存
             </button>
@@ -1805,4 +1785,3 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     </Dialog>
   )
 }
-

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
+import { sameAssignmentState, type AssignmentSnapshot } from '../src/lib/staffAssignmentEdit.js'
 import { computeAssignmentDiff } from '../src/lib/assignmentDiff.js'
 
 // ─── 担当変更履歴 ────────────────────────────────────────────────────────────
@@ -156,6 +157,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
         .eq('organization_id', user.orgId)
         .in('staff_id', ids)
         .order('staff_id')
+        .order('scenario_master_id')
         .range(from, from + PAGE_SIZE - 1)
       if (error) {
         console.error('[assignments] batch staff DB error:', error)
@@ -287,7 +289,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (action === 'update_staff_assignments') {
     // スタッフの担当シナリオを一括更新
     // assignments: Array<{ scenarioId, can_main_gm, can_sub_gm, is_experienced, notes? }>
-    const { staff_id, assignments, confirm_clear } = body as {
+    const { staff_id, assignments, confirm_clear, expected_assignments } = body as {
       staff_id?: string
       assignments?: Array<{
         scenarioId: string
@@ -297,9 +299,13 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
         notes?: string | null
       }>
       confirm_clear?: boolean
+      expected_assignments?: AssignmentSnapshot[]
     }
     if (!staff_id || !Array.isArray(assignments)) {
       return res.status(400).json({ error: 'staff_id / assignments が必要です' })
+    }
+    if (!Array.isArray(expected_assignments) || expected_assignments.some(a => !a || typeof a.scenario_master_id !== 'string' || typeof a.can_main_gm !== 'boolean' || typeof a.can_sub_gm !== 'boolean' || typeof a.is_experienced !== 'boolean')) {
+      return res.status(409).json({ error: 'ASSIGNMENT_BASELINE_REQUIRED', message: '担当の読込時点を確認できません。画面を再読込してから保存してください。' })
     }
     await assertStaffOwnedByOrg(staff_id, user.orgId)
 
@@ -319,6 +325,10 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       })
     }
 
+    if (assignments.some(a => !a || typeof a.scenarioId !== 'string' ||
+      typeof a.can_main_gm !== 'boolean' || typeof a.can_sub_gm !== 'boolean' || typeof a.is_experienced !== 'boolean')) {
+      return res.status(400).json({ error: '担当の保存形式が不正です。画面を開き直してください。' })
+    }
     const valid = assignments.filter((a) => a.scenarioId && typeof a.scenarioId === 'string')
 
     // ⚠️ 破壊的な delete の「前」にアクセス可否を一括検証する。
@@ -352,11 +362,23 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: existingRows, error: existingError } = await (db as any)
       .from('staff_scenario_assignments')
-      .select('scenario_master_id')
+      .select('*')
       .eq('staff_id', staff_id)
       .eq('organization_id', user.orgId)
     if (existingError) {
       return res.status(500).json({ error: '既存担当の取得に失敗しました', detail: existingError.message })
+    }
+    if (!sameAssignmentState(existingRows ?? [], expected_assignments)) {
+      return res.status(409).json({ error: 'ASSIGNMENTS_CHANGED', message: '担当情報が別の操作で変更されました。開き直してから保存してください。' })
+    }
+    // 以前から残る孤児行を無変更で送り返した場合は保持する。新規/変更した孤児は拒否。
+    const changedUnavailable = valid.some(incoming => {
+      if (accessibleScenarioIds.has(incoming.scenarioId)) return false
+      const old = (existingRows ?? []).find((r: AssignmentSnapshot) => r.scenario_master_id === incoming.scenarioId)
+      return !old || old.can_main_gm !== incoming.can_main_gm || old.can_sub_gm !== incoming.can_sub_gm || old.is_experienced !== incoming.is_experienced
+    })
+    if (changedUnavailable) {
+      return res.status(409).json({ error: 'SCENARIO_UNAVAILABLE', message: '編集中にシナリオが削除されました。開き直してから保存してください。' })
     }
     const existingIds = new Set<string>(
       (existingRows ?? []).map((r: { scenario_master_id: string }) => r.scenario_master_id)
@@ -381,44 +403,20 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       })
     }
 
-    // 既存を全削除（自組織分のみ）— 検証を通過した後にのみ実行する
+    // 既存値との照合・差分更新を1トランザクションで実行する。
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteError } = await (db as any)
-      .from('staff_scenario_assignments')
-      .delete()
-      .eq('staff_id', staff_id)
-      .eq('organization_id', user.orgId)
-    if (deleteError) {
-      console.error('[assignments] delete error:', deleteError)
-      return res.status(500).json({ error: '既存担当の削除に失敗しました', detail: deleteError.message })
-    }
-
-    if (insertable.length === 0) {
-      await recordAssignmentHistory(
-        user.orgId,
-        user.userId,
-        removedIds.map((id) => ({ staffId: staff_id, scenarioMasterId: id, action: 'removed' as const }))
-      )
-      return res.status(200).json({ ok: true, inserted: 0, skipped })
-    }
-
-    const records = insertable.map((a) => ({
-      staff_id,
-      scenario_master_id: a.scenarioId,
-      can_main_gm: a.can_main_gm,
-      can_sub_gm: a.can_sub_gm,
-      is_experienced: a.is_experienced,
-      notes: a.notes ?? null,
-      assigned_at: new Date().toISOString(),
-      organization_id: user.orgId,
-    }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (db as any)
-      .from('staff_scenario_assignments')
-      .insert(records)
-    if (insertError) {
-      console.error('[assignments] insert error:', insertError)
-      return res.status(500).json({ error: '担当の保存に失敗しました', detail: insertError.message })
+    const { data: saved, error: saveError } = await (db as any).rpc('replace_staff_assignments_atomic', {
+      p_organization_id: user.orgId,
+      p_staff_id: staff_id,
+      p_assignments: insertable,
+      p_expected: existingRows ?? [],
+    })
+    if (saveError || saved?.success !== true) {
+      const conflict = saveError?.code === '40001' || saveError?.code === '23503'
+      return res.status(conflict ? 409 : 500).json({
+        error: conflict ? 'ASSIGNMENTS_CHANGED' : 'ASSIGNMENT_SAVE_FAILED',
+        message: conflict ? '担当またはシナリオが変更されました。開き直してから保存してください。' : '担当の保存に失敗しました。元の担当は保持されています。',
+      })
     }
     // 履歴: 実際に増減した分だけ（孤児で挿入されなかった added は除外）
     const insertedIds = new Set(insertable.map((a) => a.scenarioId))
@@ -428,19 +426,23 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
         .map((id) => ({ staffId: staff_id, scenarioMasterId: id, action: 'added' as const })),
       ...removedIds.map((id) => ({ staffId: staff_id, scenarioMasterId: id, action: 'removed' as const })),
     ])
-    return res.status(200).json({ ok: true, inserted: records.length, skipped })
+    return res.status(200).json({ ok: true, inserted: insertable.length, skipped })
   }
 
   if (action === 'update_scenario_assignments') {
     // シナリオの担当スタッフを差分更新（GM レコードのみ）
-    const { scenario_master_id, staff_ids, notes, confirm_clear } = body as {
+    const { scenario_master_id, staff_ids, notes, confirm_clear, expected_assignments } = body as {
       scenario_master_id?: string
       staff_ids?: string[]
+      expected_assignments?: Array<AssignmentSnapshot & { staff_id: string }>
       notes?: string | null
       confirm_clear?: boolean
     }
     if (!scenario_master_id || !Array.isArray(staff_ids)) {
       return res.status(400).json({ error: 'scenario_master_id / staff_ids が必要です' })
+    }
+    if (!Array.isArray(expected_assignments) || expected_assignments.some(a => !a || typeof a.staff_id !== 'string' || a.scenario_master_id !== scenario_master_id || typeof a.can_main_gm !== 'boolean' || typeof a.can_sub_gm !== 'boolean' || typeof a.is_experienced !== 'boolean')) {
+      return res.status(409).json({ error: 'ASSIGNMENT_BASELINE_REQUIRED', message: '担当の読込時点を確認できません。画面を再読込してから保存してください。' })
     }
     await assertScenarioMasterAccessible(scenario_master_id, user.orgId)
     for (const id of staff_ids) {
@@ -468,13 +470,17 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: current, error: fetchError } = await (db as any)
       .from('staff_scenario_assignments')
-      .select('staff_id, can_main_gm, can_sub_gm, is_experienced')
+      .select('*')
       .eq('scenario_master_id', scenario_master_id)
       .eq('organization_id', user.orgId)
     if (fetchError) {
       return res.status(500).json({ error: '現状取得に失敗', detail: fetchError.message })
     }
 
+    const staffState = (rows: Array<AssignmentSnapshot & { staff_id: string }>) => rows.map(a => ({ ...a, scenario_master_id: a.staff_id }))
+    if (!sameAssignmentState(staffState(current ?? []), staffState(expected_assignments))) {
+      return res.status(409).json({ error: 'ASSIGNMENTS_CHANGED', message: '担当情報が別の操作で変更されました。開き直してから保存してください。' })
+    }
     const gm = (current ?? []).filter(
       (a: { can_main_gm: boolean; can_sub_gm: boolean }) => a.can_main_gm === true || a.can_sub_gm === true
     )
@@ -505,62 +511,18 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       })
     }
 
-    if (toDowngrade.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: downgradeError } = await (db as any)
-        .from('staff_scenario_assignments')
-        .update({ can_main_gm: false, can_sub_gm: false, is_experienced: true })
-        .eq('scenario_master_id', scenario_master_id)
-        .eq('organization_id', user.orgId)
-        .in('staff_id', toDowngrade)
-      if (downgradeError) {
-        return res.status(500).json({ error: 'GM降格に失敗', detail: downgradeError.message })
-      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: saved, error: saveError } = await (db as any).rpc('replace_scenario_assignments_atomic', {
+      p_organization_id: user.orgId,
+      p_scenario_master_id: scenario_master_id,
+      p_staff_ids: Array.from(new Set(staff_ids)),
+      p_notes: notes ?? null,
+      p_expected: current ?? [],
+    })
+    if (saveError || saved?.success !== true) {
+      return res.status(saveError?.code === '40001' || saveError?.code === '23503' ? 409 : 500)
+        .json({ error: 'ASSIGNMENT_SAVE_FAILED', message: '担当の保存に失敗しました。開き直してから保存してください。' })
     }
-
-    if (toAdd.length > 0) {
-      const existingExpStaffIds = (current ?? [])
-        .filter(
-          (a: { can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; staff_id: string }) =>
-            !a.can_main_gm && !a.can_sub_gm && a.is_experienced && toAdd.includes(a.staff_id)
-        )
-        .map((a: { staff_id: string }) => a.staff_id)
-
-      if (existingExpStaffIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: upgradeError } = await (db as any)
-          .from('staff_scenario_assignments')
-          .update({ can_main_gm: true, can_sub_gm: true, is_experienced: false })
-          .eq('scenario_master_id', scenario_master_id)
-          .eq('organization_id', user.orgId)
-          .in('staff_id', existingExpStaffIds)
-        if (upgradeError) {
-          return res.status(500).json({ error: 'GM昇格に失敗', detail: upgradeError.message })
-        }
-      }
-
-      const trulyNew = toAdd.filter((id) => !existingExpStaffIds.includes(id))
-      if (trulyNew.length > 0) {
-        const newAssignments = trulyNew.map((staffId) => ({
-          staff_id: staffId,
-          scenario_master_id,
-          can_main_gm: true,
-          can_sub_gm: true,
-          is_experienced: false,
-          notes: notes ?? null,
-          assigned_at: new Date().toISOString(),
-          organization_id: user.orgId,
-        }))
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: insertError } = await (db as any)
-          .from('staff_scenario_assignments')
-          .insert(newAssignments)
-        if (insertError) {
-          return res.status(500).json({ error: 'GM追加に失敗', detail: insertError.message })
-        }
-      }
-    }
-
     // 履歴: GM担当の増減分だけ（added=GMに昇格/新規、removed=GMから降格）
     await recordAssignmentHistory(user.orgId, user.userId, [
       ...toAdd.map((id) => ({ staffId: id, scenarioMasterId: scenario_master_id, action: 'added' as const })),

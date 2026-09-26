@@ -58,6 +58,8 @@ export interface PublicCancellationPolicy {
 export interface FetchPublicCancellationPolicyInput {
   organizationSlug: string
   storeId?: string | null
+  eventId?: string | null
+  scenarioMasterId?: string | null
 }
 
 function isFeeBasis(value: unknown): value is CancellationFeeBasis {
@@ -159,14 +161,20 @@ export function createPreviewCancellationPolicy(
 export async function fetchPublicCancellationPolicies({
   organizationSlug,
   storeId,
+  eventId,
+  scenarioMasterId,
 }: FetchPublicCancellationPolicyInput): Promise<PublicCancellationPolicy[]> {
   const slug = organizationSlug.trim()
   if (!slug) return []
 
-  const { data, error } = await supabase.rpc('get_public_cancellation_policy', {
-    p_organization_slug: slug,
-    p_store_id: storeId || null,
-  })
+  const { data, error } = eventId || scenarioMasterId
+    ? await supabase.rpc('get_public_cancellation_policy_for_context', {
+      p_organization_slug: slug, p_store_id: storeId || null,
+      p_scenario_master_id: scenarioMasterId || null, p_event_id: eventId || null,
+    })
+    : await supabase.rpc('get_public_cancellation_policy', {
+      p_organization_slug: slug, p_store_id: storeId || null,
+    })
 
   if (error) {
     if (import.meta.env.DEV && isMissingRpcError(error)) {

@@ -211,7 +211,7 @@ export function OrganizationInfoSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader title="組織情報" description="組織の基本情報と予約ページの設定">
         <div className="flex items-center gap-2">
           {isDirty && <span className="text-xs text-amber-600 font-medium">未保存</span>}
