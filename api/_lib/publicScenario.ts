@@ -173,7 +173,7 @@ export function secondsUntilNextJstMidnight(now = new Date()): number {
   const jstMs = now.getTime() + 9 * 60 * 60 * 1000
   const dayMs = 24 * 60 * 60 * 1000
   const msIntoJstDay = ((jstMs % dayMs) + dayMs) % dayMs
-  return Math.max(1, Math.ceil((dayMs - msIntoJstDay) / 1000))
+  return Math.max(0, Math.floor((dayMs - msIntoJstDay) / 1000))
 }
 
 // 日付依存の公開料金が JST 日付境界をまたいで前日単価のまま残らないよう、
