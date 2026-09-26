@@ -4,6 +4,7 @@ import { customerApi, type CustomerWithStats } from '@/lib/api/customerApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
+import { useOrganization } from '@/hooks/useOrganization'
 
 export interface CustomerCouponStats {
   total_coupons: number
@@ -19,8 +20,8 @@ interface CustomerDataResult {
 
 export const customerKeys = {
   all: ['customers'] as const,
-  list: (search: string, page: number, pageSize: number) =>
-    ['customers', 'list', search, page, pageSize] as const,
+  list: (organizationId: string | null, search: string, page: number, pageSize: number) =>
+    ['customers', 'list', organizationId, search, page, pageSize] as const,
 }
 
 const PAGE_SIZE = 50
@@ -64,6 +65,7 @@ async function fetchCustomersWithStats(search: string, page: number, pageSize: n
  */
 export function useCustomerData(searchTerm = '') {
   const queryClient = useQueryClient()
+  const { organizationId, isLoading: organizationLoading, error: organizationError, refetch: refetchOrganization } = useOrganization()
   const [page, setPage] = useState(1)
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm)
 
@@ -76,26 +78,34 @@ export function useCustomerData(searchTerm = '') {
   // 検索語が変わったら 1 ページ目に戻す
   useEffect(() => {
     setPage(1)
-  }, [debouncedSearchTerm])
+  }, [debouncedSearchTerm, organizationId])
 
-  const queryKey = customerKeys.list(debouncedSearchTerm, page, PAGE_SIZE)
+  const queryKey = customerKeys.list(organizationId, debouncedSearchTerm, page, PAGE_SIZE)
 
-  const { data, isLoading } = useQuery<CustomerDataResult>({
+  const { data, isLoading, error } = useQuery<CustomerDataResult>({
     queryKey,
+    enabled: !!organizationId,
     queryFn: () => fetchCustomersWithStats(debouncedSearchTerm, page, PAGE_SIZE),
     staleTime: 3 * 60 * 1000, // 3分間キャッシュ
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData, previousQuery) =>
+      organizationId && previousQuery?.queryKey[2] === organizationId ? previousData : undefined,
   })
 
-  const refreshCustomers = () =>
-    invalidateEverywhere(queryClient, customerKeys.all)
+  const refreshCustomers = async () => {
+    if (!organizationId || organizationError) await refetchOrganization()
+    await invalidateEverywhere(queryClient, customerKeys.all)
+  }
+
+  const visibleData = organizationId && !error && !organizationError ? data : undefined
 
   return {
-    customers: data?.customers ?? [],
-    loading: isLoading,
-    couponStats: data?.couponStats ?? {},
+    organizationId,
+    customers: visibleData?.customers ?? [],
+    loading: organizationLoading || isLoading,
+    error: organizationError || error || (!organizationLoading && !organizationId ? new Error('組織情報を取得できません') : null),
+    couponStats: visibleData?.couponStats ?? {},
     refreshCustomers,
-    totalCount: data?.totalCount ?? 0,
+    totalCount: visibleData?.totalCount ?? 0,
     page,
     setPage,
     pageSize: PAGE_SIZE,
