@@ -16,6 +16,14 @@ const STORE_SELECT_FIELDS =
   'id, organization_id, name, short_name, address, access_info, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, franchise_fee_type, franchise_fee_percent, capacity, rooms, notes, color, fixed_costs, venue_cost_per_performance, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, kit_group_id, created_at, updated_at' as const
 
 export const storeApi = {
+  async getBusinessHours(storeId: string) {
+    return apiClient.get<import('../storeBusinessHours').BusinessHoursData | null>(`/api/stores?action=businessHours&id=${encodeURIComponent(storeId)}`)
+  },
+
+  async saveBusinessHours(storeId: string, fields: ReturnType<typeof import('../storeBusinessHours').businessHoursSaveFields>) {
+    return apiClient.patch(`/api/stores?action=businessHours&id=${encodeURIComponent(storeId)}`, fields)
+  },
+
   // 全店舗を取得
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
   // @param organizationId - 後方互換のため引数は残すがバックエンド経由ではサーバー側で JWT から取得するため未使用

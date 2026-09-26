@@ -1,3 +1,4 @@
+import { storeBusinessHours } from './_lib/storeBusinessHours.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
@@ -60,6 +61,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const user = await requireAuth(req)
     requireStaff(user)
+
+    if (req.query.action === 'businessHours') {
+      if (req.method === 'GET') return res.status(200).json(await storeBusinessHours(db, user.orgId, req.query.id))
+      if (req.method === 'PATCH') {
+        requireAdmin(user)
+        return res.status(200).json(await storeBusinessHours(db, user.orgId, req.query.id, req.body ?? null))
+      }
+      return res.status(405).json({ error: 'Method not allowed' })
+    }
 
     if (req.method === 'GET') return await handleGet(req, res, user)
     if (req.method === 'POST') return await handlePost(req, res, user)
