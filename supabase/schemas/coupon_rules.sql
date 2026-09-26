@@ -121,17 +121,18 @@ BEGIN
  END IF;
  scenario_key:=COALESCE(e.scenario_master_id,e.scenario_id,e.organization_scenario_id);
  FOR prior IN SELECT u.*,c.customer_id AS previous_customer,c.rules_snapshot AS previous_rules,
-  COALESCE(se.scenario_master_id,se.scenario_id,se.organization_scenario_id) AS previous_scenario
+  COALESCE(se.scenario_master_id,se.scenario_id,se.organization_scenario_id) AS previous_scenario, se.scenario AS previous_title
   FROM public.coupon_usages u JOIN public.customer_coupons c ON c.id=u.customer_coupon_id
   JOIN public.reservations r ON r.id=u.reservation_id JOIN public.schedule_events se ON se.id=r.schedule_event_id
-  WHERE c.organization_id=cc.organization_id AND (c.customer_id=p_customer OR u.reservation_id=p_reservation)
+  WHERE c.customer_id=p_customer OR u.reservation_id=p_reservation
  LOOP
   IF prior.reservation_id=p_reservation THEN
    IF prior.customer_coupon_id=p_coupon THEN RAISE EXCEPTION 'この予約には使用済みです' USING ERRCODE='P0028'; END IF;
    IF NOT COALESCE((rules->>'combinable')::boolean,true) OR NOT COALESCE((prior.previous_rules->>'combinable')::boolean,true) THEN
     RAISE EXCEPTION '他のクーポンと併用できません' USING ERRCODE='P0028';
    END IF;
-  ELSIF prior.previous_customer=p_customer AND scenario_key IS NOT NULL AND scenario_key=prior.previous_scenario AND COALESCE((rules->>'same_scenario_once')::boolean,true) THEN
+  ELSIF prior.previous_customer=p_customer AND ((scenario_key IS NOT NULL AND scenario_key=prior.previous_scenario) OR
+   ((scenario_key IS NULL OR prior.previous_scenario IS NULL) AND NULLIF(btrim(e.scenario),'') IS NOT NULL AND btrim(e.scenario)=btrim(prior.previous_title))) AND COALESCE((rules->>'same_scenario_once')::boolean,true) THEN
    RAISE EXCEPTION 'この作品には既にクーポンをご利用済みです' USING ERRCODE='P0028';
   END IF;
  END LOOP;
