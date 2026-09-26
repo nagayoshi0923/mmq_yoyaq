@@ -249,7 +249,7 @@ export function PrivateGroupInvite() {
 
   // 4桁PINを生成
   const generatePin = () => {
-    return String(Math.floor(1000 + Math.random() * 9000))
+    return String(1000 + crypto.getRandomValues(new Uint32Array(1))[0] % 9000)
   }
 
   // PIN認証を実行
@@ -263,15 +263,14 @@ export function PrivateGroupInvite() {
 
     try {
       // RPCでPIN認証
-      logger.info('PIN認証リクエスト:', { groupId: group.id, email: pinEmail, pinLength: pinCode.length })
+      // PINやメールアドレスをログへ残さない。
       
-      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', {
+      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin_v2', {
         p_group_id: group.id,
         p_email: pinEmail,
         p_pin: pinCode,
       })
 
-      logger.info('PIN認証結果:', { authResult, authError })
 
       if (authError) {
         logger.error('PIN認証エラー:', authError)
@@ -279,7 +278,12 @@ export function PrivateGroupInvite() {
         return
       }
 
-      if (authResult && authResult.length > 0) {
+      if (authResult?.[0]?.locked) {
+        setPinError('PINの入力に繰り返し失敗したため、15分間お待ちいただいてから再度お試しください。')
+        return
+      }
+
+      if (authResult?.[0]?.member_id) {
         const authMember = authResult[0]
         setExistingMemberId(authMember.member_id)
         setGuestName(authMember.guest_name || '')
