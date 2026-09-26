@@ -1,7 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ calls: [] as unknown[][], error: null as null | { message: string } }))
 vi.mock('./_lib/auth.js', () => ({
-  requireAuth: async () => ({ orgId: 'verified-org' }), requireStaff: () => {}, requireAdmin: () => {}, ApiError: class extends Error {},
+  requireAuth: async () => ({ orgId: 'verified-org', userId: 'verified-user', jwt: 'verified-jwt', role: 'staff' }),
+  createUserScopedClient: () => { const q: any = {}; for (const m of ['from', 'update', 'eq', 'or', 'select']) q[m] = () => q; q.maybeSingle = async () => ({ data: null, error: null }); return q }, requireStaff: () => {}, requireAdmin: () => {}, ApiError: class extends Error {},
 }))
 vi.mock('./_lib/db.js', () => ({ getMissingEnvError: () => null, db: {
   rpc: (name: string, args: unknown) => {

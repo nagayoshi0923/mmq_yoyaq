@@ -1,7 +1,7 @@
 /**
  * 顧客管理関連API
  *
- * read 系メソッドはバックエンド API (/api/customers) 経由。
+ * 顧客管理の取得・保存はバックエンド API (/api/customers) 経由。
  * org_id はサーバー側で JWT から取得するため、クライアントからは渡さない。
  */
 import { apiClient } from '@/lib/apiClient'
@@ -23,7 +23,19 @@ export interface ListCustomersWithStatsResult {
   totalCount: number
 }
 
+export type CustomerFormInput = Pick<Customer, 'name'> & {
+  email: string | null
+  phone: string | null
+  line_id: string | null
+}
+
 export const customerApi = {
+  async create(customer: CustomerFormInput): Promise<Customer> {
+    return apiClient.post<Customer>('/api/customers', { customer })
+  },
+  async update(id: string, updates: CustomerFormInput): Promise<Customer> {
+    return apiClient.patch<Customer>(`/api/customers?id=${encodeURIComponent(id)}`, { updates })
+  },
   // 顧客一覧をサーバ集計＋ページングで取得（顧客管理ページ用）
   async listWithStats(params: { search?: string; page?: number; pageSize?: number }): Promise<ListCustomersWithStatsResult> {
     const query = new URLSearchParams({ action: 'listWithStats' })
