@@ -48,6 +48,9 @@ jobs:
       - name: Structure and kit transfer database regressions
         run: node scripts/test-structure-cleanup-db.mjs && node scripts/test-kit-transfer-identity-db.mjs
 
+      - name: Cancelled recruitment database regressions
+        run: node scripts/test-recruitment-cancelled-event-db.mjs
+
       - name: Discord entry release regression
         run: node --test scripts/check-discord-join-release.test.mjs scripts/discord-join-handler.test.mjs
 
