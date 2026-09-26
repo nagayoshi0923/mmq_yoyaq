@@ -35,7 +35,7 @@ CREATE TABLE public.schedule_events (
   organization_id UUID NOT NULL REFERENCES public.organizations(id),
   venue_rental_fee INTEGER DEFAULT 12000,
   total_revenue INTEGER DEFAULT 0,
-  gm_cost INTEGER DEFAULT 0,
+  gm_cost INTEGER,
   license_cost INTEGER DEFAULT 0,
   participant_count INTEGER DEFAULT 0,
   reservation_name TEXT,

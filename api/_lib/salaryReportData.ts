@@ -3,7 +3,7 @@ import { db } from './db.js'
 import { ApiError } from './auth.js'
 
 const HISTORY_FIELDS = 'effective_from, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates'
-const EVENT_FIELDS = 'id, date, store_id, scenario, scenario_master_id, gms, gm_roles, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,role,ordinal,resolution_status,role_confirmed), category, is_cancelled, stores:store_id(name), scenario_masters:scenario_master_id(title, official_duration)'
+const EVENT_FIELDS = 'id, date, store_id, scenario, scenario_master_id, gms, gm_roles, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,role,ordinal,resolution_status,role_confirmed), category, is_cancelled, stores:store_id(name,transport_allowance), scenario_masters:scenario_master_id(title, official_duration)'
 
 /** 認証済みsales APIの内部専用。orgIdはリクエスト値でなくrequireAuthの結果を使う。 */
 export async function handleSalaryReportData(req: VercelRequest, res: VercelResponse, orgId: string) {
@@ -40,7 +40,12 @@ export async function handleSalaryReportData(req: VercelRequest, res: VercelResp
     // service roleではauth.uid()がないためstaff_viewでなく元表を読む。認可はsales handlerで実施済み。
     const events = await allRows(() => db!.from('schedule_events').select(EVENT_FIELDS)
       .eq('organization_id', orgId).gte('date', start).lte('date', end).order('id'))
-    return res.status(200).json({ organizationId: orgId, staff, events })
+    const scenarios = await allRows(() => db!.from('organization_scenarios_with_master')
+      .select('scenario_master_id,duration,gm_costs').eq('organization_id', orgId).order('scenario_master_id'))
+    const byMaster = new Map(scenarios.map(scenario => [scenario.scenario_master_id, scenario]))
+    return res.status(200).json({ organizationId: orgId, staff, events: events.map(event => ({
+      ...event, scenarios: byMaster.get(event.scenario_master_id) ?? null,
+    })) })
   }
   if (type === 'sales-cost-inputs') {
     const transactions = await allRows(() => db!.from('miscellaneous_transactions')
