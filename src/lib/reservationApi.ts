@@ -800,6 +800,7 @@ export const reservationApi = {
             })
           } catch (insertError) {
             logger.error('スタッフ予約作成エラー:', insertError)
+            throw insertError
           }
         }))
       }
@@ -838,6 +839,7 @@ export const reservationApi = {
       }
     } catch (error) {
       logger.error('スタッフ予約同期エラー:', error)
+      throw error
     }
   }
 }

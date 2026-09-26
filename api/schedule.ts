@@ -1,3 +1,4 @@
+import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
 import { preparationSettings } from './_lib/preparationSettings.js'
 import { operatingSettings, groupSurveySettings, effectiveEmailSettings } from './_lib/operatingSettings.js'
 import { bookingCutoffSettings } from './_lib/bookingCutoffSettings.js'
@@ -1082,7 +1083,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   // 対象イベントが自組織か確認
   const { data: existing, error: existingErr } = await database
     .from('schedule_events')
-    .select('id, organization_id, store_id')
+    .select('id, organization_id, store_id, max_participants, capacity, current_participants')
     .eq('id', id)
     .maybeSingle()
   if (existingErr) {
@@ -1093,6 +1094,9 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (existing.organization_id !== user.orgId) {
     return res.status(403).json({ error: '他組織の公演は編集できません' })
   }
+
+  const capacityMessage = capacityError(existing, updateRow.capacity)
+  if (capacityMessage) return res.status(409).json({ error: capacityMessage, code: 'CAPACITY_EXCEEDED' })
 
   // store_id を変える場合、移動先店舗も自組織か確認
   if (typeof updateRow.store_id === 'string' && updateRow.store_id !== existing.store_id) {
@@ -1165,6 +1169,9 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   if (!updateSucceeded) {
+    if (isCapacityConstraintError(lastError)) {
+      return res.status(409).json({ error: CAPACITY_CHANGED_MESSAGE, code: 'CAPACITY_EXCEEDED' })
+    }
     console.error('[schedule:update] update error:', lastError)
     return res.status(500).json({ error: '公演の更新に失敗しました', detail: lastError?.message })
   }
