@@ -12,6 +12,7 @@ interface SendPinRequest {
   scenarioName: string
   inviteUrl: string
   guestName?: string
+  guestToken: string
 }
 
 serve(async (req) => {
@@ -23,11 +24,13 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  if (req.method !== 'POST') return errorResponse('Method not allowed', 405, corsHeaders)
+
   try {
-    const { groupId, memberId, email, pin, scenarioName, inviteUrl, guestName }: SendPinRequest = await req.json()
+    const { groupId, memberId, email, pin, guestToken }: SendPinRequest = await req.json()
 
     // 必須パラメータのバリデーション
-    if (!groupId || !memberId || !email || !pin) {
+    if (!groupId || !memberId || !email || !pin || !guestToken) {
       return errorResponse('必須パラメータが不足しています', 400, corsHeaders)
     }
 
@@ -49,29 +52,24 @@ serve(async (req) => {
       getServiceRoleKey()
     )
 
-    // メールアドレスとPINの照合は PII テーブル(private_group_members_pii)を正とする。
-    // PIN・メール列は #281 で private_group_members から削除済みのため、
-    // SECURITY DEFINER RPC 経由で pii を参照して検証する。
-    const { data: authRows, error: authError } = await serviceClient.rpc(
-      'authenticate_guest_by_pin',
-      {
-        p_group_id: groupId,
-        p_email: email,
-        p_pin: pin,
-      }
-    )
-
+    // Validate the same short-lived member credential used by guest actions.
+    const { error: sessionError } = await serviceClient.rpc('private_group_member_action', {
+      p_group_id: groupId, p_member_id: memberId, p_action: 'validate', p_payload: {}, p_guest_token: guestToken,
+    })
+    if (sessionError) return errorResponse('本人確認が必要です', 403, corsHeaders)
+    const { data: authRows, error: authError } = await serviceClient.rpc('authenticate_guest_by_pin', {
+      p_group_id: groupId, p_email: email, p_pin: pin,
+    })
     const authenticated = Array.isArray(authRows) ? authRows[0] : authRows
-
-    if (authError) {
-      console.error('認証RPCエラー:', sanitizeErrorMessage(authError.message))
-      throw new Error('認証処理に失敗しました')
-    }
-
-    if (!authenticated || authenticated.member_id !== memberId) {
-      console.warn('⚠️ メールアドレスまたはPINが一致しません')
+    if (authError || !authenticated || authenticated.member_id !== memberId) {
       return errorResponse('認証情報が一致しません', 403, corsHeaders)
     }
+    const { data: group, error: groupError } = await serviceClient.from('private_groups')
+      .select('invite_code, scenario_masters:scenario_master_id(title)').eq('id', groupId).single()
+    if (groupError || !group) return errorResponse('グループ情報を確認できません', 400, corsHeaders)
+    const scenarioName = group.scenario_masters?.title || 'グループ'
+    const guestName = authenticated.guest_name || 'ゲスト'
+    const inviteUrl = `https://mmq.game/group/invite/${encodeURIComponent(group.invite_code)}`
 
     // Resend APIでメール送信
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
@@ -112,7 +110,7 @@ ${inviteUrl}
       to_email:   email,
       to_name:    guestName ?? null,
       subject:    emailSubject,
-      body_text:  emailBody,
+      body_text:  emailBody.replace(`■ アクセスPIN\n${pin}`, '■ アクセスPIN\n[認証情報のため非記録]'),
       status:     'queued',
     })
 
