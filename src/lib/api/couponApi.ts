@@ -448,3 +448,16 @@ export function getCouponTargetOptions(): Promise<CouponTargetOptions> {
 export function previewCouponUse(customerCouponId: string, reservationId: string): Promise<{ success: boolean; discount_amount: number }> {
   return apiClient.post('/api/coupons?action=preview-use', { customer_coupon_id: customerCouponId, reservation_id: reservationId })
 }
+
+export interface CustomerCouponUsageHistory {
+  id: string
+  discount_amount: number
+  used_at: string | null
+  reservation: { id: string; title: string; requested_datetime: string | null }
+}
+
+/** 自組織で発行・使用された履歴。取得失敗を「履歴なし」に変換しない。 */
+export async function getCustomerCouponUsages(customerId: string): Promise<CustomerCouponUsageHistory[]> {
+  const params = new URLSearchParams({ type: 'customer-usages', customer_id: customerId })
+  return apiClient.get<CustomerCouponUsageHistory[]>(`/api/coupons?${params}`)
+}

@@ -149,10 +149,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return await privateCouponClaims(req, res, user)
     }
 
-    if (req.method === 'GET') return handleGet(req, res, user)
-    if (req.method === 'POST') return handlePost(req, res, user)
-    if (req.method === 'PATCH') return handlePatch(req, res, user)
-    if (req.method === 'DELETE') return handleDelete(req, res, user)
+    if (req.method === 'GET') return await handleGet(req, res, user)
+    if (req.method === 'POST') return await handlePost(req, res, user)
+    if (req.method === 'PATCH') return await handlePatch(req, res, user)
+    if (req.method === 'DELETE') return await handleDelete(req, res, user)
 
     return res.status(405).json({ error: 'Method not allowed' })
   } catch (err) {
@@ -206,6 +206,10 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   if (type === 'campaign-stats') {
     requireStaff(user)
     return handleCampaignStats(req, res, user)
+  }
+  if (type === 'customer-usages') {
+    requireStaff(user)
+    return handleCustomerUsages(req, res, user)
   }
   if (type === 'admin-usages') {
     requireStaff(user)
@@ -826,6 +830,33 @@ async function handleCampaignStats(req: VercelRequest, res: VercelResponse, user
 // =========================================
 // 管理者向け: 顧客クーポンの使用履歴
 // =========================================
+async function handleCustomerUsages(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const customerId = req.query.customer_id
+  if (typeof customerId !== 'string' || !customerId.trim()) {
+    return res.status(400).json({ error: 'customer_id クエリパラメータが必要です' })
+  }
+  // 集計RPCと同じく、発行・キャンペーン・予約の所属をすべて確認する。
+  const { rows, error } = await fetchAllRows<{
+    id: string; discount_amount: number; used_at: string | null;
+    reservations: { id: string; title: string; requested_datetime: string | null }
+  }>(() => db!.from('coupon_usages').select(`
+    id, discount_amount, used_at,
+    reservations:reservation_id!inner(id, title, requested_datetime),
+    customer_coupons!inner(customer_id, organization_id, coupon_campaigns!inner(organization_id))
+  `)
+    .eq('customer_coupons.customer_id', customerId)
+    .eq('customer_coupons.organization_id', user.orgId)
+    .eq('customer_coupons.coupon_campaigns.organization_id', user.orgId)
+    .eq('reservations.organization_id', user.orgId)
+    .order('used_at', { ascending: false })
+    .order('id', { ascending: true }))
+  if (error) return res.status(500).json({ error: 'クーポン使用履歴を取得できませんでした' })
+  return res.status(200).json(rows.map(row => ({
+    id: row.id, discount_amount: row.discount_amount, used_at: row.used_at,
+    reservation: row.reservations,
+  })))
+}
+
 async function handleAdminUsages(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const customerCouponId = req.query.customer_coupon_id as string | undefined
   if (!customerCouponId) {

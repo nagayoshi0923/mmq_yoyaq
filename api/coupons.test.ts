@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 const mock = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), role: 'customer' }))
 vi.mock('./_lib/db.js', () => ({ db: { rpc: mock.rpc, from: mock.from }, getMissingEnvError: () => null }))
-vi.mock('./_lib/auth.js', () => ({
-  requireAuth: async () => ({ userId: 'verified-user', orgId: 'verified-org', role: mock.role }),
-  requireStaff: () => { if (mock.role === 'customer') throw new Error('staff only') },
-  requireAdmin: vi.fn(),
-  ApiError: class extends Error {},
-}))
+vi.mock('./_lib/auth.js', () => {
+  class ApiError extends Error { constructor(public status: number, message: string) { super(message) } }
+  return {
+    requireAuth: async () => ({ userId: 'verified-user', orgId: 'verified-org', role: mock.role }),
+    requireStaff: () => { if (mock.role === 'customer') throw new ApiError(403, 'staff only') },
+    requireAdmin: vi.fn(), ApiError,
+  }
+})
 import handler from './coupons'
 function response() { const r={status:vi.fn(),json:vi.fn(),setHeader:vi.fn()};r.status.mockReturnValue(r);return r }
 beforeEach(()=>{vi.clearAllMocks();mock.rpc.mockResolvedValue({data:{success:true,discount_amount:1000},error:null});mock.role='customer'})
@@ -109,4 +111,63 @@ describe('クーポンの予約候補と期限', () => {
     expect(r.json.mock.calls[0][0][0].coupon_campaigns.discount_amount).toBe(500)
   })
 
+})
+
+describe('顧客管理のクーポン使用履歴', () => {
+  function seedHistory(fail = false) {
+    const queries: Array<Record<string, ReturnType<typeof vi.fn>>> = []
+    mock.from.mockImplementation(() => {
+      const q: Record<string, ReturnType<typeof vi.fn>> = {}
+      for (const key of ['select', 'eq', 'order']) q[key] = vi.fn(() => q)
+      q.range = vi.fn(async (from: number) => ({
+        data: fail ? null : from === 0 ? [{ id: 'usage', discount_amount: 1000, used_at: null,
+          reservations: { id: 'reservation', title: '作品', requested_datetime: null } }] : [],
+        error: fail ? { message: 'unavailable' } : null,
+      }))
+      queries.push(q)
+      return q
+    })
+    return queries
+  }
+  async function read(customerId: unknown = 'customer') {
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'customer-usages', customer_id: customerId, organization_id: 'forged' } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    return r
+  }
+  it('スタッフの履歴取得は発行・企画・予約すべてを認証済み組織に固定する', async () => {
+    mock.role = 'staff'
+    const queries = seedHistory()
+    const r = await read()
+    expect(r.status).toHaveBeenCalledWith(200)
+    expect(queries[0].eq.mock.calls).toEqual([
+      ['customer_coupons.customer_id', 'customer'],
+      ['customer_coupons.organization_id', 'verified-org'],
+      ['customer_coupons.coupon_campaigns.organization_id', 'verified-org'],
+      ['reservations.organization_id', 'verified-org'],
+    ])
+    expect(queries[0].select.mock.calls[0][0]).toContain('customer_coupons!inner')
+    expect(queries[0].select.mock.calls[0][0]).toContain('coupon_campaigns!inner')
+    expect(queries[0].select.mock.calls[0][0]).toContain('reservation_id!inner')
+    expect(r.json).toHaveBeenCalledWith([{ id: 'usage', discount_amount: 1000, used_at: null,
+      reservation: { id: 'reservation', title: '作品', requested_datetime: null } }])
+  })
+  it('取得失敗を履歴なしとして返さない', async () => {
+    mock.role = 'staff'; seedHistory(true)
+    const r = await read()
+    expect(r.status).toHaveBeenCalledWith(500)
+    expect(r.json).toHaveBeenCalledWith({ error: 'クーポン使用履歴を取得できませんでした' })
+  })
+  it('顧客ロールでは履歴を照会しない', async () => {
+    seedHistory()
+    const r = await read()
+    expect(r.status).toHaveBeenCalledWith(403)
+    expect(mock.from).not.toHaveBeenCalled()
+  })
+  it.each([undefined, '', ['a', 'b']])('不正な顧客ID %j で取得しない', async customerId => {
+    mock.role = 'staff'; seedHistory()
+    const r = response()
+    await handler({ method: 'GET', headers: {}, query: { type: 'customer-usages', customer_id: customerId } } as unknown as VercelRequest, r as unknown as VercelResponse)
+    expect(r.status).toHaveBeenCalledWith(400)
+    expect(mock.from).not.toHaveBeenCalled()
+  })
 })

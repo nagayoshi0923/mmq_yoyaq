@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar, Ticket } from 'lucide-react'
 import type { Customer, Reservation } from '@/types'
+import { getCustomerCouponUsages, type CustomerCouponUsageHistory } from '@/lib/api/couponApi'
 import { supabase } from '@/lib/supabase'
 import { formatJstYmd, formatJstDateTime } from '@/utils/jstDate'
 import { devDb } from '@/components/ui/DevField'
@@ -19,20 +20,11 @@ interface CustomerRowProps {
   couponStats?: CustomerCouponStats
 }
 
-interface CouponUsageHistory {
-  id: string
-  discount_amount: number
-  used_at: string
-  reservation?: {
-    id: string
-    title: string
-    requested_datetime: string
-  }
-}
-
 export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, couponStats }: CustomerRowProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [couponUsages, setCouponUsages] = useState<CouponUsageHistory[]>([])
+  const [couponUsages, setCouponUsages] = useState<CustomerCouponUsageHistory[]>([])
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState(false)
   const [loading, setLoading] = useState(false)
   // 予約履歴の「もっと見る」（初期は最新5件のみ表示）
   const [showAllReservations, setShowAllReservations] = useState(false)
@@ -44,9 +36,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
       if (reservations.length === 0) {
         fetchReservations()
       }
-      if (couponUsages.length === 0) {
-        fetchCouponUsages()
-      }
+      fetchCouponUsages()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded])
@@ -70,41 +60,16 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
   }
 
   const fetchCouponUsages = async () => {
+    setCouponLoading(true)
+    setCouponError(false)
+    setCouponUsages([])
     try {
-      // 顧客のクーポンIDを取得
-      const { data: customerCoupons } = await supabase
-        .from('customer_coupons')
-        .select('id')
-        .eq('customer_id', customer.id)
-      
-      if (!customerCoupons || customerCoupons.length === 0) return
-
-      const couponIds = customerCoupons.map(c => c.id)
-      
-      // クーポン使用履歴を取得
-      const { data: usages, error } = await supabase
-        .from('coupon_usages')
-        .select(`
-          id,
-          discount_amount,
-          used_at,
-          reservations:reservation_id (id, title, requested_datetime)
-        `)
-        .in('customer_coupon_id', couponIds)
-        .order('used_at', { ascending: false })
-
-      if (error) throw error
-      
-      const formattedUsages = (usages || []).map((u: any) => ({
-        id: u.id,
-        discount_amount: u.discount_amount,
-        used_at: u.used_at,
-        reservation: u.reservations
-      }))
-      
-      setCouponUsages(formattedUsages)
+      setCouponUsages(await getCustomerCouponUsages(customer.id))
     } catch (error) {
+      setCouponError(true)
       logger.error('クーポン使用履歴の取得エラー:', error)
+    } finally {
+      setCouponLoading(false)
     }
   }
 
@@ -280,7 +245,14 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
               {/* クーポン使用履歴 */}
               <div className="p-3 bg-background rounded-lg border">
                 <div className="text-xs text-muted-foreground mb-1">使用履歴</div>
-                {couponUsages.length === 0 ? (
+                {couponLoading ? (
+                  <div className="text-sm text-muted-foreground">使用履歴を読み込み中...</div>
+                ) : couponError ? (
+                  <div role="alert" className="text-sm text-destructive">
+                    使用履歴を取得できませんでした。
+                    <Button variant="outline" size="sm" onClick={fetchCouponUsages}>再試行</Button>
+                  </div>
+                ) : couponUsages.length === 0 ? (
                   <div className="text-sm text-muted-foreground">使用履歴なし</div>
                 ) : (
                   <div className="space-y-1 max-h-[100px] overflow-y-auto">
