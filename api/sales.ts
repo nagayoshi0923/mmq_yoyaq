@@ -747,7 +747,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orgScenariosData, error: orgScenariosError } = await (db as any)
     .from('organization_scenarios')
-    .select(`id, scenario_master_id, duration, ${SCENARIO_PRICING_COLUMNS}`)
+    .select('id, scenario_master_id, duration, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
     .eq('organization_id', orgId)
   if (orgScenariosError) throw orgScenariosError
   const orgScenarioById = new Map<string, OrgScenarioOverride>(

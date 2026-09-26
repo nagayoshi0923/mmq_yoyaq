@@ -30,7 +30,10 @@ function builder(table:string){
   if(table==='staff')data=names.map((name,i)=>({id:String(i),name,stores:i===2?[]:['store']}))
   if(table==='stores')data=[{id:'store',name:'店舗',short_name:'店',transport_allowance:500}]
   if(table==='organization_scenarios_with_master')data=[{id:'master',scenario_master_id:'master',duration:240,gm_costs:mock.costs,player_count_max:6}]
-  if(table==='organization_scenarios')data=[]
+  if(table==='organization_scenarios'){
+   data=[]
+   if(fields.split(',').map(field=>field.trim()).includes('license_rewards')) error={message:'column organization_scenarios.license_rewards does not exist'}
+  }
   if(table==='schedule_events')data=[{id:'event',date:mock.date,category:mock.category,scenario_master_id:'master',scenario:'作品',store_id:'store',gms:names,gm_roles:Object.fromEntries(names.map((n,i)=>[n,roles[i]])),gm_cost:mock.recorded,is_cancelled:false,start_time:'14:00',end_time:'17:00',stores:{transport_allowance:500}}]
   if(single&&Array.isArray(data))data=data[0]??null
   if(head)data=null
