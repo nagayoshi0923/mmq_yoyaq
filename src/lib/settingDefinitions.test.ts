@@ -29,6 +29,12 @@ describe('設定の入力と適用範囲', () => {
     }
     expect(isValidSettingValue('judgment_minutes_before', 0, 'organization')).toBe(false)
   })
+  it('作品未選択時の公演時間は終了時刻が保存可能な480分まで', () => {
+    expect(isValidSettingValue('default_performance_duration', 480, 'store')).toBe(true)
+    expect(isValidSettingValue('default_performance_duration', 29, 'organization')).toBe(false)
+    expect(isValidSettingValue('default_performance_duration', 900, 'store')).toBe(false)
+    expect(isValidSettingValue('default_performance_duration', 1440, 'organization')).toBe(false)
+  })
   it('リマインドの不正な時刻と日数を拒否する', () => {
     const reminder = { days_before: 1, time: '10:00', enabled: false }
     expect(isValidSettingValue('reminder_schedule', [reminder], 'organization')).toBe(true)

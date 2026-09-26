@@ -25,7 +25,8 @@ export function useBookingCoupon(userId: string | undefined, eventId: string, pa
   const couponDiscount = selectedCouponId && couponReady ? couponPreview.data?.discount_amount ?? 0 : 0
   const resetAfterFailure = () => {
     setSelectedCouponId(null)
-    void queryClient.invalidateQueries({ queryKey: ['booking-coupon-preview', userId, eventId] })
+    // refetchOnMount:false のため invalidate だけでは成功キャッシュが残り、再選択で古い割引のまま確定できる。
+    queryClient.removeQueries({ queryKey: ['booking-coupon-preview', userId, eventId] })
     void couponsQuery.refetch()
   }
   return { resetAfterFailure, selectedCouponId, setSelectedCouponId, selectedCoupon, availableCoupons, couponsQuery, couponPreview, couponReady, couponDiscount }
