@@ -1,3 +1,4 @@
+import { requireAuth, requireStaff, requireAdmin, ApiError } from './_lib/auth.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { getParticipationFee, getLicenseAmount, sumGmCosts, type ScenarioPricing } from '../src/lib/pricing.js'
@@ -157,60 +158,41 @@ async function authenticate(
   }
 
   const authHeader = req.headers['authorization'] as string | undefined
-
-  // 未ログイン GET: 公開シナリオ詳細・公開一覧のみ許可（routeGetで制限）。
-  // org_id クエリ必須（どの組織のラインナップを引くかを特定する）。
-  // 一覧系・統計系・書き込み系は引き続き Authorization 必須。
-  if (req.method === 'GET' && !authHeader?.startsWith('Bearer ')) {
-    const queryOrgId = req.query.org_id as string | undefined
-    if (!queryOrgId) {
-      res.status(401).json({ error: 'Authorization ヘッダが必要です' })
-      return null
+  const publicRead = req.method === 'GET' && Boolean(req.query.id || req.query.slug || req.query.type === 'public')
+  const requestedOrg = (req.query.org_id ?? req.body?.org_id) as string | undefined
+  try {
+    let result: AuthResult
+    if (!authHeader?.startsWith('Bearer ')) {
+      if (!publicRead || !requestedOrg) throw new ApiError(401, 'Authorization ヘッダが必要です')
+      result = { orgId: requestedOrg, userId: '', role: 'anon', isAnon: true }
+    } else {
+      const user = await requireAuth(req)
+      const staffRole = ['admin', 'staff', 'license_admin'].includes(user.role)
+      // 顧客と他組織の閲覧はログイン済みでも公開用の投影だけを使用する。
+      if (publicRead && (user.role === 'customer' || (staffRole && requestedOrg && requestedOrg !== user.orgId))) {
+        const orgId = requestedOrg || user.orgId
+        if (!orgId) throw new ApiError(400, '公開対象の組織が必要です')
+        result = { orgId, userId: user.userId, role: user.role, isAnon: true }
+      } else {
+        requireStaff(user)
+        if (!user.orgId || (requestedOrg && requestedOrg !== user.orgId)) {
+          throw new ApiError(403, 'この組織の管理情報にはアクセスできません')
+        }
+        if (req.method !== 'GET') requireAdmin(user)
+        result = { orgId: user.orgId, userId: user.userId, role: user.role, isAnon: false }
+      }
     }
-    return { orgId: queryOrgId, userId: '', role: 'anon', isAnon: true }
-  }
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Authorization ヘッダが必要です' })
+    if (result.isAnon) {
+      const { data: organization, error } = await db.from('organizations').select('id')
+        .eq('id', result.orgId).eq('is_active', true).maybeSingle()
+      if (error) throw new ApiError(503, '公開対象の組織を確認できませんでした')
+      if (!organization) throw new ApiError(404, '公開対象の組織が見つかりません')
+    }
+    return result
+  } catch (error) {
+    if (error instanceof ApiError) res.status(error.status).json({ error: error.message })
+    else res.status(500).json({ error: '認証情報を確認できませんでした' })
     return null
-  }
-  const jwt = authHeader.slice(7)
-
-  const { data: { user }, error: authError } = await db.auth.getUser(jwt)
-  if (authError || !user) {
-    res.status(401).json({ error: 'トークンが無効または期限切れです' })
-    return null
-  }
-
-  const { data: profile, error: profileError } = await db
-    .from('users')
-    .select('organization_id, role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    res.status(403).json({ error: 'ユーザー情報が取得できません' })
-    return null
-  }
-
-  const role = profile.role as string
-
-  // GET リクエストは customer ロールも許可（シナリオ詳細は顧客も閲覧可）
-  // 書き込み操作（POST/PATCH/DELETE）は admin 以上が必要（DB RLS と統一）
-  if (req.method !== 'GET' && !['admin', 'license_admin'].includes(role)) {
-    res.status(403).json({ error: '管理者権限が必要です' })
-    return null
-  }
-
-  // org_id: クエリパラメータ優先 → users.organization_id にフォールバック
-  const queryOrgId = (req.query.org_id ?? req.body?.org_id) as string | undefined
-  const orgId = queryOrgId || (profile.organization_id as string | null) || ''
-
-  return {
-    userId: user.id,
-    orgId,
-    role,
-    isAnon: false,
   }
 }
 
