@@ -1,6 +1,8 @@
 -- anonが読めるテーブルのRLSが、参照先の必要列を読めず42501になる経路を検出。
 -- SQL文字列の表名検索ではなく、PostgreSQLが記録したポリシーの依存列で判定する。
 -- 列単位SELECTを許可した公開テーブルを、全列GRANTがないだけで誤検知しない。
+-- 参照列を特定できない行全体依存(refobjsubid=0)は安全側で全列SELECTを要求する。
+-- count(*)等でも依存列を特定できない場合は検出対象。公開列を明示した参照で解消する。
 WITH accessible_policies AS (
   SELECT p.oid, p.polrelid, p.polname, c.relname AS host_table
   FROM pg_policy p
@@ -24,7 +26,7 @@ WITH accessible_policies AS (
   WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m')
     AND NOT CASE WHEN d.refobjsubid>0
       THEN has_column_privilege('anon',c.oid,a.attname,'SELECT')
-      ELSE has_any_column_privilege('anon',c.oid,'SELECT') END
+      ELSE has_table_privilege('anon',c.oid,'SELECT') END
 )
 SELECT host_table,polname,string_agg(blocked_ref,', ' ORDER BY blocked_ref) AS refs_anon_blocked
 FROM blocked_dependencies
