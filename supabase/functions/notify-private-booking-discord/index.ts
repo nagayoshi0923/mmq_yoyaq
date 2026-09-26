@@ -4,6 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
 import { errorResponse, getCorsHeaders, sanitizeErrorMessage, timingSafeEqualString, verifyAuth, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { loadPrivateBookingNotificationContext, loadPrivateBookingAssignedStaff } from '../_shared/private-booking-notification-context.ts'
+import { buildDiscordUserMentions } from '../_shared/discord-mentions.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
@@ -40,15 +42,40 @@ async function getOrgIdForBooking(booking: any): Promise<string | null> {
       .maybeSingle()
     if (data?.organization_id) return data.organization_id
   }
-  if (booking?.scenario_id) {
-    // booking.scenario_id は scenario_master_id なので organization_scenarios_with_master を参照
+  // scenario_master_id 単独での組織推定は禁止。
+  // 同一マスタが複数組織に登録されると maybeSingle が不定な組織を返すため。
+  return null
+}
+
+async function resolveScenarioMasterId(booking: any): Promise<string | null> {
+  if (booking?.scenario_master_id) return booking.scenario_master_id
+
+  if (booking?.id) {
     const { data } = await supabase
-      .from('organization_scenarios_with_master')
-      .select('organization_id')
+      .from('reservations')
+      .select('scenario_master_id, scenario_id')
+      .eq('id', booking.id)
+      .maybeSingle()
+    if (data?.scenario_master_id) return data.scenario_master_id
+    if (data?.scenario_id) {
+      const { data: master } = await supabase
+        .from('scenario_masters')
+        .select('id')
+        .eq('id', data.scenario_id)
+        .maybeSingle()
+      if (master?.id) return master.id
+    }
+  }
+
+  if (booking?.scenario_id) {
+    const { data: master } = await supabase
+      .from('scenario_masters')
+      .select('id')
       .eq('id', booking.scenario_id)
       .maybeSingle()
-    if (data?.organization_id) return data.organization_id
+    if (master?.id) return master.id
   }
+
   return null
 }
 
@@ -124,18 +151,29 @@ interface PrivateBookingNotification {
   }
 }
 
-// シナリオタイトルを取得する関数
-// scenarioId は scenario_master_id（organization_scenarios_with_master.id）
-async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
+async function fetchScenarioTitle(scenarioMasterId: string, organizationId?: string | null): Promise<string | null> {
   try {
+    if (organizationId) {
+      const { data, error } = await supabase
+        .from('organization_scenarios_with_master')
+        .select('title')
+        .eq('id', scenarioMasterId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+      if (error) {
+        console.error('❌ Error fetching scenario title:', error)
+        return null
+      }
+      if (data?.title) return data.title
+    }
+
     const { data, error } = await supabase
-      .from('organization_scenarios_with_master')
+      .from('scenario_masters')
       .select('title')
-      .eq('id', scenarioId)
+      .eq('id', scenarioMasterId)
       .maybeSingle()
-    
     if (error) {
-      console.error('❌ Error fetching scenario title:', error)
+      console.error('❌ Error fetching scenario title from masters:', error)
       return null
     }
     return data?.title || null
@@ -146,59 +184,35 @@ async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
 }
 
 // 個別チャンネルに通知をキューへ積む
-async function sendNotificationToGMChannels(booking: any, targetStaffId?: string) {
+async function sendNotificationToGMChannels(booking: any, targetStaffId?: string, isResend = false) {
   console.log('📤 Sending notifications to individual GM channels...' + (targetStaffId ? ` (single GM: ${targetStaffId})` : ''))
-  console.log(`📋 Scenario ID: ${booking.scenario_id}`)
-  
-  // reservations.scenario_id には scenario_master_id が格納されている
-  // （create_private_booking_request RPC で organization_scenarios_with_master.id を保存）
-  // staff_scenario_assignments.scenario_id も scenario_master_id で保存されている
-  const scenarioMasterId = booking.scenario_id
-  if (!scenarioMasterId) {
-    console.log('⚠️ scenario_id (scenario_master_id) not found in booking')
-    return
-  }
+  console.log(`📋 Scenario ID (raw): ${booking.scenario_id}, scenario_master_id: ${booking.scenario_master_id}`)
 
-  console.log(`📋 Scenario Master ID: ${scenarioMasterId}`)
-
-  // 🚨 マルチテナント: 担当GM検索は必ず予約の組織で絞る。
-  // scenario_master_id は組織間で共有されるため、組織フィルタなしだと
-  // 同じマスタを登録している他組織のGMにも通知・pending行が飛んでしまう。
   const orgIdForBooking = await getOrgIdForBooking(booking)
   if (!orgIdForBooking) {
     console.error('❌ organization_id を特定できないため通知を中止します（他組織への誤通知防止）')
     return
   }
 
-  const { data: assignments, error: assignmentError } = await supabase
-    .from('staff_scenario_assignments')
-    .select('staff_id')
-    .eq('scenario_master_id', scenarioMasterId)
-    .eq('organization_id', orgIdForBooking)
-    .or('can_main_gm.eq.true,can_sub_gm.eq.true')
-  
-  if (assignmentError) {
-    console.error('❌ Error fetching scenario assignments:', assignmentError)
+  const scenarioMasterId = await resolveScenarioMasterId(booking)
+  if (!scenarioMasterId) {
+    console.log('⚠️ scenario_master_id を解決できないため通知を中止します')
     return
   }
-  
-  if (!assignments || assignments.length === 0) {
-    console.log('⚠️ No GMs assigned to this scenario (with can_main_gm or can_sub_gm = true)')
-    return
-  }
-  
-  const assignedStaffIds = assignments.map(a => a.staff_id)
-  console.log(`📋 Found ${assignedStaffIds.length} GM(s) assigned to this scenario`)
+
+  console.log(`📋 Scenario Master ID: ${scenarioMasterId} / org: ${orgIdForBooking}`)
+
+  const eligibleStaff = await loadPrivateBookingAssignedStaff(supabase, orgIdForBooking, scenarioMasterId)
+  const assignedStaffIds = eligibleStaff.map((staff: any) => staff.id)
 
   // 「未回答(pending)」行を担当GM全員に確保する。
   // pending 行は通常 create_private_booking_request RPC が予約作成時の担当GMに対して作るが、
   // 予約後に担当になったGM（例: 担当データ復旧後の松井）には行が無く、Discordは届いても
   // 貸切管理ページの GM回答状況に「未回答」として出てこない。再通知のたびに現在の担当GMへ
   // pending 行を upsert（既存は触らない）することで、後から担当になったGMも一覧に表示される。
-  const orgIdForRows = orgIdForBooking
-  if (orgIdForRows && booking.id && assignedStaffIds.length > 0) {
+  if (booking.id && assignedStaffIds.length > 0) {
     const pendingRows = assignedStaffIds.map((sid: string) => ({
-      organization_id: orgIdForRows,
+      organization_id: orgIdForBooking,
       reservation_id: booking.id,
       staff_id: sid,
       response_status: 'pending',
@@ -223,19 +237,8 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
     return
   }
 
-  // 担当GMのDiscordチャンネル情報を取得
-  const { data: gmStaff, error: staffError } = await supabase
-    .from('staff')
-    .select('id, name, discord_channel_id, discord_user_id')
-    .in('id', sendStaffIds)
-    .eq('status', 'active')
-    .not('discord_channel_id', 'is', null)
-  
-  if (staffError) {
-    console.error('❌ Error fetching GM staff:', staffError)
-    return
-  }
-  
+  const gmStaff = eligibleStaff.filter((staff: any) => sendStaffIds.includes(staff.id) && staff.discord_channel_id)
+
   if (!gmStaff || gmStaff.length === 0) {
     console.log('⚠️ No assigned GMs with Discord channels found')
     return
@@ -268,6 +271,15 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
   
   console.log(`📋 Unique channels to notify: ${uniqueChannels.size} (from ${gmStaff.length} GMs)`)
   
+  if (isResend && uniqueChannels.size > 0) {
+    const { error } = await supabase.from('discord_notification_queue').delete()
+      .eq('organization_id', orgIdForBooking)
+      .eq('reference_id', booking.id)
+      .eq('notification_type', 'private_booking_request')
+      .in('webhook_url', [...uniqueChannels.keys()].map(id => `https://discord.com/api/v10/channels/${id}/messages`))
+    if (error) throw error
+  }
+
   // 各ユニークなチャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
   const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames, userIds }) => {
     console.log(`📥 Queuing notification to channel ${channelId} (GMs: ${gmNames.join(', ')}, UserIDs: ${userIds.join(', ')})`)
@@ -296,6 +308,7 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
       .from('gm_availability_responses')
       .update({ notified_at: new Date().toISOString() })
       .eq('reservation_id', booking.id)
+      .eq('organization_id', orgIdForBooking)
       .in('staff_id', sentStaffIds)
     if (notifiedErr) {
       console.error('⚠️ notified_at の更新に失敗:', notifiedErr)
@@ -393,14 +406,13 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
     ]
   })
 
-  // ユーザーメンションを作成（discord_user_idがあればそれを使う、なければ@here）
-  const mention = userIds.length > 0 
-    ? userIds.map(id => `<@${id}>`).join(' ')
-    : '@here'
-  
+  // discord_user_id がある担当GMのみ個別メンションする。
+  // @here は共有チャンネルで担当外多数に届くため使わない。
+  const { mentionPrefix, allowedMentions } = buildDiscordUserMentions(userIds)
   const discordPayload = {
-    content: `${mention}\n\n${messageContent}`,
-    components: components
+    content: mentionPrefix ? `${mentionPrefix}\n\n${messageContent}` : messageContent,
+    components: components,
+    allowed_mentions: allowedMentions,
   }
 
   const orgId = await getOrgIdForBooking(booking)
@@ -500,11 +512,13 @@ serve(async (req) => {
     // 🔒 認可:
     // - DB Webhook / cron（service role）からの呼び出しを許可
     // - それ以外は admin / license_admin / owner のみ許可（誤爆防止）
+    let callerUserId: string | null = null
     if (!isSystemCall(req)) {
       const auth = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
       if (!auth.success) {
         return errorResponse(auth.error || 'forbidden', auth.statusCode || 403, corsHeaders)
       }
+      callerUserId = auth.user!.id
     }
 
     const body = await req.text()
@@ -520,23 +534,14 @@ serve(async (req) => {
 
     const isResend = payloadType === 'resend'
     console.log(`✅ Processing ${isResend ? 'resend' : 'insert'} operation`)
-    const booking = payload.record
-
-    // 再送信の場合、既存のキューエントリを削除して重複防止を回避
-    if (isResend && booking.id) {
-      const { error: deleteError } = await supabase
-        .from('discord_notification_queue')
-        .delete()
-        .eq('reference_id', booking.id)
-        .eq('notification_type', 'private_booking_request')
-      
-      if (deleteError) {
-        console.warn('⚠️ 既存キューの削除に失敗（続行）:', deleteError)
-      } else {
-        console.log('🗑️ 既存のキューエントリを削除しました')
-      }
+    let booking
+    try {
+      booking = await loadPrivateBookingNotificationContext(supabase, payload.record?.id, callerUserId)
+    } catch (error) {
+      console.error('Notification context rejected:', error)
+      return errorResponse('Notification request is not permitted', 403, corsHeaders)
     }
-    
+
     // デモ予約の場合は通知をスキップ
     if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {
       return new Response(
@@ -545,26 +550,25 @@ serve(async (req) => {
       )
     }
 
+    const organizationId = await getOrgIdForBooking(booking)
+    const scenarioMasterId = await resolveScenarioMasterId(booking)
+
     // 予約データにscenario_titleがない場合（reservationsテーブルなど）、DBから取得を試みる
-    if (!booking.scenario_title && !booking.title && booking.scenario_id) {
+    if (!booking.scenario_title && !booking.title && scenarioMasterId) {
       console.log('ℹ️ Scenario title missing in payload, fetching from DB...')
-      const title = await fetchScenarioTitle(booking.scenario_id)
+      const title = await fetchScenarioTitle(scenarioMasterId, organizationId)
       if (title) {
         booking.scenario_title = title
         console.log(`✅ Fetched scenario title: ${title}`)
       }
     }
 
-    // 組織IDを取得（payloadまたはシナリオから）
-    // booking.scenario_id は scenario_master_id なので organization_scenarios_with_master を参照
-    let organizationId = booking.organization_id
-    if (!organizationId && booking.scenario_id) {
-      const { data: scenario } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('organization_id')
-        .eq('id', booking.scenario_id)
-        .maybeSingle()
-      organizationId = scenario?.organization_id
+    if (scenarioMasterId) {
+      booking.scenario_master_id = scenarioMasterId
+      booking.scenario_id = scenarioMasterId
+    }
+    if (organizationId) {
+      booking.organization_id = organizationId
     }
     
     // 組織設定を取得
@@ -594,7 +598,7 @@ serve(async (req) => {
     }
     
     // 各GMの個別チャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
-    await sendNotificationToGMChannels(booking, payload.target_staff_id)
+    await sendNotificationToGMChannels(booking, payload.target_staff_id, isResend)
 
     return new Response(
       JSON.stringify({ 
