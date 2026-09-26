@@ -680,3 +680,11 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - PIN mail requires the guest credential, derives scenario/link from DB, and redacts the PIN in email history. Existing mail history is not deleted.
 - 2026-09-27: DB060/061 applied to STAGING ONLY. Verified DB regression, legacy bypass rejection, real staging RLS/survey RPC, 4 simultaneous requests for 1 remaining slot (1 success/3 capped), and CUA PIN login/chat/expired-session recovery. Test fixtures cleaned; no email sent.
 - Whole QW-20260917-001 remains in progress. Private-group create/delete atomicity, read visibility, existing data consistency, other domains and ER remain separate open work.
+
+## QW-20260917-001 — 貸切グループ作成の原子化（2026-09-27）
+
+作成途中の幹事保存失敗を無視し、候補日時保存失敗時にグループが残る経路を廃止。`create_private_group_atomic` が認証ユーザーを幹事に固定し、組織・作品・店舗を検証した上でグループ、幹事、候補日時、組織設定の初回メッセージを同一トランザクションに保存する。既存の候補日締切triggerも適用され、失敗時は全件戻る。日程未定の作成を維持。招待コードは暗号学的乱数16byteを使用。
+
+- DB070はstaging適用・実Auth/PII/候補日締切triggerを含むROLLBACK検証済み。本番未適用。
+- 657 unit、verify、既存PIN/ゲストDB回帰、新規作成DB回帰（異組織店舗拒否、途中/最後の失敗で全件rollback、戻し/再適用）成功。
+- 全体案件は進行中。予約申込までの一括処理・管理画面の完全削除経路は別の残件として継続。
