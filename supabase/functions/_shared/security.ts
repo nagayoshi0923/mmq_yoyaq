@@ -3,7 +3,7 @@
  * 認証チェック、CORS設定、ログマスキングなどを提供
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
  * 環境変数取得（Secrets UIの制約に対応）
@@ -80,21 +80,8 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
     return true
   }
 
-  // 2. bearerがJWTの場合、デコードしてroleを確認
-  if (bearer && bearer.startsWith('eyJ')) {
-    try {
-      const parts = bearer.split('.')
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]))
-        if (payload.role === 'service_role') {
-          console.log('✅ service_role JWT検証成功')
-          return true
-        }
-      }
-    } catch {
-      // JWT解析失敗は無視
-    }
-  }
+  // JWT payloadのroleは署名なしでも偽造できるため認証根拠にしない。
+  // 正規のservice role JWTも上記の環境設定キーとの完全一致で検証する。
 
   return false
 }
@@ -474,7 +461,7 @@ export interface RateLimitResult {
  * @returns レートリミット結果
  */
 export async function checkRateLimit(
-  serviceClient: ReturnType<typeof createClient>,
+  serviceClient: SupabaseClient,
   identifier: string,
   endpoint: string,
   maxRequests = 60,
