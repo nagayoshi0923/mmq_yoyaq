@@ -22,11 +22,13 @@ export function slotParamToKey(param: string): PrivateBookingUrlSlotKey | null {
     午後: 'afternoon',
     夜: 'evening',
   }
-  return map[param] ?? null
+  return Object.prototype.hasOwnProperty.call(map, param) ? map[param] : null
 }
 
 function isValidHHmm(time: string): boolean {
-  return /^\d{1,2}:\d{2}(:\d{2})?$/.test(time)
+  if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(time)) return false
+  const [hour, minute, second = 0] = time.split(':').map(Number)
+  return hour < 24 && minute < 60 && second < 60
 }
 
 function normalizeHHmm(time: string): string {

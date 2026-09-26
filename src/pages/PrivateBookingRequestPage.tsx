@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PrivateBookingRequest } from './PrivateBookingRequest/index'
 import { scenarioApi, storeApi } from '@/lib/api'
@@ -146,7 +146,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     }
   }
 
-  const applyUrlPrefillSlot = (
+  const applyUrlPrefillSlot = useCallback((
     computedSlots: Array<{ key: string; label: string; startTime: string; endTime: string }>
   ) => {
     const resolved = resolvePrivateBookingUrlPrefillSlot({
@@ -166,7 +166,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         },
       },
     ])
-  }
+  }, [date, slotParam, timeParam, urlSlotPrefillKey])
 
   // URL の slot/time を営業時間マージで開始時刻に解決。取れなくても候補は落とさない。
   useEffect(() => {
@@ -273,6 +273,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     isCustomHoliday,
     customHolidaysLoading,
     urlSlotPrefillKey,
+    applyUrlPrefillSlot,
   ])
 
   const handleBack = () => {

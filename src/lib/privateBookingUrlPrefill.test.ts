@@ -17,6 +17,8 @@ describe('slotParamToKey', () => {
   it('未知の値は null', () => {
     expect(slotParamToKey('')).toBeNull()
     expect(slotParamToKey('night')).toBeNull()
+    expect(slotParamToKey('constructor')).toBeNull()
+    expect(slotParamToKey('__proto__')).toBeNull()
   })
 })
 
@@ -82,11 +84,11 @@ describe('resolvePrivateBookingUrlPrefillSlot', () => {
     ).toBeNull()
   })
 
-  it('不正な time はデフォルト開始時刻にフォールバックする', () => {
+  it.each(['not-a-time', '24:00', '99:99', '12:60', '12:30:60'])('不正な time %s はデフォルト開始時刻にフォールバックする', (time) => {
     expect(
       resolvePrivateBookingUrlPrefillSlot({
         slotParam: 'afternoon',
-        timeParam: 'not-a-time',
+        timeParam: time,
         computedSlots: [],
       })
     ).toEqual({
