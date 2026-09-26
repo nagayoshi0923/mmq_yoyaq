@@ -1,3 +1,5 @@
+DROP INDEX IF EXISTS public.private_group_joined_user_unique;
+DROP INDEX IF EXISTS public.private_group_joined_guest_email_unique;
 -- Sessions are disposable authentication state; business records remain intact.
 DROP FUNCTION IF EXISTS public.private_group_member_action(uuid,uuid,text,jsonb,text);
 DROP FUNCTION IF EXISTS public.join_private_group(text,text,text,text,text);
