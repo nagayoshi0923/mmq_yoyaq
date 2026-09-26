@@ -140,7 +140,7 @@ type ReservationRow = {
 
 const ADMIN_ENTERED_REVENUE_SOURCES = new Set(['walk_in', 'demo', 'demo_auto'])
 
-function getReservationRevenue(
+export function getReservationRevenue(
   reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'total_price' | 'final_price'>,
   participantCount: number,
   scenarioUnitFee: number,
@@ -151,7 +151,7 @@ function getReservationRevenue(
       : scenarioUnitFee
     return unitPrice * participantCount
   }
-  if (reservation.final_price && reservation.final_price > 0) return reservation.final_price
+  if (reservation.final_price != null && reservation.final_price >= 0) return reservation.final_price
   if (reservation.total_price && reservation.total_price > 0) return reservation.total_price
   return scenarioUnitFee * participantCount
 }

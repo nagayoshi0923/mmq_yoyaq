@@ -202,12 +202,11 @@ export const checkDuplicateReservation = async (
  * 重要: 空席チェックは予約テーブルから直接集計した値を使用します。
  * DBのcurrent_participantsは古い可能性があるため、信頼しません。
  */
-const checkReservationLimits = async (
+export const checkReservationLimits = async (
   eventId: string,
   participantCount: number,
   eventDate: string,
-  startTime: string,
-  customerEmail?: string
+  startTime: string
 ): Promise<{ allowed: boolean; reason?: string }> => {
   try {
     // 公演の最大参加人数・現在参加人数・store_idを取得（公開用ビュー）
@@ -221,23 +220,6 @@ const checkReservationLimits = async (
     if (eventError) {
       logger.error('公演データ取得エラー:', eventError)
       return { allowed: false, reason: '予約制限の確認に失敗しました。時間をおいて再度お試しください。' }
-    }
-
-    // 予約設定を取得（正しいstore_idを使用）
-    let reservationSettings = null
-    if (eventData.store_id) {
-      const { data: settings, error: settingsError } = await supabase
-        .from('reservation_settings')
-        .select('max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, max_bookings_per_customer')
-        .eq('store_id', eventData.store_id)
-        .maybeSingle()
-
-      if (settingsError && settingsError.code !== 'PGRST116') {
-        logger.error('予約設定取得エラー:', settingsError)
-        return { allowed: false, reason: '予約制限の確認に失敗しました。時間をおいて再度お試しください。' }
-      } else {
-        reservationSettings = settings
-      }
     }
 
     // 最大参加人数（max_participants か capacity を使用）
@@ -291,62 +273,7 @@ const checkReservationLimits = async (
       }
     }
 
-    // 予約設定の制限チェック
-    if (reservationSettings) {
-      // 当日予約締切（時間前）
-      if (!bookingDeadline && reservationSettings.same_day_booking_cutoff !== null && reservationSettings.same_day_booking_cutoff !== undefined) {
-        const todayYmd = now.toISOString().slice(0, 10)
-        if (eventDate === todayYmd) {
-          const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
-          if (hoursUntilEvent < reservationSettings.same_day_booking_cutoff) {
-            return { allowed: false, reason: `当日予約は公演開始の${reservationSettings.same_day_booking_cutoff}時間前までです` }
-          }
-        }
-      }
 
-      // 1回の予約の最大参加人数
-      if (reservationSettings.max_participants_per_booking && participantCount > reservationSettings.max_participants_per_booking) {
-        return { allowed: false, reason: `1回の予約で最大${reservationSettings.max_participants_per_booking}名までです` }
-      }
-
-      // 事前予約日数制限
-      if (reservationSettings.advance_booking_days) {
-        const eventDateTime = new Date(`${eventDate}T${startTime}+09:00`)
-        const now = new Date()
-        const daysUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        
-        if (daysUntilEvent > reservationSettings.advance_booking_days) {
-          return { allowed: false, reason: `最大${reservationSettings.advance_booking_days}日前まで予約可能です` }
-        }
-      }
-
-      // 顧客ごとの予約件数制限（同日）
-      if (reservationSettings.max_bookings_per_customer && reservationSettings.max_bookings_per_customer > 0 && customerEmail) {
-        const { data: bookings, error: bookingsError } = await supabase
-          .from('reservations')
-          .select(
-            `
-            id,
-            schedule_events!schedule_event_id (
-              date
-            )
-          `
-          )
-          .eq('customer_email', customerEmail)
-          .in('status', ['pending', 'confirmed', 'gm_confirmed'])
-          .eq('schedule_events.date', eventDate)
-
-        if (bookingsError) {
-          logger.error('予約件数制限チェックエラー:', bookingsError)
-          return { allowed: false, reason: '予約制限の確認に失敗しました。時間をおいて再度お試しください。' }
-        }
-
-        const count = bookings?.length || 0
-        if (count >= reservationSettings.max_bookings_per_customer) {
-          return { allowed: false, reason: `同日の予約は最大${reservationSettings.max_bookings_per_customer}件までです` }
-        }
-      }
-    }
 
     return { allowed: true }
   } catch (error) {
@@ -415,8 +342,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         props.eventId,
         participantCount,
         props.eventDate,
-        props.startTime,
-        customerEmail
+        props.startTime
       )
 
       if (!limitCheck.allowed) {
@@ -561,7 +487,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             storeName: props.storeName,
             storeAddress: props.storeAddress,
             participantCount: participantCount,
-            totalPrice: props.participationFee * participantCount,
+            totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),
             reservationNumber: reservationData.reservation_number
           }
         })

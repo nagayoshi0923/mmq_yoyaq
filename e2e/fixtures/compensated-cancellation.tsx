@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot } from 'react-dom/client'
 import { DeleteEventCancelDialog } from '../../src/components/schedule/DeleteEventCancelDialog'
 import { apiClient } from '../../src/lib/apiClient'
@@ -13,4 +14,4 @@ function App() {
     if (decision?.compensationSnapshot && decision.sendMail) setDone(true)
   }} />{done && <p role="status">中止と補償付きメールの確定を受け付けました（テスト）</p>}</>
 }
-createRoot(document.getElementById('root')!).render(<App />)
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient()}><App /></QueryClientProvider>)

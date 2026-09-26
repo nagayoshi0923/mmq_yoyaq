@@ -1,3 +1,6 @@
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
+import { usePreparationSettings } from '@/hooks/usePreparationSettings'
+import { PerformanceOperatingSettings } from '@/components/settings/PerformanceOperatingSettings'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
@@ -13,10 +16,11 @@ import { PerformanceFooter } from './performanceModal/sections/PerformanceFooter
 import { PerformanceSummary } from './performanceModal/sections/PerformanceSummary'
 import { staffApi } from '@/lib/api'
 import { kitApi } from '@/lib/api/kitApi'
+import { getUsableKitStoreIds } from '@/utils/scheduleWarnings'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
-import { calcEndTime, checkTimeOverlap } from '@/utils/eventOperationUtils'
+import { calcEndTime, checkTimeOverlapWithPreparation, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -85,6 +89,7 @@ const PERF_TABS = [
   { id: 'edit', label: '公演情報' },
   { id: 'reservations', label: '予約者' },
   { id: 'deadlines', label: '募集・締切' },
+  { id: 'operating-settings', label: '個別設定' },
   { id: 'survey', label: 'アンケート' },
   { id: 'history', label: '更新履歴' },
 ] as const
@@ -145,7 +150,7 @@ export function PerformanceModal({
   // 保存時に handleSave で一括 INSERT する
   type PendingParticipant = { name: string; count: number; paymentMethod: 'onsite' | 'online' | 'staff' }
   const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
-  // 選択中シナリオのキット配置店舗一覧。null=取得中（誤警告防止）、[]=未登録
+  // 選択中シナリオの使用可能なキットの配置店舗。null=取得中、[]=使用可能な配置なし
   const [kitStoreIds, setKitStoreIds] = useState<string[] | null>(null)
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
@@ -176,6 +181,7 @@ export function PerformanceModal({
   
   // 組織IDを取得（履歴表示用）
   const { organizationId } = useOrganization()
+  const { data: preparationData, resolve: resolvePreparation } = usePreparationSettings()
 
   // 時間帯のデフォルト設定（設定から動的に取得）
   const [timeSlotDefaults, setTimeSlotDefaults] = useState({
@@ -185,7 +191,8 @@ export function PerformanceModal({
   })
 
   // 店舗のデフォルト公演時間（分）- performance_schedule_settings から取得
-  const [defaultDuration, setDefaultDuration] = useState(180)
+  const durationSettings = useOperatingSettings('store', stores.find(store => store.id === formData.venue || store.name === formData.venue)?.id || stores[0]?.id)
+  const defaultDuration = Number(durationSettings.resolve('default_performance_duration', 180).value)
 
   // 営業時間制限（開始時刻・終了時刻）
   const [businessHours, setBusinessHours] = useState<{ openTime: string; closeTime: string } | null>(null)
@@ -427,27 +434,6 @@ export function PerformanceModal({
     return store?.id || null
   }
 
-  // デフォルト公演時間を読み込む（performance_schedule_settings から）
-  useEffect(() => {
-    const loadDefaultDuration = async () => {
-      try {
-        const venueValue = formData.venue || ''
-        const storeId = resolveStoreId(venueValue) || stores[0]?.id
-        if (!storeId) return
-        const { data } = await supabase
-          .from('performance_schedule_settings')
-          .select('default_duration')
-          .eq('store_id', storeId)
-          .maybeSingle()
-        if (data?.default_duration) {
-          setDefaultDuration(data.default_duration)
-        }
-      } catch { /* ignore */ }
-    }
-    loadDefaultDuration()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.venue, stores])
-
   // 営業時間設定を読み込む（公演時間設定は useTimeSlotSettings で取得）
   useEffect(() => {
     const loadBusinessHoursSettings = async () => {
@@ -532,6 +518,7 @@ export function PerformanceModal({
   // scenario_master_id 直叩きだと org_scenario_id のみの行を取りこぼすため、
   // kitApi（org_scenario_id 解決）経由で全キット配置を取る
   useEffect(() => {
+    if (!isOpen) return
     const selectedScenario = scenarios.find(s => s.title === formData.scenario)
     // organization_scenarios.id があれば優先（API が org_scenario_id で確実に解決できる）
     const scenarioKey =
@@ -548,14 +535,7 @@ export function PerformanceModal({
       try {
         const locations = await kitApi.getKitLocationsByScenario(scenarioKey)
         if (cancelled) return
-        const ids = Array.from(
-          new Set(
-            (locations || [])
-              .map(r => r.store_id)
-              .filter((id): id is string => typeof id === 'string' && id.length > 0),
-          ),
-        )
-        setKitStoreIds(ids)
+        setKitStoreIds(getUsableKitStoreIds(locations || []))
       } catch (err) {
         logger.error('キット配置店舗の取得エラー:', err)
         // 取得失敗時も空扱いにして未配置警告を出す（表と揃える）
@@ -563,7 +543,7 @@ export function PerformanceModal({
       }
     })()
     return () => { cancelled = true }
-  }, [formData.scenario, scenarios])
+  }, [isOpen, formData.scenario, scenarios])
 
   const initForm = async () => {
     setIsFormInitializing(true)
@@ -689,6 +669,10 @@ export function PerformanceModal({
   const handleStartTimeChange = (startTime: string) => {
     // シナリオが選択されている場合はシナリオのdurationで計算
     // 未選択の場合は公演スケジュール設定のdefault_durationで計算
+    if (!formData.scenario && (durationSettings.loading || !durationSettings.data)) {
+      showToast.error('公演時間の設定を読み込んでから変更してください')
+      return
+    }
     let endTime: string
     if (formData.scenario) {
       endTime = calculateEndTime(startTime, formData.scenario)
@@ -715,10 +699,10 @@ export function PerformanceModal({
       setFormData((prev: EventFormData) => ({ ...prev, scenario: scenarioTitle }))
       return
     }
-    // 終了時間の自動計算
-    // 準備時間ぶん開始を後ろ倒し（calcEndTime を再利用。prep=0 なら元の開始時刻のまま）
-    const prepMinutes = selectedScenario.extra_preparation_time ?? 0
-    const adjustedStartTime = prepMinutes > 0 ? calcEndTime(formData.start_time, prepMinutes) : formData.start_time
+    const preparation = resolvePreparation({ storeId: formData.venue, scenarioId: selectedScenario.id, eventId: mode === 'edit' ? event?.id : undefined })
+    if (preparation === undefined) { showToast.error('準備時間の設定を読み込んでから変更してください'); return }
+    const priorEvents = (events || []).filter(candidate => candidate.id !== event?.id && !candidate.is_cancelled && candidate.date === formData.date && candidate.venue === formData.venue)
+    const adjustedStartTime = computePlacedStartTimeWithPreparation(formData.start_time, priorEvents, preparation)
     const endTime = calculateEndTime(adjustedStartTime, scenarioTitle)
     setFormData((prev: EventFormData) => ({
       ...prev,
@@ -736,14 +720,16 @@ export function PerformanceModal({
   const timeConflict = useMemo<{ kind: 'overlap' | 'interval'; reason: string; event: ScheduleEvent } | null>(() => {
     if (formData.is_private_request) return null // 貸切は日時変更不可
     if (!formData.start_time || !formData.end_time || !formData.date || !formData.venue) return null
-    const newPrep = scenarios.find(s => s.title === formData.scenario)?.extra_preparation_time || 0
+    if (!preparationData) return null
+    const newScenario = scenarios.find(s => s.title === formData.scenario)
+    const newPrep = resolvePreparation({ storeId: formData.venue, scenarioId: newScenario?.id, eventId: mode === 'edit' ? event?.id : undefined })!
     let best: { kind: 'overlap' | 'interval'; reason: string; event: ScheduleEvent } | null = null
     for (const ev of (events || [])) {
       if (mode === 'edit' && event?.id && ev.id === event.id) continue
       if (ev.date !== formData.date || ev.venue !== formData.venue || ev.is_cancelled) continue
       if (!ev.start_time || !ev.end_time) continue
-      const exPrep = scenarios.find(s => s.title === ev.scenario)?.extra_preparation_time || 0
-      const r = checkTimeOverlap(ev.start_time, ev.end_time, formData.start_time, formData.end_time, exPrep, newPrep)
+      const exPrep = resolvePreparation({ storeId: ev.store_id || ev.venue, scenarioId: scenarios.find(s => s.title === ev.scenario)?.id, eventId: ev.id })!
+      const r = checkTimeOverlapWithPreparation(ev.start_time, ev.end_time, formData.start_time, formData.end_time, exPrep, newPrep)
       if (r.overlap) {
         const kind: 'overlap' | 'interval' = r.reason === '時間が重複' ? 'overlap' : 'interval'
         if (kind === 'overlap') { best = { kind, reason: r.reason || '時間が重複', event: ev }; break }
@@ -751,7 +737,7 @@ export function PerformanceModal({
       }
     }
     return best
-  }, [formData.is_private_request, formData.start_time, formData.end_time, formData.date, formData.venue, formData.scenario, events, scenarios, mode, event?.id])
+  }, [formData.is_private_request, formData.start_time, formData.end_time, formData.date, formData.venue, formData.scenario, events, scenarios, mode, event?.id, preparationData, resolvePreparation])
 
   // 時間プルダウンのハイライト色（overlap=赤 / interval=黄）
   const timeConflictTriggerClass = timeConflict
@@ -810,22 +796,24 @@ export function PerformanceModal({
       void clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
     }
     
-    // 楽観的クローズ: onSave の完了を待たずにダイアログを閉じて体感速度を上げる。
-    // 重複/通信エラー時は useEventOperations 側で toast 表示されるので、ユーザは
-    // toast を見て必要に応じてモーダルを開き直す。
-    // 保存中の体感フィードバックとして loading toast を出し、完了で dismiss する。
+    // 保存失敗時は入力を保持し、その場で予約・スタッフ参加を修正できるようにする。
     const loadingToastId = toast.loading('保存中...')
-    const savePromise = onSave(saveData).finally(() => {
+    let success: boolean
+    try {
+      success = await onSave(saveData)
+    } catch (error) {
+      logger.error('公演保存エラー:', error)
+      showToast.error('保存できませんでした。入力内容を確認してもう一度お試しください。')
+      return
+    } finally {
       isSavingRef.current = false
-    })
+      toast.dismiss(loadingToastId)
+    }
+    if (!success) return
     onClose()
 
-    // 残りの post-save 処理 (pending 参加者 INSERT) はバックグラウンドで実行
+    // 保存成功後に、バッファされた参加者を登録する。
     void (async () => {
-      const success = await savePromise
-      toast.dismiss(loadingToastId)
-      if (!success) return // error toast は useEventOperations 側で出る
-
       // バッファされた一般参加者 (+ 参加者を追加で追加された分) を並列 INSERT
       try {
         if (pendingParticipants.length > 0) {
@@ -955,6 +943,7 @@ export function PerformanceModal({
     : null
 
   const renderTabBody = () => {
+    if (activeTab === 'operating-settings') return <PerformanceOperatingSettings eventId={event?.id} />
     if (activeTab === 'deadlines') return <BookingDeadlineTab eventId={event?.id} />
     if (activeTab === 'reservations') {
       return (

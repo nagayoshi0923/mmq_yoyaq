@@ -64,10 +64,25 @@ export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
     throw new ApiError(403, 'このユーザーは組織に属していません')
   }
 
+  // 停止したスタッフは顧客として自分の予約へアクセスできるが、業務権限は使えない。
+  // 休職中（on-leave）と、招待中などstaff行がまだない既存アカウントは区別する。
+  let effectiveRole = profile.role as ApiRole
+  if (effectiveRole === 'admin' || effectiveRole === 'staff') {
+    const { data: staffRows, error: staffError } = await db
+      .from('staff')
+      .select('status')
+      .eq('user_id', user.id)
+      .eq('organization_id', profile.organization_id)
+    if (staffError) throw new ApiError(503, 'スタッフの利用状態を確認できませんでした')
+    if (staffRows?.length && staffRows.every(row => row.status === 'inactive' || row.status === 'resigned')) {
+      effectiveRole = 'customer'
+    }
+  }
+
   return {
     userId: user.id,
-    orgId: (profile.organization_id as string | null) ?? '',
-    role: profile.role as ApiRole,
+    orgId: effectiveRole === 'customer' && profile.role !== 'customer' ? '' : (profile.organization_id as string | null) ?? '',
+    role: effectiveRole,
     jwt,
   }
 }

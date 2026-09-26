@@ -340,7 +340,7 @@ export function BookingNoticeSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl pb-12">
       <PageHeader
         title="予約注意事項"
         description="予約完了画面・確認メールに表示する注意事項を管理します"

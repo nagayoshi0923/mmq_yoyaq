@@ -30,8 +30,23 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Coupon rules database regressions
+        run: npm run test:coupon-rules-db
+
+      - name: Staff account lifecycle database regressions
+        run: npm run test:staff-account-db
+
+      - name: Verify organization signup ownership
+        run: npm run test:organization-signup-db
+
+      - name: Guest PIN security database regressions
+        run: npm run test:guest-pin-db
+
       - name: GM assignment database regressions
         run: npm run test:gm-assignment-db
+
+      - name: Structure and kit transfer database regressions
+        run: node scripts/test-structure-cleanup-db.mjs && node scripts/test-kit-transfer-identity-db.mjs
 
       - name: Discord entry release regression
         run: node --test scripts/check-discord-join-release.test.mjs scripts/discord-join-handler.test.mjs

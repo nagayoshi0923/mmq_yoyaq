@@ -1,3 +1,6 @@
+import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
+import { addJstDays } from '@/utils/jstDate'
+import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
@@ -96,6 +99,16 @@ export function PrivateGroupInvite() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
+  const { data: effectiveSurvey } = useQuery({
+    queryKey: ['group-survey-settings', group?.id, existingMemberId],
+    enabled: Boolean(group?.id && existingMemberId),
+    queryFn: async () => {
+      const { data, error } = await privateGroupMemberAction(group!.id, existingMemberId!, 'survey_read')
+      if (error) throw error
+      return data as { survey_enabled?: boolean; survey_url?: string }
+    },
+  })
+
 
   // 確認ダイアログ（グループキャンセル / メンバー退出）
   const [confirmAction, setConfirmAction] = useState<
@@ -193,28 +206,47 @@ export function PrivateGroupInvite() {
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
 
-  // SessionStorageからゲストセッションを復元
+  // UUID alone is not proof. Validate the saved token before restoring guest controls.
   useEffect(() => {
-    if (!code || user) return // ログインユーザーは不要
-    
+    if (!code || user || !group?.id) return
+    let cancelled = false
     const storageKey = getStorageKey(code)
-    const savedSession = sessionStorage.getItem(storageKey)
-    
-    if (savedSession) {
+    const saved = sessionStorage.getItem(storageKey)
+    if (!saved) return
+    void (async () => {
       try {
-        const session = JSON.parse(savedSession)
-        if (session.memberId) {
-          setExistingMemberId(session.memberId)
-          setGuestName(session.guestName || '')
-          setGuestEmail(session.guestEmail || '')
-          logger.info('ゲストセッションを復元:', { memberId: session.memberId })
+        const session = JSON.parse(saved)
+        if (!session.memberId || !getPrivateGroupGuestToken(group.id)) return
+        const { error } = await privateGroupMemberAction(group.id, session.memberId, 'validate')
+        if (cancelled) return
+        if (error) {
+          if (error.code === '42501') {
+            sessionStorage.removeItem(storageKey)
+            clearPrivateGroupGuestToken(group.id)
+            setExistingMemberId(null)
+          }
+          return
         }
-      } catch (err) {
-        logger.error('セッション復元エラー:', err)
-        sessionStorage.removeItem(storageKey)
+        setExistingMemberId(session.memberId)
+        setGuestName(session.guestName || '')
+        setGuestEmail(session.guestEmail || '')
+      } catch {
+        if (!cancelled) sessionStorage.removeItem(storageKey)
       }
+    })()
+    return () => { cancelled = true }
+  }, [code, user, group?.id])
+
+  useEffect(() => {
+    const handleExpired = (event: Event) => {
+      if (user || !code || (event as CustomEvent).detail?.groupId !== group?.id) return
+      sessionStorage.removeItem(getStorageKey(code))
+      setExistingMemberId(null)
+      toast.error('本人確認の期限が切れました。メールアドレスとPINで入り直してください。')
     }
-  }, [code, user])
+    window.addEventListener('private-group-auth-expired', handleExpired)
+    return () => window.removeEventListener('private-group-auth-expired', handleExpired)
+  }, [code, user, group?.id])
 
   // ゲストセッションを保存
   const saveGuestSession = (memberId: string, name: string, email: string) => {
@@ -233,11 +265,12 @@ export function PrivateGroupInvite() {
     if (!code) return
     const storageKey = getStorageKey(code)
     sessionStorage.removeItem(storageKey)
+    if (group) clearPrivateGroupGuestToken(group.id)
   }
 
   // 4桁PINを生成
   const generatePin = () => {
-    return String(Math.floor(1000 + Math.random() * 9000))
+    return String(1000 + crypto.getRandomValues(new Uint32Array(1))[0] % 9000)
   }
 
   // PIN認証を実行
@@ -251,15 +284,14 @@ export function PrivateGroupInvite() {
 
     try {
       // RPCでPIN認証
-      logger.info('PIN認証リクエスト:', { groupId: group.id, email: pinEmail, pinLength: pinCode.length })
+      // PINやメールアドレスをログへ残さない。
       
-      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', {
+      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin_v3', {
         p_group_id: group.id,
         p_email: pinEmail,
         p_pin: pinCode,
       })
 
-      logger.info('PIN認証結果:', { authResult, authError })
 
       if (authError) {
         logger.error('PIN認証エラー:', authError)
@@ -267,8 +299,14 @@ export function PrivateGroupInvite() {
         return
       }
 
-      if (authResult && authResult.length > 0) {
+      if (authResult?.[0]?.locked) {
+        setPinError('PINの入力に繰り返し失敗したため、15分間お待ちいただいてから再度お試しください。')
+        return
+      }
+
+      if (authResult?.[0]?.member_id) {
         const authMember = authResult[0]
+        savePrivateGroupGuestToken(group.id, authMember.guest_token)
         setExistingMemberId(authMember.member_id)
         setGuestName(authMember.guest_name || '')
         setGuestEmail(authMember.guest_email || '')
@@ -640,7 +678,10 @@ export function PrivateGroupInvite() {
       let newPin: string | null = null
 
       if (!memberId) {
+        newPin = user ? null : generatePin()
         const member = await joinGroup({
+          inviteCode: group.invite_code,
+          pin: newPin || undefined,
           groupId: group.id,
           userId: user?.id,
           guestName: user ? undefined : guestName,
@@ -659,15 +700,6 @@ export function PrivateGroupInvite() {
         
         // ゲスト参加の場合、PINを生成して保存・メール送信
         if (!user && guestEmail) {
-          newPin = generatePin()
-          // RPC経由でPINを保存（RLSを回避）
-          const { error: pinError } = await supabase.rpc('save_guest_access_pin', {
-            p_member_id: memberId,
-            p_pin: newPin,
-          })
-          if (pinError) {
-            logger.error('PIN保存エラー:', pinError)
-          }
           setGeneratedPin(newPin)
           
           // PINをメールで送信（ゲスト用専用Edge Function）
@@ -677,6 +709,7 @@ export function PrivateGroupInvite() {
             body: {
               groupId: group.id,
               memberId: memberId,
+              guestToken: getPrivateGroupGuestToken(group.id),
               email: guestEmail,
               pin: newPin,
               scenarioName,
@@ -1050,15 +1083,20 @@ export function PrivateGroupInvite() {
         p_start_date: selectedDates[0],
         p_end_date: selectedDates[selectedDates.length - 1],
       }
+      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
+        organizationId: orgId,
+        scenarioLookupId: group.scenario_master_id,
+        scenarioMasterId: group.scenario_master_id,
+      })
       const [blockedResult, eventsResult] = await Promise.all([
         supabase.rpc('get_public_private_booking_availability', availabilityParams),
         supabase
           .from('schedule_events_for_availability')
-          .select('date, store_id, start_time, end_time, is_cancelled')
+          .select('id, date, store_id, start_time, end_time, is_cancelled')
           .filter('organization_id', 'eq', orgId)
           .in('store_id', requestedStoreIds)
-          .gte('date', selectedDates[0])
-          .lte('date', selectedDates[selectedDates.length - 1])
+          .gte('date', addJstDays(selectedDates[0], -2))
+          .lte('date', addJstDays(selectedDates[selectedDates.length - 1], 2))
           .eq('is_cancelled', false),
       ])
       if (blockedResult.error) throw blockedResult.error
@@ -1077,11 +1115,11 @@ export function PrivateGroupInvite() {
         if (start == null || end == null) return true
         return !blockedState.availableStoreIds.some((storeId) =>
           !eventRows.some((event) => {
-            if (event.store_id !== storeId || event.date !== candidate.date) return false
+            if (event.store_id !== storeId) return false
             const eventStart = timeStrToMinutes(event.start_time)
             const eventEnd = timeStrToMinutes(event.end_time)
             if (eventStart == null || eventEnd == null) return true
-            return eventStart < end + 60 && eventEnd > start - 60
+            return checkTimeOverlapWithPreparation(event.start_time, event.end_time, candidate.start_time, candidate.end_time, scenarioTiming.preparation_minutes_by_event?.[event.id] ?? 60, scenarioTiming.preparation_minutes_by_store?.[storeId] ?? 60, event.date, candidate.date).overlap
           })
         )
       })
@@ -1154,11 +1192,7 @@ export function PrivateGroupInvite() {
       const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
       const baseReservationNumber = `${dateStr}-${randomStr}`
       
-      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
-        organizationId: orgId,
-        scenarioLookupId: group.scenario_master_id,
-        scenarioMasterId: group.scenario_master_id,
-      })
+
 
       // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
       const candidateDatetimes = {
@@ -1371,7 +1405,7 @@ export function PrivateGroupInvite() {
   // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
   const charAssignmentMethod = (group as any).character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
-  const scenarioSurveyEnabled = !!(group.scenario_masters as any)?.survey_enabled
+  const scenarioSurveyEnabled = effectiveSurvey?.survey_enabled === true && !effectiveSurvey.survey_url
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
   // 進捗ステップ数の計算

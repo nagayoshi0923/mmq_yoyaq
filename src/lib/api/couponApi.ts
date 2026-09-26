@@ -30,6 +30,8 @@ export interface CampaignFormData {
   max_uses_per_customer: number
   target_type: 'all' | 'specific_scenarios' | 'specific_organization'
   target_ids?: string[] | null
+  target_store_ids?: string[] | null
+  same_scenario_once?: boolean
   trigger_type: 'registration' | 'manual'
   valid_from?: string | null
   valid_until?: string | null
@@ -156,8 +158,8 @@ export async function getCurrentReservations(): Promise<Array<{
       time: string
     }>>('/api/coupons?type=current-reservations')
   } catch (err) {
-    logger.error('現在進行中の予約取得エラー:', err)
-    return []
+    logger.error('予約取得エラー:', err)
+    throw err
   }
 }
 
@@ -432,4 +434,17 @@ export async function getCampaignCoupons(
     logger.error('キャンペーンクーポン取得エラー:', err)
     return []
   }
+}
+
+export interface CouponTargetOptions {
+  organization_id: string
+  stores: Array<{ id: string; name: string }>
+  scenarios: Array<{ id: string; scenario_master_id: string; scenario_masters: { title: string } | null }>
+}
+export function getCouponTargetOptions(): Promise<CouponTargetOptions> {
+  return apiClient.get<CouponTargetOptions>('/api/coupons?type=target-options')
+}
+
+export function previewCouponUse(customerCouponId: string, reservationId: string): Promise<{ success: boolean; discount_amount: number }> {
+  return apiClient.post('/api/coupons?action=preview-use', { customer_coupon_id: customerCouponId, reservation_id: reservationId })
 }

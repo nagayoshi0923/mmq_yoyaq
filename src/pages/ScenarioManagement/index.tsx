@@ -1,5 +1,6 @@
+import { settingsPath } from '@/components/settings/settingsCatalog'
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -155,6 +156,7 @@ export function ScenarioManagement() {
             }
             description={`全${allScenarios.length}本のシナリオを管理`}
           >
+            {canEditScenarios && organization?.slug && <Button variant="outline" size="sm" asChild><Link to={`${settingsPath(organization.slug)}&scope=scenario`}>作品の設定と共通基準</Link></Button>}
             <HelpButton topic="scenario" label="シナリオ管理マニュアル" />
           </PageHeader>
 

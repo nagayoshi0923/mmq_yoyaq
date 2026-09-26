@@ -1,3 +1,6 @@
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
+import { SettingSourceControls } from '@/components/settings/SettingSourceControls'
+import { SETTING_DEFAULTS } from '../../../../../supabase/functions/_shared/setting-defaults'
 import { useState, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,6 +50,7 @@ const hintStyle = "text-[11px] text-muted-foreground mt-0.5"
 const inputStyle = "h-8 text-sm"
 
 interface SurveySectionV2Props {
+  organizationScenarioId?: string
   formData: ScenarioFormData
   setFormData: React.Dispatch<React.SetStateAction<ScenarioFormData>>
 }
@@ -59,7 +63,10 @@ const QUESTION_TYPES = [
   { value: 'rating', label: '5段階評価' },
 ] as const
 
-export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props) {
+export function SurveySectionV2({ formData, setFormData, organizationScenarioId }: SurveySectionV2Props) {
+  const operating = useOperatingSettings('scenario', organizationScenarioId)
+  const surveyEnabled = organizationScenarioId ? operating.resolve('survey_enabled', false).value === true : formData.survey_enabled
+  const surveyDeadline = organizationScenarioId ? Number(operating.resolve('survey_deadline_days', 1).value) : formData.survey_deadline_days ?? 1
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
 
@@ -201,6 +208,11 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
 
   return (
     <>
+      {organizationScenarioId && <>
+        <SettingSourceControls state={operating} scope="scenario" keys={['survey_enabled','survey_deadline_days','survey_url']} defaults={SETTING_DEFAULTS} />
+        <div className="space-y-2"><Label>外部アンケートURL（任意）</Label><Input value={String(operating.resolve('survey_url','').value)} disabled={!operating.data?.can_edit} onChange={e => operating.set('survey_url',e.target.value)} /></div>
+        <Button disabled={operating.saving || !operating.data?.can_edit || !operating.dirty} onClick={() => void operating.save()}>アンケート設定を保存</Button>
+      </>}
       <div className="scenario-edit-card">
         <p className="scenario-edit-card__title">公演前アンケート</p>
         <p className="scenario-edit-card__help">貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します</p>
@@ -208,24 +220,23 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
           <div className="flex items-center gap-3">
             <Switch
               id="survey_enabled"
-              checked={formData.survey_enabled || false}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, survey_enabled: checked }))}
+              checked={surveyEnabled || false}
+              disabled={Boolean(organizationScenarioId) && !operating.data?.can_edit}
+              onCheckedChange={(checked) => organizationScenarioId ? operating.set('survey_enabled', checked) : setFormData(prev => ({ ...prev, survey_enabled: checked }))}
             />
             <Label htmlFor="survey_enabled" className="font-medium cursor-pointer">
               アンケートを有効にする
             </Label>
           </div>
           
-          {formData.survey_enabled && (
+          {surveyEnabled && (
             <div className="space-y-4 pt-2 border-t">
               <div className="space-y-2">
                 <Label className={labelStyle}>回答期限（公演の何日前まで）</Label>
                 <Select
-                  value={String(formData.survey_deadline_days ?? 1)}
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    survey_deadline_days: parseInt(value, 10) 
-                  }))}
+                  value={String(surveyDeadline)}
+                  disabled={Boolean(organizationScenarioId) && !operating.data?.can_edit}
+                  onValueChange={(value) => organizationScenarioId ? operating.set('survey_deadline_days', Number(value)) : setFormData(prev => ({ ...prev, survey_deadline_days: Number(value) }))}
                 >
                   <SelectTrigger className={inputStyle + " w-48"}>
                     <SelectValue />

@@ -254,11 +254,10 @@ export default function OrgSignup() {
   }
 
   // 組織をロールバック（RPC経由で作成した場合）
-  // signUp 失敗時など、ユーザー紐付け前の孤立組織を rollback_orphan_organization RPC で削除する
-  // RPC 側で「作成 10 分以内 + ユーザー/スタッフ未紐付け」を検証するので不正利用は防げる
-  const rollbackOrganization = async (orgId: string) => {
+  // 作成時に受け取った登録証明を使い、自分が作成した未登録組織だけを取り消す
+  const rollbackOrganization = async (orgId: string, claimToken: string) => {
     try {
-      const { error } = await supabase.rpc('rollback_orphan_organization', { p_org_id: orgId })
+      const { error } = await supabase.rpc('rollback_orphan_organization_v2', { p_org_id: orgId, p_claim_token: claimToken })
       if (error) {
         logger.error('rollback_orphan_organization failed (org_id=%s):', orgId, error)
       } else {
@@ -274,6 +273,7 @@ export default function OrgSignup() {
     setIsSubmitting(true)
     setError(null)
     let createdOrgId: string | null = null
+    let claimToken = ''
 
     try {
       // 1. SECURITY DEFINER RPC で組織+代表店舗を作成（anon 可、RLSをバイパス）
@@ -293,15 +293,18 @@ export default function OrgSignup() {
       if (!newOrg?.id) throw new Error('組織の作成に失敗しました')
 
       createdOrgId = newOrg.id
+      if (typeof newOrg.claim_token !== 'string' || !newOrg.claim_token) throw new Error('登録情報を取得できませんでした。画面を更新してやり直してください')
+      claimToken = newOrg.claim_token
 
       if (isLoggedIn) {
         // ── ログイン済みパス: 既存アカウントを admin に昇格 ──
-        const { error: claimError } = await supabase.rpc('claim_organization_as_admin', {
+        const { error: claimError } = await supabase.rpc('claim_organization_as_admin_v2', {
+          p_claim_token: claimToken,
           p_org_id:     newOrg.id,
           p_admin_name: user?.email ?? '',
         })
         if (claimError) {
-          if (createdOrgId) await rollbackOrganization(createdOrgId)
+          if (createdOrgId) await rollbackOrganization(createdOrgId, claimToken)
           throw claimError
         }
         setCurrentStep('complete')
@@ -321,6 +324,7 @@ export default function OrgSignup() {
           options: {
             data: {
               organization_id:   newOrg.id,
+              organization_claim_token: claimToken,
               invited_as:        'admin',
               admin_name:        adminData.name.trim(),
               admin_phone:       adminData.phone.trim(),
@@ -331,7 +335,7 @@ export default function OrgSignup() {
         })
 
         if (authError) {
-          if (createdOrgId) await rollbackOrganization(createdOrgId)
+          if (createdOrgId) await rollbackOrganization(createdOrgId, claimToken)
           throw authError
         }
 

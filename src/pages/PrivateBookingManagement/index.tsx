@@ -1189,7 +1189,7 @@ export function PrivateBookingManagement() {
           open={deleteConfirmOpen}
           onOpenChange={setDeleteConfirmOpen}
           title="この申込を完全に削除しますか？"
-          description="この操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。"
+          description="この操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。公演・支払・請求などの履歴がある申込は削除できません。履歴を残す場合は取消操作を利用してください。"
           confirmLabel="削除する"
           variant="destructive"
           onConfirm={runDelete}

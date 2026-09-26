@@ -27,7 +27,7 @@ export function useUseCouponMutation() {
       consumeCoupon(couponId, reservationId),
     onSuccess: (result) => {
       if (result.success) {
-        queryClient.invalidateQueries({ queryKey: couponsKeys.coupons })
+        queryClient.invalidateQueries({ queryKey: couponsKeys.coupons, refetchType: 'all' })
       }
     },
   })

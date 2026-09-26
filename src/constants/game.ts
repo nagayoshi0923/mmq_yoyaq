@@ -48,7 +48,8 @@ export type EventStatus = typeof EVENT_STATUS[keyof typeof EVENT_STATUS]
  */
 export const STAFF_STATUS = {
   ACTIVE: 'active',
-  ON_LEAVE: 'on_leave',
+  ON_LEAVE: 'on-leave',
+  RESIGNED: 'resigned',
   INACTIVE: 'inactive',
 } as const
 

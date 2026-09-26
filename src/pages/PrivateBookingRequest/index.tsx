@@ -142,7 +142,7 @@ export function PrivateBookingRequest({
   }, [initialStoreIds, displayStores, scenarioAvailableSet])
 
   // 貸切予約の受付締切（公演日の何日前まで申込可能か）。設定 > 予約設定の値
-  const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug })
+  const deadlineDays = usePrivateBookingDeadlineDays({ organizationSlug, scenarioId })
 
   // 追加可能な日付の範囲（受付締切日数後から候補取得と同じ 180 日ホライズンまで）
   const dateRange = useMemo(() => {
@@ -194,8 +194,8 @@ export function PrivateBookingRequest({
         .select('id, date, start_time, end_time, store_id, is_cancelled')
         .filter('organization_id', 'eq', organizationId)
         .in('store_id', storeIdsForSlotResolution)
-        .gte('date', toJstYmd(today))
-        .lte('date', toJstYmd(windowEnd))
+        .gte('date', toJstYmd(new Date(today.getTime() - 2 * 86400000)))
+        .lte('date', toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
         .eq('is_cancelled', false)
       if (error) { logger.error('貸切確認: イベント取得エラー', error); return [] }
       return data || []
@@ -829,6 +829,8 @@ export function PrivateBookingRequest({
             {/* 注意事項（DBから取得） */}
             <BookingNotice
               mode="private"
+              scenarioMasterId={scenarioId}
+              organizationSlug={organizationSlug}
               storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
             />
 
