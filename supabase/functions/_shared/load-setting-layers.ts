@@ -75,6 +75,10 @@ export async function loadSettingLayers(db: SettingsClient, input: SettingContex
       db.from('reservation_settings').select(reservationFields).eq('organization_id', context.organizationId).eq('store_id', context.storeId).maybeSingle(),
       db.from('email_settings').select(emailFields).eq('organization_id', context.organizationId).eq('store_id', context.storeId).maybeSingle(),
     ])
+    const duration = await db.from('performance_schedule_settings').select('default_duration')
+      .eq('store_id', context.storeId).or(`organization_id.eq.${context.organizationId},organization_id.is.null`).maybeSingle()
+    if (duration.error) throw duration.error
+    if (duration.data?.default_duration != null) store = { ...store, default_performance_duration: duration.data.default_duration }
     for (const result of results) {
       if (result.error) throw result.error
       store = { ...store, ...pickSettings(result.data) }

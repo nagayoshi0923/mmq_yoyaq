@@ -487,7 +487,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             storeName: props.storeName,
             storeAddress: props.storeAddress,
             participantCount: participantCount,
-            totalPrice: props.participationFee * participantCount,
+            totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),
             reservationNumber: reservationData.reservation_number
           }
         })
