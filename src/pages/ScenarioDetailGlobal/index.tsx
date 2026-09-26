@@ -1,3 +1,4 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
  * シナリオ共通詳細ページ
  * @path /scenario/:scenarioSlug
@@ -267,18 +268,12 @@ async function findCustomerIdByEmail(email: string): Promise<string | null> {
 }
 
 async function checkIsPlayed(customerId: string, scenarioId: string): Promise<boolean> {
-  const { data: override } = await supabase
-    .from('customer_played_overrides')
-    .select('id')
-    .eq('customer_id', customerId)
-    .eq('scenario_master_id', scenarioId)
-    .limit(1)
-    .maybeSingle()
+  const history = await customerPlayHistory.snapshot(customerId)
+  const override = history.overrides.some(row => row.scenario_master_id === scenarioId)
   if (override) return false
   const { data: reservation } = await supabase.from('reservations').select('id').eq('customer_id', customerId).eq('scenario_master_id', scenarioId).in('status', ['confirmed', 'gm_confirmed']).lte('requested_datetime', new Date().toISOString()).limit(1).maybeSingle()
   if (reservation) return true
-  const { data: manual } = await supabase.from('manual_play_history').select('id').eq('customer_id', customerId).eq('scenario_master_id', scenarioId).limit(1).maybeSingle()
-  return !!manual
+  return history.manual.some(row => row.scenario_master_id === scenarioId)
 }
 
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
@@ -330,10 +325,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       if (!restoredExistingPlayed) {
         const manualCount = await countManualPlayHistoryForCustomer(playedCustomerId)
         if (isManualPlayHistoryAtCap(manualCount)) throw new Error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
-        const { error } = await supabase.from('manual_play_history').insert({
-          customer_id: playedCustomerId, scenario_title: data.scenario.title, scenario_master_id: data.scenario.id, played_at: playedDate || null, venue: null,
+        await customerPlayHistory.add(playedCustomerId, { scenario_title: data.scenario.title, scenario_master_id: data.scenario.id, played_at: playedDate || null, venue: null,
         })
-        if (error) throw error
       }
     },
     onSuccess: () => {

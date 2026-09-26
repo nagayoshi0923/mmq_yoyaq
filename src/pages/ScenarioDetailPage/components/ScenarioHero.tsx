@@ -1,3 +1,4 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { memo, useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
@@ -110,13 +111,8 @@ export const ScenarioHero = memo(function ScenarioHero({
         setCustomerId(customer.id)
 
         // 本人/スタッフが「未体験に戻した」場合は override が優先（予約/手動より先に判定）
-        const { data: override } = await supabase
-          .from('customer_played_overrides')
-          .select('id')
-          .eq('customer_id', customer.id)
-          .eq('scenario_master_id', scenario.scenario_master_id)
-          .limit(1)
-          .maybeSingle()
+        const history = await customerPlayHistory.snapshot(customer.id)
+        const override = history.overrides.some(row => row.scenario_master_id === scenario.scenario_master_id)
 
         if (!active) return
         if (override) {
@@ -142,14 +138,8 @@ export const ScenarioHero = memo(function ScenarioHero({
         }
 
         // 手動登録から体験済みか確認
-        const { data: manual } = await supabase
-          .from('manual_play_history')
-          .select('id')
-          .eq('customer_id', customer.id)
-          .eq('scenario_master_id', scenario.scenario_master_id)
-          .limit(1)
-          .maybeSingle()
-        
+        const manual = history.manual.some(row => row.scenario_master_id === scenario.scenario_master_id)
+
         if (active) setIsPlayed(!!manual)
       } catch (error) {
         logger.error('体験済みチェックエラー:', error)
@@ -251,18 +241,10 @@ export const ScenarioHero = memo(function ScenarioHero({
         const selectedStore = allStores.find(s => s.id === selectedStoreId)
         const venueName = selectedStore?.name || null
 
-        // manual_play_historyに追加
-        const { error } = await supabase
-          .from('manual_play_history')
-          .insert({
-            customer_id: customer.id,
-            scenario_title: scenario.scenario_title,
-            scenario_master_id: scenario.scenario_master_id,
-            played_at: playedDate || null,
-            venue: venueName,
-          })
-
-        if (error) throw error
+        await customerPlayHistory.add(customer.id, {
+          scenario_title: scenario.scenario_title, scenario_master_id: scenario.scenario_master_id,
+          played_at: playedDate || null, venue: venueName,
+        })
       }
       
       setIsPlayed(true)

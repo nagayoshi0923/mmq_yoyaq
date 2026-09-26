@@ -121,7 +121,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const pageSize = 500
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await db.from('reservations')
-        .select('id, title, requested_datetime, participant_count, final_price, status')
+        .select('id, title, scenario_master_id, requested_datetime, participant_count, final_price, status')
         .eq('organization_id', orgId)
         .eq('customer_id', customerId)
         .order('requested_datetime', { ascending: false })
