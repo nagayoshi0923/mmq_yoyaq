@@ -829,6 +829,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     if (event.organization_scenario_id) {
       const override = orgScenarioById.get(event.organization_scenario_id)
       if (override) {
+        scenarioInfo = scenarioByMasterId.get(override.scenario_master_id ?? '') ?? scenarioInfo
         scenarioInfo = {
           ...scenarioInfo,
           id: scenarioInfo?.id ?? '',
