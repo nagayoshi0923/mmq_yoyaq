@@ -104,13 +104,21 @@ export function PrivateBookingRequest({
   // 親コンポーネントが非同期で selectedTimeSlots を更新した場合に同期
   // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
   useEffect(() => {
-    if (initialTimeSlots.length > 0) {
-      setEditableTimeSlots(prev => prev.length === 0 ? initialTimeSlots : prev)
-    }
-  }, [initialTimeSlots])
+    if (initialTimeSlots.length === 0) return
+    setEditableTimeSlots((prev) => {
+      if (prev.length > 0) return prev
+      return initialTimeSlots.map((ts) => ({
+        ...ts,
+        slot: enrichSlotEnd(ts.date, ts.slot),
+      }))
+    })
+  }, [initialTimeSlots, enrichSlotEnd])
 
   useEffect(() => {
-    setEditableTimeSlots((prev) => prev.map((ts) => ({ ...ts, slot: enrichSlotEnd(ts.date, ts.slot) })))
+    setEditableTimeSlots((prev) => {
+      if (prev.length === 0) return prev
+      return prev.map((ts) => ({ ...ts, slot: enrichSlotEnd(ts.date, ts.slot) }))
+    })
   }, [enrichSlotEnd])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newDate, setNewDate] = useState('')
