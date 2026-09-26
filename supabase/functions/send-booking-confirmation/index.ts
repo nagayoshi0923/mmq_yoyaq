@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { confirmedReservationPrice } from '../_shared/confirmed-reservation-price.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface BookingConfirmationRequest {
@@ -50,7 +51,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id')
+      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id, final_price, total_price, discount_amount, participant_count')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -65,6 +66,11 @@ serve(async (req) => {
     if (bookingData.organizationId && reservation.organization_id && bookingData.organizationId !== reservation.organization_id) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
+
+    // 確定済みの割引後金額を正本にする。ブラウザ申告額をメール・再送キューへ渡さない。
+    try { bookingData.totalPrice = confirmedReservationPrice(reservation) }
+    catch { return errorResponse('予約の確定金額を確認できません', 409, corsHeaders) }
+    bookingData.participantCount = reservation.participant_count
 
     // ログにはマスキングした情報のみ出力
     console.log('📧 Sending booking confirmation:', {

@@ -1,11 +1,14 @@
 -- 正規ソース: supabase/schemas/private_group_members_pii.sql
--- 最終更新: 2026-04-14
+-- 最終更新: 2026-09-27（本番のハッシュ・ロック列とPII権限を同期）
 CREATE TABLE public.private_group_members_pii (
   member_id  UUID PRIMARY KEY REFERENCES public.private_group_members(id) ON DELETE CASCADE,
   guest_name TEXT,
   guest_email TEXT,
   guest_phone TEXT,
-  access_pin TEXT,
+  access_pin TEXT, -- 旧列。認証には使用しない。
+  access_pin_hash TEXT,
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -45,5 +48,6 @@ CREATE POLICY "private_group_members_pii_delete" ON public.private_group_members
   USING (public.is_staff_or_admin());
 
 -- Grants
-GRANT SELECT, INSERT ON public.private_group_members_pii TO anon;
+-- 20260802130000でanonの直接アクセスを撤回済み。
+REVOKE ALL ON public.private_group_members_pii FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.private_group_members_pii TO authenticated;

@@ -1,3 +1,4 @@
+import { useOperatingSettings } from '@/hooks/useOperatingSettings'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 import { PerformanceOperatingSettings } from '@/components/settings/PerformanceOperatingSettings'
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -190,7 +191,8 @@ export function PerformanceModal({
   })
 
   // 店舗のデフォルト公演時間（分）- performance_schedule_settings から取得
-  const [defaultDuration, setDefaultDuration] = useState(180)
+  const durationSettings = useOperatingSettings('store', stores.find(store => store.id === formData.venue || store.name === formData.venue)?.id || stores[0]?.id)
+  const defaultDuration = Number(durationSettings.resolve('default_performance_duration', 180).value)
 
   // 営業時間制限（開始時刻・終了時刻）
   const [businessHours, setBusinessHours] = useState<{ openTime: string; closeTime: string } | null>(null)
@@ -432,27 +434,6 @@ export function PerformanceModal({
     return store?.id || null
   }
 
-  // デフォルト公演時間を読み込む（performance_schedule_settings から）
-  useEffect(() => {
-    const loadDefaultDuration = async () => {
-      try {
-        const venueValue = formData.venue || ''
-        const storeId = resolveStoreId(venueValue) || stores[0]?.id
-        if (!storeId) return
-        const { data } = await supabase
-          .from('performance_schedule_settings')
-          .select('default_duration')
-          .eq('store_id', storeId)
-          .maybeSingle()
-        if (data?.default_duration) {
-          setDefaultDuration(data.default_duration)
-        }
-      } catch { /* ignore */ }
-    }
-    loadDefaultDuration()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.venue, stores])
-
   // 営業時間設定を読み込む（公演時間設定は useTimeSlotSettings で取得）
   useEffect(() => {
     const loadBusinessHoursSettings = async () => {
@@ -688,6 +669,10 @@ export function PerformanceModal({
   const handleStartTimeChange = (startTime: string) => {
     // シナリオが選択されている場合はシナリオのdurationで計算
     // 未選択の場合は公演スケジュール設定のdefault_durationで計算
+    if (!formData.scenario && (durationSettings.loading || !durationSettings.data)) {
+      showToast.error('公演時間の設定を読み込んでから変更してください')
+      return
+    }
     let endTime: string
     if (formData.scenario) {
       endTime = calculateEndTime(startTime, formData.scenario)
@@ -811,22 +796,24 @@ export function PerformanceModal({
       void clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
     }
     
-    // 楽観的クローズ: onSave の完了を待たずにダイアログを閉じて体感速度を上げる。
-    // 重複/通信エラー時は useEventOperations 側で toast 表示されるので、ユーザは
-    // toast を見て必要に応じてモーダルを開き直す。
-    // 保存中の体感フィードバックとして loading toast を出し、完了で dismiss する。
+    // 保存失敗時は入力を保持し、その場で予約・スタッフ参加を修正できるようにする。
     const loadingToastId = toast.loading('保存中...')
-    const savePromise = onSave(saveData).finally(() => {
+    let success: boolean
+    try {
+      success = await onSave(saveData)
+    } catch (error) {
+      logger.error('公演保存エラー:', error)
+      showToast.error('保存できませんでした。入力内容を確認してもう一度お試しください。')
+      return
+    } finally {
       isSavingRef.current = false
-    })
+      toast.dismiss(loadingToastId)
+    }
+    if (!success) return
     onClose()
 
-    // 残りの post-save 処理 (pending 参加者 INSERT) はバックグラウンドで実行
+    // 保存成功後に、バッファされた参加者を登録する。
     void (async () => {
-      const success = await savePromise
-      toast.dismiss(loadingToastId)
-      if (!success) return // error toast は useEventOperations 側で出る
-
       // バッファされた一般参加者 (+ 参加者を追加で追加された分) を並列 INSERT
       try {
         if (pendingParticipants.length > 0) {

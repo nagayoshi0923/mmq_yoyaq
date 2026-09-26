@@ -1,3 +1,4 @@
+import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import { addJstDays } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { useState, useEffect, useMemo } from 'react'
@@ -102,7 +103,7 @@ export function PrivateGroupInvite() {
     queryKey: ['group-survey-settings', group?.id, existingMemberId],
     enabled: Boolean(group?.id && existingMemberId),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_survey_data_for_member', { p_group_id: group!.id, p_member_id: existingMemberId! })
+      const { data, error } = await privateGroupMemberAction(group!.id, existingMemberId!, 'survey_read')
       if (error) throw error
       return data as { survey_enabled?: boolean; survey_url?: string }
     },
@@ -205,28 +206,47 @@ export function PrivateGroupInvite() {
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
 
-  // SessionStorageからゲストセッションを復元
+  // UUID alone is not proof. Validate the saved token before restoring guest controls.
   useEffect(() => {
-    if (!code || user) return // ログインユーザーは不要
-    
+    if (!code || user || !group?.id) return
+    let cancelled = false
     const storageKey = getStorageKey(code)
-    const savedSession = sessionStorage.getItem(storageKey)
-    
-    if (savedSession) {
+    const saved = sessionStorage.getItem(storageKey)
+    if (!saved) return
+    void (async () => {
       try {
-        const session = JSON.parse(savedSession)
-        if (session.memberId) {
-          setExistingMemberId(session.memberId)
-          setGuestName(session.guestName || '')
-          setGuestEmail(session.guestEmail || '')
-          logger.info('ゲストセッションを復元:', { memberId: session.memberId })
+        const session = JSON.parse(saved)
+        if (!session.memberId || !getPrivateGroupGuestToken(group.id)) return
+        const { error } = await privateGroupMemberAction(group.id, session.memberId, 'validate')
+        if (cancelled) return
+        if (error) {
+          if (error.code === '42501') {
+            sessionStorage.removeItem(storageKey)
+            clearPrivateGroupGuestToken(group.id)
+            setExistingMemberId(null)
+          }
+          return
         }
-      } catch (err) {
-        logger.error('セッション復元エラー:', err)
-        sessionStorage.removeItem(storageKey)
+        setExistingMemberId(session.memberId)
+        setGuestName(session.guestName || '')
+        setGuestEmail(session.guestEmail || '')
+      } catch {
+        if (!cancelled) sessionStorage.removeItem(storageKey)
       }
+    })()
+    return () => { cancelled = true }
+  }, [code, user, group?.id])
+
+  useEffect(() => {
+    const handleExpired = (event: Event) => {
+      if (user || !code || (event as CustomEvent).detail?.groupId !== group?.id) return
+      sessionStorage.removeItem(getStorageKey(code))
+      setExistingMemberId(null)
+      toast.error('本人確認の期限が切れました。メールアドレスとPINで入り直してください。')
     }
-  }, [code, user])
+    window.addEventListener('private-group-auth-expired', handleExpired)
+    return () => window.removeEventListener('private-group-auth-expired', handleExpired)
+  }, [code, user, group?.id])
 
   // ゲストセッションを保存
   const saveGuestSession = (memberId: string, name: string, email: string) => {
@@ -245,11 +265,12 @@ export function PrivateGroupInvite() {
     if (!code) return
     const storageKey = getStorageKey(code)
     sessionStorage.removeItem(storageKey)
+    if (group) clearPrivateGroupGuestToken(group.id)
   }
 
   // 4桁PINを生成
   const generatePin = () => {
-    return String(Math.floor(1000 + Math.random() * 9000))
+    return String(1000 + crypto.getRandomValues(new Uint32Array(1))[0] % 9000)
   }
 
   // PIN認証を実行
@@ -263,15 +284,14 @@ export function PrivateGroupInvite() {
 
     try {
       // RPCでPIN認証
-      logger.info('PIN認証リクエスト:', { groupId: group.id, email: pinEmail, pinLength: pinCode.length })
+      // PINやメールアドレスをログへ残さない。
       
-      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', {
+      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin_v3', {
         p_group_id: group.id,
         p_email: pinEmail,
         p_pin: pinCode,
       })
 
-      logger.info('PIN認証結果:', { authResult, authError })
 
       if (authError) {
         logger.error('PIN認証エラー:', authError)
@@ -279,8 +299,14 @@ export function PrivateGroupInvite() {
         return
       }
 
-      if (authResult && authResult.length > 0) {
+      if (authResult?.[0]?.locked) {
+        setPinError('PINの入力に繰り返し失敗したため、15分間お待ちいただいてから再度お試しください。')
+        return
+      }
+
+      if (authResult?.[0]?.member_id) {
         const authMember = authResult[0]
+        savePrivateGroupGuestToken(group.id, authMember.guest_token)
         setExistingMemberId(authMember.member_id)
         setGuestName(authMember.guest_name || '')
         setGuestEmail(authMember.guest_email || '')
@@ -652,7 +678,10 @@ export function PrivateGroupInvite() {
       let newPin: string | null = null
 
       if (!memberId) {
+        newPin = user ? null : generatePin()
         const member = await joinGroup({
+          inviteCode: group.invite_code,
+          pin: newPin || undefined,
           groupId: group.id,
           userId: user?.id,
           guestName: user ? undefined : guestName,
@@ -671,15 +700,6 @@ export function PrivateGroupInvite() {
         
         // ゲスト参加の場合、PINを生成して保存・メール送信
         if (!user && guestEmail) {
-          newPin = generatePin()
-          // RPC経由でPINを保存（RLSを回避）
-          const { error: pinError } = await supabase.rpc('save_guest_access_pin', {
-            p_member_id: memberId,
-            p_pin: newPin,
-          })
-          if (pinError) {
-            logger.error('PIN保存エラー:', pinError)
-          }
           setGeneratedPin(newPin)
           
           // PINをメールで送信（ゲスト用専用Edge Function）
@@ -689,6 +709,7 @@ export function PrivateGroupInvite() {
             body: {
               groupId: group.id,
               memberId: memberId,
+              guestToken: getPrivateGroupGuestToken(group.id),
               email: guestEmail,
               pin: newPin,
               scenarioName,

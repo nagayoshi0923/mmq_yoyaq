@@ -14,7 +14,7 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 /**
  * 参加費を計算する関数
  */
-const calculateParticipationFee = async (
+export const calculateParticipationFee = async (
   scenarioId: string,
   startTime: string,
   date: string,
@@ -45,10 +45,14 @@ const calculateParticipationFee = async (
     throw new Error('このシナリオの料金設定がありません。管理者にお問い合わせください。')
   }
   
+  // 保存単価は reservationApi.create → 予約作成RPC側で独自休日を再取得して確定する。
+  // ここは表示用の再計算なので、休日取得の一時失敗で予約自体を中断しない。
   const { data: holidays, error: holidayError } = await supabase.rpc(
     'get_public_custom_holidays', { p_organization_id: organizationId }
   )
-  if (holidayError) throw new Error('休日設定の取得に失敗しました。もう一度お試しください。')
+  if (holidayError) {
+    logger.warn('休日設定の取得に失敗（表示用）。予約作成側で再確定します:', holidayError)
+  }
   const customHolidays: string[] = holidays?.[0]?.custom_holidays ?? []
   return calculateDateParticipationFee(baseFeeRaw, scenario.participation_costs, date,
     day => customHolidays.includes(day), startTime)
@@ -487,7 +491,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             storeName: props.storeName,
             storeAddress: props.storeAddress,
             participantCount: participantCount,
-            totalPrice: props.participationFee * participantCount,
+            totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),
             reservationNumber: reservationData.reservation_number
           }
         })

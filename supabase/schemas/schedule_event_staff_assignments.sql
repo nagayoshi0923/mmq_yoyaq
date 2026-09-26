@@ -74,28 +74,38 @@ BEGIN
       gm_status := CASE WHEN gm_id IS NULL THEN 'unmatched' ELSE 'resolved' END;
     ELSE
       SELECT id INTO gm_id FROM public.staff
-        WHERE organization_id=NEW.organization_id AND name=gm_name FOR SHARE;
+        WHERE organization_id=NEW.organization_id AND name=gm_name FOR SHARE NOWAIT;
       IF gm_id IS NULL THEN
         RAISE EXCEPTION '担当スタッフを特定できません。最新のスタッフ一覧から選び直してください' USING ERRCODE='23514';
       END IF;
       gm_status := 'resolved';
     END IF;
-    IF gm_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.staff WHERE id=gm_id AND organization_id=NEW.organization_id) THEN
-      RAISE EXCEPTION '別組織のスタッフは登録できません' USING ERRCODE='23514';
+    IF gm_id IS NOT NULL THEN
+      -- Pre-lock before the FK insert: staff rename holds a staff lock and updates events.
+      PERFORM id FROM public.staff WHERE id=gm_id AND organization_id=NEW.organization_id FOR KEY SHARE NOWAIT;
+      IF NOT FOUND THEN RAISE EXCEPTION '別組織のスタッフは登録できません' USING ERRCODE='23514'; END IF;
+    END IF;
+    IF prior IS NULL AND gm_id IS NOT NULL THEN
+      -- A rename changes the name key, not the already-resolved person's identity.
+      SELECT value INTO prior FROM jsonb_array_elements(previous) WHERE value->>'staff_id'=gm_id::text LIMIT 1;
     END IF;
     gm_role := coalesce(nullif(NEW.gm_roles->>gm_name,''),CASE WHEN position=1 THEN 'main' ELSE 'sub' END);
-    gm_role_confirmed := coalesce(nullif(NEW.gm_roles->>gm_name,'') IS NOT NULL,false)
-      OR NOT EXISTS(SELECT 1 FROM jsonb_object_keys(coalesce(NEW.gm_roles,'{}'::jsonb)) key
-        WHERE NOT(key=ANY(coalesce(NEW.gms,ARRAY[]::text[]))));
+    gm_role_confirmed := CASE
+      WHEN nullif(NEW.gm_roles->>gm_name,'') IS NOT NULL THEN true
+      WHEN prior->>'role_confirmed'='false' THEN false
+      ELSE NOT EXISTS(SELECT 1 FROM jsonb_object_keys(coalesce(NEW.gm_roles,'{}'::jsonb)) key
+        WHERE NOT(key=ANY(coalesce(NEW.gms,ARRAY[]::text[])))) END;
     INSERT INTO public.schedule_event_staff_assignments VALUES(NEW.id,position,NEW.organization_id,gm_id,gm_name,gm_role,gm_status,gm_role_confirmed);
   END LOOP;
   RETURN NEW;
+EXCEPTION WHEN lock_not_available THEN
+  RAISE EXCEPTION '担当スタッフが別の処理で更新中です。少し待って再度保存してください' USING ERRCODE='23514';
 END $function$
 ;
+
 CREATE TRIGGER sync_event_staff_identity AFTER INSERT OR UPDATE OF gms,gm_roles,organization_id
 ON public.schedule_events FOR EACH ROW EXECUTE FUNCTION public.sync_event_staff_identity();
 
--- Rename names and name-keyed roles together. Errors roll back the staff rename.
 CREATE FUNCTION public.rename_event_staff_identity() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN

@@ -1,14 +1,9 @@
--- 予約処理・公開用RPC専用。任意の利用者から直接呼べない。
-CREATE OR REPLACE FUNCTION public.resolve_operating_setting(
-  p_organization_id uuid,
-  p_key text,
-  p_default jsonb DEFAULT 'null'::jsonb,
-  p_store_id uuid DEFAULT NULL,
-  p_scenario_id uuid DEFAULT NULL,
-  p_event_id uuid DEFAULT NULL
-) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
-AS $$
+CREATE OR REPLACE FUNCTION public.resolve_operating_setting(p_organization_id uuid, p_key text, p_default jsonb DEFAULT 'null'::jsonb, p_store_id uuid DEFAULT NULL::uuid, p_scenario_id uuid DEFAULT NULL::uuid, p_event_id uuid DEFAULT NULL::uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
   v_store uuid := p_store_id;
   v_scenario uuid := p_scenario_id;
@@ -19,7 +14,7 @@ DECLARE
   v_legacy jsonb;
   v_override jsonb;
   v_candidate jsonb;
-  v_keys constant text[] := ARRAY['cancellation_policy','cancellation_policy_items','cancellation_deadline_hours','cancellation_fees','cancellation_fee_basis','private_cancellation_policy','private_cancellation_policy_items','private_cancellation_deadline_hours','private_cancellation_fees','private_cancellation_fee_basis','organizer_cancel_reasons','organizer_cancel_refund_note','cancellation_judgment_rules','cancellation_notice_note','reservation_change_deadline_hours','reservation_change_note','private_reservation_change_deadline_hours','private_reservation_change_note','refund_method_note','payment_method_label','payment_method_description','company_name','company_phone','company_email','company_address','reminder_enabled','reminder_schedule','reservation_confirmation_template','cancellation_template','reminder_template','private_reminder_template','booking_change_template','private_request_template','private_confirm_template','private_rejection_template','waitlist_notify_template','waitlist_registration_template','performance_cancellation_template','performance_confirmation_template','event_cancellation_template','performance_extension_template','store_cancellation_template','private_rejection_reason','judgment_minutes_before','preparation_minutes','survey_enabled','survey_deadline_days','survey_url','coupon_usage_enabled'];
+  v_keys constant text[] := ARRAY['cancellation_policy','cancellation_policy_items','cancellation_deadline_hours','cancellation_fees','cancellation_fee_basis','private_cancellation_policy','private_cancellation_policy_items','private_cancellation_deadline_hours','private_cancellation_fees','private_cancellation_fee_basis','organizer_cancel_reasons','organizer_cancel_refund_note','cancellation_judgment_rules','cancellation_notice_note','reservation_change_deadline_hours','reservation_change_note','private_reservation_change_deadline_hours','private_reservation_change_note','refund_method_note','payment_method_label','payment_method_description','company_name','company_phone','company_email','company_address','reminder_enabled','reminder_schedule','reservation_confirmation_template','cancellation_template','reminder_template','private_reminder_template','booking_change_template','private_request_template','private_confirm_template','private_rejection_template','waitlist_notify_template','waitlist_registration_template','performance_cancellation_template','performance_confirmation_template','event_cancellation_template','performance_extension_template','store_cancellation_template','private_rejection_reason','judgment_minutes_before','preparation_minutes','survey_enabled','survey_deadline_days','survey_url','coupon_usage_enabled','default_performance_duration'];
 BEGIN
   IF p_key IS NULL OR NOT p_key = ANY(v_keys) THEN
     RAISE EXCEPTION 'unknown setting key' USING ERRCODE = '22023';
@@ -47,7 +42,7 @@ BEGIN
   FOREACH v_scope IN ARRAY ARRAY['organization','store','scenario','performance'] LOOP
     IF (v_scope = 'store' AND v_store IS NULL) OR (v_scope = 'scenario' AND v_scenario IS NULL)
       OR (v_scope = 'performance' AND p_event_id IS NULL) THEN CONTINUE; END IF;
-    IF p_key IN ('company_name','company_phone','company_email','company_address')
+    IF p_key IN ('company_name','company_phone','company_email','company_address','default_performance_duration')
       AND v_scope IN ('scenario','performance') THEN CONTINUE; END IF;
     v_legacy := NULL;
     IF v_scope = 'organization' THEN
@@ -59,6 +54,10 @@ BEGIN
       IF v_legacy IS NULL THEN
         SELECT to_jsonb(e)->p_key INTO v_legacy FROM public.email_settings e
           WHERE e.organization_id = p_organization_id AND e.store_id = v_store;
+      END IF;
+      IF p_key = 'default_performance_duration' THEN
+        SELECT to_jsonb(p.default_duration) INTO v_legacy FROM public.performance_schedule_settings p
+          WHERE p.store_id = v_store AND (p.organization_id = p_organization_id OR p.organization_id IS NULL);
       END IF;
     ELSIF v_scope = 'scenario' THEN
       IF p_key = 'preparation_minutes' THEN
@@ -86,6 +85,5 @@ BEGIN
   END LOOP;
   RETURN jsonb_build_object('value', v_value, 'source', v_source);
 END;
-$$;
-REVOKE ALL ON FUNCTION public.resolve_operating_setting(uuid,text,jsonb,uuid,uuid,uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.resolve_operating_setting(uuid,text,jsonb,uuid,uuid,uuid) TO service_role;
+$function$
+;

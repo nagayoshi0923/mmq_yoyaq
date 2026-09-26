@@ -747,79 +747,14 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
     setSubmitting(true)
     try {
-      // 予約情報を取得
-      const { data: reservation, error: fetchError } = await supabase
-        .from('reservations')
-        .select('id, private_group_id')
-        .eq('id', requestId)
-        .single()
-      
-      if (fetchError) {
-        logger.error('予約情報取得エラー:', fetchError)
-        throw new Error('予約情報の取得に失敗しました')
-      }
-      
-      const privateGroupId = reservation?.private_group_id
-      
-      // グループが紐づいている場合は関連データも削除
-      if (privateGroupId) {
-        // グループメッセージを削除
-        await supabase
-          .from('private_group_messages')
-          .delete()
-          .eq('group_id', privateGroupId)
-        
-        // 候補日程の回答を削除
-        const { data: candidateDates } = await supabase
-          .from('private_group_candidate_dates')
-          .select('id')
-          .eq('group_id', privateGroupId)
-        
-        if (candidateDates && candidateDates.length > 0) {
-          const dateIds = candidateDates.map(d => d.id)
-          await supabase
-            .from('private_group_date_responses')
-            .delete()
-            .in('candidate_date_id', dateIds)
-        }
-        
-        // 候補日程を削除
-        await supabase
-          .from('private_group_candidate_dates')
-          .delete()
-          .eq('group_id', privateGroupId)
-        
-        // グループメンバーを削除
-        await supabase
-          .from('private_group_members')
-          .delete()
-          .eq('group_id', privateGroupId)
-        
-        // グループを削除
-        await supabase
-          .from('private_groups')
-          .delete()
-          .eq('id', privateGroupId)
-      }
-      
-      // GM回答を削除
-      await supabase
-        .from('gm_availability_responses')
-        .delete()
-        .eq('reservation_id', requestId)
-      
-      // 予約を削除
-      // eslint-disable-next-line no-restricted-syntax -- 貸切予約リクエストの却下処理のため直接削除が必要
-      const { error: deleteError } = await supabase
-        .from('reservations')
-        .delete()
-        .eq('id', requestId)
-      
+      const { error: deleteError } = await supabase.rpc('delete_private_booking_request_atomic', {
+        p_reservation_id: requestId,
+      })
       if (deleteError) {
         logger.error('予約削除エラー:', deleteError)
-        throw new Error('予約の削除に失敗しました')
+        throw new Error(deleteError.message || '予約の削除に失敗しました')
       }
-      
+
       logger.log('貸切申込を完全に削除しました:', requestId)
       setDeleteConfirmRequestId(null)
       onSuccess()

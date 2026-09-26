@@ -16,7 +16,7 @@ import { usePreparationSettings } from '@/hooks/usePreparationSettings'
  * 重複警告ダイアログの state（isConflictWarningOpen / conflictInfo /
  * pendingPerformanceData）もこのフックが保持する。
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { ApiClientError } from '@/lib/apiClient'
 import { reservationApi } from '@/lib/reservationApi'
@@ -115,6 +115,17 @@ export function useEventSave({
   const { fetch: fetchPreparation } = usePreparationSettings()
   // 重複警告ダイアログ状態
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
+  const conflictResult = useRef<((success: boolean) => void) | null>(null)
+  const continuingConflict = useRef(false)
+  useEffect(() => () => { conflictResult.current?.(false) }, [])
+  const setConflictWarningOpen = useCallback((open: boolean) => {
+    if (!open && continuingConflict.current) return
+    setIsConflictWarningOpen(open)
+    if (!open) {
+      conflictResult.current?.(false)
+      conflictResult.current = null
+    }
+  }, [])
   const [conflictInfo, setConflictInfo] = useState<any>(null)
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
 
@@ -215,7 +226,9 @@ export function useEventSave({
       })
       setPendingPerformanceData(performanceData)
       setIsConflictWarningOpen(true)
-      return false  // 警告表示時はダイアログを閉じない
+      return new Promise<boolean>(resolve => {
+        conflictResult.current = resolve
+      })
     }
 
     // 重複がない場合は直接保存
@@ -225,6 +238,17 @@ export function useEventSave({
 
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
+    let staffSyncFailed = false
+    // 公演本体が保存済みなら追加モードで再試行させない。部分成功を明示して閉じる。
+    const syncStaff = async (...args: Parameters<typeof reservationApi.syncStaffReservations>) => {
+      try {
+        await reservationApi.syncStaffReservations(...args)
+      } catch (error) {
+        staffSyncFailed = true
+        const detail = error instanceof ApiClientError ? error.message : 'スタッフ参加の登録を完了できませんでした。'
+        showToast.warning('公演情報は保存しましたが、スタッフ参加の反映が未完了です。', `${detail} 公演を開き直して予約者一覧を確認してください。`)
+      }
+    }
     try {
       if (modalMode === 'add') {
         // 新規追加
@@ -387,7 +411,7 @@ export function useEventSave({
 
         // GM欄で「スタッフ参加」を選択した場合、予約も作成する
         if (performanceData.gm_roles && Object.values(performanceData.gm_roles).includes('staff')) {
-          await reservationApi.syncStaffReservations(
+          await syncStaff(
             savedEvent.id,
             performanceData.gms || [],
             performanceData.gm_roles,
@@ -725,7 +749,7 @@ export function useEventSave({
 
           // GM欄で「スタッフ参加」を選択した場合、予約も同期する
           if (performanceData.gm_roles) {
-            await reservationApi.syncStaffReservations(
+            await syncStaff(
               performanceData.id!,
               performanceData.gms || [],
               performanceData.gm_roles,
@@ -748,7 +772,7 @@ export function useEventSave({
         }
       }
 
-      showToast.success('保存しました')
+      if (!staffSyncFailed) showToast.success('保存しました')
       // ダイアログは閉じない（ユーザーが明示的に閉じる）
       return true
     } catch (error) {
@@ -765,19 +789,25 @@ export function useEventSave({
   // （前後30分など間隔が短い連続公演・2部屋同時公演を許容するため、保存が他公演を消すことはしない。
   //   既存公演を消したい場合は右クリックの削除・中止など明示的な操作で行う。）
   const handleConflictContinue = useCallback(async () => {
-    if (!pendingPerformanceData) return
-    // doSavePerformance が成否トーストを出す
-    await doSavePerformance(pendingPerformanceData)
-    setPendingPerformanceData(null)
-    setIsConflictWarningOpen(false)
-    setConflictInfo(null)
+    if (!pendingPerformanceData || continuingConflict.current) return
+    continuingConflict.current = true
+    try {
+      const success = await doSavePerformance(pendingPerformanceData)
+      conflictResult.current?.(success)
+      conflictResult.current = null
+      setPendingPerformanceData(null)
+      setIsConflictWarningOpen(false)
+      setConflictInfo(null)
+    } finally {
+      continuingConflict.current = false
+    }
   }, [pendingPerformanceData, doSavePerformance])
 
   return {
     isConflictWarningOpen,
     conflictInfo,
     pendingPerformanceData,
-    setIsConflictWarningOpen,
+    setIsConflictWarningOpen: setConflictWarningOpen,
     setConflictInfo,
     setPendingPerformanceData,
     handleSavePerformance,

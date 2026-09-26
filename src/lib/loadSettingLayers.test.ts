@@ -8,7 +8,7 @@ function fixture(foreign = false, readError = false, legacyScenario = false) {
     const constraints: Record<string, unknown> = {}
     filters.push({ table, constraints })
     const query = {
-      select: () => query, order: () => query, limit: () => query,
+      select: () => query, or: (value: string) => { constraints.org_or = value; return query }, order: () => query, limit: () => query,
       eq: (key: string, value: unknown) => { constraints[key] = value; return query },
       is: (key: string, value: unknown) => { constraints[key] = value; return query },
       maybeSingle: async () => {
@@ -18,6 +18,7 @@ function fixture(foreign = false, readError = false, legacyScenario = false) {
           : table === 'stores' ? { id: 'store' }
           : table === 'organization_scenarios' ? { id: 'scenario', reservation_confirmation_template: '', extra_preparation_time: 30 }
           : table === 'email_settings' ? { reservation_confirmation_template: constraints.store_id === null ? '共通' : '店舗', company_name: '会社', resend_api_key: 'excluded' }
+          : table === 'performance_schedule_settings' ? { default_duration: 240 }
           : table === 'reservation_settings' ? { payment_method_label: '店舗案内' }
           : table === 'operating_setting_overrides' && constraints.organization_scenario_id === 'scenario' ? { settings: { reservation_confirmation_template: null, company_name: '採用しない作品署名' }, revision: 3 }
           : null
@@ -34,9 +35,10 @@ describe('設定階層の取得', () => {
     const { db, filters } = fixture()
     const result = await loadSettingLayers(db, { organizationId: 'org', performanceId: 'event' })
     expect(result.context).toMatchObject({ storeId: 'store', scenarioId: 'scenario' })
-    expect(filters.every(row => row.constraints.organization_id === 'org')).toBe(true)
+    expect(filters.every(row => row.constraints.organization_id === 'org' || (row.table === 'performance_schedule_settings' && row.constraints.store_id === 'store' && row.constraints.org_or === 'organization_id.eq.org,organization_id.is.null'))).toBe(true)
     expect(filters).toContainEqual(expect.objectContaining({ table: 'email_settings', constraints: { organization_id: 'org', store_id: null } }))
     expect(result.revisions.scenario).toBe(3)
+    expect(resolveSetting('default_performance_duration', 180, result.layers)).toEqual({ value: 240, source: 'store' })
     expect(result.layers.organization).not.toHaveProperty('resend_api_key')
     expect(resolveSetting('reservation_confirmation_template', '既定', result.layers)).toEqual({ value: '店舗', source: 'store' })
     expect(resolveSetting('preparation_minutes', 60, result.layers).value).toBe(90)
