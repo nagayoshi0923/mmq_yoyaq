@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getGmResponses } from '@/lib/gmResponseApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { RESERVATION_SOURCE } from '@/lib/constants'
@@ -89,8 +89,6 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
   const loadRequests = useCallback(async () => {
     try {
       setLoading(true)
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('組織情報を取得できません')
 
       // 管理者以外の場合、自分が担当しているシナリオのIDを取得
       let allowedScenarioIds: string[] | null = null
@@ -136,7 +134,6 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           customers:customer_id(name, phone),
           confirmer:staff!reservations_confirmed_by_fkey(name)
         `)
-        .eq('organization_id', orgId)
         .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .order('created_at', { ascending: false })
 
@@ -205,14 +202,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
       const formattedData: PrivateBookingRequest[] = await Promise.all(
         (data || []).map(async (req: ReservationData) => {
           // GM回答を別途取得（スタッフの名前も含める）
-          const { data: gmResponses } = await supabase
-            .from('gm_availability_responses')
-            .select(
-              'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id!inner(name)'
-            )
-            .eq('reservation_id', req.id)
-            .eq('organization_id', orgId)
-            .eq('staff.organization_id', orgId)
+          const gmResponses = await getGmResponses([req.id])
 
           // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
           const transformedGMResponses = sortGmResponsesByReplyTime(

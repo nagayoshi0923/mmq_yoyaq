@@ -1,4 +1,4 @@
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getGmResponses } from '@/lib/gmResponseApi'
 import { supabase } from '@/lib/supabase'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 import {
@@ -14,13 +14,10 @@ import {
 export async function isReservationReadyForStoreAfterGmResponses(
   reservationId: string
 ): Promise<boolean> {
-  const currentOrgId = await getCurrentOrganizationId()
-  if (!currentOrgId) return false
   const { data: res, error } = await supabase
     .from('reservations')
     .select('id, organization_id, scenario_master_id, candidate_datetimes')
     .eq('id', reservationId)
-    .eq('organization_id', currentOrgId)
     .maybeSingle()
 
   if (error || !res) return false
@@ -41,12 +38,7 @@ export async function isReservationReadyForStoreAfterGmResponses(
     requiredGm = resolveStaffProfileGmSlotCount({ gm_count: viewRow?.gm_count })
   }
 
-  const { data: responses } = await supabase
-    .from('gm_availability_responses')
-    .select('staff_id, response_status, available_candidates, responded_at, response_datetime, staff:staff_id!inner(id)')
-    .eq('reservation_id', reservationId)
-    .eq('organization_id', currentOrgId)
-    .eq('staff.organization_id', currentOrgId)
+  const responses = await getGmResponses([reservationId])
 
   const rows = (responses || []).filter(shouldIncludeGmResponseRow).filter(isGmMarkedAvailable)
   if (rows.length === 0 || nCand === 0) return false

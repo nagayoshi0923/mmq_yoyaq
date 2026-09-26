@@ -822,3 +822,4 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - DB200はスタッフ/予約の複合FKを追加し、新規・参照変更・親所属変更による不一致を防止。既存7件は5月の未回答で予約所属は一致し、経緯未確認のため更新しない。スタッフFKはNOT VALIDのまま残す（新規参照は強制）。予約FKは検証済みにする。RLS変更なし。
 - 実stageで既存行hash不変・復元/再適用をROLLBACK検証。stageのみ200適用済み、旧/新PostgREST join互換を確認。PGliteで参照変更/親所属変更/削除連動/旧履歴保持を検証。本番は未適用。
 - 先行PR549はmain801e80ec、本番Vercel7RFry4qKwdX6XScp537FmSYxaRgV成功。stage/prodで顧客クーポン使用2回/履歴2件を確認しconsoleエラーなし。全体は進行中。
+- CIのorg_scopeガードが直接組織フィルタ増加を検出したため、画面のGM回答取得を`/api/reservations?type=gm-responses`へ集約。組織/本人スタッフIDをサーバー側で決め、ブラウザーからorgを受け取らない。1000行上限をページングで回避し、本人画面の失敗表示/再試行も追加。baselineは変更しない。本番未反映。

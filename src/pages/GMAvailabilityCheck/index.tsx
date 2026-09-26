@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -24,6 +25,8 @@ export function GMAvailabilityCheck() {
   const {
     requests,
     isLoading,
+    isError,
+    retryRequests,
     stores,
     staffName,
     activeTab,
@@ -93,7 +96,7 @@ export function GMAvailabilityCheck() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests, stores, staffName])
 
-  if (isLoading) {
+  if (isLoading || isError) {
     return (
       <AppLayout
         currentPage="gm-availability"
@@ -102,7 +105,10 @@ export function GMAvailabilityCheck() {
         stickyLayout={true}
       >
         <div className="text-center py-12">
-          <p className="text-muted-foreground">読み込み中...</p>
+          {isError ? <div role="alert">
+            <p>GM回答を取得できませんでした。</p>
+            <Button variant="outline" onClick={() => retryRequests()}>再試行</Button>
+          </div> : <p className="text-muted-foreground">読み込み中...</p>}
         </div>
       </AppLayout>
     )
