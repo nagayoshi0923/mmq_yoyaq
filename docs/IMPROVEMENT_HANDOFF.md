@@ -823,3 +823,7 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 - 実stageで既存行hash不変・復元/再適用をROLLBACK検証。stageのみ200適用済み、旧/新PostgREST join互換を確認。PGliteで参照変更/親所属変更/削除連動/旧履歴保持を検証。本番は未適用。
 - 先行PR549はmain801e80ec、本番Vercel7RFry4qKwdX6XScp537FmSYxaRgV成功。stage/prodで顧客クーポン使用2回/履歴2件を確認しconsoleエラーなし。全体は進行中。
 - CIのorg_scopeガードが直接組織フィルタ増加を検出したため、画面のGM回答取得を`/api/reservations?type=gm-responses`へ集約。組織/本人スタッフIDをサーバー側で決め、ブラウザーからorgを受け取らない。1000行上限をページングで回避し、本人画面の失敗表示/再試行も追加。baselineは変更しない。本番未反映。
+
+### QW-20260925-001: FC貸切売上の0円表示（2026-09-27）
+
+旧web_private予約でtotal_price>0・discount_amount=0・final_price=0の初期値が残る場合だけ、保存済み合計額で売上を集計する。全額割引・割引額未確認・通常web予約の0円は保持。期間別売上とスケジュールCSVで割引額を取得して同一判定を使用する。大宮2026年8月の貸切4件×40,000円と公開62,500円を回帰ケースとする。DB書換えなし。本番反映待ち。
