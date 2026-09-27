@@ -39,8 +39,15 @@ export function conflictInterval(date: string, start: string, end: string): [num
   return [base + a * 60000, base + (b < a ? b + 1440 : b) * 60000]
 }
 
+function canAffectCandidate(candidate: ConflictCandidate, event: ConflictEvent): boolean {
+  const candidateDate = normalizeToJapanCalendarYmd(candidate.date)
+  const eventDate = normalizeToJapanCalendarYmd(event.date)
+  if (!candidateDate || !eventDate) return true
+  return Math.abs(Date.parse(`${candidateDate}T00:00:00Z`) - Date.parse(`${eventDate}T00:00:00Z`)) <= 2 * 86400000
+}
+
 export function hasGmTimeConflict(candidate: ConflictCandidate, event: ConflictEvent, requestId: string): boolean {
-  if (event.reservation_id === requestId) return false
+  if (event.reservation_id === requestId || !canAffectCandidate(candidate, event)) return false
   const [start, end] = conflictInterval(candidate.date, candidate.startTime, candidate.endTime)
   const [eventStart, eventEnd] = conflictInterval(event.date, event.start_time, event.end_time)
   return start < eventEnd && end > eventStart
@@ -51,7 +58,7 @@ export function hasStoreTimeConflict(
   candidate: ConflictCandidate, event: ConflictEvent, requestId: string,
   storeId: string, scenarioId: string | null | undefined, settings: PreparationSettings,
 ): boolean {
-  if (event.reservation_id === requestId || event.store_id !== storeId) return false
+  if (event.reservation_id === requestId || event.store_id !== storeId || !canAffectCandidate(candidate, event)) return false
   const [start, end] = conflictInterval(candidate.date, candidate.startTime, candidate.endTime)
   const [eventStart, eventEnd] = conflictInterval(event.date, event.start_time, event.end_time)
   const candidatePreparation = resolvePreparationMinutes(settings, { storeId, scenarioMasterId: scenarioId })

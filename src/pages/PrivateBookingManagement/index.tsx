@@ -313,7 +313,7 @@ export function PrivateBookingManagement() {
         const tagParts: string[] = []
         if (isAssigned) tagParts.push('担当')
         if (isAvailable) tagParts.push('対応可能')
-        if (isGMDisabled) tagParts.push(gmConflict === true ? '予約済み' : '確認中')
+        if (isGMDisabled) tagParts.push(gmConflict === true ? '予約済み' : conflicts.ready ? '確認不可' : '確認中')
         let label = gm.name
         if (tagParts.length) label += ` [${tagParts.join('・')}]`
         const score = (isAssigned ? 2 : 0) + (isAvailable ? 1 : 0)
@@ -850,6 +850,14 @@ export function PrivateBookingManagement() {
                     gmList={allGMs}
                     onGMResponseSave={handleGMResponseSave}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
+                    unknownAvailabilityCandidates={(() => {
+                      if (!conflicts.ready) return []
+                      const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                      const baseStores = ids.length ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+                      return (req.candidate_datetimes?.candidates || []).filter(candidate =>
+                        baseStores.some(store => conflicts.storeConflict(req, approvalCandidateTime(req, candidate), store.id) === undefined)
+                      ).map(candidate => candidate.order)
+                    })()}
                     storesPerCandidate={(() => {
                       if (!conflicts.ready) return undefined
                       const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
@@ -1070,6 +1078,16 @@ export function PrivateBookingManagement() {
                         onReject={() => handleRejectClick(req.id, req)}
                         disabled={
                           submitting || !conflicts.ready ||
+                          (() => {
+                            const candidate = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
+                            if (!candidate) return true
+                            const actual = approvalCandidateTime(req, candidate)
+                            if (selectedStoreId && conflicts.storeConflict(req, actual, selectedStoreId) === undefined) return true
+                            return [selectedGMId, selectedSubGmId].filter(Boolean).some(id => {
+                              const gm = allGMs.find(g => g.id === id)
+                              return !gm || conflicts.gmConflict(req, actual, id, gm.name) === undefined
+                            })
+                          })() ||
                           !selectedGMId ||
                           !selectedStoreId ||
                           !selectedCandidateOrder ||
