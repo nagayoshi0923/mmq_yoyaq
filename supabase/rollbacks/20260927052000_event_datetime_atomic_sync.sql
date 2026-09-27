@@ -1,6 +1,14 @@
+-- Restore each environment's observed pre-migration UPDATE privileges.
+DO $$ DECLARE saved jsonb; target_role text; BEGIN
+ saved:=obj_description('public.sync_event_datetime_to_current_bookings()'::regprocedure,'pg_proc')::jsonb->'rollback_candidate_update';
+ IF saved IS NULL OR NOT saved ?& ARRAY['anon','authenticated'] THEN RAISE EXCEPTION 'Missing original candidate UPDATE ACL'; END IF;
+ FOREACH target_role IN ARRAY ARRAY['anon','authenticated'] LOOP
+  IF (saved->>target_role)::boolean THEN EXECUTE format('GRANT UPDATE ON TABLE public.private_group_candidate_dates TO %I',target_role);
+  ELSE EXECUTE format('REVOKE UPDATE ON TABLE public.private_group_candidate_dates FROM %I',target_role); END IF;
+ END LOOP;
+END $$;
 DROP TRIGGER IF EXISTS sync_event_datetime_to_current_bookings ON public.schedule_events;
 DROP FUNCTION IF EXISTS public.sync_event_datetime_to_current_bookings();
-GRANT UPDATE ON TABLE public.private_group_candidate_dates TO anon,authenticated;
 
 CREATE OR REPLACE FUNCTION public.enforce_private_group_candidate_deadline()
  RETURNS trigger

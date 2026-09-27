@@ -74,4 +74,10 @@ CREATE TRIGGER sync_event_datetime_to_current_bookings AFTER UPDATE OF date,star
  ON public.schedule_events FOR EACH ROW EXECUTE FUNCTION public.sync_event_datetime_to_current_bookings();
 
 -- Old browser bundles must not apply a second, same-day fallback update after the trigger.
+DO $$ BEGIN
+ EXECUTE format('COMMENT ON FUNCTION public.sync_event_datetime_to_current_bookings() IS %L',
+  jsonb_build_object('rollback_candidate_update',jsonb_build_object(
+   'anon',has_table_privilege('anon','public.private_group_candidate_dates','UPDATE'),
+   'authenticated',has_table_privilege('authenticated','public.private_group_candidate_dates','UPDATE')))::text);
+END $$;
 REVOKE UPDATE ON TABLE public.private_group_candidate_dates FROM anon,authenticated;

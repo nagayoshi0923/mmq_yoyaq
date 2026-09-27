@@ -54,6 +54,12 @@ await db.exec(`UPDATE reservations SET organization_id='${id(9)}';CREATE FUNCTIO
 before=await snapshot();await assert.rejects(update,/injected failure/);assert.deepEqual(await snapshot(),before)
 await db.exec('DROP TRIGGER fail_candidate ON private_group_candidate_dates')
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927052000_event_datetime_atomic_sync.sql','utf8'));await db.exec(migration);await update()
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927052000_event_datetime_atomic_sync.sql','utf8'))
+await db.exec('REVOKE UPDATE ON private_group_candidate_dates FROM anon')
+await db.exec(migration)
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927052000_event_datetime_atomic_sync.sql','utf8'))
+assert.equal((await query("SELECT has_table_privilege('anon','private_group_candidate_dates','UPDATE') allowed"))[0].allowed,false,'rollback preserves staging anon read-only')
+assert.equal((await query("SELECT has_table_privilege('authenticated','private_group_candidate_dates','UPDATE') allowed"))[0].allowed,true)
 await db.close();console.log('PASS event datetime atomic sync, exact matching, historical preservation, organization boundaries, failure rollback and reapply')
 
 // Integrate with the real candidate deadline resolver, trigger and authenticated add RPC.
