@@ -20,7 +20,7 @@ beforeEach(() => {
   mocks.settings.mockResolvedValue({g: {survey_enabled:true}})
   const rows: Record<string, unknown[]> = {
     reservations: [{id:'current',private_group_id:'g',status:'gm_confirmed',schedule_event_id:'event',gm_staff:'gm',store_id:'old',candidate_datetimes:{candidates:[{status:'confirmed',date:'2020-01-01'}]}}],
-    schedule_events: [{id:'event',date:'2027-03-01',start_time:'19:00:00',end_time:'22:00:00',store_id:'new',is_cancelled:false}],
+    schedule_events: [{id:'event',date:'2027-03-01',start_time:'19:00:00',end_time:'22:00:00',store_id:'new',is_cancelled:false,gms:['変更後の担当','サブ担当']}],
     staff: [{id:'gm',name:'GM'}], stores:[{id:'new',name:'現在店舗'}],
   }
   mocks.from.mockImplementation(table => {
@@ -37,7 +37,7 @@ beforeEach(() => {
 it('uses authorized names and the current reservation event, never the old candidate or customer table', async () => {
   await render();expect(result.current.loading).toBe(false)
   expect(result.current.error).toBeNull()
-  expect(result.current.groups[0]).toMatchObject({organizer:{name:'幹事表示名'},confirmed_date:'2027-03-01',confirmed_time:'19:00〜22:00',confirmed_store_name:'現在店舗'})
+  expect(result.current.groups[0]).toMatchObject({organizer:{name:'幹事表示名'},confirmed_date:'2027-03-01',confirmed_time:'19:00〜22:00',confirmed_store_name:'現在店舗',confirmed_gm_name:'変更後の担当・サブ担当'})
   expect(mocks.queries.some(q=>q.table==='customers')).toBe(false)
   expect(mocks.queries.every(q=>q.filters.organization_id==='org')).toBe(true)
   expect(mocks.queries.find(q=>q.table==='reservations')?.filters.id).toEqual(['current'])
