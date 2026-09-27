@@ -3,7 +3,7 @@ import fs from 'node:fs'
 const {PGlite}=await import(process.env.PGLITE_MODULE || '@electric-sql/pglite')
 const db=new PGlite()
 const staff='10000000-0000-0000-0000-000000000001',a='20000000-0000-0000-0000-000000000001',b='20000000-0000-0000-0000-000000000002'
-await db.exec(`CREATE TABLE staff(id uuid PRIMARY KEY,name text,special_scenarios text[] DEFAULT '{}',available_scenarios text[] DEFAULT '{}');CREATE TABLE staff_scenario_assignments(staff_id uuid,scenario_id uuid,scenario_master_id uuid,organization_id uuid,can_main_gm boolean,can_sub_gm boolean,is_experienced boolean,PRIMARY KEY(staff_id,scenario_id));INSERT INTO staff(id,name) VALUES('${staff}','before');`)
+await db.exec(`CREATE TABLE staff(id uuid PRIMARY KEY,name text,special_scenarios text[] DEFAULT '{}',available_scenarios text[] DEFAULT '{}');CREATE TABLE staff_scenario_assignments(staff_id uuid REFERENCES staff(id),scenario_id uuid,scenario_master_id uuid,organization_id uuid,can_main_gm boolean,can_sub_gm boolean,is_experienced boolean,PRIMARY KEY(staff_id,scenario_id));INSERT INTO staff(id,name) VALUES('${staff}','before');`)
 const live=fs.readFileSync('supabase/rollbacks/20260928001000_assignment_canonical_cache.sql','utf8')
 // 復元SQLの関数と同じ旧入口を準備。
 const functions=live.slice(live.indexOf('CREATE OR REPLACE'),live.indexOf('DROP TRIGGER'))
@@ -12,6 +12,11 @@ await db.exec(`CREATE TRIGGER sync_staff_to_assignments_trigger AFTER UPDATE OF 
 const originalFunctions=(await db.query("SELECT proname,prosecdef,proconfig,prosrc FROM pg_proc WHERE proname IN ('sync_staff_to_assignments','sync_assignments_to_staff') ORDER BY proname")).rows
 const migration=fs.readFileSync('supabase/migrations/20260928001000_assignment_canonical_cache.sql','utf8')
 await db.exec(migration)
+const lockBefore=(await db.query("SELECT prosrc,proconfig,prosecdef FROM pg_proc WHERE proname='sync_assignments_to_staff'")).rows
+await db.exec(fs.readFileSync('supabase/migrations/20260928001001_assignment_cache_lock.sql','utf8'))
+await db.exec(fs.readFileSync('supabase/rollbacks/20260928001001_assignment_cache_lock.sql','utf8'))
+assert.deepEqual((await db.query("SELECT prosrc,proconfig,prosecdef FROM pg_proc WHERE proname='sync_assignments_to_staff'")).rows,lockBefore)
+await db.exec(fs.readFileSync('supabase/migrations/20260928001001_assignment_cache_lock.sql','utf8'))
 const cache=async()=> (await db.query('SELECT special_scenarios,available_scenarios FROM staff')).rows[0]
 await assert.rejects(db.exec(`UPDATE staff SET special_scenarios=ARRAY['${a}'];`),e=>e.code==='42501')
 await assert.rejects(db.exec(`INSERT INTO staff(id,special_scenarios) VALUES('${b}',ARRAY['${a}']);`),e=>e.code==='42501')
@@ -30,6 +35,7 @@ assert.deepEqual(await cache(),{special_scenarios:[],available_scenarios:[]})
 await db.exec(live)
 assert.deepEqual((await db.query("SELECT proname,prosecdef,proconfig,prosrc FROM pg_proc WHERE proname IN ('sync_staff_to_assignments','sync_assignments_to_staff') ORDER BY proname")).rows,originalFunctions)
 await db.exec(migration)
+await db.exec(fs.readFileSync('supabase/migrations/20260928001001_assignment_cache_lock.sql','utf8'))
 await assert.rejects(db.exec(`UPDATE staff SET available_scenarios=ARRAY['${a}'];`),e=>e.code==='42501')
 console.log('PASS canonical cache: legacy update/insert rejection, main/sub preservation, rename, delete, role removal, manual flags, rollback/reapply')
 await db.close()
