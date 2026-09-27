@@ -7,12 +7,12 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 
 /**
  * 貸切「店舗承認待ち」件数
- * - gm_confirmed / pending_store ステータス
- * - または pending / pending_gm でGMが回答済み（available_candidatesあり）
+ * 未確定の申請で、同一候補の必要人数・主副GM資格・在籍が揃うもの。
  */
 export function useStoreConfirmationPendingCount() {
   const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const { user, isStaff } = useAuth()
 
   useEffect(() => {
@@ -20,17 +20,25 @@ export function useStoreConfirmationPendingCount() {
     if (!user || !isStaff) {
       setCount(0)
       setLoading(false)
+      setError(false)
       return
     }
 
+    setCount(0)
+    setLoading(true)
+    setError(false)
+    let disposed = false
+    let generation = 0
     const fetchCount = async () => {
+      const current = ++generation
       try {
         const result = await apiClient.get<{ count: number }>('/api/reservations?type=gm-pending-count')
-        setCount(result.count)
+        if (!disposed && current === generation) { setCount(result.count); setError(false) }
       } catch (error) {
+        if (!disposed && current === generation) setError(true)
         logger.error('貸切・店舗承認待ち件数取得エラー:', error)
       } finally {
-        setLoading(false)
+        if (!disposed && current === generation) setLoading(false)
       }
     }
 
@@ -51,13 +59,21 @@ export function useStoreConfirmationPendingCount() {
           fetchCount()
         }
       )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gm_availability_responses' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_scenario_assignments' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'organization_scenarios' }, fetchCount)
       .subscribe()
+    // 非公開テーブルのRealtimeが読めない環境でも、回答/担当変更を再取得する。
+    const timer = setInterval(fetchCount, 60_000)
 
     return () => {
+      disposed = true
+      clearInterval(timer)
       supabase.removeChannel(channel)
     }
   }, [user, isStaff])
 
-  return { count, loading }
+  return { count, loading, error }
 }
 

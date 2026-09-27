@@ -42,6 +42,7 @@ type NavItem = {
   path: string
   roles: string[]
   badge?: number
+  badgeError?: boolean
   subItems?: SubItem[]
   sectionLabel?: string  // グループ内でこのアイテムの直前にセクションヘッダーを表示
   isGroupHeader?: boolean // リンクではなく折り畳みセクションとして描画
@@ -81,7 +82,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const { user } = useAuth()
   const location = useLocation()
   const { organization, organizationId } = useOrganization()
-  const { count: pendingCount } = useStoreConfirmationPendingCount()
+  const { count: pendingCount, error: pendingCountError } = useStoreConfirmationPendingCount()
   const isLicAdmin = checkIsLicenseAdmin(user?.role, organizationId)
   const isStoreRepresentative = user?.role !== 'customer' && user?.isStoreRepresentative === true
 
@@ -131,7 +132,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       items: [
         {
           id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck,
-          path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'], badge: pendingCount,
+          path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'], badge: pendingCount, badgeError: pendingCountError,
         },
         { id: 'private-booking-groups', label: 'グループ一覧', icon: Users, path: `/${slug}/private-booking-groups`, roles: ['admin', 'license_admin'] },
         {
@@ -253,7 +254,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
         { id: 'scenario-matcher',  label: 'シナリオマッチャー', icon: Shield,    path: `/${slug}/scenario-matcher`,   roles: ['license_admin'] },
       ],
     },
-  ], [slug, pendingCount])
+  ], [slug, pendingCount, pendingCountError])
 
   // ロールフィルター
   const visibleGroups = useMemo(() => {
@@ -527,9 +528,9 @@ function GroupPanel({
                 }`}
               >
                 <span className="truncate">{item.label}</span>
-                {item.badge != null && item.badge > 0 && (
-                  <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                    {item.badge > 99 ? '99+' : item.badge}
+                {(item.badgeError || (item.badge != null && item.badge > 0)) && (
+                  <span title={item.badgeError ? '店舗承認待ち件数を確認できません。貸切管理画面で再確認してください。' : undefined} className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                    {item.badgeError ? '!' : (item.badge ?? 0) > 99 ? '99+' : item.badge}
                   </span>
                 )}
               </Link>

@@ -1,6 +1,6 @@
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
-import { getGmResponses } from '@/lib/gmResponseApi'
+import { getGmResponses, getGmReadiness } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -125,6 +125,7 @@ async function fetchRawBookingRequests(
     viewRowsResult,
     allGmResponsesResult,
     allCandidateDatesResult,
+    gmReadiness,
   ] = await Promise.all([
     Promise.resolve({ data: relatedGroups.flatMap(group => (group.members || []).filter(member => member.status === 'joined')), error: null }),
     (() => {
@@ -145,6 +146,7 @@ async function fetchRawBookingRequests(
     })(),
     getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
+    getGmReadiness(reservationsList.filter(r => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)).map(r => r.id)),
   ])
 
   // マップ構築
@@ -238,6 +240,7 @@ async function fetchRawBookingRequests(
       id: req.id,
       reservation_number: req.reservation_number || '',
       scenario_master_id: scenarioMasterId,
+      gm_team_ready: gmReadiness[req.id],
       required_gm_count: scenarioMasterId ? (gmCountByMasterId.get(scenarioMasterId) ?? 1) : 1,
       scenario_timing,
       scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',

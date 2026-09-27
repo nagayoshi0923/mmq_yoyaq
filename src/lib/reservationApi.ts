@@ -3,7 +3,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { apiClient } from '@/lib/apiClient'
 import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
-import { STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES } from '@/lib/constants'
+import type { StaffParticipationPlan, StaffParticipationEntry, StaffParticipationReservation } from '@/types/schedule'
 import { isSenshinPrivateBooking } from '@/lib/senshinPrivateBooking'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
@@ -701,148 +701,21 @@ export const reservationApi = {
     }>(`/api/reservations?type=availability&schedule_event_id=${encodeURIComponent(scheduleEventId)}`)
   },
 
-  // スタッフ参加の予約を同期する関数
-  // GM欄の「スタッフ参加」と予約データを同期
-  // ※ 手動追加された予約（staff_participation, walk_in, web等）は削除しない
+  async getStaffParticipation(eventId: string): Promise<{ entries: StaffParticipationEntry[]; reservations: StaffParticipationReservation[]; assignment: StaffParticipationPlan['expectedStaff'] }> {
+    return apiClient.get(`/api/reservations?type=staff-participation&schedule_event_id=${encodeURIComponent(eventId)}`)
+  },
+
+  // 全員分を同じDBトランザクションで保存。名前による自動照合・個別取消はしない。
   async syncStaffReservations(
     eventId: string,
     gms: string[],
     gmRoles: Record<string, string>,
-    eventDetails?: {
-      date: string,
-      start_time: string,
-      scenario_master_id?: string,
-      scenario_title?: string,
-      store_id?: string,
-      duration?: number
-    }
+    _eventDetails?: { date: string; start_time: string; scenario_master_id?: string; scenario_title?: string; store_id?: string; duration?: number },
+    plan?: StaffParticipationPlan,
   ): Promise<void> {
-    try {
-      // 1. スタッフ参加のGMリストを作成
-      const staffParticipants = gms.filter(gm => gmRoles[gm] === 'staff')
-
-      // 2. 現在の予約を取得（サーバー側で org_id 強制フィルタ）
-      const currentReservations = await this.getByScheduleEvent(eventId)
-
-      // 3. すべてのアクティブなスタッフ予約を抽出（重複チェック用）
-      // ※ キャンセル済みは除外して、アクティブな予約のみを対象にする
-      const activeStaffReservations = currentReservations.filter(r =>
-        r.status !== 'cancelled' && (
-          (STAFF_RESERVATION_SOURCES as readonly string[]).includes(r.reservation_source ?? '') ||
-          r.payment_method === 'staff'
-        )
-      )
-
-      // 4. スタッフ予約として管理している予約を抽出（削除対象の候補）
-      // ※ staff_entry（GM欄から自動作成）のみが対象
-      // ※ staff_participation（予約者タブから手動追加）は保護 — GM欄と独立した手動操作のため
-      // ※ web（予約サイト）や walk_in（当日飛び込み）は保護
-      const managedStaffReservations = currentReservations.filter(r =>
-        (AUTO_MANAGED_STAFF_SOURCES as readonly string[]).includes(r.reservation_source ?? '')
-      )
-
-      // 5. 追加が必要なスタッフ（アクティブな予約のみをチェック）
-      // ※ 名前の完全一致で比較（trimして比較）
-      const toAdd = staffParticipants.filter(staffName => {
-        const trimmedName = staffName.trim()
-        return !activeStaffReservations.some(r =>
-          r.participant_names?.some(name => name.trim() === trimmedName)
-        )
-      })
-
-      // 6. 削除が必要なスタッフ予約
-      // GM欄のスタッフ参加リストに含まれていない staff_entry 予約を削除
-      // ※ staff_participation は手動追加のため自動削除しない
-      // ※ web, walk_in 等は保護（一般顧客の予約を誤削除しない）
-      // ※ 名前の完全一致で比較（trimして比較）
-      const toRemove = managedStaffReservations.filter(r =>
-        !r.participant_names?.some(name =>
-          staffParticipants.some(sp => sp.trim() === name.trim())
-        )
-      )
-
-      logger.log('🔄 スタッフ予約同期:', {
-        staffParticipants,
-        activeStaffReservations: activeStaffReservations.map(r => ({
-          id: r.id,
-          name: r.participant_names,
-          source: r.reservation_source,
-          status: r.status
-        })),
-        toAdd,
-        toRemove: toRemove.map(r => ({
-          id: r.id,
-          name: r.participant_names,
-          source: r.reservation_source,
-          status: r.status
-        }))
-      })
-
-      // 満席での交代を許可するため、自動作成した旧スタッフ枠を先に解放する。
-      // 削除（キャンセル）- staff_entry が対象
-      // バックエンド経由で一括ステータス更新する（旧実装の for-await update よりも N+1 回避）
-      const activeToRemoveIds = toRemove
-        .filter(r => r.status !== 'cancelled')
-        .map(r => r.id)
-      if (activeToRemoveIds.length > 0) {
-        try {
-          await apiClient.patch('/api/reservations?action=sync-staff-reservation-statuses', {
-            reservation_ids: activeToRemoveIds,
-            status: 'cancelled',
-          })
-          for (const res of toRemove.filter(r => r.status !== 'cancelled')) {
-            logger.log('🗑️ スタッフ予約を削除:', { name: res.participant_names, source: res.reservation_source })
-          }
-        } catch (removeError) {
-          logger.error('スタッフ予約一括キャンセルエラー:', removeError)
-          throw removeError
-        }
-      }
-
-      // 7. 実行
-      // 追加: 専用エンドポイント /api/reservations?action=create-staff-entry を呼ぶ
-      // （通常の create_reservation_with_lock_v2 RPC は payment_method='staff' /
-      //   reservation_source='staff_entry' / participant_names をサポートしないため）
-      // スタッフ複数人いる時のラウンドトリップを減らすため Promise.all で並列化
-      if (eventDetails && toAdd.length > 0) {
-        await Promise.all(toAdd.map(async (staffName) => {
-          logger.log('📝 スタッフ予約を作成:', { staffName })
-          try {
-            await apiClient.post('/api/reservations?action=create-staff-entry', {
-              schedule_event_id: eventId,
-              staff_name: staffName,
-              event_details: {
-                date: eventDetails.date,
-                start_time: eventDetails.start_time,
-                scenario_master_id: eventDetails.scenario_master_id ?? null,
-                scenario_title: eventDetails.scenario_title ?? null,
-                store_id: eventDetails.store_id ?? null,
-                duration: eventDetails.duration ?? 120,
-              },
-            })
-          } catch (insertError) {
-            logger.error('スタッフ予約作成エラー:', insertError)
-            throw insertError
-          }
-        }))
-      }
-
-      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-      // 相対的な加減算ではなく、常に予約テーブルから集計して絶対値を設定
-      const addedCount = toAdd.length
-      const removedCount = activeToRemoveIds.length
-
-      if (addedCount > 0 || removedCount > 0) {
-        try {
-          const newCount = await recalculateCurrentParticipants(eventId)
-          logger.log('📊 current_participants再計算:', { eventId, newCount })
-        } catch (updateError) {
-          logger.error('参加者数の更新エラー:', updateError)
-        }
-      }
-    } catch (error) {
-      logger.error('スタッフ予約同期エラー:', error)
-      throw error
-    }
+    if (!plan) throw new Error('スタッフ参加方法を確認できません。公演を開き直してください。')
+    await apiClient.post('/api/reservations?action=sync-staff-participation', {
+      schedule_event_id: eventId, entries: plan.entries, expected: plan.expected, gms, gm_roles: gmRoles, expected_staff: plan.expectedStaff,
+    })
   }
 }

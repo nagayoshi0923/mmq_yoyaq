@@ -31,6 +31,7 @@ import { useLocalState } from '@/hooks/useLocalState'
 import { useAuth } from '@/contexts/AuthContext'
 import { readSurveyDeliveries, sendSurveyNotice, surveyDeliveryLabels, type SurveyDeliveryHistory } from '@/lib/privateSurveyDelivery'
 import { formatJstYmd } from '@/utils/jstDate'
+import { filterPrivateGroups } from '../utils/filterPrivateGroups'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   'draft': { label: '下書き', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
@@ -162,32 +163,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
     }
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const filteredGroups = groups.filter(group => {
-    const matchesSearch =
-      group.scenario_masters?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.organizer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.organizer?.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.invite_code.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesStatus = statusFilter === 'all' || group.status === statusFilter
-
-    // 完了公演フィルター: キャンセル済み、または確定日が過去のグループを非表示
-    if (hideCompleted) {
-      if (group.status === 'cancelled') return false
-      if (group.status === 'confirmed' && group.confirmed_date) {
-        const perfDate = new Date(group.confirmed_date + 'T00:00:00+09:00')
-        if (perfDate < today) return false
-      }
-    }
-
-    // 事前配役公演フィルター
-    if (showSurveyOnly && !group.survey_enabled) return false
-
-    return matchesSearch && matchesStatus
-  })
+  const filteredGroups = filterPrivateGroups(groups, { searchTerm, statusFilter, hideCompleted, showSurveyOnly })
 
   // ステータス別の件数
   const statusCounts = groups.reduce((acc, g) => {
@@ -221,14 +197,16 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       {/* フィルター */}
       <div className="flex flex-col gap-2">
         <FilterBar
-          isDirty={searchTerm !== '' || statusFilter !== 'all'}
+          isDirty={searchTerm !== '' || statusFilter !== 'all' || hideCompleted || showSurveyOnly}
           onReset={() => {
             setSearchTerm('')
             setStatusFilter('all')
+            setHideCompleted(false)
+            setShowSurveyOnly(false)
           }}
         >
           <SearchInput
-            placeholder="シナリオ名、主催者名、招待コードで検索..."
+            placeholder="予約番号、シナリオ名、主催者名、招待コードで検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             containerClassName="flex-1"
@@ -282,6 +260,11 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
         </div>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        全{groups.length}件中{filteredGroups.length}件を表示
+        {searchTerm.trim() && '（検索時は完了・取消済みも対象）'}
+        {!searchTerm.trim() && hideCompleted && '（完了・取消済みを非表示）'}
+      </p>
       {/* グループ一覧 */}
       {filteredGroups.length === 0 ? (
         <Card>
@@ -289,7 +272,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
             <EmptyState
               icon={Search}
               title={
-                searchTerm || statusFilter !== 'all'
+                searchTerm || statusFilter !== 'all' || hideCompleted || showSurveyOnly
                   ? '条件に一致するグループがありません'
                   : '貸切グループがありません'
               }

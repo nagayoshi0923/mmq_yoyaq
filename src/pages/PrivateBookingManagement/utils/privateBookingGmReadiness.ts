@@ -1,8 +1,9 @@
+import { hasReadyGmTeam } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { getGmResponses } from '@/lib/gmResponseApi'
 import { supabase } from '@/lib/supabase'
+import { fetchBatchedIds } from '@/lib/fetchBatchedIds'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 import {
-  isGmAvailableForCandidate,
   isGmMarkedAvailable,
   shouldIncludeGmResponseRow,
 } from './gmAvailabilityStatus'
@@ -20,70 +21,36 @@ export async function isReservationReadyForStoreAfterGmResponses(
     .eq('id', reservationId)
     .maybeSingle()
 
-  if (error || !res) return false
+  if (error) throw error
+  if (!res) throw new Error('予約情報を確認できません')
 
   const scenarioMasterId = res.scenario_master_id as string | null
   const orgId = res.organization_id as string | null
   const candidates = (res.candidate_datetimes as { candidates?: unknown[] } | null)?.candidates || []
   const nCand = candidates.length
 
-  let requiredGm = 1
-  if (scenarioMasterId && orgId) {
-    const { data: viewRow } = await supabase
-      .from('organization_scenarios_with_master')
-      .select('gm_count')
-      .eq('scenario_master_id', scenarioMasterId)
-      .eq('organization_id', orgId)
-      .maybeSingle()
-    requiredGm = resolveStaffProfileGmSlotCount({ gm_count: viewRow?.gm_count })
-  }
+  if (!scenarioMasterId || !orgId) throw new Error('作品と組織の情報を確認できません')
+  const { data: viewRow, error: scenarioError } = await supabase
+    .from('organization_scenarios_with_master')
+    .select('gm_count')
+    .eq('scenario_master_id', scenarioMasterId)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (scenarioError) throw scenarioError
+  if (!viewRow) throw new Error('作品の必要GM数を確認できません')
+  const requiredGm = resolveStaffProfileGmSlotCount({ gm_count: viewRow.gm_count })
 
   const responses = await getGmResponses([reservationId])
 
   const rows = (responses || []).filter(shouldIncludeGmResponseRow).filter(isGmMarkedAvailable)
   if (rows.length === 0 || nCand === 0) return false
 
-  const staffIdsAll = [...new Set(rows.map((r) => String(r.staff_id)).filter(Boolean))]
-
-  const assignMap = new Map<string, { can_main: boolean; can_sub: boolean }>()
-  if (requiredGm >= 2 && scenarioMasterId && orgId && staffIdsAll.length > 0) {
-    for (const sid of staffIdsAll) {
-      assignMap.set(sid, { can_main: true, can_sub: true })
-    }
-    const { data: assigns } = await supabase
-      .from('staff_scenario_assignments')
-      .select('staff_id, can_main_gm, can_sub_gm')
-      .eq('scenario_master_id', scenarioMasterId)
-      .eq('organization_id', orgId)
-      .in('staff_id', staffIdsAll)
-    for (const a of assigns || []) {
-      assignMap.set(String(a.staff_id), {
-        can_main: a.can_main_gm === true,
-        can_sub: a.can_sub_gm === true,
-      })
-    }
-  }
-
-  for (let i = 0; i < nCand; i++) {
-    const staffForI = new Set<string>()
-    for (const r of rows) {
-      if (isGmAvailableForCandidate(r, i)) {
-        staffForI.add(String(r.staff_id))
-      }
-    }
-    if (staffForI.size < requiredGm) continue
-
-    if (requiredGm >= 2) {
-      let anyMain = false
-      let anySub = false
-      for (const sid of staffForI) {
-        const cap = assignMap.get(sid) ?? { can_main: true, can_sub: true }
-        if (cap.can_main) anyMain = true
-        if (cap.can_sub) anySub = true
-      }
-      if (!anyMain || !anySub) continue
-    }
-    return true
-  }
-  return false
+  const staffIdsAll = [...new Set<string>(rows.map(r => r.staff_id).filter((id): id is string => typeof id === 'string' && !!id))]
+  const { data: activeStaff } = await fetchBatchedIds(staffIdsAll, ids => supabase
+    .from('staff').select('id').eq('organization_id', orgId).eq('status', 'active').in('id', ids))
+  const activeIds = new Set(activeStaff.map(staff => staff.id))
+  const { data: assigns } = await fetchBatchedIds([...activeIds], ids => supabase
+    .from('staff_scenario_assignments').select('staff_id, can_main_gm, can_sub_gm')
+    .eq('scenario_master_id', scenarioMasterId).eq('organization_id', orgId).in('staff_id', ids))
+  return hasReadyGmTeam(nCand, requiredGm, rows.filter(r => activeIds.has(r.staff_id)), assigns)
 }

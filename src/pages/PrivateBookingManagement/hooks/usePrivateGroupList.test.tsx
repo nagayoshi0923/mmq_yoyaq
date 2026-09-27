@@ -27,9 +27,11 @@ beforeEach(() => {
     const query = {table,filters:{} as Record<string,unknown>}; mocks.queries.push(query)
     const builder = {
       select: () => builder,
+      order: () => builder,
+      range: () => builder,
       eq: (key:string,value:unknown) => {query.filters[key]=value;return builder},
       in: (key:string,value:unknown) => {query.filters[key]=value;return builder},
-      then: (resolve:(v:unknown)=>unknown,reject:(e:unknown)=>unknown) => Promise.resolve(mocks.failTable===table ? {data:null,error:new Error('取得失敗')} : {data:rows[table] || [],error:null}).then(resolve,reject),
+      then: (resolve:(v:unknown)=>unknown,reject:(e:unknown)=>unknown) => Promise.resolve(mocks.failTable===table ? {data:null,error:new Error('取得失敗')} : {data:table==='reservations' && query.filters.private_group_id ? [{id:'old',private_group_id:'g',reservation_number:'PB-OLD'},{id:'current',private_group_id:'g',reservation_number:'PB-CURRENT'}] : rows[table] || [],error:null}).then(resolve,reject),
     }
     return builder
   })
@@ -75,9 +77,11 @@ it('shows current event details for no_show reservations', async () => {
     const query = {table,filters:{} as Record<string,unknown>}; mocks.queries.push(query)
     const builder = {
       select: () => builder,
+      order: () => builder,
+      range: () => builder,
       eq: (key:string,value:unknown) => {query.filters[key]=value;return builder},
       in: (key:string,value:unknown) => {query.filters[key]=value;return builder},
-      then: (resolve:(v:unknown)=>unknown,reject:(e:unknown)=>unknown) => Promise.resolve({data:rows[table] || [],error:null}).then(resolve,reject),
+      then: (resolve:(v:unknown)=>unknown,reject:(e:unknown)=>unknown) => Promise.resolve({data:table==='reservations' && query.filters.private_group_id ? [{id:'old',private_group_id:'g',reservation_number:'PB-OLD'},{id:'current',private_group_id:'g',reservation_number:'PB-CURRENT'}] : rows[table] || [],error:null}).then(resolve,reject),
     }
     return builder
   })
@@ -104,4 +108,12 @@ it('uses snapshot organizer_display_name even when the organizer member row is g
   expect(result.current.error).toBeNull()
   expect(result.current.groups[0].organizer).toEqual({ name: '削除後も残る幹事名' })
   expect(mocks.queries.some(q=>q.table==='customers')).toBe(false)
+})
+
+it('includes old and current reservation numbers without replacing the current event', async () => {
+  await render()
+  expect(result.current.groups[0].reservation_numbers).toEqual(['PB-OLD','PB-CURRENT'])
+  expect(result.current.groups[0].confirmed_date).toBe('2027-03-01')
+  const history = mocks.queries.find(q => q.table === 'reservations' && q.filters.private_group_id)
+  expect(history?.filters).toEqual({organization_id:'org',private_group_id:['g']})
 })

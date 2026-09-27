@@ -1,3 +1,4 @@
+import { readPrivateBookingReadiness, type ReadinessReservation } from '../../supabase/functions/_shared/privateBookingReadiness.js'
 import { RESERVATION_SOURCE } from '../../src/lib/constants.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, type AuthUser } from './auth.js'
@@ -39,17 +40,29 @@ export async function readGmResponses(database: SupabaseClient, user: AuthUser, 
   return { responses, staffId, staffName }
 }
 
+export async function readGmReadiness(database: SupabaseClient, user: AuthUser, query: Record<string, unknown>) {
+  const ids = typeof query.reservation_ids === 'string' ? query.reservation_ids.split(',') : []
+  if (!ids.length || ids.length > 100 || ids.some(id => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) throw new ApiError(400, '予約IDを指定してください（最大100件）')
+  const { data, error } = await database.from('reservations').select('id,organization_id,scenario_master_id,candidate_datetimes')
+    .eq('organization_id', user.orgId).eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE).in('id', ids)
+  if (error) throw new ApiError(500, 'GMの担当条件を取得できませんでした')
+  return { readiness: await readPrivateBookingReadiness(database, user.orgId, (data || []) as ReadinessReservation[]) }
+}
+
 export async function readGmPendingCount(database: SupabaseClient, user: AuthUser) {
-  const base = () => database.from('reservations')
-  const [known, pending] = await Promise.all([
-    base().select('id', { count: 'exact', head: true }).eq('organization_id', user.orgId)
-      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE).in('status', ['gm_confirmed', 'pending_store']),
-    base().select('id,gm_responses:gm_availability_responses!gm_availability_responses_reservation_id_fkey!inner(staff:staff_id!inner(id))', { count: 'exact', head: true })
-      .eq('organization_id', user.orgId).eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-      .in('status', ['pending', 'pending_gm']).eq('gm_responses.organization_id', user.orgId)
-      .eq('gm_responses.staff.organization_id', user.orgId)
-      .not('gm_responses.available_candidates', 'is', null).neq('gm_responses.available_candidates', '[]'),
-  ])
-  if (known.error || pending.error) throw new ApiError(500, '店舗承認待ち件数を取得できませんでした')
-  return { count: (known.count || 0) + (pending.count || 0) }
+  try {
+    const reservations: ReadinessReservation[] = []
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await database.from('reservations').select('id,organization_id,scenario_master_id,candidate_datetimes')
+        .eq('organization_id', user.orgId).eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+        .in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store']).order('id').range(offset, offset + 999)
+      if (error) throw error
+      reservations.push(...((data || []) as ReadinessReservation[]))
+      if (!data || data.length < 1000) break
+    }
+    const readiness = await readPrivateBookingReadiness(database, user.orgId, reservations)
+    return { count: Object.values(readiness).filter(Boolean).length }
+  } catch {
+    throw new ApiError(500, '店舗承認待ち件数を取得できませんでした')
+  }
 }
