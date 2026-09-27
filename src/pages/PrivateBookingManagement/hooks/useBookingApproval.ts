@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/apiClient'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -9,7 +9,8 @@ import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
 import { reservationApi } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
-import { sendEmail } from '@/lib/emailApi'
+import { pendingOperation } from '@/lib/pendingOperation'
+import { useAuth } from '@/contexts/AuthContext'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { showToast } from '@/utils/toast'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
@@ -62,6 +63,8 @@ interface UseBookingApprovalProps {
 export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   // 組織IDを取得（マルチテナント対応）
   const { organizationId } = useOrganization()
+  const { user } = useAuth()
+  const approvingRef = useRef(false)
   const { isCustomHoliday } = useCustomHolidays()
   
   const [submitting, setSubmitting] = useState(false)
@@ -98,6 +101,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
     }
 
+    if (approvingRef.current) return { success: false, error: '承認処理中です。しばらくお待ちください。' }
+    if (!user?.id || !organizationId) return { success: false, error: 'ログイン状態と組織を確認してください。' }
+    approvingRef.current = true
+    let approvalCommitted = false
     try {
       setSubmitting(true)
 
@@ -275,7 +282,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
       logger.log('貸切承認RPCパラメータ:', rpcParams)
       
-      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_notice', rpcParams)
+      const operation = await pendingOperation(`private-approval:${organizationId}:${user.id}`, rpcParams)
+      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_delivery', { ...rpcParams, p_request_id: operation.id })
 
       if (approveError) {
         logger.error('貸切承認RPCエラー:', approveError)
@@ -344,13 +352,21 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       const scheduleEventId = approval?.schedule_event_id as string | undefined
-      const surveyNotice = approval?.survey_notice as string | null | undefined
+      if (!scheduleEventId) throw new Error('承認結果を確認できませんでした。同じ内容で再試行してください。')
+      approvalCommitted = true
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
       // onSuccess の完了（一覧再フェッチなど）まで await して、submitting=true を保つ。
       // これにより承認ボタンの再活性化前にリストが最新化され、二度押しでの重複承認を防ぐ。
-      await onSuccess()
+      try {
+        await onSuccess()
+        operation.complete()
+      } catch (refreshError) {
+        logger.error('承認後の一覧更新に失敗:', refreshError)
+        showToast.warning('承認は保存済みですが、一覧を更新できませんでした。画面を開き直してください。')
+      }
+      if (approval.replayed) return { success: true }
 
       // バックグラウンド処理（awaitしない）
       ;(async () => {
@@ -478,21 +494,19 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             }))
           })(),
 
-          // チャット通知は承認RPC内で保存済み。同じ本文をメールでも案内する。
-          surveyNotice && selectedRequest?.customer_email
-            ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: surveyNotice })
-            : Promise.resolve()
+          // アンケート通知は承認RPCで送信予定まで保存済み。配送ワーカーが処理する。
         ])
       })().catch(err => logger.error('バックグラウンド承認処理エラー:', err))
 
       return { success: true }
     } catch (error) {
       logger.error('承認エラー:', error)
-      return { success: false, error: '承認処理中にエラーが発生しました' }
+      return approvalCommitted ? { success: true } : { success: false, error: '承認処理中にエラーが発生しました。同じ内容で再試行してください。' }
     } finally {
+      approvingRef.current = false
       setSubmitting(false)
     }
-  }, [onSuccess, organizationId, isCustomHoliday])
+  }, [onSuccess, organizationId, isCustomHoliday, user?.id])
 
   // 却下クリック
   // 却下ダイアログを開く。フラグメント（理由）だけでなく、実際に送られる「全文」を

@@ -11,7 +11,8 @@ BEGIN
  IF NOT FOUND THEN RETURN jsonb_build_object('error','scenario_not_found','survey_enabled',false); END IF;
  SELECT CASE WHEN booking.schedule_event_id IS NOT NULL THEN e.store_id ELSE booking.store_id END AS store_id,booking.schedule_event_id,e.date AS performance_date,e.organization_scenario_id,COALESCE(e.scenario_master_id,e.scenario_id) AS event_master_id INTO r FROM reservations booking
  LEFT JOIN schedule_events e ON e.id=booking.schedule_event_id AND e.organization_id=booking.organization_id
- WHERE (booking.private_group_id=p_group_id OR booking.id=g.reservation_id) AND booking.organization_id=p_organization_id
+ WHERE ((g.reservation_id IS NOT NULL AND booking.id=g.reservation_id AND booking.private_group_id=p_group_id)
+     OR (g.reservation_id IS NULL AND booking.private_group_id=p_group_id)) AND booking.organization_id=p_organization_id
    AND booking.status IN ('confirmed','gm_confirmed','checked_in','completed')
  ORDER BY booking.created_at DESC,booking.id LIMIT 1;
  resolved_scenario:=sc.id;
