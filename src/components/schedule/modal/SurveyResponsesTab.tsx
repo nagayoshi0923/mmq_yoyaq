@@ -1,3 +1,4 @@
+import { readSurveyQuestionSettings } from '@/lib/surveyQuestionSettings'
 import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation, readPrivateGroupMessageHistory } from '@/lib/privateGroupRead'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -157,15 +158,7 @@ export function SurveyResponsesTab({
           })))
         }
 
-        const { data: questionsData, error: questionsError } = await supabase
-          .from('org_scenario_survey_questions')
-          .select(
-            'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
-          )
-          .eq('org_scenario_id', orgScenario.org_scenario_id)
-          .order('order_num', { ascending: true })
-
-        if (questionsError) throw questionsError
+        const { questions: questionsData } = await readSurveyQuestionSettings(orgScenario.org_scenario_id)
         if (questionsData && questionsData.length > 0) {
           if (!cancelled) setQuestions(questionsData)
         }
