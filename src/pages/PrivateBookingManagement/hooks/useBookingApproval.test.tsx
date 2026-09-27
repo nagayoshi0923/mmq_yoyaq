@@ -66,7 +66,7 @@ describe('貸切承認と通知', () => {
     let first!: Promise<unknown>
     await act(async () => {
       first = result.current.handleApprove(...approvalArgs)
-      await new Promise(resolve => setTimeout(resolve, 20))
+      await vi.waitFor(() => expect(resolveRpc).toBeTypeOf('function'))
       const duplicate = await result.current.handleApprove(...approvalArgs)
       expect(duplicate.success).toBe(false)
       resolveRpc({data:null,error:{message:'network failure'}})
