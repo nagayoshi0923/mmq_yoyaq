@@ -9,6 +9,7 @@ const live=fs.readFileSync('supabase/rollbacks/20260928001000_assignment_canonic
 const functions=live.slice(live.indexOf('CREATE OR REPLACE'),live.indexOf('DROP TRIGGER'))
 await db.exec(functions)
 await db.exec(`CREATE TRIGGER sync_staff_to_assignments_trigger AFTER UPDATE OF special_scenarios,available_scenarios ON staff FOR EACH ROW EXECUTE FUNCTION sync_staff_to_assignments();CREATE TRIGGER sync_assignments_to_staff_trigger AFTER INSERT OR UPDATE ON staff_scenario_assignments FOR EACH ROW EXECUTE FUNCTION sync_assignments_to_staff();`)
+const originalFunctions=(await db.query("SELECT proname,prosecdef,proconfig,prosrc FROM pg_proc WHERE proname IN ('sync_staff_to_assignments','sync_assignments_to_staff') ORDER BY proname")).rows
 const migration=fs.readFileSync('supabase/migrations/20260928001000_assignment_canonical_cache.sql','utf8')
 await db.exec(migration)
 const cache=async()=> (await db.query('SELECT special_scenarios,available_scenarios FROM staff')).rows[0]
@@ -27,6 +28,7 @@ assert.deepEqual(await cache(),{special_scenarios:[],available_scenarios:[b]})
 await db.exec(`DELETE FROM staff_scenario_assignments;`)
 assert.deepEqual(await cache(),{special_scenarios:[],available_scenarios:[]})
 await db.exec(live)
+assert.deepEqual((await db.query("SELECT proname,prosecdef,proconfig,prosrc FROM pg_proc WHERE proname IN ('sync_staff_to_assignments','sync_assignments_to_staff') ORDER BY proname")).rows,originalFunctions)
 await db.exec(migration)
 await assert.rejects(db.exec(`UPDATE staff SET available_scenarios=ARRAY['${a}'];`),e=>e.code==='42501')
 console.log('PASS canonical cache: legacy update/insert rejection, main/sub preservation, rename, delete, role removal, manual flags, rollback/reapply')
