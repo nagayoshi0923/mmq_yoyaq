@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare, Link, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { SurveyQuestion } from '@/types'
@@ -34,7 +33,6 @@ export function SurveyResponsesTab({
   reservationId,
   scenarioId,
 }: SurveyResponsesTabProps) {
-  const { user } = useAuth()
   const [questions, setQuestions] = useState<SurveyQuestion[]>([])
   const [responses, setResponses] = useState<ResponseData[]>([])
   const [members, setMembers] = useState<MemberData[]>([])
@@ -115,6 +113,7 @@ export function SurveyResponsesTab({
               .from('organization_scenarios_with_master')
               .select('org_scenario_id, survey_enabled, characters, player_count_max, individual_notice_template')
               .eq('org_scenario_id', effectiveScenarioId)
+              .eq('organization_id', organizationId)
               .maybeSingle()
             orgScenario = viewByOrgId
           }
@@ -238,52 +237,26 @@ export function SurveyResponsesTab({
       
       // 選択されたキャラクターの情報を取得
       const selectedCharId = selectedCharacters[memberId]
-      const selectedChar = selectedCharId ? characters.find(c => c.id === selectedCharId) : null
-      
-      // メッセージにキャラクターURLと定型文を含める
-      const parts: string[] = []
-      if (message) parts.push(message)
       const shouldAttachTemplate = attachTemplate[memberId] !== false && noticeTemplate
-      if (shouldAttachTemplate) parts.push(noticeTemplate)
-      const charDesc = selectedChar?.survey_description
-      if (charDesc) parts.push(charDesc)
-      if (selectedChar?.url) {
-        parts.push(`【${selectedChar.name}の資料】\n${selectedChar.url}`)
-      }
-      const fullMessage = parts.join('\n\n')
 
-      // グループチャットにシステムメッセージとして送信
-      const { error } = await supabase
-        .from('private_group_messages')
-        .insert({
-          group_id: groupId,
-          member_id: memberId,
-          message: JSON.stringify({
-            type: 'system',
-            action: 'individual_notice',
-            target_member_id: memberId,
-            target_member_name: memberName,
-            // 宛先ユーザーID（メンバー行が退出等で再作成されても user_id 照合で表示できるように #278）
-            target_user_id: member?.user_id || null,
-            message: fullMessage,
-            character_id: selectedCharId || null,
-            character_name: selectedChar?.name || null,
-            character_url: selectedChar?.url || null,
-            template_attached: !!shouldAttachTemplate,
-            sent_by: user?.staffName || user?.name || null,
-          })
-        })
-
+      const { data, error } = await supabase.rpc('private_group_send_individual_notice', {
+        p_group_id: groupId,
+        p_member_id: memberId,
+        p_message: message,
+        p_character_id: selectedCharId || null,
+        p_attach_template: !!shouldAttachTemplate,
+      })
       if (error) throw error
-
+      if (!data?.id || !data?.created_at || !data?.message) throw new Error('保存結果を確認できませんでした')
+      const saved = JSON.parse(data.message)
       showToast.success(`${memberName}さんへのお知らせを送信しました`)
       setSentNotices(prev => [{
-        id: crypto.randomUUID(),
-        target_member_id: memberId,
-        target_member_name: memberName,
-        character_name: selectedChar?.name || null,
-        sent_by: user?.staffName || user?.name || null,
-        created_at: new Date().toISOString(),
+        id: data.id,
+        target_member_id: saved.target_member_id,
+        target_member_name: saved.target_member_name,
+        character_name: saved.character_name || null,
+        sent_by: saved.sent_by || null,
+        created_at: data.created_at,
       }, ...prev])
       setMessageInputs(prev => ({ ...prev, [memberId]: '' }))
       setSelectedCharacters(prev => ({ ...prev, [memberId]: '' }))
