@@ -8,10 +8,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
-import { logger } from '@/utils/logger'
-import { getCurrentOrganizationId } from '@/lib/organization'
-import { ensureStaffReservation, removeStaffReservation } from '../staffReservationHelpers'
-import type { EventFormData, ScheduleEvent } from '@/types/schedule'
+import type { EventFormData } from '@/types/schedule'
 import type { Staff as StaffType, Scenario } from '@/types'
 
 interface StaffNotesSectionProps {
@@ -22,9 +19,6 @@ interface StaffNotesSectionProps {
   scenarios: Scenario[]
   allAvailableStaff: StaffType[]
   staffParticipantsFromDB: string[]
-  setStaffParticipantsFromDB: Dispatch<SetStateAction<string[]>>
-  mode: 'add' | 'edit'
-  event?: ScheduleEvent | null
   setIsStaffModalOpen: Dispatch<SetStateAction<boolean>>
 }
 
@@ -37,9 +31,6 @@ export function StaffNotesSection({
   scenarios,
   allAvailableStaff,
   staffParticipantsFromDB,
-  setStaffParticipantsFromDB,
-  mode,
-  event,
   setIsStaffModalOpen,
 }: StaffNotesSectionProps) {
   return (
@@ -137,24 +128,15 @@ export function StaffNotesSection({
                           </span>
                           <div
                             role="button"
+                            aria-label={`${gm}を担当から外す`}
                             className="h-3 w-3 flex items-center justify-center rounded-full hover:bg-black/10 ml-0.5"
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation()
                               const removedGm = gm
-                              const removedRole = formData.gmRoles?.[removedGm]
                               const newGms = formData.gms.filter((g: string) => g !== removedGm)
                               const newRoles = { ...formData.gmRoles }
                               delete newRoles[removedGm]
                               setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
-                              // role が staff だったなら、対応する予約を削除
-                              if (mode === 'edit' && event?.id && removedRole === 'staff') {
-                                try {
-                                  await removeStaffReservation(event.id, removedGm)
-                                  setStaffParticipantsFromDB(prev => prev.filter(n => n !== removedGm))
-                                } catch (err) {
-                                  logger.error('スタッフ参加予約の削除に失敗:', err)
-                                }
-                              }
                             }}
                           >
                             <X className="h-2.5 w-2.5" />
@@ -167,33 +149,9 @@ export function StaffNotesSection({
                             <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
                             <RadioGroup
                               value={role}
-                              onValueChange={async (value) => {
-                                const prevRole = formData.gmRoles?.[gm] || 'main'
-                                setFormData((prev: any) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))
-                                // 役割が staff になった瞬間に reservations へ INSERT
-                                // 役割が staff から外れた瞬間に対応する予約を DELETE
-                                if (mode === 'edit' && event?.id) {
-                                  try {
-                                    const orgId = await getCurrentOrganizationId()
-                                    const scenarioObj = scenarios.find(s => s.title === formData.scenario)
-                                    if (value === 'staff' && prevRole !== 'staff') {
-                                      await ensureStaffReservation({
-                                        eventId: event.id,
-                                        staffName: gm,
-                                        organizationId: orgId,
-                                        scenarioTitle: formData.scenario || '',
-                                        scenarioMasterId: scenarioObj?.id ?? null,
-                                        storeId: event.store_id ?? null,
-                                      })
-                                      setStaffParticipantsFromDB(prev => prev.includes(gm) ? prev : [...prev, gm])
-                                    } else if (prevRole === 'staff' && value !== 'staff') {
-                                      await removeStaffReservation(event.id, gm)
-                                      setStaffParticipantsFromDB(prev => prev.filter(n => n !== gm))
-                                    }
-                                  } catch (err) {
-                                    logger.error('スタッフ参加予約の同期に失敗:', err)
-                                  }
-                                }
+                              onValueChange={(value) => {
+                                // 予約の追加・解除は保存時だけ行う。閉じる操作では予約を変更しない。
+                                setFormData((prev: EventFormData) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))
                               }}
                               className="gap-0.5"
                             >
