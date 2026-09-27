@@ -58,7 +58,7 @@ jobs:
         run: node scripts/test-unrecorded-gm-cost-db.mjs
 
       - name: Customer coupon stats DB regression
-        run: node scripts/test-customer-coupon-stats-db.mjs && node scripts/test-customer-contact-scope-db.mjs && node scripts/test-customer-play-history-access-db.mjs && node scripts/test-customer-play-history-closure-db.mjs && node scripts/test-private-group-read-auth-db.mjs && node scripts/test-private-group-snapshot-db.mjs && node scripts/test-private-group-confirm-characters-db.mjs && node scripts/test-private-group-notice-scope-db.mjs
+        run: node scripts/test-customer-coupon-stats-db.mjs && node scripts/test-customer-contact-scope-db.mjs && node scripts/test-customer-play-history-access-db.mjs && node scripts/test-customer-play-history-closure-db.mjs && node scripts/test-private-group-read-auth-db.mjs && node scripts/test-private-group-snapshot-db.mjs && node scripts/test-private-group-confirm-characters-db.mjs && node scripts/test-private-group-notice-scope-db.mjs && node scripts/test-private-group-character-method-db.mjs
 
       - name: Store public column boundary
         run: node scripts/test-store-public-columns.mjs

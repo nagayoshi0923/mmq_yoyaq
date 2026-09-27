@@ -64,12 +64,12 @@ interface GroupChatProps {
   organizationId?: string
   performanceDate?: string
   needsCharAssignmentChoice?: boolean
-  onCharAssignmentMethodSelected?: (method: 'survey' | 'self') => void
+  onCharAssignmentMethodSelected?: (method: 'survey' | 'self') => void | Promise<void>
   charAssignmentMethod?: string | null
   characters?: CharacterData[]
   isOrganizer?: boolean
   onCharAssignmentConfirmed?: () => void
-  onResetCharAssignmentMethod?: () => void
+  onResetCharAssignmentMethod?: () => void | Promise<void>
   scenarioPlayerCount?: number | null
 }
 
@@ -108,6 +108,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   const [showResetCharAssignmentConfirm, setShowResetCharAssignmentConfirm] = useState(false)
   const [charPreferences, setCharPreferences] = useState<Record<string, string>>({})
   const [charSaving, setCharSaving] = useState(false)
+  const [methodSaving, setMethodSaving] = useState(false)
   const [charConfirmStep, setCharConfirmStep] = useState(false)
   const [charDecisions, setCharDecisions] = useState<Record<string, string>>({})
   const [charConfirmExpected, setCharConfirmExpected] = useState<Record<string, string>>({})
@@ -243,6 +244,40 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
       setCharSubmitting(false)
     }
   }, [members, charDecisions, charConfirmExpected, groupId, onCharAssignmentConfirmed, refreshGroup])
+
+  const selectCharacterMethod = async (method: 'survey' | 'self') => {
+    if (methodSaving) return
+    setMethodSaving(true)
+    try {
+      await onCharAssignmentMethodSelected?.(method)
+      setCharConfirmStep(false)
+      await Promise.all([refreshGroup(), refetchMessages()])
+    } catch (error) {
+      logger.error('配役方法の変更エラー:', error)
+      toast.error('配役方法を保存できませんでした。最新の状態を確認してください')
+    } finally { setMethodSaving(false) }
+  }
+
+  const resetCharacterMethod = async () => {
+    try {
+      await onResetCharAssignmentMethod?.()
+      setCharConfirmStep(false)
+      await Promise.all([refreshGroup(), refetchMessages()])
+    } catch (error) {
+      toast.error('配役方法を変更できませんでした。最新の状態を確認してください')
+      throw error
+    }
+  }
+
+  // 過去の配役通知は履歴に残し、最後に方法を選び直した後の確定だけを現在の状態とする。
+  let currentAssignmentConfirmed = false
+  for (const message of messages) {
+    try {
+      const action = JSON.parse(message.message)?.action
+      if (action === 'character_method_selected') currentAssignmentConfirmed = false
+      else if (action === 'character_assignment') currentAssignmentConfirmed = true
+    } catch { /* 通常のチャット本文 */ }
+  }
 
   const getMemberName = useCallback((memberId: string | null) => {
     if (!memberId) return '退出したメンバー'
@@ -898,7 +933,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                   <Button
                     variant="outline"
                     className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border-purple-200 hover:bg-purple-100"
-                    onClick={() => onCharAssignmentMethodSelected('survey')}
+                    disabled={methodSaving}
+                    onClick={() => void selectCharacterMethod('survey')}
                   >
                     <span className="font-medium text-sm">アンケートで希望を伝える</span>
                     <span className="text-[10px] text-muted-foreground">スタッフが決定します</span>
@@ -906,7 +942,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                   <Button
                     variant="outline"
                     className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border-purple-200 hover:bg-purple-100"
-                    onClick={() => onCharAssignmentMethodSelected('self')}
+                    disabled={methodSaving}
+                    onClick={() => void selectCharacterMethod('self')}
                   >
                     <span className="font-medium text-sm">自分たちで決める</span>
                     <span className="text-[10px] text-muted-foreground">参加者同士で選択します</span>
@@ -957,9 +994,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
           )}
 
           {/* 配役方法=self: インラインキャラクター選択（確定済みメッセージがあれば非表示） */}
-          {charAssignmentMethod === 'self' && characters.length > 0 && !messages.some(m => {
-            try { return JSON.parse(m.message)?.action === 'character_assignment' } catch { return false }
-          }) && (() => {
+          {charAssignmentMethod === 'self' && characters.length > 0 && !currentAssignmentConfirmed && (() => {
             const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
             const charNameById = (id: string | undefined) => id ? characters.find(c => c.id === id)?.name : null
             const allPreferred = activeMembers.every(m => charPreferences[m.id])
@@ -1276,7 +1311,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
         title="配役方法を変更しますか？"
         message="配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？"
         confirmLabel="変更する"
-        onConfirm={() => { onResetCharAssignmentMethod?.() }}
+        onConfirm={resetCharacterMethod}
       />
     </>
   )

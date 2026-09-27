@@ -1585,24 +1585,26 @@ export function PrivateGroupInvite() {
               performanceDate={group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
-                await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
-                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
-                const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
-                await supabase.from('private_group_messages').insert({
-                  group_id: group.id,
-                  member_id: existingMemberId,
-                  message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
+                const { error } = await supabase.rpc('private_group_set_character_method', {
+                  p_group_id: group.id, p_method: method,
+                  p_expected_method: group.character_assignment_method || null,
+                  p_expected_assignments: group.character_assignments || {},
                 })
-                refetch()
+                if (error) throw error
+                await refetch()
               }}
               charAssignmentMethod={charAssignmentMethod}
               characters={scenarioCharacters}
               isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
               onCharAssignmentConfirmed={() => refetch()}
               onResetCharAssignmentMethod={async () => {
-                await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
-                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
-                refetch()
+                const { error } = await supabase.rpc('private_group_set_character_method', {
+                  p_group_id: group.id, p_method: null,
+                  p_expected_method: group.character_assignment_method || null,
+                  p_expected_assignments: group.character_assignments || {},
+                })
+                if (error) throw error
+                await refetch()
               }}
               scenarioPlayerCount={scenarioMax}
             />
