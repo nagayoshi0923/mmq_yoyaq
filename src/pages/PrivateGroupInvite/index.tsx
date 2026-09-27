@@ -1483,6 +1483,8 @@ export function PrivateGroupInvite() {
           handleShareLine={handleShareLine}
           handleCopyUrl={handleCopyUrl}
           handleDeleteGroup={handleDeleteGroup}
+          handleCancelGroup={handleCancelGroup}
+          cancelling={cancelling}
           handleOpenBookingDialog={handleOpenBookingDialog}
           handleSubmit={handleSubmit}
         />
@@ -1639,6 +1641,13 @@ export function PrivateGroupInvite() {
                   )}
                 </div>
               </div>
+
+              {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                <Button variant="outline" size="sm" className="w-full text-xs"
+                  disabled={cancelling} onClick={handleCancelGroup}>
+                  {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
+                </Button>
+              )}
 
               {/* 主催者向け機能（日程調整中・再調整中の両方） */}
               {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
