@@ -3,6 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, it, expect, vi } from 'vitest'
 const mocks=vi.hoisted(()=>({snapshot:vi.fn(),reservations:vi.fn(),options:vi.fn()}))
+vi.mock('@/lib/supabase',()=>({supabase:{}}))
 vi.mock('@/lib/customerPlayHistory',()=>({customerPlayHistory:{snapshot:mocks.snapshot}}))
 vi.mock('@/lib/api/customerApi',()=>({customerApi:{reservationHistory:mocks.reservations,playedScenarioOptions:mocks.options}}))
 vi.mock('@/lib/playedOverrides',()=>({addPlayedOverride:vi.fn(),removePlayedOverride:vi.fn()}))
@@ -30,4 +31,12 @@ it('完了済みの過去予約を表示し、取消・未確定・未来の予�
  await render(false)
  expect(host.textContent).toContain('完了作品')
  for(const title of ['取消作品','未確定作品','未来作品']) expect(host.textContent).not.toContain(title)
+})
+
+it('未体験指定を予約・手動の両方へ表示し、履歴の根拠は残す',async()=>{
+ mocks.snapshot.mockResolvedValue({can_edit:false,manual:[{id:'manual',scenario_master_id:'s',scenario_title:'手動作品',played_at:null}],overrides:[{scenario_master_id:'s'}]})
+ await act(async()=>root.render(<CustomerPlayedManager customerId="customer"/>))
+ expect(host.textContent).toContain('予約作品')
+ expect(host.textContent).toContain('手動作品')
+ expect(Array.from(host.querySelectorAll('.line-through')).map(e=>e.textContent)).toEqual(['予約作品','手動作品'])
 })
