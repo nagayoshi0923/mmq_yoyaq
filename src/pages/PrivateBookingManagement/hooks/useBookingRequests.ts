@@ -1,3 +1,4 @@
+import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
 import { getGmResponses } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
@@ -86,7 +87,6 @@ async function fetchRawBookingRequests(
         *,
         scenario_masters:scenario_master_id(title, official_duration),
         customers:customer_id(name, phone),
-        private_groups:private_group_id(invite_code, scenario_master_id),
         confirmer:staff!reservations_confirmed_by_fkey(name),
         canceller:staff!reservations_cancelled_by_fkey(name)
       `)
@@ -113,6 +113,12 @@ async function fetchRawBookingRequests(
     ),
   ]
 
+  const relatedGroups = privateGroupIds.length > 0 ? await readPrivateGroupList('staff', orgId, privateGroupIds) : []
+  const groupById = new Map(relatedGroups.map(group => [group.id, group]))
+  for (const reservation of reservationsList) {
+    reservation.private_groups = groupById.get(reservation.private_group_id) || null
+  }
+
   // バッチ取得（並列）
   const [
     memberRowsResult,
@@ -120,13 +126,7 @@ async function fetchRawBookingRequests(
     allGmResponsesResult,
     allCandidateDatesResult,
   ] = await Promise.all([
-    fetchBookingRelatedRows<any>(privateGroupIds, (batch, from, to) => supabase
-          .from('private_group_members')
-          .select('group_id')
-          .in('group_id', batch)
-          .eq('status', 'joined')
-          .order('id')
-          .range(from, to)),
+    Promise.resolve({ data: relatedGroups.flatMap(group => (group.members || []).filter(member => member.status === 'joined')), error: null }),
     (() => {
       const masterIds = [
         ...new Set(
@@ -144,13 +144,7 @@ async function fetchRawBookingRequests(
             .range(from, to))
     })(),
     getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
-    fetchBookingRelatedRows<any>(privateGroupIds, (batch, from, to) => supabase
-          .from('private_group_candidate_dates')
-          .select('group_id, id, date, time_slot, start_time, end_time, status')
-          .in('group_id', batch)
-          .order('date', { ascending: true })
-          .order('id')
-          .range(from, to)),
+    Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
   ])
 
   // マップ構築

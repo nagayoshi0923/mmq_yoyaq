@@ -1,3 +1,4 @@
+import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { getGroupsSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect, useCallback } from 'react'
@@ -72,45 +73,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         return
       }
 
-      const { data, error: queryError } = await supabase
-        .from('private_groups')
-        .select(`
-          id,
-          invite_code,
-          status,
-          organizer_id,
-          scenario_master_id,
-          created_at,
-          updated_at,
-          scenario_masters:scenario_master_id (
-            id,
-            title,
-            key_visual_url,
-            player_count_max
-          ),
-          members:private_group_members (
-            id,
-            user_id,
-            guest_name,
-            is_organizer
-          ),
-          candidate_dates:private_group_candidate_dates (
-            id,
-            date,
-            time_slot,
-            responses:private_group_date_responses (
-              id,
-              member_id,
-              response
-            )
-          )
-        `)
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false })
-
-      if (queryError) {
-        throw queryError
-      }
+      const data = await readPrivateGroupList('staff', orgId)
 
       const groupIds = (data || []).map(g => g.id)
 
@@ -204,10 +167,9 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           scenario_masters: scenarioMasters || null,
           members: (g.members as any[]).map((m: any) => ({
             ...m,
-            member_name: m.guest_name ||
-              organizerMap.get(m.user_id)?.nickname ||
-              organizerMap.get(m.user_id)?.name ||
-              null,
+            member_name: m.user_id
+              ? (organizerMap.get(m.user_id)?.nickname || organizerMap.get(m.user_id)?.name || m.guest_name || null)
+              : (m.guest_name || null),
           })),
           organizer: organizerMap.get(g.organizer_id) || { name: '不明' },
           survey_enabled: surveyResult[g.id]?.survey_enabled ?? false,
