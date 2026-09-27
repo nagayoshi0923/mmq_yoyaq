@@ -41,10 +41,10 @@ export function usePlayedScenarios() {
       }
 
       setCustomerId(customer.id)
-      const [reservations, history] = await Promise.all([
-        fetchPlayedReservations(customer.id),
-        customerPlayHistory.snapshot(customer.id),
-      ])
+      const history = await customerPlayHistory.snapshot(customer.id)
+      // 手動履歴・未体験指定は確認済み。予約取得が失敗してもこの判定は保持する。
+      setPlayedScenarioIds(resolvePlayedScenarioIds([], history.manual, history.overrides))
+      const reservations = await fetchPlayedReservations(customer.id)
       const scenarioIds = resolvePlayedScenarioIds(reservations, history.manual, history.overrides)
 
       setPlayedScenarioIds(scenarioIds)

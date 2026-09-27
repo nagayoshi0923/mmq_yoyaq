@@ -1,3 +1,4 @@
+import { fetchBatchedIds } from '@/lib/fetchBatchedIds'
 import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
@@ -149,8 +150,8 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] = await Promise.all([
         eventIds.length > 0 ? supabase.from('schedule_events_public').select('id, date, start_time, category, current_participants, max_participants').in('id', eventIds) : Promise.resolve({ data: [] }),
-        orgIds.length > 0 ? supabase.from('organizations').select('id, slug, name').in('id', orgIds) : Promise.resolve({ data: [] }),
-        scenarioMasterIds.length > 0 ? supabase.from('scenario_masters').select('id, title, key_visual_url, player_count_min, player_count_max').in('id', scenarioMasterIds) : Promise.resolve({ data: [] }),
+        fetchBatchedIds(orgIds, ids => supabase.from('organizations').select('id, slug, name').in('id', ids)),
+        fetchBatchedIds(scenarioMasterIds, ids => supabase.from('scenario_masters').select('id, title, key_visual_url, player_count_min, player_count_max').in('id', ids)),
         groupIds.length > 0 ? supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds }) : Promise.resolve({ data: [] }),
         Promise.resolve({ data: memberRecords.flatMap(row => (row.private_groups.members || []).filter(m => m.status === 'joined')) }),
         Promise.resolve({ data: memberRecords.flatMap(row => row.private_groups.candidate_dates || []) }),
@@ -161,7 +162,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       groupSchedules.forEach(s => { groupScheduleByGroupId[s.group_id] = s })
 
       const allStoreIds = [...new Set([...storeIdsFromReservations, ...groupSchedules.map(s => s.store_id).filter((id): id is string => !!id)])]
-      const storesFetchResult = allStoreIds.length > 0 ? await supabase.from('stores').select('id, name, address, color').in('id', allStoreIds) : { data: [] }
+      const storesFetchResult = await fetchBatchedIds(allStoreIds, ids => supabase.from('stores').select('id, name, address, color').in('id', ids))
       const storesData = storesFetchResult.data || []
 
       const scheduleEvents: MyPageData['scheduleEvents'] = {}
