@@ -1,9 +1,10 @@
+import { fetchPlayedReservations, resolvePlayedScenarioIds } from '@/lib/playedStatus'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
-import { addPlayedOverride, fetchPlayedOverrideIds } from '@/lib/playedOverrides'
+import { addPlayedOverride } from '@/lib/playedOverrides'
 
 /**
  * ユーザーの体験済みシナリオIDを管理するフック
@@ -40,32 +41,11 @@ export function usePlayedScenarios() {
       }
 
       setCustomerId(customer.id)
-      const scenarioIds = new Set<string>()
-
-      const { data: reservations } = await supabase
-        .from('reservations')
-        .select('scenario_master_id')
-        .eq('customer_id', customer.id)
-        .not('status', 'in', '("cancelled","no_show")')
-        .lte('requested_datetime', new Date().toISOString())
-
-      reservations?.forEach(r => {
-        if (r.scenario_master_id) {
-          scenarioIds.add(r.scenario_master_id)
-        }
-      })
-
-      const { manual: manualHistory } = await customerPlayHistory.snapshot(customer.id)
-
-      manualHistory?.forEach(m => {
-        if (m.scenario_master_id) {
-          scenarioIds.add(m.scenario_master_id)
-        }
-      })
-
-      // 本人/スタッフが「未体験に戻した」シナリオを差し引く（表示判定専用の override）
-      const overrideIds = await fetchPlayedOverrideIds(customer.id)
-      overrideIds.forEach(id => scenarioIds.delete(id))
+      const history = await customerPlayHistory.snapshot(customer.id)
+      // 手動履歴・未体験指定は確認済み。予約取得が失敗してもこの判定は保持する。
+      setPlayedScenarioIds(resolvePlayedScenarioIds([], history.manual, history.overrides))
+      const reservations = await fetchPlayedReservations(customer.id)
+      const scenarioIds = resolvePlayedScenarioIds(reservations, history.manual, history.overrides)
 
       setPlayedScenarioIds(scenarioIds)
     } catch (error) {
