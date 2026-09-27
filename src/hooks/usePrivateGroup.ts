@@ -185,30 +185,17 @@ export function usePrivateGroup() {
     }
   }
 
-  const updateGroupStatus = async (
-    groupId: string,
-    status: 'gathering' | 'booking_requested' | 'confirmed' | 'cancelled',
-    reservationId?: string
-  ): Promise<void> => {
+  const cancelUnrequestedGroup = async (groupId: string): Promise<void> => {
     setLoading(true)
     setError(null)
-
     try {
-      const updateData: Record<string, unknown> = { status }
-      if (reservationId) {
-        updateData.reservation_id = reservationId
-      }
-
-      const { error } = await supabase
-        .from('private_groups')
-        .update(updateData)
-        .eq('id', groupId)
-
+      const { data, error } = await supabase.rpc('cancel_unrequested_private_group', { p_group_id: groupId })
       if (error) {
-        logger.error('Failed to update group status', error)
-        throw new Error('グループステータスの更新に失敗しました')
+        throw new Error(error.code === '55P03'
+          ? 'ほかの操作が進行中です。画面を更新してからお試しください。'
+          : error.message)
       }
-
+      if (data !== true) throw new Error('グループのキャンセルを確認できませんでした')
     } catch (err: any) {
       setError(err.message)
       throw err
@@ -285,7 +272,7 @@ export function usePrivateGroup() {
     getMyGroups,
     joinGroup,
     submitDateResponses,
-    updateGroupStatus,
+    cancelUnrequestedGroup,
     getDateResponsesSummary,
     removeMember,
     leaveGroup,

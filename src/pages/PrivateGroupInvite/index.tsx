@@ -61,7 +61,7 @@ export function PrivateGroupInvite() {
   const { user } = useAuth()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
   const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null, existingMemberId)
-  const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
+  const { joinGroup, submitDateResponses, leaveGroup, cancelUnrequestedGroup, removeMember, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
 
@@ -921,12 +921,12 @@ export function PrivateGroupInvite() {
     if (!group) return
     setCancelling(true)
     try {
-      await updateGroupStatus(group.id, 'cancelled')
+      await cancelUnrequestedGroup(group.id)
       toast.success('グループをキャンセルしました')
       refetch()
     } catch (err) {
       logger.error('Failed to cancel group', err)
-      toast.error('キャンセルに失敗しました')
+      toast.error(err instanceof Error ? err.message : 'キャンセルに失敗しました')
     } finally {
       setCancelling(false)
     }
@@ -1668,7 +1668,7 @@ export function PrivateGroupInvite() {
         open={confirmAction?.kind === 'cancelGroup'}
         onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
         title="このグループをキャンセルしますか？"
-        message="本当にこのグループをキャンセルしますか？"
+        message="予約申込前のグループをキャンセルします。申込済みの予約がある場合は、この操作では取り消せません。"
         confirmLabel="キャンセルする"
         variant="destructive"
         onConfirm={handleConfirmCancelGroup}
@@ -1762,7 +1762,7 @@ export function PrivateGroupInvite() {
       open={confirmAction?.kind === 'cancelGroup'}
       onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
       title="このグループをキャンセルしますか？"
-      message="本当にこのグループをキャンセルしますか？"
+      message="予約申込前のグループをキャンセルします。申込済みの予約がある場合は、この操作では取り消せません。"
       confirmLabel="キャンセルする"
       variant="destructive"
       onConfirm={handleConfirmCancelGroup}
