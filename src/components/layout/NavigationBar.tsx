@@ -34,7 +34,7 @@ interface NavigationBarProps {
 export const NavigationBar = memo(function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
   const location = useLocation()
-  const { count: storeConfirmationPendingCount } = useStoreConfirmationPendingCount()
+  const { count: storeConfirmationPendingCount, error: pendingCountError } = useStoreConfirmationPendingCount()
   const { organization } = useOrganization()
   
   // 組織のslugを取得（ロード中はURLの第1セグメントを使用）
@@ -144,6 +144,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
             const isActive = isTabActive(tab)
+            const badgeError = tab.id === 'private-booking-management' && pendingCountError
             const badgeCount = tab.id === 'private-booking-management' ? storeConfirmationPendingCount : 0
             
             return (
@@ -161,9 +162,9 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
                 <Icon className="h-4 w-4 sm:h-4 sm:w-4 md:h-4 md:w-4 flex-shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">{tab.label}</span>
                 <span className="md:hidden text-xs sm:text-xs leading-tight text-center">{tab.label.length > 3 ? tab.label.slice(0, 3) : tab.label}</span>
-                {badgeCount > 0 && (
-                  <span className="absolute -top-1 -right-1 sm:top-0 sm:right-0 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                    {badgeCount > 99 ? '99+' : badgeCount}
+                {(badgeError || badgeCount > 0) && (
+                  <span title={badgeError ? '店舗承認待ち件数を確認できません。貸切管理画面で再確認してください。' : undefined} className="absolute -top-1 -right-1 sm:top-0 sm:right-0 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                    {badgeError ? '!' : badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
               </Link>

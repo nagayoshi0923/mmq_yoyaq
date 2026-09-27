@@ -1,9 +1,9 @@
+import { hasReadyGmTeam } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { getGmResponses } from '@/lib/gmResponseApi'
 import { supabase } from '@/lib/supabase'
 import { fetchBatchedIds } from '@/lib/fetchBatchedIds'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 import {
-  isGmAvailableForCandidate,
   isGmMarkedAvailable,
   shouldIncludeGmResponseRow,
 } from './gmAvailabilityStatus'
@@ -52,26 +52,5 @@ export async function isReservationReadyForStoreAfterGmResponses(
   const { data: assigns } = await fetchBatchedIds([...activeIds], ids => supabase
     .from('staff_scenario_assignments').select('staff_id, can_main_gm, can_sub_gm')
     .eq('scenario_master_id', scenarioMasterId).eq('organization_id', orgId).in('staff_id', ids))
-  const assignMap = new Map(assigns.map(assignment => [assignment.staff_id, {
-    can_main: assignment.can_main_gm === true,
-    can_sub: assignment.can_sub_gm === true,
-  }]))
-
-  for (let i = 0; i < nCand; i++) {
-    const staffForI = new Set<string>()
-    for (const r of rows) {
-      if (activeIds.has(r.staff_id) && isGmAvailableForCandidate(r, i)) {
-        staffForI.add(String(r.staff_id))
-      }
-    }
-    if (staffForI.size < requiredGm) continue
-
-    // 同じ1人をメインとサブの両方として数えない。未登録の担当能力は推測しない。
-    const people = [...staffForI]
-    const rolesCovered = people.some(main => assignMap.get(main)?.can_main &&
-      people.filter(other => other !== main && assignMap.get(other)?.can_sub).length >= requiredGm - 1)
-    if (!rolesCovered) continue
-    return true
-  }
-  return false
+  return hasReadyGmTeam(nCand, requiredGm, rows.filter(r => activeIds.has(r.staff_id)), assigns)
 }

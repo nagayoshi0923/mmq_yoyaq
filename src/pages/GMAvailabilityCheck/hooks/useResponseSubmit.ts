@@ -1,3 +1,4 @@
+import { nextGmResponseStatus } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -95,15 +96,7 @@ export function useResponseSubmit({
           const prevStatus = curRow.status
 
           const readyForStore = await isReservationReadyForStoreAfterGmResponses(request.reservation_id)
-          // validate_reservation_status_transition: gm_confirmed → pending_gm は不可のため、店側待ち済みは据え置き
-          let newStatus: string
-          if (readyForStore) {
-            newStatus = 'gm_confirmed'
-          } else if (prevStatus === 'gm_confirmed') {
-            newStatus = 'gm_confirmed'
-          } else {
-            newStatus = 'pending_gm'
-          }
+          const newStatus = nextGmResponseStatus(prevStatus, readyForStore)
 
           const updateData: Record<string, unknown> = {
             status: newStatus,
@@ -114,13 +107,15 @@ export function useResponseSubmit({
             p_reservation_id: request.reservation_id,
             p_updates: updateData,
           }
-          const { data: reservationResult, error: reservationError } = await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
+          const { data: reservationResult, error: reservationError } = newStatus === prevStatus
+            ? { data: { success: true }, error: null }
+            : await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
 
           if (reservationError || reservationResult?.success === false) {
             throw reservationError || new Error(reservationResult.error || '予約更新に失敗しました')
           } else if (!readyForStore && prevStatus !== 'gm_confirmed') {
             showToast.info(
-              '回答を保存しました。2人以上GMが必要な作品は、同一候補で必要人数が揃い、メイン／サブの両方を担える人が含まれるまで店舗確認待ちになりません。'
+              '回答を保存しました。同じ候補で必要人数とメイン・サブの担当条件が揃うまで、GM確認中として表示します。'
             )
           }
         }
