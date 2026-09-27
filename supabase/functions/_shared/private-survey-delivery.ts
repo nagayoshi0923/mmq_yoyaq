@@ -56,7 +56,7 @@ export async function deliverPrivateSurveys(
         from: config.from, to: [row.customer_email],
         subject: row.subject,
         html: `<div style="font-family:sans-serif;line-height:1.8">${row.message_body.split('\n').map(line=>`<p>${line ? escapeHtml(line) : '&nbsp;'}</p>`).join('')}</div>`,
-        text: row.message_body, ...(config.replyTo ? {reply_to:config.replyTo} : {}),
+        text: row.message_body, tags:[{name:'mmq_delivery',value:row.id}], ...(config.replyTo ? {reply_to:config.replyTo} : {}),
       }
       // 内容と送信アカウントを先に固定。同じキーの再送で現在の設定を適用し直さない。
       await store.save(row,token,{provider_payload:payload,provider_account_hash:keyHash})

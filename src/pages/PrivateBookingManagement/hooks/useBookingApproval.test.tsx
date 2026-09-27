@@ -107,7 +107,7 @@ describe('貸切承認と通知', () => {
         candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
       } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
     })
-    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_delivery', expect.anything())
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notifications', expect.anything())
     expect(response?.error).toContain('設定された準備時間')
     expect(response?.error).not.toContain('60分')
   })
@@ -125,7 +125,7 @@ describe('貸切承認と通知', () => {
         candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
       } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
     })
-    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_delivery', expect.objectContaining({ p_reservation_id: 'request' }))
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notifications', expect.objectContaining({ p_reservation_id: 'request' }))
     expect(response?.success).toBe(false)
     expect(response?.error).toContain(message)
     expect(onSuccess).not.toHaveBeenCalled()

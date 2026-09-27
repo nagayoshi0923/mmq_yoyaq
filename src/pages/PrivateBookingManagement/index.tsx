@@ -24,6 +24,7 @@ import { showToast } from '@/utils/toast'
 import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNotificationForGm } from '@/lib/api/privateBookingNotificationApi'
 
 // 分離されたコンポーネント
+import { useApprovalDeliveryStatus } from './hooks/useApprovalDeliveryStatus'
 import { useRejectionDeliveryStatus } from './hooks/useRejectionDeliveryStatus'
 import { BookingRequestCard } from './components/BookingRequestCard'
 import { CustomerInfo } from './components/CustomerInfo'
@@ -678,6 +679,7 @@ export function PrivateBookingManagement() {
           ? approvedRequests
           : visibleRequests
   const filteredRequests = applyLimit(baseRequests)
+  const approvalDeliveries = useApprovalDeliveryStatus(organizationId, filteredRequests.filter(r => ['confirmed','gm_confirmed','checked_in','completed'].includes(r.status)).map(r => r.id))
   const rejectionDeliveries = useRejectionDeliveryStatus(organizationId, filteredRequests.filter(r => r.status === 'cancelled').map(r => r.id))
 
   if (loading || requestsError) {
@@ -847,6 +849,8 @@ export function PrivateBookingManagement() {
                   <BookingRequestCard
                     key={req.id}
                     request={req}
+                    approvalDeliveries={approvalDeliveries.data?.find(row => row.reservation_id === req.id)?.deliveries}
+                    approvalDeliveryError={['confirmed','gm_confirmed','checked_in','completed'].includes(req.status) && approvalDeliveries.isError}
                     rejectionDelivery={rejectionDeliveries.data?.find(row => row.reservation_id === req.id)}
                     rejectionDeliveryError={rejectionDeliveries.isError}
                     onRetryRejectionDelivery={() => rejectionDeliveries.retry(req.id)}

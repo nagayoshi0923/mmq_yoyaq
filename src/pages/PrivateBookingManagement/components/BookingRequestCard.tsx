@@ -1,3 +1,5 @@
+import { DeliveryHistoryDialog } from './DeliveryHistoryDialog'
+import { approvalDeliveryLabel, type ApprovalDeliveryStatus } from '../hooks/useApprovalDeliveryStatus'
 import { rejectionDeliveryLabel, type RejectionDeliveryStatus } from '../hooks/useRejectionDeliveryStatus'
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -78,6 +80,8 @@ interface GMStaff {
 
 interface BookingRequestCardProps {
   request: BookingRequest
+  approvalDeliveries?: ApprovalDeliveryStatus[]
+  approvalDeliveryError?: boolean
   rejectionDelivery?: RejectionDeliveryStatus
   rejectionDeliveryError?: boolean
   onRetryRejectionDelivery?: () => void
@@ -105,6 +109,8 @@ interface BookingRequestCardProps {
 
 export const BookingRequestCard = ({
   request,
+  approvalDeliveries,
+  approvalDeliveryError,
   rejectionDelivery,
   rejectionDeliveryError,
   onRetryRejectionDelivery,
@@ -168,7 +174,16 @@ export const BookingRequestCard = ({
                 承認: {request.approver_name}{request.approved_at ? ` ・ ${formatDateTime(request.approved_at)}` : ''}
               </span>
             )}
-            {request.status === 'cancelled' && (
+            {['confirmed','gm_confirmed','checked_in','completed','cancelled'].includes(request.status) && <DeliveryHistoryDialog reservationId={request.id} />}
+        {approvalDeliveryError && <p className="text-sm text-destructive" role="alert">確定通知の送信状況を取得できません。再読み込みしてください。</p>}
+        {!approvalDeliveryError && approvalDeliveries && approvalDeliveries.length > 0 && (
+          <div className="space-y-1 text-sm" aria-label="確定通知の送信状況">
+            {approvalDeliveries.map(delivery => <p key={delivery.id} className={['failed','uncertain'].includes(delivery.status) ? 'text-destructive' : 'text-muted-foreground'}>
+              {approvalDeliveryLabel(delivery)}
+            </p>)}
+          </div>
+        )}
+        {request.status === 'cancelled' && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {request.approver_name ? 'キャンセル' : '却下'}: {request.canceller_name || '不明'}
                 {request.cancelled_at ? ` ・ ${formatDateTime(request.cancelled_at)}` : ''}

@@ -1035,3 +1035,11 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - 貸切6表と設問/旧招待のブラウザ直接権限を表・列とも取消し、認証付きRPCとservice_roleを維持する。RLS/保存済みデータ変更なし。旧未使用ヘルパー2本を除去。
 - 本番の依存ビューはservice_roleのみ、INVOCER依存は既存ブラウザ書込guardのみ。設問/招待ポリシーのcore参照は該当2表も閉鎖して整合させる。現行srcの直接参照/Realtime購読なし、API/Edgeはservice_role。
 - rollbackは環境ごとの元の表/列権限とGRANT OPTIONを保存して復元。隔離DBで直接アクセス拒否、サービス維持、正規ゲスト参加/チャット/退出と招待プレビュー/会員/スタッフ読取の回帰を検証中。検証・本番未適用。
+
+### QW-20260917-001 / Approval notification delivery (not deployed)
+- PR626/main7683f03c accepted in production; the full audit remains IN_PROGRESS.
+- Approval/history/customer and GM delivery jobs are saved atomically. Legacy endpoints enqueue the same jobs; service correction requests require a stable UUID requestId and reject content conflicts.
+- Email idempotency, frozen payloads, Discord uncertain-result stop, provider receipt reconciliation, unsent-only retry and verified preparation resumption are separate operations. Preparation resumes only when the matching stored Discord room exists and no email send began.
+- Rollout: preparation migration 20260927120000, seven Edge functions and dedicated cron secret, activation 20260927120100, then frontend. Rollback preserves queued jobs and workers.
+- Actual SQL fixtures cover atomicity, authorization, compatibility deduplication, correction conflicts, reconciliation, and preparation recovery. Transport/worker/receipt tests, Edge checks and npm run verify pass. Staging DDL transaction rehearsal passed and rolled back. Independent review findings resolved; no additional P1/P2. No real customer writes or notifications used for tests.
+- Pending: staging/production rollout, acceptance, ER and canonical shared records.
