@@ -152,4 +152,23 @@ if(withDelivery) {
 }
 await db.exec(sql('supabase/rollbacks/20260927045000_private_rejection_atomic.sql'));assert.equal((await db.query("SELECT to_regprocedure('reject_private_booking_with_notice(uuid,text)') AS f")).rows[0].f,null)
 await db.exec(migration);await reset();await actor();await call();assert.equal((await state()).private_group_messages.length,1)
+if(withDelivery) {
+ const closeLegacy=sql('supabase/migrations/20260927049000_close_private_rejection_without_delivery.sql')
+ const restoreLegacy=sql('supabase/rollbacks/20260927049000_close_private_rejection_without_delivery.sql')
+ await db.exec('RESET ROLE');await db.exec(closeLegacy)
+ for(const role of ['anon','authenticated']) {
+  await actor(id(1),id(10),true,role)
+  await assert.rejects(db.query('SELECT reject_private_booking_with_notice($1,$2)',[id(20),'却下本文']),e=>e.code==='42501')
+  await db.exec('RESET ROLE')
+ }
+ for(const role of ['postgres','service_role']) assert.equal((await db.query("SELECT has_function_privilege($1,'reject_private_booking_with_notice(uuid,text)','EXECUTE') AS ok",[role])).rows[0].ok,true)
+ await reset();await actor();await call();const saved=await state();assert.equal(saved.deliveries.length,1)
+ await actor();await call();assert.deepEqual(await state(),saved)
+ await db.exec(restoreLegacy)
+ assert.equal((await db.query("SELECT has_function_privilege('authenticated','reject_private_booking_with_notice(uuid,text)','EXECUTE') AS ok")).rows[0].ok,true)
+ assert.deepEqual(await state(),saved)
+ await db.exec(closeLegacy)
+ assert.equal((await db.query("SELECT has_function_privilege('authenticated','reject_private_booking_with_notice(uuid,text)','EXECUTE') AS ok")).rows[0].ok,false)
+ await reset();await actor();await call();assert.equal((await state()).deliveries.length,1)
+}
 await db.close();console.log('PASS: atomic rejection, authorization, current links, other reservations protection, retry and all-write rollback, restore/reapply')
