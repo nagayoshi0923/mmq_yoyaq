@@ -98,7 +98,7 @@ BEGIN
   RETURN true;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.reject_private_booking_with_notice(uuid,text) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.reject_private_booking_with_notice(uuid,text) TO authenticated,service_role;
+REVOKE ALL ON FUNCTION public.reject_private_booking_with_notice(uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.reject_private_booking_with_notice(uuid,text) TO service_role;
 COMMENT ON FUNCTION public.reject_private_booking_with_notice(uuid,text) IS
   '同組織管理者・有効スタッフ専用。貸切予約却下、公演中止、グループ差戻し、候補却下、チャット通知を一括保存。通知IDは予約IDと取消日時で固定。';
