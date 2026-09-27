@@ -1,6 +1,4 @@
-import { formatJstMonthDay } from '@/utils/jstDate'
-import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -27,11 +25,11 @@ import {
 import { supabase } from '@/lib/supabase'
 import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 import { showToast } from '@/utils/toast'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
 import { useLocalState } from '@/hooks/useLocalState'
-import { sendEmail } from '@/lib/emailApi'
+import { useAuth } from '@/contexts/AuthContext'
+import { readSurveyDeliveries, sendSurveyNotice, surveyDeliveryLabels, type SurveyDeliveryHistory } from '@/lib/privateSurveyDelivery'
 import { formatJstYmd } from '@/utils/jstDate'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -84,6 +82,7 @@ interface PrivateGroupListProps {
 
 export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { groups, loading, error, loadGroups } = usePrivateGroupList()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useLocalState<string>('privateGroupStatusFilter', 'all')
@@ -103,6 +102,19 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   const [surveyDialogOpen, setSurveyDialogOpen] = useState(false)
   const [selectedGroupForSurvey, setSelectedGroupForSurvey] = useState<PrivateGroupListItem | null>(null)
   const [sendingSurvey, setSendingSurvey] = useState(false)
+  const sendingSurveyRef = useRef(false)
+  const [surveyHistory, setSurveyHistory] = useState<SurveyDeliveryHistory | null>(null)
+  const [surveyHistoryError, setSurveyHistoryError] = useState('')
+  const [historyRefresh, setHistoryRefresh] = useState(0)
+  useEffect(() => {
+    setSurveyHistory(null)
+    setSurveyHistoryError('')
+    if (!surveyDialogOpen || !selectedGroupForSurvey) return
+    let active = true
+    readSurveyDeliveries(selectedGroupForSurvey.id).then(data => { if (active) setSurveyHistory(data) })
+      .catch(() => { if (active) setSurveyHistoryError('通知履歴を取得できませんでした。更新して確認してください。') })
+    return () => { active = false }
+  }, [surveyDialogOpen, selectedGroupForSurvey, historyRefresh])
 
   const handleSendMessage = async () => {
     if (!selectedGroup || !message.trim()) return
@@ -134,80 +146,18 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   }
 
   const handleSendSurveyNotification = async () => {
-    if (!selectedGroupForSurvey) return
+    if (!selectedGroupForSurvey || !user?.id || !surveyHistory?.reservation_id || sendingSurveyRef.current) return
+    sendingSurveyRef.current = true
     setSendingSurvey(true)
     try {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('組織情報が取得できません')
-
-      const orgScenarioData = await getGroupSurveySettings(selectedGroupForSurvey.id, true)
-
-      if (!orgScenarioData?.survey_enabled) {
-        showToast.error('このシナリオにはアンケートが設定されていません')
-        return
-      }
-
-      const organizerMember = selectedGroupForSurvey.members.find(m => m.is_organizer)
-      if (!organizerMember) throw new Error('主催者メンバーが見つかりません')
-
-      const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) &&
-        orgScenarioData.characters.some((c: any) => !c.is_npc)
-
-      const customerEmail = selectedGroupForSurvey.confirmed_customer_email
-
-      if (hasPlayableCharacters && !orgScenarioData.survey_url) {
-        const { data: globalSettings } = await supabase
-          .from('global_settings')
-          .select('pre_reading_notice_message')
-          .eq('organization_id', orgId)
-          .maybeSingle()
-
-        const preReadingMessage = globalSettings?.pre_reading_notice_message ||
-          '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
-
-        const { error: msgError } = await supabase.from('private_group_messages').insert({
-          group_id: selectedGroupForSurvey.id,
-          member_id: organizerMember.id,
-          message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage })
-        })
-        if (msgError) throw msgError
-
-        // カスタマーへメール通知
-        if (customerEmail) {
-          await sendEmail({
-            to: customerEmail,
-            subject: '【事前配役アンケートのご案内】',
-            body: preReadingMessage,
-          })
-        }
-      } else {
-        const deadlineText = orgScenarioData.survey_deadline_at ? `\n\n回答期限: ${formatJstMonthDay(orgScenarioData.survey_deadline_at)}まで` : ''
-        const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n${orgScenarioData.survey_url ? `次のURLからアンケートにお答えください。\n${orgScenarioData.survey_url}` : '上記の「日程を確認・回答する」ボタンからアンケートにお答えください。'}${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
-
-        const { error: msgError } = await supabase.from('private_group_messages').insert({
-          group_id: selectedGroupForSurvey.id,
-          member_id: organizerMember.id,
-          message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage })
-        })
-        if (msgError) throw msgError
-
-        // カスタマーへメール通知
-        if (customerEmail) {
-          await sendEmail({
-            to: customerEmail,
-            subject: '【事前配役アンケートのご案内】',
-            body: surveyMessage,
-          })
-        }
-      }
-
-      showToast.success('アンケート通知を送信しました')
-      setSurveyDialogOpen(false)
-      setSelectedGroupForSurvey(null)
+      const result = await sendSurveyNotice(selectedGroupForSurvey.id, surveyHistory.reservation_id, user.id)
+      showToast.success(`チャットに案内を保存しました。${surveyDeliveryLabels[result.status] || 'メールの状態を確認してください'}`)
+      setHistoryRefresh(value => value + 1)
     } catch (err: any) {
-      logger.error('アンケート通知送信エラー:', err)
-      showToast.error(err.message || 'アンケート通知の送信に失敗しました')
+      logger.error('アンケート案内保存エラー:', err)
+      showToast.error(err.message || '案内の保存結果を確認できませんでした。同じ内容で再試行してください。')
     } finally {
+      sendingSurveyRef.current = false
       setSendingSurvey(false)
     }
   }
@@ -520,6 +470,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
 
       {/* アンケート送信確認ダイアログ */}
       <Dialog open={surveyDialogOpen} onOpenChange={(open) => {
+        if (sendingSurveyRef.current) return
         setSurveyDialogOpen(open)
         if (!open) setSelectedGroupForSurvey(null)
       }}>
@@ -541,8 +492,16 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                 <span>{selectedGroupForSurvey.members.length}名のグループ</span>
               </div>
               <p className="text-sm">
-                このグループに事前配役アンケートの通知を送信します。シナリオ設定に応じて、キャラクターあり→招待促進メッセージ、キャラクターなし→アンケート回答依頼（締め切り日付き）が送信されます。
+                現在の公演設定に合わせた案内をチャットへ保存し、幹事へのメールを送信待ちにします。送信状況は下の履歴で確認できます。
               </p>
+              <div className="space-y-2 text-sm" aria-live="polite">
+                <Button variant="outline" size="sm" onClick={() => setHistoryRefresh(value => value + 1)} disabled={sendingSurvey}>送信状況を更新</Button>
+                {surveyHistoryError && <p className="text-destructive">{surveyHistoryError}</p>}
+                {!surveyHistory && !surveyHistoryError && <p>通知履歴を確認中…</p>}
+                {surveyHistory?.deliveries.length === 0 && <p>送信記録はありません。</p>}
+                {surveyHistory?.deliveries.map(delivery => <p key={delivery.id}>{formatDate(delivery.created_at)} · {surveyDeliveryLabels[delivery.status] || '状態を確認してください'}</p>)}
+                {surveyHistory?.has_unresolved && <p>送信待ち、または結果確認が必要な案内があります。重複を避けるため、新しい案内は追加できません。</p>}
+              </div>
             </div>
           )}
 
@@ -559,7 +518,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
             </Button>
             <Button
               onClick={handleSendSurveyNotification}
-              disabled={sendingSurvey}
+              disabled={sendingSurvey || !surveyHistory?.reservation_id || surveyHistory.has_unresolved || !user?.id}
             >
               {sendingSurvey ? (
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />

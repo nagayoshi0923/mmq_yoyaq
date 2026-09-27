@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.process-private-rejection-deliveries]
 verify_jwt = false
+
+[functions.process-private-survey-deliveries]
+verify_jwt = false
