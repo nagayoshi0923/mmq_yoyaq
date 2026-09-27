@@ -12,4 +12,4 @@ DDL: supabase/migrations/20260927041000_cancel_unrequested_private_group.sql
 復元: supabase/rollbacks/20260927041000_cancel_unrequested_private_group.sql
 DB先行適用後にUIを配信。復元は旧UIへ戻してから行う。既存テーブル権限は残る全writerの移行後に扱い、本変更ではRLSを変更しない。
 
-現在は実装・検証済み、未配信。全体案件は対応中。
+検証画面で現行チャット形式に取消導線がないことが分かり、PCサイドバーとモバイル設定シートへ主催者・申込前限定の取消ボタンを追加した。確認ダイアログを開くまでとし、予約済みのグループには表示しない。追加変更は型/静的検査/ビルド成功。更新版は実画面受入前。全体案件は対応中。
