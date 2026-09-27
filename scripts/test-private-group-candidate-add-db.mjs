@@ -50,6 +50,7 @@ const role = fs.readFileSync('supabase/migrations/20260927006100_private_group_w
 await db.exec(role.slice(role.indexOf('CREATE FUNCTION public.private_group_actor_role'),role.indexOf('CREATE FUNCTION public.require_private_group_manager')))
 const migration = fs.readFileSync('supabase/migrations/20260927048000_private_group_candidate_add_atomic.sql','utf8')
 await db.exec(migration)
+await db.exec(fs.readFileSync('supabase/migrations/20260927048100_private_candidate_weekday_slots.sql','utf8'))
 await db.query("INSERT INTO private_groups VALUES($1,$2,$3,$4,NULL,'gathering',NULL,$5)",[id(100),id(10),id(1),id(20),[id(30)]])
 await db.query("INSERT INTO organization_scenarios_with_master VALUES($1,$2,$3,180,240,'{}','{}','fixture')",[id(21),id(10),id(20)])
 await db.query("INSERT INTO stores VALUES($1,$2,'active','direct',false)",[id(30),id(10)])
@@ -71,6 +72,32 @@ async function add(actor=1,candidates=[base],options={}){
 }
 async function rollback(run){await db.exec('BEGIN');try{await run()}finally{await db.exec('ROLLBACK')}}
 const counts=async()=> (await db.query('SELECT (SELECT count(*) FROM private_group_candidate_dates)::int AS candidates,(SELECT count(*) FROM private_group_messages)::int AS messages,(SELECT count(*) FROM private_group_candidate_add_requests)::int AS receipts')).rows[0]
+// 平日の午前/午後は、同じ店舗の夕方開始と準備時間から決める。
+await assert.rejects(add(1,[{...base,time_slot:'morning',start_time:'10:00',end_time:'13:00'}]),e=>e.code==='22023')
+await rollback(async()=>{
+ await db.exec('UPDATE organization_scenarios_with_master SET duration=360')
+ await assert.rejects(add(1,[{...base,end_time:'19:00'}]),e=>e.code==='22023')
+})
+await rollback(async()=>{
+ await db.exec('UPDATE organization_scenarios_with_master SET duration=360')
+ assert.equal((await add(1,[{...base,time_slot:'morning',start_time:'10:00',end_time:'16:00'}])).success,true)
+})
+await rollback(async()=>{
+ await db.exec('UPDATE organization_scenarios_with_master SET duration=360')
+ await db.query("INSERT INTO operating_setting_overrides VALUES($1,NULL,$2,NULL,'{\"preparation_minutes\":0}')",[id(10),id(21)])
+ assert.equal((await add(1,[{...base,end_time:'19:00'}])).success,true)
+})
+await rollback(async()=>{
+ await db.query('INSERT INTO business_hours_settings VALUES($1,$2,$3,NULL,NULL,NULL)',[id(30),id(10),JSON.stringify({tuesday:{is_open:true,slot_start_times:{morning:'10:00',afternoon:'15:00',evening:'18:00'}}})])
+ await assert.rejects(add(1,[{...base,start_time:'15:00',end_time:'18:00'}]),e=>e.code==='22023')
+})
+await rollback(async()=>{
+ await db.query("INSERT INTO stores VALUES($1,$2,'active','direct',false)",[id(31),id(10)])
+ await db.query('UPDATE private_groups SET preferred_store_ids=$1',[[id(30),id(31)]])
+ for(const store of [30,31]) await db.query('INSERT INTO business_hours_settings VALUES($1,$2,$3,NULL,NULL,NULL)',[id(store),id(10),JSON.stringify({tuesday:{is_open:true,open_time:'10:00',close_time:'23:00',slot_start_times:{morning:'10:00',afternoon:store===30?'15:00':'13:00',evening:store===30?'18:00':'19:00'}}})])
+ const result = await add(1,[{...base,time_slot:'morning',start_time:'10:00',end_time:'13:00'},base],{stores:[id(30),id(31)]})
+ assert.equal(result.candidate_ids.length,2)
+})
 for(const actor of [null,3,4,999])await assert.rejects(add(actor),e=>e.code==='42501')
 for(const state of ['booking_requested','confirmed','cancelled'])await rollback(async()=>{
  await db.query('UPDATE private_groups SET status=$1',[state]); await assert.rejects(add(),e=>e.code==='22023')
@@ -185,9 +212,17 @@ assert.deepEqual(await counts(),{candidates:2,messages:2,receipts:2})
 await db.exec('SET ROLE authenticated')
 await assert.rejects(db.query('SELECT * FROM private_group_candidate_add_requests'),e=>e.code==='42501')
 await db.exec('RESET ROLE')
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927048100_private_candidate_weekday_slots.sql','utf8'))
+assert.deepEqual(await counts(),{candidates:2,messages:2,receipts:2})
+await rollback(async()=>{
+ assert.equal((await add(1,[{...base,date:'2030-01-10',time_slot:'morning',start_time:'10:00',end_time:'13:00'}])).success,true)
+})
+await db.exec(fs.readFileSync('supabase/migrations/20260927048100_private_candidate_weekday_slots.sql','utf8'))
+await assert.rejects(add(1,[{...base,date:'2030-01-10',time_slot:'morning',start_time:'10:00',end_time:'13:00'}]),e=>e.code==='22023')
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927048000_private_group_candidate_add_atomic.sql','utf8'))
 assert.deepEqual(await counts(),{candidates:2,messages:2,receipts:2})
 await db.exec(migration)
+await db.exec(fs.readFileSync('supabase/migrations/20260927048100_private_candidate_weekday_slots.sql','utf8'))
 assert.equal((await add(1,[base],{request:2000})).replayed,true)
 await db.close()
 console.log('候補追加DB: 認可、状態、締切、営業時間、準備時間、重複、通知失敗rollback、再送、順序 PASS（実際の締切継承・祝日・準備時間resolver・候補日trigger使用）')

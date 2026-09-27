@@ -1,3 +1,5 @@
+-- Restore migration480 implementation; preserve saved candidates and receipts.
+BEGIN;
 -- QW-20260917-001: 候補日時・通知・通信再試行記録を一括保存。
 CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(
  p_group_id uuid,p_request_id uuid,p_expected_scenario_id uuid,p_expected_store_ids uuid[],p_candidates jsonb
@@ -79,19 +81,10 @@ BEGIN
    SELECT 1 FROM public.stores s
    LEFT JOIN public.business_hours_settings h ON h.store_id=s.id AND h.organization_id=g.organization_id
    CROSS JOIN LATERAL public.private_booking_store_day_slots(candidate_date,to_jsonb(h),holiday,cardinality(current_stores)=1) band
-   CROSS JOIN LATERAL (
-    SELECT coalesce(max(start_minutes) FILTER (WHERE slot_key='evening'),1140)
-      - public.resolve_preparation_minutes(g.organization_id,s.id,p_expected_scenario_id,NULL) AS evening_deadline,
-     coalesce(max(start_minutes) FILTER (WHERE slot_key='afternoon'),780) AS afternoon_start
-    FROM public.private_booking_store_day_slots(candidate_date,to_jsonb(h),holiday,cardinality(current_stores)=1)
-   ) weekday
    WHERE s.id=ANY(current_stores) AND s.organization_id=g.organization_id AND s.status='active'
     AND s.ownership_type IS DISTINCT FROM 'office'
     AND CASE WHEN coalesce(cardinality(sc.available_stores),0)>0 THEN s.id::text=ANY(sc.available_stores) ELSE NOT coalesce(s.is_temporary,false) END
     AND band.slot_key=slot
-    AND (holiday OR slot='evening'
-     OR (slot='morning' AND weekday.evening_deadline-minutes<weekday.afternoon_start)
-     OR (slot='afternoon' AND weekday.evening_deadline-minutes>=weekday.afternoon_start AND end_min<=weekday.evening_deadline))
     AND start_min>=CASE WHEN slot='evening' AND greatest(band.start_minutes,CASE WHEN holiday AND (sc.title LIKE '%戦塵のレガストリア%' OR sc.title LIKE '%BeatSpecter%') THEN 1170 ELSE 0 END)+minutes>1380 THEN 1380-minutes
      ELSE greatest(band.start_minutes,CASE WHEN slot='evening' AND holiday AND (sc.title LIKE '%戦塵のレガストリア%' OR sc.title LIKE '%BeatSpecter%') THEN 1170 ELSE 0 END) END
     AND start_min<band.end_minutes
@@ -117,3 +110,5 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) TO authenticated,service_role;
+
+COMMIT;

@@ -1,3 +1,5 @@
+-- QW-20260917-001: 平日の午前/午後判定を同一店舗の営業時間と準備時間で検証。
+BEGIN;
 -- QW-20260917-001: 候補日時・通知・通信再試行記録を一括保存。
 CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(
  p_group_id uuid,p_request_id uuid,p_expected_scenario_id uuid,p_expected_store_ids uuid[],p_candidates jsonb
@@ -117,3 +119,5 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) TO authenticated,service_role;
+
+COMMIT;
