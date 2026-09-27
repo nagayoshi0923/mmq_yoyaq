@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { boundedBatches } from '@/lib/boundedBatches'
+import { fetchBookingRows } from '../utils/fetchBookingRows'
 
 export interface PrivateGroupListItem {
   id: string
@@ -15,6 +16,7 @@ export interface PrivateGroupListItem {
   scenario_master_id: string
   created_at: string
   updated_at: string
+  reservation_numbers?: string[]
   survey_enabled?: boolean
   confirmed_date?: string         // 確定した公演日（YYYY-MM-DD）
   confirmed_time?: string         // 確定した公演時間（HH:MM〜HH:MM）
@@ -92,6 +94,19 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         if (result.error) throw result.error
         return result.data || []
       })
+      // 検索用の予約番号は、取消・再申込前の予約も含めて取得する。
+      const historyRows = await boundedBatches(groupIds, 50, 3, ids => fetchBookingRows((from, to) =>
+        supabase.from('reservations').select('id, private_group_id, reservation_number')
+          .eq('organization_id', orgId).in('private_group_id', ids)
+          .order('id').range(from, to),
+      ))
+      const reservationNumbers = new Map<string, string[]>()
+      for (const reservation of historyRows) {
+        if (!reservation.private_group_id || !reservation.reservation_number) continue
+        const numbers = reservationNumbers.get(reservation.private_group_id) || []
+        numbers.push(reservation.reservation_number)
+        reservationNumbers.set(reservation.private_group_id, numbers)
+      }
       const currentReservation = new Map(data.map(g => [g.id, g.reservation_id]))
       const eventIds = [...new Set(bookingRows.map(r => r.schedule_event_id).filter((id): id is string => !!id))]
       const eventRows = await boundedBatches(eventIds, 50, 3, async ids => {
@@ -140,6 +155,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         const storeId = confirmedStoreIdMap.get(g.id)
         return {
           ...g,
+          reservation_numbers: [...new Set(reservationNumbers.get(g.id) || [])],
           scenario_masters: scenarioMasters || null,
           members: (g.members || []).map(m => ({
             ...m,
