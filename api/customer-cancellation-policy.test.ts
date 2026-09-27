@@ -59,3 +59,9 @@ it('スタッフの既存処理は顧客期限判定を通さない', async () =
   expect(await assertCustomerSelfCancelAllowed({ ...customer, role: 'staff' }, {})).toEqual({ ok: true })
   expect(mock.rpc).not.toHaveBeenCalled()
 })
+
+it('categoryだけが貸切を示す旧公演も貸切期限キーを使う', async () => {
+ const r=reservation(); mock.rpc.mockResolvedValue({data:{value:720},error:null})
+ expect(await assertCustomerSelfCancelAllowed(customer,{...r,schedule_events:{...r.schedule_events,category:'private'}})).toMatchObject({ok:false,status:400})
+ expect(mock.rpc.mock.calls[0][1]).toMatchObject({p_key:'private_cancellation_deadline_hours'})
+})
