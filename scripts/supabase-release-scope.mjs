@@ -12,18 +12,26 @@ if (!base || !/^[0-9a-f]{40}$/.test(base) || /^0+$/.test(base)) {
 }
 const changed = new Set(execFileSync('git', ['diff', '--name-only', base, head], { encoding: 'utf8' }).trim().split('\n').filter(Boolean))
 const migrationVersions = [...changed].filter(p => /^supabase\/migrations\/\d+_.*\.sql$/.test(p)).map(p => path.basename(p).split('_')[0])
-if (migrationVersions.length) {
+// Explicit operator-selected pre-activation phase. Ordinary pushes still require every migration.
+const phase=process.env.MMQ_RELEASE_PHASE || 'complete'
+if(!['complete','prepare-edges'].includes(phase)) throw new Error('Invalid release phase')
+if(phase==='prepare-edges' && process.env.GITHUB_EVENT_NAME!=='workflow_dispatch') throw new Error('prepare-edges requires workflow_dispatch')
+const activationDependencies={'20260927120100':'20260927120000'}
+const deferred=phase==='prepare-edges'?migrationVersions.filter(v=>activationDependencies[v]):[]
+const requiredVersions=[...new Set(migrationVersions.filter(v=>!deferred.includes(v)).concat(deferred.map(v=>activationDependencies[v])))]
+if(deferred.length) console.log(`Activation deferred until Edge deployment completes: ${deferred.join(', ')}. Apply with the selected migration workflow, then run complete.`)
+if (requiredVersions.length) {
   const ref = process.env.SUPABASE_PROJECT_REF
   if (!/^[a-z0-9]{20}$/.test(ref || '')) throw new Error('配備先project refが不正です')
   const response = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: `SELECT version FROM supabase_migrations.schema_migrations WHERE version IN (${migrationVersions.map(v => `'${v}'`).join(',')})` }),
+    body: JSON.stringify({ query: `SELECT version FROM supabase_migrations.schema_migrations WHERE version IN (${requiredVersions.map(v => `'${v}'`).join(',')})` }),
   })
   if (!response.ok) throw new Error(`DB先行適用の確認に失敗: HTTP ${response.status}`)
   const rows = await response.json()
   const applied = new Set(rows.map(r => r.version))
-  const missing = migrationVersions.filter(v => !applied.has(v))
+  const missing = requiredVersions.filter(v => !applied.has(v))
   if (missing.length) throw new Error(`DBへの先行適用が必要です: ${missing.join(', ')}`)
 }
 const root = 'supabase/functions'

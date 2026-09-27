@@ -29,6 +29,16 @@ describe('承認通知の外部送信',()=>{
   await expect(api.send(row('gm_discord'),{},'["123","456"]','discord-key')).rejects.toMatchObject({outcome:status===500?'unknown':'not_sent'})
   expect(send).toHaveBeenCalledTimes(1)
  })
+ it('不正な予備先を除外して有効な個人チャンネルを保持する',async()=>{
+  const r=row('gm_discord');r.snapshot.gmDiscordChannelId=' 123 ';r.snapshot.gmDiscordUserId=null
+  const api=approvalDeliveryTransport(dbFor({}),env,'service',vi.fn())
+  expect(await api.prepare(r,{discord_private_booking_channel_id:'invalid'},vi.fn())).toMatchObject({target:'["123"]'})
+  expect(await api.prepare(r,{discord_private_booking_channel_id:' 789 '},vi.fn())).toMatchObject({target:'["123","789"]'})
+ })
+ it('不正な個人先だけなら設定エラーとして保存できる',async()=>{
+  const r=row('gm_discord');r.snapshot.gmDiscordChannelId='invalid';r.snapshot.gmDiscordUserId=null
+  await expect(approvalDeliveryTransport(dbFor({}),env,'service',vi.fn()).prepare(r,{},vi.fn())).rejects.toMatchObject({code:'discord_target_invalid'})
+ })
  it('メールには同じ配送IDの冪等キーを付ける',async()=>{
   const send=vi.fn(async()=>new Response('{"id":"email"}',{status:200}));const api=approvalDeliveryTransport(dbFor({}),env,'service',send)
   await api.send(row(),{text:'固定'},'gm@example.invalid','email-key')
