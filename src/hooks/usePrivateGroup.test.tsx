@@ -32,3 +32,22 @@ describe('退出・メンバー削除の認証付き保存',()=>{
   expect(result.loading).toBe(false);expect(result.error).toBe('退出不可')
  })
 })
+
+describe('申込前グループ取消',()=>{
+ it('グループIDだけを認証付き専用RPCへ渡す',async()=>{
+  rpc.mockResolvedValue({data:true,error:null})
+  await act(async()=>result.cancelUnrequestedGroup('group'))
+  expect(rpc).toHaveBeenCalledExactlyOnceWith('cancel_unrequested_private_group',{p_group_id:'group'})
+  expect(result.loading).toBe(false);expect(result.error).toBeNull()
+ })
+ it.each([{code:'22023',message:'有効な予約があります'}, {code:'55P03',message:'lock'}])('拒否の理由をUIへ伝える %j',async error=>{
+  rpc.mockResolvedValue({data:null,error})
+  const text=error.code==='55P03'?'ほかの操作が進行中です。画面を更新してからお試しください。':error.message
+  await act(async()=>{await expect(result.cancelUnrequestedGroup('group')).rejects.toThrow(text)})
+  expect(result.error).toBe(text);expect(result.loading).toBe(false)
+ })
+ it('成功未確認を成功表示しない',async()=>{
+  rpc.mockResolvedValue({data:false,error:null})
+  await act(async()=>{await expect(result.cancelUnrequestedGroup('group')).rejects.toThrow('確認できませんでした')})
+ })
+})

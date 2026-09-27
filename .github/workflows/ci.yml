@@ -91,6 +91,9 @@ jobs:
       - name: Cancellation ownership and staff flags
         run: node scripts/test-cancellation-owner-binding-db.mjs && node scripts/test-cancellation-group-notice-db.mjs && node scripts/test-cancellation-group-notice-db.mjs --closure && npx vitest run api/cancellation-flags-auth.test.ts api/cancellation-group-notice.test.ts
 
+      - name: Unrequested private group cancellation
+        run: node scripts/test-unrequested-group-cancel-db.mjs && npx vitest run src/hooks/usePrivateGroup.test.tsx
+
       - name: Design token guard
         run: npm run check:design-tokens
 
