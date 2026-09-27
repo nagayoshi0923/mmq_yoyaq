@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -50,7 +51,7 @@ export function PrivateGroupManage() {
   
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus } = usePrivateGroupData(id || null)
-  const { updateGroupStatus, getDateResponsesSummary, removeMember, loading: actionLoading } = usePrivateGroup()
+  const { cancelUnrequestedGroup, getDateResponsesSummary, removeMember, loading: actionLoading } = usePrivateGroup()
 
   // 統合ページにリダイレクト
   useEffect(() => {
@@ -189,10 +190,12 @@ export function PrivateGroupManage() {
     if (!group) return
     setCancelling(true)
     try {
-      await updateGroupStatus(group.id, 'cancelled')
+      await cancelUnrequestedGroup(group.id)
+      toast.success('グループをキャンセルしました')
       refetch()
     } catch (err) {
       logger.error('Failed to cancel group', err)
+      toast.error(err instanceof Error ? err.message : 'キャンセルに失敗しました')
     } finally {
       setCancelling(false)
     }
@@ -1147,7 +1150,7 @@ export function PrivateGroupManage() {
         open={isCancelGroupConfirmOpen}
         onOpenChange={setIsCancelGroupConfirmOpen}
         title="グループをキャンセルしますか？"
-        description="この操作は取り消せません。"
+        description="予約申込前のグループをキャンセルします。申込済みの予約がある場合は、この操作では取り消せません。"
         confirmLabel="キャンセルする"
         variant="destructive"
         onConfirm={runCancelGroup}

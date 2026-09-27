@@ -100,6 +100,8 @@ interface GroupChatSheetsProps {
   handleSubmitBooking: () => Promise<void>
   handleShareLine: () => void
   handleCopyUrl: () => Promise<void>
+  handleCancelGroup: () => Promise<void>
+  cancelling: boolean
   handleDeleteGroup: () => Promise<void>
   handleOpenBookingDialog: () => Promise<void>
   handleSubmit: (options?: { skipSuccessPage?: boolean }) => Promise<void>
@@ -115,7 +117,7 @@ export function GroupChatSheets({
   navigate, refetch, leaveGroup,
   formatDateJaMd, getInviteUrl, closeSheet, closeSheetReplace, openStoreEditSheet, clearGuestSession, toggleBookingDate,
   handleResponseChange, handleRemoveMember, handleSavePreferredStores, handleSubmitBooking, handleShareLine, handleCopyUrl,
-  handleDeleteGroup, handleOpenBookingDialog, handleSubmit,
+  handleDeleteGroup, handleCancelGroup, cancelling, handleOpenBookingDialog, handleSubmit,
 }: GroupChatSheetsProps) {
   // 確認ダイアログ（グループ削除 / グループから退出）
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false)
@@ -583,6 +585,13 @@ export function GroupChatSheets({
                   </div>
                 </div>
                 
+                {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                  <Button variant="outline" className="w-full" disabled={cancelling}
+                    onClick={() => { closeSheet(); void handleCancelGroup() }}>
+                    {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
+                  </Button>
+                )}
+
                 {/* 主催者用: 削除オプション（gatheringまたはcancelledステータスのみ） */}
                 {isOrganizer && ((group.status as string) === 'gathering' || (group.status as string) === 'cancelled') && (
                   <div className="space-y-2">
