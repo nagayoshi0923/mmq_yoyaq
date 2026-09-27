@@ -53,3 +53,14 @@ it('never falls back to a different reservation when the current link is inconsi
   expect(result.current.groups[0].confirmed_date).toBeUndefined()
   expect(result.current.groups[0].confirmed_warning).toContain('対応を確認できません')
 })
+
+it('waits for survey batches before starting reservation batches', async () => {
+  let finish!: (value: Record<string, {survey_enabled: boolean}>) => void
+  mocks.settings.mockReturnValue(new Promise(resolve => { finish = resolve }))
+  await render()
+  expect(result.current.loading).toBe(true)
+  expect(mocks.from).not.toHaveBeenCalled()
+  await act(async () => finish({g: {survey_enabled:true}}))
+  expect(result.current.loading).toBe(false)
+  expect(mocks.from).toHaveBeenCalledWith('reservations')
+})
