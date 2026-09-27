@@ -67,3 +67,11 @@ it('顧客切替後に古い予約・クーポンの応答を表示しない', a
   expect(host.textContent).not.toContain('旧クーポン')
   expect(mocks.history).toHaveBeenLastCalledWith('new')
 })
+it.each([null, 0, 2500])('累計予約金額の未確認と実際の0円を区別する: %s', async amount => {
+  await act(async () => root.render(<CustomerRow customer={{ id:'amount', name:'金額確認', total_spent:amount } as Customer} isExpanded={false} onToggleExpand={() => {}} onEdit={() => {}} />))
+  if (amount === null) expect(host.textContent).toContain('要確認')
+  else {
+    expect(host.textContent).not.toContain('要確認')
+    expect(host.textContent).toContain(amount.toLocaleString('ja-JP'))
+  }
+})

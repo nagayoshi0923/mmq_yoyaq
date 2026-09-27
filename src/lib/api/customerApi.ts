@@ -11,6 +11,7 @@ import type { Customer, Reservation } from '@/types'
 export interface CustomerWithStats extends Customer {
   reservation_count: number
   total_paid: number
+  reservation_amount: number | null
   last_visit: string | null
   visit_count: number
   total_coupons: number
