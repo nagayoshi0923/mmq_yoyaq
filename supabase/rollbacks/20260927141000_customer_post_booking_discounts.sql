@@ -32,21 +32,12 @@ AS $function$
       r.customer_id,
       count(*) AS reservation_count,
       coalesce(sum(r.total_price), 0) AS total_paid,
-      CASE WHEN bool_or(r.final_price IS NULL OR r.final_price < COALESCE(extra.discount, 0)
+      CASE WHEN bool_or(r.final_price IS NULL OR r.final_price < 0
         OR (r.final_price = 0 AND COALESCE(r.total_price, 0) > COALESCE(r.discount_amount, 0)))
-        THEN NULL ELSE coalesce(sum(r.final_price - COALESCE(extra.discount, 0)), 0) END AS reservation_amount,
+        THEN NULL ELSE coalesce(sum(r.final_price), 0) END AS reservation_amount,
       max(r.requested_datetime) AS last_visit,
       count(*) FILTER (WHERE r.status = 'completed') AS visit_count
     FROM public.reservations r
-    LEFT JOIN LATERAL (
-      -- The linked booking-time usage is already included in final_price.
-      -- Later usages are separate ledger discounts, so subtract them exactly once.
-      SELECT sum(cu.discount_amount) AS discount
-      FROM public.coupon_usages cu
-      JOIN public.customer_coupons cc ON cc.id = cu.customer_coupon_id
-      WHERE cu.reservation_id = r.id AND cc.organization_id = p_org_id
-        AND cu.id IS DISTINCT FROM r.coupon_usage_id
-    ) extra ON true
     WHERE r.customer_id IN (SELECT id FROM paged)
       AND r.organization_id = p_org_id
       AND r.status IN ('confirmed', 'gm_confirmed', 'completed')
