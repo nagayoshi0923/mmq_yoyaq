@@ -35,7 +35,7 @@ AS $function$
       CASE WHEN bool_or(r.final_price IS NULL OR r.final_price < COALESCE(extra.discount, 0)
         OR (r.final_price = 0 AND COALESCE(r.total_price, 0) > COALESCE(r.discount_amount, 0)))
         THEN NULL ELSE coalesce(sum(r.final_price - COALESCE(extra.discount, 0)), 0) END AS reservation_amount,
-      max(r.requested_datetime) FILTER (WHERE r.status = 'completed') AS last_visit,
+      max(r.requested_datetime) AS last_visit,
       count(*) FILTER (WHERE r.status = 'completed') AS visit_count
     FROM public.reservations r
     LEFT JOIN LATERAL (
