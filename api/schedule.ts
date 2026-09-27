@@ -1173,7 +1173,15 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
     if (isCapacityConstraintError(lastError)) {
       return res.status(409).json({ error: CAPACITY_CHANGED_MESSAGE, code: 'CAPACITY_EXCEEDED' })
     }
-    if (lastError?.code === '23514') return res.status(400).json({ error: lastError.message })
+    if (lastError?.code === '55P03') return res.status(409).json({ error: '関連する予約が変更されています。再読み込みしてから保存してください。' })
+    if (lastError?.code === '23514') {
+      const syncErrors: Record<string, string> = {
+        EVENT_BOOKING_ORGANIZATION_MISMATCH: '公演と予約の組織が一致しないため保存できません。関連する予約を確認してください。',
+        EVENT_PRIVATE_GROUP_ORGANIZATION_MISMATCH: '予約と貸切グループの対応を確認できないため保存できません。',
+        EVENT_PRIVATE_CANDIDATE_AMBIGUOUS: '変更元に一致する貸切候補が複数あります。候補日を確認してから保存してください。',
+      }
+      return res.status(400).json({ error: syncErrors[lastError.message || ''] || lastError.message })
+    }
     console.error('[schedule:update] update error:', lastError)
     return res.status(500).json({ error: '公演の更新に失敗しました', detail: lastError?.message })
   }
