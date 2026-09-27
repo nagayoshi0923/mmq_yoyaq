@@ -9,7 +9,6 @@ vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCust
 vi.mock('@/lib/api', () => ({ scenarioApi: { getById: mocks.scenario }, storeApi: { getAllPublic: mocks.stores } }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from } }))
 vi.mock('@/lib/computePrivateBookingSlots', () => ({ computePrivateBookingSlots: mocks.compute }))
-vi.mock('@/lib/privateGroupStatus', () => ({ updatePrivateGroupStatus: vi.fn() }))
 vi.mock('@/lib/organization', () => ({ resolveOrganizationFromPathSegment: vi.fn() }))
 vi.mock('./PrivateBookingRequest/index', () => ({ PrivateBookingRequest: (props: any) => <output>{JSON.stringify(props.selectedTimeSlots)}</output> }))
 import { PrivateBookingRequestPage } from './PrivateBookingRequestPage'
