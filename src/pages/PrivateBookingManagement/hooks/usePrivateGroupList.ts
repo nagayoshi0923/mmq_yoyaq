@@ -88,7 +88,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         boundedBatches(reservationIds, 50, 3, async ids => {
           const result = await supabase
               .from('reservations')
-              .select('id, private_group_id, candidate_datetimes, gm_staff, store_id, schedule_event_id, status')
+              .select('id, private_group_id, schedule_event_id, status')
               .eq('organization_id', orgId)
               .in('id', ids)
               .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
@@ -99,7 +99,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       const currentReservation = new Map(data.map(g => [g.id, g.reservation_id]))
       const eventIds = [...new Set(bookingRows.map(r => r.schedule_event_id).filter((id): id is string => !!id))]
       const eventRows = await boundedBatches(eventIds, 50, 3, async ids => {
-        const result = await supabase.from('schedule_events').select('id, date, start_time, end_time, store_id, is_cancelled')
+        const result = await supabase.from('schedule_events').select('id, date, start_time, end_time, store_id, is_cancelled, gms')
           .eq('organization_id', orgId).in('id', ids)
         if (result.error) throw result.error
         return result.data || []
@@ -109,37 +109,24 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       // グループIDごとの確定公演日・時間・GMスタッフID・店舗IDマップ
       const confirmedDateMap = new Map<string, string>()
       const confirmedTimeMap = new Map<string, string>()
-      const confirmedGmStaffIdMap = new Map<string, string>()
+      const confirmedGmNameMap = new Map<string, string>()
       const confirmedStoreIdMap = new Map<string, string>()
       bookingRows.forEach(req => {
         if (!req.private_group_id || currentReservation.get(req.private_group_id) !== req.id) return
         if (!['confirmed', 'gm_confirmed', 'checked_in', 'completed'].includes(req.status)) return
         const event = events.get(req.schedule_event_id)
-        if (!event || event.is_cancelled) return
+        if (!event || event.is_cancelled || !event.date || !event.start_time || !event.end_time) return
         confirmedDateMap.set(req.private_group_id, event.date)
         confirmedTimeMap.set(req.private_group_id, `${event.start_time.slice(0, 5)}〜${event.end_time.slice(0, 5)}`)
-        if (req.gm_staff) confirmedGmStaffIdMap.set(req.private_group_id, req.gm_staff)
+        confirmedGmNameMap.set(req.private_group_id, (event.gms || []).filter(Boolean).join('・'))
         if (event.store_id) confirmedStoreIdMap.set(req.private_group_id, event.store_id)
       })
 
       // GMスタッフ名・店舗名を一括取得
-      const gmStaffIds = [...new Set([...confirmedGmStaffIdMap.values()].filter(Boolean))]
       const storeIds = [...new Set([...confirmedStoreIdMap.values()].filter(Boolean))]
-      const gmNameMap = new Map<string, string>()
       const storeNameMap = new Map<string, string>()
 
       await Promise.all([
-        gmStaffIds.length > 0
-          ? boundedBatches(gmStaffIds, 50, 3, async ids => {
-              const result = await supabase.from('staff').select('id, display_name, name').eq('organization_id', orgId).in('id', ids)
-              if (result.error) throw result.error
-              return result.data || []
-            }).then(staffRows => {
-              (staffRows || []).forEach((s: any) => {
-                gmNameMap.set(s.id, s.display_name || s.name || '')
-              })
-            })
-          : Promise.resolve(),
         storeIds.length > 0
           ? boundedBatches(storeIds, 50, 3, async ids => {
               const result = await supabase.from('stores').select('id, name, short_name').eq('organization_id', orgId).in('id', ids)
@@ -158,7 +145,6 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           ? g.scenario_masters[0]
           : g.scenario_masters
 
-        const gmStaffId = confirmedGmStaffIdMap.get(g.id)
         const storeId = confirmedStoreIdMap.get(g.id)
         const organizer = g.members?.find(m => m.user_id === g.organizer_id && m.is_organizer)
           || g.members?.find(m => m.user_id === g.organizer_id)
@@ -173,7 +159,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           survey_enabled: surveyResult[g.id]?.survey_enabled ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
           confirmed_time: confirmedTimeMap.get(g.id),
-          confirmed_gm_name: gmStaffId ? gmNameMap.get(gmStaffId) : undefined,
+          confirmed_gm_name: confirmedGmNameMap.get(g.id),
           confirmed_store_name: storeId ? storeNameMap.get(storeId) : undefined,
           confirmed_warning: g.status === 'confirmed' && !confirmedDateMap.has(g.id)
             ? '現在の予約と公演の対応を確認できません。予約詳細を確認してください。' : undefined,
