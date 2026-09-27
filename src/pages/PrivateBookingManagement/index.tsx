@@ -37,6 +37,7 @@ import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
 import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
+import { usePrivateBookingConflicts } from './hooks/usePrivateBookingConflicts'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
 import { isGmMarkedAvailable, isGmAvailableForCandidate } from './utils/gmAvailabilityStatus'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -59,17 +60,6 @@ const APPROVAL_START_TIME_OPTIONS: string[] = (() => {
   }
   return options
 })()
-
-// 時間帯を正規化する関数（競合キーの一貫性を保つため）
-const normalizeTimeSlot = (timeSlot: string): string => {
-  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜') {
-    return timeSlot
-  }
-  if (timeSlot.includes('朝') || timeSlot.includes('午前')) return '午前'
-  if (timeSlot.includes('昼') || timeSlot.includes('午後')) return '午後'
-  if (timeSlot.includes('夜')) return '夜'
-  return timeSlot
-}
 
 type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'approved' | 'all'
 const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'approved', 'all']
@@ -158,16 +148,14 @@ export function PrivateBookingManagement() {
     stores,
     availableGMs,
     allGMs,
-    conflictInfo,
     loadStores,
-    loadConflictInfo,
     loadAllGMs,
     loadAvailableGMs
   } = useStoreAndGMManagement()
   const { isCustomHoliday } = useCustomHolidays()
 
-  // 全リクエストの候補日に対するグローバル競合マップ（カード表示時点から店舗バッジを出すため）
-  const [globalStoreDateConflicts, setGlobalStoreDateConflicts] = useState<Set<string>>(new Set())
+  const conflicts = usePrivateBookingConflicts(organizationId, requests)
+
   const [blockedSlotRows, setBlockedSlotRows] = useState<PrivateBookingBlockedSlotRow[]>([])
 
   // GM出欠手動記録ハンドラー
@@ -298,7 +286,7 @@ export function PrivateBookingManagement() {
   }, [allGMs, availableGMs])
 
   // Radix Select はダイアログ内＋長い候補でビューポートが不安定になりがちなため、ネイティブ select で全件・確実にスクロール表示する
-  const gmSelectOptions = useMemo(() => {
+  const gmSelectOptions = (() => {
     const candidates = selectedRequest?.candidate_datetimes?.candidates
     const selectedCandidate =
       selectedCandidateOrder != null && candidates
@@ -316,15 +304,16 @@ export function PrivateBookingManagement() {
             : isGmMarkedAvailable(availableGM)
           : false
         const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))
-        let isGMDisabled = false
+        let gmConflict: boolean | undefined = false
         if (selectedCandidate?.date && selectedCandidate?.timeSlot) {
-          const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
-          isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
+          const candidate = approvalCandidateTime(selectedRequest!, selectedCandidate)
+          gmConflict = conflicts.gmConflict(selectedRequest!, candidate, gm.id, gm.name)
         }
+        const isGMDisabled = gmConflict !== false
         const tagParts: string[] = []
         if (isAssigned) tagParts.push('担当')
         if (isAvailable) tagParts.push('対応可能')
-        if (isGMDisabled) tagParts.push('予約済み')
+        if (isGMDisabled) tagParts.push(gmConflict === true ? '予約済み' : conflicts.ready ? '確認不可' : '確認中')
         let label = gm.name
         if (tagParts.length) label += ` [${tagParts.join('・')}]`
         const score = (isAssigned ? 2 : 0) + (isAvailable ? 1 : 0)
@@ -335,14 +324,7 @@ export function PrivateBookingManagement() {
           b.score - a.score ||
           a.gm.name.localeCompare(b.gm.name, 'ja', { sensitivity: 'base' })
       )
-  }, [
-    mergedGmOptions,
-    availableGMs,
-    assignedGMIds,
-    selectedCandidateOrder,
-    selectedRequest?.candidate_datetimes?.candidates,
-    conflictInfo,
-  ])
+  })()
 
   useEffect(() => {
     const candidate = selectedRequest?.candidate_datetimes?.candidates?.find(
@@ -375,54 +357,20 @@ export function PrivateBookingManagement() {
     ? [...APPROVAL_START_TIME_OPTIONS, selectedStartTime].sort()
     : APPROVAL_START_TIME_OPTIONS
 
+  function approvalCandidateTime(request: PrivateBookingRequest, candidate: { order: number; date: string; startTime: string; endTime: string }) {
+    const startTime = selectedRequest?.id === request.id && selectedCandidateOrder === candidate.order && selectedStartTime
+      ? selectedStartTime : candidate.startTime
+    return { date: candidate.date, startTime, endTime: request.scenario_timing
+      ? getPrivateBookingDisplayEndTime(startTime, candidate.date, request.scenario_timing, isCustomHoliday)
+      : candidate.endTime }
+  }
+
   // 初期データロード（loadRequests は useQuery が自動取得するため実質 no-op の互換呼び出し）
   useEffect(() => {
     loadRequests()
     loadStores()
     loadAllGMs()
   }, [loadRequests, loadStores, loadAllGMs])
-
-  // requests ロード後：全候補日を1クエリで取得して店舗競合マップを構築
-  useEffect(() => {
-    if (!requests.length) return
-    const allDates = [...new Set(
-      requests.flatMap(r => (r.candidate_datetimes?.candidates || []).map((c: any) => c.date))
-    )].filter(Boolean)
-    if (!allDates.length) return
-
-    supabase
-      .from('schedule_events_staff_view')
-      .select('store_id, date, start_time, end_time')
-      .in('date', allDates)
-      .eq('is_cancelled', false)
-      .then(({ data }) => {
-        if (!data) return
-        const conflictSet = new Set<string>()
-        requests.forEach(req => {
-          (req.candidate_datetimes?.candidates || []).forEach((cand: any) => {
-            data.forEach(ev => {
-              if (ev.store_id && ev.date === cand.date) {
-                const start = cand.startTime || ''
-                const end   = cand.endTime   || ''
-                const evEnd   = (ev.end_time   || '').substring(0, 5)
-                const evStart = (ev.start_time || '').substring(0, 5)
-                // 60分インターバル考慮
-                const addMin = (t: string, m: number) => {
-                  const [h, mn] = t.split(':').map(Number)
-                  const tot = h * 60 + mn + m
-                  return `${String(Math.floor(tot/60)).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`
-                }
-                if (start < addMin(evEnd, 60) && addMin(end, 60) > evStart) {
-                  const ts = cand.timeSlot
-                  conflictSet.add(`${ev.store_id}-${cand.date}-${ts}`)
-                }
-              }
-            })
-          })
-        })
-        setGlobalStoreDateConflicts(conflictSet)
-      })
-  }, [requests])
 
   useEffect(() => {
     if (!organizationId || !requests.length) {
@@ -476,7 +424,6 @@ export function PrivateBookingManagement() {
     if (!selectedRequest) return
     loadAllGMs()
     loadAvailableGMs(selectedRequest.id)
-    loadConflictInfo(selectedRequest.id)
     // 確定店舗があればそれを選択
     if (selectedRequest.candidate_datetimes?.confirmedStore) {
       setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
@@ -593,12 +540,10 @@ export function PrivateBookingManagement() {
     if (!selectedRequest?.candidate_datetimes?.candidates) return
     
     for (const candidate of selectedRequest.candidate_datetimes.candidates) {
-      const normalizedSlot = normalizeTimeSlot(candidate.timeSlot)
-      const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${normalizedSlot}` : null
-      const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${normalizedSlot}` : null
-      
-      const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
-      const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
+      const actual = approvalCandidateTime(selectedRequest, candidate)
+      const hasStoreConflict = selectedStoreId && conflicts.storeConflict(selectedRequest, actual, selectedStoreId) !== false
+      const gm = allGMs.find(g => g.id === selectedGMId)
+      const hasGMConflict = gm && conflicts.gmConflict(selectedRequest, actual, gm.id, gm.name) !== false
       
       if (!hasStoreConflict && !hasGMConflict) {
         setSelectedCandidateOrder(candidate.order)
@@ -874,6 +819,13 @@ export function PrivateBookingManagement() {
             </FilterBar>
           </div>
 
+          {!conflicts.ready && requests.length > 0 && (
+            <Alert><AlertDescription>
+              {conflicts.error ? '空き状況を取得できませんでした。再読み込みしてください。' : '準備時間と公演の空き状況を確認中です。'}
+              {conflicts.error && <Button variant="link" onClick={() => void conflicts.retry()}>再読み込み</Button>}
+            </AlertDescription></Alert>
+          )}
+
           {/* 予約リクエストタブ */}
           <div className="mt-0">
 
@@ -898,16 +850,23 @@ export function PrivateBookingManagement() {
                     gmList={allGMs}
                     onGMResponseSave={handleGMResponseSave}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
+                    unknownAvailabilityCandidates={(() => {
+                      if (!conflicts.ready) return []
+                      const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                      const baseStores = ids.length ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+                      return (req.candidate_datetimes?.candidates || []).filter(candidate =>
+                        baseStores.some(store => conflicts.storeConflict(req, approvalCandidateTime(req, candidate), store.id) === undefined)
+                      ).map(candidate => candidate.order)
+                    })()}
                     storesPerCandidate={(() => {
-                      // カードのバッジ表示は常に globalStoreDateConflicts を使用（切り替えによるちらつきを防ぐ）
-                      const conflictSet = globalStoreDateConflicts
+                      if (!conflicts.ready) return undefined
                       const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
                       const baseStores = ids.length > 0
                         ? stores.filter(s => ids.includes(s.id))
                         : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
                       return (req.candidate_datetimes?.candidates || []).reduce((acc: any, cand: any) => {
                         acc[cand.order] = baseStores.filter(s =>
-                          !conflictSet.has(`${s.id}-${cand.date}-${cand.timeSlot}`) &&
+                          conflicts.storeConflict(req, approvalCandidateTime(req, cand), s.id) === false &&
                           !isCandidateStoreBlocked(cand, s.id)
                         )
                         return acc
@@ -991,15 +950,7 @@ export function PrivateBookingManagement() {
                                   </SelectTrigger>
                                   <SelectContent>
                                     {candidateStores.map(s => {
-                                      const ev = selectedCand
-                                        ? (conflictInfo.existingEvents || []).find(e =>
-                                            e.storeId === s.id && e.date === selectedCand.date &&
-                                            (selectedCand.startTime || '') < e.endTime &&
-                                            (selectedCand.endTime || '') > e.startTime
-                                          )
-                                        : undefined
-                                      const hasConflict = !!selectedCand &&
-                                        conflictInfo.storeDateConflicts.has(`${s.id}-${selectedCand.date}-${selectedCand.timeSlot}`)
+                                      const hasConflict = !!selectedCand && conflicts.storeConflict(req, approvalCandidateTime(req, selectedCand), s.id) === true
                                       const isBlocked = isCandidateStoreBlocked(selectedCand, s.id)
                                       const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
                                       return (
@@ -1014,13 +965,9 @@ export function PrivateBookingManagement() {
                                             {isRequested && <span className="ml-1 text-purple-600 text-xs">（お客様希望）</span>}
                                             {(s as any).region && <span className="ml-1 text-xs text-muted-foreground">({(s as any).region})</span>}
                                             {isBlocked && <span className="ml-1 text-red-700 text-xs">（現在受付停止中）</span>}
-                                            {hasConflict && !ev && <span className="ml-1 text-orange-600 text-xs">（予約済み）</span>}
+                                            {hasConflict && <span className="ml-1 text-orange-600 text-xs">（予約済み）</span>}
                                           </span>
-                                          {ev && (
-                                            <span className="block text-xs text-orange-600 font-medium mt-0.5">
-                                              ⚠️ {ev.scenario} ({ev.startTime}〜{ev.endTime})
-                                            </span>
-                                          )}
+
                                         </SelectItem>
                                       )
                                     })}
@@ -1130,7 +1077,17 @@ export function PrivateBookingManagement() {
                         }}
                         onReject={() => handleRejectClick(req.id, req)}
                         disabled={
-                          submitting ||
+                          submitting || !conflicts.ready ||
+                          (() => {
+                            const candidate = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
+                            if (!candidate) return true
+                            const actual = approvalCandidateTime(req, candidate)
+                            if (selectedStoreId && conflicts.storeConflict(req, actual, selectedStoreId) === undefined) return true
+                            return [selectedGMId, selectedSubGmId].filter(Boolean).some(id => {
+                              const gm = allGMs.find(g => g.id === id)
+                              return !gm || conflicts.gmConflict(req, actual, id, gm.name) === undefined
+                            })
+                          })() ||
                           !selectedGMId ||
                           !selectedStoreId ||
                           !selectedCandidateOrder ||

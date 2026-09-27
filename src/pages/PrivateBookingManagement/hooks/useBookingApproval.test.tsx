@@ -52,6 +52,27 @@ describe('貸切承認と通知', () => {
       return query
     })
   })
+  it('30分の間隔を画面の60分固定判定で拒否せず、設定を使う承認RPCへ渡す', async () => {
+    mocks.from.mockImplementation((table: string) => {
+      const query: Record<string, unknown> = {}
+      for (const method of ['select', 'filter', 'eq', 'neq']) query[method] = () => query
+      query.maybeSingle = () => Promise.resolve({ data: null, error: null })
+      query.then = (resolve: (value: unknown) => void) => Promise.resolve({ data: table === 'schedule_events_staff_view'
+        ? [{ id: 'other', start_time: '10:00', end_time: '13:30', reservation_id: 'other', scenario: '別公演' }] : [], error: null }).then(resolve)
+      return query
+    })
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: 'P0027' } })
+    await render(vi.fn())
+    let response: { success: boolean; error?: string } | undefined
+    await act(async () => {
+      response = await result.current.handleApprove('request', {
+        candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
+      } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
+    })
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notice', expect.anything())
+    expect(response?.error).toContain('設定された準備時間')
+    expect(response?.error).not.toContain('60分')
+  })
   it.each([
     ['P0050', '所属組織が一致しない'],
     ['P0051', '別の申込が紐付いている'],

@@ -22,11 +22,7 @@ import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
 import { startTimeToEn, timeSlotEnToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
 import { isSenshinPrivateBooking } from '@/lib/senshinPrivateBooking'
 
-function addMinutesToTime(time: string, minutes: number): string {
-  const [h, m] = time.split(':').map(Number)
-  const total = h * 60 + m + minutes
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
-}
+
 
 // 却下ダイアログの初期本文に入れる既定の理由。テンプレ側に「今後のご検討」等の
 // 定型文があるため、ここは具体的な理由1文に留めて重複を避ける。
@@ -231,14 +227,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。`,
             }
           }
-          // 60分インターバルチェック（設営・撤収時間）
-          if (candidateStart < addMinutesToTime(eventEnd, 60) && addMinutesToTime(candidateEnd, 60) > eventStart) {
-            setSubmitting(false)
-            return {
-              success: false,
-              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} は「${event.scenario}」(${eventStart}〜${eventEnd})との間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。`,
-            }
-          }
+
         }
       }
 
@@ -334,7 +323,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           setSubmitting(false)
           return {
             success: false,
-            error: 'この時間帯は前後の公演と間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。別の候補日時を選んでください。',
+            error: 'この時間帯は店舗・作品・公演に設定された準備時間を確保できません。別の候補日時を選んでください。',
           }
         }
         if (approveError.code === 'P0041') {
