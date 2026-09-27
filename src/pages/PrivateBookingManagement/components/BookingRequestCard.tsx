@@ -86,6 +86,7 @@ interface BookingRequestCardProps {
   inlineApprovalContent?: React.ReactNode
   cardActionsContent?: React.ReactNode
   // 候補ごとの空き店舗（承認モード時のみ渡す）
+  unknownAvailabilityCandidates?: number[]
   storesPerCandidate?: Record<number, Array<{ id: string; name: string; short_name?: string }>>
   blockedStatusPerCandidate?: Record<number, {
     allStoresBlocked: boolean
@@ -106,6 +107,7 @@ export const BookingRequestCard = ({
   inlineApprovalContent,
   cardActionsContent,
   storesPerCandidate,
+  unknownAvailabilityCandidates,
   blockedStatusPerCandidate,
   gmList = [],
   onGMResponseSave,
@@ -392,6 +394,9 @@ export const BookingRequestCard = ({
 
                 return (
                   <div key={candidate.order}>
+                    {unknownAvailabilityCandidates?.includes(candidate.order) && (
+                      <p className="text-xs text-amber-700">日時を確認できない予定がある店舗は、空き状況が未確認です。</p>
+                    )}
                     {/* 候補行 */}
                     <div
                       onClick={() => clickable && onSelectCandidate(request, candidate.order)}

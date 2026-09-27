@@ -45,10 +45,24 @@ describe('貸切競合データの読取と表示状態', () => {
     expect(await mocks.query.mock.calls[0][0].queryFn()).toEqual([])
   })
   it('対象範囲内の時刻欠落は空きとせず確認エラーにする', async () => {
-    const reservations = table([{ id: 'old', candidate_datetimes: { candidates: [{ status: 'confirmed', date: '2027-01-03', startTime: '14:00' }] } }])
+    const reservations = table([{ id: 'old', store_id: 'store', candidate_datetimes: { candidates: [{ status: 'confirmed', date: '2027-01-03', startTime: '14:00' }] } }])
     mocks.from.mockImplementation(name => name === 'reservations' ? reservations : table())
     usePrivateBookingConflicts('org', requests)
-    await expect(mocks.query.mock.calls[0][0].queryFn()).rejects.toThrow()
+    const data = await mocks.query.mock.calls[0][0].queryFn()
+    mocks.query.mockReturnValue({ data, isError: false, isFetching: false })
+    const state = usePrivateBookingConflicts('org', requests)
+    expect(state.storeConflict(requests[0], requests[0].candidate_datetimes!.candidates[0], 'store')).toBeUndefined()
+  })
+  it('不正な予定は同じ店舗・対象日だけ確認不能にし、別候補を止めない', () => {
+    mocks.query.mockReturnValue({ data: [{ id: 'zero', date: '2027-01-03', start_time: '12:00', end_time: '12:00', store_id: 'store', gms: ['GM'] }], isError: false, isFetching: false })
+    const state = usePrivateBookingConflicts('org', requests)
+    const candidate = requests[0].candidate_datetimes!.candidates[0]
+    expect(state.ready).toBe(true)
+    expect(state.storeConflict(requests[0], candidate, 'store')).toBeUndefined()
+    expect(state.storeConflict(requests[0], candidate, 'other-store')).toBe(false)
+    expect(state.storeConflict(requests[0], { ...candidate, date: '2027-02-03' }, 'store')).toBe(false)
+    expect(state.gmConflict(requests[0], candidate, 'gm', 'GM')).toBeUndefined()
+    expect(state.gmConflict(requests[0], candidate, 'other-gm', 'OTHER')).toBe(false)
   })
   it('読取エラーを空き配列へ変換しない', async () => {
     mocks.from.mockReturnValue(table([], new Error('unavailable')))
