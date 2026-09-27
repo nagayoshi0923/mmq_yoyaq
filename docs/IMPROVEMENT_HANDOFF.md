@@ -1030,21 +1030,27 @@ migration20260927002000はstaging適用済み、本番未適用。644単体・ve
 DB110000/rollback、単体8件、PGliteの原子性/認可/版/復元回帰、実PostgreSQL別接続の旧書込競合55P03・コミット後40001・再読込後成功、verify成功。独立レビューP1/P2なし。DB/画面の配備・実機受入は未完了。設定画面全体の複数保存を原子化したという意味ではない。
 PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへの遷移・招待リンク/既存参加者・パネル開閉を本番確認済み。全体案件はIN_PROGRESS。
 
-### QW-20260917-001 / 貸切の直接アクセス権限整理（未配備）
+### QW-20260917-001 / 貸切の直接アクセス権限整理（PR626・本番受入済み）
 - PR624/main7d3f37d4はDB/本番画面受入済み。GLORIA12問・期限14日前・コピー元/MERCHANT9問を保存なし確認。共有Docs/台帳更新済み。
 - 貸切6表と設問/旧招待のブラウザ直接権限を表・列とも取消し、認証付きRPCとservice_roleを維持する。RLS/保存済みデータ変更なし。旧未使用ヘルパー2本を除去。
 - 本番の依存ビューはservice_roleのみ、INVOCER依存は既存ブラウザ書込guardのみ。設問/招待ポリシーのcore参照は該当2表も閉鎖して整合させる。現行srcの直接参照/Realtime購読なし、API/Edgeはservice_role。
-- rollbackは環境ごとの元の表/列権限とGRANT OPTIONを保存して復元。隔離DBで直接アクセス拒否、サービス維持、正規ゲスト参加/チャット/退出と招待プレビュー/会員/スタッフ読取の回帰を検証中。検証・本番未適用。
+- rollbackは環境ごとの元の表/列権限とGRANT OPTIONを保存して復元。隔離DBで直接アクセス拒否、サービス維持、正規ゲスト参加/チャット/退出と招待プレビュー/会員/スタッフ読取の回帰を検証済み。DB113000を両環境へ適用し、本番画面の読取受入を完了。
 
-### QW-20260917-001 / Approval notification delivery (not deployed)
+### QW-20260917-001 / Approval notification delivery (PR627 deployed and accepted)
 - PR626/main7683f03c accepted in production; the full audit remains IN_PROGRESS.
 - Approval/history/customer and GM delivery jobs are saved atomically. Legacy endpoints enqueue the same jobs; service correction requests require a stable UUID requestId and reject content conflicts.
 - Email idempotency, frozen payloads, Discord uncertain-result stop, provider receipt reconciliation, unsent-only retry and verified preparation resumption are separate operations. Preparation resumes only when the matching stored Discord room exists and no email send began.
 - Rollout: preparation migration 20260927120000, seven Edge functions and dedicated cron secret, activation 20260927120100, then frontend. Rollback preserves queued jobs and workers.
 - Actual SQL fixtures cover atomicity, authorization, compatibility deduplication, correction conflicts, reconciliation, and preparation recovery. Transport/worker/receipt tests, Edge checks and npm run verify pass. Staging DDL transaction rehearsal passed and rolled back. Independent review findings resolved; no additional P1/P2. No real customer writes or notifications used for tests.
-- Pending: staging/production rollout, acceptance, ER and canonical shared records.
+- Completed: staging/production DB120000/120100, seven Edges, frontend and read-only acceptance. ER version20 and canonical Docs/ledger updated. The complete audit remains IN_PROGRESS.
 
-### QW-20260917-001 / PR627 follow-up (not deployed)
+### QW-20260917-001 / PR627 follow-up (PR628 deployed)
 - PR627/main e7e297f6: production DB/Edges/frontend deployed; private booking list and notification history read-only acceptance passed. Late automated review added three findings; workflow success did not mean no findings.
 - Explicit workflow_dispatch release_phase=prepare-edges verifies preparation migrations while deferring only registered activation migrations. Apply activation after successful Edge deployment via selected npm DB workflow, then run complete. Ordinary push/default complete still requires all changed migrations; arbitrary migrations cannot bypass the guard.
 - Delivery history exposes retry/preparation-resume only for the current booking generation. Provider receipt reconciliation remains available for stopped attempted deliveries. Discord targets normalize individually; invalid fallback no longer blocks a valid primary. No data backfill or real notifications for tests.
+
+### QW-20260917-001 / 設定の版表示と受入照合
+- PR628/main37a440ecはCI/E2Eと本番Vercel配信成功。DB130000・workerは両環境で定義確認とdryRunを通過。ER version20公開、Docs/共有台帳の保存を読み戻し確認済み。
+- A05/A06スタッフの停止・権限・連携、A14初回店舗確定時の期限固定は本番関数と隔離テストの一致を確認して受入済み。全58項目の受入は9項目、26項目は実装あり照合待ち、23項目は要件監査待ち。未実装件数ではない。
+- B13: キャンセル設定の未保存プレビューが当日を最終更新日として表示する残件を修正。更新日は手入力設定にせず、公開ページでDBの保存日時から自動表示する。
+- 関連64単体テストとnpm run verify成功。検証環境の既存RPCで貸切締切・通常予約締切・追加募集の継承/版競合/共通復帰保持をROLLBACK付きで確認。実顧客への通知・予約変更なし。本修正の画面配備は未完了。
