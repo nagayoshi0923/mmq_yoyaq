@@ -2,8 +2,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn() }))
-vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc } }))
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn(), from: vi.fn() }))
+vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organizationId: 'org' }) }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: () => false }) }))
 vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast } }))
@@ -35,6 +35,42 @@ describe('貸切申込の完全削除', () => {
     expect(mocks.toast).toHaveBeenCalledWith(reason)
     expect(onSuccess).not.toHaveBeenCalled()
     expect(result.current.deleteConfirmOpen).toBe(true)
+    expect(result.current.submitting).toBe(false)
+  })
+})
+
+
+describe('貸切承認と通知', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    mocks.from.mockImplementation(() => {
+      const query: Record<string, unknown> = {}
+      for (const method of ['select', 'filter', 'eq', 'neq']) query[method] = () => query
+      query.maybeSingle = () => Promise.resolve({ data: null, error: null })
+      query.then = (resolve: (value: unknown) => void) => Promise.resolve({ data: [], error: null }).then(resolve)
+      return query
+    })
+  })
+  it.each([
+    ['P0050', '所属組織が一致しない'],
+    ['P0051', '別の申込が紐付いている'],
+    ['P0052', '作品設定が見つからない'],
+  ])('%sは理由を表示し、成功処理や通知を開始しない', async (code, message) => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code } })
+    const onSuccess = vi.fn()
+    await render(onSuccess)
+    let response: { success: boolean; error?: string } | undefined
+    await act(async () => {
+      response = await result.current.handleApprove('request', {
+        candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
+      } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
+    })
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notice', expect.objectContaining({ p_reservation_id: 'request' }))
+    expect(response?.success).toBe(false)
+    expect(response?.error).toContain(message)
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(mocks.from.mock.calls.map(call => call[0])).toEqual(['schedule_blocked_slots', 'schedule_events_staff_view'])
     expect(result.current.submitting).toBe(false)
   })
 })

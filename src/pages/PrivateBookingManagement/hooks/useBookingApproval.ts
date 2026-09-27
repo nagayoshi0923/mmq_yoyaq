@@ -1,6 +1,4 @@
 import { apiClient } from '@/lib/apiClient'
-import { formatJstMonthDay } from '@/utils/jstDate'
-import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -8,7 +6,6 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
-import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import {
   reservationApi,
   RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
@@ -16,7 +13,6 @@ import {
 } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
-import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
 import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { showToast } from '@/utils/toast'
@@ -294,11 +290,18 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
       logger.log('貸切承認RPCパラメータ:', rpcParams)
       
-      const { data: scheduleEventId, error: approveError } = await supabase.rpc('approve_private_booking', rpcParams)
+      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_notice', rpcParams)
 
       if (approveError) {
         logger.error('貸切承認RPCエラー:', approveError)
         logger.error('RPCエラー詳細:', JSON.stringify(approveError, null, 2))
+        if (['P0050', 'P0051', 'P0052'].includes(approveError.code)) {
+          return { success: false, error: approveError.code === 'P0050'
+            ? '申込と貸切グループの所属組織が一致しないため、承認できません。管理者に紐付けの確認を依頼してください。'
+            : approveError.code === 'P0051'
+              ? '貸切グループに別の申込が紐付いているため、承認できません。画面を更新し、管理者に確認してください。'
+              : '貸切グループの作品設定が見つからないため、承認できません。作品の紐付けを確認してください。' }
+        }
         if (approveError.code === 'P0019') {
           setSubmitting(false)
           return {
@@ -355,6 +358,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         throw approveError
       }
 
+      const scheduleEventId = approval?.schedule_event_id as string | undefined
+      const surveyNotice = approval?.survey_notice as string | null | undefined
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
@@ -488,59 +493,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             }))
           })(),
 
-          // グループステータス更新・確定メッセージ・アンケート通知
-          (async () => {
-            const groupId = updatedReservation?.private_group_id
-            if (!groupId) return
-            logger.log('予約のグループID:', { requestId, groupId })
-
-            await updatePrivateGroupStatus(groupId, 'confirmed').catch(e => logger.error('グループステータス更新エラー:', e))
-
-            const [organizerResult, msgSettingsResult] = await Promise.all([
-              supabase.from('private_group_members').select('id').eq('group_id', groupId).eq('is_organizer', true).single(),
-              supabase.from('global_settings').select(GLOBAL_SETTINGS_MSG_SELECT.SCHEDULE_CONFIRMED).eq('organization_id', organizationId).maybeSingle()
-            ])
-            const organizerMember = organizerResult.data
-            if (!organizerMember) return
-
-            const msgSettings = msgSettingsResult.data
-            await supabase.from('private_group_messages').insert({
-              group_id: groupId,
-              member_id: organizerMember.id,
-              message: JSON.stringify({
-                type: 'system', action: 'schedule_confirmed',
-                confirmedDate: notifyEventDate,
-                confirmedTimeSlot: selectedCandidate.timeSlot || `${notifyStartTime}〜${notifyEndTime}`,
-                storeName,
-                title: msgSettings?.system_msg_schedule_confirmed_title || '日程が確定いたしました',
-                body: msgSettings?.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
-              })
-            })
-            logger.log('グループチャットに日程確定メッセージ送信成功')
-
-            // アンケート通知
-            const scenarioMasterId = selectedRequest?.scenario_master_id
-            if (!scenarioMasterId) return
-            const orgScenarioData = await getGroupSurveySettings(groupId, true)
-            if (!orgScenarioData?.survey_enabled) return
-
-            const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) && orgScenarioData.characters.some((c: any) => !c.is_npc)
-            if (hasPlayableCharacters && !orgScenarioData.survey_url) {
-              const { data: globalSettings } = await supabase.from('global_settings').select('pre_reading_notice_message').eq('organization_id', organizationId).maybeSingle()
-              const preReadingMessage = globalSettings?.pre_reading_notice_message || '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
-              await Promise.all([
-                supabase.from('private_group_messages').insert({ group_id: groupId, member_id: organizerMember.id, message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage }) }),
-                selectedRequest?.customer_email ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: preReadingMessage }) : Promise.resolve()
-              ])
-            } else {
-              const deadlineText = orgScenarioData.survey_deadline_at ? `\n\n回答期限: ${formatJstMonthDay(orgScenarioData.survey_deadline_at)}まで` : ''
-              const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n${orgScenarioData.survey_url ? `次のURLからアンケートにお答えください。\n${orgScenarioData.survey_url}` : '上記の「日程を確認・回答する」ボタンからアンケートにお答えください。'}${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
-              await Promise.all([
-                supabase.from('private_group_messages').insert({ group_id: groupId, member_id: organizerMember.id, message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage }) }),
-                selectedRequest?.customer_email ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: surveyMessage }) : Promise.resolve()
-              ])
-            }
-          })()
+          // チャット通知は承認RPC内で保存済み。同じ本文をメールでも案内する。
+          surveyNotice && selectedRequest?.customer_email
+            ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: surveyNotice })
+            : Promise.resolve()
         ])
       })().catch(err => logger.error('バックグラウンド承認処理エラー:', err))
 

@@ -110,5 +110,9 @@ const event=(await db.query('SELECT scenario_master_id,organization_scenario_id 
 assert.equal(event.scenario_master_id,scenario);assert.equal(event.organization_scenario_id,orgScenario)
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927017000_private_approval_policy_context.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/20260927017000_private_approval_policy_context.sql','utf8'))
+if (process.argv.includes('--notice')) {
+ const {testApprovalNotices}=await import('./test-private-approval-notice-fixture.mjs')
+ await testApprovalNotices(db,{org,scenario,store,gm,request,read})
+}
 await db.close()
 console.log('PASS private booking capacity: master/organization bounds, null/nonpositive count, invalid configuration, no partial reservation, rollback/reapply')

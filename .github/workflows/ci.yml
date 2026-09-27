@@ -49,7 +49,7 @@ jobs:
         run: node scripts/test-structure-cleanup-db.mjs && node scripts/test-kit-transfer-identity-db.mjs
 
       - name: Private booking scenario capacity
-        run: node scripts/test-private-booking-capacity-db.mjs
+        run: node scripts/test-private-booking-capacity-db.mjs --notice
 
       - name: Private booking change policy
         run: node scripts/test-private-change-policy-db.mjs
