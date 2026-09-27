@@ -757,7 +757,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
 
 // Billing failure is reported separately: seat release must not be rolled back or repeated.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recordBillingForCancellation(user: AuthUser, reservation: any, requestReceivedAt: string): Promise<boolean> {
+async function recordBillingForCancellation(user: AuthUser, reservation: any, requestReceivedAt: string, organizerRejected = false): Promise<boolean> {
   if (!db || reservation.payment_method === 'staff') return false
   try {
     const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
@@ -766,7 +766,7 @@ async function recordBillingForCancellation(user: AuthUser, reservation: any, re
       eventDate: event?.date ?? '', startTime: event?.start_time ?? '',
       receivedAt: user.role === 'customer' ? requestReceivedAt : null,
       processedAt: new Date().toISOString(), actorId: user.userId,
-      previouslyCancelled: reservation.status === 'cancelled', organizerCancelled: event?.is_cancelled === true,
+      previouslyCancelled: reservation.status === 'cancelled', organizerCancelled: organizerRejected || event?.is_cancelled === true,
     })
     return false
   } catch {
@@ -890,6 +890,12 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   const skipGroupCancel = Boolean(body.skip_group_cancel)
   // true のとき、紐づく貸切公演(category='private')も中止にする（貸切リクエストの却下フロー）
   const cancelPrivateEvent = Boolean(body.cancel_private_event)
+  const rejectionBody = body.private_rejection_body
+  const atomicRejection = rejectionBody !== undefined
+  if (atomicRejection && (typeof rejectionBody !== 'string' || !rejectionBody.trim()
+    || rejectionBody.length > 20000 || !skipGroupCancel || !cancelPrivateEvent)) {
+    return res.status(400).json({ error: '貸切却下の本文と処理条件を確認してください' })
+  }
 
   // 公演中止・グループ取消の省略は店舗側の却下フロー専用。予約変更前に認可する。
   if (skipGroupCancel || cancelPrivateEvent) requireStaff(user)
@@ -924,7 +930,26 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
 
   // 2) RPC でキャンセル
   const userClient = createUserScopedClient(user.jwt)
-  if (skipGroupCancel) {
+  if (atomicRejection) {
+    const { data, error } = await userClient.rpc('reject_private_booking_with_notice', {
+      p_reservation_id: id,
+      p_message_body: rejectionBody,
+    })
+    if (error || data !== true) {
+      console.error('[reservations:cancel] atomic rejection error:', error)
+      const rejectionErrors: Record<string, string> = {
+        PRIVATE_EVENT_HAS_OTHER_RESERVATIONS: 'この公演には別の有効な予約があります。予約一覧を確認してから却下してください',
+        PRIVATE_GROUP_RESERVATION_MISMATCH: '貸切グループに別の申込が紐付いています。再読込してください',
+        PRIVATE_GROUP_ORGANIZATION_MISMATCH: '申込と貸切グループの所属組織が一致しません',
+        REJECTION_NOTICE_CONFLICT: 'この却下は別の内容で保存済みです。通知履歴を確認してください',
+        RESERVATION_ALREADY_CANCELLED: 'この予約は別の理由で取消済みです。取消履歴を確認してください',
+      }
+      return res.status(error?.code === '42501' ? 403 : 409).json({
+        error: rejectionErrors[error?.message ?? ''] ?? '貸切却下を保存できませんでした。状態を再読込して確認してください',
+        detail: error?.message,
+      })
+    }
+  } else if (skipGroupCancel) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (userClient as any).rpc('cancel_reservation_with_lock', {
       p_reservation_id: id,
@@ -958,7 +983,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   //      予約行を持たない手入力の貸切を巻き込むため）。店舗が能動的に却下した操作のときのみ中止する。
   //      ⚠ 予約キャンセルは既に確定しており巻き戻せないため、ここでの失敗は警告として返すだけにする。
   let eventCancelWarning = false
-  if (cancelPrivateEvent) {
+  if (cancelPrivateEvent && !atomicRejection) {
     try {
       const targetEventId = (reservation.schedule_event_id as string | null | undefined) ?? null
       if (!targetEventId) {
@@ -1015,7 +1040,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   // schedule_event_history に remove_participant を記録（失敗してもキャンセルは成功させる）
   try {
     const scheduleEventId = reservation.schedule_event_id as string | null | undefined
-    if (scheduleEventId && reservation.organization_id) {
+    if (scheduleEventId && reservation.organization_id && !(atomicRejection && reservation.status === 'cancelled')) {
       const snapshot = await fetchEventSnapshotServer(
         db,
         scheduleEventId,
@@ -1088,7 +1113,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     console.warn('[reservations:cancel] organizations slug fetch error:', orgErr)
   }
 
-  const billingWarning = await recordBillingForCancellation(user, reservation, requestReceivedAt)
+  const billingWarning = await recordBillingForCancellation(user, reservation, requestReceivedAt, atomicRejection)
 
   return res.status(200).json({
     reservation: cancelled,

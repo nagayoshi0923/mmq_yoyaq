@@ -92,7 +92,7 @@ jobs:
         run: node scripts/test-cancellation-owner-binding-db.mjs && node scripts/test-cancellation-group-notice-db.mjs && node scripts/test-cancellation-group-notice-db.mjs --closure && node scripts/test-plain-cancellation-staff-db.mjs && node scripts/test-customer-cancellation-policy-db.mjs && npx vitest run api/cancellation-flags-auth.test.ts api/cancellation-group-notice.test.ts api/customer-cancellation-policy.test.ts
 
       - name: Private rejection authorization and state
-        run: node scripts/test-private-rejection-boundary-db.mjs
+        run: node scripts/test-private-rejection-boundary-db.mjs && node scripts/test-private-rejection-atomic-db.mjs
 
       - name: Unrequested private group cancellation
         run: node scripts/test-unrequested-group-cancel-db.mjs && npx vitest run src/hooks/usePrivateGroup.test.tsx

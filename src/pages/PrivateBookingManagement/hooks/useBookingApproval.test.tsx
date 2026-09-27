@@ -2,11 +2,12 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn(), from: vi.fn() }))
-vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }))
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn(), from: vi.fn(), cancel: vi.fn(), invoke: vi.fn(), success: vi.fn(), warning: vi.fn() }))
+vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from, functions: { invoke: mocks.invoke } } }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organizationId: 'org' }) }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: () => false }) }))
-vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast } }))
+vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast, success: mocks.success, warning: mocks.warning } }))
+vi.mock('@/lib/reservationApi', () => ({ reservationApi: { cancel: mocks.cancel } }))
 import { useBookingApproval } from './useBookingApproval'
 let root: Root
 const result = { current: undefined as unknown as ReturnType<typeof useBookingApproval> }
@@ -92,6 +93,54 @@ describe('貸切承認と通知', () => {
     expect(response?.error).toContain(message)
     expect(onSuccess).not.toHaveBeenCalled()
     expect(mocks.from.mock.calls.map(call => call[0])).toEqual(['schedule_blocked_slots', 'schedule_events_staff_view'])
+    expect(result.current.submitting).toBe(false)
+  })
+})
+
+
+describe('貸切却下の一括保存と送信結果', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    mocks.cancel.mockResolvedValue({ id: 'request', status: 'cancelled' })
+    mocks.invoke.mockResolvedValue({ data: { success: true }, error: null })
+    mocks.from.mockImplementation(() => { throw new Error('却下画面から直接DB操作しない') })
+  })
+  async function prepare(onSuccess = vi.fn()) {
+    await render(onSuccess)
+    await act(() => result.current.handleRejectClick('request'))
+    act(() => result.current.setRejectionReason('編集した本文'))
+    vi.clearAllMocks()
+    return onSuccess
+  }
+  it('予約状態にかかわらず一括保存へ全文を渡し、DB直接操作なしで送信する', async () => {
+    const refreshed = await prepare()
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.cancel).toHaveBeenCalledWith('request', expect.any(String), expect.objectContaining({ privateRejectionBody: '編集した本文', skipGroupCancel: true, cancelPrivateEvent: true }))
+    expect(mocks.from).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled()
+    expect(mocks.invoke).toHaveBeenCalledWith('send-private-booking-rejection', { body: expect.objectContaining({ reservationId: 'request', customEmailBody: '編集した本文', organizationId: 'org' }) })
+    expect(mocks.success).toHaveBeenLastCalledWith('却下メールを送信しました')
+    expect(refreshed).toHaveBeenCalledOnce(); expect(result.current.submitting).toBe(false)
+  })
+  it('保存失敗ならメールを送らず編集本文を保持する', async () => {
+    await prepare(); mocks.cancel.mockRejectedValue(new Error('保存失敗'))
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.invoke).not.toHaveBeenCalled(); expect(mocks.success).not.toHaveBeenCalled()
+    expect(result.current.rejectionReason).toBe('編集した本文'); expect(mocks.toast).toHaveBeenCalled()
+    expect(result.current.submitting).toBe(false)
+  })
+  it.each([{ data: { success: false }, error: null }, { data: null, error: new Error('通信失敗') }])('メールの不成功を保存失敗や送信済みとしない', async response => {
+    await prepare(); mocks.invoke.mockResolvedValue(response)
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.warning).toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
+    expect(mocks.success).not.toHaveBeenCalledWith('却下メールを送信しました')
+    expect(result.current.showRejectDialog).toBe(false)
+  })
+  it('送信例外と再取得失敗でも処理中を解除し保存済みと伝える', async () => {
+    await prepare(vi.fn().mockRejectedValue(new Error('再取得失敗')))
+    mocks.invoke.mockRejectedValue(new Error('送信失敗'))
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.warning).toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
     expect(result.current.submitting).toBe(false)
   })
 })
