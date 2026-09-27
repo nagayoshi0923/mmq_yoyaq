@@ -88,6 +88,8 @@ export default function CustomerManagement() {
             <h2 className="text-lg font-bold tracking-tight">顧客一覧 ({totalCount}件)</h2>
           </div>
 
+          <p className="text-sm text-muted-foreground">確定・GM確定・完了した予約の割引後金額です。取消予約は含まず、入金額・返金後の残高とは異なります。「要確認」は金額を確定できない旧予約を含みます。</p>
+
           {error ? (
             <div role="alert" className="space-y-2">
               <p>顧客情報を取得できませんでした。再試行してください。</p>
@@ -110,7 +112,7 @@ export default function CustomerManagement() {
                 <div className="col-span-1 text-center">予約数</div>
                 <div className="col-span-1 text-center">クーポン</div>
                 <div className="col-span-1 text-center">来店</div>
-                <div className="col-span-1 text-right">累計支払額</div>
+                <div className="col-span-1 text-right">累計予約金額（割引後）</div>
                 <div className="col-span-1">最終来店日</div>
                 <div className="col-span-1 text-center">詳細</div>
               </div>

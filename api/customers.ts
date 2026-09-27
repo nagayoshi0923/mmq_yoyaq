@@ -160,7 +160,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const offset = (page - 1) * pageSize
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any).rpc('get_org_customers_with_stats', {
+    const { data, error } = await (db as any).rpc('get_org_customers_with_stats_v2', {
       p_org_id: orgId,
       p_search: search ?? null,
       p_limit: pageSize,
