@@ -645,7 +645,8 @@ async function routePatch(req: VercelRequest, res: VercelResponse, user: AuthUse
       requireStaff(user)
       return await handleUpdate(req, res, user)
     case 'cancel-with-lock':
-      // 顧客自身の予約 or staff
+      // 予約だけの取消は店舗処理専用。顧客はグループ・通知も同期する通常経路へ。
+      requireStaff(user)
       return await handleCancelWithLock(req, res, user)
     case 'cancel-with-group-lock':
       return await handleCancelWithGroupLock(req, res, user)
