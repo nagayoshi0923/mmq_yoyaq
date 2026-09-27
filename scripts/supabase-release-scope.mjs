@@ -17,8 +17,13 @@ const phase=process.env.MMQ_RELEASE_PHASE || 'complete'
 if(!['complete','prepare-edges'].includes(phase)) throw new Error('Invalid release phase')
 if(phase==='prepare-edges' && process.env.GITHUB_EVENT_NAME!=='workflow_dispatch') throw new Error('prepare-edges requires workflow_dispatch')
 const activationDependencies={'20260927120100':'20260927120000'}
-const deferred=phase==='prepare-edges'?migrationVersions.filter(v=>activationDependencies[v]):[]
-const requiredVersions=[...new Set(migrationVersions.filter(v=>!deferred.includes(v)).concat(deferred.map(v=>activationDependencies[v])))]
+const registeredActivations=process.env.GITHUB_EVENT_NAME==='workflow_dispatch'
+ && existsSync('supabase/migrations')
+ ? Object.keys(activationDependencies).filter(v=>readdirSync('supabase/migrations').some(file=>file.startsWith(v+'_')&&file.endsWith('.sql')))
+ : []
+const releaseVersions=[...new Set([...migrationVersions,...registeredActivations,...registeredActivations.map(v=>activationDependencies[v])])]
+const deferred=phase==='prepare-edges'?releaseVersions.filter(v=>activationDependencies[v]):[]
+const requiredVersions=[...new Set(releaseVersions.filter(v=>!deferred.includes(v)).concat(deferred.map(v=>activationDependencies[v])))]
 if(deferred.length) console.log(`Activation deferred until Edge deployment completes: ${deferred.join(', ')}. Apply with the selected migration workflow, then run complete.`)
 if (requiredVersions.length) {
   const ref = process.env.SUPABASE_PROJECT_REF
@@ -45,7 +50,11 @@ function dependsOnChange(file, seen = new Set()) {
   const imports = [...source.matchAll(/(?:from\s*|import\s*\(?\s*)['"](\.[^'"]+)['"]/g)].map(m => m[1])
   return imports.some(p => dependsOnChange(path.join(path.dirname(file), p), seen))
 }
-const targets = readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('_')).map(d => d.name).filter(name => [...changed].some(p => p.startsWith(`${root}/${name}/`)) || dependsOnChange(`${root}/${name}/index.ts`))
+let targets = readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('_')).map(d => d.name).filter(name => [...changed].some(p => p.startsWith(`${root}/${name}/`)) || dependsOnChange(`${root}/${name}/index.ts`))
+if(phase==='prepare-edges' && deferred.includes('20260927120100')) {
+ const approvalFunctions=['process-private-approval-deliveries','reconcile-private-delivery','send-private-booking-confirmation','notify-gm-private-booking-confirmed','provision-private-booking-discord','process-private-survey-deliveries','process-private-rejection-deliveries']
+ targets=[...new Set([...targets,...approvalFunctions.filter(name=>existsSync(`${root}/${name}/index.ts`))])]
+}
 if (targets.some(name => !/^[a-z0-9-]+$/.test(name))) throw new Error('不正な関数名')
 writeFileSync(path.join(process.env.RUNNER_TEMP, 'mmq-deploy-functions.txt'), targets.join('\n') + (targets.length ? '\n' : ''))
 console.log(`DB先行適用を確認: ${migrationVersions.length}件。対象関数: ${targets.join(', ') || 'なし'}`)
