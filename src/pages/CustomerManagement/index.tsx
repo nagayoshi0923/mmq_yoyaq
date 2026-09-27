@@ -1,3 +1,4 @@
+import { CustomerListControls, CustomerTableHeader } from '@/pages/CustomerManagement/components/CustomerListControls'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ export default function CustomerManagement() {
     page,
     setPage,
     pageSize,
+    options, setOptions, toggleSort,
   } = useCustomerData(searchTerm)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -82,6 +84,8 @@ export default function CustomerManagement() {
           onChange={(e) => setSearchTerm(e.target.value)}
         />
 
+        <CustomerListControls options={options} onChange={setOptions} />
+
         {/* 顧客一覧 */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -100,22 +104,12 @@ export default function CustomerManagement() {
           ) : customers.length === 0 ? (
             <EmptyState
               icon={Users}
-              title={searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
+              title={'条件に一致する顧客が見つかりません'}
             />
           ) : (
             <div className="space-y-2">
               {/* テーブルヘッダー (PCのみ) */}
-              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 bg-muted/50 rounded-lg text-xs font-medium text-muted-foreground">
-                <div className="col-span-2">顧客名</div>
-                <div className="col-span-2">メールアドレス</div>
-                <div className="col-span-2">電話番号</div>
-                <div className="col-span-1 text-center">予約数</div>
-                <div className="col-span-1 text-center">クーポン</div>
-                <div className="col-span-1 text-center">来店</div>
-                <div className="col-span-1 text-right">累計予約金額（割引後）</div>
-                <div className="col-span-1">最終来店日</div>
-                <div className="col-span-1 text-center">詳細</div>
-              </div>
+              <CustomerTableHeader options={options} onSort={toggleSort} />
 
               {/* 顧客行 */}
               {customers.map((customer) => (

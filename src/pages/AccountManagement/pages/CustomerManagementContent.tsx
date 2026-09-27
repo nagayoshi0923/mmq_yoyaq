@@ -1,8 +1,9 @@
+import { CustomerListControls, CustomerTableHeader } from '@/pages/CustomerManagement/components/CustomerListControls'
 /**
  * 顧客管理コンテンツ
  * 予約顧客の情報管理
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { HelpButton } from '@/components/ui/help-button'
@@ -15,6 +16,8 @@ import type { Customer } from '@/types'
 export function CustomerManagementContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const {
+    organizationId,
+    error,
     customers,
     loading,
     couponStats,
@@ -23,10 +26,17 @@ export function CustomerManagementContent() {
     page,
     setPage,
     pageSize,
+    options, setOptions, toggleSort,
   } = useCustomerData(searchTerm)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsEditModalOpen(false)
+    setSelectedCustomer(null)
+    setExpandedCustomerId(null)
+  }, [organizationId])
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
@@ -65,6 +75,8 @@ export function CustomerManagementContent() {
         />
       </div>
 
+        <CustomerListControls options={options} onChange={setOptions} />
+
       {/* 顧客一覧 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -73,26 +85,21 @@ export function CustomerManagementContent() {
 
         <p className="text-sm text-muted-foreground">確定・GM確定・完了した予約の割引後金額です。取消予約は含まず、入金額・返金後の残高とは異なります。「要確認」は金額を確定できない旧予約を含みます。</p>
 
-        {loading ? (
+        {error ? (
+          <div role="alert" className="space-y-2">
+            <p>顧客情報を取得できませんでした。条件を確認して再試行してください。</p>
+            <Button variant="outline" onClick={() => refreshCustomers()}>再試行</Button>
+          </div>
+        ) : loading ? (
           <div className="text-center py-8 text-muted-foreground text-sm">読み込み中...</div>
         ) : customers.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
-            {searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
+            {'条件に一致する顧客が見つかりません'}
           </div>
         ) : (
           <div className="space-y-2">
             {/* テーブルヘッダー (PCのみ) */}
-            <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 bg-muted/50 rounded-lg text-xs font-medium text-muted-foreground">
-              <div className="col-span-2">顧客名</div>
-              <div className="col-span-2">メールアドレス</div>
-              <div className="col-span-2">電話番号</div>
-              <div className="col-span-1 text-center">予約数</div>
-              <div className="col-span-1 text-center">クーポン</div>
-              <div className="col-span-1 text-center">来店</div>
-              <div className="col-span-1 text-right">累計予約金額（割引後）</div>
-              <div className="col-span-1">最終来店日</div>
-              <div className="col-span-1 text-center">詳細</div>
-            </div>
+              <CustomerTableHeader options={options} onSort={toggleSort} />
 
             {/* 顧客行 */}
             {customers.map((customer) => (

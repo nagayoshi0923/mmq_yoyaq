@@ -1,3 +1,4 @@
+import { customerSortKeys } from '../src/types/customerList.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, createUserScopedClient, type AuthUser, ApiError } from './_lib/auth.js'
@@ -159,27 +160,38 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const pageSize = Number.isFinite(rawPageSize) ? Math.min(100, Math.max(10, rawPageSize)) : 50
     const offset = (page - 1) * pageSize
 
+    const scalar = (key: string) => typeof req.query[key] === 'string' ? req.query[key] as string : undefined
+    const sortBy = scalar('sortBy') ?? 'created_at'
+    const sortDir = scalar('sortDir') ?? 'desc'
+    const integer = (key: string) => {
+      const raw = scalar(key)
+      if (raw === undefined || raw === '') return null
+      const value = Number(raw)
+      return /^\d+$/.test(raw) && Number.isSafeInteger(value) && value <= 2147483647 ? value : NaN
+    }
+    const minReservations = integer('minReservations'), minVisits = integer('minVisits'), minAmount = integer('minAmount')
+    const validDate = (value: string | undefined) => !value || (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value)
+    const visitFrom = scalar('visitFrom'), visitTo = scalar('visitTo'), hasCoupons = scalar('hasCoupons')
+    if (!customerSortKeys.some(key => key === sortBy) || !['asc','desc'].includes(sortDir)
+      || [minReservations,minVisits,minAmount].some(Number.isNaN)
+      || !validDate(visitFrom) || !validDate(visitTo) || (visitFrom && visitTo && visitFrom > visitTo)
+      || (hasCoupons !== undefined && !['true','false'].includes(hasCoupons))) {
+      return res.status(400).json({ error: '並び順・絞り込み条件を確認してください' })
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any).rpc('get_org_customers_with_stats_v2', {
-      p_org_id: orgId,
-      p_search: search ?? null,
-      p_limit: pageSize,
-      p_offset: offset,
+    const { data, error } = await (db as any).rpc('search_org_customers', {
+      p_org_id: orgId, p_search: search ?? null, p_limit: pageSize, p_offset: offset,
+      p_sort_by: sortBy, p_sort_dir: sortDir, p_min_reservations: minReservations,
+      p_min_visits: minVisits, p_min_amount: minAmount,
+      p_has_coupons: hasCoupons === undefined ? null : hasCoupons === 'true',
+      p_visit_from: visitFrom || null, p_visit_to: visitTo || null,
     })
-
     if (error) {
       console.error('[customers:listWithStats] DB error:', error)
-      return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+      return res.status(500).json({ error: 'データ取得に失敗しました' })
     }
+    return res.status(200).json(data)
 
-    const rows = (data ?? []) as Array<Record<string, unknown>>
-    const totalCount = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0
-    const customers = rows.map((row) => {
-      const { total_count: _totalCount, ...rest } = row
-      return rest
-    })
-
-    return res.status(200).json({ customers, totalCount })
   }
 
   if (action === 'findByEmail') {
