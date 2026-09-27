@@ -673,3 +673,6 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
+
+-- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
+REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;

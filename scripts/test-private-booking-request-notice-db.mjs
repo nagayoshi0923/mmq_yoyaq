@@ -4,6 +4,9 @@ import fs from 'node:fs'
 import assert from 'node:assert/strict'
 const {PGlite} = await import(process.env.PGLITE_MODULE || '@electric-sql/pglite')
 const db=new PGlite()
+const testClosure=process.argv.includes('--closure')
+const closureMigration='20260927035000_private_booking_request_legacy_closure.sql'
+const legacySignature='public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid)'
 const org='10000000-0000-0000-0000-000000000001',scenario='20000000-0000-0000-0000-000000000001',store='30000000-0000-0000-0000-000000000001',user='40000000-0000-0000-0000-000000000001',customer='50000000-0000-0000-0000-000000000001',gm='60000000-0000-0000-0000-000000000001'
 await db.exec(`
 CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
@@ -71,6 +74,19 @@ CREATE TABLE private_group_messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(
 CREATE TABLE global_settings(organization_id uuid PRIMARY KEY,system_msg_booking_requested_title text,system_msg_booking_requested_body text);`)
 const noticeMigration='20260927034000_private_booking_request_notice.sql'
 await db.exec(fs.readFileSync('supabase/migrations/'+noticeMigration,'utf8'))
+if(testClosure){
+ // 実環境の適用前ACLに揃え、新入口が所有者権限で既存本体を呼べることを検証。
+ await db.exec(`REVOKE ALL ON FUNCTION ${legacySignature} FROM PUBLIC; GRANT EXECUTE ON FUNCTION ${legacySignature} TO anon,authenticated,service_role;`)
+ await db.exec(fs.readFileSync('supabase/migrations/'+closureMigration,'utf8'))
+ for(const role of ['anon','authenticated']){
+  assert.equal((await db.query("SELECT has_function_privilege($1,$2,'EXECUTE') ok",[role,legacySignature])).rows[0].ok,false)
+  await db.exec('SET ROLE '+role)
+  await assert.rejects(db.query("SELECT create_private_booking_request(NULL,NULL,'Fixture','fixture@example.invalid','000',6,'{}')"),e=>e.code==='42501')
+  await db.exec('RESET ROLE')
+ }
+ assert.equal((await db.query("SELECT has_function_privilege('service_role',$1,'EXECUTE') ok",[legacySignature])).rows[0].ok,true)
+}
+
 // 旧本体RPCをスタブ化せず、実際の認証・価格・予約・グループ・GM処理まで実行する。
 await db.query("INSERT INTO global_settings VALUES($1,'組織の申込通知','返信をお待ちください')",[org])
 await db.query("INSERT INTO global_settings VALUES('10000000-0000-0000-0000-000000000099','他社設定','公開禁止')")
@@ -121,5 +137,13 @@ await db.exec('RESET ROLE');assert.equal(await count('reservations'),total)
 await db.exec(fs.readFileSync('supabase/rollbacks/'+noticeMigration,'utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/'+noticeMigration,'utf8'))
 assert.equal(await count('reservations'),total)
+if(testClosure){
+ await db.exec(fs.readFileSync('supabase/rollbacks/'+closureMigration,'utf8'))
+ for(const role of ['anon','authenticated'])assert.equal((await db.query("SELECT has_function_privilege($1,$2,'EXECUTE') ok",[role,legacySignature])).rows[0].ok,true)
+ await db.exec(fs.readFileSync('supabase/migrations/'+closureMigration,'utf8'))
+ assert.equal((await db.query("SELECT has_function_privilege('authenticated',$1,'EXECUTE') ok",[legacySignature])).rows[0].ok,false)
+ await request(scenario,['2026-10-23'])
+ console.log('PASS legacy closure: old anon/auth denied, new authenticated booking remains operational, service ACL retained, rollback/reapply')
+}
 await db.close()
 console.log('PASS private request notice: real request RPC, org template/fallback, no organizer row, counts, transaction rollback incl pricing/GM/group, auth/anonymous, rollback/reapply')
