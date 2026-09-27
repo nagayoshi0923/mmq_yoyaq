@@ -1,4 +1,4 @@
--- QW-20260917-001 / #605: 却下後の同期は組織スタッフ専用。グループ競合時は待機して同期完了まで到達する。
+-- Restore #605 以前の NOWAIT 定義（権限検証は維持）。
 CREATE OR REPLACE FUNCTION public.mark_private_group_rejected_after_booking_rejection(p_reservation_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -15,7 +15,7 @@ BEGIN
   END IF;
 
   SELECT id,organization_id,private_group_id,status INTO v_reservation
-  FROM public.reservations WHERE id=p_reservation_id FOR UPDATE;
+  FROM public.reservations WHERE id=p_reservation_id FOR UPDATE NOWAIT;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'RESERVATION_NOT_FOUND' USING ERRCODE='P0005';
   END IF;
@@ -32,7 +32,7 @@ BEGIN
   IF v_reservation.private_group_id IS NULL THEN RETURN; END IF;
 
   SELECT id,organization_id,reservation_id,status INTO v_group
-  FROM public.private_groups WHERE id=v_reservation.private_group_id FOR UPDATE;
+  FROM public.private_groups WHERE id=v_reservation.private_group_id FOR UPDATE NOWAIT;
   IF NOT FOUND OR v_group.organization_id IS DISTINCT FROM v_reservation.organization_id THEN
     RAISE EXCEPTION 'PRIVATE_GROUP_ORGANIZATION_MISMATCH' USING ERRCODE='P0050';
   END IF;
@@ -46,7 +46,7 @@ BEGIN
   END IF;
 
   PERFORM 1 FROM public.private_group_candidate_dates
-  WHERE group_id=v_group.id FOR UPDATE;
+  WHERE group_id=v_group.id FOR UPDATE NOWAIT;
   UPDATE public.private_groups SET status='date_adjusting' WHERE id=v_group.id;
   UPDATE public.private_group_candidate_dates SET status='rejected' WHERE group_id=v_group.id;
 END;

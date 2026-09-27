@@ -1,4 +1,4 @@
--- QW-20260917-001 / #605: 却下後の同期は組織スタッフ専用。グループ競合時は待機して同期完了まで到達する。
+-- #605: 予約取消後の却下同期が同一グループの FOR UPDATE と競合しても 55P03 で永続失敗しないよう待機する。
 CREATE OR REPLACE FUNCTION public.mark_private_group_rejected_after_booking_rejection(p_reservation_id uuid)
 RETURNS void
 LANGUAGE plpgsql
