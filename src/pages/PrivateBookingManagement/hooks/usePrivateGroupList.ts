@@ -109,7 +109,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       const confirmedStoreIdMap = new Map<string, string>()
       bookingRows.forEach(req => {
         if (!req.private_group_id || currentReservation.get(req.private_group_id) !== req.id) return
-        if (!['confirmed', 'gm_confirmed', 'checked_in', 'completed'].includes(req.status)) return
+        if (!['confirmed', 'gm_confirmed', 'checked_in', 'completed', 'no_show'].includes(req.status)) return
         const event = events.get(req.schedule_event_id)
         if (!event || event.is_cancelled || !event.date || !event.start_time || !event.end_time) return
         confirmedDateMap.set(req.private_group_id, event.date)
@@ -118,23 +118,19 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         if (event.store_id) confirmedStoreIdMap.set(req.private_group_id, event.store_id)
       })
 
-      // 店舗名を一括取得
+      // 店舗名を一括取得（先行フェーズ完了後に実行し、一覧全体の同時要求を最大3件に保つ）
       const storeIds = [...new Set([...confirmedStoreIdMap.values()].filter(Boolean))]
       const storeNameMap = new Map<string, string>()
-
-      await Promise.all([
-        storeIds.length > 0
-          ? boundedBatches(storeIds, 50, 3, async ids => {
-              const result = await supabase.from('stores').select('id, name, short_name').eq('organization_id', orgId).in('id', ids)
-              if (result.error) throw result.error
-              return result.data || []
-            }).then(storeRows => {
-              (storeRows || []).forEach((s: any) => {
-                storeNameMap.set(s.id, s.short_name || s.name || '')
-              })
-            })
-          : Promise.resolve(),
-      ])
+      if (storeIds.length > 0) {
+        const storeRows = await boundedBatches(storeIds, 50, 3, async ids => {
+          const result = await supabase.from('stores').select('id, name, short_name').eq('organization_id', orgId).in('id', ids)
+          if (result.error) throw result.error
+          return result.data || []
+        })
+        storeRows.forEach((s: { id: string; name?: string | null; short_name?: string | null }) => {
+          storeNameMap.set(s.id, s.short_name || s.name || '')
+        })
+      }
 
       const groupsWithOrganizer = (data || []).map(g => {
         const scenarioMasters = Array.isArray(g.scenario_masters)
@@ -142,8 +138,6 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           : g.scenario_masters
 
         const storeId = confirmedStoreIdMap.get(g.id)
-        const organizer = g.members?.find(m => m.user_id === g.organizer_id && m.is_organizer)
-          || g.members?.find(m => m.user_id === g.organizer_id)
         return {
           ...g,
           scenario_masters: scenarioMasters || null,
@@ -151,7 +145,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
             ...m,
             member_name: m.staff_display_name || m.guest_name || null,
           })),
-          organizer: { name: organizer?.staff_display_name || organizer?.guest_name || '幹事情報を確認できません' },
+          organizer: { name: g.organizer_display_name || '幹事情報を確認できません' },
           survey_enabled: surveyResult[g.id]?.survey_enabled ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
           confirmed_time: confirmedTimeMap.get(g.id),

@@ -16,10 +16,10 @@ afterEach(async()=>{if(root)await act(async()=>root.unmount())})
 beforeEach(() => {
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
   vi.clearAllMocks(); mocks.failTable = ''; mocks.queries = []
-  mocks.read.mockResolvedValue([{ id: 'g', organizer_id: 'u', reservation_id: 'current', status: 'confirmed', members: [{ id: 'm', user_id: 'u', is_organizer: true, staff_display_name: '幹事表示名', guest_name: '旧名' }], candidate_dates: [], scenario_masters: null }])
+  mocks.read.mockResolvedValue([{ id: 'g', organizer_id: 'u', organizer_display_name: '幹事表示名', reservation_id: 'current', status: 'confirmed', members: [{ id: 'm', user_id: 'u', is_organizer: true, staff_display_name: '幹事表示名', guest_name: '旧名' }], candidate_dates: [], scenario_masters: null }])
   mocks.settings.mockResolvedValue({g: {survey_enabled:true}})
   const rows: Record<string, unknown[]> = {
-    reservations: [{id:'current',private_group_id:'g',status:'gm_confirmed',schedule_event_id:'event',gm_staff:'gm',store_id:'old',candidate_datetimes:{candidates:[{status:'confirmed',date:'2020-01-01'}]}}],
+    reservations: [{id:'current',private_group_id:'g',status:'gm_confirmed',schedule_event_id:'event',gm_staff:'非UUIDの担当名',store_id:'old',candidate_datetimes:{candidates:[{status:'confirmed',date:'2020-01-01'}]}}],
     schedule_events: [{id:'event',date:'2027-03-01',start_time:'19:00:00',end_time:'22:00:00',store_id:'new',is_cancelled:false,gms:['変更後の担当','サブ担当']}],
     staff: [{id:'gm',name:'GM'}], stores:[{id:'new',name:'現在店舗'}],
   }
@@ -63,4 +63,45 @@ it('waits for survey batches before starting reservation batches', async () => {
   await act(async () => finish({g: {survey_enabled:true}}))
   expect(result.current.loading).toBe(false)
   expect(mocks.from).toHaveBeenCalledWith('reservations')
+})
+
+it('shows current event details for no_show reservations', async () => {
+  const rows: Record<string, unknown[]> = {
+    reservations: [{id:'current',private_group_id:'g',status:'no_show',schedule_event_id:'event'}],
+    schedule_events: [{id:'event',date:'2027-03-01',start_time:'19:00:00',end_time:'22:00:00',store_id:'new',is_cancelled:false,gms:['欠席時の担当']}],
+    stores:[{id:'new',name:'現在店舗',short_name:'現店'}],
+  }
+  mocks.from.mockImplementation(table => {
+    const query = {table,filters:{} as Record<string,unknown>}; mocks.queries.push(query)
+    const builder = {
+      select: () => builder,
+      eq: (key:string,value:unknown) => {query.filters[key]=value;return builder},
+      in: (key:string,value:unknown) => {query.filters[key]=value;return builder},
+      then: (resolve:(v:unknown)=>unknown,reject:(e:unknown)=>unknown) => Promise.resolve({data:rows[table] || [],error:null}).then(resolve,reject),
+    }
+    return builder
+  })
+  await render()
+  expect(result.current.error).toBeNull()
+  expect(result.current.groups[0]).toMatchObject({
+    confirmed_date:'2027-03-01',
+    confirmed_time:'19:00〜22:00',
+    confirmed_store_name:'現店',
+    confirmed_gm_name:'欠席時の担当',
+  })
+  expect(result.current.groups[0].confirmed_warning).toBeUndefined()
+  expect(mocks.queries.some(q=>q.table==='staff')).toBe(false)
+})
+
+it('uses snapshot organizer_display_name even when the organizer member row is gone', async () => {
+  mocks.read.mockResolvedValue([{
+    id: 'g', organizer_id: 'u', organizer_display_name: '削除後も残る幹事名',
+    reservation_id: 'current', status: 'confirmed',
+    members: [{ id: 'other', user_id: 'other-user', is_organizer: false, staff_display_name: '参加者', guest_name: '参加者' }],
+    candidate_dates: [], scenario_masters: null,
+  }])
+  await render()
+  expect(result.current.error).toBeNull()
+  expect(result.current.groups[0].organizer).toEqual({ name: '削除後も残る幹事名' })
+  expect(mocks.queries.some(q=>q.table==='customers')).toBe(false)
 })
