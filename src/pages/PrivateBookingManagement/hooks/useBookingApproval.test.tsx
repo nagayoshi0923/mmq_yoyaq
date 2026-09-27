@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { act } from 'react'
+import { webcrypto } from 'node:crypto'
+Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn(), from: vi.fn(), cancel: vi.fn(), invoke: vi.fn(), success: vi.fn(), warning: vi.fn() }))
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from, functions: { invoke: mocks.invoke } } }))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'actor' } }) }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organizationId: 'org' }) }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: () => false }) }))
 vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast, success: mocks.success, warning: mocks.warning } }))
@@ -53,6 +56,40 @@ describe('貸切承認と通知', () => {
       return query
     })
   })
+  const approvalArgs = ['request', { candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] } }, 'gm', null, 'store', 1, []] as unknown as Parameters<ReturnType<typeof useBookingApproval>['handleApprove']>
+  it('通信再試行は同じ操作番号を使い、同時クリックはRPCを増やさない', async () => {
+    sessionStorage.clear()
+    let resolveRpc!: (value: unknown) => void
+    mocks.rpc.mockImplementationOnce(() => new Promise(resolve => { resolveRpc = resolve }))
+    const onSuccess = vi.fn()
+    await render(onSuccess)
+    let first!: Promise<unknown>
+    await act(async () => {
+      first = result.current.handleApprove(...approvalArgs)
+      await new Promise(resolve => setTimeout(resolve, 20))
+      const duplicate = await result.current.handleApprove(...approvalArgs)
+      expect(duplicate.success).toBe(false)
+      resolveRpc({data:null,error:{message:'network failure'}})
+      await first
+    })
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    const operationId = mocks.rpc.mock.calls[0][1].p_request_id
+    mocks.rpc.mockResolvedValueOnce({data:{schedule_event_id:'event',replayed:true},error:null})
+    await act(async () => { expect((await result.current.handleApprove(...approvalArgs)).success).toBe(true) })
+    expect(mocks.rpc.mock.calls[1][1].p_request_id).toBe(operationId)
+    expect(onSuccess).toHaveBeenCalledOnce()
+    expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+  it('承認済みの一覧更新失敗を承認失敗にせず、操作番号を保持する', async () => {
+    sessionStorage.clear()
+    mocks.rpc.mockResolvedValue({data:{schedule_event_id:'event',replayed:true},error:null})
+    await render(vi.fn().mockRejectedValue(new Error('refresh failed')))
+    await act(async () => { expect((await result.current.handleApprove(...approvalArgs)).success).toBe(true) })
+    const operationId = mocks.rpc.mock.calls[0][1].p_request_id
+    await act(async () => { expect((await result.current.handleApprove(...approvalArgs)).success).toBe(true) })
+    expect(mocks.rpc.mock.calls[1][1].p_request_id).toBe(operationId)
+    expect(mocks.warning).toHaveBeenCalledWith(expect.stringContaining('承認は保存済み'))
+  })
   it('30分の間隔を画面の60分固定判定で拒否せず、設定を使う承認RPCへ渡す', async () => {
     mocks.from.mockImplementation((table: string) => {
       const query: Record<string, unknown> = {}
@@ -70,7 +107,7 @@ describe('貸切承認と通知', () => {
         candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
       } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
     })
-    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notice', expect.anything())
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_delivery', expect.anything())
     expect(response?.error).toContain('設定された準備時間')
     expect(response?.error).not.toContain('60分')
   })
@@ -88,7 +125,7 @@ describe('貸切承認と通知', () => {
         candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
       } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
     })
-    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notice', expect.objectContaining({ p_reservation_id: 'request' }))
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_delivery', expect.objectContaining({ p_reservation_id: 'request' }))
     expect(response?.success).toBe(false)
     expect(response?.error).toContain(message)
     expect(onSuccess).not.toHaveBeenCalled()

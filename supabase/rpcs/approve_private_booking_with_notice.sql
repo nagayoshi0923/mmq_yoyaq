@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION public.approve_private_booking_with_notice(
  p_customer_name text,p_selected_sub_gm_id uuid DEFAULT NULL
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public SET row_security=off AS $$
 DECLARE event_id uuid; r record; g record; e record; settings record;
- member_id uuid; survey jsonb; survey_message text; survey_action text; deadline_text text := '';
+ member_id uuid; survey_message_id uuid; survey jsonb; survey_message text; survey_action text; deadline_text text := '';
 BEGIN
  event_id:=public.approve_private_booking(p_reservation_id,p_selected_date,p_selected_start_time,
  p_selected_end_time,p_selected_store_id,p_selected_gm_id,p_candidate_datetimes,
@@ -53,9 +53,9 @@ BEGIN
        ELSE '上記の「日程を確認・回答する」ボタンからアンケートにお答えください。' END||deadline_text||E'\n\nご不明点がございましたら、お気軽にお問い合わせください。';
    END IF;
    INSERT INTO private_group_messages(group_id,member_id,message) VALUES(g.id,member_id,
-     jsonb_build_object('type','system','action',survey_action,'message',survey_message)::text);
+     jsonb_build_object('type','system','action',survey_action,'message',survey_message)::text) RETURNING id INTO survey_message_id;
  END IF;
- RETURN jsonb_build_object('schedule_event_id',event_id,'survey_notice',survey_message);
+ RETURN jsonb_build_object('schedule_event_id',event_id,'survey_notice',survey_message,'survey_message_id',survey_message_id);
 END $$;
 REVOKE ALL ON FUNCTION public.approve_private_booking_with_notice(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.approve_private_booking_with_notice(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid) TO authenticated,service_role;
