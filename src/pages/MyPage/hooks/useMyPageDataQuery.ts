@@ -1,3 +1,4 @@
+import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -109,7 +110,13 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const historySnapshot = customerPlayHistory.snapshot(customer.id)
       const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult] = await Promise.all([
         supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customer.id).order('requested_datetime', { ascending: false }).limit(50),
-        supabase.from('private_group_members').select(`id, is_organizer, status, group_id, private_groups:group_id (id, name, invite_code, status, created_at, reservation_id, scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_max))`).eq('user_id', userId!).eq('status', 'joined'),
+        readPrivateGroupList('joined').then(groups => ({
+          data: groups.map(group => {
+            const member = group.members?.find(m => m.user_id === userId && m.status === 'joined')
+            return { ...member, is_organizer: member?.is_organizer ?? false, private_groups: group }
+          }),
+          error: null,
+        })),
         historySnapshot.then(history => ({ data: history.manual, error: null })),
         supabase.from('scenario_ratings').select('scenario_master_id, rating').eq('customer_id', customer.id),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
@@ -143,8 +150,8 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         orgIds.length > 0 ? supabase.from('organizations').select('id, slug, name').in('id', orgIds) : Promise.resolve({ data: [] }),
         scenarioMasterIds.length > 0 ? supabase.from('scenario_masters').select('id, title, key_visual_url, player_count_min, player_count_max').in('id', scenarioMasterIds) : Promise.resolve({ data: [] }),
         groupIds.length > 0 ? supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds }) : Promise.resolve({ data: [] }),
-        groupIds.length > 0 ? supabase.from('private_group_members').select('group_id, guest_name, user_id, is_organizer, status, joined_at').in('group_id', groupIds).eq('status', 'joined').order('joined_at', { ascending: true }) : Promise.resolve({ data: [] }),
-        groupIds.length > 0 ? supabase.from('private_group_candidate_dates').select('group_id').in('group_id', groupIds) : Promise.resolve({ data: [] as { group_id: string }[] }),
+        Promise.resolve({ data: memberRecords.flatMap(row => (row.private_groups.members || []).filter(m => m.status === 'joined')) }),
+        Promise.resolve({ data: memberRecords.flatMap(row => row.private_groups.candidate_dates || []) }),
       ])
 
       const groupSchedules = (privateGroupSchedulesResult.data || []) as Array<{ group_id: string; requested_datetime: string; store_id: string | null; store_name: string | null }>

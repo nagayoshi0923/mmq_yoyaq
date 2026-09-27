@@ -1,3 +1,4 @@
+import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation } from '@/lib/privateGroupRead'
 import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -31,104 +32,51 @@ export function SurveyResponsesView({
   const [responses, setResponses] = useState<ResponseData[]>([])
   const [members, setMembers] = useState<MemberData[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [characters, setCharacters] = useState<Array<{ id: string; name: string }>>([])
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError(false)
+    setQuestions([])
+    setResponses([])
+    setMembers([])
+    setCharacters([])
     const loadSurveyData = async () => {
       if (!reservationId || !scenarioId) {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
         return
       }
 
       try {
-        // reservation_id から private_groups を取得（メンバーは別クエリ: user_id は auth.users 参照のためネスト users(email) が 400 になる）
-        const { data: groupData, error: groupError } = await supabase
-          .from('private_groups')
-          .select('id, organization_id')
-          .eq('reservation_id', reservationId)
-          .maybeSingle()
-
-        if (groupError) {
-          logger.warn('アンケート: private_groups 取得エラー:', groupError)
-          setLoading(false)
-          return
-        }
-
-        if (!groupData) {
-          setLoading(false)
-          return
-        }
-
-        const groupId = groupData.id
-        const organizationId = groupData.organization_id
-
-        const { data: membersRaw, error: membersError } = await supabase
-          .from('private_group_members')
-          .select('id, guest_name, guest_email, user_id')
-          .eq('group_id', groupId)
-
-        if (membersError) {
-          logger.warn('アンケート: メンバー取得エラー:', membersError)
-        }
-
-        const userIds = (membersRaw || [])
-          .filter((m: { user_id: string | null }) => m.user_id)
-          .map((m: { user_id: string | null }) => m.user_id as string)
-
-        const customerNicknames: Record<string, string> = {}
-        if (userIds.length > 0) {
-          let custQ = supabase
-            .from('customers')
-            .select('user_id, nickname, name, email')
-            .in('user_id', userIds)
-          if (organizationId) {
-            custQ = custQ.eq('organization_id', organizationId)
-          }
-          const { data: customers, error: custError } = await custQ
-
-          if (custError) {
-            logger.warn('アンケート: 顧客名取得エラー:', custError)
-          } else if (customers) {
-            customers.forEach((c: { user_id: string; nickname: string | null; name: string | null; email: string | null }) => {
-              customerNicknames[c.user_id] = c.nickname || c.name || c.email?.split('@')[0] || ''
-            })
-          }
-        }
-
-        const membersData: MemberData[] = (membersRaw || []).map((m: {
-          id: string
-          guest_name: string | null
-          guest_email: string | null
-          user_id: string | null
-        }) => {
-          let name: string | null = null
-          if (m.user_id && customerNicknames[m.user_id]) {
-            name = customerNicknames[m.user_id] || null
-          }
-          if (!name && m.guest_name) name = m.guest_name
-          if (!name && m.guest_email) name = m.guest_email.split('@')[0]
-          return { id: m.id, guest_name: name || '参加者' }
-        })
-        setMembers(membersData)
+        const snapshot = await readPrivateGroupByReservation(reservationId)
+        if (!snapshot) return
+        const groupId = snapshot.group.id
+        const membersData: MemberData[] = (snapshot.group.members || []).map(member => ({
+          id: member.id,
+          guest_name: member.staff_display_name || member.guest_name || '参加者',
+        }))
+        if (!cancelled) setMembers(membersData)
 
         const orgScenario = await getGroupSurveySettings(groupId)
 
         if (!orgScenario?.survey_enabled || !orgScenario.org_scenario_id) {
-          setLoading(false)
+          if (!cancelled) setLoading(false)
           return
         }
 
         // キャラクター情報を取得
         if (orgScenario.characters) {
-          setCharacters(orgScenario.characters.map((c: any) => ({
+          if (!cancelled) setCharacters(orgScenario.characters.map((c: any) => ({
             id: c.id,
             name: c.name,
           })))
         }
 
         // 質問を取得
-        const { data: questionsData } = await supabase
+        const { data: questionsData, error: questionsError } = await supabase
           .from('org_scenario_survey_questions')
           .select(
             'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
@@ -136,28 +84,30 @@ export function SurveyResponsesView({
           .eq('org_scenario_id', orgScenario.org_scenario_id)
           .order('order_num', { ascending: true })
 
+        if (questionsError) throw questionsError
         if (questionsData && questionsData.length > 0) {
-          setQuestions(questionsData)
+          if (!cancelled) setQuestions(questionsData)
         }
 
         // 回答を取得
-        const { data: responsesData } = await supabase
-          .from('private_group_survey_responses')
-          .select('member_id, responses, submitted_at')
-          .eq('group_id', groupId)
+        const responsesData = await readPrivateGroupSurveyResponses(groupId)
 
         if (responsesData) {
-          setResponses(responsesData)
+          if (!cancelled) setResponses(responsesData)
         }
       } catch (err) {
         logger.error('アンケートデータ読み込みエラー:', err)
+        if (!cancelled) setLoadError(true)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
-    loadSurveyData()
+    void loadSurveyData()
+    return () => { cancelled = true }
   }, [reservationId, scenarioId])
+
+  if (loadError) return <p role="alert" className="text-sm p-4">アンケートを取得できませんでした。画面を開き直してください。</p>
 
   if (loading || questions.length === 0) {
     return null

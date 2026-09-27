@@ -1,5 +1,7 @@
+import { usePrivateGroupSnapshot } from '@/hooks/usePrivateGroupSnapshot'
+import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -92,13 +94,13 @@ function renderMessageWithLinks(text: string) {
   )
 }
 
-export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount }: GroupChatProps) {
   const { user } = useAuth()
-  const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
+  const { messages, loading, error: messagesError, refetch: refetchMessages } = usePrivateGroupMessages(groupId, currentMemberId)
   const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
+  const { group: chatGroup, refetch: refreshGroup } = usePrivateGroupSnapshot(groupId, null, currentMemberId, 5000)
+  const members = useMemo(() => chatGroup?.members || [], [chatGroup?.members])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   // 個別お知らせのフォールバック表示を検知したら1回だけ診断ログを送る（#278）
   const noticeFallbackLoggedRef = useRef(false)
@@ -184,143 +186,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   // デバッグログ
   logger.log('📋 GroupChat: props', { groupId, currentMemberId, scenarioId, organizationId, performanceDate })
 
-  // メンバー情報を取得（ニックネームを優先的に取得）
-  const fetchMembers = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('private_group_members')
-        .select('id, group_id, user_id, guest_name, guest_email, is_organizer, status')
-        .eq('group_id', groupId)
-        .eq('status', 'joined')
-
-      if (error) throw error
-      if (!data) {
-        setMembers(initialMembers)
-        return
-      }
-
-      // user_idがあるメンバーのニックネームをcustomersテーブルから取得
-      const userIds = data.filter(m => m.user_id).map(m => m.user_id)
-      const customerNicknames: Record<string, string> = {}
-      
-      if (userIds.length > 0) {
-        const { data: customers } = await supabase
-          .from('customers')
-          .select('user_id, nickname, name')
-          .in('user_id', userIds)
-
-        if (customers) {
-          customers.forEach((c: { user_id: string; nickname: string | null; name: string | null }) => {
-            // ニックネームのみ使用（本名は使用しない）
-            customerNicknames[c.user_id] = c.nickname || ''
-          })
-        }
-      }
-
-      // ニックネームを優先してguest_nameを設定
-      // customers レコードを取得できたユーザーのみ上書き（RLS で取得できなかった場合は既存値を使用）
-      // ニックネーム未設定のログインユーザーは「ニックネーム未設定」を表示（本名は表示しない）
-      const membersWithNicknames = data.map(m => {
-        if (m.user_id && m.user_id in customerNicknames) {
-          // 自分のレコードが取得できた → ニックネームか「ニックネーム未設定」
-          return { ...m, guest_name: customerNicknames[m.user_id] || 'ニックネーム未設定' }
-        }
-        // RLS でブロックされた他ユーザー or ゲストユーザー → 既存の guest_name を使用
-        return { ...m, guest_name: m.guest_name || m.guest_email?.split('@')[0] || '参加者' }
-      })
-
-      setMembers(membersWithNicknames as PrivateGroupMember[])
-    } catch (err) {
-      logger.error('Failed to fetch members for chat', err)
-    }
-  }, [groupId, initialMembers, organizationId])
-
+  const fetchMembers = useCallback(() => refreshGroup(true), [refreshGroup])
   useEffect(() => {
-    fetchMembers()
-  }, [fetchMembers])
-
-  // currentMemberIdが変更されたら、メンバー情報を再取得
-  useEffect(() => {
-    if (currentMemberId && !members.some(m => m.id === currentMemberId)) {
-      fetchMembers()
-    }
-  }, [currentMemberId, members, fetchMembers])
-
-  // メンバー変更をリアルタイム監視
-  useEffect(() => {
-    const channel = supabase
-      .channel(`group-members-${groupId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'private_group_members',
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => {
-          fetchMembers()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [groupId, fetchMembers])
-
-  // キャラクター希望をDBから取得する関数
-  const fetchCharPreferences = useCallback(async () => {
-    const { data } = await supabase
-      .from('private_groups')
-      .select('character_assignments')
-      .eq('id', groupId)
-      .single()
-    if (data?.character_assignments) {
-      setCharPreferences(data.character_assignments as Record<string, string>)
-    }
-  }, [groupId])
-
-  // キャラクター希望: 初回取得 + Realtime購読 + ポーリング（フォールバック）
-  useEffect(() => {
-    if (charAssignmentMethod !== 'self' || characters.length === 0) return
-
-    void fetchCharPreferences()
-
-    // Realtime購読（RLSの制約で届かない場合があるのでポーリングも併用）
-    const channel = supabase
-      .channel(`char_prefs_inline_${groupId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'private_groups', filter: `id=eq.${groupId}` },
-        (payload) => {
-          const newAssigns = (payload.new as any)?.character_assignments
-          if (newAssigns) {
-            setCharPreferences(newAssigns as Record<string, string>)
-          }
-        }
-      )
-      .subscribe()
-
-    // ポーリング: 5秒ごとにDBから最新を取得（Realtimeが届かない場合のフォールバック）
-    const pollInterval = setInterval(() => {
-      void fetchCharPreferences()
-    }, 5000)
-
-    // タブ復帰時にも取得
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        void fetchCharPreferences()
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    return () => {
-      void supabase.removeChannel(channel)
-      clearInterval(pollInterval)
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [groupId, charAssignmentMethod, characters.length, fetchCharPreferences])
+    setCharPreferences((chatGroup?.character_assignments || {}) as Record<string, string>)
+  }, [chatGroup])
 
   const handleSelectCharPreference = useCallback(async (charId: string) => {
     if (!currentMemberId) return
@@ -333,23 +202,23 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       logger.error('キャラクター選択エラー:', err)
       toast.error('保存に失敗しました')
     } finally {
+      await refreshGroup()
       setCharSaving(false)
     }
-  }, [currentMemberId, groupId])
+  }, [currentMemberId, groupId, refreshGroup])
 
   const handleGoToCharConfirm = useCallback(async () => {
-    // 確定ステップに進む前にDBから最新の希望を取得
-    const { data } = await supabase
-      .from('private_groups')
-      .select('character_assignments')
-      .eq('id', groupId)
-      .single()
-    const latest = (data?.character_assignments || {}) as Record<string, string>
-    logger.log('🎭 handleGoToCharConfirm:', { latest, groupId })
+    // 取得できないときに空の配役で上書きしない。
+    const latestSnapshot = await refreshGroup()
+    if (!latestSnapshot) {
+      toast.error('配役情報を取得できませんでした。再読み込みしてください')
+      return
+    }
+    const latest = (latestSnapshot.group.character_assignments || {}) as Record<string, string>
     setCharPreferences(latest)
     setCharDecisions({ ...latest })
     setCharConfirmStep(true)
-  }, [groupId])
+  }, [refreshGroup])
 
   const handleCharConfirmAndSend = useCallback(async () => {
     logger.log('🎭 handleCharConfirmAndSend 開始')
@@ -462,64 +331,6 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   }
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      setLoading(true)
-      try {
-        // 昇順+limitだと古い100件で打ち切られ最新の個別お知らせが表示されないため、最新100件を取得して反転する（#275）
-        const { data, error } = await supabase
-          .from('private_group_messages')
-          .select('id, group_id, member_id, message, created_at')
-          .eq('group_id', groupId)
-          .order('created_at', { ascending: false })
-          .limit(100)
-
-        if (error) throw error
-        setMessages((data || []).reverse())
-      } catch (err) {
-        logger.error('Failed to fetch messages', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchMessages()
-  }, [groupId])
-
-  // メンバー情報を保持するRef（クロージャ問題回避用）
-  const membersRef = useRef<PrivateGroupMember[]>(members)
-  useEffect(() => {
-    membersRef.current = members
-  }, [members])
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`group-chat-${groupId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'private_group_messages',
-          filter: `group_id=eq.${groupId}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as PrivateGroupMessage
-          setMessages((prev) => [...prev, newMsg])
-          
-          // 新しいメッセージの送信者がメンバー一覧にない場合は再取得
-          if (newMsg.member_id && !membersRef.current.some(m => m.id === newMsg.member_id)) {
-            fetchMembers()
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [groupId, fetchMembers])
-
-  useEffect(() => {
     scrollToBottom()
   }, [messages])
 
@@ -532,6 +343,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
       if (error) throw error
       setNewMessage('')
+      await refetchMessages()
       
       // メッセージ送信後、メンバー一覧を再取得して最新状態に
       fetchMembers()
@@ -652,7 +464,12 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
               </div>
             </div>
           )}
-          {messages.length === 0 ? (
+          {messagesError ? (
+            <div role="alert" className="text-center text-sm py-8">
+              チャットを取得できませんでした。参加時のアカウントまたはゲスト認証をご確認ください。
+              <Button variant="outline" onClick={() => void refetchMessages()}>再読み込み</Button>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
               まだメッセージがありません。<br />
               最初のメッセージを送信してみましょう！

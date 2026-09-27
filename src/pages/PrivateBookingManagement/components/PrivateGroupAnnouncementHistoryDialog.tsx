@@ -1,3 +1,4 @@
+import { readPrivateGroup, readPrivateGroupMessageHistory } from '@/lib/privateGroupRead'
 import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
@@ -7,7 +8,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Loader2, MessageSquare, CheckCircle2, X, Calendar, Users, ClipboardList, AlertCircle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatJstDateTime, formatJstDateJa } from '@/utils/jstDate'
 
@@ -364,6 +364,7 @@ export function PrivateGroupAnnouncementHistoryDialog({
   const [rows, setRows] = useState<GroupMessageRow[]>([])
   const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -376,52 +377,26 @@ export function PrivateGroupAnnouncementHistoryDialog({
     let cancelled = false
     ;(async () => {
       setLoading(true)
+      setLoadError(false)
+      setRows([])
+      setMemberNames(new Map())
       try {
-        const [messagesResult, membersResult] = await Promise.all([
-          supabase
-            .from('private_group_messages')
-            .select('id, message, created_at, member_id')
-            .eq('group_id', groupId)
-            .order('created_at', { ascending: true })
-            .limit(500),
-          supabase
-            .from('private_group_members')
-            .select('id, user_id, guest_name')
-            .eq('group_id', groupId),
+        const [messages, snapshot] = await Promise.all([
+          readPrivateGroupMessageHistory(groupId),
+          readPrivateGroup({ groupId }),
         ])
-
-        if (messagesResult.error) throw messagesResult.error
-
-        const members = membersResult.data || []
-        const userIds = members.map(m => m.user_id).filter(Boolean) as string[]
-
-        const nameMap = new Map<string, string>()
-
-        if (userIds.length > 0) {
-          const { data: customers } = await supabase
-            .from('customers')
-            .select('user_id, name, nickname')
-            .in('user_id', userIds)
-          ;(customers || []).forEach((c: any) => {
-            nameMap.set(c.user_id, c.nickname || c.name || '')
-          })
+        const memberNameMap = new Map<string, string>()
+        for (const member of snapshot.group.members || []) {
+          memberNameMap.set(member.id, member.staff_display_name || member.guest_name || '参加者')
         }
 
-        const memberNameMap = new Map<string, string>()
-        members.forEach((m: any) => {
-          const name = m.user_id
-            ? (nameMap.get(m.user_id) || m.guest_name || '参加者')
-            : (m.guest_name || 'ゲスト')
-          memberNameMap.set(m.id, name)
-        })
-
         if (!cancelled) {
-          setRows(messagesResult.data || [])
+          setRows(messages)
           setMemberNames(memberNameMap)
         }
       } catch (e) {
         logger.error('グループログの取得に失敗', e)
-        if (!cancelled) setRows([])
+        if (!cancelled) { setRows([]); setLoadError(true) }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -469,6 +444,8 @@ export function PrivateGroupAnnouncementHistoryDialog({
               <Loader2 className="w-6 h-6 animate-spin mr-2" />
               読み込み中…
             </div>
+          ) : loadError ? (
+            <p role="alert" className="text-sm py-8 text-center">履歴を取得できませんでした。閉じてから再度開いてください。</p>
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
               まだメッセージがありません。

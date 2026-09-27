@@ -1,3 +1,4 @@
+import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation, readPrivateGroupMessageHistory } from '@/lib/privateGroupRead'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ export function SurveyResponsesTab({
   const [responses, setResponses] = useState<ResponseData[]>([])
   const [members, setMembers] = useState<MemberData[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null; is_npc?: boolean; survey_description?: string | null }>>([])
   const [groupId, setGroupId] = useState<string | null>(null)
   const [participantLimit, setParticipantLimit] = useState<number | null>(null)
@@ -63,117 +65,40 @@ export function SurveyResponsesTab({
   }>>([])
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError(false)
+    setQuestions([])
+    setResponses([])
+    setMembers([])
+    setCharacters([])
+    setGroupId(null)
+    setSentNotices([])
+    setConfirmedAssignments(null)
+    setCharAssignmentMethod(null)
     const loadSurveyData = async () => {
       if (!reservationId) {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
         return
       }
 
       try {
-        const { data: groupData, error: groupError } = await supabase
-          .from('private_groups')
-          .select('id, organization_id, scenario_master_id')
-          .eq('reservation_id', reservationId)
-          .maybeSingle()
-
-        if (groupError) {
-          setLoading(false)
-          return
-        }
-
-        if (!groupData) {
-          setLoading(false)
-          return
-        }
-
+        const snapshot = await readPrivateGroupByReservation(reservationId)
+        if (!snapshot) return
+        const groupData = snapshot.group
         const gId = groupData.id
         const organizationId = groupData.organization_id
-        const effectiveScenarioId = scenarioId || (groupData as any).scenario_master_id
-        setGroupId(gId)
-
-        // 配役情報を別クエリで安全に取得
-        try {
-          const { data: charData } = await supabase
-            .from('private_groups')
-            .select('character_assignments, character_assignment_method')
-            .eq('id', gId)
-            .maybeSingle()
-          if (charData) {
-            setCharAssignmentMethod((charData as any).character_assignment_method || null)
-            const ca = (charData as any).character_assignments
-            if (ca && typeof ca === 'object' && Object.keys(ca).length > 0) {
-              setConfirmedAssignments(ca as Record<string, string>)
-            } else {
-              setConfirmedAssignments(null)
-            }
-          }
-        } catch {
-          // カラム未追加の環境でもエラーにならない
-        }
-        logger.log('📋 SurveyTab: groupData found', { groupId: gId, organizationId })
-
-        // メンバー情報を取得
-        const { data: membersRaw, error: membersError } = await supabase
-          .from('private_group_members')
-          .select('id, guest_name, guest_email, user_id')
-          .eq('group_id', gId)
-        
-        if (membersError) {
-          logger.warn('📋 SurveyTab: メンバー情報取得エラー:', membersError)
-        }
-        
-        logger.log('📋 SurveyTab: メンバー取得結果', { count: membersRaw?.length, data: membersRaw })
-
-        // user_idがあるメンバーのニックネームをcustomersテーブルから取得
-        const userIds = (membersRaw || [])
-          .filter((m: any) => m.user_id)
-          .map((m: any) => m.user_id)
-        
-        const customerNicknames: Record<string, string> = {}
-        if (userIds.length > 0) {
-          try {
-            let custQ = supabase
-              .from('customers')
-              .select('user_id, nickname, name')
-              .in('user_id', userIds)
-            if (organizationId) {
-              custQ = custQ.eq('organization_id', organizationId)
-            }
-            const { data: customers, error: custError } = await custQ
-            
-            if (custError) {
-              logger.warn('📋 SurveyTab: 顧客ニックネーム取得エラー:', custError)
-            } else if (customers) {
-              customers.forEach((c: any) => {
-                // ニックネーム優先、なければ氏名
-                customerNicknames[c.user_id] = c.nickname || c.name || null
-              })
-              logger.log('📋 SurveyTab: 顧客ニックネーム取得結果', customerNicknames)
-            }
-          } catch (err) {
-            logger.warn('📋 SurveyTab: 顧客ニックネーム取得で例外:', err)
-          }
-        }
-
-        const membersData = (membersRaw || []).map((m: any) => {
-          // 名前の優先順位: customersのnickname/name > guest_name > guest_emailのローカル部分
-          let name = null
-          if (m.user_id && customerNicknames[m.user_id]) {
-            name = customerNicknames[m.user_id]
-          }
-          if (!name && m.guest_name) {
-            name = m.guest_name
-          }
-          if (!name && m.guest_email) {
-            name = m.guest_email.split('@')[0]
-          }
-          return {
-            id: m.id,
-            guest_name: name || '参加者',
-            user_id: m.user_id,
-          }
-        })
-        setMembers(membersData)
+        const effectiveScenarioId = scenarioId || groupData.scenario_master_id
+        if (!cancelled) setGroupId(gId)
+        if (!cancelled) setCharAssignmentMethod(groupData.character_assignment_method || null)
+        const assignments = groupData.character_assignments
+        if (!cancelled) setConfirmedAssignments(assignments && Object.keys(assignments).length > 0 ? assignments as Record<string, string> : null)
+        const membersData = (groupData.members || []).map(member => ({
+          id: member.id,
+          guest_name: member.staff_display_name || member.guest_name || '参加者',
+          user_id: member.user_id,
+        }))
+        if (!cancelled) setMembers(membersData)
 
         let orgScenario = null as any
         if (effectiveScenarioId) {
@@ -196,7 +121,7 @@ export function SurveyResponsesTab({
         }
 
         if (orgScenario?.player_count_max) {
-          setParticipantLimit(orgScenario.player_count_max)
+          if (!cancelled) setParticipantLimit(orgScenario.player_count_max)
         }
         
         logger.log('📋 SurveyTab: orgScenario result', { 
@@ -207,24 +132,24 @@ export function SurveyResponsesTab({
 
         if (!orgScenario?.org_scenario_id) {
           logger.log('📋 SurveyTab: no orgScenario found')
-          setLoading(false)
+          if (!cancelled) setLoading(false)
           return
         }
 
         // シナリオごとの template が優先、なければ組織のデフォルト本文を使う
         if (orgScenario.individual_notice_template) {
-          setNoticeTemplate(orgScenario.individual_notice_template)
+          if (!cancelled) setNoticeTemplate(orgScenario.individual_notice_template)
         } else {
           const { data: gs } = await supabase
             .from('global_settings')
             .select('individual_notice_default_body')
             .eq('organization_id', organizationId)
             .maybeSingle()
-          setNoticeTemplate((gs as { individual_notice_default_body?: string | null } | null)?.individual_notice_default_body || null)
+          if (!cancelled) setNoticeTemplate((gs as { individual_notice_default_body?: string | null } | null)?.individual_notice_default_body || null)
         }
 
         if (orgScenario.characters) {
-          setCharacters(orgScenario.characters.map((c: any) => ({
+          if (!cancelled) setCharacters(orgScenario.characters.map((c: any) => ({
             id: c.id,
             name: c.name,
             url: c.url || null,
@@ -233,7 +158,7 @@ export function SurveyResponsesTab({
           })))
         }
 
-        const { data: questionsData } = await supabase
+        const { data: questionsData, error: questionsError } = await supabase
           .from('org_scenario_survey_questions')
           .select(
             'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
@@ -241,32 +166,19 @@ export function SurveyResponsesTab({
           .eq('org_scenario_id', orgScenario.org_scenario_id)
           .order('order_num', { ascending: true })
 
+        if (questionsError) throw questionsError
         if (questionsData && questionsData.length > 0) {
-          setQuestions(questionsData)
+          if (!cancelled) setQuestions(questionsData)
         }
 
-        const { data: responsesData, error: responsesError } = await supabase
-          .from('private_group_survey_responses')
-          .select('member_id, responses, submitted_at')
-          .eq('group_id', gId)
-
-        logger.log('📋 SurveyTab: responses query', { 
-          groupId: gId, 
-          responsesData, 
-          responsesError,
-          memberIds: membersData.map((m: MemberData) => m.id)
-        })
+        const responsesData = await readPrivateGroupSurveyResponses(gId)
 
         if (responsesData) {
-          setResponses(responsesData)
+          if (!cancelled) setResponses(responsesData)
         }
 
         // 送信履歴を取得
-        const { data: noticeMessages } = await supabase
-          .from('private_group_messages')
-          .select('id, message, created_at')
-          .eq('group_id', gId)
-          .order('created_at', { ascending: false })
+        const noticeMessages = (await readPrivateGroupMessageHistory(gId)).reverse()
 
         if (noticeMessages) {
           const notices = noticeMessages
@@ -287,16 +199,18 @@ export function SurveyResponsesTab({
               return null
             })
             .filter((x): x is NonNullable<typeof x> => x !== null)
-          setSentNotices(notices)
+          if (!cancelled) setSentNotices(notices)
         }
       } catch (err) {
         logger.error('アンケートデータ読み込みエラー:', err)
+        if (!cancelled) setLoadError(true)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
-    loadSurveyData()
+    void loadSurveyData()
+    return () => { cancelled = true }
   }, [reservationId, scenarioId])
 
   const toggleMember = (memberId: string) => {
@@ -381,6 +295,8 @@ export function SurveyResponsesTab({
       setSendingMessage(null)
     }
   }
+
+  if (loadError) return <p role="alert" className="text-sm p-4">アンケートを取得できませんでした。画面を開き直してください。</p>
 
   if (loading) {
     return (

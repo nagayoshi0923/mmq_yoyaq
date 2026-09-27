@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { readPrivateGroup, readPrivateGroupList } from '@/lib/privateGroupRead'
 import { supabase } from '@/lib/supabase'
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -10,9 +11,6 @@ import type {
   PrivateGroupCandidateDate,
   DateResponse,
 } from '@/types'
-import {
-  enrichGroupWithViewData,
-} from './privateGroupHelpers'
 
 interface CandidateDateInput {
   date: string
@@ -96,42 +94,10 @@ export function usePrivateGroup() {
   const getGroupByInviteCode = async (inviteCode: string): Promise<PrivateGroup | null> => {
     setLoading(true)
     setError(null)
-
     try {
-      // anon は private_group_members を直接取得できないため、
-      // グループ本体と候補日程のみ取得し、メンバーは RPC 経由で取得
-      const { data, error } = await supabase
-        .from('private_groups')
-        .select(`
-          *,
-          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
-          candidate_dates:private_group_candidate_dates (
-            *,
-            responses:private_group_date_responses (*)
-          )
-        `)
-        .eq('invite_code', inviteCode)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null
-        }
-        throw error
-      }
-
-      // メンバー情報を RPC 経由で取得（PII 保護）
-      const { data: members } = await supabase.rpc('get_group_members_by_invite_code', {
-        p_invite_code: inviteCode,
-      })
-      data.members = members || []
-
-      await enrichGroupWithViewData(data)
-
-      return data as PrivateGroup
-
-    } catch (err: any) {
-      setError(err.message)
+      return (await readPrivateGroup({ inviteCode })).group
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'グループを取得できませんでした')
       throw err
     } finally {
       setLoading(false)
@@ -141,40 +107,10 @@ export function usePrivateGroup() {
   const getGroupById = async (groupId: string): Promise<PrivateGroup | null> => {
     setLoading(true)
     setError(null)
-
     try {
-      const { data, error } = await supabase
-        .from('private_groups')
-        .select(`
-          *,
-          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
-          candidate_dates:private_group_candidate_dates (
-            *,
-            responses:private_group_date_responses (*)
-          )
-        `)
-        .eq('id', groupId)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null
-        }
-        throw error
-      }
-
-      // メンバー情報を RPC 経由で取得（認証済みユーザー用）
-      const { data: members } = await supabase.rpc('get_group_members_by_group_id', {
-        p_group_id: groupId,
-      })
-      data.members = members || []
-
-      await enrichGroupWithViewData(data)
-
-      return data as PrivateGroup
-
-    } catch (err: any) {
-      setError(err.message)
+      return (await readPrivateGroup({ groupId })).group
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'グループを取得できませんでした')
       throw err
     } finally {
       setLoading(false)
@@ -189,19 +125,7 @@ export function usePrivateGroup() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return []
 
-      const { data, error } = await supabase
-        .from('private_groups')
-        .select(`
-          *,
-          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
-          members:private_group_members (*)
-        `)
-        .eq('organizer_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      return (data || []) as PrivateGroup[]
+      return await readPrivateGroupList('organized')
 
     } catch (err: any) {
       setError(err.message)
