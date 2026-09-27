@@ -8,6 +8,8 @@ import { recordCancellationIntake } from './_lib/cancellation-payments/intake.js
 import { assertCustomerSelfCancelAllowed } from './_lib/customerCancellation.js'
 
 function groupCancellationError(error: { code?: string; message?: string } | null) {
+  if (error?.code === 'P0052') return { status: 400, message: 'キャンセル期限を過ぎているか、料金が発生するため、店舗へご連絡ください。' }
+  if (error?.code === 'P0053') return { status: 409, message: '予約時のキャンセル規定を確認できません。店舗へお問い合わせください。' }
   if (error?.code === 'P0050' || error?.code === 'P0051') {
     return { status: 409, message: '予約と貸切グループの紐づきが一致しません。取消は保存されていません。店舗管理者に確認してください。' }
   }
@@ -43,7 +45,7 @@ const CUSTOMER_SELECT_FIELDS =
 const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS = `${RESERVATION_SELECT_FIELDS}, customers(${CUSTOMER_SELECT_FIELDS})`
 
 const SCHEDULE_EVENT_EMBED_FOR_CANCEL =
-  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, is_cancelled, gms, store_id)'
+  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, is_cancelled, gms, store_id, category)'
 
 const RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS = `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_CANCEL}`
 

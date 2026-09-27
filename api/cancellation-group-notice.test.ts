@@ -30,3 +30,9 @@ it.each(['P0050','P0051','55P03'])('整合性/競合エラー%sでは保存さ�
   const res=await cancel('cancel')
   expect(res.status).toHaveBeenCalledWith(409);expect(mock.billing).not.toHaveBeenCalled();expect(mock.from).not.toHaveBeenCalledWith('private_group_messages')
 })
+
+it.each([['P0052',400,'キャンセル期限'],['P0053',409,'キャンセル規定']])('DBの顧客規定エラー%sを案内し料金保存をしない',async(code,status,message)=>{
+ mock.rpc.mockResolvedValue({data:null,error:{code,message:'internal'}})
+ const res=await cancel('cancel')
+ expect(res.status).toHaveBeenCalledWith(status);expect(res.json).toHaveBeenCalledWith(expect.objectContaining({error:expect.stringContaining(message)}));expect(mock.billing).not.toHaveBeenCalled()
+})
