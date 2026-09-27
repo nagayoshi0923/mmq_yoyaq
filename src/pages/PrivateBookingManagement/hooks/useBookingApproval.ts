@@ -544,7 +544,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     }
   }, [organizationId])
 
-  // 予約・公演・グループ・チャット通知はサーバーで一括保存する。
+  // 予約・公演・グループ・チャット通知とメール送信予定はサーバーで一括保存する。
   const handleRejectConfirm = useCallback(async (_selectedRequest?: PrivateBookingRequest | null) => {
     if (!rejectRequestId || !rejectionReason.trim() || !organizationId) return
     setSubmitting(true)
@@ -558,20 +558,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       setShowRejectDialog(false)
       setRejectRequestId(null)
       setRejectionReason('')
-      showToast.success('貸切リクエストを却下しました', '却下メールを送信しています')
-      // 宛先・作品・候補日はEdgeが保存済み予約から取得。グループなしの旧貸切も送信する。
-      const { data, error } = await supabase.functions.invoke('send-private-booking-rejection', {
-        body: {
-          organizationId, reservationId: rejectRequestId,
-          customEmailBody: rejectionReason, rejectionReason: DEFAULT_REJECTION_REASON,
-        },
-      })
-      if (error || data?.success !== true) {
-        logger.error('却下メール送信未確認:', error || data)
-        showToast.warning('却下は保存済みですが、メール送信を確認できません', '予約を再度却下せず、通知履歴を確認して個別にご連絡ください')
-      } else {
-        showToast.success('却下メールを送信しました')
-      }
+      showToast.success('貸切リクエストを却下しました', 'メールの送信予定を保存しました。却下済み一覧で送信状況を確認できます')
     } catch (error) {
       logger.error('却下エラー:', error)
       if (saved) {

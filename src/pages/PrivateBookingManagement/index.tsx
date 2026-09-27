@@ -24,6 +24,7 @@ import { showToast } from '@/utils/toast'
 import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNotificationForGm } from '@/lib/api/privateBookingNotificationApi'
 
 // 分離されたコンポーネント
+import { useRejectionDeliveryStatus } from './hooks/useRejectionDeliveryStatus'
 import { BookingRequestCard } from './components/BookingRequestCard'
 import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
@@ -677,6 +678,7 @@ export function PrivateBookingManagement() {
           ? approvedRequests
           : visibleRequests
   const filteredRequests = applyLimit(baseRequests)
+  const rejectionDeliveries = useRejectionDeliveryStatus(organizationId, filteredRequests.filter(r => r.status === 'cancelled').map(r => r.id))
 
   if (loading || requestsError) {
     return (
@@ -845,6 +847,10 @@ export function PrivateBookingManagement() {
                   <BookingRequestCard
                     key={req.id}
                     request={req}
+                    rejectionDelivery={rejectionDeliveries.data?.find(row => row.reservation_id === req.id)}
+                    rejectionDeliveryError={rejectionDeliveries.isError}
+                    onRetryRejectionDelivery={() => rejectionDeliveries.retry(req.id)}
+                    retryingRejectionDelivery={rejectionDeliveries.retrying}
                     onResendDiscordNotification={handleResendDiscordNotification}
                     onResendDiscordGm={handleResendDiscordGm}
                     gmList={allGMs}

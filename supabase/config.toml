@@ -116,3 +116,6 @@ verify_jwt = false
 # メールから開く公開OAuth入口。Discord本人確認は関数内で行う。
 [functions.senshin-discord-join]
 verify_jwt = false
+
+[functions.process-private-rejection-deliveries]
+verify_jwt = false

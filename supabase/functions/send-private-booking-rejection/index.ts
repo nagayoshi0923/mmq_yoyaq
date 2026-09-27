@@ -67,7 +67,7 @@ serve(async (req) => {
       return errorResponse('この組織の却下通知を送信する権限がありません', 403, corsHeaders)
     }
     const { data: reservation, error: reservationError } = await serviceClient.from('reservations')
-      .select('id,organization_id,status,private_group_id,reservation_source,schedule_event_id,customer_email,customer_name,title,candidate_datetimes,customers(email,name)')
+      .select('id,organization_id,status,cancelled_at,private_group_id,reservation_source,schedule_event_id,customer_email,customer_name,title,candidate_datetimes,customers(email,name)')
       .eq('id', input.reservationId).eq('organization_id', input.organizationId).maybeSingle()
     if (reservationError) return errorResponse('予約を確認できませんでした', 503, corsHeaders)
     if (!reservation) return errorResponse('予約が見つかりません', 404, corsHeaders)
@@ -91,6 +91,18 @@ serve(async (req) => {
       if (!group || group.reservation_id !== reservation.id || group.status !== 'date_adjusting') {
         return errorResponse('貸切の状態が変わっています。再読込してください', 409, corsHeaders)
       }
+    }
+    // 新しい保存入口で作られた世代は永続ワーカーだけが送る。
+    // 古い画面が送信APIを呼んでも、同じメールを直接送信しない。
+    if (reservation.cancelled_at) {
+      const { data: delivery, error: deliveryError } = await serviceClient.from('private_booking_rejection_deliveries')
+        .select('status').eq('reservation_id', reservation.id).eq('organization_id', reservation.organization_id)
+        .eq('cancelled_at', reservation.cancelled_at).maybeSingle()
+      if (deliveryError) return errorResponse('送信記録を確認できませんでした', 503, corsHeaders)
+      if (delivery) return new Response(JSON.stringify({
+        success: delivery.status === 'sent', queued: ['pending', 'sending'].includes(delivery.status), deliveryStatus: delivery.status,
+        message: '却下済み一覧の送信状況を確認してください',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     const customer = Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers
     const recipient = (reservation.customer_email || customer?.email || '').trim()
