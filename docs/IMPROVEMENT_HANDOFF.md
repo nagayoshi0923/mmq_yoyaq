@@ -1043,3 +1043,8 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - Rollout: preparation migration 20260927120000, seven Edge functions and dedicated cron secret, activation 20260927120100, then frontend. Rollback preserves queued jobs and workers.
 - Actual SQL fixtures cover atomicity, authorization, compatibility deduplication, correction conflicts, reconciliation, and preparation recovery. Transport/worker/receipt tests, Edge checks and npm run verify pass. Staging DDL transaction rehearsal passed and rolled back. Independent review findings resolved; no additional P1/P2. No real customer writes or notifications used for tests.
 - Pending: staging/production rollout, acceptance, ER and canonical shared records.
+
+### QW-20260917-001 / PR627 follow-up (not deployed)
+- PR627/main e7e297f6: production DB/Edges/frontend deployed; private booking list and notification history read-only acceptance passed. Late automated review added three findings; workflow success did not mean no findings.
+- Explicit workflow_dispatch release_phase=prepare-edges verifies preparation migrations while deferring only registered activation migrations. Apply activation after successful Edge deployment via selected npm DB workflow, then run complete. Ordinary push/default complete still requires all changed migrations; arbitrary migrations cannot bypass the guard.
+- Delivery history exposes retry/preparation-resume only for the current booking generation. Provider receipt reconciliation remains available for stopped attempted deliveries. Discord targets normalize individually; invalid fallback no longer blocks a valid primary. No data backfill or real notifications for tests.
