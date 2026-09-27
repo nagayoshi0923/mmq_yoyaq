@@ -18,7 +18,6 @@ import { OtherPoliciesSection } from './cancellationSettings/OtherPoliciesSectio
 import { OpenPolicySection } from './cancellationSettings/OpenPolicySection'
 import { PrivatePolicySection } from './cancellationSettings/PrivatePolicySection'
 import type { CancellationFeeBasis } from '@/types'
-import { toJstYmd } from '@/utils/jstDate'
 import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
 import { CancellationPolicyView } from '@/components/patterns/cancellation/CancellationPolicyView'
 import type { PublicCancellationPolicy } from '@/lib/publicCancellationPolicy'
@@ -81,8 +80,6 @@ export interface CancellationSettings {
   // 共通
   auto_refund_enabled: boolean
   refund_processing_days: number
-  // 最終更新日
-  policy_updated_at: string
 }
 
 interface CancellationSettingsProps {
@@ -146,7 +143,6 @@ function createDefaultCancellationSettings(storeId: string): CancellationSetting
     refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
     auto_refund_enabled: false,
     refund_processing_days: 7,
-    policy_updated_at: toJstYmd(new Date()),
   }
 }
 
@@ -366,7 +362,8 @@ export function CancellationSettings({ storeId = '', scope = 'store', targetId }
     private_reservation_change_deadline_hours: formData.private_reservation_change_deadline_hours,
     private_reservation_change_note: formData.private_reservation_change_note,
     refund_method_note: formData.refund_method_note,
-    policy_updated_at: formData.policy_updated_at,
+    // 未保存の編集内容に保存済みの更新日を付けない。公開ページはDBの保存日時を表示する。
+    policy_updated_at: null,
     source: 'rpc',
   }
 
