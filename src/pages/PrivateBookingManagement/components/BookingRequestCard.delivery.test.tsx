@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe,expect,it,vi } from 'vitest'
 import { BookingRequestCard } from './BookingRequestCard'
@@ -5,7 +6,7 @@ import type { RejectionDeliveryStatus } from '../hooks/useRejectionDeliveryStatu
 vi.mock('@/lib/supabase',()=>({supabase:{}}))
 const request={id:'r',reservation_number:'R-1',scenario_title:'作品',customer_name:'幹事',participant_count:4,status:'cancelled',created_at:'2026-09-27T00:00:00Z'}
 function render(status:RejectionDeliveryStatus['status'],retry=false,error=false){
- return renderToStaticMarkup(<BookingRequestCard request={request} rejectionDelivery={{reservation_id:'r',status,can_retry:retry,attempt_count:1,last_error:null,updated_at:'2026-09-27T00:00:00Z'}} rejectionDeliveryError={error} onRetryRejectionDelivery={()=>{}} />)
+ return renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}><BookingRequestCard request={request} rejectionDelivery={{reservation_id:'r',status,can_retry:retry,attempt_count:1,last_error:null,updated_at:'2026-09-27T00:00:00Z'}} rejectionDeliveryError={error} onRetryRejectionDelivery={()=>{}} /></QueryClientProvider>)
 }
 describe('却下メール状態表示',()=>{
  it('待機と受付済みを区別し、到達を保証しない',()=>{
