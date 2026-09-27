@@ -36,6 +36,7 @@ import {
   PENDING_SAVE_MESSAGE,
   buildCancelMailComposer,
 } from '@/hooks/eventOperations/useEventDelete'
+import { cancelEventReservationsSerially } from '@/hooks/eventOperations/cancelEventReservationsSerially'
 import type { DeleteCancelPrompt, DeleteCancelDecision } from '@/components/schedule/DeleteEventCancelDialog'
 
 interface UseEventCancelProps {
@@ -149,73 +150,53 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       }
 
       // 通常公演の場合、予約者全員の予約をキャンセル（＋選択時はメール送信）
-      try {
-        let reservationsQuery = supabase
-          .from('reservations')
-          .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-          .eq('schedule_event_id', targetEvent.id)
-          // 確認ダイアログの件数（fetchActiveReservations = キャンセル済み以外）と
-          // 揃える。従来の in('confirmed','pending') では gm_confirmed が漏れていた
-          .neq('status', 'cancelled')
-        if (organizationId) {
-          reservationsQuery = reservationsQuery.eq('organization_id', organizationId)
-        }
-        const { data: reservations, error: resError } = await reservationsQuery
+      // 同一 schedule_events 行の NOWAIT ロック競合を避けるため直列実行する
+      let reservationsQuery = supabase
+        .from('reservations')
+        .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
+        .eq('schedule_event_id', targetEvent.id)
+        // 確認ダイアログの件数（fetchActiveReservations = キャンセル済み以外）と
+        // 揃える。従来の in('confirmed','pending') では gm_confirmed が漏れていた
+        .neq('status', 'cancelled')
+      if (organizationId) {
+        reservationsQuery = reservationsQuery.eq('organization_id', organizationId)
+      }
+      const { data: reservations, error: resError } = await reservationsQuery
 
-        if (resError) throw resError
+      if (resError) throw resError
 
-        if (reservations && reservations.length > 0) {
-          // 各予約をキャンセル状態に更新＋（選択時）メール送信
-          const cancelPromises = reservations.map(async (reservation) => {
-            // 予約ステータスをcancelledに更新
-            try {
-              await reservationApi.cancelWithLock(
-                reservation.id,
-                reservation.customer_id ?? null,
-                reason
-              )
-              logger.log(`予約${reservation.reservation_number}をキャンセル済みに更新`)
-            } catch (cancelError) {
-              logger.error(`予約${reservation.reservation_number}のキャンセル更新エラー:`, cancelError)
-            }
-
-            if (!sendMail) return
+      if (reservations && reservations.length > 0) {
+        await cancelEventReservationsSerially({
+          reservations,
+          reason,
+          sendMail,
+          cancelWithLock: reservationApi.cancelWithLock.bind(reservationApi),
+          sendCancellationEmail: async (reservation) => {
             const perfCancelCustomer = joinedCustomerFromReservation(reservation.customers)
             if (!perfCancelCustomer) return
-
-            try {
-              await supabase.functions.invoke('send-cancellation-confirmation', {
-                body: {
-                  organizationId: organizationId,
-                  storeId: targetEvent.store_id,
-                  reservationId: reservation.id,
-                  customerEmail: perfCancelCustomer.email,
-                  customerName: perfCancelCustomer.name,
-                  scenarioTitle: reservation.title || targetEvent.scenario,
-                  eventDate: targetEvent.date,
-                  startTime: targetEvent.start_time,
-                  endTime: targetEvent.end_time,
-                  storeName: targetEvent.venue,
-                  participantCount: reservation.participant_count,
-                  totalPrice: reservation.total_price || 0,
-                  reservationNumber: reservation.reservation_number,
-                  cancelledBy: 'store',
-                  cancellationReason: reason,
-                  // ダイアログで全文編集された本文（あればテンプレート生成より優先）
-                  customEmailBody: customBodies?.[reservation.id]
-                }
-              })
-            } catch (emailErr) {
-              logger.error(`予約${reservation.reservation_number}へのメール送信エラー:`, emailErr)
-            }
-          })
-
-          await Promise.all(cancelPromises)
-          logger.log(`${reservations.length}件の予約をキャンセル処理完了`)
-        }
-      } catch (emailError) {
-        logger.error('予約キャンセル処理エラー:', emailError)
-        // 処理失敗しても公演中止は続行
+            await supabase.functions.invoke('send-cancellation-confirmation', {
+              body: {
+                organizationId: organizationId,
+                storeId: targetEvent.store_id,
+                reservationId: reservation.id,
+                customerEmail: perfCancelCustomer.email,
+                customerName: perfCancelCustomer.name,
+                scenarioTitle: reservation.title || targetEvent.scenario,
+                eventDate: targetEvent.date,
+                startTime: targetEvent.start_time,
+                endTime: targetEvent.end_time,
+                storeName: targetEvent.venue,
+                participantCount: reservation.participant_count,
+                totalPrice: reservation.total_price || 0,
+                reservationNumber: reservation.reservation_number,
+                cancelledBy: 'store',
+                cancellationReason: reason,
+                customEmailBody: customBodies?.[reservation.id],
+              },
+            })
+          },
+        })
+        logger.log(`${reservations.length}件の予約をキャンセル処理完了`)
       }
     }
   }, [setEvents, organizationId])
