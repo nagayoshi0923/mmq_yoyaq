@@ -1,8 +1,9 @@
--- 検証用追加を適用した環境だけ、取得済みlive定義と実行権限を復元する。
--- 本番は20260927105000未適用のため何もしない。業務データは変更しない。
+-- 検証用追加を適用した環境だけ、取得済みlive定義を安全修正した定義と実行権限を復元する。
+-- 復元時もニックネームは対象グループと同じ組織の顧客行だけから取得する。
+-- 履歴ファイルだけを適用した本番では何もしない。記録された元DDLも照合する。
 DO $rollback$
 BEGIN
- IF EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20260927105000') THEN
+ IF EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20260927105000' AND position('CREATE FUNCTION public.private_group_read_invitations' in array_to_string(statements,E'\n'))>0) THEN
   EXECUTE $definition$CREATE OR REPLACE FUNCTION public.private_group_manage_invitation(p_group_id uuid, p_action text, p_target_user_id uuid DEFAULT NULL::uuid, p_invitation_id uuid DEFAULT NULL::uuid, p_email text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -83,7 +84,7 @@ BEGIN
  SELECT * INTO target FROM public.users WHERE lower(email)=email_value;
  IF target.id=actor THEN RAISE EXCEPTION '自分自身を招待することはできません' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT 1 FROM public.private_group_members WHERE group_id=p_group_id AND user_id=target.id AND status='joined') THEN RAISE EXCEPTION 'このユーザーは既にメンバーです' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_object('id',target.id,'email',email_value,'display_name',(SELECT NULLIF(c.nickname,'') FROM public.customers c WHERE c.user_id=target.id ORDER BY c.id LIMIT 1));
+ RETURN jsonb_build_object('id',target.id,'email',email_value,'display_name',(SELECT NULLIF(c.nickname,'') FROM public.customers c WHERE c.user_id=target.id AND c.organization_id=(SELECT organization_id FROM public.private_groups WHERE id=p_group_id) ORDER BY c.id LIMIT 1));
 END $function$$definition$;
   REVOKE ALL ON FUNCTION public.private_group_read_invitations(uuid,uuid,integer),public.private_group_search_invitee(uuid,text),public.private_group_manage_invitation(uuid,text,uuid,uuid,text) FROM PUBLIC,anon;
   GRANT EXECUTE ON FUNCTION public.private_group_read_invitations(uuid,uuid,integer),public.private_group_search_invitee(uuid,text),public.private_group_manage_invitation(uuid,text,uuid,uuid,text) TO authenticated,service_role;
