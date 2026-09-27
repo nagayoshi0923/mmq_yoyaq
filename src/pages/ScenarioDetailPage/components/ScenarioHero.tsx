@@ -1,3 +1,4 @@
+import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { memo, useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -121,18 +122,9 @@ export const ScenarioHero = memo(function ScenarioHero({
         }
 
         // 予約から体験済みか確認
-        const { data: reservation } = await supabase
-          .from('reservations')
-          .select('id')
-          .eq('customer_id', customer.id)
-          .eq('scenario_master_id', scenario.scenario_master_id)
-          .in('status', ['confirmed', 'gm_confirmed'])
-          .lte('requested_datetime', new Date().toISOString())
-          .limit(1)
-          .maybeSingle()
-        
+        const reservations = await fetchPlayedReservations(customer.id, scenario.scenario_master_id)
         if (!active) return
-        if (reservation) {
+        if (reservations.length) {
           setIsPlayed(true)
           return
         }

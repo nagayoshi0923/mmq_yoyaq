@@ -1,3 +1,4 @@
+import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
  * シナリオ共通詳細ページ
@@ -271,8 +272,8 @@ async function checkIsPlayed(customerId: string, scenarioId: string): Promise<bo
   const history = await customerPlayHistory.snapshot(customerId)
   const override = history.overrides.some(row => row.scenario_master_id === scenarioId)
   if (override) return false
-  const { data: reservation } = await supabase.from('reservations').select('id').eq('customer_id', customerId).eq('scenario_master_id', scenarioId).in('status', ['confirmed', 'gm_confirmed']).lte('requested_datetime', new Date().toISOString()).limit(1).maybeSingle()
-  if (reservation) return true
+  const reservations = await fetchPlayedReservations(customerId, scenarioId)
+  if (reservations.length) return true
   return history.manual.some(row => row.scenario_master_id === scenarioId)
 }
 

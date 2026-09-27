@@ -1,3 +1,4 @@
+import { isPlayedReservation } from '@/lib/playedStatus'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
  * 顧客別 体験済みシナリオ管理（管理画面・スタッフ用 / 予約台帳 Step B）。
@@ -34,7 +35,6 @@ interface CustomerPlayedManagerProps {
   customerId: string
 }
 
-const ACTIVE_PLAYED_STATUSES = ['confirmed', 'gm_confirmed', 'checked_in', 'completed']
 
 export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps) {
   const [reservationItems, setReservationItems] = useState<PlayedItem[]>([])
@@ -66,8 +66,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
         customerApi.playedScenarioOptions(),
       ])
       if (request !== requestGeneration.current) return
-      const resvRes = { data: reservations.filter(row => ACTIVE_PLAYED_STATUSES.includes(row.status)
-        && new Date(row.requested_datetime).getTime() <= Date.now()) }
+      const resvRes = { data: reservations.filter(row => isPlayedReservation(row)) }
       const manualRes = { data: history.manual }
       const overrides = new Set(history.overrides.map(row => row.scenario_master_id))
       setCanEdit(history.can_edit === true)
@@ -213,7 +212,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
             ) : (
               <div className="space-y-1.5 mb-2 max-h-[280px] overflow-y-auto pr-1">
                 {(showAllItems ? mergedItems : mergedItems.slice(0, PLAYED_PREVIEW_COUNT)).map(item => {
-                  const overridden = item.source === 'reservation' && isOverridden(item.scenarioMasterId)
+                  const overridden = isOverridden(item.scenarioMasterId)
                   return (
                     <div key={item.source === 'manual' ? `m-${item.manualId}` : `r-${item.scenarioMasterId}`} className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex items-center gap-2">
