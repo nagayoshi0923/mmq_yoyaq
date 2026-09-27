@@ -5,13 +5,7 @@ import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
 import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistory.js'
 import { recordCancellationIntake } from './_lib/cancellation-payments/intake.js'
-import {
-  canCustomerSelfCancel,
-  resolveCancellationPolicy,
-  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
-  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-  type CalculableCancellationPolicy,
-} from '../src/lib/cancellationPolicy.js'
+import { assertCustomerSelfCancelAllowed } from './_lib/customerCancellation.js'
 
 function groupCancellationError(error: { code?: string; message?: string } | null) {
   if (error?.code === 'P0050' || error?.code === 'P0051') {
@@ -57,94 +51,6 @@ const SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL =
   'schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)'
 
 const RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS = `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL}`
-
-const CUSTOMER_CANCEL_BLOCKED_MESSAGE =
-  'キャンセル料金が発生する期間のため、マイページからのキャンセルはできません。店舗へご連絡ください。'
-
-type CancelScheduleEvent = {
-  date?: string | null
-  start_time?: string | null
-  store_id?: string | null
-  is_private_booking?: boolean | null
-  category?: string | null
-}
-
-/** 顧客セルフキャンセルの受付期限を超えていないか検証。スタッフはスキップ。 */
-async function assertCustomerSelfCancelAllowed(
-  user: AuthUser,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  reservation: any,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  if (user.role !== 'customer') return { ok: true }
-
-  const scheduleEventRaw = reservation.schedule_events
-  const scheduleEvent = (Array.isArray(scheduleEventRaw) ? scheduleEventRaw[0] : scheduleEventRaw) as
-    | CancelScheduleEvent
-    | null
-    | undefined
-
-  if (!scheduleEvent?.date || !scheduleEvent?.start_time) {
-    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-  }
-
-  const isPrivate = Boolean(
-    reservation.private_group_id
-      || scheduleEvent.is_private_booking
-      || scheduleEvent.category === 'private',
-  )
-
-  let settingsDeadlineHours = isPrivate
-    ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
-    : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
-  const storeId = scheduleEvent.store_id || reservation.store_id
-  if (storeId && db) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: settingsData } = await (db as any)
-      .from('reservation_settings')
-      .select('cancellation_deadline_hours, private_cancellation_deadline_hours')
-      .eq('store_id', storeId)
-      .maybeSingle()
-    if (settingsData) {
-      settingsDeadlineHours = isPrivate
-        ? (settingsData.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS)
-        : (settingsData.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS)
-    }
-  }
-
-  const resolved = resolveCancellationPolicy(reservation)
-  if (resolved.status !== 'ready') {
-    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-  }
-
-  const policy: CalculableCancellationPolicy = resolved.source === 'legacy_default'
-    ? { ...resolved, deadlineHours: settingsDeadlineHours }
-    : resolved
-
-  const participantTotal = reservation.final_price
-    ?? reservation.total_price
-    ?? ((reservation.unit_price || 0) * (reservation.participant_count || 0))
-
-  try {
-    const allowed = canCustomerSelfCancel({
-      performanceDate: scheduleEvent.date,
-      performanceStartTime: scheduleEvent.start_time,
-      now: new Date(),
-      policy,
-      basisAmounts: {
-        participant_total: Number(participantTotal) || 0,
-        performance_total: Number(participantTotal) || 0,
-      },
-    })
-    if (!allowed) {
-      return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-    }
-  } catch (error) {
-    console.error('[reservations:cancel] customer self-cancel check failed:', error)
-    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-  }
-
-  return { ok: true }
-}
 
 const RESERVATION_SUMMARY_SELECT_FIELDS =
   'schedule_event_id, date, venue, scenario, start_time, end_time, max_participants, current_reservations, available_seats, reservation_count'
