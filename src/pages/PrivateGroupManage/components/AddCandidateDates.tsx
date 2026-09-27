@@ -3,23 +3,17 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Loader2, Calendar } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateGroupCandidateDate } from '@/types'
-import { privateGroupTimeSlotFromDb, privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
-import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { privateGroupTimeSlotFromDb } from '@/lib/privateGroupTimeSlot'
+import { addPrivateGroupCandidates } from '@/lib/privateGroupCandidateDates'
 import type { PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
 import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
-import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
-import {
-  getPrivateBookingCandidateBlockedState,
-  type PrivateBookingBlockedSlotRow,
-} from '@/lib/privateBookingBlockedSlotAvailability'
-import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
+import { formatJstDateJa } from '@/utils/jstDate'
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -46,7 +40,6 @@ interface AddCandidateDatesProps {
   storeIds: string[]
   existingDates: PrivateGroupCandidateDate[]
   onDatesAdded: () => void
-  organizerMemberId?: string
 }
 
 export function AddCandidateDates({
@@ -56,7 +49,6 @@ export function AddCandidateDates({
   storeIds,
   existingDates,
   onDatesAdded,
-  organizerMemberId,
 }: AddCandidateDatesProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() =>
@@ -68,9 +60,11 @@ export function AddCandidateDates({
     Array<{ date: string; slot: PrivateBookingSlot }>
   >([])
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  const pendingRequestRef = useRef<{ fingerprint: string; id: string } | null>(null)
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
 
-  const { isCustomHoliday } = useCustomHolidays()
+  const { isCustomHoliday, isLoading: holidaysLoading, error: holidaysError } = useCustomHolidays({ organizationId })
   const MAX_SELECTIONS = 100
 
   // 予約受付締切（公演日の何日前まで候補にできるか）。設定 > 予約設定の値
@@ -86,7 +80,7 @@ export function AddCandidateDates({
     organizationId,
     scenarioId,
     storeIds,
-    isActive: isOpen,
+    isActive: isOpen && !holidaysLoading && !holidaysError,
     isCustomHoliday,
   })
 
@@ -184,7 +178,7 @@ export function AddCandidateDates({
       emptyMonthAutoSkipRef.current = 0
       return
     }
-    if (loading || deadlineLoading) return
+    if (loading || deadlineLoading || holidaysLoading || holidaysError) return
 
     if (!wasOpenRef.current) {
       wasOpenRef.current = true
@@ -200,9 +194,10 @@ export function AddCandidateDates({
     if (emptyMonthAutoSkipRef.current >= 24) return
     emptyMonthAutoSkipRef.current += 1
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-  }, [isOpen, loading, deadlineLoading, availableDates.length, currentMonth, minAdvanceDays])
+  }, [isOpen, loading, deadlineLoading, holidaysLoading, holidaysError, availableDates.length, currentMonth, minAdvanceDays])
 
   const handleSlotToggle = useCallback((date: string, slot: PrivateBookingSlot) => {
+    if (savingRef.current || holidaysLoading || holidaysError) return
     setSelectedSlots(prev => {
       const existingIndex = prev.findIndex(
         s => s.date === date && s.slot.label === slot.label
@@ -219,93 +214,33 @@ export function AddCandidateDates({
         return slotOrder[a.slot.label] - slotOrder[b.slot.label]
       })
     })
-  }, [MAX_SELECTIONS])
+  }, [MAX_SELECTIONS, holidaysLoading, holidaysError])
 
   const handleSave = async () => {
-    if (selectedSlots.length === 0) return
-
-    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), minAdvanceDays)
-    const tooSoon = selectedSlots.some(s => s.date < minStr)
-    if (tooSoon) {
-      showToast.error(`候補日は本日より${minAdvanceDays}日後以降のみ選べます`)
-      return
-    }
-
+    if (selectedSlots.length === 0 || savingRef.current || holidaysLoading || holidaysError || loading || deadlineLoading) return
+    savingRef.current = true
     setSaving(true)
     try {
-      const selectedDates = selectedSlots.map((slot) => slot.date).sort()
-      const availabilityParams: RpcGetPublicPrivateBookingAvailabilityParams = {
-        p_organization_id: organizationId,
-        p_store_ids: storeIds,
-        p_start_date: selectedDates[0],
-        p_end_date: selectedDates[selectedDates.length - 1],
-      }
-      const { data: latestBlockedRows, error: blockedError } = await supabase.rpc(
-        'get_public_private_booking_availability',
-        availabilityParams
-      )
-      if (blockedError) throw blockedError
-
-      const invalidSlots = selectedSlots.filter((slot) =>
-        getPrivateBookingCandidateBlockedState(
-          { date: slot.date, timeSlot: slot.slot.label },
-          storeIds,
-          (latestBlockedRows || []) as PrivateBookingBlockedSlotRow[]
-        ).allStoresBlocked
-      )
-      if (invalidSlots.length > 0) {
-        const labels = invalidSlots
-          .map((slot) => `${formatJstMonthDay(slot.date)} ${slot.slot.label}`)
-          .join('、')
-        showToast.error(`${labels} は現在受付停止中です。別の候補日時を選択してください`)
-        return
-      }
-
-      const timing = await fetchScenarioTimingFromDb(supabase, {
-        organizationId,
-        scenarioLookupId: scenarioId,
-        scenarioMasterId: scenarioId,
-      })
-
-      const nextOrderNum = existingDates.length > 0
-        ? Math.max(...existingDates.map(d => d.order_num)) + 1
-        : 1
-
-      const newDates = selectedSlots.map((slot, index) => ({
-        group_id: groupId,
-        date: slot.date,
-        time_slot: privateGroupTimeSlotToDb(slot.slot.label),
-        start_time: slot.slot.startTime,
-        end_time: getPrivateBookingDisplayEndTime(
-          slot.slot.startTime,
-          slot.date,
-          timing,
-          isCustomHoliday
-        ),
-        order_num: nextOrderNum + index,
+      const candidates = selectedSlots.map(({ date, slot }) => ({
+        date,
+        time_slot: slot.key,
+        start_time: slot.startTime,
+        end_time: slot.endTime,
       }))
-
-      const { error } = await supabase
-        .from('private_group_candidate_dates')
-        .insert(newDates)
-
-      if (error) throw error
-
-      if (organizerMemberId) {
-        const systemMessage = JSON.stringify({
-          type: 'system',
-          action: 'candidate_dates_added',
-          count: selectedSlots.length,
-          dates: selectedSlots.map(s => ({ date: s.date, time_slot: s.slot.label }))
-        })
-
-        await supabase.from('private_group_messages').insert({
-          group_id: groupId,
-          member_id: organizerMemberId,
-          message: systemMessage
-        })
+      const sortedStoreIds = [...storeIds].sort()
+      const fingerprint = JSON.stringify({ groupId, scenarioId, storeIds: sortedStoreIds, candidates })
+      // 応答だけ失われても、同じ候補の再送は同じ保存要求として扱う。
+      if (pendingRequestRef.current?.fingerprint !== fingerprint) {
+        pendingRequestRef.current = { fingerprint, id: crypto.randomUUID() }
       }
-
+      await addPrivateGroupCandidates({
+        groupId,
+        requestId: pendingRequestRef.current.id,
+        scenarioId,
+        storeIds: sortedStoreIds,
+        candidates,
+      })
+      pendingRequestRef.current = null
       setSelectedSlots([])
       setIsOpen(false)
       onDatesAdded()
@@ -317,6 +252,7 @@ export function AddCandidateDates({
           : '候補日の保存に失敗しました'
       showToast.error(err && typeof err === 'object' && 'code' in err && err.code === 'P0045' ? '受付締切を過ぎた候補日があります。日程を選び直してください。' : msg)
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
@@ -351,11 +287,12 @@ export function AddCandidateDates({
             <Calendar className="h-3 w-3 shrink-0" />
             候補日を追加
           </h3>
-          <Button variant="ghost" size="sm" className="h-6 min-h-0 shrink-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)}>
+          <Button variant="ghost" size="sm" className="h-6 min-h-0 shrink-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)} disabled={saving}>
             閉じる
           </Button>
         </div>
 
+        {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
         <PrivateBookingSlotGrid
           currentMonth={currentMonth}
           onMonthChange={handleMonthChange}
@@ -369,7 +306,7 @@ export function AddCandidateDates({
           availabilityMap={availabilityMap}
           isCustomHoliday={isCustomHoliday}
           colorScheme="purple"
-          loading={loading}
+          loading={loading || holidaysLoading || deadlineLoading}
           fillContainer
           compact
           emptyMonth={
@@ -407,13 +344,13 @@ export function AddCandidateDates({
         <div
           className="-mx-1 mt-0 flex shrink-0 items-center justify-end gap-0.5 border-t border-purple-200/70 bg-purple-50 px-1 py-0.5 pb-[max(0.2rem,env(safe-area-inset-bottom))] shadow-[0_-1px_6px_rgba(100,50,140,0.06)]"
         >
-          <Button variant="ghost" size="sm" className="h-6 min-h-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)}>
+          <Button variant="ghost" size="sm" className="h-6 min-h-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)} disabled={saving}>
             キャンセル
           </Button>
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={selectedSlots.length === 0 || saving}
+            disabled={selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError}
             className="h-6 min-h-0 shrink-0 bg-purple-600 px-2 py-0 text-[10px] hover:bg-purple-700"
           >
             {saving ? (
