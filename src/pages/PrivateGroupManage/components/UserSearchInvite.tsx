@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,7 +15,7 @@ import {
   XCircle,
   Link,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { readPrivateGroupInvitations, searchPrivateGroupInvitee, managePrivateGroupInvitation } from '@/lib/privateGroupInvitations'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import type { PrivateGroupInvitation, PrivateGroupMember } from '@/types'
@@ -48,35 +48,48 @@ export function UserSearchInvite({
   const [invitations, setInvitations] = useState<PrivateGroupInvitation[]>([])
   const [loadingInvitations, setLoadingInvitations] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [invitationError, setInvitationError] = useState<string | null>(null)
+  const currentGroup = useRef(groupId)
+  currentGroup.current = groupId
+  const requestVersion = useRef(0)
+  const searchVersion = useRef(0)
 
   const inviteUrl = `${window.location.origin}/group/invite/${inviteCode}`
 
   const fetchInvitations = useCallback(async () => {
+    const version = ++requestVersion.current
+    setLoadingInvitations(true)
+    setInvitationError(null)
     try {
-      const { data, error } = await supabase
-        .from('private_group_invitations')
-        .select(
-          'id, group_id, invited_user_id, invited_email, invited_by, status, created_at, responded_at'
-        )
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setInvitations(data || [])
+      const data = await readPrivateGroupInvitations(groupId)
+      if (version === requestVersion.current) setInvitations(data)
     } catch (err) {
       logger.error('Failed to fetch invitations', err)
+      if (version === requestVersion.current) {
+        setInvitations([])
+        setInvitationError('招待履歴を取得できませんでした。再試行してください。')
+      }
     } finally {
-      setLoadingInvitations(false)
+      if (version === requestVersion.current) setLoadingInvitations(false)
     }
   }, [groupId])
 
-  useState(() => {
-    fetchInvitations()
-  })
+  useEffect(() => {
+    setInvitations([])
+    setSearchResult(null)
+    setSearchEmail('')
+    setSearchError(null)
+    setSearching(false)
+    setInviting(false)
+    searchVersion.current += 1
+    void fetchInvitations()
+    return () => { requestVersion.current += 1; searchVersion.current += 1 }
+  }, [fetchInvitations])
 
   const handleSearch = async () => {
     if (!searchEmail.trim()) return
 
+    const version = ++searchVersion.current
     setSearching(true)
     setSearchError(null)
     setSearchResult(null)
@@ -100,13 +113,9 @@ export function UserSearchInvite({
         return
       }
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, display_name')
-        .ilike('email', emailLower)
-        .single()
-
-      if (error || !data) {
+      const data = await searchPrivateGroupInvitee(groupId, emailLower)
+      if (currentGroup.current !== groupId || searchVersion.current !== version) return
+      if (!data) {
         setSearchError('ユーザーが見つかりません。招待リンクを共有してください。')
         return
       }
@@ -119,9 +128,9 @@ export function UserSearchInvite({
       setSearchResult(data)
     } catch (err) {
       logger.error('Search error', err)
-      setSearchError('検索中にエラーが発生しました')
+      if (currentGroup.current === groupId && searchVersion.current === version) setSearchError(err instanceof Error ? err.message : '検索中にエラーが発生しました')
     } finally {
-      setSearching(false)
+      if (searchVersion.current === version) setSearching(false)
     }
   }
 
@@ -130,21 +139,15 @@ export function UserSearchInvite({
 
     setInviting(true)
     try {
-      const { error } = await supabase.from('private_group_invitations').insert({
-        group_id: groupId,
-        invited_user_id: targetUser.id,
-        invited_email: targetUser.email,
-        invited_by: user.id,
-      })
-
-      if (error) throw error
-
+      await managePrivateGroupInvitation(groupId, 'create', targetUser.id, targetUser.email)
+      if (currentGroup.current !== groupId) return
       setSearchResult(null)
       setSearchEmail('')
       fetchInvitations()
       onInvitationSent?.()
     } catch (err) {
       logger.error('Failed to send invitation', err)
+      if (currentGroup.current === groupId) setSearchError(err instanceof Error ? err.message : '招待を保存できませんでした')
     } finally {
       setInviting(false)
     }
@@ -161,16 +164,16 @@ export function UserSearchInvite({
   }
 
   const handleCancelInvitation = async (invitationId: string) => {
+    setInviting(true)
+    setInvitationError(null)
     try {
-      const { error } = await supabase
-        .from('private_group_invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', invitationId)
-
-      if (error) throw error
-      fetchInvitations()
+      await managePrivateGroupInvitation(groupId, 'cancel', invitationId)
+      if (currentGroup.current === groupId) await fetchInvitations()
     } catch (err) {
       logger.error('Failed to cancel invitation', err)
+      if (currentGroup.current === groupId) setInvitationError(err instanceof Error ? err.message : '招待を取り消せませんでした')
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -221,6 +224,8 @@ export function UserSearchInvite({
               type="email"
               value={searchEmail}
               onChange={(e) => {
+                searchVersion.current += 1
+                setSearching(false)
                 setSearchEmail(e.target.value)
                 setSearchError(null)
                 setSearchResult(null)
@@ -296,11 +301,17 @@ export function UserSearchInvite({
       <Card>
         <CardContent className="p-4 space-y-4">
           <h3 className="font-semibold">招待履歴</h3>
+          {invitationError && (
+            <div role="alert">
+              <p>{invitationError}</p>
+              <Button variant="outline" onClick={() => void fetchInvitations()} disabled={loadingInvitations}>再試行</Button>
+            </div>
+          )}
           {loadingInvitations ? (
             <div className="flex justify-center py-4">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
-          ) : invitations.length === 0 ? (
+          ) : invitationError ? null : invitations.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               まだ招待を送信していません
             </p>
@@ -330,6 +341,7 @@ export function UserSearchInvite({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCancelInvitation(invitation.id)}
+                        disabled={inviting}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
                       >
                         取消
