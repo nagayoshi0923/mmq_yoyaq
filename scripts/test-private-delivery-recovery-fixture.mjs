@@ -77,6 +77,29 @@ export async function testDeliveryRecovery(db,{org,reservation}) {
  await transaction(async()=>{await prepareUnknown();await assert.rejects(resume(),/PREPARATION_RECORD_NOT_CONFIRMED/)})
  await transaction(async()=>{await prepareUnknown();await room('00000000-0000-0000-0000-000000000099');await assert.rejects(resume(),/PREPARATION_RECORD_NOT_CONFIRMED/)})
  await transaction(async()=>{await prepareUnknown();await room();await db.query('UPDATE private_booking_approval_deliveries SET first_attempt_at=now() WHERE id=$1',[row.id]);await assert.rejects(resume(),/PREPARATION_NOT_RESUMABLE/)})
+ for(const state of ['failed','uncertain']) await transaction(async()=>{
+  await db.query("UPDATE private_booking_approval_deliveries SET status=$2,preparation_attempted_at=now() WHERE id=$1",[row.id,state])
+  await db.query("UPDATE reservations SET status='cancelled' WHERE id=$1",[reservation])
+  const history=(await db.query('SELECT get_private_booking_delivery_history($1) AS result',[reservation])).rows[0].result
+  const current=history.deliveries.find(d=>d.id===row.id)
+  assert.equal(current.can_retry,false);assert.equal(current.can_resume_preparation,false)
+ })
+ await transaction(async()=>{
+  await db.query("UPDATE private_group_survey_deliveries SET status='failed' WHERE reservation_id=$1",[reservation])
+  const rows=async()=>(await db.query('SELECT get_private_booking_delivery_history($1) AS result',[reservation])).rows[0].result.deliveries
+  const survey=(await rows()).find(d=>d.delivery_kind==='survey');assert.ok(survey);assert.equal(survey.can_retry,true)
+  await db.query("UPDATE reservations SET status='cancelled' WHERE id=$1",[reservation])
+  assert.equal((await rows()).find(d=>d.id===survey.id).can_retry,false)
+ })
+ await transaction(async()=>{
+  await db.query("UPDATE reservations SET status='cancelled',cancelled_at=now(),cancellation_reason='貸切リクエストを却下しました' WHERE id=$1",[reservation])
+  await db.query("UPDATE private_groups SET status='date_adjusting' WHERE reservation_id=$1",[reservation])
+  await db.query("INSERT INTO private_booking_rejection_deliveries(id,reservation_id,organization_id,cancelled_at,customer_name,scenario_title,message_body,status) SELECT gen_random_uuid(),id,organization_id,cancelled_at,'fixture','fixture','fixture','failed' FROM reservations WHERE id=$1",[reservation])
+  const rejected=async()=>(await db.query('SELECT get_private_booking_delivery_history($1) AS result',[reservation])).rows[0].result.deliveries.find(d=>d.delivery_kind==='rejection')
+  assert.equal((await rejected()).can_retry,true)
+  await db.query("UPDATE reservations SET status='confirmed' WHERE id=$1",[reservation])
+  assert.equal((await rejected()).can_retry,false)
+ })
  // Same active identity in another organization cannot read or retry.
  await transaction(async()=>{
   await db.exec("CREATE OR REPLACE FUNCTION get_user_organization_id() RETURNS uuid LANGUAGE sql AS $$SELECT '00000000-0000-0000-0000-000000000099'::uuid$$")

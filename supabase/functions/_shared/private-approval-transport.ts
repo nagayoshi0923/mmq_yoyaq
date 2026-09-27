@@ -26,23 +26,32 @@ export function approvalDeliveryTransport(db: any, env: (name: string) => string
     if(config.enable_discord_notifications===false || config.notification_settings?.private_booking_discord===false) return {skip:'discord_notifications_disabled'}
     const token=config.discord_bot_token||env('DISCORD_BOT_TOKEN')||''
     const targets:string[]=[]
-    if(data.gmDiscordChannelId) targets.push(data.gmDiscordChannelId)
+    let invalidTarget=false
+    const normalize=(value:unknown)=>typeof value==='string'?value.trim():''
+    const addTarget=(value:unknown)=>{
+     const id=normalize(value)
+     if(/^\d+$/.test(id)) targets.push(id)
+     else if(value) invalidTarget=true
+    }
+    addTarget(data.gmDiscordChannelId)
     let dmUnavailable=false
-    if(data.gmDiscordUserId && token) {
+    const userId=normalize(data.gmDiscordUserId)
+    if(data.gmDiscordUserId&&!/^\d+$/.test(userId)) invalidTarget=true
+    if(/^\d+$/.test(userId) && token) {
      try {
       const response=await send('https://discord.com/api/v10/users/@me/channels',{
        method:'POST',headers:{Authorization:`Bot ${token}`,'Content-Type':'application/json'},
-       body:JSON.stringify({recipient_id:data.gmDiscordUserId}),signal:AbortSignal.timeout(10_000),
+       body:JSON.stringify({recipient_id:userId}),signal:AbortSignal.timeout(10_000),
       })
-      if(response.ok) {const dm=await response.json();if(dm?.id) targets.push(dm.id);else dmUnavailable=true}
+      if(response.ok) {const dm=await response.json();if(typeof dm?.id==='string'&&/^\d+$/.test(dm.id.trim())) addTarget(dm.id);else dmUnavailable=true}
       else dmUnavailable=true
      } catch {dmUnavailable=true} // DMの作成はメッセージ送信ではない。個人/共通チャンネルを妨げない。
     }
     const fallback=config.discord_private_booking_channel_id||env('DISCORD_PRIVATE_BOOKING_CHANNEL_ID')
-    if(fallback) targets.push(fallback)
+    addTarget(fallback)
     if(!targets.length&&dmUnavailable) throw new ApprovalDeliveryError('discord_dm_unavailable',true)
+    if(!targets.length&&invalidTarget) throw new ApprovalDeliveryError('discord_target_invalid')
     if(!targets.length) return {skip:'gm_discord_not_configured'}
-    if(targets.some(id=>!/^\d+$/.test(id))) throw new ApprovalDeliveryError('discord_target_invalid')
     // Discordのnonceは「数分」のみ有効。応答不明後の自動再送には依存しない。
     // https://github.com/discord/discord-api-docs/blob/main/developers/resources/message.mdx
     const nonce=row.id.replace(/-/g,'').slice(0,25)
