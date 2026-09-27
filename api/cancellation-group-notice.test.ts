@@ -41,7 +41,7 @@ const rejection = { skip_group_cancel: true, cancel_private_event: true, private
 it('貸切却下は新RPCへ一度渡し、旧同期や直接公演更新を行わない', async () => {
  const res = await cancel('cancel', rejection)
  expect(res.status).toHaveBeenCalledWith(200)
- expect(mock.rpc).toHaveBeenCalledExactlyOnceWith('reject_private_booking_with_notice', { p_reservation_id: 'reservation', p_message_body: '却下本文' })
+ expect(mock.rpc).toHaveBeenCalledExactlyOnceWith('reject_private_booking_with_delivery', { p_reservation_id: 'reservation', p_message_body: '却下本文' })
  expect(mock.from).not.toHaveBeenCalledWith('schedule_events')
  expect(mock.from).not.toHaveBeenCalledWith('private_group_messages')
  expect(mock.billing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ organizerCancelled: true }))
