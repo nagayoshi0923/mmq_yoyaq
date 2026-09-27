@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { scenarioApi, staffApi, storeApi } from '@/lib/api'
-import { assignmentApi } from '@/lib/assignmentApi'
+import { fetchStaffWithAssignments } from '@/lib/staffAssignmentsQuery'
 import { scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
 
 export function usePrefetch() {
@@ -60,17 +60,7 @@ export function usePrefetch() {
     // スタッフ一覧（スタッフ管理ページ）
     queryClient.prefetchQuery({
       queryKey: ['staff'],
-      queryFn: async () => {
-        const staffData = await staffApi.getAll()
-        const staffIds = staffData.map(s => s.id)
-        const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds).catch(() =>
-          new Map<string, { gmScenarios: string[]; experiencedScenarios: string[]; gm_scenario_modes: Record<string, 'main_only' | 'sub_only' | 'main_and_sub'> }>()
-        )
-        return staffData.map(staff => {
-          const a = assignmentMap.get(staff.id) ?? { gmScenarios: [], experiencedScenarios: [], gm_scenario_modes: {} }
-          return { ...staff, special_scenarios: a.gmScenarios, experienced_scenarios: a.experiencedScenarios, gm_scenario_modes: a.gm_scenario_modes }
-        })
-      },
+      queryFn: fetchStaffWithAssignments,
       staleTime: 30 * 1000,
     })
   }
