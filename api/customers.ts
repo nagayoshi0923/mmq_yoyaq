@@ -110,6 +110,20 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
 
   const action = req.query.action as string | undefined
 
+  if (action === 'playedScenarioOptions') {
+    const rows: Record<string, unknown>[] = []
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await db.from('organization_scenarios_with_master')
+        .select('scenario_master_id, title').eq('organization_id', orgId)
+        .eq('org_status', 'available').order('title').order('scenario_master_id')
+        .range(offset, offset + 499)
+      if (error) return res.status(500).json({ error: '作品一覧を取得できませんでした' })
+      rows.push(...(data ?? []))
+      if (!data || data.length < 500) break
+    }
+    return res.status(200).json(rows)
+  }
+
   if (action === 'reservationHistory') {
     const customerId = req.query.customerId
     if (typeof customerId !== 'string' || !customerId) {
@@ -121,7 +135,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const pageSize = 500
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await db.from('reservations')
-        .select('id, title, requested_datetime, participant_count, final_price, status')
+        .select('id, title, scenario_master_id, requested_datetime, participant_count, final_price, status')
         .eq('organization_id', orgId)
         .eq('customer_id', customerId)
         .order('requested_datetime', { ascending: false })

@@ -1,3 +1,4 @@
+import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
  * 顧客別 体験済みシナリオ管理（管理画面・スタッフ用 / 予約台帳 Step B）。
  *
@@ -5,10 +6,10 @@
  * スタッフがこの顧客の体験済みを操作できる:
  *  - 予約由来: 「未体験に戻す/体験済みに戻す」= customer_played_overrides の追加/削除（予約は触らない・表示判定のみ）
  *  - 手動登録: 追加（manual_play_history insert）/ 削除
- * RLS は manual_play_history・customer_played_overrides とも「本人 or スタッフ」許可済み。
+ * 履歴操作は顧客本人・有効スタッフと組織接点を検証するRPCに集約する。
  */
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { customerApi } from '@/lib/api/customerApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { RotateCcw, Trash2, Plus } from 'lucide-react'
-import { fetchPlayedOverrideIds, addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
+import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { formatJstYmd } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -40,6 +41,8 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   const [manualItems, setManualItems] = useState<PlayedItem[]>([])
   const [overrideIds, setOverrideIds] = useState<Set<string>>(new Set())
   const [scenarioOptions, setScenarioOptions] = useState<SearchableSelectOption[]>([])
+  const requestGeneration = useRef(0)
+  const [loadError, setLoadError] = useState(false)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   // 手動追加フォーム
@@ -52,30 +55,20 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   const PLAYED_PREVIEW_COUNT = 5
 
   const load = useCallback(async () => {
+    const request = ++requestGeneration.current
+    setLoadError(false)
     setLoading(true)
     try {
-      const nowIso = new Date().toISOString()
-      const [resvRes, manualRes, overrides, scenariosRes] = await Promise.all([
-        supabase
-          .from('reservations')
-          .select('scenario_master_id, title, requested_datetime, status')
-          .eq('customer_id', customerId)
-          .in('status', ACTIVE_PLAYED_STATUSES)
-          .lte('requested_datetime', nowIso)
-          .order('requested_datetime', { ascending: false }),
-        supabase
-          .from('manual_play_history')
-          .select('id, scenario_title, scenario_master_id, played_at')
-          .eq('customer_id', customerId)
-          .order('created_at', { ascending: false })
-          .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER),
-        fetchPlayedOverrideIds(customerId),
-        supabase
-          .from('organization_scenarios_with_master')
-          .select('scenario_master_id, title, org_status')
-          .eq('org_status', 'available')
-          .order('title'),
+      const [reservations, history, scenarios] = await Promise.all([
+        customerApi.reservationHistory(customerId),
+        customerPlayHistory.snapshot(customerId),
+        customerApi.playedScenarioOptions(),
       ])
+      if (request !== requestGeneration.current) return
+      const resvRes = { data: reservations.filter(row => ACTIVE_PLAYED_STATUSES.includes(row.status)
+        && new Date(row.requested_datetime).getTime() <= Date.now()) }
+      const manualRes = { data: history.manual }
+      const overrides = new Set(history.overrides.map(row => row.scenario_master_id))
 
       // 予約由来は scenario_master_id 単位で重複排除
       const seen = new Set<string>()
@@ -103,20 +96,21 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
 
       const opts: SearchableSelectOption[] = []
       const optSeen = new Set<string>()
-      for (const s of (scenariosRes.data ?? []) as Array<{ scenario_master_id: string; title: string }>) {
+      for (const s of scenarios as Array<{ scenario_master_id: string; title: string }>) {
         if (!s.scenario_master_id || optSeen.has(s.scenario_master_id)) continue
         optSeen.add(s.scenario_master_id)
         opts.push({ value: s.scenario_master_id, label: s.title })
       }
       setScenarioOptions(opts)
     } catch (error) {
+      if (request === requestGeneration.current) setLoadError(true)
       logger.error('体験済み管理データ取得エラー:', error)
     } finally {
-      setLoading(false)
+      if (request === requestGeneration.current) setLoading(false)
     }
   }, [customerId])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load(); const pending = requestGeneration; return () => { pending.current++ } }, [load])
 
   const toggleOverride = async (scenarioMasterId: string, makeUnplayed: boolean) => {
     setBusy(true)
@@ -151,13 +145,9 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
     setBusy(true)
     try {
       const title = scenarioOptions.find(o => o.value === newScenarioId)?.label || ''
-      const { error } = await supabase.from('manual_play_history').insert({
-        customer_id: customerId,
-        scenario_title: title,
-        scenario_master_id: newScenarioId,
-        played_at: newPlayedAt || null,
+      await customerPlayHistory.add(customerId, {
+        scenario_title: title, scenario_master_id: newScenarioId, played_at: newPlayedAt || null,
       })
-      if (error) throw error
       setNewScenarioId('')
       setNewPlayedAt('')
       showToast.success('体験済みを追加しました')
@@ -179,8 +169,8 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
     if (!manualId) return
     setBusy(true)
     try {
-      const { error } = await supabase.from('manual_play_history').delete().eq('id', manualId).eq('customer_id', customerId)
-      if (error) throw error
+      const removed = await customerPlayHistory.remove(customerId, manualId)
+      if (!removed) throw new Error('履歴が見つからないか、削除できませんでした')
       setManualItems(prev => prev.filter(m => m.manualId !== manualId))
       showToast.success('削除しました')
     } catch (error) {
@@ -206,6 +196,11 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
       <h4 className="mb-2 font-bold text-sm">体験済みシナリオ管理</h4>
       {loading ? (
         <div className="text-center py-4 text-xs text-muted-foreground">読み込み中...</div>
+      ) : loadError ? (
+        <div role="alert" className="text-sm text-destructive">
+          体験済み履歴を取得できませんでした
+          <Button variant="ghost" onClick={() => void load()}>再試行</Button>
+        </div>
       ) : (
         <div className="space-y-3">
           {/* 体験済みシナリオ（予約由来・手動登録を統合） */}

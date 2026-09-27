@@ -8,9 +8,9 @@ vi.mock('./_lib/db.js', () => ({ getMissingEnvError: () => null, db: { from: (ta
  return q
 } } }))
 import handler from './customers'
-async function request(customerId: string | undefined = 'customer') {
+async function request(customerId: string | undefined = 'customer', action = 'reservationHistory') {
  const res: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis(), setHeader: vi.fn() }
- await handler({ method: 'GET', query: { action: 'reservationHistory', customerId, organization_id: 'forged' }, headers: {} } as any,res)
+ await handler({ method: 'GET', query: { action, customerId, organization_id: 'forged' }, headers: {} } as any,res)
  return res
 }
 beforeEach(() => { mock.calls=[]; mock.pages=[] })
@@ -21,7 +21,7 @@ it('restricts every page to the verified organization and requested customer', a
  expect(mock.calls.filter(c=>c[0]==='eq')).toEqual([['eq','organization_id','verified-org'],['eq','customer_id','customer'],['eq','organization_id','verified-org'],['eq','customer_id','customer'],['eq','organization_id','verified-org'],['eq','customer_id','customer']])
  expect(mock.calls.filter(c=>c[0]==='range')).toEqual([['range',0,499],['range',500,999],['range',1000,1499]])
  expect(mock.calls).toContainEqual(['order','id',{ascending:false}])
- expect(mock.calls).toContainEqual(['select','id, title, requested_datetime, participant_count, final_price, status'])
+ expect(mock.calls).toContainEqual(['select','id, title, scenario_master_id, requested_datetime, participant_count, final_price, status'])
 })
 it('does not return a partial success when a later page fails', async () => {
  mock.pages=[{data:Array.from({length:500},()=>({id:'fixture'})),error:null},{data:null,error:{message:'unavailable'}}]
@@ -29,3 +29,14 @@ it('does not return a partial success when a later page fails', async () => {
 })
 it('returns an empty history within the tenant',async()=>{ expect((await request()).json).toHaveBeenCalledWith([]) })
 it('requires a customer before querying',async()=>{ expect((await request('')).status).toHaveBeenCalledWith(400); expect(mock.calls).toEqual([]) })
+
+it('scopes available scenario options on the server and paginates',async()=>{
+ mock.pages=[{data:Array.from({length:500},()=>({scenario_master_id:'fixture'})),error:null},{data:[],error:null}]
+ expect((await request('','playedScenarioOptions')).status).toHaveBeenCalledWith(200)
+ expect(mock.calls.filter(c=>c[0]==='from')).toEqual([['from','organization_scenarios_with_master'],['from','organization_scenarios_with_master']])
+ expect(mock.calls.filter(c=>c[0]==='eq')).toEqual([['eq','organization_id','verified-org'],['eq','org_status','available'],['eq','organization_id','verified-org'],['eq','org_status','available']])
+})
+it('does not mask a scenario-options failure as an empty list',async()=>{
+ mock.pages=[{data:null,error:{message:'failure'}}]
+ expect((await request('','playedScenarioOptions')).status).toHaveBeenCalledWith(500)
+})
