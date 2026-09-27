@@ -22,6 +22,11 @@ await db.exec(fs.readFileSync('supabase/migrations/20260914163000_preserve_gm_ro
 await db.exec(`CREATE TRIGGER sync_assignments AFTER INSERT OR UPDATE ON staff_scenario_assignments FOR EACH ROW EXECUTE FUNCTION sync_assignments_to_staff();CREATE TRIGGER sync_staff AFTER UPDATE OF special_scenarios,available_scenarios ON staff FOR EACH ROW EXECUTE FUNCTION sync_staff_to_assignments();CREATE TRIGGER sync_ids BEFORE INSERT OR UPDATE ON staff_scenario_assignments FOR EACH ROW EXECUTE FUNCTION fn_sync_ssa_scenario_ids();
 INSERT INTO staff_scenario_assignments(staff_id,scenario_master_id,organization_id,can_main_gm,can_sub_gm,notes) VALUES('${alice}','${a}','${org}',true,false,'keep note'),('${alice}','${b}','${org}',false,true,'sub note'),('${alice}','${orphan}','${org}',false,false,'old orphan'),('${outsider}','${a}','${other}',true,false,'other org');`);
 await db.exec(fs.readFileSync('supabase/migrations/20260914181000_atomic_gm_assignment_operations.sql','utf8'));
+if (process.env.APPLY_CANONICAL_CACHE === '1') {
+ await db.exec('ALTER TRIGGER sync_staff ON staff RENAME TO sync_staff_to_assignments_trigger; ALTER TRIGGER sync_assignments ON staff_scenario_assignments RENAME TO sync_assignments_to_staff_trigger;');
+ await db.exec(fs.readFileSync('supabase/migrations/20260928001000_assignment_canonical_cache.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20260928001001_assignment_cache_lock.sql','utf8'));
+}
 const state=async(staff=alice,scenario=null)=>(await db.query('SELECT assignment_state($1,$2,$3) AS state',[org,staff,scenario])).rows[0].state;
 const all=async()=>(await db.query('SELECT * FROM staff_scenario_assignments ORDER BY staff_id,scenario_master_id')).rows;
 const input=(id,main,sub,exp=false)=>({scenarioId:id,can_main_gm:main,can_sub_gm:sub,is_experienced:exp});
