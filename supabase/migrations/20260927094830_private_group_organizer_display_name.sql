@@ -58,12 +58,17 @@ BEGIN
  END IF;
  result:=jsonb_build_object('id',g.id,'organization_id',g.organization_id,'scenario_master_id',g.scenario_master_id,
   'organizer_id',CASE WHEN access_level<>'preview' THEN g.organizer_id END,
-  'organizer_display_name',CASE WHEN access_level='staff' THEN (
+  -- グループの同組織スタッフ認可後に、幹事本人の最小表示名だけを返す。
+  -- 顧客プロフィールは共通(NULL組織)もあるため所属では絞らない。
+  'organizer_display_name',CASE WHEN access_level='staff' THEN COALESCE((
     SELECT COALESCE(NULLIF(c.nickname,''),NULLIF(c.name,''))
-    FROM public.customers c
-    WHERE c.user_id=g.organizer_id AND c.organization_id=g.organization_id
+    FROM public.customers c WHERE c.user_id=g.organizer_id
     ORDER BY c.id LIMIT 1
-  ) END,
+  ),(
+    SELECT NULLIF(m.guest_name,'') FROM public.private_group_members m
+    WHERE m.group_id=g.id AND m.user_id=g.organizer_id
+    ORDER BY m.is_organizer DESC NULLS LAST,m.id LIMIT 1
+  )) END,
   'name',g.name,'invite_code',g.invite_code,'status',g.status,
   'reservation_id',CASE WHEN access_level<>'preview' THEN g.reservation_id END,'target_participant_count',g.target_participant_count,'preferred_store_ids',g.preferred_store_ids,
   'notes',CASE WHEN access_level IN ('staff','organizer') THEN g.notes END,'created_at',g.created_at,'updated_at',g.updated_at,
