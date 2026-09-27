@@ -20,6 +20,8 @@ export type PrivateBookingStoreSlotFeasibility = {
   slotBandStart: number
   /** 営業枠の終了（分） */
   slotBandEnd: number
+  /** 店舗の閉店時刻。枠を延長しても超えない。 */
+  dayEndMinutes: number
   /** 既存公演を踏まえた最早開始（分） */
   minAllowedStart: number
   /**
@@ -102,6 +104,7 @@ export function getPrivateBookingStoreSlotFeasibility(
     preparationMinutes,
     slotBandStart,
     slotBandEnd,
+    dayEndMinutes: bounds.dayEndMin,
     minAllowedStart,
     priorEventEarliestStartMin: latestEventEnd,
   }
@@ -131,6 +134,7 @@ export function isProposedPrivateBookingStartFeasible(
   effectiveMinStartMin?: number,
   occupancyEndOverride?: number
 ): boolean {
+  if (proposedStartMin + durationMinutes > f.dayEndMinutes) return false
   const minStart = effectiveMinStartMin ?? f.minAllowedStart
   if (proposedStartMin < minStart) return false
 

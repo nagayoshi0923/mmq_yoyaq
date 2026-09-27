@@ -52,6 +52,7 @@ export function getPrivateBookingDisplayEndTime(
 }
 
 export type ScenarioTimingFromDb = {
+  title?: string | null
   preparation_minutes_by_store?: Record<string, number>
   preparation_minutes_by_event?: Record<string, number>
   duration: number
@@ -120,7 +121,7 @@ export async function fetchScenarioTimingFromDb(
   if (organizationId) {
     const { data: viewRow } = await supabase
       .from('organization_scenarios_with_master')
-      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots')
+      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots, title')
       .eq('organization_id', organizationId)
       .or(`org_scenario_id.eq.${lookup},scenario_master_id.eq.${lookup}`)
       .limit(1)
@@ -133,6 +134,7 @@ export async function fetchScenarioTimingFromDb(
           : 0
       return {
         ...preparation,
+        title: viewRow.title,
         duration: viewRow.duration,
         weekend_duration:
           typeof viewRow.weekend_duration === 'number' && viewRow.weekend_duration > 0

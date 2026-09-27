@@ -705,7 +705,6 @@ export function GroupInviteView({
                       storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={refetch}
-                      organizerMemberId={organizerMember?.id}
                     />
                   )}
 
