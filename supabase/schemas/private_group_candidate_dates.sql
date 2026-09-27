@@ -16,3 +16,6 @@ CREATE TABLE public.private_group_candidate_dates (
 CREATE INDEX idx_private_group_candidate_dates_group_id ON public.private_group_candidate_dates USING btree (group_id);
 
 CREATE TRIGGER enforce_private_group_candidate_deadline BEFORE INSERT OR UPDATE OF date,group_id ON public.private_group_candidate_dates FOR EACH ROW EXECUTE FUNCTION public.enforce_private_group_candidate_deadline();
+
+-- Updates use authenticated definer RPCs or atomic event synchronization.
+REVOKE UPDATE ON TABLE public.private_group_candidate_dates FROM anon,authenticated;

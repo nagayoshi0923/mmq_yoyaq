@@ -67,6 +67,9 @@ jobs:
         run: node scripts/test-store-public-columns.mjs
       - name: Duplicate unique constraint cleanup
         run: node scripts/test-duplicate-unique-constraints.mjs
+
+      - name: Event datetime atomic sync regression
+        run: node scripts/test-event-datetime-sync.mjs
       - name: GM response tenant integrity
         run: node scripts/test-gm-response-org-integrity.mjs
 
