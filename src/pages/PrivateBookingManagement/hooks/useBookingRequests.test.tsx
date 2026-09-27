@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ responses: vi.fn(), holiday: () => false, rows: [] as any[], ranges: [] as number[][] }))
-vi.mock('@/lib/gmResponseApi', () => ({ getGmResponses: mocks.responses }))
+vi.mock('@/lib/gmResponseApi', () => ({ getGmResponses: mocks.responses, getGmReadiness: async (ids: string[]) => Object.fromEntries(ids.map(id => [id, false])) }))
 vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: async () => 'org' }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday }) }))
 vi.mock('@/utils/logger', () => ({ privateBookingTrace: vi.fn(), logger: { warn: vi.fn(), error: vi.fn() } }))

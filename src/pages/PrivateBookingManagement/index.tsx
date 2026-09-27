@@ -559,13 +559,6 @@ export function PrivateBookingManagement() {
     }
   }
 
-  // GMが回答済みかどうかを判定（1人以上が出勤可能な候補を選択している）
-  const isGMConfirmed = (r: PrivateBookingRequest): boolean => {
-    if (!r.gm_responses || r.gm_responses.length === 0) return false
-    // 1人以上のGMが出勤可能な候補を選択している場合はGM確認済み
-    return r.gm_responses.some((response) => isGmMarkedAvailable(response))
-  }
-  
   // ── 検索・絞り込み ─────────────────────────────────────
   // タブ分けの前に適用する＝各タブの件数バッジも絞り込み後の数になり、
   // 「探しているものがどのタブにいるか」が検索だけで分かる
@@ -623,15 +616,10 @@ export function PrivateBookingManagement() {
   }, [requests])
 
   // タブ分け
-  // GM確認中: pending/pending_gm かつ GM回答がまだない
-  const gmPendingRequests = visibleRequests.filter(r =>
-    (r.status === 'pending' || r.status === 'pending_gm') && !isGMConfirmed(r)
-  )
-  // 店舗承認待ち: gm_confirmed/pending_store、または pending/pending_gm でGM回答済み
-  const storePendingRequests = visibleRequests.filter(r =>
-    r.status === 'gm_confirmed' || r.status === 'pending_store' ||
-    ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
-  )
+  // 保存済みstatusだけでなく、在籍・資格・候補・人数の共通判定で作業キューを分ける。
+  const awaitingApproval = (r: PrivateBookingRequest) => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
+  const gmPendingRequests = visibleRequests.filter(r => awaitingApproval(r) && r.gm_team_ready !== true)
+  const storePendingRequests = visibleRequests.filter(r => awaitingApproval(r) && r.gm_team_ready === true)
   // 承認済み・却下済みタブは「動きがあった順」（承認・キャンセルなど直近に処理した
   // ものが上）に並べる。申込日順だと、古い申込を今処理したときにリストの奥へ
   // 消えてしまう感覚になるため（オーナー指示 2026-06-13）。

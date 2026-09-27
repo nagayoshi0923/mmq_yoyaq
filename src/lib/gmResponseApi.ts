@@ -13,3 +13,15 @@ export async function getGmResponses(reservationIds: string[]): Promise<GmRespon
 export function getMyGmResponses() {
   return apiClient.get<{ responses: GmResponseRow[]; staffId: string | null; staffName: string }>('/api/reservations?type=gm-responses&mine=true')
 }
+
+export async function getGmReadiness(reservationIds: string[]): Promise<Record<string, boolean>> {
+  const readiness: Record<string, boolean> = {}
+  for (let i = 0; i < reservationIds.length; i += 100) {
+    const ids = reservationIds.slice(i, i + 100)
+    const params = new URLSearchParams({ type: 'gm-readiness', reservation_ids: ids.join(',') })
+    const result = await apiClient.get<{readiness: Record<string, boolean>}>(`/api/reservations?${params}`)
+    if (ids.some(id => typeof result.readiness?.[id] !== 'boolean')) throw new Error('GMの担当条件を確認できません')
+    Object.assign(readiness, result.readiness)
+  }
+  return readiness
+}
