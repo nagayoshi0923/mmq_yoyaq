@@ -386,6 +386,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         </div>
                       )}
 
+                      {group.confirmed_warning && <p role="status" className="mt-2 text-muted-foreground">{group.confirmed_warning}</p>}
                       {/* メンバー一覧 */}
                       {group.members.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
