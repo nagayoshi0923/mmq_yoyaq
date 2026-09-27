@@ -1,0 +1,12 @@
+# QW-20260917-001 旧貸切承認入口の閉鎖
+
+PR585/main3161afaaの本番DB・画面配信・管理画面/参加者チャット受入後、新通知付き入口へ全画面が移行したことを確認した。実本番の関数参照は新wrapperのみ。旧approve_private_bookingのPUBLIC/anon/authenticated直接実行を閉じ、新SECURITY DEFINER入口の所有者とservice_roleを保持する。
+
+DB370は検証環境へ適用済み。実ロールで旧auth/anon実行拒否とACLを確認。本番370は未適用。
+
+Migration: supabase/migrations/20260927037000_private_approval_legacy_closure.sql
+Rollback: supabase/rollbacks/20260927037000_private_approval_legacy_closure.sql
+
+実本番の旧ACLにはPUBLICがあるため、復元SQLはPUBLIC/anon/authenticatedを戻す。RLSとテーブル権限の変更なし。
+
+検証: 実承認とアンケート処理を使う隔離DBで旧ロール実行拒否後も新認証済み承認/通知/全体rollbackが成功、service権限維持、復元再適用後も新承認成功。verify、差分検査、独立レビューP1/P2なし。UI変更なし、PR585の受入証拠を再利用。実予約/GM配置/通知の試験なし。全領域の残件は継続。

@@ -19,6 +19,20 @@ export async function testApprovalNotices(db,{org,scenario,store,gm,request,read
  await db.exec(fs.readFileSync('supabase/rpcs/freeze_private_group_survey_deadline.sql','utf8'))
  const migration=fs.readFileSync('supabase/migrations/20260927036000_private_approval_notices.sql','utf8')
  await db.exec(migration)
+ const closureMode=process.argv.includes('--closure')
+ const signature='approve_private_booking(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid)'
+ const closure=fs.readFileSync('supabase/migrations/20260927037000_private_approval_legacy_closure.sql','utf8')
+ if(closureMode) {
+  // Reproduce the observed production ACL before testing its removal.
+  await db.exec(`GRANT EXECUTE ON FUNCTION ${signature} TO PUBLIC,anon,authenticated,service_role`)
+  await db.exec(closure)
+  for(const role of ['anon','authenticated']) {
+   await db.exec(`SET ROLE ${role}`)
+   await assert.rejects(db.query("SELECT approve_private_booking(NULL,NULL,NULL,NULL,NULL,NULL,'{}','','')"),e=>e.code==='42501')
+   await db.exec('RESET ROLE')
+  }
+  assert.equal((await db.query("SELECT has_function_privilege('service_role',$1,'EXECUTE') AS allowed",[signature])).rows[0].allowed,true)
+ }
  const approve=async(id,date)=> (await db.query("SELECT approve_private_booking_with_notice($1,$2,'14:00','17:00',$3,$4,'{}','Fixture','Fixture') AS result",[id,date,store,gm])).rows[0].result
  const id=await request(scenario,['2027-02-11']);const result=await approve(id,'2027-02-11');
  assert.ok(result.schedule_event_id);assert.match(result.survey_notice,/2\/4まで/)
@@ -64,5 +78,17 @@ export async function testApprovalNotices(db,{org,scenario,store,gm,request,read
  assert.ok((await approve(failed,'2027-02-15')).schedule_event_id)
  await db.exec('RESET ROLE')
  assert.equal((await db.query("SELECT has_function_privilege('anon','approve_private_booking_with_notice(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid)','EXECUTE') AS allowed")).rows[0].allowed,false)
+ if(closureMode) {
+  await db.exec(fs.readFileSync('supabase/rollbacks/20260927037000_private_approval_legacy_closure.sql','utf8'))
+  for(const role of ['anon','authenticated']) {
+   assert.equal((await db.query("SELECT has_function_privilege($1,$2,'EXECUTE') AS allowed",[role,signature])).rows[0].allowed,true)
+  }
+  await db.exec(closure)
+  const reopened=await request(scenario,['2027-02-16'])
+  await db.exec('SET ROLE authenticated')
+  assert.ok((await approve(reopened,'2027-02-16')).schedule_event_id)
+  await db.exec('RESET ROLE')
+  console.log('PASS legacy approval closure: old roles denied, new authenticated approval, service ACL, restore/reapply')
+ }
  console.log('PASS approval notices: real approval/survey helpers, missing member, reapproval, organization/link refusal, failure rollback, ACL, rollback/reapply')
 }

@@ -500,3 +500,6 @@ BEGIN
   RETURN v_schedule_event_id;
 END;
 $function$;
+
+-- Browser approvals must include notices through approve_private_booking_with_notice.
+REVOKE EXECUTE ON FUNCTION public.approve_private_booking(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
