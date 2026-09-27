@@ -21,8 +21,9 @@ import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { calcEndTime, checkTimeOverlapWithPreparation, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
-import { ScheduleEvent, EventFormData } from '@/types/schedule'
+import { ScheduleEvent, EventFormData, StaffParticipationReservation } from '@/types/schedule'
 import { logger } from '@/utils/logger'
+import { reservationApi } from '@/lib/reservationApi'
 import { showToast } from '@/utils/toast'
 import { toast } from 'sonner'
 import { BookingDeadlineTab } from './BookingDeadlineTab'
@@ -145,6 +146,8 @@ export function PerformanceModal({
   // タブの状態管理（再レンダリング時にリセットされないように）
   const [activeTab, setActiveTab] = useState<string>('edit')
   // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
+  const [participationReservations, setParticipationReservations] = useState<StaffParticipationReservation[]>([])
+  const [participationLoadError, setParticipationLoadError] = useState(false)
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
   // add モードで「+ 参加者を追加」した時のバッファ (event 未保存のため DB INSERT できないので一時保持)
   // 保存時に handleSave で一括 INSERT する
@@ -167,7 +170,8 @@ export function PerformanceModal({
     venue: '',
     scenario: '',
     gms: [],
-    gmRoles: {}, // 初期値
+    gmRoles: {},
+    staffParticipation: { entries: [], expected: [], expectedStaff: {gms: [], gm_roles: {}} }, // 初期値
     start_time: '10:00',
     end_time: '14:00',
     category: 'open',
@@ -549,6 +553,8 @@ export function PerformanceModal({
     setIsFormInitializing(true)
     // 常時マウントのため、次にモーダルを開いた時に前回の保存中フラグが残留しないようリセット
     isSavingRef.current = false
+    setParticipationLoadError(false)
+    setParticipationReservations([])
     try {
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
@@ -585,14 +591,22 @@ export function PerformanceModal({
         reservation_name: event.reservation_name,
         id: event.id
       }))
+      let participation = { entries: [], reservations: [], assignment: {gms:event.gms ?? [],gm_roles:event.gm_roles ?? {}} } as Awaited<ReturnType<typeof reservationApi.getStaffParticipation>>
+      if (!event.is_private_request) {
+        try { participation = await reservationApi.getStaffParticipation(event.id) }
+        catch (error) { setParticipationLoadError(true); logger.error('スタッフ参加方法の取得失敗', error) }
+      }
+      setParticipationReservations(participation.reservations)
       setFormData({
         ...event,
+        gms: participation.assignment.gms,
+        staffParticipation: { entries: participation.entries.filter(entry => !entry.needs_confirmation), expected: participation.entries, expectedStaff: participation.assignment },
         // master_id で照合できた場合は登録済みの表示名にそろえる（「未登録」警告の誤表示を防ぐ）
         scenario: selectedScenario?.title ?? event.scenario,
         scenario_master_id: selectedScenario?.id,  // scenario_masters.id
         time_slot: event.time_slot || timeSlotEnToSchedule(slot), // time_slotを設定
         max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
-        gmRoles: event.gm_roles || {}, // 既存の役割があれば設定
+        gmRoles: participation.assignment.gm_roles, // 既存の役割があれば設定
         capacity: event.max_participants || 0, // capacityを追加
         is_private_request: event.is_private_request, // 貸切リクエストフラグを明示的に引き継ぎ
         reservation_id: event.reservation_id, // 予約IDを明示的に引き継ぎ
@@ -642,6 +656,7 @@ export function PerformanceModal({
         scenario: '',
         gms: [],
         gmRoles: {},
+    staffParticipation: { entries: [], expected: [], expectedStaff: {gms: [], gm_roles: {}} },
         start_time: startTime,
         end_time: endTime,
         category: 'open',
@@ -749,9 +764,14 @@ export function PerformanceModal({
   const handleSave = async () => {
     // 二重送信ガード（B7）: 保存処理中の再クリックを無視する
     if (isSavingRef.current) return
-    isSavingRef.current = true
-
     // 時間帯を'朝'/'昼'/'夜'形式で保存
+    if (participationLoadError) { showToast.error('スタッフ参加方法を取得できません。公演を開き直してください。'); return }
+    const participantStaff = formData.gms.filter(name => formData.gmRoles?.[name] === 'staff').map(name => staff.find(member => member.name === name))
+    const participationEntries = (formData.staffParticipation?.entries ?? []).filter(entry => participantStaff.some(member => member?.id === entry.staff_id))
+    if (participantStaff.some(member => !member || !participationEntries.some(entry => entry.staff_id === member.id && (entry.mode === 'additional' || entry.reservation_id)))) {
+      showToast.error('スタッフ参加ごとに「予約人数内」または「追加の1席」を選択してください。'); return
+    }
+    isSavingRef.current = true
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
     // スタッフ参加/見学もGMリストに保持する（除外しない）
 
@@ -773,6 +793,7 @@ export function PerformanceModal({
     
     const saveData = {
       ...formData,
+      staffParticipation: { entries: participationEntries, expected: formData.staffParticipation?.expected ?? [], expectedStaff: formData.staffParticipation?.expectedStaff ?? {gms:[],gm_roles:{}} },
       scenario,
       scenario_master_id: isVenueRental ? undefined : formData.scenario_master_id, // 場所貸しはシナリオIDもクリア
       notes,
@@ -925,6 +946,7 @@ export function PerformanceModal({
 
   const modalTitle = mode === 'add' ? '新しい公演を追加' : '公演を編集'
   const modalDescription = mode === 'add' ? '新しい公演の詳細情報を入力してください。' : '公演の詳細情報を編集してください。'
+  const confirmedStaffParticipants = [...new Set([...staffParticipantsFromDB, ...(formData.staffParticipation?.expected ?? []).filter(entry => !entry.needs_confirmation).flatMap(entry => { const member = staff.find(s => s.id === entry.staff_id); return member ? [member.name] : [] })])]
   const categoryTone = CATEGORY_TONE[formData.category]
   const activeTabLabel = PERF_TABS.find((tab) => tab.id === activeTab)?.label ?? '公演情報'
 
@@ -936,8 +958,8 @@ export function PerformanceModal({
         event.is_cancelled && (event.current_participants ?? 0) > 0
           ? `中止前${event.current_participants}名`
           : null,
-        !event.is_cancelled && staffParticipantsFromDB.length > 0
-          ? `内スタッフ${staffParticipantsFromDB.length}`
+        !event.is_cancelled && confirmedStaffParticipants.length > 0
+          ? `内スタッフ${confirmedStaffParticipants.length}`
           : null,
       ].filter(Boolean).join(' / ')
     : null
@@ -966,7 +988,7 @@ export function PerformanceModal({
           pendingParticipants={pendingParticipants}
           onPendingAdd={(p) => setPendingParticipants(prev => [...prev, p])}
           onPendingRemove={(idx) => setPendingParticipants(prev => prev.filter((_, i) => i !== idx))}
-          pendingStaffGmNames={(formData.gms || []).filter(n => (formData.gmRoles?.[n] === 'staff') && !staffParticipantsFromDB.includes(n))}
+          pendingStaffGmNames={(formData.gms || []).filter(n => { const member = staff.find(s => s.name === n); const choice = formData.staffParticipation?.entries.find(e => e.staff_id === member?.id); return formData.gmRoles?.[n] === 'staff' && choice?.mode === 'additional' && !choice.reservation_id })}
           onPendingStaffGmRemove={(name) => {
             setFormData((prev: EventFormData) => {
               const newGms = (prev.gms || []).filter(g => g !== name)
@@ -1049,7 +1071,8 @@ export function PerformanceModal({
             staff={staff}
             scenarios={scenarios}
             allAvailableStaff={allAvailableStaff}
-            staffParticipantsFromDB={staffParticipantsFromDB}
+            staffParticipantsFromDB={confirmedStaffParticipants}
+            participationReservations={participationReservations}
             setIsStaffModalOpen={setIsStaffModalOpen}
           />
         </div>
@@ -1136,7 +1159,7 @@ export function PerformanceModal({
             <PerformanceSummary
               formData={formData}
               scenarios={scenarios}
-              staffParticipantsFromDB={staffParticipantsFromDB}
+              staffParticipantsFromDB={confirmedStaffParticipants}
               CATEGORY_TONE={CATEGORY_TONE}
               mode={mode}
               event={event}

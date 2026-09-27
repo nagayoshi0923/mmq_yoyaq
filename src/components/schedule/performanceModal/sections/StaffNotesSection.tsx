@@ -8,7 +8,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
-import type { EventFormData } from '@/types/schedule'
+import type { EventFormData, StaffParticipationReservation } from '@/types/schedule'
 import type { Staff as StaffType, Scenario } from '@/types'
 
 interface StaffNotesSectionProps {
@@ -19,6 +19,7 @@ interface StaffNotesSectionProps {
   scenarios: Scenario[]
   allAvailableStaff: StaffType[]
   staffParticipantsFromDB: string[]
+  participationReservations?: StaffParticipationReservation[]
   setIsStaffModalOpen: Dispatch<SetStateAction<boolean>>
 }
 
@@ -31,6 +32,7 @@ export function StaffNotesSection({
   scenarios,
   allAvailableStaff,
   staffParticipantsFromDB,
+  participationReservations = [],
   setIsStaffModalOpen,
 }: StaffNotesSectionProps) {
   return (
@@ -94,6 +96,18 @@ export function StaffNotesSection({
               <div className="flex flex-wrap gap-1 mt-1">
                 {formData.gms.map((gm: string, index: number) => {
                   const role = formData.gmRoles?.[gm] || 'main'
+                  const staffId = staff.find(member => member.name === gm)?.id
+                  const participation = formData.staffParticipation?.entries.find(entry => entry.staff_id === staffId)
+                  const setParticipation = (value: string) => {
+                    if (!staffId) return
+                    setFormData(prev => ({ ...prev, staffParticipation: {
+                      expected: prev.staffParticipation?.expected ?? [],
+                      expectedStaff: prev.staffParticipation?.expectedStaff ?? {gms:[],gm_roles:{}},
+                      entries: [ ...(prev.staffParticipation?.entries ?? []).filter(entry => entry.staff_id !== staffId),
+                        ...(value ? [{ staff_id: staffId, mode: value === 'additional' ? 'additional' as const : 'included' as const,
+                          reservation_id: value === 'additional' ? (participation?.mode === 'additional' ? participation.reservation_id : null) : value }] : []) ],
+                    } }))
+                  }
                   // staff 役割は常に「参加 (緑)」に統一 (保存時 or role 変更時に予約も自動同期される)
                   // ボーダーは -400 系で背景 (薄色 dialog tone) からはっきり浮き上がるようにする
                   // main 役割はカテゴリ色 (CATEGORY_TONE) を inline style で適用
@@ -143,7 +157,7 @@ export function StaffNotesSection({
                           </div>
                         </div>
                       </PopoverTrigger>
-                      <PopoverContent className="w-40 p-2" align="start">
+                      <PopoverContent className="w-64 p-2" align="start">
                         <div className="space-y-1.5">
                           <div className="space-y-0.5">
                             <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
@@ -180,9 +194,20 @@ export function StaffNotesSection({
                           {role === 'sub' && <p className="text-[11px] text-blue-600 bg-blue-50 p-0.5 rounded">※サブGM給与適用</p>}
                           {role === 'reception' && <p className="text-[11px] text-orange-600 bg-orange-50 p-0.5 rounded">※受付（2,000円）</p>}
                           {role === 'staff' && (
-                            <p className="text-[11px] p-0.5 rounded text-green-600 bg-green-50">
-                              ※ 予約タブのスタッフ予約として自動追加されます
-                            </p>
+                            <div className="space-y-1">
+                              <Label htmlFor={`staff-seat-${index}`} className="text-xs">参加人数の扱い</Label>
+                              <select id={`staff-seat-${index}`} aria-label={`${gm}の参加人数の扱い`} className="w-full rounded border bg-white p-1 text-xs"
+                                value={participation?.mode === 'additional' ? 'additional' : participation?.reservation_id ?? ''}
+                                onChange={e => setParticipation(e.target.value)}>
+                                <option value="">選択してください</option>
+                                <option value="additional">追加の1席（人数を1名増やす）</option>
+                                {participationReservations.map(reservation => <option key={reservation.id} value={reservation.id}>
+                                  予約人数内：{reservation.label || reservation.reservation_number}（{reservation.participant_count}名）
+                                </option>)}
+                              </select>
+                              {formData.staffParticipation?.expected.some(entry => entry.staff_id === staffId && entry.needs_confirmation) && <p className="text-xs text-amber-700">予約の取消・人数変更などがあったため、参加人数の扱いを選び直してください。</p>}
+                              <p className="text-[11px] text-muted-foreground">幹事などの予約人数に含まれている場合は、その予約を選んでください。予約人数と料金は変更しません。</p>
+                            </div>
                           )}
                           {role === 'observer' && <p className="text-[11px] text-indigo-600 bg-indigo-50 p-0.5 rounded">※見学のみ</p>}
                         </div>

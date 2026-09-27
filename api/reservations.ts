@@ -102,6 +102,9 @@ async function routeGet(req: VercelRequest, res: VercelResponse, user: AuthUser)
   }
 
   switch (type) {
+    case 'staff-participation':
+      requireStaff(user)
+      return await handleStaffParticipation(req, res, user, false)
     case 'gm-pending-count':
       requireStaff(user)
       return res.status(200).json(await readGmPendingCount(db!, user))
@@ -322,6 +325,9 @@ async function routePost(req: VercelRequest, res: VercelResponse, user: AuthUser
       // 顧客（ログイン済み）でも自分自身の予約は作成できる。
       // 権限細分化は RPC 内の auth.uid() ベースの組織境界チェックに任せる。
       return await handleCreate(req, res, user)
+    case 'sync-staff-participation':
+      requireStaff(user)
+      return await handleStaffParticipation(req, res, user, true)
     case 'create-staff-entry':
       requireStaff(user)
       return await handleCreateStaffEntry(req, res, user)
@@ -495,6 +501,21 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   return res.status(201).json(created)
+}
+
+async function handleStaffParticipation(req: VercelRequest, res: VercelResponse, user: AuthUser, save: boolean) {
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const eventId = save ? body.schedule_event_id : req.query.schedule_event_id
+  if (typeof eventId !== 'string') return res.status(400).json({ error: '公演IDが必要です' })
+  const client = createUserScopedClient(user.jwt)
+  // New RPCs are deployed before the frontend; organization and actor are derived from JWT in DB.
+  const { data, error } = await client.rpc(save ? 'sync_event_staff_participations' : 'get_event_staff_participations',
+    save ? { p_event_id: eventId, p_entries: body.entries, p_expected: body.expected, p_gms: body.gms, p_gm_roles: body.gm_roles, p_expected_staff: body.expected_staff } : { p_event_id: eventId })
+  if (error) {
+    const status = error.code === '42501' ? 403 : ['40001','55P03','23514'].includes(error.code) ? 409 : error.code === '22023' || error.code === '22P02' ? 400 : 500
+    return res.status(status).json({ error: status === 500 ? 'スタッフ参加の保存・取得に失敗しました' : error.message })
+  }
+  return res.status(200).json(data)
 }
 
 // スタッフ参加枠の予約（syncStaffReservations から呼ばれる）

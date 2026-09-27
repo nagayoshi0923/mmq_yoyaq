@@ -42,7 +42,26 @@ export interface ScheduleEvent {
   }
 }
 
+export interface StaffParticipationEntry {
+  needs_confirmation?: boolean
+  staff_id: string
+  mode: 'included' | 'additional'
+  reservation_id: string | null
+}
+export interface StaffParticipationPlan {
+  entries: StaffParticipationEntry[]
+  expected: StaffParticipationEntry[]
+  expectedStaff: { gms: string[]; gm_roles: Record<string, string> }
+}
+export interface StaffParticipationReservation {
+  id: string
+  label: string
+  reservation_number: string
+  participant_count: number
+}
+
 export interface EventFormData {
+  staffParticipation?: StaffParticipationPlan
   date: string
   venue: string
   scenario: string

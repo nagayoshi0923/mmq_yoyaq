@@ -32,7 +32,7 @@ import {
 import {
   confirmSendPrivateBookingChangeEmail,
 } from '@/hooks/eventOperations/eventSyncHelpers'
-import type { ScheduleEvent } from '@/types/schedule'
+import type { StaffParticipationPlan, ScheduleEvent } from '@/types/schedule'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 
 interface Store {
@@ -52,6 +52,7 @@ interface Scenario {
 }
 
 interface PerformanceData {
+  staffParticipation?: StaffParticipationPlan
   id?: string
   date: string
   store_id?: string
@@ -242,6 +243,7 @@ export function useEventSave({
     const syncStaff = async (...args: Parameters<typeof reservationApi.syncStaffReservations>) => {
       try {
         await reservationApi.syncStaffReservations(...args)
+        setEvents(prev => prev.map(event => event.id === args[0] ? {...event,gms:args[1],gm_roles:args[2]} : event))
       } catch (error) {
         staffSyncFailed = true
         const detail = error instanceof ApiClientError ? error.message : 'スタッフ参加の登録を完了できませんでした。'
@@ -295,23 +297,9 @@ export function useEventSave({
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
           capacity: performanceData.max_participants,
-          // gmsには名前のみ保存（空文字とUUIDを除外）
-          gms: (() => {
-            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-            return performanceData.gms.filter((gm: string) => gm.trim() !== '' && !uuidPattern.test(gm))
-          })(),
-          // gm_rolesからもUUIDキーを除外
-          gm_roles: (() => {
-            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-            const roles = performanceData.gm_roles || {}
-            const cleanedRoles: Record<string, string> = {}
-            Object.entries(roles).forEach(([key, value]) => {
-              if (!uuidPattern.test(key)) {
-                cleanedRoles[key] = value
-              }
-            })
-            return cleanedRoles
-          })(),
+          // 担当と席予約は後段のRPCで一括保存する。
+          gms: [] as string[],
+          gm_roles: {} as Record<string,string>,
           notes: performanceData.notes || undefined,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
@@ -409,7 +397,7 @@ export function useEventSave({
         }
 
         // GM欄で「スタッフ参加」を選択した場合、予約も作成する
-        if (performanceData.gm_roles && Object.values(performanceData.gm_roles).includes('staff')) {
+        if (performanceData.gm_roles) {
           await syncStaff(
             savedEvent.id,
             performanceData.gms || [],
@@ -420,7 +408,8 @@ export function useEventSave({
               scenario_master_id: scenarioId || undefined,
               scenario_title: performanceData.scenario,
               store_id: storeData.id
-            }
+            },
+            performanceData.staffParticipation
           )
         }
         
@@ -621,16 +610,6 @@ export function useEventSave({
             }
           }
           
-          // gmsからUUIDを除外（gmsには名前のみ保存）
-          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-          const cleanedGms = (performanceData.gms || []).filter((gm: string) => gm.trim() !== '' && !uuidPattern.test(gm))
-          const cleanedRoles: Record<string, string> = {}
-          Object.entries(performanceData.gm_roles || {}).forEach(([key, value]) => {
-            if (!uuidPattern.test(key)) {
-              cleanedRoles[key] = value
-            }
-          })
-          
           // 履歴用: 更新前の値を取得
           let oldEventQuery = supabase
             .from('schedule_events_staff_view')
@@ -662,8 +641,6 @@ export function useEventSave({
             start_time: performanceData.start_time,
             end_time: performanceData.end_time,
             capacity: performanceData.max_participants,
-            gms: cleanedGms,
-            gm_roles: cleanedRoles,
             notes: performanceData.notes,
             time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
             venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
@@ -744,14 +721,15 @@ export function useEventSave({
                 scenario_master_id: scenarioId || undefined,
                 scenario_title: performanceData.scenario,
                 store_id: performanceData.venue || undefined
-              }
+              },
+              performanceData.staffParticipation
             )
           }
 
           // ローカル状態を更新（scenariosは元のデータを保持）
           setEvents(prev => prev.map(event => 
             event.id === performanceData.id 
-              ? { ...event, ...performanceData, scenarios: event.scenarios, id: performanceData.id! } as ScheduleEvent 
+              ? { ...event, ...performanceData, gms: staffSyncFailed ? event.gms : performanceData.gms, gm_roles: staffSyncFailed ? event.gm_roles : performanceData.gm_roles, scenarios: event.scenarios, id: performanceData.id! } as ScheduleEvent
               : event
           ))
         }

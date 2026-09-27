@@ -6,33 +6,25 @@ vi.mock('@/lib/apiClient', () => ({ apiClient: mocks }))
 vi.mock('@/lib/participantUtils', () => ({ recalculateCurrentParticipants: mocks.recalculate }))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() }, generateCorrelationId: vi.fn(), createCorrelatedLogger: vi.fn() }))
 import { reservationApi } from './reservationApi'
-const details = { date: '2026-11-01', start_time: '15:30' }
-beforeEach(() => { vi.resetAllMocks(); mocks.get.mockResolvedValue([]) })
-describe('スタッフ参加の保存結果', () => {
-  it('定員超過を握りつぶさず、保存画面へ返す', async () => {
-    const error = new Error('定員7名に対して8名になるため保存できません')
-    mocks.post.mockRejectedValue(error)
-    await expect(reservationApi.syncStaffReservations('event', ['スタッフA'], { スタッフA: 'staff' }, details)).rejects.toBe(error)
-    expect(mocks.recalculate).not.toHaveBeenCalled()
+const plan = { entries: [{ staff_id: 'staff-a', mode: 'included' as const, reservation_id: 'booking' },{ staff_id: 'staff-b', mode: 'additional' as const, reservation_id: null }], expected: [], expectedStaff: {gms:[],gm_roles:{}} }
+beforeEach(() => vi.resetAllMocks())
+describe('スタッフ参加を一括保存する', () => {
+  it('人数内と追加席を一回のAPIに渡す。先行取消や名前照合はしない', async () => {
+    await reservationApi.syncStaffReservations('event', ['A','B'], { A:'staff',B:'staff' },undefined,plan)
+    expect(mocks.post).toHaveBeenCalledExactlyOnceWith('/api/reservations?action=sync-staff-participation',{schedule_event_id:'event',entries:plan.entries,expected:[],expected_staff:plan.expectedStaff,gms:['A','B'],gm_roles:{A:'staff',B:'staff'}})
+    expect(mocks.get).not.toHaveBeenCalled();expect(mocks.patch).not.toHaveBeenCalled();expect(mocks.recalculate).not.toHaveBeenCalled()
   })
-  it('登録済みのスタッフ参加を二重登録しない', async () => {
-    mocks.get.mockResolvedValue([{ id: 'reservation', status: 'confirmed', reservation_source: 'staff_participation', participant_names: ['スタッフA'] }])
-    await reservationApi.syncStaffReservations('event', ['スタッフA'], { スタッフA: 'staff' }, details)
-    expect(mocks.post).not.toHaveBeenCalled()
-    expect(mocks.patch).not.toHaveBeenCalled()
+  it('全員解除も空のentriesと取得時のexpectedを送る', async () => {
+    await reservationApi.syncStaffReservations('event', [], {},undefined,{entries:[],expected:plan.entries,expectedStaff:plan.expectedStaff})
+    expect(mocks.post).toHaveBeenCalledWith(expect.any(String),{schedule_event_id:'event',entries:[],expected:plan.entries,expected_staff:plan.expectedStaff,gms:[],gm_roles:{}})
   })
-  it('満席でのスタッフ交代は旧枠のキャンセル後に追加する', async () => {
-    mocks.get.mockResolvedValue([{ id: 'old', status: 'confirmed', reservation_source: 'staff_entry', participant_names: ['旧スタッフ'] }])
-    await reservationApi.syncStaffReservations('event', ['新スタッフ'], { 新スタッフ: 'staff' }, details)
-    expect(mocks.patch).toHaveBeenCalled()
-    expect(mocks.post).toHaveBeenCalled()
-    expect(mocks.patch.mock.invocationCallOrder[0]).toBeLessThan(mocks.post.mock.invocationCallOrder[0])
+  it('競合や定員超過を保存画面へ返し、個別追加を再試行しない', async () => {
+    mocks.post.mockRejectedValue(new Error('定員超過'))
+    await expect(reservationApi.syncStaffReservations('event', ['A'], {A:'staff'},undefined,plan)).rejects.toThrow('定員超過')
+    expect(mocks.post).toHaveBeenCalledTimes(1);expect(mocks.patch).not.toHaveBeenCalled()
   })
-  it('旧枠のキャンセル失敗時は追加しない', async () => {
-    mocks.get.mockResolvedValue([{ id: 'old', status: 'confirmed', reservation_source: 'staff_entry', participant_names: ['旧スタッフ'] }])
-    mocks.patch.mockRejectedValue(new Error('通信エラー'))
-    await expect(reservationApi.syncStaffReservations('event', ['新スタッフ'], { 新スタッフ: 'staff' }, details)).rejects.toThrow('通信エラー')
+  it('参加方法が未取得のまま保存しない',async()=>{
+    await expect(reservationApi.syncStaffReservations('event',[],{})).rejects.toThrow('開き直して')
     expect(mocks.post).not.toHaveBeenCalled()
   })
-
 })
