@@ -257,7 +257,6 @@ export function GroupChatSheets({
                         refetch()
                         closeSheetReplace()
                       }}
-                      organizerMemberId={organizerMember?.id}
                     />
                   </div>
                 )}

@@ -17,7 +17,7 @@ import {
   PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
   isPrivateBookingSlotAllowedByScenarioSettings,
 } from '@/lib/privateBookingScenarioTime'
-import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
+import { getPerStoreSlotsForDate, type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
   getPrivateBookingStoreSlotFeasibility,
   isProposedPrivateBookingStartFeasible,
@@ -70,6 +70,8 @@ function minutesToTime(minutes: number): string {
 }
 
 type SlotCandidate = {
+  weekdayMorningOnly: boolean
+  eveningDeadline: number
   preparationMinutes: number
   earliestStart: number
   slotEnd: number
@@ -113,6 +115,13 @@ function getBestSlotCandidateAcrossStores(
     const preparation = preparationByStore?.[storeId]
     const extraPrepTime = preparation === undefined ? legacyExtraPrepTime : 0
     const row = businessHoursByStore.get(storeId)
+    const bands = getPerStoreSlotsForDate(targetDate, row, isCustomHoliday, { allowSyntheticWhenMissingRow: allowSynthetic })
+    const eveningDeadline = (bands?.find(band => band.key === 'evening')?.startMin ?? 1140)
+      - (preparation ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
+    const afternoonStart = bands?.find(band => band.key === 'afternoon')?.startMin ?? 780
+    const weekdayMorningOnly = eveningDeadline - durationMinutes - extraPrepTime < afternoonStart
+    if (!isWeekendOrHoliday && ((slotKey === 'morning' && !weekdayMorningOnly)
+      || (slotKey === 'afternoon' && weekdayMorningOnly))) continue
     let f = getPrivateBookingStoreSlotFeasibility(
       targetDate, storeId, slotKey, row, allStoreEvents, isCustomHoliday, allowSynthetic, preparation,
     )
@@ -200,6 +209,10 @@ function getBestSlotCandidateAcrossStores(
       startForFeasibility = f.minAllowedStart
     }
 
+    // 各店舗の締切まで検証してから、全店舗中の最早候補を選ぶ。
+    if (!isWeekendOrHoliday && slotKey === 'afternoon'
+      && startForFeasibility + durationMinutes + extraPrepTime > eveningDeadline) continue
+
     const effectiveMin =
       slotKey === 'evening' && startForFeasibility < f.slotBandStart
         ? startForFeasibility
@@ -225,6 +238,8 @@ function getBestSlotCandidateAcrossStores(
     }
 
     candidates.push({
+      weekdayMorningOnly,
+      eveningDeadline,
       preparationMinutes: preparation ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
       earliestStart: startForFeasibility,
       slotEnd: f.slotBandEnd,
@@ -296,18 +311,6 @@ export function computePrivateBookingSlots(
   const afternoonCandidate = getFeasibility('afternoon')
   const eveningCandidate = getFeasibility('evening')
 
-  // Weekday: long-format (morning only) vs normal (afternoon only)
-  let weekdayMorningOnly = false
-  if (!isWeekendOrHoliday) {
-    const eveningBaseStart = eveningCandidate?.slotBaselineStart ?? 19 * 60
-    const eveningDeadline =
-      eveningBaseStart - (eveningCandidate?.preparationMinutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
-    const reverseFromEvening =
-      eveningDeadline - durationMinutes - extraPrepTime
-    const afternoonDefault = afternoonCandidate?.slotBaselineStart ?? 13 * 60
-    weekdayMorningOnly = reverseFromEvening < afternoonDefault
-  }
-
   const slotDefs: {
     key: SlotKey
     label: '午前' | '午後' | '夜'
@@ -322,12 +325,6 @@ export function computePrivateBookingSlots(
 
   for (const def of slotDefs) {
     if (!def.candidate) continue
-
-    // Weekday exclusion
-    if (!isWeekendOrHoliday) {
-      if (def.key === 'afternoon' && weekdayMorningOnly) continue
-      if (def.key === 'morning' && !weekdayMorningOnly) continue
-    }
 
     let startMinutes: number
     let effectiveSlotEndLimit = def.candidate.slotEnd
@@ -350,11 +347,7 @@ export function computePrivateBookingSlots(
       !isWeekendOrHoliday &&
       (def.key === 'morning' || def.key === 'afternoon')
     ) {
-      const eveningBaseStart = eveningCandidate?.slotBaselineStart ?? 19 * 60
-      const eveningDeadline =
-        eveningBaseStart - (eveningCandidate?.preparationMinutes ?? PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES)
-      const reverseFromEvening =
-        eveningDeadline - durationMinutes - extraPrepTime
+      const { eveningDeadline, weekdayMorningOnly } = def.candidate
       const priorFloor = def.candidate.priorEventEarliestStartMin
 
       if (weekdayMorningOnly) {

@@ -20,63 +20,50 @@ interface UseCustomHolidaysOptions {
 export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
   const [customHolidays, setCustomHolidays] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [loadedScope, setLoadedScope] = useState<string | null>(null)
   const { organizationSlug, organizationId } = options || {}
+  const scope = JSON.stringify([organizationSlug ?? null, organizationId ?? null, options !== undefined])
 
   // options が渡されているが ID/slug がまだ未解決かを判定
   const hasPublicOption = options !== undefined && ('organizationSlug' in options || 'organizationId' in options)
 
-  // 初期ロード
+  // 組織切替中の古い応答を適用しない。取得失敗を「休日なし」と扱わない。
   useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+    setError(null)
+    setCustomHolidays([])
     const load = async () => {
       try {
-        // 組織スラッグが指定されている場合は、スラッグから組織IDを取得して休日を取得
-        // 公開ページ用：RPCを使用して機密情報を含まないデータのみ取得
+        let targetOrganizationId = organizationId
         if (organizationSlug) {
-          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
-            requireActive: true,
-          })
-
-          if (orgData) {
-            // 公開用RPC（機密情報を含まない）を使用
-            const { data, error } = await supabase
-              .rpc('get_public_custom_holidays', { p_organization_id: orgData.id })
-
-            if (!error && data && data.length > 0) {
-              setCustomHolidays(data[0].custom_holidays || [])
-            }
-            setIsLoading(false)
-            return
-          }
+          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true })
+          if (!orgData) throw new Error('組織の休日設定を確認できません')
+          targetOrganizationId = orgData.id
         }
-
-        // 組織IDが直接指定されている場合は公開用RPCを使用
-        if (organizationId) {
-          const { data, error } = await supabase
-            .rpc('get_public_custom_holidays', { p_organization_id: organizationId })
-          if (!error && data && data.length > 0) {
-            setCustomHolidays(data[0].custom_holidays || [])
-          }
-          setIsLoading(false)
-          return
+        let holidays: string[] = []
+        if (targetOrganizationId) {
+          const { data, error: rpcError } = await supabase.rpc('get_public_custom_holidays', { p_organization_id: targetOrganizationId })
+          if (rpcError) throw rpcError
+          holidays = data?.[0]?.custom_holidays ?? []
+        } else if (!hasPublicOption) {
+          holidays = await organizationSettingsApi.getCustomHolidays()
         }
-
-        // 公開オプションが渡されているがIDが未解決の場合はスキップ（ローディング中）
-        if (hasPublicOption) {
-          setIsLoading(false)
-          return
-        }
-
-        // 通常の取得（ログインユーザーの組織 = スタッフ/管理者専用）
-        const holidays = await organizationSettingsApi.getCustomHolidays()
-        setCustomHolidays(holidays)
-      } catch (error) {
-        logger.error('カスタム休日の取得に失敗:', error)
+        if (!cancelled) setCustomHolidays(holidays)
+      } catch (loadError) {
+        logger.error('カスタム休日の取得に失敗:', loadError)
+        if (!cancelled) setError('休日設定を取得できません。画面を再読み込みしてください。')
       } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setLoadedScope(scope)
+          setIsLoading(false)
+        }
       }
     }
-    load()
-  }, [organizationSlug, organizationId, hasPublicOption])
+    void load()
+    return () => { cancelled = true }
+  }, [organizationSlug, organizationId, hasPublicOption, scope])
 
   // 休日を追加
   const addHoliday = useCallback(async (date: string) => {
@@ -144,7 +131,8 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
 
   return {
     customHolidays,
-    isLoading,
+    isLoading: isLoading || loadedScope !== scope,
+    error,
     addHoliday,
     removeHoliday,
     toggleHoliday,
