@@ -13,6 +13,16 @@ import {
   type CalculableCancellationPolicy,
 } from '../src/lib/cancellationPolicy.js'
 
+function groupCancellationError(error: { code?: string; message?: string } | null) {
+  if (error?.code === 'P0050' || error?.code === 'P0051') {
+    return { status: 409, message: '予約と貸切グループの紐づきが一致しません。取消は保存されていません。店舗管理者に確認してください。' }
+  }
+  if (error?.code === '55P03') {
+    return { status: 409, message: 'ほかの操作が進行中です。画面を更新してから、もう一度取消をお試しください。' }
+  }
+  return { status: 500, message: '予約と貸切グループのキャンセルに失敗しました。' }
+}
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -929,7 +939,7 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
 
   const userClient = createUserScopedClient(user.jwt)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_lock', {
+  const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_notice', {
     p_reservation_id: id,
     p_customer_id: customerId ?? null,
     p_cancellation_reason: reason,
@@ -937,7 +947,8 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
 
   if (error) {
     console.error('[reservations:cancel-with-group-lock] RPC error:', error)
-    return res.status(500).json({ error: '予約+グループのキャンセルに失敗しました', detail: error.message })
+    const failure = groupCancellationError(error)
+    return res.status(failure.status).json({ error: failure.message, detail: error.message })
   }
   if (data !== true) {
     return res.status(500).json({ error: '予約+グループのキャンセルに失敗しました（DB 側）' })
@@ -1020,17 +1031,15 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     }
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_lock', {
+    const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_notice', {
       p_reservation_id: id,
       p_customer_id: reservation.customer_id ?? null,
       p_cancellation_reason: reason,
     })
     if (error || data !== true) {
       console.error('[reservations:cancel] cancel_reservation_and_group_with_lock error:', error, 'data:', data)
-      return res.status(500).json({
-        error: '予約+グループのキャンセルに失敗しました',
-        detail: error?.message,
-      })
+      const failure = groupCancellationError(error)
+      return res.status(failure.status).json({ error: failure.message, detail: error?.message })
     }
   }
 
@@ -1081,33 +1090,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     }
   }
 
-  // 3) グループキャンセルの場合のみ、システムメッセージを送信
-  if (reservation.private_group_id && !skipGroupCancel) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: settings } = await (db as any)
-      .from('global_settings')
-      .select('system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
-      .eq('organization_id', reservation.organization_id)
-      .maybeSingle()
-
-    const title = settings?.system_msg_booking_cancelled_title || 'ご予約がキャンセルされました'
-    const messageBody =
-      settings?.system_msg_booking_cancelled_body ||
-      reason ||
-      '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('private_group_messages').insert({
-      group_id: reservation.private_group_id,
-      sender_type: 'system',
-      message: JSON.stringify({
-        type: 'system',
-        action: 'booking_cancelled',
-        title,
-        body: messageBody,
-      }),
-    })
-  }
+  // グループ取消の通知はRPC内で予約・グループと一括保存する。
 
   // 4) キャンセル後の予約レコード（プレーン）と、後段の Edge Function 呼び出しに必要な情報を返す
   const { data: cancelled, error: fetchAfterError } = await db
