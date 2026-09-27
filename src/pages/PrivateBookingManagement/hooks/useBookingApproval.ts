@@ -11,13 +11,11 @@ import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { pendingOperation } from '@/lib/pendingOperation'
 import { useAuth } from '@/contexts/AuthContext'
-import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
 import { showToast } from '@/utils/toast'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
 import { startTimeToEn, timeSlotEnToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
-import { isSenshinPrivateBooking } from '@/lib/senshinPrivateBooking'
 
 
 
@@ -283,7 +281,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPCパラメータ:', rpcParams)
       
       const operation = await pendingOperation(`private-approval:${organizationId}:${user.id}`, rpcParams)
-      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_delivery', { ...rpcParams, p_request_id: operation.id })
+      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_notifications', { ...rpcParams, p_request_id: operation.id })
 
       if (approveError) {
         logger.error('貸切承認RPCエラー:', approveError)
@@ -356,7 +354,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       approvalCommitted = true
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
-      // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
+      // RPC成功後に一覧を更新。通知・履歴の保存は同じRPCで完了している。
       // onSuccess の完了（一覧再フェッチなど）まで await して、submitting=true を保つ。
       // これにより承認ボタンの再活性化前にリストが最新化され、二度押しでの重複承認を防ぐ。
       try {
@@ -366,137 +364,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         logger.error('承認後の一覧更新に失敗:', refreshError)
         showToast.warning('承認は保存済みですが、一覧を更新できませんでした。画面を開き直してください。')
       }
-      if (approval.replayed) return { success: true }
-
-      // バックグラウンド処理（awaitしない）
-      ;(async () => {
-        // schedule_events の確定日時と予約料金情報を並列取得
-        const [seResult, reservationResult] = await Promise.all([
-          scheduleEventId
-            ? supabase.from('schedule_events').select('date, start_time, end_time').eq('id', scheduleEventId as string).single()
-            : Promise.resolve({ data: null, error: null }),
-          supabase.from('reservations').select('total_price, final_price, customer_email, customer_name, reservation_number, customer_notes, private_group_id').eq('id', requestId).single()
-        ])
-
-        let notifyEventDate = selectedDateYmd
-        let notifyStartTime = selectedStartTime
-        let notifyEndTime = selectedEndTime
-        if (seResult.data?.date != null && seResult.data.date !== '') {
-          const fromRow = normalizeToJapanCalendarYmd(String(seResult.data.date))
-          if (fromRow) notifyEventDate = fromRow
-          if (seResult.data.start_time) notifyStartTime = String(seResult.data.start_time).slice(0, 5)
-          if (seResult.data.end_time) notifyEndTime = String(seResult.data.end_time).slice(0, 5)
-        }
-
-        const updatedReservation = reservationResult.data
-        const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
-        const gmIds = requiredGm >= 2 && selectedSubGmId ? [selectedGMId, selectedSubGmId] : [selectedGMId]
-
-        let discordPlayerUrl: string | undefined
-        let discordSpectatorUrl: string | undefined
-        if (
-          isSenshinPrivateBooking({
-            scenario_master_id: selectedRequest?.scenario_master_id,
-            scenario_title: selectedRequest?.scenario_title,
-          })
-        ) {
-          const { data: discordResult, error: discordErr } = await supabase.functions.invoke(
-            'provision-private-booking-discord',
-            { body: { organizationId, reservationId: requestId, scheduleEventId: scheduleEventId || undefined } },
-          )
-          if (discordErr || discordResult?.success === false) {
-            logger.error('戦塵Discordチャンネル作成エラー:', discordErr || discordResult)
-            showToast.warning('Discordチャンネルの作成に失敗しました。確定メールは送っています。')
-          } else if (!discordResult?.skipped) {
-            discordPlayerUrl = discordResult?.playerInviteUrl || undefined
-            discordSpectatorUrl = discordResult?.spectatorInviteUrl || undefined
-            if (discordPlayerUrl && discordSpectatorUrl) {
-              logger.log('戦塵Discordチャンネル作成成功')
-            }
-          }
-        }
-
-        // イベント履歴・確定メール・GM通知・グループ処理を並列実行
-        await Promise.all([
-          // イベント履歴: フル状態スナップショットを取得して new_values に保存、
-          // changed_by_name には「（貸切管理）」サフィックスを付ける
-          scheduleEventId && organizationId
-            ? (async () => {
-                const createdSnapshot = await fetchEventSnapshot(scheduleEventId as string, organizationId)
-                const fallback = {
-                  scenario: cleanScenarioTitle, date: selectedDateYmd, store_id: selectedStoreId,
-                  start_time: selectedStartTime, end_time: selectedEndTime, gms: gmIds,
-                  reservation_name: selectedRequest?.customer_name || '',
-                }
-                const cellTimeSlot =
-                  (createdSnapshot?.time_slot as string | null | undefined) ??
-                  selectedCandidate.timeSlot ?? null
-                await createEventHistory(
-                  scheduleEventId as string, organizationId, 'create', null,
-                  createdSnapshot ?? fallback,
-                  { date: selectedDateYmd, storeId: selectedStoreId, timeSlot: cellTimeSlot },
-                  { notes: '貸切予約承認により作成', source: '貸切管理' }
-                )
-              })().catch(e => logger.error('createEventHistory error:', e))
-            : Promise.resolve(),
-
-          // カスタマー確定メール
-          (async () => {
-            const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
-            const customerName = selectedRequest?.customer_name
-            if (!customerEmail || !customerName) return
-            const selectedStore = stores.find(s => s.id === selectedStoreId)
-            const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
-            const { error: emailErr } = await supabase.functions.invoke('send-private-booking-confirmation', {
-              body: {
-                organizationId, storeId: selectedStoreId, reservationId: requestId,
-                customerEmail, customerName, scenarioTitle: selectedRequest?.scenario_title || '',
-                eventDate: notifyEventDate, startTime: notifyStartTime, endTime: notifyEndTime,
-                storeName, storeAddress: selectedStore?.address || undefined,
-                participantCount: selectedRequest?.participant_count || 0, totalPrice: priceToUse,
-                reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
-                notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined,
-                scheduleEventId: scheduleEventId || undefined,
-                scenarioMasterId: selectedRequest?.scenario_master_id || undefined,
-                discordPlayerUrl,
-                discordSpectatorUrl,
-              }
-            })
-            if (emailErr) logger.error('貸切予約確定メール送信エラー:', emailErr)
-            else logger.log('貸切予約確定メール送信成功:', customerEmail)
-          })(),
-
-          // GM確定通知（複数GMも並列）
-          (async () => {
-            const { data: notifyStaffRows, error: staffErr } = await supabase
-              .from('staff').select('id, name, email, discord_channel_id, discord_user_id').in('id', gmIds)
-            if (staffErr) { logger.error('GM通知用スタッフ取得エラー:', staffErr); return }
-            await Promise.all((notifyStaffRows || []).map(async row => {
-              if (!row?.id) return
-              const { data: notifyResult, error: notifyFnError } = await supabase.functions.invoke(
-                'notify-gm-private-booking-confirmed',
-                { body: {
-                  organizationId, gmId: row.id, gmName: row.name, gmEmail: row.email,
-                  gmDiscordChannelId: row.discord_channel_id ?? undefined,
-                  gmDiscordUserId: row.discord_user_id ?? undefined,
-                  scenarioTitle: selectedRequest?.scenario_title || '',
-                  eventDate: notifyEventDate, startTime: notifyStartTime, endTime: notifyEndTime,
-                  storeName, customerName: selectedRequest?.customer_name || '',
-                  participantCount: selectedRequest?.participant_count || 0, reservationId: requestId,
-                }}
-              )
-              if (notifyFnError) {
-                logger.error('GM確定通知エラー:', { gmName: row.name, error: notifyFnError })
-                showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
-              } else if (notifyResult?.results?.discord === 'failed') {
-                showToast.warning(`${row.name} へのDiscord通知が失敗しました。チャンネル設定またはBot権限をご確認ください。`)
-              }
-            }))
-          })(),
-
-          // アンケート通知は承認RPCで送信予定まで保存済み。配送ワーカーが処理する。
-        ])
-      })().catch(err => logger.error('バックグラウンド承認処理エラー:', err))
+      // 承認・履歴・配送予定はDBで一括保存済み。画面を閉じてもサーバーが配送する。
+      if (!approval.approval_delivery_queued) showToast.warning('旧版で承認済みの申込です。通知履歴で送信状況をご確認ください。')
 
       return { success: true }
     } catch (error) {

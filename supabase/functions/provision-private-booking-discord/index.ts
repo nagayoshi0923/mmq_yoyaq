@@ -1,4 +1,7 @@
 // @ts-nocheck
+import { authorizePrivateApprovalNotification } from '../_shared/private-approval-authorization.ts'
+import { loadPrivateDiscordProvisionContext } from '../_shared/private-discord-provision-context.ts'
+import { LegacyApprovalError } from '../_shared/private-approval-legacy.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings } from '../_shared/organization-settings.ts'
@@ -263,11 +266,13 @@ serve(async (req) => {
 
   try {
     const isSystem = isCronOrServiceRoleCall(req)
+    let callerId: string | null = null
     if (!isSystem) {
       const authResult = await verifyAuth(req)
       if (!authResult.success) {
         return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
       }
+      callerId=authResult.user!.id
     }
 
     const body = await req.json().catch(() => ({}))
@@ -301,7 +306,7 @@ serve(async (req) => {
 
     const { data: reservation, error: resErr } = await supabase
       .from('reservations')
-      .select('id, organization_id, scenario_master_id, scenario_title, schedule_event_id, store_id, status')
+      .select('id, organization_id, scenario_master_id, scenario_title, schedule_event_id, store_id, status, customer_id, private_group_id')
       .eq('id', reservationId)
       .maybeSingle()
     if (resErr || !reservation) {
@@ -310,17 +315,32 @@ serve(async (req) => {
     if (organizationId && reservation.organization_id !== organizationId) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
+    if(action==='cancel'&&reservation.status!=='cancelled') return errorResponse('予約の取消が確定していません',409,corsHeaders)
+    if(!isSystem) {
+      try { await authorizePrivateApprovalNotification(req,supabase,reservation.organization_id) }
+      catch(error) {
+        if(action!=='cancel'||!(error instanceof LegacyApprovalError)||error.status!==403) throw error
+        const [customer,group]=await Promise.all([
+          reservation.customer_id ? supabase.from('customers').select('id').eq('id',reservation.customer_id).eq('user_id',callerId).maybeSingle() : Promise.resolve({data:null,error:null}),
+          reservation.private_group_id ? supabase.from('private_groups').select('id').eq('id',reservation.private_group_id).eq('organization_id',reservation.organization_id).eq('organizer_id',callerId).maybeSingle() : Promise.resolve({data:null,error:null}),
+        ])
+        if(customer.error||group.error) throw new LegacyApprovalError('取消の本人確認を完了できません',503)
+        if(!customer.data&&!group.data) throw error
+      }
+    }
     if (!isSenshinScenario(reservation.scenario_master_id, reservation.scenario_title)) {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: 'not_senshin' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('private_booking_discord_rooms')
       .select('id, organization_id, reservation_id, schedule_event_id, scenario_master_id, player_channel_id, spectator_channel_id, player_invite_url, spectator_invite_url, date_role_id, player_channel_name, spectator_channel_name, created_at, moved_at')
       .eq('reservation_id', reservationId)
+      .eq('organization_id', reservation.organization_id)
       .maybeSingle()
+    if(existingError) throw existingError
 
     if (action === 'cancel') {
       if (!existing) {
@@ -386,6 +406,8 @@ serve(async (req) => {
       )
     }
 
+    const { event, store } = await loadPrivateDiscordProvisionContext(supabase, reservation, existing)
+
     if (existing) {
       return new Response(
         JSON.stringify({
@@ -399,24 +421,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
-
-    const eventId = reservation.schedule_event_id || body.scheduleEventId || null
-    const { data: event } = eventId
-      ? await supabase
-          .from('schedule_events')
-          .select('id, date, start_time, store_id, gms, scenario_master_id')
-          .eq('id', eventId)
-          .maybeSingle()
-      : { data: null }
-
-    if (!event?.date || !event.start_time) {
-      return errorResponse('公演日時がありません', 400, corsHeaders)
-    }
-
-    const storeId = event.store_id || reservation.store_id
-    const { data: store } = storeId
-      ? await supabase.from('stores').select('name, short_name').eq('id', storeId).maybeSingle()
-      : { data: null }
 
     const names = buildSenshinChannelNames({
       eventDate: String(event.date),
@@ -542,6 +546,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {
+    if(error instanceof LegacyApprovalError) return errorResponse(error.message,error.status,corsHeaders)
     console.error('provision-private-booking-discord', error)
     return errorResponse(sanitizeErrorMessage(error), 500, corsHeaders)
   }
