@@ -164,6 +164,7 @@ export function PerformanceModal({
   const [isFormInitializing, setIsFormInitializing] = useState(true)
   // 保存処理の二重送信ガード（B7）。常時マウントのため initForm 実行時（モーダルを開くたび）にリセットする
   const isSavingRef = useRef(false)
+  const initializationGeneration = useRef(0)
   const [formData, setFormData] = useState<EventFormData>({
     id: '',
     date: '',
@@ -510,13 +511,15 @@ export function PerformanceModal({
 
   // モードに応じてフォームを初期化
   useEffect(() => {
+    if (!isOpen) return
     // 設定がロード中の場合は待機（追加モードの場合のみ）
     if (mode === 'add' && isTimeSlotSettingsLoading) {
       return
     }
     void initForm()
+    return () => { initializationGeneration.current += 1 }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
+  }, [isOpen, mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
 
   // シナリオ変更時にキット配置店舗を取得
   // scenario_master_id 直叩きだと org_scenario_id のみの行を取りこぼすため、
@@ -550,6 +553,7 @@ export function PerformanceModal({
   }, [isOpen, formData.scenario, scenarios])
 
   const initForm = async () => {
+    const generation = ++initializationGeneration.current
     setIsFormInitializing(true)
     // 常時マウントのため、次にモーダルを開いた時に前回の保存中フラグが残留しないようリセット
     isSavingRef.current = false
@@ -594,8 +598,9 @@ export function PerformanceModal({
       let participation = { entries: [], reservations: [], assignment: {gms:event.gms ?? [],gm_roles:event.gm_roles ?? {}} } as Awaited<ReturnType<typeof reservationApi.getStaffParticipation>>
       if (!event.is_private_request) {
         try { participation = await reservationApi.getStaffParticipation(event.id) }
-        catch (error) { setParticipationLoadError(true); logger.error('スタッフ参加方法の取得失敗', error) }
+        catch (error) { if (generation !== initializationGeneration.current) return; setParticipationLoadError(true); logger.error('スタッフ参加方法の取得失敗', error) }
       }
+      if (generation !== initializationGeneration.current) return
       setParticipationReservations(participation.reservations)
       setFormData({
         ...event,
@@ -629,6 +634,7 @@ export function PerformanceModal({
       
       // スロットメモを取得（DB から非同期で取得）
       const slotMemo = await getEmptySlotMemo(initialData.date, initialData.venue, slot)
+      if (generation !== initializationGeneration.current) return
 
       // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
       const startTime = initialData.suggestedStartTime || slotDefaults.start_time
@@ -656,7 +662,7 @@ export function PerformanceModal({
         scenario: '',
         gms: [],
         gmRoles: {},
-    staffParticipation: { entries: [], expected: [], expectedStaff: {gms: [], gm_roles: {}} },
+        staffParticipation: { entries: [], expected: [], expectedStaff: {gms: [], gm_roles: {}} },
         start_time: startTime,
         end_time: endTime,
         category: 'open',
@@ -667,7 +673,7 @@ export function PerformanceModal({
       })
     }
     } finally {
-      setIsFormInitializing(false)
+      if (generation === initializationGeneration.current) setIsFormInitializing(false)
     }
   }
 
