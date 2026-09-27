@@ -70,7 +70,9 @@ await db.exec(`CREATE TABLE private_group_members(id uuid PRIMARY KEY,group_id u
 CREATE TABLE private_group_messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),group_id uuid,member_id uuid,message text);
 CREATE TABLE global_settings(organization_id uuid PRIMARY KEY,system_msg_booking_requested_title text,system_msg_booking_requested_body text);`)
 const noticeMigration='20260927034000_private_booking_request_notice.sql'
+const lockOrderMigration='20260927035000_private_booking_request_approve_lock_order.sql'
 await db.exec(fs.readFileSync('supabase/migrations/'+noticeMigration,'utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/'+lockOrderMigration,'utf8'))
 // 旧本体RPCをスタブ化せず、実際の認証・価格・予約・グループ・GM処理まで実行する。
 await db.query("INSERT INTO global_settings VALUES($1,'組織の申込通知','返信をお待ちください')",[org])
 await db.query("INSERT INTO global_settings VALUES('10000000-0000-0000-0000-000000000099','他社設定','公開禁止')")
@@ -118,8 +120,18 @@ await assert.rejects(db.query("SELECT create_private_booking_request_with_notice
 await db.exec('SET ROLE anon')
 await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','000',6,'{}')",[scenario,customer]),e=>e.code==='42501')
 await db.exec('RESET ROLE');assert.equal(await count('reservations'),total)
+const requestDef=(await db.query("SELECT pg_get_functiondef('public.create_private_booking_request_with_notice(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid)'::regprocedure) AS d")).rows[0].d
+assert.match(requestDef,/FOR SHARE NOWAIT/)
+assert.match(requestDef,/lock_not_available/)
+assert.match(requestDef,/55P03/)
+const approveDef=(await db.query("SELECT pg_get_functiondef('public.approve_private_booking(uuid,date,time without time zone,time without time zone,uuid,uuid,jsonb,text,text,uuid)'::regprocedure) AS d")).rows[0].d
+assert.match(approveDef,/FROM private_groups[\s\S]*FOR UPDATE NOWAIT/)
+assert.match(approveDef,/この貸切グループは別の処理で更新中です/)
+await db.exec(fs.readFileSync('supabase/rollbacks/'+lockOrderMigration,'utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/'+lockOrderMigration,'utf8'))
 await db.exec(fs.readFileSync('supabase/rollbacks/'+noticeMigration,'utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/'+noticeMigration,'utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/'+lockOrderMigration,'utf8'))
 assert.equal(await count('reservations'),total)
 await db.close()
-console.log('PASS private request notice: real request RPC, org template/fallback, no organizer row, counts, transaction rollback incl pricing/GM/group, auth/anonymous, rollback/reapply')
+console.log('PASS private request notice: real request RPC, org template/fallback, no organizer row, counts, transaction rollback incl pricing/GM/group, auth/anonymous, lock-order NOWAIT, rollback/reapply')

@@ -16,7 +16,8 @@ BEGIN
    RAISE EXCEPTION '既に申込済み、確定済み、または取消済みです。画面を更新してください' USING ERRCODE='22023';
   END IF;
   IF g.reservation_id IS NOT NULL THEN
-   SELECT status INTO linked_status FROM public.reservations WHERE id=g.reservation_id AND organization_id=g.organization_id FOR SHARE;
+   -- Approval locks reservation first. Never wait on it while holding the group lock.
+   SELECT status INTO linked_status FROM public.reservations WHERE id=g.reservation_id AND organization_id=g.organization_id FOR SHARE NOWAIT;
    IF linked_status IS DISTINCT FROM 'cancelled' THEN
     RAISE EXCEPTION '処理中の予約があるため再申込できません。画面を更新してください' USING ERRCODE='22023';
    END IF;
@@ -38,6 +39,8 @@ BEGIN
     'body',coalesce(nullif(body,''),'店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。'))::text);
  END IF;
  RETURN reservation;
+EXCEPTION WHEN lock_not_available THEN
+ RAISE EXCEPTION 'この申込は別の処理で更新中です。少し待って再度お試しください' USING ERRCODE='55P03';
 END $$;
 REVOKE ALL ON FUNCTION public.create_private_booking_request_with_notice(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.create_private_booking_request_with_notice(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) TO authenticated,service_role;
