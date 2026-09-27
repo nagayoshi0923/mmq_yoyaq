@@ -971,6 +971,9 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   // true のとき、紐づく貸切公演(category='private')も中止にする（貸切リクエストの却下フロー）
   const cancelPrivateEvent = Boolean(body.cancel_private_event)
 
+  // 公演中止・グループ取消の省略は店舗側の却下フロー専用。予約変更前に認可する。
+  if (skipGroupCancel || cancelPrivateEvent) requireStaff(user)
+
   // 1) 予約 + customers + schedule_events を取得（マルチテナント境界チェックも兼ねる）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reservation, error: fetchError } = await (db as any)
