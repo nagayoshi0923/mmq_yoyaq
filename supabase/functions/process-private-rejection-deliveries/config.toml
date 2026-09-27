@@ -1,0 +1,2 @@
+[functions.process-private-rejection-deliveries]
+verify_jwt = false

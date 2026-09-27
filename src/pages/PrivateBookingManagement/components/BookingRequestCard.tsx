@@ -1,3 +1,4 @@
+import { rejectionDeliveryLabel, type RejectionDeliveryStatus } from '../hooks/useRejectionDeliveryStatus'
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -77,6 +78,10 @@ interface GMStaff {
 
 interface BookingRequestCardProps {
   request: BookingRequest
+  rejectionDelivery?: RejectionDeliveryStatus
+  rejectionDeliveryError?: boolean
+  onRetryRejectionDelivery?: () => void
+  retryingRejectionDelivery?: boolean
   onResendDiscordNotification?: (request: { id: string; scenario_title: string }) => Promise<void>
   // GM個別の通知/再通知（未送信→送信、未回答→再送）
   onResendDiscordGm?: (request: { id: string; scenario_title: string }, staffId: string, gmName: string) => Promise<void>
@@ -100,6 +105,10 @@ interface BookingRequestCardProps {
 
 export const BookingRequestCard = ({
   request,
+  rejectionDelivery,
+  rejectionDeliveryError,
+  onRetryRejectionDelivery,
+  retryingRejectionDelivery,
   onResendDiscordNotification,
   onResendDiscordGm,
   selectedCandidateOrder,
@@ -168,6 +177,16 @@ export const BookingRequestCard = ({
           </div>
         </div>
 
+        {request.status === 'cancelled' && (rejectionDeliveryError || rejectionDelivery) && (
+          <p className="mt-2 text-sm text-muted-foreground" role="status">
+            {rejectionDeliveryError ? 'メール送信状況を取得できません。時間を置いて再読み込みしてください。' : rejectionDeliveryLabel(rejectionDelivery!.status)}
+          </p>
+        )}
+        {!rejectionDeliveryError && rejectionDelivery?.can_retry && onRetryRejectionDelivery && (
+          <Button variant="outline" size="sm" className="mt-2" disabled={retryingRejectionDelivery} onClick={onRetryRejectionDelivery}>
+            登録済み連絡先でメールを再試行
+          </Button>
+        )}
         {/* ── サマリー1行 ── */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-muted-foreground">
           <span>#{request.reservation_number}</span>

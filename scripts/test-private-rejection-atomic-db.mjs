@@ -23,7 +23,13 @@ const restore = sql('supabase/rollbacks/20260927046000_close_legacy_private_reje
 await db.exec(closure)
 const migration = sql('supabase/migrations/20260927045000_private_rejection_atomic.sql')
 await db.exec(migration)
+const withDelivery = process.env.TEST_REJECTION_DELIVERY === '1'
+if(withDelivery) {
+ await db.exec('ALTER TABLE reservations ADD COLUMN customer_email text, ADD COLUMN customer_name text, ADD COLUMN title text; CREATE TABLE customers(id uuid PRIMARY KEY,organization_id uuid,email text,name text); CREATE TABLE email_logs(id uuid PRIMARY KEY,organization_id uuid,reservation_id uuid,status text,error_message text,email_type text,body_text text,to_email text,provider_message_id text,sent_at timestamptz)')
+ await db.exec(sql('supabase/migrations/20260927047000_private_rejection_mail_intent.sql'))
+}
 const reset = async () => {
+ if(withDelivery) await db.exec('RESET ROLE; DELETE FROM private_booking_rejection_deliveries; DELETE FROM customers; DELETE FROM email_logs')
  await db.exec('RESET ROLE; DELETE FROM private_group_messages; DELETE FROM private_group_candidate_dates; DELETE FROM private_groups; DELETE FROM reservations; DELETE FROM schedule_events; DELETE FROM staff')
  await db.query("INSERT INTO staff VALUES($1,$2,'active'),($3,$2,'inactive')",[id(1),id(10),id(2)])
  await db.query("INSERT INTO schedule_events VALUES($1,$2,'private',true,4,false,NULL,NULL,NULL)",[id(40),id(10)])
@@ -35,10 +41,11 @@ const actor = async (uid=id(1),org=id(10),admin=false,role='authenticated') => {
  await db.query("SELECT set_config('test.uid',$1,false),set_config('test.org',$2,false),set_config('test.admin',$3,false)",[uid||'',org||'',String(admin)])
  await db.exec(`SET ROLE ${role}`)
 }
-const call = (body='却下本文') => db.query('SELECT reject_private_booking_with_notice($1,$2) AS ok',[id(20),body])
+const call = (body='却下本文') => db.query(`SELECT ${withDelivery ? 'reject_private_booking_with_delivery' : 'reject_private_booking_with_notice'}($1,$2) AS ok`,[id(20),body])
 const state = async () => {
  await db.exec('RESET ROLE')
  const result={}
+ if(withDelivery) result.deliveries=(await db.query('SELECT * FROM private_booking_rejection_deliveries ORDER BY id')).rows
  for(const table of ['reservations','schedule_events','private_groups','private_group_candidate_dates','private_group_messages']) result[table]=(await db.query(`SELECT * FROM ${table} ORDER BY id`)).rows
  return result
 }
@@ -77,6 +84,7 @@ await reset();await actor();await call('本文A');await state()
 await db.exec("UPDATE reservations SET status='confirmed'; UPDATE private_groups SET status='confirmed'; UPDATE schedule_events SET is_cancelled=false; UPDATE private_group_candidate_dates SET status='confirmed'")
 await actor();await call('本文B');const rejectedAgain=await state()
 assert.equal(rejectedAgain.private_group_messages.length,2)
+if(withDelivery) assert.equal(rejectedAgain.deliveries.length,2)
 assert.deepEqual(new Set(rejectedAgain.private_group_messages.map(m=>JSON.parse(m.message).body)),new Set(['本文A','本文B']))
 await actor();await call('本文B');assert.deepEqual(await state(),rejectedAgain)
 for(const mutation of [
@@ -96,13 +104,52 @@ await reset();await db.exec("UPDATE reservations SET status='cancelled',cancella
 await db.exec("INSERT INTO private_group_messages SELECT md5(id::text || ':' || extract(epoch FROM cancelled_at)::text)::uuid,private_group_id,NULL,'別の通知' FROM reservations")
 const collision=await state();await actor();await assert.rejects(call(),/REJECTION_NOTICE_CONFLICT/);assert.deepEqual(await state(),collision)
 await reset();await db.exec("UPDATE schedule_events SET category='open',is_private_booking=true");await actor();await call();assert.equal((await state()).schedule_events[0].is_cancelled,true)
+if(withDelivery) {
+ await reset();await db.exec("UPDATE reservations SET customer_id='00000000-0000-0000-0000-000000000099',customer_email='saved@example.test',customer_name='予約時名',title='作品'; INSERT INTO customers VALUES('00000000-0000-0000-0000-000000000099','00000000-0000-0000-0000-000000000010','account@example.test','アカウント名')")
+ await actor();await call();const result=await state()
+ assert.equal(result.deliveries[0].status,'pending');
+ assert.equal(result.deliveries.length,1);assert.equal(result.deliveries[0].customer_email,'saved@example.test');assert.equal(result.deliveries[0].customer_name,'予約時名')
+ await actor();let statusRows=(await db.query('SELECT * FROM get_private_rejection_delivery_status($1)',[[id(20)]])).rows
+ assert.equal(statusRows.length,1);assert.equal(statusRows[0].status,'pending');assert.equal('customer_email' in statusRows[0],false)
+ await db.exec('RESET ROLE');await actor(id(4),id(11),true)
+ assert.equal((await db.query('SELECT * FROM get_private_rejection_delivery_status($1)',[[id(20)]])).rows.length,0)
+ await db.exec('RESET ROLE');await actor(id(2),id(10),false)
+ assert.equal((await db.query('SELECT * FROM get_private_rejection_delivery_status($1)',[[id(20)]])).rows.length,0)
+ await db.exec('RESET ROLE');await actor(null,null,false,'anon')
+ await assert.rejects(db.query('SELECT * FROM get_private_rejection_delivery_status($1)',[[id(20)]]),e=>e.code==='42501')
+ await db.exec('RESET ROLE')
+ await db.exec("UPDATE private_booking_rejection_deliveries SET status='failed'; INSERT INTO email_logs(id,organization_id,reservation_id,status,error_message,email_type,body_text,to_email) SELECT id,organization_id,reservation_id,'queued',NULL,'reservation_cancelled',message_body,customer_email FROM private_booking_rejection_deliveries")
+ await actor();assert.equal((await db.query('SELECT retry_private_rejection_delivery($1) AS ok',[id(20)])).rows[0].ok,true)
+ await state();assert.equal((await db.query('SELECT status FROM email_logs')).rows[0].status,'failed')
+ assert.ok((await db.query('SELECT email_log_id FROM private_booking_rejection_deliveries')).rows[0].email_log_id)
+ await db.exec("UPDATE private_booking_rejection_deliveries SET status='failed',first_attempt_at=now()")
+ await actor();await assert.rejects(db.query('SELECT retry_private_rejection_delivery($1)',[id(20)]),/DELIVERY_NOT_SAFE_TO_RETRY/)
+ await state();await db.exec("UPDATE private_booking_rejection_deliveries SET status='pending',first_attempt_at=NULL")
+ await db.exec("UPDATE reservations SET customer_email='changed@example.test'")
+ await actor();await call();assert.equal((await state()).deliveries[0].customer_email,'saved@example.test')
+ for(const role of ['anon','authenticated']) {
+  await actor(id(1),id(10),false,role)
+  await assert.rejects(db.query('SELECT * FROM private_booking_rejection_deliveries'),e=>e.code==='42501')
+  await assert.rejects(db.query("UPDATE private_booking_rejection_deliveries SET status='sent'"),e=>e.code==='42501')
+ }
+ await db.exec('RESET ROLE')
+ await reset();await actor();await db.query('SELECT reject_private_booking_with_notice($1,$2)',[id(20),'却下本文']);await call()
+ const legacy=await state();assert.equal(legacy.deliveries[0].status,'uncertain');assert.equal(legacy.deliveries[0].last_error,'legacy_delivery_unconfirmed')
+}
 // 実取消関数を含め、通知/候補/公演の失敗で予約取消も巻き戻る。
-for(const [table,event] of [['private_group_messages','INSERT'],['private_group_candidate_dates','UPDATE'],['schedule_events','UPDATE']]) {
+for(const [table,event] of [...[['private_group_messages','INSERT'],['private_group_candidate_dates','UPDATE'],['schedule_events','UPDATE']], ...(withDelivery ? [['private_booking_rejection_deliveries','INSERT']] : [])]) {
  await reset();await db.exec(`CREATE OR REPLACE FUNCTION fixture_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'injected failure';END$$;CREATE TRIGGER fixture_fail BEFORE ${event} ON ${table} FOR EACH ROW EXECUTE FUNCTION fixture_fail()`)
  const before=await state();await actor();await assert.rejects(call(),/injected failure/);assert.deepEqual(await state(),before)
  await db.exec(`DROP TRIGGER fixture_fail ON ${table}`)
 }
 await reset();await db.exec('UPDATE reservations SET schedule_event_id=NULL,private_group_id=NULL');await actor();await call();assert.equal((await state()).reservations[0].status,'cancelled')
+if(withDelivery) {
+ const deliveryBefore=(await db.query('SELECT * FROM private_booking_rejection_deliveries')).rows
+ await db.exec(sql('supabase/rollbacks/20260927047000_private_rejection_mail_intent.sql'))
+ assert.deepEqual((await db.query('SELECT * FROM private_booking_rejection_deliveries')).rows,deliveryBefore)
+ await db.exec(sql('supabase/migrations/20260927047000_private_rejection_mail_intent.sql'))
+ await reset();await actor();await call();assert.equal((await state()).deliveries.length,1)
+}
 await db.exec(sql('supabase/rollbacks/20260927045000_private_rejection_atomic.sql'));assert.equal((await db.query("SELECT to_regprocedure('reject_private_booking_with_notice(uuid,text)') AS f")).rows[0].f,null)
 await db.exec(migration);await reset();await actor();await call();assert.equal((await state()).private_group_messages.length,1)
 await db.close();console.log('PASS: atomic rejection, authorization, current links, other reservations protection, retry and all-write rollback, restore/reapply')

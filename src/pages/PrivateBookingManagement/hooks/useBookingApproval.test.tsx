@@ -113,13 +113,13 @@ describe('貸切却下の一括保存と送信結果', () => {
     vi.clearAllMocks()
     return onSuccess
   }
-  it('予約状態にかかわらず一括保存へ全文を渡し、DB直接操作なしで送信する', async () => {
+  it('一括保存へ全文を渡し、ブラウザから別メールを送らず送信予定として表示する', async () => {
     const refreshed = await prepare()
     await act(() => result.current.handleRejectConfirm())
     expect(mocks.cancel).toHaveBeenCalledWith('request', expect.any(String), expect.objectContaining({ privateRejectionBody: '編集した本文', skipGroupCancel: true, cancelPrivateEvent: true }))
     expect(mocks.from).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled()
-    expect(mocks.invoke).toHaveBeenCalledWith('send-private-booking-rejection', { body: expect.objectContaining({ reservationId: 'request', customEmailBody: '編集した本文', organizationId: 'org' }) })
-    expect(mocks.success).toHaveBeenLastCalledWith('却下メールを送信しました')
+    expect(mocks.invoke).not.toHaveBeenCalled()
+    expect(mocks.success).toHaveBeenLastCalledWith('貸切リクエストを却下しました', expect.stringContaining('送信予定を保存'))
     expect(refreshed).toHaveBeenCalledOnce(); expect(result.current.submitting).toBe(false)
   })
   it('保存失敗ならメールを送らず編集本文を保持する', async () => {
@@ -129,10 +129,10 @@ describe('貸切却下の一括保存と送信結果', () => {
     expect(result.current.rejectionReason).toBe('編集した本文'); expect(mocks.toast).toHaveBeenCalled()
     expect(result.current.submitting).toBe(false)
   })
-  it.each([{ data: { success: false }, error: null }, { data: null, error: new Error('通信失敗') }])('メールの不成功を保存失敗や送信済みとしない', async response => {
+  it.each([{ data: { success: false }, error: null }, { data: null, error: new Error('通信失敗') }])('ブラウザの送信サービスが失敗していても別送信せず、保存済み予定を使う', async response => {
     await prepare(); mocks.invoke.mockResolvedValue(response)
     await act(() => result.current.handleRejectConfirm())
-    expect(mocks.warning).toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
+    expect(mocks.invoke).not.toHaveBeenCalled(); expect(mocks.warning).not.toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
     expect(mocks.success).not.toHaveBeenCalledWith('却下メールを送信しました')
     expect(result.current.showRejectDialog).toBe(false)
   })
@@ -140,7 +140,7 @@ describe('貸切却下の一括保存と送信結果', () => {
     await prepare(vi.fn().mockRejectedValue(new Error('再取得失敗')))
     mocks.invoke.mockRejectedValue(new Error('送信失敗'))
     await act(() => result.current.handleRejectConfirm())
-    expect(mocks.warning).toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
+    expect(mocks.invoke).not.toHaveBeenCalled(); expect(mocks.warning).not.toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
     expect(result.current.submitting).toBe(false)
   })
 })

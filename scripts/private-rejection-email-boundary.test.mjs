@@ -22,6 +22,7 @@ function fixture(options = {}) {
           reads.push({ table, filters })
           if (options.queryError === table) return { data: null, error: { message: 'unavailable' } }
           let data
+          if (table === 'private_booking_rejection_deliveries') data = options.delivery
           if (table === 'staff') data = options.active === false ? null : { id: 'staff-id' }
           if (table === 'reservations') data = options.missing || filters.organization_id !== reservation.organization_id ? null : reservation
           if (table === 'private_groups') data = options.missingGroup ? null : { reservation_id: id, status: 'date_adjusting', ...options.group }
@@ -114,4 +115,15 @@ test('不正本文・メソッド・送信サービス失敗を成功扱いに�
 test('貸切フラグのみの紐づく公演でも送信できる', async () => {
   const f = fixture({ reservation: { private_group_id: null, reservation_source: 'web', schedule_event_id: 'event' }, event: { category: 'normal', is_private_booking: true } })
   assert.equal((await f.request()).status, 200); assert.equal(f.sends.length, 1)
+})
+
+test('新しい送信予定がある取消世代は旧画面から直接再送しない', async () => {
+ for(const status of ['pending','sending','sent','failed','uncertain']) {
+  const f=fixture({reservation:{cancelled_at:'2026-09-27T00:00:00Z'},delivery:{status}})
+  const response=await f.request();const body=await response.json()
+  assert.equal(body.success,status==='sent');assert.equal(body.deliveryStatus,status);assert.equal(f.sends.length,0);assert.equal(f.settings.length,0)
+  const lookup=f.reads.find(r=>r.table==='private_booking_rejection_deliveries');assert.equal(lookup.filters.cancelled_at,'2026-09-27T00:00:00Z')
+ }
+ const f=fixture({reservation:{cancelled_at:'2026-09-27T00:00:00Z'},queryError:'private_booking_rejection_deliveries'})
+ assert.equal((await f.request()).status,503);assert.equal(f.sends.length,0)
 })

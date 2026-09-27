@@ -931,7 +931,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   // 2) RPC でキャンセル
   const userClient = createUserScopedClient(user.jwt)
   if (atomicRejection) {
-    const { data, error } = await userClient.rpc('reject_private_booking_with_notice', {
+    const { data, error } = await userClient.rpc('reject_private_booking_with_delivery', {
       p_reservation_id: id,
       p_message_body: rejectionBody,
     })
