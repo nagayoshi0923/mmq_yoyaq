@@ -11,7 +11,7 @@ CREATE TABLE customers(id uuid PRIMARY KEY,user_id uuid,organization_id uuid);
 CREATE TABLE contacts(customer_id uuid,organization_id uuid);
 CREATE FUNCTION customer_has_org_connection(c uuid,o uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT EXISTS(SELECT 1 FROM contacts WHERE customer_id=c AND organization_id=o) $$;
 CREATE TABLE scenario_masters(id uuid PRIMARY KEY);
-CREATE TABLE manual_play_history(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_id uuid REFERENCES customers,scenario_title text,scenario_master_id uuid REFERENCES scenario_masters,played_at date,venue text,notes text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
+CREATE TABLE manual_play_history(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_id uuid REFERENCES customers,scenario_id uuid,scenario_title text,scenario_master_id uuid REFERENCES scenario_masters,played_at date,venue text,notes text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
 CREATE TABLE customer_played_overrides(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_id uuid REFERENCES customers,scenario_master_id uuid REFERENCES scenario_masters,reason text,created_by uuid,created_at timestamptz DEFAULT now(),UNIQUE(customer_id,scenario_master_id));`)
 for(const [n,role,org] of [[1,'customer',null],[2,'staff',10],[3,'admin',10],[4,'staff',20],[5,'staff',10],[6,'license_admin',20],[7,'customer',null]]) await db.query('INSERT INTO users VALUES($1,$2,$3)',[id(n),role,org?id(org):null])
 for(const [u,o,status] of [[2,10,'active'],[4,20,'active'],[5,10,'resigned']]) await db.query('INSERT INTO staff(user_id,organization_id,status) VALUES($1,$2,$3)',[id(u),id(o),status])
@@ -63,6 +63,7 @@ await db.exec('GRANT SELECT,INSERT,UPDATE,DELETE ON manual_play_history TO authe
 const closure=fs.readFileSync('supabase/migrations/20260927025000_close_played_history_direct_access.sql','utf8')
 const reopen=fs.readFileSync('supabase/rollbacks/20260927025000_close_played_history_direct_access.sql','utf8')
 await db.exec(closure)
+await db.exec(fs.readFileSync('supabase/migrations/20260927027000_customer_play_history_snapshot_mincols.sql','utf8'))
 await db.exec('SET ROLE authenticated')
 const owned=await act(1,100)
 assert.equal(owned.manual.length,2000)
