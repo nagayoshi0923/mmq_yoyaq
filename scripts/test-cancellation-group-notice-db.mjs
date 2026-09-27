@@ -77,5 +77,27 @@ await db.exec(fs.readFileSync('supabase/rollbacks/20260927039000_cancellation_gr
 await reset();await actor(id(11));await assert.rejects(call('cancel_reservation_and_group_with_lock'),e=>e.code==='P0009');await db.exec('RESET ROLE')
 await db.exec(fs.readFileSync('supabase/migrations/20260927039000_cancellation_group_notice.sql','utf8'))
 await reset();await actor(id(12));await cancel();assert.equal((await saved()).messages.length,1)
+if (process.argv.includes('--closure')) {
+ const close=fs.readFileSync('supabase/migrations/20260927040000_close_legacy_group_cancellation.sql','utf8')
+ const restore=fs.readFileSync('supabase/rollbacks/20260927040000_close_legacy_group_cancellation.sql','utf8')
+ await db.exec(close)
+ for (const role of ['authenticated','anon']) {
+   await reset();await actor(id(12),id(21),false,role)
+   await assert.rejects(call('cancel_reservation_and_group_with_lock'),e=>e.code==='42501')
+   assert.equal((await saved()).reservation,'confirmed')
+ }
+ await reset();await actor(id(12));await cancel();assert.equal((await saved()).messages.length,1)
+ await db.exec('CREATE TRIGGER fail_notice BEFORE INSERT ON private_group_messages FOR EACH ROW EXECUTE FUNCTION fail_notice()')
+ await reset();await actor(id(12));await assert.rejects(cancel(),/fixture notice failure/)
+ assert.deepEqual(await saved(),{reservation:'confirmed',group:'confirmed',count:2,messages:[]})
+ await db.exec('DROP TRIGGER fail_notice ON private_group_messages')
+ assert.equal((await db.query("SELECT has_function_privilege('service_role','public.cancel_reservation_and_group_with_lock(uuid,uuid,text)','EXECUTE') AS ok")).rows[0].ok,true)
+ await reset();await actor(id(12),id(21),false,'service_role')
+ assert.equal((await call('cancel_reservation_and_group_with_lock')).rows[0].ok,true)
+ assert.equal((await saved()).reservation,'cancelled')
+ await db.exec(restore);await reset();await actor(id(12));await call('cancel_reservation_and_group_with_lock');assert.equal((await saved()).reservation,'cancelled')
+ await db.exec(close);await reset();await actor(id(12));await cancel();assert.equal((await saved()).messages.length,1)
+ console.log('PASS: closure denies direct auth/anon, preserves real authenticated wrapper cancellation+notice+failure rollback, service privilege from migration GRANT, ACL restore/reapply')
+}
 console.log('PASS: group tenant/link validation, owner/staff/admin, atomic notice failure rollback, templates, capacity/checked-in/cancelled events, no-group, anon/forgery denial, duplicate rejection, rollback/reapply')
 await db.close()
