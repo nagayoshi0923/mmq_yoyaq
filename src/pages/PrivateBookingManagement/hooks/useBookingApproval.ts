@@ -6,11 +6,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
-import {
-  reservationApi,
-  RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
-  joinedCustomerFromReservation,
-} from '@/lib/reservationApi'
+import { reservationApi } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { sendEmail } from '@/lib/emailApi'
@@ -548,127 +544,44 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     }
   }, [organizationId])
 
-  // 却下確定
-  const handleRejectConfirm = useCallback(async (selectedRequest?: PrivateBookingRequest | null) => {
-    if (!rejectRequestId || !rejectionReason.trim()) return
-
+  // 予約・公演・グループ・チャット通知はサーバーで一括保存する。
+  const handleRejectConfirm = useCallback(async (_selectedRequest?: PrivateBookingRequest | null) => {
+    if (!rejectRequestId || !rejectionReason.trim() || !organizationId) return
+    setSubmitting(true)
+    let saved = false
     try {
-      setSubmitting(true)
-
-      // 予約情報を取得（メール送信用）
-      const { data: reservation, error: fetchError } = await supabase
-        .from('reservations')
-        .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-        .eq('id', rejectRequestId)
-        .single()
-
-      if (fetchError) throw fetchError
-
-      // 予約をキャンセル（在庫返却 + 通知）
-      // 貸切予約の却下なので、reservationApi.cancel()を使用してキャンセル待ち通知も送信
-      // ただしグループはキャンセルせず、候補日選択フェーズに戻す
-      // 既にキャンセル済みの場合はスキップ
-      if (reservation?.status !== 'cancelled') {
-        // 却下メール本文（rejectionReason は全文）はキャンセル記録に流さず、固定の短い理由を渡す。
-        // キャンセル確認メールは送らない（後段で却下専用メールを送るため、二重送信になる）。
-        // 承認済みの貸切を却下した場合、紐づく公演もスケジュールから中止にする
-        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true, skipCancellationEmail: true, cancelPrivateEvent: true })
-      }
-      
-      // 関連するグループを候補日選択フェーズに戻し、候補日を rejected にする。
-      // 直接 UPDATE は RLS で主催者のみ許可のため、店舗スタッフでは 0 件になる。RPC で更新する。
-      if (reservation?.private_group_id) {
-        const { error: rejectSyncError } = await supabase.rpc(
-          'mark_private_group_rejected_after_booking_rejection',
-          { p_reservation_id: rejectRequestId }
-        )
-        if (rejectSyncError) {
-          logger.error('貸切却下: グループ・候補日の同期 RPC エラー:', rejectSyncError)
-          throw rejectSyncError
-        }
-        logger.log('グループを date_adjusting・候補日を rejected に同期:', reservation.private_group_id)
-
-        // 却下通知（チャット・メール）はバックグラウンドで送信し、画面は即時更新する
-        // （従来は直列で20秒以上かかり、その間UIが無反応で「何も起きていない」ように見えた）
-        ;(async () => {
-          // 候補日時を取得（メール・チャットメッセージ両方で使用）
-          const candidateDates = reservation?.candidate_datetimes?.candidates?.map((c: any) => ({
-            date: c.date,
-            startTime: c.startTime,
-            endTime: c.endTime
-          })) || []
-
-          // 管理者が却下ダイアログで編集した「全文」(rejectionReason) を、メールにもチャットにも
-          // そのまま使う（再テンプレ化しない → 見たまま＝送られる文）。
-          const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
-          const rejectCustomerEmail = reservation?.customer_email || rejectMailCustomerJoined?.email || selectedRequest?.customer_email
-          const rejectCustomerName = reservation?.customer_name || rejectMailCustomerJoined?.name || selectedRequest?.customer_name
-          const sharedBody = rejectionReason
-
-          // グループチャットにシステムメッセージを送信
-          const { error: msgInsertError } = await supabase
-            .from('private_group_messages')
-            .insert({
-              group_id: reservation.private_group_id,
-              member_id: null,
-              message: JSON.stringify({
-                type: 'system',
-                action: 'booking_rejected',
-                title: '貸切リクエストが却下されました',
-                body: sharedBody
-              })
-            })
-          if (msgInsertError) {
-            logger.error('却下メッセージ送信エラー:', msgInsertError)
-          }
-
-          // 却下メール（貸切専用）を送信
-          if (reservation && rejectCustomerEmail && rejectCustomerName) {
-            try {
-              const { error: rejectMailError } = await supabase.functions.invoke('send-private-booking-rejection', {
-                body: {
-                  organizationId,
-                  reservationId: reservation.id,
-                  customerEmail: rejectCustomerEmail,
-                  customerName: rejectCustomerName,
-                  scenarioTitle: reservation.title || '',
-                  // 管理者が編集した全文をそのまま送る（最優先）
-                  customEmailBody: rejectionReason,
-                  // 旧Edge Function（customEmailBody 未対応）向けのフォールバック理由
-                  rejectionReason: DEFAULT_REJECTION_REASON,
-                  candidateDates: candidateDates.length > 0 ? candidateDates : undefined
-                }
-              })
-              if (rejectMailError) {
-                logger.error('却下メール送信エラー:', rejectMailError)
-              } else {
-                logger.log('貸切リクエスト却下メール送信成功')
-              }
-            } catch (emailError) {
-              logger.error('却下メール送信エラー:', emailError)
-            }
-          } else {
-            logger.warn('却下メール送信スキップ: メールアドレスまたは顧客名が取得できませんでした', { rejectCustomerEmail, rejectCustomerName })
-          }
-        })().catch(err => {
-          logger.error('却下通知のバックグラウンド処理エラー:', err)
-          showToast.warning('却下は完了しましたが、お客様への通知送信に失敗した可能性があります', '貸切管理から個別にご連絡ください')
-        })
-      }
-
-      setRejectionReason('')
+      await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, {
+        skipGroupCancel: true, skipCancellationEmail: true, cancelPrivateEvent: true,
+        privateRejectionBody: rejectionReason,
+      })
+      saved = true
       setShowRejectDialog(false)
       setRejectRequestId(null)
-      showToast.success('貸切リクエストを却下しました', 'お客様への却下連絡はバックグラウンドで送信されます')
-      await onSuccess()
+      setRejectionReason('')
+      showToast.success('貸切リクエストを却下しました', '却下メールを送信しています')
+      // 宛先・作品・候補日はEdgeが保存済み予約から取得。グループなしの旧貸切も送信する。
+      const { data, error } = await supabase.functions.invoke('send-private-booking-rejection', {
+        body: {
+          organizationId, reservationId: rejectRequestId,
+          customEmailBody: rejectionReason, rejectionReason: DEFAULT_REJECTION_REASON,
+        },
+      })
+      if (error || data?.success !== true) {
+        logger.error('却下メール送信未確認:', error || data)
+        showToast.warning('却下は保存済みですが、メール送信を確認できません', '予約を再度却下せず、通知履歴を確認して個別にご連絡ください')
+      } else {
+        showToast.success('却下メールを送信しました')
+      }
     } catch (error) {
       logger.error('却下エラー:', error)
-      showToast.error(getSafeErrorMessage(error, '却下処理でエラーが発生しました'))
-      // 部分的に処理が進んでいる可能性があるため、一覧を実態に同期する
-      setShowRejectDialog(false)
-      setRejectRequestId(null)
-      await onSuccess()
+      if (saved) {
+        showToast.warning('却下は保存済みですが、メール送信を確認できません', '予約を再度却下せず、通知履歴を確認して個別にご連絡ください')
+      } else {
+        showToast.error(getSafeErrorMessage(error, '却下を保存できませんでした。状態を再読込して確認してください'))
+      }
     } finally {
+      // 再取得の失敗で、保存・送信結果を上書きしない。
+      try { await onSuccess() } catch (error) { logger.error('却下後の一覧再取得に失敗:', error) }
       setSubmitting(false)
     }
   }, [rejectRequestId, rejectionReason, onSuccess, organizationId])
