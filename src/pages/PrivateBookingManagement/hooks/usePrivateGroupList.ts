@@ -80,22 +80,18 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
 
       const reservationIds = [...new Set(data.map(g => g.reservation_id).filter((id): id is string => !!id))]
       // 表示名は認可済みsnapshotに含まれる。顧客テーブルを再取得しない。
-      const [
-        surveyResult,
-        bookingRows,
-      ] = await Promise.all([
-        getGroupsSurveySettings(groupIds),
-        boundedBatches(reservationIds, 50, 3, async ids => {
-          const result = await supabase
-              .from('reservations')
-              .select('id, private_group_id, schedule_event_id, status')
-              .eq('organization_id', orgId)
-              .in('id', ids)
-              .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-          if (result.error) throw result.error
-          return result.data || []
-        }),
-      ])
+      // 各フェーズを待ち合わせ、一覧全体でも同時要求を最大3件に保つ。
+      const surveyResult = await getGroupsSurveySettings(groupIds)
+      const bookingRows = await boundedBatches(reservationIds, 50, 3, async ids => {
+        const result = await supabase
+          .from('reservations')
+          .select('id, private_group_id, schedule_event_id, status')
+          .eq('organization_id', orgId)
+          .in('id', ids)
+          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+        if (result.error) throw result.error
+        return result.data || []
+      })
       const currentReservation = new Map(data.map(g => [g.id, g.reservation_id]))
       const eventIds = [...new Set(bookingRows.map(r => r.schedule_event_id).filter((id): id is string => !!id))]
       const eventRows = await boundedBatches(eventIds, 50, 3, async ids => {
@@ -106,7 +102,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       })
       const events = new Map(eventRows.map(event => [event.id, event]))
 
-      // グループIDごとの確定公演日・時間・GMスタッフID・店舗IDマップ
+      // グループIDごとの現在公演日・時間・担当名・店舗IDマップ
       const confirmedDateMap = new Map<string, string>()
       const confirmedTimeMap = new Map<string, string>()
       const confirmedGmNameMap = new Map<string, string>()
@@ -122,7 +118,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         if (event.store_id) confirmedStoreIdMap.set(req.private_group_id, event.store_id)
       })
 
-      // GMスタッフ名・店舗名を一括取得
+      // 店舗名を一括取得
       const storeIds = [...new Set([...confirmedStoreIdMap.values()].filter(Boolean))]
       const storeNameMap = new Map<string, string>()
 
