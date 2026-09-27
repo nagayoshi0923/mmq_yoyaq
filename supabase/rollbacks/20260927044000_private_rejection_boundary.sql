@@ -48,4 +48,3 @@ $$;
 
 COMMENT ON FUNCTION public.mark_private_group_rejected_after_booking_rejection(uuid) IS
   '貸切予約却下後に private_groups を date_adjusting に、同一グループの候補日を rejected に更新（RLS をバイパス、スタッフ権限チェックあり）';
-
