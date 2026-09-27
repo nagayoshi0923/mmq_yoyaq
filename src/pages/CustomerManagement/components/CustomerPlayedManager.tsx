@@ -2,7 +2,7 @@ import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
  * 顧客別 体験済みシナリオ管理（管理画面・スタッフ用 / 予約台帳 Step B）。
  *
- * 体験済み = 予約由来（過去・confirmed/gm_confirmed/checked_in）∪ 手動登録(manual_play_history)。
+ * 体験済み = 予約由来（過去・confirmed/gm_confirmed/checked_in/completed）∪ 手動登録(manual_play_history)。
  * スタッフがこの顧客の体験済みを操作できる:
  *  - 予約由来: 「未体験に戻す/体験済みに戻す」= customer_played_overrides の追加/削除（予約は触らない・表示判定のみ）
  *  - 手動登録: 追加（manual_play_history insert）/ 削除
@@ -34,7 +34,7 @@ interface CustomerPlayedManagerProps {
   customerId: string
 }
 
-const ACTIVE_PLAYED_STATUSES = ['confirmed', 'gm_confirmed', 'checked_in']
+const ACTIVE_PLAYED_STATUSES = ['confirmed', 'gm_confirmed', 'checked_in', 'completed']
 
 export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps) {
   const [reservationItems, setReservationItems] = useState<PlayedItem[]>([])
