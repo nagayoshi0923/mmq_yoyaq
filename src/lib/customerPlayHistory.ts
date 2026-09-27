@@ -16,9 +16,14 @@ export interface PlayedOverrideEntry {
   scenario_master_id: string
   reason: string | null
 }
+export type PlayHistorySnapshotManualEntry = Pick<
+  ManualPlayHistoryEntry,
+  'id' | 'scenario_id' | 'scenario_master_id' | 'scenario_title' | 'played_at' | 'venue'
+>
 export interface PlayHistorySnapshot {
-  manual: ManualPlayHistoryEntry[]
-  overrides: PlayedOverrideEntry[]
+  can_edit: boolean
+  manual: PlayHistorySnapshotManualEntry[]
+  overrides: Pick<PlayedOverrideEntry, 'scenario_master_id'>[]
 }
 export interface ManualPlayHistoryInput {
   scenario_title: string
