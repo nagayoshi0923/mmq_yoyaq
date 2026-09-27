@@ -31,7 +31,6 @@ import {
 } from '@/lib/privateBookingCustomerChangeEmail'
 import {
   confirmSendPrivateBookingChangeEmail,
-  syncRelatedDataOnEventDateChange,
 } from '@/hooks/eventOperations/eventSyncHelpers'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
@@ -674,20 +673,6 @@ export function useEventSave({
           }
           
           await scheduleApi.update(performanceData.id, updateData)
-
-          // 関連データを同期（日程・時間が変更された場合）
-          if (oldEventData && (oldEventData.date !== updateData.date || oldEventData.start_time !== updateData.start_time || oldEventData.end_time !== updateData.end_time)) {
-            await syncRelatedDataOnEventDateChange(
-              performanceData.id!,
-              oldEventData.date,
-              oldEventData.start_time,
-              updateData.date,
-              updateData.start_time,
-              updateData.end_time,
-              updateData.time_slot || null,
-              organizationId
-            )
-          }
 
           const notifySchedulePrivateCustomer =
             !!performanceData.reservation_id &&

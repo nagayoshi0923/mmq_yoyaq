@@ -11,7 +11,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return 
 vi.mock('@/utils/toast', () => ({ showToast: mocks }))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/api/eventHistoryApi', () => ({ fetchEventSnapshot: async () => null, createEventHistory: vi.fn() }))
-vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateBookingChangeEmail: vi.fn(), syncRelatedDataOnEventDateChange: vi.fn() }))
+vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateBookingChangeEmail: vi.fn() }))
 vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: vi.fn(), sendPrivateBookingCustomerChangeEmail: vi.fn() }))
 import { useEventSave } from './useEventSave'
 const data = { date: '2026-11-01', venue: 'store', scenario: '', category: 'open', start_time: '15:30', end_time: '18:30', capacity: 7, max_participants: 7, gms: ['A'], gm_roles: { A: 'staff' } }

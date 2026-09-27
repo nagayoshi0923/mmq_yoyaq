@@ -24,7 +24,6 @@ import {
 import { timeSlotEnToSchedule, timeSlotEnToLabel } from '@/lib/timeSlot'
 import {
   confirmSendPrivateBookingChangeEmail,
-  syncRelatedDataOnEventDateChange,
 } from '@/hooks/eventOperations/eventSyncHelpers'
 import type { ScheduleEvent } from '@/types/schedule'
 
@@ -313,20 +312,6 @@ export function useEventMoveCopy({
               logger.error('貸切公演移動後の顧客メール送信エラー:', notifyErr)
             }
           }
-        }
-
-        // 関連データを同期（日程・時間が変更された場合）
-        if (draggedEvent.date !== dropTarget.date || draggedEvent.start_time !== startTime || draggedEvent.end_time !== endTime) {
-          await syncRelatedDataOnEventDateChange(
-            draggedEvent.id,
-            draggedEvent.date,
-            draggedEvent.start_time,
-            dropTarget.date,
-            startTime,
-            endTime,
-            timeSlotLabel,
-            organizationId
-          )
         }
 
         // 履歴を記録（移動）
