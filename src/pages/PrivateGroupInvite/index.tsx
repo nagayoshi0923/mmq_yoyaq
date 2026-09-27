@@ -1,3 +1,4 @@
+import { savePrivateGroupPreferredStores } from '@/lib/privateGroupPreferredStores'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import { addJstDays } from '@/utils/jstDate'
@@ -196,6 +197,7 @@ export function PrivateGroupInvite() {
   const [isFilteredByScenario, setIsFilteredByScenario] = useState(false)
   const [loadingStoresForEdit, setLoadingStoresForEdit] = useState(false)
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  const [expectedStoreIds, setExpectedStoreIds] = useState<string[]>([])
   const [savingStores, setSavingStores] = useState(false)
 
   // 申請ダイアログ（日程選択 + 送信）
@@ -364,14 +366,16 @@ export function PrivateGroupInvite() {
       // シナリオの available_stores を取得
       let scenarioAvailableStores: string[] = []
       if (group.scenario_master_id) {
-        const { data: scenarioData } = await supabase
+        const { data: scenarioData, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
           .select('available_stores')
           .eq('scenario_master_id', group.scenario_master_id)
           .eq('organization_id', group.organization_id)
           .limit(1)
           .maybeSingle()
-        scenarioAvailableStores = scenarioData?.available_stores || []
+        if (scenarioError) throw scenarioError
+        if (!scenarioData) throw new Error('組織内の作品設定を確認できません')
+        scenarioAvailableStores = scenarioData.available_stores || []
       }
 
       const { data, error } = await supabase
@@ -406,6 +410,8 @@ export function PrivateGroupInvite() {
           .from('stores')
           .select('id, name, short_name, ownership_type, is_temporary')
           .in('id', missingIds)
+          .eq('organization_id', group.organization_id)
+          .eq('status', 'active')
         if (err2) throw err2
         if (extra?.length) {
           const validExtra = scenarioAvailableStores.length > 0
@@ -435,63 +441,9 @@ export function PrivateGroupInvite() {
 
     setSavingStores(true)
     try {
-      const { error } = await supabase
-        .from('private_groups')
-        .update({ preferred_store_ids: selectedStoreIds })
-        .eq('id', group.id)
-
-      if (error) throw error
-
-      // 店舗変更後、既存候補日がすべての新選択店舗と競合していないか確認
-      // 競合する候補日（全選択店舗が埋まっている日）は自動削除して通知する
-      const candidateDatesToCheck = group.candidate_dates || []
-      if (candidateDatesToCheck.length > 0 && selectedStoreIds.length > 0) {
-        // 競合チェックあり（toast は if/else 内で出す）
-        const today = new Date().toISOString().split('T')[0]
-        const windowEnd = new Date()
-        windowEnd.setDate(windowEnd.getDate() + 180)
-        const windowEndStr = windowEnd.toISOString().split('T')[0]
-
-        const { data: eventsForNewStores } = await supabase
-          .from('schedule_events_public')
-          .select('id, date, store_id, start_time, end_time, is_cancelled')
-          .in('store_id', selectedStoreIds)
-          .gte('date', today)
-          .lte('date', windowEndStr)
-          .eq('is_cancelled', false)
-
-        // "09:00" or "09:00:00" → 分数に変換（秒付き形式にも対応）
-        const toMin = (t: string) => {
-          const parts = t.split(':').map(Number)
-          return parts[0] * 60 + (parts[1] || 0)
-        }
-
-        const conflictingIds: string[] = []
-        for (const cd of candidateDatesToCheck) {
-          if (cd.status === 'rejected') continue
-          const cdStartMin = toMin(cd.start_time)
-          const cdEndMin = toMin(cd.end_time)
-          // 全選択店舗が当該日時に埋まっているか確認
-          const storeHasFreeSlot = selectedStoreIds.some(storeId => {
-            const storeEvents = (eventsForNewStores || []).filter(e => e.store_id === storeId && e.date === cd.date)
-            return !storeEvents.some(e =>
-              toMin(e.start_time) < cdEndMin && toMin(e.end_time) > cdStartMin
-            )
-          })
-          if (!storeHasFreeSlot) {
-            conflictingIds.push(cd.id)
-          }
-        }
-
-        if (conflictingIds.length > 0) {
-          await supabase
-            .from('private_group_candidate_dates')
-            .delete()
-            .in('id', conflictingIds)
-          toast.warning(`希望店舗を更新しました（空き枠のない候補日 ${conflictingIds.length} 件を削除しました）`)
-        } else {
-          toast.success('希望店舗を更新しました')
-        }
+      const removed = await savePrivateGroupPreferredStores(group.id, selectedStoreIds, expectedStoreIds)
+      if (removed > 0) {
+        toast.warning(`希望店舗を更新しました（空き枠のない候補日 ${removed} 件を削除しました）`)
       } else {
         toast.success('希望店舗を更新しました')
       }
@@ -500,7 +452,7 @@ export function PrivateGroupInvite() {
       refetch()
     } catch (err) {
       logger.error('希望店舗保存エラー:', err)
-      toast.error('保存に失敗しました')
+      toast.error(err && typeof err === 'object' && 'message' in err ? String(err.message) : '保存に失敗しました')
     } finally {
       setSavingStores(false)
     }
@@ -513,6 +465,7 @@ export function PrivateGroupInvite() {
       return
     }
     setSelectedStoreIds(group?.preferred_store_ids || [])
+    setExpectedStoreIds([...(group?.preferred_store_ids || [])])
     openSheet('store-edit')
     setLoadingStoresForEdit(true)
     void (async () => {
