@@ -89,7 +89,7 @@ jobs:
         run: npm run check:jst-date
 
       - name: Cancellation ownership and staff flags
-        run: node scripts/test-cancellation-owner-binding-db.mjs && npx vitest run api/cancellation-flags-auth.test.ts
+        run: node scripts/test-cancellation-owner-binding-db.mjs && node scripts/test-cancellation-group-notice-db.mjs && npx vitest run api/cancellation-flags-auth.test.ts api/cancellation-group-notice.test.ts
 
       - name: Design token guard
         run: npm run check:design-tokens
