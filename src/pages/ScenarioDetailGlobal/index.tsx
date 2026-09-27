@@ -272,9 +272,10 @@ async function checkIsPlayed(customerId: string, scenarioId: string): Promise<bo
   const history = await customerPlayHistory.snapshot(customerId)
   const override = history.overrides.some(row => row.scenario_master_id === scenarioId)
   if (override) return false
+  if (history.manual.some(row => row.scenario_master_id === scenarioId)) return true
   const reservations = await fetchPlayedReservations(customerId, scenarioId)
   if (reservations.length) return true
-  return history.manual.some(row => row.scenario_master_id === scenarioId)
+  return false
 }
 
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {

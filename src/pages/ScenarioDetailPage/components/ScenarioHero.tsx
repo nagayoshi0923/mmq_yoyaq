@@ -121,18 +121,14 @@ export const ScenarioHero = memo(function ScenarioHero({
           return
         }
 
-        // 予約から体験済みか確認
-        const reservations = await fetchPlayedReservations(customer.id, scenario.scenario_master_id)
-        if (!active) return
-        if (reservations.length) {
+        // 手動履歴で確定できる場合は予約取得の失敗に影響されない。
+        if (history.manual.some(row => row.scenario_master_id === scenario.scenario_master_id)) {
           setIsPlayed(true)
           return
         }
+        const reservations = await fetchPlayedReservations(customer.id, scenario.scenario_master_id)
+        if (active) setIsPlayed(reservations.length > 0)
 
-        // 手動登録から体験済みか確認
-        const manual = history.manual.some(row => row.scenario_master_id === scenario.scenario_master_id)
-
-        if (active) setIsPlayed(!!manual)
       } catch (error) {
         logger.error('体験済みチェックエラー:', error)
       } finally {

@@ -234,9 +234,16 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
                           {overridden ? '体験済みに戻す' : '未体験に戻す'}
                         </Button>
                       ) : (
-                        <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-muted-foreground shrink-0" onClick={() => deleteManual(item.manualId!)}>
-                          <Trash2 className="h-3 w-3 mr-1" />削除
-                        </Button>
+                        <div className="flex gap-1 shrink-0">
+                          {overridden && item.scenarioMasterId && (
+                            <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs" onClick={() => toggleOverride(item.scenarioMasterId!, false)}>
+                              <RotateCcw className="h-3 w-3 mr-1" />体験済みに戻す
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" disabled={busy} className="h-7 px-2 text-xs text-muted-foreground" onClick={() => deleteManual(item.manualId!)}>
+                            <Trash2 className="h-3 w-3 mr-1" />削除
+                          </Button>
+                        </div>
                       )}
                     </div>
                   )
