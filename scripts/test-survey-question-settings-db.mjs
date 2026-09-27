@@ -50,4 +50,11 @@ assert.deepEqual((await db.query('SELECT responses FROM private_group_survey_res
 for(const n of [5,6]){await actor(n);await read()}
 await db.exec('SET ROLE anon');await assert.rejects(read(),e=>e.code==='42501');await db.exec('RESET ROLE')
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927110000_survey_question_settings.sql','utf8'));await db.exec(sql);await read()
+// Question reads/saves must still work when all browser table grants are closed.
+await db.exec(`CREATE TABLE private_groups(id uuid);CREATE TABLE private_group_members(id uuid);CREATE TABLE private_group_candidate_dates(id uuid);CREATE TABLE private_group_date_responses(id uuid);CREATE TABLE private_group_messages(id uuid);CREATE TABLE private_group_invitations(id uuid);`)
+await db.exec(fs.readFileSync('supabase/migrations/20260927113000_private_group_direct_access_closure.sql','utf8'))
+await actor(1);await db.exec('SET ROLE authenticated')
+await assert.rejects(db.query('SELECT * FROM org_scenario_survey_questions'),e=>e.code==='42501')
+const closedSnapshot=await read();assert.equal((await save([question(3000)],closedSnapshot.revision)).questions.length,1)
+await db.exec('RESET ROLE')
 await db.close();console.log('survey question settings DB: PASS (authorization, atomicity, revision, ownership, response preservation, rollback)')

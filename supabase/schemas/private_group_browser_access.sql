@@ -1,0 +1,9 @@
+-- Access contract after 20260927113000. No RLS or data changes.
+-- Browser roles PUBLIC/anon/authenticated have no table or column privileges on:
+-- private_groups, private_group_members, private_group_candidate_dates,
+-- private_group_date_responses, private_group_messages, private_group_survey_responses,
+-- org_scenario_survey_questions, private_group_invitations.
+-- All browser operations use authorized SECURITY DEFINER RPCs; service_role is retained.
+-- The migration captures environment-specific grants for exact rollback.
+-- private_group_members_full is security_invoker and already service_role-only.
+-- Do not reintroduce raw browser grants when changing table definitions.
