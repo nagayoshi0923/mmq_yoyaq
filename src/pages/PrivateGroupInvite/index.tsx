@@ -1186,7 +1186,7 @@ export function PrivateGroupInvite() {
       })
       
       // RPC経由で貸切予約を作成
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request_with_notice', {
         p_scenario_id: group.scenario_master_id,
         p_customer_id: customerId,
         p_customer_name: customerName,
@@ -1233,42 +1233,6 @@ export function PrivateGroupInvite() {
       }
       
       const parentReservationId = reservationId as string
-      
-      // グループのステータスを「申込済み」に更新
-      const { error: groupUpdateError } = await supabase
-        .from('private_groups')
-        .update({
-          status: 'booking_requested',
-          reservation_id: parentReservationId
-        })
-        .eq('id', group.id)
-      
-      if (groupUpdateError) {
-        logger.error('グループステータス更新エラー:', groupUpdateError)
-      }
-      
-      // システムメッセージを送信
-      const { data: msgSettings } = await supabase
-        .from('global_settings')
-        .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
-        .eq('organization_id', group.organization_id)
-        .maybeSingle()
-      
-      const title = msgSettings?.system_msg_booking_requested_title || '予約リクエストを送信しました'
-      const body = msgSettings?.system_msg_booking_requested_body || '店舗からの返信をお待ちください。'
-      
-      await supabase
-        .from('private_group_messages')
-        .insert({
-          group_id: group.id,
-          member_id: organizerMember?.id,
-          message: JSON.stringify({
-            type: 'system',
-            action: 'booking_requested',
-            title,
-            body
-          })
-        })
       
       // 貸切申し込み確認メールを送信
       if (parentReservationId && customerEmail) {
