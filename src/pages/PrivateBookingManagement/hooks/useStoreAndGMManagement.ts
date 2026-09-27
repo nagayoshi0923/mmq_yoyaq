@@ -1,30 +1,10 @@
 import { getGmResponses } from '@/lib/gmResponseApi'
 import { useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { staffApi } from '@/lib/api/staffApi'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
-
-/**
- * 既存イベント情報
- */
-interface ExistingEventInfo {
-  id: string
-  scenario: string
-  startTime: string
-  endTime: string
-  storeId: string
-  date: string
-}
-
-interface ConflictInfo {
-  storeDateConflicts: Set<string> // 'storeId-date-timeSlot' の形式
-  gmDateConflicts: Set<string> // 'gmId-date-timeSlot' の形式
-  existingEvents: ExistingEventInfo[] // 既存イベントの詳細情報
-}
 
 /**
  * 店舗とGMのデータ管理、競合チェックを行うフック
@@ -33,12 +13,6 @@ export function useStoreAndGMManagement() {
   const [stores, setStores] = useState<any[]>([])
   const [availableGMs, setAvailableGMs] = useState<any[]>([])
   const [allGMs, setAllGMs] = useState<any[]>([])
-  const [conflictInfo, setConflictInfo] = useState<ConflictInfo>({
-    storeDateConflicts: new Set(),
-    gmDateConflicts: new Set(),
-    existingEvents: []
-  })
-
   // 店舗データの読み込み（組織対応済み）
   const loadStores = useCallback(async () => {
     try {
@@ -46,173 +20,6 @@ export function useStoreAndGMManagement() {
       setStores(data || [])
     } catch (error) {
       logger.error('店舗情報取得エラー:', error)
-    }
-  }, [])
-
-  // 🚨 CRITICAL: スケジュール競合チェック機能
-  // この関数は以下の両方をチェックする必要があります：
-  // 1. reservations テーブル（確定済み貸切予約）
-  // 2. schedule_events テーブル（手動追加・インポートされた全公演）
-  // ⚠️ どちらか一方だけのチェックでは不十分です！
-  const loadConflictInfo = useCallback(async (currentRequestId: string) => {
-    try {
-      const storeDateConflicts = new Set<string>()
-      const gmDateConflicts = new Set<string>()
-      const existingEventsList: ExistingEventInfo[] = []
-
-      // schedule_events.gms は「GM名(text)配列」運用のため、名前→staff.id に解決してから競合キーを作る
-      const orgId = await getCurrentOrganizationId()
-      const gmNameToId = new Map<string, string>()
-      try {
-        let staffQuery = supabase
-          .from('staff')
-          .select('id, name')
-
-        if (orgId) {
-          staffQuery = staffQuery.eq('organization_id', orgId)
-        }
-
-        const { data: staffRows, error: staffError } = await staffQuery
-        if (staffError) {
-          logger.warn('スタッフ一覧取得に失敗（GM競合チェック精度が落ちる可能性）:', staffError)
-        } else {
-          (staffRows || []).forEach((s: any) => {
-            if (s?.id && s?.name) gmNameToId.set(s.name, s.id)
-          })
-        }
-      } catch (e) {
-        logger.warn('スタッフ一覧取得で例外（GM競合チェック精度が落ちる可能性）:', e)
-      }
-
-      // まず現在のリクエストの候補日時を取得
-      const { data: currentRequest, error: requestError } = await supabase
-        .from('reservations')
-        .select('candidate_datetimes')
-        .eq('id', currentRequestId)
-        .single()
-
-      if (requestError) {
-        logger.error('現在のリクエスト取得エラー:', requestError)
-      }
-
-      // 候補日時の日付を抽出
-      const candidateDates: string[] = []
-      if (currentRequest?.candidate_datetimes?.candidates) {
-        currentRequest.candidate_datetimes.candidates.forEach((c: any) => {
-          if (c.date && !candidateDates.includes(c.date)) {
-            candidateDates.push(c.date)
-          }
-        })
-      }
-      logger.log('📅 候補日付:', candidateDates)
-
-      // 1. 確定済みの予約を全て取得（reservationsテーブル）
-      let reservationsQuery = supabase
-        .from('reservations')
-        .select('id, store_id, gm_staff, candidate_datetimes')
-        .eq('status', 'confirmed')
-        .neq('id', currentRequestId)
-
-      // 組織IDでフィルタリング
-      if (orgId) {
-        reservationsQuery = reservationsQuery.eq('organization_id', orgId)
-      }
-
-      const { data: confirmedReservations, error: reservationsError } = await reservationsQuery
-
-      if (reservationsError) throw reservationsError
-
-      confirmedReservations?.forEach(reservation => {
-        const candidates = reservation.candidate_datetimes?.candidates || []
-        candidates.forEach((candidate: any) => {
-          if (candidate.status === 'confirmed') {
-            if (reservation.store_id) {
-              storeDateConflicts.add(`${reservation.store_id}-${candidate.date}-${candidate.timeSlot}`)
-            }
-            if (reservation.gm_staff) {
-              gmDateConflicts.add(`${reservation.gm_staff}-${candidate.date}-${candidate.timeSlot}`)
-            }
-          }
-        })
-      })
-
-      // 2. スケジュールイベントを候補日付でフィルタリングして取得
-      // ⚠️ 全件取得するとSupabaseの1000件制限に達する可能性があるため
-      // ⚠️ reservation_idも取得して、現在編集中の予約のイベントを除外する
-      let scheduleQuery = supabase
-        .from('schedule_events_staff_view')
-        .select('id, store_id, date, start_time, end_time, scenario, gms, is_cancelled, reservation_id')
-        .eq('is_cancelled', false)
-
-      // 組織IDでフィルタリング
-      if (orgId) {
-        scheduleQuery = scheduleQuery.eq('organization_id', orgId)
-      }
-
-      // 候補日付がある場合はフィルタリング
-      if (candidateDates.length > 0) {
-        scheduleQuery = scheduleQuery.in('date', candidateDates)
-      }
-
-      const { data: scheduleEvents, error: scheduleError } = await scheduleQuery
-
-      if (scheduleError) throw scheduleError
-      
-      logger.log('📊 取得したスケジュールイベント:', scheduleEvents?.length, '件')
-
-      // 時間帯判定関数（候補日時の timeSlot と一致させるため 午前/午後/夜 を使用）
-      const getTimeSlot = (startTime: string): string => {
-        const hour = parseInt(startTime.split(':')[0])
-        if (hour < 12) return '午前'
-        if (hour < 17) return '午後'
-        return '夜'
-      }
-
-      scheduleEvents?.forEach(event => {
-        if (!event.date || !event.start_time) return
-        
-        // 🔄 再承認の場合、同じ予約のイベントは除外（店舗・GM変更を可能にするため）
-        if (event.reservation_id === currentRequestId) {
-          logger.log(`🔄 自身の予約イベントを除外: ${event.id}`)
-          return
-        }
-        
-        const timeSlot = getTimeSlot(event.start_time)
-        
-        // 既存イベント情報を追加
-        existingEventsList.push({
-          id: event.id,
-          scenario: event.scenario || '不明',
-          startTime: event.start_time?.substring(0, 5) || '',
-          endTime: event.end_time?.substring(0, 5) || '',
-          storeId: event.store_id || '',
-          date: event.date
-        })
-        
-        if (event.store_id) {
-          storeDateConflicts.add(`${event.store_id}-${event.date}-${timeSlot}`)
-        }
-        
-        if (event.gms && Array.isArray(event.gms)) {
-          event.gms.forEach((gmName: string) => {
-            if (!gmName) return
-            const gmId = gmNameToId.get(gmName)
-            if (gmId) {
-              gmDateConflicts.add(`${gmId}-${event.date}-${timeSlot}`)
-            }
-          })
-        }
-      })
-
-      logger.log('📊 競合情報更新:', { 
-        existingEvents: existingEventsList.length,
-        storeConflicts: storeDateConflicts.size,
-        gmConflicts: gmDateConflicts.size
-      })
-
-      setConflictInfo({ storeDateConflicts, gmDateConflicts, existingEvents: existingEventsList })
-    } catch (error) {
-      logger.error('競合情報取得エラー:', error)
     }
   }, [])
 
@@ -268,9 +75,7 @@ export function useStoreAndGMManagement() {
     stores,
     availableGMs,
     allGMs,
-    conflictInfo,
     loadStores,
-    loadConflictInfo,
     loadAllGMs,
     loadAvailableGMs
   }
