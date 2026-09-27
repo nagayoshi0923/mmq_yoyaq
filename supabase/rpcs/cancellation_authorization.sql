@@ -197,3 +197,6 @@ BEGIN
   RETURN TRUE;
 END;
 $function$;
+
+-- 通知付き入口へ移行済み。直接呼び出して通知を省略できないようにする。
+REVOKE EXECUTE ON FUNCTION public.cancel_reservation_and_group_with_lock(uuid,uuid,text) FROM PUBLIC,anon,authenticated;
