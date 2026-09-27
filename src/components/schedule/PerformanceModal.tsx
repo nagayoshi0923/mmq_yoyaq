@@ -1050,9 +1050,6 @@ export function PerformanceModal({
             scenarios={scenarios}
             allAvailableStaff={allAvailableStaff}
             staffParticipantsFromDB={staffParticipantsFromDB}
-            setStaffParticipantsFromDB={setStaffParticipantsFromDB}
-            mode={mode}
-            event={event}
             setIsStaffModalOpen={setIsStaffModalOpen}
           />
         </div>
