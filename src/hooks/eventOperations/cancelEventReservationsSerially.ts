@@ -19,40 +19,56 @@ export type CancelEventReservationsSeriallyParams<T extends CancelEventReservati
   sendCancellationEmail?: (reservation: T) => Promise<void>
 }
 
-/**
- * 同一公演の複数予約を直列で cancelWithLock する。
- * 並列だと schedule_events の FOR UPDATE NOWAIT で lock_not_available になる。
- * 取消成功時のみメール送信。失敗は集約して throw する。
- */
+/** 取消とメールの部分失敗。画面にはこの確定済みの結果だけを表示する。 */
+export class EventCancellationPartialError extends Error {
+  constructor(
+    readonly cancellationFailures: string[],
+    readonly emailFailures: string[],
+  ) {
+    const details = ['公演は中止しました。']
+    if (cancellationFailures.length) {
+      details.push(`${cancellationFailures.length}件の予約キャンセルに失敗しました（${cancellationFailures.join('、')}）。予約管理で該当予約を確認して取り消してください。`)
+    }
+    if (emailFailures.length) {
+      details.push(`取消済みの${emailFailures.length}件はメールの送信を確認できません（${emailFailures.join('、')}）。メール履歴を確認し、未送信の場合のみ再送してください。`)
+    }
+    super(details.join(''))
+    this.name = 'EventCancellationPartialError'
+  }
+}
+
+/** 同じ公演行の NOWAIT ロックを競合させず、取消成功分だけ通知する。 */
 export async function cancelEventReservationsSerially<T extends CancelEventReservationTarget>(
   params: CancelEventReservationsSeriallyParams<T>
-): Promise<void> {
+): Promise<number> {
   const { reservations, reason, sendMail, cancelWithLock, sendCancellationEmail } = params
-  const failures: string[] = []
+  const cancellationFailures: string[] = []
+  const emailFailures: string[] = []
+  let cancelledCount = 0
 
   for (const reservation of reservations) {
+    const label = String(reservation.reservation_number || reservation.id)
     try {
-      await cancelWithLock(reservation.id, reservation.customer_id ?? null, reason)
-      logger.log(`予約${reservation.reservation_number}をキャンセル済みに更新`)
-
-      if (!sendMail || !sendCancellationEmail) continue
-      try {
-        await sendCancellationEmail(reservation)
-      } catch (emailErr) {
-        logger.error(`予約${reservation.reservation_number}へのメール送信エラー:`, emailErr)
-      }
-    } catch (cancelError) {
-      logger.error(`予約${reservation.reservation_number}のキャンセル更新エラー:`, cancelError)
-      failures.push(
-        String(reservation.reservation_number || reservation.customer_name || reservation.id)
-      )
+      const cancelled = await cancelWithLock(reservation.id, reservation.customer_id ?? null, reason)
+      if (cancelled !== true) throw new Error('予約取消の成功を確認できません')
+      cancelledCount += 1
+    } catch (error) {
+      logger.error(`予約${label}のキャンセル更新エラー:`, error)
+      cancellationFailures.push(label)
+      continue
+    }
+    if (!sendMail) continue
+    try {
+      if (!sendCancellationEmail) throw new Error('メール送信処理がありません')
+      await sendCancellationEmail(reservation)
+    } catch (error) {
+      logger.error(`予約${label}へのメール送信エラー:`, error)
+      emailFailures.push(label)
     }
   }
 
-  if (failures.length > 0) {
-    throw new Error(
-      `公演は中止しましたが、${failures.length}件の予約キャンセルに失敗しました（${failures.join('、')}）。` +
-        'もう一度お試しください。'
-    )
+  if (cancellationFailures.length || emailFailures.length) {
+    throw new EventCancellationPartialError(cancellationFailures, emailFailures)
   }
+  return cancelledCount
 }

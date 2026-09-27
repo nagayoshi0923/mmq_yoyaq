@@ -36,7 +36,7 @@ import {
   PENDING_SAVE_MESSAGE,
   buildCancelMailComposer,
 } from '@/hooks/eventOperations/useEventDelete'
-import { cancelEventReservationsSerially } from '@/hooks/eventOperations/cancelEventReservationsSerially'
+import { cancelEventReservationsSerially, EventCancellationPartialError } from '@/hooks/eventOperations/cancelEventReservationsSerially'
 import type { DeleteCancelPrompt, DeleteCancelDecision } from '@/components/schedule/DeleteEventCancelDialog'
 
 interface UseEventCancelProps {
@@ -78,7 +78,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
     reason: string,
     sendMail: boolean,
     customBodies?: Record<string, string>
-  ): Promise<void> => {
+  ): Promise<number> => {
     if (targetEvent.is_private_request && targetEvent.reservation_id) {
       // 予約情報を取得（存在＋組織境界の確認）
       let reservationQuery = supabase
@@ -111,6 +111,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       setEvents(prev => prev.map(e =>
         e.reservation_id === targetEvent.reservation_id ? { ...e, is_cancelled: true } : e
       ))
+      return 1
     } else {
       // 通常公演の中止処理
       // 中止前にフル状態スナップショットを取得（履歴用）
@@ -166,21 +167,22 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       if (resError) throw resError
 
       if (reservations && reservations.length > 0) {
-        await cancelEventReservationsSerially({
+        return await cancelEventReservationsSerially({
           reservations,
           reason,
           sendMail,
           cancelWithLock: reservationApi.cancelWithLock.bind(reservationApi),
           sendCancellationEmail: async (reservation) => {
             const perfCancelCustomer = joinedCustomerFromReservation(reservation.customers)
-            if (!perfCancelCustomer) return
-            await supabase.functions.invoke('send-cancellation-confirmation', {
+            const customerEmail = reservation.customer_email || perfCancelCustomer?.email
+            if (!customerEmail) throw new Error('送信先メールアドレスを確認できません')
+            const { data, error } = await supabase.functions.invoke('send-cancellation-confirmation', {
               body: {
                 organizationId: organizationId,
                 storeId: targetEvent.store_id,
                 reservationId: reservation.id,
-                customerEmail: perfCancelCustomer.email,
-                customerName: perfCancelCustomer.name,
+                customerEmail,
+                customerName: reservation.customer_name || perfCancelCustomer?.name || 'お客様',
                 scenarioTitle: reservation.title || targetEvent.scenario,
                 eventDate: targetEvent.date,
                 startTime: targetEvent.start_time,
@@ -194,10 +196,15 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
                 customEmailBody: customBodies?.[reservation.id],
               },
             })
+            if (error) throw error
+            // HTTP 200 でも未設定・手動返信待ちなどは送信済みと扱わない。
+            if (data?.success !== true || (data.skipped && data.reason)) {
+              throw new Error('メールの送信を確認できません')
+            }
           },
         })
-        logger.log(`${reservations.length}件の予約をキャンセル処理完了`)
       }
+      return 0
     }
   }, [setEvents, organizationId])
 
@@ -260,20 +267,25 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
             date: event.date, storeId: event.venue, timeSlot: event.time_slot ?? null,
           }).catch(() => undefined)
         }
-        await fetchSchedule?.()
         if (result.notification_pending) showToast.warning('中止と補償は確定しました。未送信または送信状況の確認が必要なメールがあります。メール履歴を確認してください。')
         else showToast.success('公演を中止し、お詫びクーポンの案内を含むメールを送信しました')
         return
       }
       showToast.info(`${active.length}件の予約をキャンセルしています…`)
-      await executeCancelPerformance(event, reason, decision.sendMail, decision.bodies)
+      const cancelledCount = await executeCancelPerformance(event, reason, decision.sendMail, decision.bodies)
       showToast.success(
-        `公演を中止し、${active.length}件の予約をキャンセルしました` +
+        `公演を中止し、${cancelledCount}件の予約をキャンセルしました` +
         (decision.sendMail ? '（メール送信済み）' : '（メール送信なし）')
       )
     } catch (error) {
       logger.error('公演中止エラー:', error)
-      showToast.error(getSafeErrorMessage(error, '公演の中止処理に失敗しました'))
+      showToast.error(error instanceof EventCancellationPartialError
+        ? error.message
+        : getSafeErrorMessage(error, '公演の中止処理に失敗しました。予約管理で公演と予約の状態を確認してください'))
+    } finally {
+      // 一部取消済みの状態も再取得する。再取得失敗で処理結果を上書きしない。
+      try { await fetchSchedule?.() }
+      catch (refreshError) { logger.error('中止後の公演再取得エラー:', refreshError) }
     }
   }, [organizationId, askCancelDecision, executeCancelPerformance, setEvents, fetchSchedule])
 
