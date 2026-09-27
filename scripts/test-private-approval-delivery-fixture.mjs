@@ -45,5 +45,34 @@ export async function testApprovalDelivery(db,{org,scenario,store,gm,request,rea
  const disabledKey=token();const disabled=await invoke(other,disabledKey,'2027-03-12');assert.equal(disabled.survey_delivery_id,undefined)
  const disabledCounts=await counts();assert.equal((await invoke(other,disabledKey,'2027-03-12')).replayed,true);assert.deepEqual(await counts(),disabledCounts)
  await db.exec('SET ROLE anon');await assert.rejects(invoke(other,token(),'2027-03-12'),e=>e.code==='42501');await db.exec('RESET ROLE')
+ // The migrated browser must use the durable approval entry. Closing the old
+ // entry must preserve nested owner execution, receipt replay and saved rows.
+ const closure='20260927051000_close_private_approval_without_delivery.sql'
+ const oldSignature='public.approve_private_booking_with_notice(uuid,date,time,time,uuid,uuid,jsonb,text,text,uuid)'
+ await db.exec(sql('supabase/migrations/'+closure))
+ const stable=await counts()
+ const oldCall=()=>db.query("SELECT approve_private_booking_with_notice($1,'2027-03-12','14:00','17:00',$2,$3,'{}','Fixture','Fixture')",[other,store,gm])
+ for(const role of ['anon','authenticated']) {
+  await db.exec('SET ROLE '+role)
+  await assert.rejects(oldCall(),e=>e.code==='42501')
+  await db.exec('RESET ROLE')
+ }
+ const acl=(await db.query('SELECT has_function_privilege($1,$3,\'EXECUTE\') AS owner,has_function_privilege($2,$3,\'EXECUTE\') AS service',[ 'postgres','service_role',oldSignature])).rows[0]
+ assert.deepEqual(acl,{owner:true,service:true})
+ await db.exec('SET ROLE authenticated')
+ assert.equal((await invoke(other,disabledKey,'2027-03-12')).replayed,true)
+ await db.exec('RESET ROLE');assert.deepEqual(await counts(),stable)
+ const fresh=await request(scenario,['2027-03-13'])
+ await db.exec("UPDATE operating_setting_overrides SET settings='{\"survey_enabled\":true,\"survey_url\":\"https://example.invalid/survey\",\"survey_deadline_days\":7}'")
+ await db.exec('SET ROLE authenticated')
+ const freshResult=await invoke(fresh,token(),'2027-03-13')
+ assert.ok(freshResult.survey_delivery_id)
+ await db.exec('RESET ROLE')
+ const afterClosure=await counts()
+ await db.exec(sql('supabase/rollbacks/'+closure))
+ assert.equal((await db.query("SELECT has_function_privilege('authenticated',$1,'EXECUTE') AS allowed",[oldSignature])).rows[0].allowed,true)
+ await db.exec(sql('supabase/migrations/'+closure))
+ assert.equal((await db.query("SELECT has_function_privilege('authenticated',$1,'EXECUTE') AS allowed",[oldSignature])).rows[0].allowed,false)
+ assert.deepEqual(await counts(),afterClosure)
  console.log('PASS approval delivery: actual approval and resolver, retry receipt, intentional reapproval, UUID conflict, atomic queue failure, disabled survey')
 }
