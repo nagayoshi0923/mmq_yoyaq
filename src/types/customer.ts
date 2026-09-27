@@ -14,7 +14,7 @@ export interface Customer {
   avatar_url?: string | null  // アバター画像URL（Supabase Storage）
   birth_date?: string | null  // 生年月日（YYYY-MM-DD）
   visit_count?: number
-  total_spent?: number
+  total_spent?: number | null
   reservation_count?: number  // 予約数（予約テーブルから集計）
   last_visit?: string | null
   preferences?: string[]

@@ -37,7 +37,7 @@ function toCustomerDataResult(rows: CustomerWithStats[]): Omit<CustomerDataResul
     }
     return {
       ...row,
-      total_spent: row.total_paid ?? 0,
+      total_spent: row.reservation_amount,
       reservation_count: row.reservation_count ?? 0,
       last_visit: row.last_visit ?? null,
       visit_count: row.visit_count ?? 0,

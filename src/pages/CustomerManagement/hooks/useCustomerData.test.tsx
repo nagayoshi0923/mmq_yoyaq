@@ -65,3 +65,10 @@ it('retries organization loading before querying customers', async () => {
  await rerender()
  await waitFor(() => expect(result.current.customers[0]?.id).toBe('a'))
 })
+it('旧集計を使わず、未確認の予約金額をnullのまま表示層へ渡す', async () => {
+ mock.fetch.mockResolvedValue({ customers:[{id:'unknown',name:'unknown',total_paid:9000,reservation_amount:null},{id:'free',name:'free',total_paid:1000,reservation_amount:0}],totalCount:2 })
+ const { result } = await setup()
+ await waitFor(() => expect(result.current.customers).toHaveLength(2))
+ expect(result.current.customers[0].total_spent).toBeNull()
+ expect(result.current.customers[1].total_spent).toBe(0)
+})
