@@ -17,6 +17,8 @@ export interface PrivateGroup {
   organization_id: string
   scenario_master_id: string | null
   organizer_id: string
+  /** スタッフ認可時のみ。メンバー行に依存せず organizer_id から解決した表示名。 */
+  organizer_display_name?: string | null
   name: string | null
   invite_code: string
   status: PrivateGroupStatus

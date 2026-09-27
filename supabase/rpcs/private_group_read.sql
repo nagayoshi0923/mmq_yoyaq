@@ -56,7 +56,14 @@ BEGIN
   scenario:=COALESCE(result,scenario);
  END IF;
  result:=jsonb_build_object('id',g.id,'organization_id',g.organization_id,'scenario_master_id',g.scenario_master_id,
-  'organizer_id',CASE WHEN access_level<>'preview' THEN g.organizer_id END,'name',g.name,'invite_code',g.invite_code,'status',g.status,
+  'organizer_id',CASE WHEN access_level<>'preview' THEN g.organizer_id END,
+  'organizer_display_name',CASE WHEN access_level='staff' THEN (
+    SELECT COALESCE(NULLIF(c.nickname,''),NULLIF(c.name,''))
+    FROM public.customers c
+    WHERE c.user_id=g.organizer_id AND c.organization_id=g.organization_id
+    ORDER BY c.id LIMIT 1
+  ) END,
+  'name',g.name,'invite_code',g.invite_code,'status',g.status,
   'reservation_id',CASE WHEN access_level<>'preview' THEN g.reservation_id END,'target_participant_count',g.target_participant_count,'preferred_store_ids',g.preferred_store_ids,
   'notes',CASE WHEN access_level IN ('staff','organizer') THEN g.notes END,'created_at',g.created_at,'updated_at',g.updated_at,
   'total_price',g.total_price,'per_person_price',g.per_person_price,
