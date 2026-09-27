@@ -19,3 +19,15 @@ async function render(permission:unknown){mocks.snapshot.mockResolvedValue({can_
 it('閲覧専用でも履歴は表示し編集ボタンを出さない',async()=>{await render(false);expect(host.textContent).toContain('予約作品');expect(host.textContent).not.toContain('未体験に戻す');expect(Array.from(host.querySelectorAll('button')).some(b=>b.textContent?.includes('追加'))).toBe(false)})
 it('変更可能な顧客では操作を維持する',async()=>{await render(true);expect(host.textContent).toContain('未体験に戻す');expect(Array.from(host.querySelectorAll('button')).some(b=>b.textContent?.includes('追加'))).toBe(true)})
 it('権限情報欠落時も編集を許可しない',async()=>{await render(undefined);expect(host.textContent).not.toContain('未体験に戻す')})
+
+it('完了済みの過去予約を表示し、取消・未確定・未来の予約を体験済みにしない',async()=>{
+ mocks.reservations.mockResolvedValue([
+  {scenario_master_id:'done',title:'完了作品',requested_datetime:'2020-01-01',status:'completed'},
+  {scenario_master_id:'cancel',title:'取消作品',requested_datetime:'2020-01-01',status:'cancelled'},
+  {scenario_master_id:'pending',title:'未確定作品',requested_datetime:'2020-01-01',status:'pending'},
+  {scenario_master_id:'future',title:'未来作品',requested_datetime:'2999-01-01',status:'confirmed'},
+ ])
+ await render(false)
+ expect(host.textContent).toContain('完了作品')
+ for(const title of ['取消作品','未確定作品','未来作品']) expect(host.textContent).not.toContain(title)
+})
