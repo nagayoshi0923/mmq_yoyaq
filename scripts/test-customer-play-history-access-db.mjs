@@ -11,7 +11,7 @@ CREATE TABLE customers(id uuid PRIMARY KEY,user_id uuid,organization_id uuid);
 CREATE TABLE contacts(customer_id uuid,organization_id uuid);
 CREATE FUNCTION customer_has_org_connection(c uuid,o uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT EXISTS(SELECT 1 FROM contacts WHERE customer_id=c AND organization_id=o) $$;
 CREATE TABLE scenario_masters(id uuid PRIMARY KEY);
-CREATE TABLE manual_play_history(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_id uuid REFERENCES customers,scenario_title text,scenario_master_id uuid REFERENCES scenario_masters,played_at date,venue text,notes text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
+CREATE TABLE manual_play_history(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_id uuid REFERENCES customers,scenario_id uuid,scenario_title text,scenario_master_id uuid REFERENCES scenario_masters,played_at date,venue text,notes text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
 CREATE TABLE customer_played_overrides(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_id uuid REFERENCES customers,scenario_master_id uuid REFERENCES scenario_masters,reason text,created_by uuid,created_at timestamptz DEFAULT now(),UNIQUE(customer_id,scenario_master_id));`)
 for(const [n,role,org] of [[1,'customer',null],[2,'staff',10],[3,'admin',10],[4,'staff',20],[5,'staff',10],[6,'license_admin',20],[7,'customer',null]]) await db.query('INSERT INTO users VALUES($1,$2,$3)',[id(n),role,org?id(org):null])
 for(const [u,o,status] of [[2,10,'active'],[4,20,'active'],[5,10,'resigned']]) await db.query('INSERT INTO staff(user_id,organization_id,status) VALUES($1,$2,$3)',[id(u),id(o),status])
@@ -20,33 +20,43 @@ await db.query('INSERT INTO scenario_masters VALUES($1)',[id(200)])
 await db.query('INSERT INTO contacts VALUES($1,$2),($3,$2)',[id(100),id(10),id(102)])
 const migration=fs.readFileSync('supabase/migrations/20260927024000_customer_play_history_access.sql','utf8')
 const rollback=fs.readFileSync('supabase/rollbacks/20260927024000_customer_play_history_access.sql','utf8')
+const minColsMigration=fs.readFileSync('supabase/migrations/20260927025000_customer_play_history_snapshot_mincols.sql','utf8')
+const minColsRollback=fs.readFileSync('supabase/rollbacks/20260927025000_customer_play_history_snapshot_mincols.sql','utf8')
+assert.equal(minColsMigration,fs.readFileSync('supabase/rpcs/customer_play_history_action.sql','utf8'),'rpcs/ definition drifted from the migration')
 await db.exec(migration)
+await db.exec(minColsMigration)
 async function act(actor,c,action='snapshot',payload={}) {
  await db.query("SELECT set_config('test.actor',$1,false)",[actor?id(actor):''])
  return (await db.query('SELECT customer_play_history_action($1,$2,$3) AS result',[id(c),action,JSON.stringify(payload)])).rows[0].result
 }
 const manual={scenario_title:'Fixture',scenario_master_id:id(200),played_at:'2026-09-01'}
 for(const [actor,c] of [[null,100],[7,100],[4,100],[5,100],[999,100],[2,103]]) await assert.rejects(act(actor,c),e=>e.code==='42501')
-assert.deepEqual(await act(1,100),{manual:[],overrides:[]})
+assert.deepEqual(await act(1,100),{can_edit:true,manual:[],overrides:[]})
 const saved=await act(2,100,'add_manual',{...manual,customer_id:id(103)})
 assert.equal(saved.customer_id,id(100))
 assert.equal((await act(1,100)).manual.length,1)
 assert.equal((await act(1,100,'update_manual_date',{id:saved.id,played_at:'2026-09-02'})).updated,true)
 assert.equal((await act(3,101,'update_manual_date',{id:saved.id,played_at:'2026-09-03'})).updated,false)
 assert.equal((await act(1,100)).manual[0].played_at,'2026-09-02')
+assert.deepEqual(Object.keys((await act(1,100)).manual[0]).sort(),['id','played_at','scenario_id','scenario_master_id','scenario_title','venue'])
+assert.equal((await act(2,100)).can_edit,true) // staff with contact on an unowned profile
 await act(3,101,'add_manual',manual) // admin without a staff row
 assert.equal((await act(2,102)).manual.length,0) // contact read is allowed
+assert.equal((await act(2,102)).can_edit,false) // foreign-owned profile is read-only
 await assert.rejects(act(2,102,'add_manual',manual),e=>e.code==='42501')
 await act(6,102,'add_manual',manual)
 await act(6,102,'add_override',{scenario_master_id:id(200)})
 await assert.rejects(act(2,102,null,{scenario_master_id:id(200)}),e=>e.code==='22023')
 assert.equal((await act(6,102)).overrides.length,1)
+assert.equal((await act(6,102)).can_edit,true) // license_admin keeps write access
 await assert.rejects(act(2,102,'remove_override',{scenario_master_id:id(200)}),e=>e.code==='42501')
 await assert.rejects(act(2,100,'add_manual',{scenario_title:'  '}),e=>e.code==='22023')
 await act(1,100,'add_override',{scenario_master_id:id(200),created_by:id(999)})
 await act(1,100,'add_override',{scenario_master_id:id(200)})
 const snapshot=await act(2,100)
-assert.equal(snapshot.overrides.length,1);assert.equal(snapshot.overrides[0].created_by,id(1))
+assert.equal(snapshot.overrides.length,1)
+assert.deepEqual(snapshot.overrides[0],{scenario_master_id:id(200)})
+assert.equal((await db.query('SELECT created_by FROM customer_played_overrides WHERE customer_id=$1',[id(100)])).rows[0].created_by,id(1))
 assert.equal((await act(1,100,'remove_override',{scenario_master_id:id(200)})).removed,true)
 assert.equal((await act(1,100,'remove_override',{scenario_master_id:id(200)})).removed,false)
 assert.equal((await act(2,101,'delete_manual',{id:saved.id})).removed,false)
@@ -56,10 +66,14 @@ assert.equal((await act(1,100)).manual.length,2000)
 await assert.rejects(act(1,100,'add_manual',manual),e=>e.code==='23514')
 assert.equal((await db.query("SELECT has_function_privilege('anon','customer_play_history_action(uuid,text,jsonb)','EXECUTE') AS allowed")).rows[0].allowed,false)
 const before=(await db.query('SELECT count(*)::int AS n FROM manual_play_history')).rows[0].n
-await db.exec(rollback);await db.exec(migration)
+await db.exec(minColsRollback)
+assert.equal('can_edit' in (await act(1,100)),false)
+await db.exec(minColsMigration)
+assert.equal((await act(1,100)).can_edit,true)
+await db.exec(rollback);await db.exec(migration);await db.exec(minColsMigration)
 assert.equal((await db.query('SELECT count(*)::int AS n FROM manual_play_history')).rows[0].n,before)
 await db.close()
-console.log('PASS played history: owner/contact/foreign/retired/admin/license/unknown roles, scopes, idempotency, 2000 limit, grants, rollback/reapply')
+console.log('PASS played history: owner/contact/foreign/retired/admin/license/unknown roles, scopes, minimal snapshot columns, can_edit, idempotency, 2000 limit, grants, rollback/reapply')
 
 function audit(dir) {
  for (const entry of fs.readdirSync(dir,{withFileTypes:true})) {

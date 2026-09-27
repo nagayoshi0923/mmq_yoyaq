@@ -40,6 +40,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
   const [reservationItems, setReservationItems] = useState<PlayedItem[]>([])
   const [manualItems, setManualItems] = useState<PlayedItem[]>([])
   const [overrideIds, setOverrideIds] = useState<Set<string>>(new Set())
+  const [canEdit, setCanEdit] = useState(false)
   const [scenarioOptions, setScenarioOptions] = useState<SearchableSelectOption[]>([])
   const requestGeneration = useRef(0)
   const [loadError, setLoadError] = useState(false)
@@ -69,6 +70,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
         && new Date(row.requested_datetime).getTime() <= Date.now()) }
       const manualRes = { data: history.manual }
       const overrides = new Set(history.overrides.map(row => row.scenario_master_id))
+      setCanEdit(history.can_edit === true)
 
       // 予約由来は scenario_master_id 単位で重複排除
       const seen = new Set<string>()
@@ -221,7 +223,7 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
                           : <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground shrink-0">{item.source === 'reservation' ? '予約' : '手動'}</Badge>}
                         {overridden && <Badge variant="outline" className="text-[10px] font-normal text-amber-700 border-amber-300 shrink-0">未体験</Badge>}
                       </div>
-                      {item.source === 'reservation' ? (
+                      {!canEdit ? null : item.source === 'reservation' ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -252,18 +254,20 @@ export function CustomerPlayedManager({ customerId }: CustomerPlayedManagerProps
                 )}
               </div>
             )}
-            {/* 手動追加フォーム */}
-            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
-              <div className="flex-1 min-w-0">
-                <SearchableSelect options={scenarioOptions} value={newScenarioId} onValueChange={setNewScenarioId} placeholder="シナリオを選択して体験済みに追加" />
+            {/* 手動追加フォーム（変更権限があるときのみ） */}
+            {canEdit && (
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect options={scenarioOptions} value={newScenarioId} onValueChange={setNewScenarioId} placeholder="シナリオを選択して体験済みに追加" />
+                </div>
+                <div className="w-full sm:w-40">
+                  <SingleDatePopover date={newPlayedAt} onDateChange={(d) => setNewPlayedAt(d || '')} placeholder="体験日(任意)" />
+                </div>
+                <Button size="sm" disabled={busy || !newScenarioId} className="h-9 shrink-0" onClick={addManual}>
+                  <Plus className="h-4 w-4 mr-1" />追加
+                </Button>
               </div>
-              <div className="w-full sm:w-40">
-                <SingleDatePopover date={newPlayedAt} onDateChange={(d) => setNewPlayedAt(d || '')} placeholder="体験日(任意)" />
-              </div>
-              <Button size="sm" disabled={busy || !newScenarioId} className="h-9 shrink-0" onClick={addManual}>
-                <Plus className="h-4 w-4 mr-1" />追加
-              </Button>
-            </div>
+            )}
           </div>
         </div>
       )}
