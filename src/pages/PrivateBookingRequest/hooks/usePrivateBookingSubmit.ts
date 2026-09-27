@@ -11,10 +11,8 @@ import { resolveOrgIdFromPageContext } from '@/lib/organization'
 const resolveOrgId = resolveOrgIdFromPageContext
 import { logger } from '@/utils/logger'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
-import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import type { TimeSlot } from '../types'
 import type { RpcCreatePrivateBookingRequestParams } from '@/lib/rpcTypes'
-import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import {
   formatBlockedCandidateLabel,
   getPrivateBookingCandidateBlockedState,
@@ -281,7 +279,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_reservation_number: baseReservationNumber,
         p_private_group_id: effectiveGroupId || null,
       }
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', createPrivateParams)
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request_with_notice', createPrivateParams)
       
       if (rpcError) {
         logger.error('[貸切リクエスト] RPC エラー詳細:', {
@@ -301,65 +299,6 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       logger.log('[貸切リクエスト] RPC成功', { reservationId: parentReservationId, effectiveGroupId })
 
       // GM確認レコードはRPC関数内で作成済み
-
-      // グループのステータスを「申込済み」に更新し、予約IDを紐付け
-      logger.log('[貸切リクエスト] グループステータス更新チェック', { effectiveGroupId, parentReservationId })
-      if (effectiveGroupId && parentReservationId) {
-        logger.log('[貸切リクエスト] グループステータス更新開始')
-        let groupUpdateError: Error | null = null
-        try {
-          await updatePrivateGroupStatus(effectiveGroupId, 'booking_requested', { reservationId: parentReservationId })
-        } catch (err: any) {
-          groupUpdateError = err
-        }
-        if (groupUpdateError) {
-          logger.error('[貸切リクエスト] グループステータス更新エラー:', groupUpdateError)
-          logger.error('グループステータス更新エラー:', groupUpdateError)
-        } else {
-          logger.log('[貸切リクエスト] グループステータス更新成功')
-          logger.log('グループステータスを「申込済み」に更新しました')
-          
-          // 予約申込のシステムメッセージを送信
-          try {
-            // 主催者のメンバーIDを取得
-            const { data: organizerMember } = await supabase
-              .from('private_group_members')
-              .select('id')
-              .eq('group_id', effectiveGroupId)
-              .eq('is_organizer', true)
-              .single()
-            
-            if (organizerMember) {
-              // 設定からメッセージ文言を取得
-              const msgOrgId = await resolveOrgId()
-              const { data: msgSettings } = await supabase
-                .from('global_settings')
-                .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REQUESTED)
-                .eq('organization_id', msgOrgId)
-                .maybeSingle()
-              
-              const systemMessage = JSON.stringify({
-                type: 'system',
-                action: 'booking_requested',
-                candidateCount: candidateDatetimes.candidates.length,
-                // 設定されたメッセージ文言を含める
-                title: msgSettings?.system_msg_booking_requested_title || '貸切リクエストを送信しました',
-                body: msgSettings?.system_msg_booking_requested_body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。'
-              })
-              
-              await supabase.from('private_group_messages').insert({
-                group_id: effectiveGroupId,
-                member_id: organizerMember.id,
-                message: systemMessage
-              })
-            }
-          } catch (msgError) {
-            logger.error('システムメッセージ送信エラー:', msgError)
-          }
-        }
-      } else {
-        logger.warn('[貸切リクエスト] グループステータス更新スキップ', { effectiveGroupId, parentReservationId })
-      }
 
       // 貸切申し込み完了メールを送信
       logger.log('[貸切リクエスト] メール送信チェック', { parentReservationId, customerEmail })

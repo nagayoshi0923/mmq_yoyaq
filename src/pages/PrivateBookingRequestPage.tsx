@@ -8,7 +8,6 @@ import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
-import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import {
@@ -281,15 +280,6 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   }
 
   const handleComplete = async () => {
-    // グループIDがある場合、グループのステータスを更新
-    if (groupId) {
-      try {
-        await updatePrivateGroupStatus(groupId, 'booking_requested')
-        logger.log('グループステータスを booking_requested に更新:', groupId)
-      } catch (error) {
-        logger.error('グループステータス更新エラー:', error)
-      }
-    }
     // 完了後の処理（トップページへ遷移など）
     navigate(bookingBasePath)
   }
