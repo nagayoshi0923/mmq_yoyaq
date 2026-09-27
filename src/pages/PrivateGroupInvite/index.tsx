@@ -1,3 +1,4 @@
+import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import { addJstDays } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
@@ -57,7 +58,8 @@ export function PrivateGroupInvite() {
   }, [location.pathname])
 
   const { user } = useAuth()
-  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null)
+  const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
+  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null, existingMemberId)
   const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
@@ -98,7 +100,6 @@ export function PrivateGroupInvite() {
   const [responses, setResponses] = useState<Record<string, ResponseValue>>({})
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
   const { data: effectiveSurvey } = useQuery({
     queryKey: ['group-survey-settings', group?.id, existingMemberId],
     enabled: Boolean(group?.id && existingMemberId),
@@ -335,28 +336,16 @@ export function PrivateGroupInvite() {
     }
   }
 
-  useEffect(() => {
-    if (!group) return
-
-    // ログインユーザーの場合
-    if (user) {
-      const existingMember = group.members?.find(m => m.user_id === user.id)
-      if (existingMember) {
-        setExistingMemberId(existingMember.id)
-        setGuestName(existingMember.guest_name || '')
-        const existingResponses: Record<string, ResponseValue> = {}
-        existingMember.date_responses?.forEach(r => {
-          existingResponses[r.candidate_date_id] = r.response
-        })
-        setResponses(existingResponses)
-        // 既に適用済みのクーポンがあればセット
-        if ((existingMember as any).coupon_id) {
-          setSelectedCouponId((existingMember as any).coupon_id)
-        }
-      }
-    }
-  }, [group, user])
-
+  usePrivateGroupMemberRestore(group, code, user?.id, existingMemberId, existingMember => {
+    setExistingMemberId(existingMember.id)
+    setGuestName(existingMember.guest_name || '')
+    const existingResponses: Record<string, ResponseValue> = {}
+    existingMember.date_responses?.forEach(r => {
+      existingResponses[r.candidate_date_id] = r.response
+    })
+    setResponses(existingResponses)
+    setSelectedCouponId(existingMember.coupon_id || null)
+  })
 
   // 店舗編集用: シナリオの available_stores に基づいて選択可能な店舗を取得
   const fetchAllStores = async () => {
