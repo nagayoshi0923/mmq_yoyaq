@@ -601,8 +601,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           // 管理者が却下ダイアログで編集した「全文」(rejectionReason) を、メールにもチャットにも
           // そのまま使う（再テンプレ化しない → 見たまま＝送られる文）。
           const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
-          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
-          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
+          const rejectCustomerEmail = reservation?.customer_email || rejectMailCustomerJoined?.email || selectedRequest?.customer_email
+          const rejectCustomerName = reservation?.customer_name || rejectMailCustomerJoined?.name || selectedRequest?.customer_name
           const sharedBody = rejectionReason
 
           // グループチャットにシステムメッセージを送信

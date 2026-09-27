@@ -68,7 +68,7 @@ jobs:
         run: node scripts/test-gm-response-org-integrity.mjs
 
       - name: Shared Edge authentication boundary
-        run: node --test scripts/edge-security-boundary.test.mjs
+        run: node --test scripts/edge-security-boundary.test.mjs scripts/private-rejection-email-boundary.test.mjs
 
       - name: Cancelled recruitment database regressions
         run: node scripts/test-recruitment-cancelled-event-db.mjs
