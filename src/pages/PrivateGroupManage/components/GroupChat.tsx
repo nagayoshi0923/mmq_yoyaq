@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { Sentry } from '@/lib/sentry'
@@ -111,6 +110,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   const [charSaving, setCharSaving] = useState(false)
   const [charConfirmStep, setCharConfirmStep] = useState(false)
   const [charDecisions, setCharDecisions] = useState<Record<string, string>>({})
+  const [charConfirmExpected, setCharConfirmExpected] = useState<Record<string, string>>({})
   const [charSubmitting, setCharSubmitting] = useState(false)
   const [deadlineText, setDeadlineText] = useState<string | null>(null)
   const [chatEnabled, setChatEnabled] = useState(true)
@@ -217,100 +217,32 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
     const latest = (latestSnapshot.group.character_assignments || {}) as Record<string, string>
     setCharPreferences(latest)
     setCharDecisions({ ...latest })
+    setCharConfirmExpected({ ...latest })
     setCharConfirmStep(true)
   }, [refreshGroup])
 
   const handleCharConfirmAndSend = useCallback(async () => {
-    logger.log('🎭 handleCharConfirmAndSend 開始')
     setCharSubmitting(true)
     try {
       const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
-      logger.log('🎭 activeMembers:', activeMembers.length, 'charDecisions:', charDecisions)
-      const lines = activeMembers.map(m => {
-        const charId = charDecisions[m.id]
-        const charName = characters.find(c => c.id === charId)?.name || '未定'
-        const memberName = m.guest_name || '参加者'
-        const prefCharId = charPreferences[m.id]
-        const changed = prefCharId && prefCharId !== charId
-        return `${memberName} → ${charName}${changed ? '（変更あり）' : ''}`
-      }).join('\n')
-
-      // チャットにシステムメッセージを送信
-      logger.log('🎭 チャットメッセージ送信中...')
-      const { error } = await supabase
-        .from('private_group_messages')
-        .insert({
-          group_id: groupId,
-          member_id: null,
-          message: JSON.stringify({
-            type: 'system',
-            action: 'character_assignment',
-            title: 'キャラクター配役が確定しました',
-            body: lines,
-            assignments: charDecisions,
-          }),
-        })
-      logger.log('🎭 チャットメッセージ結果:', { error })
+      const assignments = Object.fromEntries(activeMembers.map(m => [m.id, charDecisions[m.id]]))
+      const { error } = await supabase.rpc('private_group_confirm_characters', {
+        p_group_id: groupId,
+        p_assignments: assignments,
+        p_expected_assignments: charConfirmExpected,
+      })
       if (error) throw error
-
-      // アンケート回答にもキャラクター選択として保存（RPC経由でRLS回避）
-      try {
-        // デバッグ: RPCの前提条件を確認
-        const { data: groupData } = await supabase
-          .from('private_groups')
-          .select('scenario_master_id, organization_id')
-          .eq('id', groupId)
-          .single()
-        logger.log('🎭 DEBUG グループ情報:', groupData)
-
-        if (groupData?.scenario_master_id && groupData?.organization_id) {
-          const { data: os1 } = await supabase
-            .from('organization_scenarios')
-            .select('id')
-            .eq('scenario_master_id', groupData.scenario_master_id)
-            .eq('organization_id', groupData.organization_id)
-            .maybeSingle()
-          logger.log('🎭 DEBUG org_scenario (by master_id):', os1)
-
-          const orgScenarioId = os1?.id || groupData.scenario_master_id
-          const { data: questions } = await supabase
-            .from('org_scenario_survey_questions')
-            .select('id, question_type, question_text')
-            .eq('org_scenario_id', orgScenarioId)
-          const charSelQ = questions?.filter((q: any) => q.question_type === 'character_selection')
-          logger.log('🎭 DEBUG survey questions:', { orgScenarioId, total: questions?.length, charSelQuestions: charSelQ, allTypes: questions?.map((q: any) => q.question_type) })
-        }
-
-        logger.log('🎭 配役→アンケート反映 RPC呼び出し:', { groupId, charDecisions })
-        const upsertCharParams: RpcUpsertCharacterAssignmentsToSurveyParams = {
-          p_group_id: groupId,
-          p_assignments: charDecisions,
-        }
-        const { data: rpcData, error: rpcError } = await supabase.rpc('upsert_character_assignments_to_survey', upsertCharParams)
-        logger.log('🎭 配役→アンケート反映 RPC結果:', { rpcData, rpcError })
-        if (rpcError) {
-          logger.error('🎭 アンケート回答への配役反映エラー:', rpcError)
-        }
-        // RPC後にDBを直接確認
-        const { data: checkResponses } = await supabase
-          .from('private_group_survey_responses')
-          .select('member_id, responses')
-          .eq('group_id', groupId)
-        logger.log('🎭 DEBUG RPC後の回答データ:', checkResponses)
-      } catch (surveyErr) {
-        logger.error('🎭 アンケート回答への配役反映エラー:', surveyErr)
-      }
-
+      await refreshGroup()
       toast.success('配役を確定しました')
       setCharConfirmStep(false)
       onCharAssignmentConfirmed?.()
     } catch (err) {
       logger.error('配役確定エラー:', err)
-      toast.error('送信に失敗しました')
+      toast.error('配役の確定に失敗しました。希望や参加者が変更されていないか確認してください')
     } finally {
       setCharSubmitting(false)
     }
-  }, [members, charDecisions, charPreferences, characters, groupId, onCharAssignmentConfirmed])
+  }, [members, charDecisions, charConfirmExpected, groupId, onCharAssignmentConfirmed, refreshGroup])
 
   const getMemberName = useCallback((memberId: string | null) => {
     if (!memberId) return '退出したメンバー'
