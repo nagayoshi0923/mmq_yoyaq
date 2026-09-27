@@ -1,3 +1,4 @@
+-- Roll back post-reservation coupon reflection; restores prior reservation_amount contract.
 CREATE OR REPLACE FUNCTION public.get_org_customers_with_stats_v2(p_org_id uuid, p_search text DEFAULT NULL::text, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0)
  RETURNS TABLE(id uuid, organization_id uuid, user_id uuid, name text, nickname character varying, email text, email_verified boolean, phone text, address text, line_id text, avatar_url text, birth_date date, prefecture text, preferences text[], notification_settings jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, reservation_count bigint, total_paid bigint, reservation_amount bigint, last_visit timestamp with time zone, visit_count bigint, total_coupons bigint, used_coupons bigint, remaining_coupons bigint, total_count bigint)
  LANGUAGE sql
@@ -27,17 +28,6 @@ AS $function$
     ORDER BY b.created_at DESC
     LIMIT p_limit OFFSET p_offset
   ),
-  reservation_coupon_discounts AS (
-    SELECT
-      cu.reservation_id,
-      sum(cu.discount_amount) AS coupon_discount_sum
-    FROM public.coupon_usages cu
-    JOIN public.reservations r ON r.id = cu.reservation_id
-    WHERE r.customer_id IN (SELECT id FROM paged)
-      AND r.organization_id = p_org_id
-      AND r.status IN ('confirmed', 'gm_confirmed', 'completed')
-    GROUP BY cu.reservation_id
-  ),
   reservation_stats AS (
     SELECT
       r.customer_id,
@@ -45,14 +35,10 @@ AS $function$
       coalesce(sum(r.total_price), 0) AS total_paid,
       CASE WHEN bool_or(r.final_price IS NULL OR r.final_price < 0
         OR (r.final_price = 0 AND COALESCE(r.total_price, 0) > COALESCE(r.discount_amount, 0)))
-        THEN NULL ELSE coalesce(sum(
-          r.final_price
-          - GREATEST(0, COALESCE(rcd.coupon_discount_sum, 0) - COALESCE(r.discount_amount, 0))
-        ), 0) END AS reservation_amount,
+        THEN NULL ELSE coalesce(sum(r.final_price), 0) END AS reservation_amount,
       max(r.requested_datetime) AS last_visit,
       count(*) FILTER (WHERE r.status = 'completed') AS visit_count
     FROM public.reservations r
-    LEFT JOIN reservation_coupon_discounts rcd ON rcd.reservation_id = r.id
     WHERE r.customer_id IN (SELECT id FROM paged)
       AND r.organization_id = p_org_id
       AND r.status IN ('confirmed', 'gm_confirmed', 'completed')

@@ -1,3 +1,4 @@
+-- Reflect post-reservation coupon_usages in reservation_amount without double-counting booking-time discounts.
 CREATE OR REPLACE FUNCTION public.get_org_customers_with_stats_v2(p_org_id uuid, p_search text DEFAULT NULL::text, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0)
  RETURNS TABLE(id uuid, organization_id uuid, user_id uuid, name text, nickname character varying, email text, email_verified boolean, phone text, address text, line_id text, avatar_url text, birth_date date, prefecture text, preferences text[], notification_settings jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, reservation_count bigint, total_paid bigint, reservation_amount bigint, last_visit timestamp with time zone, visit_count bigint, total_coupons bigint, used_coupons bigint, remaining_coupons bigint, total_count bigint)
  LANGUAGE sql
