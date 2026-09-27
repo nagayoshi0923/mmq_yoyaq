@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { boundedBatches } from '@/lib/boundedBatches'
 
 export interface PrivateGroupListItem {
   id: string
@@ -19,7 +20,7 @@ export interface PrivateGroupListItem {
   confirmed_time?: string         // 確定した公演時間（HH:MM〜HH:MM）
   confirmed_gm_name?: string      // 確定したGM名
   confirmed_store_name?: string   // 確定した店舗名
-  confirmed_customer_email?: string // 確定済み予約の主催者メール
+  confirmed_warning?: string
   scenario_masters: {
     id: string
     title: string
@@ -77,77 +78,57 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
 
       const groupIds = (data || []).map(g => g.id)
 
-      // 主催者情報・survey_enabled・確定日を並列取得
-      const [
-        customersResult,
-        surveyResult,
-        bookingResult,
-      ] = await Promise.all([
-        // 主催者・全メンバーのユーザー情報
-        (async () => {
-          const allUserIds = [...new Set([
-            ...(data || []).map(g => g.organizer_id).filter(Boolean),
-            ...(data || []).flatMap(g => (g.members as any[]).map((m: any) => m.user_id).filter(Boolean)),
-          ])]
-          if (allUserIds.length === 0) return { data: [] }
-          return supabase.from('customers').select('user_id, name, nickname').in('user_id', allUserIds)
-        })(),
-        getGroupsSurveySettings(groupIds),
-        // 確定済み予約の公演日・GM・時間・店舗（reservationsテーブルから取得）
-        groupIds.length > 0
-          ? supabase
-              .from('reservations')
-              .select('private_group_id, candidate_datetimes, gm_staff, store_id, customer_email')
-              .eq('organization_id', orgId)
-              .in('private_group_id', groupIds)
-              .eq('status', 'confirmed')
-              .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-          : Promise.resolve({ data: [] }),
-      ])
-
-      const organizerMap = new Map<string, { name: string; nickname?: string }>()
-      ;(customersResult.data || []).forEach((c: any) => {
-        organizerMap.set(c.user_id, { name: c.name, nickname: c.nickname || undefined })
+      const reservationIds = [...new Set(data.map(g => g.reservation_id).filter((id): id is string => !!id))]
+      // 表示名は認可済みsnapshotに含まれる。顧客テーブルを再取得しない。
+      // 各フェーズを待ち合わせ、一覧全体でも同時要求を最大3件に保つ。
+      const surveyResult = await getGroupsSurveySettings(groupIds)
+      const bookingRows = await boundedBatches(reservationIds, 50, 3, async ids => {
+        const result = await supabase
+          .from('reservations')
+          .select('id, private_group_id, schedule_event_id, status')
+          .eq('organization_id', orgId)
+          .in('id', ids)
+          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+        if (result.error) throw result.error
+        return result.data || []
       })
+      const currentReservation = new Map(data.map(g => [g.id, g.reservation_id]))
+      const eventIds = [...new Set(bookingRows.map(r => r.schedule_event_id).filter((id): id is string => !!id))]
+      const eventRows = await boundedBatches(eventIds, 50, 3, async ids => {
+        const result = await supabase.from('schedule_events').select('id, date, start_time, end_time, store_id, is_cancelled, gms')
+          .eq('organization_id', orgId).in('id', ids)
+        if (result.error) throw result.error
+        return result.data || []
+      })
+      const events = new Map(eventRows.map(event => [event.id, event]))
 
-      // グループIDごとの確定公演日・時間・GMスタッフID・店舗IDマップ
+      // グループIDごとの現在公演日・時間・担当名・店舗IDマップ
       const confirmedDateMap = new Map<string, string>()
       const confirmedTimeMap = new Map<string, string>()
-      const confirmedGmStaffIdMap = new Map<string, string>()
+      const confirmedGmNameMap = new Map<string, string>()
       const confirmedStoreIdMap = new Map<string, string>()
-      const confirmedCustomerEmailMap = new Map<string, string>()
-      ;(bookingResult.data || []).forEach((req: any) => {
-        if (!req.private_group_id) return
-        if (req.candidate_datetimes?.candidates) {
-          const confirmed = req.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
-          if (confirmed?.date) {
-            confirmedDateMap.set(req.private_group_id, confirmed.date)
-            const start = confirmed.startTime || confirmed.start_time || ''
-            const end = confirmed.endTime || confirmed.end_time || ''
-            if (start) confirmedTimeMap.set(req.private_group_id, end ? `${start}〜${end}` : start)
-          }
-        }
-        if (req.gm_staff) confirmedGmStaffIdMap.set(req.private_group_id, req.gm_staff)
-        if (req.store_id) confirmedStoreIdMap.set(req.private_group_id, req.store_id)
-        if (req.customer_email) confirmedCustomerEmailMap.set(req.private_group_id, req.customer_email)
+      bookingRows.forEach(req => {
+        if (!req.private_group_id || currentReservation.get(req.private_group_id) !== req.id) return
+        if (!['confirmed', 'gm_confirmed', 'checked_in', 'completed'].includes(req.status)) return
+        const event = events.get(req.schedule_event_id)
+        if (!event || event.is_cancelled || !event.date || !event.start_time || !event.end_time) return
+        confirmedDateMap.set(req.private_group_id, event.date)
+        confirmedTimeMap.set(req.private_group_id, `${event.start_time.slice(0, 5)}〜${event.end_time.slice(0, 5)}`)
+        confirmedGmNameMap.set(req.private_group_id, (event.gms || []).filter(Boolean).join('・'))
+        if (event.store_id) confirmedStoreIdMap.set(req.private_group_id, event.store_id)
       })
 
-      // GMスタッフ名・店舗名を一括取得
-      const gmStaffIds = [...new Set([...confirmedGmStaffIdMap.values()].filter(Boolean))]
+      // 店舗名を一括取得
       const storeIds = [...new Set([...confirmedStoreIdMap.values()].filter(Boolean))]
-      const gmNameMap = new Map<string, string>()
       const storeNameMap = new Map<string, string>()
 
       await Promise.all([
-        gmStaffIds.length > 0
-          ? supabase.from('staff').select('id, display_name, name').in('id', gmStaffIds).then(({ data: staffRows }) => {
-              (staffRows || []).forEach((s: any) => {
-                gmNameMap.set(s.id, s.display_name || s.name || '')
-              })
-            })
-          : Promise.resolve(),
         storeIds.length > 0
-          ? supabase.from('stores').select('id, name, short_name').in('id', storeIds).then(({ data: storeRows }) => {
+          ? boundedBatches(storeIds, 50, 3, async ids => {
+              const result = await supabase.from('stores').select('id, name, short_name').eq('organization_id', orgId).in('id', ids)
+              if (result.error) throw result.error
+              return result.data || []
+            }).then(storeRows => {
               (storeRows || []).forEach((s: any) => {
                 storeNameMap.set(s.id, s.short_name || s.name || '')
               })
@@ -160,24 +141,24 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           ? g.scenario_masters[0]
           : g.scenario_masters
 
-        const gmStaffId = confirmedGmStaffIdMap.get(g.id)
         const storeId = confirmedStoreIdMap.get(g.id)
+        const organizer = g.members?.find(m => m.user_id === g.organizer_id && m.is_organizer)
+          || g.members?.find(m => m.user_id === g.organizer_id)
         return {
           ...g,
           scenario_masters: scenarioMasters || null,
-          members: (g.members as any[]).map((m: any) => ({
+          members: (g.members || []).map(m => ({
             ...m,
-            member_name: m.user_id
-              ? (organizerMap.get(m.user_id)?.nickname || organizerMap.get(m.user_id)?.name || m.guest_name || null)
-              : (m.guest_name || null),
+            member_name: m.staff_display_name || m.guest_name || null,
           })),
-          organizer: organizerMap.get(g.organizer_id) || { name: '不明' },
+          organizer: { name: organizer?.staff_display_name || organizer?.guest_name || '幹事情報を確認できません' },
           survey_enabled: surveyResult[g.id]?.survey_enabled ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
           confirmed_time: confirmedTimeMap.get(g.id),
-          confirmed_gm_name: gmStaffId ? gmNameMap.get(gmStaffId) : undefined,
+          confirmed_gm_name: confirmedGmNameMap.get(g.id),
           confirmed_store_name: storeId ? storeNameMap.get(storeId) : undefined,
-          confirmed_customer_email: confirmedCustomerEmailMap.get(g.id),
+          confirmed_warning: g.status === 'confirmed' && !confirmedDateMap.has(g.id)
+            ? '現在の予約と公演の対応を確認できません。予約詳細を確認してください。' : undefined,
         }
       }) as PrivateGroupListItem[]
 

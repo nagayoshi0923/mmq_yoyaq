@@ -380,12 +380,13 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                           {group.confirmed_gm_name && (
                             <span className="flex items-center gap-1 font-normal text-muted-foreground">
                               <Users className="w-3.5 h-3.5" />
-                              GM: {group.confirmed_gm_name}
+                              担当: {group.confirmed_gm_name}
                             </span>
                           )}
                         </div>
                       )}
 
+                      {group.confirmed_warning && <p role="status" className="mt-2 text-muted-foreground">{group.confirmed_warning}</p>}
                       {/* メンバー一覧 */}
                       {group.members.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
