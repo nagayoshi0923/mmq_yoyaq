@@ -16,7 +16,11 @@ GRANT USAGE ON SCHEMA public,auth TO authenticated,anon,service_role;`)
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
 const sql = path => fs.readFileSync(path, 'utf8')
 await db.exec(sql('supabase/migrations/20260927042000_plain_cancellation_staff_boundary.sql'))
-await db.exec(sql('supabase/rpcs/private_booking_rejection_boundary.sql'))
+await db.exec(sql('supabase/migrations/20260927044000_private_rejection_boundary.sql'))
+await db.exec('GRANT EXECUTE ON FUNCTION mark_private_group_rejected_after_booking_rejection(uuid) TO anon,authenticated,service_role')
+const closure = sql('supabase/migrations/20260927046000_close_legacy_private_rejection.sql')
+const restore = sql('supabase/rollbacks/20260927046000_close_legacy_private_rejection.sql')
+await db.exec(closure)
 const migration = sql('supabase/migrations/20260927045000_private_rejection_atomic.sql')
 await db.exec(migration)
 const reset = async () => {
@@ -37,6 +41,24 @@ const state = async () => {
  const result={}
  for(const table of ['reservations','schedule_events','private_groups','private_group_candidate_dates','private_group_messages']) result[table]=(await db.query(`SELECT * FROM ${table} ORDER BY id`)).rows
  return result
+}
+// 旧入口は認可されたスタッフでも直接実行不可。内部所有者経由は以降の全正常系で確認。
+for (const role of ['anon','authenticated']) {
+ await reset();const before=await state();await actor(id(1),id(10),false,role)
+ await assert.rejects(db.query('SELECT mark_private_group_rejected_after_booking_rejection($1)',[id(20)]), e=>e.code==='42501')
+ assert.deepEqual(await state(),before)
+}
+assert.equal((await db.query("SELECT has_function_privilege('service_role','mark_private_group_rejected_after_booking_rejection(uuid)','EXECUTE') AS ok")).rows[0].ok,true)
+// 本番はPUBLICなし、検証はPUBLICありだった。双方の実ACLから閉鎖・復元を確認。
+for (const publicGrant of [false,true]) {
+ await db.exec('RESET ROLE; REVOKE EXECUTE ON FUNCTION mark_private_group_rejected_after_booking_rejection(uuid) FROM PUBLIC;')
+ await db.exec(restore)
+ if(publicGrant) await db.exec('GRANT EXECUTE ON FUNCTION mark_private_group_rejected_after_booking_rejection(uuid) TO PUBLIC')
+ const before=(await db.query("SELECT proacl::text AS acl FROM pg_proc WHERE oid='mark_private_group_rejected_after_booking_rejection(uuid)'::regprocedure")).rows[0].acl
+ await db.exec(closure);await db.exec(restore)
+ if(publicGrant) await db.exec('GRANT EXECUTE ON FUNCTION mark_private_group_rejected_after_booking_rejection(uuid) TO PUBLIC')
+ assert.equal((await db.query("SELECT proacl::text AS acl FROM pg_proc WHERE oid='mark_private_group_rejected_after_booking_rejection(uuid)'::regprocedure")).rows[0].acl,before)
+ await db.exec(closure)
 }
 for(const args of [[null,null,false,'anon'],[null,null,false,'service_role'],[id(2),id(10),false],[id(3),id(10),false],[id(4),id(11),true]]) {
  await reset();const before=await state();await actor(...args);await assert.rejects(call());assert.deepEqual(await state(),before)

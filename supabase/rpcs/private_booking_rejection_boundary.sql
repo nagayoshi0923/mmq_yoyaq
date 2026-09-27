@@ -1,4 +1,4 @@
--- QW-20260917-001: 却下後の同期は組織スタッフ専用。RLS/既存ACLは変更しない。
+-- QW-20260917-001: 却下後の同期は組織スタッフ専用。RLSは変更しない。旧入口の直接実行は一括保存へ移行後に閉じる。
 CREATE OR REPLACE FUNCTION public.mark_private_group_rejected_after_booking_rejection(p_reservation_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -53,3 +53,6 @@ END;
 $$;
 COMMENT ON FUNCTION public.mark_private_group_rejected_after_booking_rejection(uuid) IS
   '同組織の管理者・有効スタッフのみ。取消済みの最新予約とグループを検証して却下後の状態・候補日を一括同期。';
+
+-- 一括保存RPCの所有者から呼ぶ内部処理。service_roleの既存権限は保持。
+REVOKE EXECUTE ON FUNCTION public.mark_private_group_rejected_after_booking_rejection(uuid) FROM PUBLIC,anon,authenticated;
