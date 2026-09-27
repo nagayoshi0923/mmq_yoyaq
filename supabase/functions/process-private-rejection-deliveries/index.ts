@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, getServiceRoleKey, isCronOrServiceRoleCall, errorResponse } from '../_shared/security.ts'
+import { getCorsHeaders, getServiceRoleKey, isCronOrServiceRoleCall, timingSafeEqualString, errorResponse } from '../_shared/security.ts'
 import { deliverPrivateRejections } from '../_shared/private-rejection-delivery.ts'
 import { rejectionDeliveryStore } from '../_shared/private-rejection-delivery-store.ts'
 
@@ -8,7 +8,10 @@ serve(async req => {
   const headers=getCorsHeaders(req.headers.get('origin'))
   if(req.method==='OPTIONS') return new Response('ok',{headers})
   if(req.method!=='POST') return errorResponse('POSTが必要です',405,headers)
-  if(!isCronOrServiceRoleCall(req)) return errorResponse('サーバーからの実行が必要です',401,headers)
+  const deliverySecret = (Deno.env.get('REJECTION_DELIVERY_CRON_SECRET') || '').trim()
+  const suppliedSecret = (req.headers.get('x-cron-secret') || '').trim()
+  const dedicatedCron = Boolean(deliverySecret && suppliedSecret && timingSafeEqualString(deliverySecret, suppliedSecret))
+  if(!dedicatedCron && !isCronOrServiceRoleCall(req)) return errorResponse('サーバーからの実行が必要です',401,headers)
   const db=createClient(Deno.env.get('SUPABASE_URL')??'',getServiceRoleKey())
   try {
     const body=await req.json().catch(()=>({}))
