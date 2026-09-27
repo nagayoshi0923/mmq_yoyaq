@@ -127,4 +127,15 @@ assert.equal(Object.hasOwn((await snap(3)).group,'organizer_display_name'),false
 await db.exec(organizerMigration)
 assert.equal((await snap(3)).group.organizer_display_name,'幹事入力名')
 console.log('PASS organizer: NULL/other-org profile, deleted member, nickname/name/member fallback, no profile, staff-only field, cross-org/inactive denied, rollback/reapply')
+// The production SELECT boundary must preserve preview/member/staff RPCs.
+await db.exec('CREATE TABLE org_scenario_survey_questions(id uuid); CREATE TABLE private_group_invitations(id uuid);')
+await db.exec(fs.readFileSync('supabase/migrations/20260927113000_private_group_direct_access_closure.sql','utf8'))
+for (const [actor,role,invite,level] of [[null,'anon','fixture-invite','preview'],[2,'authenticated',null,'member'],[3,'authenticated',null,'staff']]) {
+ await db.query("SELECT set_config('test.actor',$1,false)",[actor?id(actor):''])
+ await db.exec(`SET ROLE ${role}`)
+ try {
+  await assert.rejects(db.query('SELECT * FROM private_group_members'),e=>e.code==='42501')
+  assert.equal((await db.query('SELECT private_group_read_snapshot($1,$2) result',[id(100),invite])).rows[0].result.access_level,level)
+ } finally { await db.exec('RESET ROLE') }
+}
 await db.close();console.log('PASS snapshot: preview minimal, member contacts private, spoofed member denied, chat membership, rollback/reapply; actual guest validator valid/invalid/expired tokens and anon role')

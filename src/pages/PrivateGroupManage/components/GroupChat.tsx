@@ -178,7 +178,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   }, [groupId, currentMemberId, performanceDate])
 
   // pre_reading_notice が送信済みであれば配役フローを表示する
-  // enrichGroupWithViewData が RLS 制限等で失敗した場合のフォールバック
+  // 認可済みグループ情報で人数上限が未設定の場合のフォールバック
   const hasPreReadingNotice = messages.some(m => {
     try { return JSON.parse(m.message)?.action === 'pre_reading_notice' } catch { return false }
   })
