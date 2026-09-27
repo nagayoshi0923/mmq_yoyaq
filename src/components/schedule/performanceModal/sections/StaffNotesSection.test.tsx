@@ -3,6 +3,7 @@ import { act, useState, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
 import { StaffNotesSection } from './StaffNotesSection'
+import type { Staff } from '@/types'
 import type { EventFormData } from '@/types/schedule'
 const writes=vi.hoisted(()=>({from:vi.fn(),remove:vi.fn()}))
 vi.mock('@/lib/supabase',()=>({supabase:{from:writes.from}}))
@@ -16,7 +17,7 @@ function Harness({role='main',confirmed=[]}:{role?:string,confirmed?:string[]}) 
  const [formData,setFormData]=useState<EventFormData>({date:'2026-10-01',venue:'store',start_time:'10:00',end_time:'12:00',max_participants:6,capacity:6,category:'open',gms:['Staff A'],gmRoles:{'Staff A':role},scenario:'Scenario',notes:''})
  latest=formData
  // edit modeの旧実装でも同じ操作を再現できる入力を保持する。
- const props={CATEGORY_TONE:{},formData,setFormData,staff:[],scenarios:[],allAvailableStaff:[],staffParticipantsFromDB:confirmed,setIsStaffModalOpen:vi.fn(),mode:'edit' as const,event:{id:'event'},setStaffParticipantsFromDB:vi.fn()}
+ const props={CATEGORY_TONE:{},formData,setFormData,staff:[{id:'staff-a',name:'Staff A',status:'active'}] as Staff[],participationReservations:[{id:'booking-a',label:'幹事予約',participant_count:6,reservation_number:'R001'}],scenarios:[],allAvailableStaff:[],staffParticipantsFromDB:confirmed,setIsStaffModalOpen:vi.fn(),mode:'edit' as const,event:{id:'event'},setStaffParticipantsFromDB:vi.fn()}
  return <StaffNotesSection {...props}/>
 }
 beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.clearAllMocks();container=document.createElement('div');root=createRoot(container)})
@@ -39,4 +40,15 @@ describe('スタッフ参加は保存まで予約を変更しない',()=>{
   await act(async()=>{container.querySelector<HTMLElement>('[aria-label="Staff Aを担当から外す"]')!.click()})
   expect(latest.gms).toEqual([]);expect(writes.from).not.toHaveBeenCalled();expect(writes.remove).not.toHaveBeenCalled()
  })
+ it('幹事の予約人数内と追加席を明示し、どちらも保存前には予約を変更しない',async()=>{
+  await act(async()=>root.render(<Harness role="staff"/>))
+  const select=container.querySelector<HTMLSelectElement>('[aria-label="Staff Aの参加人数の扱い"]')!
+  expect(select.value).toBe('')
+  await act(async()=>{select.value='booking-a';select.dispatchEvent(new Event('change',{bubbles:true}))})
+  expect(latest.staffParticipation?.entries).toEqual([{staff_id:'staff-a',mode:'included',reservation_id:'booking-a'}])
+  await act(async()=>{select.value='additional';select.dispatchEvent(new Event('change',{bubbles:true}))})
+  expect(latest.staffParticipation?.entries).toEqual([{staff_id:'staff-a',mode:'additional',reservation_id:null}])
+  expect(writes.from).not.toHaveBeenCalled();expect(writes.remove).not.toHaveBeenCalled()
+ })
+
 })
