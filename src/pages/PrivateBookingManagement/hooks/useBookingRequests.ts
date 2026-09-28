@@ -11,7 +11,7 @@ import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTim
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
-import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
+import { restoredGmCandidateIndex, shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 
 interface UseBookingRequestsProps {
@@ -202,6 +202,7 @@ async function fetchRawBookingRequests(
 
     let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
     const currentCandidates = candidateDatetimes.candidates || []
+    candidateDatetimes = { ...candidateDatetimes, candidates: currentCandidates.map((candidate: any, responseIndex: number) => ({ ...candidate, responseIndex })) }
     const originalCandidates = req.private_group_id
       ? (candidateDatesByGroupId.get(req.private_group_id) || [])
       : []
@@ -221,7 +222,9 @@ async function fetchRawBookingRequests(
           status: isConfirmed ? 'confirmed' : 'pending',
         }
       })
-      candidateDatetimes = { ...candidateDatetimes, candidates: restoredCandidates }
+      candidateDatetimes = { ...candidateDatetimes, candidates: restoredCandidates.map(candidate => ({
+        ...candidate, responseIndex: restoredGmCandidateIndex(candidate, currentCandidates),
+      })) }
     }
 
     const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_master_id

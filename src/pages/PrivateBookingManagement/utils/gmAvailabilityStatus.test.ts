@@ -74,3 +74,24 @@ describe('isGmAvailableForCandidate', () => {
     expect(isGmAvailableForCandidate(gm({}), 0)).toBe(false)
   })
 })
+
+import { gmCandidateIndex, restoredGmCandidateIndex } from './gmAvailabilityStatus'
+describe('保存済みの候補位置と画面番号', () => {
+  it('飛び番の候補番号をGM回答の位置に流用しない', () => {
+    const candidate = { order: 8, responseIndex: 0 }
+    expect(isGmAvailableForCandidate(gm({ response_status: 'available', available_candidates: [0] }), gmCandidateIndex(candidate))).toBe(true)
+    expect(isGmAvailableForCandidate(gm({ response_status: 'available', available_candidates: [7] }), gmCandidateIndex(candidate))).toBe(false)
+  })
+  it('過去の候補を復元・並べ替えしても日時で保存位置へ戻す', () => {
+    const first = { date: '2026-10-01', startTime: '14:00', endTime: '17:00' }
+    const second = { ...first, date: '2026-10-02' }
+    expect(restoredGmCandidateIndex(second, [first, second])).toBe(1)
+    expect(restoredGmCandidateIndex(first, [second, first])).toBe(1)
+  })
+  it('対応不明・同日時重複の過去候補に全日程可の回答を転用しない', () => {
+    const time = { date: '2026-10-01', startTime: '14:00', endTime: '17:00' }
+    expect(restoredGmCandidateIndex(time, [time, time])).toBe(-1)
+    expect(restoredGmCandidateIndex(time, [{ ...time, startTime: '15:00' }])).toBe(-1)
+    expect(isGmAvailableForCandidate(gm({ response_status: 'available' }), -1)).toBe(false)
+  })
+})
