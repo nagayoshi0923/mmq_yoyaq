@@ -47,6 +47,7 @@ export function isGmAvailableForCandidate(
   gm: GmResponseLike,
   candidateIndexZeroBased: number
 ): boolean {
+  if (!Number.isInteger(candidateIndexZeroBased) || candidateIndexZeroBased < 0) return false
   if (!isGmMarkedAvailable(gm)) return false
   const cands = gm.available_candidates
   if (Array.isArray(cands) && cands.length > 0) {
@@ -61,4 +62,17 @@ export function isGmAvailableForCandidate(
  */
 export function shouldIncludeGmResponseRow(_gm: GmResponseLike): boolean {
   return true
+}
+
+/** 表示上の候補番号と、Discord回答の保存位置を分ける。-1は対応不明。 */
+export function gmCandidateIndex(candidate: { order: number; responseIndex?: number }): number {
+  return candidate.responseIndex ?? candidate.order - 1
+}
+
+interface CandidateTime { date: string; startTime: string; endTime: string }
+/** 復元した過去候補には、保存済み候補と日時が一意に一致した回答だけを表示する。 */
+export function restoredGmCandidateIndex(candidate: CandidateTime, saved: CandidateTime[]): number {
+  const matches = saved.flatMap((item, index) =>
+    item.date === candidate.date && item.startTime === candidate.startTime && item.endTime === candidate.endTime ? [index] : [])
+  return matches.length === 1 ? matches[0] : -1
 }

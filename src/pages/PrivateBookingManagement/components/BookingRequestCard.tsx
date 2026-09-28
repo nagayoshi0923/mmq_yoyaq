@@ -20,11 +20,12 @@ import {
   formatScenarioPlayerRange,
   isPlannedCountOutsideScenarioRange
 } from '../utils/bookingFormatters'
-import { isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '../utils/gmAvailabilityStatus'
+import { gmCandidateIndex, isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '../utils/gmAvailabilityStatus'
 import { cn } from '@/lib/utils'
 
 interface Candidate {
   order: number
+  responseIndex?: number
   date: string
   timeSlot: string
   startTime: string
@@ -329,7 +330,7 @@ export const BookingRequestCard = ({
                         {isUnsent && <span className="text-red-500 font-medium">未送信</span>}
                         {isUnanswered && <span className="text-amber-600">未回答</span>}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
-                          <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
+                          <span className="text-purple-500">({candidates!.map(i => request.candidate_datetimes?.candidates.find(c => gmCandidateIndex(c) === i)?.order ?? '対応不明').join(',')})</span>
                         )}
                         {/* 個別通知ボタン: 未送信→「通知」/ 未回答→「再通知」 */}
                         {onResendDiscordGm && isWaitingStatus && !responded && response.staff_id && (
@@ -413,8 +414,8 @@ export const BookingRequestCard = ({
             </p>
             <div className="space-y-1">
               {request.candidate_datetimes?.candidates?.map((candidate) => {
-                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
-                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
+                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, gmCandidateIndex(candidate)))
+                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, gmCandidateIndex(candidate))) ?? []
                 const isReservationConfirmed = request.status === 'confirmed'
                 // 確定後キャンセル: どの日程で確定していたかは candidate.status に残っている
                 const isCancelledAfterConfirm = request.status === 'cancelled' && !!request.approver_name
