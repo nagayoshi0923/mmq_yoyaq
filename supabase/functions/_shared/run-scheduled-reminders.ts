@@ -2,7 +2,7 @@
 import { loadEffectiveEmailSettings } from './effective-email-settings.ts'
 import { confirmedReservationPrice } from './confirmed-reservation-price.ts'
 import { dueReminderSchedules } from './reminder-schedule.ts'
-import { DEFAULT_REMINDER_ENABLED, DEFAULT_REMINDER_SCHEDULE } from './reminder-defaults.ts'
+import { sendScheduledReminder } from './send-scheduled-reminder.ts'
 
 async function readPages(makeQuery) {
   const rows = []
@@ -14,57 +14,18 @@ async function readPages(makeQuery) {
   }
 }
 
-function collectScheduleDays(rows) {
-  const days = new Set()
-  for (const row of rows) {
-    const schedule = row.schedule ?? row.reminder_schedule ?? row.settings?.reminder_schedule
-    if (!Array.isArray(schedule)) continue
-    for (const item of schedule) {
-      const daysBefore = Number(item?.days_before)
-      if (item?.enabled && Number.isInteger(daysBefore) && daysBefore >= 0 && daysBefore <= 365) days.add(daysBefore)
-    }
-  }
-  return days
-}
-
-function serviceRoleKey() {
-  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    ?? Deno.env.get('SERVICE_ROLE_KEY')
-    ?? Deno.env.get('SUPABASE_SECRET_KEY')
-    ?? Deno.env.get('MMQ_SB_SECRET_KEY')
-    ?? ''
-}
-
-async function sendReminderEmail(body) {
-  const baseUrl = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '')
-  const serviceKey = serviceRoleKey()
-  if (!baseUrl || !serviceKey) throw new Error('reminder sender is not configured')
-  const response = await fetch(`${baseUrl}/functions/v1/send-reminder-emails`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${serviceKey}`,
-      apikey: serviceKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok || !data?.success) {
-    throw new Error(typeof data?.error === 'string' ? data.error : `reminder HTTP ${response.status}`)
-  }
-  return data
-}
-
-export async function runScheduledReminders(db, now = new Date(), send = sendReminderEmail) {
+export async function runScheduledReminders(db, now = new Date(), send = sendScheduledReminder) {
     const dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' })
     // 使われている日数の候補だけで公演を絞る。実効値と無効化は公演ごとに再確認する。
     const [overrides, legacy] = await Promise.all([
-      readPages(() => db.from('operating_setting_overrides').select('id,settings').order('id')),
+      readPages(() => db.from('operating_setting_overrides').select('id,schedule:settings->reminder_schedule').order('id')),
       readPages(() => db.from('email_settings').select('id,reminder_schedule').order('id')),
     ])
-    const days = collectScheduleDays([...overrides, ...legacy])
-    if (![...days].length) {
-      for (const item of DEFAULT_REMINDER_SCHEDULE) if (item.enabled) days.add(item.days_before)
+    const days = new Set<number>()
+    for (const row of [...overrides, ...legacy]) {
+      const schedule = row.schedule ?? row.reminder_schedule
+      if (!Array.isArray(schedule)) continue
+      for (const item of schedule) if (item.enabled && Number.isInteger(item.days_before) && item.days_before >= 0 && item.days_before <= 365) days.add(item.days_before)
     }
     const dates = [...days].map(day => dateFormat.format(new Date(now.getTime() + day * 86400000)))
     if (!dates.length) return { success: true, sent: 0, skipped: 0, failures: 0 }
@@ -77,12 +38,8 @@ export async function runScheduledReminders(db, now = new Date(), send = sendRem
     for (const event of events) {
       try {
         const settings = await loadEffectiveEmailSettings(db, { organizationId: event.organization_id, scheduleEventId: event.id })
-        const reminderEnabled = settings?.reminder_enabled ?? DEFAULT_REMINDER_ENABLED
-        const reminderSchedule = Array.isArray(settings?.reminder_schedule) && settings.reminder_schedule.length
-          ? settings.reminder_schedule
-          : DEFAULT_REMINDER_SCHEDULE
-        if (!reminderEnabled) continue
-        const due = dueReminderSchedules(event.date, event.start_time, reminderSchedule, now)
+        if (!settings?.reminder_enabled || !Array.isArray(settings.reminder_schedule)) continue
+        const due = dueReminderSchedules(event.date, event.start_time, settings.reminder_schedule, now)
         if (!due.length) continue
         const reservations = await readPages(() => db.from('reservations')
           .select('id,organization_id,customer_email,customer_name,participant_count,total_price,final_price,discount_amount,reservation_number')
