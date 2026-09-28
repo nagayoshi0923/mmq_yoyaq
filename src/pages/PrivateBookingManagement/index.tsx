@@ -41,7 +41,7 @@ import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { usePrivateBookingConflicts } from './hooks/usePrivateBookingConflicts'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
-import { gmCandidateIndex, isGmMarkedAvailable, isGmAvailableForCandidate } from './utils/gmAvailabilityStatus'
+import { isGmMarkedAvailable, isGmAvailableForCandidate } from './utils/gmAvailabilityStatus'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 import {
@@ -302,7 +302,7 @@ export function PrivateBookingManagement() {
         // （選択候補なしのフォールバックのみ「いずれかの候補で対応可能」を使う）
         const isAvailable = availableGM
           ? selectedCandidate
-            ? isGmAvailableForCandidate(availableGM, gmCandidateIndex(selectedCandidate))
+            ? isGmAvailableForCandidate(availableGM, selectedCandidate.order - 1)
             : isGmMarkedAvailable(availableGM)
           : false
         const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))
