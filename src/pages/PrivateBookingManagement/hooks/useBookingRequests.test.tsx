@@ -48,3 +48,17 @@ it('フックも後続ページの予約をGM回答取得と画面データへ�
   expect(mocks.responses).toHaveBeenCalledWith(mocks.rows.map(row=>row.id))
   expect(mocks.ranges).toEqual([[0,999],[1000,1999]])
 })
+
+it('予約に保存された候補配列の位置を表示番号とは別に保持する', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  mocks.rows=[{id:'reservation',status:'pending',candidate_datetimes:{candidates:[
+    {order:8,date:'2026-10-01',timeSlot:'午後',startTime:'14:00',endTime:'17:00'},
+    {order:10,date:'2026-10-02',timeSlot:'午後',startTime:'14:00',endTime:'17:00'},
+  ]}}]
+  mocks.responses.mockResolvedValue([])
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  root = createRoot(document.createElement('div'))
+  await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+  expect(state.requests[0].candidate_datetimes.candidates.map(c => [c.order,c.responseIndex])).toEqual([[8,0],[10,1]])
+})
