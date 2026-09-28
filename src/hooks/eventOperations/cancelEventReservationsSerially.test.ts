@@ -73,6 +73,26 @@ describe('cancelEventReservationsSerially', () => {
     expect(sendCancellationEmail.mock.calls.map(call => call[0].id)).toEqual(['r1', 'r3'])
   })
 
+  it('メール送信が停止しても、その前に全予約の取消が完了している', async () => {
+    const cancelWithLock = vi.fn(async () => true)
+    let releaseMail!: () => void
+    let mailStarted!: () => void
+    const started = new Promise<void>(resolve => { mailStarted = resolve })
+    const pendingMail = new Promise<void>(resolve => { releaseMail = resolve })
+    const sendCancellationEmail = vi.fn(async () => {
+      mailStarted()
+      await pendingMail
+    })
+    const result = cancelEventReservationsSerially({
+      reservations, reason: '公演中止', sendMail: true, cancelWithLock, sendCancellationEmail,
+    })
+    await started
+    expect(cancelWithLock).toHaveBeenCalledTimes(3)
+    expect(sendCancellationEmail).toHaveBeenCalledTimes(1)
+    releaseMail()
+    await expect(result).resolves.toBe(3)
+  })
+
   it('sendMail=false のときは取消成功でもメールを送らない', async () => {
     const cancelWithLock = vi.fn(async () => true)
     const sendCancellationEmail = vi.fn(
