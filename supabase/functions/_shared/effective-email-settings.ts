@@ -1,6 +1,7 @@
 import { loadSettingLayers, type SettingContext } from './load-setting-layers.ts'
 import { resolveSetting } from './settings-inheritance.ts'
 import { SETTING_DEFINITIONS } from './setting-definitions.ts'
+import { DEFAULT_REMINDER_ENABLED, DEFAULT_REMINDER_SCHEDULE } from './reminder-defaults.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface SettingsClient { from(table: string): any }
@@ -37,8 +38,9 @@ export async function loadEffectiveEmailSettings(db: SettingsClient, options: {
   return Object.fromEntries(Object.entries(SETTING_DEFINITIONS)
     .filter(([, definition]) => definition.group === 'email')
     .map(([key, definition]) => {
-      const resolved = resolveSetting(key,
-        key === 'reminder_enabled' ? false : key === 'reminder_schedule' ? [] : '', layers, definition.scopes)
+      const fallback = key === 'reminder_enabled' ? DEFAULT_REMINDER_ENABLED
+        : key === 'reminder_schedule' ? DEFAULT_REMINDER_SCHEDULE : ''
+      const resolved = resolveSetting(key, fallback, layers, definition.scopes)
       return [key, resolved.source === 'default' && definition.kind === 'text' ? null : resolved.value]
     }))
 }
