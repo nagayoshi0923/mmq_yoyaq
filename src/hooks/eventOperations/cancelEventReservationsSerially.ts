@@ -44,20 +44,24 @@ export async function cancelEventReservationsSerially<T extends CancelEventReser
   const { reservations, reason, sendMail, cancelWithLock, sendCancellationEmail } = params
   const cancellationFailures: string[] = []
   const emailFailures: string[] = []
-  let cancelledCount = 0
+  const cancelledReservations: T[] = []
 
   for (const reservation of reservations) {
     const label = String(reservation.reservation_number || reservation.id)
     try {
       const cancelled = await cancelWithLock(reservation.id, reservation.customer_id ?? null, reason)
       if (cancelled !== true) throw new Error('予約取消の成功を確認できません')
-      cancelledCount += 1
+      cancelledReservations.push(reservation)
     } catch (error) {
       logger.error(`予約${label}のキャンセル更新エラー:`, error)
       cancellationFailures.push(label)
       continue
     }
-    if (!sendMail) continue
+  }
+
+  // メール応答を待つ前に全件の取消を終え、遅延で後続予約が有効なまま残るのを防ぐ。
+  for (const reservation of sendMail ? cancelledReservations : []) {
+    const label = String(reservation.reservation_number || reservation.id)
     try {
       if (!sendCancellationEmail) throw new Error('メール送信処理がありません')
       await sendCancellationEmail(reservation)
@@ -70,5 +74,5 @@ export async function cancelEventReservationsSerially<T extends CancelEventReser
   if (cancellationFailures.length || emailFailures.length) {
     throw new EventCancellationPartialError(cancellationFailures, emailFailures)
   }
-  return cancelledCount
+  return cancelledReservations.length
 }
