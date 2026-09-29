@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { staffApi } from '@/lib/api'
-import { assignmentApi } from '@/lib/assignmentApi'
 import { fetchStaffWithAssignments } from '@/lib/staffAssignmentsQuery'
 import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 import type { Staff } from '@/types'
@@ -46,22 +45,13 @@ export function useStaffMutation() {
       confirmDecrease?: boolean
     }) => {
       const edit = (staff as StaffEditData).assignment_edit
-      // 担当タブを変更した保存だけ担当APIを呼ぶ。基本情報の保存で担当を再構築しない。
-      if (isEdit && edit) {
-        await assignmentApi.updateStaffAssignments(staff.id, edit.records, undefined, {
-          confirmClear: confirmDecrease === true,
-          expectedAssignments: edit.baseline,
-        })
-      }
-      const result = isEdit
-        ? await staffApi.update(staff.id, staffRowWithoutAssignments(staff))
-        : await staffApi.create({ ...staffRowWithoutAssignments(staff), special_scenarios: [], available_scenarios: [] })
-      if (!isEdit && edit && edit.records.length > 0) {
-        await assignmentApi.updateStaffAssignments(result.id, edit.records, undefined, {
-          expectedAssignments: [],
-        })
-      }
-      return result
+      const row = staffRowWithoutAssignments(staff)
+      const payload = edit && (isEdit || edit.records.length > 0)
+        ? { ...row, assignment_edit: edit, confirm_clear: confirmDecrease === true }
+        : row
+      return isEdit
+        ? await staffApi.update(staff.id, payload)
+        : await staffApi.create({ ...payload, special_scenarios: [], available_scenarios: [] })
     },
     onMutate: async ({ staff, isEdit }) => {
       await queryClient.cancelQueries({ queryKey: staffKeys.all })

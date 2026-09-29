@@ -36,3 +36,24 @@ describe('bulk assignment stale-client protection', () => {
     })
   }
 })
+
+describe('scenario GM atomic editor', () => {
+  const changes = { removed: ['old-staff'], upserts: [{ ...row }] }
+  it('sends one transaction with the authenticated actor and complete baseline', async () => {
+    mocks.rpc.mockResolvedValue({ data: [row], error: null })
+    const res = await request('save_scenario_gm_changes', { scenario_master_id: 'scenario', changes, expected_assignments: [row], p_actor: 'forged' })
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('save_scenario_gm_changes_atomic', { p_org: 'org', p_scenario: 'scenario', p_changes: changes, p_expected: [row], p_actor: 'user' })
+    expect(res.json).toHaveBeenCalledWith([row])
+  })
+  it('rejects missing baselines before any write', async () => {
+    const res = await request('save_scenario_gm_changes', { scenario_master_id: 'scenario', changes })
+    expect(res.status).toHaveBeenCalledWith(400)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('reports concurrent edits without falling back to separate writes', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: '40001' } })
+    const res = await request('save_scenario_gm_changes', { scenario_master_id: 'scenario', changes, expected_assignments: [row] })
+    expect(res.status).toHaveBeenCalledWith(409)
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+  })
+})

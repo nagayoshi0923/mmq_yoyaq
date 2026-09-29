@@ -245,6 +245,22 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   const action = (req.query.action ?? req.body?.action) as string | undefined
   const body = req.body ?? {}
 
+  if (action === 'save_scenario_gm_changes') {
+    const { scenario_master_id, changes, expected_assignments } = body
+    if (typeof scenario_master_id !== 'string' || !Array.isArray(changes?.removed) || !Array.isArray(changes?.upserts) || !Array.isArray(expected_assignments)) {
+      return res.status(400).json({ error: '担当GMの保存形式が不正です' })
+    }
+    await assertScenarioMasterAccessible(scenario_master_id, user.orgId)
+    const { data, error } = await db!.rpc('save_scenario_gm_changes_atomic', {
+      p_org: user.orgId, p_scenario: scenario_master_id, p_changes: changes, p_expected: expected_assignments, p_actor: user.userId,
+    })
+    if (error || !Array.isArray(data)) {
+      const conflict = error?.code === '40001' || error?.code === '23503'
+      return res.status(conflict ? 409 : 500).json({ error: 'ASSIGNMENT_SAVE_FAILED', message: conflict ? '担当情報が変更されました。開き直してから保存してください。' : '担当GMを保存できませんでした。担当の変更は反映されていません。' })
+    }
+    return res.status(200).json(data)
+  }
+
   if (action === 'upsert') {
     // 単一の担当関係を upsert（addAssignment 相当）
     const { staff_id, scenario_master_id, notes, can_main_gm, can_sub_gm, is_experienced } = body as {
