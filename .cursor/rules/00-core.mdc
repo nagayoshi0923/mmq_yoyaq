@@ -40,8 +40,8 @@ Queens Waltz向けマーダーミステリー店舗管理（React + TypeScript +
 
 ## 進行の基本
 
-- 作業前: `git branch --show-current` → 通常は `staging` 最新
+- 作業前: 最新 `origin/staging` から作業ブランチを切る（手順は `git-deploy.mdc`「開発の4段階」）
 - ローカル確認案内: `npm run dev:vercel`（http://localhost:5173）
-- staging push / PR 後: `/smoke` 相当の動作確認チェックリストをその場で出す（画面名必須）
+- PR 後: `/smoke` 相当の動作確認チェックリストをその場で出す（画面名必須）
 - コミットメッセージは日本語 Conventional Commits（`feat:` / `fix:` 等）
-- コミット・push はユーザーが求めたときだけ（別途のユーザー規則に従う）
+- 検査が通った作業は確認を待たずにコミット → PR → staging 取り込みまで進める。main（本番）への取り込みは明示指示のときだけ
