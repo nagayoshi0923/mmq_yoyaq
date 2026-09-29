@@ -3,11 +3,11 @@
 // 起動: npx tsx scripts/local-repro/api-server.ts（通常は scripts/local-repro/web.sh から起動される）
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const PORT = Number(process.env.LOCAL_REPRO_API_PORT ?? 5189)
-const API_DIR = resolve(import.meta.dirname, '../../api')
+const API_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../api')
 
 // ローカル Supabase 以外へ接続させない
 process.env.SUPABASE_URL = 'http://127.0.0.1:55321'

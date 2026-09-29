@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../.."
 
 WEB_PORT="${LOCAL_REPRO_WEB_PORT:-5176}"
 API_PORT="${LOCAL_REPRO_API_PORT:-5189}"
-eval "$(supabase status --workdir local-repro -o env 2>/dev/null | grep -E '^(PUBLISHABLE_KEY|SERVICE_ROLE_KEY)=')"
+eval "$(npx --yes supabase status --workdir local-repro -o env 2>/dev/null | grep -E '^(PUBLISHABLE_KEY|SERVICE_ROLE_KEY)=')"
 : "${PUBLISHABLE_KEY:?ローカル Supabase が起動していません（scripts/local-repro/db.sh start）}"
 
 export LOCAL_REPRO_WEB_PORT="$WEB_PORT" LOCAL_REPRO_API_PORT="$API_PORT"
