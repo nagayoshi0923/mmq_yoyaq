@@ -5,6 +5,10 @@ on:
     # synchronize: 追加 push で古い review-ok を失効させ、当該 head を再レビューする
     types: [opened, ready_for_review, synchronize]
 
+concurrency:
+  group: cursor-cloud-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   cursor-review:
     # draft を除外し、fork からの PR では secrets を使わない（同一リポジトリ内ブランチのみ）
@@ -17,6 +21,20 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Invalidate prior review labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # 追加 push / 再実行の開始時点で旧判定を外す（失敗時に review-ok が残らないようにする）
+          gh label create review-ok         -R "$REPO" --color 0E8A16 --description "Cursorレビュー: stagingへマージ可" 2>/dev/null || true
+          gh label create changes-requested -R "$REPO" --color D93F0B --description "Cursorレビュー: 修正が必要" 2>/dev/null || true
+          gh label create needs-human       -R "$REPO" --color FBCA04 --description "人間の判断が必要" 2>/dev/null || true
+          gh pr edit "$PR" -R "$REPO" \
+            --remove-label review-ok --remove-label changes-requested --remove-label needs-human 2>/dev/null || true
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -42,9 +60,16 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           PROMPT_FILE: ${{ runner.temp }}/cursor-prompt.md
+          REVIEW_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          PR_JSON=$(gh pr view "$PR" -R "$REPO" --json number,title,body,baseRefName,headRefName)
+          PR_JSON=$(gh pr view "$PR" -R "$REPO" --json number,title,body,baseRefName,headRefName,headRefOid)
+          HEAD_NOW=$(printf '%s' "$PR_JSON" | jq -r '.headRefOid')
+          if [ "$HEAD_NOW" != "$REVIEW_SHA" ]; then
+            echo "::error::当該 head がイベント時点と不一致です（event=${REVIEW_SHA}, now=${HEAD_NOW}）。再実行してください。"
+            exit 1
+          fi
+          echo "review_sha=$REVIEW_SHA" >> "$GITHUB_OUTPUT"
           {
             echo "あなたは Cursor Cloud Agent（分析専用・plan モード）です。コードは一切変更しないこと。"
             echo "この PR（#${PR}）を日本語でレビューしてください。クローンされたリポジトリと PR の差分を確認できます。"
@@ -95,6 +120,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           RESULT_FILE: ${{ runner.temp }}/cursor-result.json
+          REVIEW_SHA: ${{ steps.prompt.outputs.review_sha }}
         run: |
           set -uo pipefail
           MARKER='<!-- cursor-cloud-review -->'
@@ -110,8 +136,9 @@ jobs:
             fi
           }
 
+          # 先頭ステップで review 系ラベルは除去済み。失敗時は付け直さない（旧 review-ok を残さない）
           if [ ! -f "$RESULT_FILE" ]; then
-            post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビューを実行できませんでした（結果ファイルなし）。人間が確認してください。"
+            post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビューを実行できませんでした（結果ファイルなし）。ラベルは未付与のままです。人間が確認してください。"
             exit 0
           fi
           STATUS=$(jq -r '.status // ""' "$RESULT_FILE")
@@ -130,7 +157,7 @@ jobs:
           ' >/dev/null 2>&1; then
             echo "::warning::Cursor の出力をレビューJSONとして読めませんでした（status=${STATUS}, 文字数=${#RAW}）"
             printf '%s\n' "$RAW" | head -c 1500
-            post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビューが正常に完了しませんでした（status=${STATUS}）。人間が確認してください。"
+            post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビューが正常に完了しませんでした（status=${STATUS}）。ラベルは未付与のままです。人間が確認してください。"
             exit 0
           fi
 
@@ -161,6 +188,12 @@ jobs:
           esac
 
           SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
+          if [ -z "${REVIEW_SHA:-}" ] || [ "$SHA" != "$REVIEW_SHA" ]; then
+            echo "::warning::レビュー対象 SHA と現在の head が不一致（reviewed=${REVIEW_SHA:-}, head=${SHA}）。ラベルは付けません。"
+            post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビュー中に head が更新されたため判定を破棄しました。最新 head の再レビューを待ってください。"
+            exit 0
+          fi
+
           LEN=$(printf '%s' "$DEC" | jq '(.findings // []) | length')
           FAILED=""
           i=0
@@ -179,6 +212,14 @@ jobs:
             fi
           done
 
+          # ラベル付与直前に再度 head 一致を確認（競合で古い判定が後勝ちしない）
+          SHA_AGAIN=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq '.headRefOid')
+          if [ "$SHA_AGAIN" != "$REVIEW_SHA" ]; then
+            echo "::warning::ラベル付与直前に head が更新されたため判定を破棄します。"
+            post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"ラベル付与直前に head が更新されたため判定を破棄しました。最新 head の再レビューを待ってください。"
+            exit 0
+          fi
+
           gh label create review-ok         -R "$REPO" --color 0E8A16 --description "Cursorレビュー: stagingへマージ可" 2>/dev/null || true
           gh label create changes-requested -R "$REPO" --color D93F0B --description "Cursorレビュー: 修正が必要" 2>/dev/null || true
           gh label create needs-human       -R "$REPO" --color FBCA04 --description "人間の判断が必要" 2>/dev/null || true
@@ -186,7 +227,7 @@ jobs:
             --remove-label review-ok --remove-label changes-requested --remove-label needs-human 2>/dev/null || true
           gh pr edit "$PR" -R "$REPO" --add-label "$REVIEW_LABEL" || true
 
-          BODY="$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー総評"$'\n\n'"$SUMMARY"$'\n\n'"**判定**: ${REC_JP}"$'\n\n'"### 次にすること"$'\n'"${NEXT_ACTION}"
+          BODY="$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー総評"$'\n\n'"$SUMMARY"$'\n\n'"**判定**: ${REC_JP}"$'\n\n'"**対象 head**: \`${REVIEW_SHA}\`"$'\n\n'"### 次にすること"$'\n'"${NEXT_ACTION}"
           if [ -n "$FAILED" ]; then
             BODY="$BODY"$'\n\n'"### インラインで投稿できなかった指摘"$'\n'"$FAILED"
           fi

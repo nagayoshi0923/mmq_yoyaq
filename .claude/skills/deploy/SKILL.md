@@ -30,7 +30,7 @@ npm run db:status
   1. 内容（ファイル名と何をするか）をユーザーに提示
   2. `npm run db:push:prod` で本番DBに適用
   3. 確認クエリで結果を報告（テーブル/カラム/関数の存在確認）
-- **鉄則: 本番DB適用 → staging→main マージ →（自動）Edge / フロントの両方成功確認。逆は絶対禁止**（存在しないカラム参照で本番エラーの事故実績あり）。正は alwaysApply の `git-deploy.mdc`。マージ前に Edge を配備しない。手動 `functions:deploy:prod` はしない
+- **鉄則: 本番DB適用 → staging→main マージ → Vercel 確認（Edge/supabase 変更時は deploy-supabase も確認）。逆は絶対禁止**（存在しないカラム参照で本番エラーの事故実績あり）。正は alwaysApply の `git-deploy.mdc`。マージ前に Edge を配備しない。手動 `functions:deploy:prod` はしない
 
 ### 3. リリースPRの取り込み
 
@@ -40,7 +40,8 @@ npm run db:status
 
 ### 4. Edge / フロントの確認（マージ後）
 
-- マージ後は `deploy-supabase`（main push の自動 Edge 配備）と Vercel 本番デプロイが並行起動する。両方の成功を確認する
+- マージ後は Vercel 本番デプロイの成功を確認する
+- `supabase/functions` 等（`deploy-supabase.yml` の paths）に変更があるときだけ `deploy-supabase` の成功も確認する（該当差分が無い main マージではジョブ自体が走らない）
 - 手動 `npm run functions:deploy:prod` は実行しない（自動ジョブと競合し、ローカル checkout 由来の誤配備になり得る）
 
 ### 5. 報告

@@ -26,7 +26,7 @@ alwaysApply: true
 1. base=staging の開いたPRを取り込むか閉じる
 2. 未適用マイグレーションがあれば **先に** `npm run db:push:prod`（成功確認）→ リリースPRに `db-applied` ラベル
 3. リリースPRのタイトルが【✅本番反映可】になったら squash merge（【🛑】のままでは取り込まない）
-4. マージ後は `deploy-supabase`（main push）と Vercel が並行起動する。両方の成功を確認してから完了とする（手動 `functions:deploy:prod` はしない。競合・誤った checkout 配備を防ぐ）。Edge 契約を壊す変更は後方互換を保つか、明示指示で手順を分ける
+4. マージ後は Vercel 本番デプロイの成功を確認する。`supabase/functions` 等（`deploy-supabase.yml` の paths）に変更があるときだけ `deploy-supabase` の成功も確認する（paths に無い push ではジョブ自体が走らない）。手動 `functions:deploy:prod` はしない。Edge 契約を壊す変更は後方互換を保つか、明示指示で手順を分ける
 5. 本番画面で確認する。問題時の戻し方は `supabase/rollbacks/` と Vercel の直前デプロイ
 
 スキル: `/deploy`
@@ -36,7 +36,7 @@ alwaysApply: true
 ```
 staging開発 → db:push:staging → 動作確認
  →（明示指示後）db:status → db:push:prod → 成功確認 → mainマージ
- →（自動・並行）deploy-supabase / Vercel の両方成功を確認
+ → Vercel 確認。Edge/supabase 変更時のみ deploy-supabase も確認
 ```
 
 - AI が `db:push:staging` / `db:push:prod` を実行してよい（実行前に変更内容を提示、実行後に確認を報告）
