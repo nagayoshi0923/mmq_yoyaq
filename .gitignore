@@ -60,3 +60,8 @@ supabase/schema_snapshot.sql
 scripts/ai-team/.processed_issues
 .env*.local
 .archive-queenswaltz/
+
+# 不具合再現環境（scripts/local-repro）: スキーマは都度ステージングから取得する
+local-repro/supabase/migrations/00000000000000_staging_schema.sql
+local-repro/supabase/.temp/
+local-repro/supabase/.branches/
