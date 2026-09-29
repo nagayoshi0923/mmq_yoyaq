@@ -1,4 +1,93 @@
--- 正本: 20260927015000_private_booking_scenario_capacity.sql
+-- QW-20260909-011: 店舗ごとの募集停止期間（公演募集 / 貸切募集）と、貸切募集停止中の申請・承認の拒否。
+-- 9/7 保存の下書き #431（20260823091000 / 092000）を今の定義に合わせて作り直したもの。
+-- 下書きは「ログイン中なら誰でも全店舗の停止期間を書き換えられる」RLS だったため、
+-- 書き込みを店舗設定と同じ「同じ組織の管理者」に限定する（閲覧は公開予約画面のため全員可）。
+-- starts_on / ends_on が両方 NULL = 全日程、starts_on のみ = その日からずっと。
+-- 検証用DBには旧下書きの表が既にあるため IF NOT EXISTS とし、旧ポリシーは削除する。
+
+CREATE TABLE IF NOT EXISTS public.store_recruitment_pauses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  store_id uuid NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
+  pause_type text NOT NULL CHECK (pause_type IN ('performance', 'private')),
+  starts_on date,
+  ends_on date,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on)
+);
+
+CREATE INDEX IF NOT EXISTS idx_store_recruitment_pauses_lookup
+  ON public.store_recruitment_pauses (organization_id, store_id, pause_type);
+
+COMMENT ON TABLE public.store_recruitment_pauses IS
+  '店舗の公演募集停止・貸切募集停止期間。両方NULLは全日程。書き込みは同じ組織の管理者のみ';
+
+ALTER TABLE public.store_recruitment_pauses ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.store_recruitment_pauses FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.store_recruitment_pauses TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.store_recruitment_pauses TO authenticated;
+
+DROP POLICY IF EXISTS "authenticated full access" ON public.store_recruitment_pauses;
+DROP POLICY IF EXISTS "anon select" ON public.store_recruitment_pauses;
+DROP POLICY IF EXISTS store_recruitment_pauses_select ON public.store_recruitment_pauses;
+DROP POLICY IF EXISTS store_recruitment_pauses_insert_admin ON public.store_recruitment_pauses;
+DROP POLICY IF EXISTS store_recruitment_pauses_update_admin ON public.store_recruitment_pauses;
+DROP POLICY IF EXISTS store_recruitment_pauses_delete_admin ON public.store_recruitment_pauses;
+
+CREATE POLICY store_recruitment_pauses_select ON public.store_recruitment_pauses
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+CREATE POLICY store_recruitment_pauses_insert_admin ON public.store_recruitment_pauses
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_admin()
+    AND organization_id = public.get_user_organization_id()
+    AND store_id IN (SELECT s.id FROM public.stores s WHERE s.organization_id = public.get_user_organization_id())
+  );
+
+CREATE POLICY store_recruitment_pauses_update_admin ON public.store_recruitment_pauses
+  FOR UPDATE TO authenticated
+  USING (public.is_admin() AND organization_id = public.get_user_organization_id())
+  WITH CHECK (
+    public.is_admin()
+    AND organization_id = public.get_user_organization_id()
+    AND store_id IN (SELECT s.id FROM public.stores s WHERE s.organization_id = public.get_user_organization_id())
+  );
+
+CREATE POLICY store_recruitment_pauses_delete_admin ON public.store_recruitment_pauses
+  FOR DELETE TO authenticated
+  USING (public.is_admin() AND organization_id = public.get_user_organization_id());
+
+CREATE OR REPLACE FUNCTION public.is_store_recruitment_paused(
+  p_store_id uuid,
+  p_pause_type text,
+  p_date date
+) RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.store_recruitment_pauses p
+    WHERE p.store_id = p_store_id
+      AND p.pause_type = p_pause_type
+      AND (p.starts_on IS NULL OR p.starts_on <= p_date)
+      AND (p.ends_on IS NULL OR p.ends_on >= p_date)
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_store_recruitment_paused(uuid, text, date) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_store_recruitment_paused(uuid, text, date) TO anon, authenticated, service_role;
+
+COMMENT ON FUNCTION public.is_store_recruitment_paused(uuid, text, date) IS
+  '指定日に店舗の公演募集または貸切募集が停止中か';
+
+-- 貸切の申請: 貸切募集停止中の店舗は、その候補日では「受付不可の店舗」として数える（全店舗不可なら従来どおり拒否）
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -674,5 +763,508 @@ BEGIN
 END;
 $function$;
 
--- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
-REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
+-- 貸切の承認: 貸切募集停止中の店舗・日付では承認しない（受付不可枠と同じエラー）
+CREATE OR REPLACE FUNCTION public.approve_private_booking(p_reservation_id uuid, p_selected_date date, p_selected_start_time time without time zone, p_selected_end_time time without time zone, p_selected_store_id uuid, p_selected_gm_id uuid, p_candidate_datetimes jsonb, p_scenario_title text, p_customer_name text, p_selected_sub_gm_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+ SET row_security TO 'off'
+AS $function$
+DECLARE
+  v_reservation RECORD;
+  v_pricing public.private_booking_pricing_snapshots%ROWTYPE;
+  v_priced_booking BOOLEAN := FALSE;
+  v_unit_price INTEGER;
+  v_total_price INTEGER;
+  v_org_id UUID;
+  v_caller_org_id UUID;
+  v_caller_staff_id UUID;
+  v_schedule_event_id UUID;
+  v_existing_event_id UUID;
+  v_gm_name TEXT;
+  v_sub_gm_name TEXT;
+  v_store_name TEXT;
+  v_store_short_name TEXT;
+  v_updated_count INTEGER;
+  v_private_group_id UUID;
+  v_gms_array TEXT[];
+  v_gm_roles JSONB;
+  v_calendar_date DATE;
+  v_raw TEXT;
+  v_candidate JSONB;
+  v_candidate_date DATE;
+  v_candidate_start_time TIME;
+  v_candidate_end_time TIME;
+  v_candidate_time_slot TEXT;
+  v_schedule_time_slot TEXT;
+  v_trusted_candidate_found BOOLEAN := false;
+  v_requested_store_count INTEGER;
+  v_candidate_ordinal BIGINT;
+  v_selected_candidate_ordinal BIGINT;
+  v_normalized_candidate JSONB;
+  v_rebuilt_candidates JSONB := '[]'::JSONB;
+  v_confirmed_candidate_datetimes JSONB;
+  v_hint_time_slot TEXT;
+  v_event_time_slot TEXT;
+BEGIN
+  SELECT *
+  INTO v_reservation
+  FROM reservations
+  WHERE id = p_reservation_id
+    AND status IN ('pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RESERVATION_NOT_FOUND_OR_ALREADY_CONFIRMED' USING ERRCODE = 'P0018';
+  END IF;
+
+  v_org_id := v_reservation.organization_id;
+  v_private_group_id := v_reservation.private_group_id;
+  v_existing_event_id := v_reservation.schedule_event_id;
+
+  v_caller_org_id := get_user_organization_id();
+  IF auth.uid() IS NULL
+     OR v_caller_org_id IS NULL
+     OR v_caller_org_id IS DISTINCT FROM v_org_id
+  THEN
+    RAISE EXCEPTION 'UNAUTHORIZED' USING ERRCODE = 'P0010';
+  END IF;
+
+  SELECT id INTO v_caller_staff_id
+  FROM staff
+  WHERE user_id = auth.uid()
+    AND organization_id = v_org_id
+  ORDER BY id
+  LIMIT 1;
+
+  IF NOT is_staff_or_admin()
+     OR (v_caller_staff_id IS NULL AND NOT is_org_admin())
+  THEN
+    RAISE EXCEPTION 'UNAUTHORIZED' USING ERRCODE = 'P0010';
+  END IF;
+
+  SELECT name INTO v_gm_name
+  FROM staff
+  WHERE id = p_selected_gm_id
+    AND organization_id = v_org_id;
+
+  IF v_gm_name IS NULL THEN
+    RAISE EXCEPTION 'GM_NOT_FOUND' USING ERRCODE = 'P0022';
+  END IF;
+
+  v_sub_gm_name := NULL;
+  IF p_selected_sub_gm_id IS NOT NULL THEN
+    IF p_selected_sub_gm_id = p_selected_gm_id THEN
+      RAISE EXCEPTION 'SUB_GM_SAME_AS_MAIN' USING ERRCODE = 'P0026';
+    END IF;
+    SELECT name INTO v_sub_gm_name
+    FROM staff
+    WHERE id = p_selected_sub_gm_id
+      AND organization_id = v_org_id;
+    IF v_sub_gm_name IS NULL THEN
+      RAISE EXCEPTION 'SUB_GM_NOT_FOUND' USING ERRCODE = 'P0022';
+    END IF;
+  END IF;
+
+  SELECT name, short_name
+  INTO v_store_name, v_store_short_name
+  FROM stores
+  WHERE id = p_selected_store_id
+    AND organization_id = v_org_id
+    AND status = 'active';
+
+  IF v_store_name IS NULL THEN
+    RAISE EXCEPTION 'STORE_NOT_FOUND' USING ERRCODE = 'P0023';
+  END IF;
+
+  -- 希望店舗が保存されている申請では、その信頼済み集合からだけ承認する。
+  v_requested_store_count := jsonb_array_length(
+    COALESCE(v_reservation.candidate_datetimes->'requestedStores', '[]'::jsonb)
+  );
+  IF v_requested_store_count > 0 AND NOT EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(v_reservation.candidate_datetimes->'requestedStores') requested
+    WHERE requested->>'storeId' = p_selected_store_id::TEXT
+  ) THEN
+    RAISE EXCEPTION 'STORE_NOT_REQUESTED' USING ERRCODE = 'P0042';
+  END IF;
+
+  -- 承認時刻の上書き用: clientのconfirmed候補は「どの希望枠か」のヒントにだけ使う。
+  -- 日付・枠の正は保存済み候補。開始・終了は p_selected_* を採用してよい。
+  SELECT CASE elem->>'timeSlot'
+    WHEN 'morning' THEN 'morning'
+    WHEN '朝' THEN 'morning'
+    WHEN '午前' THEN 'morning'
+    WHEN 'afternoon' THEN 'afternoon'
+    WHEN '昼' THEN 'afternoon'
+    WHEN '午後' THEN 'afternoon'
+    WHEN 'evening' THEN 'evening'
+    WHEN '夜' THEN 'evening'
+    WHEN '夜間' THEN 'evening'
+    ELSE NULL
+  END
+  INTO v_hint_time_slot
+  FROM jsonb_array_elements(
+    COALESCE(p_candidate_datetimes->'candidates', '[]'::jsonb)
+  ) AS elem
+  WHERE elem->>'status' = 'confirmed'
+  LIMIT 1;
+
+  -- clientが送ったconfirmed状態ではなく、予約に保存済みの候補から日付・time_slotを復元する。
+  FOR v_candidate, v_candidate_ordinal IN
+    SELECT candidate.value, candidate.ordinality
+    FROM jsonb_array_elements(
+      COALESCE(v_reservation.candidate_datetimes->'candidates', '[]'::jsonb)
+    ) WITH ORDINALITY AS candidate(value, ordinality)
+  LOOP
+    v_raw := v_candidate->>'date';
+    BEGIN
+      IF btrim(v_raw) ~ '^\d{4}-\d{2}-\d{2}$' THEN
+        v_candidate_date := btrim(v_raw)::DATE;
+      ELSE
+        v_candidate_date := ((btrim(v_raw))::TIMESTAMPTZ AT TIME ZONE 'Asia/Tokyo')::DATE;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      CONTINUE;
+    END;
+
+    BEGIN
+      v_candidate_start_time := (v_candidate->>'startTime')::TIME;
+      v_candidate_end_time := (v_candidate->>'endTime')::TIME;
+    EXCEPTION WHEN OTHERS THEN
+      CONTINUE;
+    END;
+
+    v_candidate_time_slot := CASE v_candidate->>'timeSlot'
+      WHEN 'morning' THEN 'morning'
+      WHEN '朝' THEN 'morning'
+      WHEN '午前' THEN 'morning'
+      WHEN 'afternoon' THEN 'afternoon'
+      WHEN '昼' THEN 'afternoon'
+      WHEN '午後' THEN 'afternoon'
+      WHEN 'evening' THEN 'evening'
+      WHEN '夜' THEN 'evening'
+      WHEN '夜間' THEN 'evening'
+      ELSE NULL
+    END;
+
+    IF v_candidate_date = p_selected_date
+       AND v_candidate_time_slot IS NOT NULL
+       AND (
+         (
+           v_candidate_start_time = p_selected_start_time
+           AND v_candidate_end_time = p_selected_end_time
+         )
+         OR (
+           v_hint_time_slot IS NOT NULL
+           AND v_candidate_time_slot = v_hint_time_slot
+         )
+       )
+    THEN
+      v_selected_candidate_ordinal := v_candidate_ordinal;
+      v_trusted_candidate_found := true;
+      EXIT;
+    END IF;
+  END LOOP;
+
+  IF NOT v_trusted_candidate_found OR v_candidate_time_slot IS NULL THEN
+    RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE' USING ERRCODE = 'P0041';
+  END IF;
+  IF p_selected_start_time >= p_selected_end_time THEN
+    RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE_TIME' USING ERRCODE = 'P0041';
+  END IF;
+  IF p_selected_start_time < TIME '09:00' OR p_selected_end_time > TIME '23:00' THEN
+    RAISE EXCEPTION 'INVALID_SELECTED_CANDIDATE_TIME' USING ERRCODE = 'P0041';
+  END IF;
+
+  SELECT * INTO v_pricing FROM public.private_booking_pricing_snapshots
+  WHERE reservation_id = p_reservation_id AND organization_id = v_org_id;
+  v_priced_booking := FOUND;
+  IF v_priced_booking THEN
+    v_unit_price := public.calculate_booking_participation_fee(
+      v_pricing.base_fee, v_pricing.participation_costs, p_selected_date, p_selected_start_time,
+      v_pricing.custom_holidays ? p_selected_date::TEXT, v_pricing.pricing_date
+    );
+    v_total_price := v_unit_price * v_reservation.participant_count;
+  END IF;
+
+  v_event_time_slot := CASE
+    WHEN EXTRACT(HOUR FROM p_selected_start_time) < 12 THEN 'morning'
+    WHEN EXTRACT(HOUR FROM p_selected_start_time) <= 17 THEN 'afternoon'
+    ELSE 'evening'
+  END;
+
+  -- live client互換のshapeを維持しつつ、保存済み候補だけからconfirmed状態を再構築する。
+  FOR v_candidate, v_candidate_ordinal IN
+    SELECT candidate.value, candidate.ordinality
+    FROM jsonb_array_elements(
+      COALESCE(v_reservation.candidate_datetimes->'candidates', '[]'::jsonb)
+    ) WITH ORDINALITY AS candidate(value, ordinality)
+  LOOP
+    v_normalized_candidate := v_candidate;
+    v_raw := v_candidate->>'date';
+    IF v_raw IS NOT NULL THEN
+      BEGIN
+        IF btrim(v_raw) ~ '^\d{4}-\d{2}-\d{2}$' THEN
+          v_candidate_date := btrim(v_raw)::DATE;
+        ELSE
+          v_candidate_date := ((btrim(v_raw))::TIMESTAMPTZ AT TIME ZONE 'Asia/Tokyo')::DATE;
+        END IF;
+        v_normalized_candidate := jsonb_set(
+          v_normalized_candidate,
+          '{date}',
+          to_jsonb(v_candidate_date::TEXT),
+          true
+        );
+      EXCEPTION WHEN OTHERS THEN
+        NULL;
+      END;
+    END IF;
+
+    v_normalized_candidate := jsonb_set(
+      v_normalized_candidate,
+      '{status}',
+      to_jsonb(
+        CASE
+          WHEN v_candidate_ordinal = v_selected_candidate_ordinal THEN 'confirmed'
+          ELSE 'pending'
+        END
+      ),
+      true
+    );
+    IF v_candidate_ordinal = v_selected_candidate_ordinal THEN
+      IF v_priced_booking THEN
+        v_normalized_candidate := v_normalized_candidate || jsonb_build_object(
+          'unitPrice', v_unit_price, 'totalPrice', v_total_price);
+      END IF;
+      v_normalized_candidate := jsonb_set(
+        jsonb_set(
+          v_normalized_candidate,
+          '{startTime}',
+          to_jsonb(to_char(p_selected_start_time, 'HH24:MI')),
+          true
+        ),
+        '{endTime}',
+        to_jsonb(to_char(p_selected_end_time, 'HH24:MI')),
+        true
+      );
+      IF v_event_time_slot IS DISTINCT FROM v_candidate_time_slot THEN
+        v_normalized_candidate := jsonb_set(
+          v_normalized_candidate,
+          '{timeSlot}',
+          to_jsonb(
+            CASE v_event_time_slot
+              WHEN 'morning' THEN '午前'
+              WHEN 'afternoon' THEN '午後'
+              ELSE '夜'
+            END
+          ),
+          true
+        );
+      END IF;
+    END IF;
+    v_rebuilt_candidates := v_rebuilt_candidates || jsonb_build_array(v_normalized_candidate);
+  END LOOP;
+
+  v_confirmed_candidate_datetimes := jsonb_set(
+    jsonb_set(
+      COALESCE(v_reservation.candidate_datetimes, '{}'::JSONB),
+      '{candidates}',
+      v_rebuilt_candidates,
+      true
+    ),
+    '{confirmedStore}',
+    jsonb_build_object(
+      'storeId', p_selected_store_id::TEXT,
+      'storeName', v_store_name,
+      'storeShortName', COALESCE(v_store_short_name, v_store_name)
+    ),
+    true
+  );
+
+  v_calendar_date := p_selected_date;
+  v_schedule_time_slot := CASE v_event_time_slot
+    WHEN 'morning' THEN '朝'
+    WHEN 'afternoon' THEN '昼'
+    ELSE '夜'
+  END;
+
+  -- block/unblockと全公演INSERTを直列化し、検査からINSERTまで同じ状態を維持する。
+  LOCK TABLE schedule_blocked_slots IN SHARE MODE;
+  LOCK TABLE schedule_events IN SHARE ROW EXCLUSIVE MODE;
+
+  IF EXISTS (
+    SELECT 1
+    FROM schedule_blocked_slots blocked
+    WHERE blocked.organization_id = v_org_id
+      AND blocked.store_id = p_selected_store_id::TEXT
+      AND blocked.date = v_calendar_date
+      AND blocked.time_slot = v_event_time_slot
+  ) OR public.is_store_recruitment_paused(p_selected_store_id, 'private', v_calendar_date) THEN
+    RAISE EXCEPTION 'PRIVATE_BOOKING_SLOT_BLOCKED:%:%', v_calendar_date, v_event_time_slot
+      USING ERRCODE = 'P0040';
+  END IF;
+
+  IF v_existing_event_id IS NOT NULL THEN
+    UPDATE schedule_events
+    SET is_cancelled = true,
+        updated_at = NOW()
+    WHERE id = v_existing_event_id
+      AND organization_id = v_org_id;
+  END IF;
+
+  -- メインGMの競合チェック（直接重複）
+  PERFORM 1
+  FROM schedule_events
+  WHERE organization_id = v_org_id
+    AND date = v_calendar_date
+    AND is_cancelled = false
+    AND v_gm_name = ANY(gms)
+    AND start_time < p_selected_end_time
+    AND end_time > p_selected_start_time
+    AND id != COALESCE(v_existing_event_id, '00000000-0000-0000-0000-000000000000'::UUID)
+  FOR UPDATE NOWAIT;
+
+  IF FOUND THEN
+    RAISE EXCEPTION 'GM_ALREADY_ASSIGNED' USING ERRCODE = 'P0025';
+  END IF;
+
+  -- サブGMの競合チェック（直接重複）
+  IF v_sub_gm_name IS NOT NULL THEN
+    PERFORM 1
+    FROM schedule_events
+    WHERE organization_id = v_org_id
+      AND date = v_calendar_date
+      AND is_cancelled = false
+      AND v_sub_gm_name = ANY(gms)
+      AND start_time < p_selected_end_time
+      AND end_time > p_selected_start_time
+      AND id != COALESCE(v_existing_event_id, '00000000-0000-0000-0000-000000000000'::UUID)
+    FOR UPDATE NOWAIT;
+
+    IF FOUND THEN
+      RAISE EXCEPTION 'GM_ALREADY_ASSIGNED' USING ERRCODE = 'P0025';
+    END IF;
+  END IF;
+
+  -- 店舗の直接重複チェック
+  PERFORM 1
+  FROM schedule_events
+  WHERE organization_id = v_org_id
+    AND date = v_calendar_date
+    AND store_id = p_selected_store_id
+    AND is_cancelled = false
+    AND start_time < p_selected_end_time
+    AND end_time > p_selected_start_time
+    AND id != COALESCE(v_existing_event_id, '00000000-0000-0000-0000-000000000000'::UUID)
+  FOR UPDATE NOWAIT;
+
+  IF FOUND THEN
+    RAISE EXCEPTION 'SLOT_ALREADY_OCCUPIED' USING ERRCODE = 'P0019';
+  END IF;
+
+  -- 店舗の60分インターバルチェック（設営・撤収時間の確保）
+  PERFORM 1
+  FROM schedule_events
+  WHERE organization_id = v_org_id
+    AND date BETWEEN v_calendar_date - 2 AND v_calendar_date + 2
+    AND store_id = p_selected_store_id
+    AND is_cancelled = false
+    AND date + start_time < v_calendar_date + p_selected_end_time + CASE WHEN p_selected_end_time < p_selected_start_time THEN interval '1 day' ELSE interval '0 days' END + make_interval(mins => public.resolve_preparation_minutes(v_org_id,NULL,NULL,id))
+    AND date + end_time + CASE WHEN end_time < start_time THEN interval '1 day' ELSE interval '0 days' END > v_calendar_date + p_selected_start_time - make_interval(mins => public.resolve_preparation_minutes(v_org_id,p_selected_store_id,v_reservation.scenario_master_id,NULL))
+    AND id != COALESCE(v_existing_event_id, '00000000-0000-0000-0000-000000000000'::UUID)
+  FOR UPDATE NOWAIT;
+
+  IF FOUND THEN
+    RAISE EXCEPTION 'INTERVAL_TOO_SHORT' USING ERRCODE = 'P0027';
+  END IF;
+
+  IF v_sub_gm_name IS NOT NULL THEN
+    v_gms_array := ARRAY[v_gm_name, v_sub_gm_name];
+    v_gm_roles := jsonb_build_object(v_gm_name, 'main', v_sub_gm_name, 'sub');
+  ELSE
+    v_gms_array := ARRAY[v_gm_name];
+    v_gm_roles := '{}'::JSONB;
+  END IF;
+
+  INSERT INTO schedule_events (
+    date,
+    venue,
+    scenario,
+    scenario_master_id,
+    organization_scenario_id,
+    start_time,
+    end_time,
+    start_at,
+    end_at,
+    store_id,
+    gms,
+    gm_roles,
+    is_reservation_enabled,
+    status,
+    category,
+    organization_id,
+    reservation_id,
+    reservation_name,
+    is_reservation_name_overwritten,
+    time_slot
+  ) VALUES (
+    v_calendar_date,
+    v_store_name,
+    p_scenario_title,
+    v_reservation.scenario_master_id,
+    (SELECT os.id FROM public.organization_scenarios os WHERE os.organization_id=v_org_id AND os.scenario_master_id=v_reservation.scenario_master_id LIMIT 1),
+    p_selected_start_time,
+    p_selected_end_time,
+    (v_calendar_date + p_selected_start_time)::TIMESTAMPTZ,
+    (v_calendar_date + p_selected_end_time)::TIMESTAMPTZ,
+    p_selected_store_id,
+    v_gms_array,
+    v_gm_roles,
+    false,
+    'confirmed',
+    'private',
+    v_org_id,
+    p_reservation_id,
+    p_customer_name,
+    false,
+    v_schedule_time_slot
+  )
+  RETURNING id INTO v_schedule_event_id;
+
+  UPDATE reservations
+  SET
+    status = 'confirmed',
+    unit_price = CASE WHEN v_priced_booking THEN v_unit_price ELSE unit_price END,
+    base_price = CASE WHEN v_priced_booking THEN v_total_price ELSE base_price END,
+    total_price = CASE WHEN v_priced_booking THEN v_total_price + COALESCE(options_price, 0) ELSE total_price END,
+    final_price = CASE WHEN v_priced_booking THEN GREATEST(0, v_total_price + COALESCE(options_price, 0) - COALESCE(discount_amount, 0)) ELSE final_price END,
+    gm_staff = p_selected_gm_id,
+    store_id = p_selected_store_id,
+    schedule_event_id = v_schedule_event_id,
+    candidate_datetimes = v_confirmed_candidate_datetimes,
+    requested_datetime = (v_calendar_date::TEXT || ' ' || p_selected_start_time::TEXT)::TIMESTAMP WITH TIME ZONE,
+    duration = EXTRACT(EPOCH FROM (p_selected_end_time - p_selected_start_time)) / 60,
+    confirmed_by = COALESCE(v_caller_staff_id, confirmed_by),
+    updated_at = NOW()
+  WHERE id = p_reservation_id
+    AND organization_id = v_org_id;
+
+  GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+  IF v_updated_count <> 1 THEN
+    RAISE EXCEPTION 'RESERVATION_UPDATE_FAILED' USING ERRCODE = 'P0024';
+  END IF;
+
+  IF v_private_group_id IS NOT NULL THEN
+    UPDATE private_groups
+    SET status = 'confirmed'
+    WHERE id = v_private_group_id
+      AND organization_id = v_org_id;
+  END IF;
+
+  RETURN v_schedule_event_id;
+END;
+$function$;
+
+NOTIFY pgrst, 'reload schema';
