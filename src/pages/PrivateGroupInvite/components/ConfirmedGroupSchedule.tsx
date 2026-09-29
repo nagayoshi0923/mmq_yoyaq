@@ -2,8 +2,7 @@ import type { PrivateGroup } from '@/types'
 import { formatJstDateJa } from '@/utils/jstDate'
 
 export function ConfirmedGroupSchedule({ group }: { group: PrivateGroup }) {
-  if (group.confirmed_performance_access === 'preview') return group.status === 'confirmed'
-    ? <p className="p-3">確定した開催日時はグループ参加後に確認できます。</p> : null
+  if (group.confirmed_performance_access === 'preview') return <p className="p-3">開催日時・日程調整の状況はグループ参加後に確認できます。</p>
   const performance = group.confirmed_performance
   if (!performance) {
     return group.status === 'confirmed'
