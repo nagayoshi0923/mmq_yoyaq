@@ -48,3 +48,17 @@ it('フックも後続ページの予約をGM回答取得と画面データへ�
   expect(mocks.responses).toHaveBeenCalledWith(mocks.rows.map(row=>row.id))
   expect(mocks.ranges).toEqual([[0,999],[1000,1999]])
 })
+
+it('読込失敗でデータが無い間も同じ配列を返し、画面の再描画ループを起こさない', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  mocks.responses.mockRejectedValue(new Error('network unavailable'))
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  root = createRoot(document.createElement('div'))
+  await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+  expect(state.isError).toBe(true)
+  const first = state.requests
+  await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
+  expect(state.requests).toBe(first)
+  expect(state.requests).toHaveLength(0)
+})
