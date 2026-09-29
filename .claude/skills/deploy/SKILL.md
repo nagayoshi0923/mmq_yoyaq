@@ -30,8 +30,7 @@ npm run db:status
   1. 内容（ファイル名と何をするか）をユーザーに提示
   2. `npm run db:push:prod` で本番DBに適用
   3. 確認クエリで結果を報告（テーブル/カラム/関数の存在確認）
-- `supabase/functions/` に変更が含まれる場合は `npm run functions:deploy:prod` も実行
-- **鉄則: DB変更 → フロントデプロイの順。逆は絶対禁止**（存在しないカラム参照で本番エラーの事故実績あり）
+- **鉄則: 本番DB適用 → staging→main マージ →（必要なら）Edge 配備 → フロント確認の順。逆は絶対禁止**（存在しないカラム参照で本番エラーの事故実績あり）。正は alwaysApply の `git-deploy.mdc`。マージ前に `functions:deploy:prod` しない
 
 ### 3. リリースPRの取り込み
 
@@ -39,9 +38,10 @@ npm run db:status
 - タイトルが【✅本番反映可】になったら squash merge する（【🛑】のままでは取り込まない。force merge しない）
 - main への直接 push・`git merge origin/staging` はしない
 
-### 4. 本番の確認
+### 4. Edge Function の配備（マージ後）と本番確認
 
-- Vercel の本番デプロイ完了と、Edge Function 変更時は `deploy-supabase` の結果を確認する
+- `supabase/functions/` に変更がある場合は、**マージ後**に `npm run functions:deploy:prod`（または `deploy-supabase` の本番パス）を実行する
+- Vercel の本番デプロイ完了と、Edge 配備の結果を確認する
 
 ### 5. 報告
 

@@ -63,6 +63,7 @@ description: Queens Waltz予約管理(yoyaq)で、POとの壁打ち後の明示G
 
 ## stagingへ直列配送する
 
+- この staging 直列pushは `git-deploy.mdc` の例外として許容する（main への自動マージ/pushは禁止。レーンを全面PR経由に変えない）。
 - 監督タスク本人だけがaccepted commitを1件ずつ、最新`origin/staging`を基点とするcleanな統合checkoutへ取り込む。この権限をintegration taskその他へ委譲しない。push直前にfetchし、基点が動いていれば再統合・再確認する。
 - worker commit、検収証拠、許可範囲、dirty状態を監査してから、対象commitを`git cherry-pick --no-commit`または同等の非破壊手順で適用する。`git add .`、force push、無関係なclean-upを行わない。
 - dashboardのDONE/検収/イベント記録を監督が加え、製品差分と進捗記録を**staging上の1作業1commit**にまとめて`origin/staging`へpushする。次のaccepted laneはその後に扱う。

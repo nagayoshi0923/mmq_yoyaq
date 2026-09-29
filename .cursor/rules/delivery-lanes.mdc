@@ -6,13 +6,14 @@ alwaysApply: false
 # 配送レーン（該当時のみ）
 
 通常の進行は `git-deploy.mdc`「開発の4段階」（作業ブランチ → staging 向けPR）。以下は PO明示GO＋台帳ありのときだけ。
+ここでの **staging 直列pushは `git-deploy.mdc` の例外として許容**する（main への自動マージ/pushは禁止。レーンを全面PR経由に変えない）。
 
 ## Codex自動配送
 
 手順の正: `.agents/skills/yoyaq-auto-delivery/SKILL.md` + `docs/CODEX_DASHBOARD.md`
 
 - worker は最新 `origin/staging` から `codex/*` + 隔離 worktree。staging/main を触らない
-- staging 統合・progress・push は**監督だけ**が直列実行
+- staging 統合・progress・push は**監督だけ**が直列実行（`git-deploy.mdc` の staging 直列push例外）
 - UI は PO visual OK まで staging 統合しない
 - 本番DB / main / 本番デプロイはレーン外（別途明示指示）
 
@@ -21,7 +22,7 @@ alwaysApply: false
 起票に「実装: Claude(Opus)」とあるとき:
 
 - 調査・実装・検証はこの席が自分で順に行う（サブエージェントへ委譲しない。全体方針 `~/.codex/AGENTS.md`）。本体は設計・diffレビュー・commit/push判断
-- staging push 後、監督へ focused 検収1回。REWORKは重大欠陥のみ1往復に束ねる
+- staging push 後、監督へ focused 検収1回。REWORKは重大欠陥のみ1往復に束ねる（同上、staging 直列push例外）
 - dashboard の状態更新は監督専有
 
 「実装: Codex」なら Codex 連鎖に任せ、Claude/Cursor は直接実装しない。  
