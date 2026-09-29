@@ -16,9 +16,9 @@ alwaysApply: true
 
 - 通常は最新 `origin/staging` から作業ブランチを切り、staging 向けPRにする（「開発の4段階」）
 - **main への直接 push・自動マージは禁止**（本番反映は明示指示のみ）
-- **staging 直列pushの例外**: 手元の Cursor 進行役、および PO明示GO＋台帳ありの Codex自動配送（監督）・Claude実装レーンのみ、手順どおり staging へ直列pushしてよい（詳細は `delivery-lanes.mdc` / yoyaq-auto-delivery）。Cloud Agent / `ai-todo` のPR経路は例外に含めず、下記取り込みゲート必須。レーン側を全面PR経由に変えない
+- **staging 直列pushの例外**: PO明示GO＋台帳ありの Codex自動配送（監督）・Claude実装レーンのみ（代替ゲートは `delivery-lanes.mdc` / yoyaq-auto-delivery）。通常の Cursor 進行・Cloud Agent / `ai-todo` は例外に含めず、作業ブランチ→staging向けPRと下記取り込みゲート必須。レーン側を全面PR経由に変えない
 - ブランチ名: `<種類>/<案件IDの小文字>-<短い作業名>`（例 `fix/qw-20260930-001-review`。案件IDがなければ省略）
-- **staging 取り込みゲート**（`docs/development/cursor-cloud-agents.md` と同じ）: CI成功・ラベル `review-ok`・タイトルの `【▶N】` 順をすべて満たすまで squash merge / staging 取り込みをしない。満たしたら確認待ちにせず取り込む。main は明示指示のみ
+- **staging 取り込みゲート**（`docs/development/cursor-cloud-agents.md` と同じ）: CI成功・**当該 head に対する**ラベル `review-ok`・タイトルの `【▶N】` 順をすべて満たすまで squash merge / staging 取り込みをしない。追加 push 後の古い `review-ok` では取り込まない（`synchronize` で失効・再レビュー）。満たしたら確認待ちにせず取り込む。main は明示指示のみ
 - `main` マージ → **即座に本番デプロイ**
 
 ## 本番反映（明示指示時のみ）
@@ -26,7 +26,7 @@ alwaysApply: true
 1. base=staging の開いたPRを取り込むか閉じる
 2. 未適用マイグレーションがあれば **先に** `npm run db:push:prod`（成功確認）→ リリースPRに `db-applied` ラベル
 3. リリースPRのタイトルが【✅本番反映可】になったら squash merge（【🛑】のままでは取り込まない）
-4. マージ後、`deploy-supabase`（main push の自動 Edge 配備）と Vercel 本番デプロイの結果を確認する。確認順は マージ → Edge → フロント確認。自動ジョブが未走または失敗したときだけ `npm run functions:deploy:prod` をフォールバックとして実行（マージ前に Edge を配備しない）
+4. マージ後は `deploy-supabase`（main push）と Vercel が並行起動する。両方の成功を確認してから完了とする（手動 `functions:deploy:prod` はしない。競合・誤った checkout 配備を防ぐ）。Edge 契約を壊す変更は後方互換を保つか、明示指示で手順を分ける
 5. 本番画面で確認する。問題時の戻し方は `supabase/rollbacks/` と Vercel の直前デプロイ
 
 スキル: `/deploy`
@@ -36,7 +36,7 @@ alwaysApply: true
 ```
 staging開発 → db:push:staging → 動作確認
  →（明示指示後）db:status → db:push:prod → 成功確認 → mainマージ
- →（自動）deploy-supabase / Vercel。失敗・未走時のみ functions:deploy:prod
+ →（自動・並行）deploy-supabase / Vercel の両方成功を確認
 ```
 
 - AI が `db:push:staging` / `db:push:prod` を実行してよい（実行前に変更内容を提示、実行後に確認を報告）

@@ -2,7 +2,8 @@ name: Cursor Cloud Review
 
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    # synchronize: 追加 push で古い review-ok を失効させ、当該 head を再レビューする
+    types: [opened, ready_for_review, synchronize]
 
 jobs:
   cursor-review:
