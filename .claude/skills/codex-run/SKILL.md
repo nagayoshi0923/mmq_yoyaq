@@ -37,7 +37,7 @@ Codex CLI: `/Applications/Codex.app/Contents/Resources/codex`（アプリ同梱�
 - `git status --short` + `git diff` を**全行**レビュー（CLAUDE.md の鉄則）:
   - 依頼範囲外のファイルを触っていないか（触っていたら revert）
   - `docs/templates/review-perspectives.md` の3視点を当てる
-  - 検証スイートは checker サブエージェントに投げる（typecheck / lint / test）
+  - 検証スイート（typecheck / lint / test）はこの席で実行する
 - 問題があれば: 軽微なら Claude が直接修正、大きければ修正指示を足して再度 codex exec
 
 ### 4. コミット（Claude）
@@ -51,4 +51,4 @@ Codex CLI: `/Applications/Codex.app/Contents/Resources/codex`（アプリ同梱�
 |---|---|
 | その場で完結する実装を自動で回したい | **このskill（/codex-run）** |
 | Codexアプリで対話しながらやりたい・台帳に積む大型タスク | `/codex`（指示書生成→手動貼り付け） |
-| 設計から曖昧で相談しながら書きたい | mmq-impl サブエージェント |
+| 設計から曖昧で相談しながら書きたい | この席で相談しながら実装する |
