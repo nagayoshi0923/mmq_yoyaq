@@ -380,7 +380,7 @@ export function PrivateBookingManagement() {
 
   useEffect(() => {
     if (!organizationId || !requests.length) {
-      setBlockedSlotRows([])
+      setBlockedSlotRows((rows) => (rows.length ? [] : rows))
       return
     }
     const allDates = [...new Set(

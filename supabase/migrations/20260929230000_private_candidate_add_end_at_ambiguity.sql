@@ -1,5 +1,6 @@
--- QW-20260917-001: 候補日時・通知・通信再試行記録を一括保存。
--- 変数 v_start_at / v_end_at は schedule_events の start_at / end_at 列と衝突させない。
+-- 候補日追加が常に失敗する不具合の修正（#611 以降）。
+-- PL/pgSQL 変数 end_at が schedule_events.end_at 列と衝突し「column reference "end_at" is ambiguous」になっていた。
+-- 変数名を v_start_at / v_end_at に変えるだけで、判定ロジックは live 定義から変更しない。
 CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(p_group_id uuid, p_request_id uuid, p_expected_scenario_id uuid, p_expected_store_ids uuid[], p_candidates jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql

@@ -1,5 +1,4 @@
--- QW-20260917-001: 候補日時・通知・通信再試行記録を一括保存。
--- 変数 v_start_at / v_end_at は schedule_events の start_at / end_at 列と衝突させない。
+-- 20260929230000_private_candidate_add_end_at_ambiguity の復旧: 適用前の live 定義（pg_get_functiondef で取得）に戻す。
 CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(p_group_id uuid, p_request_id uuid, p_expected_scenario_id uuid, p_expected_store_ids uuid[], p_candidates jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -9,7 +8,7 @@ AS $function$
 DECLARE
  g public.private_groups%ROWTYPE; sc record; receipt public.private_group_candidate_add_requests%ROWTYPE;
  current_stores uuid[]; expected_stores uuid[]; payload jsonb; item jsonb; ids uuid[]:='{}'; candidate_id uuid;
- candidate_date date; v_start_at timestamp; v_end_at timestamp; slot text; slot_label text;
+ candidate_date date; start_at timestamp; end_at timestamp; slot text; slot_label text;
  minutes integer; start_min integer; end_min integer; next_order integer; res_status text;
  holiday boolean; custom_holidays jsonb; valid_store boolean; author_member uuid; notice_dates jsonb:='[]';
 BEGIN
@@ -64,8 +63,8 @@ BEGIN
   PERFORM public.assert_private_booking_candidate_date(g.organization_id,p_expected_scenario_id,candidate_date);
   holiday:=extract(dow FROM candidate_date) IN (0,6) OR public.is_booking_calendar_holiday(candidate_date) OR coalesce(custom_holidays ? candidate_date::text,false);
   minutes:=CASE WHEN holiday AND coalesce(sc.weekend_duration,0)>0 THEN sc.weekend_duration ELSE sc.duration END;
-  v_start_at:=candidate_date+(item->>'start_time')::time; v_end_at:=v_start_at+make_interval(mins=>minutes);
-  IF v_end_at::date<>candidate_date OR v_end_at::time>'23:00'::time OR v_end_at::time<>(item->>'end_time')::time THEN
+  start_at:=candidate_date+(item->>'start_time')::time; end_at:=start_at+make_interval(mins=>minutes);
+  IF end_at::date<>candidate_date OR end_at::time>'23:00'::time OR end_at::time<>(item->>'end_time')::time THEN
    RAISE EXCEPTION '公演時間が更新されているか、営業時間内に収まりません。候補日を選び直してください' USING ERRCODE='40001';
   END IF;
   IF coalesce(cardinality(sc.private_booking_time_slots),0)>0 AND NOT EXISTS(
@@ -76,7 +75,7 @@ BEGIN
    AND cd.status IS DISTINCT FROM 'rejected' AND cd.time_slot=ANY(CASE slot WHEN 'morning' THEN ARRAY['morning','午前','朝'] WHEN 'afternoon' THEN ARRAY['afternoon','午後','昼'] ELSE ARRAY['evening','夜','夜間'] END)) THEN
    RAISE EXCEPTION '同じ日付・時間帯の候補は既に追加されています' USING ERRCODE='23505';
   END IF;
-  start_min:=extract(hour FROM v_start_at)::integer*60+extract(minute FROM v_start_at)::integer;
+  start_min:=extract(hour FROM start_at)::integer*60+extract(minute FROM start_at)::integer;
   end_min:=start_min+minutes;
   -- 1つの店舗で営業枠と準備時間を含む空きの両方が成立すること。他店の条件を混ぜない。
   SELECT EXISTS(
@@ -103,8 +102,8 @@ BEGIN
     AND NOT EXISTS(SELECT 1 FROM public.schedule_blocked_slots b WHERE b.organization_id=g.organization_id AND b.store_id=s.id::text AND b.date=candidate_date AND b.time_slot=slot)
     AND NOT EXISTS(SELECT 1 FROM public.schedule_events e WHERE e.organization_id=g.organization_id AND e.store_id=s.id AND e.is_cancelled=false
      AND e.date BETWEEN candidate_date-2 AND candidate_date+2
-     AND e.date+e.start_time<v_end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
-     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END>v_start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,s.id,p_expected_scenario_id,NULL)))
+     AND e.date+e.start_time<end_at+make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,NULL,NULL,e.id))
+     AND e.date+e.end_time+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END>start_at-make_interval(mins=>public.resolve_preparation_minutes(g.organization_id,s.id,p_expected_scenario_id,NULL)))
   ) INTO valid_store;
   IF NOT valid_store THEN RAISE EXCEPTION '選択した候補日時は現在受付できません。空き状況を更新して選び直してください' USING ERRCODE='22023'; END IF;
   INSERT INTO public.private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)
@@ -118,7 +117,9 @@ BEGIN
  INSERT INTO public.private_group_candidate_add_requests(request_id,group_id,actor_id,payload,candidate_ids)
   VALUES(p_request_id,g.id,auth.uid(),payload,ids);
  RETURN jsonb_build_object('success',true,'candidate_ids',ids,'replayed',false);
-END $function$;
+END $function$
+
+;
 
 REVOKE ALL ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) TO authenticated,service_role;

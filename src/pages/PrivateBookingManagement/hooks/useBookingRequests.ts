@@ -269,12 +269,16 @@ async function fetchRawBookingRequests(
   })
 }
 
+// 読込中・読込失敗で data が無い間も同じ配列を返す。毎描画で新しい [] を返すと、
+// requests に依存する画面側の effect が setState を繰り返し再描画ループになる。
+const NO_REQUESTS: PrivateBookingRequest[] = []
+
 export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps) {
   const { isCustomHoliday } = useCustomHolidays()
   const queryClient = useQueryClient()
 
   const enabled = userId != null && userRole != null
-  const { data: rawRequests = [], isLoading: loading, isError, refetch } = useQuery<PrivateBookingRequest[]>({
+  const { data: rawRequests = NO_REQUESTS, isLoading: loading, isError, refetch } = useQuery<PrivateBookingRequest[]>({
     queryKey: enabled ? privateBookingKeys.list(userId!, userRole!) : ['private-bookings-disabled'],
     queryFn: () => fetchRawBookingRequests(userId!, userRole!),
     enabled,
