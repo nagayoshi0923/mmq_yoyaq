@@ -10,6 +10,7 @@ import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
+import { StoreRecruitmentPauseSection } from '../components/StoreRecruitmentPauseSection'
 
 import {
   weekdays, slotOptions, defaultSlotTimes, weekdaySlotTimes, defaultWeekdayHours,
@@ -416,6 +417,9 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           )}
         </div>
       </section>
+
+      {/* 募集停止（期間ごと・その場で保存） */}
+      {selectedStoreId && <StoreRecruitmentPauseSection storeId={selectedStoreId} />}
     </div>
   )
 }

@@ -1,3 +1,7 @@
+-- QW-20260909-011: 店舗の公演募集停止期間中は、お客様からの通常公演の予約を受け付けない。
+-- 公開予約画面の非表示だけでは直接の呼び出しで予約できてしまうため、予約作成の関数でも拒否する。
+-- スタッフ・管理者の手入力は従来どおり可。20260930030000（停止期間の表と判定関数）の後に適用する。
+-- 関数は本番の現行定義を元に作成（判定の追加以外は変更しない。実行権限は CREATE OR REPLACE で保持）。
 CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text DEFAULT NULL::text, p_how_found text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_customer_coupon_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -260,5 +264,6 @@ BEGIN
 
   RETURN v_reservation_id;
 END;
-$function$
-;
+$function$;
+
+NOTIFY pgrst, 'reload schema';

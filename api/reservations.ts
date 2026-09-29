@@ -445,6 +445,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
       P0003: 'この公演は満席です',
       P0004: '選択した人数分の空席がありません',
       P0028: '選択したクーポンは現在利用できません。有効期限や利用状況を確認して選び直してください。',
+      P0046: 'この店舗は現在、公演の予約受付を停止しています',
     }
     if (known[code]) {
       return res.status(400).json({ error: known[code], code, detail: msg })
