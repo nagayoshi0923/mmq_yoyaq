@@ -1239,6 +1239,11 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         }
       }
 
+      if (sourceState) {
+        setSourceState({ stored: { ...sourceState.stored, ...scenarioSourcePayload({ ...formData, title: resolvedTitle }, sourceState, sourceResets) }, baseline: { ...formData, title: resolvedTitle } })
+        setSourceResets({})
+      }
+
       if (targetScenarioId) {
         try {
           const changes = assignmentChanges
@@ -1248,17 +1253,24 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           }
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
-          showToast.warning('担当GMを保存できませんでした', '担当の変更は反映されていません。シナリオ基本情報は保存済みです。画面を開き直して確認してください')
+          // 基本情報は確定済み。GM失敗時も古い一覧・編集キャッシュを残さない。
+          try {
+            await Promise.all([
+              invalidateAssignmentQueries(queryClient),
+              queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'], refetchType: 'all' }),
+              queryClient.invalidateQueries({ queryKey: ['scenarios'], refetchType: 'all' }),
+            ])
+            await onSaved?.()
+          } catch (refreshError) {
+            logger.error('保存済みシナリオの再取得エラー:', refreshError)
+          }
+          showToast.warning('担当GMの保存を確認できませんでした', 'シナリオ基本情報は保存済みです。画面を開き直して担当の状態を確認してください')
           return
         }
 
         await invalidateAssignmentQueries(queryClient)
       }
 
-      if (sourceState) {
-        setSourceState({ stored: { ...sourceState.stored, ...scenarioSourcePayload({ ...formData, title: resolvedTitle }, sourceState, sourceResets) }, baseline: { ...formData, title: resolvedTitle } })
-        setSourceResets({})
-      }
       // Direct organization overrides are saved after the general mutation.
       // Refresh after both writes, including lists that are currently unmounted.
       await Promise.all([
