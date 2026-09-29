@@ -1,7 +1,8 @@
 # CLAUDE.md
 
-Claude Code / Cursor 進行役向けエントリ。**共有の正は `.cursor/rules/`**（地図: `docs/agent/INDEX.md`）。  
-安全不変条件・スコープ・デプロイ順は rules を繰り返しここに書かない。
+共通の指示は `AGENTS.md`（Codex と共通の正本）。ここには Claude Code / Cursor 進行役に固有のことだけを書き、共通内容を複製しない。
+
+@AGENTS.md
 
 ---
 
@@ -10,17 +11,10 @@ Claude Code / Cursor 進行役向けエントリ。**共有の正は `.cursor/ru
 - **Cursor 進行役**: このリポジトリでは実装してよい（ユーザー規則どおり）。壁打ち専用席と兼ねない
 - **Claude Code 壁打ち**: GO後は台帳起票＋配送。実装担当表記に従う（Codex連鎖 or Claude実装レーン）
 
-## 委譲（コスト最適化）
+## 作業の進め方
 
-| 作業 | 委譲先 |
-|------|--------|
-| 調査・呼び出し元列挙・影響範囲 | `scout` |
-| typecheck / lint / check:* / test | `checker` |
-| 仕様確定後の実装 | `mmq-impl` または Codex |
-| 大きな改善 | Codex（台帳 `docs/IMPROVEMENT_HANDOFF.md`） |
-
-本体は設計・指示・**diff全行レビュー**・commit/push判断。commit/push/DB操作は委譲しない。  
-単発の1ファイル確認は直接でよい。
+調査・確認・テスト・実装は、この席が自分で順に行う。サブエージェント（scout / checker / mmq-impl など）へ委譲しない（全体方針 `~/.codex/AGENTS.md` と同じ）。Codex への配送は上の「この席の役割」と PO の GO に従う（台帳 `docs/IMPROVEMENT_HANDOFF.md`）。  
+diff全行レビュー・commit/push判断・DB操作はこの席が行う。
 
 ## Codexへ発注するとき
 

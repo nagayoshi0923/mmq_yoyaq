@@ -1,7 +1,9 @@
 # AGENTS.md
 
-Codex / 自動エージェント向けエントリ。**共有の正は `.cursor/rules/`**（地図: `docs/agent/INDEX.md`）。  
-安全不変条件・スコープ・デプロイ順は rules にあり、ここへ复制しない。
+Codex / Claude Code 共通のエントリ（Claude Code は `CLAUDE.md` からこのファイルを取り込む）。共通の指示はここにだけ書く。  
+**共有の正は `.cursor/rules/`**（地図: `docs/agent/INDEX.md`）。安全不変条件・スコープ・デプロイ順は rules にあり、ここへ複製しない。
+
+- データ構造（テーブル・関連・画面対応）の正本は **MMQ 構造アトラス**：https://github.com/nagayoshi0923/mmq-model-atlas （`atlas/index.html`、2026-09-28 本番構造照合版）。`docs/design/database-design.md` は 2026-01 の旧版。
 
 ---
 
