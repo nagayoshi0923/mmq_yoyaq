@@ -1,3 +1,4 @@
+import { candidateOrdersFromIndexes } from '@/lib/gmCandidateSelection'
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getGmResponses, getMyGmResponses } from '@/lib/gmResponseApi'
@@ -123,7 +124,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
       const initialSelections: Record<string, number[]> = {}
       const initialNotes: Record<string, string> = {}
       requests.forEach(req => {
-        if (req.available_candidates?.length > 0) initialSelections[req.id] = req.available_candidates
+        if (req.available_candidates?.length > 0) initialSelections[req.id] = candidateOrdersFromIndexes(req.candidate_datetimes?.candidates || [], req.available_candidates)
         if (req.notes) initialNotes[req.id] = req.notes
       })
       setSelectedCandidates(initialSelections)
@@ -145,11 +146,11 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     queryClient.invalidateQueries({ queryKey: gmRequestKeys.stores })
 
   const toggleCandidate = (requestId: string, candidateOrder: number) => {
-    const current = selectedCandidates[requestId] || []
-    const newSelection = current.includes(candidateOrder)
-      ? current.filter(c => c !== candidateOrder)
-      : [...current, candidateOrder]
-    setSelectedCandidates({ ...selectedCandidates, [requestId]: newSelection })
+    setSelectedCandidates(previous => {
+      const current = previous[requestId] || []
+      return { ...previous, [requestId]: current.includes(candidateOrder)
+        ? current.filter(c => c !== candidateOrder) : [...current, candidateOrder] }
+    })
   }
 
   const filterByMonth = (reqs: GMRequest[]) => {

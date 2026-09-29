@@ -2,10 +2,10 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ save: vi.fn(), ready: vi.fn(), rpc: vi.fn(), toast: vi.fn(), refreshed: vi.fn() }))
+const mocks = vi.hoisted(() => ({ update: vi.fn(), save: vi.fn(), ready: vi.fn(), rpc: vi.fn(), toast: vi.fn(), refreshed: vi.fn() }))
 vi.mock('@/lib/supabase', () => ({ supabase: {
   from: (table: string) => table === 'gm_availability_responses'
-    ? { update: () => ({ eq: mocks.save }) }
+    ? { update: mocks.update }
     : { select: () => ({ eq: () => ({ maybeSingle: async () => ({data:{status:'pending'},error:null}) }) }) },
   rpc: mocks.rpc,
 } }))
@@ -15,10 +15,10 @@ vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn() } }))
 import { useResponseSubmit } from './useResponseSubmit'
 import type { GMRequest } from './useGMRequests'
 let root: Root, host: HTMLDivElement, state: ReturnType<typeof useResponseSubmit>
-function Probe() { state = useResponseSubmit({ requests:[{id:'response',reservation_id:'reservation'} as GMRequest],selectedCandidates:{response:[1]},notes:{},onSubmitSuccess:mocks.refreshed }); return null }
+function Probe() { state = useResponseSubmit({ requests:[{id:'response',reservation_id:'reservation',candidate_datetimes:{candidates:[{order:3},{order:8},{order:2}]}} as GMRequest],selectedCandidates:{response:[3,2]},notes:{},onSubmitSuccess:mocks.refreshed }); return null }
 beforeEach(async () => {
   Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true}); vi.clearAllMocks()
-  mocks.save.mockResolvedValue({error:null}); mocks.ready.mockResolvedValue(true); mocks.rpc.mockResolvedValue({data:{success:true},error:null})
+  mocks.update.mockReturnValue({eq:mocks.save}); mocks.save.mockResolvedValue({error:null}); mocks.ready.mockResolvedValue(true); mocks.rpc.mockResolvedValue({data:{success:true},error:null})
   host=document.createElement('div'); root=createRoot(host); await act(async()=>root.render(<Probe/>))
 })
 afterEach(async()=>{await act(async()=>root.unmount());host.remove()})
@@ -40,4 +40,9 @@ it('回答保存自体の失敗を保存済みと案内しない', async()=>{
   await act(async()=>state.handleSubmit('response'))
   expect(mocks.toast).toHaveBeenCalledWith('回答を保存できませんでした。再度お試しください。')
   expect(mocks.refreshed).not.toHaveBeenCalled();expect(mocks.ready).not.toHaveBeenCalled()
+})
+
+it('表示番号に欠番があっても、Discordと同じ候補配列位置を保存する', async()=>{
+  await act(async()=>state.handleSubmit('response'))
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({available_candidates:[0,2],response_status:'available'}))
 })

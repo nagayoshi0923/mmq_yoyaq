@@ -27,6 +27,7 @@ export interface PrivateBookingRequest {
   candidate_datetimes: {
     candidates: Array<{
       order: number
+      gm_response_index?: number | null
       date: string
       timeSlot: string
       startTime: string
@@ -178,6 +179,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         candidate_datetimes?: {
           candidates: Array<{
             order: number
+      gm_response_index?: number | null
             date: string
             timeSlot: string
             startTime: string

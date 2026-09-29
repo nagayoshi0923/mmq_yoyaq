@@ -1,3 +1,4 @@
+import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { DeliveryHistoryDialog } from './DeliveryHistoryDialog'
 import { approvalDeliveryLabel, type ApprovalDeliveryStatus } from '../hooks/useApprovalDeliveryStatus'
 import { rejectionDeliveryLabel, type RejectionDeliveryStatus } from '../hooks/useRejectionDeliveryStatus'
@@ -24,6 +25,7 @@ import { isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '
 import { cn } from '@/lib/utils'
 
 interface Candidate {
+  gm_response_index?: number | null
   order: number
   date: string
   timeSlot: string
@@ -329,7 +331,7 @@ export const BookingRequestCard = ({
                         {isUnsent && <span className="text-red-500 font-medium">未送信</span>}
                         {isUnanswered && <span className="text-amber-600">未回答</span>}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
-                          <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
+                          <span className="text-purple-500">({candidates!.map(i => (request.candidate_datetimes?.candidates || []).find(c => candidateResponseIndex(c, (request.candidate_datetimes?.candidates || [])) === i)?.order ?? '要確認').join(',')})</span>
                         )}
                         {/* 個別通知ボタン: 未送信→「通知」/ 未回答→「再通知」 */}
                         {onResendDiscordGm && isWaitingStatus && !responded && response.staff_id && (
@@ -411,10 +413,13 @@ export const BookingRequestCard = ({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               候補日時{onSelectCandidate ? <span className="ml-1 font-normal normal-case text-purple-600">（タップして承認処理）</span> : ''}
             </p>
+            {request.candidate_datetimes?.candidates?.some(c => c.gm_response_index === null) && (
+              <p className="mb-2 text-xs text-amber-700">過去の候補日時を復元表示しています。GM回答との対応は要確認です。</p>
+            )}
             <div className="space-y-1">
               {request.candidate_datetimes?.candidates?.map((candidate) => {
-                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
-                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
+                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidateResponseIndex(candidate, (request.candidate_datetimes?.candidates || []))))
+                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidateResponseIndex(candidate, (request.candidate_datetimes?.candidates || [])))) ?? []
                 const isReservationConfirmed = request.status === 'confirmed'
                 // 確定後キャンセル: どの日程で確定していたかは candidate.status に残っている
                 const isCancelledAfterConfirm = request.status === 'cancelled' && !!request.approver_name

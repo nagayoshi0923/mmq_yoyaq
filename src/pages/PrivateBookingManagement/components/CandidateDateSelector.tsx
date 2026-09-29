@@ -1,3 +1,4 @@
+import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { Calendar } from 'lucide-react'
 import { formatJapanCalendarDateLabel } from '@/lib/japanCalendarDate'
 import { isGmAvailableForCandidate } from '../utils/gmAvailabilityStatus'
@@ -7,6 +8,7 @@ const formatCandidateDate = (dateStr: string | undefined | null): string =>
 
 interface Candidate {
   order: number
+  gm_response_index?: number | null
   date: string
   timeSlot: string
   startTime: string
@@ -115,7 +117,7 @@ export const CandidateDateSelector = ({
   }
 
   const getAvailableGMsForCandidate = (candidate: Candidate) =>
-    gmResponses.filter(gm => isGmAvailableForCandidate(gm, candidate.order - 1))
+    gmResponses.filter(gm => isGmAvailableForCandidate(gm, candidateResponseIndex(candidate, candidates)))
 
   return (
     <div>

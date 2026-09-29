@@ -1,3 +1,4 @@
+import { candidateIndexesFromOrders } from '@/lib/gmCandidateSelection'
 import { nextGmResponseStatus } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -63,7 +64,9 @@ export function useResponseSubmit({
 
     try {
       const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
-      const availableCandidates = allUnavailable ? [] : selectedOrders.map(c => c - 1)
+      const request = requests.find(r => r.id === requestId)
+      if (!request) throw new Error('回答する依頼が見つかりません')
+      const availableCandidates = allUnavailable ? [] : candidateIndexesFromOrders(request.candidate_datetimes?.candidates || [], selectedOrders)
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
       // GM回答を更新

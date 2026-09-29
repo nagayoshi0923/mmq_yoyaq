@@ -1,3 +1,4 @@
+import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,6 +166,15 @@ export function PrivateBookingManagement() {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) { showToast.error('組織情報を取得できません'); return }
     const req = requests.find(r => r.id === requestId)
+    const displayedCandidates = req?.candidate_datetimes?.candidates || []
+    const storedIndexes = availableCandidates.map(index => {
+      const candidate = displayedCandidates[index]
+      return candidate ? candidateResponseIndex(candidate, displayedCandidates) : null
+    })
+    if (!req || storedIndexes.some(index => index === null)) {
+      showToast.error('過去の候補との対応を確認できません。現在の候補日時を確認してください。')
+      throw new Error('候補との対応を確認できません')
+    }
     const gm = allGMs.find(g => g.id === staffId)
     const responseStatus = availableCandidates.length === 0 ? 'all_unavailable' : 'available'
     const { error } = await supabase
@@ -175,7 +185,7 @@ export function PrivateBookingManagement() {
         staff_id: staffId,
         gm_name: gm?.name || '',
         response_status: responseStatus,
-        available_candidates: availableCandidates,
+        available_candidates: storedIndexes,
         responded_at: new Date().toISOString(),
         notes: '管理画面から手動入力',
       }, { onConflict: 'reservation_id,staff_id' })
@@ -302,7 +312,7 @@ export function PrivateBookingManagement() {
         // （選択候補なしのフォールバックのみ「いずれかの候補で対応可能」を使う）
         const isAvailable = availableGM
           ? selectedCandidate
-            ? isGmAvailableForCandidate(availableGM, selectedCandidate.order - 1)
+            ? isGmAvailableForCandidate(availableGM, candidateResponseIndex(selectedCandidate, candidates || []))
             : isGmMarkedAvailable(availableGM)
           : false
         const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))

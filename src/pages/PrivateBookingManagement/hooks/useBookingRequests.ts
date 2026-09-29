@@ -202,6 +202,7 @@ async function fetchRawBookingRequests(
 
     let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
     const currentCandidates = candidateDatetimes.candidates || []
+    candidateDatetimes = { ...candidateDatetimes, candidates: currentCandidates.map((candidate: any, index: number) => ({ ...candidate, gm_response_index: index })) }
     const originalCandidates = req.private_group_id
       ? (candidateDatesByGroupId.get(req.private_group_id) || [])
       : []
@@ -214,6 +215,7 @@ async function fetchRawBookingRequests(
           confirmedCandidate.timeSlot === cd.time_slot
         return {
           order: idx + 1,
+          gm_response_index: null,
           date: cd.date,
           timeSlot: cd.time_slot,
           startTime: cd.start_time || confirmedCandidate?.startTime || '10:00',
