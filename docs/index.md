@@ -15,7 +15,7 @@ MMQシステムの引き継ぎ・開発に必要なドキュメント集。
 | 順番 | ドキュメント | 内容 |
 |-----|-------------|------|
 | 1️⃣ | **[design/master-design.md](./design/master-design.md)** | 🌟 システム全体を1枚で俯瞰（これを読めば全体像がわかる） |
-| 2️⃣ | [design/database-design.md](./design/database-design.md) | データベース設計（ER図・テーブル定義） |
+| 2️⃣ | [MMQ 構造アトラス](https://github.com/nagayoshi0923/mmq-model-atlas) | **データ構造の正本**（2026-09-28 本番構造照合版。ER図・画面対応）。`design/database-design.md` は2026-01の旧版 |
 | 3️⃣ | [design/screen-flow.md](./design/screen-flow.md) | 画面遷移図（ユーザーフロー） |
 | 4️⃣ | [design/api-design.md](./design/api-design.md) | API設計（Edge Functions一覧） |
 | 5️⃣ | [design/architecture.md](./design/architecture.md) | アーキテクチャ詳細図 |
