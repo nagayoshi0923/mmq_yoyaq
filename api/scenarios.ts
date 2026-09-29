@@ -58,7 +58,7 @@ const SELECT_FIELDS = [
   'characters', 'pre_reading_notice_message',
   'booking_start_date', 'booking_end_date',
   'individual_notice_template', 'character_assignment_method',
-  'private_booking_time_slots', 'private_booking_blocked_slots',
+  'private_booking_time_slots', 'private_booking_blocked_slots', 'private_booking_slot_start_times',
   'sensitive_tags',
   'scenario_kind', 'accepts_private_booking',
 ].join(', ')

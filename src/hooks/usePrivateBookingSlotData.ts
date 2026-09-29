@@ -1,3 +1,4 @@
+import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -257,6 +258,7 @@ export function usePrivateBookingSlotData({
           isCustomHoliday,
           privateBookingTimeSlots: resolvedTimeSlots,
           scenarioTitle: scenarioTitle ?? scenarioTiming.title ?? undefined,
+          scenarioSlotStartTimes: parseScenarioSlotStartTimes(scenarioTiming.private_booking_slot_start_times),
         })
       }
       return map
