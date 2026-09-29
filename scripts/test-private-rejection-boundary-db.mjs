@@ -31,6 +31,9 @@ const saved=async()=>{await db.exec('RESET ROLE');return {
 }}
 const migration=fs.readFileSync('supabase/migrations/20260927044000_private_rejection_boundary.sql','utf8')
 const rollback=fs.readFileSync('supabase/rollbacks/20260927044000_private_rejection_boundary.sql','utf8')
+const lockWait=fs.readFileSync('supabase/migrations/20260930010000_private_rejection_lock_wait.sql','utf8')
+const lockWaitRollback=fs.readFileSync('supabase/rollbacks/20260930010000_private_rejection_lock_wait.sql','utf8')
+const fnDef=async()=>(await db.query("SELECT pg_get_functiondef('mark_private_group_rejected_after_booking_rejection(uuid)'::regprocedure) AS def")).rows[0].def
 await db.exec(rollback)
 await db.exec('REVOKE ALL ON FUNCTION mark_private_group_rejected_after_booking_rejection(uuid) FROM PUBLIC;GRANT EXECUTE ON FUNCTION mark_private_group_rejected_after_booking_rejection(uuid) TO authenticated,anon,service_role')
 const acl=(await db.query("SELECT proacl::text AS acl FROM pg_proc WHERE oid='mark_private_group_rejected_after_booking_rejection(uuid)'::regprocedure")).rows[0].acl
@@ -41,6 +44,9 @@ for (const args of [[id(4),null,false],[id(5),id(11),true]]) {
 // The actual production helper returns false for anon; do not mislabel anonymous execution privilege as a proven bypass.
 await reset();await actor(null,null,false,'anon');await assert.rejects(call(),e=>e.code==='P0010');await saved()
 await db.exec(migration)
+// #605: 行ロックの競合で即失敗しないよう、NOWAIT をやめて最大5秒だけ待つ（権限は維持）
+await db.exec(lockWait)
+{const def=await fnDef();assert.equal(def.includes('NOWAIT'),false);assert.match(def,/FOR UPDATE/);assert.match(def,/lock_timeout TO '5s'/)}
 assert.equal((await db.query("SELECT proacl::text AS acl FROM pg_proc WHERE oid='mark_private_group_rejected_after_booking_rejection(uuid)'::regprocedure")).rows[0].acl,acl)
 for(const args of [[null,null,null,'anon'],[null,null,null,'authenticated'],[null,null,null,'service_role'],[id(2),id(10),false],[id(3),id(11),false],[id(4),id(10),null],[id(5),id(11),true],[id(6),id(10),null]]) {
  await reset();const before=await saved();await actor(...args);await assert.rejects(call(),e=>e.code==='42501');assert.deepEqual(await saved(),before)
@@ -67,6 +73,7 @@ await reset();await db.exec('UPDATE reservations SET private_group_id=NULL');con
 await reset();await db.exec("CREATE FUNCTION fixture_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'fixture candidate failure';END$$;CREATE TRIGGER fixture_fail BEFORE UPDATE ON private_group_candidate_dates FOR EACH ROW EXECUTE FUNCTION fixture_fail()")
 const before=await saved();await actor();await assert.rejects(call(),/fixture candidate failure/);assert.deepEqual(await saved(),before);await db.exec('DROP TRIGGER fixture_fail ON private_group_candidate_dates')
 await db.exec(rollback);await reset();await actor(id(4),null,false);await call();assert.equal((await saved()).groups[0].status,'date_adjusting')
-await db.exec(migration);await reset();await actor(null,null,null,'anon');await assert.rejects(call(),e=>e.code==='42501')
-console.log('PASS: old organizer and foreign admin bypass reproduced; production anon denial retained; staff/admin tenant and active membership; anonymous/customer/inactive denied; cancelled reservation/current group link; safe retry; all-write rollback; ACL preserved; restore/reapply')
+await db.exec(lockWaitRollback);assert.match(await fnDef(),/FOR UPDATE NOWAIT/);await db.exec(lockWait)
+await db.exec(migration);await db.exec(lockWait);await reset();await actor(null,null,null,'anon');await assert.rejects(call(),e=>e.code==='42501')
+console.log('PASS: old organizer and foreign admin bypass reproduced; production anon denial retained; staff/admin tenant and active membership; anonymous/customer/inactive denied; cancelled reservation/current group link; safe retry; lock wait (5s, no NOWAIT) and its rollback; all-write rollback; ACL preserved; restore/reapply')
 await db.close()
