@@ -75,3 +75,10 @@ it.each([null, 0, 2500])('累計予約金額の未確認と実際の0円を区�
     expect(host.textContent).toContain(amount.toLocaleString('ja-JP'))
   }
 })
+it('他組織所有の顧客（canEdit=false）には編集操作を出さない', async () => {
+  const editButtons = () => [...host.querySelectorAll('button')].filter(b => b.getAttribute('aria-label') === '編集' || b.textContent?.includes('編集'))
+  await render()
+  expect(editButtons().length).toBeGreaterThan(0)
+  await act(async () => root.render(<CustomerRow customer={{ id: 'foreign', name: '他組織顧客', organization_id: 'org-b' } as Customer} isExpanded={false} onToggleExpand={() => {}} onEdit={() => {}} canEdit={false} />))
+  expect(editButtons()).toHaveLength(0)
+})
