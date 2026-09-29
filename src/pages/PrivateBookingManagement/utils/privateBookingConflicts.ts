@@ -18,7 +18,58 @@ export interface ConflictCandidate {
   date: string
   startTime: string
   endTime: string
+  status?: string
 }
+export interface ConflictDateRange {
+  from: string
+  to: string
+}
+
+const APPROVAL_RELEVANT_STATUSES = new Set([
+  'pending',
+  'pending_gm',
+  'gm_confirmed',
+  'pending_store',
+  'confirmed',
+])
+
+export function isApprovalRelevantStatus(status: string | null | undefined): boolean {
+  return Boolean(status && APPROVAL_RELEVANT_STATUSES.has(status))
+}
+
+function shiftedDate(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00Z`)
+  value.setUTCDate(value.getUTCDate() + days)
+  return value.toISOString().slice(0, 10)
+}
+
+/** 確定印が無い旧データは先頭候補へフォールバック（useScheduleEventsQuery と同じ） */
+export function pickConfirmedConflictCandidate<T extends ConflictCandidate>(
+  candidates: T[],
+): T | undefined {
+  if (!candidates.length) return undefined
+  const confirmed = candidates.filter(candidate => candidate.status === 'confirmed')
+  return (confirmed.length > 0 ? confirmed : candidates)[0]
+}
+
+export function buildConflictDateRanges(candidateDates: string[], padDays = 2): ConflictDateRange[] {
+  if (!candidateDates.length) return []
+  const windows = [...new Set(candidateDates)]
+    .sort()
+    .map(date => ({ from: shiftedDate(date, -padDays), to: shiftedDate(date, padDays) }))
+  const merged: ConflictDateRange[] = [{ ...windows[0] }]
+  for (let i = 1; i < windows.length; i++) {
+    const last = merged[merged.length - 1]
+    const next = windows[i]
+    if (next.from <= shiftedDate(last.to, 1)) {
+      if (next.to > last.to) last.to = next.to
+    } else {
+      merged.push({ ...next })
+    }
+  }
+  return merged
+}
+
 export function candidateConflictKey(requestId: string, order: number, resourceId: string): string {
   return `${requestId}:${order}:${resourceId}`
 }

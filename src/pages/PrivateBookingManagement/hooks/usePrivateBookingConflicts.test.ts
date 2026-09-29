@@ -8,7 +8,7 @@ import type { PrivateBookingRequest } from './usePrivateBookingData'
 const requests = [{ id: 'request', status: 'pending', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2027-01-03', startTime: '14:00', endTime: '17:00' }] } }] as PrivateBookingRequest[]
 function table(rows: unknown[] = [], error: unknown = null) {
   const chain: Record<string, ReturnType<typeof vi.fn>> = {}
-  for (const method of ['select', 'eq', 'is', 'gte', 'lte', 'order']) chain[method] = vi.fn(() => chain)
+  for (const method of ['select', 'eq', 'is', 'gte', 'lte', 'order', 'in']) chain[method] = vi.fn(() => chain)
   chain.range = vi.fn(async (start: number, end: number) => ({ data: rows.slice(start, end + 1), error }))
   return chain
 }
@@ -31,12 +31,55 @@ describe('貸切競合データの読取と表示状態', () => {
     expect(events.range).toHaveBeenCalledTimes(2)
     expect(reservations.is).toHaveBeenCalledWith('schedule_event_id', null)
   })
+  it('離れた候補日は結合せず短い期間だけ照会する', async () => {
+    const sparse = [
+      { id: 'pending', status: 'pending', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2027-01-03', startTime: '14:00', endTime: '17:00' }] } },
+      { id: 'cancelled', status: 'cancelled', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2020-01-01', startTime: 'bad', endTime: 'bad' }] } },
+      { id: 'future', status: 'gm_confirmed', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2027-06-10', startTime: '14:00', endTime: '17:00' }] } },
+    ] as PrivateBookingRequest[]
+    const events = table(), reservations = table()
+    mocks.from.mockImplementation(name => name === 'reservations' ? reservations : events)
+    usePrivateBookingConflicts('org', sparse)
+    await mocks.query.mock.calls[0][0].queryFn()
+    expect(events.gte.mock.calls.map(call => call[1])).toEqual(['2027-01-01', '2027-06-08'])
+    expect(events.lte.mock.calls.map(call => call[1])).toEqual(['2027-01-05', '2027-06-12'])
+    expect(events.gte.mock.calls.every(call => call[1] !== '2020-01-01')).toBe(true)
+  })
+  it('取消履歴の不正候補があっても競合取得は完了し ready を保てる', async () => {
+    const mixed = [
+      ...requests,
+      { id: 'history', status: 'completed', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2019-05-01', startTime: '', endTime: '' }] } },
+    ] as PrivateBookingRequest[]
+    mocks.from.mockImplementation(name => name === 'reservations' ? table() : table())
+    usePrivateBookingConflicts('org', mixed)
+    await expect(mocks.query.mock.calls[0][0].queryFn()).resolves.toEqual([])
+    mocks.query.mockReturnValue({ data: [], isError: false, isFetching: false, refetch: vi.fn() })
+    expect(usePrivateBookingConflicts('org', mixed).ready).toBe(true)
+  })
   it('公演未紐付けの旧確定予約の時間を保持する', async () => {
     const reservations = table([{ id: 'old', store_id: 'store', gm_staff: 'gm', candidate_datetimes: { candidates: [{ status: 'confirmed', date: '2027-01-03', startTime: '14:00', endTime: '17:00' }] } }])
     mocks.from.mockImplementation(name => name === 'reservations' ? reservations : table())
     usePrivateBookingConflicts('org', requests)
     const result = await mocks.query.mock.calls[0][0].queryFn()
     expect(result[0]).toMatchObject({ reservation_id: 'old', gms: ['staff:gm'] })
+  })
+  it('状態印がない旧確定予約は先頭候補へフォールバックする', async () => {
+    const reservations = table([{
+      id: 'legacy',
+      store_id: 'store',
+      gm_staff: 'gm',
+      candidate_datetimes: {
+        candidates: [
+          { date: '2027-01-03', startTime: '14:00', endTime: '17:00' },
+          { date: '2027-01-10', startTime: '18:00', endTime: '21:00' },
+        ],
+      },
+    }])
+    mocks.from.mockImplementation(name => name === 'reservations' ? reservations : table())
+    usePrivateBookingConflicts('org', requests)
+    const result = await mocks.query.mock.calls[0][0].queryFn()
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ reservation_id: 'legacy', date: '2027-01-03', start_time: '14:00', end_time: '17:00' })
   })
   it('対象範囲外の古い予約の時刻欠落は現在の承認に影響させない', async () => {
     const reservations = table([{ id: 'old', candidate_datetimes: { candidates: [{ status: 'confirmed', date: '2020-01-01', startTime: '14:00' }] } }])

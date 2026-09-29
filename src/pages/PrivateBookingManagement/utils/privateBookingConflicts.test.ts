@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { candidateConflictKey, hasGmTimeConflict, hasStoreTimeConflict, type ConflictEvent } from './privateBookingConflicts'
+import {
+  buildConflictDateRanges,
+  candidateConflictKey,
+  hasGmTimeConflict,
+  hasStoreTimeConflict,
+  isApprovalRelevantStatus,
+  pickConfirmedConflictCandidate,
+  type ConflictEvent,
+} from './privateBookingConflicts'
 const settings = { organization: 60, stores: {}, scenarios: {}, performances: {} }
 const candidate = { date: '2027-01-03', startTime: '14:00', endTime: '17:00' }
 const event: ConflictEvent = { id: 'event', date: '2027-01-03', start_time: '17:30', end_time: '20:30', store_id: 'store', scenario_master_id: 'other' }
@@ -31,5 +39,31 @@ describe('貸切候補の実時刻と準備時間', () => {
   })
   it('欠損した時刻を空きとみなさない', () => {
     expect(() => hasGmTimeConflict(candidate, { ...event, end_time: '' }, 'request')).toThrow()
+  })
+  it('承認対象ステータスだけを候補日収集の対象にする', () => {
+    expect(isApprovalRelevantStatus('pending')).toBe(true)
+    expect(isApprovalRelevantStatus('confirmed')).toBe(true)
+    expect(isApprovalRelevantStatus('cancelled')).toBe(false)
+    expect(isApprovalRelevantStatus('completed')).toBe(false)
+    expect(isApprovalRelevantStatus('no_show')).toBe(false)
+  })
+  it('離れた候補日は短い期間へ結合し隙間を開けない', () => {
+    expect(buildConflictDateRanges(['2027-01-03', '2027-06-10'], 2)).toEqual([
+      { from: '2027-01-01', to: '2027-01-05' },
+      { from: '2027-06-08', to: '2027-06-12' },
+    ])
+    expect(buildConflictDateRanges(['2027-01-03', '2027-01-06'], 2)).toEqual([
+      { from: '2027-01-01', to: '2027-01-08' },
+    ])
+  })
+  it('確定印がない旧候補は先頭へフォールバックする', () => {
+    expect(pickConfirmedConflictCandidate([
+      { date: '2027-01-03', startTime: '14:00', endTime: '17:00' },
+      { date: '2027-01-10', startTime: '18:00', endTime: '21:00', status: 'confirmed' },
+    ])).toMatchObject({ date: '2027-01-10', status: 'confirmed' })
+    expect(pickConfirmedConflictCandidate([
+      { date: '2027-01-03', startTime: '14:00', endTime: '17:00' },
+      { date: '2027-01-10', startTime: '18:00', endTime: '21:00' },
+    ])).toMatchObject({ date: '2027-01-03' })
   })
 })
