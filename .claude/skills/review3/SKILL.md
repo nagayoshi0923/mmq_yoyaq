@@ -6,7 +6,6 @@ description: PRまたは差分をUX・セキュリティ・ビジネスロジッ
 # 3視点レビュー
 
 **観点の正は `docs/templates/review-perspectives.md`。必ず先に読むこと。**
-（CI の claude-review.yml と観点を共有している。観点を足したいときは template 側を直す）
 
 ## 手順
 

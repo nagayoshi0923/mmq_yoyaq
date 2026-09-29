@@ -5,7 +5,7 @@ on:
     types: [closed]
 
 permissions:
-  actions: write
+  actions: read
   contents: read
   issues: write
   pull-requests: write
@@ -59,16 +59,10 @@ jobs:
           fi
           ISSUE_BODY="$ISSUE_BODY"$'\n\n'"---"$'\n'"Refs #${PR} (自動起票: Follow-up Capture)"
 
-          # ラベルは付けない(Issue Groomer が内容を見て ai-todo / no-action / needs-human を判断する)。
-          # 本文の「自動起票: Follow-up Capture」マーカーが Groomer / Implement の内部Follow-up判定に使われる。
+          # ラベルは付けない。対応は社長の指示で Codex / Claude が行う（2026-09-30 Cursor 自動整理は廃止）。
           NEW_ISSUE_URL=$(gh issue create -R "$REPO" \
             --title "[Follow-up] PR #${PR} の未対応指摘(${PR_TITLE:0:30})" \
             --body "$ISSUE_BODY")
-          NEW_ISSUE="${NEW_ISSUE_URL##*/}"
-
-          # GITHUB_TOKEN が作成した Issue は issues.opened を再発火しないため、
-          # workflow_dispatch で Groomer を明示的に起動する。
-          gh workflow run issue-groomer.yml -R "$REPO" -f issue_number="$NEW_ISSUE"
 
           # 末尾のPRコメントは失敗してもIssue作成済みなのでworkflow全体は失敗させない
           # (pull-requests: write を付与しているため通常は成功する)

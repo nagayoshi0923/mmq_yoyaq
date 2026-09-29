@@ -3,6 +3,7 @@
 Codex / Claude Code 共通のエントリ。指示はここにだけ書く（`CLAUDE.md` はこのファイルを取り込む1行のみ）。  
 **共有の正は `.cursor/rules/`**（地図: `docs/agent/INDEX.md`）。安全不変条件・スコープ・デプロイ順は rules にあり、ここへ複製しない。
 
+- 不具合報告（GitHub Issue）は記録として残し、修正は社長の指示で Codex / Claude が行う。Cursor による自動整理・自動実装・自動レビューは 2026-09-30 に廃止。
 - データ構造（テーブル・関連・画面対応）の正本は **MMQ 構造アトラス**：https://github.com/nagayoshi0923/mmq-model-atlas （`atlas/index.html`、2026-09-28 本番構造照合版）。`docs/design/database-design.md` は 2026-01 の旧版。
 
 ---
