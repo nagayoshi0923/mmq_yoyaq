@@ -592,7 +592,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                     const value = formData.private_booking_slot_start_times?.[bucket]?.[key] || 'store'
                     return (
                       <label key={key} className="space-y-0.5">
-                        <span className="text-[11px] text-muted-foreground">{name}</span>
+                        <span className="scenario-edit-card__note">{name}</span>
                         <Select
                           value={value}
                           onValueChange={(next) => setFormData(prev => ({
@@ -623,7 +623,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
               </div>
             ))}
-            <p className="text-[11px] text-muted-foreground">「店舗設定」はその店の営業時間設定の開始時刻を使います。前後の公演との間隔や、戦塵のレガストリア等の土日祝夜19:30以降の決まりは、設定した時刻より優先します。</p>
+            <p className="scenario-edit-card__note">「店舗設定」はその店の営業時間設定の開始時刻を使います。前後の公演との間隔や、戦塵のレガストリア等の土日祝夜19:30以降の決まりは、設定した時刻より優先します。</p>
           </div>
         </div>
       </div>
