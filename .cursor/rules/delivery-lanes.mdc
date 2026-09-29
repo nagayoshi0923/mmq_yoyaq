@@ -20,7 +20,7 @@ alwaysApply: false
 
 起票に「実装: Claude(Opus)」とあるとき:
 
-- 実装は `mmq-impl`、調査 `scout`、検証 `checker`。本体は設計・diffレビュー・commit/push判断
+- 調査・実装・検証はこの席が自分で順に行う（サブエージェントへ委譲しない。全体方針 `~/.codex/AGENTS.md`）。本体は設計・diffレビュー・commit/push判断
 - staging push 後、監督へ focused 検収1回。REWORKは重大欠陥のみ1往復に束ねる
 - dashboard の状態更新は監督専有
 
