@@ -1,7 +1,6 @@
 # PRレビューの3視点（正）
 
-ローカルの `/review3` skill と `.github/workflows/claude-review.yml` の共通観点。
-ここを変えたら両方に反映すること。
+ローカルの `/review3` skill の観点。
 
 ## 視点1: UX
 

@@ -1,3 +1,4 @@
+import { candidateOrdersFromIndexes } from '@/lib/gmCandidateSelection'
 import { Button } from '@/components/ui/button'
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -34,6 +35,9 @@ export function GMAvailabilityCheck() {
     currentDate,
     setCurrentDate,
     selectedCandidates,
+    setSelectedCandidates,
+    responseBaselines,
+    setResponseBaselines,
     notes,
     setNotes,
     loadGMRequests,
@@ -54,16 +58,12 @@ export function GMAvailabilityCheck() {
   // 編集開始時に既存の回答を選択状態にセット
   const handleStartEdit = useCallback((request: any) => {
     setEditingRequestId(request.id)
-    // 既存の選択を復元（0始まり→1始まりに変換）
-    const existingCandidates = (request.available_candidates || []).map((c: number) => c + 1)
-    // toggleCandidate を使って選択状態を設定
-    existingCandidates.forEach((order: number) => {
-      const current = selectedCandidates[request.id] || []
-      if (!current.includes(order)) {
-        toggleCandidate(request.id, order)
-      }
-    })
-  }, [selectedCandidates, toggleCandidate])
+    setResponseBaselines(previous => ({...previous,[request.id]:request}))
+    // 一度で置換し、前回の未保存変更や複数setStateによる候補欠落を残さない。
+    setSelectedCandidates(previous => ({ ...previous,
+      [request.id]: candidateOrdersFromIndexes(request.candidate_datetimes?.candidates || [], request.available_candidates || []),
+    }))
+  }, [setSelectedCandidates,setResponseBaselines])
 
   const handleCancelEdit = useCallback(() => {
     setEditingRequestId(null)
@@ -77,7 +77,7 @@ export function GMAvailabilityCheck() {
     setConflictConfirmOpen,
     confirmSubmitDespiteConflict
   } = useResponseSubmit({
-    requests,
+    requests: Object.values(responseBaselines),
     selectedCandidates,
     gmScheduleConflicts,
     notes,
@@ -167,7 +167,7 @@ export function GMAvailabilityCheck() {
                       request={request}
                       selectedCandidates={
                         (isResponded || isConfirmed) && !isEditing
-                          ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                          ? candidateOrdersFromIndexes(request.candidate_datetimes?.candidates || [], request.available_candidates || [])
                           : selectedCandidates[request.id] || []
                       }
                       candidateAvailability={candidateAvailability[request.id] || {}}
@@ -212,7 +212,7 @@ export function GMAvailabilityCheck() {
                       request={request}
                       selectedCandidates={
                         (isResponded || isConfirmed) && !isEditing
-                          ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                          ? candidateOrdersFromIndexes(request.candidate_datetimes?.candidates || [], request.available_candidates || [])
                           : selectedCandidates[request.id] || []
                       }
                       candidateAvailability={candidateAvailability[request.id] || {}}

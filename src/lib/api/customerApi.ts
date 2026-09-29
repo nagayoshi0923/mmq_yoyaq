@@ -6,11 +6,13 @@
  */
 import { apiClient } from '@/lib/apiClient'
 import type { Customer, Reservation } from '@/types'
+import type { CustomerListOptions } from '@/types/customerList'
 
 // get_org_customers_with_stats RPC が customers の列に加えて返す集計フィールド
 export interface CustomerWithStats extends Customer {
   reservation_count: number
   total_paid: number
+  reservation_amount: number | null
   last_visit: string | null
   visit_count: number
   total_coupons: number
@@ -45,11 +47,11 @@ export const customerApi = {
     return apiClient.patch<Customer>(`/api/customers?id=${encodeURIComponent(id)}`, { updates })
   },
   // 顧客一覧をサーバ集計＋ページングで取得（顧客管理ページ用）
-  async listWithStats(params: { search?: string; page?: number; pageSize?: number }): Promise<ListCustomersWithStatsResult> {
+  async listWithStats(params: CustomerListOptions & { search?: string; page?: number; pageSize?: number }): Promise<ListCustomersWithStatsResult> {
     const query = new URLSearchParams({ action: 'listWithStats' })
-    if (params.search) query.set('search', params.search)
-    if (params.page) query.set('page', String(params.page))
-    if (params.pageSize) query.set('pageSize', String(params.pageSize))
+    for (const [key,value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') query.set(key, String(value))
+    }
     return apiClient.get<ListCustomersWithStatsResult>(`/api/customers?${query.toString()}`)
   },
 }

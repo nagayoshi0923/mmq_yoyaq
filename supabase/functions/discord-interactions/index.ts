@@ -1,3 +1,5 @@
+import { gmCandidateVersion, gmCandidateButtons } from '../_shared/gmCandidateVersion.ts'
+import { readPrivateBookingReadiness, nextGmResponseStatus } from '../_shared/privateBookingReadiness.ts'
 // Discord インタラクション処理（署名検証付き + Deferred Response対応）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -112,15 +114,58 @@ async function verifySignature(
   }
 }
 
-function hexToUint8Array(hex: string): Uint8Array {
+function hexToUint8Array(hex: string): Uint8Array<ArrayBuffer> {
   return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))
 }
 
 // Note: Discord署名検証リクエストはDiscordサーバーから来るため、
 // CORS制限を適用しつつDiscord署名ヘッダーも許可
 
+async function refreshGmTeamStatus(requestId: string, orgId: string) {
+  try {
+    const { data, error } = await supabase.from('reservations')
+      .select('id,organization_id,scenario_master_id,candidate_datetimes,status')
+      .eq('id', requestId).eq('organization_id', orgId).single()
+    if (error || !data) throw error || new Error('予約を確認できません')
+    const readiness = await readPrivateBookingReadiness(supabase, orgId, [data])
+    const nextStatus = nextGmResponseStatus(data.status, readiness[requestId])
+    if (nextStatus === data.status) return
+    const { error: updateError } = await supabase.from('reservations')
+      .update({ status: nextStatus })
+      .eq('id', requestId).eq('organization_id', orgId)
+      .eq('status', data.status)
+    if (updateError) throw updateError
+  } catch (error) {
+    console.error('GM readiness refresh failed after response save:', error)
+    throw new Error('回答は保存済みですが、店舗確認待ちへの反映を確認できません。管理画面で再確認してください。')
+  }
+}
+
+// Old buttons cannot prove which year/date they represented. Refresh without saving an answer.
+async function checkCandidateVersion(interaction: any, requestId: string, candidates: any[], expected?: string) {
+  const current = await gmCandidateVersion(candidates)
+  if(expected === current) return current
+  const reply = await fetch(`https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
+    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      content:'候補日時を更新しました。回答は変更していません。下の日時を確認して、もう一度選択してください。',
+      components:gmCandidateButtons(candidates,requestId,current),
+    }),
+  })
+  if(!reply.ok) throw new Error('候補日時の再表示に失敗しました。WebのGM確認画面で回答してください。')
+  return null
+}
+async function persistGmResponse(org: string,request: string,staff: string,candidates: any[],previous: any,patch: any) {
+  const {data,error}=await supabase.rpc('save_gm_response_atomic',{
+    p_org:org,p_reservation:request,p_staff:staff,p_candidates:candidates,
+    p_expected_response:previous ? {id:previous.id,updated_at:previous.updated_at} : null,p_patch:patch,
+  })
+  if(error?.code==='40001'||error?.code==='55P03') throw new Error('候補日時または回答が変更されました。WebのGM確認画面を更新して選び直してください。')
+  if(error) throw new Error('回答を保存できませんでした。WebのGM確認画面で再確認してください。')
+  return data
+}
+
 // 全て不可処理をバックグラウンドで実行
-async function processUnavailable(interaction: any, requestId: string) {
+async function processUnavailable(interaction: any, requestId: string, expectedVersion?: string) {
   try {
     const { data: reservation, error } = await supabase
       .from('reservations')
@@ -132,6 +177,8 @@ async function processUnavailable(interaction: any, requestId: string) {
     
     const organizationId = reservation.organization_id
     const candidates = reservation.candidate_datetimes?.candidates || []
+    const candidateVersion = await checkCandidateVersion(interaction, requestId, candidates, expectedVersion)
+    if (!candidateVersion) return
     const scenarioTitle = reservation.title || '貸切予約'
     
     const gmUserId = interaction.member?.user?.id
@@ -146,6 +193,7 @@ async function processUnavailable(interaction: any, requestId: string) {
       .select('id, name')
       .eq('discord_user_id', gmUserId)
       .eq('organization_id', organizationId)
+      .eq('status', 'active')
       .maybeSingle()
 
     if (staffData) {
@@ -164,32 +212,14 @@ async function processUnavailable(interaction: any, requestId: string) {
       return
     }
     
-    // 全て不可として保存
-    await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: organizationId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_discord_id: gmUserId,
-        gm_name: gmUserName,
-        response_type: 'unavailable',
-        selected_candidate_index: null,
-        response_datetime: new Date().toISOString(),
-        notes: 'Discord経由で回答: 全て出勤不可',
-        response_status: 'all_unavailable',
-        available_candidates: [],
-        response_history: [{ timestamp: new Date().toISOString(), action: 'all_unavailable' }],
-        responded_at: new Date().toISOString()
-      }, {
-        onConflict: 'reservation_id,staff_id'
-      })
-    
-    await supabase
-      .from('reservations')
-      .update({ status: 'pending_store' })
-      .eq('id', requestId)
-      .in('status', ['pending', 'pending_gm'])
+    const { data: previous, error: readError } = await supabase.from('gm_availability_responses')
+      .select('id,updated_at').eq('reservation_id',requestId).eq('staff_id',staffId).maybeSingle()
+    if(readError) throw readError
+    await persistGmResponse(organizationId,requestId,staffId,candidates,previous,{
+      available_candidates:[],response_status:'all_unavailable',notes:'Discord経由で回答: 全て出勤不可',
+      response_history:[{timestamp:new Date().toISOString(),action:'all_unavailable'}],
+    })
+    await refreshGmTeamStatus(requestId, organizationId)
     
     // メッセージとボタンを作成（全て緑に戻す）
     const candidateCount = candidates.length
@@ -203,8 +233,8 @@ async function processUnavailable(interaction: any, requestId: string) {
     responseMessage += `**予約者：** ${reservation.customer_name || '名前不明'}\n\n`
     responseMessage += `【現在の選択】\n全て不可と回答しました。`
     
-    const timeSlotMap = { '朝': '朝', '昼': '昼', '夜': '夜', 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
-    const responseComponents = []
+    const timeSlotMap: Record<string, string> = { '朝': '朝', '昼': '昼', '夜': '夜', 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+    const responseComponents: Array<{ type: number; components: Array<{ type: number; style: number; label: string; custom_id: string }> }> = []
     
     for (let i = 0; i < Math.min(candidates.length, 6); i++) {
       const candidate = candidates[i]
@@ -220,7 +250,7 @@ async function processUnavailable(interaction: any, requestId: string) {
         type: 2,
         style: 3, // 緑色
         label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
-        custom_id: `date_${i + 1}_${requestId}`
+        custom_id: `date_${i + 1}_${requestId}_${candidateVersion}`
       })
     }
     
@@ -230,7 +260,7 @@ async function processUnavailable(interaction: any, requestId: string) {
         type: 2,
         style: 4,
         label: '全て不可',
-        custom_id: `gm_unavailable_${requestId}`
+        custom_id: `gm_unavailable_${requestId}_${candidateVersion}`
       }]
     })
     
@@ -242,11 +272,15 @@ async function processUnavailable(interaction: any, requestId: string) {
     })
   } catch (error) {
     console.error('Error processing unavailable:', error)
+    const content = error instanceof Error && error.message.startsWith('回答は保存済み') ? error.message : '回答を保存できませんでした。再度お試しください。'
+    await fetch(`https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content })
+    }).catch(e => console.error('Failed to send error message:', e))
   }
 }
 
 // 日程選択処理をバックグラウンドで実行
-async function processDateSelection(interaction: any, dateIndex: number, requestId: string) {
+async function processDateSelection(interaction: any, dateIndex: number, requestId: string, expectedVersion?: string) {
   try {
     // Supabaseから候補日程を取得
     const { data: reservation, error } = await supabase
@@ -262,6 +296,8 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     
     const organizationId = reservation.organization_id
     const candidates = reservation.candidate_datetimes?.candidates || []
+    const candidateVersion = await checkCandidateVersion(interaction, requestId, candidates, expectedVersion)
+    if (!candidateVersion) return
     const selectedCandidate = candidates[dateIndex]
     
     if (!selectedCandidate) {
@@ -270,7 +306,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     
     const dateMatch = selectedCandidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
     const dateStr = dateMatch ? `${parseInt(dateMatch[1])}/${parseInt(dateMatch[2])}` : selectedCandidate.date
-    const timeSlotMap = {
+    const timeSlotMap: Record<string, string> = {
       '朝': '朝',
       '昼': '昼', 
       '夜': '夜',
@@ -297,6 +333,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       .select('id, name')
       .eq('discord_user_id', gmUserId)
       .eq('organization_id', organizationId)
+      .eq('status', 'active')
       .maybeSingle()
 
     if (staffError || !staffData) {
@@ -315,15 +352,16 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     console.log('✅ Found staff_id:', staffId)
     
     // 既存の回答を取得して、複数日程を追加する形にする
-    const { data: existingResponse } = await supabase
+    const { data: existingResponse, error: existingError } = await supabase
       .from('gm_availability_responses')
-      .select('available_candidates, response_history')
+      .select('id, updated_at, available_candidates, response_history')
       .eq('reservation_id', requestId)
       .eq('staff_id', staffId)
-      .single()
+      .maybeSingle()
+    if (existingError) throw existingError
     
     // 既存の選択済み日程を取得（候補数が減った場合に備え範囲外インデックスを除去）
-    let availableCandidates = (existingResponse?.available_candidates || [])
+    let availableCandidates: number[] = (existingResponse?.available_candidates || [])
       .filter((idx: number) => idx < candidates.length)
 
     // 既存の履歴を取得
@@ -378,8 +416,13 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       responseStatus = 'all_unavailable'
     }
     
-    // ⚡ ボタンの体感速度向上: 先にメッセージ(ボタン状態)をDiscordへ反映し、
-    //    DB保存(回答upsert・予約ステータス)はその後に行う（押下→即ボタン変化）。
+    // Do not show a successful toggle until the checked transaction commits.
+    await persistGmResponse(organizationId,requestId,staffId,candidates,existingResponse,{
+      available_candidates:availableCandidates,response_status:responseStatus,
+      notes:availableCandidates.length>0 ? `Discord経由で回答: ${selectedDates.join(', ')}` : 'Discord経由で回答: 全て出勤不可',
+      response_history:responseHistory,
+    })
+    await refreshGmTeamStatus(requestId,organizationId)
     // レスポンスメッセージを作成
     const scenarioTitle = reservation.title || '貸切予約'
     const candidateCount = candidates.length
@@ -400,12 +443,12 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     }
     
     // 候補日程ボタンを再表示（選択/解除を続けられるように）
-    const responseComponents = []
+    const responseComponents: Array<{ type: number; components: Array<{ type: number; style: number; label: string; custom_id: string }> }> = []
     for (let i = 0; i < Math.min(candidates.length, 6); i++) {
       const candidate = candidates[i]
       const dm2 = candidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
       const dateStr = dm2 ? `${parseInt(dm2[1])}/${parseInt(dm2[2])}` : candidate.date
-      const timeSlotMap = {
+      const timeSlotMap: Record<string, string> = {
         '朝': '朝',
         '昼': '昼', 
         '夜': '夜',
@@ -427,7 +470,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
         type: 2,
         style: isSelected ? 1 : 3, // 1=青（選択済み）、3=緑（未選択）
         label: `${isSelected ? '✓ ' : ''}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
-        custom_id: `date_${i + 1}_${requestId}`
+        custom_id: `date_${i + 1}_${requestId}_${candidateVersion}`
       })
     }
     
@@ -439,7 +482,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
           type: 2,
           style: 4, // 赤色
           label: '全て不可',
-          custom_id: `gm_unavailable_${requestId}`
+          custom_id: `gm_unavailable_${requestId}_${candidateVersion}`
         }
       ]
     })
@@ -462,49 +505,6 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       console.error('❌ Failed to update message:', await webhookResponse.text())
     } else {
       console.log('✅ Message updated successfully')
-    }
-
-    // gm_availability_responsesテーブルに保存 (upsert)
-    const { data: gmResponse, error: gmError } = await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: organizationId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_discord_id: gmUserId,
-        gm_name: gmUserName,
-        response_type: responseType,
-        selected_candidate_index: availableCandidates.length > 0 ? availableCandidates[0] : null,
-        response_datetime: new Date().toISOString(),
-        notes: availableCandidates.length > 0 
-          ? `Discord経由で回答: ${selectedDates.join(', ')}` 
-          : 'Discord経由で回答: 全て出勤不可',
-        response_status: responseStatus,
-        available_candidates: availableCandidates,
-        response_history: responseHistory,
-        responded_at: new Date().toISOString()
-      }, {
-        onConflict: 'reservation_id,staff_id'
-      })
-    
-    if (gmError) {
-      console.error('❌ Error saving GM response:', gmError)
-      throw gmError
-    } else {
-      console.log('✅ GM response saved to database:', gmResponse)
-      
-      // GMが1人でも回答したら、リクエストのステータスを「店舗確認待ち」に更新
-      const { error: updateError } = await supabase
-        .from('reservations')
-        .update({ status: 'pending_store' })
-        .eq('id', requestId)
-        .in('status', ['pending', 'pending_gm'])  // pending または pending_gm の場合に更新
-      
-      if (updateError) {
-        console.error('❌ Error updating reservation status:', updateError)
-      } else {
-        console.log('✅ Reservation status updated to pending_store')
-      }
     }
 
     console.log('📅 Date selection recorded and saved:', selectedDates)
@@ -612,7 +612,7 @@ serve(async (req) => {
     if (interaction.data.custom_id.startsWith('gm_unavailable_')) {
       console.log('❌ Processing gm_unavailable button')
       
-      const requestId = interaction.data.custom_id.replace('gm_unavailable_', '')
+      const [requestId, expectedVersion] = interaction.data.custom_id.replace('gm_unavailable_', '').split('_')
       console.log('📋 Request ID:', requestId)
       if (!isUuidLike(requestId)) {
         return new Response(
@@ -627,113 +627,11 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
       
-      processUnavailable(interaction, requestId).catch(err => {
+      processUnavailable(interaction, requestId, expectedVersion).catch(err => {
         console.error('❌ Background processing error:', err)
       })
       
       return deferredResponse
-    }
-    
-    // 以下の古いコードは削除
-    if (false && interaction.data.custom_id.startsWith('gm_unavailable_OLD_')) {
-      
-      try {
-        // GMの回答をデータベースに保存
-        const gmUserId = interaction.member?.user?.id
-        const gmUserName = interaction.member?.nick || interaction.member?.user?.global_name || interaction.member?.user?.username || 'Unknown GM'
-        
-        console.log('👤 GM User:', { id: gmUserId, name: gmUserName })
-        
-        // Discord IDからstaff_idを取得
-        let staffId = null
-        const { data: staffData, error: staffError } = await supabase
-          .from('staff')
-          .select('id')
-          .eq('discord_user_id', gmUserId)
-          .single()
-        
-        if (staffError) {
-          console.log('⚠️ Staff not found for Discord ID:', gmUserId, staffError)
-        } else {
-          staffId = staffData.id
-          console.log('✅ Found staff_id:', staffId)
-        }
-        
-        // gm_availability_responsesテーブルに保存 (upsert)
-        const { data: gmResponse, error: gmError } = await supabase
-          .from('gm_availability_responses')
-          .upsert({
-            reservation_id: requestId,
-            staff_id: staffId,
-            gm_discord_id: gmUserId,
-            gm_name: gmUserName,
-            response_type: 'unavailable',
-            selected_candidate_index: null,
-            response_datetime: new Date().toISOString(),
-            notes: 'Discord経由で回答: 全て出勤不可',
-            response_status: 'all_unavailable',
-            available_candidates: [],
-            response_history: [{ timestamp: new Date().toISOString(), action: 'all_unavailable' }],
-            responded_at: new Date().toISOString()
-          }, {
-            onConflict: 'reservation_id,staff_id'
-          })
-        
-        if (gmError) {
-          console.error('❌ Error saving GM response:', gmError)
-        } else {
-          console.log('✅ GM unavailable response saved to database:', gmResponse)
-          
-          // GMが1人でも回答したら、リクエストのステータスを「店舗確認待ち」に更新
-          const { error: updateError } = await supabase
-            .from('reservations')
-            .update({ status: 'pending_store' })
-            .eq('id', requestId)
-            .in('status', ['pending', 'pending_gm'])
-          
-          if (updateError) {
-            console.error('❌ Error updating reservation status:', updateError)
-          } else {
-            console.log('✅ Reservation status updated to pending_store')
-          }
-        }
-        
-        const response = new Response(
-          JSON.stringify({
-            type: 4,
-            data: {
-              content: '❌ 全て出勤不可として記録しました。\n管理画面で確認できます。'
-            }
-          }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json' 
-            }
-          }
-        )
-        console.log('❌ GM unavailable response recorded and saved')
-        return response
-        
-      } catch (error) {
-        console.error('🚨 Error processing gm_unavailable:', error)
-        return new Response(
-          JSON.stringify({
-            type: 4,
-            data: {
-              content: 'エラー: 回答の記録に失敗しました'
-            }
-          }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json' 
-            }
-          }
-        )
-      }
     }
     
     // 日程選択ボタンの処理
@@ -743,7 +641,8 @@ serve(async (req) => {
       // custom_idから情報を抽出: date_1_requestId
       const parts = interaction.data.custom_id.split('_')
       const dateIndex = parseInt(parts[1]) - 1 // 0-based index
-      const requestId = parts.slice(2).join('_')
+      const requestId = parts[2]
+      const expectedVersion = parts[3]
       
       console.log('📋 Date index:', dateIndex, 'Request ID:', requestId)
       if (!isUuidLike(requestId) || !Number.isFinite(dateIndex) || dateIndex < 0) {
@@ -763,7 +662,7 @@ serve(async (req) => {
       )
       
       // バックグラウンドで処理を続行（応答は返さない）
-      processDateSelection(interaction, dateIndex, requestId).catch(err => {
+      processDateSelection(interaction, dateIndex, requestId, expectedVersion).catch(err => {
         console.error('❌ Background processing error:', err)
       })
       

@@ -1,26 +1,21 @@
 import { apiClient } from '@/lib/apiClient'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
-import {
-  reservationApi,
-  RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
-  joinedCustomerFromReservation,
-} from '@/lib/reservationApi'
+import { reservationApi } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
-import { sendEmail } from '@/lib/emailApi'
-import { createEventHistory, fetchEventSnapshot } from '@/lib/api/eventHistoryApi'
+import { pendingOperation } from '@/lib/pendingOperation'
+import { useAuth } from '@/contexts/AuthContext'
 import { showToast } from '@/utils/toast'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { getDefaultPrivateRejectionTemplate } from '@/lib/templateRegistry'
 import { startTimeToEn, timeSlotEnToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
-import { isSenshinPrivateBooking } from '@/lib/senshinPrivateBooking'
 
 
 
@@ -66,6 +61,8 @@ interface UseBookingApprovalProps {
 export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   // 組織IDを取得（マルチテナント対応）
   const { organizationId } = useOrganization()
+  const { user } = useAuth()
+  const approvingRef = useRef(false)
   const { isCustomHoliday } = useCustomHolidays()
   
   const [submitting, setSubmitting] = useState(false)
@@ -102,6 +99,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
     }
 
+    if (approvingRef.current) return { success: false, error: '承認処理中です。しばらくお待ちください。' }
+    if (!user?.id || !organizationId) return { success: false, error: 'ログイン状態と組織を確認してください。' }
+    approvingRef.current = true
+    let approvalCommitted = false
     try {
       setSubmitting(true)
 
@@ -279,7 +280,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
       logger.log('貸切承認RPCパラメータ:', rpcParams)
       
-      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_notice', rpcParams)
+      const operation = await pendingOperation(`private-approval:${organizationId}:${user.id}`, rpcParams)
+      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_notifications', { ...rpcParams, p_request_id: operation.id })
 
       if (approveError) {
         logger.error('貸切承認RPCエラー:', approveError)
@@ -348,155 +350,32 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       const scheduleEventId = approval?.schedule_event_id as string | undefined
-      const surveyNotice = approval?.survey_notice as string | null | undefined
+      if (!scheduleEventId) throw new Error('承認結果を確認できませんでした。同じ内容で再試行してください。')
+      approvalCommitted = true
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
-      // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
+      // RPC成功後に一覧を更新。通知・履歴の保存は同じRPCで完了している。
       // onSuccess の完了（一覧再フェッチなど）まで await して、submitting=true を保つ。
       // これにより承認ボタンの再活性化前にリストが最新化され、二度押しでの重複承認を防ぐ。
-      await onSuccess()
-
-      // バックグラウンド処理（awaitしない）
-      ;(async () => {
-        // schedule_events の確定日時と予約料金情報を並列取得
-        const [seResult, reservationResult] = await Promise.all([
-          scheduleEventId
-            ? supabase.from('schedule_events').select('date, start_time, end_time').eq('id', scheduleEventId as string).single()
-            : Promise.resolve({ data: null, error: null }),
-          supabase.from('reservations').select('total_price, final_price, customer_email, customer_name, reservation_number, customer_notes, private_group_id').eq('id', requestId).single()
-        ])
-
-        let notifyEventDate = selectedDateYmd
-        let notifyStartTime = selectedStartTime
-        let notifyEndTime = selectedEndTime
-        if (seResult.data?.date != null && seResult.data.date !== '') {
-          const fromRow = normalizeToJapanCalendarYmd(String(seResult.data.date))
-          if (fromRow) notifyEventDate = fromRow
-          if (seResult.data.start_time) notifyStartTime = String(seResult.data.start_time).slice(0, 5)
-          if (seResult.data.end_time) notifyEndTime = String(seResult.data.end_time).slice(0, 5)
-        }
-
-        const updatedReservation = reservationResult.data
-        const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
-        const gmIds = requiredGm >= 2 && selectedSubGmId ? [selectedGMId, selectedSubGmId] : [selectedGMId]
-
-        let discordPlayerUrl: string | undefined
-        let discordSpectatorUrl: string | undefined
-        if (
-          isSenshinPrivateBooking({
-            scenario_master_id: selectedRequest?.scenario_master_id,
-            scenario_title: selectedRequest?.scenario_title,
-          })
-        ) {
-          const { data: discordResult, error: discordErr } = await supabase.functions.invoke(
-            'provision-private-booking-discord',
-            { body: { organizationId, reservationId: requestId, scheduleEventId: scheduleEventId || undefined } },
-          )
-          if (discordErr || discordResult?.success === false) {
-            logger.error('戦塵Discordチャンネル作成エラー:', discordErr || discordResult)
-            showToast.warning('Discordチャンネルの作成に失敗しました。確定メールは送っています。')
-          } else if (!discordResult?.skipped) {
-            discordPlayerUrl = discordResult?.playerInviteUrl || undefined
-            discordSpectatorUrl = discordResult?.spectatorInviteUrl || undefined
-            if (discordPlayerUrl && discordSpectatorUrl) {
-              logger.log('戦塵Discordチャンネル作成成功')
-            }
-          }
-        }
-
-        // イベント履歴・確定メール・GM通知・グループ処理を並列実行
-        await Promise.all([
-          // イベント履歴: フル状態スナップショットを取得して new_values に保存、
-          // changed_by_name には「（貸切管理）」サフィックスを付ける
-          scheduleEventId && organizationId
-            ? (async () => {
-                const createdSnapshot = await fetchEventSnapshot(scheduleEventId as string, organizationId)
-                const fallback = {
-                  scenario: cleanScenarioTitle, date: selectedDateYmd, store_id: selectedStoreId,
-                  start_time: selectedStartTime, end_time: selectedEndTime, gms: gmIds,
-                  reservation_name: selectedRequest?.customer_name || '',
-                }
-                const cellTimeSlot =
-                  (createdSnapshot?.time_slot as string | null | undefined) ??
-                  selectedCandidate.timeSlot ?? null
-                await createEventHistory(
-                  scheduleEventId as string, organizationId, 'create', null,
-                  createdSnapshot ?? fallback,
-                  { date: selectedDateYmd, storeId: selectedStoreId, timeSlot: cellTimeSlot },
-                  { notes: '貸切予約承認により作成', source: '貸切管理' }
-                )
-              })().catch(e => logger.error('createEventHistory error:', e))
-            : Promise.resolve(),
-
-          // カスタマー確定メール
-          (async () => {
-            const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
-            const customerName = selectedRequest?.customer_name
-            if (!customerEmail || !customerName) return
-            const selectedStore = stores.find(s => s.id === selectedStoreId)
-            const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
-            const { error: emailErr } = await supabase.functions.invoke('send-private-booking-confirmation', {
-              body: {
-                organizationId, storeId: selectedStoreId, reservationId: requestId,
-                customerEmail, customerName, scenarioTitle: selectedRequest?.scenario_title || '',
-                eventDate: notifyEventDate, startTime: notifyStartTime, endTime: notifyEndTime,
-                storeName, storeAddress: selectedStore?.address || undefined,
-                participantCount: selectedRequest?.participant_count || 0, totalPrice: priceToUse,
-                reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
-                notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined,
-                scheduleEventId: scheduleEventId || undefined,
-                scenarioMasterId: selectedRequest?.scenario_master_id || undefined,
-                discordPlayerUrl,
-                discordSpectatorUrl,
-              }
-            })
-            if (emailErr) logger.error('貸切予約確定メール送信エラー:', emailErr)
-            else logger.log('貸切予約確定メール送信成功:', customerEmail)
-          })(),
-
-          // GM確定通知（複数GMも並列）
-          (async () => {
-            const { data: notifyStaffRows, error: staffErr } = await supabase
-              .from('staff').select('id, name, email, discord_channel_id, discord_user_id').in('id', gmIds)
-            if (staffErr) { logger.error('GM通知用スタッフ取得エラー:', staffErr); return }
-            await Promise.all((notifyStaffRows || []).map(async row => {
-              if (!row?.id) return
-              const { data: notifyResult, error: notifyFnError } = await supabase.functions.invoke(
-                'notify-gm-private-booking-confirmed',
-                { body: {
-                  organizationId, gmId: row.id, gmName: row.name, gmEmail: row.email,
-                  gmDiscordChannelId: row.discord_channel_id ?? undefined,
-                  gmDiscordUserId: row.discord_user_id ?? undefined,
-                  scenarioTitle: selectedRequest?.scenario_title || '',
-                  eventDate: notifyEventDate, startTime: notifyStartTime, endTime: notifyEndTime,
-                  storeName, customerName: selectedRequest?.customer_name || '',
-                  participantCount: selectedRequest?.participant_count || 0, reservationId: requestId,
-                }}
-              )
-              if (notifyFnError) {
-                logger.error('GM確定通知エラー:', { gmName: row.name, error: notifyFnError })
-                showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
-              } else if (notifyResult?.results?.discord === 'failed') {
-                showToast.warning(`${row.name} へのDiscord通知が失敗しました。チャンネル設定またはBot権限をご確認ください。`)
-              }
-            }))
-          })(),
-
-          // チャット通知は承認RPC内で保存済み。同じ本文をメールでも案内する。
-          surveyNotice && selectedRequest?.customer_email
-            ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: surveyNotice })
-            : Promise.resolve()
-        ])
-      })().catch(err => logger.error('バックグラウンド承認処理エラー:', err))
+      try {
+        await onSuccess()
+        operation.complete()
+      } catch (refreshError) {
+        logger.error('承認後の一覧更新に失敗:', refreshError)
+        showToast.warning('承認は保存済みですが、一覧を更新できませんでした。画面を開き直してください。')
+      }
+      // 承認・履歴・配送予定はDBで一括保存済み。画面を閉じてもサーバーが配送する。
+      if (!approval.approval_delivery_queued) showToast.warning('旧版で承認済みの申込です。通知履歴で送信状況をご確認ください。')
 
       return { success: true }
     } catch (error) {
       logger.error('承認エラー:', error)
-      return { success: false, error: '承認処理中にエラーが発生しました' }
+      return approvalCommitted ? { success: true } : { success: false, error: '承認処理中にエラーが発生しました。同じ内容で再試行してください。' }
     } finally {
+      approvingRef.current = false
       setSubmitting(false)
     }
-  }, [onSuccess, organizationId, isCustomHoliday])
+  }, [onSuccess, organizationId, isCustomHoliday, user?.id])
 
   // 却下クリック
   // 却下ダイアログを開く。フラグメント（理由）だけでなく、実際に送られる「全文」を
@@ -548,127 +427,31 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     }
   }, [organizationId])
 
-  // 却下確定
-  const handleRejectConfirm = useCallback(async (selectedRequest?: PrivateBookingRequest | null) => {
-    if (!rejectRequestId || !rejectionReason.trim()) return
-
+  // 予約・公演・グループ・チャット通知とメール送信予定はサーバーで一括保存する。
+  const handleRejectConfirm = useCallback(async (_selectedRequest?: PrivateBookingRequest | null) => {
+    if (!rejectRequestId || !rejectionReason.trim() || !organizationId) return
+    setSubmitting(true)
+    let saved = false
     try {
-      setSubmitting(true)
-
-      // 予約情報を取得（メール送信用）
-      const { data: reservation, error: fetchError } = await supabase
-        .from('reservations')
-        .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-        .eq('id', rejectRequestId)
-        .single()
-
-      if (fetchError) throw fetchError
-
-      // 予約をキャンセル（在庫返却 + 通知）
-      // 貸切予約の却下なので、reservationApi.cancel()を使用してキャンセル待ち通知も送信
-      // ただしグループはキャンセルせず、候補日選択フェーズに戻す
-      // 既にキャンセル済みの場合はスキップ
-      if (reservation?.status !== 'cancelled') {
-        // 却下メール本文（rejectionReason は全文）はキャンセル記録に流さず、固定の短い理由を渡す。
-        // キャンセル確認メールは送らない（後段で却下専用メールを送るため、二重送信になる）。
-        // 承認済みの貸切を却下した場合、紐づく公演もスケジュールから中止にする
-        await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, { skipGroupCancel: true, skipCancellationEmail: true, cancelPrivateEvent: true })
-      }
-      
-      // 関連するグループを候補日選択フェーズに戻し、候補日を rejected にする。
-      // 直接 UPDATE は RLS で主催者のみ許可のため、店舗スタッフでは 0 件になる。RPC で更新する。
-      if (reservation?.private_group_id) {
-        const { error: rejectSyncError } = await supabase.rpc(
-          'mark_private_group_rejected_after_booking_rejection',
-          { p_reservation_id: rejectRequestId }
-        )
-        if (rejectSyncError) {
-          logger.error('貸切却下: グループ・候補日の同期 RPC エラー:', rejectSyncError)
-          throw rejectSyncError
-        }
-        logger.log('グループを date_adjusting・候補日を rejected に同期:', reservation.private_group_id)
-
-        // 却下通知（チャット・メール）はバックグラウンドで送信し、画面は即時更新する
-        // （従来は直列で20秒以上かかり、その間UIが無反応で「何も起きていない」ように見えた）
-        ;(async () => {
-          // 候補日時を取得（メール・チャットメッセージ両方で使用）
-          const candidateDates = reservation?.candidate_datetimes?.candidates?.map((c: any) => ({
-            date: c.date,
-            startTime: c.startTime,
-            endTime: c.endTime
-          })) || []
-
-          // 管理者が却下ダイアログで編集した「全文」(rejectionReason) を、メールにもチャットにも
-          // そのまま使う（再テンプレ化しない → 見たまま＝送られる文）。
-          const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
-          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
-          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
-          const sharedBody = rejectionReason
-
-          // グループチャットにシステムメッセージを送信
-          const { error: msgInsertError } = await supabase
-            .from('private_group_messages')
-            .insert({
-              group_id: reservation.private_group_id,
-              member_id: null,
-              message: JSON.stringify({
-                type: 'system',
-                action: 'booking_rejected',
-                title: '貸切リクエストが却下されました',
-                body: sharedBody
-              })
-            })
-          if (msgInsertError) {
-            logger.error('却下メッセージ送信エラー:', msgInsertError)
-          }
-
-          // 却下メール（貸切専用）を送信
-          if (reservation && rejectCustomerEmail && rejectCustomerName) {
-            try {
-              const { error: rejectMailError } = await supabase.functions.invoke('send-private-booking-rejection', {
-                body: {
-                  organizationId,
-                  reservationId: reservation.id,
-                  customerEmail: rejectCustomerEmail,
-                  customerName: rejectCustomerName,
-                  scenarioTitle: reservation.title || '',
-                  // 管理者が編集した全文をそのまま送る（最優先）
-                  customEmailBody: rejectionReason,
-                  // 旧Edge Function（customEmailBody 未対応）向けのフォールバック理由
-                  rejectionReason: DEFAULT_REJECTION_REASON,
-                  candidateDates: candidateDates.length > 0 ? candidateDates : undefined
-                }
-              })
-              if (rejectMailError) {
-                logger.error('却下メール送信エラー:', rejectMailError)
-              } else {
-                logger.log('貸切リクエスト却下メール送信成功')
-              }
-            } catch (emailError) {
-              logger.error('却下メール送信エラー:', emailError)
-            }
-          } else {
-            logger.warn('却下メール送信スキップ: メールアドレスまたは顧客名が取得できませんでした', { rejectCustomerEmail, rejectCustomerName })
-          }
-        })().catch(err => {
-          logger.error('却下通知のバックグラウンド処理エラー:', err)
-          showToast.warning('却下は完了しましたが、お客様への通知送信に失敗した可能性があります', '貸切管理から個別にご連絡ください')
-        })
-      }
-
-      setRejectionReason('')
+      await reservationApi.cancel(rejectRequestId, REJECTION_CANCEL_REASON, {
+        skipGroupCancel: true, skipCancellationEmail: true, cancelPrivateEvent: true,
+        privateRejectionBody: rejectionReason,
+      })
+      saved = true
       setShowRejectDialog(false)
       setRejectRequestId(null)
-      showToast.success('貸切リクエストを却下しました', 'お客様への却下連絡はバックグラウンドで送信されます')
-      await onSuccess()
+      setRejectionReason('')
+      showToast.success('貸切リクエストを却下しました', 'メールの送信予定を保存しました。却下済み一覧で送信状況を確認できます')
     } catch (error) {
       logger.error('却下エラー:', error)
-      showToast.error(getSafeErrorMessage(error, '却下処理でエラーが発生しました'))
-      // 部分的に処理が進んでいる可能性があるため、一覧を実態に同期する
-      setShowRejectDialog(false)
-      setRejectRequestId(null)
-      await onSuccess()
+      if (saved) {
+        showToast.warning('却下は保存済みですが、メール送信を確認できません', '予約を再度却下せず、通知履歴を確認して個別にご連絡ください')
+      } else {
+        showToast.error(getSafeErrorMessage(error, '却下を保存できませんでした。状態を再読込して確認してください'))
+      }
     } finally {
+      // 再取得の失敗で、保存・送信結果を上書きしない。
+      try { await onSuccess() } catch (error) { logger.error('却下後の一覧再取得に失敗:', error) }
       setSubmitting(false)
     }
   }, [rejectRequestId, rejectionReason, onSuccess, organizationId])

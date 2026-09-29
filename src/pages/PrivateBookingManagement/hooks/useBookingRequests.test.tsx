@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ responses: vi.fn(), holiday: () => false, rows: [] as any[], ranges: [] as number[][] }))
-vi.mock('@/lib/gmResponseApi', () => ({ getGmResponses: mocks.responses }))
+vi.mock('@/lib/gmResponseApi', () => ({ getGmResponses: mocks.responses, getGmReadiness: async (ids: string[]) => Object.fromEntries(ids.map(id => [id, false])) }))
 vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: async () => 'org' }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday }) }))
 vi.mock('@/utils/logger', () => ({ privateBookingTrace: vi.fn(), logger: { warn: vi.fn(), error: vi.fn() } }))
@@ -47,4 +47,18 @@ it('フックも後続ページの予約をGM回答取得と画面データへ�
   expect(state.requests).toHaveLength(1040)
   expect(mocks.responses).toHaveBeenCalledWith(mocks.rows.map(row=>row.id))
   expect(mocks.ranges).toEqual([[0,999],[1000,1999]])
+})
+
+it('読込失敗でデータが無い間も同じ配列を返し、画面の再描画ループを起こさない', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  mocks.responses.mockRejectedValue(new Error('network unavailable'))
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  root = createRoot(document.createElement('div'))
+  await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
+  expect(state.isError).toBe(true)
+  const first = state.requests
+  await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
+  expect(state.requests).toBe(first)
+  expect(state.requests).toHaveLength(0)
 })

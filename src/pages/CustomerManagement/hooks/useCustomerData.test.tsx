@@ -65,3 +65,22 @@ it('retries organization loading before querying customers', async () => {
  await rerender()
  await waitFor(() => expect(result.current.customers[0]?.id).toBe('a'))
 })
+it('旧集計を使わず、未確認の予約金額をnullのまま表示層へ渡す', async () => {
+ mock.fetch.mockResolvedValue({ customers:[{id:'unknown',name:'unknown',total_paid:9000,reservation_amount:null},{id:'free',name:'free',total_paid:1000,reservation_amount:0}],totalCount:2 })
+ const { result } = await setup()
+ await waitFor(() => expect(result.current.customers).toHaveLength(2))
+ expect(result.current.customers[0].total_spent).toBeNull()
+ expect(result.current.customers[1].total_spent).toBe(0)
+})
+
+it('resets the page and forwards full-list conditions without retaining rows from the previous filter', async () => {
+ mock.fetch.mockResolvedValueOnce(rows('unfiltered')).mockResolvedValueOnce(rows('page2'))
+ const { result } = await setup()
+ await act(async () => { result.current.setPage(2) }); await settle()
+ mock.fetch.mockImplementationOnce(() => new Promise(() => {}))
+ await act(async () => result.current.setOptions({ sortBy:'reservation_amount',sortDir:'desc',minAmount:1000 }))
+ await settle()
+ expect(result.current.page).toBe(1)
+ expect(result.current.customers).toEqual([])
+ expect(mock.fetch).toHaveBeenLastCalledWith(expect.objectContaining({page:1,sortBy:'reservation_amount',sortDir:'desc',minAmount:1000}))
+})

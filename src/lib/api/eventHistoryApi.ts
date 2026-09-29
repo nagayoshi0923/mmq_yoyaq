@@ -57,6 +57,7 @@ export const FIELD_LABELS: Record<string, string> = {
   scenario: 'シナリオ',
   scenario_master_id: 'シナリオマスターID',
   gms: 'GM',
+  staff_participation: 'スタッフ参加人数の扱い',
   gm_roles: 'GM役割',
   start_time: '開始時間',
   end_time: '終了時間',

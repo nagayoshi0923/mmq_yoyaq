@@ -14,7 +14,7 @@
 | ファイル | 適用 | 内容 |
 |----------|------|------|
 | `00-core.mdc` | 常時 | 優先順・安全不変・スコープ |
-| `git-deploy.mdc` | 常時 | staging/main・DB先行・環境・smoke |
+| `git-deploy.mdc` | 常時 | 開発の4段階・staging/main・DB先行・環境・smoke |
 | `multi-tenant.mdc` | `src` / `supabase` | organization_id |
 | `database.mdc` | `supabase/**` | schema/RPC/RLS/罠 |
 | `frontend.mdc` | `src/**/*.{ts,tsx}` | RQ・定数・JST・共有API |

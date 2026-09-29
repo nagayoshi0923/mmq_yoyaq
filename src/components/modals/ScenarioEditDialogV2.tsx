@@ -1,3 +1,4 @@
+import { readSurveyQuestionSettings, saveSurveyQuestionSettings, type SurveyQuestionSnapshot } from '@/lib/surveyQuestionSettings'
 import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
 import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
 import { OperatingTextSettings } from '@/components/settings/OperatingTextSettings'
@@ -200,6 +201,13 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   
   // マスターデータ（相違検出用）
   const [sourceState, setSourceState] = useState<ScenarioSourceState | null>(null)
+  const [surveySnapshot, setSurveySnapshot] = useState<(SurveyQuestionSnapshot & { scenarioId: string }) | null>(null)
+  const settingsLoadGeneration = useRef(0)
+  useEffect(() => {
+    settingsLoadGeneration.current += 1
+    setSurveySnapshot(null)
+    setSourceState(null)
+  }, [isOpen, scenarioId])
   const [sourceResets, setSourceResets] = useState<SourceValues>({})
   const [masterData, setMasterData] = useState<ScenarioMaster | null>(null)
   const [loadingMaster, setLoadingMaster] = useState(false)
@@ -479,7 +487,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   // 担当関係データ用のstate
   const {
     currentAssignments, setCurrentAssignments, selectedStaffIds, setSelectedStaffIds,
-    isLoadingAssignments, assignmentsReady, assignmentsError, getChanges, acceptAssignments,
+    isLoadingAssignments, assignmentsReady, assignmentsError, getChanges, getBaseline, acceptAssignments,
   } = useScenarioGmAssignments(scenarioId)
   const [isSaving, setIsSaving] = useState(false)
   const saveInFlight = useRef(false)
@@ -803,6 +811,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         // ビュー (organization_scenarios_with_master) の COALESCE と同じ優先順位で読み込む
         if (scenario.scenario_master_id) {
           const masterId = scenario.scenario_master_id
+          const loadGeneration = settingsLoadGeneration.current
           ;(async () => {
             try {
               const loadOrgId = await getCurrentOrganizationId()
@@ -817,19 +826,11 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
                   ? { ...sourceMaster }
                   : { ...scenario, official_duration: scenario.duration })
                 if (osData) {
-                  // アンケート質問を取得
-                  let surveyQuestions: any[] = []
-                  if (osData.id) {
-                    const { data: questionsData } = await supabase
-                      .from('org_scenario_survey_questions')
-                      .select(
-                        'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
-                      )
-                      .eq('org_scenario_id', osData.id)
-                      .order('order_num', { ascending: true })
-                    surveyQuestions = questionsData || []
-                  }
-                  
+                  const loadedSurvey = await readSurveyQuestionSettings(osData.id)
+                  if (loadGeneration !== settingsLoadGeneration.current) return
+                  const surveyQuestions = loadedSurvey.questions
+                  setSurveySnapshot({ ...loadedSurvey, scenarioId: osData.id })
+
                   setFormData(prev => ({
                     ...prev,
                     ...sourceBaseline,
@@ -887,6 +888,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
                     // カラムが存在しない場合は無視
                   }
                 } else {
+                  if (loadGeneration !== settingsLoadGeneration.current) return
                   setFormData(prev => ({ ...prev, ...sourceBaseline }))
                   setSourceState({ stored: {}, baseline: sourceBaseline })
 
@@ -894,6 +896,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
               }
             } catch (e) {
               logger.error('override値取得エラー:', e)
+              if (loadGeneration === settingsLoadGeneration.current) showToast.error('設定を読み込めませんでした', '保存せず、画面を開き直してください。')
             }
           })()
         }
@@ -1055,27 +1058,6 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       // scenario_master_id を直接使用
       const targetScenarioId = effectiveScenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? (scenarioSaveResult as any).scenario_master_id : undefined)
 
-      if (targetScenarioId) {
-        try {
-          const changes = assignmentChanges
-          for (const staffId of changes.removed) {
-            await assignmentApi.removeAssignment(staffId, targetScenarioId)
-          }
-          for (const { staff_id, ...flags } of changes.upserts) {
-            await assignmentApi.upsertAssignment(staff_id, targetScenarioId, flags)
-          }
-          if (changes.removed.length || changes.upserts.length) {
-            const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
-            acceptAssignments(refreshed)
-          }
-        } catch (syncError) {
-          logger.error('Error updating GM assignments:', syncError)
-          showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
-        }
-        
-        await invalidateAssignmentQueries(queryClient)
-      }
-
       // マスタから引用した場合、organization_scenariosにも登録
       // scenariosテーブルの保存に失敗してもここは必ず実行する
       const masterIdForOrgSave = formData.scenario_master_id || targetScenarioId
@@ -1224,78 +1206,17 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
               }
             }
 
-            logger.log('🔍 orgScenarioId 確認:', orgScenarioId)
-            
-            // アンケート質問を保存
-            logger.log('📝 アンケート質問保存チェック:', {
-              orgScenarioId,
-              survey_enabled: formData.survey_enabled,
-              questionsCount: formData.survey_questions?.length || 0,
-            })
-            
-            if (orgScenarioId && formData.survey_enabled) {
-              try {
-                // 既存の質問を取得
-                const { data: existingQuestions, error: fetchError } = await supabase
-                  .from('org_scenario_survey_questions')
-                  .select('id')
-                  .eq('org_scenario_id', orgScenarioId)
-
-                if (fetchError) {
-                  logger.error('🚨 既存質問取得エラー:', fetchError)
-                }
-
-                const existingIds = new Set((existingQuestions || []).map(q => q.id))
-                const newQuestionIds = new Set((formData.survey_questions || []).map(q => q.id))
-
-                // 削除された質問を削除
-                const toDelete = [...existingIds].filter(id => !newQuestionIds.has(id))
-                if (toDelete.length > 0) {
-                  const { error: deleteError } = await supabase
-                    .from('org_scenario_survey_questions')
-                    .delete()
-                    .in('id', toDelete)
-                  
-                  if (deleteError) {
-                    logger.error('🚨 質問削除エラー:', deleteError)
-                  }
-                }
-
-                // 新規・更新の質問をupsert
-                const questionsToUpsert = (formData.survey_questions || []).map(q => ({
-                  id: q.id,
-                  org_scenario_id: orgScenarioId,
-                  question_text: q.question_text,
-                  question_type: q.question_type,
-                  options: q.options,
-                  is_required: q.is_required,
-                  order_num: q.order_num,
-                }))
-
-                logger.log('📝 保存する質問データ:', questionsToUpsert)
-
-                if (questionsToUpsert.length > 0) {
-                  const { error: upsertError } = await supabase
-                    .from('org_scenario_survey_questions')
-                    .upsert(questionsToUpsert, { onConflict: 'id' })
-
-                  if (upsertError) {
-                    logger.error('🚨 アンケート質問upsertエラー:', upsertError)
-                    logger.error('アンケート質問保存エラー:', upsertError)
-                  } else {
-                    logger.log('✅ アンケート質問保存成功:', questionsToUpsert.length, '件')
-                    logger.log('アンケート質問を保存しました:', questionsToUpsert.length, '件')
-                  }
-                }
-              } catch (surveyErr) {
-                logger.error('🚨 アンケート質問処理例外:', surveyErr)
-                logger.error('アンケート質問処理エラー:', surveyErr)
+            if (orgScenarioId && (formData.survey_enabled || formData.survey_questions !== undefined)) {
+              let baseline = surveySnapshot?.scenarioId === orgScenarioId ? surveySnapshot : null
+              if (!baseline) {
+                // Newly created organization scenario has no previously loaded set.
+                // Never overwrite existing questions using an invented empty baseline.
+                const loaded = await readSurveyQuestionSettings(orgScenarioId)
+                if (loaded.questions.length > 0) throw new Error('設問を読み直す必要があります。画面を開き直してください。')
+                baseline = { ...loaded, scenarioId: orgScenarioId }
               }
-            } else {
-              logger.log('⚠️ アンケート質問保存スキップ:', {
-                orgScenarioId: !!orgScenarioId,
-                survey_enabled: formData.survey_enabled,
-              })
+              const saved = await saveSurveyQuestionSettings(orgScenarioId, formData.survey_questions || [], baseline.revision)
+              setSurveySnapshot({ ...saved, scenarioId: orgScenarioId })
             }
           }
         } catch (orgErr) {
@@ -1322,6 +1243,34 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         setSourceState({ stored: { ...sourceState.stored, ...scenarioSourcePayload({ ...formData, title: resolvedTitle }, sourceState, sourceResets) }, baseline: { ...formData, title: resolvedTitle } })
         setSourceResets({})
       }
+
+      if (targetScenarioId) {
+        try {
+          const changes = assignmentChanges
+          if (changes.removed.length || changes.upserts.length) {
+            const refreshed = await assignmentApi.saveScenarioGmChanges(targetScenarioId, changes, getBaseline())
+            acceptAssignments(refreshed)
+          }
+        } catch (syncError) {
+          logger.error('Error updating GM assignments:', syncError)
+          // 基本情報は確定済み。GM失敗時も古い一覧・編集キャッシュを残さない。
+          try {
+            await Promise.all([
+              invalidateAssignmentQueries(queryClient),
+              queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'], refetchType: 'all' }),
+              queryClient.invalidateQueries({ queryKey: ['scenarios'], refetchType: 'all' }),
+            ])
+            await onSaved?.()
+          } catch (refreshError) {
+            logger.error('保存済みシナリオの再取得エラー:', refreshError)
+          }
+          showToast.warning('担当GMの保存を確認できませんでした', 'シナリオ基本情報は保存済みです。画面を開き直して担当の状態を確認してください')
+          return
+        }
+
+        await invalidateAssignmentQueries(queryClient)
+      }
+
       // Direct organization overrides are saved after the general mutation.
       // Refresh after both writes, including lists that are currently unmounted.
       await Promise.all([

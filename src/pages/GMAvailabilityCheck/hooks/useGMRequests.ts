@@ -1,3 +1,4 @@
+import { candidateOrdersFromIndexes } from '@/lib/gmCandidateSelection'
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getGmResponses, getMyGmResponses } from '@/lib/gmResponseApi'
@@ -6,6 +7,8 @@ import { logger } from '@/utils/logger'
 
 export interface GMRequest {
   id: string
+  staff_id: string
+  updated_at: string | null
   reservation_id: string
   reservation_number: string
   scenario_title: string
@@ -76,6 +79,8 @@ async function fetchGMRequestsForUser(): Promise<{ requests: GMRequest[]; staffN
     return {
       id: response.id,
       reservation_id: response.reservation_id,
+      staff_id: response.staff_id,
+      updated_at: response.updated_at ?? null,
       reservation_number: response.reservations?.reservation_number || '',
       scenario_title: response.reservations?.title || '',
       customer_name: response.reservations?.customer_name || '',
@@ -114,20 +119,27 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
 
   // 回答済みリクエストの初期選択状態を復元（データ初回取得時のみ）
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number[]>>({})
+  const [responseBaselines, setResponseBaselines] = useState<Record<string, GMRequest>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
   const initializedRef = useRef(false)
+  const initializedIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
-    if (requests.length > 0 && !initializedRef.current) {
+    if (requests.length > 0) {
+      if (!initializedRef.current) initializedIdsRef.current.clear()
+      const fresh = requests.filter(req => !initializedIdsRef.current.has(req.id))
+      if (fresh.length === 0) return
       initializedRef.current = true
+      fresh.forEach(req => initializedIdsRef.current.add(req.id))
       const initialSelections: Record<string, number[]> = {}
       const initialNotes: Record<string, string> = {}
-      requests.forEach(req => {
-        if (req.available_candidates?.length > 0) initialSelections[req.id] = req.available_candidates
-        if (req.notes) initialNotes[req.id] = req.notes
+      fresh.forEach(req => {
+        initialSelections[req.id] = candidateOrdersFromIndexes(req.candidate_datetimes?.candidates || [], req.available_candidates || [])
+        initialNotes[req.id] = req.notes || ''
       })
-      setSelectedCandidates(initialSelections)
-      setNotes(initialNotes)
+      setResponseBaselines(previous => ({...previous,...Object.fromEntries(fresh.map(req => [req.id, req]))}))
+      setSelectedCandidates(previous => ({...previous,...initialSelections}))
+      setNotes(previous => ({...previous,...initialNotes}))
     }
   }, [requests])
 
@@ -145,11 +157,11 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     queryClient.invalidateQueries({ queryKey: gmRequestKeys.stores })
 
   const toggleCandidate = (requestId: string, candidateOrder: number) => {
-    const current = selectedCandidates[requestId] || []
-    const newSelection = current.includes(candidateOrder)
-      ? current.filter(c => c !== candidateOrder)
-      : [...current, candidateOrder]
-    setSelectedCandidates({ ...selectedCandidates, [requestId]: newSelection })
+    setSelectedCandidates(previous => {
+      const current = previous[requestId] || []
+      return { ...previous, [requestId]: current.includes(candidateOrder)
+        ? current.filter(c => c !== candidateOrder) : [...current, candidateOrder] }
+    })
   }
 
   const filterByMonth = (reqs: GMRequest[]) => {
@@ -194,6 +206,8 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     setCurrentDate,
     selectedCandidates,
     setSelectedCandidates,
+    responseBaselines,
+    setResponseBaselines,
     notes,
     setNotes,
     loadGMRequests,

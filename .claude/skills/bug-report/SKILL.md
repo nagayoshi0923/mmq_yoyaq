@@ -5,7 +5,6 @@ description: スタッフや顧客からの曖昧な報告（「予約できな�
 
 # バグ報告 → issue 変換
 
-**Discord経由の自動整形（.github/issue-groomer-prompt.md）のローカル手動版。型は同一。**
 型の正は `docs/templates/issue-format.md` の [Bug] セクション。
 
 ## 手順

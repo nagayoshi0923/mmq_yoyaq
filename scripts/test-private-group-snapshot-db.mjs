@@ -103,4 +103,76 @@ for(const actor of [1,2,4,5]) {
 }
 await assert.rejects(db.query('SELECT private_group_read_reservation($1)',[id(800)]),e=>e.code==='42501')
 await db.exec(fs.readFileSync('supabase/rollbacks/20260927028000_private_group_read_snapshot.sql','utf8'));await db.exec(snapshotSql);assert.equal((await snap(2)).group.members.length,4)
+// 幹事メンバー削除後も共通プロフィールから表示名を解決し、staff以外へ投影しない。
+const organizerMigration = fs.readFileSync('supabase/migrations/20260927094830_private_group_organizer_display_name.sql','utf8')
+await db.exec('ALTER TABLE customers ADD COLUMN organization_id uuid')
+await db.exec(organizerMigration)
+await db.query('INSERT INTO customers(id,user_id,nickname,name,organization_id) VALUES($1,$2,$3,$4,NULL)',[id(901),id(1),'共通幹事','実名'])
+assert.equal((await snap(3)).group.organizer_display_name,'共通幹事')
+assert.equal((await list(3,'staff',10)).find(g=>g.id===id(100)).organizer_display_name,'共通幹事')
+await db.query('DELETE FROM private_group_members WHERE id=$1',[id(101)])
+assert.equal((await snap(3)).group.organizer_display_name,'共通幹事')
+for (const actor of [1,2]) assert.equal((await snap(actor)).group.organizer_display_name,null)
+assert.equal((await snap(null,'fixture-invite')).group.organizer_display_name,null)
+assert.equal((await snap(4,'fixture-invite')).group.organizer_display_name,null)
+for (const actor of [null,4,5,8,999]) await assert.rejects(snap(actor),e=>e.code==='42501')
+await db.query('UPDATE customers SET nickname=NULL,organization_id=$1 WHERE id=$2',[id(20),id(901)])
+assert.equal((await snap(3)).group.organizer_display_name,'実名')
+await db.query('DELETE FROM customers WHERE id=$1',[id(901)])
+assert.equal((await snap(3)).group.organizer_display_name,null)
+await db.query("INSERT INTO private_group_members(id,group_id,user_id,guest_name,is_organizer,status) VALUES($1,$2,$3,'幹事入力名',true,'joined')",[id(101),id(100),id(1)])
+assert.equal((await snap(3)).group.organizer_display_name,'幹事入力名')
+await db.exec(fs.readFileSync('supabase/rollbacks/20260927094830_private_group_organizer_display_name.sql','utf8'))
+assert.equal(Object.hasOwn((await snap(3)).group,'organizer_display_name'),false)
+await db.exec(organizerMigration)
+assert.equal((await snap(3)).group.organizer_display_name,'幹事入力名')
+console.log('PASS organizer: NULL/other-org profile, deleted member, nickname/name/member fallback, no profile, staff-only field, cross-org/inactive denied, rollback/reapply')
+// The production SELECT boundary must preserve preview/member/staff RPCs.
+await db.exec('CREATE TABLE org_scenario_survey_questions(id uuid); CREATE TABLE private_group_invitations(id uuid);')
+await db.exec(fs.readFileSync('supabase/migrations/20260927113000_private_group_direct_access_closure.sql','utf8'))
+for (const [actor,role,invite,level] of [[null,'anon','fixture-invite','preview'],[2,'authenticated',null,'member'],[3,'authenticated',null,'staff']]) {
+ await db.query("SELECT set_config('test.actor',$1,false)",[actor?id(actor):''])
+ await db.exec(`SET ROLE ${role}`)
+ try {
+  await assert.rejects(db.query('SELECT * FROM private_group_members'),e=>e.code==='42501')
+  assert.equal((await db.query('SELECT private_group_read_snapshot($1,$2) result',[id(100),invite])).rows[0].result.access_level,level)
+ } finally { await db.exec('RESET ROLE') }
+}
+// Confirmed performance comes from the current event, never the original proposal.
+await db.exec(`ALTER TABLE reservations ADD COLUMN schedule_event_id uuid;
+CREATE TABLE schedule_events(id uuid,organization_id uuid,date date,start_time time,end_time time,store_id uuid,venue text,is_cancelled boolean);
+CREATE TABLE stores(id uuid,organization_id uuid,name text);
+INSERT INTO schedule_events VALUES('${id(801)}','${id(10)}','2026-11-01','15:30','19:30',NULL,'会場',false);
+UPDATE reservations SET schedule_event_id='${id(801)}',status='confirmed' WHERE id='${id(800)}';
+UPDATE private_groups SET status='confirmed' WHERE id='${id(100)}';`)
+const confirmedMigration=fs.readFileSync('supabase/migrations/20260929213000_private_group_confirmed_performance.sql','utf8')
+await db.exec(confirmedMigration)
+for(const actor of [1,2,3]) {
+ const value=(await snap(actor)).group
+ assert.equal(value.confirmed_performance.start_time,'15:30:00')
+ assert.equal(value.confirmed_performance.date,'2026-11-01')
+ assert.equal(value.candidate_dates.length,1)
+}
+assert.equal((await snap(null,'fixture-invite')).group.confirmed_performance,null)
+await assert.rejects(snap(4),e=>e.code==='42501')
+await db.exec(`UPDATE schedule_events SET start_time='16:00',date='2026-11-02'`)
+assert.equal((await snap(2)).group.confirmed_performance.start_time,'16:00:00')
+assert.equal((await snap(2)).group.confirmed_performance.date,'2026-11-02')
+await db.exec(`UPDATE schedule_events SET organization_id='${id(20)}'`)
+assert.equal((await snap(2)).group.confirmed_performance,null)
+await db.exec(`UPDATE schedule_events SET organization_id='${id(10)}',is_cancelled=true`)
+assert.equal((await snap(2)).group.confirmed_performance,null)
+await db.exec(`UPDATE schedule_events SET is_cancelled=false;UPDATE reservations SET status='cancelled'`)
+assert.equal((await snap(2)).group.confirmed_performance,null)
+await db.exec(`UPDATE reservations SET status='confirmed'`)
+await db.exec(fs.readFileSync('supabase/rollbacks/20260929213000_private_group_confirmed_performance.sql','utf8'))
+assert.equal((await snap(2)).group.confirmed_performance,undefined)
+await db.exec(confirmedMigration)
+assert.equal((await snap(2)).group.confirmed_performance.start_time,'16:00:00')
+await db.exec(fs.readFileSync('supabase/migrations/20260929213100_private_group_confirmed_performance_edges.sql','utf8'))
+assert.equal((await snap(null,'fixture-invite')).group.confirmed_performance_access,'preview')
+await db.exec("UPDATE reservations SET status='no_show'")
+assert.equal((await snap(2)).group.confirmed_performance.start_time,'16:00:00')
+assert.equal((await snap(2)).group.confirmed_performance_access,'authorized')
+console.log('PASS confirmed schedule: organizer/member/staff, original proposals retained, live changes, preview/foreign org/cancelled protected, rollback/reapply')
 await db.close();console.log('PASS snapshot: preview minimal, member contacts private, spoofed member denied, chat membership, rollback/reapply; actual guest validator valid/invalid/expired tokens and anon role')

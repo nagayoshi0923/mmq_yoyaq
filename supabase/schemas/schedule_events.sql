@@ -65,3 +65,5 @@ CREATE INDEX idx_schedule_events_scenario_master_id ON public.schedule_events US
 CREATE INDEX idx_schedule_events_store_date ON public.schedule_events USING btree (store_id, date);
 CREATE INDEX idx_schedule_events_slot ON public.schedule_events USING btree (date, store_id, time_slot, organization_id) WHERE (is_cancelled = false);
 CREATE INDEX idx_schedule_events_venue ON public.schedule_events USING btree (venue);
+
+CREATE TRIGGER sync_event_datetime_to_current_bookings AFTER UPDATE OF date,start_time,end_time,time_slot ON public.schedule_events FOR EACH ROW EXECUTE FUNCTION public.sync_event_datetime_to_current_bookings();

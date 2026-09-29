@@ -1,3 +1,4 @@
+import { candidateOrdersFromIndexes, hasUnresolvedCandidateIndexes } from '@/lib/gmCandidateSelection'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -85,6 +86,10 @@ export function RequestCard({
         )}
       </CardHeader>
       <CardContent className="md:pt-0">
+        {hasUnresolvedCandidateIndexes(request.candidate_datetimes?.candidates || [], request.available_candidates || []) && (
+          <p role="status" className="mb-3 text-sm text-amber-700">保存済みの回答に対応する候補が見つかりません。候補日時を確認して、選び直してください。</p>
+        )}
+
         <div className="space-y-3">
           {/* 候補日時選択 */}
           <CandidateSelector
@@ -203,7 +208,7 @@ export function RequestCard({
                     <>
                       <CheckCircle2 className="w-4 h-4 text-green-600" />
                       <span className="text-green-800">
-                        回答済み：候補{(request.available_candidates || []).map(c => c + 1).join(', ')}が出勤可能
+                        回答済み：候補{candidateOrdersFromIndexes(request.candidate_datetimes?.candidates || [], request.available_candidates || []).join(', ')}が出勤可能
                       </span>
                     </>
                   ) : (

@@ -6,7 +6,7 @@ import { SurveyResponsesView } from './SurveyResponsesView'
 import { readPrivateGroupByReservation, readPrivateGroupSurveyResponses, type PrivateGroupSnapshot } from '@/lib/privateGroupRead'
 vi.mock('@/lib/privateGroupRead', () => ({ readPrivateGroupByReservation: vi.fn(), readPrivateGroupSurveyResponses: vi.fn() }))
 vi.mock('@/lib/groupSurveySettings', () => ({ getGroupSurveySettings: vi.fn(async () => ({ survey_enabled: true, org_scenario_id: 'scenario' })) }))
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [{ id: 'q', question_text: '質問', question_type: 'text', options: [], is_required: false }], error: null }) }) }) }) } }))
+vi.mock('@/lib/surveyQuestionSettings', () => ({ readSurveyQuestionSettings: vi.fn(async () => ({ revision: 'loaded', questions: [{ id: 'q', question_text: '質問', question_type: 'text', options: [], is_required: false }] })) }))
 const snapshot = (id: string) => ({ group: { id, members: [{ id: 'member', guest_name: 'ニックネーム未設定', staff_display_name: id }] } }) as unknown as PrivateGroupSnapshot
 let root: Root
 let container: HTMLDivElement

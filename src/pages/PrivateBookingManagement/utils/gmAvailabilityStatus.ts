@@ -45,9 +45,9 @@ export function isGmMarkedAvailable(gm: GmResponseLike): boolean {
  */
 export function isGmAvailableForCandidate(
   gm: GmResponseLike,
-  candidateIndexZeroBased: number
+  candidateIndexZeroBased: number | null
 ): boolean {
-  if (!isGmMarkedAvailable(gm)) return false
+  if (candidateIndexZeroBased === null || candidateIndexZeroBased < 0 || !isGmMarkedAvailable(gm)) return false
   const cands = gm.available_candidates
   if (Array.isArray(cands) && cands.length > 0) {
     return cands.includes(candidateIndexZeroBased)

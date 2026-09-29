@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { act } from 'react'
+import { webcrypto } from 'node:crypto'
+Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn(), from: vi.fn() }))
-vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }))
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), toast: vi.fn(), from: vi.fn(), cancel: vi.fn(), invoke: vi.fn(), success: vi.fn(), warning: vi.fn() }))
+vi.mock('@/lib/supabase', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from, functions: { invoke: mocks.invoke } } }))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'actor' } }) }))
 vi.mock('@/hooks/useOrganization', () => ({ useOrganization: () => ({ organizationId: 'org' }) }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: () => false }) }))
-vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast } }))
+vi.mock('@/utils/toast', () => ({ showToast: { error: mocks.toast, success: mocks.success, warning: mocks.warning } }))
+vi.mock('@/lib/reservationApi', () => ({ reservationApi: { cancel: mocks.cancel } }))
 import { useBookingApproval } from './useBookingApproval'
 let root: Root
 const result = { current: undefined as unknown as ReturnType<typeof useBookingApproval> }
@@ -52,6 +56,40 @@ describe('貸切承認と通知', () => {
       return query
     })
   })
+  const approvalArgs = ['request', { candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] } }, 'gm', null, 'store', 1, []] as unknown as Parameters<ReturnType<typeof useBookingApproval>['handleApprove']>
+  it('通信再試行は同じ操作番号を使い、同時クリックはRPCを増やさない', async () => {
+    sessionStorage.clear()
+    let resolveRpc!: (value: unknown) => void
+    mocks.rpc.mockImplementationOnce(() => new Promise(resolve => { resolveRpc = resolve }))
+    const onSuccess = vi.fn()
+    await render(onSuccess)
+    let first!: Promise<unknown>
+    await act(async () => {
+      first = result.current.handleApprove(...approvalArgs)
+      await vi.waitFor(() => expect(resolveRpc).toBeTypeOf('function'))
+      const duplicate = await result.current.handleApprove(...approvalArgs)
+      expect(duplicate.success).toBe(false)
+      resolveRpc({data:null,error:{message:'network failure'}})
+      await first
+    })
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    const operationId = mocks.rpc.mock.calls[0][1].p_request_id
+    mocks.rpc.mockResolvedValueOnce({data:{schedule_event_id:'event',replayed:true},error:null})
+    await act(async () => { expect((await result.current.handleApprove(...approvalArgs)).success).toBe(true) })
+    expect(mocks.rpc.mock.calls[1][1].p_request_id).toBe(operationId)
+    expect(onSuccess).toHaveBeenCalledOnce()
+    expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+  it('承認済みの一覧更新失敗を承認失敗にせず、操作番号を保持する', async () => {
+    sessionStorage.clear()
+    mocks.rpc.mockResolvedValue({data:{schedule_event_id:'event',replayed:true},error:null})
+    await render(vi.fn().mockRejectedValue(new Error('refresh failed')))
+    await act(async () => { expect((await result.current.handleApprove(...approvalArgs)).success).toBe(true) })
+    const operationId = mocks.rpc.mock.calls[0][1].p_request_id
+    await act(async () => { expect((await result.current.handleApprove(...approvalArgs)).success).toBe(true) })
+    expect(mocks.rpc.mock.calls[1][1].p_request_id).toBe(operationId)
+    expect(mocks.warning).toHaveBeenCalledWith(expect.stringContaining('承認は保存済み'))
+  })
   it('30分の間隔を画面の60分固定判定で拒否せず、設定を使う承認RPCへ渡す', async () => {
     mocks.from.mockImplementation((table: string) => {
       const query: Record<string, unknown> = {}
@@ -69,7 +107,7 @@ describe('貸切承認と通知', () => {
         candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
       } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
     })
-    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notice', expect.anything())
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notifications', expect.anything())
     expect(response?.error).toContain('設定された準備時間')
     expect(response?.error).not.toContain('60分')
   })
@@ -87,11 +125,59 @@ describe('貸切承認と通知', () => {
         candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-11', startTime: '14:00', endTime: '17:00', timeSlot: 'afternoon' }] },
       } as Parameters<typeof result.current.handleApprove>[1], 'gm', null, 'store', 1, [])
     })
-    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notice', expect.objectContaining({ p_reservation_id: 'request' }))
+    expect(mocks.rpc).toHaveBeenCalledWith('approve_private_booking_with_notifications', expect.objectContaining({ p_reservation_id: 'request' }))
     expect(response?.success).toBe(false)
     expect(response?.error).toContain(message)
     expect(onSuccess).not.toHaveBeenCalled()
     expect(mocks.from.mock.calls.map(call => call[0])).toEqual(['schedule_blocked_slots', 'schedule_events_staff_view'])
+    expect(result.current.submitting).toBe(false)
+  })
+})
+
+
+describe('貸切却下の一括保存と送信結果', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    mocks.cancel.mockResolvedValue({ id: 'request', status: 'cancelled' })
+    mocks.invoke.mockResolvedValue({ data: { success: true }, error: null })
+    mocks.from.mockImplementation(() => { throw new Error('却下画面から直接DB操作しない') })
+  })
+  async function prepare(onSuccess = vi.fn()) {
+    await render(onSuccess)
+    await act(() => result.current.handleRejectClick('request'))
+    act(() => result.current.setRejectionReason('編集した本文'))
+    vi.clearAllMocks()
+    return onSuccess
+  }
+  it('一括保存へ全文を渡し、ブラウザから別メールを送らず送信予定として表示する', async () => {
+    const refreshed = await prepare()
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.cancel).toHaveBeenCalledWith('request', expect.any(String), expect.objectContaining({ privateRejectionBody: '編集した本文', skipGroupCancel: true, cancelPrivateEvent: true }))
+    expect(mocks.from).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled()
+    expect(mocks.invoke).not.toHaveBeenCalled()
+    expect(mocks.success).toHaveBeenLastCalledWith('貸切リクエストを却下しました', expect.stringContaining('送信予定を保存'))
+    expect(refreshed).toHaveBeenCalledOnce(); expect(result.current.submitting).toBe(false)
+  })
+  it('保存失敗ならメールを送らず編集本文を保持する', async () => {
+    await prepare(); mocks.cancel.mockRejectedValue(new Error('保存失敗'))
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.invoke).not.toHaveBeenCalled(); expect(mocks.success).not.toHaveBeenCalled()
+    expect(result.current.rejectionReason).toBe('編集した本文'); expect(mocks.toast).toHaveBeenCalled()
+    expect(result.current.submitting).toBe(false)
+  })
+  it.each([{ data: { success: false }, error: null }, { data: null, error: new Error('通信失敗') }])('ブラウザの送信サービスが失敗していても別送信せず、保存済み予定を使う', async response => {
+    await prepare(); mocks.invoke.mockResolvedValue(response)
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.invoke).not.toHaveBeenCalled(); expect(mocks.warning).not.toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
+    expect(mocks.success).not.toHaveBeenCalledWith('却下メールを送信しました')
+    expect(result.current.showRejectDialog).toBe(false)
+  })
+  it('送信例外と再取得失敗でも処理中を解除し保存済みと伝える', async () => {
+    await prepare(vi.fn().mockRejectedValue(new Error('再取得失敗')))
+    mocks.invoke.mockRejectedValue(new Error('送信失敗'))
+    await act(() => result.current.handleRejectConfirm())
+    expect(mocks.invoke).not.toHaveBeenCalled(); expect(mocks.warning).not.toHaveBeenCalled(); expect(mocks.toast).not.toHaveBeenCalled()
     expect(result.current.submitting).toBe(false)
   })
 })

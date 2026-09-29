@@ -1,7 +1,7 @@
 import { useOperatingSettings } from '@/hooks/useOperatingSettings'
 import { SettingSourceControls } from '@/components/settings/SettingSourceControls'
 import { SETTING_DEFAULTS } from '../../../../../supabase/functions/_shared/setting-defaults'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -39,7 +39,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { supabase } from '@/lib/supabase'
+import { listSurveyQuestionSources, readSurveyQuestionSettings } from '@/lib/surveyQuestionSettings'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -643,7 +643,7 @@ interface ScenarioWithSurvey {
   questionCount: number
 }
 
-function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMasterId }: ImportQuestionsDialogProps) {
+export function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMasterId }: ImportQuestionsDialogProps) {
   const [scenarios, setScenarios] = useState<ScenarioWithSurvey[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -651,87 +651,49 @@ function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMa
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const previewRequest = useRef(0)
   useEffect(() => {
+    let cancelled = false
+    previewRequest.current += 1
+    setSelectedId(null)
+    setPreviewQuestions([])
+    setPreviewError(null)
     if (!open) return
-    loadScenarios()
-  }, [open])
-
-  const loadScenarios = async () => {
     setLoading(true)
-    try {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) return
-
-      const { data: orgScenarios } = await supabase
-        .from('organization_scenarios')
-        .select('id, scenario_master_id, survey_enabled, scenario_masters(title)')
-        .eq('organization_id', orgId)
-        .eq('survey_enabled', true)
-
-      if (!orgScenarios || orgScenarios.length === 0) {
-        setScenarios([])
-        setLoading(false)
-        return
+    setLoadError(null)
+    void (async () => {
+      try {
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) throw new Error('組織を確認できませんでした')
+        const sources = await listSurveyQuestionSources(orgId)
+        if (!cancelled) setScenarios(sources.filter(s => s.id !== currentScenarioMasterId))
+      } catch (err) {
+        logger.error('シナリオ一覧取得エラー:', err)
+        if (!cancelled) { setScenarios([]); setLoadError('コピー元を取得できませんでした。閉じてから開き直してください。') }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-
-      const orgScenarioIds = orgScenarios.map(os => os.id)
-      const { data: questionCounts } = await supabase
-        .from('org_scenario_survey_questions')
-        .select('org_scenario_id')
-        .in('org_scenario_id', orgScenarioIds)
-
-      const countMap = new Map<string, number>()
-      questionCounts?.forEach(q => {
-        countMap.set(q.org_scenario_id, (countMap.get(q.org_scenario_id) || 0) + 1)
-      })
-
-      const result: ScenarioWithSurvey[] = orgScenarios
-        .filter(os => {
-          const count = countMap.get(os.id) || 0
-          if (count === 0) return false
-          if (os.scenario_master_id === currentScenarioMasterId) return false
-          return true
-        })
-        .map(os => ({
-          id: os.scenario_master_id,
-          title: (os.scenario_masters as any)?.title || '不明なシナリオ',
-          org_scenario_id: os.id,
-          questionCount: countMap.get(os.id) || 0,
-        }))
-        .sort((a, b) => a.title.localeCompare(b.title))
-
-      setScenarios(result)
-    } catch (err) {
-      logger.error('シナリオ一覧取得エラー:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+    })()
+    return () => { cancelled = true; previewRequest.current += 1 }
+  }, [open, currentScenarioMasterId])
 
   const loadPreview = async (orgScenarioId: string) => {
+    const request = ++previewRequest.current
     setSelectedId(orgScenarioId)
+    setPreviewQuestions([])
+    setPreviewError(null)
     setLoadingPreview(true)
     try {
-      const { data } = await supabase
-        .from('org_scenario_survey_questions')
-        .select('question_text, question_type, options, is_required, order_num')
-        .eq('org_scenario_id', orgScenarioId)
-        .order('order_num', { ascending: true })
-
-      if (data) {
-        setPreviewQuestions(data.map(q => ({
-          id: crypto.randomUUID(),
-          question_text: q.question_text,
-          question_type: q.question_type as SurveyQuestionFormData['question_type'],
-          options: q.options || [],
-          is_required: q.is_required,
-          order_num: q.order_num,
-        })))
-      }
+      const { questions } = await readSurveyQuestionSettings(orgScenarioId)
+      if (request !== previewRequest.current) return
+      setPreviewQuestions(questions.map(q => ({ ...q, id: crypto.randomUUID(), options: q.options || [] })))
     } catch (err) {
       logger.error('質問プレビュー取得エラー:', err)
+      if (request === previewRequest.current) setPreviewError('設問を取得できませんでした。コピー元を選び直してください。')
     } finally {
-      setLoadingPreview(false)
+      if (request === previewRequest.current) setLoadingPreview(false)
     }
   }
 
@@ -753,6 +715,8 @@ function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMa
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
+        ) : loadError ? (
+          <p role="alert" className="text-sm py-4">{loadError}</p>
         ) : scenarios.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -802,6 +766,8 @@ function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMa
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                   </div>
+                ) : previewError ? (
+                  <p role="alert" className="text-sm">{previewError}</p>
                 ) : (
                   <>
                     <div className="space-y-1 max-h-40 overflow-y-auto">

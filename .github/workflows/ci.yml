@@ -58,17 +58,25 @@ jobs:
         run: node scripts/test-unrecorded-gm-cost-db.mjs
 
       - name: Customer coupon stats DB regression
-        run: node scripts/test-customer-coupon-stats-db.mjs && node scripts/test-customer-contact-scope-db.mjs && node scripts/test-customer-play-history-access-db.mjs && node scripts/test-customer-play-history-closure-db.mjs && node scripts/test-private-group-read-auth-db.mjs && node scripts/test-private-group-snapshot-db.mjs && node scripts/test-private-group-confirm-characters-db.mjs && node scripts/test-private-group-notice-scope-db.mjs && node scripts/test-private-group-character-method-db.mjs && node scripts/test-private-group-member-removal-db.mjs && node scripts/test-private-group-preferred-stores-db.mjs && node scripts/test-private-booking-request-notice-db.mjs && node scripts/test-private-booking-request-notice-db.mjs --closure
+        run: node scripts/test-customer-search-db.mjs && node scripts/test-customer-reservation-amounts-db.mjs && node scripts/test-customer-coupon-stats-db.mjs && node scripts/test-customer-contact-scope-db.mjs && node scripts/test-customer-play-history-access-db.mjs && node scripts/test-customer-play-history-closure-db.mjs && node scripts/test-private-group-read-auth-db.mjs && node scripts/test-private-group-snapshot-db.mjs && node scripts/test-private-group-confirm-characters-db.mjs && node scripts/test-private-group-notice-scope-db.mjs && node scripts/test-private-group-character-method-db.mjs && node scripts/test-private-group-member-removal-db.mjs && node scripts/test-private-group-preferred-stores-db.mjs && node scripts/test-private-booking-request-notice-db.mjs && node scripts/test-private-booking-request-notice-db.mjs --closure
+
+      - name: Private group candidate atomic save
+        run: node scripts/test-private-group-candidate-add-db.mjs
 
       - name: Store public column boundary
         run: node scripts/test-store-public-columns.mjs
+      - name: Survey question settings database regression
+        run: node scripts/test-survey-question-settings-db.mjs && node scripts/test-private-group-direct-access-db.mjs
       - name: Duplicate unique constraint cleanup
         run: node scripts/test-duplicate-unique-constraints.mjs
+
+      - name: Event datetime atomic sync regression
+        run: node scripts/test-event-datetime-sync.mjs
       - name: GM response tenant integrity
-        run: node scripts/test-gm-response-org-integrity.mjs
+        run: node scripts/test-gm-response-org-integrity.mjs && node scripts/test-gm-response-candidate-guard.mjs
 
       - name: Shared Edge authentication boundary
-        run: node --test scripts/edge-security-boundary.test.mjs
+        run: node --test scripts/edge-security-boundary.test.mjs scripts/private-rejection-email-boundary.test.mjs
 
       - name: Cancelled recruitment database regressions
         run: node scripts/test-recruitment-cancelled-event-db.mjs
@@ -87,6 +95,15 @@ jobs:
 
       - name: JST date guard
         run: npm run check:jst-date
+
+      - name: Cancellation ownership and staff flags
+        run: node scripts/test-cancellation-owner-binding-db.mjs && node scripts/test-cancellation-group-notice-db.mjs && node scripts/test-cancellation-group-notice-db.mjs --closure && node scripts/test-plain-cancellation-staff-db.mjs && node scripts/test-customer-cancellation-policy-db.mjs && npx vitest run api/cancellation-flags-auth.test.ts api/cancellation-group-notice.test.ts api/customer-cancellation-policy.test.ts
+
+      - name: Private rejection authorization and state
+        run: node scripts/test-private-rejection-boundary-db.mjs && node scripts/test-private-rejection-atomic-db.mjs && TEST_REJECTION_DELIVERY=1 node scripts/test-private-rejection-atomic-db.mjs && node scripts/test-private-rejection-delivery-store.mjs && node scripts/test-private-rejection-cron.mjs && node --test scripts/private-rejection-worker-auth.test.mjs && npx vitest run src/lib/privateRejectionDelivery.test.ts src/pages/PrivateBookingManagement/hooks/useBookingApproval.test.tsx src/pages/PrivateBookingManagement/components/BookingRequestCard.delivery.test.tsx
+
+      - name: Unrequested private group cancellation
+        run: node scripts/test-unrequested-group-cancel-db.mjs && npx vitest run src/hooks/usePrivateGroup.test.tsx
 
       - name: Design token guard
         run: npm run check:design-tokens

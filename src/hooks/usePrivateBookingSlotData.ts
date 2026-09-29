@@ -256,7 +256,7 @@ export function usePrivateBookingSlotData({
           allStoreEvents,
           isCustomHoliday,
           privateBookingTimeSlots: resolvedTimeSlots,
-          scenarioTitle,
+          scenarioTitle: scenarioTitle ?? scenarioTiming.title ?? undefined,
         })
       }
       return map

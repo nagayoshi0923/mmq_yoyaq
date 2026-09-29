@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
 import { SurveyResponsesTab } from './SurveyResponsesTab'
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),success:vi.fn(),error:vi.fn()}))
+vi.mock('@/lib/surveyQuestionSettings',()=>({readSurveyQuestionSettings:async()=>({revision:'loaded',questions:[{id:'q',question_text:'質問',question_type:'text',options:[]}]})}))
 vi.mock('@/lib/privateGroupRead',()=>({
  readPrivateGroupByReservation:async()=>({group:{id:'g',organization_id:'org',scenario_master_id:'scenario',members:[{id:'m',guest_name:'公開名',staff_display_name:'管理画面名'}]}}),
  readPrivateGroupSurveyResponses:async()=>[],readPrivateGroupMessageHistory:async()=>[],

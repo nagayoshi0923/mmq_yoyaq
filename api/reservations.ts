@@ -1,17 +1,24 @@
-import { readGmResponses, readGmPendingCount } from './_lib/gmResponses.js'
+import { saveGmResponse } from './_lib/saveGmResponse.js'
+import { readGmResponses, readGmPendingCount, readGmReadiness } from './_lib/gmResponses.js'
 import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, createUserScopedClient, ApiError, type AuthUser } from './_lib/auth.js'
 import { recordEventHistory, fetchEventSnapshotServer } from './_lib/eventHistory.js'
 import { recordCancellationIntake } from './_lib/cancellation-payments/intake.js'
-import {
-  canCustomerSelfCancel,
-  resolveCancellationPolicy,
-  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
-  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
-  type CalculableCancellationPolicy,
-} from '../src/lib/cancellationPolicy.js'
+import { assertCustomerSelfCancelAllowed } from './_lib/customerCancellation.js'
+
+function groupCancellationError(error: { code?: string; message?: string } | null) {
+  if (error?.code === 'P0052') return { status: 400, message: 'キャンセル期限を過ぎているか、料金が発生するため、店舗へご連絡ください。' }
+  if (error?.code === 'P0053') return { status: 409, message: '予約時のキャンセル規定を確認できません。店舗へお問い合わせください。' }
+  if (error?.code === 'P0050' || error?.code === 'P0051') {
+    return { status: 409, message: '予約と貸切グループの紐づきが一致しません。取消は保存されていません。店舗管理者に確認してください。' }
+  }
+  if (error?.code === '55P03') {
+    return { status: 409, message: 'ほかの操作が進行中です。画面を更新してから、もう一度取消をお試しください。' }
+  }
+  return { status: 500, message: '予約と貸切グループのキャンセルに失敗しました。' }
+}
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
@@ -39,7 +46,7 @@ const CUSTOMER_SELECT_FIELDS =
 const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS = `${RESERVATION_SELECT_FIELDS}, customers(${CUSTOMER_SELECT_FIELDS})`
 
 const SCHEDULE_EVENT_EMBED_FOR_CANCEL =
-  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, is_cancelled, gms, store_id)'
+  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, is_cancelled, gms, store_id, category)'
 
 const RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS = `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_CANCEL}`
 
@@ -47,94 +54,6 @@ const SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL =
   'schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)'
 
 const RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS = `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL}`
-
-const CUSTOMER_CANCEL_BLOCKED_MESSAGE =
-  'キャンセル料金が発生する期間のため、マイページからのキャンセルはできません。店舗へご連絡ください。'
-
-type CancelScheduleEvent = {
-  date?: string | null
-  start_time?: string | null
-  store_id?: string | null
-  is_private_booking?: boolean | null
-  category?: string | null
-}
-
-/** 顧客セルフキャンセルの受付期限を超えていないか検証。スタッフはスキップ。 */
-async function assertCustomerSelfCancelAllowed(
-  user: AuthUser,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  reservation: any,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  if (user.role !== 'customer') return { ok: true }
-
-  const scheduleEventRaw = reservation.schedule_events
-  const scheduleEvent = (Array.isArray(scheduleEventRaw) ? scheduleEventRaw[0] : scheduleEventRaw) as
-    | CancelScheduleEvent
-    | null
-    | undefined
-
-  if (!scheduleEvent?.date || !scheduleEvent?.start_time) {
-    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-  }
-
-  const isPrivate = Boolean(
-    reservation.private_group_id
-      || scheduleEvent.is_private_booking
-      || scheduleEvent.category === 'private',
-  )
-
-  let settingsDeadlineHours = isPrivate
-    ? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
-    : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
-  const storeId = scheduleEvent.store_id || reservation.store_id
-  if (storeId && db) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: settingsData } = await (db as any)
-      .from('reservation_settings')
-      .select('cancellation_deadline_hours, private_cancellation_deadline_hours')
-      .eq('store_id', storeId)
-      .maybeSingle()
-    if (settingsData) {
-      settingsDeadlineHours = isPrivate
-        ? (settingsData.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS)
-        : (settingsData.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS)
-    }
-  }
-
-  const resolved = resolveCancellationPolicy(reservation)
-  if (resolved.status !== 'ready') {
-    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-  }
-
-  const policy: CalculableCancellationPolicy = resolved.source === 'legacy_default'
-    ? { ...resolved, deadlineHours: settingsDeadlineHours }
-    : resolved
-
-  const participantTotal = reservation.final_price
-    ?? reservation.total_price
-    ?? ((reservation.unit_price || 0) * (reservation.participant_count || 0))
-
-  try {
-    const allowed = canCustomerSelfCancel({
-      performanceDate: scheduleEvent.date,
-      performanceStartTime: scheduleEvent.start_time,
-      now: new Date(),
-      policy,
-      basisAmounts: {
-        participant_total: Number(participantTotal) || 0,
-        performance_total: Number(participantTotal) || 0,
-      },
-    })
-    if (!allowed) {
-      return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-    }
-  } catch (error) {
-    console.error('[reservations:cancel] customer self-cancel check failed:', error)
-    return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }
-  }
-
-  return { ok: true }
-}
 
 const RESERVATION_SUMMARY_SELECT_FIELDS =
   'schedule_event_id, date, venue, scenario, start_time, end_time, max_participants, current_reservations, available_seats, reservation_count'
@@ -184,6 +103,12 @@ async function routeGet(req: VercelRequest, res: VercelResponse, user: AuthUser)
   }
 
   switch (type) {
+    case 'staff-participation':
+      requireStaff(user)
+      return await handleStaffParticipation(req, res, user, false)
+    case 'gm-readiness':
+      requireStaff(user)
+      return res.status(200).json(await readGmReadiness(db!, user, req.query))
     case 'gm-pending-count':
       requireStaff(user)
       return res.status(200).json(await readGmPendingCount(db!, user))
@@ -400,10 +325,16 @@ async function routePost(req: VercelRequest, res: VercelResponse, user: AuthUser
   const action = (req.query.action as string | undefined) ?? 'create'
 
   switch (action) {
+    case 'gm-response':
+      if (!db) throw new ApiError(500, 'db unavailable')
+      return res.status(200).json(await saveGmResponse(db, user, req.body ?? {}))
     case 'create':
       // 顧客（ログイン済み）でも自分自身の予約は作成できる。
       // 権限細分化は RPC 内の auth.uid() ベースの組織境界チェックに任せる。
       return await handleCreate(req, res, user)
+    case 'sync-staff-participation':
+      requireStaff(user)
+      return await handleStaffParticipation(req, res, user, true)
     case 'create-staff-entry':
       requireStaff(user)
       return await handleCreateStaffEntry(req, res, user)
@@ -579,6 +510,21 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   return res.status(201).json(created)
 }
 
+async function handleStaffParticipation(req: VercelRequest, res: VercelResponse, user: AuthUser, save: boolean) {
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const eventId = save ? body.schedule_event_id : req.query.schedule_event_id
+  if (typeof eventId !== 'string') return res.status(400).json({ error: '公演IDが必要です' })
+  const client = createUserScopedClient(user.jwt)
+  // New RPCs are deployed before the frontend; organization and actor are derived from JWT in DB.
+  const { data, error } = await client.rpc(save ? 'sync_event_staff_participations' : 'get_event_staff_participations',
+    save ? { p_event_id: eventId, p_entries: body.entries, p_expected: body.expected, p_gms: body.gms, p_gm_roles: body.gm_roles, p_expected_staff: body.expected_staff } : { p_event_id: eventId })
+  if (error) {
+    const status = error.code === '42501' ? 403 : ['40001','55P03','23514'].includes(error.code) ? 409 : error.code === '22023' || error.code === '22P02' ? 400 : 500
+    return res.status(status).json({ error: status === 500 ? 'スタッフ参加の保存・取得に失敗しました' : error.message })
+  }
+  return res.status(200).json(data)
+}
+
 // スタッフ参加枠の予約（syncStaffReservations から呼ばれる）
 // 通常の create_reservation_with_lock_v2 は payment_method='staff'/reservation_source=staff_entry を扱えないため、
 // staff 専用の直接 INSERT エンドポイントとして提供する。
@@ -729,7 +675,8 @@ async function routePatch(req: VercelRequest, res: VercelResponse, user: AuthUse
       requireStaff(user)
       return await handleUpdate(req, res, user)
     case 'cancel-with-lock':
-      // 顧客自身の予約 or staff
+      // 予約だけの取消は店舗処理専用。顧客はグループ・通知も同期する通常経路へ。
+      requireStaff(user)
       return await handleCancelWithLock(req, res, user)
     case 'cancel-with-group-lock':
       return await handleCancelWithGroupLock(req, res, user)
@@ -838,7 +785,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
 
 // Billing failure is reported separately: seat release must not be rolled back or repeated.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function recordBillingForCancellation(user: AuthUser, reservation: any, requestReceivedAt: string): Promise<boolean> {
+async function recordBillingForCancellation(user: AuthUser, reservation: any, requestReceivedAt: string, organizerRejected = false): Promise<boolean> {
   if (!db || reservation.payment_method === 'staff') return false
   try {
     const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
@@ -847,7 +794,7 @@ async function recordBillingForCancellation(user: AuthUser, reservation: any, re
       eventDate: event?.date ?? '', startTime: event?.start_time ?? '',
       receivedAt: user.role === 'customer' ? requestReceivedAt : null,
       processedAt: new Date().toISOString(), actorId: user.userId,
-      previouslyCancelled: reservation.status === 'cancelled', organizerCancelled: event?.is_cancelled === true,
+      previouslyCancelled: reservation.status === 'cancelled', organizerCancelled: organizerRejected || event?.is_cancelled === true,
     })
     return false
   } catch {
@@ -929,7 +876,7 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
 
   const userClient = createUserScopedClient(user.jwt)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_lock', {
+  const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_notice', {
     p_reservation_id: id,
     p_customer_id: customerId ?? null,
     p_cancellation_reason: reason,
@@ -937,7 +884,8 @@ async function handleCancelWithGroupLock(req: VercelRequest, res: VercelResponse
 
   if (error) {
     console.error('[reservations:cancel-with-group-lock] RPC error:', error)
-    return res.status(500).json({ error: '予約+グループのキャンセルに失敗しました', detail: error.message })
+    const failure = groupCancellationError(error)
+    return res.status(failure.status).json({ error: failure.message, detail: error.message })
   }
   if (data !== true) {
     return res.status(500).json({ error: '予約+グループのキャンセルに失敗しました（DB 側）' })
@@ -970,6 +918,15 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   const skipGroupCancel = Boolean(body.skip_group_cancel)
   // true のとき、紐づく貸切公演(category='private')も中止にする（貸切リクエストの却下フロー）
   const cancelPrivateEvent = Boolean(body.cancel_private_event)
+  const rejectionBody = body.private_rejection_body
+  const atomicRejection = rejectionBody !== undefined
+  if (atomicRejection && (typeof rejectionBody !== 'string' || !rejectionBody.trim()
+    || rejectionBody.length > 20000 || !skipGroupCancel || !cancelPrivateEvent)) {
+    return res.status(400).json({ error: '貸切却下の本文と処理条件を確認してください' })
+  }
+
+  // 公演中止・グループ取消の省略は店舗側の却下フロー専用。予約変更前に認可する。
+  if (skipGroupCancel || cancelPrivateEvent) requireStaff(user)
 
   // 1) 予約 + customers + schedule_events を取得（マルチテナント境界チェックも兼ねる）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1001,7 +958,26 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
 
   // 2) RPC でキャンセル
   const userClient = createUserScopedClient(user.jwt)
-  if (skipGroupCancel) {
+  if (atomicRejection) {
+    const { data, error } = await userClient.rpc('reject_private_booking_with_delivery', {
+      p_reservation_id: id,
+      p_message_body: rejectionBody,
+    })
+    if (error || data !== true) {
+      console.error('[reservations:cancel] atomic rejection error:', error)
+      const rejectionErrors: Record<string, string> = {
+        PRIVATE_EVENT_HAS_OTHER_RESERVATIONS: 'この公演には別の有効な予約があります。予約一覧を確認してから却下してください',
+        PRIVATE_GROUP_RESERVATION_MISMATCH: '貸切グループに別の申込が紐付いています。再読込してください',
+        PRIVATE_GROUP_ORGANIZATION_MISMATCH: '申込と貸切グループの所属組織が一致しません',
+        REJECTION_NOTICE_CONFLICT: 'この却下は別の内容で保存済みです。通知履歴を確認してください',
+        RESERVATION_ALREADY_CANCELLED: 'この予約は別の理由で取消済みです。取消履歴を確認してください',
+      }
+      return res.status(error?.code === '42501' ? 403 : 409).json({
+        error: rejectionErrors[error?.message ?? ''] ?? '貸切却下を保存できませんでした。状態を再読込して確認してください',
+        detail: error?.message,
+      })
+    }
+  } else if (skipGroupCancel) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (userClient as any).rpc('cancel_reservation_with_lock', {
       p_reservation_id: id,
@@ -1017,17 +993,15 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     }
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_lock', {
+    const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_notice', {
       p_reservation_id: id,
       p_customer_id: reservation.customer_id ?? null,
       p_cancellation_reason: reason,
     })
     if (error || data !== true) {
       console.error('[reservations:cancel] cancel_reservation_and_group_with_lock error:', error, 'data:', data)
-      return res.status(500).json({
-        error: '予約+グループのキャンセルに失敗しました',
-        detail: error?.message,
-      })
+      const failure = groupCancellationError(error)
+      return res.status(failure.status).json({ error: failure.message, detail: error?.message })
     }
   }
 
@@ -1037,7 +1011,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   //      予約行を持たない手入力の貸切を巻き込むため）。店舗が能動的に却下した操作のときのみ中止する。
   //      ⚠ 予約キャンセルは既に確定しており巻き戻せないため、ここでの失敗は警告として返すだけにする。
   let eventCancelWarning = false
-  if (cancelPrivateEvent) {
+  if (cancelPrivateEvent && !atomicRejection) {
     try {
       const targetEventId = (reservation.schedule_event_id as string | null | undefined) ?? null
       if (!targetEventId) {
@@ -1078,33 +1052,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     }
   }
 
-  // 3) グループキャンセルの場合のみ、システムメッセージを送信
-  if (reservation.private_group_id && !skipGroupCancel) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: settings } = await (db as any)
-      .from('global_settings')
-      .select('system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
-      .eq('organization_id', reservation.organization_id)
-      .maybeSingle()
-
-    const title = settings?.system_msg_booking_cancelled_title || 'ご予約がキャンセルされました'
-    const messageBody =
-      settings?.system_msg_booking_cancelled_body ||
-      reason ||
-      '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).from('private_group_messages').insert({
-      group_id: reservation.private_group_id,
-      sender_type: 'system',
-      message: JSON.stringify({
-        type: 'system',
-        action: 'booking_cancelled',
-        title,
-        body: messageBody,
-      }),
-    })
-  }
+  // グループ取消の通知はRPC内で予約・グループと一括保存する。
 
   // 4) キャンセル後の予約レコード（プレーン）と、後段の Edge Function 呼び出しに必要な情報を返す
   const { data: cancelled, error: fetchAfterError } = await db
@@ -1120,7 +1068,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
   // schedule_event_history に remove_participant を記録（失敗してもキャンセルは成功させる）
   try {
     const scheduleEventId = reservation.schedule_event_id as string | null | undefined
-    if (scheduleEventId && reservation.organization_id) {
+    if (scheduleEventId && reservation.organization_id && !(atomicRejection && reservation.status === 'cancelled')) {
       const snapshot = await fetchEventSnapshotServer(
         db,
         scheduleEventId,
@@ -1193,7 +1141,7 @@ async function handleCancelOrchestrated(req: VercelRequest, res: VercelResponse,
     console.warn('[reservations:cancel] organizations slug fetch error:', orgErr)
   }
 
-  const billingWarning = await recordBillingForCancellation(user, reservation, requestReceivedAt)
+  const billingWarning = await recordBillingForCancellation(user, reservation, requestReceivedAt, atomicRejection)
 
   return res.status(200).json({
     reservation: cancelled,

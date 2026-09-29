@@ -1,3 +1,4 @@
+import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
 import { savePrivateGroupPreferredStores } from '@/lib/privateGroupPreferredStores'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
@@ -61,7 +62,7 @@ export function PrivateGroupInvite() {
   const { user } = useAuth()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
   const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null, existingMemberId)
-  const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
+  const { joinGroup, submitDateResponses, leaveGroup, cancelUnrequestedGroup, removeMember, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
 
@@ -921,12 +922,12 @@ export function PrivateGroupInvite() {
     if (!group) return
     setCancelling(true)
     try {
-      await updateGroupStatus(group.id, 'cancelled')
+      await cancelUnrequestedGroup(group.id)
       toast.success('グループをキャンセルしました')
       refetch()
     } catch (err) {
       logger.error('Failed to cancel group', err)
-      toast.error('キャンセルに失敗しました')
+      toast.error(err instanceof Error ? err.message : 'キャンセルに失敗しました')
     } finally {
       setCancelling(false)
     }
@@ -1421,6 +1422,8 @@ export function PrivateGroupInvite() {
           </div>
         </div>
 
+        <ConfirmedGroupSchedule group={group} />
+
         {/* オーバーレイシート群（候補日/招待/設定/店舗編集/予約申請） */}
         <GroupChatSheets
           showMobileDates={showMobileDates}
@@ -1483,6 +1486,8 @@ export function PrivateGroupInvite() {
           handleShareLine={handleShareLine}
           handleCopyUrl={handleCopyUrl}
           handleDeleteGroup={handleDeleteGroup}
+          handleCancelGroup={handleCancelGroup}
+          cancelling={cancelling}
           handleOpenBookingDialog={handleOpenBookingDialog}
           handleSubmit={handleSubmit}
         />
@@ -1499,7 +1504,7 @@ export function PrivateGroupInvite() {
               onGoToSchedule={() => openSheet('dates')}
               scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
-              performanceDate={group.candidate_dates?.[0]?.date}
+              performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
                 const { error } = await supabase.rpc('private_group_set_character_method', {
@@ -1594,7 +1599,7 @@ export function PrivateGroupInvite() {
               {/* 候補日程 */}
               {group.candidate_dates && group.candidate_dates.length > 0 && (
                 <div className="bg-white rounded-lg p-3 border">
-                  <h3 className="font-semibold text-sm mb-2">候補日程</h3>
+                  <h3 className="font-semibold text-sm mb-2">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '候補日程'}</h3>
                   <div className="space-y-2">
                     {group.candidate_dates.slice(0, 3).map((cd) => (
                       <div key={cd.id} className="text-xs">
@@ -1640,6 +1645,13 @@ export function PrivateGroupInvite() {
                 </div>
               </div>
 
+              {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                <Button variant="outline" size="sm" className="w-full text-xs"
+                  disabled={cancelling} onClick={handleCancelGroup}>
+                  {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
+                </Button>
+              )}
+
               {/* 主催者向け機能（日程調整中・再調整中の両方） */}
               {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
                 <div className="pt-2 border-t">
@@ -1668,7 +1680,7 @@ export function PrivateGroupInvite() {
         open={confirmAction?.kind === 'cancelGroup'}
         onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
         title="このグループをキャンセルしますか？"
-        message="本当にこのグループをキャンセルしますか？"
+        message="予約申込前のグループをキャンセルします。申込済みの予約がある場合は、この操作では取り消せません。"
         confirmLabel="キャンセルする"
         variant="destructive"
         onConfirm={handleConfirmCancelGroup}
@@ -1762,7 +1774,7 @@ export function PrivateGroupInvite() {
       open={confirmAction?.kind === 'cancelGroup'}
       onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
       title="このグループをキャンセルしますか？"
-      message="本当にこのグループをキャンセルしますか？"
+      message="予約申込前のグループをキャンセルします。申込済みの予約がある場合は、この操作では取り消せません。"
       confirmLabel="キャンセルする"
       variant="destructive"
       onConfirm={handleConfirmCancelGroup}

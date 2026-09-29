@@ -1,3 +1,4 @@
+import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
@@ -157,6 +158,7 @@ export function GroupInviteView({
       <NavigationBar currentPage="/" />
 
       <div className="container mx-auto max-w-lg px-4 py-6">
+        <ConfirmedGroupSchedule group={group} />
         {/* 戻るボタン */}
         <button
           onClick={() => navigate('/mypage')}
@@ -472,7 +474,7 @@ export function GroupInviteView({
             {/* 日程タブ */}
             <TabsContent value="schedule">
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold">参加可能な日時を選んでください</h3>
+                <h3 className="text-sm font-semibold">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '参加可能な日時を選んでください'}</h3>
                 {group.candidate_dates?.map((cd, index) => {
                   const dateResponses = cd.responses || []
                   const okCount = dateResponses.filter(r => r.response === 'ok').length
@@ -596,7 +598,7 @@ export function GroupInviteView({
                 onGoToSchedule={() => setActiveTab('schedule')}
                 scenarioId={group.scenario_master_id || undefined}
                 organizationId={group.organization_id || undefined}
-                performanceDate={group.candidate_dates?.[0]?.date}
+                performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
                 needsCharAssignmentChoice={needsCharAssignmentChoice}
                 onCharAssignmentMethodSelected={async (method) => {
                   const { error } = await supabase.rpc('private_group_set_character_method', {
@@ -705,7 +707,6 @@ export function GroupInviteView({
                       storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={refetch}
-                      organizerMemberId={organizerMember?.id}
                     />
                   )}
 
@@ -965,7 +966,7 @@ export function GroupInviteView({
               <SurveyResponseForm
                 groupId={group.id}
                 memberId={existingMemberId}
-                performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
+                performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
               />
             )

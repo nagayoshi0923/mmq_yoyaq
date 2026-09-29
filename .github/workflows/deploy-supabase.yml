@@ -7,6 +7,8 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/functions/**'
       - 'supabase/config.toml'
+      - 'scripts/supabase-release-scope.mjs'
+      - '.github/workflows/deploy-supabase.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -18,8 +20,18 @@ on:
           - staging
           - production
 
+      release_phase:
+        description: 'prepare-edges: DB準備後・有効化前にEdgeを配備 / complete: 全migration適用を確認'
+        required: true
+        default: 'complete'
+        type: choice
+        options:
+          - complete
+          - prepare-edges
+
 env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  MMQ_RELEASE_PHASE: ${{ github.event.inputs.release_phase || 'complete' }}
 
 jobs:
   # ============================================================================
@@ -86,6 +98,10 @@ jobs:
             "notify-shift-reminder-discord"
             "process-waitlist-queue"
             "process-booking-email-queue"
+            "process-private-rejection-deliveries"
+            "process-private-survey-deliveries"
+            "process-private-approval-deliveries"
+            "reconcile-private-delivery"
             "notify-waitlist"
             "check-performance-cancellation"
             "check-inventory-consistency"
@@ -213,6 +229,10 @@ jobs:
             "notify-shift-reminder-discord"
             "process-waitlist-queue"
             "process-booking-email-queue"
+            "process-private-rejection-deliveries"
+            "process-private-survey-deliveries"
+            "process-private-approval-deliveries"
+            "reconcile-private-delivery"
             "notify-waitlist"
             "check-performance-cancellation"
             "check-inventory-consistency"

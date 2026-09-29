@@ -1,3 +1,8 @@
+import type { ManualGmResponseBaseline } from '@/lib/gmResponseApi'
+import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
+import { DeliveryHistoryDialog } from './DeliveryHistoryDialog'
+import { approvalDeliveryLabel, type ApprovalDeliveryStatus } from '../hooks/useApprovalDeliveryStatus'
+import { rejectionDeliveryLabel, type RejectionDeliveryStatus } from '../hooks/useRejectionDeliveryStatus'
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,6 +26,7 @@ import { isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '
 import { cn } from '@/lib/utils'
 
 interface Candidate {
+  gm_response_index?: number | null
   order: number
   date: string
   timeSlot: string
@@ -30,6 +36,7 @@ interface Candidate {
 }
 
 interface GMResponse {
+  id: string
   staff_id?: string
   gm_name?: string
   response_status: string
@@ -62,6 +69,7 @@ interface BookingRequest {
   cancelled_at?: string
   notes?: string
   invite_code?: string
+  response_candidate_snapshot?: unknown[]
   candidate_datetimes?: {
     candidates: Candidate[]
     requestedStores?: Array<{ storeId: string; storeName: string }>
@@ -77,6 +85,12 @@ interface GMStaff {
 
 interface BookingRequestCardProps {
   request: BookingRequest
+  approvalDeliveries?: ApprovalDeliveryStatus[]
+  approvalDeliveryError?: boolean
+  rejectionDelivery?: RejectionDeliveryStatus
+  rejectionDeliveryError?: boolean
+  onRetryRejectionDelivery?: () => void
+  retryingRejectionDelivery?: boolean
   onResendDiscordNotification?: (request: { id: string; scenario_title: string }) => Promise<void>
   // GM個別の通知/再通知（未送信→送信、未回答→再送）
   onResendDiscordGm?: (request: { id: string; scenario_title: string }, staffId: string, gmName: string) => Promise<void>
@@ -95,11 +109,17 @@ interface BookingRequestCardProps {
   }>
   // GM手動入力
   gmList?: GMStaff[]
-  onGMResponseSave?: (requestId: string, staffId: string, availableCandidates: number[]) => Promise<void>
+  onGMResponseSave?: (requestId: string, staffId: string, availableCandidates: number[], baseline: ManualGmResponseBaseline) => Promise<void>
 }
 
 export const BookingRequestCard = ({
   request,
+  approvalDeliveries,
+  approvalDeliveryError,
+  rejectionDelivery,
+  rejectionDeliveryError,
+  onRetryRejectionDelivery,
+  retryingRejectionDelivery,
   onResendDiscordNotification,
   onResendDiscordGm,
   selectedCandidateOrder,
@@ -115,6 +135,7 @@ export const BookingRequestCard = ({
   const [resending, setResending] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
   const [showGMEntry, setShowGMEntry] = useState(false)
+  const [manualRequest, setManualRequest] = useState<BookingRequest | null>(null)
   const [manualStaffId, setManualStaffId] = useState('')
   const [manualCandidates, setManualCandidates] = useState<Set<number>>(new Set())
   const [savingGM, setSavingGM] = useState(false)
@@ -159,7 +180,16 @@ export const BookingRequestCard = ({
                 承認: {request.approver_name}{request.approved_at ? ` ・ ${formatDateTime(request.approved_at)}` : ''}
               </span>
             )}
-            {request.status === 'cancelled' && (
+            {['confirmed','gm_confirmed','checked_in','completed','cancelled'].includes(request.status) && <DeliveryHistoryDialog reservationId={request.id} />}
+        {approvalDeliveryError && <p className="text-sm text-destructive" role="alert">確定通知の送信状況を取得できません。再読み込みしてください。</p>}
+        {!approvalDeliveryError && approvalDeliveries && approvalDeliveries.length > 0 && (
+          <div className="space-y-1 text-sm" aria-label="確定通知の送信状況">
+            {approvalDeliveries.map(delivery => <p key={delivery.id} className={['failed','uncertain'].includes(delivery.status) ? 'text-destructive' : 'text-muted-foreground'}>
+              {approvalDeliveryLabel(delivery)}
+            </p>)}
+          </div>
+        )}
+        {request.status === 'cancelled' && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {request.approver_name ? 'キャンセル' : '却下'}: {request.canceller_name || '不明'}
                 {request.cancelled_at ? ` ・ ${formatDateTime(request.cancelled_at)}` : ''}
@@ -168,6 +198,16 @@ export const BookingRequestCard = ({
           </div>
         </div>
 
+        {request.status === 'cancelled' && (rejectionDeliveryError || rejectionDelivery) && (
+          <p className="mt-2 text-sm text-muted-foreground" role="status">
+            {rejectionDeliveryError ? 'メール送信状況を取得できません。時間を置いて再読み込みしてください。' : rejectionDeliveryLabel(rejectionDelivery!.status)}
+          </p>
+        )}
+        {!rejectionDeliveryError && rejectionDelivery?.can_retry && onRetryRejectionDelivery && (
+          <Button variant="outline" size="sm" className="mt-2" disabled={retryingRejectionDelivery} onClick={onRetryRejectionDelivery}>
+            登録済み連絡先でメールを再試行
+          </Button>
+        )}
         {/* ── サマリー1行 ── */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-muted-foreground">
           <span>#{request.reservation_number}</span>
@@ -258,6 +298,7 @@ export const BookingRequestCard = ({
                       className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
                       onClick={() => {
                         setShowGMEntry(v => !v)
+                        setManualRequest(request)
                         setManualStaffId('')
                         setManualCandidates(new Set())
                       }}
@@ -295,7 +336,7 @@ export const BookingRequestCard = ({
                         {isUnsent && <span className="text-red-500 font-medium">未送信</span>}
                         {isUnanswered && <span className="text-amber-600">未回答</span>}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
-                          <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
+                          <span className="text-purple-500">({candidates!.map(i => (request.candidate_datetimes?.candidates || []).find(c => candidateResponseIndex(c, (request.candidate_datetimes?.candidates || [])) === i)?.order ?? '要確認').join(',')})</span>
                         )}
                         {/* 個別通知ボタン: 未送信→「通知」/ 未回答→「再通知」 */}
                         {onResendDiscordGm && isWaitingStatus && !responded && response.staff_id && (
@@ -328,7 +369,7 @@ export const BookingRequestCard = ({
                     ))}
                   </select>
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    {request.candidate_datetimes?.candidates?.map((c, idx) => (
+                    {manualRequest?.candidate_datetimes?.candidates?.map((c, idx) => (
                       <label key={idx} className="flex items-center gap-1 text-xs cursor-pointer">
                         <input
                           type="checkbox"
@@ -340,7 +381,7 @@ export const BookingRequestCard = ({
                             setManualCandidates(next)
                           }}
                         />
-                        候補{c.order}
+                        候補{c.order} {formatDate(c.date)} {c.startTime}
                       </label>
                     ))}
                   </div>
@@ -355,7 +396,11 @@ export const BookingRequestCard = ({
                         if (!manualStaffId || !onGMResponseSave) return
                         setSavingGM(true)
                         try {
-                          await onGMResponseSave(request.id, manualStaffId, [...manualCandidates])
+                          await onGMResponseSave(request.id, manualStaffId, [...manualCandidates], {
+                            candidates:manualRequest?.candidate_datetimes?.candidates || [],
+                            storedCandidates:manualRequest?.response_candidate_snapshot || [],
+                            responses:manualRequest?.gm_responses || [],
+                          })
                           setShowGMEntry(false)
                           setManualStaffId('')
                           setManualCandidates(new Set())
@@ -377,10 +422,13 @@ export const BookingRequestCard = ({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               候補日時{onSelectCandidate ? <span className="ml-1 font-normal normal-case text-purple-600">（タップして承認処理）</span> : ''}
             </p>
+            {request.candidate_datetimes?.candidates?.some(c => c.gm_response_index === null) && (
+              <p className="mb-2 text-xs text-amber-700">過去の候補日時を復元表示しています。GM回答との対応は要確認です。</p>
+            )}
             <div className="space-y-1">
               {request.candidate_datetimes?.candidates?.map((candidate) => {
-                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
-                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
+                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidateResponseIndex(candidate, (request.candidate_datetimes?.candidates || []))))
+                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidateResponseIndex(candidate, (request.candidate_datetimes?.candidates || [])))) ?? []
                 const isReservationConfirmed = request.status === 'confirmed'
                 // 確定後キャンセル: どの日程で確定していたかは candidate.status に残っている
                 const isCancelledAfterConfirm = request.status === 'cancelled' && !!request.approver_name

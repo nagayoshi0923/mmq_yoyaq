@@ -1,3 +1,6 @@
+import { saveGmResponse } from '@/lib/gmResponseApi'
+import { candidateIndexesFromOrders } from '@/lib/gmCandidateSelection'
+import { nextGmResponseStatus } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -32,7 +35,7 @@ export function useResponseSubmit({
    * 回答を送信
    */
   const handleSubmit = async (requestId: string, allUnavailable: boolean = false) => {
-    // UI上は1始まりだが、DBには0始まりで保存
+    // 画面の表示番号を、読込時の候補配列位置へ変換して保存する。
     const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
 
     // ⚠️ GM本人の既存予定と被る可能性がある候補を選んでいる場合は、送信前に確認
@@ -62,24 +65,16 @@ export function useResponseSubmit({
 
     try {
       const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
-      const availableCandidates = allUnavailable ? [] : selectedOrders.map(c => c - 1)
+      const request = requests.find(r => r.id === requestId)
+      if (!request) throw new Error('回答する依頼が見つかりません')
+      const availableCandidates = allUnavailable ? [] : candidateIndexesFromOrders(request.candidate_datetimes?.candidates || [], selectedOrders)
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
-      // GM回答を更新
-      const { error } = await supabase
-        .from('gm_availability_responses')
-        .update({
-          response_status: responseStatus,
-          available_candidates: availableCandidates,
-          responded_at: new Date().toISOString(),
-          notes: notes[requestId] || null
-        })
-        .eq('id', requestId)
-      
-      if (error) {
-        throw error
-      }
-      
+      await saveGmResponse({reservationId:request.reservation_id,staffId:request.staff_id,
+        candidates:request.candidate_datetimes?.candidates || [],
+        expectedResponse:{id:request.id,updated_at:request.updated_at},
+        availableCandidates,responseStatus,notes:notes[requestId] || null})
+
       responseSaved = true
 
       // 必要GM数が2人以上のシナリオは、同一候補で人数が揃いメイン／サブ役がカバーできるまで店舗確認待ちにしない
@@ -95,15 +90,7 @@ export function useResponseSubmit({
           const prevStatus = curRow.status
 
           const readyForStore = await isReservationReadyForStoreAfterGmResponses(request.reservation_id)
-          // validate_reservation_status_transition: gm_confirmed → pending_gm は不可のため、店側待ち済みは据え置き
-          let newStatus: string
-          if (readyForStore) {
-            newStatus = 'gm_confirmed'
-          } else if (prevStatus === 'gm_confirmed') {
-            newStatus = 'gm_confirmed'
-          } else {
-            newStatus = 'pending_gm'
-          }
+          const newStatus = nextGmResponseStatus(prevStatus, readyForStore)
 
           const updateData: Record<string, unknown> = {
             status: newStatus,
@@ -114,13 +101,15 @@ export function useResponseSubmit({
             p_reservation_id: request.reservation_id,
             p_updates: updateData,
           }
-          const { data: reservationResult, error: reservationError } = await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
+          const { data: reservationResult, error: reservationError } = newStatus === prevStatus
+            ? { data: { success: true }, error: null }
+            : await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
 
           if (reservationError || reservationResult?.success === false) {
             throw reservationError || new Error(reservationResult.error || '予約更新に失敗しました')
           } else if (!readyForStore && prevStatus !== 'gm_confirmed') {
             showToast.info(
-              '回答を保存しました。2人以上GMが必要な作品は、同一候補で必要人数が揃い、メイン／サブの両方を担える人が含まれるまで店舗確認待ちになりません。'
+              '回答を保存しました。同じ候補で必要人数とメイン・サブの担当条件が揃うまで、GM確認中として表示します。'
             )
           }
         }
@@ -130,7 +119,7 @@ export function useResponseSubmit({
       logger.error('送信エラー:', error)
       showToast.error(responseSaved
         ? '回答は保存済みですが、予約の状態確認・更新に失敗しました。再度送信してください。'
-        : '回答を保存できませんでした。再度お試しください。')
+        : error instanceof Error ? error.message : '回答を保存できませんでした。再度お試しください。')
     } finally {
       setSubmitting(null)
       if (responseSaved) onSubmitSuccess()

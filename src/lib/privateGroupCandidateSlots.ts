@@ -153,6 +153,7 @@ type PerStoreSlot = {
   key: 'morning' | 'afternoon' | 'evening'
   startMin: number
   endMin: number
+  dayEndMin: number
 }
 
 /**
@@ -221,6 +222,7 @@ function buildSlotsFromDayConfig(
       key,
       startMin,
       endMin: slotEnd,
+      dayEndMin: eveningEndCap,
     })
   }
 

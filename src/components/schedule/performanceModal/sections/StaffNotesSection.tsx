@@ -8,10 +8,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
-import { logger } from '@/utils/logger'
-import { getCurrentOrganizationId } from '@/lib/organization'
-import { ensureStaffReservation, removeStaffReservation } from '../staffReservationHelpers'
-import type { EventFormData, ScheduleEvent } from '@/types/schedule'
+import type { EventFormData, StaffParticipationReservation } from '@/types/schedule'
 import type { Staff as StaffType, Scenario } from '@/types'
 
 interface StaffNotesSectionProps {
@@ -22,9 +19,7 @@ interface StaffNotesSectionProps {
   scenarios: Scenario[]
   allAvailableStaff: StaffType[]
   staffParticipantsFromDB: string[]
-  setStaffParticipantsFromDB: Dispatch<SetStateAction<string[]>>
-  mode: 'add' | 'edit'
-  event?: ScheduleEvent | null
+  participationReservations?: StaffParticipationReservation[]
   setIsStaffModalOpen: Dispatch<SetStateAction<boolean>>
 }
 
@@ -37,9 +32,7 @@ export function StaffNotesSection({
   scenarios,
   allAvailableStaff,
   staffParticipantsFromDB,
-  setStaffParticipantsFromDB,
-  mode,
-  event,
+  participationReservations = [],
   setIsStaffModalOpen,
 }: StaffNotesSectionProps) {
   return (
@@ -103,6 +96,18 @@ export function StaffNotesSection({
               <div className="flex flex-wrap gap-1 mt-1">
                 {formData.gms.map((gm: string, index: number) => {
                   const role = formData.gmRoles?.[gm] || 'main'
+                  const staffId = staff.find(member => member.name === gm)?.id
+                  const participation = formData.staffParticipation?.entries.find(entry => entry.staff_id === staffId)
+                  const setParticipation = (value: string) => {
+                    if (!staffId) return
+                    setFormData(prev => ({ ...prev, staffParticipation: {
+                      expected: prev.staffParticipation?.expected ?? [],
+                      expectedStaff: prev.staffParticipation?.expectedStaff ?? {gms:[],gm_roles:{}},
+                      entries: [ ...(prev.staffParticipation?.entries ?? []).filter(entry => entry.staff_id !== staffId),
+                        ...(value ? [{ staff_id: staffId, mode: value === 'additional' ? 'additional' as const : 'included' as const,
+                          reservation_id: value === 'additional' ? (participation?.mode === 'additional' ? participation.reservation_id : null) : value }] : []) ],
+                    } }))
+                  }
                   // staff 役割は常に「参加 (緑)」に統一 (保存時 or role 変更時に予約も自動同期される)
                   // ボーダーは -400 系で背景 (薄色 dialog tone) からはっきり浮き上がるようにする
                   // main 役割はカテゴリ色 (CATEGORY_TONE) を inline style で適用
@@ -137,63 +142,30 @@ export function StaffNotesSection({
                           </span>
                           <div
                             role="button"
+                            aria-label={`${gm}を担当から外す`}
                             className="h-3 w-3 flex items-center justify-center rounded-full hover:bg-black/10 ml-0.5"
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation()
                               const removedGm = gm
-                              const removedRole = formData.gmRoles?.[removedGm]
                               const newGms = formData.gms.filter((g: string) => g !== removedGm)
                               const newRoles = { ...formData.gmRoles }
                               delete newRoles[removedGm]
                               setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
-                              // role が staff だったなら、対応する予約を削除
-                              if (mode === 'edit' && event?.id && removedRole === 'staff') {
-                                try {
-                                  await removeStaffReservation(event.id, removedGm)
-                                  setStaffParticipantsFromDB(prev => prev.filter(n => n !== removedGm))
-                                } catch (err) {
-                                  logger.error('スタッフ参加予約の削除に失敗:', err)
-                                }
-                              }
                             }}
                           >
                             <X className="h-2.5 w-2.5" />
                           </div>
                         </div>
                       </PopoverTrigger>
-                      <PopoverContent className="w-40 p-2" align="start">
+                      <PopoverContent className="w-64 p-2" align="start">
                         <div className="space-y-1.5">
                           <div className="space-y-0.5">
                             <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
                             <RadioGroup
                               value={role}
-                              onValueChange={async (value) => {
-                                const prevRole = formData.gmRoles?.[gm] || 'main'
-                                setFormData((prev: any) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))
-                                // 役割が staff になった瞬間に reservations へ INSERT
-                                // 役割が staff から外れた瞬間に対応する予約を DELETE
-                                if (mode === 'edit' && event?.id) {
-                                  try {
-                                    const orgId = await getCurrentOrganizationId()
-                                    const scenarioObj = scenarios.find(s => s.title === formData.scenario)
-                                    if (value === 'staff' && prevRole !== 'staff') {
-                                      await ensureStaffReservation({
-                                        eventId: event.id,
-                                        staffName: gm,
-                                        organizationId: orgId,
-                                        scenarioTitle: formData.scenario || '',
-                                        scenarioMasterId: scenarioObj?.id ?? null,
-                                        storeId: event.store_id ?? null,
-                                      })
-                                      setStaffParticipantsFromDB(prev => prev.includes(gm) ? prev : [...prev, gm])
-                                    } else if (prevRole === 'staff' && value !== 'staff') {
-                                      await removeStaffReservation(event.id, gm)
-                                      setStaffParticipantsFromDB(prev => prev.filter(n => n !== gm))
-                                    }
-                                  } catch (err) {
-                                    logger.error('スタッフ参加予約の同期に失敗:', err)
-                                  }
-                                }
+                              onValueChange={(value) => {
+                                // 予約の追加・解除は保存時だけ行う。閉じる操作では予約を変更しない。
+                                setFormData((prev: EventFormData) => ({ ...prev, gmRoles: { ...prev.gmRoles, [gm]: value } }))
                               }}
                               className="gap-0.5"
                             >
@@ -222,9 +194,20 @@ export function StaffNotesSection({
                           {role === 'sub' && <p className="text-[11px] text-blue-600 bg-blue-50 p-0.5 rounded">※サブGM給与適用</p>}
                           {role === 'reception' && <p className="text-[11px] text-orange-600 bg-orange-50 p-0.5 rounded">※受付（2,000円）</p>}
                           {role === 'staff' && (
-                            <p className="text-[11px] p-0.5 rounded text-green-600 bg-green-50">
-                              ※ 予約タブのスタッフ予約として自動追加されます
-                            </p>
+                            <div className="space-y-1">
+                              <Label htmlFor={`staff-seat-${index}`} className="text-xs">参加人数の扱い</Label>
+                              <select id={`staff-seat-${index}`} aria-label={`${gm}の参加人数の扱い`} className="w-full rounded border bg-white p-1 text-xs"
+                                value={participation?.mode === 'additional' ? 'additional' : participation?.reservation_id ?? ''}
+                                onChange={e => setParticipation(e.target.value)}>
+                                <option value="">選択してください</option>
+                                <option value="additional">追加の1席（人数を1名増やす）</option>
+                                {participationReservations.map(reservation => <option key={reservation.id} value={reservation.id}>
+                                  予約人数内：{reservation.label || reservation.reservation_number}（{reservation.participant_count}名）
+                                </option>)}
+                              </select>
+                              {formData.staffParticipation?.expected.some(entry => entry.staff_id === staffId && entry.needs_confirmation) && <p className="text-xs text-amber-700">予約の取消・人数変更などがあったため、参加人数の扱いを選び直してください。</p>}
+                              <p className="text-[11px] text-muted-foreground">幹事などの予約人数に含まれている場合は、その予約を選んでください。予約人数と料金は変更しません。</p>
+                            </div>
                           )}
                           {role === 'observer' && <p className="text-[11px] text-indigo-600 bg-indigo-50 p-0.5 rounded">※見学のみ</p>}
                         </div>

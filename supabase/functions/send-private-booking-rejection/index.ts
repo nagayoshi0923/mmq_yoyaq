@@ -30,32 +30,104 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  if (req.method !== 'POST') return errorResponse('POSTのみ利用できます', 405, corsHeaders)
+
   try {
-    // 🔒 認証・権限（管理者系のみ、匿名許可で Publishable Key 対応）
-    const authResult = await verifyAuth(req, ['admin', 'license_admin', 'owner'], { allowAnonymous: true })
+    const authResult = await verifyAuth(req)
     if (!authResult.success) {
       return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
     }
 
-    // Service Role Key を使用（Publishable Key 対応）
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      getServiceRoleKey()
-    )
-
-    // リクエストボディを取得
-    const rejectionData: PrivateBookingRejectionRequest = await req.json()
-
-    if (!rejectionData.organizationId) {
-      return errorResponse('organizationId is required', 400, corsHeaders)
+    const input: PrivateBookingRejectionRequest = await req.json()
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuid.test(input?.organizationId ?? '') || !uuid.test(input?.reservationId ?? '')) {
+      return errorResponse('組織と予約を指定してください', 400, corsHeaders)
+    }
+    if (typeof input.rejectionReason !== 'string' || input.rejectionReason.length > 20000
+      || (input.customEmailBody != null && (typeof input.customEmailBody !== 'string' || input.customEmailBody.length > 20000))) {
+      return errorResponse('メール本文が不正です', 400, corsHeaders)
     }
 
-    // 組織設定からメール設定を取得
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      getServiceRoleKey()
-    )
-    
+    const serviceClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', getServiceRoleKey())
+    const userClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', getAnonKey(), {
+      global: { headers: { Authorization: req.headers.get('Authorization')! } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
+    // 予約の個人情報・組織の送信設定を読む前に、DB440と同じ組織権限を確認する。
+    const [org, admin, staff] = await Promise.all([
+      userClient.rpc('get_user_organization_id'),
+      userClient.rpc('is_org_admin'),
+      serviceClient.from('staff').select('id').eq('user_id', authResult.user!.id)
+        .eq('organization_id', input.organizationId).eq('status', 'active').maybeSingle()
+    ])
+    if (org.error || admin.error || staff.error) {
+      return errorResponse('操作権限を確認できませんでした', 503, corsHeaders)
+    }
+    if (!(admin.data === true && org.data === input.organizationId) && !staff.data) {
+      return errorResponse('この組織の却下通知を送信する権限がありません', 403, corsHeaders)
+    }
+    const { data: reservation, error: reservationError } = await serviceClient.from('reservations')
+      .select('id,organization_id,status,cancelled_at,private_group_id,reservation_source,schedule_event_id,customer_email,customer_name,title,candidate_datetimes,customers(email,name)')
+      .eq('id', input.reservationId).eq('organization_id', input.organizationId).maybeSingle()
+    if (reservationError) return errorResponse('予約を確認できませんでした', 503, corsHeaders)
+    if (!reservation) return errorResponse('予約が見つかりません', 404, corsHeaders)
+    if (reservation.status !== 'cancelled') return errorResponse('却下処理が完了していません', 409, corsHeaders)
+
+    let isPrivate = !!reservation.private_group_id || reservation.reservation_source === 'web_private'
+    if (reservation.schedule_event_id) {
+      const { data: event, error } = await serviceClient.from('schedule_events')
+        .select('is_private_booking,category').eq('id', reservation.schedule_event_id)
+        .eq('organization_id', reservation.organization_id).maybeSingle()
+      if (error) return errorResponse('公演を確認できませんでした', 503, corsHeaders)
+      if (!event) return errorResponse('予約と公演の対応を確認してください', 409, corsHeaders)
+      isPrivate ||= event.is_private_booking === true || event.category === 'private'
+    }
+    if (!isPrivate) return errorResponse('貸切予約ではありません', 409, corsHeaders)
+    if (reservation.private_group_id) {
+      const { data: group, error } = await serviceClient.from('private_groups')
+        .select('reservation_id,status').eq('id', reservation.private_group_id)
+        .eq('organization_id', reservation.organization_id).maybeSingle()
+      if (error) return errorResponse('貸切グループを確認できませんでした', 503, corsHeaders)
+      if (!group || group.reservation_id !== reservation.id || group.status !== 'date_adjusting') {
+        return errorResponse('貸切の状態が変わっています。再読込してください', 409, corsHeaders)
+      }
+    }
+    // 新しい保存入口で作られた世代は永続ワーカーだけが送る。
+    // 古い画面が送信APIを呼んでも、同じメールを直接送信しない。
+    if (reservation.cancelled_at) {
+      const { data: delivery, error: deliveryError } = await serviceClient.from('private_booking_rejection_deliveries')
+        .select('status').eq('reservation_id', reservation.id).eq('organization_id', reservation.organization_id)
+        .eq('cancelled_at', reservation.cancelled_at).maybeSingle()
+      if (deliveryError) return errorResponse('送信記録を確認できませんでした', 503, corsHeaders)
+      if (delivery) return new Response(JSON.stringify({
+        success: delivery.status === 'sent', queued: ['pending', 'sending'].includes(delivery.status), deliveryStatus: delivery.status,
+        message: '却下済み一覧の送信状況を確認してください',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    const customer = Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers
+    const recipient = (reservation.customer_email || customer?.email || '').trim()
+    if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) {
+      return errorResponse('予約のメールアドレスを確認してください', 409, corsHeaders)
+    }
+    if (input.customerEmail != null && (typeof input.customerEmail !== 'string'
+      || input.customerEmail.trim().toLowerCase() !== recipient.toLowerCase())) {
+      return errorResponse('予約のメールアドレスと宛先が一致しません', 409, corsHeaders)
+    }
+    const rejectionData: PrivateBookingRejectionRequest = {
+      organizationId: reservation.organization_id,
+      reservationId: reservation.id,
+      customerEmail: recipient,
+      customerName: reservation.customer_name || customer?.name || 'お客様',
+      scenarioTitle: reservation.title || '',
+      rejectionReason: input.rejectionReason,
+      customEmailBody: input.customEmailBody,
+      candidateDates: Array.isArray(reservation.candidate_datetimes?.candidates)
+        ? reservation.candidate_datetimes.candidates : []
+    }
+    const escapeHtml = (value: string) => String(value).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]!)
+
     const emailSettings = rejectionData.organizationId 
       ? await getEmailSettings(serviceClient, rejectionData.organizationId)
       : null
@@ -100,7 +172,7 @@ serve(async (req) => {
       ${rejectionData.candidateDates.map((candidate, index) => `
       <tr>
         <td style="padding: 8px; border: 1px solid #e5e7eb; background-color: #f9fafb;">
-          候補${index + 1}: ${formatDate(candidate.date)} ${formatTime(candidate.startTime)} - ${formatTime(candidate.endTime)}
+          候補${index + 1}: ${formatDate(candidate.date)} ${escapeHtml(formatTime(candidate.startTime))} - ${escapeHtml(formatTime(candidate.endTime))}
         </td>
       </tr>
       `).join('')}
@@ -127,7 +199,7 @@ serve(async (req) => {
   <div style="background-color: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
     <h1 style="color: #6b7280; margin-top: 0; font-size: 24px;">貸切リクエストについて</h1>
     <p style="font-size: 16px; margin-bottom: 10px;">
-      ${rejectionData.customerName} 様
+      ${escapeHtml(rejectionData.customerName)} 様
     </p>
     <p style="font-size: 14px; color: #666;">
       この度は、貸切予約のリクエストをいただき、誠にありがとうございます。
@@ -140,7 +212,7 @@ serve(async (req) => {
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: #6b7280; width: 30%;">シナリオ</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; color: #1f2937;">${rejectionData.scenarioTitle}</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; color: #1f2937;">${escapeHtml(rejectionData.scenarioTitle)}</td>
       </tr>
       ${rejectionData.candidateDates && rejectionData.candidateDates.length > 0 ? `
       <tr>
@@ -155,7 +227,7 @@ serve(async (req) => {
 
   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
     <h3 style="color: #92400e; margin-top: 0; font-size: 16px;">ご連絡</h3>
-    <p style="margin: 0; color: #92400e; white-space: pre-line;">${rejectionData.rejectionReason}</p>
+    <p style="margin: 0; color: #92400e; white-space: pre-line;">${escapeHtml(rejectionData.rejectionReason)}</p>
   </div>
 
   <div style="background-color: #dbeafe; border-left: 4px solid #2563eb; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
@@ -229,7 +301,7 @@ MMQ
       const body = rejectionData.customEmailBody
       const htmlContent = body
         .split('\n')
-        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .map(line => `<p style="margin: 0.5em 0;">${line ? escapeHtml(line) : '&nbsp;'}</p>`)
         .join('\n')
 
       finalHtml = `<!DOCTYPE html>
@@ -259,7 +331,7 @@ MMQ
       // テキストをHTMLに変換
       const htmlContent = appliedTemplate
         .split('\n')
-        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .map(line => `<p style="margin: 0.5em 0;">${line ? escapeHtml(line) : '&nbsp;'}</p>`)
         .join('\n')
       
       finalHtml = `<!DOCTYPE html>

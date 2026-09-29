@@ -3,8 +3,6 @@
 issue の文面はそのまま AI（GitHub Actions の Claude / Codex）への指示書になる。
 この型が開発フロー全体の質を決める。
 
-> 同期注意: `.github/issue-groomer-prompt.md`（Discord 起票の自動整形）はこの型の部分実装。
-> この型を変えたら groomer 側も更新すること。
 
 ## タイトル
 

@@ -1,6 +1,6 @@
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
-import { getGmResponses } from '@/lib/gmResponseApi'
+import { getGmResponses, getGmReadiness } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -125,6 +125,7 @@ async function fetchRawBookingRequests(
     viewRowsResult,
     allGmResponsesResult,
     allCandidateDatesResult,
+    gmReadiness,
   ] = await Promise.all([
     Promise.resolve({ data: relatedGroups.flatMap(group => (group.members || []).filter(member => member.status === 'joined')), error: null }),
     (() => {
@@ -145,6 +146,7 @@ async function fetchRawBookingRequests(
     })(),
     getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
+    getGmReadiness(reservationsList.filter(r => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)).map(r => r.id)),
   ])
 
   // マップ構築
@@ -200,6 +202,7 @@ async function fetchRawBookingRequests(
 
     let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
     const currentCandidates = candidateDatetimes.candidates || []
+    candidateDatetimes = { ...candidateDatetimes, candidates: currentCandidates.map((candidate: any, index: number) => ({ ...candidate, gm_response_index: index })) }
     const originalCandidates = req.private_group_id
       ? (candidateDatesByGroupId.get(req.private_group_id) || [])
       : []
@@ -212,6 +215,7 @@ async function fetchRawBookingRequests(
           confirmedCandidate.timeSlot === cd.time_slot
         return {
           order: idx + 1,
+          gm_response_index: null,
           date: cd.date,
           timeSlot: cd.time_slot,
           startTime: cd.start_time || confirmedCandidate?.startTime || '10:00',
@@ -238,6 +242,7 @@ async function fetchRawBookingRequests(
       id: req.id,
       reservation_number: req.reservation_number || '',
       scenario_master_id: scenarioMasterId,
+      gm_team_ready: gmReadiness[req.id],
       required_gm_count: scenarioMasterId ? (gmCountByMasterId.get(scenarioMasterId) ?? 1) : 1,
       scenario_timing,
       scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',
@@ -245,6 +250,7 @@ async function fetchRawBookingRequests(
       customer_email: req.customer_email || '',
       customer_phone: req.customers?.phone || req.customer_phone || '',
       candidate_datetimes: candidateDatetimes,
+      response_candidate_snapshot: currentCandidates,
       participant_count: req.participant_count || 0,
       joined_member_count: pgId !== undefined && pgId !== null ? joinedN : undefined,
       scenario_player_count_range: scenarioMasterId ? playerRangeByMasterId.get(scenarioMasterId) ?? null : null,
@@ -263,12 +269,16 @@ async function fetchRawBookingRequests(
   })
 }
 
+// 読込中・読込失敗で data が無い間も同じ配列を返す。毎描画で新しい [] を返すと、
+// requests に依存する画面側の effect が setState を繰り返し再描画ループになる。
+const NO_REQUESTS: PrivateBookingRequest[] = []
+
 export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps) {
   const { isCustomHoliday } = useCustomHolidays()
   const queryClient = useQueryClient()
 
   const enabled = userId != null && userRole != null
-  const { data: rawRequests = [], isLoading: loading, isError, refetch } = useQuery<PrivateBookingRequest[]>({
+  const { data: rawRequests = NO_REQUESTS, isLoading: loading, isError, refetch } = useQuery<PrivateBookingRequest[]>({
     queryKey: enabled ? privateBookingKeys.list(userId!, userRole!) : ['private-bookings-disabled'],
     queryFn: () => fetchRawBookingRequests(userId!, userRole!),
     enabled,

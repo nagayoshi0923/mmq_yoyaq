@@ -95,7 +95,7 @@ export function PerformanceSummary({
             )}
           </div>
           <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground justify-start w-full">
-            <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{selectedScenario.duration}h</span>
+            <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{selectedScenario.duration}分</span>
             <span className="flex items-center gap-0.5">
               <Users className="w-3 h-3" />
               {showParticipants ? `${localCurrentParticipants}/${playerMax}` : `最大${playerMax}`}

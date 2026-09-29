@@ -139,7 +139,7 @@ export async function useCoupon(
 
 /**
  * 現在進行中の予約を取得（クーポン使用時の紐付け用）
- * 本日の公演で、開始3時間前〜終了1時間後の範囲のものを対象
+ * 本日以降の対象の確定予約を返す。利用条件は使用前にサーバーで確認する。
  * 通常予約、貸切公演（参加メンバー含む）、スタッフ予約の全てに対応
  */
 export async function getCurrentReservations(): Promise<Array<{

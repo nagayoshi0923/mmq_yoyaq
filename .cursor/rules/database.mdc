@@ -41,7 +41,7 @@ SELECT ポリシーは行単位。通過行の**全カラム**が読める。
 - anon 必須テーブルの権限を壊さない
 - schemas 同時更新 / live確認 / `test:rpcs`
 
-**anon SELECT 必須**: organizations, stores, scenario_masters, schedule_events, organization_scenarios, business_hours_settings, booking_notices, private_groups, private_group_members, private_group_candidate_dates, private_group_date_responses, private_group_messages
+**anon SELECT 必須**: organizations, stores, scenario_masters, schedule_events, organization_scenarios, business_hours_settings, booking_notices
 
 ## 運用の罠
 
@@ -49,3 +49,5 @@ SELECT ポリシーは行単位。通過行の**全カラム**が読める。
 - pg_cron の URL/Secret は `public.app_config` から（`current_setting()` はサイレント失敗）
 - Edge Secrets に `SUPABASE_` 接頭辞は使えない → `MMQ_SB_SECRET_KEY`
 - webhook系 Edge は `.github/workflows/deploy-supabase.yml` の `NO_VERIFY_JWT_FUNCTIONS` にも追加
+
+貸切グループ・参加者・候補・回答・メッセージ・設問・旧招待テーブルは認証付きSECURITY DEFINER RPC経由。ブラウザの直接権限を再付与しない。公開招待プレビューも専用RPCの最小情報だけを返す。

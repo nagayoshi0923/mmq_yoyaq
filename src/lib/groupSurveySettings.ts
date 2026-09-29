@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient'
+import { boundedBatches } from './boundedBatches'
 export interface GroupSurveySettings {
   org_scenario_id: string
   survey_enabled: boolean
@@ -14,10 +15,10 @@ export function getGroupSurveySettings(groupId: string, freeze = false): Promise
 }
 
 export async function getGroupsSurveySettings(groupIds: string[]): Promise<Record<string, GroupSurveySettings>> {
-  const result: Record<string, GroupSurveySettings> = {}
-  for (let offset = 0; offset < groupIds.length; offset += 50) {
-    const ids = groupIds.slice(offset, offset + 50).join(',')
-    Object.assign(result, await apiClient.get(`/api/schedule?type=group-survey-settings&group_ids=${encodeURIComponent(ids)}`))
-  }
-  return result
+  const pages = await boundedBatches([...new Set(groupIds)], 50, 3, async batch => {
+    const data = await apiClient.get<Record<string, GroupSurveySettings>>(`/api/schedule?type=group-survey-settings&group_ids=${encodeURIComponent(batch.join(','))}`)
+    if (!data || batch.some(id => !data[id])) throw new Error('一部のグループのアンケート設定を取得できませんでした')
+    return [data]
+  })
+  return Object.assign({}, ...pages)
 }

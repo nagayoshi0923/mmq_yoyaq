@@ -1,3 +1,5 @@
+import { saveGmResponse, type ManualGmResponseBaseline } from '@/lib/gmResponseApi'
+import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +26,8 @@ import { showToast } from '@/utils/toast'
 import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNotificationForGm } from '@/lib/api/privateBookingNotificationApi'
 
 // 分離されたコンポーネント
+import { useApprovalDeliveryStatus } from './hooks/useApprovalDeliveryStatus'
+import { useRejectionDeliveryStatus } from './hooks/useRejectionDeliveryStatus'
 import { BookingRequestCard } from './components/BookingRequestCard'
 import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
@@ -159,27 +163,29 @@ export function PrivateBookingManagement() {
   const [blockedSlotRows, setBlockedSlotRows] = useState<PrivateBookingBlockedSlotRow[]>([])
 
   // GM出欠手動記録ハンドラー
-  const handleGMResponseSave = async (requestId: string, staffId: string, availableCandidates: number[]) => {
+  const handleGMResponseSave = async (requestId: string, staffId: string, availableCandidates: number[], baseline: ManualGmResponseBaseline) => {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) { showToast.error('組織情報を取得できません'); return }
     const req = requests.find(r => r.id === requestId)
+    const displayedCandidates = baseline.candidates
+    const storedIndexes = availableCandidates.map(index => {
+      const candidate = displayedCandidates[index]
+      return candidate ? candidateResponseIndex(candidate, displayedCandidates) : null
+    })
+    if (!req || storedIndexes.some(index => index === null)) {
+      showToast.error('過去の候補との対応を確認できません。現在の候補日時を確認してください。')
+      throw new Error('候補との対応を確認できません')
+    }
     const gm = allGMs.find(g => g.id === staffId)
     const responseStatus = availableCandidates.length === 0 ? 'all_unavailable' : 'available'
-    const { error } = await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: orgId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_name: gm?.name || '',
-        response_status: responseStatus,
-        available_candidates: availableCandidates,
-        responded_at: new Date().toISOString(),
-        notes: '管理画面から手動入力',
-      }, { onConflict: 'reservation_id,staff_id' })
-    if (error) {
-      logger.error('GM出欠保存エラー:', error)
-      showToast.error('保存に失敗しました')
+    const previous = baseline.responses.find(r => r.staff_id === staffId)
+    try {
+      await saveGmResponse({reservationId:requestId,staffId,
+        candidates:baseline.storedCandidates,
+        expectedResponse:previous ? {id:previous.id,updated_at:previous.updated_at ?? null} : null,
+        availableCandidates:storedIndexes as number[],responseStatus,notes:'管理画面から手動入力'})
+    } catch(error) {
+      showToast.error(error instanceof Error ? error.message : '保存に失敗しました')
       throw error
     }
     showToast.success(`${gm?.name || 'GM'}の出欠を記録しました`)
@@ -300,7 +306,7 @@ export function PrivateBookingManagement() {
         // （選択候補なしのフォールバックのみ「いずれかの候補で対応可能」を使う）
         const isAvailable = availableGM
           ? selectedCandidate
-            ? isGmAvailableForCandidate(availableGM, selectedCandidate.order - 1)
+            ? isGmAvailableForCandidate(availableGM, candidateResponseIndex(selectedCandidate, candidates || []))
             : isGmMarkedAvailable(availableGM)
           : false
         const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))
@@ -374,7 +380,7 @@ export function PrivateBookingManagement() {
 
   useEffect(() => {
     if (!organizationId || !requests.length) {
-      setBlockedSlotRows([])
+      setBlockedSlotRows((rows) => (rows.length ? [] : rows))
       return
     }
     const allDates = [...new Set(
@@ -557,13 +563,6 @@ export function PrivateBookingManagement() {
     }
   }
 
-  // GMが回答済みかどうかを判定（1人以上が出勤可能な候補を選択している）
-  const isGMConfirmed = (r: PrivateBookingRequest): boolean => {
-    if (!r.gm_responses || r.gm_responses.length === 0) return false
-    // 1人以上のGMが出勤可能な候補を選択している場合はGM確認済み
-    return r.gm_responses.some((response) => isGmMarkedAvailable(response))
-  }
-  
   // ── 検索・絞り込み ─────────────────────────────────────
   // タブ分けの前に適用する＝各タブの件数バッジも絞り込み後の数になり、
   // 「探しているものがどのタブにいるか」が検索だけで分かる
@@ -621,15 +620,10 @@ export function PrivateBookingManagement() {
   }, [requests])
 
   // タブ分け
-  // GM確認中: pending/pending_gm かつ GM回答がまだない
-  const gmPendingRequests = visibleRequests.filter(r =>
-    (r.status === 'pending' || r.status === 'pending_gm') && !isGMConfirmed(r)
-  )
-  // 店舗承認待ち: gm_confirmed/pending_store、または pending/pending_gm でGM回答済み
-  const storePendingRequests = visibleRequests.filter(r =>
-    r.status === 'gm_confirmed' || r.status === 'pending_store' ||
-    ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
-  )
+  // 保存済みstatusだけでなく、在籍・資格・候補・人数の共通判定で作業キューを分ける。
+  const awaitingApproval = (r: PrivateBookingRequest) => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
+  const gmPendingRequests = visibleRequests.filter(r => awaitingApproval(r) && r.gm_team_ready !== true)
+  const storePendingRequests = visibleRequests.filter(r => awaitingApproval(r) && r.gm_team_ready === true)
   // 承認済み・却下済みタブは「動きがあった順」（承認・キャンセルなど直近に処理した
   // ものが上）に並べる。申込日順だと、古い申込を今処理したときにリストの奥へ
   // 消えてしまう感覚になるため（オーナー指示 2026-06-13）。
@@ -677,6 +671,8 @@ export function PrivateBookingManagement() {
           ? approvedRequests
           : visibleRequests
   const filteredRequests = applyLimit(baseRequests)
+  const approvalDeliveries = useApprovalDeliveryStatus(organizationId, filteredRequests.filter(r => ['confirmed','gm_confirmed','checked_in','completed'].includes(r.status)).map(r => r.id))
+  const rejectionDeliveries = useRejectionDeliveryStatus(organizationId, filteredRequests.filter(r => r.status === 'cancelled').map(r => r.id))
 
   if (loading || requestsError) {
     return (
@@ -845,6 +841,12 @@ export function PrivateBookingManagement() {
                   <BookingRequestCard
                     key={req.id}
                     request={req}
+                    approvalDeliveries={approvalDeliveries.data?.find(row => row.reservation_id === req.id)?.deliveries}
+                    approvalDeliveryError={['confirmed','gm_confirmed','checked_in','completed'].includes(req.status) && approvalDeliveries.isError}
+                    rejectionDelivery={rejectionDeliveries.data?.find(row => row.reservation_id === req.id)}
+                    rejectionDeliveryError={rejectionDeliveries.isError}
+                    onRetryRejectionDelivery={() => rejectionDeliveries.retry(req.id)}
+                    retryingRejectionDelivery={rejectionDeliveries.retrying}
                     onResendDiscordNotification={handleResendDiscordNotification}
                     onResendDiscordGm={handleResendDiscordGm}
                     gmList={allGMs}

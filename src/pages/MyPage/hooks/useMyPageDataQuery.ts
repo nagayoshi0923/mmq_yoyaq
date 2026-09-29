@@ -1,3 +1,5 @@
+import { fetchBatchedIds } from '@/lib/fetchBatchedIds'
+import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -108,7 +110,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       if (!customer) return { reservations: [], customerInfo: null, customerId: null, avatarUrl: null, stats: { participationCount: 0, points: 0 }, scheduleEvents: {}, orgSlugs: {}, orgNames: {}, scenarioImages: {}, scenarioSlugs: {}, scenarioInfo: {}, stores: {}, playedScenarios: [], playedOverrideIds: new Set(), privateGroups: [], ratingsMap: {} }
 
       const historySnapshot = customerPlayHistory.snapshot(customer.id)
-      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult] = await Promise.all([
+      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
         supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customer.id).order('requested_datetime', { ascending: false }).limit(50),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
@@ -120,12 +122,13 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         historySnapshot.then(history => ({ data: history.manual, error: null })),
         supabase.from('scenario_ratings').select('scenario_master_id, rating').eq('customer_id', customer.id),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
+        fetchPlayedReservations(customer.id),
       ])
 
       if (reservationResult.error) throw reservationResult.error
       const reservationData = reservationResult.data || []
 
-      // 本人/スタッフが「未体験に戻した」scenario_master_id（取得失敗時は空＝従来どおり全表示）
+      // 本人/スタッフが「未体験に戻した」scenario_master_id（取得失敗はクエリ全体を失敗にする）
       const playedOverrideIds = new Set<string>(
         (overridesResult.data || []).map((o: { scenario_master_id: string }) => o.scenario_master_id).filter(Boolean)
       )
@@ -134,21 +137,21 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const localRatingsMap: Record<string, number> = {}
       ratingsResult.data?.forEach((r: any) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
 
-      const confirmedPast = reservationData.filter(r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed')
-      const stats = { participationCount: confirmedPast.length, points: confirmedPast.length * 100 }
+      const stats = { participationCount: pastReservations.length, points: pastReservations.length * 100 }
+      const metadataReservations = [...reservationData, ...pastReservations]
 
       const eventIds = reservationData.map(r => r.schedule_event_id).filter((id): id is string => id !== null && id !== undefined)
-      const orgIds = [...new Set(reservationData.map(r => r.organization_id).filter(Boolean))]
+      const orgIds = [...new Set(metadataReservations.map(r => r.organization_id).filter(Boolean))]
       const manualScenarioIds = (manualHistoryResult.data || []).map((m: any) => m.scenario_master_id ?? m.scenario_id).filter((id: string | null): id is string => id !== null && id !== undefined)
-      const scenarioMasterIds = [...new Set([...reservationData.map(r => r.scenario_master_id).filter((id): id is string => id !== null && id !== undefined), ...manualScenarioIds])]
-      const storeIdsFromReservations = [...new Set(reservationData.map(r => r.store_id).filter(Boolean))]
+      const scenarioMasterIds = [...new Set([...metadataReservations.map(r => r.scenario_master_id).filter((id): id is string => id !== null && id !== undefined), ...manualScenarioIds])]
+      const storeIdsFromReservations = [...new Set(metadataReservations.map(r => r.store_id).filter(Boolean))]
       const memberRecords = privateGroupsResult.data || []
       const groupIds = memberRecords.map(r => (r.private_groups as any)?.id).filter(Boolean)
 
       const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] = await Promise.all([
         eventIds.length > 0 ? supabase.from('schedule_events_public').select('id, date, start_time, category, current_participants, max_participants').in('id', eventIds) : Promise.resolve({ data: [] }),
-        orgIds.length > 0 ? supabase.from('organizations').select('id, slug, name').in('id', orgIds) : Promise.resolve({ data: [] }),
-        scenarioMasterIds.length > 0 ? supabase.from('scenario_masters').select('id, title, key_visual_url, player_count_min, player_count_max').in('id', scenarioMasterIds) : Promise.resolve({ data: [] }),
+        fetchBatchedIds(orgIds, ids => supabase.from('organizations').select('id, slug, name').in('id', ids)),
+        fetchBatchedIds(scenarioMasterIds, ids => supabase.from('scenario_masters').select('id, title, key_visual_url, player_count_min, player_count_max').in('id', ids)),
         groupIds.length > 0 ? supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds }) : Promise.resolve({ data: [] }),
         Promise.resolve({ data: memberRecords.flatMap(row => (row.private_groups.members || []).filter(m => m.status === 'joined')) }),
         Promise.resolve({ data: memberRecords.flatMap(row => row.private_groups.candidate_dates || []) }),
@@ -159,7 +162,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       groupSchedules.forEach(s => { groupScheduleByGroupId[s.group_id] = s })
 
       const allStoreIds = [...new Set([...storeIdsFromReservations, ...groupSchedules.map(s => s.store_id).filter((id): id is string => !!id)])]
-      const storesFetchResult = allStoreIds.length > 0 ? await supabase.from('stores').select('id, name, address, color').in('id', allStoreIds) : { data: [] }
+      const storesFetchResult = await fetchBatchedIds(allStoreIds, ids => supabase.from('stores').select('id, name, address, color').in('id', ids))
       const storesData = storesFetchResult.data || []
 
       const scheduleEvents: MyPageData['scheduleEvents'] = {}
@@ -231,7 +234,6 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         })
       }
 
-      const pastReservations = reservationData.filter(r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed'))
       const played: PlayedScenario[] = pastReservations.map(reservation => {
         const scenarioMasterId = reservation.scenario_master_id
         const title = reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || ''
@@ -271,7 +273,6 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
           return new Date(b.date).getTime() - new Date(a.date).getTime()
         })
         .filter(p => { const k = playedScenarioListDedupeKey(p); if (listDedupeKeys.has(k)) return false; listDedupeKeys.add(k); return true })
-        .slice(0, MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
 
       const privateGroups: PrivateGroupSummary[] = []
       for (const record of memberRecords) {

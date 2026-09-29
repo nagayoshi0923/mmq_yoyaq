@@ -12,6 +12,8 @@ export interface PrivateBookingRequest {
   scenario_master_id?: string
   /** organization_scenarios.gm_count（担当作品と同じ解釈）。一覧取得時に付与、未設定は1 */
   required_gm_count?: number
+  /** 同じ候補で在籍・主副GM資格と必要人数が揃う（サーバー判定） */
+  gm_team_ready?: boolean
   /** 候補の終了表示・承認時に使用（organization_scenarios 優先） */
   scenario_timing?: {
     duration: number
@@ -22,9 +24,11 @@ export interface PrivateBookingRequest {
   customer_name: string
   customer_email: string
   customer_phone: string
+  response_candidate_snapshot?: unknown[]
   candidate_datetimes: {
     candidates: Array<{
       order: number
+      gm_response_index?: number | null
       date: string
       timeSlot: string
       startTime: string
@@ -55,6 +59,7 @@ export interface PrivateBookingRequest {
   canceller_name?: string
   cancelled_at?: string
   gm_responses?: Array<{
+    id: string
     staff_id?: string
     gm_name?: string
     response_status: string
@@ -176,6 +181,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         candidate_datetimes?: {
           candidates: Array<{
             order: number
+      gm_response_index?: number | null
             date: string
             timeSlot: string
             startTime: string

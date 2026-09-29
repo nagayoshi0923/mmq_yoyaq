@@ -1,3 +1,4 @@
+import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ チャット画面のオーバーレイシート群（候補日/招待/設定/店舗編集/予約申請）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
@@ -100,6 +101,8 @@ interface GroupChatSheetsProps {
   handleSubmitBooking: () => Promise<void>
   handleShareLine: () => void
   handleCopyUrl: () => Promise<void>
+  handleCancelGroup: () => Promise<void>
+  cancelling: boolean
   handleDeleteGroup: () => Promise<void>
   handleOpenBookingDialog: () => Promise<void>
   handleSubmit: (options?: { skipSuccessPage?: boolean }) => Promise<void>
@@ -115,7 +118,7 @@ export function GroupChatSheets({
   navigate, refetch, leaveGroup,
   formatDateJaMd, getInviteUrl, closeSheet, closeSheetReplace, openStoreEditSheet, clearGuestSession, toggleBookingDate,
   handleResponseChange, handleRemoveMember, handleSavePreferredStores, handleSubmitBooking, handleShareLine, handleCopyUrl,
-  handleDeleteGroup, handleOpenBookingDialog, handleSubmit,
+  handleDeleteGroup, handleCancelGroup, cancelling, handleOpenBookingDialog, handleSubmit,
 }: GroupChatSheetsProps) {
   // 確認ダイアログ（グループ削除 / グループから退出）
   const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false)
@@ -255,14 +258,14 @@ export function GroupChatSheets({
                         refetch()
                         closeSheetReplace()
                       }}
-                      organizerMemberId={organizerMember?.id}
                     />
                   </div>
                 )}
 
+                <ConfirmedGroupSchedule group={group} />
                 {/* 候補日リスト */}
                 <div>
-                  <h4 className="font-medium text-xs sm:text-sm mb-1.5">候補日程（{group.candidate_dates?.length || 0}件）</h4>
+                  <h4 className="font-medium text-xs sm:text-sm mb-1.5">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '候補日程'}（{group.candidate_dates?.length || 0}件）</h4>
                   <div className="space-y-1.5">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
                       group.candidate_dates.map((cd, index) => {
@@ -583,6 +586,13 @@ export function GroupChatSheets({
                   </div>
                 </div>
                 
+                {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                  <Button variant="outline" className="w-full" disabled={cancelling}
+                    onClick={() => { closeSheet(); void handleCancelGroup() }}>
+                    {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
+                  </Button>
+                )}
+
                 {/* 主催者用: 削除オプション（gatheringまたはcancelledステータスのみ） */}
                 {isOrganizer && ((group.status as string) === 'gathering' || (group.status as string) === 'cancelled') && (
                   <div className="space-y-2">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +27,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
 import { staffApi, scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { fetchStaffWithAssignments } from '@/lib/staffAssignmentsQuery'
+import { showToast } from '@/utils/toast'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import {
@@ -60,7 +62,6 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const [modalStores, setModalStores] = useState<StoreType[]>([])
   const [modalScenarios, setModalScenarios] = useState<Scenario[]>([])
   const [modalStaff, setModalStaff] = useState<StaffType[]>([])
-  const modalDataLoaded = useRef(false)
   
   // 予約サイトのベースパス
   const bookingBasePath = organization?.slug ? `/${organization.slug}` : ''
@@ -219,21 +220,22 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     }
   }
 
-  // モーダル用マスタデータを遅延ロード（初回のみ）
+  // 公演を開くたび、現在の担当表を含むマスタデータを取得する。
   const loadModalData = useCallback(async () => {
-    if (modalDataLoaded.current) return
     try {
       const [stores, scenarios, staff] = await Promise.all([
         storeApi.getAll(),
         scenarioApi.getAll(),
-        staffApi.getAll(),
+        fetchStaffWithAssignments(),
       ])
       setModalStores(stores)
       setModalScenarios(scenarios)
       setModalStaff(staff)
-      modalDataLoaded.current = true
+      return true
     } catch (error) {
       logger.error('モーダルデータ取得エラー:', error)
+      showToast.error('公演の編集に必要な情報を取得できませんでした。もう一度公演を開いてください。')
+      return false
     }
   }, [])
 
@@ -241,7 +243,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   // venue フィールドは UUID(store_id) を期待するため、store_id があれば上書きする
   // （getMySchedule は venue に店舗名を返すが、useEventOperations は UUID を期待する）
   const handleEventClick = useCallback(async (event: ScheduleEvent) => {
-    await loadModalData()
+    if (!await loadModalData()) return
     const normalizedEvent: ScheduleEvent = {
       ...event,
       venue: event.store_id || event.venue,

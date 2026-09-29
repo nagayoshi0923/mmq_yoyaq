@@ -2,6 +2,7 @@
 import { loadEffectiveEmailSettings } from './effective-email-settings.ts'
 import { confirmedReservationPrice } from './confirmed-reservation-price.ts'
 import { dueReminderSchedules } from './reminder-schedule.ts'
+import { sendScheduledReminder } from './send-scheduled-reminder.ts'
 
 async function readPages(makeQuery) {
   const rows = []
@@ -13,7 +14,7 @@ async function readPages(makeQuery) {
   }
 }
 
-export async function runScheduledReminders(db, now = new Date()) {
+export async function runScheduledReminders(db, now = new Date(), send = sendScheduledReminder) {
     const dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' })
     // 使われている日数の候補だけで公演を絞る。実効値と無効化は公演ごとに再確認する。
     const [overrides, legacy] = await Promise.all([
@@ -53,7 +54,7 @@ export async function runScheduledReminders(db, now = new Date()) {
           const claim = claims?.[0]
           if (!claim) { skipped++; continue }
           try {
-            const { data, error } = await db.functions.invoke('send-reminder-emails', { body: {
+            await send({
               reservationId: reservation.id, organizationId: event.organization_id, storeId: event.store_id,
               customerEmail: reservation.customer_email, customerName: reservation.customer_name,
               scenarioTitle: event.scenario, eventDate: event.date, startTime: event.start_time, endTime: event.end_time,
@@ -61,8 +62,7 @@ export async function runScheduledReminders(db, now = new Date()) {
               participantCount: reservation.participant_count, totalPrice: confirmedReservationPrice(reservation),
               reservationNumber: reservation.reservation_number, daysBefore: schedule.days_before, template: schedule.template,
               deliveryId: claim.delivery_id, deliveryLeaseToken: claim.lease_token,
-            } })
-            if (error || !data?.success) throw error || new Error('reminder not sent')
+            })
             const { error: finishError } = await db.from('scheduled_reminder_deliveries').update({ status: 'sent', sent_at: now.toISOString() })
               .eq('id', claim.delivery_id).eq('organization_id', event.organization_id).eq('lease_token', claim.lease_token)
             if (finishError) throw finishError

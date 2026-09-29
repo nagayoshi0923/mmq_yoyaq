@@ -1,9 +1,9 @@
+import { readSurveyQuestionSettings } from '@/lib/surveyQuestionSettings'
 import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation } from '@/lib/privateGroupRead'
 import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ClipboardList, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { SurveyQuestion } from '@/types'
 
@@ -76,15 +76,7 @@ export function SurveyResponsesView({
         }
 
         // 質問を取得
-        const { data: questionsData, error: questionsError } = await supabase
-          .from('org_scenario_survey_questions')
-          .select(
-            'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
-          )
-          .eq('org_scenario_id', orgScenario.org_scenario_id)
-          .order('order_num', { ascending: true })
-
-        if (questionsError) throw questionsError
+        const { questions: questionsData } = await readSurveyQuestionSettings(orgScenario.org_scenario_id)
         if (questionsData && questionsData.length > 0) {
           if (!cancelled) setQuestions(questionsData)
         }
