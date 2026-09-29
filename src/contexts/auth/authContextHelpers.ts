@@ -71,6 +71,10 @@ let cachedIpAddress: string | null = null
 let ipFetchPromise: Promise<string | null> | null = null
 
 async function getClientIpAddress(): Promise<string | null> {
+  if (import.meta.env.VITE_APP_ENV === 'local-repro') {
+    return null
+  }
+
   // キャッシュがあれば返す
   if (cachedIpAddress) {
     return cachedIpAddress
