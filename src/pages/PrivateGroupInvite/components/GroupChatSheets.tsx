@@ -1,3 +1,4 @@
+import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ チャット画面のオーバーレイシート群（候補日/招待/設定/店舗編集/予約申請）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
@@ -261,9 +262,10 @@ export function GroupChatSheets({
                   </div>
                 )}
 
+                <ConfirmedGroupSchedule group={group} />
                 {/* 候補日リスト */}
                 <div>
-                  <h4 className="font-medium text-xs sm:text-sm mb-1.5">候補日程（{group.candidate_dates?.length || 0}件）</h4>
+                  <h4 className="font-medium text-xs sm:text-sm mb-1.5">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '候補日程'}（{group.candidate_dates?.length || 0}件）</h4>
                   <div className="space-y-1.5">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
                       group.candidate_dates.map((cd, index) => {

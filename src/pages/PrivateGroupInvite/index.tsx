@@ -1,3 +1,4 @@
+import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
 import { savePrivateGroupPreferredStores } from '@/lib/privateGroupPreferredStores'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
@@ -1421,6 +1422,8 @@ export function PrivateGroupInvite() {
           </div>
         </div>
 
+        <ConfirmedGroupSchedule group={group} />
+
         {/* オーバーレイシート群（候補日/招待/設定/店舗編集/予約申請） */}
         <GroupChatSheets
           showMobileDates={showMobileDates}
@@ -1501,7 +1504,7 @@ export function PrivateGroupInvite() {
               onGoToSchedule={() => openSheet('dates')}
               scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
-              performanceDate={group.candidate_dates?.[0]?.date}
+              performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
                 const { error } = await supabase.rpc('private_group_set_character_method', {
@@ -1596,7 +1599,7 @@ export function PrivateGroupInvite() {
               {/* 候補日程 */}
               {group.candidate_dates && group.candidate_dates.length > 0 && (
                 <div className="bg-white rounded-lg p-3 border">
-                  <h3 className="font-semibold text-sm mb-2">候補日程</h3>
+                  <h3 className="font-semibold text-sm mb-2">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '候補日程'}</h3>
                   <div className="space-y-2">
                     {group.candidate_dates.slice(0, 3).map((cd) => (
                       <div key={cd.id} className="text-xs">

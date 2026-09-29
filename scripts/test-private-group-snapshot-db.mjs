@@ -138,4 +138,36 @@ for (const [actor,role,invite,level] of [[null,'anon','fixture-invite','preview'
   assert.equal((await db.query('SELECT private_group_read_snapshot($1,$2) result',[id(100),invite])).rows[0].result.access_level,level)
  } finally { await db.exec('RESET ROLE') }
 }
+// Confirmed performance comes from the current event, never the original proposal.
+await db.exec(`ALTER TABLE reservations ADD COLUMN schedule_event_id uuid;
+CREATE TABLE schedule_events(id uuid,organization_id uuid,date date,start_time time,end_time time,store_id uuid,venue text,is_cancelled boolean);
+CREATE TABLE stores(id uuid,organization_id uuid,name text);
+INSERT INTO schedule_events VALUES('${id(801)}','${id(10)}','2026-11-01','15:30','19:30',NULL,'会場',false);
+UPDATE reservations SET schedule_event_id='${id(801)}',status='confirmed' WHERE id='${id(800)}';
+UPDATE private_groups SET status='confirmed' WHERE id='${id(100)}';`)
+const confirmedMigration=fs.readFileSync('supabase/migrations/20260929213000_private_group_confirmed_performance.sql','utf8')
+await db.exec(confirmedMigration)
+for(const actor of [1,2,3]) {
+ const value=(await snap(actor)).group
+ assert.equal(value.confirmed_performance.start_time,'15:30:00')
+ assert.equal(value.confirmed_performance.date,'2026-11-01')
+ assert.equal(value.candidate_dates.length,1)
+}
+assert.equal((await snap(null,'fixture-invite')).group.confirmed_performance,null)
+await assert.rejects(snap(4),e=>e.code==='42501')
+await db.exec(`UPDATE schedule_events SET start_time='16:00',date='2026-11-02'`)
+assert.equal((await snap(2)).group.confirmed_performance.start_time,'16:00:00')
+assert.equal((await snap(2)).group.confirmed_performance.date,'2026-11-02')
+await db.exec(`UPDATE schedule_events SET organization_id='${id(20)}'`)
+assert.equal((await snap(2)).group.confirmed_performance,null)
+await db.exec(`UPDATE schedule_events SET organization_id='${id(10)}',is_cancelled=true`)
+assert.equal((await snap(2)).group.confirmed_performance,null)
+await db.exec(`UPDATE schedule_events SET is_cancelled=false;UPDATE reservations SET status='cancelled'`)
+assert.equal((await snap(2)).group.confirmed_performance,null)
+await db.exec(`UPDATE reservations SET status='confirmed'`)
+await db.exec(fs.readFileSync('supabase/rollbacks/20260929213000_private_group_confirmed_performance.sql','utf8'))
+assert.equal((await snap(2)).group.confirmed_performance,undefined)
+await db.exec(confirmedMigration)
+assert.equal((await snap(2)).group.confirmed_performance.start_time,'16:00:00')
+console.log('PASS confirmed schedule: organizer/member/staff, original proposals retained, live changes, preview/foreign org/cancelled protected, rollback/reapply')
 await db.close();console.log('PASS snapshot: preview minimal, member contacts private, spoofed member denied, chat membership, rollback/reapply; actual guest validator valid/invalid/expired tokens and anon role')
