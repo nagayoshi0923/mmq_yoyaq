@@ -16,5 +16,7 @@ it('申請候補19時ではなく確定公演15時半を表示し、変更後も
   expect(host.textContent).toContain('確認できません');expect(host.textContent).not.toContain('19:00')
   await act(async()=>root.render(<ConfirmedGroupSchedule group={{...group,status:'gathering',confirmed_performance:null}}/>))
   expect(host.textContent).toBe('')
+  await act(async()=>root.render(<ConfirmedGroupSchedule group={{...group,confirmed_performance:null,confirmed_performance_access:'preview'}}/>))
+  expect(host.textContent).toContain('参加後');expect(host.textContent).not.toContain('お問い合わせ')
  }finally{await act(async()=>root.unmount())}
 })
