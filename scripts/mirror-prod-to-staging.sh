@@ -6,6 +6,7 @@ set -euo pipefail
 #
 # public スキーマのデータを本番からステージングにコピーする。
 # スキーマ（テーブル定義）はコピーしない（マイグレーションで管理）。
+# お客様・作者の名前/メール/電話/住所は scripts/mask-staging-pii.sql で伏せる。
 # auth.users や supabase_migrations は対象外。
 #
 # 本番にだけ存在するアドホックなバックアップ表（例: customers_org_backfill_20260707）
@@ -172,6 +173,9 @@ echo "[4/5] ステージングDBにリストア中..."
   echo ""
   echo "-- 5. search_path復元（pg_dumpが空にするため）"
   echo "SET search_path = public, pg_catalog;"
+  echo ""
+  echo "-- 5b. お客様情報を伏せる（トリガー無効のまま・同じトランザクション内。失敗したら全体を取り消す）"
+  cat "$(dirname "$0")/mask-staging-pii.sql"
   echo ""
   echo "-- 6. ユーザー定義トリガーを再有効化"
   echo "$TRIGGERS_ENABLE"
