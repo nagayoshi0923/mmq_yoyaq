@@ -12,6 +12,8 @@ import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
 import type { Customer } from '@/types'
+import { useOrganization } from '@/hooks/useOrganization'
+import { canEditCustomer } from './utils/customerEditAccess'
 
 export default function CustomerManagement() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -44,6 +46,8 @@ export default function CustomerManagement() {
   }, [organizationId])
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  const { isLicenseManager } = useOrganization()
 
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer)
@@ -119,6 +123,7 @@ export default function CustomerManagement() {
                   isExpanded={expandedCustomerId === customer.id}
                   onToggleExpand={() => handleToggleExpand(customer.id)}
                   onEdit={() => handleEdit(customer)}
+                  canEdit={canEditCustomer(customer, organizationId, isLicenseManager)}
                   couponStats={couponStats[customer.id]}
                 />
               ))}
