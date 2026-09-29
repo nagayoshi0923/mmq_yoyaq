@@ -353,7 +353,16 @@ function StaffProfileContent() {
         return
       }
       logger.error('保存エラー:', error)
-      showToast.error('保存に失敗しました')
+      const message = error instanceof ApiClientError
+        ? typeof error.body?.message === 'string'
+          ? error.body.message
+          : error.status === 401
+            ? 'ログインの有効期限が切れています。再ログインしてから保存してください。'
+            : error.status === 403
+              ? '担当作品を保存する権限を確認できませんでした。スタッフのアカウントでログインしているか確認してください。'
+              : '担当作品を保存できませんでした。選択内容は画面に残っています。再度保存しても失敗する場合は管理者へお知らせください。'
+        : '担当作品の保存を確認できませんでした。通信状態を確認してください。'
+      showToast.error(message)
     } finally {
       saveInFlight.current = false
       setSaving(false)
