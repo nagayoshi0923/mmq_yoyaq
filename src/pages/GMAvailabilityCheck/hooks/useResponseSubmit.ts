@@ -1,3 +1,4 @@
+import { saveGmResponse } from '@/lib/gmResponseApi'
 import { candidateIndexesFromOrders } from '@/lib/gmCandidateSelection'
 import { nextGmResponseStatus } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { useState } from 'react'
@@ -34,7 +35,7 @@ export function useResponseSubmit({
    * 回答を送信
    */
   const handleSubmit = async (requestId: string, allUnavailable: boolean = false) => {
-    // UI上は1始まりだが、DBには0始まりで保存
+    // 画面の表示番号を、読込時の候補配列位置へ変換して保存する。
     const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
 
     // ⚠️ GM本人の既存予定と被る可能性がある候補を選んでいる場合は、送信前に確認
@@ -69,21 +70,11 @@ export function useResponseSubmit({
       const availableCandidates = allUnavailable ? [] : candidateIndexesFromOrders(request.candidate_datetimes?.candidates || [], selectedOrders)
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
-      // GM回答を更新
-      const { error } = await supabase
-        .from('gm_availability_responses')
-        .update({
-          response_status: responseStatus,
-          available_candidates: availableCandidates,
-          responded_at: new Date().toISOString(),
-          notes: notes[requestId] || null
-        })
-        .eq('id', requestId)
-      
-      if (error) {
-        throw error
-      }
-      
+      await saveGmResponse({reservationId:request.reservation_id,staffId:request.staff_id,
+        candidates:request.candidate_datetimes?.candidates || [],
+        expectedResponse:{id:request.id,updated_at:request.updated_at},
+        availableCandidates,responseStatus,notes:notes[requestId] || null})
+
       responseSaved = true
 
       // 必要GM数が2人以上のシナリオは、同一候補で人数が揃いメイン／サブ役がカバーできるまで店舗確認待ちにしない
@@ -128,7 +119,7 @@ export function useResponseSubmit({
       logger.error('送信エラー:', error)
       showToast.error(responseSaved
         ? '回答は保存済みですが、予約の状態確認・更新に失敗しました。再度送信してください。'
-        : '回答を保存できませんでした。再度お試しください。')
+        : error instanceof Error ? error.message : '回答を保存できませんでした。再度お試しください。')
     } finally {
       setSubmitting(null)
       if (responseSaved) onSubmitSuccess()

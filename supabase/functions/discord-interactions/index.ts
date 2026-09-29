@@ -1,3 +1,4 @@
+import { gmCandidateVersion, gmCandidateButtons } from '../_shared/gmCandidateVersion.ts'
 import { readPrivateBookingReadiness, nextGmResponseStatus } from '../_shared/privateBookingReadiness.ts'
 // Discord インタラクション処理（署名検証付き + Deferred Response対応）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -140,8 +141,31 @@ async function refreshGmTeamStatus(requestId: string, orgId: string) {
   }
 }
 
+// Old buttons cannot prove which year/date they represented. Refresh without saving an answer.
+async function checkCandidateVersion(interaction: any, requestId: string, candidates: any[], expected?: string) {
+  const current = await gmCandidateVersion(candidates)
+  if(expected === current) return current
+  const reply = await fetch(`https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
+    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      content:'候補日時を更新しました。回答は変更していません。下の日時を確認して、もう一度選択してください。',
+      components:gmCandidateButtons(candidates,requestId,current),
+    }),
+  })
+  if(!reply.ok) throw new Error('候補日時の再表示に失敗しました。WebのGM確認画面で回答してください。')
+  return null
+}
+async function persistGmResponse(org: string,request: string,staff: string,candidates: any[],previous: any,patch: any) {
+  const {data,error}=await supabase.rpc('save_gm_response_atomic',{
+    p_org:org,p_reservation:request,p_staff:staff,p_candidates:candidates,
+    p_expected_response:previous ? {id:previous.id,updated_at:previous.updated_at} : null,p_patch:patch,
+  })
+  if(error?.code==='40001'||error?.code==='55P03') throw new Error('候補日時または回答が変更されました。WebのGM確認画面を更新して選び直してください。')
+  if(error) throw new Error('回答を保存できませんでした。WebのGM確認画面で再確認してください。')
+  return data
+}
+
 // 全て不可処理をバックグラウンドで実行
-async function processUnavailable(interaction: any, requestId: string) {
+async function processUnavailable(interaction: any, requestId: string, expectedVersion?: string) {
   try {
     const { data: reservation, error } = await supabase
       .from('reservations')
@@ -153,6 +177,8 @@ async function processUnavailable(interaction: any, requestId: string) {
     
     const organizationId = reservation.organization_id
     const candidates = reservation.candidate_datetimes?.candidates || []
+    const candidateVersion = await checkCandidateVersion(interaction, requestId, candidates, expectedVersion)
+    if (!candidateVersion) return
     const scenarioTitle = reservation.title || '貸切予約'
     
     const gmUserId = interaction.member?.user?.id
@@ -186,28 +212,13 @@ async function processUnavailable(interaction: any, requestId: string) {
       return
     }
     
-    // 全て不可として保存
-    const { error: saveError } = await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: organizationId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_discord_id: gmUserId,
-        gm_name: gmUserName,
-        response_type: 'unavailable',
-        selected_candidate_index: null,
-        response_datetime: new Date().toISOString(),
-        notes: 'Discord経由で回答: 全て出勤不可',
-        response_status: 'all_unavailable',
-        available_candidates: [],
-        response_history: [{ timestamp: new Date().toISOString(), action: 'all_unavailable' }],
-        responded_at: new Date().toISOString()
-      }, {
-        onConflict: 'reservation_id,staff_id'
-      })
-    
-    if (saveError) throw saveError
+    const { data: previous, error: readError } = await supabase.from('gm_availability_responses')
+      .select('id,updated_at').eq('reservation_id',requestId).eq('staff_id',staffId).maybeSingle()
+    if(readError) throw readError
+    await persistGmResponse(organizationId,requestId,staffId,candidates,previous,{
+      available_candidates:[],response_status:'all_unavailable',notes:'Discord経由で回答: 全て出勤不可',
+      response_history:[{timestamp:new Date().toISOString(),action:'all_unavailable'}],
+    })
     await refreshGmTeamStatus(requestId, organizationId)
     
     // メッセージとボタンを作成（全て緑に戻す）
@@ -239,7 +250,7 @@ async function processUnavailable(interaction: any, requestId: string) {
         type: 2,
         style: 3, // 緑色
         label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
-        custom_id: `date_${i + 1}_${requestId}`
+        custom_id: `date_${i + 1}_${requestId}_${candidateVersion}`
       })
     }
     
@@ -249,7 +260,7 @@ async function processUnavailable(interaction: any, requestId: string) {
         type: 2,
         style: 4,
         label: '全て不可',
-        custom_id: `gm_unavailable_${requestId}`
+        custom_id: `gm_unavailable_${requestId}_${candidateVersion}`
       }]
     })
     
@@ -269,7 +280,7 @@ async function processUnavailable(interaction: any, requestId: string) {
 }
 
 // 日程選択処理をバックグラウンドで実行
-async function processDateSelection(interaction: any, dateIndex: number, requestId: string) {
+async function processDateSelection(interaction: any, dateIndex: number, requestId: string, expectedVersion?: string) {
   try {
     // Supabaseから候補日程を取得
     const { data: reservation, error } = await supabase
@@ -285,6 +296,8 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     
     const organizationId = reservation.organization_id
     const candidates = reservation.candidate_datetimes?.candidates || []
+    const candidateVersion = await checkCandidateVersion(interaction, requestId, candidates, expectedVersion)
+    if (!candidateVersion) return
     const selectedCandidate = candidates[dateIndex]
     
     if (!selectedCandidate) {
@@ -339,12 +352,13 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     console.log('✅ Found staff_id:', staffId)
     
     // 既存の回答を取得して、複数日程を追加する形にする
-    const { data: existingResponse } = await supabase
+    const { data: existingResponse, error: existingError } = await supabase
       .from('gm_availability_responses')
-      .select('available_candidates, response_history')
+      .select('id, updated_at, available_candidates, response_history')
       .eq('reservation_id', requestId)
       .eq('staff_id', staffId)
-      .single()
+      .maybeSingle()
+    if (existingError) throw existingError
     
     // 既存の選択済み日程を取得（候補数が減った場合に備え範囲外インデックスを除去）
     let availableCandidates: number[] = (existingResponse?.available_candidates || [])
@@ -402,8 +416,13 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       responseStatus = 'all_unavailable'
     }
     
-    // ⚡ ボタンの体感速度向上: 先にメッセージ(ボタン状態)をDiscordへ反映し、
-    //    DB保存(回答upsert・予約ステータス)はその後に行う（押下→即ボタン変化）。
+    // Do not show a successful toggle until the checked transaction commits.
+    await persistGmResponse(organizationId,requestId,staffId,candidates,existingResponse,{
+      available_candidates:availableCandidates,response_status:responseStatus,
+      notes:availableCandidates.length>0 ? `Discord経由で回答: ${selectedDates.join(', ')}` : 'Discord経由で回答: 全て出勤不可',
+      response_history:responseHistory,
+    })
+    await refreshGmTeamStatus(requestId,organizationId)
     // レスポンスメッセージを作成
     const scenarioTitle = reservation.title || '貸切予約'
     const candidateCount = candidates.length
@@ -451,7 +470,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
         type: 2,
         style: isSelected ? 1 : 3, // 1=青（選択済み）、3=緑（未選択）
         label: `${isSelected ? '✓ ' : ''}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
-        custom_id: `date_${i + 1}_${requestId}`
+        custom_id: `date_${i + 1}_${requestId}_${candidateVersion}`
       })
     }
     
@@ -463,7 +482,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
           type: 2,
           style: 4, // 赤色
           label: '全て不可',
-          custom_id: `gm_unavailable_${requestId}`
+          custom_id: `gm_unavailable_${requestId}_${candidateVersion}`
         }
       ]
     })
@@ -486,38 +505,6 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       console.error('❌ Failed to update message:', await webhookResponse.text())
     } else {
       console.log('✅ Message updated successfully')
-    }
-
-    // gm_availability_responsesテーブルに保存 (upsert)
-    const { data: gmResponse, error: gmError } = await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: organizationId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_discord_id: gmUserId,
-        gm_name: gmUserName,
-        response_type: responseType,
-        selected_candidate_index: availableCandidates.length > 0 ? availableCandidates[0] : null,
-        response_datetime: new Date().toISOString(),
-        notes: availableCandidates.length > 0 
-          ? `Discord経由で回答: ${selectedDates.join(', ')}` 
-          : 'Discord経由で回答: 全て出勤不可',
-        response_status: responseStatus,
-        available_candidates: availableCandidates,
-        response_history: responseHistory,
-        responded_at: new Date().toISOString()
-      }, {
-        onConflict: 'reservation_id,staff_id'
-      })
-    
-    if (gmError) {
-      console.error('❌ Error saving GM response:', gmError)
-      throw gmError
-    } else {
-      console.log('✅ GM response saved to database:', gmResponse)
-      
-      await refreshGmTeamStatus(requestId, organizationId)
     }
 
     console.log('📅 Date selection recorded and saved:', selectedDates)
@@ -625,7 +612,7 @@ serve(async (req) => {
     if (interaction.data.custom_id.startsWith('gm_unavailable_')) {
       console.log('❌ Processing gm_unavailable button')
       
-      const requestId = interaction.data.custom_id.replace('gm_unavailable_', '')
+      const [requestId, expectedVersion] = interaction.data.custom_id.replace('gm_unavailable_', '').split('_')
       console.log('📋 Request ID:', requestId)
       if (!isUuidLike(requestId)) {
         return new Response(
@@ -640,7 +627,7 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
       
-      processUnavailable(interaction, requestId).catch(err => {
+      processUnavailable(interaction, requestId, expectedVersion).catch(err => {
         console.error('❌ Background processing error:', err)
       })
       
@@ -654,7 +641,8 @@ serve(async (req) => {
       // custom_idから情報を抽出: date_1_requestId
       const parts = interaction.data.custom_id.split('_')
       const dateIndex = parseInt(parts[1]) - 1 // 0-based index
-      const requestId = parts.slice(2).join('_')
+      const requestId = parts[2]
+      const expectedVersion = parts[3]
       
       console.log('📋 Date index:', dateIndex, 'Request ID:', requestId)
       if (!isUuidLike(requestId) || !Number.isFinite(dateIndex) || dateIndex < 0) {
@@ -674,7 +662,7 @@ serve(async (req) => {
       )
       
       // バックグラウンドで処理を続行（応答は返さない）
-      processDateSelection(interaction, dateIndex, requestId).catch(err => {
+      processDateSelection(interaction, dateIndex, requestId, expectedVersion).catch(err => {
         console.error('❌ Background processing error:', err)
       })
       

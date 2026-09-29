@@ -25,3 +25,13 @@ export async function getGmReadiness(reservationIds: string[]): Promise<Record<s
   }
   return readiness
 }
+
+export function saveGmResponse(input: {reservationId: string; staffId: string; candidates: unknown[]; expectedResponse: {id: string; updated_at: string | null} | null; availableCandidates: number[]; responseStatus: string; notes: string | null}) {
+  return apiClient.post('/api/reservations?action=gm-response', input)
+}
+
+export interface ManualGmResponseBaseline {
+  candidates: Array<{order: number; gm_response_index?: number | null}>
+  storedCandidates: unknown[]
+  responses: Array<{id: string;staff_id?: string;updated_at?: string | null}>
+}

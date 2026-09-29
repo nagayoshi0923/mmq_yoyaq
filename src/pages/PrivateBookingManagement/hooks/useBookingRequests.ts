@@ -250,6 +250,7 @@ async function fetchRawBookingRequests(
       customer_email: req.customer_email || '',
       customer_phone: req.customers?.phone || req.customer_phone || '',
       candidate_datetimes: candidateDatetimes,
+      response_candidate_snapshot: currentCandidates,
       participant_count: req.participant_count || 0,
       joined_member_count: pgId !== undefined && pgId !== null ? joinedN : undefined,
       scenario_player_count_range: scenarioMasterId ? playerRangeByMasterId.get(scenarioMasterId) ?? null : null,

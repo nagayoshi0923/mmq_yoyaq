@@ -24,6 +24,7 @@ export interface PrivateBookingRequest {
   customer_name: string
   customer_email: string
   customer_phone: string
+  response_candidate_snapshot?: unknown[]
   candidate_datetimes: {
     candidates: Array<{
       order: number
@@ -58,6 +59,7 @@ export interface PrivateBookingRequest {
   canceller_name?: string
   cancelled_at?: string
   gm_responses?: Array<{
+    id: string
     staff_id?: string
     gm_name?: string
     response_status: string

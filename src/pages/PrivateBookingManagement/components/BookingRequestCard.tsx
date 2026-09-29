@@ -1,3 +1,4 @@
+import type { ManualGmResponseBaseline } from '@/lib/gmResponseApi'
 import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { DeliveryHistoryDialog } from './DeliveryHistoryDialog'
 import { approvalDeliveryLabel, type ApprovalDeliveryStatus } from '../hooks/useApprovalDeliveryStatus'
@@ -35,6 +36,7 @@ interface Candidate {
 }
 
 interface GMResponse {
+  id: string
   staff_id?: string
   gm_name?: string
   response_status: string
@@ -67,6 +69,7 @@ interface BookingRequest {
   cancelled_at?: string
   notes?: string
   invite_code?: string
+  response_candidate_snapshot?: unknown[]
   candidate_datetimes?: {
     candidates: Candidate[]
     requestedStores?: Array<{ storeId: string; storeName: string }>
@@ -106,7 +109,7 @@ interface BookingRequestCardProps {
   }>
   // GM手動入力
   gmList?: GMStaff[]
-  onGMResponseSave?: (requestId: string, staffId: string, availableCandidates: number[]) => Promise<void>
+  onGMResponseSave?: (requestId: string, staffId: string, availableCandidates: number[], baseline: ManualGmResponseBaseline) => Promise<void>
 }
 
 export const BookingRequestCard = ({
@@ -132,6 +135,7 @@ export const BookingRequestCard = ({
   const [resending, setResending] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
   const [showGMEntry, setShowGMEntry] = useState(false)
+  const [manualRequest, setManualRequest] = useState<BookingRequest | null>(null)
   const [manualStaffId, setManualStaffId] = useState('')
   const [manualCandidates, setManualCandidates] = useState<Set<number>>(new Set())
   const [savingGM, setSavingGM] = useState(false)
@@ -294,6 +298,7 @@ export const BookingRequestCard = ({
                       className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
                       onClick={() => {
                         setShowGMEntry(v => !v)
+                        setManualRequest(request)
                         setManualStaffId('')
                         setManualCandidates(new Set())
                       }}
@@ -364,7 +369,7 @@ export const BookingRequestCard = ({
                     ))}
                   </select>
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    {request.candidate_datetimes?.candidates?.map((c, idx) => (
+                    {manualRequest?.candidate_datetimes?.candidates?.map((c, idx) => (
                       <label key={idx} className="flex items-center gap-1 text-xs cursor-pointer">
                         <input
                           type="checkbox"
@@ -376,7 +381,7 @@ export const BookingRequestCard = ({
                             setManualCandidates(next)
                           }}
                         />
-                        候補{c.order}
+                        候補{c.order} {formatDate(c.date)} {c.startTime}
                       </label>
                     ))}
                   </div>
@@ -391,7 +396,11 @@ export const BookingRequestCard = ({
                         if (!manualStaffId || !onGMResponseSave) return
                         setSavingGM(true)
                         try {
-                          await onGMResponseSave(request.id, manualStaffId, [...manualCandidates])
+                          await onGMResponseSave(request.id, manualStaffId, [...manualCandidates], {
+                            candidates:manualRequest?.candidate_datetimes?.candidates || [],
+                            storedCandidates:manualRequest?.response_candidate_snapshot || [],
+                            responses:manualRequest?.gm_responses || [],
+                          })
                           setShowGMEntry(false)
                           setManualStaffId('')
                           setManualCandidates(new Set())

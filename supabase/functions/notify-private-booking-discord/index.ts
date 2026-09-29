@@ -1,3 +1,4 @@
+import { gmCandidateVersion } from '../_shared/gmCandidateVersion.ts'
 // @ts-nocheck
 // Discord Bot経由で通知を送信（ボタン付き）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -194,6 +195,11 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
     return
   }
 
+  const {data: currentBooking,error: bookingError} = await supabase.from('reservations')
+    .select('candidate_datetimes').eq('id',booking.id).eq('organization_id',orgIdForBooking).single()
+  if(bookingError || !currentBooking) throw new Error('予約の候補日時を確認できません')
+  booking = {...booking,candidate_datetimes:currentBooking.candidate_datetimes}
+
   const scenarioMasterId = await resolveScenarioMasterId(booking)
   if (!scenarioMasterId) {
     console.log('⚠️ scenario_master_id を解決できないため通知を中止します')
@@ -244,11 +250,11 @@ async function sendNotificationToGMChannels(booking: any, targetStaffId?: string
     return
   }
   
-  console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels:`, gmStaff.map(g => g.name).join(', '))
+  console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels:`, gmStaff.map((g: any) => g.name).join(', '))
   
   // チャンネルIDの重複を除外（同じチャンネルに複数回送信しないため）
   const uniqueChannels = new Map<string, { channelId: string, gmNames: string[], userIds: string[], staffIds: string[] }>()
-  gmStaff.forEach(gm => {
+  gmStaff.forEach((gm: any) => {
     const channelId = gm.discord_channel_id?.trim()
     if (channelId) {
       if (uniqueChannels.has(channelId)) {
@@ -332,7 +338,7 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
     throw new Error('Discord channel ID is not set. Please configure discord_channel_id in staff table.')
   }
   
-  const timeSlotMap = {
+  const timeSlotMap: Record<string,string> = {
     'morning': '朝',
     'afternoon': '昼', 
     'evening': '夜',
@@ -342,6 +348,7 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
   }
 
   const candidates = booking.candidate_datetimes?.candidates || []
+  const candidateVersion = await gmCandidateVersion(candidates)
   const conflictOrders = await computeConflictCandidateOrders(booking, gmNames)
   
   // メッセージ本文を作成
@@ -362,7 +369,7 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
   messageContent += `**予約者：** ${booking.customer_name || '名前不明'}\n`
 
   // 候補日程をボタンとして表示（日時詳細付き）
-  const components = []
+  const components: Array<{type:number;components:Array<{type:number;style:number;label:string;custom_id:string}>}> = []
   const maxButtons = Math.min(candidates.length, 6) // 最大6個まで（Discord ActionRow 5個 × ボタン5個 = 25個が上限だが、UIの都合で6個に制限）
   
   for (let i = 0; i < maxButtons; i++) {
@@ -389,7 +396,7 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
       type: 2,
       style: 3, // 緑色
       label: buttonLabel.substring(0, 80), // Discord制限：80文字まで
-      custom_id: `date_${i + 1}_${booking.id}`
+      custom_id: `date_${i + 1}_${booking.id}_${candidateVersion}`
     })
   }
   
@@ -401,7 +408,7 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
         type: 2,
         style: 4, // 赤色
         label: "全て不可",
-        custom_id: `gm_unavailable_${booking.id}`
+        custom_id: `gm_unavailable_${booking.id}_${candidateVersion}`
       }
     ]
   })

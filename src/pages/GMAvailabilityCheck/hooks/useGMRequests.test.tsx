@@ -35,3 +35,26 @@ it('候補が欠けた旧データがあっても画面をクラッシュさせ�
   expect(state.selectedCandidates.answer).toEqual([])
   expect(state.isError).toBe(false)
 })
+
+it('再取得で日時が変わっても、選択開始時の保存比較基準を入れ替えない',async()=>{
+  await mount({candidates:[{order:1,date:'2027-01-01'}]})
+  const original = state.responseBaselines.answer
+  await act(async()=>{
+    client.setQueryData(['gm-requests','staff-user'],{staffName:'GM',requests:[{...original,candidate_datetimes:{candidates:[{order:1,date:'2027-02-01'}]}}]})
+    await new Promise(resolve=>setTimeout(resolve,20))
+  })
+  expect(state.requests[0].candidate_datetimes.candidates[0].date).toBe('2027-02-01')
+  expect(state.responseBaselines.answer.candidate_datetimes.candidates[0].date).toBe('2027-01-01')
+})
+
+it('新しい依頼は初期化し、編集中の既存依頼の比較基準は保持する',async()=>{
+  await mount({candidates:[{order:1,date:'2027-01-01'}]})
+  const original=state.responseBaselines.answer
+  await act(async()=>{
+    client.setQueryData(['gm-requests','staff-user'],{staffName:'GM',requests:[original,{...original,id:'new',available_candidates:[0]}]})
+    await new Promise(resolve=>setTimeout(resolve,20))
+  })
+  expect(state.responseBaselines.new.id).toBe('new')
+  expect(state.selectedCandidates.new).toEqual([1])
+  expect(state.responseBaselines.answer).toBe(original)
+})
