@@ -9,6 +9,9 @@ Codex / Claude Code 共通のエントリ（Claude Code は `CLAUDE.md` から�
 
 ## Codexレーン固有
 
+Codex レーン（dispatch-lane）で動くときだけ適用する。Claude Code / Cursor 進行役は `CLAUDE.md` の完了報告（Discord 投稿）に従う。
+
+
 - Discord へ自分で投稿しない。常駐ブリッジが発注元への返信1通で行う
 - 最終回答に次案を1つ: `[NEXT_IMPLEMENTATION_PROPOSAL] <提案>`（無ければ `なし`）
 - 着手不能・保留・失敗も最終回答と終了コードへ残す
