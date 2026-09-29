@@ -27,7 +27,9 @@ alwaysApply: false
 「実装: Codex」なら Codex 連鎖に任せ、Claude/Cursor は直接実装しない。  
 POが台帳不要と明示した小タスクは通常の staging 直接作業。
 
-## 完了報告
+## 完了報告（レーン固有のみ）
 
-- Cursor / Claude は Discord へ完了報告を投稿しない（2026-09-30 社長判断）。完了は案件台帳へ記録し、解決した問題は Corrections_Log へ残す
-- Codexレーンも自分では投稿しない。常駐ブリッジが発注元への返信1通で行う。最終回答に `[NEXT_IMPLEMENTATION_PROPOSAL]`
+通常進行の完了報告方針（Discord投稿禁止・案件台帳への完了/保留/失敗記録）の正は `00-core.mdc`。ここには Codexレーン固有だけを書く。
+
+- Codexレーンは自分では Discord 投稿しない。常駐ブリッジが発注元への返信1通で行う
+- 最終回答に `[NEXT_IMPLEMENTATION_PROPOSAL]`（無ければ `なし`）。着手不能・保留・失敗も最終回答と終了コードへ残す

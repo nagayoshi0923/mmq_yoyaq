@@ -13,13 +13,13 @@
 
 | ファイル | 適用 | 内容 |
 |----------|------|------|
-| `00-core.mdc` | 常時 | 優先順・安全不変・スコープ |
+| `00-core.mdc` | 常時 | 優先順・安全不変・スコープ・完了報告 |
 | `git-deploy.mdc` | 常時 | staging/main・DB先行・環境・smoke |
 | `multi-tenant.mdc` | `src` / `supabase` | organization_id |
 | `database.mdc` | `supabase/**` | schema/RPC/RLS/罠 |
 | `frontend.mdc` | `src/**/*.{ts,tsx}` | RQ・定数・JST・共有API |
 | `design.mdc` | `src/**/*.{tsx,css}` | トークン・公演UI保護・店舗色 |
-| `delivery-lanes.mdc` | 手動/description | Codex/Claudeレーン |
+| `delivery-lanes.mdc` | 手動/description | Codex/Claudeレーン（GO配送時のみ） |
 | `commands.mdc` | 手動/description | npm scripts |
 
 ## エントリファイル
@@ -27,8 +27,8 @@
 | ファイル | 対象 |
 |----------|------|
 | `.cursorrules` | 互換ポインタのみ |
-| `CLAUDE.md` | Claude Code / Cursor 進行（委譲・dispatch・PO画面・Discord） |
-| `AGENTS.md` | Codex（ブリッジ・レビュー日本語・台帳） |
+| `CLAUDE.md` | `@AGENTS.md` 取り込みのみ（詳細は `.cursor/rules/`） |
+| `AGENTS.md` | エントリ＋Codexレーン固有・レビュー日本語（詳細は rules） |
 
 ## スキル
 
