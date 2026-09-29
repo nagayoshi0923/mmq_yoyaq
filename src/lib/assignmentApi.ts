@@ -226,6 +226,13 @@ export const assignmentApi = {
     })
   },
 
+  // シナリオ編集の複数GM変更を、読込時点との照合を含めて一括保存する。
+  async saveScenarioGmChanges(scenarioId: string, changes: { removed: string[]; upserts: Array<{ staff_id: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean }> }, expected: unknown[]) {
+    return apiClient.post<AssignmentRow[]>('/api/assignments?action=save_scenario_gm_changes', {
+      scenario_master_id: scenarioId, changes, expected_assignments: expected,
+    })
+  },
+
   // 担当関係の詳細を更新
   async updateAssignment(
     staffId: string,

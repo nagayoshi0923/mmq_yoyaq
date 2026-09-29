@@ -80,6 +80,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+// プロフィールと担当の両方を、既存の認可検査を通した後で一括保存する。
+async function saveEditor(req: VercelRequest, res: VercelResponse, user: AuthUser, id: string | null, profile: Record<string, unknown>, oldName?: string) {
+  const edit = req.body?.assignment_edit
+  if (!edit || !Array.isArray(edit.records) || !Array.isArray(edit.baseline)) {
+    return res.status(400).json({ error: '担当の保存形式が不正です' })
+  }
+  const { data, error } = await db!.rpc('save_staff_editor_atomic', {
+    p_org: user.orgId, p_staff: id, p_profile: profile, p_edit: edit,
+    p_confirm: req.body?.confirm_clear === true, p_actor: user.userId,
+  })
+  if (error) {
+    if (error.code === 'P0101') {
+      return res.status(409).json({ ...JSON.parse(error.details || '{}'), message: '担当が減ります。変更内容を確認してください。' })
+    }
+    console.error('[staff:saveEditor] transaction failed', { code: error.code, message: error.message })
+    const conflict = error.code === '40001' || error.code === '23503'
+    return res.status(conflict ? 409 : error.code === '22023' || error.code === '22P02' ? 400 : 500)
+      .json({ error: conflict ? 'ASSIGNMENTS_CHANGED' : 'STAFF_SAVE_FAILED', message: conflict ? '担当情報が変更されました。開き直してから保存してください。' : 'スタッフ情報と担当の保存を確認できませんでした。画面を開き直して現在の状態を確認してください。' })
+  }
+  if (!data || typeof data !== 'object' || !('id' in data)) return res.status(500).json({ error: '保存結果を確認できませんでした' })
+  const row = data as Record<string, unknown>
+  if (id && oldName && typeof profile.name === 'string' && profile.name !== oldName) {
+    await syncRenamedStaffReferences(db, user.orgId, oldName, profile.name)
+  }
+  const visible = Object.fromEntries(STAFF_SELECT_FIELDS.split(', ').map(field => {
+    const [alias, column] = field.split(':')
+    return [alias, row[column || alias]]
+  }))
+  return res.status(id ? 200 : 201).json(visible)
+}
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   const id = req.query.id as string | undefined
@@ -168,6 +199,8 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
 
   }
+
+  if (body.assignment_edit !== undefined) return saveEditor(req, res, user, null, insertRow)
 
   // organization_id はサーバー側で強制（フロントからの上書きを許可しない）
   insertRow.organization_id = user.orgId
@@ -283,6 +316,8 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   if (Object.keys(updateRow).length === 0) {
     return res.status(400).json({ error: '更新可能なフィールドがありません' })
   }
+
+  if (body.assignment_edit !== undefined) return saveEditor(req, res, user, id, updateRow, existing.name)
 
   const { data, error } = await database
     .from('staff')

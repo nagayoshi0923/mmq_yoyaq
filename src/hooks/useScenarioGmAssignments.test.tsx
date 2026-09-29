@@ -39,6 +39,7 @@ describe('scenario GM editor isolation', () => {
     expect(result.selectedStaffIds).toEqual(['bob'])
     expect(result.assignmentsReady).toBe(true)
     expect(result.getChanges()).toEqual({ removed: [], upserts: [] })
+    expect(result.getBaseline()).toEqual([bob])
   })
 
   it('clears previous selections and blocks saves when the next read fails', async () => {
@@ -84,4 +85,12 @@ describe('scenario GM editor isolation', () => {
     expect(result.assignmentsReady).toBe(true)
     expect(result.selectedStaffIds).toEqual([])
   })
+})
+
+it('keeps experienced-only rows in the baseline without selecting them as GMs', async () => {
+ const played={staff_id:'played',can_main_gm:false,can_sub_gm:false,is_experienced:true,assigned_at:'2026-09-29T00:00:00Z'}
+ vi.mocked(assignmentApi.getAllScenarioAssignments).mockResolvedValue([alice,played])
+ await render('first')
+ expect(result.selectedStaffIds).toEqual(['alice'])
+ expect(result.getBaseline()).toEqual([alice,played])
 })
