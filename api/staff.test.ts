@@ -32,3 +32,30 @@ describe('staff API account mutation boundary',()=>{
  it('連携解除も同じRPCへ渡す',async()=>{await patch({user_id:null},'linkAccount');expect(m.rpc).toHaveBeenCalledWith('admin_link_staff_account',expect.objectContaining({p_user_id:null}))})
  it('通常更新後にusersの別更新を行わない',async()=>{expect((await patch({role:['gm']})).status).toHaveBeenCalledWith(200);expect(m.from.mock.calls.every(([table])=>table==='staff')).toBe(true)})
 })
+
+describe('staff editor atomic save',()=>{
+ const edit={records:[],baseline:[]}
+ it('uses the combined RPC after filtering profile fields',async()=>{
+  m.rpc.mockResolvedValue({data:{id:'staff',name:'Changed',discord_user_id:'discord',internal_secret:'hidden'},error:null})
+  const res=await patch({name:'Changed',organization_id:'foreign',assignment_edit:edit,confirm_clear:true})
+  expect(res.status).toHaveBeenCalledWith(200)
+  expect(m.rpc).toHaveBeenCalledWith('save_staff_editor_atomic',{p_org:'own-org',p_staff:'staff',p_profile:{name:'Changed'},p_edit:edit,p_confirm:true,p_actor:'actor'})
+  expect(m.update).not.toHaveBeenCalled()
+  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({discord_id:'discord'}))
+  expect(res.json.mock.calls[0][0]).not.toHaveProperty('internal_secret')
+ })
+ it('checks administrator permissions before combined role writes',async()=>{
+  m.role='staff';const res=await patch({role:['admin'],assignment_edit:edit})
+  expect(res.status).toHaveBeenCalledWith(403);expect(m.rpc).not.toHaveBeenCalled()
+ })
+ it('does not fall back to separate writes after RPC failure',async()=>{
+  m.rpc.mockResolvedValue({error:{code:'40001',message:'changed'}})
+  expect((await patch({name:'Changed',assignment_edit:edit})).status).toHaveBeenCalledWith(409)
+  expect(m.update).not.toHaveBeenCalled()
+ })
+ it('returns the existing decrease-confirmation shape',async()=>{
+  m.rpc.mockResolvedValue({error:{code:'P0101',details:JSON.stringify({error:'ASSIGNMENT_DECREASE_REJECTED',existing_count:2,incoming_count:1,removed_scenario_ids:['old']})}})
+  const res=await patch({name:'Changed',assignment_edit:edit})
+  expect(res.status).toHaveBeenCalledWith(409);expect(res.json).toHaveBeenCalledWith(expect.objectContaining({error:'ASSIGNMENT_DECREASE_REJECTED',removed_scenario_ids:['old']}))
+ })
+})

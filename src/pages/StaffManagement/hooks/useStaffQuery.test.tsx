@@ -39,15 +39,22 @@ describe('staff editor assignment preservation', () => {
     const baseline = records.map(({ scenarioId, ...flags }) => ({ scenario_master_id: scenarioId, ...flags }))
     const edit = { ...staff, assignment_edit: { records, baseline } }
     await act(async () => { await mutation.mutateAsync({ staff: edit, isEdit: true }) })
-    expect(assignmentApi.updateStaffAssignments).toHaveBeenCalledWith('alice', records, undefined, { confirmClear: false, expectedAssignments: baseline })
-    expect(staffApi.update).toHaveBeenCalledWith('alice', { id: 'alice', name: 'Alice' })
+    expect(assignmentApi.updateStaffAssignments).not.toHaveBeenCalled()
+    expect(staffApi.update).toHaveBeenCalledExactlyOnceWith('alice', { id: 'alice', name: 'Alice', assignment_edit: { records, baseline }, confirm_clear: false })
   })
-  it('retains the baseline on confirmed removal and does not update the profile after a failed assignment write', async () => {
-    vi.mocked(assignmentApi.updateStaffAssignments).mockRejectedValue(new Error('changed elsewhere'))
+  it('keeps the baseline and sends confirmed removal with the profile in one request', async () => {
+    vi.mocked(staffApi.update).mockRejectedValue(new Error('changed elsewhere'))
     const edit = { ...staff, assignment_edit: { records: [], baseline: [{ scenario_master_id: 'main', can_main_gm: true, can_sub_gm: false, is_experienced: false }] } }
     await act(async () => { await expect(mutation.mutateAsync({ staff: edit, isEdit: true, confirmDecrease: true })).rejects.toThrow('changed elsewhere') })
-    expect(staffApi.update).not.toHaveBeenCalled()
-    expect(assignmentApi.updateStaffAssignments).toHaveBeenCalledWith('alice', [], undefined, { confirmClear: true, expectedAssignments: edit.assignment_edit.baseline })
+    expect(staffApi.update).toHaveBeenCalledExactlyOnceWith('alice', { id: 'alice', name: 'Alice', assignment_edit: edit.assignment_edit, confirm_clear: true })
+    expect(assignmentApi.updateStaffAssignments).not.toHaveBeenCalled()
+  })
+  it('creates staff and assignments in one request, without a second assignment save', async () => {
+    vi.mocked(staffApi.create).mockRejectedValue(new Error('assignment failed'))
+    const edit = { ...staff, assignment_edit: { records: [{ scenarioId: 'new', can_main_gm: true, can_sub_gm: false, is_experienced: false }], baseline: [] } }
+    await act(async () => { await expect(mutation.mutateAsync({ staff: edit, isEdit: false })).rejects.toThrow('assignment failed') })
+    expect(staffApi.create).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ assignment_edit: edit.assignment_edit, confirm_clear: false }))
+    expect(assignmentApi.updateStaffAssignments).not.toHaveBeenCalled()
   })
   it('does not turn assignment loading failures into a successful empty roster', async () => {
     vi.mocked(staffApi.getAll).mockResolvedValue([staff])

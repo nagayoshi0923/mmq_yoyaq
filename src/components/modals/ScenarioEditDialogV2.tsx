@@ -487,7 +487,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   // 担当関係データ用のstate
   const {
     currentAssignments, setCurrentAssignments, selectedStaffIds, setSelectedStaffIds,
-    isLoadingAssignments, assignmentsReady, assignmentsError, getChanges, acceptAssignments,
+    isLoadingAssignments, assignmentsReady, assignmentsError, getChanges, getBaseline, acceptAssignments,
   } = useScenarioGmAssignments(scenarioId)
   const [isSaving, setIsSaving] = useState(false)
   const saveInFlight = useRef(false)
@@ -1058,27 +1058,6 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       // scenario_master_id を直接使用
       const targetScenarioId = effectiveScenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? (scenarioSaveResult as any).scenario_master_id : undefined)
 
-      if (targetScenarioId) {
-        try {
-          const changes = assignmentChanges
-          for (const staffId of changes.removed) {
-            await assignmentApi.removeAssignment(staffId, targetScenarioId)
-          }
-          for (const { staff_id, ...flags } of changes.upserts) {
-            await assignmentApi.upsertAssignment(staff_id, targetScenarioId, flags)
-          }
-          if (changes.removed.length || changes.upserts.length) {
-            const refreshed = await assignmentApi.getAllScenarioAssignments(targetScenarioId)
-            acceptAssignments(refreshed)
-          }
-        } catch (syncError) {
-          logger.error('Error updating GM assignments:', syncError)
-          showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
-        }
-        
-        await invalidateAssignmentQueries(queryClient)
-      }
-
       // マスタから引用した場合、organization_scenariosにも登録
       // scenariosテーブルの保存に失敗してもここは必ず実行する
       const masterIdForOrgSave = formData.scenario_master_id || targetScenarioId
@@ -1258,6 +1237,22 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         if (onScenarioChange) {
           onScenarioChange(targetScenarioId)
         }
+      }
+
+      if (targetScenarioId) {
+        try {
+          const changes = assignmentChanges
+          if (changes.removed.length || changes.upserts.length) {
+            const refreshed = await assignmentApi.saveScenarioGmChanges(targetScenarioId, changes, getBaseline())
+            acceptAssignments(refreshed)
+          }
+        } catch (syncError) {
+          logger.error('Error updating GM assignments:', syncError)
+          showToast.warning('担当GMを保存できませんでした', '担当の変更は反映されていません。シナリオ基本情報は保存済みです。画面を開き直して確認してください')
+          return
+        }
+
+        await invalidateAssignmentQueries(queryClient)
       }
 
       if (sourceState) {

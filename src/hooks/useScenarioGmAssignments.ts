@@ -7,9 +7,11 @@ export function useScenarioGmAssignments(scenarioId: string | null | undefined) 
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
   const [loadedId, setLoadedId] = useState<string | null | undefined>(undefined)
   const [error, setError] = useState(false)
+  const baseline = useRef<ScenarioGmAssignment[]>([])
   const original = useRef<ScenarioGmAssignment[]>([])
   const requestedId = scenarioId || null
   const accept = (rows: ScenarioGmAssignment[]) => {
+    baseline.current = rows
     const gm = rows.filter(a => a.can_main_gm === true || a.can_sub_gm === true)
     original.current = gm
     setCurrentAssignments(gm)
@@ -20,6 +22,7 @@ export function useScenarioGmAssignments(scenarioId: string | null | undefined) 
     let cancelled = false
     setLoadedId(undefined)
     setError(false)
+    baseline.current = []
     original.current = []
     setCurrentAssignments([])
     setSelectedStaffIds([])
@@ -47,6 +50,7 @@ export function useScenarioGmAssignments(scenarioId: string | null | undefined) 
       if (!ready) throw new Error('担当GMの読み込みが完了していません。開き直してください。')
       return getScenarioAssignmentChanges(original.current, currentAssignments, selectedStaffIds)
     },
+    getBaseline: () => baseline.current,
     acceptAssignments: accept,
   }
 }
