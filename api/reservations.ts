@@ -1,3 +1,4 @@
+import { saveGmResponse } from './_lib/saveGmResponse.js'
 import { readGmResponses, readGmPendingCount, readGmReadiness } from './_lib/gmResponses.js'
 import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
@@ -324,6 +325,9 @@ async function routePost(req: VercelRequest, res: VercelResponse, user: AuthUser
   const action = (req.query.action as string | undefined) ?? 'create'
 
   switch (action) {
+    case 'gm-response':
+      if (!db) throw new ApiError(500, 'db unavailable')
+      return res.status(200).json(await saveGmResponse(db, user, req.body ?? {}))
     case 'create':
       // 顧客（ログイン済み）でも自分自身の予約は作成できる。
       // 権限細分化は RPC 内の auth.uid() ベースの組織境界チェックに任せる。

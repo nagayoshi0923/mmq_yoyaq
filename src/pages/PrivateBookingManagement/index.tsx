@@ -1,3 +1,4 @@
+import { saveGmResponse, type ManualGmResponseBaseline } from '@/lib/gmResponseApi'
 import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -162,11 +163,11 @@ export function PrivateBookingManagement() {
   const [blockedSlotRows, setBlockedSlotRows] = useState<PrivateBookingBlockedSlotRow[]>([])
 
   // GM出欠手動記録ハンドラー
-  const handleGMResponseSave = async (requestId: string, staffId: string, availableCandidates: number[]) => {
+  const handleGMResponseSave = async (requestId: string, staffId: string, availableCandidates: number[], baseline: ManualGmResponseBaseline) => {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) { showToast.error('組織情報を取得できません'); return }
     const req = requests.find(r => r.id === requestId)
-    const displayedCandidates = req?.candidate_datetimes?.candidates || []
+    const displayedCandidates = baseline.candidates
     const storedIndexes = availableCandidates.map(index => {
       const candidate = displayedCandidates[index]
       return candidate ? candidateResponseIndex(candidate, displayedCandidates) : null
@@ -177,21 +178,14 @@ export function PrivateBookingManagement() {
     }
     const gm = allGMs.find(g => g.id === staffId)
     const responseStatus = availableCandidates.length === 0 ? 'all_unavailable' : 'available'
-    const { error } = await supabase
-      .from('gm_availability_responses')
-      .upsert({
-        organization_id: orgId,
-        reservation_id: requestId,
-        staff_id: staffId,
-        gm_name: gm?.name || '',
-        response_status: responseStatus,
-        available_candidates: storedIndexes,
-        responded_at: new Date().toISOString(),
-        notes: '管理画面から手動入力',
-      }, { onConflict: 'reservation_id,staff_id' })
-    if (error) {
-      logger.error('GM出欠保存エラー:', error)
-      showToast.error('保存に失敗しました')
+    const previous = baseline.responses.find(r => r.staff_id === staffId)
+    try {
+      await saveGmResponse({reservationId:requestId,staffId,
+        candidates:baseline.storedCandidates,
+        expectedResponse:previous ? {id:previous.id,updated_at:previous.updated_at ?? null} : null,
+        availableCandidates:storedIndexes as number[],responseStatus,notes:'管理画面から手動入力'})
+    } catch(error) {
+      showToast.error(error instanceof Error ? error.message : '保存に失敗しました')
       throw error
     }
     showToast.success(`${gm?.name || 'GM'}の出欠を記録しました`)

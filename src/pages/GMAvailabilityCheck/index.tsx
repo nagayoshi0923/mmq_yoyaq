@@ -36,6 +36,8 @@ export function GMAvailabilityCheck() {
     setCurrentDate,
     selectedCandidates,
     setSelectedCandidates,
+    responseBaselines,
+    setResponseBaselines,
     notes,
     setNotes,
     loadGMRequests,
@@ -56,11 +58,12 @@ export function GMAvailabilityCheck() {
   // 編集開始時に既存の回答を選択状態にセット
   const handleStartEdit = useCallback((request: any) => {
     setEditingRequestId(request.id)
+    setResponseBaselines(previous => ({...previous,[request.id]:request}))
     // 一度で置換し、前回の未保存変更や複数setStateによる候補欠落を残さない。
     setSelectedCandidates(previous => ({ ...previous,
       [request.id]: candidateOrdersFromIndexes(request.candidate_datetimes?.candidates || [], request.available_candidates || []),
     }))
-  }, [setSelectedCandidates])
+  }, [setSelectedCandidates,setResponseBaselines])
 
   const handleCancelEdit = useCallback(() => {
     setEditingRequestId(null)
@@ -74,7 +77,7 @@ export function GMAvailabilityCheck() {
     setConflictConfirmOpen,
     confirmSubmitDespiteConflict
   } = useResponseSubmit({
-    requests,
+    requests: Object.values(responseBaselines),
     selectedCandidates,
     gmScheduleConflicts,
     notes,
