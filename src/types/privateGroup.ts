@@ -48,6 +48,8 @@ export interface PrivateGroup {
   } | null
   organizer?: { id: string; email: string; nickname?: string } | null
   members?: PrivateGroupMember[]
+  /** 確定公演から読み取る現在値。申請候補とは別に扱う。 */
+  confirmed_performance?: { id: string; date: string; start_time: string; end_time: string; store_name: string | null } | null
   candidate_dates?: PrivateGroupCandidateDate[]
 }
 

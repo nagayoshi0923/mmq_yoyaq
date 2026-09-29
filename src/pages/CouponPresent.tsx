@@ -347,11 +347,11 @@ export function CouponPresent() {
                     style={{ backgroundColor: '#FEF3C7' }}
                   >
                     <p className="font-bold text-amber-800 text-center">
-                      公演開始の3時間前 〜 終了の1時間後
+                      クーポンの利用期間内・対象の確定予約
                     </p>
                   </div>
                   <p className="text-sm text-gray-600 leading-relaxed">
-                    上記の時間帯のみクーポンが使用可能です。時間外は「現在進行中の予約がありません」と表示されます。
+                    利用予定の確定予約を選択できます。対象・有効期限などの条件は使用前に確認されます。使用の確定は受付スタッフの案内に従ってください。
                   </p>
                 </div>
               </div>
