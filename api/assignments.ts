@@ -412,6 +412,12 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       p_expected: existingRows ?? [],
     })
     if (saveError || saved?.success !== true) {
+      console.error('[assignments] update_staff_assignments failed', {
+        staffId: staff_id,
+        organizationId: user.orgId,
+        code: saveError?.code,
+        message: saveError?.message,
+      })
       const conflict = saveError?.code === '40001' || saveError?.code === '23503'
       return res.status(conflict ? 409 : 500).json({
         error: conflict ? 'ASSIGNMENTS_CHANGED' : 'ASSIGNMENT_SAVE_FAILED',

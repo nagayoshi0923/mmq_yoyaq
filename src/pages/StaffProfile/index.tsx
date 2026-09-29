@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { assignmentSnapshot, type AssignmentSnapshot } from '@/lib/staffAssignmentEdit'
+import { assignmentSnapshot, toggleExperiencedAssignment, type AssignmentSnapshot } from '@/lib/staffAssignmentEdit'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { ApiClientError } from '@/lib/apiClient'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
@@ -204,22 +204,7 @@ function StaffProfileContent() {
 
   /** メイン／サブがオンなら体験済トグルは無効（シナリオ編集・DB制約と整合） */
   const toggleExperienced = useCallback((scenarioId: string) => {
-    setAssignments((prev) => {
-      const existing = prev.find((a) => a.scenario_master_id === scenarioId)
-      if (existing?.can_main_gm || existing?.can_sub_gm) return prev
-      if (existing?.is_experienced) {
-        return prev.filter((a) => a.scenario_master_id !== scenarioId)
-      }
-      return [
-        ...prev,
-        {
-          scenario_master_id: scenarioId,
-          can_main_gm: false,
-          can_sub_gm: false,
-          is_experienced: true,
-        },
-      ]
-    })
+    setAssignments(prev => toggleExperiencedAssignment(prev, scenarioId))
   }, [])
 
   /**
@@ -353,7 +338,16 @@ function StaffProfileContent() {
         return
       }
       logger.error('保存エラー:', error)
-      showToast.error('保存に失敗しました')
+      const message = error instanceof ApiClientError
+        ? typeof error.body?.message === 'string'
+          ? error.body.message
+          : error.status === 401
+            ? 'ログインの有効期限が切れています。再ログインしてから保存してください。'
+            : error.status === 403
+              ? '担当作品を保存する権限を確認できませんでした。スタッフのアカウントでログインしているか確認してください。'
+              : '担当作品を保存できませんでした。選択内容は画面に残っています。再度保存しても失敗する場合は管理者へお知らせください。'
+        : '担当作品の保存を確認できませんでした。通信状態を確認してください。'
+      showToast.error(message)
     } finally {
       saveInFlight.current = false
       setSaving(false)
@@ -590,4 +584,3 @@ function StaffProfileContent() {
     </AppLayout>
   )
 }
-
