@@ -2,6 +2,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { Agent, CursorAgentError } from '@cursor/sdk'
+import { collectConversationTexts, extractReview } from './extract.mjs'
 
 const LOG_PREFIX = '[cursor-cloud]'
 
@@ -115,8 +116,20 @@ async function main() {
   )
 
   let result
+  let conversationTexts = []
+  let agent
   try {
-    result = await Agent.prompt(promptText, options)
+    agent = await Agent.create(options)
+    const run = await agent.send(promptText)
+    result = await run.wait()
+    // クラウド実行では result が空で返ることがある。会話履歴から最終発言・計画本文を補う。
+    if (run.supports('conversation')) {
+      try {
+        conversationTexts = collectConversationTexts(await run.conversation())
+      } catch (error) {
+        console.error(`${LOG_PREFIX} failed to read conversation: ${error?.message || error}`)
+      }
+    }
   } catch (error) {
     if (error instanceof CursorAgentError) {
       writeResult(resultFile, {
@@ -150,11 +163,24 @@ async function main() {
     fail(`unexpected error: ${error?.message ?? error}`, 1)
   }
 
+  agent?.close()
+
+  const rawResult = typeof result?.result === 'string' ? result.result : ''
+  const review = extractReview([...conversationTexts, rawResult])
+  console.log(
+    `${LOG_PREFIX} result chars=${rawResult.length} conversation texts=${conversationTexts.length} review=${review ? 'found' : 'missing'}`,
+  )
+  if (!review) {
+    const tail = [...conversationTexts, rawResult].filter(Boolean).at(-1) ?? ''
+    console.log(`${LOG_PREFIX} last output (head 800): ${tail.slice(0, 800)}`)
+  }
+
   const payload = {
     id: result?.id ?? null,
     requestId: result?.requestId ?? null,
     status: result?.status ?? null,
-    result: result?.result ?? null,
+    // Actions 側はこの result を JSON として検証するため、取り出せたレビューを正規化して渡す。
+    result: review ? JSON.stringify(review) : rawResult || null,
     error: result?.error ?? null,
     model: result?.model ?? null,
     durationMs: result?.durationMs ?? null,
