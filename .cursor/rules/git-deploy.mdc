@@ -5,23 +5,27 @@ alwaysApply: true
 
 # Git / デプロイ / DB適用順
 
+## 開発の4段階（2026-09-30 社長決定）
+
+1. **手元** — `local-repro/`（テスト用データ・テスト用アカウント）で再現・修正する。DB変更もまずここで試す（`scripts/local-repro/db.sh`、手順は `local-repro/README.md`）
+2. **変更ごとの確認** — 作業ブランチから staging 向けPRを出す。CI（Verify / E2E / guard）と Vercel プレビューで確認する
+3. **検証環境** — PRを staging へ squash merge → ステージングへ自動デプロイ。ステージングDBは毎晩本番の写し（お客様情報は `scripts/mask-staging-pii.sql` で伏せる）
+4. **本番** — `release-pr.yml` が作る「staging → main」PRを、明示指示のもとで取り込む（下記）。反映後に本番画面で確認する
+
 ## ブランチ
 
-- **通常作業は `staging` で直接**（大きな実験だけ feature 可）
-- `staging` push → Vercel がステージング自動デプロイ
+- 作業は最新 `origin/staging` から作業ブランチを切り、staging 向けPRにする。**staging / main へ直接 push しない**
+- ブランチ名: `<種類>/<案件IDの小文字>-<短い作業名>`（例 `fix/qw-20260930-001-review`。案件IDがなければ省略）
+- 検査が通った作業は、確認を待たずに コミット → PR → staging への取り込み まで進める
 - `main` マージ → **即座に本番デプロイ**
-
-```bash
-git checkout staging && git pull origin staging
-```
 
 ## 本番反映（明示指示時のみ）
 
-1. `git log origin/staging..origin/main --oneline` で分岐確認（差分あれば報告して停止）
-2. 未適用マイグレーションがあれば **先に** `npm run db:push:prod`（成功確認）
-3. staging → main マージ＆push
-4. staging を main に ff resync
-5. Edge Function 変更があれば `npm run functions:deploy:prod`
+1. base=staging の開いたPRを取り込むか閉じる
+2. 未適用マイグレーションがあれば **先に** `npm run db:push:prod`（成功確認）→ リリースPRに `db-applied` ラベル
+3. リリースPRのタイトルが【✅本番反映可】になったら squash merge（【🛑】のままでは取り込まない）
+4. Edge Function の変更は `deploy-supabase` の結果を確認
+5. 本番画面で確認する。問題時の戻し方は `supabase/rollbacks/` と Vercel の直前デプロイ
 
 スキル: `/deploy`
 

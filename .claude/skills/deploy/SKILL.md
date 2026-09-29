@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: staging → main の本番反映フローを一括実行する。ユーザーが「本番に反映して」「mainにマージして」「デプロイして」と言ったときに使う。分岐チェック → DBマイグレーション先行適用 → マージ＆push → staging resync の順序を保証する。
+description: staging → main の本番反映フローを一括実行する。ユーザーが「本番に反映して」「mainにマージして」「デプロイして」と言ったときに使う。開いたPRの整理 → DBマイグレーション先行適用 → リリースPRの取り込み → 本番確認 の順序を保証する。
 ---
 
 # 本番反映フロー（staging → main）
@@ -13,14 +13,12 @@ description: staging → main の本番反映フローを一括実行する。�
 ### 1. 事前チェック
 
 ```bash
-git fetch origin
-git status --short                               # 未コミットの変更がないこと
-git log origin/staging..origin/main --oneline    # 分岐チェック
+gh pr list --base staging --state open          # 開いたPR（取り込むか閉じる）
+gh pr list --base main --state open             # release-pr.yml が作ったリリースPR
 ```
 
-- **分岐チェックで main 側にコミットがある場合は停止**して報告する（hotfix が main に直接入っている可能性）。
-  マージ方針（先に main → staging を取り込むか）をユーザーに確認する。
-- 未コミットの変更が staging にある場合も停止して報告。
+- リリースPRは staging への push ごとに `release-pr.yml` が作る（squash のため `git log` の分岐比較は使わない）
+- リリースPRの本文と Deploy Guard のコメントで、含まれる変更と未適用DBの有無を確認する
 
 ### 2. DBマイグレーションの確認・適用（DB が先！）
 
@@ -35,21 +33,15 @@ npm run db:status
 - `supabase/functions/` に変更が含まれる場合は `npm run functions:deploy:prod` も実行
 - **鉄則: DB変更 → フロントデプロイの順。逆は絶対禁止**（存在しないカラム参照で本番エラーの事故実績あり）
 
-### 3. マージ＆push
+### 3. リリースPRの取り込み
 
-```bash
-git checkout main && git pull origin main
-git merge origin/staging --no-edit
-git push origin main
-```
+- DB適用が必要な場合は、本番適用の成功後にリリースPRへ `db-applied` ラベルを付ける
+- タイトルが【✅本番反映可】になったら squash merge する（【🛑】のままでは取り込まない。force merge しない）
+- main への直接 push・`git merge origin/staging` はしない
 
-### 4. staging を resync
+### 4. 本番の確認
 
-```bash
-git checkout staging
-git merge --ff-only main   # マージコミットができた場合に staging を追いつかせる
-git push origin staging    # 差分がある場合のみ
-```
+- Vercel の本番デプロイ完了と、Edge Function 変更時は `deploy-supabase` の結果を確認する
 
 ### 5. 報告
 
