@@ -27,14 +27,7 @@ alwaysApply: false
 「実装: Codex」なら Codex 連鎖に任せ、Claude/Cursor は直接実装しない。  
 POが台帳不要と明示した小タスクは通常の staging 直接作業。
 
-## 完了報告の分担
+## 完了報告
 
-| 主体 | Discord |
-|------|---------|
-| Codexレーン | **投稿しない**。常駐ブリッジが発注元への返信1通。最終回答に `[NEXT_IMPLEMENTATION_PROPOSAL]` |
-| Cursor / Claude 進行（PO依頼） | 発注元 `#クインズワルツ👑` へ完了/保留理由を報告 |
-
-```bash
-node /Users/mai/queens-waltz-ops/scripts/discord-post.mjs post 1533296084942586026 \
-  "【完了】<依頼名> / <やったこと> / <PR・コミット>"
-```
+- Cursor / Claude は Discord へ完了報告を投稿しない（2026-09-30 社長判断）。完了は案件台帳へ記録し、解決した問題は Corrections_Log へ残す
+- Codexレーンも自分では投稿しない。常駐ブリッジが発注元への返信1通で行う。最終回答に `[NEXT_IMPLEMENTATION_PROPOSAL]`
