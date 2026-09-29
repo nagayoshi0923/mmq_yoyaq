@@ -23,4 +23,18 @@ storeApi.saveBusinessHours = async (storeId, fields) => {
   document.documentElement.dataset.saved = JSON.stringify(saved)
   return { success: true }
 }
+let pauses = JSON.parse(sessionStorage.getItem('store-pauses') || '[]') as { id: string; store_id: string; pause_type: 'performance' | 'private'; starts_on: string | null; ends_on: string | null }[]
+const keepPauses = () => { sessionStorage.setItem('store-pauses', JSON.stringify(pauses)); document.documentElement.dataset.pauses = JSON.stringify(pauses) }
+storeApi.getRecruitmentPauses = async () => pauses as never
+storeApi.addRecruitmentPause = async (storeId, period) => {
+  if (storeId !== 'store') throw new Error('店舗が不一致')
+  pauses = [...pauses, { id: `pause-${pauses.length + 1}`, store_id: storeId, ...period }]
+  keepPauses()
+  return { success: true } as never
+}
+storeApi.removeRecruitmentPause = async (_storeId, pauseId) => {
+  pauses = pauses.filter(p => p.id !== pauseId)
+  keepPauses()
+  return { success: true } as never
+}
 createRoot(document.getElementById('root')!).render(<BrowserRouter><main style={{ maxWidth: 960, margin: 'auto', padding: 24 }}><BusinessHoursSettings storeId="store" /></main></BrowserRouter>)
