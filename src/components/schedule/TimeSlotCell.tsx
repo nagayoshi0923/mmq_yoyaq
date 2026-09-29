@@ -186,7 +186,7 @@ function TimeSlotCellBase({
       {...longPressHandlers}
     >
       {pauseLabel && (
-        <div className="text-[10px] leading-tight text-gray-500 text-center">{pauseLabel}</div>
+        <div className="text-xs leading-tight text-muted-foreground text-center">{pauseLabel}</div>
       )}
       {events.length > 0 ? (
         // 公演ありの場合: カードを表示（同一枠に複数設置されている場合は件数を控えめに表示）
