@@ -31,6 +31,9 @@ jobs:
       - name: Install Cursor SDK
         run: npm ci --prefix scripts/cursor-cloud
 
+      - name: Test review output extraction
+        run: node --test scripts/cursor-cloud/extract.test.mjs
+
       - name: Build review prompt
         id: prompt
         env:
@@ -124,6 +127,8 @@ jobs:
               (.body | type) == "string"
             )
           ' >/dev/null 2>&1; then
+            echo "::warning::Cursor の出力をレビューJSONとして読めませんでした（status=${STATUS}, 文字数=${#RAW}）"
+            printf '%s\n' "$RAW" | head -c 1500
             post_toplevel "$MARKER"$'\n'"## 🤖 Cursor Cloud レビュー"$'\n\n'"レビューが正常に完了しませんでした（status=${STATUS}）。人間が確認してください。"
             exit 0
           fi

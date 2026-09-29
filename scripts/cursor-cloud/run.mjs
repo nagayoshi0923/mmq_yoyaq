@@ -2,8 +2,12 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { Agent, CursorAgentError } from '@cursor/sdk'
+import { collectConversationTexts, extractReview } from './extract.mjs'
 
 const LOG_PREFIX = '[cursor-cloud]'
+const FOLLOW_UP_LIMIT = 2
+const FOLLOW_UP_MESSAGE =
+  'レビューを完了してください。追加の調査は必要な分だけにとどめ、最後に最初の依頼で指定した形式の JSON 1個だけを出力してください（前後の説明・コードフェンスなし）。'
 
 function fail(message, code = 1) {
   console.error(`${LOG_PREFIX} ${message}`)
@@ -115,8 +119,27 @@ async function main() {
   )
 
   let result
+  let conversationTexts = []
+  let agent
   try {
-    result = await Agent.prompt(promptText, options)
+    agent = await Agent.create(options)
+    // エージェントは途中経過の一言で番を終えることがある。レビューJSONが得られるまで続きを依頼する。
+    let message = promptText
+    for (let attempt = 0; attempt <= FOLLOW_UP_LIMIT; attempt += 1) {
+      const run = await agent.send(message)
+      result = await run.wait()
+      if (run.supports('conversation')) {
+        try {
+          conversationTexts.push(...collectConversationTexts(await run.conversation()))
+        } catch (error) {
+          console.error(`${LOG_PREFIX} failed to read conversation: ${error?.message || error}`)
+        }
+      }
+      if (typeof result?.result === 'string') conversationTexts.push(result.result)
+      if (result?.status !== 'finished' || extractReview(conversationTexts) || attempt === FOLLOW_UP_LIMIT) break
+      console.log(`${LOG_PREFIX} review JSON not found yet; asking to finish (follow-up ${attempt + 1}/${FOLLOW_UP_LIMIT})`)
+      message = FOLLOW_UP_MESSAGE
+    }
   } catch (error) {
     if (error instanceof CursorAgentError) {
       writeResult(resultFile, {
@@ -150,11 +173,24 @@ async function main() {
     fail(`unexpected error: ${error?.message ?? error}`, 1)
   }
 
+  agent?.close()
+
+  const rawResult = typeof result?.result === 'string' ? result.result : ''
+  const review = extractReview(conversationTexts)
+  console.log(
+    `${LOG_PREFIX} result chars=${rawResult.length} conversation texts=${conversationTexts.length} review=${review ? 'found' : 'missing'}`,
+  )
+  if (!review) {
+    const tail = conversationTexts.filter(Boolean).at(-1) ?? ''
+    console.log(`${LOG_PREFIX} last output (head 800): ${tail.slice(0, 800)}`)
+  }
+
   const payload = {
     id: result?.id ?? null,
     requestId: result?.requestId ?? null,
     status: result?.status ?? null,
-    result: result?.result ?? null,
+    // Actions 側はこの result を JSON として検証するため、取り出せたレビューを正規化して渡す。
+    result: review ? JSON.stringify(review) : rawResult || null,
     error: result?.error ?? null,
     model: result?.model ?? null,
     durationMs: result?.durationMs ?? null,
