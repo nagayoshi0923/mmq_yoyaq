@@ -23,7 +23,7 @@ Team Admin API key は Cursor Cloud Agents の認証には使用できない。
 - `ai-todo`: `staging` を起点にCursorが実装し、PRを自動作成
 - PR作成: Cursorがplanモードでレビューし、Actionsがコメントを投稿
 - PRレビュー結果:
-  - `review-ok`: 当該 head 向け。`【▶N】`順にstagingへマージ（追加 push / `synchronize` で失効し再レビュー）
+  - `review-ok`: 当該 head 向け。`【▶N】`順にstagingへマージ（追加 push / `synchronize` で再レビュー run が head 一致確認直後に review 系ラベルを除去し、再レビュー完了まで取り込まない）
   - `changes-requested`: PRへ `@cursor 指摘を修正して` とコメント
   - `needs-human`: 方針を人間が判断し、Discordにも通知
 - 複数PR: Cursorが依存順を返し、Actionsがタイトルへ `【▶N】` を付与

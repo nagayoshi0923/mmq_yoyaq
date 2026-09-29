@@ -44,4 +44,4 @@ Queens Waltz向けマーダーミステリー店舗管理（React + TypeScript +
 - ローカル確認案内: `npm run dev:vercel`（http://localhost:5173）
 - PR 後: `/smoke` 相当の動作確認チェックリストをその場で出す（画面名必須）
 - コミットメッセージは日本語 Conventional Commits（`feat:` / `fix:` 等）
-- staging 取り込みは CI成功・**当該 head に対する**ラベル `review-ok`・タイトルの `【▶N】` 順をすべて満たしてから進める（追加 push 後の古い `review-ok` では取り込まない。満たしたら確認待ちにしない。用語・条件は `git-deploy.mdc` と同じ）。main（本番）への取り込みは明示指示のときだけ
+- staging 取り込みは CI成功・**当該 head に対する**ラベル `review-ok`・タイトルの `【▶N】` 順をすべて満たしてから進める（追加 push 後は再レビュー run 開始時に review 系ラベルが除去され、再レビュー完了まで取り込まない。満たしたら確認待ちにしない。用語・条件は `git-deploy.mdc` と同じ）。main（本番）への取り込みは明示指示のときだけ

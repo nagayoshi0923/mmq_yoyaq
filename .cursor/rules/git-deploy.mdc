@@ -18,7 +18,7 @@ alwaysApply: true
 - **main への直接 push・自動マージは禁止**（本番反映は明示指示のみ）
 - **staging 直列pushの例外**: PO明示GO＋台帳ありの Codex自動配送（監督）・Claude実装レーンのみ（代替ゲートは `delivery-lanes.mdc` / yoyaq-auto-delivery）。通常の Cursor 進行・Cloud Agent / `ai-todo` は例外に含めず、作業ブランチ→staging向けPRと下記取り込みゲート必須。レーン側を全面PR経由に変えない
 - ブランチ名: `<種類>/<案件IDの小文字>-<短い作業名>`（例 `fix/qw-20260930-001-review`。案件IDがなければ省略）
-- **staging 取り込みゲート**（`docs/development/cursor-cloud-agents.md` と同じ）: CI成功・**当該 head に対する**ラベル `review-ok`・タイトルの `【▶N】` 順をすべて満たすまで squash merge / staging 取り込みをしない。追加 push 後の古い `review-ok` では取り込まない（`synchronize` で失効・再レビュー）。満たしたら確認待ちにせず取り込む。main は明示指示のみ
+- **staging 取り込みゲート**（`docs/development/cursor-cloud-agents.md` と同じ）: CI成功・**当該 head に対する**ラベル `review-ok`・タイトルの `【▶N】` 順をすべて満たすまで squash merge / staging 取り込みをしない。追加 push 後の古い `review-ok` では取り込まない（`synchronize` で再レビュー run が当該 head を確認した直後に review 系ラベルを除去し、再レビュー完了まで取り込まない）。満たしたら確認待ちにせず取り込む。main は明示指示のみ
 - `main` マージ → **即座に本番デプロイ**
 
 ## 本番反映（明示指示時のみ）
