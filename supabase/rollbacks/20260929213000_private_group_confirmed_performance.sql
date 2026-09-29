@@ -77,4 +77,4 @@ BEGIN
   'character_assignment_method',CASE WHEN access_level<>'preview' THEN g.character_assignment_method END,
   'scenario_masters',scenario,'members',members,'candidate_dates',dates);
  RETURN jsonb_build_object('group',result,'access_level',access_level,'current_member_id',actor_member,'linked_reservation_status',reservation_status,'confirmed_by_name',confirmed_name);
-END $function$
+END $function$;
