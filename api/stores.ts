@@ -1,4 +1,5 @@
 import { storeBusinessHours } from './_lib/storeBusinessHours.js'
+import { addStoreRecruitmentPause, listStoreRecruitmentPauses, removeStoreRecruitmentPause } from './_lib/storeRecruitmentPauses.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
@@ -68,6 +69,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         requireAdmin(user)
         return res.status(200).json(await storeBusinessHours(db, user.orgId, req.query.id, req.body ?? null))
       }
+      return res.status(405).json({ error: 'Method not allowed' })
+    }
+
+    if (req.query.action === 'recruitmentPauses') {
+      if (req.method === 'GET') return res.status(200).json(await listStoreRecruitmentPauses(db, user.orgId, req.query.id))
+      requireAdmin(user)
+      if (req.method === 'POST') return res.status(201).json(await addStoreRecruitmentPause(db, user.orgId, req.query.id, req.body ?? null))
+      if (req.method === 'DELETE') return res.status(200).json(await removeStoreRecruitmentPause(db, user.orgId, req.query.id, req.query.pauseId))
       return res.status(405).json({ error: 'Method not allowed' })
     }
 

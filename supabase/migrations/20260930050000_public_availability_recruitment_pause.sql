@@ -1,7 +1,6 @@
--- 正規ソース: get_public_private_booking_availability
--- 公開貸切画面へ、指定組織・店舗・期間の募集停止状態だけを返す（PIIを返さない）。
--- 受付不可枠（schedule_blocked_slots）と、店舗の貸切募集停止期間（store_recruitment_pauses）の両方を返す。
-
+-- QW-20260909-011: 公開貸切画面の「停止中の枠」に、店舗の貸切募集停止期間を含める。
+-- 申請・承認では 20260930030000 で拒否済み。画面でも最初から選べないようにする。
+-- 関数は現行定義（本番・検証とも同一を確認）に停止期間の UNION を足しただけ。
 CREATE OR REPLACE FUNCTION public.get_public_private_booking_availability(
   p_organization_id UUID,
   p_store_ids UUID[],
@@ -79,3 +78,5 @@ $$;
 REVOKE ALL ON FUNCTION public.get_public_private_booking_availability(UUID, UUID[], DATE, DATE) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_public_private_booking_availability(UUID, UUID[], DATE, DATE)
   TO anon, authenticated, service_role;
+
+NOTIFY pgrst, 'reload schema';

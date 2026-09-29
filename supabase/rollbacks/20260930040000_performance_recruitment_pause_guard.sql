@@ -1,3 +1,4 @@
+-- 20260930040000 を戻す: 予約作成を停止期間の判定なしの定義へ戻す。
 CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text DEFAULT NULL::text, p_how_found text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_customer_coupon_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -69,12 +70,6 @@ BEGIN
       AND organization_id = v_event_org_id
       AND status = 'active'
   );
-
-  -- 店舗の公演募集停止期間中は、お客様からの予約を受け付けない（スタッフの手入力は従来どおり可）
-  IF NOT (v_is_admin OR v_is_staff)
-     AND public.is_store_recruitment_paused(v_store_id, 'performance', v_date) THEN
-    RAISE EXCEPTION 'RECRUITMENT_PAUSED' USING ERRCODE = 'P0046';
-  END IF;
 
   IF p_customer_id IS NULL THEN
     IF NOT (v_is_admin OR v_is_staff) THEN
@@ -260,5 +255,6 @@ BEGIN
 
   RETURN v_reservation_id;
 END;
-$function$
-;
+$function$;
+
+NOTIFY pgrst, 'reload schema';

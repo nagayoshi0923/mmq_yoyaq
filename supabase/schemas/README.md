@@ -2,7 +2,7 @@
 
 ## 概要
 
-> **テーブル定義（カラム・型・制約）の正本**はこのディレクトリの `.sql` です（現在 **56テーブル + 1ビュー = 57ファイル**）。
+> **テーブル定義（カラム・型・制約）の正本**はこのディレクトリの `.sql` です（現在 **57テーブル + 1ビュー = 58ファイル**）。
 > 本番全体（165表）の構造・関連・画面対応の俯瞰は **MMQ 構造アトラス**（https://github.com/nagayoshi0923/mmq-model-atlas 、2026-09-28 版）を参照してください（アトラスは俯瞰資料であり、テーブル定義の正本ではありません）。
 
 このディレクトリには、各テーブルの **現在の正規定義** が格納されています。
@@ -14,7 +14,7 @@
 - **新テーブル作成時**: `schemas/` にも定義ファイルを追加すること
 - **schemas/ のみの更新は禁止**: 実際のDB変更は必ずマイグレーションで行う（schemas/ は参照用）
 
-## 管理対象（56テーブル + 1ビュー）
+## 管理対象（57テーブル + 1ビュー）
 
 | ファイル | テーブル | 備考 |
 |----------|---------|------|
@@ -74,6 +74,7 @@
 | `staff_scenario_assignments.sql` | staff_scenario_assignments | GM割当 |
 | `store_scenario_license_contracts.sql` | store_scenario_license_contracts | |
 | `store_travel_times.sql` | store_travel_times | 店舗間移動時間マスタ |
+| `store_recruitment_pauses.sql` | store_recruitment_pauses | 店舗の募集停止期間 |
 | `stores.sql` | stores | 店舗管理 |
 
 ## フロントエンド未使用テーブル（バックエンドのみ使用）
