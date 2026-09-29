@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { assignmentSnapshot, type AssignmentSnapshot } from '@/lib/staffAssignmentEdit'
+import { assignmentSnapshot, toggleExperiencedAssignment, type AssignmentSnapshot } from '@/lib/staffAssignmentEdit'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { ApiClientError } from '@/lib/apiClient'
 import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
@@ -204,22 +204,7 @@ function StaffProfileContent() {
 
   /** メイン／サブがオンなら体験済トグルは無効（シナリオ編集・DB制約と整合） */
   const toggleExperienced = useCallback((scenarioId: string) => {
-    setAssignments((prev) => {
-      const existing = prev.find((a) => a.scenario_master_id === scenarioId)
-      if (existing?.can_main_gm || existing?.can_sub_gm) return prev
-      if (existing?.is_experienced) {
-        return prev.filter((a) => a.scenario_master_id !== scenarioId)
-      }
-      return [
-        ...prev,
-        {
-          scenario_master_id: scenarioId,
-          can_main_gm: false,
-          can_sub_gm: false,
-          is_experienced: true,
-        },
-      ]
-    })
+    setAssignments(prev => toggleExperiencedAssignment(prev, scenarioId))
   }, [])
 
   /**
@@ -599,4 +584,3 @@ function StaffProfileContent() {
     </AppLayout>
   )
 }
-
