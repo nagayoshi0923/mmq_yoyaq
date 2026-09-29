@@ -45,3 +45,13 @@ Queens Waltz向けマーダーミステリー店舗管理（React + TypeScript +
 - staging push / PR 後: `/smoke` 相当の動作確認チェックリストをその場で出す（画面名必須）
 - コミットメッセージは日本語 Conventional Commits（`feat:` / `fix:` 等）
 - コミット・push はユーザーが求めたときだけ（別途のユーザー規則に従う）
+
+## 完了報告（Cursor / Claude 進行・常時）
+
+台帳の有無にかかわらず、PO依頼の完了・着手不能・保留は発注元 `#クインズワルツ👑` へ報告する。  
+Codexレーンは投稿しない（`docs/agent/CODEX_LANE.md` / `AGENTS.md`）。詳細文面は `CLAUDE.md`。
+
+```bash
+node /Users/mai/queens-waltz-ops/scripts/discord-post.mjs post 1533296084942586026 \
+  "【完了】<依頼名> / <やったこと> / <PR・コミット>"
+```

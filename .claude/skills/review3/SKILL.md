@@ -15,7 +15,7 @@ description: PRまたは差分をUX・セキュリティ・ビジネスロジッ
    - PR番号 → `gh pr view <n> --json files,title,body` + `gh pr diff <n>`
    - コミット範囲 → `git diff <範囲>`
    - 省略時 → `git diff HEAD`（未コミット含む作業ツリー）
-3. diff だけでなく**変更ファイルの呼び出し元**も自分で列挙し、影響範囲を把握する
+3. diff だけでなく**変更ファイルの呼び出し元**も scout に列挙させ、影響範囲を把握する
 4. 3視点それぞれで観点リストを当てる。該当するテスト観点（test-perspectives.md）があれば必ず言及
 5. レポート形式（review-perspectives.md の形式）で出力:
    - 視点ごとの表（重要度 / 場所 file:line / 指摘 / 修正案）

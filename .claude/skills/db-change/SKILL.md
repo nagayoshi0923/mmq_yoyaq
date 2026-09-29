@@ -15,7 +15,7 @@ description: Supabaseのスキーマ変更・マイグレーションを安全�
 
 - [ ] 変更内容をユーザーに提示（DDL全文 + 何が変わるか1行ずつ）
 - [ ] 破壊的変更（DROP / 型変更 / NOT NULL追加）が含まれるか明示
-- [ ] 影響範囲: 対象テーブル/関数の呼び出し元を自分で列挙する（grep 等）
+- [ ] 影響範囲: 対象テーブル/関数の呼び出し元を scout に列挙させる
 - [ ] `CREATE OR REPLACE FUNCTION` は**liveの現物**を `pg_get_functiondef` で取得してから書く
       （古いmigrationファイルから書くと前回の変更を巻き戻す事故実績あり）
 

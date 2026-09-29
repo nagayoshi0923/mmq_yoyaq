@@ -8,4 +8,4 @@
 | `git-deploy.mdc` | `delivery-lanes.mdc` / `commands.mdc` |
 
 地図: `docs/agent/INDEX.md`  
-ツール別エントリ: `CLAUDE.md`（Claude/Cursor）・`AGENTS.md`（Codex）
+ツール別エントリ: `CLAUDE.md`（Claude/Cursor 進行・委譲・Discord完了報告）・`AGENTS.md`（Codex・レーン固有は `docs/agent/CODEX_LANE.md`）

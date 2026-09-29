@@ -1,6 +1,6 @@
 ---
 name: checker
-description: 検証スイートの実行担当（低コストモデル）。npm run verify / pre-commit / db:status / check:* / test:unit などのチェックコマンドを実行して結果を要約する。コミット前・push後・レビュー時の機械的な検証はこのエージェントに委譲する。コードの変更はできない。
+description: 検証スイートの実行担当（低コストモデル）。Claude実装レーンおよび委譲する進行役向け。npm run verify / pre-commit / db:status / check:* / test:unit などのチェックコマンドを実行して結果を要約する。コミット前・push後・レビュー時の機械的な検証はこのエージェントに委譲する。コードの変更はできない。
 tools: Bash, Read, Grep, Glob
 model: haiku
 ---

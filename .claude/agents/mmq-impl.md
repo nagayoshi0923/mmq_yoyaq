@@ -1,6 +1,6 @@
 ---
 name: mmq-impl
-description: MMQ の実装専用サブエージェント（高性能モデル）。設計・仕様が確定したタスクをルールに従って実装・検証する。実装依頼は原則このエージェントか Codex に委譲し、成果物はメインエージェントが diff レビューする。コミット・push・DB操作はしない。
+description: MMQ の実装専用サブエージェント（高性能モデル）。Claude実装レーンおよび委譲する進行役向け。設計・仕様が確定したタスクをルールに従って実装・検証する。実装依頼は原則このエージェントか Codex（dispatch-lane）に委譲し、成果物はメインエージェントが diff レビューする。コミット・push・DB操作はしない。
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: opus
 ---
