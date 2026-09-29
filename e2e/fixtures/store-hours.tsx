@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BusinessHoursSettings } from '../../src/pages/Settings/pages/BusinessHoursSettings'
 import { storeApi } from '../../src/lib/api/storeApi'
 import '../../src/index.css'
@@ -37,4 +38,4 @@ storeApi.removeRecruitmentPause = async (_storeId, pauseId) => {
   keepPauses()
   return { success: true } as never
 }
-createRoot(document.getElementById('root')!).render(<BrowserRouter><main style={{ maxWidth: 960, margin: 'auto', padding: 24 }}><BusinessHoursSettings storeId="store" /></main></BrowserRouter>)
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><main style={{ maxWidth: 960, margin: 'auto', padding: 24 }}><BusinessHoursSettings storeId="store" /></main></BrowserRouter></QueryClientProvider>)

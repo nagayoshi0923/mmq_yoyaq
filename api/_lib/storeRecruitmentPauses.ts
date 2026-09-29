@@ -16,8 +16,15 @@ async function assertOwnStore(database: any, orgId: string | null, storeId: unkn
   return storeId
 }
 
+// 店舗IDを省くと、組織の全店舗分を返す（スケジュール表示用）
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function listStoreRecruitmentPauses(database: any, orgId: string | null, storeId: unknown) {
+  if (storeId === undefined || storeId === '') {
+    if (!orgId) throw new ApiError(403, '組織を確認できません')
+    const all = await database.from('store_recruitment_pauses').select(FIELDS).eq('organization_id', orgId)
+    if (all.error) throw new ApiError(500, '募集停止期間を取得できません')
+    return all.data ?? []
+  }
   const id = await assertOwnStore(database, orgId, storeId)
   const result = await database.from('store_recruitment_pauses').select(FIELDS).eq('store_id', id).eq('organization_id', orgId)
     .order('starts_on', { ascending: true, nullsFirst: true })

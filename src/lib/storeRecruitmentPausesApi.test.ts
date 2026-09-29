@@ -65,4 +65,12 @@ describe('店舗の募集停止期間APIの組織境界', () => {
     expect(del?.filters).toEqual({ id: 'pause', store_id: 'store', organization_id: 'org' })
     await expect(removeStoreRecruitmentPause(database({ deleted: 0 }), 'org', 'store', 'pause')).rejects.toMatchObject({ status: 404 })
   })
+
+  it('店舗IDなしは自組織の全店舗分だけを返す', async () => {
+    const db = database()
+    await listStoreRecruitmentPauses(db, 'org', undefined)
+    expect(db.calls).toHaveLength(1)
+    expect(db.calls[0]).toMatchObject({ table: 'store_recruitment_pauses', filters: { organization_id: 'org' } })
+    await expect(listStoreRecruitmentPauses(db, null, undefined)).rejects.toMatchObject({ status: 403 })
+  })
 })
