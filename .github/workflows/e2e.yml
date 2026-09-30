@@ -42,6 +42,11 @@ jobs:
       - name: Verify booking confirmation and staff assignment UI (isolated mocks)
         run: npx playwright test --config playwright.functional-qa.config.ts
 
+      - name: Verify duplicate booking times in UTC and JST
+        run: |
+          TZ=UTC npx vitest run src/pages/BookingConfirmation/hooks/bookingDuplicateTimezone.test.ts
+          TZ=Asia/Tokyo npx vitest run src/pages/BookingConfirmation/hooks/bookingDuplicateTimezone.test.ts
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()

@@ -447,9 +447,9 @@ export function BookingConfirmation({
                   確認メールの送信を受け付けました。送信先：<span className="font-medium">{customerEmail}</span>
                 </> : <>予約は確定しましたが、確認メールの送信を確認できませんでした。再予約せず、マイページで予約内容をご確認ください。</>}
               </p>
-              <p className="text-xs text-green-600">
+              {confirmationEmailOutcome?.status === 'accepted' && <p className="text-xs text-green-600">
                 メールが届かない場合は、迷惑メールフォルダもご確認ください。
-              </p>
+              </p>}
               <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={() => navigate('/mypage')}

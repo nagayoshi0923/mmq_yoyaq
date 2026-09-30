@@ -1,5 +1,7 @@
 # 本番後機能QA（ローカル追加パス）
 
+本報告のローカルQA実施時点での記録（後続の公開/配備状態はPR #704へ記録）。
+
 基準本番SHA: `26fdcf8b2ec010c44018fde754cb2b1d5d60f267`（PR #701）。今回の修正は未commit/未push/未配備。
 作業ディレクトリ `/tmp/mmq-functional-qa-20261001`。元の未commit変更/保留GMを触らない独立worktree。
 
