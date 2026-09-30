@@ -55,6 +55,33 @@ describe('貸切承認の配送',()=>{
   const f=fixture();vi.mocked(f.store.ensureLog).mockRejectedValueOnce(Error('database unavailable'))
   await f.run();expect(f.transport.send).not.toHaveBeenCalled();expect(f.row.first_attempt_at).toBeNull();expect(f.row.status).toBe('pending')
  })
+ it.each(['confirmation_email','gm_email','gm_discord'] as const)('%s: 本文と宛先の保存失敗では送信せず再試行できる',async(kind)=>{
+  const f=fixture(kind)
+  vi.mocked(f.store.save).mockRejectedValueOnce(Error('payload persistence failed'))
+  await f.run()
+  expect(f.transport.send).not.toHaveBeenCalled()
+  expect(f.store.ensureLog).not.toHaveBeenCalled()
+  expect(f.row.provider_payload).toBeNull();expect(f.row.provider_target).toBeNull()
+  expect(f.row.first_attempt_at).toBeNull();expect(f.row.status).toBe('pending')
+  await f.run()
+  expect(f.transport.send).toHaveBeenCalledTimes(1);expect(f.row.status).toBe('sent')
+ })
+ it.each(['confirmation_email','gm_email','gm_discord'] as const)('%s: 送信直前の試行日時保存失敗では送信せず配送方式に応じて再開する',async(kind)=>{
+  const f=fixture(kind),save=vi.mocked(f.store.save).getMockImplementation()!
+  vi.mocked(f.store.save).mockImplementationOnce(save).mockRejectedValueOnce(Error('attempt persistence failed'))
+  await f.run()
+  expect(f.transport.send).not.toHaveBeenCalled()
+  expect(f.row.provider_payload).toEqual({subject:'snapshot',text:'text'})
+  expect(f.row.provider_target).toBe('target');expect(f.row.status).toBe('pending')
+  await f.run()
+  expect(f.transport.prepare).toHaveBeenCalledTimes(1)
+  if(kind==='gm_discord'){
+   // 現行仕様は保存失敗時も試行日時を残し、重複防止のため自動再送を停止する。
+   expect(f.transport.send).not.toHaveBeenCalled();expect(f.row.status).toBe('uncertain')
+  }else{
+   expect(f.transport.send).toHaveBeenCalledTimes(1);expect(f.row.status).toBe('sent')
+  }
+ })
  it('取消や再承認を本文準備の前後で検査する',async()=>{
   for(const before of [true,false]){
    const f=fixture();vi.mocked(f.store.isCurrent).mockResolvedValueOnce(before).mockResolvedValueOnce(false)
