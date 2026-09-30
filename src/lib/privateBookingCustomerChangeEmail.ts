@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { notificationOutcome, type NotificationOutcome } from '@/lib/notificationResult'
 
 export type ScheduleSnapshotForCustomerEmail = {
   date: string
@@ -90,77 +91,77 @@ export async function sendPrivateBookingCustomerChangeEmail(params: {
   /** メール下部「変更後の予約内容」。未指定時は DB の schedule_events を参照 */
   currentSchedule?: ScheduleSnapshotForCustomerEmail | null
   scenarioTitleHint?: string
-}): Promise<void> {
+}): Promise<NotificationOutcome> {
   const { reservationId, organizationId, changes, scenarioTitleHint, currentSchedule } = params
-  if (changes.length === 0) return
-
-  let resQuery = supabase
-    .from('reservations')
-    .select(
-      `
-      id,
-      organization_id,
-      reservation_number,
-      title,
-      participant_count,
-      total_price,
-      customer_email,
-      customer_name,
-      display_customer_name,
-      customers ( id, name, email ),
-      schedule_events!schedule_event_id (
-        date,
-        start_time,
-        end_time,
-        venue,
-        scenario,
-        store_id
-      )
-    `
-    )
-    .eq('id', reservationId)
-
-  if (organizationId) {
-    resQuery = resQuery.eq('organization_id', organizationId)
-  }
-
-  const { data: row, error } = await resQuery.maybeSingle()
-  if (error || !row) {
-    logger.error('貸切変更通知: 予約の取得に失敗', { reservationId, error })
-    return
-  }
-
-  const email = row.customer_email?.trim()
-  if (!email) {
-    logger.warn('貸切変更通知: customer_email がないためスキップ', { reservationId })
-    return
-  }
-
-  const rawCustomer = row.customers as { name?: string | null } | { name?: string | null }[] | null | undefined
-  const cust = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer
-  const customerName =
-    (row.display_customer_name && row.display_customer_name.trim()) ||
-    cust?.name?.trim() ||
-    row.customer_name ||
-    'お客様'
-
-  const se = Array.isArray(row.schedule_events) ? row.schedule_events[0] : row.schedule_events
-
-  const fromDb: ScheduleSnapshotForCustomerEmail | null = se
-    ? {
-        date: se.date,
-        start_time: se.start_time,
-        end_time: se.end_time,
-        venueDisplay: se.venue || '—',
-        scenario: se.scenario || undefined,
-        store_id: se.store_id,
-      }
-    : null
-
-  const current = currentSchedule ?? fromDb
+  if (changes.length === 0) return { status: 'skipped', reason: 'no_changes' }
 
   try {
-    await supabase.functions.invoke('send-booking-change-confirmation', {
+    let resQuery = supabase
+      .from('reservations')
+      .select(
+        `
+        id,
+        organization_id,
+        reservation_number,
+        title,
+        participant_count,
+        total_price,
+        customer_email,
+        customer_name,
+        display_customer_name,
+        customers ( id, name, email ),
+        schedule_events!schedule_event_id (
+          date,
+          start_time,
+          end_time,
+          venue,
+          scenario,
+          store_id
+        )
+      `
+      )
+      .eq('id', reservationId)
+
+    if (organizationId) {
+      resQuery = resQuery.eq('organization_id', organizationId)
+    }
+
+    const { data: row, error } = await resQuery.maybeSingle()
+    if (error || !row) {
+      logger.error('貸切変更通知: 予約の取得に失敗', { reservationId, reason: 'reservation_unavailable' })
+      return { status: 'failed', reason: 'reservation_unavailable' }
+    }
+
+    const email = row.customer_email?.trim()
+    if (!email) {
+      logger.warn('貸切変更通知: customer_email がないためスキップ', { reservationId })
+      return { status: 'skipped', reason: 'recipient_unavailable' }
+    }
+
+    const rawCustomer = row.customers as { name?: string | null } | { name?: string | null }[] | null | undefined
+    const cust = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer
+    const customerName =
+      (row.display_customer_name && row.display_customer_name.trim()) ||
+      cust?.name?.trim() ||
+      row.customer_name ||
+      'お客様'
+
+    const se = Array.isArray(row.schedule_events) ? row.schedule_events[0] : row.schedule_events
+
+    const fromDb: ScheduleSnapshotForCustomerEmail | null = se
+      ? {
+          date: se.date,
+          start_time: se.start_time,
+          end_time: se.end_time,
+          venueDisplay: se.venue || '—',
+          scenario: se.scenario || undefined,
+          store_id: se.store_id,
+        }
+      : null
+
+    const current = currentSchedule ?? fromDb
+
+    const response = await supabase.functions.invoke('send-booking-change-confirmation', {
       body: {
         organizationId: organizationId || row.organization_id,
         storeId: current?.store_id ?? undefined,
@@ -178,8 +179,12 @@ export async function sendPrivateBookingCustomerChangeEmail(params: {
         newTotalPrice: row.total_price ?? undefined,
       },
     })
-    logger.log('貸切変更通知メール送信完了', { reservationId })
+    const outcome = notificationOutcome(response)
+    if (outcome.status === 'accepted') logger.log('貸切変更通知メール受付確認', { reservationId })
+    else logger.warn('貸切変更通知メール未確認', { reservationId, ...outcome })
+    return outcome
   } catch (e) {
-    logger.error('貸切変更通知メール送信エラー', e)
+    logger.error('貸切変更通知メール送信エラー', { reservationId, reason: 'exception' })
+    return { status: 'failed', reason: 'exception' }
   }
 }

@@ -1,3 +1,5 @@
+import type { ScheduleEventBase } from '@/types/scheduleEventBase'
+
 /**
  * API共通の型定義
  */
@@ -20,28 +22,19 @@ export interface GMAvailabilityResponse {
 }
 
 // スケジュールイベントの型定義（schedule_eventsテーブル互換）
-export interface ScheduleEvent {
-  id: string
-  date: string
-  venue: string
+export interface ScheduleEvent extends ScheduleEventBase {
   store_id: string
-  scenario: string
   scenario_master_id: string
-  start_time: string
-  end_time: string
   category: string
-  is_cancelled: boolean
   is_reservation_enabled: boolean
   current_participants: number
   max_participants: number
   capacity: number
-  gms: string[]
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   stores?: unknown
   scenarios?: unknown
   is_private_booking?: boolean
   timeSlot?: string // 時間帯（朝/昼/夜）
-  organization_id?: string // マルチテナント対応
 }
 
 // ページネーション用のレスポンス型

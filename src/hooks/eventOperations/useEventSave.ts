@@ -1,3 +1,4 @@
+import { SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL } from '@/lib/notificationResult'
 import { loadPreparationNeighborEvents } from '@/lib/preparationNeighborEvents'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 /**
@@ -239,6 +240,7 @@ export function useEventSave({
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
     let staffSyncFailed = false
+    let customerNotificationFailed = false
     // 公演本体が保存済みなら追加モードで再試行させない。部分成功を明示して閉じる。
     const syncStaff = async (...args: Parameters<typeof reservationApi.syncStaffReservations>) => {
       try {
@@ -516,14 +518,20 @@ export function useEventSave({
 
           if (reservationChanges.length > 0 && confirmSendPrivateBookingChangeEmail()) {
             try {
-              await sendPrivateBookingCustomerChangeEmail({
+              const notification = await sendPrivateBookingCustomerChangeEmail({
                 reservationId: performanceData.reservation_id,
                 organizationId,
                 changes: reservationChanges,
                 currentSchedule,
                 scenarioTitleHint: performanceData.scenario || se?.scenario,
               })
+              if (notification.status !== 'accepted') {
+                showToast.warning(SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL)
+                customerNotificationFailed = true
+              }
             } catch (notifyErr) {
+              showToast.warning(SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL)
+              customerNotificationFailed = true
               logger.error('貸切予約更新後の顧客メール送信エラー:', notifyErr)
             }
           }
@@ -674,14 +682,20 @@ export function useEventSave({
             const scheduleChanges = diffScheduleSnapshotsForCustomerEmail(oldSnap, newSnap)
             if (scheduleChanges.length > 0 && confirmSendPrivateBookingChangeEmail()) {
               try {
-                await sendPrivateBookingCustomerChangeEmail({
+                const notification = await sendPrivateBookingCustomerChangeEmail({
                   reservationId: performanceData.reservation_id!,
                   organizationId,
                   changes: scheduleChanges,
                   currentSchedule: newSnap,
                   scenarioTitleHint: newSnap.scenario || performanceData.scenario,
                 })
+                if (notification.status !== 'accepted') {
+                  showToast.warning(SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL)
+                  customerNotificationFailed = true
+                }
               } catch (notifyErr) {
+                showToast.warning(SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL)
+                customerNotificationFailed = true
                 logger.error('貸切公演（スケジュール更新）後の顧客メール送信エラー:', notifyErr)
               }
             }
@@ -735,7 +749,7 @@ export function useEventSave({
         }
       }
 
-      if (!staffSyncFailed) showToast.success('保存しました')
+      if (!staffSyncFailed && !customerNotificationFailed) showToast.success('保存しました')
       // ダイアログは閉じない（ユーザーが明示的に閉じる）
       return true
     } catch (error) {

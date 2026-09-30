@@ -2,22 +2,23 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+const mocks = vi.hoisted(() => ({ create: vi.fn(), sync: vi.fn(), neighbors: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(), update: vi.fn(), read: vi.fn(), diff: vi.fn(), notify: vi.fn(), confirm: vi.fn() }))
 vi.mock('@/hooks/usePreparationSettings', () => ({ usePreparationSettings: () => ({ fetch: async () => () => 0 }) }))
 vi.mock('@/lib/preparationNeighborEvents', () => ({ loadPreparationNeighborEvents: mocks.neighbors }))
-vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create } }))
+vi.mock('@/lib/api', () => ({ scheduleApi: { create: mocks.create, update: mocks.update } }))
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { syncStaffReservations: mocks.sync } }))
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: async () => ({ data: { id: 'store', name: '店舗' } }) }) } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ select() { return this }, eq() { return this }, single: mocks.read }) } }))
 vi.mock('@/utils/toast', () => ({ showToast: mocks }))
 vi.mock('@/utils/logger', () => ({ logger: { log: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/api/eventHistoryApi', () => ({ fetchEventSnapshot: async () => null, createEventHistory: vi.fn() }))
-vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateBookingChangeEmail: vi.fn() }))
-vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: vi.fn(), sendPrivateBookingCustomerChangeEmail: vi.fn() }))
+vi.mock('@/hooks/eventOperations/eventSyncHelpers', () => ({ confirmSendPrivateBookingChangeEmail: mocks.confirm }))
+vi.mock('@/lib/privateBookingCustomerChangeEmail', () => ({ diffScheduleSnapshotsForCustomerEmail: mocks.diff, sendPrivateBookingCustomerChangeEmail: mocks.notify }))
 import { useEventSave } from './useEventSave'
 const data = { date: '2026-11-01', venue: 'store', scenario: '', category: 'open', start_time: '15:30', end_time: '18:30', capacity: 7, max_participants: 7, gms: ['A'], gm_roles: { A: 'staff' } }
 let root: Root
 let latest: ReturnType<typeof useEventSave>
-function Harness() { latest = useEventSave({ events: [], setEvents: vi.fn(), stores: [{ id: 'store', name: '店舗', short_name: '店舗' }], scenarios: [], modalMode: 'add', organizationId: 'org' }); return null }
+let mode: 'add' | 'edit' = 'add'
+function Harness() { latest = useEventSave({ events: [], setEvents: vi.fn(), stores: [{ id: 'store', name: '店舗', short_name: '店舗' }], scenarios: [], modalMode: mode, organizationId: 'org' }); return null }
 async function setup() {
   await act(async () => { root.render(<Harness />) })
   return { result: { get current() { return latest } } }
@@ -27,6 +28,12 @@ beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   root = createRoot(document.createElement('div'))
   vi.clearAllMocks()
+  mode = 'add'
+  mocks.read.mockResolvedValue({ data: { id: 'store', name: '店舗', date: '2026-10-01', category: 'private' } })
+  mocks.confirm.mockReturnValue(true)
+  mocks.diff.mockReturnValue([{ field: 'date', label: '日', oldValue: '旧', newValue: '新' }])
+  mocks.notify.mockResolvedValue({ status: 'accepted' })
+  mocks.update.mockResolvedValue(undefined)
   mocks.neighbors.mockResolvedValue([])
   mocks.create.mockResolvedValue({ ...data, id: 'saved', store_id: 'store', current_participants: 0 })
   mocks.sync.mockResolvedValue(undefined)
@@ -62,5 +69,29 @@ describe('公演保存の完了経路', () => {
     act(() => result.current.setIsConflictWarningOpen(false))
     expect(await pending).toBe(false)
     expect(mocks.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('公演保存後の通知結果', () => {
+  it.each([{ status: 'failed', reason: 'invoke_error' }, { status: 'skipped', reason: 'recipient_unavailable' }])('通知%sでも保存成功を返し、再保存を誘わない', async outcome => {
+    mode = 'edit'; mocks.notify.mockResolvedValue(outcome)
+    const { result } = await setup()
+    let saved: boolean | undefined
+    await act(async () => { saved = await result.current.handleSavePerformance({ ...data, id: 'event', category: 'private', reservation_id: 'r' }) })
+    expect(saved).toBe(true); expect(mocks.update).toHaveBeenCalledTimes(1)
+    expect(mocks.warning).toHaveBeenCalledWith(expect.stringContaining('変更は保存しました'), expect.stringContaining('再保存せず'))
+    expect(mocks.error).not.toHaveBeenCalled(); expect(mocks.success).not.toHaveBeenCalled()
+  })
+  it('通知受付時は保存成功を表示する', async () => {
+    mode = 'edit'; const { result } = await setup()
+    await act(async () => { await result.current.handleSavePerformance({ ...data, id: 'event', category: 'private', reservation_id: 'r' }) })
+    expect(mocks.success).toHaveBeenCalledWith('保存しました'); expect(mocks.warning).not.toHaveBeenCalled()
+  })
+  it('公演保存失敗時は通知せず保存失敗を返す', async () => {
+    mode = 'edit'; mocks.update.mockRejectedValueOnce(Error('save failed'))
+    const { result } = await setup()
+    let saved: boolean | undefined
+    await act(async () => { saved = await result.current.handleSavePerformance({ ...data, id: 'event', category: 'private', reservation_id: 'r' }) })
+    expect(saved).toBe(false); expect(mocks.notify).not.toHaveBeenCalled(); expect(mocks.warning).not.toHaveBeenCalled()
   })
 })

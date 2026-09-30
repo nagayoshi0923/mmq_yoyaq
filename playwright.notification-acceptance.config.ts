@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test'
+export default defineConfig({testDir:'./e2e',testMatch:'notification-acceptance.browser.ts',workers:1,reporter:'list',outputDir:'/tmp/mmq-notification-browser-results',use:{baseURL:'http://127.0.0.1:5194',browserName:'chromium'},webServer:{command:'VITE_SUPABASE_URL=http://127.0.0.1:59999 VITE_SUPABASE_ANON_KEY=local-fixture-only ./node_modules/.bin/vite --config vite.notification-acceptance.config.ts --mode test',url:'http://127.0.0.1:5194',reuseExistingServer:false,timeout:30000}})
