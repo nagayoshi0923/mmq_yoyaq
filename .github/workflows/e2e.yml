@@ -36,6 +36,9 @@ jobs:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
           VITE_SUPABASE_ANON_KEY: public-test-key
 
+      - name: Verify saved changes with failed notifications (isolated mocks)
+        run: npx playwright test --config playwright.notification-acceptance.config.ts
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
