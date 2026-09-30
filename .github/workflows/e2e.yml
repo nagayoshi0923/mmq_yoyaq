@@ -39,6 +39,9 @@ jobs:
       - name: Verify saved changes with failed notifications (isolated mocks)
         run: npx playwright test --config playwright.notification-acceptance.config.ts
 
+      - name: Verify booking confirmation and staff assignment UI (isolated mocks)
+        run: npx playwright test --config playwright.functional-qa.config.ts
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()

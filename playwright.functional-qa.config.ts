@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test'
+export default defineConfig({testDir:'e2e',testMatch:'functional-qa.browser.ts',workers:1,reporter:'list',outputDir:'/tmp/mmq-functional-browser-results',use:{baseURL:'http://127.0.0.1:5196',browserName:'chromium'},webServer:{command:'VITE_SUPABASE_URL=http://127.0.0.1:59999 VITE_SUPABASE_ANON_KEY=local-fixture-only ./node_modules/.bin/vite --config vite.functional-qa.config.ts --mode test',url:'http://127.0.0.1:5196',reuseExistingServer:false}})
