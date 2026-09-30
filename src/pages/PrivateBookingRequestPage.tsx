@@ -1,3 +1,4 @@
+import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PrivateBookingRequest } from './PrivateBookingRequest/index'
@@ -253,6 +254,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
           ? scenario.private_booking_time_slots
           : undefined,
         scenarioTitle: scenario.title,
+        scenarioSlotStartTimes: parseScenarioSlotStartTimes(scenario.private_booking_slot_start_times),
       })
       if (cancelled) return
       applyUrlPrefillSlot(slots)
@@ -334,6 +336,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
           ? scenario.private_booking_time_slots
           : undefined
       }
+      scenarioSlotStartTimes={scenario.private_booking_slot_start_times}
       organizationSlug={organizationSlug}
       groupId={groupId || undefined}
       onBack={handleBack}

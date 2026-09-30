@@ -1,9 +1,14 @@
--- 正規ソース: supabase/schemas/organization_scenarios_with_master.sql
--- 最終更新: 2026-04-16
--- ビュー定義: organization_scenarios と scenario_masters を結合し、
--- COALESCE でオーバーライドフィールドを適用する。
--- available_gms / experienced_staff は staff_scenario_assignments から動的に集計。
--- 2026-09-30: 本番の現行定義（pg_get_viewdef）に合わせて更新し、private_booking_slot_start_times を追加（20260930060000）
+-- QW-20260909-011: 作品ごとの貸切開始時刻（平日 / 土日祝 × 朝・昼・夜）。
+-- 未設定の枠は店舗の営業時間設定の開始時刻を使う。9/7 保存の下書き #431（20260823090000）を今の定義で作り直したもの。
+-- 形式: {"weekday":{"morning":"10:00","afternoon":null,"evening":"19:30"},"weekend":{...}}（HH:MM、null = 店舗設定）
+-- ビューは本番の現行定義の末尾に列を1つ足しただけ（検証用DBは旧下書きで同じ列が既にあるため IF NOT EXISTS）。
+
+ALTER TABLE public.organization_scenarios
+  ADD COLUMN IF NOT EXISTS private_booking_slot_start_times jsonb;
+
+COMMENT ON COLUMN public.organization_scenarios.private_booking_slot_start_times IS
+  '作品ごとの貸切開始時刻。{"weekday":{"morning":"HH:MM"},"weekend":{...}}。未設定の枠は店舗の営業時間設定';
+
 CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
  SELECT os.scenario_master_id AS id,
     os.id AS org_scenario_id,
@@ -99,3 +104,5 @@ CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
     os.private_booking_slot_start_times
    FROM organization_scenarios os
      JOIN scenario_masters sm ON sm.id = os.scenario_master_id;
+
+NOTIFY pgrst, 'reload schema';

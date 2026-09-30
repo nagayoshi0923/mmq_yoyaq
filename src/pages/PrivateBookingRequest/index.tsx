@@ -1,3 +1,4 @@
+import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { reconcilePrivateBookingCandidates } from '@/lib/reconcilePrivateBookingCandidates'
 import { calculatePrivateCandidateFees } from '../ScenarioDetailPage/utils/pricingUtils'
 import { useState, useMemo, useCallback, useEffect } from 'react'
@@ -60,6 +61,7 @@ export function PrivateBookingRequest({
   stores,
   scenarioAvailableStores,
   privateBookingTimeSlots,
+  scenarioSlotStartTimes: scenarioSlotStartTimesRaw,
   organizationSlug,
   groupId,
   onBack,
@@ -70,6 +72,12 @@ export function PrivateBookingRequest({
   const { createGroup, loading: groupLoading } = usePrivateGroup()
   
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
+
+  // 作品ごとの貸切開始時刻（元の値が変わったときだけ読み直す）
+  const scenarioSlotStartTimes = useMemo(
+    () => parseScenarioSlotStartTimes(scenarioSlotStartTimesRaw),
+    [scenarioSlotStartTimesRaw]
+  )
 
   const scenarioTiming = useMemo(
     () => ({
@@ -260,6 +268,7 @@ export function PrivateBookingRequest({
       isCustomHoliday,
       privateBookingTimeSlots,
       scenarioTitle,
+      scenarioSlotStartTimes,
     })
   }, [
     pickerDate,
@@ -270,6 +279,7 @@ export function PrivateBookingRequest({
     isCustomHoliday,
     privateBookingTimeSlots,
     scenarioTitle,
+    scenarioSlotStartTimes,
   ])
 
   const handleAddTimeSlot = () => {
@@ -287,6 +297,7 @@ export function PrivateBookingRequest({
       isCustomHoliday,
       privateBookingTimeSlots,
       scenarioTitle,
+      scenarioSlotStartTimes,
     })
     const picked = daySlots.find((s) => s.label === newSlotLabel)
     if (!picked) {
@@ -411,6 +422,7 @@ export function PrivateBookingRequest({
           isCustomHoliday,
           privateBookingTimeSlots,
           scenarioTitle,
+          scenarioSlotStartTimes,
         })
       })
       if (reconciled.invalid.length > 0) {

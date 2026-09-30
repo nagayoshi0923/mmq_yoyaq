@@ -27,6 +27,11 @@ import {
 import { getWeekendEveningStartFloorMinutes } from '@/lib/scenarioWeekendEveningPrivateBooking'
 import { timeStrToMinutes, type ScheduleEventLike } from '@/lib/privateBookingSlotAvailability'
 
+import {
+  applyScenarioSlotStartTimesToRow,
+  type ScenarioSlotStartTimes,
+} from '@/lib/privateBookingSlotStartTimes'
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -46,6 +51,8 @@ export interface ComputePrivateBookingSlotsParams {
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
   scenarioTitle?: string
+  /** 作品ごとの貸切開始時刻（平日 / 土日祝 × 朝・昼・夜）。未設定の枠は店舗の営業時間設定 */
+  scenarioSlotStartTimes?: ScenarioSlotStartTimes | null
 }
 
 export interface PrivateBookingSlot {
@@ -268,6 +275,7 @@ export function computePrivateBookingSlots(
     isCustomHoliday,
     privateBookingTimeSlots,
     scenarioTitle,
+    scenarioSlotStartTimes,
   } = params
 
   if (storeIds.length === 0) return []
@@ -280,6 +288,18 @@ export function computePrivateBookingSlots(
     dayOfWeek === 6 ||
     isJapaneseHoliday(targetDate) ||
     isCustomHoliday(targetDate)
+  // 作品の開始時刻を店舗設定の開始時刻に上書きする（開始時刻以外の判定は店舗設定と同じ計算）。
+  // 店舗の特別営業日は土日祝の設定で動くため、作品の開始時刻も土日祝の値を使う。
+  const businessHoursForScenario = scenarioSlotStartTimes
+    ? new Map([...businessHoursByStore].map(([storeId, row]) => [
+        storeId,
+        applyScenarioSlotStartTimesToRow(
+          row,
+          scenarioSlotStartTimes,
+          isWeekendOrHoliday || Boolean(row?.special_open_days?.some(day => day.date === targetDate)),
+        ) ?? row,
+      ]))
+    : businessHoursByStore
   const eveningStartFloorMinutes = getWeekendEveningStartFloorMinutes(
     isWeekendOrHoliday,
     scenarioTitle,
@@ -297,7 +317,7 @@ export function computePrivateBookingSlots(
       targetDate,
       storeIds,
       slotKey,
-      businessHoursByStore,
+      businessHoursForScenario,
       allStoreEvents,
       isCustomHoliday,
       isWeekendOrHoliday,
