@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { settingsPath } from '@/components/settings/settingsCatalog'
 // React
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useStoreRecruitmentPauseLabels } from '@/hooks/useStoreRecruitmentPauses'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -93,6 +94,9 @@ export function ScheduleManager() {
   
   // 募集中止スロット管理
   const { isSlotBlocked, blockSlot, unblockSlot } = useBlockedSlots()
+
+  // 店舗の募集停止期間（セルに「公演募集停止」等を表示）
+  const getRecruitmentPauseLabel = useStoreRecruitmentPauseLabels(Boolean(organizationId))
   
   // カスタム休日管理
   const { isCustomHoliday, toggleHoliday } = useCustomHolidays()
@@ -1132,8 +1136,9 @@ export function ScheduleManager() {
       shiftData: filteredShiftData
     },
     isSlotBlocked, // 募集中止状態チェック関数
-    isCustomHoliday // カスタム休日判定関数
-  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked, isCustomHoliday])
+    isCustomHoliday, // カスタム休日判定関数
+    getRecruitmentPauseLabel, // 店舗の募集停止期間
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked, isCustomHoliday, getRecruitmentPauseLabel])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {

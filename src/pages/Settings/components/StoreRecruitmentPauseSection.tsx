@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { PauseCircle, Plus, Trash2 } from 'lucide-react'
 import { SectionTitle } from '@/components/settings/SectionTitle'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const loadVersion = useRef(0)
+  const queryClient = useQueryClient()
 
   const load = useCallback(async () => {
     const version = ++loadVersion.current
@@ -74,6 +76,7 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
     try {
       await storeApi.addRecruitmentPause(storeId, { pause_type: pauseType, starts_on, ends_on })
       showToast.success('募集停止期間を追加しました')
+      void queryClient.invalidateQueries({ queryKey: ['store-recruitment-pauses'] })
       setDraft(prev => ({ ...prev, [pauseType]: { starts_on: '', ends_on: '' } }))
       await load()
     } catch (error) {
@@ -89,6 +92,7 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
     try {
       await storeApi.removeRecruitmentPause(storeId, pauseId)
       showToast.success('募集停止期間を削除しました')
+      void queryClient.invalidateQueries({ queryKey: ['store-recruitment-pauses'] })
       await load()
     } catch (error) {
       logger.error('募集停止期間の削除に失敗:', error)

@@ -60,6 +60,8 @@ interface TimeSlotCellProps {
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
   // 募集中止状態（グレーアウト表示用）
   isBlocked?: boolean
+  /** 店舗の募集停止期間（公演 / 貸切）。表示だけで、スタッフは公演を追加できる */
+  recruitmentPauseLabel?: string | null
   // 同日同店舗で前後の公演と間隔が 60 分未満の公演 ID
   intervalWarningEventIds?: Set<string>
   // 公演店舗または同一キットグループにキットが無い公演 ID
@@ -84,6 +86,7 @@ function TimeSlotCellBase({
   onContextMenuCell,
   onContextMenuEvent,
   isBlocked = false,
+  recruitmentPauseLabel = null,
   intervalWarningEventIds,
   kitWarningEventIds,
 }: TimeSlotCellProps) {
@@ -164,8 +167,11 @@ function TimeSlotCellBase({
   })
 
   // セルの背景色クラスを決定
+  const pauseLabel = isBlocked ? null : recruitmentPauseLabel
   const cellBgClass = isBlocked 
     ? 'bg-gray-300' // 募集中止: グレーアウト（濃い）
+    : pauseLabel
+      ? 'bg-gray-100' // 店舗の募集停止期間: 薄いグレー
     : isDragOver 
       ? 'bg-purple-50 border-purple-300' 
       : ''
@@ -179,6 +185,9 @@ function TimeSlotCellBase({
       onContextMenu={handleContextMenu}
       {...longPressHandlers}
     >
+      {pauseLabel && (
+        <div className="text-xs leading-tight text-muted-foreground text-center">{pauseLabel}</div>
+      )}
       {events.length > 0 ? (
         // 公演ありの場合: カードを表示（同一枠に複数設置されている場合は件数を控えめに表示）
         <div>

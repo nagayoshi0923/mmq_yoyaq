@@ -25,6 +25,10 @@ export const storeApi = {
     return apiClient.get<import('../storeRecruitmentPause').StoreRecruitmentPausePeriod[]>(`/api/stores?action=recruitmentPauses&id=${encodeURIComponent(storeId)}`)
   },
 
+  async getAllRecruitmentPauses() {
+    return apiClient.get<import('../storeRecruitmentPause').StoreRecruitmentPausePeriod[]>('/api/stores?action=recruitmentPauses')
+  },
+
   async addRecruitmentPause(storeId: string, period: { pause_type: import('../storeRecruitmentPause').StoreRecruitmentPauseType; starts_on: string | null; ends_on: string | null }) {
     return apiClient.post(`/api/stores?action=recruitmentPauses&id=${encodeURIComponent(storeId)}`, period)
   },
