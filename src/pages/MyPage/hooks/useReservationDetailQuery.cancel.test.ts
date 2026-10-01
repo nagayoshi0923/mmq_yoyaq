@@ -12,7 +12,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 vi.mock('@/lib/reservationApi', () => ({ reservationApi: { cancel: mocks.cancel } }))
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 vi.mock('@/utils/logger', () => ({ logger: { error: vi.fn(), warn: mocks.warn } }))
-import { useCancelReservationMutation, reservationDetailKeys } from './useReservationDetailQuery'
+import { useCancelReservationMutation as createCancelMutationOptions, reservationDetailKeys } from './useReservationDetailQuery'
 
 const clients: QueryClient[] = []
 afterEach(() => { clients.forEach((client) => client.clear()); clients.length = 0; vi.clearAllMocks() })
@@ -37,7 +37,7 @@ function setup(queryFn: () => Promise<MyPageData>, detailFails = false) {
     expect(client.getQueryData<MyPageData>(key)?.reservations[1]).toBe(other)
     expect(client.getQueryData(detailKey)).toMatchObject({ reservation: cancelled, canCancelByPolicy: false, canChangeByPolicy: false })
   })
-  const mutation = useCancelReservationMutation(cancelled.id, navigate) as unknown as {
+  const mutation = createCancelMutationOptions(cancelled.id, navigate) as unknown as {
     mutationFn: () => Promise<Reservation>
     onSuccess: (saved: Reservation) => Promise<void>
   }
