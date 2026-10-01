@@ -660,7 +660,7 @@ async function handleCurrentReservations(
     // 既に許可しているので、events 取得時の org フィルタも条件付きにする。
     let evQ = database
       .from('schedule_events')
-      .select('id, date, start_time, end_time, scenario, venue, organization_id, category, scenario_master_id, organization_scenario_id, scenario_id, stores (name)')
+      .select('id, date, start_time, end_time, scenario, venue, organization_id, category, scenario_master_id, organization_scenario_id, scenario_id, stores!schedule_events_store_id_fkey(name)')
       .in('id', Array.from(eventIds))
     if (user.orgId) evQ = evQ.eq('organization_id', user.orgId)
     const { data: events, error: eventsError } = await evQ
