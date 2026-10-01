@@ -1183,3 +1183,9 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - クーポン判定は既存どおり公演参照。現行実装にない3時間前制限の案内を画面/FAQ/メールから訂正。保存済manual_pages/manual_blocks該当旧文面0件を本番確認。クーポン消費・外部送信は検証で行わない。
 - 22対象テスト、実SQL権限/日時変更/取消/別組織/rollback、verify・Deno成功。既存業務データを書換えず読取の正を統一する。DB先行→画面/メール配備→3経路の受入を行う。GM回答履歴draftは別保留で混ぜない。
 - PR657追加レビュー対応：no_showも確定公演を返し、未参加previewは取得不能警告ではなく参加後確認案内にする。DB213100、回帰SQL/UI/verify成功。新規業務データ変更なし。
+# staging QA限定の予約確認・取消メール停止（2026-10-01）
+
+- cloud顧客Aの実認証試験に限り、固定staging QA組織/通常公演/顧客をDB照合して外部メールを停止。通常org/本番を変更せず、QA照合失敗は503でfail closed。
+- 対象2Edgeと共通guardのみ。予約RPC/API/DB schema/権限/資格情報/本番は変更なし。14ローカルハンドラ回帰とhelper strict型検査、独立検収成功。CIへ同じ回帰を追加。
+- 専用branch exact SHA CI→staging2Edgeだけの配備→親cloud Aの作成/読戻し/取消。実受入/配備結果は別作業記録で確認し、この準備記述を合格扱いしない。待機列/募集/reminder/queueの再照合と終了後QA閉鎖は必須。
+- 詳細は[QA通知guard](QA_NOTIFICATION_GUARD_20261001.md)。既存9候補/保留GM/別PRを取り込まない。

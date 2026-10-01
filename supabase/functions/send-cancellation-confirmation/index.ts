@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, isCronOrServiceRoleCall, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
+import { checkQaBookingNotificationGuard } from '../_shared/qa-booking-notification-guard.ts'
 
 interface CancellationRequest {
   organizationId?: string  // マルチテナント対応
@@ -65,7 +66,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, status, customer_email, customer_id, organization_id, schedule_events!reservations_schedule_event_id_fkey(is_cancelled,store_id)')
+      .select('id, status, customer_email, customer_id, organization_id, schedule_event_id, store_id, scenario_master_id, private_group_id, candidate_datetimes, reservation_source, payment_status, coupon_usage_id, schedule_events!reservations_schedule_event_id_fkey(is_cancelled,store_id)')
       .eq('id', cancellationData.reservationId)
       .single()
 
@@ -107,6 +108,13 @@ serve(async (req) => {
     if (cancellationData.organizationId && reservation.organization_id && cancellationData.organizationId !== reservation.organization_id) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
+
+    const qaDecision = await checkQaBookingNotificationGuard(supabaseClient, reservation, Deno.env.get('SUPABASE_URL'))
+    if (qaDecision.kind === 'blocked') return errorResponse('QA通知の停止条件を確認できません', 503, corsHeaders)
+    if (qaDecision.kind === 'suppressed') return new Response(
+      JSON.stringify({ success: true, skipped: true, reason: qaDecision.reason }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+    )
 
     // Staff handling of a company email must not generate a separate system reply.
     // Missing/legacy intake routes stay pending until the original channel is confirmed.

@@ -5,6 +5,7 @@ import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 import { confirmedReservationPrice } from '../_shared/confirmed-reservation-price.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
+import { checkQaBookingNotificationGuard } from '../_shared/qa-booking-notification-guard.ts'
 
 interface BookingConfirmationRequest {
   reservationId: string
@@ -51,7 +52,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id, schedule_event_id, scenario_master_id, final_price, total_price, discount_amount, participant_count')
+      .select('id, customer_email, customer_id, organization_id, schedule_event_id, store_id, scenario_master_id, private_group_id, candidate_datetimes, reservation_source, payment_status, coupon_usage_id, final_price, total_price, discount_amount, participant_count')
       .eq('id', bookingData.reservationId)
       .single()
 
@@ -66,6 +67,13 @@ serve(async (req) => {
     if (bookingData.organizationId && reservation.organization_id && bookingData.organizationId !== reservation.organization_id) {
       return errorResponse('組織が一致しません', 403, corsHeaders)
     }
+
+    const qaDecision = await checkQaBookingNotificationGuard(supabaseClient, reservation, Deno.env.get('SUPABASE_URL'))
+    if (qaDecision.kind === 'blocked') return errorResponse('QA通知の停止条件を確認できません', 503, corsHeaders)
+    if (qaDecision.kind === 'suppressed') return new Response(
+      JSON.stringify({ success: true, skipped: true, reason: qaDecision.reason }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+    )
 
     // 確定済みの割引後金額を正本にする。ブラウザ申告額をメール・再送キューへ渡さない。
     try { bookingData.totalPrice = confirmedReservationPrice(reservation) }
