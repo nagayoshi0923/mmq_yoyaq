@@ -1,3 +1,4 @@
+import { assertReservationActor } from './_lib/reservationActor.js'
 import { saveGmResponse } from './_lib/saveGmResponse.js'
 import { readGmResponses, readGmPendingCount, readGmReadiness } from './_lib/gmResponses.js'
 import { capacityError, isCapacityConstraintError, CAPACITY_CHANGED_MESSAGE } from './_lib/scheduleCapacity.js'
@@ -379,20 +380,10 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
     console.error('[reservations:create] customers check error:', custError)
     return res.status(404).json({ error: 'customer が見つかりません' })
   }
-  // platform customer (organization_id = NULL) は全組織で利用可
-  // 本人 (cust.user_id === user.userId) は自分の customer 行で全組織のイベントに予約可
-  //   ※ サインアップ経路の差で customers.organization_id が org に張り付いた行があるため
-  // それ以外（guest customer 等）は自組織のみ
-  if (
-    cust.organization_id !== null &&
-    cust.organization_id !== user.orgId &&
-    cust.user_id !== user.userId
-  ) {
+  await assertReservationActor(db, user, ev.organization_id, cust)
+  // 本人の旧org付き顧客は利用を維持。他人を代理する場合は公演の組織に限る。
+  if (cust.user_id !== user.userId && cust.organization_id !== null && cust.organization_id !== ev.organization_id) {
     return res.status(403).json({ error: '他組織の customer は指定できません' })
-  }
-  // 顧客ロールの場合は自分自身の customers 行のみ作成可
-  if (user.role === 'customer' && cust.user_id !== user.userId) {
-    return res.status(403).json({ error: '他人の customer に対しては作成できません' })
   }
 
   // 予約番号（冪等性: クライアント提供を優先）
@@ -434,9 +425,15 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
         .from('reservations')
         .select(RESERVATION_SELECT_FIELDS)
         .eq('reservation_number', reservationNumber)
-        .eq('organization_id', user.orgId)
+        .eq('organization_id', ev.organization_id)
+        .eq('customer_id', customerId)
+        .eq('schedule_event_id', scheduleEventId)
+        .eq('participant_count', participantCount)
         .maybeSingle()
       if (existing) return res.status(200).json(existing)
+    }
+    if (['P0010', 'P0011', 'P0012', 'P0013', '42501'].includes(code)) {
+      return res.status(403).json({ error: 'この予約を操作する権限がありません', code })
     }
     // 既知のエラーコードはメッセージを訳して返す
     const known: Record<string, string> = {
@@ -1172,8 +1169,22 @@ async function handleUpdateParticipantsWithLock(
     return res.status(400).json({ error: 'new_count が必要です' })
   }
 
-  const own = await ensureReservationOwnedByOrg(id, user)
-  if (!own.ok) return res.status(own.status).json({ error: own.error })
+  if (!db) return res.status(500).json({ error: 'db unavailable' })
+  const { data: reservation, error: readError } = await db.from('reservations')
+    .select('organization_id, customer_id').eq('id', id).maybeSingle()
+  if (readError) throw new ApiError(503, '予約の利用権限を確認できませんでした')
+  if (!reservation) return res.status(404).json({ error: '予約が見つかりません' })
+  if (customerId !== null && customerId !== reservation.customer_id) {
+    throw new ApiError(403, 'この予約を操作する権限がありません')
+  }
+  let customer: { user_id: string | null } | null = null
+  if (reservation.customer_id) {
+    const { data, error } = await db.from('customers').select('user_id')
+      .eq('id', reservation.customer_id).maybeSingle()
+    if (error) throw new ApiError(503, '予約の利用権限を確認できませんでした')
+    customer = data
+  }
+  await assertReservationActor(db, user, reservation.organization_id, customer)
 
   const userClient = createUserScopedClient(user.jwt)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1186,6 +1197,9 @@ async function handleUpdateParticipantsWithLock(
   if (error) {
     console.error('[reservations:update-participants-with-lock] RPC error:', error)
     const code = String((error as { code?: string }).code || '')
+    if (['P0010', 'P0011', 'P0012', 'P0013', '42501'].includes(code)) {
+      return res.status(403).json({ error: 'この予約を操作する権限がありません', code })
+    }
     const known: Record<string, string> = {
       P0050: '予約変更の受付期限を過ぎています。店舗へお問い合わせください',
       P0006: '参加人数が不正です',

@@ -1,4 +1,3 @@
--- 2026-10-01 本番取得定義を基準とする参照用。staging独自の募集停止判定はmigrationで保持する。
 CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text DEFAULT NULL::text, p_how_found text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_customer_coupon_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -41,10 +40,6 @@ DECLARE
   v_campaign RECORD;
   v_coupon_usage_id UUID;
 BEGIN
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'UNAUTHORIZED' USING ERRCODE = 'P0011';
-  END IF;
-
   IF p_participant_count <= 0 THEN
     RAISE EXCEPTION 'INVALID_PARTICIPANT_COUNT' USING ERRCODE = 'P0001';
   END IF;
@@ -66,37 +61,56 @@ BEGIN
     RAISE EXCEPTION 'EVENT_NOT_FOUND' USING ERRCODE = 'P0002';
   END IF;
 
-  -- reservation_actor_auth_v1: 引数ではなくJWTの本人／対象組織の業務権限で判定。
-  v_caller_org_id := public.get_user_organization_id();
-  v_is_admin := COALESCE(public.reservation_actor_is_org_operator(v_event_org_id), false);
-  v_is_staff := v_is_admin;
+  v_caller_org_id := get_user_organization_id();
+  v_is_admin := is_org_admin();
+  v_is_staff := EXISTS (
+    SELECT 1 FROM staff
+    WHERE user_id = auth.uid()
+      AND organization_id = v_event_org_id
+      AND status = 'active'
+  );
+
+  -- 店舗の公演募集停止期間中は、お客様からの予約を受け付けない（スタッフの手入力は従来どおり可）
+  IF NOT (v_is_admin OR v_is_staff)
+     AND public.is_store_recruitment_paused(v_store_id, 'performance', v_date) THEN
+    RAISE EXCEPTION 'RECRUITMENT_PAUSED' USING ERRCODE = 'P0046';
+  END IF;
 
   IF p_customer_id IS NULL THEN
     IF NOT (v_is_admin OR v_is_staff) THEN
       RAISE EXCEPTION 'FORBIDDEN_STAFF_ONLY' USING ERRCODE = 'P0013';
+    END IF;
+    IF v_caller_org_id IS NOT NULL AND v_caller_org_id != v_event_org_id THEN
+      RAISE EXCEPTION 'FORBIDDEN_ORG' USING ERRCODE = 'P0010';
     END IF;
     v_customer_user_id := NULL;
     v_customer_org_id := v_event_org_id;
   ELSE
     SELECT user_id, organization_id
     INTO v_customer_user_id, v_customer_org_id
-    FROM public.customers
+    FROM customers
     WHERE id = p_customer_id;
 
     IF NOT FOUND THEN
       RAISE EXCEPTION 'CUSTOMER_NOT_FOUND' USING ERRCODE = 'P0009';
     END IF;
 
-    IF v_customer_user_id IS DISTINCT FROM auth.uid()
-       AND NOT (v_is_admin OR v_is_staff) THEN
-      RAISE EXCEPTION 'FORBIDDEN_CUSTOMER' USING ERRCODE = 'P0011';
+    IF v_is_admin THEN
+      NULL;
+    ELSIF v_is_staff THEN
+      IF v_caller_org_id != v_event_org_id THEN
+        RAISE EXCEPTION 'FORBIDDEN_ORG' USING ERRCODE = 'P0010';
+      END IF;
+    ELSE
+      -- customer ロール: 自分自身の予約のみ許可（platform customer は org を問わない）
+      IF v_customer_user_id IS DISTINCT FROM auth.uid() THEN
+        RAISE EXCEPTION 'FORBIDDEN_CUSTOMER' USING ERRCODE = 'P0011';
+      END IF;
     END IF;
 
-    -- 本人の共通顧客は旧organization_idの有無を問わず組織横断で利用できる。
-    -- 他人を代理する業務操作では、組織付き顧客は対象公演と同じ組織に限る。
-    IF v_customer_org_id IS NOT NULL
-       AND v_customer_org_id IS DISTINCT FROM v_event_org_id
-       AND v_customer_user_id IS DISTINCT FROM auth.uid() THEN
+    -- platform customer (organization_id = NULL) は全組織で予約可
+    -- guest customer (organization_id IS NOT NULL) は自組織のみ
+    IF v_customer_org_id IS NOT NULL AND v_customer_org_id IS DISTINCT FROM v_event_org_id THEN
       RAISE EXCEPTION 'CUSTOMER_ORG_MISMATCH' USING ERRCODE = 'P0012';
     END IF;
   END IF;
