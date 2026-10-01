@@ -25,3 +25,7 @@ A migrationは表/列/RLS/SELECT権限を変更しない。隔離回帰に公開
 - これらをA適用後の実Auth・実DB一続き受入と同一視しない。専用顧客2/スタッフ1の手動作成/ログインが未完了なら、正規業務の実Auth受入は保留する。本番前にこのgateの状態を明示する。
 
 公開候補で134隔離ケース（元130＋匿名read不変4）、全体1308テスト、verifyが成功。GitHub CI結果とstaging適用結果は別記録。
+
+## 配備互換の追加
+
+初回A SHA738442f1のCI/E2EはNode20で成功したが、Vercel PreviewはNode20提供終了のためビルド開始前に失敗。公式配備画面の案内に従いpackage.json/lockのengineとCI/E2Eを24.xへ揃える。DBや認可契約は追加変更しない。Node24のexact SHA CI/Previewを別途回収し、20での成功を24の合格と扱わない。
