@@ -159,6 +159,28 @@ export const scheduleApi = {
     return supabase.from('schedule_events').update({ current_participants: count }).eq('id', id)
   },
 
+  // ─── 取り込み・一括処理用の直接書き込み（整備 Phase 2: 画面からの直接書き込みをここに集約） ───
+  // 戻り値は supabase の { data, error } をそのまま返す（呼び出し側のエラー扱いを変えないため）。
+  async insertMany(rows: Record<string, unknown>[]) {
+    return supabase.from('schedule_events').insert(rows).select('id')
+  },
+  async updateFields(id: string, fields: Record<string, unknown>) {
+    return supabase.from('schedule_events').update(fields).eq('id', id)
+  },
+  async deleteManyByIds(ids: string[]) {
+    return supabase.from('schedule_events').delete().in('id', ids)
+  },
+  /** 公演を1件削除し、削除された行を返す（0 件のときは呼び出し側がエラーにする）。組織を渡したときは組織でも絞る */
+  async deleteWithResult(id: string, organizationId?: string | null) {
+    let q = supabase.from('schedule_events').delete().eq('id', id)
+    if (organizationId) q = q.eq('organization_id', organizationId)
+    return q.select('id')
+  },
+  /** 同じシナリオ名の公演を、マスタのシナリオに紐付け直す（ScenarioMatcher） */
+  async relinkScenarioByTitle(oldTitle: string, scenario: { title: string; id: string }) {
+    return supabase.from('schedule_events').update({ scenario: scenario.title, scenario_master_id: scenario.id }).eq('scenario', oldTitle)
+  },
+
   // 公演を削除（関連する予約はDB側のFK設定に従って処理）
   async delete(id: string) {
     await apiClient.delete<void>(`/api/schedule?id=${encodeURIComponent(id)}`)
