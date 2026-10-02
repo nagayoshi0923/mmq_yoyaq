@@ -7,7 +7,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { scenarioManagementReadApi } from '@/lib/api/scenarioPageReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useMemo } from 'react'
 
@@ -25,11 +25,7 @@ export function useOrgScenariosForOptions() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return []
 
-      const { data, error } = await supabase
-        .from('organization_categories')
-        .select('id, name, sort_order')
-        .eq('organization_id', orgId)
-        .order('sort_order', { ascending: true })
+      const { data, error } = await scenarioManagementReadApi.listCategories(orgId)
 
       if (error) throw error
       return data || []
@@ -44,11 +40,7 @@ export function useOrgScenariosForOptions() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return []
 
-      const { data, error } = await supabase
-        .from('organization_authors')
-        .select('id, name, sort_order')
-        .eq('organization_id', orgId)
-        .order('sort_order', { ascending: true })
+      const { data, error } = await scenarioManagementReadApi.listAuthors(orgId)
 
       if (error) throw error
       return data || []

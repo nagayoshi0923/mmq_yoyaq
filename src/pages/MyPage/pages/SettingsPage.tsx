@@ -20,6 +20,8 @@ import { logger } from '@/utils/logger'
 import { getSafeErrorMessage, ApiError, ApiErrorType } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
+import { myPageProfileReadApi } from '@/lib/api/myPageReadApi'
+import { myPageSettingsReadApi } from '@/lib/api/myPageReadApi'
 import { useOrganization } from '@/hooks/useOrganization'
 import { getOrganizationBySlug } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -96,16 +98,7 @@ export function SettingsPage() {
   const checkBlockingPerformanceReservations = useCallback(async (): Promise<boolean> => {
     if (!customerInfo?.id) return false
     const nowIso = new Date().toISOString()
-    let q = supabase
-      .from('reservations')
-      .select('id', { count: 'exact', head: true })
-      .eq('customer_id', customerInfo.id)
-      .gte('requested_datetime', nowIso)
-      .in('status', [...RESERVATION_STATUSES_BLOCKING_WITHDRAWAL])
-    if (organizationId) {
-      q = q.eq('organization_id', organizationId)
-    }
-    const { count, error } = await q
+    const { count, error } = await myPageProfileReadApi.countBlockingReservations(customerInfo.id, nowIso, organizationId)
     if (error) throw error
     return (count ?? 0) > 0
   }, [customerInfo?.id, organizationId])
@@ -150,22 +143,8 @@ export function SettingsPage() {
 
     setLoading(true)
     try {
-      let query = supabase
-        .from('customers')
-        .select('id, organization_id, user_id, name, nickname, email, phone, address, line_id, avatar_url, notification_settings, created_at, updated_at')
-
-      if (user?.id) {
-        query = query.eq('user_id', user.id)
-      } else if (user?.email) {
-        query = query.eq('email', user.email)
-      }
-
       // 同一 user_id の重複が残っていても表示・編集対象がぶれないよう最新1件に絞る (#382)
-      const { data, error } = await query
-        .order('updated_at', { ascending: false })
-        .order('created_at', { ascending: true }).order('id', { ascending: true })
-        .limit(1)
-        .maybeSingle()
+      const { data, error } = await myPageProfileReadApi.findOwnCustomer(user?.id, user?.email)
 
       if (error) throw error
 
@@ -243,18 +222,11 @@ export function SettingsPage() {
 
         // INSERT で重複行を新規作成する前に、未紐付けの自分の顧客行を統合/紐付けする。
         // これにより過去のゲスト予約を持つ未紐付け行が本人行になり、UPDATE 経路に載る (#334)
-        const { error: linkError } = await supabase.rpc('link_current_user_to_customer')
+        const { error: linkError } = await myPageSettingsReadApi.linkCurrentUserToCustomer()
         if (linkError) logger.warn('顧客レコードの自動紐付け/統合に失敗:', linkError)
 
         // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
-        const { data: existingCust } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .order('created_at', { ascending: true }).order('id', { ascending: true })
-          .limit(1)
-          .maybeSingle()
+        const { data: existingCust } = await myPageSettingsReadApi.findOwnCustomerId(user.id)
         
         const { data: savedRows, error } = existingCust
           // organization_id は更新しない: ログイン済み顧客(本人行)は org=NULL が不変条件で、

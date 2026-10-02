@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CheckCircle, Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { licenseReportRpcApi } from '@/lib/api/licenseReportReadApi'
+import { licenseReportReadApi } from '@/lib/api/licenseReportReadApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -56,11 +57,7 @@ export default function LicensePartnerReportForm({ token }: { token: string }) {
     const load = async () => {
       setLoading(true)
       setSubmitted(false)
-      const { data, error } = await supabase.rpc('get_license_partner_report_form', {
-        p_token: token,
-        p_year: year,
-        p_month: month,
-      })
+      const { data, error } = await licenseReportReadApi.getPartnerReportForm(token, year, month)
       if (cancelled) return
       if (error) {
         logger.error('契約店舗フォーム取得エラー:', error)
@@ -118,7 +115,7 @@ export default function LicensePartnerReportForm({ token }: { token: string }) {
   const runSubmit = async () => {
     try {
       setSubmitting(true)
-      const { data, error } = await supabase.rpc('submit_license_partner_monthly_report', {
+      const { data, error } = await licenseReportRpcApi.submitPartnerMonthlyReport({
         p_token: token,
         p_year: year,
         p_month: month,

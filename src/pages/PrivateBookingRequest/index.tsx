@@ -27,7 +27,8 @@ import { usePrivateBookingDeadlineDays } from '@/hooks/usePrivateBookingDeadline
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
-import { supabase } from '@/lib/supabase'
+import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
+import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
 import { toast } from 'sonner'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
 import {
@@ -186,10 +187,7 @@ export function PrivateBookingRequest({
     queryKey: ['private-booking-request', 'business-hours', storeIdsKey],
     enabled: storeIdsForSlotResolution.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('business_hours_settings')
-        .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
-        .in('store_id', storeIdsForSlotResolution)
+      const { data, error } = await privateBookingSlotReadApi.listBusinessHours(storeIdsForSlotResolution)
       if (error) { logger.error('貸切確認: 営業時間取得エラー', error); throw error }
       const map = new Map<string, BusinessHoursSettingRow>()
       for (const row of data || []) map.set(row.store_id as string, row as BusinessHoursSettingRow)
@@ -206,14 +204,7 @@ export function PrivateBookingRequest({
       if (!organizationId) return []
       const today = new Date()
       const windowEnd = new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)
-      const { data, error } = await supabase
-        .from('schedule_events_for_availability')
-        .select('id, date, start_time, end_time, store_id, is_cancelled')
-        .filter('organization_id', 'eq', organizationId)
-        .in('store_id', storeIdsForSlotResolution)
-        .gte('date', toJstYmd(new Date(today.getTime() - 2 * 86400000)))
-        .lte('date', toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
-        .eq('is_cancelled', false)
+      const { data, error } = await privateBookingRequestReadApi.listAvailabilityEventsForSlots(organizationId, storeIdsForSlotResolution, toJstYmd(new Date(today.getTime() - 2 * 86400000)), toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
       if (error) { logger.error('貸切確認: イベント取得エラー', error); throw error }
       return data || []
     },
@@ -234,10 +225,7 @@ export function PrivateBookingRequest({
         p_start_date: dateRange.minDate,
         p_end_date: dateRange.maxDate,
       }
-      const { data, error } = await supabase.rpc(
-        'get_public_private_booking_availability',
-        params
-      )
+      const { data, error } = await privateBookingSlotReadApi.getPublicAvailability(params)
       if (error) {
         logger.error('貸切確認: 募集停止枠取得エラー', error)
         throw error

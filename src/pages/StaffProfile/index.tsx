@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { staffPageReadApi } from '@/lib/api/staffPageReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { assignmentSnapshot, toggleExperiencedAssignment, type AssignmentSnapshot } from '@/lib/staffAssignmentEdit'
 import { assignmentApi } from '@/lib/assignmentApi'
@@ -111,11 +111,7 @@ function StaffProfileContent() {
         setAssignmentBaseline(null)
 
         // ユーザーに紐づくスタッフを取得
-        const { data: staffData, error: staffError } = await supabase
-          .from('staff')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .single()
+        const { data: staffData, error: staffError } = await staffPageReadApi.findStaffByUserId(user.id)
 
         if (staffError || !staffData) {
           logger.error('スタッフ情報が見つかりません')
@@ -129,11 +125,7 @@ function StaffProfileContent() {
         // シナリオ一覧を organization_scenarios_with_master から取得
         // scenario_master_id が確実にキーになる
         const organizationId = await getCurrentOrganizationId()
-        const { data: orgScenarios, error: orgError } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('scenario_master_id, title, author, gm_count, scenario_kind')
-          .eq('organization_id', organizationId!)
-          .order('title', { ascending: true })
+        const { data: orgScenarios, error: orgError } = await staffPageReadApi.listOrganizationScenariosForProfile(organizationId!)
 
         if (orgError) throw orgError
 

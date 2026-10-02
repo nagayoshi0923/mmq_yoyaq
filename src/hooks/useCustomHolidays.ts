@@ -10,7 +10,7 @@ import { organizationSettingsApi } from '@/lib/api/organizationSettingsApi'
 import { isJapaneseHoliday as isJapaneseHolidayBase } from '@/utils/japaneseHolidays'
 import { showToast } from '@/utils/toast'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
-import { supabase } from '@/lib/supabase'
+import { scheduleHookReadApi } from '@/lib/api/scheduleHookReadApi'
 
 interface UseCustomHolidaysOptions {
   organizationSlug?: string // 公開ページ用：組織スラッグから取得
@@ -44,7 +44,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
         }
         let holidays: string[] = []
         if (targetOrganizationId) {
-          const { data, error: rpcError } = await supabase.rpc('get_public_custom_holidays', { p_organization_id: targetOrganizationId })
+          const { data, error: rpcError } = await scheduleHookReadApi.getPublicCustomHolidays(targetOrganizationId)
           if (rpcError) throw rpcError
           holidays = data?.[0]?.custom_holidays ?? []
         } else if (!hasPublicOption) {

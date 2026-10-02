@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { useCallback, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { staffSettingsReadApi } from '@/lib/api/settingsReadApi'
 import { Sentry } from '@/lib/sentry'
 import type { Organization, Staff } from '@/types'
 import {
@@ -14,9 +15,6 @@ import {
   fetchOrganizationForStaffSession,
   getOrganizations,
 } from '@/lib/organization'
-
-const STAFF_SELECT_FIELDS =
-  'id, organization_id, name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
 
 interface UseOrganizationResult {
   organization: Organization | null
@@ -49,11 +47,7 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
   }
 
   // スタッフ情報を取得
-  const { data: staffData, error: staffError } = await supabase
-    .from('staff')
-    .select(STAFF_SELECT_FIELDS)
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const { data: staffData, error: staffError } = await staffSettingsReadApi.findByUserId(user.id)
 
   if (staffError && staffError.code !== 'PGRST116') {
     Sentry.captureException(staffError, {

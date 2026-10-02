@@ -11,6 +11,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink, AlertTriangle, Bell, Ticket, X, Share2 } from 'lucide-react'
 import { InviteShareButton } from '@/components/InviteShareButton'
 import { supabase } from '@/lib/supabase'
+import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
@@ -76,9 +77,7 @@ export function BookingConfirmation({
     queryKey: ['booking-payment-settings', organizationSlug, eventId],
     enabled: !!organizationSlug && !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_public_payment_settings', {
-        p_organization_slug: organizationSlug!, p_event_id: eventId,
-      })
+      const { data, error } = await bookingConfirmationReadApi.getPublicPaymentSettings(organizationSlug!, eventId)
       if (error) throw error
       return data?.[0] ?? null
     },
@@ -246,11 +245,7 @@ export function BookingConfirmation({
       }
 
       // 組織ID・店舗情報を取得（公開用ビュー）
-      const { data: eventData, error: eventError } = await supabase
-        .from('schedule_events_public')
-        .select('organization_id, store_id, venue')
-        .eq('id', eventId)
-        .single()
+      const { data: eventData, error: eventError } = await bookingConfirmationReadApi.findPublicEventForConfirmation(eventId)
 
       if (eventError) throw eventError
 
@@ -266,13 +261,7 @@ export function BookingConfirmation({
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      const { data: phoneRow, error: phoneVerifyError } = await supabase
-        .from('customers')
-        .select('phone')
-        .eq('id', customerId)
-        .eq('user_id', user.id)
-        .eq('organization_id', eventData.organization_id)
-        .maybeSingle()
+      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhoneInOrganization(customerId, user.id, eventData.organization_id)
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }

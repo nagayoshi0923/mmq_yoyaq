@@ -11,7 +11,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useOrgThemePreset } from '@/hooks/useOrgThemePreset'
-import { supabase } from '@/lib/supabase'
+import { scenarioCatalogReadApi } from '@/lib/api/scenarioPageReadApi'
+import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
+import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -85,22 +87,11 @@ async function fetchScenarioCatalogBundle(): Promise<{
 }> {
   const { getCurrentOrganizationId } = await import('@/lib/organization')
   const orgId = await getCurrentOrganizationId()
-  let scenariosQuery = supabase
-    .from('organization_scenarios_with_master')
-    .select(
-      'id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id'
-    )
-    .eq('status', 'available')
-    .neq('scenario_type', 'gm_test')
-    .order('title', { ascending: true })
-  if (orgId) {
-    scenariosQuery = scenariosQuery.eq('organization_id', orgId)
-  }
   const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
-    scenariosQuery,
-    supabase.rpc('get_public_available_scenario_keys'),
-    supabase.from('stores').select('id, name, short_name, ownership_type, region, address, display_order'),
-    supabase.rpc('get_all_public_categories'),
+    scenarioCatalogReadApi.listAvailableScenarios(orgId),
+    platformPageReadApi.getPublicAvailableScenarioKeys(),
+    scenarioPageReadApi.listStoresForCatalog(),
+    platformPageReadApi.getAllPublicCategories(),
   ])
 
   const stores = (storesResult.data || []) as StoreData[]

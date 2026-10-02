@@ -3,7 +3,8 @@ import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { myPageSettingsReadApi } from '@/lib/api/myPageReadApi'
+import { myPageDataReadApi } from '@/lib/api/myPageReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
@@ -92,17 +93,17 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       // 実行する（#341）。新規に生じた重複行はリロード/次セッションで統合される。
       if (userId) {
         if (!linkedUserIds.has(userId)) {
-          const { error: linkError } = await supabase.rpc('link_current_user_to_customer')
+          const { error: linkError } = await myPageSettingsReadApi.linkCurrentUserToCustomer()
           if (linkError) logger.warn('顧客レコードの自動紐付け/統合に失敗:', linkError)
           else linkedUserIds.add(userId)
         }
         // 同一 user_id の重複行が残っていても表示が非決定的にならないよう1件に絞る (#382)
-        const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').eq('user_id', userId).order('updated_at', { ascending: false }).order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1).maybeSingle()
+        const { data, error } = await myPageDataReadApi.findOwnCustomerByUserId(userId)
         if (error && error.code !== 'PGRST116') logger.warn('顧客情報の取得に失敗:', error)
         if (data) customer = data
       }
       if (!customer && email) {
-        const { data, error } = await supabase.from('customers').select('id, name, nickname, avatar_url, user_id, organization_id').ilike('email', email).order('updated_at', { ascending: false }).order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1).maybeSingle()
+        const { data, error } = await myPageDataReadApi.findOwnCustomerByEmail(email)
         if (error && error.code !== 'PGRST116') throw error
         if (data) customer = data
       }
@@ -111,7 +112,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       const historySnapshot = customerPlayHistory.snapshot(customer.id)
       const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
-        supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customer.id).order('requested_datetime', { ascending: false }).limit(50),
+        myPageDataReadApi.listRecentReservations(customer.id),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
             const member = group.members?.find(m => m.user_id === userId && m.status === 'joined')
@@ -120,7 +121,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
           error: null,
         })),
         historySnapshot.then(history => ({ data: history.manual, error: null })),
-        supabase.from('scenario_ratings').select('scenario_master_id, rating').eq('customer_id', customer.id),
+        myPageDataReadApi.listRatings(customer.id),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
         fetchPlayedReservations(customer.id),
       ])
@@ -149,10 +150,10 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const groupIds = memberRecords.map(r => (r.private_groups as any)?.id).filter(Boolean)
 
       const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] = await Promise.all([
-        eventIds.length > 0 ? supabase.from('schedule_events_public').select('id, date, start_time, category, current_participants, max_participants').in('id', eventIds) : Promise.resolve({ data: [] }),
-        fetchBatchedIds(orgIds, ids => supabase.from('organizations').select('id, slug, name').in('id', ids)),
-        fetchBatchedIds(scenarioMasterIds, ids => supabase.from('scenario_masters').select('id, title, key_visual_url, player_count_min, player_count_max').in('id', ids)),
-        groupIds.length > 0 ? supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds }) : Promise.resolve({ data: [] }),
+        eventIds.length > 0 ? myPageDataReadApi.listPublicEventsByIds(eventIds) : Promise.resolve({ data: [] }),
+        fetchBatchedIds(orgIds, ids => myPageDataReadApi.listOrganizationsByIds(ids)),
+        fetchBatchedIds(scenarioMasterIds, ids => myPageDataReadApi.listScenarioMastersByIds(ids)),
+        groupIds.length > 0 ? myPageDataReadApi.getPrivateGroupSchedules(groupIds) : Promise.resolve({ data: [] }),
         Promise.resolve({ data: memberRecords.flatMap(row => (row.private_groups.members || []).filter(m => m.status === 'joined')) }),
         Promise.resolve({ data: memberRecords.flatMap(row => row.private_groups.candidate_dates || []) }),
       ])
@@ -162,7 +163,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       groupSchedules.forEach(s => { groupScheduleByGroupId[s.group_id] = s })
 
       const allStoreIds = [...new Set([...storeIdsFromReservations, ...groupSchedules.map(s => s.store_id).filter((id): id is string => !!id)])]
-      const storesFetchResult = await fetchBatchedIds(allStoreIds, ids => supabase.from('stores').select('id, name, address, color').in('id', ids))
+      const storesFetchResult = await fetchBatchedIds(allStoreIds, ids => myPageDataReadApi.listStoresByIds(ids))
       const storesData = storesFetchResult.data || []
 
       const scheduleEvents: MyPageData['scheduleEvents'] = {}
@@ -220,7 +221,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const memberUserIds = [...new Set(membersDetailRows.map(m => m.user_id).filter(Boolean) as string[])]
       const displayByUserId: Record<string, string> = {}
       if (memberUserIds.length > 0) {
-        const { data: nameRows, error: nameRpcError } = await supabase.rpc('get_user_display_names', { user_ids: memberUserIds })
+        const { data: nameRows, error: nameRpcError } = await myPageDataReadApi.getUserDisplayNames(memberUserIds)
         if (nameRpcError) logger.warn('get_user_display_names RPC エラー:', nameRpcError)
         else (nameRows as { user_id: string; display_name: string }[] | null)?.forEach(row => { if (row.user_id && row.display_name?.trim()) displayByUserId[row.user_id] = row.display_name.trim() })
       }
@@ -316,14 +317,14 @@ export function useMyPageAlbumOptionsQuery(enabled: boolean) {
     queryKey: myPageKeys.albumOptions(),
     enabled,
     queryFn: async () => {
-      const { data: scenarios, error: scenarioError } = await supabase.from('organization_scenarios_with_master').select('scenario_master_id, title, org_status').eq('org_status', 'available').order('title')
+      const { data: scenarios, error: scenarioError } = await myPageDataReadApi.listAvailableScenarios()
       if (scenarioError) throw scenarioError
       const uniqueScenarios = scenarios?.reduce((acc, s) => {
         if (!acc.find((item: { id: string }) => item.id === s.scenario_master_id)) acc.push({ id: s.scenario_master_id, title: s.title })
         return acc
       }, [] as { id: string; title: string }[]) || []
 
-      const { data: storesData, error: storeError } = await supabase.from('stores').select('id, name, short_name, is_temporary').order('name')
+      const { data: storesData, error: storeError } = await myPageDataReadApi.listStores()
       if (storeError) throw storeError
       const filteredStores = (storesData || []).filter(store => !store.is_temporary || store.short_name === '臨時1' || store.name === '臨時会場1')
       return { scenarioOptions: uniqueScenarios, storeOptions: filteredStores.map(s => ({ id: s.id, name: s.name })) }

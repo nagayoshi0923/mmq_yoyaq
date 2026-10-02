@@ -12,7 +12,7 @@ import { Save, Trash2 } from 'lucide-react'
 import type { Store, StoreFixedCost, StoreTravelTime, StoreTravelTimeInput } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { supabase } from '@/lib/supabase'
+import { storeUsageReadApi } from '@/lib/api/organizationReadApi'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 
 interface StoreEditModalProps {
@@ -146,18 +146,9 @@ export function StoreEditModal({
     setIsCheckingDelete(true)
     try {
       const [eventsResult, reservationsResult, kitsResult] = await Promise.all([
-        supabase
-          .from('schedule_events_staff_view')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', store.id),
-        supabase
-          .from('reservations')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', store.id),
-        supabase
-          .from('performance_kits')
-          .select('id', { count: 'exact', head: true })
-          .eq('store_id', store.id),
+        storeUsageReadApi.countEvents(store.id),
+        storeUsageReadApi.countReservations(store.id),
+        storeUsageReadApi.countKits(store.id),
       ])
 
       if (eventsResult.error || reservationsResult.error || kitsResult.error) {

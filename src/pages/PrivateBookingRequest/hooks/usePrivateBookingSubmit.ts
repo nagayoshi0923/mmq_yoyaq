@@ -3,6 +3,10 @@ import { addJstDays } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
+import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
+import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 
 // ページの組織コンテキスト（URLスラッグ / ?org=）を最優先で解決する。
@@ -115,15 +119,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       }
       const scenarioTiming = await fetchScenarioTimingFromDb(supabase, { organizationId, scenarioLookupId: props.scenarioId })
       const [blockedResult, eventsResult] = await Promise.all([
-        supabase.rpc('get_public_private_booking_availability', availabilityParams),
-        supabase
-          .from('schedule_events_for_availability')
-          .select('id, date, store_id, start_time, end_time, is_cancelled')
-          .filter('organization_id', 'eq', organizationId)
-          .in('store_id', props.selectedStoreIds)
-          .gte('date', addJstDays(sortedDates[0], -2))
-          .lte('date', addJstDays(sortedDates[sortedDates.length - 1], 2))
-          .eq('is_cancelled', false),
+        privateBookingSlotReadApi.getPublicAvailability(availabilityParams),
+        privateBookingRequestReadApi.listAvailabilityEvents(organizationId, props.selectedStoreIds, addJstDays(sortedDates[0], -2), addJstDays(sortedDates[sortedDates.length - 1], 2)),
       ])
       if (blockedResult.error) throw blockedResult.error
       if (eventsResult.error) throw eventsResult.error
@@ -187,12 +184,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      const { data: phoneRow, error: phoneVerifyError } = await supabase
-        .from('customers')
-        .select('phone')
-        .eq('id', customerId)
-        .eq('user_id', props.userId)
-        .maybeSingle()
+      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, props.userId)
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
@@ -247,7 +239,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_reservation_number: baseReservationNumber,
         p_private_group_id: effectiveGroupId || null,
       }
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request_with_notice', createPrivateParams)
+      const { data: reservationId, error: rpcError } = await privateGroupRpcApi.createBookingRequestWithNotice(createPrivateParams)
       
       if (rpcError) {
         logger.error('[貸切リクエスト] RPC エラー詳細:', {

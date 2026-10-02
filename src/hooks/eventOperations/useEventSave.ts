@@ -21,7 +21,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { ApiClientError } from '@/lib/apiClient'
 import { reservationApi } from '@/lib/reservationApi'
-import { supabase } from '@/lib/supabase'
+import { eventReservationReadApi, eventStoreReadApi, eventScheduleReadApi } from '@/lib/api/eventOperationsApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
@@ -257,14 +257,7 @@ export function useEventSave({
         // 新規追加
         // performanceData.venueは店舗ID（UUID）
         // 店舗の存在確認（通常の店舗 or 臨時会場）
-        let storeQuery = supabase
-          .from('stores')
-          .select('id, name')
-          .eq('id', performanceData.venue)
-        if (organizationId) {
-          storeQuery = storeQuery.eq('organization_id', organizationId)
-        }
-        const { data: storeData, error: storeError } = await storeQuery.single()
+        const { data: storeData, error: storeError } = await eventStoreReadApi.findIdAndName(performanceData.venue, organizationId)
         
         if (storeError || !storeData) {
           throw new Error(`店舗ID「${performanceData.venue}」が見つかりません。先に店舗管理で店舗を追加してください。`)
@@ -425,38 +418,11 @@ export function useEventSave({
           reservation_name: performanceData.reservation_name 
         })
         if (performanceData.is_private_request && performanceData.reservation_id) {
-          let beforeQuery = supabase
-            .from('reservations')
-            .select(
-              `
-              store_id,
-              display_customer_name,
-              schedule_events!schedule_event_id (
-                date,
-                start_time,
-                end_time,
-                venue,
-                scenario,
-                store_id
-              )
-            `
-            )
-            .eq('id', performanceData.reservation_id)
-          if (organizationId) {
-            beforeQuery = beforeQuery.eq('organization_id', organizationId)
-          }
-          const { data: beforeRow } = await beforeQuery.maybeSingle()
+          const { data: beforeRow } = await eventReservationReadApi.findPrivateBeforeUpdate(performanceData.reservation_id, organizationId)
 
           // performanceData.venueは店舗ID（UUID）
           // 店舗の存在確認（通常の店舗 or 臨時会場）
-          let storeQuery = supabase
-            .from('stores')
-            .select('id, name')
-            .eq('id', performanceData.venue)
-          if (organizationId) {
-            storeQuery = storeQuery.eq('organization_id', organizationId)
-          }
-          const { data: storeData } = await storeQuery.single()
+          const { data: storeData } = await eventStoreReadApi.findIdAndName(performanceData.venue, organizationId)
           
           const storeId = storeData?.id || performanceData.venue
           
@@ -469,7 +435,7 @@ export function useEventSave({
               display_customer_name: performanceData.reservation_name || null,
             },
           }
-          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', updateStoreParams)
+          const { error: reservationError } = await eventReservationReadApi.adminUpdateFields(updateStoreParams)
           
           if (reservationError) {
             logger.error('❌ reservations更新エラー:', reservationError)
@@ -564,14 +530,7 @@ export function useEventSave({
           
           // storesに見つからない場合はDBから直接取得（臨時会場の場合）
           if (!storeData && performanceData.venue) {
-            let storeQuery = supabase
-              .from('stores')
-              .select('id, name, short_name, is_temporary, temporary_dates, temporary_venue_names')
-              .eq('id', performanceData.venue)
-            if (organizationId) {
-              storeQuery = storeQuery.eq('organization_id', organizationId)
-            }
-            const { data: dbStoreData } = await storeQuery.single()
+            const { data: dbStoreData } = await eventStoreReadApi.findForTemporaryCheck(performanceData.venue, organizationId)
             
             if (dbStoreData) {
               storeName = dbStoreData.name || dbStoreData.short_name || ''
@@ -582,14 +541,7 @@ export function useEventSave({
           // 臨時会場で日付が変更された場合、移動先に臨時会場があるかチェック
           if (isTemporaryVenue && performanceData.id) {
             // 元のイベントから日付を取得
-            let originalEventQuery = supabase
-              .from('schedule_events')
-              .select('date')
-              .eq('id', performanceData.id)
-            if (organizationId) {
-              originalEventQuery = originalEventQuery.eq('organization_id', organizationId)
-            }
-            const { data: originalEvent } = await originalEventQuery.single()
+            const { data: originalEvent } = await eventScheduleReadApi.findDateById(performanceData.id, organizationId)
             
             const originalDate = originalEvent?.date
             const newDate = performanceData.date
@@ -597,14 +549,7 @@ export function useEventSave({
             // 日付が変更されている場合
             if (originalDate && newDate && originalDate !== newDate) {
               // 店舗の臨時会場情報を取得
-              let tempVenueQuery = supabase
-                .from('stores')
-                .select('temporary_dates')
-                .eq('id', performanceData.venue)
-              if (organizationId) {
-                tempVenueQuery = tempVenueQuery.eq('organization_id', organizationId)
-              }
-              const { data: tempVenueData } = await tempVenueQuery.single()
+              const { data: tempVenueData } = await eventStoreReadApi.findTemporaryDates(performanceData.venue, organizationId)
               
               if (tempVenueData) {
                 const currentDates = tempVenueData.temporary_dates || []
@@ -619,14 +564,7 @@ export function useEventSave({
           }
           
           // 履歴用: 更新前の値を取得
-          let oldEventQuery = supabase
-            .from('schedule_events_staff_view')
-            .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
-            .eq('id', performanceData.id)
-          if (organizationId) {
-            oldEventQuery = oldEventQuery.eq('organization_id', organizationId)
-          }
-          const { data: oldEventData } = await oldEventQuery.single()
+          const { data: oldEventData } = await eventScheduleReadApi.findStaffViewById(performanceData.id, organizationId)
           
           // 予約者名の変更を検出：DBの現在値と異なる場合のみ上書きフラグを立てる
           let isNameChanged = false

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { supabase } from '@/lib/supabase'
+import { scenarioMatcherReadApi } from '@/lib/api/scenarioPageReadApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -73,29 +73,12 @@ export function ScenarioMatcher() {
     setIsLoading(true)
     try {
       // スケジュールイベントを取得（組織フィルタ付き）
-      let eventsQuery = supabase
-        .from('schedule_events')
-        .select('id, date, scenario, venue')
-        .not('scenario', 'is', null)
-      
-      if (organizationId) {
-        eventsQuery = eventsQuery.eq('organization_id', organizationId)
-      }
-      
-      const { data: events, error: eventsError } = await eventsQuery.order('date', { ascending: false })
+      const { data: events, error: eventsError } = await scenarioMatcherReadApi.listEventsWithScenarioName(organizationId)
       
       if (eventsError) throw eventsError
       
       // シナリオマスターを取得（組織フィルタ付き）
-      let scenariosQuery = supabase
-        .from('organization_scenarios_with_master')
-        .select('title')
-      
-      if (organizationId) {
-        scenariosQuery = scenariosQuery.eq('organization_id', organizationId)
-      }
-      
-      const { data: scenarios, error: scenariosError } = await scenariosQuery
+      const { data: scenarios, error: scenariosError } = await scenarioMatcherReadApi.listScenarioTitles(organizationId)
       
       if (scenariosError) throw scenariosError
       
@@ -145,15 +128,7 @@ export function ScenarioMatcher() {
 
   const loadAllScenarios = async () => {
     try {
-      let query = supabase
-        .from('organization_scenarios_with_master')
-        .select('id, title')
-      
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
-      }
-      
-      const { data, error } = await query.order('title')
+      const { data, error } = await scenarioMatcherReadApi.listScenarios(organizationId)
       
       if (error) throw error
       setAllScenarios(data || [])

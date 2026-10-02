@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { supabase } from '@/lib/supabase'
+import { staffPageReadApi } from '@/lib/api/staffPageReadApi'
 
 interface UserOption {
   id: string
@@ -45,11 +45,7 @@ export function UserSearchCombobox({
 
     setIsSearching(true)
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, role')
-        .ilike('email', `%${email}%`)
-        .limit(10)
+      const { data, error } = await staffPageReadApi.searchUsersByEmail(email)
 
       if (error) {
         logger.error('Error searching users:', error)

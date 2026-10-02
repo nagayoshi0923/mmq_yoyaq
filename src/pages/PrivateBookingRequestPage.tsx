@@ -6,7 +6,8 @@ import { scenarioApi, storeApi } from '@/lib/api'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { logger } from '@/utils/logger'
-import { supabase } from '@/lib/supabase'
+import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
+import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { isScenarioAcceptingPrivateBooking } from '@/lib/privateBookingAcceptance'
@@ -208,10 +209,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
 
     let cancelled = false
     ;(async () => {
-      const { data, error } = await supabase
-        .from('business_hours_settings')
-        .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
-        .in('store_id', storeIdsForSlots)
+      const { data, error } = await privateBookingSlotReadApi.listBusinessHours(storeIdsForSlots)
       if (cancelled) return
       if (error) {
         logger.error('貸切リクエストページ: 営業時間取得エラー', error)
@@ -225,12 +223,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
 
       // 既存公演を無視すると埋まっている枠が空きに見えるため、貸切確認ページ（PrivateBookingRequest）と
       // 同じソース・カラム・フィルタで対象日・対象店舗の公演を取得して空き判定に渡す。
-      const { data: eventsData, error: eventsError } = await supabase
-        .from('schedule_events_public')
-        .select('id, date, start_time, end_time, store_id, scenario, category, is_cancelled')
-        .in('store_id', storeIdsForSlots)
-        .eq('date', date)
-        .eq('is_cancelled', false)
+      const { data: eventsData, error: eventsError } = await privateBookingRequestReadApi.listPublicEventsOnDate(storeIdsForSlots, date)
       if (cancelled) return
       if (eventsError) {
         logger.error('貸切リクエストページ: イベント取得エラー', eventsError)

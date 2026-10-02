@@ -20,6 +20,7 @@ import {
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { updateUserRole } from '@/lib/userApi'
 import { toast } from 'sonner'
 
@@ -85,20 +86,12 @@ export function OrganizationInfoSettings() {
   const loadAdminUsers = async (orgId: string) => {
     setIsLoadingAdmins(true)
     try {
-      const { data: users, error } = await supabase
-        .from('users')
-        .select('id, email, display_name, role, created_at')
-        .eq('organization_id', orgId)
-        .in('role', ['admin', 'license_admin'])
-        .order('created_at')
+      const { data: users, error } = await settingsPageReadApi.listOrganizationAdmins(orgId)
       if (error) throw error
 
       // staff テーブルの名前で補完
       const userIds = (users ?? []).map(u => u.id)
-      const { data: staffData } = await supabase
-        .from('staff')
-        .select('user_id, name')
-        .in('user_id', userIds)
+      const { data: staffData } = await settingsPageReadApi.listStaffNamesByUserIds(userIds)
 
       const staffMap = new Map((staffData ?? []).map(s => [s.user_id, s.name]))
       setAdminUsers(

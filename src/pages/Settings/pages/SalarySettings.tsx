@@ -30,7 +30,7 @@ const DURATION_OPTIONS = [
   { value: 7.5, label: '7時間30分' },
   { value: 8, label: '8時間' },
 ]
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -123,11 +123,7 @@ export function SalarySettings() {
       setOrganizationId(orgId)
 
       // まず基本カラムを取得（新カラムが存在しない場合も対応）
-      const { data, error } = await supabase
-        .from('global_settings')
-        .select('id, organization_id, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates, updated_at')
-        .eq('organization_id', orgId)
-        .single()
+      const { data, error } = await settingsPageReadApi.getSalarySettings(orgId)
 
       if (error) {
         logger.error('報酬設定の取得に失敗:', error)

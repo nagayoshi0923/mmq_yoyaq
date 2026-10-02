@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { supabase } from '@/lib/supabase'
+import { emailLogReadApi } from '@/lib/api/settingsPageReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -143,35 +143,16 @@ export function EmailLogsSettings() {
     else setLoading(true)
 
     try {
-      let query = supabase
-        .from('email_logs')
-        .select(
-          'id, organization_id, reservation_id, schedule_event_id, email_type, to_email, to_name, subject, body_text, body_html, provider, provider_message_id, status, error_message, sent_at, delivered_at, opened_at, bounced_at, complained_at, created_at',
-          { count: 'exact' },
-        )
-        .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-
-      if (filterStatus !== 'all') {
-        query = query.eq('status', filterStatus)
-      }
-      if (filterType !== 'all') {
-        query = query.eq('email_type', filterType)
-      }
-      if (dateFrom) {
-        query = query.gte('created_at', `${dateFrom}T00:00:00+09:00`)
-      }
-      if (dateTo) {
-        query = query.lte('created_at', `${dateTo}T23:59:59+09:00`)
-      }
-      if (debouncedKeyword) {
-        const q = debouncedKeyword.replace(/([%_,])/g, '\\$1')
-        query = query.or(
-          `to_email.ilike.%${q}%,to_name.ilike.%${q}%,subject.ilike.%${q}%,provider_message_id.ilike.%${q}%`,
-        )
-      }
-
-      const { data, count, error } = await query
+      const escapedKeyword = debouncedKeyword ? debouncedKeyword.replace(/([%_,])/g, '\\$1') : ''
+      const { data, count, error } = await emailLogReadApi.listPage({
+        page,
+        pageSize: PAGE_SIZE,
+        status: filterStatus,
+        type: filterType,
+        dateFrom,
+        dateTo,
+        escapedKeyword,
+      })
       if (error) throw error
       setLogs((data ?? []) as EmailLog[])
       setTotalCount(count ?? 0)

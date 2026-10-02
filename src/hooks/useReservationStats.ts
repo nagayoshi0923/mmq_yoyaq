@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
+import { reservationAdminReadApi } from '@/lib/api/reservationReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { startOfMonth, endOfMonth } from '@/lib/dateFns'
 
@@ -42,36 +43,6 @@ export function useReservationStats() {
 
         // 件数系はサーバ側 count（head: true）で取得し、PostgREST の
         // 既定 max-rows（1000行）による黙った切り捨てを回避する
-        let totalQuery = supabase.from('reservations').select('*', { count: 'exact', head: true })
-        let confirmedQuery = supabase.from('reservations').select('*', { count: 'exact', head: true })
-          .in('status', ['confirmed', 'gm_confirmed'])
-        let pendingQuery = supabase.from('reservations').select('*', { count: 'exact', head: true })
-          .in('status', ['pending', 'pending_gm', 'pending_store'])
-        let cancelledQuery = supabase.from('reservations').select('*', { count: 'exact', head: true })
-          .eq('status', 'cancelled')
-        let unpaidQuery = supabase.from('reservations').select('*', { count: 'exact', head: true })
-          .eq('payment_status', 'unpaid').neq('status', 'cancelled')
-        let monthlyTotalQuery = supabase.from('reservations').select('*', { count: 'exact', head: true })
-          .gte('requested_datetime', monthStartISO).lte('requested_datetime', monthEndISO)
-
-        // 売上合計（sum）は count では計算できないため、月次スコープに絞った
-        // 実データ取得で従来通り集計する（要確認: 月内件数が1000件を超える場合は
-        // 従来通り黙って切り捨てられるリスクが残る）
-        let monthlyRevenueRowsQuery = supabase
-          .from('reservations')
-          .select('status, total_price, final_price, requested_datetime')
-          .gte('requested_datetime', monthStartISO).lte('requested_datetime', monthEndISO)
-
-        if (orgId) {
-          totalQuery = totalQuery.eq('organization_id', orgId)
-          confirmedQuery = confirmedQuery.eq('organization_id', orgId)
-          pendingQuery = pendingQuery.eq('organization_id', orgId)
-          cancelledQuery = cancelledQuery.eq('organization_id', orgId)
-          unpaidQuery = unpaidQuery.eq('organization_id', orgId)
-          monthlyTotalQuery = monthlyTotalQuery.eq('organization_id', orgId)
-          monthlyRevenueRowsQuery = monthlyRevenueRowsQuery.eq('organization_id', orgId)
-        }
-
         const [
           totalRes,
           confirmedRes,
@@ -80,15 +51,7 @@ export function useReservationStats() {
           unpaidRes,
           monthlyTotalRes,
           monthlyRevenueRes,
-        ] = await Promise.all([
-          totalQuery,
-          confirmedQuery,
-          pendingQuery,
-          cancelledQuery,
-          unpaidQuery,
-          monthlyTotalQuery,
-          monthlyRevenueRowsQuery,
-        ])
+        ] = await reservationAdminReadApi.fetchStats(orgId, monthStartISO, monthEndISO)
 
         if (totalRes.error) throw totalRes.error
         if (confirmedRes.error) throw confirmedRes.error

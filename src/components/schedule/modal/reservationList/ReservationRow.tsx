@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { organizationReadApi } from '@/lib/api/organizationReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { formatJstDateTime } from '@/utils/jstDate'
@@ -258,11 +259,7 @@ export function ReservationRow({
                                   
                                   if (freedSeats > 0 && event && orgId) {
                                     try {
-                                      const { data: org } = await supabase
-                                        .from('organizations')
-                                        .select('slug')
-                                        .eq('id', orgId)
-                                        .single()
+                                      const { data: org } = await organizationReadApi.getSlugById(orgId)
                                       
                                       const orgSlug = org?.slug || ''
                                       const bookingUrl = `${window.location.origin}/${orgSlug}`

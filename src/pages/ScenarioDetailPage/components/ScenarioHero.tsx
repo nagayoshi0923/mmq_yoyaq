@@ -12,7 +12,8 @@ import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/s
 import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck, Building2, UserCircle } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
+import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
@@ -102,11 +103,7 @@ export const ScenarioHero = memo(function ScenarioHero({
       
       try {
         // 顧客IDを取得
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('email', user.email)
-          .maybeSingle()
+        const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
         
         if (!active || !customer) return
         setCustomerId(customer.id)
@@ -145,13 +142,7 @@ export const ScenarioHero = memo(function ScenarioHero({
   // 全店舗を取得（ダイアログ用）
   useEffect(() => {
     const fetchStores = async () => {
-      const { data } = await supabase
-        .from('stores')
-        .select('id, name, short_name')
-        .eq('status', 'active')
-        .neq('is_temporary', true)
-        .or('ownership_type.neq.office,ownership_type.is.null')
-        .order('name')
+      const { data } = await scenarioPageReadApi.listActiveStoresForHero()
       setAllStores(data || [])
     }
     fetchStores()
@@ -204,11 +195,7 @@ export const ScenarioHero = memo(function ScenarioHero({
     setIsSubmitting(true)
     try {
       // 顧客IDを取得
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle()
+      const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
       
       if (!customer) {
         showToast.error('顧客情報が見つかりません')

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtRpcApi } from '@/lib/api/privateBookingMgmtReadApi'
 export interface ApprovalDeliveryStatus {
  id: string
  kind: 'confirmation_email' | 'gm_email' | 'gm_discord'
@@ -15,7 +15,7 @@ export function useApprovalDeliveryStatus(organizationId: string | null, reserva
   queryFn:async():Promise<ApprovalDeliverySummary[]>=>{
    const rows:ApprovalDeliverySummary[]=[]
    for(let start=0;start<ids.length;start+=100){
-    const {data,error}=await supabase.rpc('get_private_booking_approval_delivery_status',{p_reservation_ids:ids.slice(start,start+100)})
+    const {data,error}=await privateBookingMgmtRpcApi.getApprovalDeliveryStatus(ids.slice(start,start+100))
     if(error) throw error
     if(!Array.isArray(data)) throw new Error('通知状況の応答が不正です')
     rows.push(...data)

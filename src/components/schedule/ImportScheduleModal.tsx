@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { supabase } from '@/lib/supabase'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import type { RpcAdminDeleteReservationsByScheduleEventIdsParams } from '@/lib/rpcTypes'
 import { memoApi } from '@/lib/api/memoApi'
 import { validateScheduleImportStaff } from '@/lib/scheduleImportStaffValidation'
@@ -603,17 +603,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         logger.log(`🗑️ 削除対象期間: ${startDate} 〜 ${endDate}`)
         
         // まず対象月のschedule_eventsのIDを取得（組織フィルタ付き）
-        let deleteQuery = supabase
-          .from('schedule_events')
-          .select('id')
-          .gte('date', startDate)
-          .lte('date', endDate)
-        
-        if (ORGANIZATION_ID) {
-          deleteQuery = deleteQuery.eq('organization_id', ORGANIZATION_ID)
-        }
-        
-        const { data: eventsToDelete, error: fetchError } = await deleteQuery
+        const { data: eventsToDelete, error: fetchError } = await scheduleUiApi.listEventIdsInRange(startDate, endDate, ORGANIZATION_ID)
         
         if (fetchError) {
           setResult({ success: 0, failed: 0, errors: [`❌ 既存データ取得エラー: ${fetchError.message}`] })
@@ -635,7 +625,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
             const deleteByEventIdsParams: RpcAdminDeleteReservationsByScheduleEventIdsParams = {
               p_schedule_event_ids: batchIds,
             }
-            const { error: resDeleteError } = await supabase.rpc('admin_delete_reservations_by_schedule_event_ids', deleteByEventIdsParams)
+            const { error: resDeleteError } = await scheduleUiApi.adminDeleteReservationsByScheduleEventIds(deleteByEventIdsParams)
             
             if (resDeleteError) {
               logger.warn('予約削除警告:', resDeleteError.message)
@@ -904,12 +894,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
             if (!memoData.storeId || !memoData.texts.length) continue
             
             // 既存のメモを取得
-            const { data: existingMemo } = await supabase
-              .from('daily_memos')
-              .select('memo_text')
-              .eq('date', memoData.date)
-              .eq('venue_id', memoData.storeId)
-              .maybeSingle()
+            const { data: existingMemo } = await scheduleUiApi.getDailyMemoText(memoData.date, memoData.storeId)
             
             // 既存メモがあれば追記、なければ新規
             const existingText = existingMemo?.memo_text || ''
@@ -1019,11 +1004,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const lastDay = new Date(targetMonth.year, targetMonth.month, 0).getDate()
         const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
         
-        const { data } = await supabase
-          .from('schedule_events_staff_view')
-          .select('id, date, store_id, start_time, is_cancelled, scenario, notes, gms, reservation_info')
-          .gte('date', startDate)
-          .lte('date', endDate)
+        const { data } = await scheduleUiApi.listStaffViewEventsInRange(startDate, endDate)
         
         existingEvents = data || []
       }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { staffPageReadApi } from '@/lib/api/staffPageReadApi'
 import { staffApi } from '@/lib/api'
 import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { staffKeys } from './useStaffQuery'
@@ -25,11 +26,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
    */
   const searchUserByEmail = useCallback(async (email: string) => {
     try {
-      const { data: user, error: searchError } = await supabase
-        .from('users')
-        .select('id, email, role')
-        .eq('email', email)
-        .single()
+      const { data: user, error: searchError } = await staffPageReadApi.findUserByEmailWithRole(email)
       
       if (searchError || !user) {
         return { found: false, error: `メールアドレス ${email} のユーザーが見つかりません` }
@@ -96,11 +93,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
 
     try {
       // メールアドレスからユーザーを検索（usersテーブル経由）
-      const { data: users, error: searchError } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('email', email)
-        .single()
+      const { data: users, error: searchError } = await staffPageReadApi.findUserByEmail(email)
       
       if (searchError || !users) {
         throw new Error(`メールアドレス ${email} のユーザーが見つかりません`)
@@ -160,10 +153,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
 
     try {
       // 1. 既存のスタッフのシナリオ割り当て情報を取得（GM可能・体験済み）
-      const { data: existingAssignments } = await supabase
-        .from('staff_scenario_assignments')
-            .select('scenario_master_id, can_gm, has_experienced')
-        .eq('staff_id', linkingStaff.id)
+      const { data: existingAssignments } = await staffPageReadApi.listScenarioAssignmentsByStaff(linkingStaff.id)
       
       logger.log('既存のシナリオ割り当て情報:', existingAssignments?.length || 0, '件')
 

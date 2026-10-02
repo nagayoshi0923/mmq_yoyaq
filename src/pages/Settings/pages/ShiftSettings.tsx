@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Save, Calendar, Clock } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -43,11 +43,7 @@ export function ShiftSettings() {
         return
       }
 
-      const { data, error } = await supabase
-        .from('global_settings')
-        .select('id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before')
-        .eq('organization_id', orgId)
-        .single()
+      const { data, error } = await settingsPageReadApi.getShiftSettings(orgId)
 
       if (error) {
         logger.error('シフト設定の取得に失敗:', error)

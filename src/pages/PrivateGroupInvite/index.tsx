@@ -18,6 +18,12 @@ import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
+import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
+import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
+import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
+import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
@@ -125,9 +131,9 @@ export function PrivateGroupInvite() {
     queryKey: ['private-group-invite', 'coupons', user?.id, group?.organization_id],
     enabled: !!user && !!group?.organization_id,
     queryFn: async (): Promise<Coupon[]> => {
-      const { data: customer } = await supabase.from('customers').select('id').eq('user_id', user!.id).maybeSingle()
+      const { data: customer } = await customerLookupReadApi.findIdByUserId(user!.id)
       if (!customer) return []
-      const { data: couponData, error } = await supabase.from('customer_coupons').select(`id, expires_at, status, uses_remaining, coupon_campaigns (id, name, discount_amount)`).eq('customer_id', customer.id).eq('status', 'active').gt('uses_remaining', 0).or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
+      const { data: couponData, error } = await privateGroupPageReadApi.listActiveCouponsForGroup(customer.id, new Date().toISOString())
       if (error) throw error
       return (couponData || []).map((cc: any) => ({ id: cc.id, name: cc.coupon_campaigns?.name || 'クーポン', discount_amount: cc.coupon_campaigns?.discount_amount || 0, expires_at: cc.expires_at, status: cc.status }))
     },
@@ -190,7 +196,7 @@ export function PrivateGroupInvite() {
     queryKey: ['private-group-invite', 'preferred-stores', group?.preferred_store_ids],
     enabled: !!(group?.preferred_store_ids?.length),
     queryFn: async () => {
-      const { data, error } = await supabase.from('stores').select('id, name').in('id', group!.preferred_store_ids!)
+      const { data, error } = await privateGroupPageReadApi.listStoresByIds(group!.preferred_store_ids!)
       if (error) throw error
       return data || []
     },
@@ -291,7 +297,7 @@ export function PrivateGroupInvite() {
       // RPCでPIN認証
       // PINやメールアドレスをログへ残さない。
       
-      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin_v3', {
+      const { data: authResult, error: authError } = await privateGroupRpcApi.authenticateGuestByPin({
         p_group_id: group.id,
         p_email: pinEmail,
         p_pin: pinCode,
@@ -368,24 +374,13 @@ export function PrivateGroupInvite() {
       // シナリオの available_stores を取得
       let scenarioAvailableStores: string[] = []
       if (group.scenario_master_id) {
-        const { data: scenarioData, error: scenarioError } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('available_stores')
-          .eq('scenario_master_id', group.scenario_master_id)
-          .eq('organization_id', group.organization_id)
-          .limit(1)
-          .maybeSingle()
+        const { data: scenarioData, error: scenarioError } = await privateGroupPageReadApi.findScenarioAvailableStores(group.scenario_master_id, group.organization_id)
         if (scenarioError) throw scenarioError
         if (!scenarioData) throw new Error('組織内の作品設定を確認できません')
         scenarioAvailableStores = scenarioData.available_stores || []
       }
 
-      const { data, error } = await supabase
-        .from('stores')
-        .select('id, name, short_name, ownership_type, is_temporary')
-        .eq('organization_id', group.organization_id)
-        .eq('status', 'active')
-        .order('name')
+      const { data, error } = await privateGroupPageReadApi.listActiveStoresOfOrganization(group.organization_id)
 
       if (error) throw error
 
@@ -408,12 +403,7 @@ export function PrivateGroupInvite() {
         (id) => !storeList.some((s) => s.id === id)
       )
       if (missingIds.length > 0) {
-        const { data: extra, error: err2 } = await supabase
-          .from('stores')
-          .select('id, name, short_name, ownership_type, is_temporary')
-          .in('id', missingIds)
-          .eq('organization_id', group.organization_id)
-          .eq('status', 'active')
+        const { data: extra, error: err2 } = await privateGroupPageReadApi.listActiveStoresByIdsInOrganization(missingIds, group.organization_id)
         if (err2) throw err2
         if (extra?.length) {
           const validExtra = scenarioAvailableStores.length > 0
@@ -677,7 +667,7 @@ export function PrivateGroupInvite() {
 
       // クーポン適用（ログインユーザーで選択済みの場合）
       if (user && selectedCouponId && perPersonPrice > 0) {
-        const { error: couponError } = await supabase.rpc('apply_coupon_to_group_member', {
+        const { error: couponError } = await privateGroupRpcApi.applyCouponToMember({
           p_member_id: memberId,
           p_coupon_id: selectedCouponId,
         })
@@ -686,7 +676,7 @@ export function PrivateGroupInvite() {
         }
       } else if (user && !selectedCouponId && perPersonPrice > 0) {
         // クーポン未選択の場合、既存のクーポンを解除
-        await supabase.rpc('remove_coupon_from_group_member', {
+        await privateGroupRpcApi.removeCouponFromMember({
           p_member_id: memberId,
         })
       }
@@ -706,7 +696,7 @@ export function PrivateGroupInvite() {
 
     setIsDeleting(true)
     try {
-      const { error } = await supabase.rpc('delete_private_group', { p_group_id: group.id })
+      const { error } = await privateGroupRpcApi.deleteGroup({ p_group_id: group.id })
       if (error) throw error
 
       toast.success('グループを削除しました')
@@ -948,12 +938,7 @@ export function PrivateGroupInvite() {
     // 既存の電話番号を取得
     let phone = organizerMember?.guest_phone || ''
     if (!phone && group.organization_id) {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('phone')
-        .eq('user_id', user.id)
-        .eq('organization_id', group.organization_id)
-        .maybeSingle()
+      const { data: customer } = await privateGroupPageReadApi.findOwnCustomerPhoneInOrganization(user.id, group.organization_id)
       phone = customer?.phone || ''
     }
     setBookingPhone(phone)
@@ -1033,15 +1018,8 @@ export function PrivateGroupInvite() {
         scenarioMasterId: group.scenario_master_id,
       })
       const [blockedResult, eventsResult] = await Promise.all([
-        supabase.rpc('get_public_private_booking_availability', availabilityParams),
-        supabase
-          .from('schedule_events_for_availability')
-          .select('id, date, store_id, start_time, end_time, is_cancelled')
-          .filter('organization_id', 'eq', orgId)
-          .in('store_id', requestedStoreIds)
-          .gte('date', addJstDays(selectedDates[0], -2))
-          .lte('date', addJstDays(selectedDates[selectedDates.length - 1], 2))
-          .eq('is_cancelled', false),
+        privateBookingSlotReadApi.getPublicAvailability(availabilityParams),
+        privateBookingRequestReadApi.listAvailabilityEvents(orgId, requestedStoreIds, addJstDays(selectedDates[0], -2), addJstDays(selectedDates[selectedDates.length - 1], 2)),
       ])
       if (blockedResult.error) throw blockedResult.error
       if (eventsResult.error) throw eventsResult.error
@@ -1093,12 +1071,7 @@ export function PrivateGroupInvite() {
         throw new Error('顧客情報の取得に失敗しました')
       }
 
-      const { data: phoneRow, error: phoneVerifyError } = await supabase
-        .from('customers')
-        .select('phone')
-        .eq('id', customerId)
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, user.id)
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
@@ -1161,7 +1134,7 @@ export function PrivateGroupInvite() {
       })
       
       // RPC経由で貸切予約を作成
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request_with_notice', {
+      const { data: reservationId, error: rpcError } = await privateGroupRpcApi.createBookingRequestWithNotice({
         p_scenario_id: group.scenario_master_id,
         p_customer_id: customerId,
         p_customer_name: customerName,
@@ -1481,7 +1454,7 @@ export function PrivateGroupInvite() {
               performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
-                const { error } = await supabase.rpc('private_group_set_character_method', {
+                const { error } = await privateGroupRpcApi.setCharacterMethod({
                   p_group_id: group.id, p_method: method,
                   p_expected_method: group.character_assignment_method || null,
                   p_expected_assignments: group.character_assignments || {},
@@ -1494,7 +1467,7 @@ export function PrivateGroupInvite() {
               isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
               onCharAssignmentConfirmed={() => refetch()}
               onResetCharAssignmentMethod={async () => {
-                const { error } = await supabase.rpc('private_group_set_character_method', {
+                const { error } = await privateGroupRpcApi.setCharacterMethod({
                   p_group_id: group.id, p_method: null,
                   p_expected_method: group.character_assignment_method || null,
                   p_expected_assignments: group.character_assignments || {},

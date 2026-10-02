@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { globalSettingsHookReadApi } from '@/lib/api/settingsReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
@@ -17,10 +17,6 @@ export interface GlobalSettings {
   enable_discord_notifications: boolean
   pre_reading_notice_message: string | null // 事前読み込みシナリオの確定時メッセージ
 }
-
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const GLOBAL_SETTINGS_SELECT_FIELDS =
-  'id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message' as const
 
 /**
  * 全体設定を取得するフック
@@ -47,11 +43,7 @@ export function useGlobalSettings() {
         throw new Error('組織IDが取得できませんでした')
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('global_settings')
-        .select(GLOBAL_SETTINGS_SELECT_FIELDS)
-        .eq('organization_id', orgId)
-        .single()
+      const { data, error: fetchError } = await globalSettingsHookReadApi.getByOrganization(orgId)
 
       if (fetchError) {
         throw fetchError

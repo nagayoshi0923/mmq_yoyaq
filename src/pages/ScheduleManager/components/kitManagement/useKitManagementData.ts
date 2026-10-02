@@ -17,6 +17,7 @@ import { logger } from '@/utils/logger'
 import type { KitLocation, KitTransferEvent, Store, StoreTravelTime, Scenario, KitTransferCompletion } from '@/types'
 import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
+import { scheduleManagerReadApi } from '@/lib/api/scheduleManagerReadApi'
 
 /** 移動計算・需要判定に使う schedule_events の最小形 */
 export interface KitScheduleEvent {
@@ -85,11 +86,7 @@ export function useKitManagementData({
       // 組織共有の移動曜日設定を読み込み
       const orgId = await getCurrentOrganizationId()
       if (orgId) {
-        const { data: gs } = await supabase
-          .from('global_settings')
-          .select('kit_transfer_offsets, kit_transfer_start_store_ids')
-          .eq('organization_id', orgId)
-          .single()
+        const { data: gs } = await scheduleManagerReadApi.getKitTransferSettings(orgId)
         if (gs?.kit_transfer_offsets && Array.isArray(gs.kit_transfer_offsets)) {
           const offsets = gs.kit_transfer_offsets as number[]
           setSelectedOffsets(offsets)

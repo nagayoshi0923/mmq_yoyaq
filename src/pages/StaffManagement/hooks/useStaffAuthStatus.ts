@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { staffPageReadApi } from '@/lib/api/staffPageReadApi'
 import { logger } from '@/utils/logger'
 
 export interface StaffAuthStatus {
@@ -31,10 +31,7 @@ export function useStaffAuthStatus(userIds: (string | null)[]) {
     try {
       // usersテーブルから認証情報を取得
       // 注意: auth.usersは直接アクセスできないので、usersテーブルの情報のみ使用
-      const { data: usersData, error } = await supabase
-        .from('users')
-        .select('id, email, created_at, updated_at')
-        .in('id', validUserIds)
+      const { data: usersData, error } = await staffPageReadApi.listUsersByIds(validUserIds)
 
       if (error) {
         logger.error('認証状態取得エラー:', error)

@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { scheduleHookReadApi } from '@/lib/api/scheduleHookReadApi'
 import { blockedSlotApi } from '@/lib/api/slotApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -36,10 +37,7 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
     try {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
-      const { data, error } = await supabase
-        .from('schedule_blocked_slots')
-        .select('date, store_id, time_slot')
-        .eq('organization_id', orgId)
+      const { data, error } = await scheduleHookReadApi.listBlockedSlots(orgId)
 
       if (error) {
         logger.error('募集中止スロットの読み込みエラー:', error)

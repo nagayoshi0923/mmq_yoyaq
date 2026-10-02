@@ -32,7 +32,7 @@ import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
 import { OrganizationEditDialog } from './components/OrganizationEditDialog'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { supabase } from '@/lib/supabase'
+import { bookingSiteRpcApi } from '@/lib/api/bookingSiteRpcApi'
 import { toast } from 'sonner'
 import { formatJstYmd } from '@/utils/jstDate'
 import type { Organization } from '@/types'
@@ -59,7 +59,7 @@ export default function OrganizationManagement() {
 
   const fetchPendingApplications = useCallback(async () => {
     setIsLoadingPending(true)
-    const { data } = await supabase.rpc('get_pending_booking_site_applications')
+    const { data } = await bookingSiteRpcApi.getPendingApplications()
     setPendingApps((data as PendingApplication[]) ?? [])
     setIsLoadingPending(false)
   }, [])
@@ -71,7 +71,7 @@ export default function OrganizationManagement() {
   const handleApprove = async (orgId: string) => {
     setApprovingId(orgId)
     try {
-      const { error: approveError } = await supabase.rpc('approve_booking_site', { p_org_id: orgId })
+      const { error: approveError } = await bookingSiteRpcApi.approve(orgId)
       if (approveError) throw approveError
       toast.success('承認しました。プランが pro に変更されました。')
       await Promise.all([fetchPendingApplications(), refetch()])

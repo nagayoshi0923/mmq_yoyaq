@@ -1,6 +1,7 @@
 import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
 import { logger } from '@/utils/logger'
 import { fetchScenarioTimingFromDb, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { computePrivateBookingSlots, type PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
@@ -68,12 +69,7 @@ export function usePrivateBookingSlotData({
     setFallbackLoading(true)
     ;(async () => {
       try {
-        const { data } = await supabase
-          .from('stores')
-          .select('id')
-          .match({ organization_id: organizationId, status: 'active' })
-          .or('is_temporary.is.null,is_temporary.eq.false')
-          .neq('ownership_type', 'office')
+        const { data } = await privateBookingSlotReadApi.listActiveStoreIds(organizationId)
         if (!cancelled && data) {
           setFallbackStoreIds(data.map(s => s.id))
         }
@@ -110,14 +106,7 @@ export function usePrivateBookingSlotData({
         const today = new Date()
         const windowEnd = new Date(today.getTime() + 180 * 24 * 60 * 60 * 1000)
 
-        const { data, error } = await supabase
-          .from('schedule_events_for_availability')
-          .select('id, date, store_id, start_time, end_time, is_cancelled')
-          .eq('organization_id', organizationId)
-          .in('store_id', effectiveStoreIds)
-          .gte('date', toJstYmd(new Date(today.getTime() - 2 * 86400000)))
-          .lte('date', toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
-          .eq('is_cancelled', false)
+        const { data, error } = await privateBookingSlotReadApi.listAvailabilityEvents(organizationId, effectiveStoreIds, toJstYmd(new Date(today.getTime() - 2 * 86400000)), toJstYmd(new Date(windowEnd.getTime() + 2 * 86400000)))
 
         if (error) throw error
         if (!cancelled) {
@@ -138,10 +127,7 @@ export function usePrivateBookingSlotData({
     const loadBusinessHours = async () => {
       setBusinessHoursLoaded(false)
       try {
-        const { data, error } = await supabase
-          .from('business_hours_settings')
-          .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
-          .in('store_id', effectiveStoreIds)
+        const { data, error } = await privateBookingSlotReadApi.listBusinessHours(effectiveStoreIds)
 
         if (error) throw error
         if (!cancelled) {
@@ -191,7 +177,7 @@ export function usePrivateBookingSlotData({
           p_start_date: toJstYmd(today),
           p_end_date: toJstYmd(windowEnd),
         }
-        const { data, error } = await supabase.rpc('get_public_private_booking_availability', params)
+        const { data, error } = await privateBookingSlotReadApi.getPublicAvailability(params)
         if (error) throw error
         if (!cancelled) {
           setBlockedSlots((data || []) as PrivateBookingBlockedSlotRow[])

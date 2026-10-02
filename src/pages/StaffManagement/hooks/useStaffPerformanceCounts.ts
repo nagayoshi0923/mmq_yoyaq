@@ -13,7 +13,7 @@
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { staffPageReadApi } from '@/lib/api/staffPageReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
@@ -49,20 +49,8 @@ async function fetchCounts(): Promise<Map<string, StaffPerformanceCount>> {
 
   // GM 回数とスタッフ参加回数を並列取得
   const [eventsRes, reservationsRes] = await Promise.all([
-    supabase
-      .from('schedule_events')
-      .select('gms, gm_roles, category')
-      .eq('organization_id', orgId)
-      .eq('is_cancelled', false)
-      .gte('date', since)
-      .lte('date', until),
-    supabase
-      .from('reservations')
-      .select('participant_names')
-      .eq('organization_id', orgId)
-      .in('reservation_source', ['staff_entry', 'staff_participation'])
-      .gte('requested_datetime', since)
-      .lte('requested_datetime', `${until}T23:59:59+09:00`),
+    staffPageReadApi.listEventsForGmCount(orgId, since, until),
+    staffPageReadApi.listStaffParticipationReservations(orgId, since, until),
   ])
 
   if (eventsRes.error) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
+import { reservationAdminReadApi } from '@/lib/api/reservationReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
@@ -56,52 +56,22 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
       const orgId = await getCurrentOrganizationId()
       
       // Supabaseから予約データを取得
-      let query = supabase
-        .from('reservations')
-        .select(`
-          *,
-          scenario_masters:scenario_master_id (title),
-          stores:store_id (name),
-          schedule_events:schedule_event_id (date, start_time, end_time)
-        `, { count: 'exact' })
-      
-      // 組織フィルタ
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-
-      // フィルタ（サーバー側）
-      if (filters.statusFilter !== 'all') {
-        query = query.eq('status', filters.statusFilter)
-      }
-      if (filters.paymentFilter !== 'all') {
-        query = query.eq('payment_status', filters.paymentFilter)
-      }
-      if (filters.typeFilter !== 'all') {
-        query = query.eq('reservation_source', filters.typeFilter)
-      }
-      if (filters.searchTerm && filters.searchTerm.trim().length > 0) {
-        const term = sanitizeForPostgRestFilter(filters.searchTerm.trim())
-        if (term) {
-          // reservation_number / customer_name / title で部分一致
-          query = query.or(
-            `reservation_number.ilike.%${term}%,customer_name.ilike.%${term}%,title.ilike.%${term}%`
-          )
-        }
-      }
-
       // ページング（サーバー側）
       const safePage = Math.max(1, Math.floor(pagination.page || 1))
       const safePageSize = Math.min(200, Math.max(10, Math.floor(pagination.pageSize || 50)))
       const from = (safePage - 1) * safePageSize
       const to = from + safePageSize - 1
       
-      const { data, error, count } = await query
-        // 新しい予約が上に来るように（UI側のDateパース失敗でも表示が崩れにくい）
-        .order('created_at', { ascending: false })
-        // priority がある場合は同日時内で優先（NULLは末尾）
-        .order('priority', { ascending: false, nullsFirst: false })
-        .range(from, to)
+      const term = filters.searchTerm && filters.searchTerm.trim().length > 0 ? sanitizeForPostgRestFilter(filters.searchTerm.trim()) : ''
+      const { data, error, count } = await reservationAdminReadApi.listPage({
+        organizationId: orgId,
+        statusFilter: filters.statusFilter,
+        paymentFilter: filters.paymentFilter,
+        typeFilter: filters.typeFilter,
+        searchTerm: term,
+        from,
+        to,
+      })
       
       if (error) {
         logger.error('予約データ取得エラー:', error)

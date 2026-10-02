@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
-import { supabase } from '@/lib/supabase'
+import { customerReadApi } from '@/lib/api/customerReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { reservationApi } from '@/lib/reservationApi'
@@ -73,14 +73,7 @@ export function AddParticipantSection({
                       // デモ顧客を取得
                       let customerId: string | null = null
                       try {
-                        let query = supabase
-                          .from('customers')
-                          .select('id')
-                          .or('name.ilike.%デモ%,email.ilike.%demo%')
-                        if (organizationId) {
-                          query = query.eq('organization_id', organizationId)
-                        }
-                        const { data: demoCustomer } = await query.limit(1).single()
+                        const { data: demoCustomer } = await customerReadApi.findDemoCustomer(organizationId)
                         if (demoCustomer) {
                           customerId = demoCustomer.id
                         }

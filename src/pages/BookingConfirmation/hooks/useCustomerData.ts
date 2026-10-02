@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 
 interface UseCustomerDataProps {
   userId?: string
@@ -28,20 +28,12 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
       let data = null
       // まずuser_idで検索
       if (userId) {
-        const { data: userIdData, error } = await supabase
-          .from('customers')
-          .select('name, nickname, email, phone')
-          .eq('user_id', userId)
-          .maybeSingle()
+        const { data: userIdData, error } = await bookingConfirmationReadApi.findCustomerProfileByUserId(userId)
         if (!error && userIdData) data = userIdData
       }
       // user_idで見つからなければemailで検索
       if (!data && userEmail) {
-        const { data: emailData, error } = await supabase
-          .from('customers')
-          .select('name, nickname, email, phone')
-          .eq('email', userEmail)
-          .maybeSingle()
+        const { data: emailData, error } = await bookingConfirmationReadApi.findCustomerProfileByEmail(userEmail)
         if (!error && emailData) data = emailData
       }
       return data

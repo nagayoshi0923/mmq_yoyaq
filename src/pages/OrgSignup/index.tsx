@@ -30,6 +30,8 @@ import {
   LogIn,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { loginProfileReadApi } from '@/lib/api/organizationReadApi'
+import { orgSignupRpcApi } from '@/lib/api/orgSignupRpcApi'
 import { toast } from 'sonner'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
@@ -195,10 +197,7 @@ export default function OrgSignup() {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return
     setIsCheckingEmail(true)
     try {
-      const { data: status, error: checkErr } = await supabase.rpc(
-        'check_email_registration_status',
-        { p_email: email }
-      )
+      const { data: status, error: checkErr } = await loginProfileReadApi.checkEmailRegistrationStatus(email)
       if (checkErr) {
         logger.warn('check_email_registration_status エラー（onBlur）:', checkErr)
         return
@@ -223,10 +222,7 @@ export default function OrgSignup() {
     if (!isLoggedIn) {
       setIsCheckingEmail(true)
       try {
-        const { data: status, error: checkErr } = await supabase.rpc(
-          'check_email_registration_status',
-          { p_email: adminData.email.trim() }
-        )
+        const { data: status, error: checkErr } = await loginProfileReadApi.checkEmailRegistrationStatus(adminData.email.trim())
         if (checkErr) {
           logger.warn('check_email_registration_status エラー（next 押下）:', checkErr)
         } else if (status === 'confirmed') {
@@ -257,7 +253,7 @@ export default function OrgSignup() {
   // 作成時に受け取った登録証明を使い、自分が作成した未登録組織だけを取り消す
   const rollbackOrganization = async (orgId: string, claimToken: string) => {
     try {
-      const { error } = await supabase.rpc('rollback_orphan_organization_v2', { p_org_id: orgId, p_claim_token: claimToken })
+      const { error } = await orgSignupRpcApi.rollbackOrphan(orgId, claimToken)
       if (error) {
         logger.error('rollback_orphan_organization failed (org_id=%s):', orgId, error)
       } else {
@@ -277,9 +273,7 @@ export default function OrgSignup() {
 
     try {
       // 1. SECURITY DEFINER RPC で組織+代表店舗を作成（anon 可、RLSをバイパス）
-      const { data: newOrg, error: orgError } = await supabase.rpc(
-        'register_organization_for_signup',
-        {
+      const { data: newOrg, error: orgError } = await orgSignupRpcApi.registerOrganization({
           p_name:          orgData.name.trim(),
           p_slug:          orgData.slug.trim(),
           // 連絡先メアドは admin メアド / ログイン中ユーザーのメアドを自動採用
@@ -298,7 +292,7 @@ export default function OrgSignup() {
 
       if (isLoggedIn) {
         // ── ログイン済みパス: 既存アカウントを admin に昇格 ──
-        const { error: claimError } = await supabase.rpc('claim_organization_as_admin_v2', {
+        const { error: claimError } = await orgSignupRpcApi.claimAsAdmin({
           p_claim_token: claimToken,
           p_org_id:     newOrg.id,
           p_admin_name: user?.email ?? '',

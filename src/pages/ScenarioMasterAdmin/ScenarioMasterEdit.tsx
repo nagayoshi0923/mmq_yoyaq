@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/patterns/list'
-import { supabase } from '@/lib/supabase'
+import { scenarioMasterAdminReadApi } from '@/lib/api/scenarioPageReadApi'
 import { scenarioMasterWriteApi, scenarioCharacterApi, scenarioMasterCorrectionApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -97,11 +97,7 @@ export function ScenarioMasterEdit() {
       setLoading(true)
 
       // マスタ情報取得
-      const { data: masterData, error: masterError } = await supabase
-        .from('scenario_masters')
-        .select('id, title, author, author_id, author_email, key_visual_url, description, synopsis, player_count_min, player_count_max, official_duration, weekend_duration, genre, difficulty, caution, required_items, has_pre_reading, release_date, official_site_url, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
-        .eq('id', id)
-        .single()
+      const { data: masterData, error: masterError } = await scenarioMasterAdminReadApi.getMasterForEdit(id)
 
       if (masterError || !masterData) {
         logger.error('Failed to fetch master:', masterError)
@@ -113,24 +109,12 @@ export function ScenarioMasterEdit() {
       setMaster(masterData)
 
       // キャラクター取得
-      const { data: charData } = await supabase
-        .from('scenario_characters')
-        .select('id, scenario_master_id, name, description, image_url, sort_order')
-        .eq('scenario_master_id', id)
-        .order('sort_order', { ascending: true })
+      const { data: charData } = await scenarioMasterAdminReadApi.listCharacters(id)
 
       setCharacters(charData || [])
 
       // 修正リクエスト取得
-      const { data: correctionData } = await supabase
-        .from('scenario_master_corrections')
-        .select(`
-          *,
-          organizations:requested_by_organization_id (name)
-        `)
-        .eq('scenario_master_id', id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+      const { data: correctionData } = await scenarioMasterAdminReadApi.listPendingCorrections(id)
 
       setCorrections(
         (correctionData || []).map((c: any) => ({

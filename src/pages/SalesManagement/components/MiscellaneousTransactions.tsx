@@ -10,7 +10,7 @@ import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatCard } from '@/components/patterns/stat'
 import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { salesPageReadApi } from '@/lib/api/salesPageReadApi'
 import { useOrganization } from '@/hooks/useOrganization'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { miscTransactionApi } from '@/lib/api/ledgerApi'
@@ -82,11 +82,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     const loadScenarios = async () => {
       if (!organizationId) return
       try {
-        const { data, error } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('id, title, author')
-          .eq('organization_id', organizationId)
-          .order('title', { ascending: true })
+        const { data, error } = await salesPageReadApi.listScenarioOptions(organizationId)
         
         if (error) throw error
         setScenarios(data || [])
@@ -119,12 +115,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     try {
       const { startStr, endStr } = getMonthRange(currentMonth)
       
-      const { data, error } = await supabase
-        .from('miscellaneous_transactions')
-        .select('id, organization_id, store_id, scenario_id, date, type, category, amount, description, created_at')
-        .gte('date', startStr)
-        .lte('date', endStr)
-        .order('date', { ascending: false })
+      const { data, error } = await salesPageReadApi.listMiscellaneousTransactions(startStr, endStr)
       
       if (error) throw error
       setTransactions(data || [])

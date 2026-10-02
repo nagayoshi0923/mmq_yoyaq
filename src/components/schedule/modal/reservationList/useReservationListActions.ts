@@ -6,6 +6,9 @@
  */
 import type { Dispatch, SetStateAction } from 'react'
 import { supabase } from '@/lib/supabase'
+import { customerReadApi } from '@/lib/api/customerReadApi'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
+import { organizationReadApi } from '@/lib/api/organizationReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { notificationOutcome } from '@/lib/notificationResult'
@@ -345,11 +348,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
         
         if (cancellingReservation.schedule_event_id && cancelOrgId) {
           try {
-            const { data: org } = await supabase
-              .from('organizations')
-              .select('slug')
-              .eq('id', cancelOrgId)
-              .single()
+            const { data: org } = await organizationReadApi.getSlugById(cancelOrgId)
             
             const orgSlug = org?.slug || ''
             const bookingUrl = `${window.location.origin}/${orgSlug}`
@@ -461,11 +460,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       
       if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
         const staffName = cancellingReservation.participant_names[0]
-        const { data: eventData } = await supabase
-          .from('schedule_events_staff_view')
-          .select('gms, gm_roles')
-          .eq('id', event.id)
-          .single()
+        const { data: eventData } = await scheduleUiApi.getEventGms(event.id)
         
         if (eventData) {
           const currentGms = eventData.gms || []
@@ -651,16 +646,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       if (participantName === 'デモ参加者') {
         // デモ参加者の場合はデモ顧客を取得
         try {
-          let query = supabase
-            .from('customers')
-            .select('id')
-            .or('name.ilike.%デモ%,email.ilike.%demo%')
-          
-          if (organizationId) {
-            query = query.eq('organization_id', organizationId)
-          }
-          
-          const { data: demoCustomer } = await query.limit(1).single()
+          const { data: demoCustomer } = await customerReadApi.findDemoCustomer(organizationId)
           
           if (demoCustomer) {
             customerId = demoCustomer.id
@@ -674,16 +660,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
         // platform customer (organization_id = NULL) も拾うため `eq` ではなく `or` で
         // 自組織 OR platform-level を許容する。
         try {
-          let query = supabase
-            .from('customers')
-            .select('id, name, email, phone')
-            .eq('name', participantName)
-
-          if (organizationId) {
-            query = query.or(`organization_id.eq.${organizationId},organization_id.is.null`)
-          }
-
-          const { data: customer } = await query.limit(1).maybeSingle()
+          const { data: customer } = await customerReadApi.findByNameForParticipation(participantName, organizationId)
 
           if (customer) {
             customerId = customer.id

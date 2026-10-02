@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { demoParticipantsReadApi } from '@/lib/api/demoParticipantsReadApi'
 import type { RpcAdminDeleteReservationsByIdsParams } from '@/lib/rpcTypes'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -40,10 +40,7 @@ export function AddDemoParticipants() {
     try {
       // Supabase接続確認
       log('Supabase接続確認中...', 'info')
-      const { error: testError } = await supabase
-        .from('customers')
-        .select('count')
-        .limit(1)
+      const { error: testError } = await demoParticipantsReadApi.pingCustomers()
       
       if (testError) {
         log(`接続エラー: ${testError.message}`, 'error')
@@ -57,13 +54,7 @@ export function AddDemoParticipants() {
       log('デモ顧客を検索中...', 'info')
       
       // まず全顧客を取得してデバッグ（組織フィルタ付き）
-      let allCustQuery = supabase
-        .from('customers')
-        .select('id, name, email')
-      if (organizationId) {
-        allCustQuery = allCustQuery.eq('organization_id', organizationId)
-      }
-      const { data: allCustomers, error: allError } = await allCustQuery.limit(10)
+      const { data: allCustomers, error: allError } = await demoParticipantsReadApi.listCustomersSample(organizationId)
       
       if (allError) {
         log(`顧客取得エラー: ${allError.message}`, 'error')
@@ -74,16 +65,7 @@ export function AddDemoParticipants() {
         })
       }
       
-      let demoCustQuery = supabase
-        .from('customers')
-        .select('id, name, email')
-        .or('name.ilike.%デモ%,email.ilike.%demo%,name.ilike.%test%')
-      if (organizationId) {
-        demoCustQuery = demoCustQuery.eq('organization_id', organizationId)
-      }
-      const { data: demoCustomer, error: customerError } = await demoCustQuery
-        .limit(1)
-        .single()
+      const { data: demoCustomer, error: customerError } = await demoParticipantsReadApi.findDemoCustomer(organizationId)
       
       if (customerError || !demoCustomer) {
         log('デモ顧客が見つかりません。上記の顧客リストから選択してください。', 'error')
@@ -94,16 +76,7 @@ export function AddDemoParticipants() {
       
       // 今日以前の公演を取得（全カテゴリ対象、組織フィルタ付き）
       log('公演を取得中（全カテゴリ）...', 'info')
-      let eventsQuery = supabase
-        .from('schedule_events_staff_view')
-        .select('id, date, venue, scenario, scenario_master_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity, organization_id')
-        .lte('date', today.toISOString().split('T')[0])
-        .eq('is_cancelled', false)
-      if (organizationId) {
-        eventsQuery = eventsQuery.eq('organization_id', organizationId)
-      }
-      const { data: pastEvents, error: eventsError } = await eventsQuery
-        .order('date', { ascending: false })
+      const { data: pastEvents, error: eventsError } = await demoParticipantsReadApi.listPastEvents(today.toISOString().split('T')[0], organizationId)
       
       if (eventsError) {
         log('公演取得エラー', 'error')
@@ -119,13 +92,7 @@ export function AddDemoParticipants() {
       
       // 全シナリオを事前に取得（organization_scenarios_with_master: 組織固有の participation_fee）
       log('シナリオマスタを取得中...', 'info')
-      let scenariosQuery = supabase
-        .from('organization_scenarios_with_master')
-        .select('id, title, duration, participation_fee, gm_test_participation_fee, participation_costs, player_count_max, player_count_min')
-      if (organizationId) {
-        scenariosQuery = scenariosQuery.eq('organization_id', organizationId)
-      }
-      const { data: allScenarios, error: scenariosError } = await scenariosQuery
+      const { data: allScenarios, error: scenariosError } = await demoParticipantsReadApi.listScenarios(organizationId)
       
       if (scenariosError) {
         log(`❌ シナリオ取得エラー: ${scenariosError.message}`, 'error')
@@ -143,11 +110,7 @@ export function AddDemoParticipants() {
         const currentParticipants = event.current_participants || 0
         
         // 既存のデモ予約チェック
-        const { data: existingReservations } = await supabase
-          .from('reservations')
-          .select('id, participant_names, reservation_source, participant_count')
-          .eq('schedule_event_id', event.id)
-          .in('status', ['confirmed', 'pending'])
+        const { data: existingReservations } = await demoParticipantsReadApi.listActiveReservationsByEvent(event.id)
         
         // デモ参加者の予約を抽出
         const demoReservations = existingReservations?.filter(r =>
@@ -196,14 +159,7 @@ export function AddDemoParticipants() {
         
         if (event.scenario_master_id) {
           // ビューの id は scenario_master_id と同一
-          let idQuery = supabase
-            .from('organization_scenarios_with_master')
-            .select('id, title, duration, participation_fee, gm_test_participation_fee, participation_costs, player_count_max, player_count_min')
-            .eq('id', event.scenario_master_id)
-          if (organizationId) {
-            idQuery = idQuery.eq('organization_id', organizationId)
-          }
-          const { data } = await idQuery.maybeSingle()
+          const { data } = await demoParticipantsReadApi.findScenarioById(event.scenario_master_id, organizationId)
           
           scenario = data
         }
@@ -257,11 +213,7 @@ export function AddDemoParticipants() {
               scenario = partialMatch
             } else {
               // 類似シナリオを検索してデバッグ情報を表示（scenario_masters から基本情報）
-              const { data: similarScenarios } = await supabase
-                .from('scenario_masters')
-                .select('title')
-                .ilike('title', `%${normalizedScenario.substring(0, 3)}%`)
-                .limit(3)
+              const { data: similarScenarios } = await demoParticipantsReadApi.listMasterTitlesLike(normalizedScenario.substring(0, 3))
               
               if (similarScenarios && similarScenarios.length > 0) {
                 const suggestions = similarScenarios.map(s => s.title).join(', ')
@@ -310,7 +262,7 @@ export function AddDemoParticipants() {
               const deleteDemoParams: RpcAdminDeleteReservationsByIdsParams = {
                 p_reservation_ids: [demoRes.id],
               }
-              const { error: deleteError } = await supabase.rpc('admin_delete_reservations_by_ids', deleteDemoParams)
+              const { error: deleteError } = await demoParticipantsReadApi.adminDeleteReservationsByIds(deleteDemoParams)
               
               if (deleteError) {
                 log(`❌ デモ予約削除エラー [${event.date} ${event.scenario}]`, 'error')
@@ -343,11 +295,7 @@ export function AddDemoParticipants() {
           : getParticipationFee(pricing, 'normal')
         
         const safeVenue = sanitizeForPostgRestFilter(event.venue)
-        const { data: store } = await supabase
-          .from('stores')
-          .select('id')
-          .or(`name.eq.${safeVenue},short_name.eq.${safeVenue}`)
-          .single()
+        const { data: store } = await demoParticipantsReadApi.findStoreIdByVenueName(safeVenue)
         
         if (!store) {
           log(`❌ 店舗ID取得エラー [${event.venue}]`, 'error')

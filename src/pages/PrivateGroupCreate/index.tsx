@@ -13,7 +13,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
-import { supabase } from '@/lib/supabase'
+import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import {
   getCurrentOrganizationId,
   resolveOrganizationFromPathSegment,
@@ -51,21 +51,10 @@ export function PrivateGroupCreate() {
         resolvedMasterId = resolved.scenario_master_id || resolved.id
       }
 
-      const { data: scenarioData, error: scenarioError } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores')
-        .eq('scenario_master_id', resolvedMasterId)
-        .eq('organization_id', organizationId)
-        .single()
+      const { data: scenarioData, error: scenarioError } = await privateGroupPageReadApi.findScenarioForGroup(resolvedMasterId, organizationId)
       if (scenarioError) throw scenarioError
 
-      const { data: storesData, error: storesError } = await supabase
-        .from('stores')
-        .select('id, name, address, region')
-        .eq('organization_id', organizationId)
-        .eq('status', 'active')
-        .neq('is_temporary', true)
-        .or('ownership_type.neq.office,ownership_type.is.null')
+      const { data: storesData, error: storesError } = await privateGroupPageReadApi.listActiveStoresForGroup(organizationId)
       if (storesError) throw storesError
 
       return { scenario: scenarioData, stores: storesData || [] }

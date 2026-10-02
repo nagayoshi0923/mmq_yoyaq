@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
-import { supabase } from '@/lib/supabase'
+import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
@@ -93,23 +93,13 @@ interface ScenarioSearchResult {
 async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
   // 🚀 並列取得: RPC、シナリオ、店舗データ、カテゴリを同時に取得
   const [keysResult, scenariosResult, storesResult, categoriesResult] = await Promise.all([
-    supabase.rpc('get_public_available_scenario_keys'),
-    supabase
-      .from('organization_scenarios_with_master')
-      .select(`
-        id, org_scenario_id, slug, title, author, key_visual_url,
-        duration, player_count_min, player_count_max,
-        genre, participation_fee, difficulty, release_date,
-        organization_id, status, scenario_master_id, available_stores,
-        organizations:organization_id (slug, name)
-      `)
-      .eq('status', 'available')
-      .order('title'),
+    platformPageReadApi.getPublicAvailableScenarioKeys(),
+    platformPageReadApi.listAvailableScenarioViews(),
     // 店舗データを取得（available_storesのIDを名前に変換するため + フィルター用）
     // RPC経由で取得（anon権限でも安全に取得可能）
-    supabase.rpc('get_all_public_stores'),
+    platformPageReadApi.getAllPublicStores(),
     // カテゴリを取得（RPC経由で匿名ユーザーにも安全に返す）
-    supabase.rpc('get_all_public_categories')
+    platformPageReadApi.getAllPublicCategories()
   ])
 
   const availableKeys = keysResult.data || []

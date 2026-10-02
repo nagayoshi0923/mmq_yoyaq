@@ -22,6 +22,7 @@ import {
   joinedCustomerFromReservation,
 } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
+import { eventReservationReadApi } from '@/lib/api/eventOperationsApi'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -81,14 +82,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
   ): Promise<number> => {
     if (targetEvent.is_private_request && targetEvent.reservation_id) {
       // 予約情報を取得（存在＋組織境界の確認）
-      let reservationQuery = supabase
-        .from('reservations')
-        .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-        .eq('id', targetEvent.reservation_id)
-      if (organizationId) {
-        reservationQuery = reservationQuery.eq('organization_id', organizationId)
-      }
-      const { data: reservation, error: fetchError } = await reservationQuery.single()
+      const { data: reservation, error: fetchError } = await eventReservationReadApi.findWithCustomerById(targetEvent.reservation_id, organizationId)
 
       if (fetchError) throw fetchError
 
@@ -152,17 +146,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
 
       // 通常公演の場合、予約者全員の予約をキャンセル（＋選択時はメール送信）
       // 同一 schedule_events 行の NOWAIT ロック競合を避けるため直列実行する
-      let reservationsQuery = supabase
-        .from('reservations')
-        .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-        .eq('schedule_event_id', targetEvent.id)
-        // 確認ダイアログの件数（fetchActiveReservations = キャンセル済み以外）と
-        // 揃える。従来の in('confirmed','pending') では gm_confirmed が漏れていた
-        .neq('status', 'cancelled')
-      if (organizationId) {
-        reservationsQuery = reservationsQuery.eq('organization_id', organizationId)
-      }
-      const { data: reservations, error: resError } = await reservationsQuery
+      const { data: reservations, error: resError } = await eventReservationReadApi.listUncancelledWithCustomerByEvent(targetEvent.id, organizationId)
 
       if (resError) throw resError
 
@@ -225,15 +209,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
       // からは予約を辿れないが、申込者本人が有効な予約として存在する。
       // 数え漏らすと申込者がいるのに無確認・メールなしで中止されてしまう。
       if (active.length === 0 && event.is_private_request && event.reservation_id) {
-        let mainQuery = supabase
-          .from('reservations')
-          .select('id, customer_name, customer_email, reservation_number, participant_count, total_price, payment_method')
-          .eq('id', event.reservation_id)
-          .neq('status', 'cancelled')
-        if (organizationId) {
-          mainQuery = mainQuery.eq('organization_id', organizationId)
-        }
-        const { data: mainReservation } = await mainQuery.maybeSingle()
+        const { data: mainReservation } = await eventReservationReadApi.findActiveSummaryById(event.reservation_id, organizationId)
         if (mainReservation) active = [mainReservation]
       }
 
@@ -306,7 +282,7 @@ export function useEventCancel({ setEvents, organizationId, fetchSchedule }: Use
           p_reservation_id: event.reservation_id,
           p_updates: { status: 'gm_confirmed' },
         }
-        const { error } = await supabase.rpc('admin_update_reservation_fields', uncancelParams)
+        const { error } = await eventReservationReadApi.adminUpdateFields(uncancelParams)
 
         if (error) {
           logger.error('予約ステータス更新エラー:', error)

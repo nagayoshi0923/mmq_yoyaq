@@ -1,7 +1,7 @@
 import { memo, useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
-import { supabase } from '@/lib/supabase'
+import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import {
   CancellationPolicyLink,
@@ -69,12 +69,7 @@ export const BookingNotice = memo(function BookingNotice({
         // modeをDBのcategory名にマッピング
         const categoryType = mode === 'schedule' ? 'open' : 'private'
 
-        const { data, error } = await supabase
-          .from('booking_notices')
-          .select('id, content, applicable_types, store_id, store_ids, requires_pre_reading, organization_id')
-          .eq('is_active', true)
-          .contains('applicable_types', [categoryType])
-          .order('sort_order', { ascending: true })
+        const { data, error } = await scenarioPageReadApi.listActiveBookingNotices(categoryType)
 
         if (error) throw error
 

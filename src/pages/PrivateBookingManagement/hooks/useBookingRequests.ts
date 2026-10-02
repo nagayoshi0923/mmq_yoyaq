@@ -3,7 +3,8 @@ import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBooking
 import { getGmResponses, getGmReadiness } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { privateBookingRequestReadApi } from '@/lib/api/privateBookingMgmtReadApi'
+import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger, privateBookingTrace } from '@/utils/logger'
 import { RESERVATION_SOURCE } from '@/lib/constants'
@@ -50,17 +51,10 @@ async function fetchRawBookingRequests(
 
   if (!isOrgWideAccess) {
     privateBookingTrace('スタッフユーザー - 担当シナリオのみ表示')
-    const { data: staffData } = await supabase
-      .from('staff')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
+    const { data: staffData } = await privateBookingMgmtReadApi.findStaffIdByUserId(userId)
 
     if (staffData) {
-      const { data: assignments } = await supabase
-        .from('staff_scenario_assignments')
-        .select('scenario_master_id')
-        .eq('staff_id', staffData.id)
+      const { data: assignments } = await privateBookingMgmtReadApi.listAssignedScenarioIds(staffData.id)
 
       allowedScenarioIds = assignments?.length
         ? assignments.map(a => a.scenario_master_id)
@@ -81,26 +75,7 @@ async function fetchRawBookingRequests(
   if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) return []
 
   const reservationsList = await fetchBookingRows<any>((from, to) => {
-    let query = supabase
-      .from('reservations')
-      .select(`
-        *,
-        scenario_masters:scenario_master_id(title, official_duration),
-        customers:customer_id(name, phone),
-        confirmer:staff!reservations_confirmed_by_fkey(name),
-        canceller:staff!reservations_cancelled_by_fkey(name)
-      `)
-      .eq('organization_id', orgId)
-      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-
-    if (allowedScenarioIds !== null) {
-      query = query.in('scenario_master_id', allowedScenarioIds)
-    }
-    query = query.in('status', [...PRIVATE_BOOKING_LIST_STATUSES])
-
-    return query.range(from, to)
+    return privateBookingRequestReadApi.listRequestsPage(orgId, allowedScenarioIds, [...PRIVATE_BOOKING_LIST_STATUSES], from, to)
   })
   privateBookingTrace(`取得: ${reservationsList.length} 件`)
 
@@ -136,13 +111,7 @@ async function fetchRawBookingRequests(
             .filter(Boolean)
         ),
       ] as string[]
-      return fetchBookingRelatedRows<any>(masterIds, (batch, from, to) => supabase
-            .from('organization_scenarios_with_master')
-            .select('scenario_master_id, gm_count, player_count_min, player_count_max, duration, weekend_duration, extra_preparation_time, private_booking_time_slots')
-            .eq('organization_id', orgId)
-            .in('scenario_master_id', batch)
-            .order('scenario_master_id')
-            .range(from, to))
+      return fetchBookingRelatedRows<any>(masterIds, (batch, from, to) => privateBookingMgmtReadApi.listScenarioViewsForRequests(orgId, batch, from, to))
     })(),
     getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),

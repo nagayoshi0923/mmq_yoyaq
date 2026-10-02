@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
+import { loginProfileReadApi, organizationReadApi } from '@/lib/api/organizationReadApi'
 import { logger } from '@/utils/logger'
 import { validateRedirectUrl } from '@/lib/utils'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
@@ -266,8 +267,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
         // 既存メールアドレスチェック：登録状態を詳細に確認
         // RLS を回避するため SECURITY DEFINER の RPC を使用（anon からでも呼び出し可能）
-        const { data: registrationStatus, error: checkError } = await supabase
-          .rpc('check_email_registration_status', { p_email: email })
+        const { data: registrationStatus, error: checkError } = await loginProfileReadApi.checkEmailRegistrationStatus(email)
 
         if (checkError) {
           logger.error('Email check error:', checkError)
@@ -349,11 +349,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             } | null = null
             let profileOrgSlug: string | undefined
 
-            const { data: profileData } = await supabase
-              .from('users')
-              .select('role, organization_id, is_store_representative')
-              .eq('id', signedUser.id)
-              .maybeSingle()
+            const { data: profileData } = await loginProfileReadApi.findUserProfile(signedUser.id)
 
             if (profileData) {
               userProfile = {
@@ -362,11 +358,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 is_store_representative: profileData.is_store_representative,
               }
               if (profileData.organization_id) {
-                const { data: profileOrganization } = await supabase
-                  .from('organizations')
-                  .select('slug')
-                  .eq('id', profileData.organization_id)
-                  .maybeSingle()
+                const { data: profileOrganization } = await organizationReadApi.findSlugById(profileData.organization_id)
                 profileOrgSlug = profileOrganization?.slug
               }
             }
@@ -378,26 +370,14 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             } | null = null
             let orgSlug: string | undefined
 
-            const nested = await supabase
-              .from('staff')
-              .select('organization_id, role, organizations(slug)')
-              .eq('user_id', signedUser.id)
-              .maybeSingle()
+            const nested = await loginProfileReadApi.findStaffWithOrganizationSlug(signedUser.id)
 
             if (nested.error) {
               logger.warn('Login redirect: staff+org nested select failed, falling back', nested.error)
-              const { data: staffOnly } = await supabase
-                .from('staff')
-                .select('organization_id, role')
-                .eq('user_id', signedUser.id)
-                .maybeSingle()
+              const { data: staffOnly } = await loginProfileReadApi.findStaffOnly(signedUser.id)
               staffData = staffOnly
               if (staffOnly?.organization_id) {
-                const { data: orgRow } = await supabase
-                  .from('organizations')
-                  .select('slug')
-                  .eq('id', staffOnly.organization_id)
-                  .maybeSingle()
+                const { data: orgRow } = await organizationReadApi.findSlugById(staffOnly.organization_id)
                 orgSlug = orgRow?.slug
               }
             } else {

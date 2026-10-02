@@ -8,7 +8,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
+import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { Sentry } from '@/lib/sentry'
@@ -133,11 +134,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   useEffect(() => {
     if (!organizationId) return
     ;(async () => {
-      const { data } = await supabase
-        .from('global_settings')
-        .select('chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_title, system_msg_pre_reading_notice_title, system_msg_survey_notice_title, system_msg_performance_cancelled_title')
-        .eq('organization_id', organizationId)
-        .maybeSingle()
+      const { data } = await privateGroupPageReadApi.getChatSettings(organizationId)
       if (data) {
         const d = data as Record<string, unknown>
         setChatEnabled((d.chat_enabled as boolean | undefined) ?? true)
@@ -227,7 +224,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
     try {
       const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
       const assignments = Object.fromEntries(activeMembers.map(m => [m.id, charDecisions[m.id]]))
-      const { error } = await supabase.rpc('private_group_confirm_characters', {
+      const { error } = await privateGroupRpcApi.confirmCharacters({
         p_group_id: groupId,
         p_assignments: assignments,
         p_expected_assignments: charConfirmExpected,

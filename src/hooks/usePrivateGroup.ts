@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { readPrivateGroup, readPrivateGroupList } from '@/lib/privateGroupRead'
 import { supabase } from '@/lib/supabase'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
@@ -64,7 +65,7 @@ export function usePrivateGroup() {
       if (!organizationId) throw new Error('組織情報が取得できません')
 
       // グループ・幹事・候補日・初回メッセージを同じトランザクションで保存する。
-      const { data: group, error: groupError } = await supabase.rpc('create_private_group_atomic', {
+      const { data: group, error: groupError } = await privateGroupRpcApi.createAtomic({
         p_organization_id: organizationId,
         p_scenario_master_id: params.scenarioId,
         p_name: params.name || null,
@@ -140,7 +141,7 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
-      const { data, error } = await supabase.rpc('join_private_group', {
+      const { data, error } = await privateGroupRpcApi.join({
         p_invite_code: params.inviteCode,
         p_guest_name: params.guestName || null,
         p_guest_email: params.guestEmail || null,
@@ -189,7 +190,7 @@ export function usePrivateGroup() {
     setLoading(true)
     setError(null)
     try {
-      const { data, error } = await supabase.rpc('cancel_unrequested_private_group', { p_group_id: groupId })
+      const { data, error } = await privateGroupRpcApi.cancelUnrequested(groupId)
       if (error) {
         throw new Error(error.code === '55P03'
           ? 'ほかの操作が進行中です。画面を更新してからお試しください。'
@@ -235,7 +236,7 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
-      const { error } = await supabase.rpc('private_group_remove_member', { p_member_id: memberId })
+      const { error } = await privateGroupRpcApi.removeMember(memberId)
 
       if (error) throw error
     } catch (err: any) {
@@ -252,7 +253,7 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
-      const { error } = await supabase.rpc('private_group_leave', { p_group_id: groupId })
+      const { error } = await privateGroupRpcApi.leave(groupId)
 
       if (error) throw error
     } catch (err: any) {
