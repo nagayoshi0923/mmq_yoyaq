@@ -1,3 +1,9 @@
+## QW-20261002-006 / 整備 Phase 1 の区切りと以後の決まり（2026-10-02）
+
+- Phase 1 の DB 変更3本（参照ゼロ28表の archive 退避 / 人数差の安全な再計算 / 旧GM配列の全員再計算）を staging と本番に適用し、構造の写し（supabase/structure/prod.json、138表）とアトラスを更新した。drift チェックは毎日 07:30 JST に本番・staging を記録と比較する。
+- 整備期間（書き込みの Claude 窓口への一本化）は本日で終了。Codex レーンは通常の不具合修正・機能開発を再開してよい。残件は issue（#721〜#727、#730、#733、#734、#716）で通常の作業として進める。
+- 以後の決まり: (1) migration は rollback と対、staging と本番へ同じ日に適用、適用環境の supabase/structure/<env>.json を同じ PR で更新。(2) drift チェックが落ちたら当日中に migration で記録するか DB を戻す。(3) staging と main の取り込みは merge commit。7日以上開いた PR は閉じる。(4) 完了判断は docs/MMQ_SEIBI_PLAN_2026-10.md 第3節の表。「全体IN_PROGRESS」は書かない。
+
 ## QW-20261002-006 / 整備 Phase 0 着地と QW-20260917-001 の閉鎖（2026-10-02）
 
 - 社長の着地点（意図しない変更を無くす・DB をアトラス基準で適正化・開発しやすく）に合わせ、整備の正本を docs/MMQ_SEIBI_PLAN_2026-10.md に置く。完了は同書第3節の数値表だけで判断し、「全体IN_PROGRESS」の追記はやめる。
