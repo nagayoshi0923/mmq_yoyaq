@@ -96,7 +96,7 @@ const DialogContent = React.forwardRef<
     xl: 'max-w-[95vw] sm:max-w-6xl max-h-[90vh] sm:max-h-[min(800px,80vh)]'
   }
   
-  const { "aria-describedby": ariaDescribedBy, ...restProps } = props as any
+  const { "aria-describedby": ariaDescribedBy, ...restProps } = props
   const needsTitleFallback = !hasDialogTitle(children)
   const hasDescription = hasDialogDescription(children)
 

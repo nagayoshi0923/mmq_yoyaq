@@ -101,7 +101,7 @@ export function SurveyResponsesTab({
         }))
         if (!cancelled) setMembers(membersData)
 
-        let orgScenario = null as any
+        let orgScenario = null
         if (effectiveScenarioId) {
           const { data: viewByMaster } = await organizationScenarioReadApi.getSurveyViewByMaster(effectiveScenarioId, organizationId)
           orgScenario = viewByMaster

@@ -208,7 +208,7 @@ async function fetchPlatformTopData(): Promise<PlatformTopData> {
       if (scenarioMap[scenarioData.id].next_events.length < 10) {
         const currentParticipants = e.current_participants ?? 0
         const remainingSlots = getAvailableSeats(
-          { current_participants: currentParticipants, max_participants: (e as any).max_participants },
+          { current_participants: currentParticipants, max_participants: e.max_participants },
           scenarioData.player_count_max
         )
         const isConfirmed = currentParticipants >= scenarioData.player_count_min && remainingSlots > 0

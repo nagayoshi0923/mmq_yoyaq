@@ -557,7 +557,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    <span>予約: {(event as any).current_participants}名</span>
+                    <span>予約: {event.current_participants}名</span>
                   </div>
                 </div>
               </div>

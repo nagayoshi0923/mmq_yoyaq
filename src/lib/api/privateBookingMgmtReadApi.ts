@@ -9,6 +9,16 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 
 export const privateBookingMgmtRpcApi = {
+  /** 貸切却下の通知を再送する（RPC） */
+  async retryRejectionDelivery(reservationId: string) {
+    return supabase.rpc('retry_private_rejection_delivery', { p_reservation_id: reservationId })
+  },
+
+  /** 貸切却下の通知の送信状況（RPC。100件ずつ） */
+  async getRejectionDeliveryStatus(reservationIds: string[]) {
+    return supabase.rpc('get_private_rejection_delivery_status', { p_reservation_ids: reservationIds })
+  },
+
   /** 貸切の送信履歴（RPC） */
   async getDeliveryHistory(reservationId: string) {
     return supabase.rpc('get_private_booking_delivery_history',{p_reservation_id:reservationId})
