@@ -9,6 +9,7 @@ import { formatDate } from '../utils/bookingFormatters'
 import { reservationApi } from '@/lib/reservationApi'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { clearBookingDataSnapshot } from '@/pages/PublicBookingTop/utils/bookingDataSnapshot'
+import { notificationOutcome, type NotificationOutcome } from '@/lib/notificationResult'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 
 /**
@@ -163,12 +164,12 @@ export const checkDuplicateReservation = async (
           // 同じ日付かチェック
           if (scheduleEvent.date !== eventDate) continue
           
-          const resStartTime = new Date(`${scheduleEvent.date}T${scheduleEvent.start_time}`)
+          const resStartTime = new Date(`${scheduleEvent.date}T${scheduleEvent.start_time}+09:00`)
           
           // 終了時間を計算（end_timeがあれば使用、なければdurationから計算）
           let resEndTime: Date
           if (scheduleEvent.end_time) {
-            resEndTime = new Date(`${scheduleEvent.date}T${scheduleEvent.end_time}`)
+            resEndTime = new Date(`${scheduleEvent.date}T${scheduleEvent.end_time}+09:00`)
           } else {
             const durationMs = ((scheduleEvent.scenario_masters?.official_duration || 180) + 30) * 60 * 1000 // 公演時間 + 30分バッファ
             resEndTime = new Date(resStartTime.getTime() + durationMs)
@@ -309,6 +310,9 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
   const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const submitInFlight = useRef(false)
+  const savedReservation = useRef(false)
+  const [confirmationEmailOutcome, setConfirmationEmailOutcome] = useState<NotificationOutcome | null>(null)
   // 冪等性: 同一フォーム送信のリトライでは同じ予約番号を使う
   const reservationNumberRef = useRef<string | null>(null)
   const [completedReservation, setCompletedReservation] = useState<{
@@ -330,6 +334,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
     customerNickname?: string,
     customerCouponId?: string | null
   ) => {
+    if (submitInFlight.current || savedReservation.current) return
     if (!props.userId) {
       throw new Error('ログインが必要です')
     }
@@ -338,6 +343,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
     }
 
+    submitInFlight.current = true
     setIsSubmitting(true)
 
     try {
@@ -475,6 +481,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         customer_coupon_id: customerCouponId || null
       } as any)
 
+      savedReservation.current = true
       // 予約確認メールを送信
       try {
         const emailResponse = await supabase.functions.invoke('send-booking-confirmation', {
@@ -496,12 +503,15 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
           }
         })
 
-        if (emailResponse.error) {
-          logger.error('メール送信エラー:', emailResponse.error)
+        const outcome = notificationOutcome(emailResponse)
+        setConfirmationEmailOutcome(outcome)
+        if (outcome.status !== 'accepted') {
+          logger.warn('予約は保存済み、確認メール送信は未確認:', outcome)
         } else {
           logger.log('予約確認メールを送信しました')
         }
       } catch (emailError) {
+        setConfirmationEmailOutcome({ status: 'failed', reason: 'exception' })
         logger.error('メール送信処理エラー:', emailError)
       }
 
@@ -509,7 +519,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       setCompletedReservation({
         reservationNumber: reservationData.reservation_number,
         participantCount: participantCount,
-        totalPrice: reservationData.final_price ?? (props.participationFee * participantCount),
+        totalPrice: reservationData.final_price ?? (calculatedFee * participantCount),
         discountAmount: reservationData.discount_amount ?? 0
       })
       setSuccess(true)
@@ -526,6 +536,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       logger.error('予約処理エラー:', error)
       throw error
     } finally {
+      submitInFlight.current = false
       setIsSubmitting(false)
     }
   }
@@ -534,6 +545,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
     isSubmitting,
     success,
     completedReservation,
+    confirmationEmailOutcome,
     handleSubmit
   }
 }

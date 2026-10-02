@@ -136,7 +136,7 @@ export function BookingConfirmation({
     validateForm
   } = useBookingForm({ initialParticipantCount, availableSeats })
 
-  const { isSubmitting, success, completedReservation, handleSubmit } = useBookingSubmit({
+  const { isSubmitting, success, completedReservation, confirmationEmailOutcome, handleSubmit } = useBookingSubmit({
     eventId,
     scenarioTitle,
     scenarioId,
@@ -443,11 +443,13 @@ export function BookingConfirmation({
               
               <p className="ts-body text-green-700 leading-relaxed">
                 ご予約ありがとうございます。<br />
-                確認メールを <span className="font-medium">{customerEmail}</span> に送信しました。
+                {confirmationEmailOutcome?.status === 'accepted' ? <>
+                  確認メールの送信を受け付けました。送信先：<span className="font-medium">{customerEmail}</span>
+                </> : <>予約は確定しましたが、確認メールの送信を確認できませんでした。再予約せず、マイページで予約内容をご確認ください。</>}
               </p>
-              <p className="text-xs text-green-600">
+              {confirmationEmailOutcome?.status === 'accepted' && <p className="text-xs text-green-600">
                 メールが届かない場合は、迷惑メールフォルダもご確認ください。
-              </p>
+              </p>}
               <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={() => navigate('/mypage')}
