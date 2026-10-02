@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { reservationApi } from '@/lib/reservationApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { logger } from '@/utils/logger'
+import type { MyPageData } from './useMyPageDataQuery'
 import {
   canCustomerSelfCancel,
   resolveCancellationPolicy,
@@ -175,12 +176,37 @@ export function useCancelReservationMutation(reservationId: string, onSuccess: (
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => reservationApi.cancel(reservationId, 'お客様によるキャンセル'),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) })
-      // マイページ予約一覧(mypage-data)も更新しないとキャンセルが一覧に反映されない。
-      // グローバル既定が refetchOnMount:false のため、非アクティブなクエリでも即再取得する
-      // invalidateEverywhere(refetchType:'all') を使わないと stale マークされるだけで再取得されない。
-      invalidateEverywhere(queryClient, ['mypage-data'])
+    onSuccess: async (cancelledReservation) => {
+      // 取消前の取得結果が後着して保存済み状態を上書きしないよう、先に停止する。
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ['mypage-data'] }),
+        queryClient.cancelQueries({ queryKey: reservationDetailKeys.detail(reservationId) }),
+      ])
+      queryClient.setQueriesData<MyPageData>({ queryKey: ['mypage-data'] }, (cached) => {
+        if (!cached?.reservations.some((reservation) => reservation.id === reservationId)) return cached
+        return {
+          ...cached,
+          reservations: cached.reservations.map((reservation) => reservation.id === reservationId
+            ? { ...reservation, ...cancelledReservation }
+            : reservation),
+        }
+      })
+      queryClient.setQueryData<NonNullable<ReturnType<typeof useReservationDetailQuery>['data']>>(
+        reservationDetailKeys.detail(reservationId),
+        (cached) => cached ? {
+          ...cached,
+          reservation: {
+            ...cached.reservation,
+            ...cancelledReservation,
+            schedule_events: cached.reservation.schedule_events,
+          },
+          canCancelByPolicy: false,
+          canChangeByPolicy: false,
+        } : cached,
+      )
+      // 一覧を即時更新してから戻る。再取得の失敗は取消失敗にしない。
+      void invalidateEverywhere(queryClient, reservationDetailKeys.detail(reservationId), ['mypage-data'])
+        .catch((error) => logger.warn('予約取消は保存済み・画面再取得に失敗:', error))
       onSuccess()
     },
     onError: (error) => {

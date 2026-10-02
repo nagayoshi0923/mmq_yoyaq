@@ -311,7 +311,7 @@ async function handleMySchedule(req: VercelRequest, res: VercelResponse, user: A
     .from('reservations')
     .select(`
       schedule_event_id,
-      schedule_events!inner (
+      schedule_events!reservations_schedule_event_id_fkey!inner (
         ${SCHEDULE_EVENT_MY_SELECT}
       )
     `)
