@@ -8,6 +8,7 @@ import { RESERVATION_SOURCE } from '@/lib/constants'
 import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { reservationApi } from '@/lib/reservationApi'
 
 export function AddDemoParticipants() {
   const { user } = useAuth()
@@ -394,9 +395,7 @@ export function AddDemoParticipants() {
           reservation_source: RESERVATION_SOURCE.DEMO_AUTO
         }
         
-        const { error: insertError } = await supabase
-          .from('reservations')
-          .insert(demoReservation)
+        const { error: insertError } = await reservationApi.insertDirect(demoReservation)
         
         if (insertError) {
           log(`❌ エラー [${event.date} ${event.scenario}]: ${insertError.message}`, 'error')

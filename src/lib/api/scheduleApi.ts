@@ -6,6 +6,7 @@
  * サーバ側で JWT から強制される。
  */
 import { apiClient } from '@/lib/apiClient'
+import { supabase } from '@/lib/supabase'
 import type { ScheduleEvent } from '@/types/schedule'
 
 // API が返す schedule_events_staff_view 行（ScheduleEvent + DB のみの列）
@@ -150,6 +151,12 @@ export const scheduleApi = {
       params.set('expected_updated_at', expectedUpdatedAt)
     }
     return await apiClient.patch<ScheduleEventRow>(`/api/schedule?${params.toString()}`, updates)
+  },
+
+  // 表示人数を直接書く（「満席に設定」の互換用）。通常は予約の増減に合わせて DB トリガーが再計算するので使わない。
+  // 整備 Phase 2: 画面からの直接 UPDATE をここに集約。
+  async setCurrentParticipants(id: string, count: number) {
+    return supabase.from('schedule_events').update({ current_participants: count }).eq('id', id)
   },
 
   // 公演を削除（関連する予約はDB側のFK設定に従って処理）

@@ -22,6 +22,7 @@ import type { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { sumActiveParticipants } from './participants'
 import { EMPTY_CANCELLATION_EMAIL_STATE, type ReservationCancellationEmailState } from './cancellationEmailState'
 import type { NewParticipant } from './newParticipant'
+import { scheduleApi } from '@/lib/api/scheduleApi'
 
 interface UseReservationListActionsDeps {
   event: ScheduleEvent | null
@@ -478,10 +479,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
             }
           })
           
-          await supabase
-            .from('schedule_events')
-            .update({ gms: newGms, gm_roles: newRoles })
-            .eq('id', event.id)
+          await scheduleApi.update(event.id, { gms: newGms, gm_roles: newRoles })
           
           onGmsChange(newGms, newRoles)
         }
@@ -710,9 +708,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
       const finalPaymentStatus = (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending')
 
       // 管理者による手動追加は直接INSERTで実行（RPCの満員・重複チェックを回避）
-      const { data: insertedRows, error: insertError } = await supabase
-        .from('reservations')
-        .insert({
+      const { data: insertedRows, error: insertError } = await reservationApi.insertDirect({
           schedule_event_id: event.id,
           organization_id: organizationId ?? event?.organization_id ?? null,
           title: currentEventData.scenario || '',
@@ -740,8 +736,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
           payment_status: finalPaymentStatus,
           status: 'confirmed',
           reservation_source: reservationSource
-        })
-        .select(RESERVATION_SELECT_FIELDS)
+        }, RESERVATION_SELECT_FIELDS)
 
       if (insertError) throw insertError
       const createdReservation = insertedRows?.[0] || null
