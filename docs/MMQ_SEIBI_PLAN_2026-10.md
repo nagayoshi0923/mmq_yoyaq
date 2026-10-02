@@ -191,7 +191,7 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 | Phase 2 書き込みの API 層化 | 56 か所・19 ファイル（開始時 127 か所、#779 マージ後）。お金・人数・予約・メール・顧客・通知・キット・キャンセル待ちに関わる書き込みは 0 件 | 0 | 1 ファイル 1 PR、挙動不変、単体テストを足す |
 | Phase 2 読み取りも含む直接呼び出し | 480 か所・120 ファイル（from 412・rpc 68） | 0（lint 許可リスト `eslint.config.js` の「境界の歯止め」を空にする） | 書き込みの後。移し終えたファイルを許可リストから外す |
 | Phase 3 API 5 本の分割 | coupons 1,636 / schedule 1,510 / reservations 1,385 / scenarios 1,123 / sales 1,104 行 | 各 400 行以下 | 入口ファイルを残し、本体を `api/_lib/<領域>/` に 1 アクション 1 ファイル。テスト件数が減らないこと |
-| Phase 3 `: any` | 412 件 | 200 件 | 書き込み経路から |
+| Phase 3 `: any` | 412 件（数え方は開始時のもの。同じ数え方で測り直すと下の別の数え方になる） | 200 件 | `api/` の `(db as any)` 205 箇所は #799 で型付きの `db!` にした（残り 7 箇所は型が合わず残した）。`src/` 側が残り。別の数え方（`: any`・`as any`・`<any>`・`any[]`、テスト除く、src と api）で 797 件 → 602 件 |
 
 **書き込みの残り（56 か所）の内訳**
 
@@ -210,9 +210,9 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 |---|---|---|---|
 | `api/sales.ts` | 1,104 行 | 入口 76 行 + `api/_lib/sales/` 12 ファイル（最大 268 行） | 本番反映済み（#783 特性テスト、#784 分割） |
 | `api/scenarios.ts` | 1,123 行 | 入口 42 行 + `api/_lib/scenarios/` 6 ファイル（最大 325 行） | 本番反映済み（#790） |
-| `api/coupons.ts` | 1,636 行 | 入口 188 行 + `api/_lib/coupons/` 8 ファイル（最大 322 行） | PR #791（CI → マージ → release 中） |
-| `api/schedule.ts` | 1,510 行 | — | 未着手（下の手順） |
-| `api/reservations.ts` | 1,385 行 | — | 未着手（下の手順） |
+| `api/coupons.ts` | 1,636 行 | 入口 188 行 + `api/_lib/coupons/` 8 ファイル（最大 322 行） | 本番反映済み（#791） |
+| `api/schedule.ts` | 1,510 行 | 入口 109 行 + `api/_lib/schedule/` 10 ファイル（最大 299 行） | マージ済み（#796。特性テスト 24 件） |
+| `api/reservations.ts` | 1,385 行 | 入口 163 行 + `api/_lib/reservations/` 7 ファイル（最大 355 行） | マージ済み（#798。特性テスト 55 件） |
 
 **分割の手順（sales / scenarios / coupons で確立した型）**
 
@@ -221,11 +221,11 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 3. **挙動が変わっていない証拠を 3 つ揃える**: (a) コメントと import を除くコード行の集合が分割の前後で同数で、差が `export` の付与だけ（スクリプトで比較）、(b) 特性テストと既存テストが前後で同じ結果、(c) `npm run typecheck`（src と api）と `--noUnusedLocals`。
 4. **1 つの PR に特性テストと分割の 2 コミット**、手元で全部通してから出す。release は未マージの PR が 0 件になってから 1 回だけ。
 
-**`api/schedule.ts`（1,510 行）の再開メモ**: 行範囲は CORS・定数・SELECT 定数 12〜122、型 123〜141、ヘルパ（`getOrgScenarioPlayerCounts`、`resolveMaxParticipants`）142〜191、入口とルーティング 192〜280、読み取り（`handleMySchedule` 282〜415、`handleByMonth` 417〜709 が最大で約 290 行、`handleByDateRange` 711〜743、`handleByScenario` 745〜842）、書き込みヘルパ 843〜970（許可リスト `SCHEDULE_CREATABLE_FIELDS` / `SCHEDULE_UPDATABLE_FIELDS`、`pickFields`、`findMatchingScenario`、不明列のリトライ削除）、書き込み（`handleCreate` 972〜1067、`handleUpdate` 1069〜1201、`handleToggleCancel` 1203〜1252、`handleDelete` 1254〜1291、`handleAddDemoParticipants` 1293〜1427、`handleRemoveDemoReservations` 1429〜1450）、募集設定 1451〜。既存テストは `api/schedule-capacity.test.ts` の 4 件だけ。特性テストで固定する規則: 許可リストの列だけを受け入れる、組織は認証した組織を強制、店舗の組織境界（404 / 403）、シナリオ名からの自動紐付け、カテゴリの補正（不正は `open`）、不明列を最大 3 回リトライして削除、`CAPACITY_EXCEEDED`（409）、`expected_updated_at` による競合検出（409）、中止の切替（`cancelled_at` と `cancellation_reason`）、削除 0 件は 409、デモ参加者の追加・削除。分割案: `common.ts`（定数・型・ヘルパ・書き込みヘルパ）、`reads.ts`（my-schedule / by-date-range / by-scenario）、`byMonth.ts`、`create.ts`、`update.ts`、`cancelDelete.ts`、`demo.ts`、`recruitment.ts`。
+**API 5 本の分割は 2026-10-03 に完了（#774）**: 5 本とも、コメントと import を除くコード行が分割の前後で同一（差は `export` の付与だけ）で、特性テストと全テスト、typecheck を通した。入口ファイルは 42〜188 行、最大のモジュールは 355 行（`api/_lib/reservations/cancel.ts`）。`api/_lib/*` の各ファイルは 400 行以下。
 
-**`api/reservations.ts`（1,385 行）**: 未調査。予約の書き込み経路（RPC `create_reservation_with_lock_v2`、キャンセル、人数変更、管理者の直接追加）で、今日の規則（#707 の認可、#730 の人数、#721 の金額）が絡む。特性テストを最も手厚くする。分割前に関数ごとの行範囲を出し、既存テスト（`api/reservations*.test.ts`）の網羅を確認する。
+**特性テストで見つけた既存の食い違い（分割では直していない）**: #787（作品統計が来店済みを参加者に数えず、売上側と規則が違う。社長の判断待ち）、#794（参加者の表示規則が画面・API で揃っていない）。#788（累計公演回数が中止公演を数える）は 2026-10-03 に #797 で直した（中止は中止として数え、開催回数に含めない）。
 
-**`: any` 412 → 200（#775）**: 分割後のファイル（`api/_lib/*`）の `(db as any)` が多い。`db` を型付きのヘルパ（`SupabaseClient` を返す）にすると一括で減らせる。書き込み経路から。
+**`: any`（#775）**: `api/` の `(db as any)` 205 箇所を型付きの `db!` にした（#799）。差分は「置き換え」と「不要なコメントの削除」だけで、置き換え後の行と元の行の過不足 0 件をスクリプトで確認した。型が合わない 7 箇所は残した（予約の join 結果が配列として推論される所など。実データでは単体のオブジェクトなので、型の側を直す必要がある）。残りは `src/` 側が中心（`useBookingData.ts` 21、`CalendarView.tsx` 19、`PrivateBookingScenarioSelect.tsx` 14 など）。再開するときは、型が付くところから順に `as any` を外し、typecheck が通る範囲で進める。
 
 **やり方の決まり（2026-10-02 の 8 本で固めたもの）**
 
