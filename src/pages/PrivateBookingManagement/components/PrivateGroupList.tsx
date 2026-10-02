@@ -22,7 +22,7 @@ import {
   ClipboardList,
   MapPin,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtRpcApi } from '@/lib/api/privateBookingMgmtReadApi'
 import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 import { showToast } from '@/utils/toast'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
@@ -127,7 +127,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
         p_group_id: selectedGroup.id,
         p_message: message.trim(),
       }
-      const { error: rpcError } = await supabase.rpc('send_staff_group_message', msgParams)
+      const { error: rpcError } = await privateBookingMgmtRpcApi.sendStaffGroupMessage(msgParams)
       
       if (rpcError) {
         logger.error('メッセージ送信エラー:', rpcError)

@@ -3,7 +3,7 @@ import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
 // PrivateGroupInvite/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
 import React, { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
@@ -601,7 +601,7 @@ export function GroupInviteView({
                 performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
                 needsCharAssignmentChoice={needsCharAssignmentChoice}
                 onCharAssignmentMethodSelected={async (method) => {
-                  const { error } = await supabase.rpc('private_group_set_character_method', {
+                  const { error } = await privateGroupRpcApi.setCharacterMethod({
                     p_group_id: group.id, p_method: method,
                     p_expected_method: group.character_assignment_method || null,
                     p_expected_assignments: group.character_assignments || {},
@@ -614,7 +614,7 @@ export function GroupInviteView({
                 isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
                 onCharAssignmentConfirmed={() => refetch()}
                 onResetCharAssignmentMethod={async () => {
-                  const { error } = await supabase.rpc('private_group_set_character_method', {
+                  const { error } = await privateGroupRpcApi.setCharacterMethod({
                     p_group_id: group.id, p_method: null,
                     p_expected_method: group.character_assignment_method || null,
                     p_expected_assignments: group.character_assignments || {},

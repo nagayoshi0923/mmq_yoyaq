@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/apiClient'
 import { useState, useCallback, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtReadApi, privateBookingMgmtRpcApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
@@ -171,14 +171,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
       }
 
-      const { data: blockedSlot, error: blockedSlotError } = await supabase
-        .from('schedule_blocked_slots')
-        .select('id')
-        .filter('organization_id', 'eq', organizationId)
-        .eq('date', selectedDateYmd)
-        .eq('store_id', selectedStoreId)
-        .eq('time_slot', canonicalTimeSlot)
-        .maybeSingle()
+      const { data: blockedSlot, error: blockedSlotError } = await privateBookingMgmtReadApi.findBlockedSlot(organizationId, selectedDateYmd, selectedStoreId, canonicalTimeSlot)
       if (blockedSlotError) {
         logger.error('募集停止枠チェックエラー:', blockedSlotError)
         setSubmitting(false)
@@ -195,12 +188,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
-      const existingEventsQuery = supabase
-        .from('schedule_events_staff_view')
-        .select('id, scenario, start_time, end_time, reservation_id')
-        .eq('date', selectedDateYmd)
-        .eq('store_id', selectedStoreId)
-        .neq('is_cancelled', true)
+      const existingEventsQuery = privateBookingMgmtReadApi.listExistingEvents(selectedDateYmd, selectedStoreId)
       
       const { data: existingEvents, error: checkError } = await existingEventsQuery
 
@@ -281,7 +269,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPCパラメータ:', rpcParams)
       
       const operation = await pendingOperation(`private-approval:${organizationId}:${user.id}`, rpcParams)
-      const { data: approval, error: approveError } = await supabase.rpc('approve_private_booking_with_notifications', { ...rpcParams, p_request_id: operation.id })
+      const { data: approval, error: approveError } = await privateBookingMgmtRpcApi.approveWithNotifications({ ...rpcParams, p_request_id: operation.id })
 
       if (approveError) {
         logger.error('貸切承認RPCエラー:', approveError)
@@ -388,12 +376,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     try {
       if (!organizationId) throw new Error('組織情報が必要です')
       // 予約と同じ組織の設定だけをプレビューする。
-      const { data: reservation } = await supabase
-        .from('reservations')
-        .select('store_id, organization_id, title, customer_name')
-        .eq('organization_id', organizationId)
-        .eq('id', requestId)
-        .maybeSingle()
+      const { data: reservation } = await privateBookingMgmtReadApi.findRequestSummary(organizationId, requestId)
 
       const storeId = reservation?.store_id as string | undefined
       const orgId = reservation?.organization_id as string | undefined
@@ -475,9 +458,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
     setSubmitting(true)
     try {
-      const { error: deleteError } = await supabase.rpc('delete_private_booking_request_atomic', {
-        p_reservation_id: requestId,
-      })
+      const { error: deleteError } = await privateBookingMgmtRpcApi.deleteRequestAtomic(requestId)
       if (deleteError) {
         logger.error('予約削除エラー:', deleteError)
         throw new Error(deleteError.message || '予約の削除に失敗しました')

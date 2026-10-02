@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { publicBookingListReadApi } from '@/lib/api/publicBookingReadApi'
+import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
+import { publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -60,10 +63,10 @@ export interface BookingDataResult {
 async function requireActiveOrgForPublicBookingUrl(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return true
-  const { data: row } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle()
+  const { data: row } = await publicBookingReadApi.findUserRole(user.id)
   const role = row?.role as string | undefined
   if (role === 'admin' || role === 'staff' || role === 'license_admin') return false
-  const { data: staffRow } = await supabase.from('staff').select('id').eq('user_id', user.id).maybeSingle()
+  const { data: staffRow } = await publicBookingReadApi.findStaffId(user.id)
   if (staffRow) return false
   return true
 }
@@ -133,17 +136,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 1. シナリオ取得（organization_scenarios_with_master: 基本情報 + 組織固有設定）
     (async () => {
       try {
-        let query = supabase
-          .from('organization_scenarios_with_master')
-          .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
-          .eq('status', 'available')
-          .neq('scenario_type', 'gm_test')
-        
-        if (orgId) {
-          query = query.eq('organization_id', orgId)
-        }
-        
-        return await query.order('title', { ascending: true })
+        return await publicBookingListReadApi.listAvailableScenarios(orgId)
       } catch (err) {
         logger.error('scenarios query error:', err)
         return { data: [], error: err }
@@ -153,15 +146,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 2. 店舗取得（公開用ビューを使用 - コスト情報を除外）
     (async () => {
       try {
-        let query = supabase
-          .from('stores_public')
-          .select('id, organization_id, name, short_name, address, color, capacity, rooms, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region')
-        
-        if (orgId) {
-          query = query.eq('organization_id', orgId)
-        }
-        
-        const result = await query.order('display_order', { ascending: true, nullsFirst: false })
+        const result = await publicBookingListReadApi.listPublicStores(orgId)
         if (result.error) {
           logger.error('stores query failed:', result.error)
         }
@@ -175,10 +160,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 3. 貸切予約の受付締切を取得（reservation_settings は anon から SELECT できないため RPC 経由）
     (async () => {
       try {
-        return await supabase.rpc('get_private_booking_deadline_days', {
-          p_organization_id: orgId,
-          p_organization_slug: null,
-        })
+        return await publicBookingReadApi.getPrivateBookingDeadlineDays(orgId)
       } catch (err) {
         console.error('get_private_booking_deadline_days RPC error:', err)
         return { data: null, error: err }
@@ -188,7 +170,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 4. 公開中の組織シナリオキー取得
     (async () => {
       try {
-        return await supabase.rpc('get_public_available_scenario_keys')
+        return await platformPageReadApi.getPublicAvailableScenarioKeys()
       } catch (err) {
         logger.error('get_public_available_scenario_keys RPC error:', err)
         return { data: [], error: err }
@@ -198,7 +180,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 5. 🚀 最適化: RPCで遊びたいリスト数を集計（全件取得を回避）
     (async () => {
       try {
-        return await supabase.rpc('get_scenario_likes_count')
+        return await publicBookingReadApi.getScenarioLikesCount()
       } catch (err) {
         logger.error('get_scenario_likes_count RPC error:', err)
         return { data: [], error: err }
@@ -208,40 +190,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 6. 公演データ取得（公開用ビューを使用 - PII/財務情報を除外）
     (async () => {
       try {
-        let query = supabase
-          .from('schedule_events_public')
-          .select(`
-            id,
-            date,
-            start_time,
-            end_time,
-            scenario_master_id,
-            scenario_id,
-            scenario,
-            store_id,
-            venue,
-            current_participants,
-            is_cancelled,
-            is_reservation_enabled,
-            published,
-            category,
-            is_private_booking,
-            is_extended,
-            reservation_deadline_hours,
-            organization_id
-          `)
-          .gte('date', startDate)
-          .lte('date', endDate)
-          .eq('is_cancelled', false)
-          .order('date', { ascending: true })
-          .order('start_time', { ascending: true })
-        
-        if (orgId) {
-          query = query.eq('organization_id', orgId)
-        }
-        
-        const result = await query
-        if (result.error) {
+        const result = await publicBookingListReadApi.listPublicEventsInRange(startDate, endDate, orgId)
+                if (result.error) {
           logger.error('schedule_events query failed:', result.error)
         }
         return result
@@ -274,9 +224,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // RPCが失敗した場合はフォールバックとしてscenario_likesを直接取得
     logger.warn('get_scenario_likes_count RPC failed, falling back to direct query')
     try {
-      const { data: likesData } = await supabase
-        .from('scenario_likes')
-        .select('scenario_id')
+      const { data: likesData } = await publicBookingReadApi.listScenarioLikes()
       if (likesData) {
         likesData.forEach((like: { scenario_id: string }) => {
           favoriteCountMap.set(like.scenario_id, (favoriteCountMap.get(like.scenario_id) || 0) + 1)
@@ -305,11 +253,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   let performancePauses: StoreRecruitmentPausePeriod[] = []
   const eventStoreIds = [...new Set(allEventsData.map((event: any) => event.store_id).filter(Boolean))] as string[]
   if (eventStoreIds.length > 0) {
-    const { data: pauseRows, error: pauseError } = await supabase
-      .from('store_recruitment_pauses')
-      .select('store_id, pause_type, starts_on, ends_on')
-      .in('store_id', eventStoreIds)
-      .eq('pause_type', 'performance')
+    const { data: pauseRows, error: pauseError } = await publicBookingReadApi.listPerformancePauses(eventStoreIds)
     if (pauseError) logger.error('店舗の募集停止期間の取得に失敗:', pauseError)
     else performancePauses = (pauseRows || []) as StoreRecruitmentPausePeriod[]
   }

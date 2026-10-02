@@ -13,6 +13,7 @@ import { Calendar, Users, CheckCircle2, Loader2, LogOut, MessageCircle, Check, C
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { supabase } from '@/lib/supabase'
+import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { logger } from '@/utils/logger'
 import type { NavigateFunction } from 'react-router-dom'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
@@ -701,11 +702,7 @@ export function GroupChatSheets({
                           
                           setIsSubmittingContact(true)
                           try {
-                            const { data: org } = await supabase
-                              .from('organizations')
-                              .select('id, name, contact_email')
-                              .eq('id', group.organization_id)
-                              .single()
+                            const { data: org } = await privateGroupPageReadApi.findOrganizationContact(group.organization_id)
                             
                             if (!org?.contact_email) {
                               toast.error('組織の問い合わせ先が設定されていません')
@@ -752,11 +749,7 @@ export function GroupChatSheets({
                             
                             // Edge Functionが利用できない場合はmailtoにフォールバック
                             const replyEmail = organizerMember?.guest_email || user?.email || ''
-                            const { data: org } = await supabase
-                              .from('organizations')
-                              .select('contact_email')
-                              .eq('id', group.organization_id)
-                              .single()
+                            const { data: org } = await privateGroupPageReadApi.findOrganizationContactEmail(group.organization_id)
                             
                             const toEmail = org?.contact_email || ''
                             const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)

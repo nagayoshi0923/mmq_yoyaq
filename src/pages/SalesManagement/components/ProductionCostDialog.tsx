@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
-import { supabase } from '@/lib/supabase'
+import { productionCostReadApi } from '@/lib/api/salesPageReadApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -127,16 +127,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
       if (!organizationId) return
 
       try {
-        let query = supabase
-          .from('organization_scenarios_with_master')
-          .select('id, title, author')
-
-        // organization_id でフィルタ（マルチテナント対応）
-        query = query.eq('organization_id', organizationId)
-
-        query = query.order('title', { ascending: true })
-
-        const { data, error } = await query
+        const { data, error } = await productionCostReadApi.listScenarios(organizationId)
 
         if (error) throw error
         setScenarios(data || [])

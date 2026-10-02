@@ -25,6 +25,15 @@ import * as platformPage from './platformPageReadApi'
 import * as reportForm from './reportFormReadApi'
 import * as userRole from './userRoleReadApi'
 import * as orgSignup from './orgSignupRpcApi'
+import * as demoParticipants from './demoParticipantsReadApi'
+import * as privateBookingMgmt from './privateBookingMgmtReadApi'
+import * as privateBookingRequest from './privateBookingRequestReadApi'
+import * as privateGroupPage from './privateGroupPageReadApi'
+import * as publicBooking from './publicBookingReadApi'
+import * as salesPage from './salesPageReadApi'
+import * as scenarioPage from './scenarioPageReadApi'
+import * as scheduleManager from './scheduleManagerReadApi'
+import * as privateGroupRpc from './privateGroupRpcApi'
 
 beforeEach(() => { rec.calls.length = 0 })
 
@@ -760,4 +769,796 @@ describe('GM 空き確認・プロフィール登録・ライセンス・プラ�
       }
     `)
   })
+})
+
+describe('貸切・デモ・予約サイト・売上・シナリオ・スケジュール管理', () => {
+  it('デモ参加者の追加', async () => { expect(await snapshotModule(demoParticipants)).toMatchInlineSnapshot(`
+    {
+      "demoParticipantsReadApi.adminDeleteReservationsByIds": [
+        "rpc("admin_delete_reservations_by_ids", "a1")",
+      ],
+      "demoParticipantsReadApi.adminDeleteReservationsByIds (最後の引数なし)": [
+        "rpc("admin_delete_reservations_by_ids")",
+      ],
+      "demoParticipantsReadApi.findDemoCustomer": [
+        "from("customers") .select("id, name, email") .or("name.ilike.%デモ%,email.ilike.%demo%,name.ilike.%test%") .eq("organization_id", "a1") .limit(1) .single()",
+      ],
+      "demoParticipantsReadApi.findDemoCustomer (最後の引数なし)": [
+        "from("customers") .select("id, name, email") .or("name.ilike.%デモ%,email.ilike.%demo%,name.ilike.%test%") .limit(1) .single()",
+      ],
+      "demoParticipantsReadApi.findScenarioById": [
+        "from("organization_scenarios_with_master") .select("id, title, duration, participation_fee, gm_test_participation_fee, pa…) .eq("id", "a1") .eq("organization_id", "a2") .maybeSingle()",
+      ],
+      "demoParticipantsReadApi.findScenarioById (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, title, duration, participation_fee, gm_test_participation_fee, pa…) .eq("id", "a1") .maybeSingle()",
+      ],
+      "demoParticipantsReadApi.findStoreIdByVenueName": [
+        "from("stores") .select("id") .or("name.eq.a1,short_name.eq.a1") .single()",
+      ],
+      "demoParticipantsReadApi.findStoreIdByVenueName (最後の引数なし)": [
+        "from("stores") .select("id") .or("name.eq.undefined,short_name.eq.undefined") .single()",
+      ],
+      "demoParticipantsReadApi.listActiveReservationsByEvent": [
+        "from("reservations") .select("id, participant_names, reservation_source, participant_count") .eq("schedule_event_id", "a1") .in("status", ["confirmed","pending"])",
+      ],
+      "demoParticipantsReadApi.listActiveReservationsByEvent (最後の引数なし)": [
+        "from("reservations") .select("id, participant_names, reservation_source, participant_count") .eq("schedule_event_id", undefined) .in("status", ["confirmed","pending"])",
+      ],
+      "demoParticipantsReadApi.listCustomersSample": [
+        "from("customers") .select("id, name, email") .eq("organization_id", "a1") .limit(10)",
+      ],
+      "demoParticipantsReadApi.listCustomersSample (最後の引数なし)": [
+        "from("customers") .select("id, name, email") .limit(10)",
+      ],
+      "demoParticipantsReadApi.listMasterTitlesLike": [
+        "from("scenario_masters") .select("title") .ilike("title", "%a1%") .limit(3)",
+      ],
+      "demoParticipantsReadApi.listMasterTitlesLike (最後の引数なし)": [
+        "from("scenario_masters") .select("title") .ilike("title", "%undefined%") .limit(3)",
+      ],
+      "demoParticipantsReadApi.listPastEvents": [
+        "from("schedule_events_staff_view") .select("id, date, venue, scenario, scenario_master_id, gms, start_time, end_t…) .lte("date", "a1") .eq("is_cancelled", false) .eq("organization_id", "a2") .order("date", {"ascending":false})",
+      ],
+      "demoParticipantsReadApi.listPastEvents (最後の引数なし)": [
+        "from("schedule_events_staff_view") .select("id, date, venue, scenario, scenario_master_id, gms, start_time, end_t…) .lte("date", "a1") .eq("is_cancelled", false) .order("date", {"ascending":false})",
+      ],
+      "demoParticipantsReadApi.listScenarios": [
+        "from("organization_scenarios_with_master") .select("id, title, duration, participation_fee, gm_test_participation_fee, pa…) .eq("organization_id", "a1")",
+      ],
+      "demoParticipantsReadApi.listScenarios (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, title, duration, participation_fee, gm_test_participation_fee, pa…)",
+      ],
+      "demoParticipantsReadApi.pingCustomers": [
+        "from("customers") .select("count") .limit(1)",
+      ],
+    }
+  `) })
+  it('貸切管理', async () => { expect(await snapshotModule(privateBookingMgmt)).toMatchInlineSnapshot(`
+    {
+      "privateBookingMgmtReadApi.findBlockedSlot": [
+        "from("schedule_blocked_slots") .select("id") .filter("organization_id", "eq", "a1") .eq("date", "a2") .eq("store_id", "a3") .eq("time_slot", "a4") .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findBlockedSlot (最後の引数なし)": [
+        "from("schedule_blocked_slots") .select("id") .filter("organization_id", "eq", "a1") .eq("date", "a2") .eq("store_id", "a3") .eq("time_slot", undefined) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findRequestSummary": [
+        "from("reservations") .select("store_id, organization_id, title, customer_name") .eq("organization_id", "a1") .eq("id", "a2") .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findRequestSummary (最後の引数なし)": [
+        "from("reservations") .select("store_id, organization_id, title, customer_name") .eq("organization_id", "a1") .eq("id", undefined) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findReservationForReadiness": [
+        "from("reservations") .select("id, organization_id, scenario_master_id, candidate_datetimes") .eq("id", "a1") .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findReservationForReadiness (最後の引数なし)": [
+        "from("reservations") .select("id, organization_id, scenario_master_id, candidate_datetimes") .eq("id", undefined) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findReservationStoreAndOrganization": [
+        "from("reservations") .select("store_id, organization_id") .eq("id", "a1") .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findReservationStoreAndOrganization (最後の引数なし)": [
+        "from("reservations") .select("store_id, organization_id") .eq("id", undefined) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findScenarioGmCount": [
+        "from("organization_scenarios_with_master") .select("gm_count") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findScenarioGmCount (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("gm_count") .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findScenarioStoresView": [
+        "from("organization_scenarios_with_master") .select("available_stores, scenario_master_id") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .limit(1) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findScenarioStoresView (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("available_stores, scenario_master_id") .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .limit(1) .maybeSingle()",
+      ],
+      "privateBookingMgmtReadApi.findStaffIdByUserId": [
+        "from("staff") .select("id") .eq("user_id", "a1") .single()",
+      ],
+      "privateBookingMgmtReadApi.findStaffIdByUserId (最後の引数なし)": [
+        "from("staff") .select("id") .eq("user_id", undefined) .single()",
+      ],
+      "privateBookingMgmtReadApi.listActiveStaffByIds": [
+        "from("staff") .select("id") .eq("organization_id", "a1") .eq("status", "active") .in("id", "a2")",
+      ],
+      "privateBookingMgmtReadApi.listActiveStaffByIds (最後の引数なし)": [
+        "from("staff") .select("id") .eq("organization_id", "a1") .eq("status", "active") .in("id", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listAssignedScenarioIds": [
+        "from("staff_scenario_assignments") .select("scenario_master_id") .eq("staff_id", "a1")",
+      ],
+      "privateBookingMgmtReadApi.listAssignedScenarioIds (最後の引数なし)": [
+        "from("staff_scenario_assignments") .select("scenario_master_id") .eq("staff_id", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listBlockedSlotsOnDates": [
+        "from("schedule_blocked_slots") .select("date, store_id, time_slot, created_at") .filter("organization_id", "eq", "a1") .in("date", "a2")",
+      ],
+      "privateBookingMgmtReadApi.listBlockedSlotsOnDates (最後の引数なし)": [
+        "from("schedule_blocked_slots") .select("date, store_id, time_slot, created_at") .filter("organization_id", "eq", "a1") .in("date", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listConfirmedPrivateWithoutEvent": [
+        "from("reservations") .select("id,store_id,gm_staff,scenario_master_id,candidate_datetimes") .eq("organization_id", "a1") .eq("status", "confirmed") .is("schedule_event_id", null) .order("id") .range("a2", "a2499")",
+      ],
+      "privateBookingMgmtReadApi.listConfirmedPrivateWithoutEvent (最後の引数なし)": [
+        "from("reservations") .select("id,store_id,gm_staff,scenario_master_id,candidate_datetimes") .eq("organization_id", "a1") .eq("status", "confirmed") .is("schedule_event_id", null) .order("id") .range(undefined, null)",
+      ],
+      "privateBookingMgmtReadApi.listEventsByIds": [
+        "from("schedule_events") .select("id, date, start_time, end_time, store_id, is_cancelled, gms") .eq("organization_id", "a1") .in("id", "a2")",
+      ],
+      "privateBookingMgmtReadApi.listEventsByIds (最後の引数なし)": [
+        "from("schedule_events") .select("id, date, start_time, end_time, store_id, is_cancelled, gms") .eq("organization_id", "a1") .in("id", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listEventsForConflicts": [
+        "from("schedule_events_staff_view") .select("id,date,start_time,end_time,store_id,reservation_id,scenario_master_i…) .eq("organization_id", "a1") .eq("is_cancelled", false) .gte("date", "a2") .lte("date", "a3") .order("id") .range("a4", "a4499")",
+      ],
+      "privateBookingMgmtReadApi.listEventsForConflicts (最後の引数なし)": [
+        "from("schedule_events_staff_view") .select("id,date,start_time,end_time,store_id,reservation_id,scenario_master_i…) .eq("organization_id", "a1") .eq("is_cancelled", false) .gte("date", "a2") .lte("date", "a3") .order("id") .range(undefined, null)",
+      ],
+      "privateBookingMgmtReadApi.listExistingEvents": [
+        "from("schedule_events_staff_view") .select("id, scenario, start_time, end_time, reservation_id") .eq("date", "a1") .eq("store_id", "a2") .neq("is_cancelled", true)",
+      ],
+      "privateBookingMgmtReadApi.listExistingEvents (最後の引数なし)": [
+        "from("schedule_events_staff_view") .select("id, scenario, start_time, end_time, reservation_id") .eq("date", "a1") .eq("store_id", undefined) .neq("is_cancelled", true)",
+      ],
+      "privateBookingMgmtReadApi.listGmAssignmentsByScenario": [
+        "from("staff_scenario_assignments") .select("staff_id") .eq("scenario_master_id", "a1") .or("can_main_gm.eq.true,can_sub_gm.eq.true")",
+      ],
+      "privateBookingMgmtReadApi.listGmAssignmentsByScenario (最後の引数なし)": [
+        "from("staff_scenario_assignments") .select("staff_id") .eq("scenario_master_id", undefined) .or("can_main_gm.eq.true,can_sub_gm.eq.true")",
+      ],
+      "privateBookingMgmtReadApi.listGmAssignmentsByStaffIds": [
+        "from("staff_scenario_assignments") .select("staff_id, can_main_gm, can_sub_gm") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .in("staff_id", "a3")",
+      ],
+      "privateBookingMgmtReadApi.listGmAssignmentsByStaffIds (最後の引数なし)": [
+        "from("staff_scenario_assignments") .select("staff_id, can_main_gm, can_sub_gm") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .in("staff_id", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listPrivateReservationsByIds": [
+        "from("reservations") .select("id, private_group_id, schedule_event_id, status") .eq("organization_id", "a1") .in("id", "a2") .eq("reservation_source", "web_private")",
+      ],
+      "privateBookingMgmtReadApi.listPrivateReservationsByIds (最後の引数なし)": [
+        "from("reservations") .select("id, private_group_id, schedule_event_id, status") .eq("organization_id", "a1") .in("id", undefined) .eq("reservation_source", "web_private")",
+      ],
+      "privateBookingMgmtReadApi.listReservationsByGroupIds": [
+        "from("reservations") .select("id, private_group_id, reservation_number") .eq("organization_id", "a1") .in("private_group_id", "a2") .order("id") .range("a3", "a4")",
+      ],
+      "privateBookingMgmtReadApi.listReservationsByGroupIds (最後の引数なし)": [
+        "from("reservations") .select("id, private_group_id, reservation_number") .eq("organization_id", "a1") .in("private_group_id", "a2") .order("id") .range("a3", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listScenarioViewsForRequests": [
+        "from("organization_scenarios_with_master") .select("scenario_master_id, gm_count, player_count_min, player_count_max, dur…) .eq("organization_id", "a1") .in("scenario_master_id", "a2") .order("scenario_master_id") .range("a3", "a4")",
+      ],
+      "privateBookingMgmtReadApi.listScenarioViewsForRequests (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("scenario_master_id, gm_count, player_count_min, player_count_max, dur…) .eq("organization_id", "a1") .in("scenario_master_id", "a2") .order("scenario_master_id") .range("a3", undefined)",
+      ],
+      "privateBookingMgmtReadApi.listStoresByIds": [
+        "from("stores") .select("id, name, short_name") .eq("organization_id", "a1") .in("id", "a2")",
+      ],
+      "privateBookingMgmtReadApi.listStoresByIds (最後の引数なし)": [
+        "from("stores") .select("id, name, short_name") .eq("organization_id", "a1") .in("id", undefined)",
+      ],
+      "privateBookingMgmtRpcApi.approveWithNotifications": [
+        "rpc("approve_private_booking_with_notifications", "a1")",
+      ],
+      "privateBookingMgmtRpcApi.approveWithNotifications (最後の引数なし)": [
+        "rpc("approve_private_booking_with_notifications")",
+      ],
+      "privateBookingMgmtRpcApi.deleteRequestAtomic": [
+        "rpc("delete_private_booking_request_atomic", {"p_reservation_id":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.deleteRequestAtomic (最後の引数なし)": [
+        "rpc("delete_private_booking_request_atomic", {})",
+      ],
+      "privateBookingMgmtRpcApi.getApprovalDeliveryStatus": [
+        "rpc("get_private_booking_approval_delivery_status", {"p_reservation_ids":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.getApprovalDeliveryStatus (最後の引数なし)": [
+        "rpc("get_private_booking_approval_delivery_status", {})",
+      ],
+      "privateBookingMgmtRpcApi.getDeliveryHistory": [
+        "rpc("get_private_booking_delivery_history", {"p_reservation_id":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.getDeliveryHistory (最後の引数なし)": [
+        "rpc("get_private_booking_delivery_history", {})",
+      ],
+      "privateBookingMgmtRpcApi.resumeApprovalPreparation": [
+        "rpc("resume_private_approval_preparation", {"p_delivery_id":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.resumeApprovalPreparation (最後の引数なし)": [
+        "rpc("resume_private_approval_preparation", {})",
+      ],
+      "privateBookingMgmtRpcApi.retryUnsentDelivery": [
+        "rpc("retry_private_unsent_delivery", {"p_kind":"a1","p_delivery_id":"a2"})",
+      ],
+      "privateBookingMgmtRpcApi.retryUnsentDelivery (最後の引数なし)": [
+        "rpc("retry_private_unsent_delivery", {"p_kind":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.sendStaffGroupMessage": [
+        "rpc("send_staff_group_message", "a1")",
+      ],
+      "privateBookingMgmtRpcApi.sendStaffGroupMessage (最後の引数なし)": [
+        "rpc("send_staff_group_message")",
+      ],
+      "privateBookingRequestReadApi.listForTab": [
+        "from("reservations") .select("\\n          *,\\n          scenario_masters:scenario_master_id(title),…) .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .in("scenario_master_id", "a1") .in("status", ["pending","pending_gm","gm_confirmed","pending_store"])",
+      ],
+      "privateBookingRequestReadApi.listForTab (最後の引数なし)": [
+        "from("reservations") .select("\\n          *,\\n          scenario_masters:scenario_master_id(title),…) .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .in("scenario_master_id", "a1") .in("status", ["pending","pending_gm","gm_confirmed","pending_store","confirmed","ca…)",
+      ],
+      "privateBookingRequestReadApi.listRequestsPage": [
+        "from("reservations") .select("\\n        *,\\n        scenario_masters:scenario_master_id(title, offi…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", "a5")",
+      ],
+      "privateBookingRequestReadApi.listRequestsPage (最後の引数なし)": [
+        "from("reservations") .select("\\n        *,\\n        scenario_masters:scenario_master_id(title, offi…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", undefined)",
+      ],
+    }
+  `) })
+  it('貸切リクエスト', async () => { expect(await snapshotModule(privateBookingRequest)).toMatchInlineSnapshot(`
+    {
+      "privateBookingRequestReadApi.listAvailabilityEvents": [
+        "from("schedule_events_for_availability") .select("id, date, store_id, start_time, end_time, is_cancelled") .filter("organization_id", "eq", "a1") .in("store_id", "a2") .gte("date", "a3") .lte("date", "a4") .eq("is_cancelled", false)",
+      ],
+      "privateBookingRequestReadApi.listAvailabilityEvents (最後の引数なし)": [
+        "from("schedule_events_for_availability") .select("id, date, store_id, start_time, end_time, is_cancelled") .filter("organization_id", "eq", "a1") .in("store_id", "a2") .gte("date", "a3") .lte("date", undefined) .eq("is_cancelled", false)",
+      ],
+      "privateBookingRequestReadApi.listAvailabilityEventsForSlots": [
+        "from("schedule_events_for_availability") .select("id, date, start_time, end_time, store_id, is_cancelled") .filter("organization_id", "eq", "a1") .in("store_id", "a2") .gte("date", "a3") .lte("date", "a4") .eq("is_cancelled", false)",
+      ],
+      "privateBookingRequestReadApi.listAvailabilityEventsForSlots (最後の引数なし)": [
+        "from("schedule_events_for_availability") .select("id, date, start_time, end_time, store_id, is_cancelled") .filter("organization_id", "eq", "a1") .in("store_id", "a2") .gte("date", "a3") .lte("date", undefined) .eq("is_cancelled", false)",
+      ],
+      "privateBookingRequestReadApi.listPublicEventsOnDate": [
+        "from("schedule_events_public") .select("id, date, start_time, end_time, store_id, scenario, category, is_canc…) .in("store_id", "a1") .eq("date", "a2") .eq("is_cancelled", false)",
+      ],
+      "privateBookingRequestReadApi.listPublicEventsOnDate (最後の引数なし)": [
+        "from("schedule_events_public") .select("id, date, start_time, end_time, store_id, scenario, category, is_canc…) .in("store_id", "a1") .eq("date", undefined) .eq("is_cancelled", false)",
+      ],
+    }
+  `) })
+  it('貸切グループ', async () => { expect(await snapshotModule(privateGroupPage)).toMatchInlineSnapshot(`
+    {
+      "privateGroupPageReadApi.findOrganizationContact": [
+        "from("organizations") .select("id, name, contact_email") .eq("id", "a1") .single()",
+      ],
+      "privateGroupPageReadApi.findOrganizationContact (最後の引数なし)": [
+        "from("organizations") .select("id, name, contact_email") .eq("id", undefined) .single()",
+      ],
+      "privateGroupPageReadApi.findOrganizationContactEmail": [
+        "from("organizations") .select("contact_email") .eq("id", "a1") .single()",
+      ],
+      "privateGroupPageReadApi.findOrganizationContactEmail (最後の引数なし)": [
+        "from("organizations") .select("contact_email") .eq("id", undefined) .single()",
+      ],
+      "privateGroupPageReadApi.findOwnCustomerPhoneInOrganization": [
+        "from("customers") .select("phone") .eq("user_id", "a1") .eq("organization_id", "a2") .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.findOwnCustomerPhoneInOrganization (最後の引数なし)": [
+        "from("customers") .select("phone") .eq("user_id", "a1") .eq("organization_id", undefined) .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.findScenarioAvailableStores": [
+        "from("organization_scenarios_with_master") .select("available_stores") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .limit(1) .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.findScenarioAvailableStores (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("available_stores") .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .limit(1) .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.findScenarioForGroup": [
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .single()",
+      ],
+      "privateGroupPageReadApi.findScenarioForGroup (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, organization_id, scenario_master_id, title, key_visual_url, playe…) .eq("scenario_master_id", "a1") .eq("organization_id", undefined) .single()",
+      ],
+      "privateGroupPageReadApi.getChatSettings": [
+        "from("global_settings") .select("chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_ti…) .eq("organization_id", "a1") .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.getChatSettings (最後の引数なし)": [
+        "from("global_settings") .select("chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_ti…) .eq("organization_id", undefined) .maybeSingle()",
+      ],
+      "privateGroupPageReadApi.listActiveCouponsForGroup": [
+        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.a2")",
+      ],
+      "privateGroupPageReadApi.listActiveCouponsForGroup (最後の引数なし)": [
+        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.undefined")",
+      ],
+      "privateGroupPageReadApi.listActiveStoresByIdsInOrganization": [
+        "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .in("id", "a1") .eq("organization_id", "a2") .eq("status", "active")",
+      ],
+      "privateGroupPageReadApi.listActiveStoresByIdsInOrganization (最後の引数なし)": [
+        "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .in("id", "a1") .eq("organization_id", undefined) .eq("status", "active")",
+      ],
+      "privateGroupPageReadApi.listActiveStoresForGroup": [
+        "from("stores") .select("id, name, address, region") .eq("organization_id", "a1") .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null")",
+      ],
+      "privateGroupPageReadApi.listActiveStoresForGroup (最後の引数なし)": [
+        "from("stores") .select("id, name, address, region") .eq("organization_id", undefined) .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null")",
+      ],
+      "privateGroupPageReadApi.listActiveStoresOfOrganization": [
+        "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .eq("organization_id", "a1") .eq("status", "active") .order("name")",
+      ],
+      "privateGroupPageReadApi.listActiveStoresOfOrganization (最後の引数なし)": [
+        "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .eq("organization_id", undefined) .eq("status", "active") .order("name")",
+      ],
+      "privateGroupPageReadApi.listStoresByIds": [
+        "from("stores") .select("id, name") .in("id", "a1")",
+      ],
+      "privateGroupPageReadApi.listStoresByIds (最後の引数なし)": [
+        "from("stores") .select("id, name") .in("id", undefined)",
+      ],
+    }
+  `) })
+  it('貸切グループの RPC', async () => { expect(await snapshotModule(privateGroupRpc)).toMatchInlineSnapshot(`
+    {
+      "privateGroupRpcApi.applyCouponToMember": [
+        "rpc("apply_coupon_to_group_member", "a1")",
+      ],
+      "privateGroupRpcApi.applyCouponToMember (最後の引数なし)": [
+        "rpc("apply_coupon_to_group_member")",
+      ],
+      "privateGroupRpcApi.authenticateGuestByPin": [
+        "rpc("authenticate_guest_by_pin_v3", "a1")",
+      ],
+      "privateGroupRpcApi.authenticateGuestByPin (最後の引数なし)": [
+        "rpc("authenticate_guest_by_pin_v3")",
+      ],
+      "privateGroupRpcApi.cancelUnrequested": [
+        "rpc("cancel_unrequested_private_group", {"p_group_id":"a1"})",
+      ],
+      "privateGroupRpcApi.cancelUnrequested (最後の引数なし)": [
+        "rpc("cancel_unrequested_private_group", {})",
+      ],
+      "privateGroupRpcApi.confirmCharacters": [
+        "rpc("private_group_confirm_characters", "a1")",
+      ],
+      "privateGroupRpcApi.confirmCharacters (最後の引数なし)": [
+        "rpc("private_group_confirm_characters")",
+      ],
+      "privateGroupRpcApi.createAtomic": [
+        "rpc("create_private_group_atomic", "a1")",
+      ],
+      "privateGroupRpcApi.createAtomic (最後の引数なし)": [
+        "rpc("create_private_group_atomic")",
+      ],
+      "privateGroupRpcApi.createBookingRequestWithNotice": [
+        "rpc("create_private_booking_request_with_notice", "a1")",
+      ],
+      "privateGroupRpcApi.createBookingRequestWithNotice (最後の引数なし)": [
+        "rpc("create_private_booking_request_with_notice")",
+      ],
+      "privateGroupRpcApi.deleteGroup": [
+        "rpc("delete_private_group", "a1")",
+      ],
+      "privateGroupRpcApi.deleteGroup (最後の引数なし)": [
+        "rpc("delete_private_group")",
+      ],
+      "privateGroupRpcApi.join": [
+        "rpc("join_private_group", "a1")",
+      ],
+      "privateGroupRpcApi.join (最後の引数なし)": [
+        "rpc("join_private_group")",
+      ],
+      "privateGroupRpcApi.leave": [
+        "rpc("private_group_leave", {"p_group_id":"a1"})",
+      ],
+      "privateGroupRpcApi.leave (最後の引数なし)": [
+        "rpc("private_group_leave", {})",
+      ],
+      "privateGroupRpcApi.removeCouponFromMember": [
+        "rpc("remove_coupon_from_group_member", "a1")",
+      ],
+      "privateGroupRpcApi.removeCouponFromMember (最後の引数なし)": [
+        "rpc("remove_coupon_from_group_member")",
+      ],
+      "privateGroupRpcApi.removeMember": [
+        "rpc("private_group_remove_member", {"p_member_id":"a1"})",
+      ],
+      "privateGroupRpcApi.removeMember (最後の引数なし)": [
+        "rpc("private_group_remove_member", {})",
+      ],
+      "privateGroupRpcApi.setCharacterMethod": [
+        "rpc("private_group_set_character_method", "a1")",
+      ],
+      "privateGroupRpcApi.setCharacterMethod (最後の引数なし)": [
+        "rpc("private_group_set_character_method")",
+      ],
+    }
+  `) })
+  it('予約サイトのトップ', async () => { expect(await snapshotModule(publicBooking)).toMatchInlineSnapshot(`
+    {
+      "publicBookingListReadApi.listAvailableScenarios": [
+        "from("organization_scenarios_with_master") .select("id, slug, title, key_visual_url, author, duration, player_count_min, …) .eq("status", "available") .neq("scenario_type", "gm_test") .eq("organization_id", "a1") .order("title", {"ascending":true})",
+      ],
+      "publicBookingListReadApi.listAvailableScenarios (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, slug, title, key_visual_url, author, duration, player_count_min, …) .eq("status", "available") .neq("scenario_type", "gm_test") .order("title", {"ascending":true})",
+      ],
+      "publicBookingListReadApi.listPublicEventsInRange": [
+        "from("schedule_events_public") .select("\\n            id,\\n            date,\\n            start_time,\\n      …) .gte("date", "a1") .lte("date", "a2") .eq("is_cancelled", false) .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .eq("organization_id", "a3")",
+      ],
+      "publicBookingListReadApi.listPublicEventsInRange (最後の引数なし)": [
+        "from("schedule_events_public") .select("\\n            id,\\n            date,\\n            start_time,\\n      …) .gte("date", "a1") .lte("date", "a2") .eq("is_cancelled", false) .order("date", {"ascending":true}) .order("start_time", {"ascending":true})",
+      ],
+      "publicBookingListReadApi.listPublicStores": [
+        "from("stores_public") .select("id, organization_id, name, short_name, address, color, capacity, room…) .eq("organization_id", "a1") .order("display_order", {"ascending":true,"nullsFirst":false})",
+      ],
+      "publicBookingListReadApi.listPublicStores (最後の引数なし)": [
+        "from("stores_public") .select("id, organization_id, name, short_name, address, color, capacity, room…) .order("display_order", {"ascending":true,"nullsFirst":false})",
+      ],
+      "publicBookingReadApi.findStaffId": [
+        "from("staff") .select("id") .eq("user_id", "a1") .maybeSingle()",
+      ],
+      "publicBookingReadApi.findStaffId (最後の引数なし)": [
+        "from("staff") .select("id") .eq("user_id", undefined) .maybeSingle()",
+      ],
+      "publicBookingReadApi.findUserRole": [
+        "from("users") .select("role") .eq("id", "a1") .maybeSingle()",
+      ],
+      "publicBookingReadApi.findUserRole (最後の引数なし)": [
+        "from("users") .select("role") .eq("id", undefined) .maybeSingle()",
+      ],
+      "publicBookingReadApi.getPrivateBookingDeadlineDays": [
+        "rpc("get_private_booking_deadline_days", {"p_organization_id":"a1","p_organization_slug":null})",
+      ],
+      "publicBookingReadApi.getPrivateBookingDeadlineDays (最後の引数なし)": [
+        "rpc("get_private_booking_deadline_days", {"p_organization_slug":null})",
+      ],
+      "publicBookingReadApi.getScenarioLikesCount": [
+        "rpc("get_scenario_likes_count")",
+      ],
+      "publicBookingReadApi.listPerformancePauses": [
+        "from("store_recruitment_pauses") .select("store_id, pause_type, starts_on, ends_on") .in("store_id", "a1") .eq("pause_type", "performance")",
+      ],
+      "publicBookingReadApi.listPerformancePauses (最後の引数なし)": [
+        "from("store_recruitment_pauses") .select("store_id, pause_type, starts_on, ends_on") .in("store_id", undefined) .eq("pause_type", "performance")",
+      ],
+      "publicBookingReadApi.listScenarioLikes": [
+        "from("scenario_likes") .select("scenario_id")",
+      ],
+    }
+  `) })
+  it('売上管理', async () => { expect(await snapshotModule(salesPage)).toMatchInlineSnapshot(`
+    {
+      "productionCostReadApi.listScenarios": [
+        "from("organization_scenarios_with_master") .select("id, title, author") .eq("organization_id", "a1") .order("title", {"ascending":true})",
+      ],
+      "productionCostReadApi.listScenarios (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, title, author") .eq("organization_id", undefined) .order("title", {"ascending":true})",
+      ],
+      "salesPageReadApi.listExternalSales": [
+        "from("external_sales") .select("id, organization_id, type, date, scenario_id, store_name, amount, lic…) .gte("date", "a1") .lte("date", "a2") .order("date", {"ascending":false})",
+      ],
+      "salesPageReadApi.listExternalSales (最後の引数なし)": [
+        "from("external_sales") .select("id, organization_id, type, date, scenario_id, store_name, amount, lic…) .gte("date", "a1") .lte("date", undefined) .order("date", {"ascending":false})",
+      ],
+      "salesPageReadApi.listMiscellaneousTransactions": [
+        "from("miscellaneous_transactions") .select("id, organization_id, store_id, scenario_id, date, type, category, amo…) .gte("date", "a1") .lte("date", "a2") .order("date", {"ascending":false})",
+      ],
+      "salesPageReadApi.listMiscellaneousTransactions (最後の引数なし)": [
+        "from("miscellaneous_transactions") .select("id, organization_id, store_id, scenario_id, date, type, category, amo…) .gte("date", "a1") .lte("date", undefined) .order("date", {"ascending":false})",
+      ],
+      "salesPageReadApi.listScenarioOptions": [
+        "from("organization_scenarios_with_master") .select("id, title, author") .eq("organization_id", "a1") .order("title", {"ascending":true})",
+      ],
+      "salesPageReadApi.listScenarioOptions (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, title, author") .eq("organization_id", undefined) .order("title", {"ascending":true})",
+      ],
+      "salesPageReadApi.listScenariosWithFranchiseLicense": [
+        "from("organization_scenarios_with_master") .select("id, title, franchise_license_amount, franchise_gm_test_license_amount…) .eq("organization_id", "a1") .order("title")",
+      ],
+      "salesPageReadApi.listScenariosWithFranchiseLicense (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, title, franchise_license_amount, franchise_gm_test_license_amount…) .eq("organization_id", undefined) .order("title")",
+      ],
+    }
+  `) })
+  it('シナリオの一覧・詳細・管理', async () => { expect(await snapshotModule(scenarioPage)).toMatchInlineSnapshot(`
+    {
+      "scenarioCatalogReadApi.listAvailableScenarios": [
+        "from("organization_scenarios_with_master") .select("id, org_scenario_id, slug, title, author, key_visual_url, duration, p…) .eq("status", "available") .neq("scenario_type", "gm_test") .order("title", {"ascending":true}) .eq("organization_id", "a1")",
+      ],
+      "scenarioCatalogReadApi.listAvailableScenarios (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, org_scenario_id, slug, title, author, key_visual_url, duration, p…) .eq("status", "available") .neq("scenario_type", "gm_test") .order("title", {"ascending":true})",
+      ],
+      "scenarioDetailEventsReadApi.startPublicEventsQuery": [
+        "from("schedule_events_public") .select("a1")",
+      ],
+      "scenarioDetailEventsReadApi.startPublicEventsQuery (最後の引数なし)": [
+        "from("schedule_events_public") .select(undefined)",
+      ],
+      "scenarioDetailGlobalReadApi.findCustomerIdByEmail": [
+        "from("customers") .select("id") .eq("email", "a1") .maybeSingle()",
+      ],
+      "scenarioDetailGlobalReadApi.findCustomerIdByEmail (最後の引数なし)": [
+        "from("customers") .select("id") .eq("email", undefined) .maybeSingle()",
+      ],
+      "scenarioDetailGlobalReadApi.findLegacyScenarioView": [
+        "from("organization_scenarios_with_master") .select("id, org_scenario_id, title, slug, description, key_visual_url, durati…) .eq("scenario_master_id", "a1") .limit(1) .maybeSingle()",
+      ],
+      "scenarioDetailGlobalReadApi.findLegacyScenarioView (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, org_scenario_id, title, slug, description, key_visual_url, durati…) .eq("scenario_master_id", undefined) .limit(1) .maybeSingle()",
+      ],
+      "scenarioDetailGlobalReadApi.findMasterById": [
+        "from("scenario_masters") .select("id") .eq("id", "a1") .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findMasterById (最後の引数なし)": [
+        "from("scenario_masters") .select("id") .eq("id", undefined) .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findMasterIdByOrgScenarioId": [
+        "from("organization_scenarios") .select("scenario_master_id") .eq("id", "a1") .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findMasterIdByOrgScenarioId (最後の引数なし)": [
+        "from("organization_scenarios") .select("scenario_master_id") .eq("id", undefined) .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findMasterIdBySlug": [
+        "from("organization_scenarios") .select("scenario_master_id") .eq("slug", "a1") .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findMasterIdBySlug (最後の引数なし)": [
+        "from("organization_scenarios") .select("scenario_master_id") .eq("slug", undefined) .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findOrganizationCharacters": [
+        "from("organization_scenarios") .select("characters") .eq("scenario_master_id", "a1") .not("characters", "is", null) .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.findOrganizationCharacters (最後の引数なし)": [
+        "from("organization_scenarios") .select("characters") .eq("scenario_master_id", undefined) .not("characters", "is", null) .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.getMasterDetail": [
+        "from("scenario_masters") .select("id, title, author, author_id, key_visual_url, description, player_cou…) .eq("id", "a1") .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.getMasterDetail (最後の引数なし)": [
+        "from("scenario_masters") .select("id, title, author, author_id, key_visual_url, description, player_cou…) .eq("id", undefined) .limit(1)",
+      ],
+      "scenarioDetailGlobalReadApi.listAvailableOrgScenarios": [
+        "from("organization_scenarios") .select("id, organization_id, slug") .eq("scenario_master_id", "a1") .eq("org_status", "available")",
+      ],
+      "scenarioDetailGlobalReadApi.listAvailableOrgScenarios (最後の引数なし)": [
+        "from("organization_scenarios") .select("id, organization_id, slug") .eq("scenario_master_id", undefined) .eq("org_status", "available")",
+      ],
+      "scenarioDetailGlobalReadApi.listAvailableOrgScenariosWithOrganization": [
+        "from("organization_scenarios") .select("id, organization_id, organizations!inner (id, slug, name)") .eq("scenario_master_id", "a1") .eq("org_status", "available")",
+      ],
+      "scenarioDetailGlobalReadApi.listAvailableOrgScenariosWithOrganization (最後の引数なし)": [
+        "from("organization_scenarios") .select("id, organization_id, organizations!inner (id, slug, name)") .eq("scenario_master_id", undefined) .eq("org_status", "available")",
+      ],
+      "scenarioDetailGlobalReadApi.listOrganizationIdsOfMaster": [
+        "from("organization_scenarios") .select("organization_id") .eq("scenario_master_id", "a1")",
+      ],
+      "scenarioDetailGlobalReadApi.listOrganizationIdsOfMaster (最後の引数なし)": [
+        "from("organization_scenarios") .select("organization_id") .eq("scenario_master_id", undefined)",
+      ],
+      "scenarioDetailGlobalReadApi.listOrganizationsByIds": [
+        "from("organizations") .select("id, slug, name") .in("id", "a1")",
+      ],
+      "scenarioDetailGlobalReadApi.listOrganizationsByIds (最後の引数なし)": [
+        "from("organizations") .select("id, slug, name") .in("id", undefined)",
+      ],
+      "scenarioDetailGlobalReadApi.listPublicStoresByIds": [
+        "from("stores_public") .select("id, name, short_name, color, region") .in("id", "a1")",
+      ],
+      "scenarioDetailGlobalReadApi.listPublicStoresByIds (最後の引数なし)": [
+        "from("stores_public") .select("id, name, short_name, color, region") .in("id", undefined)",
+      ],
+      "scenarioDetailGlobalReadApi.listUpcomingPublicEvents": [
+        "from("schedule_events_public") .select("id, date, start_time, time_slot, current_participants, max_participan…) .eq("scenario_master_id", "a1") .gte("date", "a2") .in("category", ["open","offsite"]) .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .limit(50)",
+      ],
+      "scenarioDetailGlobalReadApi.listUpcomingPublicEvents (最後の引数なし)": [
+        "from("schedule_events_public") .select("id, date, start_time, time_slot, current_participants, max_participan…) .eq("scenario_master_id", "a1") .gte("date", undefined) .in("category", ["open","offsite"]) .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .limit(50)",
+      ],
+      "scenarioDetailGlobalReadApi.listVisibleCharacters": [
+        "from("scenario_characters") .select("id, name, description, image_url, sort_order") .eq("scenario_master_id", "a1") .eq("is_visible", true) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioDetailGlobalReadApi.listVisibleCharacters (最後の引数なし)": [
+        "from("scenario_characters") .select("id, name, description, image_url, sort_order") .eq("scenario_master_id", undefined) .eq("is_visible", true) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.deleteOrganizationScenario": [
+        "rpc("delete_org_scenario", {"p_scenario_id":"a1"})",
+      ],
+      "scenarioManagementReadApi.deleteOrganizationScenario (最後の引数なし)": [
+        "rpc("delete_org_scenario", {})",
+      ],
+      "scenarioManagementReadApi.findOrganizationName": [
+        "from("organizations") .select("name") .eq("id", "a1") .single()",
+      ],
+      "scenarioManagementReadApi.findOrganizationName (最後の引数なし)": [
+        "from("organizations") .select("name") .eq("id", undefined) .single()",
+      ],
+      "scenarioManagementReadApi.listAuthors": [
+        "from("organization_authors") .select("id, name, sort_order") .eq("organization_id", "a1") .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.listAuthors (最後の引数なし)": [
+        "from("organization_authors") .select("id, name, sort_order") .eq("organization_id", undefined) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.listAvailableStoresByMasterIds": [
+        "from("organization_scenarios") .select("scenario_master_id, available_stores") .eq("organization_id", "a1") .in("scenario_master_id", "a2")",
+      ],
+      "scenarioManagementReadApi.listAvailableStoresByMasterIds (最後の引数なし)": [
+        "from("organization_scenarios") .select("scenario_master_id, available_stores") .eq("organization_id", "a1") .in("scenario_master_id", undefined)",
+      ],
+      "scenarioManagementReadApi.listCategories": [
+        "from("organization_categories") .select("id, name, sort_order") .eq("organization_id", "a1") .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.listCategories (最後の引数なし)": [
+        "from("organization_categories") .select("id, name, sort_order") .eq("organization_id", undefined) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.listGmAssignments": [
+        "from("staff_scenario_assignments") .select("scenario_master_id, can_main_gm, can_sub_gm, staff:staff_id ( name )") .eq("organization_id", "a1") .in("scenario_master_id", "a2") .or("can_main_gm.eq.true,can_sub_gm.eq.true")",
+      ],
+      "scenarioManagementReadApi.listGmAssignments (最後の引数なし)": [
+        "from("staff_scenario_assignments") .select("scenario_master_id, can_main_gm, can_sub_gm, staff:staff_id ( name )") .eq("organization_id", "a1") .in("scenario_master_id", undefined) .or("can_main_gm.eq.true,can_sub_gm.eq.true")",
+      ],
+      "scenarioManagementReadApi.listScenarioViews": [
+        "from("organization_scenarios_with_master") .select("\\n  id,\\n  org_scenario_id,\\n  organization_id,\\n  scenario_master_id…) .eq("organization_id", "a1") .order("title", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.listScenarioViews (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("\\n  id,\\n  org_scenario_id,\\n  organization_id,\\n  scenario_master_id…) .eq("organization_id", undefined) .order("title", {"ascending":true})",
+      ],
+      "scenarioManagementReadApi.listStoresOfOrganization": [
+        "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .eq("organization_id", "a1")",
+      ],
+      "scenarioManagementReadApi.listStoresOfOrganization (最後の引数なし)": [
+        "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .eq("organization_id", undefined)",
+      ],
+      "scenarioMasterAdminReadApi.getMasterForEdit": [
+        "from("scenario_masters") .select("id, title, author, author_id, author_email, key_visual_url, descripti…) .eq("id", "a1") .single()",
+      ],
+      "scenarioMasterAdminReadApi.getMasterForEdit (最後の引数なし)": [
+        "from("scenario_masters") .select("id, title, author, author_id, author_email, key_visual_url, descripti…) .eq("id", undefined) .single()",
+      ],
+      "scenarioMasterAdminReadApi.listCharacters": [
+        "from("scenario_characters") .select("id, scenario_master_id, name, description, image_url, sort_order") .eq("scenario_master_id", "a1") .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioMasterAdminReadApi.listCharacters (最後の引数なし)": [
+        "from("scenario_characters") .select("id, scenario_master_id, name, description, image_url, sort_order") .eq("scenario_master_id", undefined) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioMasterAdminReadApi.listMasters": [
+        "from("scenario_masters") .select("id, title, author, author_id, key_visual_url, description, player_cou…) .order("updated_at", {"ascending":false})",
+      ],
+      "scenarioMasterAdminReadApi.listOrganizationNamesByIds": [
+        "from("organizations") .select("id, name") .in("id", "a1")",
+      ],
+      "scenarioMasterAdminReadApi.listOrganizationNamesByIds (最後の引数なし)": [
+        "from("organizations") .select("id, name") .in("id", undefined)",
+      ],
+      "scenarioMasterAdminReadApi.listOrganizationScenarioLinks": [
+        "from("organization_scenarios") .select("scenario_master_id, organization_id")",
+      ],
+      "scenarioMasterAdminReadApi.listPendingCorrections": [
+        "from("scenario_master_corrections") .select("\\n        *,\\n        organizations:requested_by_organization_id (nam…) .eq("scenario_master_id", "a1") .eq("status", "pending") .order("created_at", {"ascending":false})",
+      ],
+      "scenarioMasterAdminReadApi.listPendingCorrections (最後の引数なし)": [
+        "from("scenario_master_corrections") .select("\\n        *,\\n        organizations:requested_by_organization_id (nam…) .eq("scenario_master_id", undefined) .eq("status", "pending") .order("created_at", {"ascending":false})",
+      ],
+      "scenarioMatcherReadApi.listEventsWithScenarioName": [
+        "from("schedule_events") .select("id, date, scenario, venue") .not("scenario", "is", null) .eq("organization_id", "a1") .order("date", {"ascending":false})",
+      ],
+      "scenarioMatcherReadApi.listEventsWithScenarioName (最後の引数なし)": [
+        "from("schedule_events") .select("id, date, scenario, venue") .not("scenario", "is", null) .order("date", {"ascending":false})",
+      ],
+      "scenarioMatcherReadApi.listScenarioTitles": [
+        "from("organization_scenarios_with_master") .select("title") .eq("organization_id", "a1")",
+      ],
+      "scenarioMatcherReadApi.listScenarioTitles (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("title")",
+      ],
+      "scenarioMatcherReadApi.listScenarios": [
+        "from("organization_scenarios_with_master") .select("id, title") .eq("organization_id", "a1") .order("title")",
+      ],
+      "scenarioMatcherReadApi.listScenarios (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("id, title") .order("title")",
+      ],
+      "scenarioPageReadApi.findEventSeats": [
+        "from("schedule_events_public") .select("current_participants, max_participants, capacity") .eq("id", "a1") .single()",
+      ],
+      "scenarioPageReadApi.findEventSeats (最後の引数なし)": [
+        "from("schedule_events_public") .select("current_participants, max_participants, capacity") .eq("id", undefined) .single()",
+      ],
+      "scenarioPageReadApi.listActiveBookingNotices": [
+        "from("booking_notices") .select("id, content, applicable_types, store_id, store_ids, requires_pre_read…) .eq("is_active", true) .contains("applicable_types", ["a1"]) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioPageReadApi.listActiveBookingNotices (最後の引数なし)": [
+        "from("booking_notices") .select("id, content, applicable_types, store_id, store_ids, requires_pre_read…) .eq("is_active", true) .contains("applicable_types", [null]) .order("sort_order", {"ascending":true})",
+      ],
+      "scenarioPageReadApi.listActiveStoresForHero": [
+        "from("stores") .select("id, name, short_name") .eq("status", "active") .neq("is_temporary", true) .or("ownership_type.neq.office,ownership_type.is.null") .order("name")",
+      ],
+      "scenarioPageReadApi.listStoresForCatalog": [
+        "from("stores") .select("id, name, short_name, ownership_type, region, address, display_order")",
+      ],
+    }
+  `) })
+  it('スケジュール管理', async () => { expect(await snapshotModule(scheduleManager)).toMatchInlineSnapshot(`
+    {
+      "scheduleManagerReadApi.countEventsByCategory": [
+        "from("schedule_events_staff_view") .select("id", {"count":"exact","head":true}) .eq("organization_id", "a1") .gte("date", "a2") .lte("date", "a3") .eq("is_cancelled", false) .eq("category", "a4")",
+      ],
+      "scheduleManagerReadApi.countEventsByCategory (最後の引数なし)": [
+        "from("schedule_events_staff_view") .select("id", {"count":"exact","head":true}) .eq("organization_id", "a1") .gte("date", "a2") .lte("date", "a3") .eq("is_cancelled", false) .eq("category", undefined)",
+      ],
+      "scheduleManagerReadApi.findEventForRecalculation": [
+        "from("schedule_events_staff_view") .select("id, scenario, max_participants, capacity, current_participants, date,…) .eq("id", "a1") .single()",
+      ],
+      "scheduleManagerReadApi.findEventForRecalculation (最後の引数なし)": [
+        "from("schedule_events_staff_view") .select("id, scenario, max_participants, capacity, current_participants, date,…) .eq("id", undefined) .single()",
+      ],
+      "scheduleManagerReadApi.findScenarioPricing": [
+        "from("organization_scenarios_with_master") .select("duration, participation_fee, gm_test_participation_fee, participation…) .eq("organization_id", "a1") .eq("scenario_master_id", "a2") .maybeSingle()",
+      ],
+      "scheduleManagerReadApi.findScenarioPricing (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("duration, participation_fee, gm_test_participation_fee, participation…) .eq("organization_id", "a1") .eq("scenario_master_id", undefined) .maybeSingle()",
+      ],
+      "scheduleManagerReadApi.getKitTransferSettings": [
+        "from("global_settings") .select("kit_transfer_offsets, kit_transfer_start_store_ids") .eq("organization_id", "a1") .single()",
+      ],
+      "scheduleManagerReadApi.getKitTransferSettings (最後の引数なし)": [
+        "from("global_settings") .select("kit_transfer_offsets, kit_transfer_start_store_ids") .eq("organization_id", undefined) .single()",
+      ],
+      "scheduleManagerReadApi.listActiveReservationCounts": [
+        "from("reservations") .select("participant_count, participant_names") .eq("schedule_event_id", "a1") .in("status", ["confirmed","pending"])",
+      ],
+      "scheduleManagerReadApi.listActiveReservationCounts (最後の引数なし)": [
+        "from("reservations") .select("participant_count, participant_names") .eq("schedule_event_id", undefined) .in("status", ["confirmed","pending"])",
+      ],
+      "scheduleManagerReadApi.listActiveReservationsByEventIds": [
+        "from("reservations") .select("schedule_event_id, participant_count, participant_names") .in("schedule_event_id", "a1") .in("status", ["confirmed","pending"])",
+      ],
+      "scheduleManagerReadApi.listActiveReservationsByEventIds (最後の引数なし)": [
+        "from("reservations") .select("schedule_event_id, participant_count, participant_names") .in("schedule_event_id", undefined) .in("status", ["confirmed","pending"])",
+      ],
+      "scheduleManagerReadApi.listDemoReservationsByEventIds": [
+        "from("reservations") .select("id, schedule_event_id") .eq("organization_id", "a1") .in("schedule_event_id", "a2") .in("reservation_source", ["demo","demo_auto"])",
+      ],
+      "scheduleManagerReadApi.listDemoReservationsByEventIds (最後の引数なし)": [
+        "from("reservations") .select("id, schedule_event_id") .eq("organization_id", "a1") .in("schedule_event_id", undefined) .in("reservation_source", ["demo","demo_auto"])",
+      ],
+      "scheduleManagerReadApi.listDemoReservationsWithCountByEventIds": [
+        "from("reservations") .select("id, schedule_event_id, participant_count") .eq("organization_id", "a1") .in("schedule_event_id", "a2") .in("reservation_source", ["demo","demo_auto"])",
+      ],
+      "scheduleManagerReadApi.listDemoReservationsWithCountByEventIds (最後の引数なし)": [
+        "from("reservations") .select("id, schedule_event_id, participant_count") .eq("organization_id", "a1") .in("schedule_event_id", undefined) .in("reservation_source", ["demo","demo_auto"])",
+      ],
+      "scheduleManagerReadApi.listEventsForRecalculation": [
+        "from("schedule_events_staff_view") .select("id, scenario, category, max_participants, capacity, current_participa…) .eq("organization_id", "a1") .gte("date", "a2") .lte("date", "a3") .eq("is_cancelled", false) .in("category", "a4")",
+      ],
+      "scheduleManagerReadApi.listEventsForRecalculation (最後の引数なし)": [
+        "from("schedule_events_staff_view") .select("id, scenario, category, max_participants, capacity, current_participa…) .eq("organization_id", "a1") .gte("date", "a2") .lte("date", "a3") .eq("is_cancelled", false) .in("category", undefined)",
+      ],
+      "scheduleManagerReadApi.listGmtestEvents": [
+        "from("schedule_events") .select("id, scenario_master_id") .eq("organization_id", "a1") .eq("category", "gmtest")",
+      ],
+      "scheduleManagerReadApi.listGmtestEvents (最後の引数なし)": [
+        "from("schedule_events") .select("id, scenario_master_id") .eq("organization_id", undefined) .eq("category", "gmtest")",
+      ],
+      "scheduleManagerReadApi.listScenarioFees": [
+        "from("organization_scenarios_with_master") .select("scenario_master_id, participation_fee, gm_test_participation_fee, par…) .eq("organization_id", "a1") .in("scenario_master_id", "a2")",
+      ],
+      "scheduleManagerReadApi.listScenarioFees (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("scenario_master_id, participation_fee, gm_test_participation_fee, par…) .eq("organization_id", "a1") .in("scenario_master_id", undefined)",
+      ],
+      "scheduleManagerReadApi.listScenarioPricing": [
+        "from("organization_scenarios_with_master") .select("scenario_master_id, duration, participation_fee, gm_test_participatio…) .eq("organization_id", "a1") .in("scenario_master_id", "a2")",
+      ],
+      "scheduleManagerReadApi.listScenarioPricing (最後の引数なし)": [
+        "from("organization_scenarios_with_master") .select("scenario_master_id, duration, participation_fee, gm_test_participatio…) .eq("organization_id", "a1") .in("scenario_master_id", undefined)",
+      ],
+      "scheduleManagerReadApi.listTestplayEventIds": [
+        "from("schedule_events") .select("id") .eq("organization_id", "a1") .eq("category", "testplay")",
+      ],
+      "scheduleManagerReadApi.listTestplayEventIds (最後の引数なし)": [
+        "from("schedule_events") .select("id") .eq("organization_id", undefined) .eq("category", "testplay")",
+      ],
+    }
+  `) })
 })

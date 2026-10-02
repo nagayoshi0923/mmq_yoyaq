@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { scenarioManagementReadApi } from '@/lib/api/scenarioPageReadApi'
 import { isMissingColumnOrSchemaSelectError } from '@/lib/organization'
 import { buildGmListBadgeMap, type GmListBadgeEntry } from '@/lib/gmScenarioMode'
 import { logger } from '@/utils/logger'
@@ -52,42 +52,6 @@ export interface OrgScenariosData {
   organizationName: string
 }
 
-const ORG_SCENARIOS_WITH_MASTER_LIST_SELECT = `
-  id,
-  org_scenario_id,
-  organization_id,
-  scenario_master_id,
-  slug,
-  org_status,
-  pricing_patterns,
-  gm_assignments,
-  created_at,
-  updated_at,
-  extra_preparation_time,
-  title,
-  author,
-  author_id,
-  key_visual_url,
-  description,
-  synopsis,
-  caution,
-  player_count_min,
-  player_count_max,
-  duration,
-  genre,
-  difficulty,
-  participation_fee,
-  master_status,
-  play_count,
-  available_gms,
-  available_stores,
-  gm_costs,
-  gm_count,
-  license_amount,
-  gm_test_license_amount,
-  experienced_staff
-` as const
-
 function isSessionOrRlsError(err: unknown): 'session' | 'rls' | null {
   if (!err || typeof err !== 'object') return null
   const o = err as { code?: string; message?: string }
@@ -100,23 +64,15 @@ function isSessionOrRlsError(err: unknown): 'session' | 'rls' | null {
 
 async function fetchOrgScenariosData(organizationId: string): Promise<OrgScenariosData> {
   const [orgResult, storesResult, scenariosFirst] = await Promise.all([
-    supabase.from('organizations').select('name').eq('id', organizationId).single(),
-    supabase.from('stores').select('id, name, short_name, ownership_type, is_temporary').eq('organization_id', organizationId),
-    supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIOS_WITH_MASTER_LIST_SELECT)
-      .eq('organization_id', organizationId)
-      .order('title', { ascending: true }),
+    scenarioManagementReadApi.findOrganizationName(organizationId),
+    scenarioManagementReadApi.listStoresOfOrganization(organizationId),
+    scenarioManagementReadApi.listScenarioViews(organizationId),
   ])
 
   let scenariosResult = scenariosFirst
   if (scenariosResult.error && isMissingColumnOrSchemaSelectError(scenariosResult.error)) {
     logger.warn('organization_scenarios_with_master: 明示列 select が失敗したため select(*) にフォールバック', scenariosResult.error)
-    scenariosResult = await supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIOS_WITH_MASTER_LIST_SELECT)
-      .eq('organization_id', organizationId)
-      .order('title', { ascending: true })
+    scenariosResult = await scenarioManagementReadApi.listScenarioViews(organizationId)
   }
 
   const storeMap = new Map<string, StoreInfo>()
@@ -157,11 +113,7 @@ async function fetchOrgScenariosData(organizationId: string): Promise<OrgScenari
     (async (): Promise<Map<string, string[]>> => {
       const map = new Map<string, string[]>()
       if (missingIds.length === 0) return map
-      const { data: rows } = await supabase
-        .from('organization_scenarios')
-        .select('scenario_master_id, available_stores')
-        .eq('organization_id', organizationId)
-        .in('scenario_master_id', missingIds)
+      const { data: rows } = await scenarioManagementReadApi.listAvailableStoresByMasterIds(organizationId, missingIds)
       rows?.forEach(os => {
         if (os.scenario_master_id && os.available_stores?.length > 0) {
           map.set(os.scenario_master_id, os.available_stores)
@@ -178,12 +130,7 @@ async function fetchOrgScenariosData(organizationId: string): Promise<OrgScenari
       try {
         for (let i = 0; i < uniqueMasterIds.length; i += chunkSize) {
           const chunk = uniqueMasterIds.slice(i, i + chunkSize)
-          const { data: gmRows, error: gmErr } = await supabase
-            .from('staff_scenario_assignments')
-            .select('scenario_master_id, can_main_gm, can_sub_gm, staff:staff_id ( name )')
-            .eq('organization_id', organizationId)
-            .in('scenario_master_id', chunk)
-            .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+          const { data: gmRows, error: gmErr } = await scenarioManagementReadApi.listGmAssignments(organizationId, chunk)
           if (gmErr) throw gmErr
           buildGmListBadgeMap(gmRows || []).forEach((entries, sid) => map.set(sid, entries))
         }

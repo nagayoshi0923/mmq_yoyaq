@@ -75,48 +75,10 @@ export default tseslint.config(
 
   // --- 境界の歯止め（整備計画 Phase 2） -------------------------------------
   // 画面・部品・hook から supabase.from() / supabase.rpc() を直接呼ばない。読み書きは src/lib/api の関数を通す。
-  // 既存の直接呼び出しがあるファイルは下の許可リストに載せ、移し終えたら外す（残り件数は docs/MMQ_SEIBI_PLAN_2026-10.md 第3節）。
+  // 許可リストは 2026-10-03 に空になった（#773）。新しい直接呼び出しは lint が止める。
+  // 対象外: src/lib（API 層そのもの）と src/contexts（認証の解決）。
   {
     files: ['src/pages/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}'],
-    ignores: [
-      'src/pages/AddDemoParticipants.tsx',
-      'src/pages/PrivateBookingManagement/components/DeliveryHistoryDialog.tsx',
-      'src/pages/PrivateBookingManagement/components/PrivateGroupList.tsx',
-      'src/pages/PrivateBookingManagement/hooks/useApprovalDeliveryStatus.ts',
-      'src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts',
-      'src/pages/PrivateBookingManagement/hooks/useBookingRequests.ts',
-      'src/pages/PrivateBookingManagement/hooks/usePrivateBookingConflicts.ts',
-      'src/pages/PrivateBookingManagement/hooks/usePrivateBookingData.ts',
-      'src/pages/PrivateBookingManagement/hooks/usePrivateGroupList.ts',
-      'src/pages/PrivateBookingManagement/index.tsx',
-      'src/pages/PrivateBookingManagement/utils/privateBookingGmReadiness.ts',
-      'src/pages/PrivateBookingRequest/hooks/usePrivateBookingSubmit.ts',
-      'src/pages/PrivateBookingRequest/index.tsx',
-      'src/pages/PrivateBookingRequestPage.tsx',
-      'src/pages/PrivateGroupCreate/index.tsx',
-      'src/pages/PrivateGroupInvite/components/GroupChatSheets.tsx',
-      'src/pages/PrivateGroupInvite/components/GroupInviteView.tsx',
-      'src/pages/PrivateGroupInvite/index.tsx',
-      'src/pages/PrivateGroupManage/components/GroupChat.tsx',
-      'src/pages/PublicBookingTop/hooks/useBookingData.ts',
-      'src/pages/SalesManagement/components/ExternalSales.tsx',
-      'src/pages/SalesManagement/components/MiscellaneousTransactions.tsx',
-      'src/pages/SalesManagement/components/ProductionCostDialog.tsx',
-      'src/pages/ScenarioCatalog/index.tsx',
-      'src/pages/ScenarioDetailGlobal/index.tsx',
-      'src/pages/ScenarioDetailPage/components/BookingNotice.tsx',
-      'src/pages/ScenarioDetailPage/components/ScenarioHero.tsx',
-      'src/pages/ScenarioDetailPage/hooks/useBookingActions.ts',
-      'src/pages/ScenarioDetailPage/hooks/useScenarioDetail.ts',
-      'src/pages/ScenarioManagement/components/OrganizationScenarioList.tsx',
-      'src/pages/ScenarioManagement/hooks/useOrgScenariosForOptions.ts',
-      'src/pages/ScenarioManagement/hooks/useOrganizationScenariosQuery.ts',
-      'src/pages/ScenarioMasterAdmin/ScenarioMasterEdit.tsx',
-      'src/pages/ScenarioMasterAdmin/index.tsx',
-      'src/pages/ScenarioMatcher.tsx',
-      'src/pages/ScheduleManager/components/kitManagement/useKitManagementData.ts',
-      'src/pages/ScheduleManager/index.tsx',
-    ],
     rules: {
       'no-restricted-syntax': [
         'error',

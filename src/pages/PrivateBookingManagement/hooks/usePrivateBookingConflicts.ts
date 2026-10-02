@@ -1,6 +1,6 @@
 import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import {
@@ -33,21 +33,14 @@ export function usePrivateBookingConflicts(organizationId: string | null, reques
       const events: ConflictEvent[] = []
       for (const range of dateRanges) {
         for (let offset = 0; ; offset += 500) {
-          const { data, error } = await supabase.from('schedule_events_staff_view')
-            .select('id,date,start_time,end_time,store_id,reservation_id,scenario_master_id,scenario_id,organization_scenario_id,scenario,gms')
-            .eq('organization_id', organizationId).eq('is_cancelled', false)
-            .gte('date', range.from).lte('date', range.to)
-            .order('id').range(offset, offset + 499)
+          const { data, error } = await privateBookingMgmtReadApi.listEventsForConflicts(organizationId, range.from, range.to, offset)
           if (error) throw error
           events.push(...(data || []))
           if (!data || data.length < 500) break
         }
       }
       for (let offset = 0; ; offset += 500) {
-        const { data, error } = await supabase.from('reservations')
-          .select('id,store_id,gm_staff,scenario_master_id,candidate_datetimes')
-          .eq('organization_id', organizationId).eq('status', 'confirmed').is('schedule_event_id', null)
-          .order('id').range(offset, offset + 499)
+        const { data, error } = await privateBookingMgmtReadApi.listConfirmedPrivateWithoutEvent(organizationId, offset)
         if (error) throw error
         for (const booking of data || []) {
           const candidate = pickConfirmedConflictCandidate(booking.candidate_datetimes?.candidates || [])

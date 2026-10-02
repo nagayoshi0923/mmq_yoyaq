@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
+import { scenarioDetailEventsReadApi } from '@/lib/api/scenarioPageReadApi'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { getColorFromName } from '@/lib/utils'
 import { logger } from '@/utils/logger'
@@ -85,7 +85,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
 
     const run = async (build: (q: any) => any) => {
       // 公開用ビューを使用（PII/財務情報を除外）
-      const query = build(supabase.from('schedule_events_public').select(scheduleEventSelect))
+      const query = build(scenarioDetailEventsReadApi.startPublicEventsQuery(scheduleEventSelect))
       const { data, error } = await applyRangeAndOrg(query)
       if (error) {
         logger.error('スケジュール取得エラー:', error)

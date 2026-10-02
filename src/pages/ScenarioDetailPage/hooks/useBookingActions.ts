@@ -2,7 +2,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
 import type { EventSchedule } from '../utils/types'
 
 interface UseBookingActionsProps {
@@ -71,11 +71,7 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
     // 注: reservations テーブルは RLS により顧客自身の行しか見えないため
     //     schedule_events_public.current_participants（トリガーで常に最新）を使用する
     try {
-      const { data: freshEventData } = await supabase
-        .from('schedule_events_public')
-        .select('current_participants, max_participants, capacity')
-        .eq('id', event.event_id)
-        .single()
+      const { data: freshEventData } = await scenarioPageReadApi.findEventSeats(event.event_id)
       const currentParticipants = freshEventData?.current_participants ?? event.current_participants
       const maxParticipants = freshEventData?.max_participants || freshEventData?.capacity || event.max_participants || 8
       const availableSeats = maxParticipants - currentParticipants

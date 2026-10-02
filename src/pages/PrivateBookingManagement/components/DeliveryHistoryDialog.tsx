@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtRpcApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -17,7 +18,7 @@ export function DeliveryHistoryDialog({reservationId}:{reservationId:string}) {
  const queryClient=useQueryClient()
  const query=useQuery({queryKey:['private-delivery-history',reservationId],enabled:open,
   queryFn:async()=>{
-   const {data,error}=await supabase.rpc('get_private_booking_delivery_history',{p_reservation_id:reservationId})
+   const {data,error}=await privateBookingMgmtRpcApi.getDeliveryHistory(reservationId)
    if(error) throw error
    if(!data||!Array.isArray(data.deliveries)) throw new Error('通知履歴を取得できません')
    return data as {organization_id:string;deliveries:DeliveryRow[]}
@@ -29,11 +30,11 @@ export function DeliveryHistoryDialog({reservationId}:{reservationId:string}) {
   setBusy(true);setOperationError(null)
   try {
    if(action==='resume') {
-    const {data,error}=await supabase.rpc('resume_private_approval_preparation',{p_delivery_id:row.id})
+    const {data,error}=await privateBookingMgmtRpcApi.resumeApprovalPreparation(row.id)
     if(error||data!==true) throw new Error('作成済みの案内先を確認できません。準備は再開していません。管理者がDiscordの作成状況を確認してください。')
     showToast.success('作成済みの案内先を確認し、メール準備を再開しました')
    } else if(action==='retry') {
-    const {data,error}=await supabase.rpc('retry_private_unsent_delivery',{p_kind:row.delivery_kind,p_delivery_id:row.id})
+    const {data,error}=await privateBookingMgmtRpcApi.retryUnsentDelivery(row.delivery_kind, row.id)
     if(error||data!==true) throw new Error('再試行できる状態ではないか、保存できませんでした。再読み込みしてください。')
     showToast.success('未送信の通知を再試行に登録しました')
    } else {
