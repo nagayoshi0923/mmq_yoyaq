@@ -4,6 +4,7 @@
 
 import { supabase } from './supabase'
 import { logger } from '@/utils/logger'
+import { notificationOutcome } from '@/lib/notificationResult'
 
 export interface SendEmailParams {
   to: string | string[];
@@ -27,16 +28,14 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailRespo
       body: params,
     })
 
-    if (error) {
-      logger.error('メール送信エラー:', error)
-      return {
-        success: false,
-        error: error.message || 'メール送信に失敗しました',
-      }
+    const outcome = notificationOutcome({ data, error })
+    if (outcome.status !== 'accepted') {
+      logger.error('メール送信未確認:', { ...outcome })
+      return { success: false, error: 'メール送信を確認できませんでした' }
     }
 
     return {
-      success: data.success || true,
+      success: true,
       message: data.message || 'メールを送信しました',
       messageId: data.messageId,
     }

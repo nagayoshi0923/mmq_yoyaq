@@ -1,3 +1,4 @@
+import { notificationOutcome, waitlistNotificationOutcome, discordCancellationOutcome } from '@/lib/notificationResult'
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { apiClient } from '@/lib/apiClient'
@@ -30,15 +31,17 @@ export async function markSenshinDiscordCancelled(input: {
       orgId = orgId || data.organization_id
     }
     if (!isSenshinPrivateBooking({ scenario_master_id: masterId, scenario_title: title })) return
-    const { error } = await supabase.functions.invoke('provision-private-booking-discord', {
+    const response = await supabase.functions.invoke('provision-private-booking-discord', {
       body: {
         action: 'cancel',
         reservationId: input.reservationId,
         organizationId: orgId,
       },
     })
-    if (error) logger.error('戦塵Discordキャンセル処理エラー:', error)
-    else logger.log('戦塵Discordチャンネル名に⚠️を付与')
+    const outcome = discordCancellationOutcome(response)
+    if (outcome.status === 'accepted') logger.log('戦塵Discordチャンネル取消受付確認', { reservationId: input.reservationId })
+    else if (outcome.status === 'skipped') logger.log('戦塵Discord取消処理スキップ', { reservationId: input.reservationId, ...outcome })
+    else logger.warn('予約取消は保存済み・Discord取消未確認', { reservationId: input.reservationId, ...outcome })
   } catch (e) {
     logger.error('戦塵Discordキャンセル処理エラー:', e)
   }
@@ -358,7 +361,7 @@ export const reservationApi = {
         const scheduleEventRaw = reservation.schedule_events as unknown
         const scheduleEvent = (Array.isArray(scheduleEventRaw) ? scheduleEventRaw[0] : scheduleEventRaw) as Record<string, unknown> | null | undefined
 
-        const { error: emailError } = await supabase.functions.invoke('send-booking-change-confirmation', {
+        const response = await supabase.functions.invoke('send-booking-change-confirmation', {
           body: {
             organizationId: reservation.organization_id,
             storeId: scheduleEvent?.store_id,
@@ -387,10 +390,11 @@ export const reservationApi = {
           }
         })
 
-        if (emailError) {
-          logger.error('人数変更確認メール送信エラー:', emailError)
+        const outcome = notificationOutcome(response)
+        if (outcome.status !== 'accepted') {
+          logger.warn('人数変更は保存済み・通知メール未確認:', { reservationId, ...outcome })
         } else {
-          logger.log('人数変更確認メール送信成功')
+          logger.log('人数変更確認メール受付確認')
         }
       } catch (emailError) {
         logger.error('人数変更確認メール送信エラー:', emailError)
@@ -466,7 +470,7 @@ export const reservationApi = {
             : 0
           const cust = joinedCustomerFromReservation(data.customers)
 
-          await supabase.functions.invoke('send-booking-change-confirmation', {
+          const response = await supabase.functions.invoke('send-booking-change-confirmation', {
             body: {
               organizationId: data.organization_id,
               storeId: scheduleEvent?.store_id,
@@ -485,7 +489,9 @@ export const reservationApi = {
               priceDifference: priceDifference !== 0 ? priceDifference : undefined
             }
           })
-          logger.log('予約変更確認メール送信成功')
+          const outcome = notificationOutcome(response)
+          if (outcome.status === 'accepted') logger.log('予約変更確認メール受付確認')
+          else logger.warn('予約変更は保存済み・通知メール未確認:', { reservationId: id, ...outcome })
         }
       } catch (emailError) {
         logger.error('予約変更確認メール送信エラー:', emailError)
@@ -561,7 +567,7 @@ export const reservationApi = {
           // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
           const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
           const orgIdForEmail = reservation.organization_id || scheduleEvent?.organization_id
-          await supabase.functions.invoke('send-cancellation-confirmation', {
+          const response = await supabase.functions.invoke('send-cancellation-confirmation', {
             body: {
               organizationId: orgIdForEmail,
               storeId: scheduleEvent?.store_id,
@@ -584,7 +590,10 @@ export const reservationApi = {
               idempotencyKey
             }
           })
-          logger.log('キャンセル確認メール送信成功')
+          const outcome = notificationOutcome(response)
+          if (outcome.status === 'accepted') logger.log('キャンセル確認メール受付確認', { reservationId: id })
+          else if (outcome.status === 'skipped') logger.log('キャンセル確認メール送信スキップ', { reservationId: id, ...outcome })
+          else logger.warn('予約取消は保存済み・通知メール未確認', { reservationId: id, ...outcome })
           // user_notifications への挿入は send-cancellation-confirmation Edge Function 内で Service Role を使って実行
         }
 
@@ -608,16 +617,19 @@ export const reservationApi = {
               // bookingUrl を削除（サーバー側で生成）
             }
 
-            await supabase.functions.invoke('notify-waitlist', {
+            const response = await supabase.functions.invoke('notify-waitlist', {
               body: notificationData
             })
-            logger.log('キャンセル待ち通知送信成功')
+            const outcome = waitlistNotificationOutcome(response)
+            if (outcome.status === 'accepted') logger.log('キャンセル待ち通知受付確認', { reservationId: id })
+            else logger.warn('予約取消は保存済み・キャンセル待ち通知未確認', { reservationId: id, ...outcome })
+            // 返却失敗をthrowへ変換しない。Edge内部で一部送信済みでも二重queueを作らない。
           } catch (waitlistError) {
             logger.error('キャンセル待ち通知エラー:', waitlistError)
 
             // 通知失敗をキューに記録（リトライ用）
             try {
-              await supabase.from('waitlist_notification_queue').insert({
+              const { error: queueResultError } = await supabase.from('waitlist_notification_queue').insert({
                 schedule_event_id: reservation.schedule_event_id,
                 organization_id: orgIdForWaitlist,
                 freed_seats: reservation.participant_count,
@@ -630,7 +642,8 @@ export const reservationApi = {
                 last_error: waitlistError instanceof Error ? waitlistError.message : String(waitlistError),
                 status: 'pending'
               })
-              logger.log('キャンセル待ち通知をリトライキューに記録')
+              if (queueResultError) logger.warn('予約取消は保存済み・待機列キュー記録未確認', { reservationId: id, reason: 'queue_insert_error' })
+              else logger.log('キャンセル待ち通知をリトライキューに記録')
             } catch (queueError) {
               logger.error('リトライキュー記録エラー:', queueError)
               // キューへの記録失敗は無視（キャンセル処理自体は成功）

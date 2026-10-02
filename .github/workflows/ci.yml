@@ -51,6 +51,9 @@ jobs:
       - name: Private booking scenario capacity
         run: node scripts/test-private-booking-capacity-db.mjs --notice && node scripts/test-private-booking-capacity-db.mjs --notice --closure
 
+      - name: Private approval atomic delivery and recovery
+        run: node scripts/test-private-booking-capacity-db.mjs --delivery
+
       - name: Private booking change policy
         run: node scripts/test-private-change-policy-db.mjs
 

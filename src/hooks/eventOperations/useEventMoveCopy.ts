@@ -1,3 +1,4 @@
+import { SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL } from '@/lib/notificationResult'
 import { loadPreparationNeighborEvents } from '@/lib/preparationNeighborEvents'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 import type { PreparationContext } from '../../../supabase/functions/_shared/preparation-settings'
@@ -301,14 +302,18 @@ export function useEventMoveCopy({
           const moveChanges = diffScheduleSnapshotsForCustomerEmail(oldSnap, newSnap)
           if (moveChanges.length > 0 && confirmSendPrivateBookingChangeEmail()) {
             try {
-              await sendPrivateBookingCustomerChangeEmail({
+              const notification = await sendPrivateBookingCustomerChangeEmail({
                 reservationId: draggedEvent.reservation_id,
                 organizationId,
                 changes: moveChanges,
                 currentSchedule: newSnap,
                 scenarioTitleHint: newSnap.scenario || draggedEvent.scenario,
               })
+              if (notification.status !== 'accepted') {
+                showToast.warning(SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL)
+              }
             } catch (notifyErr) {
+              showToast.warning(SAVED_NOTIFICATION_WARNING, SAVED_NOTIFICATION_DETAIL)
               logger.error('貸切公演移動後の顧客メール送信エラー:', notifyErr)
             }
           }
