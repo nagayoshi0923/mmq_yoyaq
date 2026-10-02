@@ -87,7 +87,7 @@ export function StoreManagement() {
         const newStore = await storeApi.create(updatedStore)
         addStore(newStore)
       }
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Error saving store:', err)
       showToast.error('店舗の保存に失敗しました', getSafeErrorMessage(err))
       throw err
@@ -98,7 +98,7 @@ export function StoreManagement() {
     try {
       const savedTravelTimes = await storeApi.upsertTravelTimes(items)
       updateTravelTimes(savedTravelTimes)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Error saving store travel times:', err)
       showToast.error('店舗間移動時間の保存に失敗しました', getSafeErrorMessage(err))
       throw err
@@ -109,7 +109,7 @@ export function StoreManagement() {
     try {
       await storeApi.delete(store.id)
       removeStore(store.id)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Error deleting store:', err)
       showToast.error('店舗の削除に失敗しました', getSafeErrorMessage(err))
     }

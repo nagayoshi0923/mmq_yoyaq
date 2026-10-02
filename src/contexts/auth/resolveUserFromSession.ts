@@ -5,6 +5,7 @@ import { authTrace, logger } from '@/utils/logger'
 import { determineUserRole } from '@/utils/authUtils'
 import { maskEmail } from '@/utils/security'
 import { lookupStaffRole, logAuthEvent } from './authContextHelpers'
+import { getErrorMessage, getErrorCode } from '@/lib/errorFields'
 
 /**
  * Supabase セッションのユーザーからロールを解決し、staff/customer の紐付けと
@@ -89,11 +90,11 @@ export async function resolveUserFromSession(
             throw roleError
           }
         }
-      } catch (error: any) {
-        logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
+      } catch (error) {
+        logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', getErrorMessage(error) || error)
         
         // レコードが存在しない場合のみ、作成する（既存のロールを上書きしない）
-        if (error?.code === 'PGRST116') {
+        if (getErrorCode(error) === 'PGRST116') {
           authTrace('📝 usersテーブルにレコードが存在しないため、作成します')
           
           // 🔴 重要: スタッフテーブルにメールアドレスが存在するか確認
@@ -186,7 +187,7 @@ export async function resolveUserFromSession(
             role = newRole
             authTrace('✅ usersテーブルにレコードを作成しました:', role)
           }
-        } else if (error?.message?.includes('ロール取得タイムアウト')) {
+        } else if (getErrorMessage(error)?.includes('ロール取得タイムアウト')) {
           // タイムアウトの場合: 既存のロールを保持、なければスタッフチェック
           if (existingUser && existingUser.id === supabaseUser.id) {
             role = existingUser.role

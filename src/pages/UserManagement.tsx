@@ -11,6 +11,7 @@ import { Users, Shield, AlertCircle, Search, UserCog, User as UserIcon } from 'l
 import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
 import { formatJstDateTime } from '@/utils/jstDate'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export function UserManagement() {
   const { user, isAdmin } = useAuth()
@@ -50,9 +51,9 @@ export function UserManagement() {
       const users = await getAllUsers()
       setAllUsers(users)
       setShowAllUsers(true)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('ユーザー一覧取得エラー:', err)
-      setError('ユーザー一覧の取得に失敗しました: ' + (err.message || ''))
+      setError('ユーザー一覧の取得に失敗しました: ' + (getErrorMessage(err) || ''))
     } finally {
       setLoading(false)
     }
@@ -81,9 +82,9 @@ export function UserManagement() {
       } else {
         setError('該当するユーザーが見つかりませんでした')
       }
-    } catch (err: any) {
+    } catch (err) {
       logger.error('ユーザー検索エラー:', err)
-      setError('検索中にエラーが発生しました: ' + (err.message || ''))
+      setError('検索中にエラーが発生しました: ' + (getErrorMessage(err) || ''))
     } finally {
       setLoading(false)
     }
@@ -121,9 +122,9 @@ export function UserManagement() {
       }
 
       setRoleChangeConfirm(null)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('ロール更新エラー:', err)
-      setError('ロールの更新に失敗しました: ' + (err.message || ''))
+      setError('ロールの更新に失敗しました: ' + (getErrorMessage(err) || ''))
     } finally {
       setLoading(false)
     }

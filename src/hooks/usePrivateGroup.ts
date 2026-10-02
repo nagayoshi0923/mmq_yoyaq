@@ -12,6 +12,7 @@ import type {
   PrivateGroupCandidateDate,
   DateResponse,
 } from '@/types'
+import { getErrorMessage } from '@/lib/errorFields'
 
 interface CandidateDateInput {
   date: string
@@ -84,8 +85,8 @@ export function usePrivateGroup() {
 
       return group as PrivateGroup
 
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)
@@ -128,8 +129,8 @@ export function usePrivateGroup() {
 
       return await readPrivateGroupList('organized')
 
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)
@@ -154,8 +155,8 @@ export function usePrivateGroup() {
 
       return member as PrivateGroupMember
 
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)
@@ -178,8 +179,8 @@ export function usePrivateGroup() {
         throw new Error(error.message || '日程回答の送信に失敗しました')
       }
 
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)
@@ -197,8 +198,8 @@ export function usePrivateGroup() {
           : error.message)
       }
       if (data !== true) throw new Error('グループのキャンセルを確認できませんでした')
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)
@@ -239,8 +240,8 @@ export function usePrivateGroup() {
       const { error } = await privateGroupRpcApi.removeMember(memberId)
 
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)
@@ -256,8 +257,8 @@ export function usePrivateGroup() {
       const { error } = await privateGroupRpcApi.leave(groupId)
 
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(getErrorMessage(err))
       throw err
     } finally {
       setLoading(false)

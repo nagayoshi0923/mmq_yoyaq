@@ -9,6 +9,7 @@ import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { reservationApi } from '@/lib/reservationApi'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export function AddDemoParticipants() {
   const { user } = useAuth()
@@ -355,8 +356,8 @@ export function AddDemoParticipants() {
       }
       
       return { success: successCount, failed: failedCount, skipped: skippedCount }
-    } catch (error: any) {
-      log(`エラー: ${error.message}`, 'error')
+    } catch (error) {
+      log(`エラー: ${getErrorMessage(error)}`, 'error')
       return { success: successCount, failed: failedCount, skipped: skippedCount }
     }
   }
@@ -376,8 +377,8 @@ export function AddDemoParticipants() {
       log('━━━━━━━━━━━━━━━━━━━━━━━━', 'info')
       log(`処理完了: 成功 ${result.success}件, スキップ ${result.skipped}件, 失敗 ${result.failed}件`, 'info')
       log('━━━━━━━━━━━━━━━━━━━━━━━━', 'info')
-    } catch (error: any) {
-      log(`エラー: ${error.message}`, 'error')
+    } catch (error) {
+      log(`エラー: ${getErrorMessage(error)}`, 'error')
     } finally {
       setIsRunning(false)
     }

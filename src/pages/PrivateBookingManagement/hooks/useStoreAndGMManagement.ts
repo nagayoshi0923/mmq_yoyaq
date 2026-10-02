@@ -64,7 +64,7 @@ export function useStoreAndGMManagement() {
       logger.log('📋 GM回答情報:', gmList.length, '件', gmList.map(g => `${g.gm_name}(${g.response_status}): 候補${(g.available_candidates || []).map((i: number) => i+1).join(',')}`))
 
       setAvailableGMs(gmList)
-    } catch (error: any) {
+    } catch (error) {
       logger.error('GM可否情報取得エラー:', error)
       // エラー時は空配列を設定してUIが壊れないようにする
       setAvailableGMs([])

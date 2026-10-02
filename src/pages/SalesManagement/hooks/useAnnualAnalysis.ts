@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { salesApi } from '@/lib/api/salesApi'
 import { logger } from '@/utils/logger'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export interface AnnualData {
   year: number
@@ -32,9 +33,9 @@ export function useAnnualAnalysis(
     try {
       const result = await salesApi.getAnnualAnalysis(storeIds, startYear)
       setAnnualData(result)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('年間分析データ取得エラー:', err)
-      setError(err.message || '不明なエラー')
+      setError(getErrorMessage(err) || '不明なエラー')
     } finally {
       setLoading(false)
     }

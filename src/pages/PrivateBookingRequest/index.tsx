@@ -38,6 +38,7 @@ import {
 import { resolveOrgIdFromPageContext } from '@/lib/organization'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { toJstYmd } from '@/utils/jstDate'
+import { getErrorMessage } from '@/lib/errorFields'
 
 const MAX_TIME_SLOTS = 6
 const CANDIDATE_HORIZON_DAYS = 180
@@ -458,8 +459,8 @@ export function PrivateBookingRequest({
       await handleSubmit(customerName, customerEmail, customerPhone, notes, customerNickname, groupIdToUse || undefined)
       
       // 成功後はボタンで遷移させるため自動リダイレクトは行わない
-    } catch (error: any) {
-      setError(error.message || '処理中にエラーが発生しました')
+    } catch (error) {
+      setError(getErrorMessage(error) || '処理中にエラーが発生しました')
     }
   }
 
