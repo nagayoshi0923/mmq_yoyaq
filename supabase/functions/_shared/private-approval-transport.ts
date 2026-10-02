@@ -15,15 +15,19 @@ export function approvalDeliveryTransport(db: any, env: (name: string) => string
    const flags=await db.from('global_settings').select('enable_email_notifications,enable_discord_notifications').eq('organization_id',row.organization_id).maybeSingle()
    if(flags.error) throw flags.error
    const config={...result.data,...flags.data}
+   // GM への Discord 連絡は、他の Discord 通知（貸切リクエスト・シフト）と同じく貸切設定の
+   // 「貸切の Discord 通知」（notification_settings.private_booking_discord）だけで判定する。
+   // 組織全体の enable_discord_notifications は既定値 false のまま他の経路で参照されておらず、
+   // これを見ると確定連絡だけが見送られる（#644、2026-09-28〜）。
    config.disabledReason=row.kind==='gm_discord'
-    ? (config.enable_discord_notifications===false||config.notification_settings?.private_booking_discord===false?'discord_notifications_disabled':null)
+    ? (config.notification_settings?.private_booking_discord===false?'discord_notifications_disabled':null)
     : (config.enable_email_notifications===false||config.notification_settings?.private_booking_email===false?'email_notifications_disabled':null)
    return {key:row.kind==='gm_discord' ? config.discord_bot_token||env('DISCORD_BOT_TOKEN')||'' : config.resend_api_key||env('RESEND_API_KEY')||'',config}
   },
   async prepare(row,config,checkpoint) {
    const data={...row.snapshot}
    if(row.kind==='gm_discord') {
-    if(config.enable_discord_notifications===false || config.notification_settings?.private_booking_discord===false) return {skip:'discord_notifications_disabled'}
+    if(config.notification_settings?.private_booking_discord===false) return {skip:'discord_notifications_disabled'}
     const token=config.discord_bot_token||env('DISCORD_BOT_TOKEN')||''
     const targets:string[]=[]
     let invalidTarget=false
