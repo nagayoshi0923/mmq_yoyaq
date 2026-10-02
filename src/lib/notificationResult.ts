@@ -20,7 +20,7 @@ export function notificationOutcome(response: { data: unknown; error: unknown })
 export const SAVED_NOTIFICATION_WARNING = '変更は保存しましたが、通知メールの送信を確認できませんでした。'
 export const SAVED_NOTIFICATION_DETAIL = '再保存せず、通知履歴と送信状況を確認してください。自動再送は行いません。'
 
-/** 待機列は0件が対象なし・設定不足・内部失敗のいずれでも返る現行契約。 */
+/** 待機列は notified=0 かつ total 欠落/0 が対象なし・設定不足。total>0 の全失敗は partial_failure。 */
 export type WaitlistNotificationOutcome = NotificationOutcome | { status: 'unconfirmed'; reason: 'zero_or_unconfirmed' | 'internal_error_response' }
 export function waitlistNotificationOutcome(response: { data: unknown; error: unknown }): WaitlistNotificationOutcome {
   const outcome = notificationOutcome(response)
@@ -31,7 +31,12 @@ export function waitlistNotificationOutcome(response: { data: unknown; error: un
   if (typeof notified !== 'number' || !Number.isInteger(notified) || notified < 0) {
     return { status: 'failed', reason: 'unsuccessful_response' }
   }
-  if (notified === 0) return { status: 'unconfirmed', reason: 'zero_or_unconfirmed' }
+  if (notified === 0) {
+    if (typeof total === 'number' && Number.isInteger(total) && total > 0) {
+      return { status: 'failed', reason: 'partial_failure' }
+    }
+    return { status: 'unconfirmed', reason: 'zero_or_unconfirmed' }
+  }
   if (typeof total !== 'number' || !Number.isInteger(total) || total < notified) {
     return { status: 'failed', reason: 'unsuccessful_response' }
   }
