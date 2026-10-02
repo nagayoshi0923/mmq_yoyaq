@@ -26,10 +26,13 @@ BEGIN
  ASSERT EXISTS(SELECT 1 FROM pg_temp.claim_reminder_fixture(o,r,e,'2099-01-02',1,'09:00'));
  UPDATE reminder_delivery_fixture SET status='failed',created_at=now()-interval '24 hours';
  ASSERT NOT EXISTS(SELECT 1 FROM pg_temp.claim_reminder_fixture(o,r,e,'2099-01-02',1,'09:00'));
- BEGIN
-  PERFORM pg_temp.claim_reminder_fixture('ffffffff-1000-4000-8000-000000000004',r,e,'2099-01-02',1,'09:00');
-  RAISE EXCEPTION '別組織の予約を取得できてしまった';
- EXCEPTION WHEN insufficient_privilege THEN NULL;
- END;
+ ASSERT NOT EXISTS(SELECT 1 FROM pg_temp.claim_reminder_fixture('ffffffff-1000-4000-8000-000000000004',r,e,'2099-01-02',1,'09:00'));
+ UPDATE reminder_event_fixture SET is_cancelled=true;
+ ASSERT NOT EXISTS(SELECT 1 FROM pg_temp.claim_reminder_fixture(o,r,e,'2099-01-02',1,'09:00'));
+ UPDATE reminder_event_fixture SET is_cancelled=false;
+ UPDATE reminder_reservation_fixture SET status='cancelled';
+ ASSERT NOT EXISTS(SELECT 1 FROM pg_temp.claim_reminder_fixture(o,r,e,'2099-01-02',1,'09:00'));
+ UPDATE reminder_reservation_fixture SET status='confirmed', schedule_event_id=NULL;
+ ASSERT NOT EXISTS(SELECT 1 FROM pg_temp.claim_reminder_fixture(o,r,e,'2099-01-02',1,'09:00'));
 END;
 $$;
