@@ -6,6 +6,7 @@
  */
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { completeProfileReadApi } from '@/lib/api/completeProfileReadApi'
 import { logger } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
 import { safeRedirectAfterProfileCompletion } from '@/lib/utils'
@@ -188,11 +189,7 @@ export function CompleteProfile() {
     ;(async () => {
       try {
         // admin/staff ユーザーは顧客プロフィールフォームをスキップしてダッシュボードへ
-        const { data: userRecord } = await supabase
-          .from('users')
-          .select('role, organization_id')
-          .eq('id', userId)
-          .maybeSingle()
+        const { data: userRecord } = await completeProfileReadApi.findUserRoleAndOrganization(userId)
 
         if (cancelled) return
 
@@ -204,22 +201,13 @@ export function CompleteProfile() {
         if (isStaffOrAdmin) {
           logger.log('✅ admin/staff ユーザーのためダッシュボードへリダイレクト')
           setProfileGate('leaving')
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('slug')
-            .eq('id', userRecord?.organization_id)
-            .maybeSingle()
+          const { data: org } = await completeProfileReadApi.findOrganizationSlug(userRecord?.organization_id)
           const dest = org?.slug ? `/${org.slug}/dashboard` : '/dashboard'
           navigate(dest, { replace: true })
           return
         }
 
-        const { data: rows, error } = await supabase
-          .from('customers')
-          .select('id, name, phone, email')
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
+        const { data: rows, error } = await completeProfileReadApi.listOwnCustomersLatestFirst(userId)
 
         if (cancelled) return
 
@@ -240,10 +228,7 @@ export function CompleteProfile() {
         }
 
         if (!customer && userEmail.trim()) {
-          const { data: linkedElsewhere, error: rpcErr } = await supabase.rpc(
-            'is_customer_email_linked_to_other_user',
-            { p_email: userEmail.trim() }
-          )
+          const { data: linkedElsewhere, error: rpcErr } = await completeProfileReadApi.isEmailLinkedToOtherUser(userEmail.trim())
           if (cancelled) return
           if (rpcErr) {
             logger.warn('is_customer_email_linked_to_other_user RPC エラー（フォームへ）:', rpcErr)
@@ -376,11 +361,7 @@ export function CompleteProfile() {
       }
       
       // 2. usersテーブルにレコードを作成/更新
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('role, organization_id')
-        .eq('id', userId)
-        .maybeSingle()
+      const { data: existingUser } = await completeProfileReadApi.findUserRoleAndOrganization(userId)
 
       // CompleteProfile は顧客向け。既に staff/admin 等が設定済みなら維持、それ以外は customer に固定。
       const role =
@@ -432,22 +413,12 @@ export function CompleteProfile() {
       
       // 3. customersテーブルにレコードを作成/更新
       // user_id で自分のレコードを検索（重複レコードがあっても最初のものを使う）
-      const { data: existingRows } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true })
-        .limit(1)
+      const { data: existingRows } = await completeProfileReadApi.listOwnCustomerIdsOldestFirst(userId)
       const existingByUserId = existingRows?.[0] ?? null
 
       // メールアドレスで既存顧客を検索（自分以外で同じメールアドレスの顧客）
       // クーポン不正取得防止：同じメールで登録済みならクーポン付与しない
-      const { data: existingByEmail } = await supabase
-        .from('customers')
-        .select('id, user_id')
-        .eq('email', userEmail)
-        .neq('user_id', userId) // 自分以外
-        .maybeSingle()
+      const { data: existingByEmail } = await completeProfileReadApi.listCustomersByEmailLinkedToOthers(userEmail, userId)
 
       // 同じメールの既存顧客をログ
       // NOTE: 電話番号での重複チェックは廃止（真正性を確認できないため、他人の番号を使われる可能性がある）
@@ -512,11 +483,7 @@ export function CompleteProfile() {
           // 一意制約違反: メールは別アカウント／店舗登録済み等。RLS では衝突行が見えないことがある
           if (insertCustErr.code === '23505') {
             logger.warn('⚠️ customers INSERT unique 違反:', maskEmail(userEmail), insertCustErr.message)
-            const { data: byEmail } = await supabase
-              .from('customers')
-              .select('id, user_id')
-              .eq('email', userEmail)
-              .maybeSingle()
+            const { data: byEmail } = await completeProfileReadApi.findCustomerByEmail(userEmail)
 
             if (byEmail && !byEmail.user_id) {
               const { error: linkErr } = await profileRegistrationApi.linkToEmailCustomer(byEmail.id, userId, customerProfilePayload)
@@ -541,12 +508,7 @@ export function CompleteProfile() {
               )
             } else {
               // byEmail が取れない: 他ユーザーの行は RLS で非表示。メールなしの二重顧客を作ると検証・連携が壊れるため禁止
-              const { data: myRows } = await supabase
-                .from('customers')
-                .select('id')
-                .eq('user_id', userId)
-                .order('updated_at', { ascending: false })
-                .limit(1)
+              const { data: myRows } = await completeProfileReadApi.listOwnCustomerIdsLatestFirst(userId)
 
               if (myRows && myRows.length > 0) {
                 const { error: raceUpdErr } = await profileRegistrationApi.updateOwnRow(myRows[0].id, userId, customerProfilePayload)
@@ -581,12 +543,7 @@ export function CompleteProfile() {
       
       // 保存結果を検証（RLSで静かにブロックされるケースを検出）
       // maybeSingle は同一 user_id が複数あると PostgREST がエラーを返すため limit(1) で最新行を使う
-      const { data: verifyRows, error: verifyErr } = await supabase
-        .from('customers')
-        .select('id, name, phone, email, updated_at')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
+      const { data: verifyRows, error: verifyErr } = await completeProfileReadApi.listOwnCustomersForVerify(userId)
 
       const verify = verifyRows?.[0]
 

@@ -21,7 +21,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { reportFormReadApi } from '@/lib/api/reportFormReadApi'
 import { insertExternalReports } from '@/lib/api/externalReportsApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
@@ -66,13 +66,7 @@ export default function ExternalReportForm() {
       setLoading(true)
       
       // 管理シナリオ（scenario_type = 'managed'）のみを取得（organization_scenarios_with_master）
-      const { data, error } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('id, title, author, license_amount')
-        .eq('scenario_type', 'managed')
-        .eq('status', 'available')
-        .order('author')
-        .order('title')
+      const { data, error } = await reportFormReadApi.listManagedAvailableScenarios()
 
       if (error) throw error
       

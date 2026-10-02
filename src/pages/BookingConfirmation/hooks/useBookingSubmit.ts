@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
 import { reservationApi } from '@/lib/reservationApi'
@@ -23,14 +24,7 @@ export const calculateParticipationFee = async (
   organizationId?: string
 ): Promise<number> => {
   // シナリオの料金設定を取得（organization_scenarios_with_master: 組織固有の participation_fee）
-  let query = supabase
-    .from('organization_scenarios_with_master')
-    .select('participation_fee, participation_costs')
-    .eq('id', scenarioId)
-  if (organizationId) {
-    query = query.eq('organization_id', organizationId)
-  }
-  const { data: scenario, error } = await query.maybeSingle()
+  const { data: scenario, error } = await bookingConfirmationReadApi.findScenarioPricing(scenarioId, organizationId)
 
   if (error) {
     logger.error('シナリオ料金設定取得エラー:', error)
@@ -49,9 +43,7 @@ export const calculateParticipationFee = async (
   
   // 保存単価は reservationApi.create → 予約作成RPC側で独自休日を再取得して確定する。
   // ここは表示用の再計算なので、休日取得の一時失敗で予約自体を中断しない。
-  const { data: holidays, error: holidayError } = await supabase.rpc(
-    'get_public_custom_holidays', { p_organization_id: organizationId }
-  )
+  const { data: holidays, error: holidayError } = await bookingConfirmationReadApi.getPublicCustomHolidays(organizationId)
   if (holidayError) {
     logger.warn('休日設定の取得に失敗（表示用）。予約作成側で再確定します:', holidayError)
   }
@@ -77,18 +69,7 @@ export const checkDuplicateReservation = async (
 ): Promise<{ hasDuplicate: boolean; existingReservation?: any; isTimeConflict?: boolean }> => {
   try {
     // 1. 同じ公演に対する既存の予約を確認
-    let query = supabase
-      .from('reservations')
-      .select('id, participant_count, customer_name, customer_email, reservation_number, schedule_event_id')
-      .eq('schedule_event_id', eventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed'])
-
-    // メールアドレスでチェック
-    if (customerEmail) {
-      query = query.eq('customer_email', customerEmail)
-    }
-
-    const { data, error } = await query.limit(1)
+    const { data, error } = await bookingConfirmationReadApi.listDuplicateByEmail(eventId, customerEmail)
 
     if (error) {
       logger.error('重複予約チェックエラー:', error)
@@ -101,13 +82,7 @@ export const checkDuplicateReservation = async (
 
     // 電話番号でも追加チェック（メールが見つからなかった場合）
     if (customerPhone && !data?.length) {
-      const { data: phoneData, error: phoneError } = await supabase
-        .from('reservations')
-        .select('id, participant_count, customer_name, customer_phone, reservation_number')
-        .eq('schedule_event_id', eventId)
-        .eq('customer_phone', customerPhone)
-        .in('status', ['pending', 'confirmed', 'gm_confirmed'])
-        .limit(1)
+      const { data: phoneData, error: phoneError } = await bookingConfirmationReadApi.findDuplicateByPhone(eventId, customerPhone)
 
       if (phoneError) {
         logger.error('電話番号での重複予約チェックエラー:', phoneError)
@@ -122,28 +97,7 @@ export const checkDuplicateReservation = async (
     // 2. 同じ日時の別公演への予約をチェック（schedule_eventsから正確な時間を取得）
     if (eventDate && startTime && customerEmail) {
       // 同じ日付の予約を取得（schedule_eventsと結合して正確な公演時間を取得）
-      const { data: sameTimeReservations, error: sameTimeError } = await supabase
-        .from('reservations')
-        .select(`
-          id, 
-          participant_count, 
-          customer_name, 
-          reservation_number,
-          schedule_event_id,
-          title,
-          schedule_events!schedule_event_id (
-            date,
-            start_time,
-            end_time,
-            scenario_masters:scenario_master_id (
-              title,
-              official_duration
-            )
-          )
-        `)
-        .eq('customer_email', customerEmail)
-        .in('status', ['pending', 'confirmed', 'gm_confirmed'])
-        .neq('schedule_event_id', eventId)
+      const { data: sameTimeReservations, error: sameTimeError } = await bookingConfirmationReadApi.listSameEmailOtherEventReservations(customerEmail, eventId)
       
       if (!sameTimeError && sameTimeReservations && sameTimeReservations.length > 0) {
         // 予約しようとしている公演の時間帯を計算
@@ -217,11 +171,7 @@ export const checkReservationLimits = async (
   try {
     // 公演の最大参加人数・現在参加人数・store_idを取得（公開用ビュー）
     // current_participants はトリガーで常に再計算されるため、正確な集計値として使用
-    const { data: eventData, error: eventError } = await supabase
-      .from('schedule_events_public')
-      .select('max_participants, capacity, current_participants, reservation_deadline_hours, store_id')
-      .eq('id', eventId)
-      .single()
+    const { data: eventData, error: eventError } = await bookingConfirmationReadApi.findPublicEventForBooking(eventId)
 
     if (eventError) {
       logger.error('公演データ取得エラー:', eventError)
@@ -259,7 +209,7 @@ export const checkReservationLimits = async (
     }
 
     // 追加募集の判断待ちと、開催決定後の通常受付をDBと同じ締切で判断する。
-    const { data: bookingWindows, error: bookingWindowError } = await supabase.rpc('get_performance_booking_window', { p_event_id: eventId })
+    const { data: bookingWindows, error: bookingWindowError } = await bookingConfirmationReadApi.getPerformanceBookingWindow(eventId)
     if (bookingWindowError) return { allowed: false, reason: '予約締切を確認できません。再度お試しください。' }
     const bookingDeadline = bookingWindows?.[0]?.effective_booking_deadline
     if (bookingDeadline && now.getTime() >= new Date(bookingDeadline).getTime()) {
@@ -361,11 +311,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       }
 
       // 組織IDを取得（料金計算と予約作成に必要）- 公開用ビュー
-      const { data: eventOrg, error: eventOrgError } = await supabase
-        .from('schedule_events_public')
-        .select('organization_id')
-        .eq('id', props.eventId)
-        .single()
+      const { data: eventOrg, error: eventOrgError } = await bookingConfirmationReadApi.findEventOrganizationId(props.eventId)
 
       if (eventOrgError) {
         logger.error('組織ID取得エラー:', eventOrgError)
@@ -401,12 +347,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      const { data: phoneRow, error: phoneVerifyError } = await supabase
-        .from('customers')
-        .select('phone')
-        .eq('id', customerId)
-        .eq('user_id', props.userId)
-        .maybeSingle()
+      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, props.userId)
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { gmAvailabilityReadApi } from '@/lib/api/gmAvailabilityReadApi'
 import type { GMRequest } from './useGMRequests'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 
@@ -53,12 +53,7 @@ export function useAvailabilityCheck() {
     const timeSlot = getTimeSlotFromCandidate(candidate.timeSlot)
     
     // その日・その店舗の既存公演を取得
-    const { data: existingEvents } = await supabase
-      .from('schedule_events_staff_view')
-      .select('start_time, end_time')
-      .eq('date', candidate.date)
-      .eq('store_id', storeId)
-      .eq('is_cancelled', false)
+    const { data: existingEvents } = await gmAvailabilityReadApi.listStaffViewEventsOnDate(candidate.date, storeId)
     
     if (existingEvents && existingEvents.length > 0) {
       // 既存公演の時間帯を確認
@@ -71,12 +66,7 @@ export function useAvailabilityCheck() {
     }
     
     // 確定済みの貸切リクエストとも競合しないかチェック
-    const { data: confirmedPrivateEvents } = await supabase
-      .from('reservations')
-      .select('candidate_datetimes, store_id')
-      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-      .in('status', ['confirmed', 'gm_confirmed'])
-      .eq('store_id', storeId)
+    const { data: confirmedPrivateEvents } = await gmAvailabilityReadApi.listConfirmedPrivateByStore(storeId)
     
     if (confirmedPrivateEvents && confirmedPrivateEvents.length > 0) {
       for (const reservation of confirmedPrivateEvents) {
@@ -104,12 +94,7 @@ export function useAvailabilityCheck() {
     if (gmName && request.candidate_datetimes?.candidates?.length) {
       const dates = Array.from(new Set(request.candidate_datetimes.candidates.map(c => c.date).filter(Boolean)))
       if (dates.length > 0) {
-        const { data: gmEvents } = await supabase
-          .from('schedule_events_staff_view')
-          .select('date, start_time, end_time, gms')
-          .in('date', dates)
-          .eq('is_cancelled', false)
-          .contains('gms', [gmName])
+        const { data: gmEvents } = await gmAvailabilityReadApi.listGmEventsOnDates(dates, gmName)
 
         ;(gmEvents || []).forEach((e: any) => {
           const date = e.date

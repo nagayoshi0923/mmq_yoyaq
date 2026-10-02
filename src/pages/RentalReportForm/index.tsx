@@ -22,7 +22,7 @@ import {
   ChevronRight,
   AlertCircle
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { reportFormReadApi } from '@/lib/api/reportFormReadApi'
 import { insertExternalReports } from '@/lib/api/externalReportsApi'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
@@ -85,24 +85,14 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
 
       // ビューからシナリオ基本情報を取得
       // ビューの id = scenario_master_id, org_scenario_id = organization_scenarios.id
-      const { data: viewData, error: viewError } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('id, org_scenario_id, scenario_master_id, title, author')
-        .eq('organization_id', orgData.id)
-        .eq('scenario_type', 'managed')
-        .eq('status', 'available')
-        .order('author')
-        .order('title')
+      const { data: viewData, error: viewError } = await reportFormReadApi.listManagedAvailableScenariosOfOrganization(orgData.id)
 
       if (viewError) throw viewError
 
       // organization_scenarios から external_license_amount を取得
       const orgScenarioIds = (viewData || []).map((s: any) => s.org_scenario_id).filter(Boolean)
       const { data: orgScData } = orgScenarioIds.length > 0
-        ? await supabase
-            .from('organization_scenarios')
-            .select('id, external_license_amount')
-            .in('id', orgScenarioIds)
+        ? await reportFormReadApi.listExternalLicenseAmounts(orgScenarioIds)
         : { data: [] }
 
       const extPriceMap = new Map<string, number>()

@@ -27,7 +27,7 @@ import {
   Loader2,
   Save,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { orgMasterListApi, organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
@@ -103,19 +103,12 @@ function MasterListManager({
     setLoading(true)
     try {
       // 1. マスタ一覧取得
-      const { data: masterData, error: masterError } = await supabase
-        .from(tableName)
-        .select('id, organization_id, name, sort_order, created_at, updated_at')
-        .eq('organization_id', organizationId)
-        .order('sort_order', { ascending: true })
+      const { data: masterData, error: masterError } = await settingsPageReadApi.listOrgMasterItems(tableName, organizationId)
 
       if (masterError) throw masterError
 
       // 2. 使用シナリオ数をカウント
-      const { data: scenarioData, error: scenarioError } = await supabase
-        .from('organization_scenarios_with_master')
-        .select(scenarioColumn)
-        .eq('organization_id', organizationId)
+      const { data: scenarioData, error: scenarioError } = await settingsPageReadApi.listScenarioColumn(scenarioColumn, organizationId)
 
       if (scenarioError) throw scenarioError
 
@@ -242,11 +235,7 @@ function MasterListManager({
       if (isArray) {
         // genre (TEXT[]): 配列内の要素を置換
         // organization_scenarios の override_genre を更新
-        const { data: affected } = await supabase
-          .from('organization_scenarios')
-          .select('id, override_genre')
-          .eq('organization_id', orgId)
-          .contains('override_genre', [oldName])
+        const { data: affected } = await settingsPageReadApi.listScenariosWithGenre(orgId, oldName)
 
         if (affected && affected.length > 0) {
           for (const row of affected) {
@@ -311,11 +300,7 @@ function MasterListManager({
     try {
       if (isArray) {
         // genre (TEXT[]): 配列から要素を除去
-        const { data: affected } = await supabase
-          .from('organization_scenarios')
-          .select('id, override_genre')
-          .eq('organization_id', orgId)
-          .contains('override_genre', [name])
+        const { data: affected } = await settingsPageReadApi.listScenariosWithGenre(orgId, name)
 
         if (affected && affected.length > 0) {
           for (const row of affected) {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { myPageLikesReadApi } from '@/lib/api/myPageReadApi'
 import { scenarioLikeApi } from '@/lib/api/scenarioWriteApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -13,29 +13,18 @@ export function useLikedScenariosQuery(userId: string | undefined) {
     queryKey: likedScenariosKeys.all(userId ?? ''),
     enabled: !!userId,
     queryFn: async () => {
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', userId!)
-        .maybeSingle()
+      const { data: customer, error: customerError } = await myPageLikesReadApi.findCustomerIdByUserId(userId!)
       if (customerError) throw customerError
       if (!customer) return []
 
-      const { data: likesData, error: likesError } = await supabase
-        .from('scenario_likes')
-        .select('id, scenario_id, scenario_master_id, created_at')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
+      const { data: likesData, error: likesError } = await myPageLikesReadApi.listLikesByCustomer(customer.id)
       if (likesError) throw likesError
       if (!likesData || likesData.length === 0) return []
 
       const scenarioMasterIds = likesData
         .map(like => (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id)
         .filter(Boolean)
-      const { data: scenariosData, error: scenariosError } = await supabase
-        .from('scenario_masters')
-        .select('id, title, description, author, official_duration, player_count_min, player_count_max, difficulty, genre, key_visual_url')
-        .in('id', scenarioMasterIds)
+      const { data: scenariosData, error: scenariosError } = await myPageLikesReadApi.listMastersByIds(scenarioMasterIds)
       if (scenariosError) throw scenariosError
 
       return likesData.map(like => {

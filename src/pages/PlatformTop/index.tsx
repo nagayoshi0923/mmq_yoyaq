@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { supabase } from '@/lib/supabase'
+import { platformPageReadApi } from '@/lib/api/platformPageReadApi'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { formatJstDateJa } from '@/utils/jstDate'
@@ -125,12 +125,12 @@ async function fetchPlatformTopData(): Promise<PlatformTopData> {
   const today = formatDateJST(new Date())
 
   const [orgResult, storeResult, masterResult, eventResult, reservationResult, orgScenarioSlugResult] = await Promise.all([
-    supabase.from('organizations').select('id, slug, name, logo_url').eq('is_active', true).order('name'),
-    supabase.from('stores').select('id, name, short_name, region, address, organization_id').eq('status', 'active').or('is_temporary.is.null,is_temporary.eq.false').neq('ownership_type', 'office').order('region', { ascending: true }).order('name', { ascending: true }),
-    supabase.from('scenario_masters').select('id').eq('master_status', 'approved'),
-    supabase.from('schedule_events').select(`id, date, start_time, current_participants, max_participants, organization_id, scenario_masters:scenario_master_id!inner (id, title, key_visual_url, player_count_min, player_count_max, official_duration, author), stores:store_id (id, name, short_name, color, region)`).gte('date', today).in('category', ['open', 'offsite']).eq('is_cancelled', false).eq('is_reservation_enabled', true).order('date', { ascending: true }).limit(200),
-    supabase.from('reservations').select('schedule_event_id, participant_count, status').gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()).in('status', ['confirmed', 'pending', 'checked_in']),
-    supabase.from('organization_scenarios').select('scenario_master_id, slug').not('slug', 'is', null),
+    platformPageReadApi.listActiveOrganizations(),
+    platformPageReadApi.listActiveStores(),
+    platformPageReadApi.listApprovedMasterIds(),
+    platformPageReadApi.listUpcomingOpenEvents(today),
+    platformPageReadApi.listRecentReservationsSince(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+    platformPageReadApi.listOrganizationScenarioSlugs(),
   ])
 
   const { data: orgData, error: orgError } = orgResult
@@ -234,12 +234,7 @@ async function fetchPlatformTopData(): Promise<PlatformTopData> {
     return a.scenario_title.localeCompare(b.scenario_title)
   })
 
-  const { data: blogData } = await supabase
-    .from('blog_posts')
-    .select('id, title, slug, excerpt, cover_image_url, published_at, organization_id')
-    .eq('is_published', true)
-    .order('published_at', { ascending: false })
-    .limit(3)
+  const { data: blogData } = await platformPageReadApi.listLatestPublishedBlogPosts()
 
   const blogPosts: BlogPostSummary[] = blogData?.map(post => ({
     ...post, organization_name: orgMap[post.organization_id]?.name || ''

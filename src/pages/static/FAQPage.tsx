@@ -10,7 +10,7 @@ import { HelpCircle, ChevronRight, ChevronDown, Search, Building2 } from 'lucide
 import { Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
+import { publicPageReadApi } from '@/lib/api/publicPageReadApi'
 import { logger } from '@/utils/logger'
 import type { FAQItem } from '@/types'
 import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
@@ -135,12 +135,7 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
   useEffect(() => {
     const fetchCommonFAQ = async () => {
       try {
-        const { data } = await supabase
-          .from('organizations')
-          .select('common_faq_items')
-          .eq('is_license_manager', true)
-          .limit(1)
-          .maybeSingle()
+        const { data } = await publicPageReadApi.getCommonFaqItems()
 
         if (data?.common_faq_items && Array.isArray(data.common_faq_items) && data.common_faq_items.length > 0) {
           setCommonFAQ(data.common_faq_items as FAQItem[])
@@ -163,11 +158,7 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
     const fetchOrgFAQ = async () => {
       try {
         logger.info('[FAQPage] Fetching FAQ for slug:', slug)
-        const { data, error } = await supabase
-          .from('organizations')
-          .select('name, faq_items')
-          .eq('slug', slug)
-          .single()
+        const { data, error } = await publicPageReadApi.getOrganizationFaq(slug)
 
         if (error) {
           logger.error('[FAQPage] Error fetching FAQ:', error)

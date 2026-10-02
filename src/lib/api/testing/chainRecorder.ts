@@ -29,7 +29,7 @@ export function renderCalls(calls: RecordedCall[]): string[] {
   const lines: string[] = []
   for (const [name, args] of calls) {
     const part = `${name}(${args.map(a => {
-      const t = JSON.stringify(a)
+      const t = JSON.stringify(a) ?? 'undefined'
       return t.length > 70 ? `${t.slice(0, 70)}…` : t
     }).join(', ')})`
     if (name === 'from' || name === 'rpc') lines.push(part)
