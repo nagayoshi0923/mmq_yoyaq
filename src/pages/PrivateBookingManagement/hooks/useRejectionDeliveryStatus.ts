@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '@/utils/toast'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtRpcApi } from '@/lib/api/privateBookingMgmtReadApi'
 export interface RejectionDeliveryStatus {
   reservation_id: string
   status: 'pending' | 'sending' | 'sent' | 'failed' | 'uncertain' | 'superseded'
@@ -14,7 +14,7 @@ export function useRejectionDeliveryStatus(organizationId: string | null, reserv
   const queryClient = useQueryClient()
   const retry = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await (supabase as any).rpc('retry_private_rejection_delivery', { p_reservation_id: id })
+      const { data, error } = await privateBookingMgmtRpcApi.retryRejectionDelivery(id)
       if (error || data !== true) throw error || new Error('retry_failed')
     },
     onSuccess: () => {
@@ -29,7 +29,7 @@ export function useRejectionDeliveryStatus(organizationId: string | null, reserv
     queryFn: async (): Promise<RejectionDeliveryStatus[]> => {
       const rows: RejectionDeliveryStatus[] = []
       for (let offset = 0; offset < ids.length; offset += 100) {
-        const { data, error } = await (supabase as any).rpc('get_private_rejection_delivery_status', { p_reservation_ids: ids.slice(offset, offset + 100) })
+        const { data, error } = await privateBookingMgmtRpcApi.getRejectionDeliveryStatus(ids.slice(offset, offset + 100))
         if (error) throw error
         rows.push(...(data || []))
       }

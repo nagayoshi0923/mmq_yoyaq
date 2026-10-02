@@ -45,7 +45,7 @@ export function useReservationListData({
         setLoadingReservations(true)
         try {
           const eventOrgId =
-            (event as any)?.organization_id ||
+            event?.organization_id ||
             (event as any)?.scenarios?.organization_id ||
             (event as any)?.stores?.organization_id ||
             null
