@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-02T06:14:41.298Z",
+  "captured_at": "2026-10-02T07:48:20.104Z",
   "table_count": 137,
   "function_count": 331,
-  "digest": "616d9b8c0def9bbe5d80cd64d229ad0ab43ef4a145d2ac2b24ade36f3a43ad15"
+  "digest": "6debbe548883feaf9d03170d5e2d6f2bfdc7bd533384460730de0e133e9d603e"
  },
  "tables": {
   "staff": {
@@ -6328,11 +6328,6 @@
      "type": "f"
     },
     {
-     "def": "CHECK ((current_participants <= COALESCE(max_participants, capacity))) NOT VALID",
-     "name": "schedule_events_participants_check",
-     "type": "c"
-    },
-    {
      "def": "PRIMARY KEY (id)",
      "name": "schedule_events_pkey",
      "type": "p"
@@ -10261,7 +10256,7 @@
    ],
    "constraints": [
     {
-     "def": "CHECK ((cancellation_fee_basis = ANY (ARRAY['participant_total'::text, 'performance_total'::text, 'participant_until_capacity'::text])))",
+     "def": "CHECK ((cancellation_fee_basis = ANY (ARRAY['participant_total'::text, 'performance_total'::text])))",
      "name": "reservation_settings_cancellation_fee_basis_check",
      "type": "c"
     },
@@ -21812,8 +21807,6 @@
   },
   "handle_new_user()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -21864,8 +21857,6 @@
   },
   "audit_staff_changes()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -21929,7 +21920,10 @@
   },
   "snapshot_coupon_rules()": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "61b9a522810e313c40ae387f1db76b52",
@@ -21951,8 +21945,6 @@
   },
   "audit_customer_changes()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -21964,8 +21956,6 @@
   },
   "cleanup_rate_limit_log()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -21977,8 +21967,6 @@
   },
   "log_reservation_change()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -21990,8 +21978,6 @@
   },
   "trigger_waitlist_retry()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22003,8 +21989,6 @@
   },
   "audit_user_role_changes()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22029,7 +22013,8 @@
   },
   "audit_assignment_updates()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "41ff19738fe4a58ce06dc71f51521f41",
@@ -22038,8 +22023,6 @@
   },
   "audit_reservation_insert()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22116,8 +22099,6 @@
   },
   "audit_reservation_changes()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22129,7 +22110,8 @@
   },
   "close_open_staff_checkins()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "integer",
    "body_md5": "6fe53feb7ab1b33a47065fec31449fae",
@@ -22186,7 +22168,8 @@
   },
   "sync_staff_account_access()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "6ec4e46fe04cf325b0f009b848e67bbc",
@@ -22234,7 +22217,8 @@
   },
   "alert_recruitment_x_result()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "6da2734745ede685d750706c91338d8d",
@@ -22243,8 +22227,6 @@
   },
   "cleanup_rate_limit_records()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22256,7 +22238,8 @@
   },
   "enqueue_recruitment_x_post()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "4ba91fdd5f1451c0c5b86e83eb820c16",
@@ -22278,7 +22261,8 @@
   },
   "guard_staff_account_change()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "a7fcb8027ea90f204da63ebd03776446",
@@ -22300,7 +22284,10 @@
   },
   "set_coupon_calendar_expiry()": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "6eb2c5502e2e194bf5e53338aba5e04e",
@@ -22309,7 +22296,10 @@
   },
   "snapshot_coupon_acceptance()": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "08caeda3f5a58f8537d00dca65cd72cb",
@@ -22331,8 +22321,6 @@
   },
   "audit_invitation_acceptance()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22370,7 +22358,8 @@
   },
   "notify_recruitment_shortage()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "ea60e53a326f9d75dbeeea1fc78bd3b9",
@@ -22401,8 +22390,6 @@
   },
   "notify_on_waitlist_available()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22414,7 +22401,8 @@
   },
   "queue_recruitment_mail_alert()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "f86b9299cb1c51839aae00e72752aad0",
@@ -22422,14 +22410,26 @@
    "security_definer": true
   },
   "set_reservation_cancelled_by()": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "trigger",
    "body_md5": "e8297fac70926a7185391c9d89aa6788",
    "language": "plpgsql",
    "security_definer": true
   },
   "set_reservation_confirmed_at()": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "trigger",
    "body_md5": "9f29ef0b15a9fec8ba0b9bf8bedb82bc",
    "language": "plpgsql",
@@ -22463,7 +22463,8 @@
   },
   "guard_staff_derived_user_role()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "6446909f1f72be5d416260351c8f418d",
@@ -22473,8 +22474,10 @@
   "link_current_user_to_customer()": {
    "acl": [
     "=X/postgres",
+    "anon=X/postgres",
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "uuid",
    "body_md5": "a5739d2482a69f69449d53e0118097c6",
@@ -22541,8 +22544,6 @@
   },
   "notify_on_reservation_confirmed()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22589,7 +22590,13 @@
    "security_definer": false
   },
   "validate_store_travel_times_org()": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "trigger",
    "body_md5": "86cf16c5fd8eabfce480e5535d200e28",
    "language": "plpgsql",
@@ -22597,7 +22604,10 @@
   },
   "enforce_coupon_performance_scope()": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "2a053d04c6445592f3dc88a07f8819a8",
@@ -22680,7 +22690,10 @@
   },
   "guard_private_group_browser_write()": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "de97bdc7c97fbf31dbeddaea2838b6fa",
@@ -22715,8 +22728,6 @@
   },
   "cleanup_discord_notification_queue()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22728,8 +22739,6 @@
   },
   "cleanup_inventory_consistency_logs()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22780,7 +22789,8 @@
   },
   "private_cancellation_event_trigger()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "f4f7388614dc7b5c41953837dd3b4277",
@@ -22800,8 +22810,6 @@
   },
   "process_discord_notification_queue()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22826,8 +22834,6 @@
   },
   "audit_organization_settings_changes()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22839,8 +22845,6 @@
   },
   "check_and_fix_inventory_consistency()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22924,8 +22928,6 @@
   },
   "recalc_current_participants_trigger()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22937,8 +22939,6 @@
   },
   "check_performances_four_hours_before()": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -22950,7 +22950,8 @@
   },
   "enforce_private_reservation_deadline()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "0e38e3e2e31fb88057f1502c7df051e6",
@@ -22971,7 +22972,13 @@
    "security_definer": false
   },
   "update_store_travel_times_updated_at()": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "trigger",
    "body_md5": "301a884953d37769916294bb60562e05",
    "language": "plpgsql",
@@ -23029,7 +23036,6 @@
   "get_user_display_names(user_ids uuid[])": {
    "acl": [
     "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23067,7 +23073,8 @@
   },
   "enforce_assignment_scenario_membership()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "b7dad739628c0ebb2fc5cf1d7f2417fa",
@@ -23075,7 +23082,13 @@
    "security_definer": true
   },
   "is_booking_calendar_holiday(p_date date)": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "boolean",
    "body_md5": "86ec3525ceb76dc5e1dd1e2e134a9785",
    "language": "plpgsql",
@@ -23083,7 +23096,8 @@
   },
   "lock_cancellation_billing_organization()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "37b6bea8904cc9bb7a55d5b73f8afbb2",
@@ -23172,7 +23186,13 @@
    "security_definer": false
   },
   "audit_staff_scenario_assignment_deletes()": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "trigger",
    "body_md5": "98a38d56ec5f54024863a60b753e671e",
    "language": "plpgsql",
@@ -23180,7 +23200,8 @@
   },
   "close_recruitment_on_event_cancellation()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "622cc721ca8146268ecc996a835de40c",
@@ -23199,7 +23220,8 @@
   },
   "enforce_performance_recruitment_booking()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "1e5e7d7ae5500f51133d968d8a18484d",
@@ -23231,6 +23253,7 @@
   },
   "private_group_actor_role(p_group_id uuid)": {
    "acl": [
+    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23242,7 +23265,8 @@
   },
   "sync_event_datetime_to_current_bookings()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "90d02805ec342e0df25026f722f0259a",
@@ -23264,7 +23288,8 @@
   },
   "enforce_private_group_candidate_deadline()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "a110f44b3206a171a744d93bce7276cf",
@@ -23273,7 +23298,8 @@
   },
   "private_cancellation_reservation_trigger()": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "1af25255b0d3de53ecfef71f62a1f744",
@@ -23333,7 +23359,8 @@
   },
   "private_group_message_payload(p_message text)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "jsonb",
    "body_md5": "26368dade241da040c790a66c71dd9b8",
@@ -23403,6 +23430,7 @@
   },
   "require_private_group_manager(p_group_id uuid)": {
    "acl": [
+    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23414,7 +23442,10 @@
   },
   "set_reservation_cancellation_policy_snapshot()": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "trigger",
    "body_md5": "9981b758d486f2efb319ea4d0ffd5f19",
@@ -23470,7 +23501,6 @@
   "get_private_group_schedules(p_group_ids uuid[])": {
    "acl": [
     "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23495,8 +23525,6 @@
   },
   "calculate_cancellation_fee(p_reservation_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23545,7 +23573,10 @@
   },
   "coupon_campaign_rules(p_campaign coupon_campaigns)": {
    "acl": [
-    "postgres=X/postgres"
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "jsonb",
    "body_md5": "a3051bdfe0b5efc901642a98e5fe9df8",
@@ -23580,7 +23611,8 @@
   },
   "issue_private_group_guest_session(p_member_id uuid)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "text",
    "body_md5": "7668ad3c7f5a6cc368f040a26d199517",
@@ -23599,8 +23631,6 @@
   },
   "check_reservation_deadline(p_schedule_event_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23681,7 +23711,8 @@
   },
   "enqueue_private_cancellation(p_event schedule_events)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "void",
    "body_md5": "634c7eae96bbf1d54e469feb0dd877ff",
@@ -23737,7 +23768,8 @@
   },
   "require_survey_question_staff(p_organization_id uuid)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "void",
    "body_md5": "fb1f4b24259df2e4393521b7ca3d1d46",
@@ -23747,7 +23779,8 @@
   "upsert_customer_memo(p_customer_id uuid, p_memo text)": {
    "acl": [
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "customer_memos",
    "body_md5": "44d98da5b1a2c3e220a58af1e87f5c8c",
@@ -23791,8 +23824,6 @@
   },
   "recalc_current_participants_for_event(p_event_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23826,8 +23857,6 @@
   },
   "run_inventory_consistency_check(p_organization_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23839,8 +23868,6 @@
   },
   "admin_clear_reservations_scenario_id(p_scenario_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23862,8 +23889,6 @@
   },
   "cancel_event_reservations(p_event_id uuid, p_reason text)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -23929,7 +23954,6 @@
   },
   "get_public_blog_post(p_org_slug text, p_article_slug text)": {
    "acl": [
-    "=X/postgres",
     "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
@@ -23965,8 +23989,6 @@
   },
   "check_and_fix_inventory_consistency(p_organization_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -24021,8 +24043,6 @@
   },
   "admin_delete_reservations_by_source(p_reservation_source text)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -24069,7 +24089,8 @@
   },
   "can_use_coupon_reservation(p_customer uuid, p_reservation uuid)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "boolean",
    "body_md5": "2913f970c5ae098ad8d901cab588ae9b",
@@ -24088,8 +24109,6 @@
   },
   "get_email_template(p_organization_id uuid, p_template_key text)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -24290,7 +24309,13 @@
    "security_definer": true
   },
   "is_murder_mystery_coupon_event(p_category text, p_has_scenario boolean)": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "boolean",
    "body_md5": "6ba68f15b0ededd23807aff79a0fcb5a",
    "language": "sql",
@@ -24333,7 +24358,8 @@
    "acl": [
     "anon=X/postgres",
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "TABLE(organization_id uuid, organization_slug text, organization_name text, store_id uuid, store_name text, store_short_name text, is_configured boolean, cancellation_policy text, cancellation_policy_items jsonb, cancellation_deadline_hours integer, cancellation_fees jsonb, cancellation_fee_basis text, private_cancellation_policy text, private_cancellation_policy_items jsonb, private_cancellation_deadline_hours integer, private_cancellation_fees jsonb, private_cancellation_fee_basis text, organizer_cancel_reasons jsonb, organizer_cancel_refund_note text, cancellation_judgment_rules jsonb, cancellation_notice_note text, reservation_change_deadline_hours integer, reservation_change_note text, private_reservation_change_deadline_hours integer, private_reservation_change_note text, refund_method_note text, policy_updated_at date)",
    "body_md5": "89b051f0840c850220f1f10aa397fc35",
@@ -24382,8 +24408,6 @@
   },
   "admin_delete_reservations_by_schedule_event_ids(p_schedule_event_ids uuid[])": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -24455,7 +24479,8 @@
    "acl": [
     "anon=X/postgres",
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "jsonb",
    "body_md5": "21b4c1e24cd9fd5ba6066ae688cc7425",
@@ -24518,8 +24543,6 @@
   },
   "fetch_and_lock_waitlist_entries(p_schedule_event_id uuid, p_freed_seats integer)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -24552,7 +24575,8 @@
   },
   "authorize_private_group_read(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "text",
    "body_md5": "812bd174d723d98b5dc39553f5d017d5",
@@ -24564,7 +24588,8 @@
     "=X/postgres",
     "anon=X/postgres",
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "integer",
    "body_md5": "75ac03a1ce55f35bd90f42d345a95e6a",
@@ -24573,7 +24598,8 @@
   },
   "require_private_group_member(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "void",
    "body_md5": "3581cb3369da02d7742cbddf818a643b",
@@ -24606,7 +24632,8 @@
   },
   "apply_staff_assignment_edit(p_org uuid, p_staff uuid, p_edit jsonb, p_confirm boolean)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "void",
    "body_md5": "884f891ded3aaa65df3cf19f63b2a0a2",
@@ -24625,8 +24652,6 @@
   },
   "admin_recalculate_reservation_prices(p_reservation_id uuid, p_participant_names text[])": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -24814,7 +24839,8 @@
    "acl": [
     "anon=X/postgres",
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "jsonb",
    "body_md5": "462ccd421b24348c246e7f3af13f7262",
@@ -24848,7 +24874,8 @@
   },
   "private_booking_store_day_slots(p_date date, p_hours jsonb, p_is_holiday boolean, p_allow_missing boolean)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "TABLE(slot_key text, start_minutes integer, end_minutes integer, closing_minutes integer)",
    "body_md5": "af118b029e62fc01b411fcbc04b0bd22",
@@ -24858,7 +24885,8 @@
   "compensated_cancellation(p_event_id uuid, p_apply boolean, p_expected jsonb, p_reason text, p_bodies jsonb)": {
    "acl": [
     "authenticated=X/postgres",
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "jsonb",
    "body_md5": "ab6beaff501ec1d6a8045c52260d4620",
@@ -24877,7 +24905,8 @@
   },
   "coupon_discount_for_event(p_coupon uuid, p_event uuid, p_amount integer, p_customer uuid, p_reservation uuid)": {
    "acl": [
-    "postgres=X/postgres"
+    "postgres=X/postgres",
+    "service_role=X/postgres"
    ],
    "returns": "integer",
    "body_md5": "f4fcb0b98473852ce24efe9eb4a08056",
@@ -25236,6 +25265,8 @@
   },
   "claim_performance_confirmation_email(p_schedule_event_id uuid, p_to_email text, p_organization_id uuid, p_subject text, p_body_html text, p_body_text text)": {
    "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25280,8 +25311,6 @@
   },
   "log_audit(p_action text, p_resource_type text, p_resource_id uuid, p_old_values jsonb, p_new_values jsonb, p_metadata jsonb, p_ip_address text, p_user_agent text)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -25314,7 +25343,13 @@
    "security_definer": true
   },
   "calculate_booking_participation_fee(p_base_fee integer, p_costs jsonb, p_date date, p_start_time time without time zone, p_custom_holiday boolean, p_pricing_date date)": {
-   "acl": null,
+   "acl": [
+    "=X/postgres",
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
    "returns": "integer",
    "body_md5": "269bc0cf5f11452843e72c9df21b924e",
    "language": "plpgsql",
@@ -25399,8 +25434,6 @@
   },
   "create_notification(p_user_id uuid, p_customer_id uuid, p_organization_id uuid, p_type text, p_title text, p_message text, p_link text, p_related_reservation_id uuid, p_related_event_id uuid, p_related_waitlist_id uuid, p_metadata jsonb)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"

@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-02T07:00:25.853Z",
+  "captured_at": "2026-10-02T07:47:31.324Z",
   "table_count": 138,
   "function_count": 332,
-  "digest": "5682cbac25790209ef05304b75ea1b33d17700234f61c15ef697b1dcd328ebce"
+  "digest": "13865710a71544724f7f11640828b563846bce03b3ea8642452769bd7f19adde"
  },
  "tables": {
   "staff": {
@@ -6341,11 +6341,6 @@
      "def": "FOREIGN KEY (organization_scenario_id) REFERENCES organization_scenarios(id)",
      "name": "schedule_events_organization_scenario_id_fkey",
      "type": "f"
-    },
-    {
-     "def": "CHECK ((current_participants <= COALESCE(max_participants, capacity))) NOT VALID",
-     "name": "schedule_events_participants_check",
-     "type": "c"
     },
     {
      "def": "PRIMARY KEY (id)",
