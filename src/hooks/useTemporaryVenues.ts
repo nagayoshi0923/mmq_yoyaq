@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { temporaryVenueApi } from '@/lib/api/temporaryVenueApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -201,21 +202,12 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
 
       // まずカスタム名も含めて更新を試みる
       if (customName) {
-        const { error: fullUpdateError } = await supabase
-          .from('stores')
-          .update({ 
-            temporary_dates: newDates,
-            temporary_venue_names: newVenueNames
-          })
-          .eq('id', venueId)
+        const { error: fullUpdateError } = await temporaryVenueApi.updateById(venueId, { temporary_dates: newDates, temporary_venue_names: newVenueNames })
 
         if (fullUpdateError) {
           // temporary_venue_names カラムが存在しない場合は temporary_dates のみ更新
           logger.log('⚠️ temporary_venue_names カラムが存在しない可能性、temporary_dates のみ更新します')
-          const { error: datesOnlyError } = await supabase
-            .from('stores')
-            .update({ temporary_dates: newDates })
-            .eq('id', venueId)
+          const { error: datesOnlyError } = await temporaryVenueApi.updateById(venueId, { temporary_dates: newDates })
 
           if (datesOnlyError) throw datesOnlyError
           
@@ -236,10 +228,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         }
       } else {
         // カスタム名がない場合は temporary_dates のみ更新
-        const { error } = await supabase
-          .from('stores')
-          .update({ temporary_dates: newDates })
-          .eq('id', venueId)
+        const { error } = await temporaryVenueApi.updateById(venueId, { temporary_dates: newDates })
 
         if (error) throw error
 
@@ -268,10 +257,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       const currentVenueNames = venue.temporary_venue_names || {}
       const newVenueNames = { ...currentVenueNames, [date]: newName }
 
-      const { error } = await supabase
-        .from('stores')
-        .update({ temporary_venue_names: newVenueNames })
-        .eq('id', venueId)
+      const { error } = await temporaryVenueApi.updateById(venueId, { temporary_venue_names: newVenueNames })
 
       if (error) {
         // カラムが存在しない場合のエラー
@@ -331,10 +317,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       const currentDates = venue.temporary_dates || []
       const newDates = currentDates.filter(d => d !== date)
 
-      const { error } = await supabase
-        .from('stores')
-        .update({ temporary_dates: newDates })
-        .eq('id', venueId)
+      const { error } = await temporaryVenueApi.updateById(venueId, { temporary_dates: newDates })
 
       if (error) {
         logger.error('削除エラー:', error)

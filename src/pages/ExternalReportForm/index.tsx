@@ -22,6 +22,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { insertExternalReports } from '@/lib/api/externalReportsApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -157,9 +158,7 @@ export default function ExternalReportForm() {
         notes: `${reportYear}年${reportMonth}月分の報告`
       }))
 
-      const { error } = await supabase
-        .from('external_performance_reports')
-        .insert(reports)
+      const { error } = await insertExternalReports(reports)
 
       if (error) throw error
 

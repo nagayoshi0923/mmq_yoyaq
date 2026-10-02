@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { BLOG_POST_SELECT_COLUMNS } from '@/lib/blogPublicFetch'
 import { supabase } from '@/lib/supabase'
+import { blogPostApi } from '@/lib/api/noticeBlogApi'
 import { getCurrentOrganization, getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -230,17 +231,12 @@ export function BlogSettings() {
       }
 
       if (editingPost) {
-        const { error } = await supabase
-          .from('blog_posts')
-          .update(postData)
-          .eq('id', editingPost.id)
+        const { error } = await blogPostApi.updateById(editingPost.id, postData)
 
         if (error) throw error
         toast.success('記事を更新しました')
       } else {
-        const { error } = await supabase
-          .from('blog_posts')
-          .insert(postData)
+        const { error } = await blogPostApi.insert(postData)
 
         if (error) throw error
         toast.success('記事を作成しました')
@@ -267,10 +263,7 @@ export function BlogSettings() {
   const runDelete = async () => {
     if (!deleteTarget) return
     try {
-      const { error } = await supabase
-        .from('blog_posts')
-        .delete()
-        .eq('id', deleteTarget.id)
+      const { error } = await blogPostApi.deleteById(deleteTarget.id)
 
       if (error) throw error
       toast.success('記事を削除しました')
@@ -284,13 +277,10 @@ export function BlogSettings() {
   const togglePublish = async (post: BlogPost) => {
     try {
       const newStatus = !post.is_published
-      const { error } = await supabase
-        .from('blog_posts')
-        .update({
+      const { error } = await blogPostApi.updateById(post.id, {
           is_published: newStatus,
           published_at: newStatus ? new Date().toISOString() : null
         })
-        .eq('id', post.id)
 
       if (error) throw error
       toast.success(newStatus ? '公開しました' : '非公開にしました')
