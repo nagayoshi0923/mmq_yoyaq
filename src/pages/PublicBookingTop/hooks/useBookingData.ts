@@ -42,11 +42,30 @@ export interface ScenarioCard {
   release_date?: string     // リリース日（1年以上でロングセラー）
 }
 
+type QueryRows<F extends (...args: never[]) => Promise<{ data: unknown }>> = NonNullable<Awaited<ReturnType<F>>['data']> extends (infer R)[] ? R : never
+/** 公開の公演（schedule_events_public）の1行 */
+export type PublicEventRow = QueryRows<typeof publicBookingListReadApi.listPublicEventsInRange>
+/** 公開の店舗（stores_public）の1行 */
+export type PublicStoreRow = QueryRows<typeof publicBookingListReadApi.listPublicStores>
+
+/** 公開のシナリオ（organization_scenarios_with_master）の1行 */
+export type PublicScenarioRow = QueryRows<typeof publicBookingListReadApi.listAvailableScenarios>
+
+/** 公演に、作品の人数・画像と店舗の名前・色を足したもの（カレンダー・一覧の表示用） */
+export type EnrichedPublicEvent = PublicEventRow & {
+  player_count_max: number
+  key_visual_url: string | null | undefined
+  scenario_data: PublicScenarioRow | undefined
+  store_name: string | null
+  store_short_name: string | null | undefined
+  store_color: string | null | undefined
+}
+
 export interface BookingDataResult {
   scenarios: ScenarioCard[]
-  allEvents: any[]
-  blockedSlots: any[]
-  stores: any[]
+  allEvents: EnrichedPublicEvent[]
+  blockedSlots: PublicEventRow[]
+  stores: PublicStoreRow[]
   privateBookingDeadlineDays: number
   organizationId: string | null
   organizationName: string | null
@@ -302,7 +321,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   // 最適化: 店舗データをMapに変換
-  const storeMap = new Map<string, any>()
+  const storeMap = new Map<string, (typeof storesData)[number]>()
   storesData.forEach((store) => {
     storeMap.set(store.id, store)
     if (store.short_name) storeMap.set(store.short_name, store)
@@ -310,20 +329,20 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   // 最適化: シナリオデータをMapに変換
-  const scenarioDataMap = new Map<string, any>()
+  const scenarioDataMap = new Map<string, (typeof scenariosData)[number]>()
   scenariosData.forEach((scenario) => {
     scenarioDataMap.set(scenario.id, scenario)
     if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
   })
   
   // storesをMapに変換（ID→店舗データ）
-  const storesMap = new Map<string, any>()
+  const storesMap = new Map<string, (typeof storesData)[number]>()
   storesData.forEach((store) => {
     storesMap.set(store.id, store)
   })
   
   // イベントを加工
-  const enrichedEvents = publicEvents.map((event) => {
+  const enrichedEvents = publicEvents.map((event): EnrichedPublicEvent => {
     const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) ||
                             scenarioDataMap.get(event.scenario)
     
@@ -345,8 +364,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   // イベントをシナリオIDでインデックス化
-  const eventsByScenarioId = new Map<string, any[]>()
-  const eventsByScenarioTitle = new Map<string, any[]>()
+  const eventsByScenarioId = new Map<string, EnrichedPublicEvent[]>()
+  const eventsByScenarioTitle = new Map<string, EnrichedPublicEvent[]>()
   
   enrichedEvents.forEach((event) => {
     const scenarioId = event.scenario_master_id
