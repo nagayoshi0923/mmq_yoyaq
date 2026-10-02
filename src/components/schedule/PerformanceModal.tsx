@@ -873,7 +873,7 @@ export function PerformanceModal({
               const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
               const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
               const reservationNumber = `${dateStr}-${randomStr}`
-              return supabase.from('reservations').insert({
+              return reservationApi.insertDirect({
                 reservation_number: reservationNumber,
                 schedule_event_id: targetEventId,
                 organization_id: orgId,
