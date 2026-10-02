@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Plus, Pencil, Trash2, Save, Loader2, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { bookingNoticeApi } from '@/lib/api/noticeBlogApi'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
@@ -165,9 +166,7 @@ export function BookingNoticeSettings() {
           notify.error('組織情報を取得できませんでした。ページを再読み込みしてください')
           return
         }
-        const { error } = await supabase
-          .from('booking_notices')
-          .update({
+        const { error } = await bookingNoticeApi.updateById(editingNotice.id, {
             organization_id: editingNotice.organization_id ?? organizationId,
             content: editForm.content.trim(),
             applicable_types: editForm.applicable_types,
@@ -177,7 +176,6 @@ export function BookingNoticeSettings() {
             is_active: editForm.is_active,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingNotice.id)
 
         if (error) throw error
         notify.success('注意事項を更新しました')
@@ -192,9 +190,7 @@ export function BookingNoticeSettings() {
           ? Math.max(...notices.map(n => n.sort_order))
           : 0
 
-        const { error } = await supabase
-          .from('booking_notices')
-          .insert({
+        const { error } = await bookingNoticeApi.insert({
             content: editForm.content.trim(),
             applicable_types: editForm.applicable_types,
             store_ids: editForm.store_ids,
@@ -227,10 +223,7 @@ export function BookingNoticeSettings() {
   const runDelete = async () => {
     if (!deleteTarget) return
     try {
-      const { error } = await supabase
-        .from('booking_notices')
-        .delete()
-        .eq('id', deleteTarget.id)
+      const { error } = await bookingNoticeApi.deleteById(deleteTarget.id)
 
       if (error) throw error
       notify.success('注意事項を削除しました')
@@ -244,13 +237,10 @@ export function BookingNoticeSettings() {
   // 有効/無効の切り替え
   const handleToggleActive = async (notice: BookingNotice) => {
     try {
-      const { error } = await supabase
-        .from('booking_notices')
-        .update({ 
+      const { error } = await bookingNoticeApi.updateById(notice.id, { 
           is_active: !notice.is_active,
           updated_at: new Date().toISOString()
         })
-        .eq('id', notice.id)
 
       if (error) throw error
       
@@ -285,14 +275,8 @@ export function BookingNoticeSettings() {
     // sort_orderを更新
     try {
       await Promise.all([
-        supabase
-          .from('booking_notices')
-          .update({ sort_order: index })
-          .eq('id', newNotices[index].id),
-        supabase
-          .from('booking_notices')
-          .update({ sort_order: index - 1 })
-          .eq('id', newNotices[index - 1].id)
+        bookingNoticeApi.updateById(newNotices[index].id, { sort_order: index }),
+        bookingNoticeApi.updateById(newNotices[index - 1].id, { sort_order: index - 1 })
       ])
       
       setNotices(newNotices.map((n, i) => ({ ...n, sort_order: i })))
@@ -314,14 +298,8 @@ export function BookingNoticeSettings() {
     // sort_orderを更新
     try {
       await Promise.all([
-        supabase
-          .from('booking_notices')
-          .update({ sort_order: index })
-          .eq('id', newNotices[index].id),
-        supabase
-          .from('booking_notices')
-          .update({ sort_order: index + 1 })
-          .eq('id', newNotices[index + 1].id)
+        bookingNoticeApi.updateById(newNotices[index].id, { sort_order: index }),
+        bookingNoticeApi.updateById(newNotices[index + 1].id, { sort_order: index + 1 })
       ])
       
       setNotices(newNotices.map((n, i) => ({ ...n, sort_order: i })))

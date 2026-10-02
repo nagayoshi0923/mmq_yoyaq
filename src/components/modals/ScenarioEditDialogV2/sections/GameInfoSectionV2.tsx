@@ -13,7 +13,7 @@ import { statusOptions } from '@/components/modals/ScenarioEditDialogV2/utils/co
 import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { showToast } from '@/utils/toast'
 import { parseIntSafe } from '@/utils/number'
-import { supabase } from '@/lib/supabase'
+import { orgMasterApi } from '@/lib/api/orgMasterApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useQueryClient } from '@tanstack/react-query'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -62,10 +62,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
       // ON CONFLICT で重複は無視
-      await supabase.from('organization_categories').upsert(
-        { organization_id: orgId, name, sort_order: 9999 },
-        { onConflict: 'organization_id,name' }
-      )
+      await orgMasterApi.ensureCategory(orgId, name)
       // キャッシュ更新
       queryClient.invalidateQueries({ queryKey: ['org-categories'] })
     } catch {

@@ -52,3 +52,14 @@ export const kitLocationWriteApi = {
       .eq('organization_id', organizationId).eq(scenarioKey, scenarioId).gt('kit_number', keepCount)
   },
 }
+
+export const dataManagementSettingsApi = {
+  /** 店舗のデータ出力設定を id で更新する */
+  async updateById(id: string, fields: Record<string, unknown>) {
+    return supabase.from('data_management_settings').update(fields).eq('id', id)
+  },
+  /** 店舗のデータ出力設定を新規作成して返す */
+  async create(row: Record<string, unknown>) {
+    return supabase.from('data_management_settings').insert(row).select().single()
+  },
+}

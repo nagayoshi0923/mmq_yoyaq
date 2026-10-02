@@ -22,7 +22,7 @@ import { SENSITIVE_TOPICS } from '@/constants/sensitiveTopics'
 import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
-import { supabase } from '@/lib/supabase'
+import { orgMasterApi } from '@/lib/api/orgMasterApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -71,10 +71,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     try {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
-      await supabase.from('organization_authors').upsert(
-        { organization_id: orgId, name, sort_order: 9999 },
-        { onConflict: 'organization_id,name' }
-      )
+      await orgMasterApi.ensureAuthor(orgId, name)
       queryClient.invalidateQueries({ queryKey: ['org-authors'] })
     } catch {
       // テーブル登録失敗は致命的ではないので無視

@@ -23,6 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { insertExternalReports } from '@/lib/api/externalReportsApi'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
@@ -195,9 +196,7 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
           notes: `${reportYear}年${reportMonth}月分 レンタル公演報告（${organizationName}管理シナリオ）`
         }))
 
-      const { error } = await supabase
-        .from('external_performance_reports')
-        .insert(reports)
+      const { error } = await insertExternalReports(reports)
 
       if (error) throw error
 

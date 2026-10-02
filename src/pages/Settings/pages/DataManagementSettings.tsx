@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Save, Database, Download, Loader2, Users, CalendarDays, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { dataManagementSettingsApi } from '@/lib/api/globalSettingsApi'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -105,15 +106,11 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     setSaving(true)
     try {
       if (formData.id) {
-        const { error } = await supabase.from('data_management_settings')
-          .update({ export_format: formData.export_format })
-          .eq('id', formData.id)
+        const { error } = await dataManagementSettingsApi.updateById(formData.id, { export_format: formData.export_format })
         if (error) throw error
       } else {
         const store = stores.find(s => s.id === formData.store_id)
-        const { data, error } = await supabase.from('data_management_settings')
-          .insert({ store_id: formData.store_id, organization_id: store?.organization_id, export_format: formData.export_format })
-          .select().single()
+        const { data, error } = await dataManagementSettingsApi.create({ store_id: formData.store_id, organization_id: store?.organization_id, export_format: formData.export_format })
         if (error) throw error
         if (data) setFormData(prev => ({ ...prev, id: data.id }))
       }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { tablePreferenceApi } from '@/lib/api/userPreferencesApi'
 import { logger } from '@/utils/logger'
 
 export interface TablePreferences {
@@ -70,18 +71,7 @@ export function useTablePreferences(
 
     clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      supabase
-        .from('user_table_preferences')
-        .upsert(
-          {
-            user_id: user.id,
-            table_key: tableKey,
-            column_order: newPrefs.columnOrder,
-            column_visibility: newPrefs.columnVisibility,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,table_key' }
-        )
+      tablePreferenceApi.save(user.id, tableKey, newPrefs.columnOrder, newPrefs.columnVisibility)
         .then(({ error }) => {
           if (error) logger.error('useTablePreferences: 保存エラー', error)
         })

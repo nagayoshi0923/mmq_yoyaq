@@ -413,15 +413,13 @@ export function CompleteProfile() {
         logger.warn('CompleteProfile: org_id が特定できません（URLにorgスラッグがありません）')
         organizationId = QUEENS_WALTZ_ORG_ID
       }
-      const { error: usersUpsertError } = await supabase
-        .from('users')
-        .upsert({
+      const { error: usersUpsertError } = await profileRegistrationApi.upsertUserRow({
           id: userId,
           email: userEmail,
           role: role,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }, { onConflict: 'id' })
+        })
       // NOTE: users.organization_id はここでは書き込まない。
       // customer は organization_id=NULL 運用で支障がなく（get_user_organization_id は staff フォールバックあり）、
       // H-1 の users 自己更新ポリシー（role/org 不変）が org 変更(NULL→非NULL)を 42501 で拒否してログノイズになるため。
