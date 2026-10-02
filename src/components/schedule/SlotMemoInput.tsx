@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
+import { slotMemoApi } from '@/lib/api/slotApi'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 
@@ -92,9 +93,7 @@ export async function migrateLocalStorageSlotMemos(organizationId: string): Prom
       memo: e.memo,
       updated_at: new Date().toISOString()
     }))
-    const { error } = await supabase
-      .from('schedule_slot_memos')
-      .upsert(rows, { onConflict: 'organization_id,date,store_id,time_slot', ignoreDuplicates: true })
+    const { error } = await slotMemoApi.importMany(rows)
     if (error) {
       logger.error('localStorage メモ移行エラー:', error)
       return // 失敗した場合は done フラグを立てない（次回再試行）
@@ -143,20 +142,9 @@ export async function saveEmptySlotMemo(
     if (!orgId) return
 
     if (memo.trim()) {
-      await supabase
-        .from('schedule_slot_memos')
-        .upsert(
-          { organization_id: orgId, date, store_id: storeId, time_slot: timeSlot, memo, updated_at: new Date().toISOString() },
-          { onConflict: 'organization_id,date,store_id,time_slot' }
-        )
+      await slotMemoApi.save({ organization_id: orgId, date, store_id: storeId, time_slot: timeSlot, memo })
     } else {
-      await supabase
-        .from('schedule_slot_memos')
-        .delete()
-        .eq('organization_id', orgId)
-        .eq('date', date)
-        .eq('store_id', storeId)
-        .eq('time_slot', timeSlot)
+      await slotMemoApi.deleteInOrganization(orgId, date, storeId, timeSlot)
     }
   } catch (err) {
     logger.error('スロットメモ保存エラー:', err)
@@ -165,12 +153,7 @@ export async function saveEmptySlotMemo(
 
 export async function clearEmptySlotMemo(date: string, storeId: string, timeSlot: string): Promise<void> {
   try {
-    await supabase
-      .from('schedule_slot_memos')
-      .delete()
-      .eq('date', date)
-      .eq('store_id', storeId)
-      .eq('time_slot', timeSlot)
+    await slotMemoApi.delete(date, storeId, timeSlot)
   } catch (err) {
     logger.error('スロットメモ削除エラー:', err)
   }
