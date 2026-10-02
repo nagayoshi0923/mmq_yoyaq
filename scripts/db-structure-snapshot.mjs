@@ -9,14 +9,15 @@
 //   node scripts/db-structure-snapshot.mjs staging --write # supabase/structure/staging.json へ保存
 //   node scripts/db-structure-snapshot.mjs prod --diff     # supabase/structure/prod.json と比較し、差があれば exit 1
 //   DB_URL=postgresql://... node scripts/db-structure-snapshot.mjs custom --diff-against supabase/structure/prod.json
+//   SUPABASE_ACCESS_TOKEN=... node scripts/db-structure-snapshot.mjs prod --via-api --diff   # CI 用（Management API 経由、直接接続不要）
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 
 const ENVIRONMENTS = {
-  staging: { keychainService: 'supabase-db-staging', host: 'db.lavutzztfqbdndjiwluc.supabase.co' },
-  prod: { keychainService: 'supabase-db-prod', host: 'db.cznpcewciwywcqcxktba.supabase.co' },
+  staging: { keychainService: 'supabase-db-staging', host: 'db.lavutzztfqbdndjiwluc.supabase.co', projectRef: 'lavutzztfqbdndjiwluc' },
+  prod: { keychainService: 'supabase-db-prod', host: 'db.cznpcewciwywcqcxktba.supabase.co', projectRef: 'cznpcewciwywcqcxktba' },
 }
 
 const [env, ...flags] = process.argv.slice(2)
@@ -101,18 +102,37 @@ SELECT jsonb_build_object(
 )::text;
 `
 
-const conn = connection()
-let raw
-try {
-  raw = execFileSync('psql', [...conn.args, '-At', '-v', 'ON_ERROR_STOP=1', '-c', SQL], {
-    encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: { ...process.env, ...conn.envExtra }, stdio: ['ignore', 'pipe', 'pipe'],
+async function viaApi() {
+  // GitHub Actions からは直接 DB 接続が通らない（IPv6）ため、Supabase Management API の query エンドポイントを使う。
+  const e = ENVIRONMENTS[env]
+  const token = process.env.SUPABASE_ACCESS_TOKEN
+  if (!e || !token) throw new Error('--via-api needs a known env and SUPABASE_ACCESS_TOKEN')
+  const res = await fetch(`https://api.supabase.com/v1/projects/${e.projectRef}/database/query`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: SQL.replace(/::text;\s*$/, '::text AS snapshot;') }),
   })
-} catch (err) {
-  // コマンド本文（接続情報を含む）は出さず、psql のエラーメッセージだけを出す
-  const msg = String(err.stderr || '').split('\n').filter((l) => /ERROR|FATAL|HINT|LINE/.test(l)).join('\n')
-  console.error(`db-structure-snapshot: psql failed for ${env}\n${msg}`)
-  process.exit(1)
+  if (!res.ok) throw new Error(`Management API ${res.status} for ${env}`)
+  const rows = await res.json()
+  const first = Array.isArray(rows) ? rows[0] : rows
+  const text = first?.snapshot ?? first?.jsonb_build_object ?? Object.values(first ?? {})[0]
+  return typeof text === 'string' ? text : JSON.stringify(text)
 }
+
+function viaPsql() {
+  const conn = connection()
+  try {
+    return execFileSync('psql', [...conn.args, '-At', '-v', 'ON_ERROR_STOP=1', '-c', SQL], {
+      encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, env: { ...process.env, ...conn.envExtra }, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (err) {
+    // コマンド本文（接続情報を含む）は出さず、psql のエラーメッセージだけを出す
+    const msg = String(err.stderr || '').split('\n').filter((l) => /ERROR|FATAL|HINT|LINE/.test(l)).join('\n')
+    console.error(`db-structure-snapshot: psql failed for ${env}\n${msg}`)
+    process.exit(1)
+  }
+}
+
+const raw = flags.includes('--via-api') ? await viaApi() : viaPsql()
 const snapshot = JSON.parse(raw.trim())
 const body = { tables: snapshot.tables, views: snapshot.views, functions: snapshot.functions, enums: snapshot.enums }
 const digest = createHash('sha256').update(JSON.stringify(body)).digest('hex')
