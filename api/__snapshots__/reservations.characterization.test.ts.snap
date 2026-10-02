@@ -1,0 +1,183 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー 42501 の変換 1`] = `
+[
+  403,
+  {
+    "code": "42501",
+    "error": "この予約を操作する権限がありません",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0006 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0006",
+    "detail": "fixture P0006",
+    "error": "参加人数が不正です",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0007 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0007",
+    "detail": "fixture P0007",
+    "error": "予約が見つかりません",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0008 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0008",
+    "detail": "fixture P0008",
+    "error": "選択した人数分の空席がありません",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0010 の変換 1`] = `
+[
+  403,
+  {
+    "code": "P0010",
+    "error": "この予約を操作する権限がありません",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0011 の変換 1`] = `
+[
+  403,
+  {
+    "code": "P0011",
+    "error": "この予約を操作する権限がありません",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー P0050 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0050",
+    "detail": "fixture P0050",
+    "error": "予約変更の受付期限を過ぎています。店舗へお問い合わせください",
+  },
+]
+`;
+
+exports[`PATCH update-participants-with-lock / recalculate-prices > 人数変更の RPC エラー XX000 の変換 1`] = `
+[
+  500,
+  {
+    "code": "XX000",
+    "detail": "fixture XX000",
+    "error": "人数変更に失敗しました",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー 42501 の変換 1`] = `
+[
+  403,
+  {
+    "code": "42501",
+    "error": "この予約を操作する権限がありません",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0001 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0001",
+    "detail": "fixture P0001",
+    "error": "参加人数が不正です",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0002 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0002",
+    "detail": "fixture P0002",
+    "error": "公演が見つかりません",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0003 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0003",
+    "detail": "fixture P0003",
+    "error": "この公演は満席です",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0004 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0004",
+    "detail": "fixture P0004",
+    "error": "選択した人数分の空席がありません",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0010 の変換 1`] = `
+[
+  403,
+  {
+    "code": "P0010",
+    "error": "この予約を操作する権限がありません",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0028 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0028",
+    "detail": "fixture P0028",
+    "error": "選択したクーポンは現在利用できません。有効期限や利用状況を確認して選び直してください。",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P0046 の変換 1`] = `
+[
+  400,
+  {
+    "code": "P0046",
+    "detail": "fixture P0046",
+    "error": "この店舗は現在、公演の予約受付を停止しています",
+  },
+]
+`;
+
+exports[`POST create: 予約の作成（RPC create_reservation_with_lock_v2） > RPC エラー P9999 の変換 1`] = `
+[
+  500,
+  {
+    "code": "P9999",
+    "detail": "fixture P9999",
+    "error": "予約作成に失敗しました",
+  },
+]
+`;
