@@ -204,6 +204,14 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 | 店舗 | stores 5 | 5 |
 | その他 | data_management_settings 2、external_performance_reports 2、users 1、organization_categories 1、organization_authors 1、user_table_preferences 1 | 8 |
 
+**Phase 3 の API 分割を始めるときの前提と設計（2026-10-02 調査、#774）**
+
+- **先に特性テストを書く**: `api/sales.ts` のうち、既存のテストが触っているのは給与まわり（salary-history 系）と売上規則の関数 `getReservationRevenue` だけ。`by-period` / `by-store` / `by-scenario` / `author-performance-count` / `stores` / `scenario-performance` / `open-event-analysis` / `schedule-export` / `annual-analysis` の 9 本はテストが無く、分割で数字が変わっても検知できない。固定のモックデータを渡して出力を固定するテストを、分割より先に書く。
+- **分割後に本番データで前後比較**: 直近 3 か月の同じリクエストの出力を分割の前後で保存し、完全一致を確認する（売上 CSV・分析は給与や報告に使う数字のため）。
+- **`api/sales.ts`（1,104 行）の設計**: 入口は残し、`getReservationRevenue` の再エクスポートとハンドラの分岐だけにする（外部が使うのは `getReservationRevenue`（`api/sales-price.test.ts`）と default export（`api/salary-report.test.ts`、`api/compensation-reports.test.ts`）のみ）。共通の定数・ヘルパ（SELECT 文字列、CORS、`getStartEnd`、`getStoreIds`、`SALES_RESERVATION_STATUSES`）は `api/_lib/sales/common.ts`、売上規則は `api/_lib/sales/revenue.ts`、各ハンドラは `api/_lib/sales/<名前>.ts` に 1 ファイルずつ。
+- **行数の内訳（2026-10-02 時点）**: schedule-export 約 260 行（694〜951）、by-period 約 210 行（232〜438）、annual-analysis 約 135 行（970〜）、scenario-performance 約 115 行（522〜637）が大きい。ここから切り出すと効果が大きい。
+- **作業量の見立て**: 特性テストで半日、分割で半日。5 本（coupons / schedule / reservations / scenarios / sales）を順に。sales から始めるのが、今日の作業（金額・GM 照合）で構造に慣れているため最も安全。
+
 **やり方の決まり（2026-10-02 の 8 本で固めたもの）**
 
 - 画面から `supabase.from()` を直接呼ばない。`src/lib/api/` の関数を通す。新しい直接呼び出しは ESLint が止める。
