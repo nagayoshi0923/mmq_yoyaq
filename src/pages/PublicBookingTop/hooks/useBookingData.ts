@@ -236,7 +236,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   }
   
   // シナリオをフィルタリング
-  const scenariosData = (scenariosResult.data || []).filter((s: any) => {
+  const scenariosData = (scenariosResult.data || []).filter((s) => {
     if (!shouldFilterByOrgStatus) {
       return s.status === 'available'
     }
@@ -251,7 +251,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   // 店舗の公演募集停止期間（QW-20260909-011）。停止中の日の公演は予約一覧に出さない。
   // 予約作成の関数でも拒否しているので、ここは表示を合わせるだけ（取得に失敗しても予約は守られる）。
   let performancePauses: StoreRecruitmentPausePeriod[] = []
-  const eventStoreIds = [...new Set(allEventsData.map((event: any) => event.store_id).filter(Boolean))] as string[]
+  const eventStoreIds = [...new Set(allEventsData.map((event) => event.store_id).filter(Boolean))] as string[]
   if (eventStoreIds.length > 0) {
     const { data: pauseRows, error: pauseError } = await publicBookingReadApi.listPerformancePauses(eventStoreIds)
     if (pauseError) logger.error('店舗の募集停止期間の取得に失敗:', pauseError)
@@ -265,7 +265,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const nowHour = nowJST.getHours()
   const nowMinute = nowJST.getMinutes()
 
-  const publicEvents = allEventsData.filter((event: any) => {
+  const publicEvents = allEventsData.filter((event) => {
     // 貸切公演は予約サイトには表示しない
     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
     if (isPrivateBooking) return false
@@ -289,7 +289,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   // GMテスト・MTG・貸切公演等（非公開でも貸切申込を受け付けないカテゴリ）
-  const blockedSlotsData = allEventsData.filter((event: any) => {
+  const blockedSlotsData = allEventsData.filter((event) => {
     const isBlocked = event.category === 'gmtest'
       || event.category === 'testplay'
       || event.category === 'mtg'
@@ -303,7 +303,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   // 最適化: 店舗データをMapに変換
   const storeMap = new Map<string, any>()
-  storesData.forEach((store: any) => {
+  storesData.forEach((store) => {
     storeMap.set(store.id, store)
     if (store.short_name) storeMap.set(store.short_name, store)
     if (store.name) storeMap.set(store.name, store)
@@ -311,19 +311,19 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   // 最適化: シナリオデータをMapに変換
   const scenarioDataMap = new Map<string, any>()
-  scenariosData.forEach((scenario: any) => {
+  scenariosData.forEach((scenario) => {
     scenarioDataMap.set(scenario.id, scenario)
     if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
   })
   
   // storesをMapに変換（ID→店舗データ）
   const storesMap = new Map<string, any>()
-  storesData.forEach((store: any) => {
+  storesData.forEach((store) => {
     storesMap.set(store.id, store)
   })
   
   // イベントを加工
-  const enrichedEvents = publicEvents.map((event: any) => {
+  const enrichedEvents = publicEvents.map((event) => {
     const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) ||
                             scenarioDataMap.get(event.scenario)
     
@@ -348,7 +348,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const eventsByScenarioId = new Map<string, any[]>()
   const eventsByScenarioTitle = new Map<string, any[]>()
   
-  enrichedEvents.forEach((event: any) => {
+  enrichedEvents.forEach((event) => {
     const scenarioId = event.scenario_master_id
     if (scenarioId) {
       if (!eventsByScenarioId.has(scenarioId)) {
@@ -368,14 +368,14 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   // シナリオカードを構築
   // 自組織のデータを優先するため、他組織→自組織の順にソート（後勝ち）
-  const sortedScenariosData = [...scenariosData].sort((a: any, b: any) => {
+  const sortedScenariosData = [...scenariosData].sort((a, b) => {
     const aIsCurrent = a.organization_id === orgId ? 1 : 0
     const bIsCurrent = b.organization_id === orgId ? 1 : 0
     return aIsCurrent - bIsCurrent
   })
   const scenarioMap = new Map<string, ScenarioCard>()
   
-  sortedScenariosData.forEach((scenario: any) => {
+  sortedScenariosData.forEach((scenario) => {
     const scenarioKey = `${scenario.organization_id}_${scenario.scenario_master_id}`
     const currentOrgStatus = orgStatusMap.get(scenarioKey) || 'available'
     
@@ -416,20 +416,20 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     
     // 公演がある場合
     if (uniqueEvents.length > 0) {
-      const futureEvents = uniqueEvents.filter((event: any) => {
+      const futureEvents = uniqueEvents.filter((event) => {
         const isFuture = event.date >= todayJST
         const isNotPrivate = !(event.is_private_booking === true || event.category === 'private')
         const isNotGmTest = event.category !== 'gmtest'
         return isFuture && isNotPrivate && isNotGmTest
       })
       
-      const sortedEvents = [...futureEvents].sort((a: any, b: any) => {
+      const sortedEvents = [...futureEvents].sort((a, b) => {
         const dateCompare = a.date.localeCompare(b.date)
         if (dateCompare !== 0) return dateCompare
         return (a.start_time || '').localeCompare(b.start_time || '')
       })
       
-      const nextEvents = sortedEvents.slice(0, 10).map((event: any) => {
+      const nextEvents = sortedEvents.slice(0, 10).map((event) => {
         const store = storeMap.get(event.venue) || 
                      storeMap.get(event.store_id) ||
                      null

@@ -702,7 +702,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         // participation_costs：DBに存在する場合は使用、なければ生成
         const normalFee = scenario.participation_fee || 3000
         const existingCosts = scenario.participation_costs || []
-        const hasGmTest = existingCosts.some((c: any) => c.time_slot === 'gmtest')
+        const hasGmTest = existingCosts.some((c) => c.time_slot === 'gmtest')
         const participationCosts = existingCosts.length > 0
           ? hasGmTest 
             ? existingCosts 

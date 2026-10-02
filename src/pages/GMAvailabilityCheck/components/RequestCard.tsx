@@ -77,7 +77,7 @@ export function RequestCard({
         {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 mt-1">
             <span className="text-xs text-muted-foreground shrink-0">希望店舗:</span>
-            {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
+            {request.candidate_datetimes.requestedStores.map((store, index: number) => (
               <span key={index} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200 whitespace-nowrap">
                 {store.storeName}
               </span>

@@ -550,7 +550,7 @@ export function calculateSalesData(
   
   stores.forEach(store => {
     if (store.fixed_costs && Array.isArray(store.fixed_costs)) {
-      store.fixed_costs.forEach((cost: any) => {
+      store.fixed_costs.forEach((cost) => {
         // アクティブな固定費のみ計算
         const status = getFixedCostStatus(cost, startDate, endDate)
         if (status === 'active' || status === 'partial') {
@@ -608,7 +608,7 @@ export function calculateSalesData(
 
     // 制作費の計算
     if (scenario.production_costs && Array.isArray(scenario.production_costs)) {
-      scenario.production_costs.forEach((cost: any) => {
+      scenario.production_costs.forEach((cost) => {
         // アクティブな制作費のみ計算
         if (cost.status === 'active' && cost.startDate) {
           const costDate = new Date(cost.startDate)
@@ -638,7 +638,7 @@ export function calculateSalesData(
 
     // 必要道具の計算
     if (scenario.required_props && Array.isArray(scenario.required_props)) {
-      scenario.required_props.forEach((prop: any) => {
+      scenario.required_props.forEach((prop) => {
         // アクティブな道具費用のみ計算
         if (prop.status === 'active' && prop.startDate) {
           const propDate = new Date(prop.startDate)

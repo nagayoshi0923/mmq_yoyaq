@@ -162,7 +162,7 @@ export function SurveyResponsesTab({
 
         if (noticeMessages) {
           const notices = noticeMessages
-            .map((msg: any) => {
+            .map((msg) => {
               try {
                 const parsed = JSON.parse(msg.message)
                 if (parsed?.action === 'individual_notice') {

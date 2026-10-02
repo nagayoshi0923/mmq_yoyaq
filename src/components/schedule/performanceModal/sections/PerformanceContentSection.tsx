@@ -162,7 +162,7 @@ export function PerformanceContentSection({
               <div className="w-24">
                 <Input id="max_participants" type="number" min="1" max="20"
                   value={formData.max_participants}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
                   disabled={formData.is_private_request} className="h-7 text-xs" />
               </div>
               {formData.scenario && <span className="text-[11px] text-muted-foreground">※ シナリオから自動設定</span>}
@@ -175,7 +175,7 @@ export function PerformanceContentSection({
                 <div className="w-32">
                   <Input id="venue_rental_fee" type="number" min="0" step="1000" placeholder="12000"
                     value={formData.venue_rental_fee ?? ''}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined }))}
                     className="h-7 text-xs" />
                 </div>
                 <span className="text-[11px] text-muted-foreground">※ 未入力時は12,000円</span>

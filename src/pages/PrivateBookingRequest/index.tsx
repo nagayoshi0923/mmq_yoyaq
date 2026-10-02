@@ -137,7 +137,7 @@ export function PrivateBookingRequest({
 
   // 表示する全有効店舗（オフィス除外）
   const displayStores = useMemo(() => {
-    return stores.filter((s: any) => 
+    return stores.filter((s) => 
       s.ownership_type !== 'office' && s.status === 'active'
     )
   }, [stores])
@@ -153,7 +153,7 @@ export function PrivateBookingRequest({
   // 希望店舗（前ページで選択済み、変更不可）
   const selectedStoreIds = useMemo(() => {
     const filtered = initialStoreIds.filter(id => {
-      const isValid = displayStores.some((s: any) => s.id === id)
+      const isValid = displayStores.some((s) => s.id === id)
       const isAvailable = scenarioAvailableSet === null || scenarioAvailableSet.has(id)
       return isValid && isAvailable
     })
@@ -714,8 +714,8 @@ export function PrivateBookingRequest({
                 <CardContent className="p-4 space-y-3">
                   <div className="space-y-2">
                     {displayStores
-                      .filter((store: any) => selectedStoreIds.includes(store.id))
-                      .map((store: any) => (
+                      .filter((store) => selectedStoreIds.includes(store.id))
+                      .map((store) => (
                         <div
                           key={store.id}
                           className="flex items-start gap-3 p-3 rounded-lg border border-purple-300 bg-purple-50"

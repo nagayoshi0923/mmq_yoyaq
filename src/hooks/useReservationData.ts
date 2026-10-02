@@ -83,7 +83,7 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
       setTotalCount(count ?? 0)
       
       // データを整形
-      const formattedData: ReservationWithDetails[] = (data || []).map((reservation: any) => {
+      const formattedData: ReservationWithDetails[] = (data || []).map((reservation) => {
         let eventDate = ''
         let eventTime = ''
         let endTime = ''

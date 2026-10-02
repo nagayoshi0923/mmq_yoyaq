@@ -84,7 +84,7 @@ export function StaffNotesSection({
                 return options
               })()}
               selectedValues={formData.gms}
-              onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
+              onSelectionChange={(values) => setFormData((prev) => ({ ...prev, gms: values }))}
               placeholder="GM"
               closeOnSelect={false}
               emptyText="GMが見つかりません"
@@ -241,7 +241,7 @@ export function StaffNotesSection({
               <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">予約者名</Label>
               <div className="flex-1">
                 <Input id="reservation_name" value={formData.reservation_name || ''}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, reservation_name: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, reservation_name: e.target.value }))}
                   placeholder="予約者名（MMQ予約は自動設定）" className="h-7 text-xs" />
               </div>
             </div>
@@ -252,7 +252,7 @@ export function StaffNotesSection({
             <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">備考</Label>
             <div className="flex-1">
               <Textarea id="notes" value={formData.notes}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="備考" rows={2} className="text-xs min-h-[40px] py-1" />
             </div>
           </div>

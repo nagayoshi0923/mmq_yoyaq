@@ -83,7 +83,7 @@ async function fetchRawBookingRequests(
   const privateGroupIds = [
     ...new Set(
       reservationsList
-        .map((r: any) => r.private_group_id)
+        .map((r) => r.private_group_id)
         .filter((id): id is string => Boolean(id))
     ),
   ]
@@ -107,13 +107,13 @@ async function fetchRawBookingRequests(
       const masterIds = [
         ...new Set(
           reservationsList
-            .map((r: any) => r.scenario_master_id || r.private_groups?.scenario_master_id)
+            .map((r) => r.scenario_master_id || r.private_groups?.scenario_master_id)
             .filter(Boolean)
         ),
       ] as string[]
       return fetchBookingRelatedRows<any>(masterIds, (batch, from, to) => privateBookingMgmtReadApi.listScenarioViewsForRequests(orgId, batch, from, to))
     })(),
-    getGmResponses(reservationsList.map((r: any) => r.id)).then(data => ({ data, error: null })),
+    getGmResponses(reservationsList.map((r) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
     getGmReadiness(reservationsList.filter(r => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)).map(r => r.id)),
   ])
@@ -160,10 +160,10 @@ async function fetchRawBookingRequests(
   }
 
   // 組み立て（endTime計算は呼び出し側で行う）
-  return reservationsList.map((req: any) => {
+  return reservationsList.map((req) => {
     const gmResponses = gmResponsesByReservationId.get(req.id) || []
     const transformedGMResponses = sortGmResponsesByReplyTime(
-      gmResponses.filter((gm: any) => shouldIncludeGmResponseRow(gm)).map((gm: any) => ({
+      gmResponses.filter((gm) => shouldIncludeGmResponseRow(gm)).map((gm) => ({
         ...gm,
         gm_name: gm.gm_name || gm.staff?.name || '',
       }))
@@ -178,7 +178,7 @@ async function fetchRawBookingRequests(
 
     if (req.status === 'confirmed' && originalCandidates.length > currentCandidates.length) {
       const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')
-      const restoredCandidates = originalCandidates.map((cd: any, idx: number) => {
+      const restoredCandidates = originalCandidates.map((cd, idx: number) => {
         const isConfirmed = confirmedCandidate &&
           confirmedCandidate.date === cd.date &&
           confirmedCandidate.timeSlot === cd.time_slot
@@ -262,7 +262,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
   // endTime を isCustomHoliday で補正（サーバーデータと分離してキャッシュを壊さない）
   const requests = useMemo<PrivateBookingRequest[]>(() => {
     return rawRequests.map(req => {
-      const candidates = (req.candidate_datetimes?.candidates || []).map((c: any) => ({
+      const candidates = (req.candidate_datetimes?.candidates || []).map((c) => ({
         ...c,
         endTime: getPrivateBookingDisplayEndTime(c.startTime, c.date, req.scenario_timing ?? { duration: 180 }, isCustomHoliday),
       }))

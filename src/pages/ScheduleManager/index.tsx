@@ -736,7 +736,7 @@ export function ScheduleManager() {
     // 表示中の月のイベントからシナリオごとに公演数・中止数を集計
     const scheduledCount = new Map<string, number>()
     const cancelledCount = new Map<string, number>()
-    events.forEach((ev: any) => {
+    events.forEach((ev) => {
       // フォーマット後のイベントは scenarios.id に scenario_master_id が入っている
       const sid = ev.scenarios?.id
       if (!sid) return

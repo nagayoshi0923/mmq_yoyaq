@@ -461,8 +461,8 @@ export function PerformanceModal({
           // 営業時間設定が配列形式（曜日別）か単純なオブジェクト形式かで処理を分ける
           if (Array.isArray(openingHours) && openingHours.length > 0) {
             // 曜日別設定の場合は、共通の開店・閉店時刻を取得（最も広い範囲）
-            const allOpenTimes = openingHours.map((h: any) => h.open_time).filter(Boolean)
-            const allCloseTimes = openingHours.map((h: any) => h.close_time).filter(Boolean)
+            const allOpenTimes = openingHours.map((h) => h.open_time).filter(Boolean)
+            const allCloseTimes = openingHours.map((h) => h.close_time).filter(Boolean)
             if (allOpenTimes.length > 0 && allCloseTimes.length > 0) {
               const openTime = allOpenTimes.sort()[0] // 最も早い開店時刻
               const closeTime = allCloseTimes.sort().reverse()[0] // 最も遅い閉店時刻

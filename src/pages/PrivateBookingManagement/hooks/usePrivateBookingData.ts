@@ -185,7 +185,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
 
           // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
           const transformedGMResponses = sortGmResponsesByReplyTime(
-            (gmResponses || []).filter((gm: any) => shouldIncludeGmResponseRow(gm)).map((gm: any) => ({
+            (gmResponses || []).filter((gm) => shouldIncludeGmResponseRow(gm)).map((gm) => ({
               ...gm,
               gm_name: gm.gm_name || gm.staff?.name || '',
             }))

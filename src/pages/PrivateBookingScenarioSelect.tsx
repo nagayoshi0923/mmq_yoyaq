@@ -95,7 +95,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
   // 表示する全有効店舗（オフィス除外）
   const displayStores = useMemo(() => {
-    return allStores.filter((s: any) =>
+    return allStores.filter((s) =>
       s.ownership_type !== 'office' && s.status === 'active'
     )
   }, [allStores])
@@ -103,7 +103,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   // 地域ごとに店舗をグループ化
   const storesByRegion = useMemo(() => {
     const groups = new Map<string, any[]>()
-    displayStores.forEach((store: any) => {
+    displayStores.forEach((store) => {
       const region = store.region || extractRegionFromAddress(store.address) || 'その他'
       if (!groups.has(region)) {
         groups.set(region, [])
@@ -124,8 +124,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   }, [selectedScenarioId, scenarios])
 
   const allAvailableStoreIds = useMemo(() => {
-    if (!scenarioAvailableStoreIds) return displayStores.map((s: any) => s.id)
-    return displayStores.filter((s: any) => scenarioAvailableStoreIds.has(s.id)).map((s: any) => s.id)
+    if (!scenarioAvailableStoreIds) return displayStores.map((s) => s.id)
+    return displayStores.filter((s) => scenarioAvailableStoreIds.has(s.id)).map((s) => s.id)
   }, [displayStores, scenarioAvailableStoreIds])
 
   const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
@@ -171,7 +171,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
         if (preselectedStoreIds.length > 0) {
           const validIds = preselectedStoreIds.filter(id =>
-            data.some((s: any) => s.id === id && s.ownership_type !== 'office' && s.status === 'active')
+            data.some((s) => s.id === id && s.ownership_type !== 'office' && s.status === 'active')
           )
           if (validIds.length > 0) {
             setSelectedStoreIds(validIds)
@@ -261,8 +261,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                 if (hasLimit) {
                   // 制限ありシナリオ：URLフィルター店舗のうち対応店舗のみ選択
                   const validStoreIds = allStores
-                    .filter((s: any) => s.ownership_type !== 'office' && s.status === 'active')
-                    .map((s: any) => s.id)
+                    .filter((s) => s.ownership_type !== 'office' && s.status === 'active')
+                    .map((s) => s.id)
                   const restored = preselectedStoreIds.filter(id => validStoreIds.includes(id))
                   setSelectedStoreIds(
                     restored.filter(storeId => newScenario!.available_stores!.includes(storeId))
@@ -270,8 +270,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                 } else {
                   // 制限なしシナリオ：URLフィルター店舗を全て復元
                   const validStoreIds = allStores
-                    .filter((s: any) => s.ownership_type !== 'office' && s.status === 'active')
-                    .map((s: any) => s.id)
+                    .filter((s) => s.ownership_type !== 'office' && s.status === 'active')
+                    .map((s) => s.id)
                   const restored = preselectedStoreIds.filter(id => validStoreIds.includes(id))
                   setSelectedStoreIds(restored.length > 0 ? restored : [])
                 }
@@ -469,10 +469,10 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                     </p>
                     <div className="space-y-4">
                       {storesByRegion.map(([region, regionStores]) => {
-                        const availableInRegion = regionStores.filter((s: any) => 
+                        const availableInRegion = regionStores.filter((s) => 
                           scenarioAvailableStoreIds === null || scenarioAvailableStoreIds.has(s.id)
                         )
-                        const availableRegionIds = availableInRegion.map((s: any) => s.id)
+                        const availableRegionIds = availableInRegion.map((s) => s.id)
                         const allRegionSelected = availableRegionIds.length > 0 && availableRegionIds.every(id => selectedStoreIds.includes(id))
 
                         return (
@@ -496,7 +496,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                               )}
                             </div>
                             <div className="space-y-2">
-                              {regionStores.map((store: any) => {
+                              {regionStores.map((store) => {
                                 const isSelected = selectedStoreIds.includes(store.id)
                                 const isUnavailable = scenarioAvailableStoreIds !== null && !scenarioAvailableStoreIds.has(store.id)
                                 

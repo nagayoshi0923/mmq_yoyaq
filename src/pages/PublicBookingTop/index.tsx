@@ -234,18 +234,18 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   
   // 組織情報（店舗数・所在地）
   const orgInfo = useMemo(() => {
-    const regularStores = stores.filter((s: any) => !s.is_temporary && s.status !== 'inactive')
+    const regularStores = stores.filter((s) => !s.is_temporary && s.status !== 'inactive')
     const storeCount = regularStores.length
     // 重複しない地域名を取得
     const regions = Array.from(new Set(
       regularStores
-        .map((s: any) => s.region)
+        .map((s) => s.region)
         .filter((r: string | null): r is string => !!r)
     ))
     // 住所から地域を抽出（regionがない場合のフォールバック）
     const addresses = regions.length > 0 ? regions : Array.from(new Set(
       regularStores
-        .map((s: any) => {
+        .map((s) => {
           if (!s.address) return null
           // 「東京都新宿区...」→「東京都新宿区」のように市区町村まで抽出
           const match = s.address.match(/^(.+?[都道府県])(.+?[市区町村郡])/)

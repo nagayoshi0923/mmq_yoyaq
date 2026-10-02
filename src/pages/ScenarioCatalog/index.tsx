@@ -109,12 +109,12 @@ async function fetchScenarioCatalogBundle(): Promise<{
   if (scenariosResult.error) throw scenariosResult.error
 
   const availableScenarios = (scenariosResult.data || [])
-    .filter((s: any) => {
+    .filter((s) => {
       if (!shouldFilter) return true
       if (!s.scenario_master_id) return true
       return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
     })
-    .map((s: any) => ({
+    .map((s) => ({
       ...s,
       available_stores: (s.available_stores || [])
         .map((storeId: string) => storeMap.get(storeId))
@@ -250,7 +250,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const storesByRegion = useMemo(() => {
     const groups = new Map<string, StoreData[]>()
     // display_orderでソート
-    const sortedStores = [...regularStores].sort((a: any, b: any) => 
+    const sortedStores = [...regularStores].sort((a, b) => 
       (a.display_order || 999) - (b.display_order || 999)
     )
     sortedStores.forEach(store => {

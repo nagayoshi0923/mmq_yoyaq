@@ -90,19 +90,19 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
       if (viewError) throw viewError
 
       // organization_scenarios から external_license_amount を取得
-      const orgScenarioIds = (viewData || []).map((s: any) => s.org_scenario_id).filter(Boolean)
+      const orgScenarioIds = (viewData || []).map((s) => s.org_scenario_id).filter(Boolean)
       const { data: orgScData } = orgScenarioIds.length > 0
         ? await reportFormReadApi.listExternalLicenseAmounts(orgScenarioIds)
         : { data: [] }
 
       const extPriceMap = new Map<string, number>()
-      ;(orgScData || []).forEach((item: any) => {
+      ;(orgScData || []).forEach((item) => {
         if (item.external_license_amount) {
           extPriceMap.set(item.id, item.external_license_amount)
         }
       })
 
-      const merged: ManagedScenario[] = (viewData || []).map((s: any) => ({
+      const merged: ManagedScenario[] = (viewData || []).map((s) => ({
         id: s.id,
         scenario_master_id: s.scenario_master_id,
         title: s.title,
