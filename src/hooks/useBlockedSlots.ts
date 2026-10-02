@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { blockedSlotApi } from '@/lib/api/slotApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
@@ -103,15 +104,7 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
 
   const writeLog = useCallback(
     async (orgId: string, date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening', action: 'blocked' | 'unblocked') => {
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('schedule_blocked_slot_logs').insert({
-        organization_id: orgId,
-        date,
-        store_id: storeId,
-        time_slot: timeSlot,
-        action,
-        performed_by: user?.id ?? null,
-      })
+      await blockedSlotApi.writeLog(orgId, date, storeId, timeSlot, action)
     },
     []
   )
@@ -125,9 +118,7 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
       try {
         const orgId = await getCurrentOrganizationId()
         if (!orgId) { setBlockedSlots(prev => { const s = new Set(prev); s.delete(key); return s }); return }
-        const { error } = await supabase
-          .from('schedule_blocked_slots')
-          .insert({ organization_id: orgId, date, store_id: storeId, time_slot: timeSlot })
+        const { error } = await blockedSlotApi.block(orgId, date, storeId, timeSlot)
 
         if (error) {
           logger.error('募集中止の保存エラー:', error)
@@ -153,13 +144,7 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
       try {
         const orgId = await getCurrentOrganizationId()
         if (!orgId) { setBlockedSlots(prev => new Set(prev).add(key)); return }
-        const { error } = await supabase
-          .from('schedule_blocked_slots')
-          .delete()
-          .eq('organization_id', orgId)
-          .eq('date', date)
-          .eq('store_id', storeId)
-          .eq('time_slot', timeSlot)
+        const { error } = await blockedSlotApi.unblock(orgId, date, storeId, timeSlot)
 
         if (error) {
           logger.error('募集再開の保存エラー:', error)
