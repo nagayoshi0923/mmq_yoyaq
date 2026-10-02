@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-02T07:48:20.104Z",
-  "table_count": 137,
-  "function_count": 331,
-  "digest": "6debbe548883feaf9d03170d5e2d6f2bfdc7bd533384460730de0e133e9d603e"
+  "captured_at": "2026-10-02T09:25:25.156Z",
+  "table_count": 138,
+  "function_count": 332,
+  "digest": "01fadb4b1182d4e6ecdfff20e7d02f607e8a9acedef8eccf5dc08b96e5016d5a"
  },
  "tables": {
   "staff": {
@@ -11421,6 +11421,104 @@
      "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'joined'::text, 'declined'::text])))",
      "name": "private_group_members_status_check",
      "type": "c"
+    }
+   ]
+  },
+  "ai_manager_work_stores": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "schema_version",
+     "type": "integer",
+     "default": "1",
+     "not_null": true
+    },
+    {
+     "name": "mode",
+     "type": "text",
+     "default": "'PRACTICE'::text",
+     "not_null": true
+    },
+    {
+     "name": "revision",
+     "type": "integer",
+     "default": "0",
+     "not_null": true
+    },
+    {
+     "name": "items",
+     "type": "jsonb",
+     "default": "'[]'::jsonb",
+     "not_null": true
+    },
+    {
+     "name": "updated_by",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE UNIQUE INDEX ai_manager_work_stores_pkey ON public.ai_manager_work_stores USING btree (organization_id)",
+     "name": "ai_manager_work_stores_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((jsonb_typeof(items) = 'array'::text))",
+     "name": "ai_manager_work_stores_items_check",
+     "type": "c"
+    },
+    {
+     "def": "CHECK ((mode = 'PRACTICE'::text))",
+     "name": "ai_manager_work_stores_mode_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT",
+     "name": "ai_manager_work_stores_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (organization_id)",
+     "name": "ai_manager_work_stores_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK ((revision >= 0))",
+     "name": "ai_manager_work_stores_revision_check",
+     "type": "c"
+    },
+    {
+     "def": "CHECK ((schema_version = 1))",
+     "name": "ai_manager_work_stores_schema_version_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+     "name": "ai_manager_work_stores_updated_by_fkey",
+     "type": "f"
     }
    ]
   },
@@ -25018,6 +25116,16 @@
    ],
    "returns": "jsonb",
    "body_md5": "5948bf3437c75c41f26ba8b66ad1707d",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "replace_ai_manager_work_store(p_organization_id uuid, p_expected_revision integer, p_store jsonb, p_updated_by uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(result_status text, current_revision integer)",
+   "body_md5": "db1a84582ef985d9fcd4ed607a829723",
    "language": "plpgsql",
    "security_definer": true
   },
