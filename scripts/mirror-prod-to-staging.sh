@@ -201,14 +201,29 @@ echo "[4/5] ステージングDBにリストア中..."
   echo "COMMIT;"
 } > "$RESTORE_FILE"
 
-if ! PGPASSWORD="$STAGING_PASSWORD" psql \
-  -h "$STAGING_HOST" \
-  -p "$DB_PORT" \
-  -U "$STAGING_USER" \
-  -d "$DB_NAME" \
-  -v ON_ERROR_STOP=1 \
-  -f "$RESTORE_FILE" \
-  > /dev/null 2>"$ERROR_LOG"; then
+# リストアは1トランザクション。他セッション（E2E や定期ジョブ）と TRUNCATE / ALTER の取り合いで
+# デッドロックになると全体が取り消されるので、その場合だけ少し待って最大3回やり直す。
+RESTORE_OK=0
+for attempt in 1 2 3; do
+  if PGPASSWORD="$STAGING_PASSWORD" psql \
+    -h "$STAGING_HOST" \
+    -p "$DB_PORT" \
+    -U "$STAGING_USER" \
+    -d "$DB_NAME" \
+    -v ON_ERROR_STOP=1 \
+    -f "$RESTORE_FILE" \
+    > /dev/null 2>"$ERROR_LOG"; then
+    RESTORE_OK=1
+    break
+  fi
+  if [ "$attempt" -lt 3 ] && grep -q "deadlock detected" "$ERROR_LOG"; then
+    echo "  デッドロックのため取り消し。30秒待って再試行します（$attempt/3）"
+    sleep 30
+    continue
+  fi
+  break
+done
+if [ "$RESTORE_OK" != "1" ]; then
   echo "  エラーが発生しました:"
   tail -5 "$ERROR_LOG"
   rm -f "$DUMP_FILE" "$RESTORE_FILE" "$ERROR_LOG"
