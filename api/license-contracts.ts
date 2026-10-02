@@ -273,7 +273,7 @@ async function validateOwnedRefs(user: AuthUser, storeId: string, scenarioMaster
   return null
 }
 
-async function getExistingContract(id: string, organizationId: string) {
+async function getExistingContract(id: string, organizationId: string): Promise<{ status: number; error: string } | { data: { id: string; store_id: string; scenario_master_id: string } }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
     .from('store_scenario_license_contracts')
