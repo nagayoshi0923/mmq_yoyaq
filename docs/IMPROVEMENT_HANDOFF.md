@@ -1196,3 +1196,9 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - 局所回帰2件（進行中旧取得の後着/成功、一覧・詳細再取得失敗）と型確認成功。全unit/E2E/実予約の再実行無し。
 - 独立候補のみ。commit/push/deploy/共有DB変更無し。A試験fixture閉鎖/取消履歴保持を維持。
 - 追加承認によりpackage/lock・CI/E2EのNode指定だけ24.xへ整合。依存更新なし。専用branch CI/previewのexact SHA結果を別記録へ回収する。
+## MMQ / 本番後機能QA追加（2026-10-01、ローカル検証）
+
+- 基準本番26fdcf8b、担当作品と予約確定を実UI＋明示API/Authモックで検証。全ページ/全機能の実受入済みとはしない。
+- 既存のメール未確認でも送信済み表示、同tick二重送信、同時刻重複判定TZ不一致を局所修正。保存失敗の同一予約番号再試行と保存成功の維持を検証。
+- 台帳/残件: `docs/testing/MMQ_FUNCTIONAL_QA_20261001.md`、網羅表 `docs/testing/MMQ_PAGE_FUNCTION_MATRIX_20261001.csv`。
+- 今回はローカルのみ。追加配備は未承認。実Auth/実DB一続き予約導線は専用stagingfixtureと通知抑止を確認するまで保留。

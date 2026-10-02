@@ -1,20 +1,13 @@
+import type { ScheduleEventBase, ScheduleEventCategory } from '@/types/scheduleEventBase'
+
 // スケジュール関連の型定義
 
-export interface ScheduleEvent {
-  id: string
-  date: string
-  venue: string
-  scenario: string
+export interface ScheduleEvent extends ScheduleEventBase {
   scenario_master_id?: string  // schedule_events.scenario_master_id（scenario_masters.id）
   organization_scenario_id?: string  // 組織シナリオID（organization_scenarios テーブル）
-  store_id?: string  // 店舗ID（メール設定取得などに使用）
-  gms: string[]
-  start_time: string
-  end_time: string
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg'
+  category: ScheduleEventCategory
   reservation_info?: string
   notes?: string
-  is_cancelled: boolean
   is_tentative?: boolean // 仮状態（非公開）
   current_participants?: number // DBカラム名に統一（旧: participant_count）
   max_participants?: number
@@ -29,7 +22,6 @@ export interface ScheduleEvent {
   hasOnlyCancelledReservations?: boolean // 紐づく予約が1件以上あり、そのすべてがキャンセル済みの場合 true（貸切の取りこぼし検知用）
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   venue_rental_fee?: number // 場所貸し公演料金
-  organization_id?: string // マルチテナント対応
   scenarios?: {
     id: string
     title: string

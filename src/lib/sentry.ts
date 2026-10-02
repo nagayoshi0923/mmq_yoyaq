@@ -21,7 +21,8 @@ export function initSentry(): void {
 
   Sentry.init({
     dsn: SENTRY_DSN,
-    environment: (import.meta.env.VITE_APP_ENV as string) || 'development',
+    // VercelのstagingもPROD build。未設定をdevelopment/productionへ推測しない。
+    environment: (import.meta.env.VITE_APP_ENV as string) || (import.meta.env.PROD ? 'unknown' : 'development'),
     // 本番・ステージングは全エラーを送信、ローカル開発は10%
     // Note: Vercel ビルドは常に PROD=true なので VITE_APP_ENV で環境を区別する
     sampleRate: import.meta.env.VITE_APP_ENV === 'development' ? 0.1 : 1.0,
