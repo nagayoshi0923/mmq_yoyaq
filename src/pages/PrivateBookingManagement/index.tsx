@@ -947,7 +947,7 @@ export function PrivateBookingManagement() {
                                           <span className="block">
                                             {s.name}
                                             {isRequested && <span className="ml-1 text-purple-600 text-xs">（お客様希望）</span>}
-                                            {(s as any).region && <span className="ml-1 text-xs text-muted-foreground">({(s as any).region})</span>}
+                                            {s.region && <span className="ml-1 text-xs text-muted-foreground">({s.region})</span>}
                                             {isBlocked && <span className="ml-1 text-red-700 text-xs">（現在受付停止中）</span>}
                                             {hasConflict && <span className="ml-1 text-orange-600 text-xs">（予約済み）</span>}
                                           </span>

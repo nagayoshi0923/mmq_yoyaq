@@ -209,11 +209,11 @@ export async function fetchScheduleEventsForMonth(
   const [nicknameResult, privateResult, cancelCheckResult] = await Promise.all([
     reservationIdsForNickname.length > 0
       ? scheduleEventsQueryReadApi.listNicknamesByReservationIds(reservationIdsForNickname)
-      : Promise.resolve({ data: null as any, error: null }),
+      : Promise.resolve({ data: null, error: null }),
     scheduleEventsQueryReadApi.listConfirmedPrivateWithoutEvent(orgId),
     privateEventIdsForCancelCheck.length > 0
       ? scheduleEventsQueryReadApi.listStatusesByEventIds(privateEventIdsForCancelCheck, orgId)
-      : Promise.resolve({ data: null as any, error: null }),
+      : Promise.resolve({ data: null, error: null }),
   ])
 
   if (nicknameResult.data) {

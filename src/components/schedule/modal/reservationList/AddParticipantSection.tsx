@@ -130,7 +130,7 @@ export function AddParticipantSection({
                       showToast.success('デモ参加者を追加しました')
                       
                       // 予約リストを再取得
-                      const eventOrgId = (event as any)?.organization_id || null
+                      const eventOrgId = event?.organization_id || null
                       const updatedReservationList = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
                       setReservations(updatedReservationList)
                       

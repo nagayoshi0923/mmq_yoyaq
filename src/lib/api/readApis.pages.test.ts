@@ -979,11 +979,23 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateBookingMgmtRpcApi.getDeliveryHistory (最後の引数なし)": [
         "rpc("get_private_booking_delivery_history", {})",
       ],
+      "privateBookingMgmtRpcApi.getRejectionDeliveryStatus": [
+        "rpc("get_private_rejection_delivery_status", {"p_reservation_ids":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.getRejectionDeliveryStatus (最後の引数なし)": [
+        "rpc("get_private_rejection_delivery_status", {})",
+      ],
       "privateBookingMgmtRpcApi.resumeApprovalPreparation": [
         "rpc("resume_private_approval_preparation", {"p_delivery_id":"a1"})",
       ],
       "privateBookingMgmtRpcApi.resumeApprovalPreparation (最後の引数なし)": [
         "rpc("resume_private_approval_preparation", {})",
+      ],
+      "privateBookingMgmtRpcApi.retryRejectionDelivery": [
+        "rpc("retry_private_rejection_delivery", {"p_reservation_id":"a1"})",
+      ],
+      "privateBookingMgmtRpcApi.retryRejectionDelivery (最後の引数なし)": [
+        "rpc("retry_private_rejection_delivery", {})",
       ],
       "privateBookingMgmtRpcApi.retryUnsentDelivery": [
         "rpc("retry_private_unsent_delivery", {"p_kind":"a1","p_delivery_id":"a2"})",

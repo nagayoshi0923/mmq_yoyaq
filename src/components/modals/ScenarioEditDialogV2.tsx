@@ -862,10 +862,10 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
                     booking_start_date: osData.booking_start_date || null,
                     booking_end_date: osData.booking_end_date || null,
                     // シナリオ種別・貸切受付フラグ・公演期間
-                    scenario_kind: (osData as any).scenario_kind || 'regular',
-                    accepts_private_booking: (osData as any).accepts_private_booking ?? true,
-                    available_from: (osData as any).available_from || null,
-                    available_until: (osData as any).available_until || null,
+                    scenario_kind: osData.scenario_kind || 'regular',
+                    accepts_private_booking: osData.accepts_private_booking ?? true,
+                    available_from: osData.available_from || null,
+                    available_until: osData.available_until || null,
                     is_license_buyout: (osData as { is_license_buyout?: boolean | null }).is_license_buyout === true,
                   }))
 
@@ -1056,7 +1056,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
 
       // 担当GMの更新処理
       // scenario_master_id を直接使用
-      const targetScenarioId = effectiveScenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? (scenarioSaveResult as any).scenario_master_id : undefined)
+      const targetScenarioId = effectiveScenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? scenarioSaveResult.scenario_master_id : undefined)
 
       // マスタから引用した場合、organization_scenariosにも登録
       // scenariosテーブルの保存に失敗してもここは必ず実行する
