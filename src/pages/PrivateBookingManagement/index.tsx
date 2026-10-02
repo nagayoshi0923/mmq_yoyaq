@@ -848,7 +848,7 @@ export function PrivateBookingManagement() {
                       const baseStores = ids.length > 0
                         ? stores.filter(s => ids.includes(s.id))
                         : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
-                      return (req.candidate_datetimes?.candidates || []).reduce((acc: any, cand: any) => {
+                      return (req.candidate_datetimes?.candidates || []).reduce((acc, cand) => {
                         acc[cand.order] = baseStores.filter(s =>
                           conflicts.storeConflict(req, approvalCandidateTime(req, cand), s.id) === false &&
                           !isCandidateStoreBlocked(cand, s.id)

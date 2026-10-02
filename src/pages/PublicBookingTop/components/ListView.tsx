@@ -105,7 +105,7 @@ export const ListView = memo(function ListView({
   
   const getSuggestedStartTime = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: any[]) => {
     if (precedingEvents.length === 0) return defaultStartTimes[timeSlot]
-    const latestEnd = precedingEvents.reduce((latest: string, e: any) => 
+    const latestEnd = precedingEvents.reduce((latest: string, e) => 
       (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
     if (!latestEnd) return defaultStartTimes[timeSlot]
     // +1時間
@@ -212,7 +212,7 @@ export const ListView = memo(function ListView({
       )
     }
 
-    return allEvents.map((event: any, idx: number) => {
+    return allEvents.map((event, idx: number) => {
       // useBookingDataで事前計算済みのplayer_count_maxを使用
       const maxParticipants = event.player_count_max || 8
       const currentParticipants = event.current_participants || 0

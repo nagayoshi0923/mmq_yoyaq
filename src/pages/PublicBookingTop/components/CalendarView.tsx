@@ -256,7 +256,7 @@ export const CalendarView = memo(function CalendarView({
                         return preceding.includes(eSlot)
                       })
                       if (relevantEvents.length === 0) return defaultStartTimes[slot]
-                      const latestEnd = relevantEvents.reduce((latest: string, e: any) => 
+                      const latestEnd = relevantEvents.reduce((latest: string, e) => 
                         (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
                       if (!latestEnd) return defaultStartTimes[slot]
                       // +1時間
@@ -392,7 +392,7 @@ export const CalendarView = memo(function CalendarView({
                         const hasEvents = slotEvents.length > 0
                         
                         const renderedEvents = hasEvents
-                          ? slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
+                          ? slotEvents.map((event, idx: number) => renderEvent(event, idx))
                           : []
 
                         // 非表示イベントも含めて占有・ブロック判定する（allMergedEventsを使用）

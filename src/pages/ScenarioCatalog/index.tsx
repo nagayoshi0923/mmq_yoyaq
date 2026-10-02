@@ -250,7 +250,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const storesByRegion = useMemo(() => {
     const groups = new Map<string, StoreData[]>()
     // display_orderでソート
-    const sortedStores = [...regularStores].sort((a: any, b: any) => 
+    const sortedStores = [...regularStores].sort((a, b) => 
       (a.display_order || 999) - (b.display_order || 999)
     )
     sortedStores.forEach(store => {

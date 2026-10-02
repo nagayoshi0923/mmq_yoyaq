@@ -368,7 +368,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   // シナリオカードを構築
   // 自組織のデータを優先するため、他組織→自組織の順にソート（後勝ち）
-  const sortedScenariosData = [...scenariosData].sort((a: any, b: any) => {
+  const sortedScenariosData = [...scenariosData].sort((a, b) => {
     const aIsCurrent = a.organization_id === orgId ? 1 : 0
     const bIsCurrent = b.organization_id === orgId ? 1 : 0
     return aIsCurrent - bIsCurrent
@@ -423,7 +423,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         return isFuture && isNotPrivate && isNotGmTest
       })
       
-      const sortedEvents = [...futureEvents].sort((a: any, b: any) => {
+      const sortedEvents = [...futureEvents].sort((a, b) => {
         const dateCompare = a.date.localeCompare(b.date)
         if (dateCompare !== 0) return dateCompare
         return (a.start_time || '').localeCompare(b.start_time || '')

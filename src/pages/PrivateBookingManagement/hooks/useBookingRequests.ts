@@ -178,7 +178,7 @@ async function fetchRawBookingRequests(
 
     if (req.status === 'confirmed' && originalCandidates.length > currentCandidates.length) {
       const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')
-      const restoredCandidates = originalCandidates.map((cd: any, idx: number) => {
+      const restoredCandidates = originalCandidates.map((cd, idx: number) => {
         const isConfirmed = confirmedCandidate &&
           confirmedCandidate.date === cd.date &&
           confirmedCandidate.timeSlot === cd.time_slot
