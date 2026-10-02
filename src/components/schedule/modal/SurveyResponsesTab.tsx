@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare, Link, FileText } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
+import { globalSettingsReadApi } from '@/lib/api/organizationReadApi'
+import { organizationScenarioReadApi } from '@/lib/api/scenarioReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { SurveyQuestion } from '@/types'
@@ -101,21 +103,11 @@ export function SurveyResponsesTab({
 
         let orgScenario = null as any
         if (effectiveScenarioId) {
-          const { data: viewByMaster } = await supabase
-            .from('organization_scenarios_with_master')
-            .select('org_scenario_id, survey_enabled, characters, player_count_max, individual_notice_template')
-            .eq('scenario_master_id', effectiveScenarioId)
-            .eq('organization_id', organizationId)
-            .maybeSingle()
+          const { data: viewByMaster } = await organizationScenarioReadApi.getSurveyViewByMaster(effectiveScenarioId, organizationId)
           orgScenario = viewByMaster
 
           if (!orgScenario) {
-            const { data: viewByOrgId } = await supabase
-              .from('organization_scenarios_with_master')
-              .select('org_scenario_id, survey_enabled, characters, player_count_max, individual_notice_template')
-              .eq('org_scenario_id', effectiveScenarioId)
-              .eq('organization_id', organizationId)
-              .maybeSingle()
+            const { data: viewByOrgId } = await organizationScenarioReadApi.getSurveyViewByOrgScenarioId(effectiveScenarioId, organizationId)
             orgScenario = viewByOrgId
           }
         }
@@ -140,11 +132,7 @@ export function SurveyResponsesTab({
         if (orgScenario.individual_notice_template) {
           if (!cancelled) setNoticeTemplate(orgScenario.individual_notice_template)
         } else {
-          const { data: gs } = await supabase
-            .from('global_settings')
-            .select('individual_notice_default_body')
-            .eq('organization_id', organizationId)
-            .maybeSingle()
+          const { data: gs } = await globalSettingsReadApi.getIndividualNoticeDefaultBody(organizationId)
           if (!cancelled) setNoticeTemplate((gs as { individual_notice_default_body?: string | null } | null)?.individual_notice_default_body || null)
         }
 
@@ -232,13 +220,7 @@ export function SurveyResponsesTab({
       const selectedCharId = selectedCharacters[memberId]
       const shouldAttachTemplate = attachTemplate[memberId] !== false && noticeTemplate
 
-      const { data, error } = await supabase.rpc('private_group_send_individual_notice', {
-        p_group_id: groupId,
-        p_member_id: memberId,
-        p_message: message,
-        p_character_id: selectedCharId || null,
-        p_attach_template: !!shouldAttachTemplate,
-      })
+      const { data, error } = await scheduleUiApi.sendPrivateGroupIndividualNotice({ groupId, memberId, message, characterId: selectedCharId || null, attachTemplate: !!shouldAttachTemplate })
       if (error) throw error
       if (!data?.id || !data?.created_at || !data?.message) throw new Error('保存結果を確認できませんでした')
       const saved = JSON.parse(data.message)

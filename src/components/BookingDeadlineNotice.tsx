@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import { type BookingWindow, formatBookingDeadline } from '@/lib/bookingWindow'
 
 export function BookingDeadlineNotice({ eventId }: { eventId: string }) {
   const { data, isError } = useQuery({
     queryKey: ['booking-window', eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_performance_booking_window', { p_event_id: eventId })
+      const { data, error } = await scheduleUiApi.getPerformanceBookingWindow(eventId)
       if (error) throw error
       return (data?.[0] ?? null) as BookingWindow | null
     },

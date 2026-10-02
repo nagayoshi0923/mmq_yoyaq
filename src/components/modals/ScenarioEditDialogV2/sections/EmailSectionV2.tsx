@@ -1,7 +1,7 @@
 import { RecruitmentEmailSample } from './RecruitmentEmailSample'
 import { useState, useCallback } from 'react'
 import { Textarea } from '@/components/ui/textarea'
-import { supabase } from '@/lib/supabase'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -29,14 +29,7 @@ export function EmailSectionV2({ formData, setFormData, masterId }: EmailSection
     try {
       const orgId = await getCurrentOrganizationId()
       const storeId = formData.available_stores?.[0] || null
-      let query = supabase
-        .from('email_settings')
-        .select('reservation_confirmation_template, private_confirm_template, company_name, company_phone, company_email')
-      if (storeId) {
-        query = query.eq('store_id', storeId)
-      } else if (orgId) {
-        query = query.eq('organization_id', orgId)
-      } else {
+      if (!storeId && !orgId) {
         setFormData(prev => ({
           ...prev,
           [field]: field === 'private_confirm_template'
@@ -45,7 +38,7 @@ export function EmailSectionV2({ formData, setFormData, masterId }: EmailSection
         }))
         return
       }
-      const { data, error } = await query.limit(1).maybeSingle()
+      const { data, error } = await scheduleUiApi.findEmailSettings(storeId ? { storeId } : { organizationId: orgId as string })
       if (error) throw error
       const quoted = field === 'private_confirm_template'
         ? (data?.private_confirm_template?.trim()

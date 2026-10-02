@@ -9,6 +9,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { reservationApi, RESERVATION_WITH_CUSTOMER_SELECT_FIELDS } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
+import { customerReadApi } from '@/lib/api/customerReadApi'
+import { reservationReadApi } from '@/lib/api/reservationReadApi'
 import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -59,11 +61,7 @@ export function useReservationListData({
 
             if (isVirtualId) {
               // 仮想IDの場合はreservation_idから直接取得
-              const { data, error } = await supabase
-                .from('reservations')
-                .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-                .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
+              const { data, error } = await reservationReadApi.listActiveWithCustomerById(event.reservation_id)
 
               if (error) {
                 logger.error('貸切予約データの取得に失敗:', error)
@@ -79,11 +77,7 @@ export function useReservationListData({
               // schedule_event_idで取得できなかった場合、reservation_idで直接取得（フォールバック）
               if (reservations.length === 0) {
                 logger.log('schedule_event_idで取得できず、reservation_idで取得を試みます')
-                const { data, error } = await supabase
-                  .from('reservations')
-                  .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
-                .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
+                const { data, error } = await reservationReadApi.listActiveWithCustomerById(event.reservation_id)
 
                 if (error) {
                   logger.error('貸切予約データの取得に失敗:', error)
@@ -184,11 +178,7 @@ export function useReservationListData({
         const names = new Set<string>()
 
         // 1. customers テーブルから取得
-        const { data: customers, error: custError } = await supabase
-          .from('customers')
-          .select('name')
-          .not('name', 'is', null)
-          .not('name', 'eq', '')
+        const { data: customers, error: custError } = await customerReadApi.listNames()
         if (custError) {
           logger.error('顧客テーブル取得エラー:', custError)
         } else {
@@ -198,15 +188,7 @@ export function useReservationListData({
         }
 
         // 2. 過去予約の participant_names からも補完
-        let resQuery = supabase
-          .from('reservations')
-          .select('customer_notes, participant_names')
-          .not('customer_notes', 'is', null)
-          .not('customer_notes', 'eq', '')
-        if (orgId) {
-          resQuery = resQuery.eq('organization_id', orgId)
-        }
-        const { data: reservations, error: resError } = await resQuery
+        const { data: reservations, error: resError } = await reservationReadApi.listCustomerNotes(orgId)
         if (!resError && reservations) {
           reservations.forEach(r => {
             if (r.customer_notes) {

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { supabase } from '@/lib/supabase'
+import { scenarioMasterReadApi } from '@/lib/api/scenarioReadApi'
 import { organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -58,11 +58,7 @@ export function AddFromMasterDialog({
       setLoading(true)
       
       // pending または approved のマスタを取得（他組織も利用可能）
-      const { data, error } = await supabase
-        .from('scenario_masters')
-        .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
-        .in('master_status', ['pending', 'approved'])
-        .order('title', { ascending: true })
+      const { data, error } = await scenarioMasterReadApi.listForAdd()
 
       if (error) {
         logger.error('Failed to fetch masters:', error)
