@@ -24,6 +24,7 @@ export interface SalesPeriodEvent {
   category: string
   gms?: string[]
   gm_roles?: Record<string, string>
+  staff_assignments?: Array<{ staff_id: string | null; staff_name: string | null; ordinal: number; resolution_status?: string | null }> | null
   capacity?: number
   max_participants?: number
   venue_rental_fee?: number

@@ -1,4 +1,4 @@
-import { calculateEventGmCost } from '@/lib/compensation'
+import { calculateEventGmCost, resolveGmCostIdentity, type EventStaffAssignmentLike } from '@/lib/compensation'
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
@@ -56,6 +56,7 @@ interface SalesEvent {
   is_cancelled: boolean
   gms?: string[]
   gm_roles?: Record<string, string> // GM役割 { "GM名": "main" | "sub" | "reception" | "staff" | "observer" }
+  staff_assignments?: EventStaffAssignmentLike[] | null // 担当表（ID 照合）
   venue_rental_fee?: number // 場所貸し公演料金
   actual_participants?: number
   has_demo_participant?: boolean
@@ -123,6 +124,7 @@ export async function fetchSalesDataForPeriod(
   const staffList = costInputs.staff
   const staffByName = new Map<string, string[]>()
   staffList.forEach(s => staffByName.set(s.name, s.stores || []))
+  const staffById = new Map<string, { stores: string[] | null }>(staffList.map(s => [s.id, { stores: s.stores ?? null }]))
 
   // 店舗フィルタリング
   let filteredStores = allStores
@@ -151,7 +153,7 @@ export async function fetchSalesDataForPeriod(
     filteredStores = filteredStores.filter(s => storeIds.includes(s.id))
   }
 
-  return calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions, settingsForDate, staffByName)
+  return calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions, settingsForDate, staffByName, staffById)
 }
 
 interface ActiveSalesParams {
@@ -326,7 +328,8 @@ export function calculateSalesData(
     schedule_event_id?: string | null;
   }>,
   settingsForDate: SalarySettingsResolver,
-  staffByName: Map<string, string[]>  // スタッフ名→担当店舗IDの配列
+  staffByName: Map<string, string[]>,  // スタッフ名→担当店舗IDの配列
+  staffById: Map<string, { stores: string[] | null }> = new Map(),  // スタッフID→担当店舗（担当表で ID 照合できた GM 用）
 ): SalesData {
   const totalRevenue = events.reduce((sum, event) => sum + (event.revenue || 0), 0)
   const totalEvents = events.length
@@ -343,11 +346,12 @@ export function calculateSalesData(
       scenario as ScenarioPricing, store?.ownership_type as StoreOwnershipType,
       isGmTest ? 'gmtest' : 'normal',
     ) : 0
+    // GM の照合は担当表（ID）を正にする（#734）
     const gmCost = calculateEventGmCost({
-      gms: event.gms ?? [], roles: (event as SalesEvent).gm_roles ?? {},
+      ...resolveGmCostIdentity(event as SalesEvent, staffById, staffByName),
       duration: scenario?.duration ?? 180, isGmTest, costs: scenario?.gm_costs ?? [],
       getSettings: () => settingsForDate(event.date), storeId: event.store_id,
-      homeStores: staffByName, transportAllowance: store?.transport_allowance,
+      transportAllowance: store?.transport_allowance,
       estimateUnassigned: Boolean(scenario),
     })
     return [event, { licenseCost, gmCost }] as const
