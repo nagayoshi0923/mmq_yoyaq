@@ -202,7 +202,7 @@ export function ReservationRow({
                                       newCount,
                                       reservation.customer_id ?? null
                                     )
-                                  } catch (updateError: any) {
+                                  } catch (updateError) {
                                     showToast.error(getSafeErrorMessage(updateError, '人数の更新に失敗しました'))
                                     return
                                   }
@@ -213,7 +213,7 @@ export function ReservationRow({
                                       reservation.id,
                                       Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
                                     )
-                                  } catch (recalcError: any) {
+                                  } catch (recalcError) {
                                     showToast.error(getSafeErrorMessage(recalcError, '料金の再計算に失敗しました'))
                                     return
                                   }
@@ -483,7 +483,7 @@ export function ReservationRow({
                                           reservation.id,
                                           Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
                                         )
-                                      } catch (updateError: any) {
+                                      } catch (updateError) {
                                         showToast.error(getSafeErrorMessage(updateError, '人数の更新に失敗しました'))
                                         return
                                       }

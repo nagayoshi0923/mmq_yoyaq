@@ -45,12 +45,12 @@ export function useStoreAndGMManagement() {
       const responses = await getGmResponses([reservationId])
 
       // 回答済み・意思表示がある行のみ（pending かつ未回答は除外）
-      const filteredResponses = (responses || []).filter((response: any) =>
+      const filteredResponses = (responses || []).filter((response) =>
         shouldIncludeGmResponseRow(response)
       )
 
       const sorted = sortGmResponsesByReplyTime(filteredResponses)
-      const gmList = sorted.map((response: any) => ({
+      const gmList = sorted.map((response) => ({
         gm_id: response.staff_id,
         gm_name: response.gm_name || response.staff?.name || '',
         response_status: response.response_status,
@@ -64,7 +64,7 @@ export function useStoreAndGMManagement() {
       logger.log('📋 GM回答情報:', gmList.length, '件', gmList.map(g => `${g.gm_name}(${g.response_status}): 候補${(g.available_candidates || []).map((i: number) => i+1).join(',')}`))
 
       setAvailableGMs(gmList)
-    } catch (error: any) {
+    } catch (error) {
       logger.error('GM可否情報取得エラー:', error)
       // エラー時は空配列を設定してUIが壊れないようにする
       setAvailableGMs([])

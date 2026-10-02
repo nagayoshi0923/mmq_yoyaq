@@ -151,7 +151,7 @@ function StaffEditModalContent({ isOpen, onClose, onSave, staff: incomingStaff, 
       const assignments = await assignmentApi.getAllStaffAssignments(staffId)
       
       // APIレスポンスをUI用ステートに変換
-      const formattedAssignments: ScenarioAssignment[] = assignments.map((a: any) => ({
+      const formattedAssignments: ScenarioAssignment[] = assignments.map((a) => ({
         scenarioId: a.scenario_master_id ?? a.scenario_id,
         can_main_gm: a.can_main_gm ?? false,
         can_sub_gm: a.can_sub_gm ?? false,

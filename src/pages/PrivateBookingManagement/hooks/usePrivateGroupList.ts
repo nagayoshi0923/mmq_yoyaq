@@ -7,6 +7,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { boundedBatches } from '@/lib/boundedBatches'
 import { fetchBookingRows } from '../utils/fetchBookingRows'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export interface PrivateGroupListItem {
   id: string
@@ -165,9 +166,9 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       }) as PrivateGroupListItem[]
 
       setGroups(groupsWithOrganizer)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('グループ一覧の取得エラー:', err)
-      setError(err.message || 'グループ一覧の取得に失敗しました')
+      setError(getErrorMessage(err) || 'グループ一覧の取得に失敗しました')
     } finally {
       setLoading(false)
     }

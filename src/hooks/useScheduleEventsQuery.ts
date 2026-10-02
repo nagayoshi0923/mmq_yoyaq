@@ -120,7 +120,7 @@ export async function fetchScheduleEventsForMonth(
     _scenarioModuleCache = scenarioList
   }
   const scenarioByTitle = new Map<string, any>()
-  scenarioList.forEach((s: any) => scenarioByTitle.set(s.title, s))
+  scenarioList.forEach((s) => scenarioByTitle.set(s.title, s))
 
   const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
 

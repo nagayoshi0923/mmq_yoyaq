@@ -33,6 +33,7 @@ import {
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { myPageKeys } from '../hooks/useMyPageDataQuery'
 import { ownCustomerApi } from '@/lib/api/customerApi'
+import { getErrorCode, getErrorMessage } from '@/lib/errorFields'
 
 type DialogType =
   | 'profile'
@@ -263,10 +264,10 @@ export function SettingsPage() {
       await invalidateEverywhere(queryClient, myPageKeys.data(user?.id ?? '', user?.email ?? ''))
       fetchCustomerInfo()
       setActiveDialog(null)
-    } catch (error: any) {
+    } catch (error) {
       logger.error('プロフィール更新エラー:', error)
       // RLS 拒否（権限エラー）は原因が異なるため個別に案内する
-      if (error?.code === '42501' || /row-level security/i.test(error?.message ?? '')) {
+      if (getErrorCode(error) === '42501' || /row-level security/i.test(getErrorMessage(error) ?? '')) {
         showToast.error('保存する権限がありませんでした。再ログインしてから再度お試しください。')
       } else {
         showToast.error(getSafeErrorMessage(error, '更新に失敗しました'))
@@ -299,15 +300,15 @@ export function SettingsPage() {
       showToast.success('確認メールを送信しました', '新しいメールアドレスで確認してください')
       setEmailFormData({ newEmail: '' })
       setActiveDialog(null)
-    } catch (error: any) {
+    } catch (error) {
       logger.error('メールアドレス変更エラー:', error)
       // 英語エラーメッセージを日本語化
       let errorMessage = 'メールアドレスの変更に失敗しました'
-      if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
+      if (getErrorMessage(error)?.includes('already registered') || getErrorMessage(error)?.includes('already exists')) {
         errorMessage = 'このメールアドレスは既に登録されています'
-      } else if (error.message?.includes('invalid email')) {
+      } else if (getErrorMessage(error)?.includes('invalid email')) {
         errorMessage = '有効なメールアドレスを入力してください'
-      } else if (error.message?.includes('rate limit')) {
+      } else if (getErrorMessage(error)?.includes('rate limit')) {
         errorMessage = 'しばらく時間をおいてから再度お試しください'
       }
       showToast.error(errorMessage)
@@ -343,15 +344,15 @@ export function SettingsPage() {
       showToast.success('パスワードを変更しました')
       setPasswordFormData({ newPassword: '', confirmPassword: '' })
       setActiveDialog(null)
-    } catch (error: any) {
+    } catch (error) {
       logger.error('パスワード変更エラー:', error)
       // 英語エラーメッセージを日本語化
       let errorMessage = 'パスワードの変更に失敗しました'
-      if (error.message?.includes('same as your old password') || error.message?.includes('different from the old password')) {
+      if (getErrorMessage(error)?.includes('same as your old password') || getErrorMessage(error)?.includes('different from the old password')) {
         errorMessage = '新しいパスワードは現在のパスワードと異なるものを設定してください'
-      } else if (error.message?.includes('should be at least')) {
+      } else if (getErrorMessage(error)?.includes('should be at least')) {
         errorMessage = 'パスワードは6文字以上で入力してください'
-      } else if (error.message?.includes('rate limit')) {
+      } else if (getErrorMessage(error)?.includes('rate limit')) {
         errorMessage = 'しばらく時間をおいてから再度お試しください'
       }
       showToast.error(errorMessage)
@@ -373,7 +374,7 @@ export function SettingsPage() {
       
       if (error) throw error
       showToast.success('通知設定を更新しました')
-    } catch (error: any) {
+    } catch (error) {
       logger.error('通知設定更新エラー:', error)
       showToast.error('通知設定の更新に失敗しました')
       // 失敗時は元に戻す
@@ -417,14 +418,14 @@ export function SettingsPage() {
       showToast.success('アカウントを削除しました')
       await signOut()
       window.location.href = '/login'
-    } catch (error: any) {
+    } catch (error) {
       logger.error('アカウント削除エラー:', error)
-      if (error?.code === 'ACTIVE_RESERVATIONS') {
+      if (getErrorCode(error) === 'ACTIVE_RESERVATIONS') {
         setHasBlockingPerformanceReservations(true)
         setActiveDialog('delete_blocked')
         setConfirmEmail('')
         leaveDeleteDialogOpen = true
-        showToast.warning(error?.message || '公演予約があるため退会できません')
+        showToast.warning(getErrorMessage(error) || '公演予約があるため退会できません')
         return
       }
       showToast.error('アカウントの削除に失敗しました', getSafeErrorMessage(error))

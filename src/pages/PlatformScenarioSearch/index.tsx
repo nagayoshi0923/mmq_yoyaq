@@ -128,7 +128,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
   
   // 組織IDから組織名へのマップを作成（シナリオデータから）
   const orgNameMap = new Map<string, string>()
-  ;(scenariosResult.data || []).forEach((s: any) => {
+  ;(scenariosResult.data || []).forEach((s) => {
     const org = s.organizations as { slug?: string; name?: string } | null
     if (s.organization_id && org?.name) {
       orgNameMap.set(s.organization_id, org.name)

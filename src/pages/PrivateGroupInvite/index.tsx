@@ -42,6 +42,7 @@ import {
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
+import { getErrorMessage } from '@/lib/errorFields'
 
 interface Coupon {
   id: string
@@ -686,8 +687,8 @@ export function PrivateGroupInvite() {
       }
       refetch()
 
-    } catch (err: any) {
-      setError(err.message || '送信に失敗しました')
+    } catch (err) {
+      setError(getErrorMessage(err) || '送信に失敗しました')
     }
   }
 
@@ -701,7 +702,7 @@ export function PrivateGroupInvite() {
 
       toast.success('グループを削除しました')
       navigate('/mypage')
-    } catch (err: any) {
+    } catch (err) {
       logger.error('グループ削除エラー:', err)
       toast.error('グループの削除に失敗しました')
     } finally {
@@ -1186,8 +1187,8 @@ export function PrivateGroupInvite() {
       if (parentReservationId && customerEmail) {
         try {
           const candidateDatesForEmail = group.candidate_dates
-            ?.filter((cd: any) => bookingSelectedDates.has(cd.id))
-            .map((cd: any) => ({
+            ?.filter((cd) => bookingSelectedDates.has(cd.id))
+            .map((cd) => ({
               date: cd.date,
               timeSlot: cd.time_slot,
               startTime: cd.start_time,

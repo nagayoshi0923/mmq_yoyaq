@@ -50,20 +50,20 @@ export const gmRequestKeys = {
 
 async function fetchGMRequestsForUser(): Promise<{ requests: GMRequest[]; staffName: string }> {
   const { responses: responsesData, staffId, staffName } = await getMyGmResponses()
-  const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)
+  const reservationIds = (responsesData || []).map((r) => r.reservation_id).filter(Boolean)
   const otherGMResponses = new Set<string>()
 
   if (reservationIds.length > 0) {
     const allResponsesData = (await getGmResponses(reservationIds)).filter(r => r.staff_id !== staffId)
 
-    allResponsesData.forEach((r: any) => {
+    allResponsesData.forEach((r) => {
       if (['available', 'all_unavailable'].includes(r.response_status)) {
         otherGMResponses.add(r.reservation_id)
       }
     })
   }
 
-  const requests: GMRequest[] = (responsesData || []).map((response: any) => {
+  const requests: GMRequest[] = (responsesData || []).map((response) => {
     let candidateDatetimes = response.reservations?.candidate_datetimes || { candidates: [] }
 
     if ((!candidateDatetimes.requestedStores || candidateDatetimes.requestedStores.length === 0) && response.reservations?.store_id) {

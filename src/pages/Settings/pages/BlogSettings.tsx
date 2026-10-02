@@ -34,6 +34,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { SectionTitle } from '@/components/settings/SectionTitle'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { getErrorCode } from '@/lib/errorFields'
 
 /** 自前アップロード（blog-covers）の公開URLからストレージパスを復元 */
 function storagePathFromBlogCoverPublicUrl(url: string): string | null {
@@ -240,9 +241,9 @@ export function BlogSettings() {
 
       setIsDialogOpen(false)
       fetchPosts()
-    } catch (err: any) {
+    } catch (err) {
       logger.error('記事保存エラー:', err)
-      if (err?.code === '23505') {
+      if (getErrorCode(err) === '23505') {
         toast.error('同じスラッグの記事が既に存在します')
       } else {
         toast.error('記事の保存に失敗しました')

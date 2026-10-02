@@ -49,11 +49,11 @@ export function useOrgScenariosForOptions() {
   })
 
   const genres = useMemo(() => {
-    return categoriesData.map((c: any) => c.name as string)
+    return categoriesData.map((c) => c.name as string)
   }, [categoriesData])
 
   const authors = useMemo(() => {
-    return authorsData.map((a: any) => a.name as string)
+    return authorsData.map((a) => a.name as string)
   }, [authorsData])
 
   return { authors, genres }

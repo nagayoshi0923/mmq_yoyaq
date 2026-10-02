@@ -169,7 +169,7 @@ export const CalendarView = memo(function CalendarView({
                     
                     // blockedEventsにも店舗フィルターを適用
                     const blockedEvents = selectedStoreIds.length > 0
-                      ? allBlockedEvents.filter((e: any) => {
+                      ? allBlockedEvents.filter((e) => {
                           const eventStoreId = e.store_id || e.venue
                           return selectedStoreIds.some(storeId => {
                             const selectedStore = stores.find(s => s.id === storeId)
@@ -185,7 +185,7 @@ export const CalendarView = memo(function CalendarView({
                       return (a.start_time || '').localeCompare(b.start_time || '')
                     })
                     
-                    const allDisplayEvents = allMergedEvents.filter((event: any) => {
+                    const allDisplayEvents = allMergedEvents.filter((event) => {
                       // 内部カテゴリは公開カレンダーに表示しない（blockedSlotsで貸切申込ブロックは維持）
                       const isHiddenCategory = event.category === 'mtg'
                         || event.category === 'gmtest'
@@ -234,9 +234,9 @@ export const CalendarView = memo(function CalendarView({
                     
                     // 時間帯ごとにイベントをグループ化
                     const eventsBySlot = {
-                      morning: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'morning'),
-                      afternoon: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'afternoon'),
-                      evening: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'evening')
+                      morning: allDisplayEvents.filter((e) => getTimeSlot(e.start_time) === 'morning'),
+                      afternoon: allDisplayEvents.filter((e) => getTimeSlot(e.start_time) === 'afternoon'),
+                      evening: allDisplayEvents.filter((e) => getTimeSlot(e.start_time) === 'evening')
                     }
                     
                     // 前公演のend_time + 1時間を開始時間として計算
@@ -251,12 +251,12 @@ export const CalendarView = memo(function CalendarView({
                       const preceding = precedingSlotMap[slot]
                       if (preceding.length === 0) return defaultStartTimes[slot]
                       // 前のスロットにあるイベントの最遅end_timeを取得
-                      const relevantEvents = allDisplayEvents.filter((e: any) => {
+                      const relevantEvents = allDisplayEvents.filter((e) => {
                         const eSlot = getTimeSlot(e.start_time)
                         return preceding.includes(eSlot)
                       })
                       if (relevantEvents.length === 0) return defaultStartTimes[slot]
-                      const latestEnd = relevantEvents.reduce((latest: string, e: any) => 
+                      const latestEnd = relevantEvents.reduce((latest: string, e) => 
                         (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
                       if (!latestEnd) return defaultStartTimes[slot]
                       // +1時間
@@ -392,16 +392,16 @@ export const CalendarView = memo(function CalendarView({
                         const hasEvents = slotEvents.length > 0
                         
                         const renderedEvents = hasEvents
-                          ? slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
+                          ? slotEvents.map((event, idx: number) => renderEvent(event, idx))
                           : []
 
                         // 非表示イベントも含めて占有・ブロック判定する（allMergedEventsを使用）
-                        const allSlotEvents = allMergedEvents.filter((e: any) => getTimeSlot(e.start_time) === slot)
-                        const occupiedStoreIds = new Set(allSlotEvents.map((e: any) => e.store_id))
+                        const allSlotEvents = allMergedEvents.filter((e) => getTimeSlot(e.start_time) === slot)
+                        const occupiedStoreIds = new Set(allSlotEvents.map((e) => e.store_id))
                         const hasAvailableStores = selectedStoreIds.length > 0 &&
                           selectedStoreIds.some(id => !occupiedStoreIds.has(id))
                         // GMテスト・MTG等が含まれるスロットは貸切申込を非表示
-                        const hasNonBookableEvent = allSlotEvents.some((e: any) =>
+                        const hasNonBookableEvent = allSlotEvents.some((e) =>
                           e.category === 'gmtest' || e.category === 'testplay' || e.category === 'mtg'
                         )
                         const showPrivateButton = selectedStore && canApplyPrivateBooking && isSlotAvailable(slot) && !hasNonBookableEvent

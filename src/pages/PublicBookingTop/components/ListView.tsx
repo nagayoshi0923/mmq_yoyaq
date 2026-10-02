@@ -105,7 +105,7 @@ export const ListView = memo(function ListView({
   
   const getSuggestedStartTime = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: any[]) => {
     if (precedingEvents.length === 0) return defaultStartTimes[timeSlot]
-    const latestEnd = precedingEvents.reduce((latest: string, e: any) => 
+    const latestEnd = precedingEvents.reduce((latest: string, e) => 
       (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
     if (!latestEnd) return defaultStartTimes[timeSlot]
     // +1時間
@@ -125,7 +125,7 @@ export const ListView = memo(function ListView({
     const allMerged = [...events, ...blockedEvents].sort((a, b) => {
       return (a.start_time || '').localeCompare(b.start_time || '')
     })
-    const allEvents = allMerged.filter((ev: any) => {
+    const allEvents = allMerged.filter((ev) => {
       // 内部カテゴリは公開リストに表示しない（blockedSlotsで貸切申込ブロックは維持）
       const isHiddenCategory = ev.category === 'mtg'
         || ev.category === 'gmtest'
@@ -170,7 +170,7 @@ export const ListView = memo(function ListView({
         return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
       }
       // GMテスト・MTG等が含まれるスロットは貸切申込を非表示（CalendarViewと同じ判定）
-      const hasNonBookableEvent = allMerged.some((ev: any) =>
+      const hasNonBookableEvent = allMerged.some((ev) =>
         ev.category === 'gmtest' || ev.category === 'testplay' || ev.category === 'mtg'
       )
       if (hasNonBookableEvent) {
@@ -212,7 +212,7 @@ export const ListView = memo(function ListView({
       )
     }
 
-    return allEvents.map((event: any, idx: number) => {
+    return allEvents.map((event, idx: number) => {
       // useBookingDataで事前計算済みのplayer_count_maxを使用
       const maxParticipants = event.player_count_max || 8
       const currentParticipants = event.current_participants || 0

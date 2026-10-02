@@ -54,7 +54,7 @@ export function DateLocationSection({
               <div className="flex-1">
                 <SingleDatePopover
                   date={formData.date}
-                  onDateChange={(date) => setFormData((prev: any) => ({ ...prev, date: date || '' }))}
+                  onDateChange={(date) => setFormData((prev) => ({ ...prev, date: date || '' }))}
                   placeholder="日付を選択"
                   buttonClassName="h-7 text-xs w-full"
                 />
@@ -65,7 +65,7 @@ export function DateLocationSection({
             <div className="flex items-center gap-3">
               <Label className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">店舗</Label>
               <div className="flex-1">
-                <Select value={formData.venue} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}>
+                <Select value={formData.venue} onValueChange={(value) => setFormData((prev) => ({ ...prev, venue: value }))}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="店舗を選択">
                       <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">
@@ -114,7 +114,7 @@ export function DateLocationSection({
                   </SelectContent>
                 </Select>
                 <span className="text-xs text-muted-foreground shrink-0">〜</span>
-                <Select value={formData.end_time?.slice(0, 5)} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))} disabled={formData.is_private_request}>
+                <Select value={formData.end_time?.slice(0, 5)} onValueChange={(value) => setFormData((prev) => ({ ...prev, end_time: value }))} disabled={formData.is_private_request}>
                   <SelectTrigger className={`h-7 text-xs flex-1 ${timeConflictTriggerClass}`}>
                     <SelectValue placeholder="終了" />
                   </SelectTrigger>

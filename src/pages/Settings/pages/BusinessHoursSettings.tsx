@@ -17,6 +17,7 @@ import {
   getDefaultOpeningHours, normalizeBusinessHoursData, businessHoursSaveFields,
   type OpeningHours, type DayHours, type BusinessHoursData,
 } from '@/lib/storeBusinessHours'
+import { getErrorMessage, getErrorCode, getErrorField } from '@/lib/errorFields'
 
 interface BusinessHoursSettingsProps {
   storeId?: string
@@ -196,13 +197,13 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       } else {
         showToast.success('保存しました')
       }
-    } catch (error: any) {
+    } catch (error) {
       logger.error('保存エラー:', error)
       logger.error('エラー詳細:', {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint
+        message: getErrorMessage(error),
+        code: getErrorCode(error),
+        details: getErrorField(error, 'details'),
+        hint: getErrorField(error, 'hint')
       })
       showToast.error(getSafeErrorMessage(error, '保存に失敗しました'))
     } finally {

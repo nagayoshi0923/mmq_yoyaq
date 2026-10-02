@@ -585,7 +585,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       }
       
       // 重複したイベントを除外
-      const filteredEvents = mergedEvents.filter((_: any, index: number) => !duplicateIndices.has(index))
+      const filteredEvents = mergedEvents.filter((_, index: number) => !duplicateIndices.has(index))
       const staffErrors = validateScheduleImportStaff(filteredEvents, staffList)
       if (staffErrors.length > 0) {
         setPreviewErrors(['保存前の確認で停止しました。プレビューの担当者を修正して再実行してください。', ...staffErrors])
@@ -1174,11 +1174,11 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       })
       
       // デバッグ情報をコンソールに出力
-      const venueCount = events.reduce((acc: Record<string, number>, e: any) => {
+      const venueCount = events.reduce((acc: Record<string, number>, e) => {
         acc[e.venue] = (acc[e.venue] || 0) + 1
         return acc
       }, {})
-      const dateCount = events.reduce((acc: Record<string, number>, e: any) => {
+      const dateCount = events.reduce((acc: Record<string, number>, e) => {
         acc[e.date] = (acc[e.date] || 0) + 1
         return acc
       }, {})

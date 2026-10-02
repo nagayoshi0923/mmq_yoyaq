@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { getErrorMessage } from '@/lib/errorFields'
 
 // パスワードリセット中フラグ（AuthContextがロールを更新しないようにするため）
 // sessionStorageを使用（XSS対策としてグローバル変数より安全）
@@ -207,8 +208,8 @@ export function ResetPassword() {
       setSuccess(true)
       // フラグをクリア（成功後はsignOutするので問題ない）
       sessionStorage.removeItem(PASSWORD_RESET_FLAG_KEY)
-    } catch (error: any) {
-      setError('パスワードの更新に失敗しました: ' + (error.message || ''))
+    } catch (error) {
+      setError('パスワードの更新に失敗しました: ' + (getErrorMessage(error) || ''))
       logger.error('Password reset error:', error)
       // エラー時もフラグをクリア
       sessionStorage.removeItem(PASSWORD_RESET_FLAG_KEY)

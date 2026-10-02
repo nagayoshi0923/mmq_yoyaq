@@ -69,7 +69,7 @@ export function SurveyResponsesView({
 
         // キャラクター情報を取得
         if (orgScenario.characters) {
-          if (!cancelled) setCharacters(orgScenario.characters.map((c: any) => ({
+          if (!cancelled) setCharacters(orgScenario.characters.map((c) => ({
             id: c.id,
             name: c.name,
           })))
