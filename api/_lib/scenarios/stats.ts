@@ -3,6 +3,7 @@ import { calculateEventGmCost, resolveGmCostIdentity, type EventStaffAssignmentL
 import { loadCompensationHistory } from '../compensationHistory.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getParticipationFee, getLicenseAmount, type ScenarioPricing } from '../../../src/lib/pricing.js'
+import { SALES_RESERVATION_STATUSES } from '../sales/revenue.js'
 import { DEMO_RESERVATION_SOURCES, STAFF_RESERVATION_SOURCES, STATS_ALL_SCHEDULE_EVENT_FIELDS, STATS_FUTURE_RESERVATION_FIELDS, STATS_RESERVATION_FIELDS, STATS_SCENARIO_FIELDS, STATS_SCHEDULE_EVENT_COUNT_FIELDS, STATS_SCHEDULE_EVENT_DETAIL_FIELDS, db } from './common.js'
 
 export async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, orgId: string) {
@@ -133,7 +134,8 @@ export async function handleGetScenarioStats(req: VercelRequest, res: VercelResp
         .select(STATS_RESERVATION_FIELDS)
         .eq('organization_id', orgId)
         .in('schedule_event_id', batchIds)
-        .in('status', ['confirmed', 'gm_confirmed'])
+        // 来店済み（checked_in）も参加者に数える。売上側と同じ規則（#787）
+        .in('status', SALES_RESERVATION_STATUSES)
       if (!resError && data) {
         allReservations.push(...(data as unknown as ResRow[]))
       }
