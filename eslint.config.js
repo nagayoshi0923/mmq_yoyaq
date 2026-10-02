@@ -72,4 +72,58 @@ export default tseslint.config(
       ],
     },
   },
+
+  // --- 境界の歯止め（整備計画 Phase 2） -------------------------------------
+  // 画面・部品・hook から supabase.from() / supabase.rpc() を直接呼ばない。読み書きは src/lib/api の関数を通す。
+  // 既存の直接呼び出しがあるファイルは下の許可リストに載せ、移し終えたら外す（残り件数は docs/MMQ_SEIBI_PLAN_2026-10.md 第3節）。
+  {
+    files: ['src/pages/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}'],
+    ignores: [
+      'src/components/modals/ScenarioEditDialogV2/sections/BasicInfoSectionV2.tsx',
+      'src/components/modals/ScenarioEditDialogV2/sections/GameInfoSectionV2.tsx',
+      'src/components/modals/ScenarioMasterEditDialog.tsx',
+      'src/components/schedule/PerformanceModal.tsx',
+      'src/hooks/useBlockedSlots.ts',
+      'src/hooks/useReservationStats.ts',
+      'src/pages/MyPage/hooks/useLikedScenariosQuery.ts',
+      'src/pages/MyPage/hooks/useMyPageDataQuery.ts',
+      'src/pages/MyPage/hooks/useReservationDetailQuery.ts',
+      'src/pages/PlatformTop/index.tsx',
+      'src/pages/PrivateBookingManagement/hooks/usePrivateBookingConflicts.ts',
+      'src/pages/PrivateBookingManagement/hooks/usePrivateGroupList.ts',
+      'src/pages/PrivateGroupInvite/index.tsx',
+      'src/pages/PublicBookingTop/hooks/useBookingData.ts',
+      'src/pages/ScenarioCatalog/index.tsx',
+      'src/pages/ScenarioDetailGlobal/index.tsx',
+      'src/pages/ScenarioDetailPage/hooks/useScenarioDetail.ts',
+      'src/pages/ScenarioManagement/hooks/useOrganizationScenariosQuery.ts',
+      'src/pages/ScenarioMasterAdmin/ScenarioMasterEdit.tsx',
+      'src/pages/ScheduleManager/index.tsx',
+      'src/pages/Settings/pages/CategoryAuthorManagementSettings.tsx',
+      'src/pages/Settings/pages/DataManagementSettings.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='from'][callee.object.name='supabase']",
+          message: '画面・部品・hook から supabase.from() を直接呼ばない。src/lib/api の関数を通す（整備計画 Phase 2）。',
+        },
+        {
+          selector: "CallExpression[callee.property.name='rpc'][callee.object.name='supabase']",
+          message: '画面・部品・hook から supabase.rpc() を直接呼ばない。src/lib/api の関数を通す（整備計画 Phase 2）。',
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name='update'][callee.object.callee.property.name='from'][callee.object.arguments.0.value='reservations']",
+          message: "Direct update to 'reservations' is forbidden. Use RPC/API layer (e.g., reservationApi.*WithLock).",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name='delete'][callee.object.callee.property.name='from'][callee.object.arguments.0.value='reservations']",
+          message: "Direct delete from 'reservations' is forbidden. Use RPC/API layer.",
+        },
+      ],
+    },
+  },
 )
