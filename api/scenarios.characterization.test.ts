@@ -1,7 +1,7 @@
 /**
  * api/scenarios.ts の統計ハンドラ（stats / all-stats）と書き込み系の出力を、固定データで固定する特性テスト
  * （整備 Phase 3 の分割の前提、#774）。固定する値は「分割前の現状の出力」であり、正しさの主張ではない。
- * 注意: stats は予約を status in ('confirmed','gm_confirmed') で数え、checked_in を数えない。デモ・スタッフの分類も
+ * 注意: stats の予約の状態は売上側と同じ（confirmed / gm_confirmed / checked_in。#787 で揃えた）。デモ・スタッフの分類は
  * 売上側（api/sales.ts）と別の定義（DEMO: manual_demo/demo のみ、demo_auto・walk_in は通常扱い）。この食い違いも含めて現状を固定する。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -202,10 +202,16 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
       expect(q.ops.some(o => o.includes(`"organization_id", "${ORG}"`) || o.includes(`"organization_id","${ORG}"`) || o.includes(`organization_id`)), `${q.table}: ${q.ops.join(' | ')}`).toBe(true)
     }
   })
-  it('stats: 予約は confirmed / gm_confirmed のみ数え、checked_in を数えない（売上側と規則が違う現状を固定）', async () => {
+  it('stats: 予約は confirmed / gm_confirmed / checked_in を数える（売上側と同じ規則。#787）', async () => {
     await call({ type: 'stats', scenarioId: MASTER })
     const resQuery = mock.issued.find(i => i.table === 'reservations' && i.ops.some(o => o.startsWith('in("status"')))
-    expect(resQuery?.ops.find(o => o.startsWith('in("status"'))).toMatchInlineSnapshot(`"in("status", ["confirmed","gm_confirmed"])"`)
+    expect(resQuery?.ops.find(o => o.startsWith('in("status"'))).toMatchInlineSnapshot(`"in("status", ["confirmed","gm_confirmed","checked_in"])"`)
+  })
+  it('stats: 来店済み（checked_in）の予約も参加者に数える（#787。以前は数えず、確定 1 名 + 来店済み 2 名が 1 名になっていた）', async () => {
+    mock.tables.reservations = [res_('e-normal', { participant_count: 1 }), res_('e-normal', { participant_count: 2, status: 'checked_in' })]
+    const { body } = await call({ type: 'stats', scenarioId: MASTER })
+    const row = (body as { performanceDates: Array<{ date: string; participants: number }> }).performanceDates.find(d => d.date === '2026-09-10')
+    expect(row?.participants).toBe(3)
   })
   it('stats: scenarioId が無いと 400、他組織・存在しない作品は 404', async () => {
     expect((await call({ type: 'stats' })).status).toBe(400)
