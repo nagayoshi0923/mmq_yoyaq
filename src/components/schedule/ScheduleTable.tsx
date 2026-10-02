@@ -137,6 +137,8 @@ export interface ScheduleTableProps {
   isSlotBlocked?: (date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
   // カスタム休日判定関数
   isCustomHoliday?: (date: string) => boolean
+  // 店舗の募集停止期間の表示ラベル（公演募集停止 / 貸切募集停止 / 募集停止）
+  getRecruitmentPauseLabel?: (date: string, storeId: string) => string | null
 }
 
 export function ScheduleTable({
@@ -146,7 +148,8 @@ export function ScheduleTable({
   displayConfig,
   hideHeader = false,
   isSlotBlocked,
-  isCustomHoliday
+  isCustomHoliday,
+  getRecruitmentPauseLabel,
 }: ScheduleTableProps) {
   const { monthDays, stores, temporaryVenues = [], getVenueNameForDate } = viewConfig
   const { getEventsForSlot, shiftData, getMemo, onSaveMemo, intervalWarningEventIds, kitWarningEventIds } = dataProvider
@@ -292,6 +295,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'morning')}
+                    recruitmentPauseLabel={getRecruitmentPauseLabel?.(day.date, venue.id)}
                     intervalWarningEventIds={intervalWarningEventIds}
                     kitWarningEventIds={kitWarningEventIds}
                   />
@@ -315,6 +319,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'afternoon')}
+                    recruitmentPauseLabel={getRecruitmentPauseLabel?.(day.date, venue.id)}
                     intervalWarningEventIds={intervalWarningEventIds}
                     kitWarningEventIds={kitWarningEventIds}
                   />
@@ -338,6 +343,7 @@ export function ScheduleTable({
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'evening')}
+                    recruitmentPauseLabel={getRecruitmentPauseLabel?.(day.date, venue.id)}
                     intervalWarningEventIds={intervalWarningEventIds}
                     kitWarningEventIds={kitWarningEventIds}
                   />

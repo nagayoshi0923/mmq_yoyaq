@@ -1084,10 +1084,10 @@ export function PrivateBookingManagement() {
                             const candidate = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
                             if (!candidate) return true
                             const actual = approvalCandidateTime(req, candidate)
-                            if (selectedStoreId && conflicts.storeConflict(req, actual, selectedStoreId) === undefined) return true
+                            if (selectedStoreId && conflicts.storeConflict(req, actual, selectedStoreId) !== false) return true
                             return [selectedGMId, selectedSubGmId].filter(Boolean).some(id => {
                               const gm = allGMs.find(g => g.id === id)
-                              return !gm || conflicts.gmConflict(req, actual, id, gm.name) === undefined
+                              return !gm || conflicts.gmConflict(req, actual, id, gm.name) !== false
                             })
                           })() ||
                           !selectedGMId ||

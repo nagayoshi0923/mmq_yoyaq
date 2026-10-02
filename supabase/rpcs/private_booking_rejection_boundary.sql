@@ -5,6 +5,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 SET row_security = off
+SET lock_timeout = '5s'
 AS $$
 DECLARE
   v_reservation record;
@@ -15,7 +16,7 @@ BEGIN
   END IF;
 
   SELECT id,organization_id,private_group_id,status INTO v_reservation
-  FROM public.reservations WHERE id=p_reservation_id FOR UPDATE NOWAIT;
+  FROM public.reservations WHERE id=p_reservation_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'RESERVATION_NOT_FOUND' USING ERRCODE='P0005';
   END IF;
@@ -32,7 +33,7 @@ BEGIN
   IF v_reservation.private_group_id IS NULL THEN RETURN; END IF;
 
   SELECT id,organization_id,reservation_id,status INTO v_group
-  FROM public.private_groups WHERE id=v_reservation.private_group_id FOR UPDATE NOWAIT;
+  FROM public.private_groups WHERE id=v_reservation.private_group_id FOR UPDATE;
   IF NOT FOUND OR v_group.organization_id IS DISTINCT FROM v_reservation.organization_id THEN
     RAISE EXCEPTION 'PRIVATE_GROUP_ORGANIZATION_MISMATCH' USING ERRCODE='P0050';
   END IF;
@@ -46,7 +47,7 @@ BEGIN
   END IF;
 
   PERFORM 1 FROM public.private_group_candidate_dates
-  WHERE group_id=v_group.id FOR UPDATE NOWAIT;
+  WHERE group_id=v_group.id FOR UPDATE;
   UPDATE public.private_groups SET status='date_adjusting' WHERE id=v_group.id;
   UPDATE public.private_group_candidate_dates SET status='rejected' WHERE group_id=v_group.id;
 END;

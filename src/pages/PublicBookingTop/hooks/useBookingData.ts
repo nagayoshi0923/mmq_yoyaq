@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
 import { getAvailableSeats, getAvailabilityStatus } from '@/lib/participantUtils'
+import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 
 export interface ScenarioCard {
   scenario_id: string
@@ -298,6 +299,20 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const storesData = storesResult?.data || []
   const privateBookingDeadlineDays = typeof settingsResult?.data === 'number' ? settingsResult.data : 14
   const allEventsData = eventsResult?.data || []
+
+  // 店舗の公演募集停止期間（QW-20260909-011）。停止中の日の公演は予約一覧に出さない。
+  // 予約作成の関数でも拒否しているので、ここは表示を合わせるだけ（取得に失敗しても予約は守られる）。
+  let performancePauses: StoreRecruitmentPausePeriod[] = []
+  const eventStoreIds = [...new Set(allEventsData.map((event: any) => event.store_id).filter(Boolean))] as string[]
+  if (eventStoreIds.length > 0) {
+    const { data: pauseRows, error: pauseError } = await supabase
+      .from('store_recruitment_pauses')
+      .select('store_id, pause_type, starts_on, ends_on')
+      .in('store_id', eventStoreIds)
+      .eq('pause_type', 'performance')
+    if (pauseError) logger.error('店舗の募集停止期間の取得に失敗:', pauseError)
+    else performancePauses = (pauseRows || []) as StoreRecruitmentPausePeriod[]
+  }
   
   // 予約可能な通常公演のみフィルタリング
   const now = new Date()
@@ -312,6 +327,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     if (isPrivateBooking) return false
     // 非公開イベントは表示しない
     if (event.published === false) return false
+    // 店舗の公演募集停止期間中は表示しない
+    if (event.store_id && event.date && storeHasRecruitmentPause(event.date, event.store_id, 'performance', performancePauses)) return false
 
     // 通常公演・出張公演: category='open' or 'offsite' かつ is_reservation_enabled=true
     const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')

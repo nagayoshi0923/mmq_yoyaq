@@ -20,6 +20,23 @@ export const storeApi = {
     return apiClient.patch(`/api/stores?action=businessHours&id=${encodeURIComponent(storeId)}`, fields)
   },
 
+  // 店舗の募集停止期間（QW-20260909-011）。組織と店舗の所属はサーバーで確かめる
+  async getRecruitmentPauses(storeId: string) {
+    return apiClient.get<import('../storeRecruitmentPause').StoreRecruitmentPausePeriod[]>(`/api/stores?action=recruitmentPauses&id=${encodeURIComponent(storeId)}`)
+  },
+
+  async getAllRecruitmentPauses() {
+    return apiClient.get<import('../storeRecruitmentPause').StoreRecruitmentPausePeriod[]>('/api/stores?action=recruitmentPauses')
+  },
+
+  async addRecruitmentPause(storeId: string, period: { pause_type: import('../storeRecruitmentPause').StoreRecruitmentPauseType; starts_on: string | null; ends_on: string | null }) {
+    return apiClient.post(`/api/stores?action=recruitmentPauses&id=${encodeURIComponent(storeId)}`, period)
+  },
+
+  async removeRecruitmentPause(storeId: string, pauseId: string) {
+    return apiClient.delete(`/api/stores?action=recruitmentPauses&id=${encodeURIComponent(storeId)}&pauseId=${encodeURIComponent(pauseId)}`)
+  },
+
   // 全店舗を取得
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
   // @param organizationId - 後方互換のため引数は残すがバックエンド経由ではサーバー側で JWT から取得するため未使用

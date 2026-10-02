@@ -21,8 +21,9 @@ describe('通知応答の共通判定', () => {
 it.each([
   [{ success: true, notifiedCount: 2, totalWaitlist: 2 }, 'accepted'],
   [{ success: true, notifiedCount: 1, totalWaitlist: 2 }, 'failed'],
-  [{ success: true, notifiedCount: 0, totalWaitlist: 2 }, 'unconfirmed'],
+  [{ success: true, notifiedCount: 0, totalWaitlist: 2 }, 'failed'],
   [{ success: true, notifiedCount: 0 }, 'unconfirmed'],
+  [{ success: true, notifiedCount: 0, totalWaitlist: 0 }, 'unconfirmed'],
   [{ success: true, notifiedCount: 0, _debug: 'internal error' }, 'unconfirmed'],
   [{ success: true, notifiedCount: -1 }, 'failed'],
   [{ success: true, notifiedCount: 2, totalWaitlist: 1 }, 'failed'],
@@ -30,6 +31,12 @@ it.each([
   [{ success: true, notifiedCount: 1 }, 'failed'],
 ])('待機列の件数契約%sを%sと分類する', (data, status) => {
   expect(waitlistNotificationOutcome({ data, error: null })).toMatchObject({ status })
+})
+it('対象ありの全件失敗は partial_failure', () => {
+  expect(waitlistNotificationOutcome({
+    data: { success: true, notifiedCount: 0, totalWaitlist: 2 },
+    error: null,
+  })).toEqual({ status: 'failed', reason: 'partial_failure' })
 })
 it('Discordの作成肯定応答は取消成功にならない', () => {
   expect(discordCancellationOutcome({ data: { success: true, created: true }, error: null }).status).toBe('failed')

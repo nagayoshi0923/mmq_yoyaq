@@ -1,3 +1,4 @@
+import { parseScenarioSlotStartTimes, scenarioSlotStartTimesForSave } from '@/lib/privateBookingSlotStartTimes'
 import { readSurveyQuestionSettings, saveSurveyQuestionSettings, type SurveyQuestionSnapshot } from '@/lib/surveyQuestionSettings'
 import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
 import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
@@ -802,6 +803,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           extra_preparation_time: scenario.extra_preparation_time || undefined,
           private_booking_time_slots: scenario.private_booking_time_slots || [],
           private_booking_time_slots_weekend: scenario.private_booking_time_slots_weekend ?? null,
+          private_booking_slot_start_times: parseScenarioSlotStartTimes(scenario.private_booking_slot_start_times),
           caution: '',
           sensitive_tags: [],
           characters: [],  // organization_scenariosから後で取得
@@ -854,6 +856,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
                     characters: osData.characters || [],
                     // 貸切受付不可時間帯
                     private_booking_blocked_slots: osData.private_booking_blocked_slots || [],
+                    private_booking_slot_start_times: parseScenarioSlotStartTimes((osData as { private_booking_slot_start_times?: unknown }).private_booking_slot_start_times),
                     // 貸切募集期間
                     booking_start_date: osData.booking_start_date || null,
                     booking_end_date: osData.booking_end_date || null,
@@ -1132,6 +1135,8 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
               scenario_type: formData.scenario_type || 'normal',
               // 貸切受付不可時間帯
               private_booking_blocked_slots: formData.private_booking_blocked_slots || null,
+              // 作品ごとの貸切開始時刻（未設定の枠は店舗の営業時間設定）
+              private_booking_slot_start_times: scenarioSlotStartTimesForSave(formData.private_booking_slot_start_times),
               // 貸切募集期間
               booking_start_date: formData.booking_start_date || null,
               booking_end_date: formData.booking_end_date || null,

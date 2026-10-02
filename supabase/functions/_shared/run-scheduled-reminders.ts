@@ -2,6 +2,7 @@
 import { loadEffectiveEmailSettings } from './effective-email-settings.ts'
 import { confirmedReservationPrice } from './confirmed-reservation-price.ts'
 import { dueReminderSchedules } from './reminder-schedule.ts'
+import { isScheduledReminderCurrent } from './reminder-send-guard.ts'
 import { sendScheduledReminder } from './send-scheduled-reminder.ts'
 
 async function readPages(makeQuery) {
@@ -54,8 +55,21 @@ export async function runScheduledReminders(db, now = new Date(), send = sendSch
           const claim = claims?.[0]
           if (!claim) { skipped++; continue }
           try {
+            // claim後に中止・削除・予約取消された分は送らない（送信中の競合対策）。
+            const stillEligible = await isScheduledReminderCurrent(db, {
+              organizationId: event.organization_id,
+              reservationId: reservation.id,
+              scheduleEventId: event.id,
+            })
+            if (!stillEligible) {
+              await db.from('scheduled_reminder_deliveries').update({ status: 'failed' })
+                .eq('id', claim.delivery_id).eq('organization_id', event.organization_id).eq('lease_token', claim.lease_token)
+              skipped++
+              continue
+            }
             await send({
               reservationId: reservation.id, organizationId: event.organization_id, storeId: event.store_id,
+              scheduleEventId: event.id,
               customerEmail: reservation.customer_email, customerName: reservation.customer_name,
               scenarioTitle: event.scenario, eventDate: event.date, startTime: event.start_time, endTime: event.end_time,
               storeName: event.stores?.name || event.venue, storeAddress: event.stores?.address,

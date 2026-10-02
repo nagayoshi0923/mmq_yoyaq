@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { SCENARIO_START_TIME_OPTIONS } from '@/lib/privateBookingSlotStartTimes'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Upload, X, Trash2, Wand2, FileText, BookOpen, Settings } from 'lucide-react'
@@ -569,6 +570,60 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
               )
             })}
+          </div>
+        </div>
+
+        {/* 作品ごとの貸切開始時刻（QW-20260909-011）。未設定の枠は店舗の営業時間設定 */}
+        <div className="scenario-edit-field">
+          <span className="scenario-edit-field__label">貸切開始時刻</span>
+          <div className="scenario-edit-field__control space-y-2">
+            {([
+              { label: '平日', bucket: 'weekday' as const },
+              { label: '土日・祝日', bucket: 'weekend' as const },
+            ] as const).map(({ label, bucket }) => (
+              <div key={bucket}>
+                <p className="scenario-edit-card__sublabel">{label}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: 'morning' as const, name: '朝' },
+                    { key: 'afternoon' as const, name: '昼' },
+                    { key: 'evening' as const, name: '夜' },
+                  ]).map(({ key, name }) => {
+                    const value = formData.private_booking_slot_start_times?.[bucket]?.[key] || 'store'
+                    return (
+                      <label key={key} className="space-y-0.5">
+                        <span className="scenario-edit-card__note">{name}</span>
+                        <Select
+                          value={value}
+                          onValueChange={(next) => setFormData(prev => ({
+                            ...prev,
+                            private_booking_slot_start_times: {
+                              weekday: { ...(prev.private_booking_slot_start_times?.weekday || {}) },
+                              weekend: { ...(prev.private_booking_slot_start_times?.weekend || {}) },
+                              [bucket]: {
+                                ...(prev.private_booking_slot_start_times?.[bucket] || {}),
+                                [key]: next === 'store' ? null : next,
+                              },
+                            },
+                          }))}
+                        >
+                          <SelectTrigger className="h-7 w-full text-xs" aria-label={`${label}の${name}の開始時刻`}>
+                            <SelectValue placeholder="店舗設定" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="store" className="text-xs">店舗設定</SelectItem>
+                            {SCENARIO_START_TIME_OPTIONS.map(time => (
+                              <SelectItem key={time} value={time} className="text-xs">{time}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+            <p className="scenario-edit-card__note">「店舗設定」はその店の営業時間設定の開始時刻を使います。前後の公演との間隔や、戦塵のレガストリア等の土日祝夜19:30以降の決まりは、設定した時刻より優先します。</p>
           </div>
         </div>
       </div>

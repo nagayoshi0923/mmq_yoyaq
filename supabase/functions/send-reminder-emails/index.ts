@@ -1,4 +1,5 @@
 import { isPrivateReminder, privateReminderDefault } from '../_shared/reminder-kind.ts'
+import { REMINDER_ELIGIBLE_STATUSES } from '../_shared/reminder-send-guard.ts'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
@@ -8,6 +9,7 @@ import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 interface ReminderEmailRequest {
   organizationId?: string  // マルチテナント対応
   storeId?: string  // 店舗ID（メール設定取得用）
+  scheduleEventId?: string
   reservationId: string
   customerEmail: string
   customerName: string
@@ -57,7 +59,7 @@ serve(async (req) => {
     // 🔒 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id, store_id, private_group_id, reservation_source, schedule_events!schedule_event_id(store_id, organization_id, category, is_private_booking, is_private_request)')
+      .select('id, status, customer_email, organization_id, store_id, schedule_event_id, private_group_id, reservation_source, schedule_events!schedule_event_id(id, store_id, organization_id, category, is_private_booking, is_private_request, is_cancelled)')
       .eq('id', reminderData.reservationId)
       .single()
 
@@ -76,13 +78,31 @@ serve(async (req) => {
     if (reminderData.deliveryId) {
       if (!isServiceCall || !reminderData.deliveryLeaseToken) return errorResponse('Unauthorized delivery', 403, corsHeaders)
       const { data: delivery, error } = await supabaseClient.from('scheduled_reminder_deliveries')
-        .select('id,event_date,days_before,status').eq('id', reminderData.deliveryId)
+        .select('id,event_date,days_before,status,schedule_event_id').eq('id', reminderData.deliveryId)
         .eq('organization_id', reservation.organization_id).eq('reservation_id', reservation.id)
         .eq('lease_token', reminderData.deliveryLeaseToken).maybeSingle()
       if (error) throw error
       if (!delivery || delivery.status !== 'sending' || delivery.event_date !== reminderData.eventDate || delivery.days_before !== reminderData.daysBefore) {
         return errorResponse('Invalid reminder delivery', 409, corsHeaders)
       }
+      if (reminderData.scheduleEventId && delivery.schedule_event_id !== reminderData.scheduleEventId) {
+        return errorResponse('Invalid reminder delivery', 409, corsHeaders)
+      }
+      if (reservation.schedule_event_id !== delivery.schedule_event_id) {
+        return errorResponse('Reminder target is no longer eligible', 409, corsHeaders)
+      }
+    }
+
+    const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
+    const expectedEventId = reminderData.scheduleEventId || reservation.schedule_event_id
+    if (
+      !event
+      || event.is_cancelled !== false
+      || !(REMINDER_ELIGIBLE_STATUSES as readonly string[]).includes(reservation.status)
+      || (expectedEventId && reservation.schedule_event_id !== expectedEventId)
+      || (expectedEventId && event.id !== expectedEventId)
+    ) {
+      return errorResponse('Reminder target is no longer eligible', 409, corsHeaders)
     }
 
     // ログにはマスキングした情報のみ出力
@@ -115,7 +135,6 @@ serve(async (req) => {
       throw new Error('メール送信サービスが設定されていません')
     }
 
-    const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
     if (event?.organization_id && event.organization_id !== resolvedOrganizationId) {
       return errorResponse('公演の組織が一致しません', 403, corsHeaders)
     }

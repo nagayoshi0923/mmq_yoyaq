@@ -70,6 +70,12 @@ BEGIN
       AND status = 'active'
   );
 
+  -- 店舗の公演募集停止期間中は、お客様からの予約を受け付けない（スタッフの手入力は従来どおり可）
+  IF NOT (v_is_admin OR v_is_staff)
+     AND public.is_store_recruitment_paused(v_store_id, 'performance', v_date) THEN
+    RAISE EXCEPTION 'RECRUITMENT_PAUSED' USING ERRCODE = 'P0046';
+  END IF;
+
   IF p_customer_id IS NULL THEN
     IF NOT (v_is_admin OR v_is_staff) THEN
       RAISE EXCEPTION 'FORBIDDEN_STAFF_ONLY' USING ERRCODE = 'P0013';

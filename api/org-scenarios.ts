@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const { data, error } = await db
         .from('organization_scenarios')
-        .select('id, duration, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout')
+        .select('id, duration, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, custom_sensitive_tags, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date, scenario_kind, accepts_private_booking, available_from, available_until, is_license_buyout, private_booking_slot_start_times')
         .eq('organization_id', user.orgId)
         .eq('scenario_master_id', masterId)
         .maybeSingle()

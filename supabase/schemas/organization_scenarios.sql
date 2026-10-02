@@ -66,6 +66,7 @@ CREATE TABLE public.organization_scenarios (
   scenario_type TEXT DEFAULT 'normal'::text,
   report_display_name TEXT,
   private_booking_blocked_slots TEXT[],
+  private_booking_slot_start_times JSONB,  -- 作品ごとの貸切開始時刻（20260930060000）
   booking_cutoff_minutes INTEGER CHECK (booking_cutoff_minutes BETWEEN 0 AND 1440),
   booking_start_date DATE,
   booking_end_date DATE,
