@@ -116,8 +116,8 @@
 
 ### Phase 4: 歯止め（2日）
 
-- CI の毎日 drift チェックを本稼働させる。
-- 「migration には rollback が対で必要」のチェックを pre-commit と CI に入れる。
+- CI の毎日 drift チェックを本稼働させる。→ 完了（.github/workflows/db-drift.yml、毎日 07:30 JST）
+- 「migration には rollback が対で必要」のチェックを pre-commit と CI に入れる。→ 完了（scripts/check-migration-rollbacks.mjs、2026-10-02 以降の migration が対象、pre-commit と CI の Verify に追加）
 - docs/REFACTORING_PLAN.md を閉じ、第3節の表を docs に残す。
 
 ### 期間
@@ -264,6 +264,7 @@ DB だけ直してもこれらは残る。Phase 0 を「片付け」ではなく
 - #721 完了: 社長判断「推奨通り」で金額の正本を final_price に統一（20261002160000、staging・本番適用、PR #754）。
 - #712: 社長判断「MMQ から送る」を実装（PR #753）。
 - #734 完了: 役割未設定の既定値を売上側の規則に統一（20261002170000、14 行付け直し）。
+- Phase 4: migration と rollback の対の検査を pre-commit と CI に追加（check:migration-rollbacks）。#644（GM 確定の Discord 連絡が見送られる）を修正・39 件再送、通知設定の未使用スイッチを撤去。
 - staging / 本番の DB パスワードを回転（社長）。両方とも Keychain と GitHub Secret を更新済み、接続確認済み。
 - 夜間ミラー（本番→staging）の失敗原因を3つ解消: (1) 直接接続先が IPv6 のみで GitHub Actions から到達できない → CI はセッションプーラー経由（#745）、(2) pg_dump が 16 を拾う → 17 の実体を PATH 先頭に（#745）、(3) リストアが E2E と重なりデッドロック → 30 秒待って最大 3 回（#747）、(4) 本番にだけあった ai_manager_work_stores → migration 20261002150000 で記録し staging に作成（#748）。
 - #712（キャンセル受付の自動メール未送信）: 原因は受付経路が MMQ 以外のとき送信処理が「送らずに成功」を返し、画面が「送信しました」と出していたこと。表示を直した（#744、main 反映済み）。MMQ から送るかの運用判断は社長待ち。
