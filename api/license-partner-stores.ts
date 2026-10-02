@@ -424,7 +424,7 @@ async function handleReplaceContracts(
   return await handleDetail(res, user, id)
 }
 
-async function getOwnedStore(id: string, organizationId: string) {
+async function getOwnedStore(id: string, organizationId: string): Promise<{ status: number; error: string } | { data: Record<string, unknown> }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
     .from('license_partner_stores')

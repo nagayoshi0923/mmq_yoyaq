@@ -13,7 +13,7 @@
     "build": "npm run typecheck && npm run build:fast",
     "build:fast": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.api.json",
     "lint": "eslint src --max-warnings 57",
     "check:migration-rollbacks": "node scripts/check-migration-rollbacks.mjs",
     "check:security-guardrails": "node scripts/check-security-guardrails.mjs",
