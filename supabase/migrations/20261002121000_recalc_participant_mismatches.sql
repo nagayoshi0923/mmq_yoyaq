@@ -25,6 +25,9 @@ SELECT e.id,
 FROM public.schedule_events e
 LEFT JOIN act a ON a.schedule_event_id = e.id
 WHERE COALESCE(e.current_participants, 0) <> COALESCE(a.s, 0);
+-- 退避表は RLS を有効にしポリシーを置かない（service_role と所有者以外は読めない）。
+ALTER TABLE archive.schedule_events_participants_backup_20261002 ENABLE ROW LEVEL SECURITY;
+
 
 DO $$
 DECLARE
