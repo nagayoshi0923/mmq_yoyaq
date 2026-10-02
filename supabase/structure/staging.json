@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-02T09:25:25.156Z",
+  "captured_at": "2026-10-02T09:43:22.839Z",
   "table_count": 138,
   "function_count": 332,
-  "digest": "01fadb4b1182d4e6ecdfff20e7d02f607e8a9acedef8eccf5dc08b96e5016d5a"
+  "digest": "96334eccb4fdfe886ebfb34556599c69dce8c0d975248f1b69458a03012281f8"
  },
  "tables": {
   "staff": {
@@ -11223,7 +11223,7 @@
      "type": "p"
     },
     {
-     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id)",
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) NOT VALID",
      "name": "private_coupon_claims_user_id_fkey",
      "type": "f"
     }
@@ -11516,7 +11516,7 @@
      "type": "c"
     },
     {
-     "def": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+     "def": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL NOT VALID",
      "name": "ai_manager_work_stores_updated_by_fkey",
      "type": "f"
     }
@@ -14762,7 +14762,7 @@
    "triggers": [],
    "constraints": [
     {
-     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id)",
+     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) NOT VALID",
      "name": "compensated_cancellations_created_by_fkey",
      "type": "f"
     },
@@ -16239,12 +16239,12 @@
    "triggers": [],
    "constraints": [
     {
-     "def": "FOREIGN KEY (consumed_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+     "def": "FOREIGN KEY (consumed_by) REFERENCES auth.users(id) ON DELETE SET NULL NOT VALID",
      "name": "organization_signup_claims_consumed_by_fkey",
      "type": "f"
     },
     {
-     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL NOT VALID",
      "name": "organization_signup_claims_created_by_fkey",
      "type": "f"
     },
@@ -16359,7 +16359,7 @@
      "type": "f"
     },
     {
-     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id)",
+     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) NOT VALID",
      "name": "private_coupon_claim_links_created_by_fkey",
      "type": "f"
     },
@@ -20907,7 +20907,7 @@
      "type": "c"
     },
     {
-     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id)",
+     "def": "FOREIGN KEY (created_by) REFERENCES auth.users(id) NOT VALID",
      "name": "representative_compensation_grants_created_by_fkey",
      "type": "f"
     },
