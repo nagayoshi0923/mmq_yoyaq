@@ -481,7 +481,6 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
           .from('global_settings')
           .update({
             enable_email_notifications: globalFormData.enable_email_notifications,
-            enable_discord_notifications: globalFormData.enable_discord_notifications,
             pre_reading_notice_message: globalFormData.pre_reading_notice_message || null,
             system_msg_group_created_title: globalFormData.system_msg_group_created_title || null,
             system_msg_group_created_body: globalFormData.system_msg_group_created_body || null,
@@ -544,16 +543,11 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
               onCheckedChange={(checked) => setGlobalFormData(prev => ({ ...prev, enable_email_notifications: checked }))}
             />
           </div>
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <Label>Discord通知</Label>
-              <p className="text-xs text-muted-foreground mt-1">予約・シフト変更のDiscord通知を有効化</p>
-            </div>
-            <Switch
-              checked={globalFormData.enable_discord_notifications}
-              onCheckedChange={(checked) => setGlobalFormData(prev => ({ ...prev, enable_discord_notifications: checked }))}
-            />
-          </div>
+          {/* Discord 通知の全体スイッチは置かない。どの通知経路も参照しておらず、参照した承認配信だけが
+              見送られる事故（#644）が起きた。Discord 通知は貸切設定・シフト設定の各項目で有効化する。 */}
+          <p className="text-xs text-muted-foreground px-1">
+            Discord通知は、貸切設定（貸切のDiscord通知）とシフト設定の各項目で有効化します。
+          </p>
         </div>
       </section>
 
