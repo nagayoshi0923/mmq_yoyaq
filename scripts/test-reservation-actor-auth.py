@@ -29,8 +29,15 @@ def update(customer=5,count=1,reservation=50):
 def run_case(name,fn):
  fn();RESULTS.append({'case':name,'status':'成功'});print('成功:',name,flush=True)
 roles=' '.join(f"DO $$BEGIN CREATE ROLE {r};EXCEPTION WHEN duplicate_object THEN NULL;END$$;" for r in ['anon','authenticated','service_role'])
-for attempt in range(100):
- if subprocess.run([DOCKER,'exec',CONTAINER,'pg_isready','-U','postgres'],capture_output=True).returncode==0:break
+def server_ready():
+ # 公式イメージは初期化中に一時サーバーを起動し、初期化後に一度止めて本サーバーを起動する。
+ # 一時サーバーにも pg_isready は応答するため、初期化完了（または初期化スキップ）のログを併せて待つ。
+ if subprocess.run([DOCKER,'exec',CONTAINER,'pg_isready','-U','postgres'],capture_output=True).returncode:return False
+ logs=subprocess.run([DOCKER,'logs',CONTAINER],capture_output=True,text=True)
+ out=logs.stdout+logs.stderr
+ return 'PostgreSQL init process complete' in out or 'Skipping initialization' in out
+for attempt in range(600):
+ if server_ready():break
  time.sleep(.1)
 else:raise AssertionError('隔離PostgreSQLが起動しませんでした')
 psql(roles)
