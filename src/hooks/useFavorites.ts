@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { scenarioLikeApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -186,11 +187,7 @@ export function useFavorites() {
       try {
         if (isCurrentlyFavorite) {
           // お気に入りから削除（scenario_master_id または scenario_id で検索）
-          const { error } = await supabase
-            .from('scenario_likes')
-            .delete()
-            .eq('customer_id', customerId)
-            .or(`scenario_master_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
+          const { error } = await scenarioLikeApi.removeByCustomerAndScenario(customerId, scenarioId)
 
           if (error) throw error
         } else {
@@ -200,9 +197,7 @@ export function useFavorites() {
             logger.warn('useFavorites: org_id が特定できないためお気に入り登録をスキップ')
             return
           }
-          const { error } = await supabase
-            .from('scenario_likes')
-            .insert({
+          const { error } = await scenarioLikeApi.add({
               customer_id: customerId,
               scenario_master_id: scenarioId,
               organization_id: orgId,

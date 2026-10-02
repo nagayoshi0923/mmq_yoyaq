@@ -7,6 +7,7 @@ import { MyPageContent } from './MyPageContent'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { supabase } from '@/lib/supabase'
+import { scenarioRatingApi } from '@/lib/api/scenarioWriteApi'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { showToast } from '@/utils/toast'
@@ -331,20 +332,14 @@ export default function MyPage() {
 
     try {
       if (newRating === null) {
-        await supabase
-          .from('scenario_ratings')
-          .delete()
-          .eq('customer_id', customerId)
-          .eq('scenario_master_id', scenario.scenario_id)
+        await scenarioRatingApi.remove(customerId, scenario.scenario_id)
       } else {
-        await supabase
-          .from('scenario_ratings')
-          .upsert({
+        await scenarioRatingApi.upsert({
             customer_id: customerId,
             scenario_master_id: scenario.scenario_id,
             rating: newRating,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'customer_id,scenario_master_id' })
+          })
       }
     } catch (error) {
       logger.error('評価保存エラー:', error)

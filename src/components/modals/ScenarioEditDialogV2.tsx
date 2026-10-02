@@ -51,6 +51,7 @@ import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { useScenarioGmAssignments } from '@/hooks/useScenarioGmAssignments'
 import { supabase } from '@/lib/supabase'
+import { organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import type { Scenario, Staff } from '@/types'
@@ -1151,11 +1152,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
 
             if (!existingOrgScenario) {
               // organization_scenariosに登録
-              const { data: insertedData, error: orgScenarioError } = await supabase
-                .from('organization_scenarios')
-                .insert(orgScenarioPayload)
-                .select('id')
-                .single()
+              const { data: insertedData, error: orgScenarioError } = await organizationScenarioWriteApi.insertReturningId(orgScenarioPayload)
               
               if (orgScenarioError) {
                 logger.error('organization_scenarios登録エラー:', orgScenarioError)
@@ -1167,14 +1164,10 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             } else {
               // 既存レコードがある場合は更新（organization_id, scenario_master_id は除く）
               const { organization_id: _oid, scenario_master_id: _mid, ...updatePayload } = orgScenarioPayload
-              const { error: updateError } = await supabase
-                .from('organization_scenarios')
-                .update({
+              const { error: updateError } = await organizationScenarioWriteApi.updateByIdInOrganization(existingOrgScenario.id, organizationId, {
                   ...updatePayload,
                   updated_at: new Date().toISOString()
                 })
-                .eq('id', existingOrgScenario.id)
-                .eq('organization_id', organizationId)
               
               if (updateError) {
                 logger.error('organization_scenarios更新エラー:', updateError)
@@ -1193,15 +1186,11 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
               || formData.private_confirm_template !== undefined
             )) {
               try {
-                const { error: tplError } = await supabase
-                  .from('organization_scenarios')
-                  .update({
+                const { error: tplError } = await organizationScenarioWriteApi.updateByIdInOrganization(orgScenarioId, organizationId, {
                     individual_notice_template: formData.individual_notice_template || null,
                     reservation_confirmation_template: formData.reservation_confirmation_template?.trim() || null,
                     private_confirm_template: formData.private_confirm_template?.trim() || null,
                   })
-                  .eq('id', orgScenarioId)
-                  .eq('organization_id', organizationId)
                 if (tplError) {
                   logger.error('メール上書きの保存エラー:', tplError)
                   showToast.error('メール上書きの保存に失敗しました')
