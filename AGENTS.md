@@ -8,6 +8,15 @@ Codex / Claude Code 共通のエントリ。指示はここにだけ書く（`CL
 
 ---
 
+## 整備期間中の指示（2026-10-02 から、docs/MMQ_SEIBI_PLAN_2026-10.md の Phase 1 完了まで）
+
+- mmq_yoyaq への書き込み（commit / push / PR / DB・Edge の変更）は Claude（queens-waltz-ai-manager 窓口、案件 QW-20261002-006）だけが行う。Codex レーンは読み取り・調査・一覧の提出に限る。
+- Codex 窓口への依頼: QW-20260917-001 の58項目（A01〜A28 / B01〜B20 ほか）の「コード・一言説明・状態（受入済み / 実装済み受入待ち / 監査待ち）」を issue #716 のコメントへ貼る。
+- 整備の正本は docs/MMQ_SEIBI_PLAN_2026-10.md。完了判断は同書第3節の表だけで行い、台帳へ「全体IN_PROGRESS」を追記しない。
+- 挙動を変えない PR は CI 緑で即マージ。migration は rollback と対で出し、staging と本番へ同じ日に適用する。staging と main の間の取り込みは merge commit で行う（squash は祖先関係を失うので使わない）。
+
+---
+
 ## Codexレーン固有
 
 Codex レーン（dispatch-lane）で動くときだけ適用する。
