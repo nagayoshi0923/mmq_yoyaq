@@ -25,7 +25,7 @@ vi.mock('./_lib/db.js', () => ({
       q.insert = (p: unknown) => { op = 'insert'; payload = p; return q }
       q.update = (p: unknown) => { op = 'update'; payload = p; return q }
       q.delete = () => { op = 'delete'; return q }
-      for (const m of ['eq', 'neq', 'gte', 'lte', 'gt', 'lt', 'order', 'limit', 'range', 'or', 'not', 'is', 'in']) {
+      for (const m of ['eq', 'neq', 'gte', 'lte', 'gt', 'lt', 'order', 'limit', 'range', 'or', 'not', 'is', 'in', 'contains']) {
         q[m] = (...a: unknown[]) => { filters.push(`${m}(${a.map(x => JSON.stringify(x)).join(',')})`); return q }
       }
       const rows = () => { const t = mock.tables[table]; return Array.isArray(t) ? t : t == null ? [] : [t] }
@@ -308,5 +308,262 @@ describe('api/schedule.ts 書き込み系（分割前の現状を固定）', () 
     mock.tables.reservations = [{ participant_count: 8, participant_names: ['客'] }]
     await call({ action: 'add-demo-participants' }, 'POST')
     expect(mock.writes.filter(w => w.table === 'reservations')).toEqual([])
+  })
+})
+
+describe('api/schedule.ts by-month（カレンダーの表示人数と貸切の合成。分割前の現状を固定）', () => {
+  const evt = (id: string, over: Record<string, unknown>) => ({
+    id, date: '2026-11-05', start_time: '14:00:00', category: 'open', is_cancelled: false, current_participants: 0, scenario_master_id: 'm1', scenario: '作品',
+    scenario_masters: null, max_participants: null, capacity: 8, ...over,
+  })
+  const r = (event: string, over: Record<string, unknown>) => ({ schedule_event_id: event, participant_count: 2, status: 'confirmed', candidate_datetimes: null, reservation_source: 'web', ...over })
+  const summarize = (body: unknown) => (body as Array<Record<string, unknown>>).map(e => ({ id: e.id, current: e.current_participants, max: e.max_participants, timeSlot: e.timeSlot, private: e.is_private_booking }))
+
+  beforeEach(() => {
+    mock.tables.organization_scenarios_with_master = [{ id: 'm1', title: '作品', player_count_max: 6 }]
+    mock.tables.staff = []
+  })
+  it('実人数は有効な予約状態（pending / confirmed / gm_confirmed / checked_in）の合計で、キャンセル済みの予約は数えず、定員（作品の player_count_max）で頭打ちにする', async () => {
+    mock.tables.schedule_events = [evt('e-sum', {}), evt('e-capped', { date: '2026-11-06' }), evt('e-cancelled-res', { date: '2026-11-07' })]
+    mock.tables.reservations = [
+      r('e-sum', { participant_count: 1, status: 'pending' }), r('e-sum', { participant_count: 1, status: 'confirmed' }), r('e-sum', { participant_count: 1, status: 'gm_confirmed' }),
+      r('e-sum', { participant_count: 1, status: 'checked_in' }), r('e-sum', { participant_count: 5, status: 'cancelled' }),
+      r('e-capped', { participant_count: 5 }), r('e-capped', { participant_count: 4 }),
+      r('e-cancelled-res', { participant_count: 3, status: 'cancelled' }),
+    ]
+    const { status, body } = await call({ type: 'by-month', year: '2026', month: '11' }, 'GET')
+    expect(status).toBe(200); expect(summarize(body)).toMatchInlineSnapshot(`
+      [
+        {
+          "current": 4,
+          "id": "e-sum",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 6,
+          "id": "e-capped",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 0,
+          "id": "e-cancelled-res",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+      ]
+    `)
+  })
+  it('予約が 1 件も無い公演は DB の表示人数（current_participants）を使い、定員で頭打ち。定員は 作品 ID → 作品名 → マスター結合 → 公演の項目 → 8 の順に決まる', async () => {
+    mock.tables.schedule_events = [
+      evt('e-nores', { current_participants: 4 }),
+      evt('e-nores-over', { date: '2026-11-06', current_participants: 9 }),
+      evt('e-by-title', { date: '2026-11-07', scenario_master_id: null, scenario: '作品', current_participants: 5 }),
+      evt('e-by-join', { date: '2026-11-08', scenario_master_id: null, scenario: '別作品', scenario_masters: { player_count_max: 7 }, current_participants: 7 }),
+      evt('e-by-event', { date: '2026-11-09', scenario_master_id: null, scenario: '不明', max_participants: 5, current_participants: 6 }),
+      evt('e-default', { date: '2026-11-10', scenario_master_id: null, scenario: '不明', max_participants: null, capacity: null, current_participants: 20 }),
+    ]
+    mock.tables.reservations = []
+    expect(summarize((await call({ type: 'by-month', year: '2026', month: '11' }, 'GET')).body)).toMatchInlineSnapshot(`
+      [
+        {
+          "current": 4,
+          "id": "e-nores",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 6,
+          "id": "e-nores-over",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 5,
+          "id": "e-by-title",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 7,
+          "id": "e-by-join",
+          "max": 7,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 5,
+          "id": "e-by-event",
+          "max": 5,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 8,
+          "id": "e-default",
+          "max": 8,
+          "private": false,
+          "timeSlot": undefined,
+        },
+      ]
+    `)
+  })
+  it('中止された公演は、予約の合計（状態を問わない）と DB の表示人数（定員まで）の大きいほうを表示する', async () => {
+    mock.tables.schedule_events = [evt('e-cancel-a', { is_cancelled: true, current_participants: 2 }), evt('e-cancel-b', { date: '2026-11-06', is_cancelled: true, current_participants: 5 })]
+    mock.tables.reservations = [r('e-cancel-a', { participant_count: 4, status: 'cancelled' }), r('e-cancel-b', { participant_count: 1, status: 'cancelled' })]
+    expect(summarize((await call({ type: 'by-month', year: '2026', month: '11' }, 'GET')).body)).toMatchInlineSnapshot(`
+      [
+        {
+          "current": 4,
+          "id": "e-cancel-a",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 5,
+          "id": "e-cancel-b",
+          "max": 6,
+          "private": false,
+          "timeSlot": undefined,
+        },
+      ]
+    `)
+  })
+  it('貸切の公演行が無い確定済みの web_private 予約を、確定した候補日（無ければ先頭の候補）から合成する。GM は staff の名前、無ければ「未定」', async () => {
+    mock.tables.schedule_events = []
+    mock.tables.staff = [{ id: 'st1', name: '太郎' }]
+    mock.tables.reservations = [
+      { id: 'b1', scenario_master_id: 'm1', store_id: 's1', gm_staff: 'st1', participant_count: 5, schedule_event_id: null, organization_id: 'org-1', scenario_masters: { id: 'm1', title: '作品', player_count_max: 6 }, stores: null,
+        candidate_datetimes: { candidates: [{ order: 1, date: '2026-11-12', status: 'pending', timeSlot: '夜', startTime: '18:00:00', endTime: '21:00:00' }, { order: 2, date: '2026-11-13', status: 'confirmed', timeSlot: '昼' }] } },
+      { id: 'b2', scenario_master_id: 'm1', store_id: 's1', gm_staff: null, participant_count: 4, schedule_event_id: null, organization_id: 'org-1', scenario_masters: { id: 'm1', title: '作品', player_count_max: 6 }, stores: null,
+        candidate_datetimes: { candidates: [{ order: 1, date: '2026-12-20', status: 'pending', timeSlot: '夜' }] } },
+      { id: 'b3', scenario_master_id: 'm1', store_id: 's1', gm_staff: null, participant_count: 3, schedule_event_id: null, organization_id: 'org-1', scenario_masters: { id: 'm1', title: '作品', player_count_max: 6 }, stores: null,
+        candidate_datetimes: { candidates: [{ order: 1, date: '2026-11-30', status: 'pending', timeSlot: '夜' }] } },
+    ]
+    const { body } = await call({ type: 'by-month', year: '2026', month: '11' }, 'GET')
+    expect((body as Array<Record<string, unknown>>).map(e => ({ id: e.id, date: e.date, start: e.start_time, end: e.end_time, gms: e.gms, current: e.current_participants, max: e.max_participants, slot: e.timeSlot }))).toMatchInlineSnapshot(`
+      [
+        {
+          "current": 5,
+          "date": "2026-11-13",
+          "end": "21:00:00",
+          "gms": [
+            "太郎",
+          ],
+          "id": "private-b1-2",
+          "max": 6,
+          "slot": "昼",
+          "start": "18:00:00",
+        },
+        {
+          "current": 3,
+          "date": "2026-11-30",
+          "end": "21:00:00",
+          "gms": [
+            "未定",
+          ],
+          "id": "private-b3-1",
+          "max": 6,
+          "slot": "夜",
+          "start": "18:00:00",
+        },
+      ]
+    `)
+  })
+  it('skip_private_bookings=true では貸切を合成しない。year / month が不正なら 400', async () => {
+    mock.tables.schedule_events = []
+    mock.tables.reservations = [{ id: 'b1', scenario_master_id: 'm1', store_id: 's1', gm_staff: null, participant_count: 5, schedule_event_id: null, scenario_masters: null, stores: null, candidate_datetimes: { candidates: [{ order: 1, date: '2026-11-12', status: 'confirmed' }] } }]
+    expect(((await call({ type: 'by-month', year: '2026', month: '11', skip_private_bookings: 'true' }, 'GET')).body as unknown[]).length).toBe(0)
+    expect((await call({ type: 'by-month', year: '2026', month: '13' }, 'GET')).status).toBe(400)
+    expect((await call({ type: 'by-month', year: 'x', month: '1' }, 'GET')).status).toBe(400)
+  })
+})
+
+describe('api/schedule.ts my-schedule / by-date-range / by-scenario（表示人数の出し方が by-month と違う現状を固定）', () => {
+  const evt = (id: string, over: Record<string, unknown>) => ({
+    id, date: '2026-11-05', start_time: '14:00:00', category: 'open', is_cancelled: false, current_participants: 0, scenario_master_id: 'm1', scenario: '作品',
+    scenario_masters: null, max_participants: null, capacity: 8, time_slot: null, ...over,
+  })
+  const r = (event: string, over: Record<string, unknown>) => ({ schedule_event_id: event, participant_count: 2, status: 'confirmed', ...over })
+  beforeEach(() => { mock.tables.organization_scenarios_with_master = [{ id: 'm1', title: '作品', player_count_max: 6 }] })
+
+  it('by-scenario: 実人数は有効状態の合計と DB の表示人数の大きいほうで、定員では頭打ちにしない（by-month と違う）。time_slot があれば timeSlot を付ける', async () => {
+    mock.tables.schedule_events = [evt('a', { current_participants: 3 }), evt('b', { date: '2026-11-06', current_participants: 0, time_slot: '夜' })]
+    mock.tables.reservations = [r('a', { participant_count: 2 }), r('b', { participant_count: 5 }), r('b', { participant_count: 4 })]
+    const { status, body } = await call({ type: 'by-scenario', scenario_id: 'm1', start: '2026-11-01', end: '2026-11-30' }, 'GET')
+    expect(status).toBe(200)
+    expect((body as Array<Record<string, unknown>>).map(e => ({ id: e.id, current: e.current_participants, max: e.max_participants, timeSlot: e.timeSlot }))).toMatchInlineSnapshot(`
+      [
+        {
+          "current": 3,
+          "id": "a",
+          "max": 6,
+          "timeSlot": undefined,
+        },
+        {
+          "current": 9,
+          "id": "b",
+          "max": 6,
+          "timeSlot": "夜",
+        },
+      ]
+    `)
+  })
+  it('by-scenario: 必須パラメータの欠落は 400、該当公演が無ければ空配列', async () => {
+    expect((await call({ type: 'by-scenario', start: '2026-11-01', end: '2026-11-30' }, 'GET')).status).toBe(400)
+    mock.tables.schedule_events = []
+    expect((await call({ type: 'by-scenario', scenario_id: 'm1', start: '2026-11-01', end: '2026-11-30' }, 'GET')).body).toEqual([])
+  })
+  it('by-date-range: 期間内の公演をそのまま返し、include_cancelled=true のときだけ中止を含める。欠落は 400', async () => {
+    mock.tables.schedule_events = [evt('a', {})]
+    expect((await call({ type: 'by-date-range', start: '2026-11-01', end: '2026-11-30' }, 'GET')).body).toEqual([evt('a', {})])
+    expect((await call({ type: 'by-date-range', start: '2026-11-01' }, 'GET')).status).toBe(400)
+  })
+  it('my-schedule: GM として入っている公演とスタッフ参加の公演を合算して重複を除き、実人数は有効状態の合計（定員で頭打ちにしない）で日付・時刻順に返す', async () => {
+    const gmOnly = evt('gm-only', { date: '2026-11-08', start_time: '19:00:00' })
+    const both = evt('both', { date: '2026-11-05' })
+    const staffOnly = evt('staff-only', { date: '2026-11-05', start_time: '10:00:00' })
+    mock.tables.schedule_events = [gmOnly, both]
+    mock.tables.reservations = [
+      { schedule_event_id: 'both', schedule_events: both, participant_count: 4, status: 'confirmed' },
+      { schedule_event_id: 'staff-only', schedule_events: staffOnly, participant_count: 1, status: 'confirmed' },
+      { schedule_event_id: 'gm-only', schedule_events: null, participant_count: 7, status: 'confirmed' },
+    ]
+    const { status, body } = await call({ type: 'my-schedule', staff_name: '太郎', start: '2026-11-01', end: '2026-11-30' }, 'GET')
+    expect(status).toBe(200)
+    expect((body as Array<Record<string, unknown>>).map(e => ({ id: e.id, date: e.date, start: e.start_time, current: e.current_participants, max: e.max_participants }))).toMatchInlineSnapshot(`
+      [
+        {
+          "current": 1,
+          "date": "2026-11-05",
+          "id": "staff-only",
+          "max": 6,
+          "start": "10:00:00",
+        },
+        {
+          "current": 4,
+          "date": "2026-11-05",
+          "id": "both",
+          "max": 6,
+          "start": "14:00:00",
+        },
+        {
+          "current": 7,
+          "date": "2026-11-08",
+          "id": "gm-only",
+          "max": 6,
+          "start": "19:00:00",
+        },
+      ]
+    `)
+    expect((await call({ type: 'my-schedule', start: '2026-11-01', end: '2026-11-30' }, 'GET')).status).toBe(400)
   })
 })
