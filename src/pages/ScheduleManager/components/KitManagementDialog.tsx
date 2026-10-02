@@ -41,6 +41,7 @@ import { CurrentPlacementTab } from './kitManagement/tabs/CurrentPlacementTab'
 import { StoreInventoryTab } from './kitManagement/tabs/StoreInventoryTab'
 import { WeeklyDemandTab } from './kitManagement/tabs/WeeklyDemandTab'
 import { TransferPlanTab } from './kitManagement/tabs/TransferPlanTab'
+import { globalSettingsApi } from '@/lib/api/globalSettingsApi'
 
 export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProps) {
   // UI状態
@@ -73,10 +74,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     try {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
-      await supabase
-        .from('global_settings')
-        .update({ kit_transfer_offsets: offsets })
-        .eq('organization_id', orgId)
+      await globalSettingsApi.updateByOrganization(orgId, { kit_transfer_offsets: offsets })
     } catch (e) {
       logger.warn('kit_transfer_offsets の保存に失敗:', e)
     }
@@ -86,10 +84,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     try {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
-      await supabase
-        .from('global_settings')
-        .update({ kit_transfer_start_store_ids: startStoreIds })
-        .eq('organization_id', orgId)
+      await globalSettingsApi.updateByOrganization(orgId, { kit_transfer_start_store_ids: startStoreIds })
     } catch (e) {
       logger.warn('kit_transfer_start_store_ids の保存に失敗:', e)
     }

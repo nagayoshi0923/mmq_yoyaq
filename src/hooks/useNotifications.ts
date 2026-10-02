@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatJstYmd } from '@/utils/jstDate'
+import { userNotificationApi } from '@/lib/api/globalSettingsApi'
 
 export interface Notification {
   id: string
@@ -300,10 +301,7 @@ export function useNotifications() {
     // DBの通知の場合
     if (notificationId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
       try {
-        await supabase
-          .from('user_notifications')
-          .update({ is_read: true, read_at: new Date().toISOString() })
-          .eq('id', notificationId)
+        await userNotificationApi.markRead(notificationId)
       } catch (error) {
         logger.error('通知既読更新エラー:', error)
       }
@@ -335,10 +333,7 @@ export function useNotifications() {
     
     if (dbNotificationIds.length > 0) {
       try {
-        await supabase
-          .from('user_notifications')
-          .update({ is_read: true, read_at: new Date().toISOString() })
-          .in('id', dbNotificationIds)
+        await userNotificationApi.markManyRead(dbNotificationIds)
       } catch (error) {
         logger.error('通知一括既読更新エラー:', error)
       }
