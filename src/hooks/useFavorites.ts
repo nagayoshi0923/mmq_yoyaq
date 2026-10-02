@@ -7,6 +7,7 @@ import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import { ownCustomerApi } from '@/lib/api/customerApi'
+import { getErrorMessage, getErrorCode } from '@/lib/errorFields'
 
 async function resolveCurrentOrgId(): Promise<string | null> {
   const orgId = await getCurrentOrganizationId()
@@ -190,11 +191,11 @@ export function useFavorites() {
 
           if (error) throw error
         }
-      } catch (error: any) {
+      } catch (error) {
         logger.error('Failed to update favorites in DB:', { 
           error, 
-          errorMessage: error?.message,
-          errorCode: error?.code,
+          errorMessage: getErrorMessage(error),
+          errorCode: getErrorCode(error),
           customerId, 
           scenarioId 
         })

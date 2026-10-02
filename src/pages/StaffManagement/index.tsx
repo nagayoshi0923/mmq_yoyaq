@@ -263,7 +263,7 @@ export function StaffManagement() {
       setDecreaseGuard(null)
       closeEditModal()
       return true
-    } catch (err: any) {
+    } catch (err) {
       // 🛡 担当が減る保存はサーバーが 409 で拒否する。確認ダイアログを出し、承認時のみ再送する。
       if (
         err instanceof ApiClientError &&
@@ -306,7 +306,7 @@ export function StaffManagement() {
 
       showToast.success(`${linkingStaff.name}さんを${searchedUser.email}と紐付けました`)
       closeLinkModal()
-    } catch (err: any) {
+    } catch (err) {
       showToast.error('紐付けに失敗しました', getSafeErrorMessage(err))
     } finally {
       setLinkLoading(false)

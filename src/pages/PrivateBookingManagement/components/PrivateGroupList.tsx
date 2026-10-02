@@ -32,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { readSurveyDeliveries, sendSurveyNotice, surveyDeliveryLabels, type SurveyDeliveryHistory } from '@/lib/privateSurveyDelivery'
 import { formatJstYmd } from '@/utils/jstDate'
 import { filterPrivateGroups } from '../utils/filterPrivateGroups'
+import { getErrorMessage } from '@/lib/errorFields'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   'draft': { label: '下書き', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
@@ -138,7 +139,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       setMessageDialogOpen(false)
       setMessage('')
       setSelectedGroup(null)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('メッセージ送信例外:', err)
       showToast.error('メッセージの送信に失敗しました')
     } finally {
@@ -154,9 +155,9 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       const result = await sendSurveyNotice(selectedGroupForSurvey.id, surveyHistory.reservation_id, user.id)
       showToast.success(`チャットに案内を保存しました。${surveyDeliveryLabels[result.status] || 'メールの状態を確認してください'}`)
       setHistoryRefresh(value => value + 1)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('アンケート案内保存エラー:', err)
-      showToast.error(err.message || '案内の保存結果を確認できませんでした。同じ内容で再試行してください。')
+      showToast.error(getErrorMessage(err) || '案内の保存結果を確認できませんでした。同じ内容で再試行してください。')
     } finally {
       sendingSurveyRef.current = false
       setSendingSurvey(false)

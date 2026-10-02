@@ -30,6 +30,7 @@ import { getAvailableSeats } from '@/lib/participantUtils'
 import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { waitlistApi } from '@/lib/api/globalSettingsApi'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export function BookingConfirmation({
   eventId,
@@ -188,9 +189,9 @@ export function BookingConfirmation({
     try {
       await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes, customerNickname, selectedCouponId)
       // 成功画面表示後にuseEffectで自動遷移を処理
-    } catch (error: any) {
+    } catch (error) {
       couponState.resetAfterFailure()
-      setError(error.message || '予約処理中にエラーが発生しました')
+      setError(getErrorMessage(error) || '予約処理中にエラーが発生しました')
     } finally {
       setPendingSubmit(false)
     }
@@ -304,9 +305,9 @@ export function BookingConfirmation({
 
       setWaitlistSuccess(true)
       toast.success('キャンセル待ちに登録しました')
-    } catch (error: any) {
+    } catch (error) {
       logger.error('キャンセル待ち登録エラー:', error)
-      setError(error.message || 'キャンセル待ち登録に失敗しました')
+      setError(getErrorMessage(error) || 'キャンセル待ち登録に失敗しました')
     } finally {
       setWaitlistSubmitting(false)
     }

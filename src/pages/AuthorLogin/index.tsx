@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, Loader2, Mail, PenTool, ShieldAlert } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { authorApi } from '@/lib/api/authorApi'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export default function AuthorLogin() {
   const [email, setEmail] = useState('')
@@ -69,9 +70,9 @@ export default function AuthorLogin() {
       }
 
       setSent(true)
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Failed to send magic link:', err)
-      setError(err.message || 'マジックリンクの送信に失敗しました')
+      setError(getErrorMessage(err) || 'マジックリンクの送信に失敗しました')
     } finally {
       setLoading(false)
     }

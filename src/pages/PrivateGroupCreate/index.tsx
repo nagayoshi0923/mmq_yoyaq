@@ -20,6 +20,7 @@ import {
 } from '@/lib/organization'
 import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
+import { getErrorMessage } from '@/lib/errorFields'
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -171,8 +172,8 @@ export function PrivateGroupCreate() {
       } else {
         setCreatedGroup(group)
       }
-    } catch (err: any) {
-      setError(err.message || '貸切リクエストの作成に失敗しました')
+    } catch (err) {
+      setError(getErrorMessage(err) || '貸切リクエストの作成に失敗しました')
     }
   }
 
