@@ -1,7 +1,7 @@
 import { fetchPlayedReservations, resolvePlayedScenarioIds } from '@/lib/playedStatus'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { addPlayedOverride } from '@/lib/playedOverrides'
@@ -27,11 +27,7 @@ export function usePlayedScenarios() {
     }
 
     try {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle()
+      const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
 
       if (!customer) {
         setPlayedScenarioIds(new Set())

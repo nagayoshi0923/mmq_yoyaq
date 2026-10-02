@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
 import { tablePreferenceApi } from '@/lib/api/userPreferencesApi'
 import { logger } from '@/utils/logger'
 
@@ -36,12 +35,7 @@ export function useTablePreferences(
     }
 
     setLoading(true)
-    supabase
-      .from('user_table_preferences')
-      .select('column_order, column_visibility')
-      .eq('user_id', user.id)
-      .eq('table_key', tableKey)
-      .maybeSingle()
+    tablePreferenceApi.load(user.id, tableKey)
       .then(({ data, error }) => {
         setLoading(false)
         if (error) {

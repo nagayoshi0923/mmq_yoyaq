@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { customerLookupReadApi, notificationReadApi } from '@/lib/api/customerHookReadApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -30,11 +31,7 @@ export function useNotifications() {
   // DBから通知を取得
   const fetchFromDatabase = useCallback(async (): Promise<Notification[] | null> => {
     try {
-      const { data, error } = await supabase
-        .from('user_notifications')
-        .select('id, type, title, message, created_at, is_read, link, metadata')
-        .order('created_at', { ascending: false })
-        .limit(20)
+      const { data, error } = await notificationReadApi.listUserNotifications()
 
       if (error) {
         // テーブルが存在しない場合はnullを返してフォールバック
@@ -80,22 +77,11 @@ export function useNotifications() {
     } catch { /* ignore */ }
 
     // 顧客情報を取得
-    const { data: customer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('email', user.email)
-      .maybeSingle()
+    const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
 
     if (customer) {
       // 最近の予約（24時間以内に作成）→ 予約確認通知
-      const { data: recentReservations } = await supabase
-        .from('reservations')
-        .select('id, reservation_number, title, created_at, requested_datetime')
-        .eq('customer_id', customer.id)
-        .gte('created_at', oneDayAgo.toISOString())
-        .in('status', ['confirmed', 'gm_confirmed'])
-        .order('created_at', { ascending: false })
-        .limit(5)
+      const { data: recentReservations } = await notificationReadApi.listRecentConfirmedReservations(customer.id, oneDayAgo.toISOString())
 
       recentReservations?.forEach(res => {
         const notifId = `reservation_confirmed_${res.id}`
@@ -112,15 +98,7 @@ export function useNotifications() {
       })
 
       // 今後3日以内の予約 → リマインダー通知
-      const { data: upcomingReservations } = await supabase
-        .from('reservations')
-        .select('id, reservation_number, title, requested_datetime')
-        .eq('customer_id', customer.id)
-        .gte('requested_datetime', now.toISOString())
-        .lte('requested_datetime', threeDaysFromNow.toISOString())
-        .in('status', ['confirmed', 'gm_confirmed'])
-        .order('requested_datetime', { ascending: true })
-        .limit(3)
+      const { data: upcomingReservations } = await notificationReadApi.listUpcomingReservations(customer.id, now.toISOString(), threeDaysFromNow.toISOString())
 
       upcomingReservations?.forEach(res => {
         const eventDate = new Date(res.requested_datetime)
@@ -140,17 +118,7 @@ export function useNotifications() {
       })
 
       // キャンセル待ち通知（statusがnotified）
-      const { data: waitlistNotifications } = await supabase
-        .from('waitlist')
-        .select(`
-          id, 
-          created_at,
-          schedule_events(id, date, start_time, scenario)
-        `)
-        .eq('customer_id', customer.id)
-        .eq('status', 'notified')
-        .order('created_at', { ascending: false })
-        .limit(3)
+      const { data: waitlistNotifications } = await notificationReadApi.listNotifiedWaitlist(customer.id)
 
       waitlistNotifications?.forEach(wl => {
         const event = wl.schedule_events as any
@@ -169,14 +137,7 @@ export function useNotifications() {
 
       // キャンセルされた予約の通知（7日以内）
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const { data: cancelledReservations } = await supabase
-        .from('reservations')
-        .select('id, reservation_number, title, cancelled_at, requested_datetime, cancellation_reason')
-        .eq('customer_id', customer.id)
-        .eq('status', 'cancelled')
-        .gte('cancelled_at', sevenDaysAgo.toISOString())
-        .order('cancelled_at', { ascending: false })
-        .limit(5)
+      const { data: cancelledReservations } = await notificationReadApi.listRecentCancelledReservations(customer.id, sevenDaysAgo.toISOString())
 
       cancelledReservations?.forEach(res => {
         const notifId = `reservation_cancelled_${res.id}`
@@ -230,11 +191,7 @@ export function useNotifications() {
 
     const setupSubscription = async () => {
       // 顧客情報を取得してcustomer_idを取得
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const { data: customer } = await customerLookupReadApi.findIdByUserId(user.id)
 
       if (cleanedUp) return
 
