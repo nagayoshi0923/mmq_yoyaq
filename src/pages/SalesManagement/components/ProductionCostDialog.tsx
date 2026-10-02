@@ -19,6 +19,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { toJstYmd, formatJstYmd } from '@/utils/jstDate'
 import { Trash2 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { miscTransactionApi } from '@/lib/api/ledgerApi'
 
 interface Store {
   id: string
@@ -247,18 +248,13 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
 
       if (isEditMode && editingItem) {
         // 更新
-        const { error } = await supabase
-          .from('miscellaneous_transactions')
-          .update(saveData)
-          .eq('id', editingItem.id)
+        const { error } = await miscTransactionApi.update(editingItem.id, saveData)
 
         if (error) throw error
         showToast.success(`${successLabel}を更新しました`)
       } else {
         // 新規作成
-        const { error } = await supabase
-          .from('miscellaneous_transactions')
-          .insert([saveData])
+        const { error } = await miscTransactionApi.create(saveData)
 
         if (error) throw error
         showToast.success(`${successLabel}を${kind === 'production' ? '追加' : '登録'}しました`)
@@ -284,10 +280,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
 
     setDeleting(true)
     try {
-      const { error } = await supabase
-        .from('miscellaneous_transactions')
-        .delete()
-        .eq('id', editingItem.id)
+      const { error } = await miscTransactionApi.delete(editingItem.id)
 
       if (error) throw error
 

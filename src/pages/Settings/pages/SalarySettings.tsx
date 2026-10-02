@@ -34,6 +34,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { salarySettingsApi } from '@/lib/api/ledgerApi'
 
 interface HourlyRate {
   hours: number  // 0.5 = 30分、1 = 1時間、1.5 = 1時間30分...
@@ -177,20 +178,17 @@ export function SalarySettings() {
       setSaving(true)
 
       // 1. global_settingsを更新（現在の設定）
-      const { error } = await supabase
-        .from('global_settings')
-        .update({
-          gm_base_pay: formData.gm_base_pay,
-          gm_hourly_rate: formData.gm_hourly_rate,
-          gm_test_base_pay: formData.gm_test_base_pay,
-          gm_test_hourly_rate: formData.gm_test_hourly_rate,
-          reception_fixed_pay: formData.reception_fixed_pay,
-          use_hourly_table: formData.use_hourly_table,
-          hourly_rates: formData.hourly_rates,
-          gm_test_hourly_rates: formData.gm_test_hourly_rates
-        })
-        .eq('id', settings.id)
-        .eq('organization_id', organizationId)
+      const salaryValues = {
+        gm_base_pay: formData.gm_base_pay,
+        gm_hourly_rate: formData.gm_hourly_rate,
+        gm_test_base_pay: formData.gm_test_base_pay,
+        gm_test_hourly_rate: formData.gm_test_hourly_rate,
+        reception_fixed_pay: formData.reception_fixed_pay,
+        use_hourly_table: formData.use_hourly_table,
+        hourly_rates: formData.hourly_rates,
+        gm_test_hourly_rates: formData.gm_test_hourly_rates
+      }
+      const { error } = await salarySettingsApi.updateCurrent(settings.id, organizationId, salaryValues)
 
       if (error) {
         logger.error('設定保存エラー:', error)
@@ -200,22 +198,7 @@ export function SalarySettings() {
 
       // 2. 履歴テーブルにも保存（有効開始日は今日）
       const today = formatDateJST(new Date())
-      const { error: historyError } = await supabase
-        .from('salary_settings_history')
-        .upsert({
-          organization_id: organizationId,
-          effective_from: today,
-          use_hourly_table: formData.use_hourly_table,
-          gm_base_pay: formData.gm_base_pay,
-          gm_hourly_rate: formData.gm_hourly_rate,
-          gm_test_base_pay: formData.gm_test_base_pay,
-          gm_test_hourly_rate: formData.gm_test_hourly_rate,
-          reception_fixed_pay: formData.reception_fixed_pay,
-          hourly_rates: formData.hourly_rates,
-          gm_test_hourly_rates: formData.gm_test_hourly_rates
-        }, {
-          onConflict: 'organization_id,effective_from'
-        })
+      const { error: historyError } = await salarySettingsApi.saveHistory(organizationId, today, salaryValues)
 
       if (historyError) {
         logger.error('報酬設定履歴の保存に失敗:', historyError)
