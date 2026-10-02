@@ -50,7 +50,7 @@ import { showToast } from '@/utils/toast'
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { useScenarioGmAssignments } from '@/hooks/useScenarioGmAssignments'
-import { supabase } from '@/lib/supabase'
+import { organizationScenarioReadApi } from '@/lib/api/scenarioReadApi'
 import { organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
@@ -872,11 +872,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
                   setSourceState({ stored: osData, baseline: sourceBaseline })
                   // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
                   try {
-                    const { data: tplData } = await supabase
-                      .from('organization_scenarios')
-                      .select('individual_notice_template, reservation_confirmation_template, private_confirm_template')
-                      .eq('id', osData.id)
-                      .maybeSingle()
+                    const { data: tplData } = await organizationScenarioReadApi.getEmailTemplates(osData.id)
                     const notice = (tplData as { individual_notice_template?: string | null } | null)?.individual_notice_template
                     const confirmTpl = (tplData as { reservation_confirmation_template?: string | null } | null)?.reservation_confirmation_template
                     const privateTpl = (tplData as { private_confirm_template?: string | null } | null)?.private_confirm_template
@@ -1072,12 +1068,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
             throw new Error('組織を確認できないため作品設定を保存できません')
           } else {
             // 既存のレコードがあるか確認
-            const { data: existingOrgScenario, error: existingOrgError } = await supabase
-              .from('organization_scenarios')
-              .select('id')
-              .eq('scenario_master_id', masterIdForOrgSave)
-              .eq('organization_id', organizationId)
-              .maybeSingle()
+            const { data: existingOrgScenario, error: existingOrgError } = await organizationScenarioReadApi.findIdByMaster(masterIdForOrgSave, organizationId)
             
             if (existingOrgError) throw existingOrgError
             // organization_scenarios に保存するデータ（override/custom フィールド含む）

@@ -17,7 +17,7 @@ import { PerformanceSummary } from './performanceModal/sections/PerformanceSumma
 import { staffApi } from '@/lib/api'
 import { kitApi } from '@/lib/api/kitApi'
 import { getUsableKitStoreIds } from '@/utils/scheduleWarnings'
-import { supabase } from '@/lib/supabase'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { calcEndTime, checkTimeOverlapWithPreparation, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
@@ -449,16 +449,7 @@ export function PerformanceModal({
         if (!storeId) return
 
         // 営業時間設定を取得（組織でフィルタ）
-        let businessHoursQuery = supabase
-          .from('business_hours_settings')
-          .select('opening_hours, holidays, time_restrictions')
-          .eq('store_id', storeId)
-        
-        if (organizationId) {
-          businessHoursQuery = businessHoursQuery.eq('organization_id', organizationId)
-        }
-        
-        const { data: businessHoursData, error: businessHoursError } = await businessHoursQuery.maybeSingle()
+        const { data: businessHoursData, error: businessHoursError } = await scheduleUiApi.getBusinessHours(storeId, organizationId)
 
         if (businessHoursError && businessHoursError.code !== 'PGRST116') {
           logger.error('営業時間設定取得エラー:', businessHoursError)
@@ -847,15 +838,7 @@ export function PerformanceModal({
           const orgId = await getCurrentOrganizationId()
           let targetEventId: string | undefined = event?.id
           if (!targetEventId) {
-            const { data: matched } = await supabase
-              .from('schedule_events')
-              .select('id')
-              .eq('organization_id', orgId)
-              .eq('date', saveData.date)
-              .eq('start_time', saveData.start_time)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle()
+            const { data: matched } = await scheduleUiApi.findLatestEventAt(orgId, saveData.date, saveData.start_time)
             if (matched) targetEventId = matched.id
           }
           if (targetEventId) {

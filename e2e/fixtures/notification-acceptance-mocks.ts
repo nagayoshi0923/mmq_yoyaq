@@ -34,3 +34,5 @@ export const supabase = {
   return {data:{success:true,emailId:'fixture-receipt'},error:null}
  } },
 }
+
+export const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS = 'fixture-select'

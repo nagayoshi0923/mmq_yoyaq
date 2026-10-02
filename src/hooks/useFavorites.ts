@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { customerLookupReadApi, scenarioLikeReadApi } from '@/lib/api/customerHookReadApi'
 import { scenarioLikeApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
@@ -42,11 +42,7 @@ export function useFavorites() {
 
       try {
         // まず既存の顧客を検索（user_idで検索）
-        const { data: customerByUserId, error: selectError } = await supabase
-          .from('customers')
-          .select('id, user_id')
-          .eq('user_id', user.id)
-          .maybeSingle()
+        const { data: customerByUserId, error: selectError } = await customerLookupReadApi.findByUserId(user.id)
         let customer = customerByUserId
 
         if (selectError) {
@@ -55,11 +51,7 @@ export function useFavorites() {
 
         // user_idで見つからない場合、emailで検索
         if (!customer?.id) {
-          const { data: customerByEmail, error: emailError } = await supabase
-            .from('customers')
-            .select('id, user_id')
-            .eq('email', user.email)
-            .maybeSingle()
+          const { data: customerByEmail, error: emailError } = await customerLookupReadApi.findByEmail(user.email)
 
           if (emailError) {
             logger.error('Failed to fetch customer by email:', emailError)
@@ -103,11 +95,7 @@ export function useFavorites() {
           if (insertError.code === '23505') {
             const safeUserId = sanitizeForPostgRestFilter(user.id) || user.id
             const safeEmail = sanitizeForPostgRestFilter(user.email) || user.email
-            const { data: existingCustomer } = await supabase
-              .from('customers')
-              .select('id')
-              .or(`user_id.eq.${safeUserId},email.eq.${safeEmail}`)
-              .maybeSingle()
+            const { data: existingCustomer } = await customerLookupReadApi.findIdByUserIdOrEmail(safeUserId, safeEmail)
             setCustomerId(existingCustomer?.id || null)
           } else {
             throw insertError
@@ -131,10 +119,7 @@ export function useFavorites() {
 
       setIsLoading(true)
       try {
-        const { data: likesData, error } = await supabase
-          .from('scenario_likes')
-          .select('scenario_id, scenario_master_id')
-          .eq('customer_id', customerId)
+        const { data: likesData, error } = await scenarioLikeReadApi.listByCustomer(customerId)
 
         if (error) throw error
 

@@ -19,7 +19,7 @@ import { EmptyState, ListSkeleton } from '@/components/patterns/list'
 import { ConfirmDialog } from '@/components/patterns/modal'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -394,11 +394,7 @@ export function PrivateBookingManagement() {
     }
 
     let cancelled = false
-    void supabase
-      .from('schedule_blocked_slots')
-      .select('date, store_id, time_slot, created_at')
-      .filter('organization_id', 'eq', organizationId)
-      .in('date', allDates)
+    void privateBookingMgmtReadApi.listBlockedSlotsOnDates(organizationId, allDates)
       .then(({ data, error }) => {
         if (cancelled) return
         if (error) {
@@ -446,13 +442,7 @@ export function PrivateBookingManagement() {
         try {
           // 対応店舗とscenario_master_idを取得（organization_scenarios_with_masterで組織固有のavailable_stores）
           const orgId = await getCurrentOrganizationId()
-          const { data: scenarioData, error } = await supabase
-            .from('organization_scenarios_with_master')
-            .select('available_stores, scenario_master_id')
-            .eq('scenario_master_id', scenarioId)
-            .eq('organization_id', orgId)
-            .limit(1)
-            .maybeSingle()
+          const { data: scenarioData, error } = await privateBookingMgmtReadApi.findScenarioStoresView(scenarioId, orgId)
           
           if (error) {
             logger.error('シナリオ対応店舗取得エラー:', error)
@@ -463,11 +453,7 @@ export function PrivateBookingManagement() {
           
           const masterId = scenarioData?.scenario_master_id ?? scenarioId
           if (masterId) {
-            const { data: assignmentData, error: assignmentError } = await supabase
-              .from('staff_scenario_assignments')
-              .select('staff_id')
-              .eq('scenario_master_id', masterId)
-              .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+            const { data: assignmentData, error: assignmentError } = await privateBookingMgmtReadApi.listGmAssignmentsByScenario(masterId)
             
             if (assignmentError) {
               logger.error('担当GM取得エラー:', assignmentError)
@@ -704,11 +690,7 @@ export function PrivateBookingManagement() {
     if (!reqId) return
     setResolvingRejectStore(true)
     try {
-      const { data } = await supabase
-        .from('reservations')
-        .select('store_id, organization_id')
-        .eq('id', reqId)
-        .maybeSingle()
+      const { data } = await privateBookingMgmtReadApi.findReservationStoreAndOrganization(reqId)
       if (data?.store_id) {
         setRejectTemplateStoreId(data.store_id)
         setRejectTemplateOrgId(null)

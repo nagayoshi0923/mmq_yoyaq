@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { myPageReservationReadApi } from '@/lib/api/myPageReadApi'
 import { reservationApi } from '@/lib/reservationApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { logger } from '@/utils/logger'
@@ -25,11 +26,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
     queryKey: reservationDetailKeys.detail(reservationId ?? ''),
     enabled: !!reservationId,
     queryFn: async () => {
-      const { data: resData, error: resError } = await supabase
-        .from('reservations')
-        .select(`id, reservation_number, title, requested_datetime, participant_count, unit_price, final_price, total_price, status, payment_status, notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id, reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone, private_group_id, reservation_change_deadline_hours_snapshot, cancellation_policy_snapshot_version, cancellation_policy_store_id, cancellation_policy_performance_type, cancellation_policy_deadline_hours, cancellation_policy_fees, cancellation_policy_fee_basis, cancellation_policy_updated_at`)
-        .eq('id', reservationId!)
-        .maybeSingle()
+      const { data: resData, error: resError } = await myPageReservationReadApi.findReservationDetail(reservationId!)
 
       if (resError || !resData) {
         logger.warn('Reservation fetch failed or not accessible')
@@ -39,11 +36,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
       let scheduleEvent = null
       let eventStoreId: string | null = null
       if (resData.schedule_event_id) {
-        const { data: eventData, error: eventError } = await supabase
-          .from('schedule_events_public')
-          .select('date, start_time, category, current_participants, max_participants, store_id')
-          .eq('id', resData.schedule_event_id)
-          .maybeSingle()
+        const { data: eventData, error: eventError } = await myPageReservationReadApi.findPublicEvent(resData.schedule_event_id)
         if (!eventError && eventData) {
           scheduleEvent = {
             date: eventData.date,
@@ -64,13 +57,9 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
       let openDeadlineHours = DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
       let privateDeadlineHours = DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
       if (storeIdToUse) {
-        const { data: storeData } = await supabase.from('stores').select('id, name, address').eq('id', storeIdToUse).single()
+        const { data: storeData } = await myPageReservationReadApi.findStore(storeIdToUse)
         if (storeData) store = storeData
-        const { data: settingsData } = await supabase
-          .from('reservation_settings')
-          .select('cancellation_policy, cancellation_deadline_hours, private_cancellation_deadline_hours')
-          .eq('store_id', storeIdToUse)
-          .maybeSingle()
+        const { data: settingsData } = await myPageReservationReadApi.findReservationSettings(storeIdToUse)
         if (settingsData) {
           cancellationPolicy = settingsData.cancellation_policy || null
           openDeadlineHours = settingsData.cancellation_deadline_hours
@@ -82,7 +71,7 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
 
       let organization = null
       if (resData.organization_id) {
-        const { data: orgData } = await supabase.from('organizations').select('id, slug').eq('id', resData.organization_id).single()
+        const { data: orgData } = await myPageReservationReadApi.findOrganization(resData.organization_id)
         if (orgData) organization = orgData
       }
 
@@ -90,15 +79,15 @@ export function useReservationDetailQuery(reservationId: string | undefined) {
       const scenarioMasterId = resData.scenario_master_id
       if (scenarioMasterId) {
         if (resData.organization_id) {
-          const { data: viewData } = await supabase.from('organization_scenarios_with_master').select('id, title, slug, key_visual_url, duration, player_count_min, player_count_max').eq('id', scenarioMasterId).eq('organization_id', resData.organization_id).maybeSingle()
+          const { data: viewData } = await myPageReservationReadApi.findOrganizationScenarioView(scenarioMasterId, resData.organization_id)
           if (viewData) {
             scenario = { ...viewData, slug: viewData.slug ?? viewData.id }
           } else {
-            const { data: sd } = await supabase.from('scenario_masters').select('id, title, key_visual_url, official_duration, player_count_min, player_count_max').eq('id', scenarioMasterId).single()
+            const { data: sd } = await myPageReservationReadApi.findScenarioMaster(scenarioMasterId)
             if (sd) scenario = { id: sd.id, title: sd.title, slug: sd.id, key_visual_url: sd.key_visual_url, duration: sd.official_duration ?? null, player_count_min: sd.player_count_min, player_count_max: sd.player_count_max }
           }
         } else {
-          const { data: sd } = await supabase.from('scenario_masters').select('id, title, key_visual_url, official_duration, player_count_min, player_count_max').eq('id', scenarioMasterId).single()
+          const { data: sd } = await myPageReservationReadApi.findScenarioMaster(scenarioMasterId)
           if (sd) scenario = { id: sd.id, title: sd.title, slug: sd.id, key_visual_url: sd.key_visual_url, duration: sd.official_duration ?? null, player_count_min: sd.player_count_min, player_count_max: sd.player_count_max }
         }
       }
@@ -164,7 +153,7 @@ export function useCurrentSeatsQuery(scheduleEventId: string | undefined, partic
     queryKey: reservationDetailKeys.seats(scheduleEventId ?? ''),
     enabled: enabled && !!scheduleEventId,
     queryFn: async () => {
-      const { data: sumData } = await supabase.from('reservations').select('participant_count').eq('schedule_event_id', scheduleEventId!).eq('status', 'confirmed')
+      const { data: sumData } = await myPageReservationReadApi.listConfirmedParticipantCounts(scheduleEventId!)
       const currentParticipants = sumData?.reduce((sum, r) => sum + (r.participant_count || 0), 0) ?? 0
       const otherParticipants = currentParticipants - participantCount
       return maxParticipants - otherParticipants
@@ -223,7 +212,7 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
       const countDiff = newCount - oldCount
       if (countDiff < 0 && scheduleEventId) {
         try {
-          const { data: eventData } = await supabase.from('schedule_events_public').select('date, start_time, end_time, scenario, venue, organization_id').eq('id', scheduleEventId).single()
+          const { data: eventData } = await myPageReservationReadApi.findPublicEventForNotice(scheduleEventId)
           const orgId = organizationId || eventData?.organization_id
           if (eventData && orgId) {
             await supabase.functions.invoke('notify-waitlist', {

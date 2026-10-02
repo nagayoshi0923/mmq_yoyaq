@@ -11,7 +11,7 @@ import { useCallback } from 'react'
 import { scheduleApi, scenarioApi } from '@/lib/api'
 import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { supabase } from '@/lib/supabase'
+import { scheduleEventsQueryReadApi } from '@/lib/api/scheduleHookReadApi'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { logger } from '@/utils/logger'
 import type { ScheduleEvent } from '@/types/schedule'
@@ -206,34 +206,13 @@ export async function fetchScheduleEventsForMonth(
 
   const orgId = await getCurrentOrganizationId()
 
-  const cancelCheckQueryBase = supabase
-    .from('reservations')
-    .select('schedule_event_id, status')
-    .in('schedule_event_id', privateEventIdsForCancelCheck)
-
-  const privateQueryBase = supabase
-    .from('reservations')
-    .select(`
-      id, title, customer_name, display_customer_name, status, store_id,
-      gm_staff, candidate_datetimes, participant_count, schedule_event_id,
-      scenario_master_id,
-      scenario_masters:scenario_master_id ( id, title, player_count_max ),
-      customers:customer_id ( nickname )
-    `)
-    .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-    .eq('status', 'confirmed')
-    .is('schedule_event_id', null)
-
   const [nicknameResult, privateResult, cancelCheckResult] = await Promise.all([
     reservationIdsForNickname.length > 0
-      ? supabase
-          .from('reservations')
-          .select('id, customer_name, display_customer_name, customers:customer_id(nickname)')
-          .in('id', reservationIdsForNickname)
+      ? scheduleEventsQueryReadApi.listNicknamesByReservationIds(reservationIdsForNickname)
       : Promise.resolve({ data: null as any, error: null }),
-    orgId ? privateQueryBase.eq('organization_id', orgId) : privateQueryBase,
+    scheduleEventsQueryReadApi.listConfirmedPrivateWithoutEvent(orgId),
     privateEventIdsForCancelCheck.length > 0
-      ? (orgId ? cancelCheckQueryBase.eq('organization_id', orgId) : cancelCheckQueryBase)
+      ? scheduleEventsQueryReadApi.listStatusesByEventIds(privateEventIdsForCancelCheck, orgId)
       : Promise.resolve({ data: null as any, error: null }),
   ])
 

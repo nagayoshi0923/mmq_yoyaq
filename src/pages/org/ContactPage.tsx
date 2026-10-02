@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Mail, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { publicPageReadApi } from '@/lib/api/publicPageReadApi'
 import { logger } from '@/utils/logger'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -77,12 +78,7 @@ export function OrganizationContactPage() {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from('organizations')
-          .select('id, name, slug, contact_email, contact_name')
-          .eq('slug', slug)
-          .eq('is_active', true)
-          .single()
+        const { data, error: fetchError } = await publicPageReadApi.findActiveOrganizationBySlug(slug)
 
         if (fetchError || !data) {
           setError('組織が見つかりません')

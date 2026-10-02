@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Save, Shield } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -32,11 +32,7 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
     try {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
-      const { data, error } = await supabase
-        .from('global_settings')
-        .select('id, system_name')
-        .eq('organization_id', orgId)
-        .single()
+      const { data, error } = await settingsPageReadApi.getSystemName(orgId)
       if (error) { logger.error('システム設定の取得に失敗:', error); return }
       if (data) {
         setGlobalSettingsId(data.id)

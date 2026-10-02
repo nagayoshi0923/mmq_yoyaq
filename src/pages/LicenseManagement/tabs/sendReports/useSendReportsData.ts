@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react'
 import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
-import { supabase } from '@/lib/supabase'
+import { licenseReportReadApi } from '@/lib/api/licenseReportReadApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import type { Author } from '@/types'
@@ -48,19 +48,10 @@ export function useSendReportsData(
           ? getAllExternalReports({ status: 'approved', startDate: startStr, endDate: endStr }).catch(() => [])
           : Promise.resolve([]),
         // 送信履歴を取得
-        supabase
-          .from('license_report_history')
-          .select('author_name, sent_at, total_events, total_license_cost, email_body, subject')
-          .eq('year', selectedYear)
-          .eq('month', selectedMonth)
+        licenseReportReadApi.listReportHistory(selectedYear, selectedMonth)
           .then(res => res.data || []),
         // 手動入力の他社公演数を取得
-        supabase
-          .from('manual_external_performances')
-          .select('scenario_id, performance_count, performance_type')
-          // org 境界は RLS（get_user_organization_id）に任せる。クライアント直フィルタは増やさない
-          .eq('year', selectedYear)
-          .eq('month', selectedMonth)
+        licenseReportReadApi.listManualExternalPerformances(selectedYear, selectedMonth)
           .then(res => {
             if (res.error) {
               logger.warn('manual_external_performances 取得失敗:', res.error.message)
@@ -69,12 +60,7 @@ export function useSendReportsData(
             return res.data || []
           }),
         // 自社公演数の手動上書きを取得
-        supabase
-          .from('manual_internal_performance_overrides')
-          .select('scenario_key, performance_count')
-          .eq('organization_id', organizationId)
-          .eq('year', selectedYear)
-          .eq('month', selectedMonth)
+        licenseReportReadApi.listManualInternalOverrides(organizationId, selectedYear, selectedMonth)
           .then(res => {
             if (res.error) {
               logger.warn('manual_internal_performance_overrides 取得失敗:', res.error.message)

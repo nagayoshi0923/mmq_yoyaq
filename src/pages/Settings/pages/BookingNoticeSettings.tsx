@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Plus, Pencil, Trash2, Save, Loader2, ClipboardList } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { bookingNoticeApi } from '@/lib/api/noticeBlogApi'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -91,10 +91,7 @@ export function BookingNoticeSettings() {
     try {
       // 並列で取得（店舗は組織対応済み）
       const [noticesRes, storesData, orgId] = await Promise.all([
-        supabase
-          .from('booking_notices')
-          .select('id, organization_id, content, applicable_types, store_id, store_ids, requires_pre_reading, is_active, sort_order, created_at, updated_at')
-          .order('sort_order', { ascending: true }),
+        settingsPageReadApi.listBookingNotices(),
         storeApi.getAll(),
         getCurrentOrganizationId()
       ])

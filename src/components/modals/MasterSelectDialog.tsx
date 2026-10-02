@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { supabase } from '@/lib/supabase'
+import { scenarioMasterReadApi } from '@/lib/api/scenarioReadApi'
 import { logger } from '@/utils/logger'
 import { Search, BookOpen, Check } from 'lucide-react'
 
@@ -52,11 +52,7 @@ export function MasterSelectDialog({
       
       setLoading(true)
       try {
-        const { data, error } = await supabase
-          .from('scenario_masters')
-          .select('id, title, author, author_id, key_visual_url, gallery_images, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, sensitive_tags, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
-          .in('master_status', ['approved', 'pending'])
-          .order('title')
+        const { data, error } = await scenarioMasterReadApi.listForPicker()
         
         if (error) throw error
         setMasters(data || [])

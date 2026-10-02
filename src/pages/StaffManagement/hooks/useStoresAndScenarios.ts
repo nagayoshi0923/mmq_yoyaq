@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { storeApi, scenarioApi } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
+import { staffPageReadApi } from '@/lib/api/staffPageReadApi'
 import type { Store, Scenario } from '@/types'
 
 export const storeScenarioKeys = {
@@ -27,9 +27,7 @@ export function useStoresAndScenarios() {
   const { data: allMasterTitles = [] } = useQuery<Array<{ id: string; title: string }>>({
     queryKey: storeScenarioKeys.masterTitles,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('scenario_masters')
-        .select('id, title')
+      const { data, error } = await staffPageReadApi.listScenarioMasterTitles()
       if (error) throw error
       return (data ?? []) as Array<{ id: string; title: string }>
     },

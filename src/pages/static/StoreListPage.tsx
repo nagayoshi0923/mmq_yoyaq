@@ -8,7 +8,7 @@ import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Building2, ChevronRight } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { publicPageReadApi } from '@/lib/api/publicPageReadApi'
 
 interface Organization {
   id: string
@@ -31,11 +31,7 @@ export function StoreListPage() {
       setLoading(true)
 
       // 組織一覧を取得
-      const { data: orgData, error } = await supabase
-        .from('organizations')
-        .select('id, slug, name, logo_url')
-        .eq('is_active', true)
-        .order('name')
+      const { data: orgData, error } = await publicPageReadApi.listActiveOrganizations()
 
       logger.log('🏢 組織取得結果:', orgData?.length, '件', error ? `エラー: ${JSON.stringify(error)}` : '')
 

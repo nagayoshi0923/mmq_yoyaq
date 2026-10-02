@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import './ScenarioEditDialogV2.css'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { supabase } from '@/lib/supabase'
+import { scenarioMasterReadApi, scenarioCharacterReadApi, organizationScenarioReadApi } from '@/lib/api/scenarioReadApi'
 import { scenarioMasterWriteApi, scenarioCharacterApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -297,11 +297,7 @@ export function ScenarioMasterEditDialog({
     try {
       setLoading(true)
 
-      const { data: masterData, error: masterError } = await supabase
-        .from('scenario_masters')
-        .select('id, title, author, author_id, author_email, key_visual_url, gallery_images, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, has_pre_reading, release_date, official_site_url, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
-        .eq('id', masterId)
-        .single()
+      const { data: masterData, error: masterError } = await scenarioMasterReadApi.getForEdit(masterId)
 
       if (masterError || !masterData) {
         logger.error('Failed to fetch master:', masterError)
@@ -319,24 +315,12 @@ export function ScenarioMasterEditDialog({
         official_site_url: masterData.official_site_url ?? null,
       })
 
-      const { data: charData } = await supabase
-        .from('scenario_characters')
-        .select('id, scenario_master_id, name, description, image_url, sort_order')
-        .eq('scenario_master_id', masterId)
-        .order('sort_order', { ascending: true })
+      const { data: charData } = await scenarioCharacterReadApi.listByMaster(masterId)
 
       setCharacters(charData || [])
 
       // 使用している組織を取得
-      const { data: orgData } = await supabase
-        .from('organization_scenarios')
-        .select(`
-          id,
-          organization_id,
-          org_status,
-          organizations(name)
-        `)
-        .eq('scenario_master_id', masterId)
+      const { data: orgData } = await organizationScenarioReadApi.listByMasterWithOrganization(masterId)
 
       if (orgData) {
         setUsingOrganizations(orgData.map((item: any) => ({

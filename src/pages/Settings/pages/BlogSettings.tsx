@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { BLOG_POST_SELECT_COLUMNS } from '@/lib/blogPublicFetch'
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { blogPostApi } from '@/lib/api/noticeBlogApi'
 import { getCurrentOrganization, getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -92,11 +92,7 @@ export function BlogSettings() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
 
-      const { data, error } = await supabase
-        .from('blog_posts')
-        .select(BLOG_POST_SELECT_COLUMNS)
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false })
+      const { data, error } = await settingsPageReadApi.listBlogPosts(orgId)
 
       if (error) throw error
       setPosts(data || [])

@@ -9,7 +9,7 @@ import { showToast } from '@/utils/toast'
 
 // API
 import { staffApi, scheduleApi, salesApi } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
+import { scheduleManagerReadApi } from '@/lib/api/scheduleManagerReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
 // Custom Hooks
@@ -311,14 +311,7 @@ export function ScheduleManager() {
     }
     const results = await Promise.all(
       categories.map(async (cat) => {
-        const { count, error } = await supabase
-          .from('schedule_events_staff_view')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', orgId)
-          .gte('date', startDate)
-          .lte('date', endDate)
-          .eq('is_cancelled', false)
-          .eq('category', cat)
+        const { count, error } = await scheduleManagerReadApi.countEventsByCategory(orgId, startDate, endDate, cat)
         if (error) {
           throw new Error(getSafeErrorMessage(error, '対象件数の取得に失敗しました'))
         }
@@ -343,14 +336,7 @@ export function ScheduleManager() {
       }
 
       // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
-      const { data: events, error: fetchError } = await supabase
-        .from('schedule_events_staff_view')
-        .select('id, scenario, category, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
-        .eq('organization_id', orgId)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .eq('is_cancelled', false)
-        .in('category', categories)
+      const { data: events, error: fetchError } = await scheduleManagerReadApi.listEventsForRecalculation(orgId, startDate, endDate, categories)
       
       if (fetchError) {
         showToast.error(getSafeErrorMessage(fetchError, 'データの取得に失敗しました'))
@@ -368,11 +354,7 @@ export function ScheduleManager() {
       
       const scenarioInfoMap = new Map<string, { duration: number; pricing: ScenarioPricing }>()
       if (scenarioMasterIds.length > 0) {
-        const { data: scenarioInfos } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('scenario_master_id, duration, participation_fee, gm_test_participation_fee, participation_costs')
-          .eq('organization_id', orgId)
-          .in('scenario_master_id', scenarioMasterIds)
+        const { data: scenarioInfos } = await scheduleManagerReadApi.listScenarioPricing(orgId, scenarioMasterIds)
 
         scenarioInfos?.forEach(s => {
           if (s.scenario_master_id) {
@@ -395,11 +377,7 @@ export function ScheduleManager() {
       
       for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
         const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-        const { data } = await supabase
-          .from('reservations')
-          .select('schedule_event_id, participant_count, participant_names')
-          .in('schedule_event_id', batchIds)
-          .in('status', ['confirmed', 'pending'])
+        const { data } = await scheduleManagerReadApi.listActiveReservationsByEventIds(batchIds)
         if (data) {
           allReservations.push(...(data as typeof allReservations))
         }
@@ -557,11 +535,7 @@ export function ScheduleManager() {
       }
 
       // 最新の event 情報と既存予約を取得
-      const { data: ev, error: evError } = await supabase
-        .from('schedule_events_staff_view')
-        .select('id, scenario, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, category, scenario_masters:scenario_master_id(player_count_max)')
-        .eq('id', event.id)
-        .single()
+      const { data: ev, error: evError } = await scheduleManagerReadApi.findEventForRecalculation(event.id)
       if (evError || !ev) {
         showToast.error(getSafeErrorMessage(evError, 'イベント情報の取得に失敗しました'))
         return
@@ -576,11 +550,7 @@ export function ScheduleManager() {
         return
       }
 
-      const { data: reservations } = await supabase
-        .from('reservations')
-        .select('participant_count, participant_names')
-        .eq('schedule_event_id', ev.id)
-        .in('status', ['confirmed', 'pending'])
+      const { data: reservations } = await scheduleManagerReadApi.listActiveReservationCounts(ev.id)
 
       const currentReservedCount = (reservations || []).reduce((sum, r) => sum + (r.participant_count || 0), 0)
       const neededParticipants = maxParticipants - currentReservedCount
@@ -601,12 +571,7 @@ export function ScheduleManager() {
       let participationFee = 0
       let duration = 120
       if (scenarioMasterId) {
-        const { data: scenarioInfo } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('duration, participation_fee, gm_test_participation_fee, participation_costs')
-          .eq('organization_id', orgId)
-          .eq('scenario_master_id', scenarioMasterId)
-          .maybeSingle()
+        const { data: scenarioInfo } = await scheduleManagerReadApi.findScenarioPricing(orgId, scenarioMasterId)
         if (scenarioInfo) {
           const isGmTest = ev.category === 'gmtest'
           participationFee = getParticipationFee(scenarioInfo as ScenarioPricing, isGmTest ? 'gmtest' : 'normal')
@@ -701,20 +666,11 @@ export function ScheduleManager() {
       }
 
       // ─── ① テストプレイのデモ予約を削除 ───
-      const { data: testplayEvents } = await supabase
-        .from('schedule_events')
-        .select('id')
-        .eq('organization_id', orgId)
-        .eq('category', 'testplay')
+      const { data: testplayEvents } = await scheduleManagerReadApi.listTestplayEventIds(orgId)
 
       if (testplayEvents && testplayEvents.length > 0) {
         const testplayIds = testplayEvents.map(e => e.id)
-        const { data: demoReservations } = await supabase
-          .from('reservations')
-          .select('id, schedule_event_id')
-          .eq('organization_id', orgId)
-          .in('schedule_event_id', testplayIds)
-          .in('reservation_source', [RESERVATION_SOURCE.DEMO, RESERVATION_SOURCE.DEMO_AUTO])
+        const { data: demoReservations } = await scheduleManagerReadApi.listDemoReservationsByEventIds(orgId, testplayIds)
 
         if (demoReservations && demoReservations.length > 0) {
           const ids = demoReservations.map(r => r.id)
@@ -727,30 +683,17 @@ export function ScheduleManager() {
       }
 
       // ─── ② GMテストのデモ予約の参加費を修正 ───
-      const { data: gmtestEvents } = await supabase
-        .from('schedule_events')
-        .select('id, scenario_master_id')
-        .eq('organization_id', orgId)
-        .eq('category', 'gmtest')
+      const { data: gmtestEvents } = await scheduleManagerReadApi.listGmtestEvents(orgId)
 
       if (gmtestEvents && gmtestEvents.length > 0) {
         const gmtestIds = gmtestEvents.map(e => e.id)
         const eventScenarioMap = new Map(gmtestEvents.map(e => [e.id, e.scenario_master_id]))
 
-        const { data: demoReservations } = await supabase
-          .from('reservations')
-          .select('id, schedule_event_id, participant_count')
-          .eq('organization_id', orgId)
-          .in('schedule_event_id', gmtestIds)
-          .in('reservation_source', [RESERVATION_SOURCE.DEMO, RESERVATION_SOURCE.DEMO_AUTO])
+        const { data: demoReservations } = await scheduleManagerReadApi.listDemoReservationsWithCountByEventIds(orgId, gmtestIds)
 
         if (demoReservations && demoReservations.length > 0) {
           const scenarioMasterIds = [...new Set(gmtestEvents.map(e => e.scenario_master_id).filter(Boolean))]
-          const { data: orgScenarios } = await supabase
-            .from('organization_scenarios_with_master')
-            .select('scenario_master_id, participation_fee, gm_test_participation_fee, participation_costs')
-            .eq('organization_id', orgId)
-            .in('scenario_master_id', scenarioMasterIds)
+          const { data: orgScenarios } = await scheduleManagerReadApi.listScenarioFees(orgId, scenarioMasterIds)
 
           const feeMap = new Map(orgScenarios?.map(s => [s.scenario_master_id, s]) || [])
 

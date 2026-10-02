@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
-import { supabase } from '@/lib/supabase'
+import { scenarioDetailGlobalReadApi } from '@/lib/api/scenarioPageReadApi'
 import { logger } from '@/utils/logger'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -111,11 +111,7 @@ interface ScenarioDetailData {
 async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetailData | null> {
   // 1. organization_scenariosからslugで検索
   let masterId: string | null = null
-  const { data: orgScenarios } = await supabase
-    .from('organization_scenarios')
-    .select('scenario_master_id')
-    .eq('slug', scenarioSlug)
-    .limit(1)
+  const { data: orgScenarios } = await scenarioDetailGlobalReadApi.findMasterIdBySlug(scenarioSlug)
   if (orgScenarios?.[0]) masterId = orgScenarios[0].scenario_master_id
 
   let useLegacyTable = false
@@ -124,11 +120,11 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   if (!masterId) {
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (uuidPattern.test(scenarioSlug)) {
-      const { data: masterById } = await supabase.from('scenario_masters').select('id').eq('id', scenarioSlug).limit(1)
+      const { data: masterById } = await scenarioDetailGlobalReadApi.findMasterById(scenarioSlug)
       if (masterById?.[0]) {
         masterId = masterById[0].id
       } else {
-        const { data: legacyById } = await supabase.from('organization_scenarios').select('scenario_master_id').eq('id', scenarioSlug).limit(1)
+        const { data: legacyById } = await scenarioDetailGlobalReadApi.findMasterIdByOrgScenarioId(scenarioSlug)
         if (legacyById?.[0]) { masterId = legacyById[0].scenario_master_id; useLegacyTable = true }
       }
     }
@@ -136,7 +132,7 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
 
   // 3. fallback
   if (!masterId) {
-    const { data: legacyScenario } = await supabase.from('organization_scenarios').select('scenario_master_id').eq('slug', scenarioSlug).limit(1)
+    const { data: legacyScenario } = await scenarioDetailGlobalReadApi.findMasterIdBySlug(scenarioSlug)
     if (legacyScenario?.[0]) { masterId = legacyScenario[0].scenario_master_id; useLegacyTable = true }
   }
 
@@ -145,20 +141,11 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   // シナリオ詳細取得
   let masterData: any = null
   if (!useLegacyTable) {
-    const { data, error } = await supabase
-      .from('scenario_masters')
-      .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, synopsis, caution, required_items, master_status, created_at, updated_at, gallery_images')
-      .eq('id', masterId)
-      .limit(1)
+    const { data, error } = await scenarioDetailGlobalReadApi.getMasterDetail(masterId)
     if (!error && data?.[0]) masterData = data[0]
   }
   if (!masterData) {
-    const { data: legacyData, error: legacyError } = await supabase
-      .from('organization_scenarios_with_master')
-      .select('id, org_scenario_id, title, slug, description, key_visual_url, duration, player_count_min, player_count_max, organization_id, author, genre, participation_fee, synopsis')
-      .eq('scenario_master_id', masterId)
-      .limit(1)
-      .maybeSingle()
+    const { data: legacyData, error: legacyError } = await scenarioDetailGlobalReadApi.findLegacyScenarioView(masterId)
     if (legacyError || !legacyData) return null
     masterData = {
       id: legacyData.id, title: legacyData.title, slug: legacyData.slug, description: legacyData.description,
@@ -174,28 +161,28 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   // キャラクター取得
   let characters: ScenarioCharacter[] = []
   if (!useLegacyTable) {
-    const { data: charData } = await supabase.from('scenario_characters').select('id, name, description, image_url, sort_order').eq('scenario_master_id', masterId).eq('is_visible', true).order('sort_order', { ascending: true })
+    const { data: charData } = await scenarioDetailGlobalReadApi.listVisibleCharacters(masterId)
     if (charData?.length) {
       characters = charData
     } else {
-      const { data: orgScenarioRows } = await supabase.from('organization_scenarios').select('characters').eq('scenario_master_id', masterId).not('characters', 'is', null).limit(1)
+      const { data: orgScenarioRows } = await scenarioDetailGlobalReadApi.findOrganizationCharacters(masterId)
       if (orgScenarioRows?.[0]?.characters && Array.isArray(orgScenarioRows[0].characters)) characters = orgScenarioRows[0].characters as ScenarioCharacter[]
     }
   } else {
-    const { data: orgScenarioRows } = await supabase.from('organization_scenarios').select('characters').eq('scenario_master_id', masterId).not('characters', 'is', null).limit(1)
+    const { data: orgScenarioRows } = await scenarioDetailGlobalReadApi.findOrganizationCharacters(masterId)
     if (orgScenarioRows?.[0]?.characters && Array.isArray(orgScenarioRows[0].characters)) characters = orgScenarioRows[0].characters as ScenarioCharacter[]
   }
 
   // 組織マップ構築（useLegacyTable に関わらず全組織を取得）
   const orgMap: Record<string, { slug: string; name: string }> = {}
-  const { data: relatedOrgIds } = await supabase.from('organization_scenarios').select('organization_id').eq('scenario_master_id', masterId)
+  const { data: relatedOrgIds } = await scenarioDetailGlobalReadApi.listOrganizationIdsOfMaster(masterId)
   const orgIds = [...new Set(relatedOrgIds?.map((s: any) => s.organization_id).filter(Boolean) || [])]
   if (orgIds.length > 0) {
-    const { data: orgsData } = await supabase.from('organizations').select('id, slug, name').in('id', orgIds)
+    const { data: orgsData } = await scenarioDetailGlobalReadApi.listOrganizationsByIds(orgIds)
     orgsData?.forEach((org: any) => { orgMap[org.id] = { slug: org.slug, name: org.name } })
   }
   if (!useLegacyTable) {
-    const { data: availableOrgScenarios } = await supabase.from('organization_scenarios').select('id, organization_id, organizations!inner (id, slug, name)').eq('scenario_master_id', masterId).eq('org_status', 'available')
+    const { data: availableOrgScenarios } = await scenarioDetailGlobalReadApi.listAvailableOrgScenariosWithOrganization(masterId)
     availableOrgScenarios?.forEach((os: any) => {
       if (os.organizations && !orgMap[os.organization_id]) orgMap[os.organization_id] = { slug: os.organizations.slug, name: os.organizations.name }
     })
@@ -205,7 +192,7 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   let redirectSlug: string | null = null
   const availableOrgs: Array<{ id: string; slug: string; name: string; scenarioId: string }> = []
 
-  const { data: allAvailableScenarios } = await supabase.from('organization_scenarios').select('id, organization_id, slug').eq('scenario_master_id', masterId).eq('org_status', 'available')
+  const { data: allAvailableScenarios } = await scenarioDetailGlobalReadApi.listAvailableOrgScenarios(masterId)
   if (allAvailableScenarios?.length) {
     const firstWithSlug = allAvailableScenarios.find((s: any) => s.slug)
     if (firstWithSlug) redirectSlug = firstWithSlug.slug
@@ -219,21 +206,13 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
 
   // 公演取得
   const today = new Date().toISOString().split('T')[0]
-  const { data: eventData, error: eventError } = await supabase
-    .from('schedule_events_public')
-    .select('id, date, start_time, time_slot, current_participants, max_participants, capacity, organization_id, store_id, is_reservation_enabled, is_private_booking')
-    .eq('scenario_master_id', masterId)
-    .gte('date', today)
-    .in('category', ['open', 'offsite'])
-    .order('date', { ascending: true })
-    .order('start_time', { ascending: true })
-    .limit(50)
+  const { data: eventData, error: eventError } = await scenarioDetailGlobalReadApi.listUpcomingPublicEvents(masterId, today)
   if (eventError) logger.error('Failed to fetch events:', eventError)
 
   const storeIds = [...new Set((eventData || []).map((e: any) => e.store_id).filter(Boolean))]
   const storeMap: Record<string, { id: string; name: string; short_name: string; color: string | null; region: string | null }> = {}
   if (storeIds.length > 0) {
-    const { data: storesData } = await supabase.from('stores_public').select('id, name, short_name, color, region').in('id', storeIds)
+    const { data: storesData } = await scenarioDetailGlobalReadApi.listPublicStoresByIds(storeIds)
     storesData?.forEach((s: any) => { storeMap[s.id] = s })
   }
 
@@ -264,7 +243,7 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
 }
 
 async function findCustomerIdByEmail(email: string): Promise<string | null> {
-  const { data: customer } = await supabase.from('customers').select('id').eq('email', email).maybeSingle()
+  const { data: customer } = await scenarioDetailGlobalReadApi.findCustomerIdByEmail(email)
   return customer?.id ?? null
 }
 

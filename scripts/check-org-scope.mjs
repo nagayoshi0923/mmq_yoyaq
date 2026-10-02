@@ -10,7 +10,7 @@
  * - 実測 > ベースライン → exit 1（増えたファイルの内訳を出す）
  * - 実測 < ベースライン → ベースラインを更新（自動 commit はしない・design-tokens と同じ挙動）
  *
- * api/ 配下はサーバ側の正規の場所なので対象外（走査ルートは src のみ）。
+ * api/ 配下はサーバ側の正規の場所なので対象外（走査ルートは src のみ）。テストファイル（*.test.ts(x)）も対象外。
  * 参照: docs/BACKLOG.md M5/M6・org_scope API 化ロードマップ
  */
 import fs from 'node:fs'
@@ -41,6 +41,9 @@ function walk(dir, out) {
       walk(fullPath, out)
       continue
     }
+
+    // テストコードは出荷物ではないので数えない（クエリ文字列を固定するスナップショットが誤って数えられるため）
+    if (/\.test\.tsx?$/.test(entry.name)) continue
 
     if (FILE_EXTENSIONS.has(path.extname(entry.name))) out.push(fullPath)
   }

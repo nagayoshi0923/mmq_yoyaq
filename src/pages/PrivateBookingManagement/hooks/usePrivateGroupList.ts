@@ -2,7 +2,7 @@ import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { getGroupsSurveySettings } from '@/lib/groupSurveySettings'
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { boundedBatches } from '@/lib/boundedBatches'
@@ -85,20 +85,13 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       // 各フェーズを待ち合わせ、一覧全体でも同時要求を最大3件に保つ。
       const surveyResult = await getGroupsSurveySettings(groupIds)
       const bookingRows = await boundedBatches(reservationIds, 50, 3, async ids => {
-        const result = await supabase
-          .from('reservations')
-          .select('id, private_group_id, schedule_event_id, status')
-          .eq('organization_id', orgId)
-          .in('id', ids)
-          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+        const result = await privateBookingMgmtReadApi.listPrivateReservationsByIds(orgId, ids)
         if (result.error) throw result.error
         return result.data || []
       })
       // 検索用の予約番号は、取消・再申込前の予約も含めて取得する。
       const historyRows = await boundedBatches(groupIds, 50, 3, ids => fetchBookingRows((from, to) =>
-        supabase.from('reservations').select('id, private_group_id, reservation_number')
-          .eq('organization_id', orgId).in('private_group_id', ids)
-          .order('id').range(from, to),
+        privateBookingMgmtReadApi.listReservationsByGroupIds(orgId, ids, from, to),
       ))
       const reservationNumbers = new Map<string, string[]>()
       for (const reservation of historyRows) {
@@ -110,8 +103,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       const currentReservation = new Map(data.map(g => [g.id, g.reservation_id]))
       const eventIds = [...new Set(bookingRows.map(r => r.schedule_event_id).filter((id): id is string => !!id))]
       const eventRows = await boundedBatches(eventIds, 50, 3, async ids => {
-        const result = await supabase.from('schedule_events').select('id, date, start_time, end_time, store_id, is_cancelled, gms')
-          .eq('organization_id', orgId).in('id', ids)
+        const result = await privateBookingMgmtReadApi.listEventsByIds(orgId, ids)
         if (result.error) throw result.error
         return result.data || []
       })
@@ -138,7 +130,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       const storeNameMap = new Map<string, string>()
       if (storeIds.length > 0) {
         const storeRows = await boundedBatches(storeIds, 50, 3, async ids => {
-          const result = await supabase.from('stores').select('id, name, short_name').eq('organization_id', orgId).in('id', ids)
+          const result = await privateBookingMgmtReadApi.listStoresByIds(orgId, ids)
           if (result.error) throw result.error
           return result.data || []
         })

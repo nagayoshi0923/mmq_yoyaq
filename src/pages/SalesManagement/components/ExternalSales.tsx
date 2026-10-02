@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Plus, Edit2, Trash2, ShoppingBag, Store, Calendar } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { supabase } from '@/lib/supabase'
+import { salesPageReadApi } from '@/lib/api/salesPageReadApi'
 import { useOrganization } from '@/hooks/useOrganization'
 import { showToast } from '@/utils/toast'
 import { format } from '@/lib/dateFns'
@@ -83,11 +83,7 @@ export const ExternalSales: React.FC = () => {
   useEffect(() => {
     const fetchScenarios = async () => {
       if (!organizationId) return
-      const { data, error } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('id, title, franchise_license_amount, franchise_gm_test_license_amount, organization_id')
-        .eq('organization_id', organizationId)
-        .order('title')
+      const { data, error } = await salesPageReadApi.listScenariosWithFranchiseLicense(organizationId)
       
       if (!error && data) {
         setScenarios(data)
@@ -103,12 +99,7 @@ export const ExternalSales: React.FC = () => {
       const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
       const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-31`
 
-      const { data, error } = await supabase
-        .from('external_sales')
-        .select('id, organization_id, type, date, scenario_id, store_name, amount, license_cost, notes, created_at, updated_at')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false })
+      const { data, error } = await salesPageReadApi.listExternalSales(startDate, endDate)
 
       if (error) {
         // テーブルがない場合はエラーを表示しない
@@ -205,12 +196,7 @@ export const ExternalSales: React.FC = () => {
       // データ再取得
       const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
       const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-31`
-      const { data } = await supabase
-        .from('external_sales')
-        .select('id, organization_id, type, date, scenario_id, store_name, amount, license_cost, notes, created_at, updated_at')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false })
+      const { data } = await salesPageReadApi.listExternalSales(startDate, endDate)
       setSales(data || [])
     } catch (error) {
       logger.error('保存エラー:', error)

@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
-import { supabase } from '@/lib/supabase'
+import { scenarioManagementReadApi } from '@/lib/api/scenarioPageReadApi'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import {
@@ -205,9 +205,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
     const queryKey = orgScenariosKeys.list(organizationId)
 
     try {
-      const { data, error } = await supabase.rpc('delete_org_scenario', {
-        p_scenario_id: scenarioToDelete.org_scenario_id
-      })
+      const { data, error } = await scenarioManagementReadApi.deleteOrganizationScenario(scenarioToDelete.org_scenario_id)
 
       if (error) {
         logger.error('Failed to unlink scenario:', error)

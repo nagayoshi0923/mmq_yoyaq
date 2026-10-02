@@ -24,6 +24,7 @@ import {
   Menu, X, Plus, Pencil, LayoutTemplate, Compass,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { userRoleReadApi } from '@/lib/api/userRoleReadApi'
 
 // ---------------------------------------------------------------------------
 // ハードコードページ定義（既存の React コンポーネントページ）
@@ -313,11 +314,7 @@ function useIsAdmin() {
     import('@/lib/supabase').then(({ supabase }) => {
       supabase.auth.getUser().then(({ data }) => {
         if (!data.user) return
-        supabase
-          .from('users')
-          .select('role')
-          .eq('id', data.user.id)
-          .single()
+        userRoleReadApi.findRoleById(data.user.id)
           .then(({ data: u }) => {
             setIsAdmin(u?.role === 'admin')
           })

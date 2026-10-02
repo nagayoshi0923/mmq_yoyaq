@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { storeApi, scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { scheduleHookReadApi } from '@/lib/api/scheduleHookReadApi'
 import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -191,10 +192,7 @@ export function useScheduleData(currentDate: Date) {
       try {
         const orgId = await getCurrentOrganizationId()
         if (!orgId) return
-        const { data, error } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('scenario_master_id, duration, participation_fee, extra_preparation_time')
-          .eq('organization_id', orgId)
+        const { data, error } = await scheduleHookReadApi.listOrganizationScenarioOverrides(orgId)
         if (error) {
           logger.error('組織シナリオ設定の取得に失敗:', error)
           return

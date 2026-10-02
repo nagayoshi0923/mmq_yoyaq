@@ -2,7 +2,8 @@ import { saveGmResponse } from '@/lib/gmResponseApi'
 import { candidateIndexesFromOrders } from '@/lib/gmCandidateSelection'
 import { nextGmResponseStatus } from '../../../../supabase/functions/_shared/privateBookingReadiness'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { eventReservationReadApi } from '@/lib/api/eventOperationsApi'
+import { gmAvailabilityReadApi } from '@/lib/api/gmAvailabilityReadApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { isReservationReadyForStoreAfterGmResponses } from '@/pages/PrivateBookingManagement/utils/privateBookingGmReadiness'
@@ -81,11 +82,7 @@ export function useResponseSubmit({
       if (availableCandidates.length > 0) {
         const request = requests.find(r => r.id === requestId)
         if (request) {
-          const { data: curRow, error: statusError } = await supabase
-            .from('reservations')
-            .select('status')
-            .eq('id', request.reservation_id)
-            .maybeSingle()
+          const { data: curRow, error: statusError } = await gmAvailabilityReadApi.findReservationStatus(request.reservation_id)
           if (statusError || !curRow) throw statusError || new Error('予約が見つかりません')
           const prevStatus = curRow.status
 
@@ -103,7 +100,7 @@ export function useResponseSubmit({
           }
           const { data: reservationResult, error: reservationError } = newStatus === prevStatus
             ? { data: { success: true }, error: null }
-            : await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
+            : await eventReservationReadApi.adminUpdateFields(gmResponseParams)
 
           if (reservationError || reservationResult?.success === false) {
             throw reservationError || new Error(reservationResult.error || '予約更新に失敗しました')

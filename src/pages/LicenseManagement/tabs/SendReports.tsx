@@ -13,6 +13,7 @@ import { ListSkeleton, EmptyState } from '@/components/patterns/list'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { authorApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { licenseReportRpcApi } from '@/lib/api/licenseReportReadApi'
 import { scenarioMasterWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -173,7 +174,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
 
-      const { data, error } = await supabase.rpc('upsert_manual_external_performance', {
+      const { data, error } = await licenseReportRpcApi.upsertManualExternalPerformance({
         p_organization_id: organizationId,
         p_scenario_id: scenarioId,
         p_year: selectedYear,
@@ -209,7 +210,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       setIsSavingInternal(true)
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
-      const { data, error } = await supabase.rpc('upsert_manual_internal_performance_override', {
+      const { data, error } = await licenseReportRpcApi.upsertManualInternalPerformanceOverride({
         p_organization_id: organizationId,
         p_scenario_key: scenarioKey,
         p_year: selectedYear,

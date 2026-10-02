@@ -13,10 +13,6 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { TemporaryVenue } from '@/types'
 
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const TEMP_VENUE_SELECT_FIELDS =
-  'id, name, short_name, is_temporary, temporary_dates, temporary_venue_names, display_order' as const
-
 interface UseTemporaryVenuesReturn {
   temporaryVenues: TemporaryVenue[]  // すべての臨時会場（臨時1〜5）
   availableVenues: TemporaryVenue[]  // まだ予約されていない臨時会場
@@ -51,12 +47,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         }
         currentOrgId = orgId
 
-        const { data, error } = await supabase
-          .from('stores')
-          .select(TEMP_VENUE_SELECT_FIELDS)
-          .eq('is_temporary', true)
-          .eq('organization_id', orgId)
-          .order('name', { ascending: true })
+        const { data, error } = await temporaryVenueApi.listByOrganization(orgId)
 
         if (error) throw error
 
@@ -294,12 +285,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       }
 
       // 削除前に公演が存在するかチェック
-      const { data: events, error: checkError } = await supabase
-        .from('schedule_events')
-        .select('id')
-        .eq('store_id', venueId)
-        .eq('date', date)
-        .limit(1)
+      const { data: events, error: checkError } = await temporaryVenueApi.listEventIdsOnDate(venueId, date)
 
       if (checkError) {
         logger.error('公演チェックエラー:', checkError)

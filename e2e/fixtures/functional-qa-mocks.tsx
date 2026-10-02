@@ -34,3 +34,5 @@ export const reservationApi = { async create(payload:any) {state.writes++;state.
 export const resolveOrganizationFromPathSegment = async () => ({id:'qa-org',slug:'qa-org'})
 export const apiClient = {get:async()=>[],post:async()=>({success:true})}
 export class ApiClientError extends Error { constructor(public status:number,public body:any){super(body.message||'error')} }
+
+export const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS = 'fixture-select'

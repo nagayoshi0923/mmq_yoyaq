@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { salarySettingsReadApi } from '@/lib/api/settingsReadApi'
 import { salaryReportApi } from '@/lib/api/salaryReportApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -7,10 +7,6 @@ import { logger } from '@/utils/logger'
 import { calculateGmWage as calculateGmWageFromSettings, createSalarySettingsResolver, type HourlyRate, type SalarySettings, type SalarySettingsResolver } from '@/lib/compensation'
 export { calculateGmWage, createSalarySettingsResolver } from '@/lib/compensation'
 export type { HourlyRate, SalarySettings, SalarySettingsResolver } from '@/lib/compensation'
-
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const SALARY_SETTINGS_SELECT_FIELDS =
-  'organization_id, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates, updated_at' as const
 
 // デフォルト値
 const DEFAULT_SETTINGS: SalarySettings = {
@@ -58,11 +54,7 @@ export function useSalarySettings() {
         return
       }
 
-      const { data, error } = await supabase
-        .from('global_settings')
-        .select(SALARY_SETTINGS_SELECT_FIELDS)
-        .eq('organization_id', organizationId)
-        .single()
+      const { data, error } = await salarySettingsReadApi.getByOrganization(organizationId)
 
       if (error) {
         logger.error('給与設定の取得に失敗:', error)
@@ -76,27 +68,13 @@ export function useSalarySettings() {
       const today = new Date().toISOString().split('T')[0]
       
       // 現在有効な設定を取得（effective_from <= 今日 で最新）
-      const { data: currentHistory } = await supabase
-        .from('salary_settings_history')
-        .select('effective_from')
-        .eq('organization_id', organizationId)
-        .lte('effective_from', today)
-        .order('effective_from', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const { data: currentHistory } = await salarySettingsReadApi.findCurrentHistory(organizationId, today)
 
       if (currentHistory) {
         effectiveFrom = currentHistory.effective_from
         
         // 次の設定があれば、その日の前日が終了日（無いときは 0 件。single() だと 406 になる）
-        const { data: nextHistory } = await supabase
-          .from('salary_settings_history')
-          .select('effective_from')
-          .eq('organization_id', organizationId)
-          .gt('effective_from', currentHistory.effective_from)
-          .order('effective_from', { ascending: true })
-          .limit(1)
-          .maybeSingle()
+        const { data: nextHistory } = await salarySettingsReadApi.findNextHistory(organizationId, currentHistory.effective_from)
 
         if (nextHistory) {
           // 次の設定のeffective_fromの前日
@@ -164,11 +142,7 @@ export async function fetchSalarySettings(): Promise<SalarySettings> {
       return DEFAULT_SETTINGS
     }
 
-    const { data, error } = await supabase
-      .from('global_settings')
-      .select(SALARY_SETTINGS_SELECT_FIELDS)
-      .eq('organization_id', organizationId)
-      .single()
+    const { data, error } = await salarySettingsReadApi.getByOrganization(organizationId)
 
     if (error) {
       logger.error('給与設定の取得に失敗:', error)

@@ -6,7 +6,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Textarea } from '@/components/ui/textarea'
-import { supabase } from '@/lib/supabase'
+import { storeUsageReadApi } from '@/lib/api/organizationReadApi'
+import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import { slotMemoApi } from '@/lib/api/slotApi'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
@@ -29,11 +30,7 @@ async function fetchSlotMemosForMonth(year: number, month: number): Promise<Slot
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   const map: SlotMemoMap = new Map()
-  const { data, error } = await supabase
-    .from('schedule_slot_memos')
-    .select('date, store_id, time_slot, memo')
-    .gte('date', startDate)
-    .lte('date', endDate)
+  const { data, error } = await scheduleUiApi.listSlotMemosInRange(startDate, endDate)
   if (error) {
     logger.error('スロットメモ一括取得エラー:', error)
     return map
@@ -108,13 +105,7 @@ export async function migrateLocalStorageSlotMemos(organizationId: string): Prom
 
 export async function getEmptySlotMemo(date: string, storeId: string, timeSlot: string): Promise<string> {
   try {
-    const { data } = await supabase
-      .from('schedule_slot_memos')
-      .select('memo')
-      .eq('date', date)
-      .eq('store_id', storeId)
-      .eq('time_slot', timeSlot)
-      .maybeSingle()
+    const { data } = await scheduleUiApi.getSlotMemo(date, storeId, timeSlot)
     return data?.memo || ''
   } catch {
     return ''
@@ -132,11 +123,7 @@ export async function saveEmptySlotMemo(
     let orgId = organizationId
     if (!orgId) {
       // organizationId が渡されない場合は store_id から組織を特定
-      const { data } = await supabase
-        .from('stores')
-        .select('organization_id')
-        .eq('id', storeId)
-        .maybeSingle()
+      const { data } = await storeUsageReadApi.findOrganizationId(storeId)
       orgId = data?.organization_id
     }
     if (!orgId) return

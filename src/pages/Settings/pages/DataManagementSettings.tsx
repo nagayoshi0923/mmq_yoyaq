@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Save, Database, Download, Loader2, Users, CalendarDays, BookOpen } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { dataManagementSettingsApi } from '@/lib/api/globalSettingsApi'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -88,10 +88,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
 
   const fetchSettings = async (storeId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('data_management_settings')
-        .select('id, store_id, export_format')
-        .eq('store_id', storeId).maybeSingle()
+      const { data, error } = await settingsPageReadApi.getDataManagementSettings(storeId)
       if (error && error.code !== 'PGRST116') throw error
       if (data) {
         setFormData({ id: data.id, store_id: data.store_id, export_format: data.export_format ?? 'excel' })
@@ -125,13 +122,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     setExportingReservations(true)
     try {
       const orgId = await getCurrentOrganizationId()
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('reservation_number, status, actual_datetime, duration, participant_count, final_price, payment_status, payment_method, customer_id, store_id, scenarios(title), stores(short_name, name), customers(name, email, phone_number)')
-        .eq('organization_id', orgId!)
-        .gte('actual_datetime', exportDateFrom + 'T00:00:00')
-        .lte('actual_datetime', exportDateTo + 'T23:59:59')
-        .order('actual_datetime', { ascending: false })
+      const { data, error } = await settingsPageReadApi.listReservationsForExport(orgId!, exportDateFrom, exportDateTo)
 
       if (error) throw error
 
@@ -171,11 +162,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     setExportingStaff(true)
     try {
       const orgId = await getCurrentOrganizationId()
-      const { data, error } = await supabase
-        .from('staff')
-        .select('name, line_name, email, phone, status, role, created_at, stores(short_name)')
-        .eq('organization_id', orgId!)
-        .order('name')
+      const { data, error } = await settingsPageReadApi.listStaffForExport(orgId!)
 
       if (error) throw error
 
@@ -209,11 +196,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     setExportingScenarios(true)
     try {
       const orgId = await getCurrentOrganizationId()
-      const { data, error } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('title, author, report_display_name, genre, difficulty, duration, weekend_duration, player_count_min, player_count_max, participation_fee, status, org_status, play_count, has_pre_reading, release_date, notes, created_at')
-        .eq('organization_id', orgId!)
-        .order('title')
+      const { data, error } = await settingsPageReadApi.listScenariosForExport(orgId!)
 
       if (error) throw error
 

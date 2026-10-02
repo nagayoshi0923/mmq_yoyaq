@@ -18,7 +18,8 @@ import {
   Calendar, Users, BookOpen, LayoutDashboard,
   Store, UserCheck, Settings, BarChart3, Tag, Keyboard,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { reservationReadApi } from '@/lib/api/reservationReadApi'
+import { customerReadApi } from '@/lib/api/customerReadApi'
 
 interface CustomerResult {
   id: string
@@ -180,19 +181,8 @@ export function GlobalCommandPalette() {
       const q = `%${query.trim()}%`
 
       const [customerRes, reservationRes] = await Promise.all([
-        supabase
-          .from('customers')
-          .select('id, name, email, phone')
-          .eq('organization_id', organizationId)
-          .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
-          .limit(5),
-        supabase
-          .from('reservations')
-          .select('id, reservation_number, customer_name, title, status, actual_datetime')
-          .eq('organization_id', organizationId)
-          .or(`customer_name.ilike.${q},reservation_number.ilike.${q},title.ilike.${q}`)
-          .order('actual_datetime', { ascending: false })
-          .limit(5),
+        customerReadApi.searchForPalette(organizationId, q),
+        reservationReadApi.searchForPalette(organizationId, q),
       ])
 
       setCustomers((customerRes.data as CustomerResult[]) ?? [])

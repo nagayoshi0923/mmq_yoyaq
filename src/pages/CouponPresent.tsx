@@ -11,6 +11,7 @@ import {
   Clock, Scissors, Users, Smartphone, ChevronRight,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { couponPageReadApi } from '@/lib/api/couponPageReadApi'
 import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -80,32 +81,12 @@ export function CouponPresent() {
           return
         }
 
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('id, name')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
+        const { data: customer } = await couponPageReadApi.findCustomerByUserId(session.user.id)
 
         if (customer) {
           setUserName(customer.name || '')
 
-          const { data: customerCoupons, error } = await supabase
-            .from('customer_coupons')
-            .select(`
-              id,
-              uses_remaining,
-              expires_at,
-              status,
-              coupon_campaigns:campaign_id (
-                name,
-                description,
-                discount_type,
-                discount_amount
-              )
-            `)
-            .eq('customer_id', customer.id)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
+          const { data: customerCoupons, error } = await couponPageReadApi.listActiveCoupons(customer.id)
 
           if (error) {
             logger.error('クーポン取得エラー:', error)

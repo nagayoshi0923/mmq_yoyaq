@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { getGmResponses } from '@/lib/gmResponseApi'
-import { supabase } from '@/lib/supabase'
+import { privateBookingRequestReadApi } from '@/lib/api/privateBookingMgmtReadApi'
+import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { logger } from '@/utils/logger'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
@@ -102,18 +103,11 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         logger.log('📋 スタッフユーザー - 担当シナリオのみ表示')
 
         // ログインユーザーのstaffレコードを取得
-        const { data: staffData } = await supabase
-          .from('staff')
-          .select('id')
-          .eq('user_id', userId)
-          .single()
+        const { data: staffData } = await privateBookingMgmtReadApi.findStaffIdByUserId(userId)
 
         if (staffData) {
           // 担当シナリオのIDを取得
-          const { data: assignments } = await supabase
-            .from('staff_scenario_assignments')
-            .select('scenario_master_id')
-            .eq('staff_id', staffData.id)
+          const { data: assignments } = await privateBookingMgmtReadApi.listAssignedScenarioIds(staffData.id)
 
           if (assignments && assignments.length > 0) {
             allowedScenarioIds = assignments.map(a => a.scenario_master_id)
@@ -131,36 +125,15 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
       }
 
       // reservationsテーブルから貸切リクエストを取得
-      let query = supabase
-        .from('reservations')
-        .select(`
-          *,
-          scenario_masters:scenario_master_id(title),
-          customers:customer_id(name, phone),
-          confirmer:staff!reservations_confirmed_by_fkey(name)
-        `)
-        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-        .order('created_at', { ascending: false })
-
       // スタッフの場合、担当シナリオのみに絞り込み
-      if (allowedScenarioIds !== null) {
-        if (allowedScenarioIds.length === 0) {
-          // 担当シナリオがない場合は空の結果を返す
-          setRequests([])
-          setLoading(false)
-          return
-        }
-        query = query.in('scenario_master_id', allowedScenarioIds)
+      if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) {
+        // 担当シナリオがない場合は空の結果を返す
+        setRequests([])
+        setLoading(false)
+        return
       }
 
-      // タブによってフィルター
-      if (activeTab === 'pending') {
-        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
-      } else {
-        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
-      }
-
-      const { data, error } = await query
+      const { data, error } = await privateBookingRequestReadApi.listForTab(allowedScenarioIds, activeTab === 'pending')
 
       if (error) {
         logger.error('Supabaseエラー:', error)

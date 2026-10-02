@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { supabase } from '@/lib/supabase'
+import { scenarioMasterAdminReadApi } from '@/lib/api/scenarioPageReadApi'
 import { scenarioMasterWriteApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -66,10 +66,7 @@ export function ScenarioMasterAdmin() {
       setLoading(true)
       setError(null)
 
-      const { data, error: fetchError } = await supabase
-        .from('scenario_masters')
-        .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by')
-        .order('updated_at', { ascending: false })
+      const { data, error: fetchError } = await scenarioMasterAdminReadApi.listMasters()
 
       if (fetchError) {
         logger.error('Failed to fetch scenario masters:', fetchError)
@@ -81,9 +78,7 @@ export function ScenarioMasterAdmin() {
 
       // 利用組織を一括取得（埋め込み構文を避け、2クエリで取得→JS側で結合）
       // 注: masterIds が700件超で .in() の URL が長すぎて落ちるため、全件取得して JS 側でフィルタ
-      const { data: orgScenarios } = await supabase
-        .from('organization_scenarios')
-        .select('scenario_master_id, organization_id')
+      const { data: orgScenarios } = await scenarioMasterAdminReadApi.listOrganizationScenarioLinks()
 
       // 利用組織と申請組織の ID を集めて一括で organizations を引く
       // 表示中マスタの分だけに絞る
@@ -94,10 +89,7 @@ export function ScenarioMasterAdmin() {
 
       const orgNameMap = new Map<string, string>()
       if (allOrgIds.length > 0) {
-        const { data: orgs } = await supabase
-          .from('organizations')
-          .select('id, name')
-          .in('id', allOrgIds)
+        const { data: orgs } = await scenarioMasterAdminReadApi.listOrganizationNamesByIds(allOrgIds)
         ;(orgs || []).forEach(o => orgNameMap.set(o.id, o.name))
       }
 

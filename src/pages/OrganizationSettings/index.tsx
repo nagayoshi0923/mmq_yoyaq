@@ -30,7 +30,7 @@ import {
 } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
-import { supabase } from '@/lib/supabase'
+import { bookingSiteRpcApi } from '@/lib/api/bookingSiteRpcApi'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -111,7 +111,7 @@ export default function OrganizationSettings() {
   const handleApplyBookingSite = async () => {
     setIsApplying(true)
     try {
-      const { error } = await supabase.rpc('apply_for_booking_site')
+      const { error } = await bookingSiteRpcApi.apply()
       if (error) throw error
       toast.success('予約サイト公開を申請しました。審査をお待ちください。')
       refetch()

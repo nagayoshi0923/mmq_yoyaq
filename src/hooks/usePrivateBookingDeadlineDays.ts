@@ -7,7 +7,7 @@
  * 初期値は14日。読込中・取得失敗時は受付を広げないよう最大90日で制限する。
  */
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
 import { logger } from '@/utils/logger'
 
 export const DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS = 14
@@ -21,11 +21,7 @@ interface UsePrivateBookingDeadlineDaysOptions {
 export async function fetchPrivateBookingDeadlineDays(
   options?: UsePrivateBookingDeadlineDaysOptions
 ): Promise<number> {
-  const { data, error } = await supabase.rpc('get_effective_private_booking_deadline_days', {
-    p_scenario_id: options?.scenarioId ?? null,
-    p_organization_id: options?.organizationId ?? null,
-    p_organization_slug: options?.organizationSlug ?? null,
-  })
+  const { data, error } = await privateBookingSlotReadApi.getEffectiveDeadlineDays({ scenarioId: options?.scenarioId ?? null, organizationId: options?.organizationId ?? null, organizationSlug: options?.organizationSlug ?? null })
   if (error) {
     logger.error('貸切予約締切日数の取得に失敗:', error)
     return 90

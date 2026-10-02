@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Save, Send, TestTube, Bell, MessageSquare, BookOpen, CalendarCheck, Webhook } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { notificationSettingsListReadApi } from '@/lib/api/settingsPageReadApi'
+import { settingsPageReadApi } from '@/lib/api/settingsPageReadApi'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -104,16 +106,7 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
   const fetchStaffList = async () => {
     try {
       const orgId = await getCurrentOrganizationId()
-      let query = supabase
-        .from('staff')
-        .select('id, name, discord_channel_id')
-        .eq('status', 'active')
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data, error } = await query.order('name')
+      const { data, error } = await notificationSettingsListReadApi.listActiveStaff(orgId)
       
       if (error) throw error
       setStaffList((data || []) as Staff[])
@@ -125,16 +118,7 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
   const fetchScenarioList = async () => {
     try {
       const orgId = await getCurrentOrganizationId()
-      let query = supabase
-        .from('organization_scenarios_with_master')
-        .select('id, title')
-        .order('title')
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data, error } = await query
+      const { data, error } = await notificationSettingsListReadApi.listScenarioTitles(orgId)
       
       if (error) throw error
       setScenarioList(data || [])
@@ -355,11 +339,7 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
 
   const fetchSettings = async (storeId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('notification_settings')
-        .select('id, store_id, organization_id, new_reservation_email, new_reservation_discord, cancellation_email, cancellation_discord, shift_reminder_days, performance_reminder_days, sales_report_notification, discord_webhook_url, updated_at')
-        .eq('store_id', storeId)
-        .maybeSingle()
+      const { data, error } = await settingsPageReadApi.getStoreNotificationSettings(storeId)
 
       if (error && error.code !== 'PGRST116') throw error
 
@@ -390,11 +370,7 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return
 
-      const { data, error } = await supabase
-        .from('global_settings')
-        .select('id, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body, system_msg_booking_rejected_title, system_msg_booking_rejected_body, system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
-        .eq('organization_id', orgId)
-        .single()
+      const { data, error } = await settingsPageReadApi.getGlobalNotificationSettings(orgId)
 
       if (error) throw error
       if (data) {

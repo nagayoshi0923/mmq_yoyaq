@@ -22,7 +22,7 @@
  */
 import { useState, useCallback, useRef } from 'react'
 import { scheduleApi } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
+import { eventReservationReadApi } from '@/lib/api/eventOperationsApi'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -118,24 +118,12 @@ export async function fetchActiveReservations(
   // 対象の schedule_events 行を解決（合成IDの未承認貸切は実公演が無いので対象外）
   let scheduleEventId: string | null = isRealScheduleEventId(targetEvent.id) ? targetEvent.id : null
   if (!scheduleEventId && targetEvent.reservation_id) {
-    const { data } = await supabase
-      .from('reservations')
-      .select('schedule_event_id')
-      .eq('id', targetEvent.reservation_id)
-      .maybeSingle()
+    const { data } = await eventReservationReadApi.findScheduleEventIdById(targetEvent.reservation_id)
     scheduleEventId = data?.schedule_event_id ?? null
   }
   if (!scheduleEventId) return []
 
-  let activeQuery = supabase
-    .from('reservations')
-    .select('id, customer_name, customer_email, reservation_number, participant_count, total_price, payment_method')
-    .eq('schedule_event_id', scheduleEventId)
-    .neq('status', 'cancelled')
-  if (organizationId) {
-    activeQuery = activeQuery.eq('organization_id', organizationId)
-  }
-  const { data: activeReservations, error: activeError } = await activeQuery
+  const { data: activeReservations, error: activeError } = await eventReservationReadApi.listActiveSummaryByEvent(scheduleEventId, organizationId)
   if (activeError) {
     logger.error('有効予約チェックエラー:', activeError)
     throw new Error('予約情報の確認に失敗しました')
@@ -263,7 +251,7 @@ async function handleActiveReservationsBeforeDelete(
           p_reservation_id: r.id,
           p_updates: { status: 'cancelled' },
         }
-        const { error } = await supabase.rpc('admin_update_reservation_fields', params)
+        const { error } = await eventReservationReadApi.adminUpdateFields(params)
         if (error) throw error
         await markSenshinDiscordCancelled({ reservationId: r.id, organizationId })
       }
@@ -305,14 +293,7 @@ async function deletePrivateBookingEventCore(
   logger.log('🗑 貸切削除 開始:', { eventId: targetEvent.id, reservationId, organizationId })
 
   // 予約情報を取得（schedule_event_id とステータス確認）
-  let reservationQuery = supabase
-    .from('reservations')
-    .select('id, schedule_event_id, status')
-    .eq('id', reservationId)
-  if (organizationId) {
-    reservationQuery = reservationQuery.eq('organization_id', organizationId)
-  }
-  const { data: reservation, error: fetchError } = await reservationQuery.maybeSingle()
+  const { data: reservation, error: fetchError } = await eventReservationReadApi.findEventIdAndStatusById(reservationId, organizationId)
   if (fetchError) {
     logger.error('予約情報取得エラー:', fetchError)
   }
@@ -344,7 +325,7 @@ async function deletePrivateBookingEventCore(
       p_reservation_id: reservationId,
       p_updates: { status: 'cancelled' },
     }
-    const { error: cancelError } = await supabase.rpc('admin_update_reservation_fields', cancelParams)
+    const { error: cancelError } = await eventReservationReadApi.adminUpdateFields(cancelParams)
     if (cancelError) {
       logger.error('貸切申込のキャンセル更新エラー:', cancelError)
       throw cancelError
@@ -457,15 +438,7 @@ export function useEventDelete({ setEvents, organizationId, fetchSchedule }: Use
 
     // 通常公演: 念のため有効予約の残存を再確認（F-1 後は0件のはず。
     // 万一残っていたら削除せず中止を案内する＝最後の安全弁）
-    let reservationsCheckQuery = supabase
-      .from('reservations')
-      .select('id')
-      .eq('schedule_event_id', targetEvent.id)
-      .neq('status', 'cancelled')
-    if (organizationId) {
-      reservationsCheckQuery = reservationsCheckQuery.eq('organization_id', organizationId)
-    }
-    const { data: reservations, error: checkError } = await reservationsCheckQuery
+    const { data: reservations, error: checkError } = await eventReservationReadApi.listUncancelledIdsByEvent(targetEvent.id, organizationId)
 
     if (checkError) {
       logger.error('予約チェックエラー:', checkError)
