@@ -8,6 +8,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { notificationOutcome } from '@/lib/notificationResult'
 import { reservationApi, RESERVATION_SELECT_FIELDS } from '@/lib/reservationApi'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { buildCancellationEmailBody, fetchStoreCancellationEmailContext } from '@/lib/cancellationEmail'
@@ -489,7 +490,7 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
         // メール送信（チェックボックスがONの場合のみ）
         if (sendEmail && emailContent.customerEmail) {
           try {
-            const { error: emailError } = await supabase.functions.invoke('send-cancellation-confirmation', {
+            const emailResponse = await supabase.functions.invoke('send-cancellation-confirmation', {
               body: {
                 organizationId: event?.organization_id,
                 storeId: event?.venue,
@@ -512,8 +513,16 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
               }
             })
 
-            if (emailError) throw emailError
-            showToast.success('予約をキャンセルし、メールを送信しました')
+            if (emailResponse.error) throw emailResponse.error
+            // HTTP 200 でも「送らずに成功」（受付経路が MMQ 以外の手動返信待ちなど）は送信済みと表示しない（#712）
+            const outcome = notificationOutcome(emailResponse)
+            if (outcome.status === 'accepted') {
+              showToast.success('予約をキャンセルし、メールを送信しました')
+            } else if (outcome.status === 'skipped') {
+              showToast.warning('予約はキャンセルしましたが、メールは送信していません。キャンセルの受付経路が MMQ 以外（会社メール・電話など）のため、受け付けた経路からお客様へ返信してください')
+            } else {
+              showToast.warning('予約はキャンセルされましたが、メール送信を確認できませんでした')
+            }
           } catch (emailError) {
             logger.error('キャンセル確認メール送信エラー:', emailError)
             showToast.warning('予約はキャンセルされましたが、メール送信に失敗しました')
