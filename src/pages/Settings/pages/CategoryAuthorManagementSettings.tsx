@@ -28,6 +28,7 @@ import {
   Save,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { orgMasterListApi, organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
@@ -196,7 +197,7 @@ function MasterListManager({
       if (dialogMode === 'add') {
         // 新規追加: sort_order は末尾
         const maxOrder = items.length > 0 ? Math.max(...items.map((i) => i.sort_order)) : 0
-        const { error } = await supabase.from(tableName).insert({
+        const { error } = await orgMasterListApi.insertItem(tableName, {
           organization_id: organizationId,
           name: trimmedName,
           sort_order: maxOrder + 1,
@@ -206,10 +207,7 @@ function MasterListManager({
       } else if (editingItem) {
         // 編集: 名前変更
         const oldName = editingItem.name
-        const { error } = await supabase
-          .from(tableName)
-          .update({ name: trimmedName, updated_at: new Date().toISOString() })
-          .eq('id', editingItem.id)
+        const { error } = await orgMasterListApi.updateItemById(tableName, editingItem.id, { name: trimmedName, updated_at: new Date().toISOString() })
         if (error) throw error
 
         // シナリオ側の参照も一括更新
@@ -255,19 +253,12 @@ function MasterListManager({
             const updated = (row.override_genre || []).map((g: string) =>
               g === oldName ? newName : g
             )
-            await supabase
-              .from('organization_scenarios')
-              .update({ override_genre: updated })
-              .eq('id', row.id)
+            await organizationScenarioWriteApi.updateById(row.id, { override_genre: updated })
           }
         }
       } else {
         // author (TEXT): スカラー値を直接更新
-        await supabase
-          .from('organization_scenarios')
-          .update({ override_author: newName })
-          .eq('organization_id', orgId)
-          .eq('override_author', oldName)
+        await organizationScenarioWriteApi.replaceAuthorOverride(orgId, oldName, newName)
       }
     } catch (error) {
       logger.error('シナリオ参照の更新エラー:', error)
@@ -297,10 +288,7 @@ function MasterListManager({
       }
 
       // マスタから削除
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq('id', item.id)
+      const { error } = await orgMasterListApi.deleteItemById(tableName, item.id)
 
       if (error) throw error
 
@@ -334,19 +322,12 @@ function MasterListManager({
             const updated = (row.override_genre || []).filter(
               (g: string) => g !== name
             )
-            await supabase
-              .from('organization_scenarios')
-              .update({ override_genre: updated })
-              .eq('id', row.id)
+            await organizationScenarioWriteApi.updateById(row.id, { override_genre: updated })
           }
         }
       } else {
         // author (TEXT): null にクリア
-        await supabase
-          .from('organization_scenarios')
-          .update({ override_author: null })
-          .eq('organization_id', orgId)
-          .eq('override_author', name)
+        await organizationScenarioWriteApi.replaceAuthorOverride(orgId, name, null)
       }
     } catch (error) {
       logger.error('シナリオ参照の削除エラー:', error)
@@ -383,10 +364,7 @@ function MasterListManager({
     try {
       // バッチ更新
       for (const item of items) {
-        await supabase
-          .from(tableName)
-          .update({ sort_order: item.sort_order, updated_at: new Date().toISOString() })
-          .eq('id', item.id)
+        await orgMasterListApi.updateItemById(tableName, item.id, { sort_order: item.sort_order, updated_at: new Date().toISOString() })
       }
       showToast.success('並び順を保存しました')
       setHasOrderChanges(false)

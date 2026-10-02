@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/patterns/list'
 import { supabase } from '@/lib/supabase'
+import { scenarioMasterWriteApi, scenarioCharacterApi, scenarioMasterCorrectionApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
@@ -203,21 +204,14 @@ export function ScenarioMasterEdit() {
       }
 
       if (isNew) {
-        const { data, error } = await supabase
-          .from('scenario_masters')
-          .insert(saveData)
-          .select()
-          .single()
+        const { data, error } = await scenarioMasterWriteApi.createReturning(saveData)
 
         if (error) throw error
 
         toast.success('シナリオマスタを作成しました')
         navigate(`/admin/scenario-masters/${data.id}`)
       } else {
-        const { error } = await supabase
-          .from('scenario_masters')
-          .update(saveData)
-          .eq('id', id)
+        const { error } = await scenarioMasterWriteApi.updateById(id!, saveData)
 
         if (error) throw error
 
@@ -225,15 +219,10 @@ export function ScenarioMasterEdit() {
         for (const char of characters) {
           if (char.is_new) {
             const { id: _, is_new: __, ...charData } = char
-            await supabase
-              .from('scenario_characters')
-              .insert({ ...charData, scenario_master_id: id })
+            await scenarioCharacterApi.insert({ ...charData, scenario_master_id: id })
           } else {
             const { is_new: _, ...charData } = char
-            await supabase
-              .from('scenario_characters')
-              .update(charData)
-              .eq('id', char.id)
+            await scenarioCharacterApi.updateById(char.id, charData)
           }
         }
 
@@ -253,14 +242,11 @@ export function ScenarioMasterEdit() {
 
     try {
       setSaving(true)
-      const { error } = await supabase
-        .from('scenario_masters')
-        .update({ 
+      const { error } = await scenarioMasterWriteApi.updateById(id, { 
           master_status: 'approved',
           approved_by: user?.id,
           approved_at: new Date().toISOString()
         })
-        .eq('id', id)
 
       if (error) throw error
 
@@ -284,13 +270,10 @@ export function ScenarioMasterEdit() {
 
     try {
       setSaving(true)
-      const { error } = await supabase
-        .from('scenario_masters')
-        .update({ 
+      const { error } = await scenarioMasterWriteApi.updateById(id, { 
           master_status: 'rejected',
           rejection_reason: reason
         })
-        .eq('id', id)
 
       if (error) throw error
 
@@ -325,7 +308,7 @@ export function ScenarioMasterEdit() {
   const removeCharacter = async (index: number) => {
     const char = characters[index]
     if (!char.is_new) {
-      await supabase.from('scenario_characters').delete().eq('id', char.id)
+      await scenarioCharacterApi.deleteById(char.id)
     }
     setCharacters(characters.filter((_, i) => i !== index))
   }
@@ -355,20 +338,14 @@ export function ScenarioMasterEdit() {
     try {
       // 修正を適用
       const fieldName = correction.field_name as keyof ScenarioMaster
-      await supabase
-        .from('scenario_masters')
-        .update({ [fieldName]: correction.suggested_value })
-        .eq('id', id)
+      await scenarioMasterWriteApi.updateById(id!, { [fieldName]: correction.suggested_value })
 
       // 修正リクエストを承認済みに
-      await supabase
-        .from('scenario_master_corrections')
-        .update({ 
+      await scenarioMasterCorrectionApi.updateById(correction.id, { 
           status: 'approved',
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString()
         })
-        .eq('id', correction.id)
 
       toast.success('修正を適用しました')
       fetchData()
@@ -387,15 +364,12 @@ export function ScenarioMasterEdit() {
     if (!comment || !correction) return
 
     try {
-      await supabase
-        .from('scenario_master_corrections')
-        .update({
+      await scenarioMasterCorrectionApi.updateById(correction.id, {
           status: 'rejected',
           reviewed_by: user?.id,
           reviewed_at: new Date().toISOString(),
           review_comment: comment
         })
-        .eq('id', correction.id)
 
       toast.success('修正リクエストを却下しました')
       fetchData()

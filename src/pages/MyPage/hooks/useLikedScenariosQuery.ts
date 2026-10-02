@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { scenarioLikeApi } from '@/lib/api/scenarioWriteApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -76,7 +77,7 @@ export function useRemoveLikeMutation(userId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (likeId: string) => {
-      const { error } = await supabase.from('scenario_likes').delete().eq('id', likeId)
+      const { error } = await scenarioLikeApi.removeById(likeId)
       if (error) throw error
     },
     onSuccess: () => {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
+import { organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -103,9 +104,7 @@ export function AddFromMasterDialog({
       }
 
       // organization_scenarios に追加
-      const { error } = await supabase
-        .from('organization_scenarios')
-        .insert({
+      const { error } = await organizationScenarioWriteApi.insert({
           organization_id: organizationId,
           scenario_master_id: master.id,
           duration: master.official_duration,

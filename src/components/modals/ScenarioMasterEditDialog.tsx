@@ -11,6 +11,7 @@ import './ScenarioEditDialogV2.css'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { scenarioMasterWriteApi, scenarioCharacterApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -385,11 +386,7 @@ export function ScenarioMasterEditDialog({
       }
 
       if (isNew) {
-        const { data, error } = await supabase
-          .from('scenario_masters')
-          .insert(saveData)
-          .select()
-          .single()
+        const { data, error } = await scenarioMasterWriteApi.createReturning(saveData)
 
         if (error) throw error
         
@@ -398,10 +395,7 @@ export function ScenarioMasterEditDialog({
         onSaved()
         onOpenChange(false)
       } else {
-        const { error } = await supabase
-          .from('scenario_masters')
-          .update(saveData)
-          .eq('id', masterId)
+        const { error } = await scenarioMasterWriteApi.updateById(masterId, saveData)
 
         if (error) throw error
 
@@ -409,15 +403,10 @@ export function ScenarioMasterEditDialog({
         for (const char of characters) {
           if (char.is_new) {
             const { id: _, is_new: __, ...charData } = char
-            await supabase
-              .from('scenario_characters')
-              .insert({ ...charData, scenario_master_id: masterId })
+            await scenarioCharacterApi.insert({ ...charData, scenario_master_id: masterId })
           } else {
             const { is_new: _, ...charData } = char
-            await supabase
-              .from('scenario_characters')
-              .update(charData)
-              .eq('id', char.id)
+            await scenarioCharacterApi.updateById(char.id, charData)
           }
         }
 
@@ -460,7 +449,7 @@ export function ScenarioMasterEditDialog({
   const removeCharacter = async (index: number) => {
     const char = characters[index]
     if (!char.is_new && masterId) {
-      await supabase.from('scenario_characters').delete().eq('id', char.id)
+      await scenarioCharacterApi.deleteById(char.id)
     }
     setCharacters(characters.filter((_, i) => i !== index))
   }
