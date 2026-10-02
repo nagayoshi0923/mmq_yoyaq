@@ -45,12 +45,12 @@ export function useStoreAndGMManagement() {
       const responses = await getGmResponses([reservationId])
 
       // 回答済み・意思表示がある行のみ（pending かつ未回答は除外）
-      const filteredResponses = (responses || []).filter((response: any) =>
+      const filteredResponses = (responses || []).filter((response) =>
         shouldIncludeGmResponseRow(response)
       )
 
       const sorted = sortGmResponsesByReplyTime(filteredResponses)
-      const gmList = sorted.map((response: any) => ({
+      const gmList = sorted.map((response) => ({
         gm_id: response.staff_id,
         gm_name: response.gm_name || response.staff?.name || '',
         response_status: response.response_status,

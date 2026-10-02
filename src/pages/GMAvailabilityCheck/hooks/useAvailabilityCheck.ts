@@ -96,7 +96,7 @@ export function useAvailabilityCheck() {
       if (dates.length > 0) {
         const { data: gmEvents } = await gmAvailabilityReadApi.listGmEventsOnDates(dates, gmName)
 
-        ;(gmEvents || []).forEach((e: any) => {
+        ;(gmEvents || []).forEach((e) => {
           const date = e.date
           if (!date) return
           const start = (e.start_time || '').substring(0, 5)

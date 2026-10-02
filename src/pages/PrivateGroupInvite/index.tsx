@@ -1187,8 +1187,8 @@ export function PrivateGroupInvite() {
       if (parentReservationId && customerEmail) {
         try {
           const candidateDatesForEmail = group.candidate_dates
-            ?.filter((cd: any) => bookingSelectedDates.has(cd.id))
-            .map((cd: any) => ({
+            ?.filter((cd) => bookingSelectedDates.has(cd.id))
+            .map((cd) => ({
               date: cd.date,
               timeSlot: cd.time_slot,
               startTime: cd.start_time,

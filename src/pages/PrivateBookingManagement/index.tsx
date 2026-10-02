@@ -836,7 +836,7 @@ export function PrivateBookingManagement() {
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
                     unknownAvailabilityCandidates={(() => {
                       if (!conflicts.ready) return []
-                      const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                      const ids = req.candidate_datetimes?.requestedStores?.map((s) => s.storeId) || []
                       const baseStores = ids.length ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
                       return (req.candidate_datetimes?.candidates || []).filter(candidate =>
                         baseStores.some(store => conflicts.storeConflict(req, approvalCandidateTime(req, candidate), store.id) === undefined)
@@ -844,7 +844,7 @@ export function PrivateBookingManagement() {
                     })()}
                     storesPerCandidate={(() => {
                       if (!conflicts.ready) return undefined
-                      const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                      const ids = req.candidate_datetimes?.requestedStores?.map((s) => s.storeId) || []
                       const baseStores = ids.length > 0
                         ? stores.filter(s => ids.includes(s.id))
                         : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
@@ -857,7 +857,7 @@ export function PrivateBookingManagement() {
                       }, {} as Record<number, typeof baseStores>)
                     })()}
                     blockedStatusPerCandidate={(() => {
-                      const ids = req.candidate_datetimes?.requestedStores?.map((store: any) => store.storeId) || []
+                      const ids = req.candidate_datetimes?.requestedStores?.map((store) => store.storeId) || []
                       const baseStores = ids.length > 0
                         ? stores.filter((store) => ids.includes(store.id))
                         : stores.filter((store) => store.ownership_type !== 'office' && !store.is_temporary)
@@ -921,7 +921,7 @@ export function PrivateBookingManagement() {
                         {(() => {
                           const selectedCand = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
                           const candidateStores = (() => {
-                            const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                            const ids = req.candidate_datetimes?.requestedStores?.map((s) => s.storeId) || []
                             return ids.length > 0 ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
                           })()
                           return (
@@ -936,7 +936,7 @@ export function PrivateBookingManagement() {
                                     {candidateStores.map(s => {
                                       const hasConflict = !!selectedCand && conflicts.storeConflict(req, approvalCandidateTime(req, selectedCand), s.id) === true
                                       const isBlocked = isCandidateStoreBlocked(selectedCand, s.id)
-                                      const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
+                                      const isRequested = req.candidate_datetimes?.requestedStores?.some((rs) => rs.storeId === s.id)
                                       return (
                                         <SelectItem
                                           key={s.id}

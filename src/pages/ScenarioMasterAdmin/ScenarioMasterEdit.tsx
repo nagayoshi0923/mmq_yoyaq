@@ -117,7 +117,7 @@ export function ScenarioMasterEdit() {
       const { data: correctionData } = await scenarioMasterAdminReadApi.listPendingCorrections(id)
 
       setCorrections(
-        (correctionData || []).map((c: any) => ({
+        (correctionData || []).map((c) => ({
           ...c,
           organization_name: c.organizations?.name
         }))

@@ -100,7 +100,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       }
       if (!foundScenario && !orgId && !organizationSlug) {
         const scenarios = await scenarioApi.getAll().catch(() => [])
-        foundScenario = isUuidLike(scenarioId) ? scenarios.find((s: any) => s.id === scenarioId) : null
+        foundScenario = isUuidLike(scenarioId) ? scenarios.find((s) => s.id === scenarioId) : null
       }
 
       if (!foundScenario) {
@@ -135,7 +135,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       
       // URLパラメータから選択済み店舗を設定（カンマ区切り対応）
       const storeIds = storeId.split(',').filter(id => 
-        isUuidLike(id) && storesData.some((s: any) => s.id === id)
+        isUuidLike(id) && storesData.some((s) => s.id === id)
       )
       if (storeIds.length > 0) {
         setSelectedStoreIds(storeIds)
@@ -185,21 +185,21 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     }
 
     const urlStoreIds = storeId.split(',').filter(
-      (id) => isUuidLike(id) && stores.some((s: any) => s.id === id)
+      (id) => isUuidLike(id) && stores.some((s) => s.id === id)
     )
     const scenarioStoreIds: string[] = Array.isArray(scenario.available_stores)
       ? scenario.available_stores.filter((id: unknown) => typeof id === 'string')
       : []
     const eligible = stores.filter(
-      (s: any) =>
+      (s) =>
         s.ownership_type !== 'office' &&
         s.status === 'active' &&
         (scenarioStoreIds.length === 0 || scenarioStoreIds.includes(s.id))
     )
     const storeIdsForSlots =
       urlStoreIds.length > 0
-        ? urlStoreIds.filter((id) => eligible.some((s: any) => s.id === id))
-        : eligible.map((s: any) => s.id)
+        ? urlStoreIds.filter((id) => eligible.some((s) => s.id === id))
+        : eligible.map((s) => s.id)
 
     // 店舗が解決できない場合でもカレンダー指定の枠は引き継ぐ
     if (storeIdsForSlots.length === 0) {

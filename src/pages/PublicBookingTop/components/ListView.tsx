@@ -125,7 +125,7 @@ export const ListView = memo(function ListView({
     const allMerged = [...events, ...blockedEvents].sort((a, b) => {
       return (a.start_time || '').localeCompare(b.start_time || '')
     })
-    const allEvents = allMerged.filter((ev: any) => {
+    const allEvents = allMerged.filter((ev) => {
       // 内部カテゴリは公開リストに表示しない（blockedSlotsで貸切申込ブロックは維持）
       const isHiddenCategory = ev.category === 'mtg'
         || ev.category === 'gmtest'
@@ -170,7 +170,7 @@ export const ListView = memo(function ListView({
         return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
       }
       // GMテスト・MTG等が含まれるスロットは貸切申込を非表示（CalendarViewと同じ判定）
-      const hasNonBookableEvent = allMerged.some((ev: any) =>
+      const hasNonBookableEvent = allMerged.some((ev) =>
         ev.category === 'gmtest' || ev.category === 'testplay' || ev.category === 'mtg'
       )
       if (hasNonBookableEvent) {

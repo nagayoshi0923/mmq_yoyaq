@@ -149,7 +149,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
 
   // イベントデータを整形
   const scenarioEvents = eventsData
-    .filter((event: any) => {
+    .filter((event) => {
       // open公演のみ（private除外）
       if (event.category === 'private') return false
       // 貸切公演は表示しない
@@ -158,7 +158,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       if (event.is_reservation_enabled === false) return false
       return true
     })
-    .map((event: any) => {
+    .map((event) => {
       // 公開用ビューではリレーションが使えないため、storeMap から取得
       const store = storeMap.get(event.store_id)
       

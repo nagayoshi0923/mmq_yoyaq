@@ -235,7 +235,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         /^\d{4}-\d{2}-\d{2}$/.test(dateParam) &&
         slotKeys.includes(slotParam as PrivateBookingUrlSlotKey) &&
         isUuidLike(storeParam) &&
-        stores.some((s: any) => s.id === storeParam)
+        stores.some((s) => s.id === storeParam)
       ) {
         setSelectedStoreIds([storeParam])
         setPrivateBookingUrlPending({

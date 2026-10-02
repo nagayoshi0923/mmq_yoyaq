@@ -221,7 +221,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       // 全候補日を保持し、選択された候補のみ 'confirmed' にする（各 date を日本暦 YYYY-MM-DD に正規化して保存）
-      const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c: any) => {
+      const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c) => {
         const dateYmd = normalizeToJapanCalendarYmd(c.date) || c.date
         const isConfirmed = c.order === selectedCandidateOrder
         return {
@@ -239,7 +239,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         ...selectedRequest?.candidate_datetimes,
         candidates: updatedCandidates,
         confirmedStore: selectedRequest?.candidate_datetimes?.requestedStores?.find(
-          (s: any) => s.storeId === selectedStoreId
+          (s) => s.storeId === selectedStoreId
         ) || {
           storeId: selectedStoreId,
           storeName: stores.find(s => s.id === selectedStoreId)?.name || '',

@@ -61,7 +61,7 @@ export function StoreDashboard() {
           })} onCheckin={handleCustomerCheckin} />)}
         </section>
         <aside className="space-y-5">
-          <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">本日の担当GM</h2>{data.gm_status.map((s: any) => <div key={s.id} className="flex items-center justify-between border-b px-4 py-3 last:border-0"><p className="text-sm font-medium">{s.display_name || s.name}</p><span className="text-xs text-muted-foreground">担当</span></div>)}</section>
+          <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">本日の担当GM</h2>{data.gm_status.map((s) => <div key={s.id} className="flex items-center justify-between border-b px-4 py-3 last:border-0"><p className="text-sm font-medium">{s.display_name || s.name}</p><span className="text-xs text-muted-foreground">担当</span></div>)}</section>
           <section className="rounded-2xl border bg-white"><h2 className="border-b px-4 py-3 text-sm font-bold">店舗連絡</h2><p className="whitespace-pre-wrap px-4 py-4 text-sm text-muted-foreground">{store?.notes || '店舗連絡メモはありません。'}</p></section>
         </aside>
       </div>

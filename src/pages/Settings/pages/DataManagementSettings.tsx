@@ -127,7 +127,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
       if (error) throw error
 
       const headers = ['予約番号', 'ステータス', '日時', '公演時間(分)', '参加者数', '金額', '支払状態', '支払方法', '店舗', 'シナリオ', '顧客名', '顧客メール', '顧客電話']
-      const rows = (data ?? []).map((r: any) => [
+      const rows = (data ?? []).map((r) => [
         r.reservation_number ?? '',
         r.status ?? '',
         r.actual_datetime ? formatJstDateTime(r.actual_datetime) : '',
@@ -167,7 +167,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
       if (error) throw error
 
       const headers = ['名前', 'LINE名', 'メール', '電話', 'ステータス', 'ロール', '登録日']
-      const rows = (data ?? []).map((s: any) => [
+      const rows = (data ?? []).map((s) => [
         s.name ?? '',
         s.line_name ?? '',
         s.email ?? '',
@@ -201,7 +201,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
       if (error) throw error
 
       const headers = ['タイトル', '作者', 'レポート表示名', 'ジャンル', '難易度', '公演時間(分)', '休日公演時間(分)', '最小参加人数', '最大参加人数', '参加費', 'ステータス', '公開状態', '公演回数', '事前読込', 'リリース日', 'メモ', '登録日']
-      const rows = (data ?? []).map((s: any) => [
+      const rows = (data ?? []).map((s) => [
         s.title ?? '',
         s.author ?? '',
         s.report_display_name ?? '',
