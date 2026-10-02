@@ -28,6 +28,7 @@ import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } fro
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
+import { waitlistApi } from '@/lib/api/globalSettingsApi'
 
 export function BookingConfirmation({
   eventId,
@@ -277,18 +278,16 @@ export function BookingConfirmation({
       }
 
       // キャンセル待ちに登録
-      const { error: insertError } = await supabase
-        .from('waitlist')
-        .insert({
-          organization_id: eventData.organization_id,
-          schedule_event_id: eventId,
-          customer_id: customerId,
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone.trim(),
-          participant_count: waitlistParticipantCount,
-          status: 'waiting'
-        })
+      const { error: insertError } = await waitlistApi.create({
+        organization_id: eventData.organization_id,
+        schedule_event_id: eventId,
+        customer_id: customerId,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone.trim(),
+        participant_count: waitlistParticipantCount,
+        status: 'waiting'
+      })
 
       if (insertError) throw insertError
 

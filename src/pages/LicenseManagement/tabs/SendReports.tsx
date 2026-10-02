@@ -29,6 +29,7 @@ import { ReportStatsCards } from './sendReports/components/ReportStatsCards'
 import { ReportGroupCard } from './sendReports/components/ReportGroupCard'
 import { ReportToolbar } from './sendReports/components/ReportToolbar'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { licenseReportHistoryApi } from '@/lib/api/ledgerApi'
 
 interface SendReportsProps {
   organizationId: string
@@ -383,13 +384,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     if (!emailBodyEditTarget) return
     setIsSavingEmailBody(true)
     try {
-      await supabase
-        .from('license_report_history')
-        .update({ email_body: emailBodyEditTarget.emailBody, subject: emailBodyEditTarget.subject })
-        .eq('organization_id', organizationId)
-        .eq('author_name', emailBodyEditTarget.authorName)
-        .eq('year', selectedYear)
-        .eq('month', selectedMonth)
+      await licenseReportHistoryApi.updateBody(organizationId, emailBodyEditTarget.authorName, selectedYear, selectedMonth, { email_body: emailBodyEditTarget.emailBody, subject: emailBodyEditTarget.subject })
 
       setSentHistory(prev => {
         const newMap = new Map(prev)
@@ -463,24 +458,22 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       const sentBody = emailBodyText || generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds)
 
       // 送信履歴を保存
-      await supabase
-        .from('license_report_history')
-        .upsert({
-          organization_id: organizationId,
-          author_name: sendPreviewTarget.authorName,
-          author_email: sendPreviewTarget.authorEmail,
-          year: selectedYear,
-          month: selectedMonth,
-          total_events: totalEvents,
-          total_license_cost: totalLicenseCost,
-          email_body: sentBody,
-          subject: sentSubject,
-          scenarios: selectedItems.map(item => ({
-            title: item.scenarioTitle,
-            events: item.events,
-            licenseCost: item.licenseCost
-          }))
-        }, { onConflict: 'organization_id,author_name,year,month' })
+      await licenseReportHistoryApi.save({
+        organization_id: organizationId,
+        author_name: sendPreviewTarget.authorName,
+        author_email: sendPreviewTarget.authorEmail,
+        year: selectedYear,
+        month: selectedMonth,
+        total_events: totalEvents,
+        total_license_cost: totalLicenseCost,
+        email_body: sentBody,
+        subject: sentSubject,
+        scenarios: selectedItems.map(item => ({
+          title: item.scenarioTitle,
+          events: item.events,
+          licenseCost: item.licenseCost
+        }))
+      })
 
       // 履歴を更新
       setSentHistory(prev => {
@@ -578,24 +571,22 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
         const batchBody = generateEmailBodyForItems(group, new Set(paidItems.map(item => item.scenarioKey)))
 
         // 送信履歴を保存
-        await supabase
-          .from('license_report_history')
-          .upsert({
-            organization_id: organizationId,
-            author_name: group.authorName,
-            author_email: group.authorEmail,
-            year: selectedYear,
-            month: selectedMonth,
-            total_events: paidTotalEvents,
-            total_license_cost: paidTotalLicenseCost,
-            email_body: batchBody,
-            subject: batchSubject,
-            scenarios: paidItems.map(item => ({
-              title: item.scenarioTitle,
-              events: item.events,
-              licenseCost: item.licenseCost
-            }))
-          }, { onConflict: 'organization_id,author_name,year,month' })
+        await licenseReportHistoryApi.save({
+          organization_id: organizationId,
+          author_name: group.authorName,
+          author_email: group.authorEmail,
+          year: selectedYear,
+          month: selectedMonth,
+          total_events: paidTotalEvents,
+          total_license_cost: paidTotalLicenseCost,
+          email_body: batchBody,
+          subject: batchSubject,
+          scenarios: paidItems.map(item => ({
+            title: item.scenarioTitle,
+            events: item.events,
+            licenseCost: item.licenseCost
+          }))
+        })
 
         // 履歴を更新
         setSentHistory(prev => {

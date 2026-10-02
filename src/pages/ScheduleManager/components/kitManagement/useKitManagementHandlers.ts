@@ -17,6 +17,7 @@ import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import type { DraggedKit, ContextMenuState, DeliveryConfirmState } from './types'
 import type { KitScheduleEvent } from './useKitManagementData'
+import { kitLocationWriteApi } from '@/lib/api/globalSettingsApi'
 
 interface UseKitManagementHandlersParams {
   isOpen: boolean
@@ -449,21 +450,11 @@ export function useKitManagementHandlers({
         const orgId = await getCurrentOrganizationId()
         if (orgId) {
           // org_scenario_id で削除を試みる
-          const { error: deleteError } = await supabase
-            .from('scenario_kit_locations')
-            .delete()
-            .eq('organization_id', orgId)
-            .eq('org_scenario_id', scenarioId)
-            .gt('kit_number', newCount)
+          const { error: deleteError } = await kitLocationWriteApi.deleteAboveCount(orgId, 'org_scenario_id', scenarioId, newCount)
           
           if (deleteError) {
             // フォールバック: scenario_id で削除
-            await supabase
-              .from('scenario_kit_locations')
-              .delete()
-              .eq('organization_id', orgId)
-              .eq('scenario_id', scenarioId)
-              .gt('kit_number', newCount)
+            await kitLocationWriteApi.deleteAboveCount(orgId, 'scenario_id', scenarioId, newCount)
           }
         }
       }

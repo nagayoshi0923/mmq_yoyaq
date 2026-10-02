@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { globalSettingsApi } from '@/lib/api/globalSettingsApi'
 
 interface SystemSettingsProps {
   storeId?: string
@@ -52,10 +53,7 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
     if (!globalSettingsId) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('global_settings')
-        .update({ system_name: formData.system_name })
-        .eq('id', globalSettingsId)
+      const { error } = await globalSettingsApi.updateById(globalSettingsId, { system_name: formData.system_name })
       if (error) throw error
       showToast.success('保存しました')
     } catch (error) {

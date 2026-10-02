@@ -13,6 +13,7 @@ import { showToast } from '@/utils/toast'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
+import { ownCustomerApi } from '@/lib/api/customerApi'
 
 interface ScenarioOption {
   id: string
@@ -251,10 +252,7 @@ export default function MyPage() {
         .getPublicUrl(filePath)
 
       // customersテーブルを更新
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({ avatar_url: publicUrl })
-        .eq('email', user.email)
+      const { error: updateError } = await ownCustomerApi.updateAvatarByEmail(user.email, publicUrl)
 
       if (updateError) {
         logger.error('アバターURL更新エラー:', updateError)

@@ -5,6 +5,7 @@ import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organizat
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
+import { ownCustomerApi } from '@/lib/api/customerApi'
 
 async function resolveCurrentOrgId(): Promise<string | null> {
   const orgId = await getCurrentOrganizationId()
@@ -68,10 +69,7 @@ export function useFavorites() {
             
             // user_idが設定されていない場合は更新
             if (!customerByEmail.user_id) {
-              const { error: updateError } = await supabase
-                .from('customers')
-                .update({ user_id: user.id })
-                .eq('id', customerByEmail.id)
+              const { error: updateError } = await ownCustomerApi.linkUserId(customerByEmail.id, user.id)
               
               if (updateError) {
                 logger.warn('Failed to update customer user_id:', updateError)
@@ -92,16 +90,12 @@ export function useFavorites() {
           return
         }
 
-        const { data: newCustomer, error: insertError } = await supabase
-          .from('customers')
-          .insert({
-            email: user.email,
-            name: user.name || user.email.split('@')[0],
-            user_id: user.id,
-            organization_id: orgId,
-          })
-          .select('id')
-          .single()
+        const { data: newCustomer, error: insertError } = await ownCustomerApi.insertForFavorites({
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
+          user_id: user.id,
+          organization_id: orgId,
+        })
 
         if (insertError) {
           // 重複エラーの場合は再取得

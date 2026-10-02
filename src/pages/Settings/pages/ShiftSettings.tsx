@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { globalSettingsApi } from '@/lib/api/globalSettingsApi'
 
 interface ShiftSettingsData {
   id: string
@@ -74,15 +75,12 @@ export function ShiftSettings() {
     if (!settingsId) return
     try {
       setSaving(true)
-      const { error } = await supabase
-        .from('global_settings')
-        .update({
-          shift_submission_start_day: formData.shift_submission_start_day,
-          shift_submission_end_day: formData.shift_submission_end_day,
-          shift_submission_target_months_ahead: formData.shift_submission_target_months_ahead,
-          shift_edit_deadline_days_before: formData.shift_edit_deadline_days_before,
-        })
-        .eq('id', settingsId)
+      const { error } = await globalSettingsApi.updateById(settingsId, {
+        shift_submission_start_day: formData.shift_submission_start_day,
+        shift_submission_end_day: formData.shift_submission_end_day,
+        shift_submission_target_months_ahead: formData.shift_submission_target_months_ahead,
+        shift_edit_deadline_days_before: formData.shift_edit_deadline_days_before,
+      })
 
       if (error) throw error
       showToast.success('設定を保存しました')

@@ -15,6 +15,7 @@ import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import type { Staff } from '@/types'
+import { globalSettingsApi, storeNotificationSettingsApi } from '@/lib/api/globalSettingsApi'
 
 interface NotificationSettings {
   id: string
@@ -432,40 +433,33 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
       if (scope === 'store') {
         if (!formData.store_id) throw new Error('店舗を選択してください')
         if (formData.id) {
-          const { error } = await supabase
-            .from('notification_settings')
-            .update({
-              new_reservation_email: formData.new_reservation_email,
-              new_reservation_discord: formData.new_reservation_discord,
-              cancellation_email: formData.cancellation_email,
-              cancellation_discord: formData.cancellation_discord,
-              shift_reminder_days: formData.shift_reminder_days,
-              performance_reminder_days: formData.performance_reminder_days,
-              sales_report_notification: formData.sales_report_notification,
-              discord_webhook_url: formData.discord_webhook_url
-            })
-            .eq('id', formData.id)
+          const { error } = await storeNotificationSettingsApi.update(formData.id, {
+            new_reservation_email: formData.new_reservation_email,
+            new_reservation_discord: formData.new_reservation_discord,
+            cancellation_email: formData.cancellation_email,
+            cancellation_discord: formData.cancellation_discord,
+            shift_reminder_days: formData.shift_reminder_days,
+            performance_reminder_days: formData.performance_reminder_days,
+            sales_report_notification: formData.sales_report_notification,
+            discord_webhook_url: formData.discord_webhook_url
+          })
 
           if (error) throw error
         } else {
           // 店舗からorganization_idを取得
           const store = stores.find(s => s.id === formData.store_id)
-          const { data, error } = await supabase
-            .from('notification_settings')
-            .insert({
-              store_id: formData.store_id,
-              organization_id: store?.organization_id,
-              new_reservation_email: formData.new_reservation_email,
-              new_reservation_discord: formData.new_reservation_discord,
-              cancellation_email: formData.cancellation_email,
-              cancellation_discord: formData.cancellation_discord,
-              shift_reminder_days: formData.shift_reminder_days,
-              performance_reminder_days: formData.performance_reminder_days,
-              sales_report_notification: formData.sales_report_notification,
-              discord_webhook_url: formData.discord_webhook_url
-            })
-            .select()
-            .single()
+          const { data, error } = await storeNotificationSettingsApi.create({
+            store_id: formData.store_id,
+            organization_id: store?.organization_id,
+            new_reservation_email: formData.new_reservation_email,
+            new_reservation_discord: formData.new_reservation_discord,
+            cancellation_email: formData.cancellation_email,
+            cancellation_discord: formData.cancellation_discord,
+            shift_reminder_days: formData.shift_reminder_days,
+            performance_reminder_days: formData.performance_reminder_days,
+            sales_report_notification: formData.sales_report_notification,
+            discord_webhook_url: formData.discord_webhook_url
+          })
 
           if (error) throw error
           if (data) {
@@ -477,24 +471,21 @@ export function NotificationSettings({ storeId, scope = 'organization' }: Notifi
       // このページに表示している範囲だけ保存する。
       if (scope === 'organization') {
         if (!globalSettingsId) throw new Error('組織設定を読み込めていません。ページを再読み込みしてください。')
-        const { error: globalError } = await supabase
-          .from('global_settings')
-          .update({
-            enable_email_notifications: globalFormData.enable_email_notifications,
-            pre_reading_notice_message: globalFormData.pre_reading_notice_message || null,
-            system_msg_group_created_title: globalFormData.system_msg_group_created_title || null,
-            system_msg_group_created_body: globalFormData.system_msg_group_created_body || null,
-            system_msg_group_created_note: globalFormData.system_msg_group_created_note || null,
-            system_msg_booking_requested_title: globalFormData.system_msg_booking_requested_title || null,
-            system_msg_booking_requested_body: globalFormData.system_msg_booking_requested_body || null,
-            system_msg_schedule_confirmed_title: globalFormData.system_msg_schedule_confirmed_title || null,
-            system_msg_schedule_confirmed_body: globalFormData.system_msg_schedule_confirmed_body || null,
-            system_msg_booking_rejected_title: globalFormData.system_msg_booking_rejected_title || null,
-            system_msg_booking_rejected_body: globalFormData.system_msg_booking_rejected_body || null,
-            system_msg_booking_cancelled_title: globalFormData.system_msg_booking_cancelled_title || null,
-            system_msg_booking_cancelled_body: globalFormData.system_msg_booking_cancelled_body || null,
-          })
-          .eq('id', globalSettingsId)
+        const { error: globalError } = await globalSettingsApi.updateById(globalSettingsId, {
+          enable_email_notifications: globalFormData.enable_email_notifications,
+          pre_reading_notice_message: globalFormData.pre_reading_notice_message || null,
+          system_msg_group_created_title: globalFormData.system_msg_group_created_title || null,
+          system_msg_group_created_body: globalFormData.system_msg_group_created_body || null,
+          system_msg_group_created_note: globalFormData.system_msg_group_created_note || null,
+          system_msg_booking_requested_title: globalFormData.system_msg_booking_requested_title || null,
+          system_msg_booking_requested_body: globalFormData.system_msg_booking_requested_body || null,
+          system_msg_schedule_confirmed_title: globalFormData.system_msg_schedule_confirmed_title || null,
+          system_msg_schedule_confirmed_body: globalFormData.system_msg_schedule_confirmed_body || null,
+          system_msg_booking_rejected_title: globalFormData.system_msg_booking_rejected_title || null,
+          system_msg_booking_rejected_body: globalFormData.system_msg_booking_rejected_body || null,
+          system_msg_booking_cancelled_title: globalFormData.system_msg_booking_cancelled_title || null,
+          system_msg_booking_cancelled_body: globalFormData.system_msg_booking_cancelled_body || null,
+        })
 
         if (globalError) {
           throw globalError

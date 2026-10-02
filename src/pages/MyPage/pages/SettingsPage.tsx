@@ -30,6 +30,7 @@ import {
 } from '@/lib/customerPhonePolicy'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
 import { myPageKeys } from '../hooks/useMyPageDataQuery'
+import { ownCustomerApi } from '@/lib/api/customerApi'
 
 type DialogType =
   | 'profile'
@@ -213,22 +214,14 @@ export function SettingsPage() {
     setSaving(true)
     try {
       if (customerInfo) {
-        let profileUpdate = supabase
-          .from('customers')
-          .update({
-            name: formData.name,
-            nickname: formData.nickname || null,
-            phone: formData.phone.trim() || null,
-            address: formData.address || null,
-            line_id: formData.lineId || null,
-            email: user?.email || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', customerInfo.id)
-        if (user?.id) {
-          profileUpdate = profileUpdate.eq('user_id', user.id)
-        }
-        const { data: updatedRows, error } = await profileUpdate.select('id')
+        const { data: updatedRows, error } = await ownCustomerApi.updateProfileById(customerInfo.id, {
+          name: formData.name,
+          nickname: formData.nickname || null,
+          phone: formData.phone.trim() || null,
+          address: formData.address || null,
+          line_id: formData.lineId || null,
+          email: user?.email || null,
+        }, user?.id)
 
         if (error) throw error
         if (!updatedRows?.length) {
@@ -264,35 +257,24 @@ export function SettingsPage() {
           .maybeSingle()
         
         const { data: savedRows, error } = existingCust
-          ? await supabase
-              .from('customers')
-              // organization_id は更新しない: ログイン済み顧客(本人行)は org=NULL が不変条件で、
-              // 統合RPCがこれを保つ。org を上書きすると他組織予約の境界チェックで弾かれる (#334)
-              .update({
-                name: formData.name,
-                nickname: formData.nickname || null,
-                phone: formData.phone.trim() || null,
-                address: formData.address || null,
-                line_id: formData.lineId || null,
-                email: user.email || null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', existingCust.id)
-              .eq('user_id', user.id)
-              .select('id')
-          : await supabase
-              .from('customers')
-              .insert({
-                user_id: user.id,
-                name: formData.name,
-                nickname: formData.nickname || null,
-                phone: formData.phone.trim() || null,
-                address: formData.address || null,
-                line_id: formData.lineId || null,
-                email: user.email || null,
-                organization_id: orgId,
-              })
-              .select('id')
+          // organization_id は更新しない: ログイン済み顧客(本人行)は org=NULL が不変条件で、
+          // 統合RPCがこれを保つ。org を上書きすると他組織予約の境界チェックで弾かれる (#334)
+          ? await ownCustomerApi.updateProfileById(existingCust.id, {
+              name: formData.name,
+              nickname: formData.nickname || null,
+              phone: formData.phone.trim() || null,
+              address: formData.address || null,
+              line_id: formData.lineId || null,
+              email: user.email || null,
+            }, user.id)
+          : await ownCustomerApi.insertProfile(user.id, {
+              name: formData.name,
+              nickname: formData.nickname || null,
+              phone: formData.phone.trim() || null,
+              address: formData.address || null,
+              line_id: formData.lineId || null,
+              email: user.email || null,
+            }, orgId)
 
         if (error) throw error
         if (!savedRows?.length) {
@@ -415,10 +397,7 @@ export function SettingsPage() {
     
     setSavingNotifications(true)
     try {
-      const { error } = await supabase
-        .from('customers')
-        .update({ notification_settings: newSettings })
-        .eq('id', customerInfo.id)
+      const { error } = await ownCustomerApi.updateNotificationSettings(customerInfo.id, newSettings)
       
       if (error) throw error
       showToast.success('通知設定を更新しました')

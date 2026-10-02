@@ -182,6 +182,37 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 
 **決定と実施（2026-10-02、社長「推奨通りに」）**: migration 20261002160000 で (1) 旧貸切 966 件（取消含む）の final_price に total_price を入れ、(2) 予約後のクーポン控除 536 件を final_price から引いて discount_amount に足し（0 未満は 0 に止めた 5 件）、(3) 顧客一覧の金額を final_price の合計だけにして対象状態を confirmed / gm_confirmed / checked_in に揃え（来店は checked_in で数える）、(4) 予約後のクーポン使用（use_customer_coupon）が予約の final_price を更新するようにした。売上側（api/sales.ts）も final_price を正本にし、pending を対象から外した。退避表 archive.reservations_amount_backup_20261002（1,358 件）。staging・本番適用済み。staging で上位 5 顧客の顧客一覧の金額が final_price の合計と一致することを確認。入金・返金の列は追加しない。
 
+## 5-3. Phase 2・3 の残り（再開用、2026-10-02 夜時点。社長「あとで全部やりたいかも」）
+
+整備期間は 2026-10-02 で区切った。以下は「開発をやりやすくする」ための残りで、期限のある不具合ではない。再開するときはこの節の数字から始める。
+
+| 項目 | 2026-10-02 夜の数 | 目標 | 進め方 |
+|---|---|---|---|
+| Phase 2 書き込みの API 層化 | 56 か所・19 ファイル（開始時 127 か所、#779 マージ後）。お金・人数・予約・メール・顧客・通知・キット・キャンセル待ちに関わる書き込みは 0 件 | 0 | 1 ファイル 1 PR、挙動不変、単体テストを足す |
+| Phase 2 読み取りも含む直接呼び出し | 480 か所・120 ファイル（from 412・rpc 68） | 0（lint 許可リスト `eslint.config.js` の「境界の歯止め」を空にする） | 書き込みの後。移し終えたファイルを許可リストから外す |
+| Phase 3 API 5 本の分割 | coupons 1,636 / schedule 1,510 / reservations 1,385 / scenarios 1,123 / sales 1,104 行 | 各 400 行以下 | 入口ファイルを残し、本体を `api/_lib/<領域>/` に 1 アクション 1 ファイル。テスト件数が減らないこと |
+| Phase 3 `: any` | 412 件 | 200 件 | 書き込み経路から |
+
+**書き込みの残り（56 か所）の内訳**
+
+お金・人数・予約・メール・顧客・通知・キット・キャンセル待ちに関わる書き込みは、2026-10-02 夜に API 層へ移し終えた（#766、#767、#769、#770、#777、#778、#779）。残りは壊れても影響が小さい領域で、触る機会のときに直す方針。
+
+| 領域 | 表 | 書き込み |
+|---|---|---|
+| シナリオ管理 | scenario_masters 10、organization_scenarios 8、scenario_characters 6、scenario_master_corrections 2、scenario_likes 3、scenario_ratings 2 | 31 |
+| お知らせ・ブログ | booking_notices 8、blog_posts 4 | 12 |
+| 店舗 | stores 5 | 5 |
+| その他 | data_management_settings 2、external_performance_reports 2、users 1、organization_categories 1、organization_authors 1、user_table_preferences 1 | 8 |
+
+**やり方の決まり（2026-10-02 の 8 本で固めたもの）**
+
+- 画面から `supabase.from()` を直接呼ばない。`src/lib/api/` の関数を通す。新しい直接呼び出しは ESLint が止める。
+- 移すときは「元の処理と同じ意味か」を差分で確認し、絞り込み条件・upsert キー・エラーの扱いを単体テストで固定する。
+- 1 作業 1 PR。PR のブランチは必ず `origin/staging` から切る（今日、2 本目を 1 本目から切って中身が混ざった）。
+- PR を出す前に、手元で typecheck、lint、全テスト、rollback 検査を通す（CI での落ち→再実行を無くす）。
+- release は、staging へ向かう未マージの PR が無くなってから 1 回だけ回す。未マージの PR があると deploy-guard が release を「待機中」にし、PR を入れるたびに release の CI が走り直す。
+- 顧客の予約を書く経路は RPC（`create_reservation_with_lock_v2` など）を通す。管理者の手動追加・デモは満員判定を通さない設計で、`reservationApi.insertDirect` に集約済み。
+
 ## 6. Codex への指示（そのまま貼る）
 
 1. 挙動を変えない PR は CI 緑で即マージする。staging で寝かせない。実機受入と独立レビューを要求しない。

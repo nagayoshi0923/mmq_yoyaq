@@ -18,6 +18,7 @@ import { showToast } from '@/utils/toast'
 import { format } from '@/lib/dateFns'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { externalSalesApi } from '@/lib/api/ledgerApi'
 
 // 外部売上の種類
 type ExternalSaleType = 'booth' | 'other_store'
@@ -187,17 +188,12 @@ export const ExternalSales: React.FC = () => {
       }
 
       if (editingId) {
-        const { error } = await supabase
-          .from('external_sales')
-          .update(saveData)
-          .eq('id', editingId)
+        const { error } = await externalSalesApi.update(editingId, saveData)
         
         if (error) throw error
         showToast.success('更新しました')
       } else {
-        const { error } = await supabase
-          .from('external_sales')
-          .insert([saveData])
+        const { error } = await externalSalesApi.create(saveData)
         
         if (error) throw error
         showToast.success('登録しました')
@@ -230,10 +226,7 @@ export const ExternalSales: React.FC = () => {
   const runDelete = async () => {
     if (!deleteTargetId) return
     try {
-      const { error } = await supabase
-        .from('external_sales')
-        .delete()
-        .eq('id', deleteTargetId)
+      const { error } = await externalSalesApi.delete(deleteTargetId)
 
       if (error) throw error
 
