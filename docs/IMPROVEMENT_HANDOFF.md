@@ -1188,3 +1188,11 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - 複合FK追加に先立ち、スタッフ予定・クーポン公演の2SELECTで既存FK名を明示。返却項目/組織filter/inner結合は維持。人工PostgreSQL17/PostgRESTで追加前後/復元の14ケースを確認済み。
 - Vercel廃止済みNode20を、PR709で検証済みのNode24指定へ更新。依存バージョン変更/取消画面変更/Edge/権限変更は含めない。
 - このbranchのCIとstaging配信成功後、承認済み2index/2NOT VALID FKだけをstagingへ適用する。本番・既存行補正・全9候補公開は保留。
+
+## 2026-10-01 取消後の一覧即時反映＋Node24指定（専用branch候補）
+
+- 実A受入で取消直後だけ旧カード残存、reloadで正常化。取消成功時の一覧再取得を待たず遷移する経路を修正。
+- 取消前の進行中取得を停止し、API保存済み取消行を一覧/詳細cacheへ遷移前に反映。再取得は背景で継続し、取得失敗を取消失敗にしない。
+- 局所回帰2件（進行中旧取得の後着/成功、一覧・詳細再取得失敗）と型確認成功。全unit/E2E/実予約の再実行無し。
+- 独立候補のみ。commit/push/deploy/共有DB変更無し。A試験fixture閉鎖/取消履歴保持を維持。
+- 追加承認によりpackage/lock・CI/E2EのNode指定だけ24.xへ整合。依存更新なし。専用branch CI/previewのexact SHA結果を別記録へ回収する。
