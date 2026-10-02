@@ -269,7 +269,7 @@ async function sendCancellationNotifications(
   // 1. 予約者一覧を取得（全ての基本変数に必要な情報を取得）
   const { data: reservations, error: resError } = await supabase
     .from('reservations')
-    .select('id, customer_name, customer_email, participant_count, reservation_number, total_price, title')
+    .select('id, customer_id, customer_name, customer_email, participant_count, reservation_number, total_price, title')
     .eq('schedule_event_id', event.event_id)
     .in('status', ['pending', 'confirmed', 'gm_confirmed'])
 
@@ -372,6 +372,8 @@ async function sendCancellationNotifications(
           event,
           customTemplate,
           {
+            reservationId: reservation.id,
+            customerId: reservation.customer_id ?? null,
             reservationNumber: reservation.reservation_number,
             participantCount: reservation.participant_count,
             totalPrice: reservation.total_price,
@@ -481,6 +483,8 @@ async function sendCancellationEmail(
     totalPrice?: number
     companyPhone?: string
     companyEmail?: string
+    reservationId?: string   // email_logs に予約を紐付ける（#757）
+    customerId?: string | null
   }
 ): Promise<void> {
   const formatDate = (dateStr: string): string => {
@@ -639,6 +643,9 @@ ${emailSettings.senderName}
   const emailSubject = `【公演中止のお知らせ】${event.scenario} - ${event.date}`
   const emailLogId = await insertEmailLog(supabase, {
     organization_id: event.organization_id ?? null,
+    reservation_id:  reservationDetails?.reservationId ?? null,
+    schedule_event_id: event.event_id ?? null,
+    customer_id:     reservationDetails?.customerId ?? null,
     email_type:      'performance_cancellation',
     to_email:        customerEmail,
     subject:         emailSubject,
@@ -1662,6 +1669,19 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
         }
       }
       const content = recruitmentNotice(notice.snapshot, notice.response_token, notice.kind)
+      // #757: 先に email_logs に種別と予約の紐付きで記録し、Resend の message id を入れておく。
+      // こうすると Resend の webhook はこの行を更新し、種別 other・紐付き無しの行を別に作らない。
+      const noticeLogId = await insertEmailLog(supabase, {
+        organization_id: notice.organization_id ?? null,
+        reservation_id: notice.reservation_id ?? null,
+        schedule_event_id: notice.schedule_event_id ?? null,
+        email_type: notice.kind === 'cancelled' ? 'performance_cancellation' : notice.kind === 'confirmed' ? 'performance_confirmation' : 'other',
+        to_email: notice.customer_email,
+        subject: content.subject ?? '',
+        body_html: content.html ?? null,
+        body_text: content.text ?? null,
+        status: 'queued',
+      })
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${settings.resendApiKey}`, 'Content-Type': 'application/json',
@@ -1670,7 +1690,12 @@ async function sendRecruitmentNotices(supabase: ReturnType<typeof createClient>)
           to: [notice.customer_email], ...content }),
         signal: AbortSignal.timeout(15000),
       })
-      if (!response.ok) throw new Error(`追加募集メール送信失敗: HTTP ${response.status}`)
+      if (!response.ok) {
+        await updateEmailLog(supabase, noticeLogId, { status: 'failed', error_message: `HTTP ${response.status}` })
+        throw new Error(`追加募集メール送信失敗: HTTP ${response.status}`)
+      }
+      const resendResult = await response.json().catch(() => null)
+      await updateEmailLog(supabase, noticeLogId, { status: 'sent', sent_at: new Date().toISOString(), provider_message_id: typeof resendResult?.id === 'string' ? resendResult.id : null })
       const { error: updateError } = await supabase.from('performance_recruitment_notices')
         .update({ status: 'sent', sent_at: new Date().toISOString(), lease_until: null })
         .eq('id', notice.id).eq('organization_id', notice.organization_id)

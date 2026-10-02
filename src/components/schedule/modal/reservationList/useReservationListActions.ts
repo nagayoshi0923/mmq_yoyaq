@@ -443,7 +443,8 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
                 timeSlot: cellTimeSlot
               },
               {
-                notes: `${participantName}（${cancellingReservation.participant_count}名）をキャンセル`
+                // メールを送ったかどうかを履歴に残す（#757）
+                notes: `${participantName}（${cancellingReservation.participant_count}名）をキャンセル${isStaffReservation ? '' : sendEmail ? '（メール送信を選択）' : '（メール送信なしを選択）'}`
               }
             )
           }

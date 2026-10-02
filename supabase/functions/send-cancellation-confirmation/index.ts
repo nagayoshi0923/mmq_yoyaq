@@ -76,6 +76,26 @@ serve(async (req) => {
       return errorResponse('予約が見つかりません', 404, corsHeaders)
     }
     if (reservation.status !== 'cancelled') return errorResponse('キャンセル受付が完了していません', 409, corsHeaders)
+    // #757: 送らずに終わるときも email_logs に理由を残す（status = skipped）。送信済みと区別して後から調べられるようにする。
+    const logClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', getServiceRoleKey())
+    const recordSkipped = async (reason: string) => {
+      const logId = await insertEmailLog(logClient, {
+        organization_id: reservation.organization_id ?? cancellationData.organizationId ?? null,
+        reservation_id: reservation.id,
+        customer_id: reservation.customer_id ?? null,
+        email_type: 'reservation_cancelled',
+        to_email: cancellationData.customerEmail || reservation.customer_email || '',
+        to_name: cancellationData.customerName ?? null,
+        subject: `【未送信】キャンセル確認メール（${reason}）`,
+        provider: 'none',
+        status: 'skipped',
+      })
+      await updateEmailLog(logClient, logId, { status: 'skipped', error_message: reason })
+    }
+    const refuse = async (reason: string, message: string, statusCode: number) => {
+      await recordSkipped(reason)
+      return errorResponse(message, statusCode, corsHeaders)
+    }
     const storedEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
     // Operator action is not synonymous with organizer cancellation.
     cancellationData.cancelledBy = storedEvent?.is_cancelled === true ? 'store' : 'customer'
@@ -91,12 +111,12 @@ serve(async (req) => {
     // スタッフ予約の場合、customer_emailがnullでも送信可能
     // customer_emailがある場合は一致チェックを行う
     if (reservation.customer_email && reservation.customer_email !== cancellationData.customerEmail) {
-      return errorResponse('メールアドレスが一致しません', 403, corsHeaders)
+      return await refuse('email_mismatch', 'メールアドレスが一致しません', 403)
     }
     
     // 送信先メールアドレスがない場合はエラー
     if (!cancellationData.customerEmail) {
-      return errorResponse('送信先メールアドレスが指定されていません', 400, corsHeaders)
+      return await refuse('recipient_missing', '送信先メールアドレスが指定されていません', 400)
     }
     let registeredEmail = reservation.customer_email
     if (!registeredEmail && reservation.customer_id) {
@@ -104,11 +124,11 @@ serve(async (req) => {
       registeredEmail = customer?.email
     }
     if (!registeredEmail || registeredEmail.toLowerCase() !== cancellationData.customerEmail.toLowerCase()) {
-      return errorResponse('予約に登録された送信先を確認できません', 403, corsHeaders)
+      return await refuse('recipient_unverified', '予約に登録された送信先を確認できません', 403)
     }
 
     if (cancellationData.organizationId && reservation.organization_id && cancellationData.organizationId !== reservation.organization_id) {
-      return errorResponse('組織が一致しません', 403, corsHeaders)
+      return await refuse('organization_mismatch', '組織が一致しません', 403)
     }
 
     // Staff handling of a company email must not generate a separate system reply.
@@ -124,6 +144,7 @@ serve(async (req) => {
         staffMaySend = Boolean(staffRow)
       }
       if (!staffMaySend) {
+        await recordSkipped(intakeChannel === 'company_email' ? 'company_email_reply_required' : 'company_or_manual_reply_required')
         return new Response(JSON.stringify({ success: true, skipped: true, reason: 'company_or_manual_reply_required' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
       }
@@ -146,6 +167,7 @@ serve(async (req) => {
     const replyToEmail = emailSettings?.replyToEmail || null
     
     if (!resendApiKey) {
+      await recordSkipped('resend_not_configured')
       console.warn('Resend API key not configured, skipping email')
       return new Response(
         JSON.stringify({ success: false, skipped: true, reason: 'resend_not_configured' }),
