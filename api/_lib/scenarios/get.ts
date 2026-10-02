@@ -209,7 +209,9 @@ export async function handleGetPerformanceCount(req: VercelRequest, res: VercelR
     .select(STATS_SCHEDULE_EVENT_COUNT_FIELDS, { count: 'exact', head: true })
     .eq('scenario_master_id', scenarioId)
     .eq('organization_id', orgId)
-    .not('status', 'eq', 'cancelled')
+    // 中止は is_cancelled で表す（status に 'cancelled' は存在しない）。中止公演は開催回数に含めない（#788）。
+    // is_cancelled は NULL もあり得るので、NULL は開催扱いにする。
+    .or('is_cancelled.is.null,is_cancelled.eq.false')
 
   if (error) {
     console.error('[scenarios:performance-count] DB error:', error)

@@ -429,7 +429,7 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
         ],
         "performance-count": [
           "staff: select(status) | eq("user_id", "actor") | eq("organization_id", "org-1")",
-          "schedule_events: select(id, head) | eq("scenario_master_id", "master-1") | eq("organization_id", "org-1") | not("status", "eq", "cancelled")",
+          "schedule_events: select(id, head) | eq("scenario_master_id", "master-1") | eq("organization_id", "org-1") | or("is_cancelled.is.null,is_cancelled.eq.false")",
         ],
         "public": [
           "staff: select(status) | eq("user_id", "actor") | eq("organization_id", "org-1")",
