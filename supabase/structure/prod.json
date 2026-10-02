@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-02T06:31:43.611Z",
+  "captured_at": "2026-10-02T07:47:31.324Z",
   "table_count": 138,
-  "function_count": 330,
-  "digest": "def26c3b8b106f041071b9b8db588ef5c45311089232f4a8c1176ac792561ef9"
+  "function_count": 332,
+  "digest": "13865710a71544724f7f11640828b563846bce03b3ea8642452769bd7f19adde"
  },
  "tables": {
   "staff": {
@@ -655,6 +655,10 @@
     {
      "def": "CREATE INDEX idx_stores_status ON public.stores USING btree (status)",
      "name": "idx_stores_status"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX stores_id_organization_id_key ON public.stores USING btree (id, organization_id)",
+     "name": "stores_id_organization_id_key"
     },
     {
      "def": "CREATE UNIQUE INDEX stores_pkey ON public.stores USING btree (id)",
@@ -3483,6 +3487,10 @@
      "name": "enforce_private_reservation_deadline"
     },
     {
+     "def": "CREATE TRIGGER guard_new_reservation_event_alias BEFORE INSERT OR UPDATE OF event_id ON public.reservations FOR EACH ROW EXECUTE FUNCTION guard_new_reservation_event_alias()",
+     "name": "guard_new_reservation_event_alias"
+    },
+    {
      "def": "CREATE TRIGGER notify_recruitment_shortage AFTER UPDATE OF participant_count, status ON public.reservations FOR EACH ROW EXECUTE FUNCTION notify_recruitment_shortage()",
      "name": "notify_recruitment_shortage"
     },
@@ -3608,6 +3616,11 @@
     {
      "def": "FOREIGN KEY (event_id) REFERENCES schedule_events(id)",
      "name": "reservations_event_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (schedule_event_id, organization_id) REFERENCES schedule_events(id, organization_id) ON DELETE SET NULL (schedule_event_id) NOT VALID",
+     "name": "reservations_event_organization_fkey",
      "type": "f"
     },
     {
@@ -6228,6 +6241,10 @@
      "name": "idx_schedule_events_venue"
     },
     {
+     "def": "CREATE UNIQUE INDEX schedule_events_id_organization_id_key ON public.schedule_events USING btree (id, organization_id)",
+     "name": "schedule_events_id_organization_id_key"
+    },
+    {
      "def": "CREATE UNIQUE INDEX schedule_events_pkey ON public.schedule_events USING btree (id)",
      "name": "schedule_events_pkey"
     }
@@ -6326,11 +6343,6 @@
      "type": "f"
     },
     {
-     "def": "CHECK ((current_participants <= COALESCE(max_participants, capacity))) NOT VALID",
-     "name": "schedule_events_participants_check",
-     "type": "c"
-    },
-    {
      "def": "PRIMARY KEY (id)",
      "name": "schedule_events_pkey",
      "type": "p"
@@ -6348,6 +6360,11 @@
     {
      "def": "FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE RESTRICT",
      "name": "schedule_events_store_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (store_id, organization_id) REFERENCES stores(id, organization_id) ON DELETE RESTRICT NOT VALID",
+     "name": "schedule_events_store_organization_fkey",
      "type": "f"
     }
    ]
@@ -22636,9 +22653,6 @@
   },
   "get_org_customers(p_org_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -22792,6 +22806,15 @@
    "body_md5": "1acf514bea436ceb3a4cf20cae61affc",
    "language": "plpgsql",
    "security_definer": false
+  },
+  "guard_new_reservation_event_alias()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "b8b13cd55d978504f0b262a9bcfeace6",
+   "language": "plpgsql",
+   "security_definer": true
   },
   "guard_private_group_browser_write()": {
    "acl": [
@@ -24013,6 +24036,15 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "reservation_actor_is_org_operator(p_organization_id uuid)": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "42c8738801abcc90ce683020a07ee2db",
+   "language": "sql",
+   "security_definer": true
+  },
   "send_staff_group_message(p_group_id uuid, p_message text)": {
    "acl": [
     "=X/postgres",
@@ -24845,14 +24877,12 @@
   },
   "update_reservation_participants(p_reservation_id uuid, p_new_count integer, p_customer_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "295dfa51baf2fc9d947aa46487c3a333",
+   "body_md5": "222fa971a543f1379456498a64fa6d8e",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24881,14 +24911,12 @@
   },
   "change_reservation_schedule(p_reservation_id uuid, p_new_schedule_event_id uuid, p_customer_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "6b6024fbaaf83e5cea52a7add808b43d",
+   "body_md5": "57134004ec22efae874a36f9f02d70de",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25523,8 +25551,6 @@
   },
   "create_reservation_with_lock(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
@@ -25567,14 +25593,12 @@
   },
   "create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text, p_customer_coupon_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
     "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
    "returns": "uuid",
-   "body_md5": "d052d6095e5ec331ab9bd01a2752041c",
+   "body_md5": "e8305ee497331fd1f291cd5ee0fd41fe",
    "language": "plpgsql",
    "security_definer": true
   },

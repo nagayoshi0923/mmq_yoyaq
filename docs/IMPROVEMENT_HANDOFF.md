@@ -1216,3 +1216,11 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - 既存のメール未確認でも送信済み表示、同tick二重送信、同時刻重複判定TZ不一致を局所修正。保存失敗の同一予約番号再試行と保存成功の維持を検証。
 - 台帳/残件: `docs/testing/MMQ_FUNCTIONAL_QA_20261001.md`、網羅表 `docs/testing/MMQ_PAGE_FUNCTION_MATRIX_20261001.csv`。
 - 今回はローカルのみ。追加配備は未承認。実Auth/実DB一続き予約導線は専用stagingfixtureと通知抑止を確認するまで保留。
+
+## 2026-10-01 / 構造設計A：予約RPCの本人・組織認可（ローカル検証済み・未適用）
+
+- 顧客ID一致だけの人数変更と匿名ゲスト作成を、UID必須・予約顧客の本人照合・対象組織の有効業務権限へ変更。旧作成wrapperと旧日程変更の匿名NULL／無所属管理者例外も閉じる。
+- 既存main5d3ad337から独立。関数の現物hashで未知の変更を拒否し、staging独自の募集停止を保持。PUBLIC/anon EXECUTE撤去候補、authenticated/serviceはactor文脈付きで維持。RLS・既存データの補正なし。
+- PostgreSQL17の人工fixtureで130ケース（未解決6項目の特性確認を含む）、実ロール・2接続競合・拒否時不変・安全互換down/up成功。API追加21件、全体1308件、verify成功。API全体strictにはmainでも再現する既存nullable型エラー2件が残る。
+- 9再現の1/2/9を閉鎖、3〜8と構造計画B〜Gは残件。実Auth・全trigger統合・共有staging/本番適用・CI/previewは未完了。認可欠陥を戻す自動rollbackは用意せず、API旧版と安全互換DBで戻す。
+- 詳細・反映対象・承認案：`docs/testing/MMQ_RESERVATION_RPC_AUTH_20261001.md`。旧定員patch・保留GM・PR703/706は混ぜていない。
