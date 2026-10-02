@@ -20,6 +20,7 @@ import {
 } from '@/lib/privateBookingBlockedSlotAvailability'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
+import { upsertOwnCustomer } from '@/lib/api/customerApi'
 
 // 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
 const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
@@ -174,43 +175,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       }
 
       try {
-        const { data: existingCustomer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('user_id', props.userId)
-          .maybeSingle()
-
-        if (existingCustomer) {
-          customerId = existingCustomer.id
-
-          await supabase
-            .from('customers')
-            .update({
-              name: customerName,
-              nickname: customerNickname || null,
-              phone: customerPhone,
-              email: customerEmail
-            })
-            .eq('id', customerId)
-            .eq('user_id', props.userId)
-        } else {
-          const { data: newCustomer, error: customerError } = await supabase
-            .from('customers')
-            .insert({
-              user_id: props.userId,
-              name: customerName,
-              nickname: customerNickname || null,
-              phone: customerPhone,
-              email: customerEmail,
-              organization_id: null,
-            })
-            .select('id')
-            .single()
-
-          if (!customerError && newCustomer) {
-            customerId = newCustomer.id
-          }
-        }
+        customerId = await upsertOwnCustomer({
+          userId: props.userId, name: customerName, nickname: customerNickname || null,
+          phone: customerPhone, email: customerEmail, organizationId: null,
+        })
       } catch (error) {
         logger.error('顧客レコードの作成/更新エラー:', error)
       }

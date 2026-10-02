@@ -5,6 +5,7 @@
  * org_id はサーバー側で JWT から取得するため、クライアントからは渡さない。
  */
 import { apiClient } from '@/lib/apiClient'
+import { supabase } from '@/lib/supabase'
 import type { Customer, Reservation } from '@/types'
 import type { CustomerListOptions } from '@/types/customerList'
 
@@ -31,6 +32,43 @@ export type CustomerFormInput = Pick<Customer, 'name'> & {
   email: string | null
   phone: string | null
   line_id: string | null
+}
+
+/**
+ * 予約・貸切申込の入口で、ログイン中の本人の顧客行を「あれば更新・無ければ作成」して id を返す。
+ * 3 か所（通常予約 hook、貸切申込 hook、キャンセル待ち登録）で同じ形だった直接書き込みの集約（整備 Phase 2）。
+ * 本人の行（user_id = 自分）だけを RLS の下で書く。organizationId を渡したときは組織でも絞る（キャンセル待ち登録）。
+ * 戻り値は customer id。作成に失敗したときは null（呼び出し側が従来どおりエラー化する）。
+ * throwOnError = true のときは更新・作成の失敗を投げる（キャンセル待ち登録の従来の挙動）。
+ */
+export interface UpsertOwnCustomerInput {
+  userId: string
+  name: string
+  nickname: string | null
+  phone: string
+  email: string
+  organizationId: string | null
+  /** 既存行の検索・更新を組織でも絞る（キャンセル待ち登録）。false のときは user_id だけで探す */
+  scopeByOrganization?: boolean
+  throwOnError?: boolean
+}
+export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<string | null> {
+  const { userId, name, nickname, phone, email, organizationId, scopeByOrganization = false, throwOnError = false } = input
+  let find = supabase.from('customers').select('id').eq('user_id', userId)
+  if (scopeByOrganization) find = find.eq('organization_id', organizationId as string)
+  const { data: existing } = await find.maybeSingle()
+  if (existing) {
+    let upd = supabase.from('customers').update({ name, nickname, phone, email }).eq('id', existing.id).eq('user_id', userId)
+    if (scopeByOrganization) upd = upd.eq('organization_id', organizationId as string)
+    const { error } = await upd
+    if (error && throwOnError) throw error
+    return existing.id
+  }
+  const { data: created, error } = await supabase.from('customers')
+    .insert({ user_id: userId, name, nickname, phone, email, organization_id: organizationId })
+    .select('id').single()
+  if (error && throwOnError) throw error
+  return created?.id ?? null
 }
 
 export const customerApi = {
