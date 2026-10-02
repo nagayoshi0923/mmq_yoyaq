@@ -14,6 +14,17 @@ describe('承認通知の外部送信',()=>{
   const api=approvalDeliveryTransport(dbFor({},'organization_settings'),env,'service',vi.fn())
   await expect(api.credentials(row())).rejects.toThrow('database unavailable')
  })
+ it('GMのDiscord連絡は貸切設定だけで判定し、組織全体のDiscord設定(既定false)では見送らない(#644)',async()=>{
+  const settings={organization_settings:[{organization_id:id(2),notification_settings:{private_booking_discord:true,private_booking_email:true}}],global_settings:[{organization_id:id(2),enable_email_notifications:true,enable_discord_notifications:false}]}
+  const api=approvalDeliveryTransport(dbFor(settings),env,'service',vi.fn(async()=>new Response('{}',{status:503})))
+  const discord=await api.credentials(row('gm_discord'));expect(discord.config.disabledReason).toBeNull();expect(discord.key).toBe('discord-key')
+  expect(await api.prepare(row('gm_discord'),{enable_discord_notifications:false},vi.fn())).toMatchObject({target:'["123"]'})
+  expect(await api.prepare(row('gm_discord'),{notification_settings:{private_booking_discord:false}},vi.fn())).toEqual({skip:'discord_notifications_disabled'})
+  const offApi=approvalDeliveryTransport(dbFor({...settings,organization_settings:[{organization_id:id(2),notification_settings:{private_booking_discord:false}}]}),env,'service',vi.fn())
+  expect((await offApi.credentials(row('gm_discord'))).config.disabledReason).toBe('discord_notifications_disabled')
+  const emailOff=approvalDeliveryTransport(dbFor({...settings,global_settings:[{organization_id:id(2),enable_email_notifications:false,enable_discord_notifications:false}]}),env,'service',vi.fn())
+  expect((await emailOff.credentials(row('gm_email'))).config.disabledReason).toBe('email_notifications_disabled')
+ })
  it('DM取得失敗が個人チャンネルの配送を妨げない',async()=>{
   const send=vi.fn(async()=>new Response('{}',{status:503}));const api=approvalDeliveryTransport(dbFor({}),env,'service',send)
   const result=await api.prepare(row('gm_discord'),{},vi.fn())
