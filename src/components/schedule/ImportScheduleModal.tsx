@@ -18,6 +18,7 @@ import { matchStaffName, matchScenarioName } from './importSchedule/matchers'
 import { ImportPreview } from './importSchedule/ImportPreview'
 import type { PreviewEvent } from './importSchedule/types'
 import { hiraganaToKatakana, katakanaToHiragana } from '@/utils/kanaUtils'
+import { scheduleApi } from '@/lib/api/scheduleApi'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -644,10 +645,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           // schedule_eventsを削除
           for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
             const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-            const { error: deleteError } = await supabase
-              .from('schedule_events')
-              .delete()
-              .in('id', batchIds)
+            const { error: deleteError } = await scheduleApi.deleteManyByIds(batchIds)
             
             if (deleteError) {
               setResult({ success: 0, failed: 0, errors: [`❌ 既存データ削除エラー: ${deleteError.message}。インポートを中止しました。`] })
@@ -836,10 +834,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         setImportProgress({ current: 0, total: newInserts.length + updates.length + memoUpdates.length + memoInserts.length })
         await new Promise(resolve => setTimeout(resolve, 0))
         
-        const { error, data } = await supabase
-          .from('schedule_events')
-          .insert(newInserts)
-          .select('id')
+        const { error, data } = await scheduleApi.insertMany(newInserts)
         
         logger.log('📥 新規挿入結果:', { error, insertedCount: data?.length })
         
@@ -861,10 +856,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const batch = updates.slice(i, i + BATCH_SIZE)
         const results = await Promise.all(
           batch.map(u => 
-            supabase
-              .from('schedule_events')
-              .update(u.data)
-              .eq('id', u.id)
+            scheduleApi.updateFields(u.id, u.data)
               .then(({ error }) => ({ error, label: u.label }))
           )
         )
@@ -884,10 +876,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const batch = memoUpdates.slice(i, i + BATCH_SIZE)
         const results = await Promise.all(
           batch.map(m => 
-            supabase
-              .from('schedule_events')
-              .update({ notes: m.notes })
-              .eq('id', m.id)
+            scheduleApi.updateFields(m.id, { notes: m.notes })
               .then(({ error }) => ({ error, label: m.label }))
           )
         )

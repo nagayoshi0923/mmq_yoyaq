@@ -355,14 +355,7 @@ async function deletePrivateBookingEventCore(
   // 失敗・0件は沈黙させず必ずエラーにする（沈黙すると「削除したのに残る」が
   // 原因不明になる。2026-06-13 のD-5デバッグで強化）
   if (scheduleEventId) {
-    let deleteQuery = supabase
-      .from('schedule_events')
-      .delete()
-      .eq('id', scheduleEventId)
-    if (organizationId) {
-      deleteQuery = deleteQuery.eq('organization_id', organizationId)
-    }
-    const { data: deletedRows, error: scheduleError } = await deleteQuery.select('id')
+    const { data: deletedRows, error: scheduleError } = await scheduleApi.deleteWithResult(scheduleEventId, organizationId)
     if (scheduleError) {
       logger.error('schedule_events削除エラー:', scheduleError)
       throw scheduleError

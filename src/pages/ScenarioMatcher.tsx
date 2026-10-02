@@ -18,6 +18,7 @@ import { FilterBar, SearchInput } from '@/components/patterns/filter'
 import { ListSkeleton, EmptyState } from '@/components/patterns/list'
 import { Check, ChevronsUpDown, Link2, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { scheduleApi } from '@/lib/api/scheduleApi'
 
 type UnmatchedEvent = {
   id: string
@@ -179,13 +180,7 @@ export function ScenarioMatcher() {
         if (!scenario) continue
         
         // このイベントシナリオ名を持つすべてのイベントを更新
-        const { error } = await supabase
-          .from('schedule_events')
-          .update({ 
-            scenario: scenario.title,
-            scenario_master_id: scenario.id  // scenario_master_id を設定
-          })
-          .eq('scenario', eventScenario)
+        const { error } = await scheduleApi.relinkScenarioByTitle(eventScenario, scenario)
         
         if (error) {
           logger.error('更新エラー:', error)
