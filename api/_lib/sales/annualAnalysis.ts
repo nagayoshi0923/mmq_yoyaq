@@ -6,7 +6,7 @@ import { SALES_RESERVATION_STATUSES } from '../sales/revenue.js'
 
 // ─── 年間分析 (useAnnualAnalysis 相当) ──────────────────────────────────────
 // クライアント側 useAnnualAnalysis.ts のロジックをそのまま移植。
-// status の扱い（confirmed/pending のみ集計）・payment_method==='staff' 除外・
+// status の扱い（confirmed / gm_confirmed / checked_in のみ集計。pending は数えない、#721）・payment_method==='staff' 除外・
 // venue_rental の売上フォールバック(12000)・月キーの date.substring による生成、
 // いずれも変更しない。
 type AnnualEventRow = {
