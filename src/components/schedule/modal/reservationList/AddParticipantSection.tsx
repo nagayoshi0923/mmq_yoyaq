@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { reservationApi } from '@/lib/reservationApi'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { ACTIVE_RESERVATION_STATUSES, RESERVATION_SOURCE } from '@/lib/constants'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { findMatchingStaff } from '@/utils/staffUtils'
@@ -103,9 +104,7 @@ export function AddParticipantSection({
                       
                       // 直接INSERTでデモ参加者を追加（キャンセル済み公演でも追加可能）
                       const duration = scenarioObj?.duration || 120
-                      const { error: insertError } = await supabase
-                        .from('reservations')
-                        .insert({
+                      const { error: insertError } = await reservationApi.insertDirect({
                           schedule_event_id: event.id,
                           organization_id: organizationId ?? event?.organization_id ?? null,
                           scenario_master_id: scenarioObj?.id || null,
@@ -132,19 +131,8 @@ export function AddParticipantSection({
                         throw insertError
                       }
                       
-                      // 参加者数を再計算
-                      const { data: updatedReservationsData } = await supabase
-                        .from('reservations')
-                        .select('participant_count')
-                        .eq('schedule_event_id', event.id)
-                        .in('status', [...ACTIVE_RESERVATION_STATUSES])
-                      
-                      const totalParticipants = updatedReservationsData?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
-                      
-                      await supabase
-                        .from('schedule_events')
-                        .update({ current_participants: totalParticipants })
-                        .eq('id', event.id)
+                      // 参加者数を再計算（DB の規則 = 有効予約の人数合計、#730）
+                      const totalParticipants = await recalculateCurrentParticipants(event.id)
                       
                       showToast.success('デモ参加者を追加しました')
                       

@@ -61,6 +61,7 @@ import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 
 // Types
 import type { ScheduleEvent } from '@/types/schedule'
+import { reservationApi } from '@/lib/reservationApi'
 export type { ScheduleEvent }
 
 export function ScheduleManager() {
@@ -521,9 +522,7 @@ export function ScheduleManager() {
       if (demoReservations.length > 0) {
         for (let i = 0; i < demoReservations.length; i += INSERT_BATCH_SIZE) {
           const batch = demoReservations.slice(i, i + INSERT_BATCH_SIZE)
-          const { error: insertError } = await supabase
-            .from('reservations')
-            .insert(batch)
+          const { error: insertError } = await reservationApi.insertDirect(batch)
           
           if (insertError) {
             logger.error(`デモ参加者の予約作成エラー (バッチ ${Math.floor(i / BATCH_SIZE) + 1}):`, insertError)
@@ -534,12 +533,7 @@ export function ScheduleManager() {
         for (let i = 0; i < eventsToUpdate.length; i += BATCH_SIZE) {
           const batch = eventsToUpdate.slice(i, i + BATCH_SIZE)
           await Promise.all(
-            batch.map(({ id, newCount }) =>
-              supabase
-                .from('schedule_events')
-                .update({ current_participants: newCount })
-                .eq('id', id)
-            )
+            batch.map(({ id, newCount }) => scheduleApi.setCurrentParticipants(id, newCount))
           )
         }
       }
@@ -597,10 +591,7 @@ export function ScheduleManager() {
 
       if (neededParticipants <= 0 || hasDemoParticipant) {
         // current_participants だけ揃える
-        await supabase
-          .from('schedule_events')
-          .update({ current_participants: maxParticipants })
-          .eq('id', ev.id)
+        await scheduleApi.setCurrentParticipants(ev.id, maxParticipants)
         showToast.success('満席に設定しました')
         return
       }
@@ -629,9 +620,7 @@ export function ScheduleManager() {
       const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
       const reservationNumber = `${dateStr}-${randomStr}`
 
-      const { error: insertError } = await supabase
-        .from('reservations')
-        .insert({
+      const { error: insertError } = await reservationApi.insertDirect({
           schedule_event_id: ev.id,
           organization_id: orgId,
           title: ev.scenario || '',
@@ -663,10 +652,7 @@ export function ScheduleManager() {
         return
       }
 
-      await supabase
-        .from('schedule_events')
-        .update({ current_participants: maxParticipants })
-        .eq('id', ev.id)
+      await scheduleApi.setCurrentParticipants(ev.id, maxParticipants)
 
       showToast.success(`満席に設定しました（デモ参加者 ${neededParticipants}名追加）`)
     } catch (err) {
@@ -732,8 +718,7 @@ export function ScheduleManager() {
 
         if (demoReservations && demoReservations.length > 0) {
           const ids = demoReservations.map(r => r.id)
-          // eslint-disable-next-line no-restricted-syntax
-          await supabase.from('reservations').delete().in('id', ids)
+          await reservationApi.deleteDirectByIds(ids)
           deletedCount = ids.length
 
           const affectedIds = [...new Set(demoReservations.map(r => r.schedule_event_id))]
@@ -776,11 +761,7 @@ export function ScheduleManager() {
               const correctFee = getParticipationFee(scenarioInfo as ScenarioPricing | null, 'gmtest')
               const totalPrice = correctFee * (r.participant_count || 1)
 
-              // eslint-disable-next-line no-restricted-syntax
-              await supabase
-                .from('reservations')
-                .update({ base_price: totalPrice, total_price: totalPrice, final_price: totalPrice })
-                .eq('id', r.id)
+              await reservationApi.updatePricesDirect(r.id, { base_price: totalPrice, total_price: totalPrice, final_price: totalPrice })
               fixedCount++
             })
           )

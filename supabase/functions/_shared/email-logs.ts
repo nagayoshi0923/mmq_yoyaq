@@ -21,6 +21,7 @@ export type EmailLogStatus =
   | 'complained'
   | 'failed'
   | 'delivery_delayed'
+  | 'skipped'   // 送らなかった（理由は error_message）
 
 export type EmailLogType =
   | 'reservation_confirmed'

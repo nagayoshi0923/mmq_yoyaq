@@ -106,6 +106,9 @@ jobs:
       - name: Security guardrails
         run: npm run check:security-guardrails
 
+      - name: Migration rollback pairs
+        run: npm run check:migration-rollbacks
+
       - name: JST date guard
         run: npm run check:jst-date
 

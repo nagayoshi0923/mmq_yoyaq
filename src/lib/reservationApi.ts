@@ -222,6 +222,26 @@ export const reservationApi = {
     })
   },
 
+  // ─── 管理者・デモ用の直接書き込み（整備 Phase 2: 画面からの直接 INSERT / UPDATE / DELETE をここに集約） ───
+  // RPC（create_reservation_with_lock_v2）の満員・重複判定を意図的に通さない（管理者の手動追加・デモ参加者）。
+  // 表示人数（schedule_events.current_participants）は DB トリガーが再計算する（#730 の規則）。
+  // 戻り値は supabase の { data, error } をそのまま返す（呼び出し側の扱いを変えないため）。
+  async insertDirect(rows: Record<string, unknown> | Record<string, unknown>[], select = 'id'): Promise<{ data: Reservation[] | null; error: { message: string } | null }> {
+    // select を文字列変数で渡すと型が決まらないため、呼び出し側が使う形に合わせて明示する
+    const { data, error } = await supabase.from('reservations').insert(rows).select(select)
+    return { data: (data as unknown as Reservation[] | null), error }
+  },
+  // デモ・テストプレイ予約の後始末（ScheduleManager の修復処理）。顧客の予約には使わない。
+  async deleteDirectByIds(ids: string[]) {
+    // eslint-disable-next-line no-restricted-syntax -- デモ予約の削除。顧客予約は cancelWithLock を使う
+    return supabase.from('reservations').delete().in('id', ids)
+  },
+  // GMテストのデモ予約の参加費修正（ScheduleManager の修復処理）。顧客の予約には使わない。
+  async updatePricesDirect(id: string, prices: { base_price: number; total_price: number; final_price: number }) {
+    // eslint-disable-next-line no-restricted-syntax -- デモ予約の金額修正。顧客予約は update / recalculatePrices を使う
+    return supabase.from('reservations').update(prices).eq('id', id)
+  },
+
   // 予約をキャンセル（RPC + FOR UPDATE をサーバー側で実施）
   async cancelWithLock(reservationId: string, customerId: string | null, reason?: string): Promise<boolean> {
     await apiClient.patch<{ success: boolean }>(
