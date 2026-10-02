@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-02T10:16:18.337Z",
+  "captured_at": "2026-10-02T11:00:35.727Z",
   "table_count": 138,
   "function_count": 332,
-  "digest": "00d311d7b70af405d63210ae3f013ecfd8d75907d0c2a8283c0362a762594b2e"
+  "digest": "9efef1b388138463178ca86b7d075dde72543c5712d72d86dd7af633f927cf6a"
  },
  "tables": {
   "staff": {
@@ -2538,7 +2538,7 @@
      "type": "f"
     },
     {
-     "def": "CHECK ((status = ANY (ARRAY['queued'::text, 'sent'::text, 'delivered'::text, 'opened'::text, 'clicked'::text, 'bounced'::text, 'complained'::text, 'failed'::text, 'delivery_delayed'::text])))",
+     "def": "CHECK ((status = ANY (ARRAY['queued'::text, 'sent'::text, 'delivered'::text, 'opened'::text, 'clicked'::text, 'bounced'::text, 'complained'::text, 'failed'::text, 'delivery_delayed'::text, 'skipped'::text])))",
      "name": "email_logs_status_check",
      "type": "c"
     }
