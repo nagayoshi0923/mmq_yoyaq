@@ -95,23 +95,26 @@ function checkMigrationRls() {
   }
 
   // CREATE TABLE で定義されたテーブル名を抽出
-  const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?/gi
-  const enableRlsRe = /ALTER\s+TABLE\s+(?:public\.)?["']?(\w+)["']?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi
+  // スキーマ付きの名前（archive.xxx など）も「スキーマ.表」で突き合わせる。省略時は public。
+  const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:["']?(\w+)["']?\.)?["']?(\w+)["']?/gi
+  const enableRlsRe = /ALTER\s+TABLE\s+(?:["']?(\w+)["']?\.)?["']?(\w+)["']?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi
+  const qualified = (schema, table) => `${(schema || 'public').toLowerCase()}.${table.toLowerCase()}`
 
   const createdTables = new Set()
   let m
   while ((m = createTableRe.exec(allSql)) !== null) {
-    createdTables.add(m[1].toLowerCase())
+    createdTables.add(qualified(m[1], m[2]))
   }
 
   const rlsEnabledTables = new Set()
   while ((m = enableRlsRe.exec(allSql)) !== null) {
-    rlsEnabledTables.add(m[1].toLowerCase())
+    rlsEnabledTables.add(qualified(m[1], m[2]))
   }
 
   const warnings = []
   for (const table of createdTables) {
-    if (RLS_EXEMPT_TABLES.has(table)) continue
+    const bare = table.split('.')[1]
+    if (RLS_EXEMPT_TABLES.has(bare) || RLS_EXEMPT_TABLES.has(table)) continue
     if (!rlsEnabledTables.has(table)) {
       warnings.push(`テーブル "${table}" に ENABLE ROW LEVEL SECURITY がありません`)
     }
