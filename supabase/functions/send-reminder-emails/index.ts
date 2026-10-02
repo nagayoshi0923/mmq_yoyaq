@@ -97,10 +97,10 @@ serve(async (req) => {
     const expectedEventId = reminderData.scheduleEventId || reservation.schedule_event_id
     if (
       !event
-      || event.is_cancelled === true
+      || event.is_cancelled !== false
       || !(REMINDER_ELIGIBLE_STATUSES as readonly string[]).includes(reservation.status)
       || (expectedEventId && reservation.schedule_event_id !== expectedEventId)
-      || (expectedEventId && event.id && event.id !== expectedEventId)
+      || (expectedEventId && event.id !== expectedEventId)
     ) {
       return errorResponse('Reminder target is no longer eligible', 409, corsHeaders)
     }
