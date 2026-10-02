@@ -1,4 +1,4 @@
-import { calculateEventGmCost } from '../src/lib/compensation.js'
+import { calculateEventGmCost, resolveGmCostIdentity, type EventStaffAssignmentLike } from '../src/lib/compensation.js'
 import { loadCompensationHistory } from './_lib/compensationHistory.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { handleSalaryReportData } from './_lib/salaryReportData.js'
@@ -30,7 +30,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SCHEDULE_EVENT_SALES_SELECT_FIELDS =
-  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled'
+  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,ordinal,resolution_status)'
 
 const STORE_SELECT_FIELDS_FOR_SALES =
   'id, name, short_name, fixed_costs, ownership_type, transport_allowance, franchise_fee, franchise_fee_type, franchise_fee_percent'
@@ -704,7 +704,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: events, error } = await (db as any)
     .from('schedule_events')
-    .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
+    .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,ordinal,resolution_status)')
     .eq('organization_id', orgId)
     .gte('date', start)
     .lte('date', end)
@@ -721,7 +721,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: staffData, error: staffError } = await (db as any)
     .from('staff')
-    .select('name,stores')
+    .select('id,name,stores')
     .eq('organization_id', orgId)
   if (staffError) throw staffError
   const staffNames = new Set((staffData as { name: string }[] | null | undefined)?.map(s => s.name) || [])
@@ -729,6 +729,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
   const settingsForDate = await loadCompensationHistory(db!, orgId, start, end)
 
   const homeStores = new Map<string,string[]>((staffData ?? []).filter((staff: {stores: unknown}) => Array.isArray(staff.stores)).map((staff: {name: string; stores: string[]}) => [staff.name,staff.stores]))
+  const staffById = new Map<string,{ stores: string[] | null }>((staffData ?? []).map((staff: {id: string; stores: string[] | null}) => [staff.id, { stores: staff.stores }]))
 
   // 店舗
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -787,6 +788,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     category: string | null
     gms: string[] | null
     gm_roles: Record<string, string> | null
+    staff_assignments?: EventStaffAssignmentLike[] | null
     capacity: number | null
     max_participants: number | null
     venue_rental_fee: number | null
@@ -879,10 +881,11 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
     )
     const actualGmCount = activeGmNames.size
 
+    // GM の照合は担当表（ID）を正にする（#734）。表示名は従来どおり gms を使う。
     const gmCost = isVenueRental ? 0 : calculateEventGmCost({
-      gms: event.gms ?? [], roles: event.gm_roles ?? {}, duration: scenarioInfo?.duration ?? 180,
+      ...resolveGmCostIdentity(event, staffById, homeStores), duration: scenarioInfo?.duration ?? 180,
       isGmTest, costs: scenarioInfo?.gm_costs ?? [], getSettings: () => settingsForDate(event.date),
-      storeId: event.store_id ?? '', homeStores, transportAllowance: store?.transport_allowance,
+      storeId: event.store_id ?? '', transportAllowance: store?.transport_allowance,
       isCancelled: Boolean(event.is_cancelled), estimateUnassigned: Boolean(scenarioInfo),
     })
 
