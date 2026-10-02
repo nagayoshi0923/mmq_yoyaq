@@ -16,6 +16,7 @@ import { SuccessScreen, ReopenLinkScreen, DuplicateAccountScreen } from './compl
 import { useNavigate } from 'react-router-dom'
 import { getOrganizationBySlug, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { profileRegistrationApi } from '@/lib/api/customerApi'
 
 export function CompleteProfile() {
   const [password, setPassword] = useState('')
@@ -486,11 +487,7 @@ export function CompleteProfile() {
 
       if (existingByUserId) {
         // 自分のレコードがある → UPDATE（既存ユーザー）
-        const { error: updateCustErr } = await supabase
-          .from('customers')
-          .update(customerProfilePayload)
-          .eq('id', existingByUserId.id)
-          .eq('user_id', userId)
+        const { error: updateCustErr } = await profileRegistrationApi.updateOwnRow(existingByUserId.id, userId, customerProfilePayload)
 
         if (updateCustErr) {
           throw updateCustErr
@@ -499,21 +496,19 @@ export function CompleteProfile() {
         isNewCustomer = false
       } else {
         // 新規 → INSERT
-        const { error: insertCustErr } = await supabase
-          .from('customers')
-          .insert({
-            user_id: userId,
-            name: name.trim(),
-            nickname: nickname.trim() || null,
-            email: userEmail,
-            phone: phone.trim(),
-            prefecture: prefecture,
-            birth_date: birthDateForDB,
-            organization_id: customerOrganizationId,
-            notification_settings: notificationSettings,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
+        const { error: insertCustErr } = await profileRegistrationApi.insertOwnRow({
+          user_id: userId,
+          name: name.trim(),
+          nickname: nickname.trim() || null,
+          email: userEmail,
+          phone: phone.trim(),
+          prefecture: prefecture,
+          birth_date: birthDateForDB,
+          organization_id: customerOrganizationId,
+          notification_settings: notificationSettings,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
 
         if (insertCustErr) {
           // 一意制約違反: メールは別アカウント／店舗登録済み等。RLS では衝突行が見えないことがある
@@ -526,14 +521,7 @@ export function CompleteProfile() {
               .maybeSingle()
 
             if (byEmail && !byEmail.user_id) {
-              const { error: linkErr } = await supabase
-                .from('customers')
-                .update({
-                  user_id: userId,
-                  ...customerProfilePayload
-                })
-                .eq('id', byEmail.id)
-                .is('user_id', null)
+              const { error: linkErr } = await profileRegistrationApi.linkToEmailCustomer(byEmail.id, userId, customerProfilePayload)
 
               if (linkErr) {
                 throw linkErr
@@ -542,11 +530,7 @@ export function CompleteProfile() {
               isNewCustomer = false
             } else if (byEmail?.user_id === userId) {
               // 同時送信などで INSERT は失敗したが、自分の行は既にある
-              const { error: raceUpdErr } = await supabase
-                .from('customers')
-                .update(customerProfilePayload)
-                .eq('id', byEmail.id)
-                .eq('user_id', userId)
+              const { error: raceUpdErr } = await profileRegistrationApi.updateOwnRow(byEmail.id, userId, customerProfilePayload)
               if (raceUpdErr) {
                 throw raceUpdErr
               }
@@ -567,11 +551,7 @@ export function CompleteProfile() {
                 .limit(1)
 
               if (myRows && myRows.length > 0) {
-                const { error: raceUpdErr } = await supabase
-                  .from('customers')
-                  .update(customerProfilePayload)
-                  .eq('id', myRows[0].id)
-                  .eq('user_id', userId)
+                const { error: raceUpdErr } = await profileRegistrationApi.updateOwnRow(myRows[0].id, userId, customerProfilePayload)
                 if (raceUpdErr) {
                   if (raceUpdErr.code === '23505') {
                     throw new Error(

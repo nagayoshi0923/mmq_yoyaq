@@ -46,6 +46,15 @@ describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの�
     m.state.existing = { id: 'c1' }; m.state.updateError = { message: 'x' }
     expect(await upsertOwnCustomer(base)).toBe('c1')
   })
+  it('nickname を省略したときは、更新にも作成にも nickname 列を含めない（貸切グループの申込）', async () => {
+    const { nickname: _omit, ...noNickname } = base
+    m.state.existing = { id: 'c1' }
+    await upsertOwnCustomer(noNickname)
+    expect((m.calls.find(c => c[0] === 'update.values')![1] as unknown[])[0]).toEqual({ name: '太郎', phone: '09000000000', email: 'a@example.invalid' })
+    m.calls.length = 0; m.state.existing = null
+    await upsertOwnCustomer({ ...noNickname, organizationId: null })
+    expect((m.calls.find(c => c[0] === 'insert.values')![1] as unknown[])[0]).toEqual({ user_id: 'u1', name: '太郎', phone: '09000000000', email: 'a@example.invalid', organization_id: null })
+  })
   it('キャンセル待ち登録（scopeByOrganization + throwOnError）は組織でも絞り、失敗を投げる', async () => {
     m.state.existing = { id: 'c1' }
     await upsertOwnCustomer({ ...base, scopeByOrganization: true, throwOnError: true })
