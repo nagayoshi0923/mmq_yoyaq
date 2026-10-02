@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-02T09:58:01.371Z",
+  "captured_at": "2026-10-02T10:16:18.337Z",
   "table_count": 138,
   "function_count": 332,
-  "digest": "0b26d4ad45d5ba33200e3ff9dbd605b8faf86c234cd28df0c3f8534bff33265f"
+  "digest": "00d311d7b70af405d63210ae3f013ecfd8d75907d0c2a8283c0362a762594b2e"
  },
  "tables": {
   "staff": {
@@ -22290,7 +22290,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "25df0f70c87b5e0da16bece7dd3abbb0",
+   "body_md5": "6d14ad4aa5f79d69afa47506fcab8223",
    "language": "plpgsql",
    "security_definer": true
   },
