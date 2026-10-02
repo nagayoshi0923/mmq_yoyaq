@@ -94,7 +94,6 @@ export async function handleCampaignStats(req: VercelRequest, res: VercelRespons
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalGranted = rows.length
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalRemaining = rows.reduce((sum: number, c: any) => sum + (c.uses_remaining ?? 0), 0)

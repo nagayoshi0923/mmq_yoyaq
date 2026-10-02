@@ -19,8 +19,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 
 /** venue_id (store) が自組織のものか検証 */
 async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('stores')
     .select('id')
     .eq('id', storeId)
@@ -42,8 +41,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const lastDay = new Date(year, month, 0).getDate()
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('daily_memos')
     .select(`
       *,
@@ -77,8 +75,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
   await assertStoreOwnedByOrg(venue_id, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('daily_memos')
     .upsert(
       {
@@ -107,8 +104,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
   // venue が自組織のものか検証（他組織の venue を引数にして削除を試みても 403）
   await assertStoreOwnedByOrg(venueId, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('daily_memos')
     .delete()
     .eq('date', date)

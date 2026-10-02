@@ -25,8 +25,7 @@ const SELECT = `
 
 // ─── ヘルパ ─────────────────────────────────────────────────────────────────
 async function getOrgScenarioMasterId(orgScenarioId: string, orgId: string): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios')
     .select('id, scenario_master_id')
     .eq('id', orgScenarioId)
@@ -38,8 +37,7 @@ async function getOrgScenarioMasterId(orgScenarioId: string, orgId: string): Pro
 }
 
 async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('stores')
     .select('id')
     .eq('id', storeId)
@@ -50,8 +48,7 @@ async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<vo
 }
 
 async function assertStaffOwnedByOrg(staffId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('staff')
     .select('id')
     .eq('id', staffId)
@@ -70,8 +67,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(400).json({ error: 'start_date / end_date が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_completions')
     .select(SELECT)
     .eq('organization_id', user.orgId)
@@ -137,8 +133,7 @@ async function handleMarkPickedUp(
   await assertStaffOwnedByOrg(staff_id, user.orgId)
 
   // 既存レコードを検索
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: findErr } = await (db as any)
+  const { data: existing, error: findErr } = await db!
     .from('kit_transfer_completions')
     .select('id')
     .eq('organization_id', user.orgId)
@@ -153,8 +148,7 @@ async function handleMarkPickedUp(
 
   let data, error
   if (existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await (db as any)
+    const r = await db!
       .from('kit_transfer_completions')
       .update({
         from_store_id,
@@ -168,8 +162,7 @@ async function handleMarkPickedUp(
     data = r.data
     error = r.error
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await (db as any)
+    const r = await db!
       .from('kit_transfer_completions')
       .insert({
         organization_id: user.orgId,
@@ -214,8 +207,7 @@ async function handleUnmarkPickedUp(
   await getOrgScenarioMasterId(scenario_id, user.orgId)
   await assertStoreOwnedByOrg(to_store_id, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('kit_transfer_completions')
     .update({
       picked_up_at: null,
@@ -257,8 +249,7 @@ async function handleMarkDelivered(
   await assertStoreOwnedByOrg(to_store_id, user.orgId)
   await assertStaffOwnedByOrg(staff_id, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_completions')
     .update({
       delivered_at: new Date().toISOString(),
@@ -298,8 +289,7 @@ async function handleUnmarkDelivered(
   await getOrgScenarioMasterId(scenario_id, user.orgId)
   await assertStoreOwnedByOrg(to_store_id, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('kit_transfer_completions')
     .update({
       delivered_at: null,
@@ -327,8 +317,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(400).json({ error: 'start_date / end_date が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_completions')
     .delete()
     .eq('organization_id', user.orgId)

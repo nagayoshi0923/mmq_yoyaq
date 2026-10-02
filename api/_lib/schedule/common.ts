@@ -143,8 +143,7 @@ export type ScheduleEventLike = {
 
 export async function getOrgScenarioPlayerCounts(orgId: string): Promise<Map<string, number>> {
   if (!db) return new Map()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios_with_master')
     .select('id, title, player_count_max')
     .eq('organization_id', orgId)

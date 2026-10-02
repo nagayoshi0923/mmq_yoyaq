@@ -18,8 +18,7 @@ export async function handleByMonth(req: VercelRequest, res: VercelResponse, use
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   // 通常公演を取得
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleEventsRaw, error } = await (db as any)
+  const { data: scheduleEventsRaw, error } = await db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_MONTH_SELECT)
     .eq('organization_id', user.orgId)
@@ -69,8 +68,7 @@ export async function handleByMonth(req: VercelRequest, res: VercelResponse, use
   const [batchResults, orgScenarioMap] = await Promise.all([
     Promise.all(
       batches.map(batchIds =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (db as any)
+        db!
           .from('reservations')
           .select('schedule_event_id, participant_count, status, candidate_datetimes, reservation_source')
           .eq('organization_id', user.orgId)
@@ -175,8 +173,7 @@ export async function handleByMonth(req: VercelRequest, res: VercelResponse, use
   const privateEvents: PrivateEvent[] = []
 
   if (!skipPrivateBookings) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: confirmedPrivateBookings, error: privateError } = await (db as any)
+    const { data: confirmedPrivateBookings, error: privateError } = await db!
       .from('reservations')
       .select(PRIVATE_BOOKING_SELECT)
       .eq('organization_id', user.orgId)
@@ -209,8 +206,7 @@ export async function handleByMonth(req: VercelRequest, res: VercelResponse, use
       const gmStaffMap = new Map<string, string>()
 
       if (uniqueGmStaffIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: gmStaffList } = await (db as any)
+        const { data: gmStaffList } = await db!
           .from('staff')
           .select('id, name')
           .eq('organization_id', user.orgId)

@@ -104,8 +104,7 @@ export async function handleCreateStaffEntry(req: VercelRequest, res: VercelResp
     reservation_source: RESERVATION_SOURCE_STAFF_ENTRY,
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: inserted, error: insertError } = await (db as any)
+  const { data: inserted, error: insertError } = await db!
     .from('reservations')
     .insert([payload])
     .select(RESERVATION_SELECT_FIELDS)
@@ -128,8 +127,7 @@ export async function handleCreateStaffEntry(req: VercelRequest, res: VercelResp
       const cellTimeSlot = (snapshot.time_slot as string | null | undefined) ?? null
       if (cellDate && cellStoreId) {
         // 操作者の staff 名（user は GM 欄を更新したスタッフ）
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: staffRow } = await (db as any)
+        const { data: staffRow } = await db!
           .from('staff')
           .select('id, name')
           .eq('user_id', user.userId)

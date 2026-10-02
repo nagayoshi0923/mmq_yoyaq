@@ -9,8 +9,7 @@ export async function handleAuthorPerformanceCount(req: VercelRequest, res: Verc
   if (!range) return res.status(400).json({ error: 'start / end クエリパラメータが必要です' })
   const { start, end } = range
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('schedule_events')
     .select(AUTHOR_PERFORMANCE_SELECT)
     .eq('organization_id', orgId)

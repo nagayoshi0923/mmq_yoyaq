@@ -9,8 +9,7 @@ export async function handleByStore(req: VercelRequest, res: VercelResponse, org
   if (!range) return res.status(400).json({ error: 'start / end クエリパラメータが必要です' })
   const { start, end } = range
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('schedule_events')
     .select(STORE_AND_SCENARIO_NESTED_SELECT)
     .eq('organization_id', orgId)

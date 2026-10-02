@@ -90,8 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // 未ログインユーザがアクセスするため認証不要。
 // トークン自体が秘密情報なので、トークンを知っているクライアントだけ閲覧可能。
 async function handleGetByToken(res: VercelResponse, token: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_invitations')
     .select(INVITATION_FIELDS)
     .eq('token', token)
@@ -110,8 +109,7 @@ async function handleListByOrg(res: VercelResponse, user: AuthUser) {
   if (!isAdminUser(user)) {
     return res.status(403).json({ error: '管理者権限が必要です' })
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_invitations')
     .select(INVITATION_FIELDS)
     .eq('organization_id', user.orgId)
@@ -148,8 +146,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   const expires_at = new Date()
   expires_at.setDate(expires_at.getDate() + 7)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_invitations')
     .insert({
       organization_id: user.orgId, // JWT 経由で強制
@@ -177,8 +174,7 @@ async function handleResend(res: VercelResponse, user: AuthUser, id: string) {
   }
 
   // 所属組織を検証
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: lookupErr } = await (db as any)
+  const { data: existing, error: lookupErr } = await db!
     .from('organization_invitations')
     .select('id, organization_id, accepted_at')
     .eq('id', id)
@@ -199,8 +195,7 @@ async function handleResend(res: VercelResponse, user: AuthUser, id: string) {
   const expires_at = new Date()
   expires_at.setDate(expires_at.getDate() + 7)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_invitations')
     .update({
       token,
@@ -224,8 +219,7 @@ async function handleDelete(res: VercelResponse, user: AuthUser, id: string) {
   }
 
   // 所属組織を検証
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: lookupErr } = await (db as any)
+  const { data: existing, error: lookupErr } = await db!
     .from('organization_invitations')
     .select('id, organization_id')
     .eq('id', id)
@@ -239,8 +233,7 @@ async function handleDelete(res: VercelResponse, user: AuthUser, id: string) {
     return res.status(403).json({ error: '他組織の招待は削除できません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('organization_invitations')
     .delete()
     .eq('id', id)
@@ -270,8 +263,7 @@ async function handleAccept(req: VercelRequest, res: VercelResponse) {
   if (!db) return res.status(500).json({ error: 'DB unavailable' })
 
   // 1. アトミックに招待を受諾（accept_invitation_atomic RPC）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: atomicResult, error: atomicError } = await (db as any).rpc(
+  const { data: atomicResult, error: atomicError } = await db!.rpc(
     'accept_invitation_atomic',
     { p_token: token }
   )
@@ -290,8 +282,7 @@ async function handleAccept(req: VercelRequest, res: VercelResponse) {
   }
 
   // 2. 招待詳細を取得（受諾時に name などを使うため）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: invitation } = await (db as any)
+  const { data: invitation } = await db!
     .from('organization_invitations')
     .select('id, email, name, role, organization_id')
     .eq('token', token)
@@ -307,8 +298,7 @@ async function handleAccept(req: VercelRequest, res: VercelResponse) {
 
   // 3. Supabase Auth でユーザを作成（service_role なので admin.createUser を使う）
   // メール検証無しで作成する（招待リンク経由＝メール確認済みとみなす）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: authData, error: authError } = await (db as any).auth.admin.createUser({
+  const { data: authData, error: authError } = await db!.auth.admin.createUser({
     email: invitationData.email,
     password,
     email_confirm: true,
@@ -335,8 +325,7 @@ async function handleAccept(req: VercelRequest, res: VercelResponse) {
   const roleArray = Array.isArray(invitationData.role) ? invitationData.role : []
   const userRole = roleArray.some((r: string) => r.includes('管理者')) ? 'admin' : 'staff'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: userError } = await (db as any).from('users').upsert(
+  const { error: userError } = await db!.from('users').upsert(
     {
       id: userId,
       email: invitationData.email,
@@ -353,8 +342,7 @@ async function handleAccept(req: VercelRequest, res: VercelResponse) {
   }
 
   // 5. staff テーブルにレコードを作成
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staffData, error: staffError } = await (db as any)
+  const { data: staffData, error: staffError } = await db!
     .from('staff')
     .insert({
       name: invitationData.name || invitationData.email?.split('@')[0] || '',
@@ -381,8 +369,7 @@ async function handleAccept(req: VercelRequest, res: VercelResponse) {
 
   // 6. 招待に staff_id を紐付け
   if (staffData?.id && invitationData.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: linkError } = await (db as any)
+    const { error: linkError } = await db!
       .from('organization_invitations')
       .update({ staff_id: staffData.id })
       .eq('id', invitationData.id)

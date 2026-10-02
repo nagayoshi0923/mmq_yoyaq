@@ -14,7 +14,7 @@ export async function handleOpenEventAnalysis(req: VercelRequest, res: VercelRes
   const categories = includeGmTest ? ['open', 'gmtest'] : ['open']
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let eventsQuery: any = (db as any)
+  let eventsQuery: any = db!
     .from('schedule_events')
     .select('id, date, start_time, scenario, scenario_master_id, capacity, max_participants, current_participants, is_cancelled, created_at, store_id, category')
     .eq('organization_id', orgId)
@@ -40,8 +40,7 @@ export async function handleOpenEventAnalysis(req: VercelRequest, res: VercelRes
 
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: batchError } = await (db as any)
+    const { data: batch, error: batchError } = await db!
       .from('reservations')
       .select('id, schedule_event_id, created_at, participant_count, status')
       .eq('organization_id', orgId)

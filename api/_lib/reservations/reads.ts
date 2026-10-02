@@ -10,7 +10,7 @@ export async function handleGetAllOrRange(req: VercelRequest, res: VercelRespons
   const end = req.query.end as string | undefined
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = (db as any)
+  let query: any = db!
     .from('reservations')
     .select(RESERVATION_SELECT_FIELDS)
     .eq('organization_id', orgId)
@@ -40,8 +40,7 @@ export async function handleGetByScheduleEvent(req: VercelRequest, res: VercelRe
     return res.status(400).json({ error: 'schedule_event_id が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('reservations')
     .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
     .eq('schedule_event_id', scheduleEventId)
@@ -64,8 +63,7 @@ export async function handleGetByCustomer(req: VercelRequest, res: VercelRespons
     return res.status(400).json({ error: 'customer_id が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('reservations')
     .select(RESERVATION_SELECT_FIELDS)
     .eq('customer_id', customerId)
@@ -100,8 +98,7 @@ export async function handleGetSummary(req: VercelRequest, res: VercelResponse, 
       return res.status(404).json({ error: 'schedule_event が見つかりません' })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('reservation_summary')
       .select(RESERVATION_SUMMARY_SELECT_FIELDS)
       .eq('schedule_event_id', scheduleEventId)
@@ -125,8 +122,7 @@ export async function handleGetSummary(req: VercelRequest, res: VercelResponse, 
   const ids = (events ?? []).map((e: { id: string }) => e.id)
   if (ids.length === 0) return res.status(200).json([])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('reservation_summary')
     .select(RESERVATION_SUMMARY_SELECT_FIELDS)
     .in('schedule_event_id', ids)
@@ -162,8 +158,7 @@ export async function handleGetAvailability(req: VercelRequest, res: VercelRespo
     return res.status(404).json({ error: 'schedule_event が見つかりません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('reservation_summary')
     .select('schedule_event_id, max_participants, current_reservations, available_seats')
     .eq('schedule_event_id', scheduleEventId)

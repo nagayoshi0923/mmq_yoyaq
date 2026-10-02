@@ -15,7 +15,7 @@ export async function handleByDateRange(req: VercelRequest, res: VercelResponse,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = (db as any)
+  let query: any = db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_DATE_RANGE_FIELDS)
     .eq('organization_id', user.orgId)
@@ -48,8 +48,7 @@ export async function handleByScenario(req: VercelRequest, res: VercelResponse, 
     return res.status(400).json({ error: 'scenario_id / start / end クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleEventsRaw, error } = await (db as any)
+  const { data: scheduleEventsRaw, error } = await db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_BY_SCENARIO_SELECT)
     .eq('organization_id', user.orgId)
@@ -90,8 +89,7 @@ export async function handleByScenario(req: VercelRequest, res: VercelResponse, 
 
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error: reservationError } = await (db as any)
+    const { data, error: reservationError } = await db!
       .from('reservations')
       .select('schedule_event_id, participant_count')
       .eq('organization_id', user.orgId)

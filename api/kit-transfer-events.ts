@@ -40,8 +40,7 @@ type TransferEventInput = {
 
 // ─── ヘルパ ─────────────────────────────────────────────────────────────────
 async function assertOrgScenarioOwnedByOrg(orgScenarioId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios')
     .select('id')
     .eq('id', orgScenarioId)
@@ -52,8 +51,7 @@ async function assertOrgScenarioOwnedByOrg(orgScenarioId: string, orgId: string)
 }
 
 async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('stores')
     .select('id')
     .eq('id', storeId)
@@ -73,8 +71,7 @@ async function validateTransferInput(input: TransferEventInput, orgId: string): 
 }
 
 async function assertEventOwnedByOrg(eventId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_events')
     .select('id, organization_id')
     .eq('id', eventId)
@@ -93,8 +90,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(400).json({ error: 'start_date / end_date が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_events')
     .select(SELECT)
     .eq('organization_id', user.orgId)
@@ -121,8 +117,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     if (!start_date || !end_date) {
       return res.status(400).json({ error: 'start_date / end_date が必要です' })
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('kit_transfer_events')
       .update({ status: 'cancelled' })
       .eq('organization_id', user.orgId)
@@ -152,8 +147,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       created_by: user.userId,
     }))
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('kit_transfer_events')
       .insert(records)
       .select(SELECT)
@@ -169,8 +163,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   const input = body as TransferEventInput
   await validateTransferInput(input, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_events')
     .insert({
       ...input,
@@ -199,8 +192,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
 
   await assertEventOwnedByOrg(id, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('kit_transfer_events')
     .update({ status })
     .eq('id', id)
@@ -222,8 +214,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
 
   await assertEventOwnedByOrg(id, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('kit_transfer_events')
     .delete()
     .eq('id', id)

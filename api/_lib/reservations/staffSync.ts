@@ -45,8 +45,7 @@ export async function handleSyncStaffReservationStatuses(
 
   // 直接 UPDATE（service_role で RLS バイパス + 上で組織検証済み）。
   // RPC を使わない理由: admin_update_reservation_fields は 1 件ずつしか扱わないため、N+1 を避ける。
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: updateError } = await (db as any)
+  const { error: updateError } = await db!
     .from('reservations')
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .in('id', safeIds)
@@ -60,8 +59,7 @@ export async function handleSyncStaffReservationStatuses(
   // newStatus が 'cancelled' のときだけ remove_participant 履歴を記録（スタッフ参加同期）
   if (newStatus === 'cancelled') {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: staffRow } = await (db as any)
+      const { data: staffRow } = await db!
         .from('staff')
         .select('id, name')
         .eq('user_id', user.userId)

@@ -72,8 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 async function handleList(res: VercelResponse, user: AuthUser) {
   requireStaff(user)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('store_scenario_license_contracts')
     .select(`
       id,
@@ -105,14 +104,12 @@ async function handleList(res: VercelResponse, user: AuthUser) {
 async function handleOptions(res: VercelResponse, user: AuthUser) {
   requireStaff(user)
   const [storesResult, scenariosResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('stores')
       .select('id, name, short_name')
       .eq('organization_id', user.orgId)
       .order('display_order', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('organization_scenarios_with_master')
       .select('scenario_master_id, title, author, license_amount')
       .eq('organization_id', user.orgId)
@@ -155,8 +152,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   const ownershipError = await validateOwnedRefs(user, body.store_id!, body.scenario_master_id!)
   if (ownershipError) return res.status(ownershipError.status).json({ error: ownershipError.message })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('store_scenario_license_contracts')
     .insert(toDbPayload(body, user.orgId))
     .select()
@@ -186,8 +182,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   const ownershipError = await validateOwnedRefs(user, nextStoreId, nextScenarioMasterId)
   if (ownershipError) return res.status(ownershipError.status).json({ error: ownershipError.message })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('store_scenario_license_contracts')
     .update(toDbPayload(body, user.orgId, false))
     .eq('id', id)
@@ -210,8 +205,7 @@ async function handleDelete(res: VercelResponse, user: AuthUser, id: string) {
   const existing = await getExistingContract(id, user.orgId)
   if ('error' in existing) return res.status(existing.status).json({ error: existing.error })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('store_scenario_license_contracts')
     .delete()
     .eq('id', id)
@@ -248,15 +242,13 @@ function validateBody(body: LicenseContractBody, requireAll: boolean): string | 
 
 async function validateOwnedRefs(user: AuthUser, storeId: string, scenarioMasterId: string) {
   const [storeResult, scenarioResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('stores')
       .select('id')
       .eq('id', storeId)
       .eq('organization_id', user.orgId)
       .maybeSingle(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('organization_scenarios')
       .select('id')
       .eq('scenario_master_id', scenarioMasterId)
@@ -274,8 +266,7 @@ async function validateOwnedRefs(user: AuthUser, storeId: string, scenarioMaster
 }
 
 async function getExistingContract(id: string, organizationId: string): Promise<{ status: number; error: string } | { data: { id: string; store_id: string; scenario_master_id: string } }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('store_scenario_license_contracts')
     .select('id, store_id, scenario_master_id')
     .eq('id', id)

@@ -92,8 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 async function handleList(res: VercelResponse, user: AuthUser) {
   requireStaff(user)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('license_partner_stores')
     .select('id, organization_id, name, discord_channel_id, report_token, is_active, notes, created_at, updated_at')
     .eq('organization_id', user.orgId)
@@ -109,14 +108,12 @@ async function handleList(res: VercelResponse, user: AuthUser) {
   const lastReportMap = new Map<string, { submitted_at: string; year: number; month: number }>()
   if (storeIds.length > 0) {
     const [contractsResult, reportsResult] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+      db!
         .from('license_partner_contracts')
         .select('partner_store_id')
         .eq('organization_id', user.orgId)
         .in('partner_store_id', storeIds),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (db as any)
+      db!
         .from('license_partner_monthly_reports')
         .select('partner_store_id, year, month, submitted_at')
         .eq('organization_id', user.orgId)
@@ -161,8 +158,7 @@ async function handleList(res: VercelResponse, user: AuthUser) {
 
 async function handleOptions(res: VercelResponse, user: AuthUser) {
   requireStaff(user)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios_with_master')
     .select('scenario_master_id, title, author, license_amount, external_license_amount')
     .eq('organization_id', user.orgId)
@@ -195,14 +191,12 @@ async function handleDetail(res: VercelResponse, user: AuthUser, id: string) {
   if ('error' in store) return res.status(store.status).json({ error: store.error })
 
   const [contractsResult, scenariosResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('license_partner_contracts')
       .select('id, organization_id, partner_store_id, scenario_master_id, license_amount, created_at, updated_at')
       .eq('organization_id', user.orgId)
       .eq('partner_store_id', id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('organization_scenarios_with_master')
       .select('scenario_master_id, title, author, license_amount, external_license_amount')
       .eq('organization_id', user.orgId)
@@ -251,8 +245,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   const name = body.name?.trim()
   if (!name) return res.status(400).json({ error: '店舗名は必須です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('license_partner_stores')
     .insert({
       organization_id: user.orgId,
@@ -288,8 +281,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (body.notes !== undefined) payload.notes = body.notes?.trim() || null
   if (body.is_active !== undefined) payload.is_active = Boolean(body.is_active)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('license_partner_stores')
     .update(payload)
     .eq('id', id)
@@ -309,8 +301,7 @@ async function handleRotateToken(res: VercelResponse, user: AuthUser, id: string
   const existing = await getOwnedStore(id, user.orgId)
   if ('error' in existing) return res.status(existing.status).json({ error: existing.error })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('license_partner_stores')
     .update({ report_token: generateReportToken() })
     .eq('id', id)
@@ -330,8 +321,7 @@ async function handleDelete(res: VercelResponse, user: AuthUser, id: string) {
   const existing = await getOwnedStore(id, user.orgId)
   if ('error' in existing) return res.status(existing.status).json({ error: existing.error })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('license_partner_stores')
     .delete()
     .eq('id', id)
@@ -367,8 +357,7 @@ async function handleReplaceContracts(
   }
 
   if (scenarioIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: managed, error: managedError } = await (db as any)
+    const { data: managed, error: managedError } = await db!
       .from('organization_scenarios')
       .select('scenario_master_id')
       .eq('organization_id', user.orgId)
@@ -386,8 +375,7 @@ async function handleReplaceContracts(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let deleteQuery = (db as any)
+  let deleteQuery = db!
     .from('license_partner_contracts')
     .delete()
     .eq('organization_id', user.orgId)
@@ -403,8 +391,7 @@ async function handleReplaceContracts(
   }
 
   if (scenarioIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: upsertError } = await (db as any)
+    const { error: upsertError } = await db!
       .from('license_partner_contracts')
       .upsert(
         contracts.map((row) => ({
@@ -425,8 +412,7 @@ async function handleReplaceContracts(
 }
 
 async function getOwnedStore(id: string, organizationId: string): Promise<{ status: number; error: string } | { data: Record<string, unknown> }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('license_partner_stores')
     .select('id, organization_id, name, discord_channel_id, report_token, is_active, notes, created_at, updated_at')
     .eq('id', id)
