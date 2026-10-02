@@ -204,13 +204,28 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 | 店舗 | stores 5 | 5 |
 | その他 | data_management_settings 2、external_performance_reports 2、users 1、organization_categories 1、organization_authors 1、user_table_preferences 1 | 8 |
 
-**Phase 3 の API 分割を始めるときの前提と設計（2026-10-02 調査、#774）**
+**Phase 3 の API 分割の進み具合と、残りの再開手順（2026-10-03 更新、#774）**
 
-- **先に特性テストを書く**: `api/sales.ts` のうち、既存のテストが触っているのは給与まわり（salary-history 系）と売上規則の関数 `getReservationRevenue` だけ。`by-period` / `by-store` / `by-scenario` / `author-performance-count` / `stores` / `scenario-performance` / `open-event-analysis` / `schedule-export` / `annual-analysis` の 9 本はテストが無く、分割で数字が変わっても検知できない。固定のモックデータを渡して出力を固定するテストを、分割より先に書く。
-- **分割後に本番データで前後比較**: 直近 3 か月の同じリクエストの出力を分割の前後で保存し、完全一致を確認する（売上 CSV・分析は給与や報告に使う数字のため）。
-- **`api/sales.ts`（1,104 行）の設計**: 入口は残し、`getReservationRevenue` の再エクスポートとハンドラの分岐だけにする（外部が使うのは `getReservationRevenue`（`api/sales-price.test.ts`）と default export（`api/salary-report.test.ts`、`api/compensation-reports.test.ts`）のみ）。共通の定数・ヘルパ（SELECT 文字列、CORS、`getStartEnd`、`getStoreIds`、`SALES_RESERVATION_STATUSES`）は `api/_lib/sales/common.ts`、売上規則は `api/_lib/sales/revenue.ts`、各ハンドラは `api/_lib/sales/<名前>.ts` に 1 ファイルずつ。
-- **行数の内訳（2026-10-02 時点）**: schedule-export 約 260 行（694〜951）、by-period 約 210 行（232〜438）、annual-analysis 約 135 行（970〜）、scenario-performance 約 115 行（522〜637）が大きい。ここから切り出すと効果が大きい。
-- **作業量の見立て**: 特性テストで半日、分割で半日。5 本（coupons / schedule / reservations / scenarios / sales）を順に。sales から始めるのが、今日の作業（金額・GM 照合）で構造に慣れているため最も安全。
+| API | 分割前 | 分割後 | 状態 |
+|---|---|---|---|
+| `api/sales.ts` | 1,104 行 | 入口 76 行 + `api/_lib/sales/` 12 ファイル（最大 268 行） | 本番反映済み（#783 特性テスト、#784 分割） |
+| `api/scenarios.ts` | 1,123 行 | 入口 42 行 + `api/_lib/scenarios/` 6 ファイル（最大 325 行） | 本番反映済み（#790） |
+| `api/coupons.ts` | 1,636 行 | 入口 188 行 + `api/_lib/coupons/` 8 ファイル（最大 322 行） | PR #791（CI → マージ → release 中） |
+| `api/schedule.ts` | 1,510 行 | — | 未着手（下の手順） |
+| `api/reservations.ts` | 1,385 行 | — | 未着手（下の手順） |
+
+**分割の手順（sales / scenarios / coupons で確立した型）**
+
+1. **特性テストを先に書く**: 固定データ（時刻は `vi.useFakeTimers` で固定）と、テーブル別の DB モックで、出力・書き込みペイロード（`insert` / `update` / `delete` / `rpc` の引数）・発行クエリ（テーブル・列・絞り込み）をインラインスナップショットで固定する。固定する値は「現状の出力」であり、正しさの主張ではない。固定した数字は手計算で規則どおりか確認する。既存の食い違いが見つかったら issue にして、分割では直さない（今回: #787、#788）。
+2. **機械的に切り出す**: スクリプトで関数ごとの行範囲（直前のコメント含む）を切り、各ファイルが使う import だけを付け、宣言に `export` を付ける。手で写さない。共通部分は `common.ts`、入口はメソッドのルーティングだけ。
+3. **挙動が変わっていない証拠を 3 つ揃える**: (a) コメントと import を除くコード行の集合が分割の前後で同数で、差が `export` の付与だけ（スクリプトで比較）、(b) 特性テストと既存テストが前後で同じ結果、(c) `npm run typecheck`（src と api）と `--noUnusedLocals`。
+4. **1 つの PR に特性テストと分割の 2 コミット**、手元で全部通してから出す。release は未マージの PR が 0 件になってから 1 回だけ。
+
+**`api/schedule.ts`（1,510 行）の再開メモ**: 行範囲は CORS・定数・SELECT 定数 12〜122、型 123〜141、ヘルパ（`getOrgScenarioPlayerCounts`、`resolveMaxParticipants`）142〜191、入口とルーティング 192〜280、読み取り（`handleMySchedule` 282〜415、`handleByMonth` 417〜709 が最大で約 290 行、`handleByDateRange` 711〜743、`handleByScenario` 745〜842）、書き込みヘルパ 843〜970（許可リスト `SCHEDULE_CREATABLE_FIELDS` / `SCHEDULE_UPDATABLE_FIELDS`、`pickFields`、`findMatchingScenario`、不明列のリトライ削除）、書き込み（`handleCreate` 972〜1067、`handleUpdate` 1069〜1201、`handleToggleCancel` 1203〜1252、`handleDelete` 1254〜1291、`handleAddDemoParticipants` 1293〜1427、`handleRemoveDemoReservations` 1429〜1450）、募集設定 1451〜。既存テストは `api/schedule-capacity.test.ts` の 4 件だけ。特性テストで固定する規則: 許可リストの列だけを受け入れる、組織は認証した組織を強制、店舗の組織境界（404 / 403）、シナリオ名からの自動紐付け、カテゴリの補正（不正は `open`）、不明列を最大 3 回リトライして削除、`CAPACITY_EXCEEDED`（409）、`expected_updated_at` による競合検出（409）、中止の切替（`cancelled_at` と `cancellation_reason`）、削除 0 件は 409、デモ参加者の追加・削除。分割案: `common.ts`（定数・型・ヘルパ・書き込みヘルパ）、`reads.ts`（my-schedule / by-date-range / by-scenario）、`byMonth.ts`、`create.ts`、`update.ts`、`cancelDelete.ts`、`demo.ts`、`recruitment.ts`。
+
+**`api/reservations.ts`（1,385 行）**: 未調査。予約の書き込み経路（RPC `create_reservation_with_lock_v2`、キャンセル、人数変更、管理者の直接追加）で、今日の規則（#707 の認可、#730 の人数、#721 の金額）が絡む。特性テストを最も手厚くする。分割前に関数ごとの行範囲を出し、既存テスト（`api/reservations*.test.ts`）の網羅を確認する。
+
+**`: any` 412 → 200（#775）**: 分割後のファイル（`api/_lib/*`）の `(db as any)` が多い。`db` を型付きのヘルパ（`SupabaseClient` を返す）にすると一括で減らせる。書き込み経路から。
 
 **やり方の決まり（2026-10-02 の 8 本で固めたもの）**
 
