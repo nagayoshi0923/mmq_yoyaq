@@ -13,6 +13,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { ConfirmDialog } from '@/components/patterns/modal'
+import { miscTransactionApi } from '@/lib/api/ledgerApi'
 
 interface Transaction {
   id?: string
@@ -152,18 +153,16 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       const selectedStore = stores.find(s => s.id === newTransaction.store_id)
       const organizationId = selectedStore?.organization_id || stores[0]?.organization_id
       
-      const { error } = await supabase
-        .from('miscellaneous_transactions')
-        .insert([{
-          date: newTransaction.date,
-          type: newTransaction.type,
-          category: newTransaction.category,
-          amount: newTransaction.amount,
-          description: newTransaction.description,
-          store_id: newTransaction.store_id || null,
-          scenario_id: newTransaction.scenario_id || null,
-          organization_id: organizationId
-        }])
+      const { error } = await miscTransactionApi.create({
+        date: newTransaction.date,
+        type: newTransaction.type,
+        category: newTransaction.category,
+        amount: newTransaction.amount,
+        description: newTransaction.description,
+        store_id: newTransaction.store_id || null,
+        scenario_id: newTransaction.scenario_id || null,
+        organization_id: organizationId
+      })
       
       if (error) throw error
       
@@ -194,10 +193,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   const runDeleteTransaction = async () => {
     if (!deleteTargetId) return
     try {
-      const { error } = await supabase
-        .from('miscellaneous_transactions')
-        .delete()
-        .eq('id', deleteTargetId)
+      const { error } = await miscTransactionApi.delete(deleteTargetId)
 
       if (error) throw error
       await loadTransactions()
