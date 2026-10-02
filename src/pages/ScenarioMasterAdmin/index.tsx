@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
+import { scenarioMasterWriteApi } from '@/lib/api/scenarioWriteApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
@@ -228,10 +229,7 @@ export function ScenarioMasterAdmin() {
         updatePayload.approved_by = user?.id
         updatePayload.approved_at = new Date().toISOString()
       }
-      const { error } = await supabase
-        .from('scenario_masters')
-        .update(updatePayload)
-        .in('id', targetIds)
+      const { error } = await scenarioMasterWriteApi.updateByIds(targetIds, updatePayload)
 
       if (error) throw error
       toast.success(`${targetIds.length}件を${STATUS_CONFIG[newStatus].label}に変更しました`)
@@ -299,10 +297,7 @@ export function ScenarioMasterAdmin() {
         updatePayload.approved_by = user?.id
         updatePayload.approved_at = new Date().toISOString()
       }
-      const { error } = await supabase
-        .from('scenario_masters')
-        .update(updatePayload)
-        .eq('id', masterId)
+      const { error } = await scenarioMasterWriteApi.updateById(masterId, updatePayload)
 
       if (error) throw error
       toast.success(`${STATUS_CONFIG[newStatus].label}に変更しました`)

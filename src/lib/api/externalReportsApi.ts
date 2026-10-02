@@ -6,6 +6,7 @@
  */
 import { logger } from '@/utils/logger'
 import { apiClient, ApiClientError } from '@/lib/apiClient'
+import { supabase } from '@/lib/supabase'
 import type { ExternalPerformanceReport, LicensePerformanceSummary } from '@/types'
 
 /**
@@ -194,4 +195,12 @@ export async function getManagedScenarios(): Promise<
     logger.error('Failed to fetch managed scenarios:', error)
     throw error
   }
+}
+
+/**
+ * 外部公演・貸出の報告を、複数行まとめて追加する（報告フォームの送信）。
+ * 戻り値は supabase の { error } をそのまま返す。
+ */
+export async function insertExternalReports(reports: Array<Record<string, unknown>>) {
+  return supabase.from('external_performance_reports').insert(reports)
 }

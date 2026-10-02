@@ -13,6 +13,7 @@ import { ListSkeleton, EmptyState } from '@/components/patterns/list'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { authorApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { scenarioMasterWriteApi } from '@/lib/api/scenarioWriteApi'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
@@ -760,10 +761,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       const scenarioIds = [...new Set(bulkEmailTarget.items.map(item => item.scenarioId))]
 
       // 各シナリオのauthor_emailを更新（scenario_masters に保存）
-      const { error } = await supabase
-        .from('scenario_masters')
-        .update({ author_email: bulkEmail.trim() })
-        .in('id', scenarioIds)
+      const { error } = await scenarioMasterWriteApi.updateByIds(scenarioIds, { author_email: bulkEmail.trim() })
 
       if (error) throw error
 

@@ -127,6 +127,10 @@ export const profileRegistrationApi = {
   async updateOwnRow(customerId: string, userId: string, payload: Record<string, unknown>) {
     return supabase.from('customers').update(payload).eq('id', customerId).eq('user_id', userId)
   },
+  /** 自分の users 行を作る・更新する（id が競合したら更新） */
+  async upsertUserRow(row: Record<string, unknown>) {
+    return supabase.from('users').upsert(row, { onConflict: 'id' })
+  },
   /** 新規に自分の顧客行を作る */
   async insertOwnRow(row: Record<string, unknown>) {
     return supabase.from('customers').insert(row)
