@@ -27,6 +27,7 @@ import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { CancellationPolicyLink } from '@/components/patterns/cancellation/CancellationPolicyView'
+import { upsertOwnCustomer } from '@/lib/api/customerApi'
 
 export function BookingConfirmation({
   eventId,
@@ -254,44 +255,11 @@ export function BookingConfirmation({
 
       // 顧客IDを取得または作成（ログインユーザー・組織で一意）
       let customerId: string | null = null
-      const { data: existingCustomer } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('organization_id', eventData.organization_id)
-        .maybeSingle()
-
-      if (existingCustomer) {
-        customerId = existingCustomer.id
-        const { error: custUpdErr } = await supabase
-          .from('customers')
-          .update({
-            name: customerName,
-            nickname: customerNickname || null,
-            phone: customerPhone.trim(),
-            email: customerEmail,
-          })
-          .eq('id', customerId)
-          .eq('user_id', user.id)
-          .eq('organization_id', eventData.organization_id)
-        if (custUpdErr) throw custUpdErr
-      } else {
-        const { data: newCustomer, error: customerError } = await supabase
-          .from('customers')
-          .insert({
-            user_id: user.id,
-            name: customerName,
-            nickname: customerNickname || null,
-            phone: customerPhone.trim(),
-            email: customerEmail,
-            organization_id: eventData.organization_id
-          })
-          .select('id')
-          .single()
-
-        if (customerError) throw customerError
-        customerId = newCustomer?.id ?? null
-      }
+      customerId = await upsertOwnCustomer({
+        userId: user.id, name: customerName, nickname: customerNickname || null,
+        phone: customerPhone.trim(), email: customerEmail, organizationId: eventData.organization_id,
+        scopeByOrganization: true, throwOnError: true,
+      })
 
       if (!customerId) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
