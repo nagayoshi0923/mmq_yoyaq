@@ -71,6 +71,47 @@ export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<
   return created?.id ?? null
 }
 
+/**
+ * マイページ・お気に入りなど「本人の顧客行」を書く操作（整備 Phase 2: 画面からの直接書き込みをここに集約）。
+ * どれも本人の行（user_id = 自分）か、本人のメールの行だけを RLS の下で書く。戻り値は supabase の { data, error } をそのまま返す。
+ */
+export interface OwnProfileFields {
+  name: string
+  nickname: string | null
+  phone: string | null
+  address: string | null
+  line_id: string | null
+  email: string | null
+}
+export const ownCustomerApi = {
+  /** プロフィールを更新する（id で絞り、userId を渡したときは user_id でも絞る）。更新された行の id を返す */
+  async updateProfileById(customerId: string, fields: OwnProfileFields, userId?: string | null) {
+    let q = supabase.from('customers').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', customerId)
+    if (userId) q = q.eq('user_id', userId)
+    return q.select('id')
+  },
+  /** 本人の顧客行が無いときに作成する（マイページ初回保存）。organization_id は呼び出し側が決める */
+  async insertProfile(userId: string, fields: OwnProfileFields, organizationId: string | null) {
+    return supabase.from('customers').insert({ user_id: userId, ...fields, organization_id: organizationId }).select('id')
+  },
+  /** 通知設定だけを更新する */
+  async updateNotificationSettings(customerId: string, settings: Record<string, unknown>) {
+    return supabase.from('customers').update({ notification_settings: settings }).eq('id', customerId)
+  },
+  /** アバター画像の URL を、本人のメールの顧客行に保存する */
+  async updateAvatarByEmail(email: string, avatarUrl: string) {
+    return supabase.from('customers').update({ avatar_url: avatarUrl }).eq('email', email)
+  },
+  /** メールだけが一致していた顧客行に user_id を紐付ける（お気に入りの初回） */
+  async linkUserId(customerId: string, userId: string) {
+    return supabase.from('customers').update({ user_id: userId }).eq('id', customerId)
+  },
+  /** お気に入り用に顧客行を新規作成する（メール・名前・user_id・組織つき） */
+  async insertForFavorites(row: { email: string; name: string; user_id: string; organization_id: string }) {
+    return supabase.from('customers').insert(row).select('id').single()
+  },
+}
+
 export const customerApi = {
   async playedScenarioOptions(): Promise<Array<{ scenario_master_id: string; title: string }>> {
     return apiClient.get('/api/customers?action=playedScenarioOptions')
