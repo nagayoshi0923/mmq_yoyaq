@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useUrlSyncedText } from '@/hooks/useUrlSyncedText'
 import type { Scenario } from '@/types'
 
 type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre' | 'performance_count' | 'created_at'
@@ -15,15 +16,9 @@ interface ScenarioStats {
  */
 export function useScenarioFilters(scenarios: Scenario[], scenarioStats?: Record<string, ScenarioStats>) {
   const [searchParams, setSearchParams] = useSearchParams()
-  const searchTerm = searchParams.get('search') ?? ''
+  // 入力中の値は画面の中で持ち、URL へは後から写す（速く打つと文字が消える不具合の対策）
+  const [searchTerm, setSearchTerm] = useUrlSyncedText('search')
   const statusFilter = searchParams.get('status') ?? 'all'
-
-  const setSearchTerm = (v: string) => setSearchParams(prev => {
-    const next = new URLSearchParams(prev)
-    if (v) next.set('search', v)
-    else next.delete('search')
-    return next
-  }, { replace: true })
 
   const setStatusFilter = (v: string) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)

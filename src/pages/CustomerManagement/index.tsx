@@ -1,6 +1,6 @@
 import { CustomerListControls, CustomerTableHeader } from '@/pages/CustomerManagement/components/CustomerListControls'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useUrlSyncedText } from '@/hooks/useUrlSyncedText'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -16,12 +16,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { canEditCustomer } from './utils/customerEditAccess'
 
 export default function CustomerManagement() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const searchTerm = searchParams.get('search') ?? ''
-  const setSearchTerm = (v: string) => setSearchParams(
-    v ? { search: v } : {},
-    { replace: true }
-  )
+  const [searchTerm, setSearchTerm] = useUrlSyncedText('search')
   const {
     organizationId,
     customers,
