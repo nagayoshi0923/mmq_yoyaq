@@ -100,8 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // 自組織の外部公演報告一覧
 async function handleGetMine(res: VercelResponse, user: AuthUser) {
   requireStaff(user)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('external_performance_reports')
     .select(REPORT_SELECT_WITH_RELATIONS_MINE)
     .eq('organization_id', user.orgId)
@@ -124,8 +123,7 @@ async function handleGetAll(req: VercelRequest, res: VercelResponse, user: AuthU
   const scenarioId = req.query.scenarioId as string | undefined
   const requestedOrgId = req.query.organizationId as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (db as any)
+  let query = db!
     .from('external_performance_reports')
     .select(REPORT_SELECT_WITH_RELATIONS_ALL)
     .order('created_at', { ascending: false })
@@ -169,8 +167,7 @@ async function handleGetLicenseSummary(req: VercelRequest, res: VercelResponse, 
 
   const authorName = req.query.authorName as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('license_performance_summary')
     .select(
       'scenario_master_id, scenario_title, author, license_amount, internal_performance_count, external_performance_count, total_performance_count, total_license_fee'
@@ -191,8 +188,7 @@ async function handleGetLicenseSummary(req: VercelRequest, res: VercelResponse, 
 // 管理シナリオ一覧（報告フォーム用）
 async function handleGetManagedScenarios(res: VercelResponse, user: AuthUser) {
   requireStaff(user)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios_with_master')
     .select('id, title, author, license_amount')
     .eq('status', 'available')
@@ -230,8 +226,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   //
   // reported_by はフロントから受け取るが、当該 staff が自組織所属かを最低限検証する
   if (body.reported_by) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: staffRow, error: staffErr } = await (db as any)
+    const { data: staffRow, error: staffErr } = await db!
       .from('staff')
       .select('id, organization_id')
       .eq('id', body.reported_by)
@@ -246,8 +241,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   // scenario_master_id が自組織で扱えるか検証
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scn, error: scnErr } = await (db as any)
+  const { data: scn, error: scnErr } = await db!
     .from('organization_scenarios_with_master')
     .select('id')
     .eq('id', body.scenario_master_id)
@@ -261,8 +255,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(403).json({ error: '指定されたシナリオは自組織で扱えません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('external_performance_reports')
     .insert({
       scenario_master_id: body.scenario_master_id,
@@ -297,8 +290,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   // 所属組織を検証してから更新
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: lookupErr } = await (db as any)
+  const { data: existing, error: lookupErr } = await db!
     .from('external_performance_reports')
     .select('id, organization_id, status')
     .eq('id', id)
@@ -323,8 +315,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   if (body.venue_name !== undefined) updates.venue_name = body.venue_name
   if (body.notes !== undefined) updates.notes = body.notes
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('external_performance_reports')
     .update(updates)
     .eq('id', id)
@@ -345,8 +336,7 @@ async function handleApprove(req: VercelRequest, res: VercelResponse, user: Auth
   const body = req.body as { reviewerId?: string }
   const reviewerId = body.reviewerId ?? user.userId
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('external_performance_reports')
     .update({
       status: 'approved',
@@ -375,8 +365,7 @@ async function handleReject(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(400).json({ error: '却下理由 (reason) が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('external_performance_reports')
     .update({
       status: 'rejected',
@@ -400,8 +389,7 @@ async function handleDelete(res: VercelResponse, user: AuthUser, id: string) {
   requireStaff(user)
 
   // 所属組織を検証
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: lookupErr } = await (db as any)
+  const { data: existing, error: lookupErr } = await db!
     .from('external_performance_reports')
     .select('id, organization_id, status')
     .eq('id', id)
@@ -418,8 +406,7 @@ async function handleDelete(res: VercelResponse, user: AuthUser, id: string) {
     return res.status(409).json({ error: 'pending 状態の報告のみ削除できます' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('external_performance_reports')
     .delete()
     .eq('id', id)

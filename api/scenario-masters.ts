@@ -130,8 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 async function fetchMasterById(id: string): Promise<Record<string, unknown> | null> {
   if (!db) return null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('scenario_masters')
     .select(SCENARIO_MASTER_SELECT_FIELDS)
     .eq('id', id)

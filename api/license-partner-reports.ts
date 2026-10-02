@@ -67,15 +67,13 @@ async function handleAuthor(
   year: number,
   month: number | null
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: userData, error: userError } = await (db as any).auth.admin.getUserById(user.userId)
+  const { data: userData, error: userError } = await db!.auth.admin.getUserById(user.userId)
   if (userError || !userData?.user?.email) {
     return res.status(401).json({ error: 'ログインが必要です' })
   }
   const email = String(userData.user.email)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: masters, error: masterError } = await (db as any)
+  const { data: masters, error: masterError } = await db!
     .from('scenario_masters')
     .select('id')
     .ilike('author_email', email)
@@ -105,8 +103,7 @@ async function loadRows(params: {
   month: number | null
   scenarioIds?: string[]
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let periodQuery = (db as any)
+  let periodQuery = db!
     .from('license_partner_monthly_reports')
     .select('partner_store_id, scenario_master_id, organization_id, year, month, performance_count, submitted_at')
     .eq('year', params.year)
@@ -115,8 +112,7 @@ async function loadRows(params: {
   if (params.organizationId) periodQuery = periodQuery.eq('organization_id', params.organizationId)
   if (params.scenarioIds) periodQuery = periodQuery.in('scenario_master_id', params.scenarioIds)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let recentQuery = (db as any)
+  let recentQuery = db!
     .from('license_partner_monthly_reports')
     .select('partner_store_id, scenario_master_id, organization_id, year, month, performance_count, submitted_at')
     .gte('submitted_at', daysAgoIso(90))
@@ -150,19 +146,16 @@ async function loadRows(params: {
   }
 
   const [storesResult, contractsResult, scenariosResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('license_partner_stores')
       .select('id, name')
       .in('id', storeIds),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('license_partner_contracts')
       .select('partner_store_id, scenario_master_id, license_amount')
       .in('partner_store_id', storeIds)
       .in('scenario_master_id', scenarioIds),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (db as any)
+    db!
       .from('organization_scenarios_with_master')
       .select('organization_id, scenario_master_id, title, author, author_email, license_amount, external_license_amount')
       .in('organization_id', orgIds)

@@ -191,7 +191,7 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 | Phase 2 書き込みの API 層化 | 56 か所・19 ファイル（開始時 127 か所、#779 マージ後）。お金・人数・予約・メール・顧客・通知・キット・キャンセル待ちに関わる書き込みは 0 件 | 0 | 1 ファイル 1 PR、挙動不変、単体テストを足す |
 | Phase 2 読み取りも含む直接呼び出し | 480 か所・120 ファイル（from 412・rpc 68） | 0（lint 許可リスト `eslint.config.js` の「境界の歯止め」を空にする） | 書き込みの後。移し終えたファイルを許可リストから外す |
 | Phase 3 API 5 本の分割 | coupons 1,636 / schedule 1,510 / reservations 1,385 / scenarios 1,123 / sales 1,104 行 | 各 400 行以下 | 入口ファイルを残し、本体を `api/_lib/<領域>/` に 1 アクション 1 ファイル。テスト件数が減らないこと |
-| Phase 3 `: any` | 412 件 | 200 件 | 書き込み経路から |
+| Phase 3 `: any` | 412 件（数え方は開始時のもの。同じ数え方で測り直すと下の別の数え方になる） | 200 件 | `api/` の `(db as any)` 205 箇所は #799 で型付きの `db!` にした（残り 7 箇所は型が合わず残した）。`src/` 側が残り。別の数え方（`: any`・`as any`・`<any>`・`any[]`、テスト除く、src と api）で 797 件 → 602 件 |
 
 **書き込みの残り（56 か所）の内訳**
 
@@ -204,13 +204,28 @@ Phase 3 を落とせば約4週間。Phase 1 は社長の判断（第5節）が�
 | 店舗 | stores 5 | 5 |
 | その他 | data_management_settings 2、external_performance_reports 2、users 1、organization_categories 1、organization_authors 1、user_table_preferences 1 | 8 |
 
-**Phase 3 の API 分割を始めるときの前提と設計（2026-10-02 調査、#774）**
+**Phase 3 の API 分割の進み具合と、残りの再開手順（2026-10-03 更新、#774）**
 
-- **先に特性テストを書く**: `api/sales.ts` のうち、既存のテストが触っているのは給与まわり（salary-history 系）と売上規則の関数 `getReservationRevenue` だけ。`by-period` / `by-store` / `by-scenario` / `author-performance-count` / `stores` / `scenario-performance` / `open-event-analysis` / `schedule-export` / `annual-analysis` の 9 本はテストが無く、分割で数字が変わっても検知できない。固定のモックデータを渡して出力を固定するテストを、分割より先に書く。
-- **分割後に本番データで前後比較**: 直近 3 か月の同じリクエストの出力を分割の前後で保存し、完全一致を確認する（売上 CSV・分析は給与や報告に使う数字のため）。
-- **`api/sales.ts`（1,104 行）の設計**: 入口は残し、`getReservationRevenue` の再エクスポートとハンドラの分岐だけにする（外部が使うのは `getReservationRevenue`（`api/sales-price.test.ts`）と default export（`api/salary-report.test.ts`、`api/compensation-reports.test.ts`）のみ）。共通の定数・ヘルパ（SELECT 文字列、CORS、`getStartEnd`、`getStoreIds`、`SALES_RESERVATION_STATUSES`）は `api/_lib/sales/common.ts`、売上規則は `api/_lib/sales/revenue.ts`、各ハンドラは `api/_lib/sales/<名前>.ts` に 1 ファイルずつ。
-- **行数の内訳（2026-10-02 時点）**: schedule-export 約 260 行（694〜951）、by-period 約 210 行（232〜438）、annual-analysis 約 135 行（970〜）、scenario-performance 約 115 行（522〜637）が大きい。ここから切り出すと効果が大きい。
-- **作業量の見立て**: 特性テストで半日、分割で半日。5 本（coupons / schedule / reservations / scenarios / sales）を順に。sales から始めるのが、今日の作業（金額・GM 照合）で構造に慣れているため最も安全。
+| API | 分割前 | 分割後 | 状態 |
+|---|---|---|---|
+| `api/sales.ts` | 1,104 行 | 入口 76 行 + `api/_lib/sales/` 12 ファイル（最大 268 行） | 本番反映済み（#783 特性テスト、#784 分割） |
+| `api/scenarios.ts` | 1,123 行 | 入口 42 行 + `api/_lib/scenarios/` 6 ファイル（最大 325 行） | 本番反映済み（#790） |
+| `api/coupons.ts` | 1,636 行 | 入口 188 行 + `api/_lib/coupons/` 8 ファイル（最大 322 行） | 本番反映済み（#791） |
+| `api/schedule.ts` | 1,510 行 | 入口 109 行 + `api/_lib/schedule/` 10 ファイル（最大 299 行） | マージ済み（#796。特性テスト 24 件） |
+| `api/reservations.ts` | 1,385 行 | 入口 163 行 + `api/_lib/reservations/` 7 ファイル（最大 355 行） | マージ済み（#798。特性テスト 55 件） |
+
+**分割の手順（sales / scenarios / coupons で確立した型）**
+
+1. **特性テストを先に書く**: 固定データ（時刻は `vi.useFakeTimers` で固定）と、テーブル別の DB モックで、出力・書き込みペイロード（`insert` / `update` / `delete` / `rpc` の引数）・発行クエリ（テーブル・列・絞り込み）をインラインスナップショットで固定する。固定する値は「現状の出力」であり、正しさの主張ではない。固定した数字は手計算で規則どおりか確認する。既存の食い違いが見つかったら issue にして、分割では直さない（今回: #787、#788）。
+2. **機械的に切り出す**: スクリプトで関数ごとの行範囲（直前のコメント含む）を切り、各ファイルが使う import だけを付け、宣言に `export` を付ける。手で写さない。共通部分は `common.ts`、入口はメソッドのルーティングだけ。
+3. **挙動が変わっていない証拠を 3 つ揃える**: (a) コメントと import を除くコード行の集合が分割の前後で同数で、差が `export` の付与だけ（スクリプトで比較）、(b) 特性テストと既存テストが前後で同じ結果、(c) `npm run typecheck`（src と api）と `--noUnusedLocals`。
+4. **1 つの PR に特性テストと分割の 2 コミット**、手元で全部通してから出す。release は未マージの PR が 0 件になってから 1 回だけ。
+
+**API 5 本の分割は 2026-10-03 に完了（#774）**: 5 本とも、コメントと import を除くコード行が分割の前後で同一（差は `export` の付与だけ）で、特性テストと全テスト、typecheck を通した。入口ファイルは 42〜188 行、最大のモジュールは 355 行（`api/_lib/reservations/cancel.ts`）。`api/_lib/*` の各ファイルは 400 行以下。
+
+**特性テストで見つけた既存の食い違い（分割では直していない）**: #787（作品統計が来店済みを参加者に数えず、売上側と規則が違う。社長の判断待ち）、#794（参加者の表示規則が画面・API で揃っていない）。#788（累計公演回数が中止公演を数える）は 2026-10-03 に #797 で直した（中止は中止として数え、開催回数に含めない）。
+
+**`: any`（#775）**: `api/` の `(db as any)` 205 箇所を型付きの `db!` にした（#799）。差分は「置き換え」と「不要なコメントの削除」だけで、置き換え後の行と元の行の過不足 0 件をスクリプトで確認した。型が合わない 7 箇所は残した（予約の join 結果が配列として推論される所など。実データでは単体のオブジェクトなので、型の側を直す必要がある）。残りは `src/` 側が中心（`useBookingData.ts` 21、`CalendarView.tsx` 19、`PrivateBookingScenarioSelect.tsx` 14 など）。再開するときは、型が付くところから順に `as any` を外し、typecheck が通る範囲で進める。
 
 **やり方の決まり（2026-10-02 の 8 本で固めたもの）**
 

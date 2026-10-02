@@ -22,8 +22,7 @@ const SELECT_FIELDS =
 
 /** staff_id が自組織のものか検証 */
 async function assertStaffOwnedByOrg(staffId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('staff')
     .select('id')
     .eq('id', staffId)
@@ -37,8 +36,7 @@ async function assertStaffOwnedByOrg(staffId: string, orgId: string): Promise<vo
 async function assertStaffIdsOwnedByOrg(staffIds: string[], orgId: string): Promise<void> {
   if (staffIds.length === 0) return
   const unique = Array.from(new Set(staffIds))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('staff')
     .select('id')
     .eq('organization_id', orgId)
@@ -55,8 +53,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const dateQ = req.query.date as string | undefined
   // 単一日付の全スタッフのシフト（getByDate 相当）
   if (dateQ) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: staffRows, error: staffError } = await (db as any)
+    const { data: staffRows, error: staffError } = await db!
       .from('staff')
       .select('id')
       .eq('organization_id', user.orgId)
@@ -65,8 +62,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     }
     const ids = (staffRows ?? []).map((s: { id: string }) => s.id)
     if (ids.length === 0) return res.status(200).json([])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('shift_submissions')
       .select(SELECT_FIELDS)
       .eq('date', dateQ)
@@ -90,8 +86,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
 
   if (staffId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('shift_submissions')
       .select(SELECT_FIELDS)
       .eq('organization_id', user.orgId)
@@ -106,8 +101,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(200).json(data ?? [])
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staffRows, error: staffError } = await (db as any)
+  const { data: staffRows, error: staffError } = await db!
     .from('staff')
     .select('id')
     .eq('organization_id', user.orgId)
@@ -118,8 +112,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const staffIds = (staffRows ?? []).map((s: { id: string }) => s.id)
   if (staffIds.length === 0) return res.status(200).json([])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('shift_submissions')
     .select(SELECT_FIELDS)
     .gte('date', startDate)
@@ -179,8 +172,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     const lastDay = new Date(year as number, month as number, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+    const { error } = await db!
       .from('shift_submissions')
       .update({ status: 'submitted', submitted_at: new Date().toISOString() })
       .eq('staff_id', staff_id)
@@ -212,8 +204,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
   const records = rows.map((r) => normalizeShiftRow(r, user.orgId))
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('shift_submissions')
     .upsert(records, { onConflict: 'staff_id,date' })
     .select(SELECT_FIELDS)
@@ -231,8 +222,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   if (!id || !action) return res.status(400).json({ error: 'id / action が必要です' })
 
   // id が自組織のシフトか検証
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: fetchError } = await (db as any)
+  const { data: existing, error: fetchError } = await db!
     .from('shift_submissions')
     .select('id, organization_id')
     .eq('id', id)
@@ -255,8 +245,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
     return res.status(400).json({ error: '不明な action: approve|reject のみ' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('shift_submissions')
     .update(updates)
     .eq('id', id)
@@ -273,8 +262,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
   const id = (req.query.id ?? req.body?.id) as string | undefined
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: fetchError } = await (db as any)
+  const { data: existing, error: fetchError } = await db!
     .from('shift_submissions')
     .select('id, organization_id')
     .eq('id', id)
@@ -285,8 +273,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(403).json({ error: '他組織のシフトは削除できません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('shift_submissions')
     .delete()
     .eq('id', id)

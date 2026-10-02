@@ -38,8 +38,7 @@ const ACTION_TYPES = new Set([
 
 // ─── ヘルパ ─────────────────────────────────────────────────────────────────
 async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('stores')
     .select('id')
     .eq('id', storeId)
@@ -50,8 +49,7 @@ async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<vo
 }
 
 async function assertScheduleEventOwnedByOrg(scheduleEventId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('schedule_events')
     .select('id, organization_id')
     .eq('id', scheduleEventId)
@@ -73,7 +71,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = (db as any)
+  let query: any = db!
     .from('schedule_event_history')
     .select(SELECT_FIELDS)
     .eq('organization_id', user.orgId)
@@ -147,8 +145,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   }
   if (changed_by_staff_id) {
     checks.push((async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: staffRow, error: staffErr } = await (db as any)
+      const { data: staffRow, error: staffErr } = await db!
         .from('staff')
         .select('id, organization_id')
         .eq('id', changed_by_staff_id)
@@ -185,8 +182,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     notes: notes ?? null,
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('schedule_event_history')
     .insert(entry)
     .select(SELECT_FIELDS)

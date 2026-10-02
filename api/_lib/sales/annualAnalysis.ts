@@ -41,7 +41,7 @@ export async function handleAnnualAnalysis(req: VercelRequest, res: VercelRespon
   // eslint-disable-next-line no-constant-condition
   while (true) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q: any = (db as any)
+    let q: any = db!
       .from('schedule_events')
       .select('id, date, category, venue_rental_fee')
       .eq('organization_id', orgId)
@@ -74,7 +74,7 @@ export async function handleAnnualAnalysis(req: VercelRequest, res: VercelRespon
     // eslint-disable-next-line no-constant-condition
     while (true) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rq: any = (db as any)
+      const rq: any = db!
         .from('reservations')
         .select('schedule_event_id, final_price, payment_method')
         .eq('organization_id', orgId)

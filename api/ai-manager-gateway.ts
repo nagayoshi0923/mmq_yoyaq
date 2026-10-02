@@ -208,8 +208,7 @@ async function executeDirectRead(plan: ReturnType<typeof createAiManagerDirectRe
   // gateway は service role を使うため、RLS任せにせず plan に organization_id を必須注入する。
   const rows: unknown[] = []
   for (let from = 0; from < plan.maxRows; from += plan.pageSize) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (db as any)
+    let query = db!
       .from(plan.table)
       .select(plan.select)
     for (const filter of plan.filters) query = query.eq(filter.column, filter.value)

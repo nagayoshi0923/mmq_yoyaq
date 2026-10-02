@@ -24,8 +24,7 @@ async function recordAssignmentHistory(
       changed_by: changedBy,
       source: 'api',
     }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any)
+    const { error } = await db!
       .from('staff_scenario_assignment_history')
       .insert(rows)
     if (error) {
@@ -44,8 +43,7 @@ async function fetchScenarioTitles(
   const map = new Map<string, string>()
   const ids = Array.from(new Set(scenarioMasterIds)).filter(Boolean)
   if (ids.length === 0) return map
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios_with_master')
     .select('scenario_master_id, title')
     .eq('organization_id', orgId)
@@ -78,8 +76,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 // ─── 所有チェック用ヘルパ ────────────────────────────────────────────────────
 /** staff_id が自組織に属するか確認 */
 async function assertStaffOwnedByOrg(staffId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('staff')
     .select('id')
     .eq('id', staffId)
@@ -91,8 +88,7 @@ async function assertStaffOwnedByOrg(staffId: string, orgId: string): Promise<vo
 
 /** scenario_master_id が自組織で扱えるか確認 (org が purchase 済みか) */
 async function assertScenarioMasterAccessible(scenarioMasterId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_scenarios')
     .select('id')
     .eq('scenario_master_id', scenarioMasterId)
@@ -115,8 +111,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     await assertStaffOwnedByOrg(historyStaffId, user.orgId)
     const limitRaw = Number.parseInt((req.query.limit as string | undefined) ?? '20', 10)
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('staff_scenario_assignment_history')
       .select('id, scenario_master_id, action, changed_by, changed_at, source')
       .eq('organization_id', user.orgId)
@@ -150,8 +145,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     const PAGE_SIZE = 1000
     const allRows: Array<Record<string, unknown>> = []
     for (let from = 0; ; from += PAGE_SIZE) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (db as any)
+      const { data, error } = await db!
         .from('staff_scenario_assignments')
         .select('staff_id, scenario_master_id, can_main_gm, can_sub_gm, is_experienced')
         .eq('organization_id', user.orgId)
@@ -174,8 +168,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   if (scenarioIdsRaw) {
     const ids = scenarioIdsRaw.split(',').map((s) => s.trim()).filter(Boolean)
     if (ids.length === 0) return res.status(200).json([])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('staff_scenario_assignments')
       .select('scenario_master_id, staff_id, can_main_gm, can_sub_gm, is_experienced')
       .eq('organization_id', user.orgId)
@@ -201,8 +194,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
         author
       )
     `
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('staff_scenario_assignments')
       .select(SELECT)
       .eq('organization_id', user.orgId)
@@ -225,8 +217,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
       line_name
     )
   `
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('staff_scenario_assignments')
     .select(SELECT)
     .eq('organization_id', user.orgId)
@@ -277,8 +268,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     await assertStaffOwnedByOrg(staff_id, user.orgId)
     await assertScenarioMasterAccessible(scenario_master_id, user.orgId)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('staff_scenario_assignments')
       .upsert(
         {
@@ -328,8 +318,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     // 🛡 空配列での一括クリアは、明示的な confirm_clear: true なしには受理しない
     // (ロード失敗やクライアント不具合で空配列が送られて全消失する事故を防止)
     if (assignments.length === 0 && confirm_clear !== true) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (db as any)
+      const { count } = await db!
         .from('staff_scenario_assignments')
         .select('*', { count: 'exact', head: true })
         .eq('staff_id', staff_id)
@@ -354,8 +343,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     const accessibleScenarioIds = new Set<string>()
     if (valid.length > 0) {
       const uniqueIds = Array.from(new Set(valid.map((a) => a.scenarioId)))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: accRows, error: accError } = await (db as any)
+      const { data: accRows, error: accError } = await db!
         .from('organization_scenarios')
         .select('scenario_master_id')
         .eq('organization_id', user.orgId)
@@ -375,8 +363,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     // 🛡 減少ガード（YOYAQ-011）: delete の「前」に既存の担当集合を取得し、
     // 新しい配列が既存より1件でも減る場合は 409 で拒否する（PO要件「登録済みが減らないこと」）。
     // confirm_clear: true 明示時のみ通す（部分欠けの配列で担当が黙って消える事故を防ぐ）。
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingRows, error: existingError } = await (db as any)
+    const { data: existingRows, error: existingError } = await db!
       .from('staff_scenario_assignments')
       .select('*')
       .eq('staff_id', staff_id)
@@ -420,8 +407,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
 
     // 既存値との照合・差分更新を1トランザクションで実行する。
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: saved, error: saveError } = await (db as any).rpc('replace_staff_assignments_atomic', {
+    const { data: saved, error: saveError } = await db!.rpc('replace_staff_assignments_atomic', {
       p_organization_id: user.orgId,
       p_staff_id: staff_id,
       p_assignments: insertable,
@@ -474,8 +460,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     // 🛡 空 staff_ids は既存 GM を全員降格させる。ロード失敗やレースで空配列が
     // 送られて全 GM が消える事故を防ぐため、明示的な confirm_clear なしには拒否する。
     if (staff_ids.length === 0 && confirm_clear !== true) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (db as any)
+      const { count } = await db!
         .from('staff_scenario_assignments')
         .select('*', { count: 'exact', head: true })
         .eq('scenario_master_id', scenario_master_id)
@@ -489,8 +474,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
 
     // 現在の GM 担当を取得
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: current, error: fetchError } = await (db as any)
+    const { data: current, error: fetchError } = await db!
       .from('staff_scenario_assignments')
       .select('*')
       .eq('scenario_master_id', scenario_master_id)
@@ -514,8 +498,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     // 🛡 減少ガード（YOYAQ-011）: 担当GMが1人でも減る（降格される）場合は 409 で拒否する。
     // confirm_clear: true 明示時のみ通す。既存の空配列ガードは 0 件だけを見るため部分欠けを素通りする穴を塞ぐ。
     if (toDowngrade.length > 0 && confirm_clear !== true) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: staffRows } = await (db as any)
+      const { data: staffRows } = await db!
         .from('staff')
         .select('id, name')
         .eq('organization_id', user.orgId)
@@ -533,8 +516,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: saved, error: saveError } = await (db as any).rpc('replace_scenario_assignments_atomic', {
+    const { data: saved, error: saveError } = await db!.rpc('replace_scenario_assignments_atomic', {
       p_organization_id: user.orgId,
       p_scenario_master_id: scenario_master_id,
       p_staff_ids: Array.from(new Set(staff_ids)),
@@ -580,8 +562,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
     return res.status(400).json({ error: '更新内容が空です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('staff_scenario_assignments')
     .update(updates)
     .eq('staff_id', staff_id)
@@ -606,8 +587,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
   await assertStaffOwnedByOrg(staffId, user.orgId)
   await assertScenarioMasterAccessible(scenarioMasterId, user.orgId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('staff_scenario_assignments')
     .update({ can_main_gm: false, can_sub_gm: false, is_experienced: true })
     .eq('staff_id', staffId)
