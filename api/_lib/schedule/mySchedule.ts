@@ -14,8 +14,7 @@ export async function handleMySchedule(req: VercelRequest, res: VercelResponse, 
   }
 
   // 1. GM として割り当てられた公演を取得
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: gmEvents, error: gmError } = await (db as any)
+  const { data: gmEvents, error: gmError } = await db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_MY_SELECT)
     .eq('organization_id', user.orgId)
@@ -92,8 +91,7 @@ export async function handleMySchedule(req: VercelRequest, res: VercelResponse, 
 
     for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
       const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: reservationError } = await (db as any)
+      const { data, error: reservationError } = await db!
         .from('reservations')
         .select('schedule_event_id, participant_count, status')
         .eq('organization_id', user.orgId)

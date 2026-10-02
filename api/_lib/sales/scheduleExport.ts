@@ -14,8 +14,7 @@ export async function handleScheduleExport(req: VercelRequest, res: VercelRespon
   if (!range) return res.status(400).json({ error: 'start / end クエリパラメータが必要です' })
   const { start, end } = range
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: events, error } = await (db as any)
+  const { data: events, error } = await db!
     .from('schedule_events')
     .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,ordinal,resolution_status)')
     .eq('organization_id', orgId)
@@ -31,8 +30,7 @@ export async function handleScheduleExport(req: VercelRequest, res: VercelRespon
   if (!events || events.length === 0) return res.status(200).json([])
 
   // スタッフ名
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staffData, error: staffError } = await (db as any)
+  const { data: staffData, error: staffError } = await db!
     .from('staff')
     .select('id,name,stores')
     .eq('organization_id', orgId)
@@ -45,8 +43,7 @@ export async function handleScheduleExport(req: VercelRequest, res: VercelRespon
   const staffById = new Map<string,{ stores: string[] | null }>((staffData ?? []).map((staff: {id: string; stores: string[] | null}) => [staff.id, { stores: staff.stores }]))
 
   // 店舗
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: stores, error: storesError } = await (db as any)
+  const { data: stores, error: storesError } = await db!
     .from('stores')
     .select('id, name, short_name, transport_allowance')
     .eq('organization_id', orgId)
@@ -57,8 +54,7 @@ export async function handleScheduleExport(req: VercelRequest, res: VercelRespon
 
   // ScenarioInfo は ScenarioPricing を継承し、id を必須にしただけ
   type ScenarioInfo = ScenarioPricing & { id: string; scenario_master_id?: string; title?: string; duration?: number | null }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scenariosData, error: scenariosError } = await (db as any)
+  const { data: scenariosData, error: scenariosError } = await db!
     .from('organization_scenarios_with_master')
     .select(`id, scenario_master_id, title, duration, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
@@ -77,8 +73,7 @@ export async function handleScheduleExport(req: VercelRequest, res: VercelRespon
   }
 
   type OrgScenarioOverride = ScenarioPricing & { id: string; scenario_master_id: string | null; duration: number | null }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orgScenariosData, error: orgScenariosError } = await (db as any)
+  const { data: orgScenariosData, error: orgScenariosError } = await db!
     .from('organization_scenarios')
     .select('id, scenario_master_id, duration, gm_costs, license_amount, gm_test_license_amount, participation_fee, gm_test_participation_fee, participation_costs')
     .eq('organization_id', orgId)
@@ -125,8 +120,7 @@ export async function handleScheduleExport(req: VercelRequest, res: VercelRespon
 
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch } = await (db as any)
+    const { data: batch } = await db!
       .from('reservations')
       .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price, discount_amount')
       .eq('organization_id', orgId)

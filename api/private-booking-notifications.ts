@@ -74,8 +74,7 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
   }
 
   // 予約の組織を検証（フロントから受け取った record はマルチテナント境界の根拠にしない）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reservation, error: lookupErr } = await (db as any)
+  const { data: reservation, error: lookupErr } = await db!
     .from('reservations')
     .select('id, organization_id, scenario_master_id, scenario_id')
     .eq('id', bookingId)
@@ -93,8 +92,7 @@ async function handleResendDiscord(req: VercelRequest, res: VercelResponse, user
 
   // 個別再通知: 対象スタッフが自組織のものか検証
   if (singleGm) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: staffRow, error: staffErr } = await (db as any)
+    const { data: staffRow, error: staffErr } = await db!
       .from('staff')
       .select('id')
       .eq('id', body.staff_id)

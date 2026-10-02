@@ -22,8 +22,7 @@ async function assertPageOwnedByOrg(
   pageId: string,
   orgId: string
 ): Promise<{ id: string; organization_id: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('manual_pages')
     .select('id, organization_id')
     .eq('id', pageId)
@@ -38,8 +37,7 @@ async function assertPageOwnedByOrg(
 
 /** block_id が自組織のページに属するか検証 */
 async function assertBlockOwnedByOrg(blockId: string, orgId: string): Promise<{ id: string; page_id: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('manual_blocks')
     .select('id, page_id, manual_pages:page_id(organization_id)')
     .eq('id', blockId)
@@ -62,8 +60,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     if (!pageId) return res.status(400).json({ error: 'page_id が必要です' })
     await assertPageOwnedByOrg(pageId, user.orgId)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: page, error: pageError } = await (db as any)
+    const { data: page, error: pageError } = await db!
       .from('manual_pages')
       .select('*')
       .eq('id', pageId)
@@ -73,8 +70,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
       return res.status(500).json({ error: 'ページ取得に失敗', detail: pageError.message })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: blocks, error: blocksError } = await (db as any)
+    const { data: blocks, error: blocksError } = await db!
       .from('manual_blocks')
       .select('*')
       .eq('page_id', pageId)
@@ -87,8 +83,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   }
 
   // デフォルト: アクティブな組織のマニュアル一覧
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('manual_pages')
     .select('*')
     .eq('organization_id', user.orgId)
@@ -120,8 +115,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
     await assertPageOwnedByOrg(page_id, user.orgId)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('manual_blocks')
       .insert({ page_id, block_type, content: content ?? {}, display_order })
       .select()
@@ -142,8 +136,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
     // 更新（並列ではなく直列で実施しエラー時に途中で止める）
     for (const { id, display_order } of items) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (db as any)
+      const { error } = await db!
         .from('manual_blocks')
         .update({ display_order })
         .eq('id', id)
@@ -159,8 +152,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     const { slug, content } = body as { slug?: string; content?: unknown }
     if (!slug) return res.status(400).json({ error: 'slug が必要です' })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing, error: fetchError } = await (db as any)
+    const { data: existing, error: fetchError } = await db!
       .from('manual_pages')
       .select('id')
       .eq('organization_id', user.orgId)
@@ -171,8 +163,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     }
 
     if (existing) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (db as any)
+      const { error } = await db!
         .from('manual_pages')
         .update({ page_content: content })
         .eq('id', existing.id)
@@ -181,8 +172,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
         return res.status(500).json({ error: '保存に失敗', detail: error.message })
       }
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (db as any)
+      const { error } = await db!
         .from('manual_pages')
         .insert({
           organization_id: user.orgId,
@@ -211,8 +201,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     return res.status(400).json({ error: 'title / slug / category が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('manual_pages')
     .insert({
       organization_id: user.orgId,
@@ -255,8 +244,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
       return res.status(400).json({ error: '更新内容が空です' })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('manual_blocks')
       .update(updates)
       .eq('id', id)
@@ -293,8 +281,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
     return res.status(400).json({ error: '更新内容が空です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('manual_pages')
     .update(updates)
     .eq('id', id)
@@ -316,8 +303,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
 
   if (type === 'block') {
     await assertBlockOwnedByOrg(id, user.orgId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('manual_blocks').delete().eq('id', id)
+    const { error } = await db!.from('manual_blocks').delete().eq('id', id)
     if (error) {
       console.error('[manuals] block delete error:', error)
       return res.status(500).json({ error: 'ブロック削除に失敗しました', detail: error.message })
@@ -327,8 +313,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
 
   // page 削除
   await assertPageOwnedByOrg(id, user.orgId)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('manual_pages')
     .delete()
     .eq('id', id)

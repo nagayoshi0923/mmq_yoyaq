@@ -34,8 +34,7 @@ async function resolveOrgScenarioId(
   orgId: string,
   scenarioIdOrMasterId: string
 ): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r1 = await (db as any)
+  const r1 = await db!
     .from('organization_scenarios')
     .select('id')
     .eq('organization_id', orgId)
@@ -43,8 +42,7 @@ async function resolveOrgScenarioId(
     .maybeSingle()
   if (r1.data?.id) return r1.data.id
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r2 = await (db as any)
+  const r2 = await db!
     .from('organization_scenarios')
     .select('id')
     .eq('organization_id', orgId)
@@ -55,8 +53,7 @@ async function resolveOrgScenarioId(
 
 /** store_id が自組織のものか検証 */
 async function assertStoreOwnedByOrg(storeId: string, orgId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('stores')
     .select('id')
     .eq('id', storeId)
@@ -72,20 +69,19 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
 
   if (scenarioId) {
     // 特定シナリオのキット位置（org_scenario_id または scenario_master_id どちらでも）
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orgScenarioId = await resolveOrgScenarioId(user.orgId, scenarioId)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any
     if (orgScenarioId) {
-      query = (db as any)
+      query = db!
         .from('scenario_kit_locations')
         .select(SELECT)
         .eq('organization_id', user.orgId)
         .eq('org_scenario_id', orgScenarioId)
         .order('kit_number')
     } else {
-      query = (db as any)
+      query = db!
         .from('scenario_kit_locations')
         .select(SELECT)
         .eq('organization_id', user.orgId)
@@ -100,8 +96,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(200).json(data ?? [])
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('scenario_kit_locations')
     .select(SELECT)
     .eq('organization_id', user.orgId)
@@ -142,8 +137,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
       store_id: storeId,
     }))
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('scenario_kit_locations')
       .upsert(records, { onConflict: 'organization_id,org_scenario_id,kit_number' })
       .select(SELECT)
@@ -169,7 +163,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
   // 既存レコード検索（自org のみ）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let existingQuery: any = (db as any)
+  let existingQuery: any = db!
     .from('scenario_kit_locations')
     .select('id, org_scenario_id, scenario_master_id')
     .eq('organization_id', user.orgId)
@@ -194,8 +188,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
 
   let data, error
   if (existing) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await (db as any)
+    const r = await db!
       .from('scenario_kit_locations')
       .update({
         store_id,
@@ -209,8 +202,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
     data = r.data
     error = r.error
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await (db as any)
+    const r = await db!
       .from('scenario_kit_locations')
       .insert({
         organization_id: user.orgId,
@@ -258,7 +250,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   const orgScenarioId = await resolveOrgScenarioId(user.orgId, scenario_id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = (db as any)
+  let q: any = db!
     .from('scenario_kit_locations')
     .update(updateRow)
     .eq('organization_id', user.orgId)
@@ -284,8 +276,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
   // 自組織のレコードか検証
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: fetchError } = await (db as any)
+  const { data: existing, error: fetchError } = await db!
     .from('scenario_kit_locations')
     .select('id, organization_id')
     .eq('id', id)
@@ -296,8 +287,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(403).json({ error: '他組織のレコードは削除できません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (db as any)
+  const { error } = await db!
     .from('scenario_kit_locations')
     .delete()
     .eq('id', id)

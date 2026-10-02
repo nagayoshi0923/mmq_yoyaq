@@ -80,8 +80,7 @@ export async function findMatchingScenario(scenarioName: string | undefined): Pr
   if (cleanName.length < 2) return null
 
   // エイリアスマッピングを取得
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: aliasRows } = await (db as any)
+  const { data: aliasRows } = await db!
     .from('scenario_import_aliases')
     .select('alias, canonical_name')
   const aliasMap: Record<string, string> = {}
@@ -99,8 +98,7 @@ export async function findMatchingScenario(scenarioName: string | undefined): Pr
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scenarios } = await (db as any)
+  const { data: scenarios } = await db!
     .from('scenario_masters')
     .select('id, title')
   if (!scenarios || scenarios.length === 0) return null

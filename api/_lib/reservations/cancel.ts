@@ -20,8 +20,7 @@ export async function handleCancelWithLock(req: VercelRequest, res: VercelRespon
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   if (!db) return res.status(500).json({ error: 'db unavailable' })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reservationForPolicy, error: policyFetchError } = await (db as any)
+  const { data: reservationForPolicy, error: policyFetchError } = await db!
     .from('reservations')
     .select(RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS)
     .eq('id', id)
@@ -65,8 +64,7 @@ export async function handleCancelWithGroupLock(req: VercelRequest, res: VercelR
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   if (!db) return res.status(500).json({ error: 'db unavailable' })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reservationForPolicy, error: policyFetchError } = await (db as any)
+  const { data: reservationForPolicy, error: policyFetchError } = await db!
     .from('reservations')
     .select(RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS)
     .eq('id', id)
@@ -132,8 +130,7 @@ export async function handleCancelOrchestrated(req: VercelRequest, res: VercelRe
   if (skipGroupCancel || cancelPrivateEvent) requireStaff(user)
 
   // 1) 予約 + customers + schedule_events を取得（マルチテナント境界チェックも兼ねる）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: reservation, error: fetchError } = await (db as any)
+  const { data: reservation, error: fetchError } = await db!
     .from('reservations')
     .select(RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS)
     .eq('id', id)
@@ -224,8 +221,7 @@ export async function handleCancelOrchestrated(req: VercelRequest, res: VercelRe
         console.warn('[reservations:cancel] cancel_private_event skipped: user.orgId が未設定')
       } else {
         // org スコープ: 実行ユーザーの組織の公演だけを対象にする（マルチテナント境界）
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: targetEvent, error: eventFetchError } = await (db as any)
+        const { data: targetEvent, error: eventFetchError } = await db!
           .from('schedule_events')
           .select('id, category, is_cancelled')
           .eq('id', targetEventId)
@@ -235,8 +231,7 @@ export async function handleCancelOrchestrated(req: VercelRequest, res: VercelRe
 
         // 貸切公演かつ未中止のときだけ更新する（open など他カテゴリ・中止済みは触らない）
         if (targetEvent && targetEvent.category === 'private' && targetEvent.is_cancelled !== true) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: eventUpdateError } = await (db as any)
+          const { error: eventUpdateError } = await db!
             .from('schedule_events')
             .update({
               is_cancelled: true,
@@ -295,8 +290,7 @@ export async function handleCancelOrchestrated(req: VercelRequest, res: VercelRe
           notes = `${customerName}（${participantCount}名）が予約サイトから予約をキャンセル`
         } else {
           // スタッフが API 経由でキャンセル → 操作者の staff 名を取得
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: staffRow } = await (db as any)
+          const { data: staffRow } = await db!
             .from('staff')
             .select('id, name')
             .eq('user_id', user.userId)

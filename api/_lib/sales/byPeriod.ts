@@ -12,8 +12,7 @@ export async function handleByPeriod(req: VercelRequest, res: VercelResponse, or
   if (!range) return res.status(400).json({ error: 'start / end クエリパラメータが必要です' })
   const { start, end } = range
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: events, error } = await (db as any)
+  const { data: events, error } = await db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
     .eq('organization_id', orgId)
@@ -32,8 +31,7 @@ export async function handleByPeriod(req: VercelRequest, res: VercelResponse, or
   }
 
   // シナリオ取得（組織固有設定を含む）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scenarios, error: scenariosError } = await (db as any)
+  const { data: scenarios, error: scenariosError } = await db!
     .from('organization_scenarios_with_master')
     .select(`id, title, author, duration, scenario_type, production_costs, required_props, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
@@ -43,8 +41,7 @@ export async function handleByPeriod(req: VercelRequest, res: VercelResponse, or
   }
 
   // organization_scenarios 取得（組織固有 GM 報酬等）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orgScenarios, error: orgScenariosError } = await (db as any)
+  const { data: orgScenarios, error: orgScenariosError } = await db!
     .from('organization_scenarios')
     .select(`id, scenario_master_id, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', orgId)
@@ -59,8 +56,7 @@ export async function handleByPeriod(req: VercelRequest, res: VercelResponse, or
   })
 
   // スタッフ
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staff, error: staffError } = await (db as any)
+  const { data: staff, error: staffError } = await db!
     .from('staff')
     .select('name')
     .eq('organization_id', orgId)
@@ -96,8 +92,7 @@ export async function handleByPeriod(req: VercelRequest, res: VercelResponse, or
   }> = []
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: batchError } = await (db as any)
+    const { data: batch, error: batchError } = await db!
       .from('reservations')
       .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price, discount_amount')
       .eq('organization_id', orgId)

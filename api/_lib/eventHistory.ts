@@ -67,8 +67,7 @@ export async function recordEventHistory(
       deleted_event_scenario: params.deletedEventScenario ?? null,
       notes: params.notes ?? null,
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (db as any).from('schedule_event_history').insert(entry)
+    const { error } = await db!.from('schedule_event_history').insert(entry)
     if (error) {
       console.error('[recordEventHistory] insert error:', error)
     }

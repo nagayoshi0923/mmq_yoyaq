@@ -14,7 +14,7 @@ export async function handleScenarioPerformance(req: VercelRequest, res: VercelR
   const licenseReportableOnly = req.query.license_reportable === 'true' || req.query.license_reportable === '1'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = (db as any)
+  let query: any = db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
     .eq('organization_id', orgId)
@@ -37,8 +37,7 @@ export async function handleScenarioPerformance(req: VercelRequest, res: VercelR
     return res.status(200).json([])
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scenarios, error: scenariosError } = await (db as any)
+  const { data: scenarios, error: scenariosError } = await db!
     .from('organization_scenarios_with_master')
     .select('id, title, author, license_amount, gm_test_license_amount, gm_costs')
     .eq('organization_id', orgId)

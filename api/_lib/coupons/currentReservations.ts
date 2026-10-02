@@ -57,7 +57,6 @@ export async function handleCurrentReservations(
   // 2. 貸切公演の参加メンバーとしての予約
   // SECURITY DEFINER RPC は auth.uid() に依存するためサーバ側からは使えない。
   // 同等のクエリをサーバで明示的に組み、結果を必ず本人の user_id + 自組織で再検証する。
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const privateGroupReservations: Array<{ reservation_id: string; schedule_event_id: string | null; reservation_status: string; group_status: string }> = []
   {
     const { data: members, error: membersError } = await database

@@ -5,8 +5,7 @@ import { STORE_SELECT_FIELDS_FOR_SALES } from '../sales/common.js'
 
 // ─── 店舗一覧 (getStores 相当) ───────────────────────────────────────────────
 export async function handleStores(res: VercelResponse, orgId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('stores')
     .select(STORE_SELECT_FIELDS_FOR_SALES)
     .eq('organization_id', orgId)

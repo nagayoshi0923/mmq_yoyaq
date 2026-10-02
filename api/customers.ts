@@ -178,8 +178,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
       || (hasCoupons !== undefined && !['true','false'].includes(hasCoupons))) {
       return res.status(400).json({ error: '並び順・絞り込み条件を確認してください' })
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any).rpc('search_org_customers', {
+    const { data, error } = await db!.rpc('search_org_customers', {
       p_org_id: orgId, p_search: search ?? null, p_limit: pageSize, p_offset: offset,
       p_sort_by: sortBy, p_sort_dir: sortDir, p_min_reservations: minReservations,
       p_min_visits: minVisits, p_min_amount: minAmount,
@@ -232,8 +231,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
   }
 
   // デフォルト: 自組織が見られる全顧客（RPC 経由）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any).rpc('get_org_customers', { p_org_id: orgId })
+  const { data, error } = await db!.rpc('get_org_customers', { p_org_id: orgId })
 
   if (error) {
     console.error('[customers] DB error:', error)
@@ -264,8 +262,7 @@ async function routePost(req: VercelRequest, res: VercelResponse, orgId: string)
   // organization_id は JWT 由来で強制
   ;(safe as Record<string, unknown>).organization_id = orgId
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('customers')
     .insert([safe])
     .select(SELECT_FIELDS)
@@ -328,8 +325,7 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, orgId: strin
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
   // Scope the write itself; a booking connection does not confer deletion ownership.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('customers')
     .delete()
     .eq('id', id)
