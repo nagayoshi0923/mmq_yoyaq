@@ -11,6 +11,7 @@ import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } fro
 import { clearBookingDataSnapshot } from '@/pages/PublicBookingTop/utils/bookingDataSnapshot'
 import { notificationOutcome, type NotificationOutcome } from '@/lib/notificationResult'
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import { upsertOwnCustomer } from '@/lib/api/customerApi'
 
 /**
  * 参加費を計算する関数
@@ -387,46 +388,11 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       let customerId: string | null = null
       
       try {
-        // user_id でプラットフォーム共通の顧客レコードを検索
-        const { data: existingCustomer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('user_id', props.userId)
-          .maybeSingle()
-
-        if (existingCustomer) {
-          customerId = existingCustomer.id
-
-          // 顧客情報を更新
-          await supabase
-            .from('customers')
-            .update({
-              name: customerName,
-              nickname: customerNickname || null,
-              phone: customerPhone,
-              email: customerEmail
-            })
-            .eq('id', customerId)
-            .eq('user_id', props.userId)
-        } else {
-          // 新規顧客レコードを作成
-          const { data: newCustomer, error: customerError } = await supabase
-            .from('customers')
-            .insert({
-              user_id: props.userId,
-              name: customerName,
-              nickname: customerNickname || null,
-              phone: customerPhone,
-              email: customerEmail,
-              organization_id: organizationId
-            })
-            .select('id')
-            .single()
-          
-          if (!customerError && newCustomer) {
-            customerId = newCustomer.id
-          }
-        }
+        // user_id でプラットフォーム共通の顧客レコードを検索し、あれば更新・無ければ作成（API 層に集約）
+        customerId = await upsertOwnCustomer({
+          userId: props.userId, name: customerName, nickname: customerNickname || null,
+          phone: customerPhone, email: customerEmail, organizationId,
+        })
       } catch (error) {
         logger.error('顧客レコードの作成/更新エラー:', error)
       }
