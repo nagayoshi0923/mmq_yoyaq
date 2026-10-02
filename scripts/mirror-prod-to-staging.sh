@@ -28,6 +28,18 @@ STAGING_HOST="db.${STAGING_PROJECT_REF}.supabase.co"
 DB_PORT="5432"
 DB_USER="postgres"
 DB_NAME="postgres"
+PROD_USER="$DB_USER"
+STAGING_USER="$DB_USER"
+
+# 直接接続先（db.<ref>.supabase.co）は IPv6 のみ。GitHub Actions の実行環境は IPv6 が使えないため、
+# CI では IPv4 のセッションプーラー（ポート 5432、ユーザー postgres.<ref>）を使う。手元の Mac は従来どおり直接接続。
+if [ "${MIRROR_VIA_POOLER:-}" = "1" ]; then
+  POOLER_HOST="${SUPABASE_POOLER_HOST:-aws-1-ap-northeast-1.pooler.supabase.com}"
+  PROD_HOST="$POOLER_HOST"
+  STAGING_HOST="$POOLER_HOST"
+  PROD_USER="postgres.${PROD_PROJECT_REF}"
+  STAGING_USER="postgres.${STAGING_PROJECT_REF}"
+fi
 
 DUMP_FILE="/tmp/mmq_prod_data_dump.sql"
 RESTORE_FILE="/tmp/mmq_staging_restore.sql"
@@ -58,7 +70,7 @@ echo "  OK"
 
 staging_psql() {
   PGPASSWORD="$STAGING_PASSWORD" psql \
-    -h "$STAGING_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    -h "$STAGING_HOST" -p "$DB_PORT" -U "$STAGING_USER" -d "$DB_NAME" \
     -t -A "$@"
 }
 
@@ -75,7 +87,7 @@ echo "[2/5] 本番DBからデータをダンプ中..."
 PGPASSWORD="$PROD_PASSWORD" pg_dump \
   -h "$PROD_HOST" \
   -p "$DB_PORT" \
-  -U "$DB_USER" \
+  -U "$PROD_USER" \
   -d "$DB_NAME" \
   --data-only \
   --schema=public \
@@ -84,7 +96,7 @@ PGPASSWORD="$PROD_PASSWORD" pg_dump \
   --exclude-table="supabase_migrations.schema_migrations" \
   --exclude-table="public.*_backup_*" \
   --exclude-table="public.*_backfill_*" \
-  > "$DUMP_FILE" 2>/dev/null
+  > "$DUMP_FILE" 2> "$ERROR_LOG" || { echo "エラー: 本番DBのダンプに失敗しました"; cat "$ERROR_LOG"; exit 1; }
 
 DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)
 echo "  OK (${DUMP_SIZE})"
@@ -192,7 +204,7 @@ echo "[4/5] ステージングDBにリストア中..."
 if ! PGPASSWORD="$STAGING_PASSWORD" psql \
   -h "$STAGING_HOST" \
   -p "$DB_PORT" \
-  -U "$DB_USER" \
+  -U "$STAGING_USER" \
   -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 \
   -f "$RESTORE_FILE" \
