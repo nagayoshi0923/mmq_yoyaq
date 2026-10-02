@@ -44,7 +44,8 @@ export type CustomerFormInput = Pick<Customer, 'name'> & {
 export interface UpsertOwnCustomerInput {
   userId: string
   name: string
-  nickname: string | null
+  /** 省略したときは nickname 列を更新も作成もしない（貸切グループの申込は従来 nickname を扱わない） */
+  nickname?: string | null
   phone: string
   email: string
   organizationId: string | null
@@ -58,14 +59,18 @@ export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<
   if (scopeByOrganization) find = find.eq('organization_id', organizationId as string)
   const { data: existing } = await find.maybeSingle()
   if (existing) {
-    let upd = supabase.from('customers').update({ name, nickname, phone, email }).eq('id', existing.id).eq('user_id', userId)
+    const updateValues = nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }
+    let upd = supabase.from('customers').update(updateValues).eq('id', existing.id).eq('user_id', userId)
     if (scopeByOrganization) upd = upd.eq('organization_id', organizationId as string)
     const { error } = await upd
     if (error && throwOnError) throw error
     return existing.id
   }
+  const insertValues = nickname === undefined
+    ? { user_id: userId, name, phone, email, organization_id: organizationId }
+    : { user_id: userId, name, nickname, phone, email, organization_id: organizationId }
   const { data: created, error } = await supabase.from('customers')
-    .insert({ user_id: userId, name, nickname, phone, email, organization_id: organizationId })
+    .insert(insertValues)
     .select('id').single()
   if (error && throwOnError) throw error
   return created?.id ?? null
@@ -109,6 +114,26 @@ export const ownCustomerApi = {
   /** お気に入り用に顧客行を新規作成する（メール・名前・user_id・組織つき） */
   async insertForFavorites(row: { email: string; name: string; user_id: string; organization_id: string }) {
     return supabase.from('customers').insert(row).select('id').single()
+  },
+}
+
+/**
+ * 初回プロフィール登録（CompleteProfile）の顧客行の書き込み。
+ * 重複メール（23505）の競合解消の分岐は画面側に残し、ここは「どの条件で何を書くか」だけを名前付きにしたもの（整備 Phase 2）。
+ * 戻り値は supabase の { error } をそのまま返す（呼び出し側が code === '23505' などを見る）。
+ */
+export const profileRegistrationApi = {
+  /** 自分の既存行を更新する（id と user_id で絞る） */
+  async updateOwnRow(customerId: string, userId: string, payload: Record<string, unknown>) {
+    return supabase.from('customers').update(payload).eq('id', customerId).eq('user_id', userId)
+  },
+  /** 新規に自分の顧客行を作る */
+  async insertOwnRow(row: Record<string, unknown>) {
+    return supabase.from('customers').insert(row)
+  },
+  /** user_id が未設定の同メール顧客（店舗で登録済み）に、自分の user_id とプロフィールを紐付ける */
+  async linkToEmailCustomer(customerId: string, userId: string, payload: Record<string, unknown>) {
+    return supabase.from('customers').update({ user_id: userId, ...payload }).eq('id', customerId).is('user_id', null)
   },
 }
 

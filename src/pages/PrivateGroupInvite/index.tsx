@@ -35,6 +35,7 @@ import {
 } from '@/lib/privateBookingBlockedSlotAvailability'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
+import { upsertOwnCustomer } from '@/lib/api/customerApi'
 
 interface Coupon {
   id: string
@@ -1084,36 +1085,9 @@ export function PrivateGroupInvite() {
       const customerPhone = bookingPhone.trim()
       
       // Phase 1 以降、ログイン済み顧客の organization_id = NULL（プラットフォーム共通）
-      const { data: existingCustomer } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (existingCustomer) {
-        customerId = existingCustomer.id
-        await supabase
-          .from('customers')
-          .update({ name: customerName, phone: customerPhone, email: customerEmail })
-          .eq('id', customerId)
-          .eq('user_id', user.id)
-      } else {
-        const { data: newCustomer } = await supabase
-          .from('customers')
-          .insert({
-            user_id: user.id,
-            name: customerName,
-            phone: customerPhone,
-            email: customerEmail,
-            organization_id: null,  // Phase 1: ログイン済み顧客は org 不問
-          })
-          .select('id')
-          .single()
-        
-        if (newCustomer) {
-          customerId = newCustomer.id
-        }
-      }
+      customerId = await upsertOwnCustomer({
+        userId: user.id, name: customerName, phone: customerPhone, email: customerEmail, organizationId: null,
+      })
       
       if (!customerId) {
         throw new Error('顧客情報の取得に失敗しました')
