@@ -1316,7 +1316,7 @@ async function handleSyncStaffReservationStatuses(
           .map(async (r) => {
             const eventId = r.schedule_event_id as string
             if (!snapshotCache.has(eventId)) {
-              snapshotCache.set(eventId, await fetchEventSnapshotServer(db, eventId, user.orgId))
+              snapshotCache.set(eventId, await fetchEventSnapshotServer(db!, eventId, user.orgId))
             }
             const snapshot = snapshotCache.get(eventId)
             if (!snapshot) return
@@ -1325,7 +1325,7 @@ async function handleSyncStaffReservationStatuses(
             const cellTimeSlot = (snapshot.time_slot as string | null | undefined) ?? null
             if (!cellDate || !cellStoreId) return
             const targetName = r.participant_names?.[0] ?? '(スタッフ)'
-            await recordEventHistory(db, {
+            await recordEventHistory(db!, {
               scheduleEventId: eventId,
               organizationId: user.orgId,
               actionType: 'remove_participant',
