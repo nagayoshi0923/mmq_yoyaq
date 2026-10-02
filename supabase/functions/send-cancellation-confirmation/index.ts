@@ -25,6 +25,9 @@ interface CancellationRequest {
   cancellationFee?: number
   customEmailBody?: string  // カスタムメール本文（指定された場合はこれを使用）
   organizationName?: string // 組織名（件名・署名に使用）
+  // スタッフが管理画面で「メールを送信する」を明示的に選んだ（#712）。受付経路が manual（MMQ 以外・経路未確認）の予約でも
+  // MMQ から送る。会社メールで受け付けた予約（company_email）は従来どおり送らない。呼び出し元が組織の在籍スタッフであることを確認する。
+  staffRequestedSend?: boolean
 }
 
 serve(async (req) => {
@@ -109,10 +112,21 @@ serve(async (req) => {
     }
 
     // Staff handling of a company email must not generate a separate system reply.
-    // Missing/legacy intake routes stay pending until the original channel is confirmed.
-    if (storedEvent?.is_cancelled !== true && billingClaim?.data?.contact?.channel !== 'mmq') {
-      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'company_or_manual_reply_required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    // Missing/legacy intake routes stay pending until the original channel is confirmed,
+    // unless an active staff member of the organization explicitly asked MMQ to send (#712, owner decision 2026-10-02).
+    const intakeChannel = billingClaim?.data?.contact?.channel
+    if (storedEvent?.is_cancelled !== true && intakeChannel !== 'mmq') {
+      let staffMaySend = false
+      if (cancellationData.staffRequestedSend === true && intakeChannel !== 'company_email'
+        && authResult.user?.id && authResult.user.role !== 'anonymous') {
+        const { data: staffRow } = await supabaseClient.from('staff').select('id')
+          .eq('user_id', authResult.user.id).eq('organization_id', reservation.organization_id).eq('status', 'active').maybeSingle()
+        staffMaySend = Boolean(staffRow)
+      }
+      if (!staffMaySend) {
+        return new Response(JSON.stringify({ success: true, skipped: true, reason: 'company_or_manual_reply_required' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      }
     }
 
     // 組織設定からメール設定を取得

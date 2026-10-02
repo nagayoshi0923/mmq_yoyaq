@@ -509,7 +509,9 @@ export function useReservationListActions(deps: UseReservationListActionsDeps) {
                 cancellationReason: emailContent.cancellationReason,
                 cancellationFee: emailContent.cancellationFee,
                 customEmailBody: emailContent.emailBody,
-                organizationName: emailContent.organizationName
+                organizationName: emailContent.organizationName,
+                // スタッフが明示的に送信を選んだ: 受付経路が MMQ 以外でも MMQ から送る（会社メール受付は除く、#712）
+                staffRequestedSend: true
               }
             })
 
