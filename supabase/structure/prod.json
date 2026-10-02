@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-02T09:25:20.884Z",
+  "captured_at": "2026-10-02T09:58:01.371Z",
   "table_count": 138,
   "function_count": 332,
-  "digest": "13865710a71544724f7f11640828b563846bce03b3ea8642452769bd7f19adde"
+  "digest": "0b26d4ad45d5ba33200e3ff9dbd605b8faf86c234cd28df0c3f8534bff33265f"
  },
  "tables": {
   "staff": {
@@ -24327,7 +24327,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "059a07292d21fcb5b384f4b795928ec0",
+   "body_md5": "744f76f68d7bf5388670035251c90889",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24892,7 +24892,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(id uuid, organization_id uuid, user_id uuid, name text, nickname character varying, email text, email_verified boolean, phone text, address text, line_id text, avatar_url text, birth_date date, prefecture text, preferences text[], notification_settings jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, reservation_count bigint, total_paid bigint, reservation_amount bigint, last_visit timestamp with time zone, visit_count bigint, total_coupons bigint, used_coupons bigint, remaining_coupons bigint, total_count bigint)",
-   "body_md5": "b5b45391db6b30391b270ad5fb76073d",
+   "body_md5": "4bfbd7ef81530fa114499cc01d711659",
    "language": "sql",
    "security_definer": true
   },

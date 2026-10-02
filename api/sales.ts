@@ -142,27 +142,22 @@ type ReservationRow = {
 }
 
 const ADMIN_ENTERED_REVENUE_SOURCES = new Set(['walk_in', 'demo', 'demo_auto'])
+// 売上に数える予約状態。顧客一覧（get_org_customers_with_stats_v2）と同じ。pending は含めない（#721）。
+const SALES_RESERVATION_STATUSES = ['confirmed', 'gm_confirmed', 'checked_in']
 
 export function getReservationRevenue(
   reservation: Pick<ReservationRow, 'reservation_source' | 'unit_price' | 'total_price' | 'final_price' | 'discount_amount'>,
   participantCount: number,
   scenarioUnitFee: number,
 ): number {
+  // 金額の正本は final_price（確定金額、クーポン控除後）。#721（2026-10-02 社長判断）。
+  // 旧貸切の「合計だけ保存・final_price 0」は migration 20261002160000 で final_price に揃えた。
+  if (reservation.final_price != null && reservation.final_price >= 0) return reservation.final_price
+  // final_price が無い予約だけフォールバック: 当日受付・demo は単価 × 人数、それ以外は合計、無ければ参加費 × 人数
   if (ADMIN_ENTERED_REVENUE_SOURCES.has(reservation.reservation_source || '')) {
-    const unitPrice = reservation.unit_price && reservation.unit_price > 0
-      ? reservation.unit_price
-      : scenarioUnitFee
+    const unitPrice = reservation.unit_price && reservation.unit_price > 0 ? reservation.unit_price : scenarioUnitFee
     return unitPrice * participantCount
   }
-  // 旧貸切受付は合計だけを保存し、final_price はDB初期値0のまま。
-  // 割引なしと確認できる旧データに限り合計を使う。全額割引の0円は維持する。
-  if (reservation.reservation_source === 'web_private'
-    && reservation.final_price === 0
-    && reservation.discount_amount === 0
-    && (reservation.total_price ?? 0) > 0) {
-    return reservation.total_price!
-  }
-  if (reservation.final_price != null && reservation.final_price >= 0) return reservation.final_price
   if (reservation.total_price && reservation.total_price > 0) return reservation.total_price
   return scenarioUnitFee * participantCount
 }
@@ -329,7 +324,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
       .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price, discount_amount')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
-      .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+      .in('status', SALES_RESERVATION_STATUSES)
     if (batchError && batchError.code !== 'PGRST116') {
       console.warn('[sales] by-period reservation batch error:', batchError.message)
     } else if (batch) {
@@ -818,7 +813,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
       .select('schedule_event_id, participant_count, participant_names, payment_method, reservation_source, unit_price, total_price, final_price, discount_amount')
       .eq('organization_id', orgId)
       .in('schedule_event_id', batchIds)
-      .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+      .in('status', SALES_RESERVATION_STATUSES)
 
     if (batch) allReservations.push(...batch)
   }
@@ -1029,7 +1024,7 @@ async function handleAnnualAnalysis(req: VercelRequest, res: VercelResponse, org
         .select('schedule_event_id, final_price, payment_method')
         .eq('organization_id', orgId)
         .in('schedule_event_id', batch)
-        .in('status', ['confirmed', 'pending'])
+        .in('status', SALES_RESERVATION_STATUSES)
         .range(rFrom, rFrom + pageSize - 1)
 
       const { data: rData, error: rErr } = await rq
