@@ -1,5 +1,5 @@
 import { requireAuth, requireStaff, requireAdmin, ApiError } from './_lib/auth.js'
-import { calculateEventGmCost, type IndividualGmCost } from '../src/lib/compensation.js'
+import { calculateEventGmCost, resolveGmCostIdentity, type EventStaffAssignmentLike, type IndividualGmCost } from '../src/lib/compensation.js'
 import { loadCompensationHistory } from './_lib/compensationHistory.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
@@ -120,7 +120,7 @@ const STATS_SCHEDULE_EVENT_COUNT_FIELDS = 'id'
 
 const STATS_SCHEDULE_EVENT_DETAIL_FIELDS =
   'id, date, category, current_participants, total_revenue, gm_cost, license_cost, ' +
-  'start_time, store_id, is_cancelled, gms, gm_roles, stores:store_id(venue_cost_per_performance,transport_allowance)'
+  'start_time, store_id, is_cancelled, gms, gm_roles, staff_assignments:schedule_event_staff_assignments(staff_id,staff_name,ordinal,resolution_status), stores:store_id(venue_cost_per_performance,transport_allowance)'
 
 const STATS_ALL_SCHEDULE_EVENT_FIELDS =
   'scenario_master_id, is_cancelled, total_revenue, date, category'
@@ -539,15 +539,17 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     is_cancelled: boolean | null
     gms: string[] | null
     gm_roles: Record<string,string> | null
+    staff_assignments?: EventStaffAssignmentLike[] | null
     stores?: { venue_cost_per_performance?: number | null; transport_allowance?: number | null } | null
   }
   const eventList = (events ?? []) as unknown as EventRow[]
   const unrecordedEvents = eventList.filter(event => event.gm_cost === null && !event.is_cancelled)
   const dates = unrecordedEvents.map(event => event.date).sort()
   const settingsForDate = dates.length ? await loadCompensationHistory(db, orgId, dates[0], dates.at(-1)!) : null
-  const { data: staff, error: staffError } = dates.length ? await db.from('staff').select('name,stores').eq('organization_id',orgId) : {data:[],error:null}
+  const { data: staff, error: staffError } = dates.length ? await db.from('staff').select('id,name,stores').eq('organization_id',orgId) : {data:[],error:null}
   if (staffError) throw staffError
   const homeStores = new Map<string,string[]>((staff ?? []).filter(person => Array.isArray(person.stores)).map(person => [person.name, person.stores as string[]]))
+  const staffById = new Map<string,{ stores: string[] | null }>((staff ?? []).map(person => [person.id, { stores: (person.stores as string[] | null) ?? null }]))
   const eventIds = eventList.map((e) => e.id)
   const demoParticipantsMap: Record<string, number> = {}
   const actualParticipantsMap: Record<string, number> = {}
@@ -625,9 +627,9 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
     const fee = isGmTest ? gmTestParticipationFee : normalParticipationFee
     const eventRevenue = event.total_revenue ?? participants * fee
     const eventGmCost = event.gm_cost ?? calculateEventGmCost({
-      gms: event.gms ?? [], roles: event.gm_roles ?? {}, duration: scenarioData?.duration ?? 180,
+      ...resolveGmCostIdentity(event, staffById, homeStores), duration: scenarioData?.duration ?? 180,
       isGmTest, costs: scenarioData?.gm_costs ?? [], getSettings: () => { if (!settingsForDate) throw new Error('報酬履歴が取得されていません'); return settingsForDate(event.date) },
-      storeId: event.store_id ?? '', homeStores, transportAllowance: event.stores?.transport_allowance,
+      storeId: event.store_id ?? '', transportAllowance: event.stores?.transport_allowance,
       isCancelled, estimateUnassigned: Boolean(scenarioData),
     })
 

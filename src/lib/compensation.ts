@@ -156,6 +156,42 @@ export function calculateTransportAllowance(storeId: string, homeStores: string[
   return homeStores && !homeStores.includes(storeId) ? allowance ?? 0 : 0
 }
 
+/** 公演の GM 担当表（schedule_event_staff_assignments）の1行。ID で照合済みかどうかを resolution_status が示す。 */
+export interface EventStaffAssignmentLike {
+  staff_id: string | null; staff_name: string | null; ordinal: number; resolution_status?: string | null
+}
+/** calculateEventGmCost に渡す担当の識別子・役割・担当店舗。 */
+export interface GmCostIdentity { gms: string[]; roles: Record<string, string>; homeStores: Map<string, string[]> }
+/**
+ * GM 費用計算の入力を、担当表（ID 照合）から組み立てる。
+ * 担当表が公演の gms と同じ件数で揃っている公演は、ID で解決できた行を staff_id をキーにして扱う（同名・改名・再雇用で店舗の照合がずれない）。
+ * ID で解決できていない行（unmatched / duplicate）と、担当表の無い古い公演は、従来どおり名前で扱う。
+ * 役割は gm_roles（名前キー）の値をそのまま引き継ぐ。未設定なら calculateEventGmCost が配置順で決める（従来と同じ）。
+ */
+export function resolveGmCostIdentity(
+  event: { gms?: string[] | null; gm_roles?: Record<string, string> | null; staff_assignments?: EventStaffAssignmentLike[] | null },
+  staffById: Map<string, { stores?: string[] | null }>,
+  staffByName: Map<string, string[]>,
+): GmCostIdentity {
+  const gms = Array.isArray(event.gms) ? event.gms : []
+  const namedRoles = event.gm_roles ?? {}
+  const assignments = Array.isArray(event.staff_assignments) ? [...event.staff_assignments].sort((a, b) => a.ordinal - b.ordinal) : null
+  if (!assignments || assignments.length !== gms.length) return { gms, roles: namedRoles, homeStores: staffByName }
+  const roles: Record<string, string> = {}
+  const homeStores = new Map<string, string[]>()
+  const keys = assignments.map((assignment, index) => {
+    const name = gms[index]
+    const resolved = assignment.staff_id && (assignment.resolution_status ?? 'resolved') === 'resolved' && staffById.has(assignment.staff_id)
+    const key = resolved ? assignment.staff_id! : name
+    const role = namedRoles[name]
+    if (role) roles[key] = role
+    const stores = resolved ? staffById.get(assignment.staff_id!)?.stores : staffByName.get(name)
+    if (Array.isArray(stores)) homeStores.set(key, stores)
+    return key
+  })
+  return { gms: keys, roles, homeStores }
+}
+
 export function calculateEventGmCost(input: {
   gms: string[]; roles: Record<string, string>; duration: number; isGmTest: boolean;
   costs: IndividualGmCost[]; getSettings: () => SalarySettings;
