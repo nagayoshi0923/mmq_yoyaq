@@ -124,18 +124,18 @@ export async function handleByMonth(req: VercelRequest, res: VercelResponse, use
       }
     }
 
-    const maxForSync = resolveMaxParticipants(event, orgScenarioMap)
-    const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
+    const maxParticipants = resolveMaxParticipants(event, orgScenarioMap)
 
     // current_participants は DB トリガー（trigger_recalc_participants）が予約変更時に同期するため、
     // 読み取り時の書き戻しはしない（Realtime エコーで全クライアントの再フェッチを誘発していた）
 
-    const maxParticipants = maxForSync
+    // 表示人数は、出どころ不問で有効な予約の人数の合計。定員で頭打ちにしない（#730、#794）。
+    // 管理者の手動追加（満席の公演へのスタッフ席など）で定員を超えることを許す規則で、画面は「人数 / 定員」の分数で出すので、超過は見て分かる。
     const effectiveParticipants = event.is_cancelled
-      ? Math.max(cappedActualParticipants, Math.min(event.current_participants || 0, maxParticipants))
+      ? Math.max(actualParticipants, event.current_participants || 0)
       : (hasAnyReservations
-          ? cappedActualParticipants
-          : Math.min(event.current_participants || 0, maxParticipants))
+          ? actualParticipants
+          : (event.current_participants || 0))
 
     return {
       ...event,
