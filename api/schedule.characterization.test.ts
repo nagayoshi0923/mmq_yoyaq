@@ -323,7 +323,7 @@ describe('api/schedule.ts by-month（カレンダーの表示人数と貸切の�
     mock.tables.organization_scenarios_with_master = [{ id: 'm1', title: '作品', player_count_max: 6 }]
     mock.tables.staff = []
   })
-  it('実人数は有効な予約状態（pending / confirmed / gm_confirmed / checked_in）の合計で、キャンセル済みの予約は数えず、定員（作品の player_count_max）で頭打ちにする', async () => {
+  it('実人数は有効な予約状態（pending / confirmed / gm_confirmed / checked_in）の合計で、キャンセル済みの予約は数えない。定員（作品の player_count_max）で頭打ちにしない（#794）', async () => {
     mock.tables.schedule_events = [evt('e-sum', {}), evt('e-capped', { date: '2026-11-06' }), evt('e-cancelled-res', { date: '2026-11-07' })]
     mock.tables.reservations = [
       r('e-sum', { participant_count: 1, status: 'pending' }), r('e-sum', { participant_count: 1, status: 'confirmed' }), r('e-sum', { participant_count: 1, status: 'gm_confirmed' }),
@@ -342,7 +342,7 @@ describe('api/schedule.ts by-month（カレンダーの表示人数と貸切の�
           "timeSlot": undefined,
         },
         {
-          "current": 6,
+          "current": 9,
           "id": "e-capped",
           "max": 6,
           "private": false,
@@ -358,7 +358,7 @@ describe('api/schedule.ts by-month（カレンダーの表示人数と貸切の�
       ]
     `)
   })
-  it('予約が 1 件も無い公演は DB の表示人数（current_participants）を使い、定員で頭打ち。定員は 作品 ID → 作品名 → マスター結合 → 公演の項目 → 8 の順に決まる', async () => {
+  it('予約が 1 件も無い公演は DB の表示人数（current_participants）を使い、定員で頭打ちにしない（#794）。定員は 作品 ID → 作品名 → マスター結合 → 公演の項目 → 8 の順に決まる', async () => {
     mock.tables.schedule_events = [
       evt('e-nores', { current_participants: 4 }),
       evt('e-nores-over', { date: '2026-11-06', current_participants: 9 }),
@@ -378,7 +378,7 @@ describe('api/schedule.ts by-month（カレンダーの表示人数と貸切の�
           "timeSlot": undefined,
         },
         {
-          "current": 6,
+          "current": 9,
           "id": "e-nores-over",
           "max": 6,
           "private": false,
@@ -399,14 +399,14 @@ describe('api/schedule.ts by-month（カレンダーの表示人数と貸切の�
           "timeSlot": undefined,
         },
         {
-          "current": 5,
+          "current": 6,
           "id": "e-by-event",
           "max": 5,
           "private": false,
           "timeSlot": undefined,
         },
         {
-          "current": 8,
+          "current": 20,
           "id": "e-default",
           "max": 8,
           "private": false,
