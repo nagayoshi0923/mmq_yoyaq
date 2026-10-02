@@ -1,3 +1,15 @@
+## QW-20261002-006 / 整備残件の消化（2026-10-02 午後）
+
+- #730 完了: 表示人数の規則を「有効予約の人数合計、出どころ不問」に統一し、矛盾する制約 schedule_events_participants_check を外した（20261002140000、staging・本番適用、PR #739）。demo 7 件は定員に揃え、ずれ 0 件。
+- #733 完了: staging だけの 8 本は取り込み 4 本・履歴除外 4 本。staging の関数権限を本番に揃え staging.json 更新。
+- #738 完了: 画面・部品・hook からの supabase.from() / rpc() を ESLint で禁止。許可リストは ESLint の実検出から作る（grep だと漏れる）。
+- #734 コード側完了: GM 費用計算の照合を担当表の ID に揃えた（PR #741、resolveGmCostIdentity）。給与画面と売上側で役割の解釈が食い違う 4 行は #734 に記録、判断待ち。
+- #721: 金額の正本は計画 第5節 5-2 に整理（3 画面の出どころ・本番件数・推奨）。社長判断待ち。
+- CI の不安定（予約 RPC 認可テストが初期化中の一時 PostgreSQL に接続）を PR #740 で修正。
+- 本番反映は release PR #736（merge commit）。main == staging。CI / E2E / Deploy Supabase 成功。
+- DB パスワード回転: staging は完了。本番は社長が誤ってリセットしたため、夜間ミラー用 Secret SUPABASE_DB_PROD_PASSWORD と手元 Keychain の更新待ち（アプリ本体は API キー接続で影響なし）。接続失敗を繰り返すと Supabase が接続元を自動ブロックするので、確認は 1 回ずつ行う。
+- Codex レーンへ: #712（キャンセル受付の自動メール未送信）など通常の不具合修正は再開可。#722〜#727 の受入は実環境確認が必要。
+
 ## QW-20261002-006 / 整備 Phase 1 の区切りと以後の決まり（2026-10-02）
 
 - Phase 1 の DB 変更3本（参照ゼロ28表の archive 退避 / 人数差の安全な再計算 / 旧GM配列の全員再計算）を staging と本番に適用し、構造の写し（supabase/structure/prod.json、138表）とアトラスを更新した。drift チェックは毎日 07:30 JST に本番・staging を記録と比較する。
