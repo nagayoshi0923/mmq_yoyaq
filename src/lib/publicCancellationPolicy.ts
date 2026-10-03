@@ -1,3 +1,4 @@
+import type { PublicPerformanceJudgment } from '@/lib/cancellationJudgmentCopy'
 import {
   DEFAULT_OPEN_CANCELLATION_FEES,
   DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
@@ -52,6 +53,8 @@ export interface PublicCancellationPolicy {
   private_reservation_change_note: string | null
   refund_method_note: string | null
   policy_updated_at: string | null
+  /** 実際の中止判定の設定（判定時刻・追加募集）。中止判定のルールはここから作る（#714）。取れないときは null */
+  judgment?: PublicPerformanceJudgment | null
   source: 'rpc' | 'preview_default'
 }
 
@@ -184,10 +187,29 @@ export async function fetchPublicCancellationPolicies({
   }
 
   const policies = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
+  // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。取れなくても規定の表示は続ける
+  const judgmentResult = await supabase.rpc('get_public_performance_judgment', {
+    p_organization_slug: slug, p_store_id: storeId || null,
+    p_scenario_master_id: scenarioMasterId || null, p_event_id: eventId || null,
+  })
+  const judgmentByStore = new Map<string, PublicPerformanceJudgment>()
+  if (!judgmentResult.error) {
+    for (const row of toArray<Record<string, unknown>>(judgmentResult.data)) {
+      if (typeof row.store_id !== 'string') continue
+      judgmentByStore.set(row.store_id, {
+        judgment_minutes: toNumber(row.judgment_minutes) ?? 240,
+        extension_enabled: row.extension_enabled === true,
+        target_mode: typeof row.target_mode === 'string' ? row.target_mode : 'count',
+        target_value: toNumber(row.target_value) ?? 2,
+        extension_deadline_minutes: toNumber(row.extension_deadline_minutes) ?? 90,
+      })
+    }
+  }
+  const withJudgment = policies.map(policy => ({ ...policy, judgment: (policy.store_id && judgmentByStore.get(policy.store_id)) || null }))
   const response = await fetch(`/api/cancellation-billing?action=public-policy&organization=${encodeURIComponent(slug)}`)
   if (!response.ok) throw new Error('最新のキャンセル料金案内を取得できません。店舗へお問い合わせください。')
   const billing = await response.json() as { paymentPolicy?: string | null }
-  return policies.map(policy => billing.paymentPolicy ? { ...policy, refund_method_note: billing.paymentPolicy } : policy)
+  return withJudgment.map(policy => billing.paymentPolicy ? { ...policy, refund_method_note: billing.paymentPolicy } : policy)
 }
 
 export function formatPolicyHours(hours: number): string {
