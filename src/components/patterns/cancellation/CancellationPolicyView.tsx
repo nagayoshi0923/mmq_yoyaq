@@ -1,3 +1,4 @@
+import { buildJudgmentRules, JUDGMENT_RULES_NOTE } from '@/lib/cancellationJudgmentCopy'
 import type { ReactNode } from 'react'
 import { Clock, ExternalLink, Info } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -133,9 +134,12 @@ export function CancellationPolicyView({
   policy,
   showStoreHeading = true,
 }: CancellationPolicyViewProps) {
-  // 設定で空のまま保存された行は出さない（空欄だと「 → 」だけが表示されていた）
-  const rulesByTiming = policy.cancellation_judgment_rules
-    .filter(rule => rule.timing?.trim() && rule.condition?.trim() && rule.result?.trim())
+  // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。設定が取れないときだけ、保存された文を使う
+  // （空のまま保存された行は出さない。空欄だと「 → 」だけが表示されていた）
+  const judgmentRules = policy.judgment
+    ? buildJudgmentRules(policy.judgment)
+    : policy.cancellation_judgment_rules.filter(rule => rule.timing?.trim() && rule.condition?.trim() && rule.result?.trim())
+  const rulesByTiming = judgmentRules
     .reduce<Record<string, PublicCancellationPolicy['cancellation_judgment_rules']>>(
     (grouped, rule) => {
       grouped[rule.timing] ||= []
@@ -220,6 +224,7 @@ export function CancellationPolicyView({
               </ul>
             </div>
           ))}
+          {policy.judgment && <p className="ts-body text-amber-900">{JUDGMENT_RULES_NOTE}</p>}
           {policy.cancellation_notice_note && <p className="ts-body text-amber-900">{policy.cancellation_notice_note}</p>}
         </section>
       )}
