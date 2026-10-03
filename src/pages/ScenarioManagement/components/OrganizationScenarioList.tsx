@@ -173,6 +173,7 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
           case 'player_count_min': aVal = a.player_count_min; bVal = b.player_count_min; break
           case 'player_count_max': aVal = a.player_count_max; bVal = b.player_count_max; break
           case 'participation_fee': aVal = a.participation_fee || 0; bVal = b.participation_fee || 0; break
+          case 'kit_count': aVal = a.kit_count ?? 0; bVal = b.kit_count ?? 0; break
           case 'org_status': aVal = a.org_status; bVal = b.org_status; break
           case 'available_gms':
             aVal = Array.isArray(a.available_gms) ? a.available_gms.length : 0
@@ -427,6 +428,16 @@ export function OrganizationScenarioList({ onEdit, canEdit = true }: Organizatio
       headerClassName: ORG_HEADER_CLASS,
       cellClassName: ORG_CELL_CLASS,
       render: (scenario) => <p className="text-sm">{resolvePreparation({ scenarioId: scenario.org_scenario_id, scenarioMasterId: scenario.scenario_master_id }) ?? '…'}分</p>
+    },
+    {
+      key: 'kit_count',
+      header: 'キット',
+      helpText: '組織で持っているキットの数（シナリオ編集の基本情報で変更できます）',
+      width: 'w-14',
+      sortable: true,
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => <p className="text-sm text-right">{scenario.kit_count != null ? `${scenario.kit_count}個` : '-'}</p>
     },
     {
       key: 'participation_fee',

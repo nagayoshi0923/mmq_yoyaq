@@ -121,7 +121,7 @@ export const privateBookingMgmtReadApi = {
   /** 重複確認用: 期間内の公演（500件ずつ） */
   async listEventsForConflicts(organizationId: string, dateFrom: string, dateTo: string, offset: number) {
     return supabase.from('schedule_events_staff_view')
-      .select('id,date,start_time,end_time,store_id,reservation_id,scenario_master_id,scenario_id,organization_scenario_id,scenario,gms')
+      .select('id,date,start_time,end_time,store_id,reservation_id,scenario_master_id,scenario_id,organization_scenario_id,scenario,gms,category')
       .eq('organization_id', organizationId).eq('is_cancelled', false)
       .gte('date', dateFrom).lte('date', dateTo)
       .order('id').range(offset, offset + 499)
