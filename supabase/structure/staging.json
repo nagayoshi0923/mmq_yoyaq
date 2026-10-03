@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-03T16:22:15.983Z",
+  "captured_at": "2026-10-03T17:28:49.765Z",
   "table_count": 138,
   "function_count": 336,
-  "digest": "2b71453d92ff00eaed88e42453273a7f55bca274779aa520dcadfcb64f667661"
+  "digest": "e2328bbae067c3384cfa19d231f62b75df532d47279f2187b980ce32632b7730"
  },
  "tables": {
   "staff": {
@@ -25186,7 +25186,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(store_id uuid, judgment_minutes integer, extension_enabled boolean, target_mode text, target_value integer, extension_deadline_minutes integer)",
-   "body_md5": "2f999d5af5dc7b732c2ad45797bbc300",
+   "body_md5": "0f6d9a8f23452e70510e12cb058aaa9f",
    "language": "plpgsql",
    "security_definer": true
   },

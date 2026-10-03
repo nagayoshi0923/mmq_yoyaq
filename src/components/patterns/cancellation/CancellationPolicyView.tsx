@@ -135,10 +135,10 @@ export function CancellationPolicyView({
   showStoreHeading = true,
 }: CancellationPolicyViewProps) {
   // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。設定が取れないときだけ、保存された文を使う
-  // （空のまま保存された行は出さない。空欄だと「 → 」だけが表示されていた）
+  // （全部の欄が空のまま保存された行だけ出さない。空欄だと「 → 」だけが表示されていた。一部だけ書いた行は残す、#866）
   const judgmentRules = policy.judgment
     ? buildJudgmentRules(policy.judgment)
-    : policy.cancellation_judgment_rules.filter(rule => rule.timing?.trim() && rule.condition?.trim() && rule.result?.trim())
+    : policy.cancellation_judgment_rules.filter(rule => rule.timing?.trim() || rule.condition?.trim() || rule.result?.trim())
   const rulesByTiming = judgmentRules
     .reduce<Record<string, PublicCancellationPolicy['cancellation_judgment_rules']>>(
     (grouped, rule) => {

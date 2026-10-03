@@ -21,6 +21,14 @@ describe('公開の規定の中止判定（空欄の行）', () => {
     expect(html).toContain('中止判定のタイミング')
     expect(html).toContain('最低人数未満 → 中止')
   })
+
+  it('一部の欄だけ書いたルールは消さずに表示する（#866）', () => {
+    const base = createPreviewCancellationPolicy('queens-waltz')
+    const policy = { ...base, is_configured: true, cancellation_judgment_rules: [{ id: 'z', timing: '前日 23:59', condition: '最低人数未満', result: '' }] }
+    const html = renderToStaticMarkup(<CancellationPolicyView policy={policy} />)
+    expect(html).toContain('前日 23:59')
+    expect(html).toContain('最低人数未満')
+  })
 })
 
 describe('公開の規定の中止判定（実際の判定の設定から作る、#714）', () => {

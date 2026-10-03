@@ -20,7 +20,8 @@ import { PrivatePolicySection } from './cancellationSettings/PrivatePolicySectio
 import type { CancellationFeeBasis } from '@/types'
 import { buildPublicCancellationPolicyPath } from '@/lib/publicBookingPath'
 import { CancellationPolicyView } from '@/components/patterns/cancellation/CancellationPolicyView'
-import type { PublicCancellationPolicy } from '@/lib/publicCancellationPolicy'
+import { fetchPublicPerformanceJudgments, type PublicCancellationPolicy } from '@/lib/publicCancellationPolicy'
+import { useQuery } from '@tanstack/react-query'
 import { useOrganization } from '@/hooks/useOrganization'
 
 export interface CancellationFee {
@@ -86,6 +87,8 @@ interface CancellationSettingsProps {
   storeId?: string
   scope?: SettingScope
   targetId?: string
+  /** 作品の設定で使うとき、プレビューの中止判定をその作品の設定で出す（#870） */
+  scenarioMasterId?: string
 }
 
 // デフォルトのポリシー項目
@@ -146,8 +149,22 @@ function createDefaultCancellationSettings(storeId: string): CancellationSetting
   }
 }
 
-export function CancellationSettings({ storeId = '', scope = 'store', targetId }: CancellationSettingsProps) {
+export function CancellationSettings({ storeId = '', scope = 'store', targetId, scenarioMasterId }: CancellationSettingsProps) {
   const { organization } = useOrganization()
+  // プレビューの中止判定は、公開ページと同じく実際の判定の設定から作る（#870）
+  const previewStoreId = scope === 'store' ? (targetId ?? storeId) : null
+  const previewEventId = scope === 'performance' ? targetId : null
+  const previewScenarioMasterId = scope === 'scenario' ? scenarioMasterId : null
+  const { data: previewJudgment = null } = useQuery({
+    queryKey: ['cancellation-preview-judgment', organization?.slug, previewStoreId, previewScenarioMasterId, previewEventId],
+    enabled: !!organization?.slug,
+    queryFn: async () => {
+      const byStore = await fetchPublicPerformanceJudgments({
+        slug: organization!.slug, storeId: previewStoreId, scenarioMasterId: previewScenarioMasterId, eventId: previewEventId,
+      })
+      return (previewStoreId ? byStore.get(previewStoreId) : byStore.values().next().value) ?? null
+    },
+  })
   const state = useOperatingSettings(scope, targetId ?? storeId)
   const { loading, saving } = state
   const defaults = { ...createDefaultCancellationSettings(storeId), ...SETTING_DEFAULTS } as CancellationSettings
@@ -355,7 +372,9 @@ export function CancellationSettings({ storeId = '', scope = 'store', targetId }
     private_cancellation_fee_basis: formData.private_cancellation_fee_basis,
     organizer_cancel_reasons: formData.organizer_cancel_reasons,
     organizer_cancel_refund_note: formData.organizer_cancel_refund_note,
-    cancellation_judgment_rules: formData.cancellation_judgment_rules,
+    // 古い保存文は公開ページに出ないため、プレビューでも使わない（#870）
+    cancellation_judgment_rules: [],
+    judgment: previewJudgment,
     cancellation_notice_note: formData.cancellation_notice_note,
     reservation_change_deadline_hours: formData.reservation_change_deadline_hours,
     reservation_change_note: formData.reservation_change_note,
