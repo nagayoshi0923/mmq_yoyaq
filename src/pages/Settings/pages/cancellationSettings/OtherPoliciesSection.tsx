@@ -102,90 +102,10 @@ export function OtherPoliciesSection({ formData, setFormData, generateId }: Othe
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">判定ルール一覧</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setFormData(prev => ({
-                  ...prev,
-                  cancellation_judgment_rules: [
-                    ...prev.cancellation_judgment_rules,
-                    { id: generateId(), timing: '', condition: '', result: '' }
-                  ]
-                }))}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                追加
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {formData.cancellation_judgment_rules.map((rule) => (
-                <div key={rule.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <Label className="text-xs">タイミング</Label>
-                      <Input
-                        value={rule.timing}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          cancellation_judgment_rules: prev.cancellation_judgment_rules.map(r =>
-                            r.id === rule.id ? { ...r, timing: e.target.value } : r
-                          )
-                        }))}
-                        placeholder="例: 前日 23:59"
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({
-                        ...prev,
-                        cancellation_judgment_rules: prev.cancellation_judgment_rules.filter(r => r.id !== rule.id)
-                      }))}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0 mt-5"
-                      disabled={formData.cancellation_judgment_rules.length <= 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">条件</Label>
-                      <Input
-                        value={rule.condition}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          cancellation_judgment_rules: prev.cancellation_judgment_rules.map(r =>
-                            r.id === rule.id ? { ...r, condition: e.target.value } : r
-                          )
-                        }))}
-                        placeholder="例: 定員の過半数に満たない場合"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">結果</Label>
-                      <Input
-                        value={rule.result}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          cancellation_judgment_rules: prev.cancellation_judgment_rules.map(r =>
-                            r.id === rule.id ? { ...r, result: e.target.value } : r
-                          )
-                        }))}
-                        placeholder="例: 中止"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">公演の中止判定タイミングと条件を設定します。キャンセルポリシーページに表示されます。</p>
+            <Label className="text-sm font-medium">判定ルール</Label>
+            <p className="text-xs text-muted-foreground">
+              中止判定のルールは、実際の判定と同じ設定（開催判断の時刻と、開催判断・追加募集の設定）から自動で作り、キャンセルポリシーページに表示します。ここでは編集しません。変えるときは、それぞれの設定を変更してください。
+            </p>
           </div>
 
           <div className="space-y-1.5">
