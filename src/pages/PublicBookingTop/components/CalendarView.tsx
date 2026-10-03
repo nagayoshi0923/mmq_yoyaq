@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { formatDateJST } from '@/utils/dateUtils'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { scenarioCardId, scenarioCardTitle, type EnrichedPublicEvent, type PublicCalendarEvent, type PublicEventRow, type PublicStoreRow, type ScenarioCard } from '../hooks/useBookingData'
 
 interface CalendarDay {
   date: Date
@@ -13,15 +14,15 @@ interface CalendarViewProps {
   currentMonth: Date
   onMonthChange: (date: Date) => void
   calendarDays: CalendarDay[]
-  getEventsForDate: (date: Date) => any[]
+  getEventsForDate: (date: Date) => EnrichedPublicEvent[]
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
-  stores: any[]
-  scenarios: any[]
+  stores: PublicStoreRow[]
+  scenarios: ScenarioCard[]
   onCardClick: (scenarioId: string) => void
-  getStoreName: (event: any) => string
-  getStoreColor: (event: any) => string
-  blockedSlots?: any[]
+  getStoreName: (event: PublicCalendarEvent) => string
+  getStoreColor: (event: PublicCalendarEvent) => string
+  blockedSlots?: PublicEventRow[]
   privateBookingDeadlineDays?: number
   organizationSlug?: string
   hideSoldOut?: boolean
@@ -61,7 +62,7 @@ export const CalendarView = memo(function CalendarView({
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
-    const map = new Map<string, any>()
+    const map = new Map<string, ScenarioCard>()
     scenarios.forEach(scenario => {
       map.set(scenario.scenario_id, scenario)
       if (scenario.scenario_title) {
@@ -73,7 +74,7 @@ export const CalendarView = memo(function CalendarView({
   
   // GMテスト等のブロックされたイベントを日付でMapに管理
   const blockedEventsByDate = useMemo(() => {
-    const map = new Map<string, any[]>()
+    const map = new Map<string, PublicEventRow[]>()
     blockedSlots.forEach(event => {
       if (!map.has(event.date)) {
         map.set(event.date, [])
@@ -181,7 +182,7 @@ export const CalendarView = memo(function CalendarView({
                       : allBlockedEvents
                     
                     // 通常公演 + 貸切公演 + GMテスト等を全てマージして時間順にソート
-                    const allMergedEvents = [...events, ...blockedEvents].sort((a, b) => {
+                    const allMergedEvents: PublicCalendarEvent[] = [...events, ...blockedEvents].sort((a, b) => {
                       return (a.start_time || '').localeCompare(b.start_time || '')
                     })
                     
@@ -280,7 +281,7 @@ export const CalendarView = memo(function CalendarView({
                     }
                     
                     // 時間帯順にイベントと貸切ボタンを表示
-                    const renderEvent = (event: any, idx: number) => {
+                    const renderEvent = (event: PublicCalendarEvent, idx: number) => {
                       // useBookingDataで事前計算済みのplayer_count_maxを使用
                       const maxParticipants = event.player_count_max || 8
                       const currentParticipants = event.current_participants || 0
@@ -315,13 +316,13 @@ export const CalendarView = memo(function CalendarView({
                       }
 
                       const metaColor = isFull ? '#6B7280' : storeColor
-                      const title = event.scenario || event.scenarios?.title
+                      const title = event.scenario
                       const capacityLabel = isFull ? '満席' : `${currentParticipants}/${maxParticipants}`
 
                       return (
                         <div
                           key={`${event.id || idx}`}
-                          onClick={() => scenario && onCardClick(scenario.scenario_id)}
+                          onClick={() => scenario && onCardClick(scenarioCardId(scenario))}
                           className="text-[10px] leading-tight transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
                           style={{
                             borderLeftColor: isFull ? '#9CA3AF' : storeColor,
@@ -335,7 +336,7 @@ export const CalendarView = memo(function CalendarView({
                               {imageUrl ? (
                                 <OptimizedImage
                                   src={imageUrl}
-                                  alt={title || scenario?.scenario_title || 'シナリオ画像'}
+                                  alt={title || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
                                   responsive={false}
                                   useWebP={true}
                                   quality={70}
