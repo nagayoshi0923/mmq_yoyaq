@@ -43,7 +43,8 @@ export async function readPrivateGroupList(scope: 'joined' | 'organized' | 'staf
     if (error) throw error
     const page = (data || []) as PrivateGroup[]
     groups.push(...page)
-    if (page.length < 100) break
+    // 指定IDの分を取り切ったら続きを取りに行かない（100件ちょうどのとき空の追加取得をしない、#837）
+    if (page.length < 100 || (groupIds && groups.length >= groupIds.length)) break
     const next = page[page.length - 1].id
     if (next === cursor) throw new Error('グループ一覧の続きを取得できませんでした')
     cursor = next
