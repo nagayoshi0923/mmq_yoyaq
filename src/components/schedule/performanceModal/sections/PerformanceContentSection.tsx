@@ -27,6 +27,8 @@ interface PerformanceContentSectionProps {
   stores: Store[]
   /** null = 配置取得中（誤警告防止）。空配列 = 使用可能なキットなしとして警告 */
   kitStoreIds: string[] | null
+  /** その日に同じ作品を公演する店舗に対してキットが足りない場合（#376） */
+  kitShortage?: { demand: number; usable: number } | null
   setEditingScenarioId: Dispatch<SetStateAction<string | null>>
 }
 
@@ -45,6 +47,7 @@ export function PerformanceContentSection({
   isScenarioAvailableAtVenue,
   stores,
   kitStoreIds,
+  kitShortage = null,
   setEditingScenarioId,
 }: PerformanceContentSectionProps) {
   return (
@@ -141,6 +144,15 @@ export function PerformanceContentSection({
                     </div>
                   )
                 })()}
+                {formData.scenario && kitShortage && (
+                  <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded-md text-xs">
+                    <div className="flex items-center gap-1 text-amber-700">
+                      <span className="font-semibold">⚠️ キット不足:</span>
+                      <span>この日は {kitShortage.demand} 店舗で公演があります</span>
+                    </div>
+                    <p className="mt-0.5 text-amber-600">使用可能なキットは {kitShortage.usable} 個です。キット配置管理で配置と移動を確認してください。</p>
+                  </div>
+                )}
                 {formData.scenario && (() => {
                   const selectedScenario = scenarios.find(s => s.title === formData.scenario)
                   if (selectedScenario) {

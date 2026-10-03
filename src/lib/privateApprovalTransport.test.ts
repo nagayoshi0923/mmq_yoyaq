@@ -2,6 +2,7 @@ import { loadPrivateDiscordProvisionContext } from '../../supabase/functions/_sh
 import { describe,expect,it,vi } from 'vitest'
 import { approvalDeliveryTransport } from '../../supabase/functions/_shared/private-approval-transport'
 import { loadLegacyApprovalNotification } from '../../supabase/functions/_shared/private-approval-legacy'
+import { buildPrivateConfirmationPayload } from '../../supabase/functions/_shared/private-confirmation-payload'
 vi.mock('../../supabase/functions/_shared/effective-email-settings.ts',()=>({loadEffectiveEmailSettings:vi.fn(async()=>({private_confirm_template:'{customer_name} {total_price} {discord_player_url}'}))}))
 const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 const dbFor=(tables:Record<string,any[]>,errorTable?:string)=>({from:vi.fn((table:string)=>{
@@ -66,6 +67,27 @@ describe('承認通知の外部送信',()=>{
   const send=vi.fn(),result=await approvalDeliveryTransport(db,env,'service',send).prepare(r,{},vi.fn())
   expect(result).toMatchObject({target:'customer@example.invalid',payload:{tags:[{name:'mmq_delivery',value:r.id}]}})
   expect(send).not.toHaveBeenCalled()
+ })
+ it('確定メールに貸切グループへの入室案内を必ず添える(#355)',async()=>{
+  const r=row('confirmation_email')
+  const db=dbFor({reservations:[{id:r.reservation_id,organization_id:r.organization_id,private_group_id:id(7)}],private_groups:[{id:id(7),organization_id:r.organization_id,invite_code:'abc123'}]})
+  const result:any=await approvalDeliveryTransport(db,env,'service',vi.fn()).prepare(r,{},vi.fn())
+  expect(result.payload.text).toContain('グループのご案内')
+  expect(result.payload.text).toContain('https://mmq.game/group/invite/abc123')
+  expect(result.payload.text).toContain('クーポンを利用できません')
+  expect(result.payload.text).toContain('事前配役やアンケート')
+  const other=dbFor({reservations:[{id:r.reservation_id,organization_id:r.organization_id,private_group_id:id(7)}],private_groups:[{id:id(7),organization_id:id(8),invite_code:'other-org'}]})
+  const otherResult:any=await approvalDeliveryTransport(other,env,'service',vi.fn()).prepare(r,{},vi.fn())
+  expect(otherResult.payload.text).not.toContain('グループのご案内')
+  const none:any=await approvalDeliveryTransport(dbFor({}),env,'service',vi.fn()).prepare(r,{},vi.fn())
+  expect(none.payload.text).not.toContain('グループのご案内')
+ })
+ it('既定の確定文面にもグループの案内を入れる(#355)',()=>{
+  const payload:any=buildPrivateConfirmationPayload({...row('confirmation_email').snapshot,groupUrl:'https://mmq.game/group/invite/abc123'},{senderEmail:'s@example.invalid',senderName:'店',supabaseUrl:'https://example.invalid',storeEmailSettings:null})
+  expect(payload.text).toContain('https://mmq.game/group/invite/abc123')
+  expect(payload.html).toContain('href="https://mmq.game/group/invite/abc123"')
+  const placed:any=buildPrivateConfirmationPayload({...row('confirmation_email').snapshot,groupUrl:'https://mmq.game/group/invite/abc123'},{senderEmail:'s@example.invalid',senderName:'店',supabaseUrl:'https://example.invalid',storeEmailSettings:{private_confirm_template:'入室はこちら {group_url}'}})
+  expect(placed.text).toBe('入室はこちら https://mmq.game/group/invite/abc123')
  })
  it('既存招待が別の公演世代なら推測して案内しない',async()=>{
   const r=row('confirmation_email');r.snapshot.scenarioTitle='戦塵のレガストリア'
