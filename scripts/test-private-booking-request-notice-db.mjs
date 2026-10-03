@@ -145,5 +145,10 @@ if(testClosure){
  await request(scenario,['2026-10-23'])
  console.log('PASS legacy closure: old anon/auth denied, new authenticated booking remains operational, service ACL retained, rollback/reapply')
 }
+// #842 #852: 最新の申込関数では、グループなしは本人確認（P0401）の後に専用コード P0047 で止まる
+await db.exec(fs.readFileSync('supabase/rpcs/create_private_booking_request.sql','utf8'))
+await assert.rejects(db.query("SELECT create_private_booking_request($1,gen_random_uuid(),'Fixture','fixture@example.invalid','000',6,'{}')",[scenario]),e=>e.code==='P0401')
+await assert.rejects(db.query("SELECT create_private_booking_request($1,$2,'Fixture','fixture@example.invalid','000',6,'{}')",[scenario,customer]),e=>e.code==='P0047')
+console.log('PASS group required: other customer P0401 first, missing group P0047')
 await db.close()
 console.log('PASS private request notice: real request RPC, org template/fallback, no organizer row, counts, transaction rollback incl pricing/GM/group, auth/anonymous, rollback/reapply')
