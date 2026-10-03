@@ -1,3 +1,5 @@
+import { publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
+import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 /**
  * MMQ プラットフォームトップページ
  * @path /
@@ -167,12 +169,22 @@ async function fetchPlatformTopData(): Promise<PlatformTopData> {
     if (r.schedule_event_id) participantsMap[r.schedule_event_id] = (participantsMap[r.schedule_event_id] || 0) + (r.participant_count || 1)
   })
 
+  // 店舗の「公演募集停止」期間の公演は出さない（予約は DB でも止まる。組織別の予約サイトと同じ扱い、#696）
+  const eventStoreIds = [...new Set((eventData || []).map(e => (e.stores as unknown as { id?: string } | null)?.id).filter((id): id is string => Boolean(id)))]
+  let performancePauses: StoreRecruitmentPausePeriod[] = []
+  if (eventStoreIds.length > 0) {
+    const { data: pauseRows, error: pauseError } = await publicBookingReadApi.listPerformancePauses(eventStoreIds)
+    if (pauseError) logger.error('店舗の募集停止期間の取得に失敗:', pauseError)
+    else performancePauses = (pauseRows || []) as StoreRecruitmentPausePeriod[]
+  }
+
   const scenarioMap: Record<string, ScenarioWithEvents> = {}
   if (eventData) {
     eventData.forEach(e => {
       const scenarioData = e.scenario_masters as unknown as { id: string; title: string; key_visual_url?: string | null; genre?: string[]; author?: string; player_count_min: number; player_count_max: number; official_duration: number } | null
       const store = e.stores as unknown as { id: string; name: string; short_name?: string; color?: string; region?: string } | null
       if (!scenarioData || !store) return
+      if (e.date && storeHasRecruitmentPause(e.date, store.id, 'performance', performancePauses)) return
       if (!e.organization_id || !orgMap[e.organization_id]) return
 
       const nowForFilter = new Date()
