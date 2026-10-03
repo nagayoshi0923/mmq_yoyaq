@@ -1,4 +1,4 @@
--- 正本: 20260927015000_private_booking_scenario_capacity.sql
+-- #842: グループ必須の判定を本人確認の後へ移し、店舗の誤り（P0042）と区別できる専用コード P0047 にする。
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -679,6 +679,3 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
-
--- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
-REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
