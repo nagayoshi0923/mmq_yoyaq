@@ -1470,7 +1470,7 @@ export function PrivateGroupInvite() {
               onGoToSchedule={() => openSheet('dates')}
               scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
-              performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
+              performanceDate={group.confirmed_performance?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
                 const { error } = await privateGroupRpcApi.setCharacterMethod({

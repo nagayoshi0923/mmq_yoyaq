@@ -206,12 +206,19 @@ async function fetchRawBookingRequests(
       ? (candidateDatesByGroupId.get(req.private_group_id) || [])
       : []
 
+    // 確定済みは、申請時の候補（グループの候補表＝履歴）を並べ直して見せる。
+    // 確定した日時は承認で更新された予約側の値が正。履歴の行の時刻では上書きしない（承認時に時刻・時間帯を変えた場合がある）。
     if (req.status === 'confirmed' && originalCandidates.length > currentCandidates.length) {
       const confirmedCandidate = currentCandidates.find(c => c.status === 'confirmed')
-      const restoredCandidates = originalCandidates.map((cd, idx: number) => {
-        const isConfirmed = confirmedCandidate &&
+      let confirmedPlaced = false
+      const restoredCandidates: PrivateBookingRequest['candidate_datetimes']['candidates'] = originalCandidates.map((cd, idx: number) => {
+        const isConfirmed = !!confirmedCandidate && !confirmedPlaced &&
           confirmedCandidate.date === cd.date &&
           confirmedCandidate.timeSlot === cd.time_slot
+        if (isConfirmed) {
+          confirmedPlaced = true
+          return { ...confirmedCandidate, order: idx + 1, gm_response_index: null, status: 'confirmed' }
+        }
         return {
           order: idx + 1,
           gm_response_index: null,
@@ -219,9 +226,13 @@ async function fetchRawBookingRequests(
           timeSlot: cd.time_slot,
           startTime: cd.start_time || confirmedCandidate?.startTime || '10:00',
           endTime: cd.end_time || confirmedCandidate?.endTime || '13:00',
-          status: isConfirmed ? 'confirmed' : 'pending',
+          status: 'pending',
         }
       })
+      // 承認時に時間帯を変えた等で履歴の行と対応しない場合も、確定した日時は必ず出す
+      if (confirmedCandidate && !confirmedPlaced) {
+        restoredCandidates.push({ ...confirmedCandidate, order: restoredCandidates.length + 1, gm_response_index: null, status: 'confirmed' })
+      }
       candidateDatetimes = { ...candidateDatetimes, candidates: restoredCandidates }
     }
 
