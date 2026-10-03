@@ -428,7 +428,7 @@ export function CancellationSettings({ storeId = '', scope = 'store', targetId }
       {state.error && <p role="alert">{state.error}</p>}
       {state.message && <p role="status">{state.message}</p>}
       <section className="rounded-xl border p-4 space-y-3">
-        <p className="text-sm">{scope === 'organization' ? '組織共通の規定です。個別指定のない項目に適用します。' : '共通の規定を引き継ぎ、変更した項目だけこの対象で個別指定します。'}</p>
+        <p className="text-sm">{scope === 'organization' ? '組織共通の規定です。個別指定のない項目に適用します。店舗の設定に値が入っている項目は、店舗の値が優先されます。' : '共通の規定を引き継ぎ、変更した項目だけこの対象で個別指定します。'}</p>
         <p className="text-sm text-muted-foreground">予約済みのお客様のキャンセル料・受付期限は、予約時の条件を維持します。</p>
         <details><summary className="cursor-pointer">項目ごとの設定元を確認・変更</summary>
           <div className="grid gap-4 mt-4">{keys.map(key => {
