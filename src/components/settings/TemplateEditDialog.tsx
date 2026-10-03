@@ -129,7 +129,7 @@ export function TemplateEditDialog({
                   <p className="text-xs text-muted-foreground mb-2">
                     差し込み変数をサンプル値に置き換えた、実際に送られる全文のイメージです。
                   </p>
-                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{renderTemplateWithSamples(value, previewOverrides)}</pre>
+                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{renderTemplateWithSamples(value, previewOverrides, templateKey)}</pre>
                 </div>
               )}
             </div>

@@ -1,4 +1,5 @@
 import { privateReminderDefault } from '../../supabase/functions/_shared/reminder-kind'
+import { withPrivateGroupGuide } from '@/lib/privateGroupGuide'
 /**
  * メールテンプレート台帳（単一の真実源）
  *
@@ -815,7 +816,9 @@ export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
  * テンプレ本文の差し込み変数を置換し、送られる全文のプレビューを作る。
  * overrides に実際の設定値（会社情報・却下既定理由など）を渡すとサンプル値より優先する。
  */
-export function renderTemplateWithSamples(text: string, overrides?: Record<string, string>): string {
+export function renderTemplateWithSamples(text: string, overrides?: Record<string, string>, templateKey?: string): string {
+  // 貸切の確定メールは、文面に {group_url} が無ければ送信時に末尾へグループの案内が付く。プレビューにも同じく付ける（#831）
+  if (templateKey === 'private_confirm_template') text = withPrivateGroupGuide(text, '{group_url}')
   return text.replace(/\{(\w+)\}/g, (match, key) => {
     const override = overrides?.[key]
     if (override !== undefined && override !== '') return override
