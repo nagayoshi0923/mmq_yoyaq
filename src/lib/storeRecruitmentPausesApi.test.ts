@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { addStoreRecruitmentPause, listStoreRecruitmentPauses, removeStoreRecruitmentPause } from '../../api/_lib/storeRecruitmentPauses'
 
 function database(options: { foreign?: boolean; deleted?: number } = {}) {
   const calls: { table: string; operation: string; value?: unknown; filters: Record<string, unknown> }[] = []
-  return {
+  const fake = {
     calls,
     from(table: string) {
       const entry = { table, operation: 'read', value: undefined as unknown, filters: {} as Record<string, unknown> }
@@ -27,6 +28,8 @@ function database(options: { foreign?: boolean; deleted?: number } = {}) {
       return chain
     },
   }
+  // 本物の Supabase クライアントの代わりに渡す（使う問い合わせだけを真似る）
+  return fake as typeof fake & SupabaseClient
 }
 
 describe('店舗の募集停止期間APIの組織境界', () => {

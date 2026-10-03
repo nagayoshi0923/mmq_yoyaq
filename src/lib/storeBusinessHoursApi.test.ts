@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { storeBusinessHours } from '../../api/_lib/storeBusinessHours'
 import { businessHoursSaveFields, normalizeBusinessHoursData } from './storeBusinessHours'
 
 function database(options: { foreign?: boolean; updateError?: boolean; missing?: boolean } = {}) {
   const writes: { table: string; operation: string; value: unknown; filters: Record<string, unknown> }[] = []
   const reads: Record<string, unknown>[] = []
-  return {
+  const fake = {
     writes, reads,
     from(table: string) {
       const filters: Record<string, unknown> = {}
@@ -28,6 +29,8 @@ function database(options: { foreign?: boolean; updateError?: boolean; missing?:
       return chain
     },
   }
+  // 本物の Supabase クライアントの代わりに渡す（使う問い合わせだけを真似る）
+  return fake as typeof fake & SupabaseClient
 }
 const fields = () => businessHoursSaveFields(normalizeBusinessHoursData('store', null))
 describe('店舗営業時間APIの組織境界', () => {

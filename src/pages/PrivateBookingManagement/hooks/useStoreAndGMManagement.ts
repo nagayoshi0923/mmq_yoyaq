@@ -3,16 +3,23 @@ import { useState, useCallback } from 'react'
 import { storeApi } from '@/lib/api/storeApi'
 import { staffApi } from '@/lib/api/staffApi'
 import { logger } from '@/utils/logger'
+import type { Store } from '@/types'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
 
 /**
  * 店舗とGMのデータ管理、競合チェックを行うフック
  */
+/** 貸切の承認で選べる GM（回答の内容つき） */
+export type AvailableGm = {
+  gm_id: string; gm_name: string; response_status: string; available_candidates: number[]
+  selected_candidate_index: number | null; notes: string; avatar_color: string | null; responded_at: string | null
+}
+
 export function useStoreAndGMManagement() {
-  const [stores, setStores] = useState<any[]>([])
-  const [availableGMs, setAvailableGMs] = useState<any[]>([])
-  const [allGMs, setAllGMs] = useState<any[]>([])
+  const [stores, setStores] = useState<Store[]>([])
+  const [availableGMs, setAvailableGMs] = useState<AvailableGm[]>([])
+  const [allGMs, setAllGMs] = useState<Array<{ id: string; name: string; avatar_color: string | null }>>([])
   // 店舗データの読み込み（組織対応済み）
   const loadStores = useCallback(async () => {
     try {
