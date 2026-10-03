@@ -150,8 +150,7 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, user: AuthUs
 
   // RPC: admin_delete_reservations_by_ids は SECURITY DEFINER + 内部で auth.uid() による org/role チェック
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (userClient as any).rpc('admin_delete_reservations_by_ids', {
+  const { error } = await userClient.rpc('admin_delete_reservations_by_ids', {
     p_reservation_ids: [id],
   })
 

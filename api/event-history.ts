@@ -70,8 +70,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     return res.status(400).json({ error: 'date / store_id クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = db!
+  let query = db!
     .from('schedule_event_history')
     .select(SELECT_FIELDS)
     .eq('organization_id', user.orgId)

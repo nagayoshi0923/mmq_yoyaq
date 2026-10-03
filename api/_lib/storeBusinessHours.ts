@@ -1,9 +1,9 @@
 import { ApiError } from './auth.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const FIELDS = 'id, store_id, opening_hours, holidays, special_open_days, special_closed_days'
 // The database client is injected so the tenant boundary can be tested without live data.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function storeBusinessHours(database: any, orgId: string | null, storeId: unknown, value?: unknown) {
+export async function storeBusinessHours(database: SupabaseClient, orgId: string | null, storeId: unknown, value?: unknown) {
   if (!orgId) throw new ApiError(403, '組織を確認できません')
   if (typeof storeId !== 'string' || !storeId) throw new ApiError(400, '店舗IDが必要です')
   const store = await database.from('stores').select('id').eq('id', storeId).eq('organization_id', orgId).maybeSingle()

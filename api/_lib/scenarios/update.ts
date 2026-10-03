@@ -1,6 +1,7 @@
 // api/scenarios.ts の PATCH（更新・担当 GM 更新）（整備 Phase 3、#774。元の行をそのまま移した。ロジックの変更なし）
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { SELECT_FIELDS, db } from './common.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ─── PATCH: update / updateAvailableGms / updateAvailableGmsWithSync ─────────
 export async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string) {
@@ -22,8 +23,7 @@ export async function routePatch(req: VercelRequest, res: VercelResponse, orgId:
 // 自組織が対象 scenario_master_id の organization_scenarios 行を保有しているか確認し、
 // その行 ID を返す。共有シナリオであっても、自組織がまだ取り込んでいなければ更新不可。
 export async function ensureOwnedByOrg(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
+  database: SupabaseClient,
   orgId: string,
   scenarioMasterId: string,
 ): Promise<{ orgScenarioId: string } | null> {

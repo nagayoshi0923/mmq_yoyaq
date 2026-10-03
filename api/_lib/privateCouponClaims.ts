@@ -14,7 +14,7 @@ export function compensationAmount(start: string, cancelled: string): number | n
 }
 
 export async function privateCouponClaims(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const database = db as any
+  const database = db!
   const action = String(req.query.action ?? req.query.type ?? '')
   res.setHeader('Cache-Control', 'no-store')
   if (action === 'private-claim-candidates') {
@@ -32,11 +32,14 @@ export async function privateCouponClaims(req: VercelRequest, res: VercelRespons
     const { data: r } = await database.from('reservations')
       .select('id,status,cancelled_at,organization_id,participant_count,schedule_event_id,schedule_events:schedule_events!reservations_schedule_event_id_fkey!inner(id,date,start_time,start_at,cancelled_at,is_cancelled,category,organization_id)')
       .eq('id', req.body?.reservation_id).eq('organization_id', user.orgId).maybeSingle()
-    const e = r?.schedule_events
+    // 公演の結合は1件（多対一）。型推論は配列になるため実際の形で受ける
+    const e = r?.schedule_events as unknown as {
+      id: string; date: string; start_time: string; start_at: string | null; cancelled_at: string; is_cancelled: boolean; category: string; organization_id: string
+    } | null | undefined
     if (!e || e.organization_id !== user.orgId || !e.is_cancelled || e.category !== 'private') {
       return res.status(400).json({ error: '中止済みの貸切予約を選択してください' })
     }
-    if (!['confirmed', 'cancelled', 'checked_in'].includes(r.status) || (r.cancelled_at && +new Date(r.cancelled_at) < +new Date(e.cancelled_at))) {
+    if (!r || !['confirmed', 'cancelled', 'checked_in'].includes(r.status) || (r.cancelled_at && +new Date(r.cancelled_at) < +new Date(e.cancelled_at))) {
       return res.status(400).json({ error: '公演中止より前に取り消された予約、または未確定の予約は対象にできません' })
     }
     const amount = compensationAmount(e.start_at || `${e.date}T${e.start_time}+09:00`, e.cancelled_at)
@@ -56,6 +59,7 @@ export async function privateCouponClaims(req: VercelRequest, res: VercelRespons
     if (error) return res.status(500).json({ error: '受け取りURLを作成できませんでした' })
     const { data: link } = await database.from('private_coupon_claim_links').select('token,max_claims,revoked,expires_at')
       .eq('organization_id', user.orgId).eq('reservation_id', r.id).single()
+    if (!link) return res.status(500).json({ error: '受け取りURLを作成できませんでした' })
     return res.status(200).json({ path: `/coupon-claim#${link.token}`, max_claims: link.max_claims, revoked: link.revoked, expires_at: link.expires_at })
   }
   const token = req.body?.token

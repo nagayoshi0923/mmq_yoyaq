@@ -1,4 +1,5 @@
 import { ApiError } from './auth.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // 店舗の募集停止期間（QW-20260909-011）。組織と店舗の所属はサーバーで確かめ、入力の組織IDは使わない。
 const FIELDS = 'id, store_id, pause_type, starts_on, ends_on'
@@ -6,8 +7,7 @@ const TYPES = ['performance', 'private']
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 
 // The database client is injected so the tenant boundary can be tested without live data.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function assertOwnStore(database: any, orgId: string | null, storeId: unknown): Promise<string> {
+async function assertOwnStore(database: SupabaseClient, orgId: string | null, storeId: unknown): Promise<string> {
   if (!orgId) throw new ApiError(403, '組織を確認できません')
   if (typeof storeId !== 'string' || !storeId) throw new ApiError(400, '店舗IDが必要です')
   const store = await database.from('stores').select('id').eq('id', storeId).eq('organization_id', orgId).maybeSingle()
@@ -17,8 +17,7 @@ async function assertOwnStore(database: any, orgId: string | null, storeId: unkn
 }
 
 // 店舗IDを省くと、組織の全店舗分を返す（スケジュール表示用）
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function listStoreRecruitmentPauses(database: any, orgId: string | null, storeId: unknown) {
+export async function listStoreRecruitmentPauses(database: SupabaseClient, orgId: string | null, storeId: unknown) {
   if (storeId === undefined || storeId === '') {
     if (!orgId) throw new ApiError(403, '組織を確認できません')
     const all = await database.from('store_recruitment_pauses').select(FIELDS).eq('organization_id', orgId)
@@ -32,8 +31,7 @@ export async function listStoreRecruitmentPauses(database: any, orgId: string | 
   return result.data ?? []
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function addStoreRecruitmentPause(database: any, orgId: string | null, storeId: unknown, value: unknown) {
+export async function addStoreRecruitmentPause(database: SupabaseClient, orgId: string | null, storeId: unknown, value: unknown) {
   const id = await assertOwnStore(database, orgId, storeId)
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ApiError(400, '設定形式が不正です')
   const body = value as Record<string, unknown>
@@ -54,8 +52,7 @@ export async function addStoreRecruitmentPause(database: any, orgId: string | nu
   return created.data
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function removeStoreRecruitmentPause(database: any, orgId: string | null, storeId: unknown, pauseId: unknown) {
+export async function removeStoreRecruitmentPause(database: SupabaseClient, orgId: string | null, storeId: unknown, pauseId: unknown) {
   const id = await assertOwnStore(database, orgId, storeId)
   if (typeof pauseId !== 'string' || !pauseId) throw new ApiError(400, '期間IDが必要です')
   const removed = await database.from('store_recruitment_pauses').delete()

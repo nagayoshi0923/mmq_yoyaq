@@ -54,8 +54,7 @@ export async function handleCreate(req: VercelRequest, res: VercelResponse, user
 
   // RPC 呼び出し（auth.uid() を伝播する user-scoped client を使う）
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: createdId, error: rpcError } = await (userClient as any).rpc(
+  const { data: createdId, error: rpcError } = await userClient.rpc(
     'create_reservation_with_lock_v2',
     {
       p_schedule_event_id: scheduleEventId,

@@ -23,8 +23,7 @@ export async function handleUpdate(req: VercelRequest, res: VercelResponse, user
   // 2) RPC (admin_update_reservation_fields) は SECURITY DEFINER で auth.uid() ベースの追加チェックを行う。
   //    user-scoped client で呼ぶ。
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ok, error: updateError } = await (userClient as any).rpc(
+  const { data: ok, error: updateError } = await userClient.rpc(
     'admin_update_reservation_fields',
     { p_reservation_id: id, p_updates: updates },
   )
@@ -93,8 +92,7 @@ export async function handleUpdateParticipantsWithLock(
   await assertReservationActor(db, user, reservation.organization_id, customer)
 
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (userClient as any).rpc('update_reservation_participants', {
+  const { data, error } = await userClient.rpc('update_reservation_participants', {
     p_reservation_id: id,
     p_new_count: newCount,
     p_customer_id: customerId,
@@ -134,8 +132,7 @@ export async function handleRecalculatePrices(req: VercelRequest, res: VercelRes
   if (!own.ok) return res.status(own.status).json({ error: own.error })
 
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (userClient as any).rpc('admin_recalculate_reservation_prices', {
+  const { data, error } = await userClient.rpc('admin_recalculate_reservation_prices', {
     p_reservation_id: id,
     p_participant_names: participantNames,
   })

@@ -307,8 +307,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(409).json({ error: 'pending 状態の報告のみ更新できます' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updates: Record<string, any> = {}
+  const updates: Record<string, unknown> = {}
   if (body.performance_date !== undefined) updates.performance_date = body.performance_date
   if (body.performance_count !== undefined) updates.performance_count = body.performance_count
   if (body.participant_count !== undefined) updates.participant_count = body.participant_count

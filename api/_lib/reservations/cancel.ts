@@ -33,8 +33,7 @@ export async function handleCancelWithLock(req: VercelRequest, res: VercelRespon
 
   // user-scoped で RPC を呼ぶ（RPC 側で auth.uid() による顧客/スタッフ判定）
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (userClient as any).rpc('cancel_reservation_with_lock', {
+  const { data, error } = await userClient.rpc('cancel_reservation_with_lock', {
     p_reservation_id: id,
     p_customer_id: customerId ?? null,
     p_cancellation_reason: reason,
@@ -76,8 +75,7 @@ export async function handleCancelWithGroupLock(req: VercelRequest, res: VercelR
   if (!customerGate.ok) return res.status(customerGate.status).json({ error: customerGate.error })
 
   const userClient = createUserScopedClient(user.jwt)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_notice', {
+  const { data, error } = await userClient.rpc('cancel_reservation_and_group_with_notice', {
     p_reservation_id: id,
     p_customer_id: customerId ?? null,
     p_cancellation_reason: reason,
@@ -178,8 +176,7 @@ export async function handleCancelOrchestrated(req: VercelRequest, res: VercelRe
       })
     }
   } else if (skipGroupCancel) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (userClient as any).rpc('cancel_reservation_with_lock', {
+    const { data, error } = await userClient.rpc('cancel_reservation_with_lock', {
       p_reservation_id: id,
       p_customer_id: reservation.customer_id ?? null,
       p_cancellation_reason: reason,
@@ -192,8 +189,7 @@ export async function handleCancelOrchestrated(req: VercelRequest, res: VercelRe
       })
     }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (userClient as any).rpc('cancel_reservation_and_group_with_notice', {
+    const { data, error } = await userClient.rpc('cancel_reservation_and_group_with_notice', {
       p_reservation_id: id,
       p_customer_id: reservation.customer_id ?? null,
       p_cancellation_reason: reason,
