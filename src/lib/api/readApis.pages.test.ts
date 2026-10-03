@@ -925,6 +925,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateBookingMgmtReadApi.listGmAssignmentsByScenario (最後の引数なし)": [
         "from("staff_scenario_assignments") .select("staff_id") .eq("scenario_master_id", undefined) .or("can_main_gm.eq.true,can_sub_gm.eq.true")",
       ],
+      "privateBookingMgmtReadApi.listGmAssignmentsByScenarios": [
+        "from("staff_scenario_assignments") .select("staff_id, scenario_master_id, can_main_gm, can_sub_gm") .in("scenario_master_id", "a1") .order("staff_id") .range("a2", "a3")",
+      ],
+      "privateBookingMgmtReadApi.listGmAssignmentsByScenarios (最後の引数なし)": [
+        "from("staff_scenario_assignments") .select("staff_id, scenario_master_id, can_main_gm, can_sub_gm") .in("scenario_master_id", "a1") .order("staff_id") .range("a2", undefined)",
+      ],
       "privateBookingMgmtReadApi.listGmAssignmentsByStaffIds": [
         "from("staff_scenario_assignments") .select("staff_id, can_main_gm, can_sub_gm") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .in("staff_id", "a3")",
       ],

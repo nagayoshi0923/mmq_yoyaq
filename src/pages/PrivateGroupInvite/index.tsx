@@ -2,7 +2,7 @@ import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
 import { savePrivateGroupPreferredStores } from '@/lib/privateGroupPreferredStores'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
-import { addJstDays } from '@/utils/jstDate'
+import { addJstDays, toJstYmd } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -1005,6 +1005,20 @@ export function PrivateGroupInvite() {
         return
       }
 
+      // 受付締切（公演日の何日前まで）を過ぎた候補があると、申込全体が DB で拒否される。送る前に知らせる（#506）
+      // 締切日数が読めないときはここでは止めず、DB の確認に任せる（誤って止めない）
+      const deadlineResult = await privateBookingSlotReadApi.getEffectiveDeadlineDays({ scenarioId: group.scenario_master_id, organizationId: orgId, organizationSlug: null })
+      const deadlineDays = !deadlineResult.error && typeof deadlineResult.data === 'number' && Number.isInteger(deadlineResult.data) && deadlineResult.data >= 0
+        ? deadlineResult.data
+        : null
+      const earliestDate = deadlineDays === null ? null : addJstDays(toJstYmd(new Date()), deadlineDays)
+      const pastDeadline = earliestDate === null ? [] : selectedCandidateDates.filter((candidate) => candidate.date < earliestDate)
+      if (pastDeadline.length > 0) {
+        const labels = pastDeadline.map((candidate) => candidate.date.slice(5).replace('-', '/')).join('、')
+        toast.error(`${labels} は貸切の受付締切（公演日の${deadlineDays}日前まで）を過ぎています。この日程を外して申し込んでください`)
+        return
+      }
+
       const requestedStoreIds = preferredStoreNames.map((store) => store.id)
       const selectedDates = selectedCandidateDates.map((candidate) => candidate.date).sort()
       const availabilityParams: RpcGetPublicPrivateBookingAvailabilityParams = {
@@ -1172,6 +1186,8 @@ export function PrivateGroupInvite() {
           errorMessage = '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。'
         } else if (rpcError.code === 'P0041' || rpcError.code === 'P0042') {
           errorMessage = '候補日時または希望店舗が正しくありません。再選択してください。'
+        } else if (rpcError.code === 'P0045') {
+          errorMessage = '貸切の受付締切を過ぎた候補日があります。その日程を外して、もう一度お試しください。'
         } else if (rpcError.code === 'P0047') {
           errorMessage = '貸切リクエストはグループから申し込んでください。画面を開き直してから、もう一度お試しください。'
         } else if (rpcError.code === 'P0044') {

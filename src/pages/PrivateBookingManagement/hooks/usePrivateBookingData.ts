@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
+import type { GmScenarioMode } from '@/lib/gmScenarioMode'
 
 export interface PrivateBookingRequest {
   id: string
@@ -74,6 +75,8 @@ export interface PrivateBookingRequest {
   }>
   created_at: string
   invite_code?: string
+  /** 回答したGMが、この作品でメイン・サブのどちらを担当できるか（スタッフID → 区分、#827） */
+  gm_role_by_staff?: Record<string, GmScenarioMode | 'none'>
 }
 
 interface UsePrivateBookingDataProps {

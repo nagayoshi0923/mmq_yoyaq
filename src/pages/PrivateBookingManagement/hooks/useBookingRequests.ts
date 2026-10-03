@@ -13,7 +13,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
-import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
+import { resolveStaffProfileGmSlotCount, type GmScenarioMode } from '@/lib/gmScenarioMode'
 
 interface UseBookingRequestsProps {
   userId?: string
@@ -122,6 +122,7 @@ async function fetchRawBookingRequests(
   const [
     memberRowsResult,
     viewRowsResult,
+    gmAssignmentsResult,
     allGmResponsesResult,
     allCandidateDatesResult,
     gmReadiness,
@@ -137,6 +138,10 @@ async function fetchRawBookingRequests(
       ] as string[]
       return fetchBookingRelatedRows(masterIds, (batch, from, to) => privateBookingMgmtReadApi.listScenarioViewsForRequests(orgId, batch, from, to))
     })(),
+    // 回答したGMのメイン・サブ設定（#827）
+    fetchBookingRelatedRows([...new Set(reservationsList
+      .map((r) => r.scenario_master_id || r.private_groups?.scenario_master_id)
+      .filter(Boolean))] as string[], (batch, from, to) => privateBookingMgmtReadApi.listGmAssignmentsByScenarios(batch, from, to)),
     // 承認済み・却下済みなど過去分の GM 回答は、画面を出した後に別途読む（#835）
     getGmResponses(reservationsList.filter((r) => ACTIVE_STATUSES.has(r.status)).map((r) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
@@ -170,6 +175,15 @@ async function fetchRawBookingRequests(
   }
 
   const gmResponsesByReservationId = groupByReservationId(allGmResponsesResult.data || [])
+
+  // 作品ごとに、スタッフ → メイン・サブの区分（どちらも付いていない担当は none）
+  const gmRoleByScenario = new Map<string, Record<string, GmScenarioMode | 'none'>>()
+  for (const row of gmAssignmentsResult.data || []) {
+    if (!row.scenario_master_id || !row.staff_id) continue
+    const roles = gmRoleByScenario.get(row.scenario_master_id) ?? {}
+    roles[row.staff_id] = row.can_main_gm && row.can_sub_gm ? 'main_and_sub' : row.can_main_gm ? 'main_only' : row.can_sub_gm ? 'sub_only' : 'none'
+    gmRoleByScenario.set(row.scenario_master_id, roles)
+  }
 
   type GroupCandidateDate = { group_id: string; date: string; time_slot: string; start_time?: string | null; end_time?: string | null; status?: string | null }
   const candidateDatesByGroupId = new Map<string, GroupCandidateDate[]>()
@@ -247,6 +261,7 @@ async function fetchRawBookingRequests(
       canceller_name: req.canceller?.name,
       cancelled_at: req.cancelled_at ?? undefined,
       gm_responses: transformedGMResponses,
+      gm_role_by_staff: scenarioMasterId ? (gmRoleByScenario.get(scenarioMasterId) ?? {}) : {},
       created_at: req.created_at,
       invite_code: req.private_groups?.invite_code || '',
     } as PrivateBookingRequest

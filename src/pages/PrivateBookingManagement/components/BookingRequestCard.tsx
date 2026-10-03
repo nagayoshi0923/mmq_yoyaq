@@ -24,6 +24,8 @@ import {
 } from '../utils/bookingFormatters'
 import { isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '../utils/gmAvailabilityStatus'
 import { cn } from '@/lib/utils'
+import type { GmScenarioMode } from '@/lib/gmScenarioMode'
+import { gmRoleLabel } from '../utils/gmRoleLabel'
 
 interface Candidate {
   gm_response_index?: number | null
@@ -76,6 +78,8 @@ interface BookingRequest {
     confirmedStore?: { storeId: string; storeName: string }
   }
   gm_responses?: GMResponse[]
+  /** 回答したGMが、この作品でメイン・サブのどちらを担当できるか（#827） */
+  gm_role_by_staff?: Record<string, GmScenarioMode | 'none'>
 }
 
 interface GMStaff {
@@ -333,6 +337,9 @@ export const BookingRequestCard = ({
                             : <Clock className="w-3 h-3 shrink-0 text-amber-500" />
                         }
                         {response.gm_name || 'GM名不明'}
+                        {response.staff_id && request.gm_role_by_staff && (
+                          <span className="text-purple-500">（{gmRoleLabel(request.gm_role_by_staff[response.staff_id])}）</span>
+                        )}
                         {isUnsent && <span className="text-red-500 font-medium">未送信</span>}
                         {isUnanswered && <span className="text-amber-600">未回答</span>}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
