@@ -5,36 +5,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import { getEffectiveCategory } from '@/utils/scheduleUtils'
 import { devDb } from '@/components/ui/DevField'
 
-// スケジュールイベントの型定義
-interface ScheduleEvent {
-  id: string
-  date: string // YYYY-MM-DD
-  venue: string // 店舗ID
-  scenario: string
-  gms: string[] // GMの名前の配列
-  gm_roles?: Record<string, string> // GMの役割
-  start_time: string // HH:MM
-  end_time: string // HH:MM
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg' // 公演カテゴリ
-  is_cancelled: boolean
-  is_tentative?: boolean // 仮状態（非公開）
-  current_participants?: number // DBカラム名に統一（旧: participant_count）
-  max_participants?: number
-  notes?: string
-  is_reservation_enabled?: boolean
-  is_private_request?: boolean // 貸切リクエストかどうか
-  reservation_info?: string
-  reservation_id?: string // 貸切リクエストの元のreservation ID
-  reservation_name?: string // 貸切予約の予約者名
-  original_customer_name?: string // MMQからの元の予約者名（上書き検出用）
-  is_reservation_name_overwritten?: boolean // 予約者名が手動で上書きされたかどうか
-  hasOnlyCancelledReservations?: boolean // 紐づく予約が1件以上あり、そのすべてがキャンセル済みの場合 true（貸切の取りこぼし検知用）
-  scenarios?: {
-    id: string
-    title: string
-    player_count_max: number
-  }
-}
+import type { ScheduleEvent } from '@/types/schedule'
 
 interface PerformanceCardProps {
   event: ScheduleEvent
