@@ -133,7 +133,10 @@ export function CancellationPolicyView({
   policy,
   showStoreHeading = true,
 }: CancellationPolicyViewProps) {
-  const rulesByTiming = policy.cancellation_judgment_rules.reduce<Record<string, PublicCancellationPolicy['cancellation_judgment_rules']>>(
+  // 設定で空のまま保存された行は出さない（空欄だと「 → 」だけが表示されていた）
+  const rulesByTiming = policy.cancellation_judgment_rules
+    .filter(rule => rule.timing?.trim() && rule.condition?.trim() && rule.result?.trim())
+    .reduce<Record<string, PublicCancellationPolicy['cancellation_judgment_rules']>>(
     (grouped, rule) => {
       grouped[rule.timing] ||= []
       grouped[rule.timing].push(rule)
