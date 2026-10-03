@@ -18,4 +18,4 @@ export { licensePartnerReportsApi } from './api/licensePartnerReportsApi'
 
 // 型定義の再エクスポート
 export type { CandidateDateTime, GMAvailabilityResponse, PaginatedResponse } from './api/types'
-export type { ScheduleEvent } from './api/types'
+export type { ScheduleEvent } from '@/types/schedule'
