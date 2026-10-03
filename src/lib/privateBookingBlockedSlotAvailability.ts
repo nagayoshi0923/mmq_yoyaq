@@ -1,3 +1,4 @@
+import { isDateInRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 import {
   scheduleTimeSlotToEn,
   timeSlotEnToCandidate,
@@ -97,6 +98,27 @@ export function getPrivateBookingCandidateBlockedState(
     allStoresBlocked: blockedStoreIds.length === storeIds.length,
     partiallyBlocked: blockedStoreIds.length > 0 && blockedStoreIds.length < storeIds.length,
   }
+}
+
+/**
+ * 店舗の「貸切募集停止」期間（営業時間設定）を、候補日ごと・時間帯ごとの停止枠に置き換える。
+ * 承認画面はスケジュールで止めた枠と同じ扱いで「受付停止中」を表示する（サーバーの承認処理も同じ期間で止める）。
+ */
+export function privateRecruitmentPauseRows(
+  periods: Array<StoreRecruitmentPausePeriod & { created_at?: string | null }>,
+  dates: string[],
+): PrivateBookingBlockedSlotRow[] {
+  const rows: PrivateBookingBlockedSlotRow[] = []
+  for (const period of periods) {
+    if (period.pause_type !== 'private') continue
+    for (const date of new Set(dates)) {
+      if (!isDateInRecruitmentPause(date, period)) continue
+      for (const time_slot of ['morning', 'afternoon', 'evening'] as const) {
+        rows.push({ date, store_id: period.store_id, time_slot, created_at: period.created_at ?? null })
+      }
+    }
+  }
+  return rows
 }
 
 export function classifyPrivateBookingBlockedTiming(

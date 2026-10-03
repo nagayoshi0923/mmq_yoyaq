@@ -7,6 +7,17 @@ import { getStoreRecruitmentPauseKind, recruitmentPauseCellLabel } from '@/lib/s
  * 組織の全店舗の募集停止期間（QW-20260909-011）を取得し、スケジュールのセル表示用ラベルを返す。
  * 取得に失敗してもスケジュールは表示を続ける（ラベルが出ないだけ）。
  */
+/** 組織の全店舗の募集停止期間。承認画面など、最新の停止を確実に反映したい画面向け（#727）。 */
+export function useStoreRecruitmentPausePeriods(enabled: boolean) {
+  const { data: periods = [] } = useQuery({
+    queryKey: ['store-recruitment-pauses'],
+    queryFn: () => storeApi.getAllRecruitmentPauses(),
+    enabled,
+    staleTime: 0,
+  })
+  return periods
+}
+
 export function useStoreRecruitmentPauseLabels(enabled: boolean) {
   const { data: periods = [] } = useQuery({
     queryKey: ['store-recruitment-pauses'],

@@ -4,6 +4,7 @@ import {
   classifyPrivateBookingBlockedTiming,
   createPrivateBookingBlockedSlotKey,
   getPrivateBookingCandidateBlockedState,
+  privateRecruitmentPauseRows,
   toCanonicalPrivateBookingTimeSlot,
 } from './privateBookingBlockedSlotAvailability'
 
@@ -82,5 +83,23 @@ describe('private booking blocked slot availability', () => {
         '2026-07-22T12:00:00+09:00'
       )
     ).toBe('blocked_after_request')
+  })
+})
+
+describe('privateRecruitmentPauseRows（#727 店舗の貸切募集停止を承認画面に出す）', () => {
+  const pause = (extra = {}) => ({ store_id: 'store-a', pause_type: 'private' as const, starts_on: '2026-11-19', ends_on: '2026-11-19', ...extra })
+
+  it('停止期間内の候補日は、朝・昼・夜すべてを停止枠にする', () => {
+    const result = privateRecruitmentPauseRows([pause()], ['2026-11-18', '2026-11-19', '2026-11-19'])
+    expect(result.map(row => `${row.date}:${row.store_id}:${row.time_slot}`)).toEqual([
+      '2026-11-19:store-a:morning', '2026-11-19:store-a:afternoon', '2026-11-19:store-a:evening',
+    ])
+    expect(getPrivateBookingCandidateBlockedState({ date: '2026-11-19', timeSlot: '夜間' }, ['store-a'], result).allStoresBlocked).toBe(true)
+    expect(getPrivateBookingCandidateBlockedState({ date: '2026-11-18', timeSlot: '夜間' }, ['store-a'], result).blockedStoreIds).toEqual([])
+  })
+
+  it('公演募集停止は貸切の停止に含めない。期限なしの停止は全日を対象にする', () => {
+    expect(privateRecruitmentPauseRows([pause({ pause_type: 'performance' })], ['2026-11-19'])).toEqual([])
+    expect(privateRecruitmentPauseRows([pause({ starts_on: null, ends_on: null })], ['2030-01-01'])).toHaveLength(3)
   })
 })
