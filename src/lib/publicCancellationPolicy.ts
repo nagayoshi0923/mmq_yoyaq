@@ -161,6 +161,33 @@ export function createPreviewCancellationPolicy(
   }
 }
 
+/**
+ * 中止判定の設定を店舗ごとに読む（#714）。公開ページと管理画面のプレビューで同じものを使う（#870）。
+ * 取れないとき（公開前の組織・通信の失敗）は空を返し、規定の表示は続ける。
+ */
+export async function fetchPublicPerformanceJudgments({ slug, storeId, scenarioMasterId, eventId }: {
+  slug: string; storeId?: string | null; scenarioMasterId?: string | null; eventId?: string | null
+}): Promise<Map<string, PublicPerformanceJudgment>> {
+  const judgmentResult = await supabase.rpc('get_public_performance_judgment', {
+    p_organization_slug: slug, p_store_id: storeId || null,
+    p_scenario_master_id: scenarioMasterId || null, p_event_id: eventId || null,
+  })
+  const judgmentByStore = new Map<string, PublicPerformanceJudgment>()
+  if (!judgmentResult.error) {
+    for (const row of toArray<Record<string, unknown>>(judgmentResult.data)) {
+      if (typeof row.store_id !== 'string') continue
+      judgmentByStore.set(row.store_id, {
+        judgment_minutes: toNumber(row.judgment_minutes) ?? 240,
+        extension_enabled: row.extension_enabled === true,
+        target_mode: typeof row.target_mode === 'string' ? row.target_mode : 'count',
+        target_value: toNumber(row.target_value) ?? 2,
+        extension_deadline_minutes: toNumber(row.extension_deadline_minutes) ?? 90,
+      })
+    }
+  }
+  return judgmentByStore
+}
+
 export async function fetchPublicCancellationPolicies({
   organizationSlug,
   storeId,
@@ -188,23 +215,7 @@ export async function fetchPublicCancellationPolicies({
 
   const policies = toArray<Record<string, unknown>>(data).map(normalizePublicPolicy)
   // 中止判定のルールは、実際の判定と同じ設定から作る（#714）。取れなくても規定の表示は続ける
-  const judgmentResult = await supabase.rpc('get_public_performance_judgment', {
-    p_organization_slug: slug, p_store_id: storeId || null,
-    p_scenario_master_id: scenarioMasterId || null, p_event_id: eventId || null,
-  })
-  const judgmentByStore = new Map<string, PublicPerformanceJudgment>()
-  if (!judgmentResult.error) {
-    for (const row of toArray<Record<string, unknown>>(judgmentResult.data)) {
-      if (typeof row.store_id !== 'string') continue
-      judgmentByStore.set(row.store_id, {
-        judgment_minutes: toNumber(row.judgment_minutes) ?? 240,
-        extension_enabled: row.extension_enabled === true,
-        target_mode: typeof row.target_mode === 'string' ? row.target_mode : 'count',
-        target_value: toNumber(row.target_value) ?? 2,
-        extension_deadline_minutes: toNumber(row.extension_deadline_minutes) ?? 90,
-      })
-    }
-  }
+  const judgmentByStore = await fetchPublicPerformanceJudgments({ slug, storeId, scenarioMasterId, eventId })
   const withJudgment = policies.map(policy => ({ ...policy, judgment: (policy.store_id && judgmentByStore.get(policy.store_id)) || null }))
   const response = await fetch(`/api/cancellation-billing?action=public-policy&organization=${encodeURIComponent(slug)}`)
   if (!response.ok) throw new Error('最新のキャンセル料金案内を取得できません。店舗へお問い合わせください。')

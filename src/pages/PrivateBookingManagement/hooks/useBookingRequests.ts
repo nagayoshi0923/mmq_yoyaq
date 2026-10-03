@@ -179,6 +179,7 @@ async function fetchRawBookingRequests(
   // 作品ごとに、スタッフ → メイン・サブの区分（どちらも付いていない担当は none）
   const gmRoleByScenario = new Map<string, Record<string, GmScenarioMode | 'none'>>()
   for (const row of gmAssignmentsResult.data || []) {
+    if (row.organization_id !== orgId) continue // 自組織以外の担当設定は使わない（#856）
     if (!row.scenario_master_id || !row.staff_id) continue
     const roles = gmRoleByScenario.get(row.scenario_master_id) ?? {}
     roles[row.staff_id] = row.can_main_gm && row.can_sub_gm ? 'main_and_sub' : row.can_main_gm ? 'main_only' : row.can_sub_gm ? 'sub_only' : 'none'
