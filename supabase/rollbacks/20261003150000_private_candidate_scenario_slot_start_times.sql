@@ -1,5 +1,4 @@
--- QW-20260917-001: 候補日時・通知・通信再試行記録を一括保存。
--- 変数 v_start_at / v_end_at は schedule_events の start_at / end_at 列と衝突させない。
+-- rollback: 候補追加の判定を元に戻し、補助関数を消す
 CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(p_group_id uuid, p_request_id uuid, p_expected_scenario_id uuid, p_expected_store_ids uuid[], p_candidates jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -82,15 +81,12 @@ BEGIN
   SELECT EXISTS(
    SELECT 1 FROM public.stores s
    LEFT JOIN public.business_hours_settings h ON h.store_id=s.id AND h.organization_id=g.organization_id
-   -- 作品ごとの開始時刻を店舗の開始時刻へ上書きする（画面と同じ。店舗の特別営業日は土日祝の値、#698）
-   CROSS JOIN LATERAL (SELECT public.apply_scenario_slot_start_times(to_jsonb(h),sc.private_booking_slot_start_times,
-     holiday OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(nullif(to_jsonb(h)->'special_open_days','null'::jsonb),'[]'::jsonb)) d WHERE d->>'date'=candidate_date::text)) AS hours) eff
-   CROSS JOIN LATERAL public.private_booking_store_day_slots(candidate_date,eff.hours,holiday,cardinality(current_stores)=1) band
+   CROSS JOIN LATERAL public.private_booking_store_day_slots(candidate_date,to_jsonb(h),holiday,cardinality(current_stores)=1) band
    CROSS JOIN LATERAL (
     SELECT coalesce(max(start_minutes) FILTER (WHERE slot_key='evening'),1140)
       - public.resolve_preparation_minutes(g.organization_id,s.id,p_expected_scenario_id,NULL) AS evening_deadline,
      coalesce(max(start_minutes) FILTER (WHERE slot_key='afternoon'),780) AS afternoon_start
-    FROM public.private_booking_store_day_slots(candidate_date,eff.hours,holiday,cardinality(current_stores)=1)
+    FROM public.private_booking_store_day_slots(candidate_date,to_jsonb(h),holiday,cardinality(current_stores)=1)
    ) weekday
    WHERE s.id=ANY(current_stores) AND s.organization_id=g.organization_id AND s.status='active'
     AND s.ownership_type IS DISTINCT FROM 'office'
@@ -122,6 +118,4 @@ BEGIN
   VALUES(p_request_id,g.id,auth.uid(),payload,ids);
  RETURN jsonb_build_object('success',true,'candidate_ids',ids,'replayed',false);
 END $function$;
-
-REVOKE ALL ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.private_group_add_candidate_dates(uuid,uuid,uuid,uuid[],jsonb) TO authenticated,service_role;
+DROP FUNCTION IF EXISTS public.apply_scenario_slot_start_times(jsonb,jsonb,boolean);
