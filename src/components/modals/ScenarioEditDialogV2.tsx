@@ -1378,7 +1378,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
           />
         )
       case 'booking-policy':
-        return <div className="space-y-6"><OperatingTextSettings scope="scenario" targetId={currentOrgScenarioId} fields={PAYMENT_SETTING_FIELDS} /><CancellationSettings scope="scenario" targetId={currentOrgScenarioId} /></div>
+        return <div className="space-y-6"><OperatingTextSettings scope="scenario" targetId={currentOrgScenarioId} fields={PAYMENT_SETTING_FIELDS} /><CancellationSettings scope="scenario" targetId={currentOrgScenarioId} scenarioMasterId={currentMasterId || undefined} /></div>
       case 'email':
         return <EmailSettings scope="scenario" targetId={currentOrgScenarioId} />
       case 'survey':

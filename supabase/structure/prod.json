@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-03T16:22:15.381Z",
+  "captured_at": "2026-10-03T17:28:49.219Z",
   "table_count": 138,
   "function_count": 336,
-  "digest": "7405b5e1d33f07f254e9b85ebc264dad045ec6dd2a76975959f3be38190b2606"
+  "digest": "122645b9f3da99f633485a64f5e0f8f5e66e36e6406dde27ed836d16c57c30ce"
  },
  "tables": {
   "staff": {
@@ -25219,7 +25219,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(store_id uuid, judgment_minutes integer, extension_enabled boolean, target_mode text, target_value integer, extension_deadline_minutes integer)",
-   "body_md5": "2f999d5af5dc7b732c2ad45797bbc300",
+   "body_md5": "0f6d9a8f23452e70510e12cb058aaa9f",
    "language": "plpgsql",
    "security_definer": true
   },

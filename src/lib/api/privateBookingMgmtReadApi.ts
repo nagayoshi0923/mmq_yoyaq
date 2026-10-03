@@ -227,12 +227,16 @@ export const privateBookingMgmtReadApi = {
   },
 
   /** GM 準備確認用: スタッフのシナリオ担当（メイン・サブ可否） */
-  /** 作品ごとの担当GMのメイン・サブ設定（GM回答の表示用、#827）。自組織への絞り込みは RLS（閲覧の決まり）で行う */
+  /**
+   * 作品ごとの担当GMのメイン・サブ設定（GM回答の表示用、#827）。自組織への絞り込みは RLS（閲覧の決まり）で行い、
+   * 念のため organization_id も返して呼び出し側で自組織以外を捨てる（#856）。
+   * 同じスタッフに複数作品の行があるため、並び順は staff_id と scenario_master_id の組で固定する（ページの取りこぼし防止）。
+   */
   async listGmAssignmentsByScenarios(scenarioMasterIds: string[], from: number, to: number) {
     return supabase
-      .from('staff_scenario_assignments').select('staff_id, scenario_master_id, can_main_gm, can_sub_gm')
+      .from('staff_scenario_assignments').select('organization_id, staff_id, scenario_master_id, can_main_gm, can_sub_gm')
       .in('scenario_master_id', scenarioMasterIds)
-      .order('staff_id').range(from, to)
+      .order('staff_id').order('scenario_master_id').range(from, to)
   },
   async listGmAssignmentsByStaffIds(scenarioMasterId: string, organizationId: string, staffIds: string[]) {
     return supabase
