@@ -2,8 +2,10 @@
 
 ## 概要
 
-> **テーブル定義（カラム・型・制約）の正本**はこのディレクトリの `.sql` です（現在 **57テーブル + 1ビュー = 58ファイル**）。
-> 本番全体（165表）の構造・関連・画面対応の俯瞰は **MMQ 構造アトラス**（https://github.com/nagayoshi0923/mmq-model-atlas 、2026-09-28 版）を参照してください（アトラスは俯瞰資料であり、テーブル定義の正本ではありません）。
+> **テーブル定義（カラム・型・制約）の正本**はこのディレクトリの `.sql` です（2026-10-03 時点 **58ファイル = テーブル定義 49・ビュー 3・既存テーブルへの追加定義や関数 6**）。
+> 本番全体（138表、2026-10-02 に参照ゼロの表を archive へ退避した後）の構造・関連・画面対応の俯瞰は **MMQ 構造アトラス**（https://github.com/nagayoshi0923/mmq-model-atlas）と、実DBから写した `supabase/structure/{prod,staging}.json` を参照してください（アトラスは俯瞰資料であり、テーブル定義の正本ではありません）。
+>
+> ビュー: `organization_scenarios_with_master.sql`・`license_performance_summary.sql`・`public_scenarios.sql`。追加定義・関数: `coupon_calendar_months.sql`・`coupon_murder_mystery_scope.sql`・`coupon_rules.sql`・`email_settings_private_reminder.sql`・`kit_transfer_identity.sql`・`private_group_browser_access.sql`。
 
 このディレクトリには、各テーブルの **現在の正規定義** が格納されています。
 ここはリポジトリで管理する参照定義です。全テーブルの網羅や実環境との一致は保証しません。変更前には対象環境の現行定義と適用履歴を照合してください。
@@ -14,7 +16,7 @@
 - **新テーブル作成時**: `schemas/` にも定義ファイルを追加すること
 - **schemas/ のみの更新は禁止**: 実際のDB変更は必ずマイグレーションで行う（schemas/ は参照用）
 
-## 管理対象（57テーブル + 1ビュー）
+## 管理対象（58ファイル）
 
 | ファイル | テーブル | 備考 |
 |----------|---------|------|

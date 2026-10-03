@@ -14,6 +14,7 @@ import {
 } from '@/lib/storeRecruitmentPause'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { invalidateEverywhere } from '@/lib/queryInvalidation'
 
 const PAUSE_TYPES: { type: StoreRecruitmentPauseType; title: string; note: string }[] = [
   { type: 'performance', title: '公演募集停止', note: '通常公演の予約受付を止めます' },
@@ -76,7 +77,8 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
     try {
       await storeApi.addRecruitmentPause(storeId, { pause_type: pauseType, starts_on, ends_on })
       showToast.success('募集停止期間を追加しました')
-      void queryClient.invalidateQueries({ queryKey: ['store-recruitment-pauses'] })
+      // 画面に出ていないスケジュール側のキャッシュも再取得する（refetchOnMount:false のため。#699）
+      void invalidateEverywhere(queryClient, ['store-recruitment-pauses'])
       setDraft(prev => ({ ...prev, [pauseType]: { starts_on: '', ends_on: '' } }))
       await load()
     } catch (error) {
@@ -92,7 +94,8 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
     try {
       await storeApi.removeRecruitmentPause(storeId, pauseId)
       showToast.success('募集停止期間を削除しました')
-      void queryClient.invalidateQueries({ queryKey: ['store-recruitment-pauses'] })
+      // 画面に出ていないスケジュール側のキャッシュも再取得する（refetchOnMount:false のため。#699）
+      void invalidateEverywhere(queryClient, ['store-recruitment-pauses'])
       await load()
     } catch (error) {
       logger.error('募集停止期間の削除に失敗:', error)

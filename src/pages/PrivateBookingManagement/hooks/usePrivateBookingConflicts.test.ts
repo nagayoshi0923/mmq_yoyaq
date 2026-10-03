@@ -56,6 +56,19 @@ describe('貸切競合データの読取と表示状態', () => {
     mocks.query.mockReturnValue({ data: [], isError: false, isFetching: false, refetch: vi.fn() })
     expect(usePrivateBookingConflicts('org', mixed).ready).toBe(true)
   })
+  it('却下済み（再承認できる）の候補日も照会し、過去の日付と不正な日付は範囲に入れない（#690）', async () => {
+    const reapprove = [
+      { id: 'rejected', status: 'cancelled', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2027-02-10', startTime: '14:00', endTime: '17:00' }] } },
+      { id: 'past', status: 'confirmed', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2024-05-01', startTime: '14:00', endTime: '17:00' }] } },
+      { id: 'broken', status: 'pending', scenario_master_id: 'scenario', candidate_datetimes: { candidates: [{ order: 1, date: '2027-99-99', startTime: '14:00', endTime: '17:00' }] } },
+    ] as PrivateBookingRequest[]
+    const events = table(), reservations = table()
+    mocks.from.mockImplementation(name => name === 'reservations' ? reservations : events)
+    expect(() => usePrivateBookingConflicts('org', reapprove)).not.toThrow()
+    await mocks.query.mock.calls[0][0].queryFn()
+    expect(events.gte.mock.calls.map(call => call[1])).toEqual(['2027-02-08'])
+    expect(events.lte.mock.calls.map(call => call[1])).toEqual(['2027-02-12'])
+  })
   it('公演未紐付けの旧確定予約の時間を保持する', async () => {
     const reservations = table([{ id: 'old', store_id: 'store', gm_staff: 'gm', candidate_datetimes: { candidates: [{ status: 'confirmed', date: '2027-01-03', startTime: '14:00', endTime: '17:00' }] } }])
     mocks.from.mockImplementation(name => name === 'reservations' ? reservations : table())

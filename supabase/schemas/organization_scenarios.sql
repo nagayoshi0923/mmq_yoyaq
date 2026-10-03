@@ -75,6 +75,7 @@ CREATE TABLE public.organization_scenarios (
   private_confirm_template TEXT,
   character_assignment_method TEXT NOT NULL DEFAULT 'survey'::text,
   private_booking_time_slots TEXT[],
+  private_booking_time_slots_weekend TEXT[],  -- 土日・祝日（独自休日を含む）の貸切時間枠。空・NULL は全枠受付。平日は流用しない（#345、20261003100000）
   -- センシティブ内容セルフ診断用の店舗上書き（NULL=マスタ準拠）
   custom_sensitive_tags TEXT[],
   -- 公式サイト(queenswaltz.jp)への掲載可否。org_status=available かつ true のものだけ公開APIに出る
