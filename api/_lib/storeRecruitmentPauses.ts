@@ -2,7 +2,7 @@ import { ApiError } from './auth.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 // 店舗の募集停止期間（QW-20260909-011）。組織と店舗の所属はサーバーで確かめ、入力の組織IDは使わない。
-const FIELDS = 'id, store_id, pause_type, starts_on, ends_on'
+const FIELDS = 'id, store_id, pause_type, starts_on, ends_on, created_at'
 const TYPES = ['performance', 'private']
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 

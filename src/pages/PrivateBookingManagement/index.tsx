@@ -410,7 +410,8 @@ export function PrivateBookingManagement() {
   }, [organizationId, requests])
 
   // スケジュールで止めた枠に、店舗の「貸切募集停止」期間を加える（承認処理も同じ期間で止めるため、画面で先に知らせる）
-  const pausePeriods = useStoreRecruitmentPausePeriods(Boolean(organizationId))
+  const pauses = useStoreRecruitmentPausePeriods(Boolean(organizationId))
+  const pausePeriods = pauses.periods
   const effectiveBlockedRows = useMemo(() => {
     const dates = requests.flatMap(request => (request.candidate_datetimes?.candidates || []).map(candidate => candidate.date)).filter(Boolean)
     return [...blockedSlotRows, ...privateRecruitmentPauseRows(pausePeriods, dates)]
@@ -806,6 +807,13 @@ export function PrivateBookingManagement() {
             </FilterBar>
           </div>
 
+          {!pauses.ready && requests.length > 0 && (
+            <Alert><AlertDescription>
+              {pauses.error ? '店舗の募集停止を確認できませんでした。再読み込みしてください。' : '店舗の募集停止を確認中です。'}
+              {pauses.error && <Button variant="link" onClick={() => void pauses.retry()}>再読み込み</Button>}
+            </AlertDescription></Alert>
+          )}
+
           {!conflicts.ready && requests.length > 0 && (
             <Alert><AlertDescription>
               {conflicts.error ? '空き状況を取得できませんでした。再読み込みしてください。' : '準備時間と公演の空き状況を確認中です。'}
@@ -974,7 +982,9 @@ export function PrivateBookingManagement() {
                                   : null
                                 return shortage ? (
                                   <p className="ml-[4.5rem] text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
-                                    キット不足: この日は {shortage.demand} 店舗で公演があり、使用可能なキットは {shortage.usable} 個です。キット配置管理で配置と移動を確認してください。
+                                    {shortage.usable === 0
+                                      ? 'キット不足: 使用可能なキットがありません。キット配置管理で配置と状態を確認してください。'
+                                      : `キット不足: この日は ${shortage.demand} 店舗で公演があり、使用可能なキットは ${shortage.usable} 個です。キット配置管理で配置と移動を確認してください。`}
                                   </p>
                                 ) : null
                               })()}
@@ -1081,7 +1091,7 @@ export function PrivateBookingManagement() {
                         }}
                         onReject={() => handleRejectClick(req.id, req)}
                         disabled={
-                          submitting || !conflicts.ready ||
+                          submitting || !conflicts.ready || !pauses.ready ||
                           (() => {
                             const candidate = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
                             if (!candidate) return true

@@ -166,7 +166,7 @@ export function ConfirmationEmailOverrideDialog({
               {showPreview && (
                 <div className="mt-1 rounded-md border bg-muted/40 p-3">
                   <pre className="whitespace-pre-wrap text-sm font-sans">
-                    {renderTemplateWithSamples(value.trim() || fallbackTemplate, previewOverrides)}
+                    {renderTemplateWithSamples(value.trim() || fallbackTemplate, previewOverrides, templateKey)}
                   </pre>
                 </div>
               )}
