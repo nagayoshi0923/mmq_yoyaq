@@ -96,6 +96,7 @@ CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
     os.available_until,
     COALESCE(os.custom_sensitive_tags, sm.sensitive_tags, ARRAY[]::text[]) AS sensitive_tags,
     COALESCE(os.is_license_buyout, false) AS is_license_buyout,
-    os.private_booking_slot_start_times
+    os.private_booking_slot_start_times,
+    os.private_booking_time_slots_weekend
    FROM organization_scenarios os
      JOIN scenario_masters sm ON sm.id = os.scenario_master_id;
