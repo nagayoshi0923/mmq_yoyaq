@@ -82,6 +82,9 @@ export async function routePost(req: VercelRequest, res: VercelResponse, orgId: 
     depreciation_per_performance: (scenario.depreciation_per_performance as number | null) ?? null,
     play_count: (scenario.play_count as number | null) ?? 0,
     notes: (scenario.notes as string | null) ?? null,
+    // 貸切受付枠（平日・土日祝は別々。未設定は全枠受付）
+    private_booking_time_slots: (scenario.private_booking_time_slots as string[] | null) ?? null,
+    private_booking_time_slots_weekend: (scenario.private_booking_time_slots_weekend as string[] | null) ?? null,
   }
 
   const { error: orgScenarioError } = await db
