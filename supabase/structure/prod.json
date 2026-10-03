@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-03T10:33:56.814Z",
+  "captured_at": "2026-10-03T12:26:17.222Z",
   "table_count": 138,
-  "function_count": 332,
-  "digest": "d470f999dd15c9ac01f800fd7efb91019f997c84c39cac37d1e3ead28bee20a9"
+  "function_count": 333,
+  "digest": "941fc1e3ed57d086618ccb2d61607e8c0a10d763894732b46b41e57bef758fb1"
  },
  "tables": {
   "staff": {
@@ -24675,6 +24675,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "apply_scenario_slot_start_times(p_hours jsonb, p_times jsonb, p_weekend boolean)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "c2933188d46ba1892f28c6b926127177",
+   "language": "plpgsql",
+   "security_definer": false
+  },
   "fetch_and_lock_waitlist_entries(p_schedule_event_id uuid, p_freed_seats integer)": {
    "acl": [
     "authenticated=X/postgres",
@@ -25403,7 +25413,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "28b063465f957873f4e90e557cf119e6",
+   "body_md5": "f38bb4202cf81c9a08df017272e8ed4d",
    "language": "plpgsql",
    "security_definer": true
   },
