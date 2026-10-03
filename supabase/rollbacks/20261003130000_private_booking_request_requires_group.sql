@@ -1,4 +1,4 @@
--- 正本: 20260927015000_private_booking_scenario_capacity.sql
+-- rollback: グループ必須の確認を外し、元の定義に戻す
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -61,12 +61,6 @@ BEGIN
   v_caller_user_id := auth.uid();
   IF v_caller_user_id IS NULL THEN
     RAISE EXCEPTION 'Authentication required' USING ERRCODE = 'P0401';
-  END IF;
-
-  -- 貸切リクエストは必ずグループから申し込む（画面は送信前にグループを作る）。#834
-  -- グループなしで呼ばれると、後段の v_group 参照で原因の分からないエラーになっていた。
-  IF p_private_group_id IS NULL THEN
-    RAISE EXCEPTION '貸切リクエストはグループから申し込んでください' USING ERRCODE = 'P0042';
   END IF;
 
   IF p_customer_id IS NULL THEN
@@ -679,6 +673,3 @@ BEGIN
   RETURN v_reservation_id;
 END;
 $function$;
-
--- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
-REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
