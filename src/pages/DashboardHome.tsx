@@ -517,6 +517,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         scenarios={modalScenarios}
         staff={modalStaff}
         events={mySchedule}
+        eventsScope="mine"
         onParticipantChange={handleParticipantChange}
         onDeleteEvent={handleDeletePerformance}
       />

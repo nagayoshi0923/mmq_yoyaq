@@ -93,7 +93,9 @@ export function usePrivateBookingConflicts(organizationId: string | null, reques
   const kits = useQuery({
     queryKey: ['private-booking-kits', organizationId],
     enabled: Boolean(organizationId && kitScenarioIds.length),
-    staleTime: 60 * 1000,
+    // キット管理での配置・状態の変更をすぐ反映する（開くたびに読み直す）
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const byScenario = new Map<string, KitLocation[]>()
       for (const location of await kitApi.getKitLocations()) {
@@ -130,7 +132,7 @@ export function usePrivateBookingConflicts(organizationId: string | null, reques
       .map(event => ({ ...event, venue: event.store_id ?? '', is_cancelled: false }) as unknown as ScheduleEvent)
     return computeKitShortageForDay(
       { date, venueId: storeId, scenarioId: request.scenario_master_id, category: 'private' },
-      events, kits.data[request.scenario_master_id] ?? 0, stores,
+      events, kits.data[request.scenario_master_id] ?? 0, stores, { reportZero: true },
     )
   }
   return { ready, error, storeConflict, gmConflict, kitShortage, retry: () => Promise.all([query.refetch(), preparation.refetch()]) }

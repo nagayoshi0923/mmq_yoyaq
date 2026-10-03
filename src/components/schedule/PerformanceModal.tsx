@@ -18,6 +18,7 @@ import { staffApi } from '@/lib/api'
 import { kitApi } from '@/lib/api/kitApi'
 import { computeKitShortageForDay, countUsableKits, getUsableKitStoreIds } from '@/utils/scheduleWarnings'
 import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
+import { scheduleApi } from '@/lib/api/scheduleApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 import { calcEndTime, checkTimeOverlapWithPreparation, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
@@ -47,6 +48,8 @@ interface PerformanceModalProps {
   scenarios: Scenario[]
   staff: StaffType[]
   events?: ScheduleEvent[]  // 同じ日の他の公演（準備時間考慮のため）
+  /** events が組織全体の公演か、自分の担当分だけか（ダッシュボードは担当分だけ）。キット不足は組織全体で数える */
+  eventsScope?: 'organization' | 'mine'
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
   allAvailableStaff?: StaffType[]  // その日時に出勤している全GM
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
@@ -131,6 +134,7 @@ export function PerformanceModal({
   scenarios,
   staff,
   events = [],
+  eventsScope = 'organization',
   availableStaffByScenario = {},
   allAvailableStaff = [],
   onScenariosUpdate,
@@ -514,6 +518,19 @@ export function PerformanceModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
 
+  // 自分の担当分だけを受け取る画面では、キット不足を数えるためにその日の組織全体の公演を取り直す。null は取得中・失敗（警告しない）
+  const [orgDayEvents, setOrgDayEvents] = useState<ScheduleEvent[] | null>(null)
+  useEffect(() => {
+    if (!isOpen || eventsScope !== 'mine' || !formData.date) { setOrgDayEvents(null); return }
+    let cancelled = false
+    setOrgDayEvents(null)
+    scheduleApi.getByDateRange(formData.date, formData.date)
+      .then(rows => { if (!cancelled) setOrgDayEvents(rows as unknown as ScheduleEvent[]) })
+      .catch(error => { logger.error('キット不足判定の公演取得エラー:', error); if (!cancelled) setOrgDayEvents(null) })
+    return () => { cancelled = true }
+  }, [isOpen, eventsScope, formData.date])
+  const kitDemandEvents = eventsScope === 'mine' ? orgDayEvents : events
+
   // シナリオ変更時にキット配置店舗を取得
   // scenario_master_id 直叩きだと org_scenario_id のみの行を取りこぼすため、
   // kitApi（org_scenario_id 解決）経由で全キット配置を取る
@@ -531,6 +548,7 @@ export function PerformanceModal({
     }
     let cancelled = false
     setKitStoreIds(null) // 取得完了まで警告を出さない
+    setUsableKitCount(0) // 前の作品の個数を残さない
     ;(async () => {
       try {
         const locations = await kitApi.getKitLocationsByScenario(scenarioKey)
@@ -540,7 +558,7 @@ export function PerformanceModal({
       } catch (err) {
         logger.error('キット配置店舗の取得エラー:', err)
         // 取得失敗時も空扱いにして未配置警告を出す（表と揃える）
-        if (!cancelled) setKitStoreIds([])
+        if (!cancelled) { setKitStoreIds([]); setUsableKitCount(0) }
       }
     })()
     return () => { cancelled = true }
@@ -1044,10 +1062,10 @@ export function PerformanceModal({
             kitShortage={kitStoreIds === null ? null : (() => {
               const selectedScenario = scenarios.find(s => s.title === formData.scenario)
               const scenarioId = selectedScenario?.scenario_master_id || selectedScenario?.id
-              if (!scenarioId) return null
+              if (!scenarioId || !kitDemandEvents) return null
               return computeKitShortageForDay(
                 { date: formData.date, venueId: formData.venue, scenarioId, category: formData.category, eventId: mode === 'edit' ? event?.id : undefined },
-                events, usableKitCount, stores,
+                kitDemandEvents, usableKitCount, stores,
               )
             })()}
             CATEGORY_TONE={CATEGORY_TONE}

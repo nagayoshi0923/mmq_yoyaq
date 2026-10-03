@@ -104,22 +104,27 @@ export function countUsableKits(kitLocations: KitLocation[]): number {
  * その日に同じ作品を公演する店舗に対して、使用可能なキットが足りるか（#376）。
  * キットは1日に1つの店舗グループ（同じキットグループの店舗は1つと数える）で使う前提で、
  * その日に公演がある店舗グループの数（取消・キット不要の公演を除く）と使用可能なキットの数を比べる。
- * キットが1つもない場合は「キット未配置」の警告に任せ、ここでは返さない。足りない場合だけ返す。
+ * キットが1つもない場合は、既定では「キット未配置」の警告に任せて返さない。未配置の警告が無い画面（貸切の承認）は
+ * reportZero で 0 個も返す。足りない場合だけ返す。
  */
 export function computeKitShortageForDay(
   target: { date: string; venueId: string; scenarioId: string; category?: string | null; eventId?: string | null },
-  events: ScheduleEvent[],
+  /** 旧データは scenario_id だけを持つことがあるため、その列も受ける */
+  events: Array<ScheduleEvent & { scenario_id?: string | null }>,
   usableKitCount: number,
   stores: StoreLike[],
+  options: { reportZero?: boolean } = {},
 ): { demand: number; usable: number } | null {
   if (!target.date || !target.venueId || !target.scenarioId) return null
-  if (!requiresKitWarningForCategory(target.category) || usableKitCount <= 0) return null
+  if (!requiresKitWarningForCategory(target.category)) return null
+  if (usableKitCount <= 0 && !options.reportZero) return null
   const storeMap = new Map(stores.map((s) => [s.id, s]))
   const groups = new Set<string>([getStoreGroupId(storeMap, target.venueId)])
   for (const ev of events) {
     if ((target.eventId && ev.id === target.eventId) || ev.is_cancelled || ev.date !== target.date) continue
     if (!requiresKitWarningForCategory(ev.category)) continue
-    if ((ev.scenario_master_id || ev.scenarios?.id) !== target.scenarioId) continue
+    // 旧データは scenario_id だけを持つ（準備時間の判定と同じ解決順）
+    if ((ev.scenario_master_id || ev.scenarios?.id || ev.scenario_id) !== target.scenarioId) continue
     const storeId = ev.store_id || ev.venue
     if (storeId) groups.add(getStoreGroupId(storeMap, storeId))
   }

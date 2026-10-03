@@ -974,7 +974,9 @@ export function PrivateBookingManagement() {
                                   : null
                                 return shortage ? (
                                   <p className="ml-[4.5rem] text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
-                                    キット不足: この日は {shortage.demand} 店舗で公演があり、使用可能なキットは {shortage.usable} 個です。キット配置管理で配置と移動を確認してください。
+                                    {shortage.usable === 0
+                                      ? 'キット不足: 使用可能なキットがありません。キット配置管理で配置と状態を確認してください。'
+                                      : `キット不足: この日は ${shortage.demand} 店舗で公演があり、使用可能なキットは ${shortage.usable} 個です。キット配置管理で配置と移動を確認してください。`}
                                   </p>
                                 ) : null
                               })()}
