@@ -141,7 +141,7 @@ async function fetchRawBookingRequests(
     // 回答したGMのメイン・サブ設定（#827）
     fetchBookingRelatedRows([...new Set(reservationsList
       .map((r) => r.scenario_master_id || r.private_groups?.scenario_master_id)
-      .filter(Boolean))] as string[], (batch, from, to) => privateBookingMgmtReadApi.listGmAssignmentsByScenarios(orgId, batch, from, to)),
+      .filter(Boolean))] as string[], (batch, from, to) => privateBookingMgmtReadApi.listGmAssignmentsByScenarios(batch, from, to)),
     // 承認済み・却下済みなど過去分の GM 回答は、画面を出した後に別途読む（#835）
     getGmResponses(reservationsList.filter((r) => ACTIVE_STATUSES.has(r.status)).map((r) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
