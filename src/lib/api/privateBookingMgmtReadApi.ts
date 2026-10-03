@@ -227,6 +227,13 @@ export const privateBookingMgmtReadApi = {
   },
 
   /** GM 準備確認用: スタッフのシナリオ担当（メイン・サブ可否） */
+  /** 作品ごとの担当GMのメイン・サブ設定（GM回答の表示用、#827） */
+  async listGmAssignmentsByScenarios(organizationId: string, scenarioMasterIds: string[], from: number, to: number) {
+    return supabase
+      .from('staff_scenario_assignments').select('staff_id, scenario_master_id, can_main_gm, can_sub_gm')
+      .eq('organization_id', organizationId).in('scenario_master_id', scenarioMasterIds)
+      .order('staff_id').range(from, to)
+  },
   async listGmAssignmentsByStaffIds(scenarioMasterId: string, organizationId: string, staffIds: string[]) {
     return supabase
       .from('staff_scenario_assignments').select('staff_id, can_main_gm, can_sub_gm')
