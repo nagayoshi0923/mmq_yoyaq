@@ -17,58 +17,14 @@ import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
 import { recruitmentNotice } from '../_shared/recruitment-notice.ts'
-
-interface CheckRequest {
-  check_type: 'day_before' | 'day_before_preview' | 'four_hours_before'
-}
+import {
+  type CheckResult, type EventDetail, PREVIEW_CHECK_TYPE, buildSummaryMessage, normalizeCheckResult, planEventNotifications,
+  resolveCheckType, summaryEventsForOrganization, summaryKindLabel,
+} from '../_shared/performance-check-judgment.ts'
 
 /** 21:00予告の送信先。#運営・事務/運営。設定には持たせず予告だけ使う */
 const PREVIEW_OPS_CHANNEL_ID = '1415498605996937236'
 const PREVIEW_OPS_ORG_SLUG = 'queens-waltz'
-
-interface EventDetail {
-  judgment_deadline?: string | null
-  recruitment_deadline?: string | null
-  event_id: string
-  date: string
-  start_time: string
-  scenario: string
-  store_name: string
-  current_participants: number
-  max_participants: number
-  min_required?: number
-  half_required?: number
-  result: string
-  category?: string
-  organization_id: string
-  gms: string[]
-}
-
-const ALWAYS_HOLD_CATEGORIES = new Set([
-  'private',
-  'gmtest',
-  'testplay',
-  'offsite',
-  'venue_rental',
-  'venue_rental_free',
-  'package',
-  'mtg',
-])
-
-function categoryShortName(category: string | undefined): string {
-  switch (category) {
-    case 'private': return '貸切'
-    case 'gmtest': return 'GMテスト'
-    case 'testplay': return 'テスト'
-    case 'offsite': return '出張'
-    case 'venue_rental':
-    case 'venue_rental_free': return '会場レンタル'
-    case 'package': return 'パッケージ'
-    case 'mtg': return 'MTG'
-    case 'open': return 'オープン'
-    default: return ''
-  }
-}
 
 // Cron Secret / Service Role Key による呼び出しかチェック
 
@@ -88,10 +44,11 @@ serve(async (req) => {
   const resendKey = Deno.env.get('RESEND_API_KEY')
   const serviceRoleKeyEnv = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY')
   console.log('🔍 [DEBUG] env state on entry:', {
-    RESEND_API_KEY: resendKey ? `set (len=${resendKey.length}, prefix=${resendKey.slice(0, 6)})` : 'NULL',
-    SUPABASE_SERVICE_ROLE_KEY: serviceRoleKeyEnv ? `set (len=${serviceRoleKeyEnv.length}, prefix=${serviceRoleKeyEnv.slice(0, 6)})` : 'NULL',
+    // 鍵の一部や送信元アドレスはログに残さない（設定の有無だけ）
+    RESEND_API_KEY: resendKey ? 'set' : 'NULL',
+    SUPABASE_SERVICE_ROLE_KEY: serviceRoleKeyEnv ? 'set' : 'NULL',
     SUPABASE_URL: Deno.env.get('SUPABASE_URL') ? 'set' : 'NULL',
-    SENDER_EMAIL: Deno.env.get('SENDER_EMAIL') ? `set (${Deno.env.get('SENDER_EMAIL')})` : 'NULL',
+    SENDER_EMAIL: Deno.env.get('SENDER_EMAIL') ? 'set' : 'NULL',
     SENDER_NAME: Deno.env.get('SENDER_NAME') ? `set` : 'NULL',
     CRON_SECRET: Deno.env.get('CRON_SECRET') ? `set (len=${(Deno.env.get('CRON_SECRET') || '').length})` : 'NULL',
   })
@@ -122,24 +79,13 @@ serve(async (req) => {
     if (isRecruitmentSchedulerCall(req) && !isCronOrServiceRoleCall(req) && body.check_type !== 'recruitment_deadline') {
       throw new Error('Invalid recruitment scheduler scope')
     }
-    let check_type = body.check_type as string | undefined
-    const PREVIEW_TYPE = 'day_before_preview'
-    const allowedTypes = new Set(['day_before', PREVIEW_TYPE, 'four_hours_before', 'recruitment_deadline'])
-
-    // check_typeが未指定の場合、現在時刻に基づいてデフォルトを決定
-    if (!check_type || !allowedTypes.has(check_type)) {
-      const now = new Date()
-      const jstHour = (now.getUTCHours() + 9) % 24
-      if (jstHour === 21) {
-        check_type = PREVIEW_TYPE
-      } else if (jstHour >= 23 || jstHour < 1) {
-        check_type = 'day_before'
-      } else {
-        check_type = 'four_hours_before'
-      }
-      console.log(`⚠️ check_type未指定/無効: デフォルト "${check_type}" を使用 (JST ${jstHour}時)`)
+    // check_typeが未指定・無効の場合、現在時刻に基づいてデフォルトを決定
+    const resolved = resolveCheckType(body.check_type, new Date())
+    const check_type: string = resolved.checkType
+    if (resolved.defaulted) {
+      console.log(`⚠️ check_type未指定/無効: デフォルト "${check_type}" を使用 (JST ${resolved.jstHour}時)`)
     }
-    const isPreview = check_type === PREVIEW_TYPE
+    const isPreview = check_type === PREVIEW_CHECK_TYPE
 
     // target_date: cronがキュー積み時点で計算した対象日付（レースコンディション対策）
     // 渡されない場合は RPC 内で NOW()+1 にフォールバックする
@@ -152,13 +98,7 @@ serve(async (req) => {
 
     console.log('🔍 公演中止チェック開始:', check_type)
 
-    let result: {
-      events_checked: number
-      events_confirmed: number
-      events_extended?: number
-      events_cancelled: number
-      details: EventDetail[]
-    }
+    let result: CheckResult
 
     // RPC関数を実行（RETURNS TABLEは配列を返すため[0]で取得）
     if (check_type === 'day_before' || isPreview) {
@@ -168,14 +108,7 @@ serve(async (req) => {
       if (isPreview) rpcParams.p_dry_run = true
       const { data, error } = await serviceClient.rpc('check_performances_day_before', rpcParams)
       if (error) throw error
-      const row = Array.isArray(data) ? data[0] : data
-      result = {
-        events_checked: row?.events_checked ?? 0,
-        events_confirmed: row?.events_confirmed ?? 0,
-        events_extended: row?.events_extended ?? 0,
-        events_cancelled: row?.events_cancelled ?? 0,
-        details: row?.details ?? []
-      }
+      result = normalizeCheckResult(data, true)
     } else if (check_type === 'four_hours_before' || check_type === 'recruitment_deadline') {
       const scoped = check_type === 'recruitment_deadline'
       if (scoped) {
@@ -188,13 +121,7 @@ serve(async (req) => {
         ? await serviceClient.rpc('check_performances_with_recruitment_deadlines_for_org', { p_organization_id: body.organization_id })
         : await serviceClient.rpc('check_performances_with_recruitment_deadlines')
       if (error) throw error
-      const row = Array.isArray(data) ? data[0] : data
-      result = {
-        events_checked: row?.events_checked ?? 0,
-        events_confirmed: row?.events_confirmed ?? 0,
-        events_cancelled: row?.events_cancelled ?? 0,
-        details: row?.details ?? []
-      }
+      result = normalizeCheckResult(data, false)
     } else {
       throw new Error('Invalid check_type')
     }
@@ -210,22 +137,11 @@ serve(async (req) => {
     if (!isPreview) {
       const notifications: Promise<void>[] = []
 
-      for (const event of result.details) {
-        // 個別期限の最終メールはDB outboxが担う（開催決定済みメールの重複ガードと分離）。
-        if (event.recruitment_deadline) continue
-        if (event.result === 'cancelled') {
-          notifications.push(
-            sendCancellationNotifications(serviceClient, event, event.recruitment_deadline ? 'recruitment_deadline' : check_type)
-          )
-        } else if (event.result === 'extended') {
-          notifications.push(
-            sendExtensionNotification(serviceClient, event)
-          )
-        } else if (event.result === 'confirmed' && !ALWAYS_HOLD_CATEGORIES.has(event.category || '')) {
-          notifications.push(
-            sendConfirmationNotification(serviceClient, event)
-          )
-        }
+      // 個別期限の最終メールはDB outboxが担う（開催決定済みメールの重複ガードと分離）。
+      for (const { kind, event } of planEventNotifications(result.details)) {
+        if (kind === 'cancelled') notifications.push(sendCancellationNotifications(serviceClient, event, check_type))
+        else if (kind === 'extended') notifications.push(sendExtensionNotification(serviceClient, event))
+        else notifications.push(sendConfirmationNotification(serviceClient, event))
       }
 
       await Promise.allSettled(notifications)
@@ -1465,13 +1381,7 @@ ${emailSettings.senderName}
 async function sendBusinessSummaryNotification(
   supabase: ReturnType<typeof createClient>,
   checkType: string,
-  result: {
-    events_checked: number
-    events_confirmed: number
-    events_extended?: number
-    events_cancelled: number
-    details: EventDetail[]
-  },
+  result: CheckResult,
   isPreview = false
 ): Promise<void> {
   if (result.details.length === 0) {
@@ -1507,7 +1417,7 @@ async function sendBusinessSummaryNotification(
     return
   }
 
-  const kindLabel = isPreview ? '予告' : checkType === 'recruitment_deadline' ? '開催・追加募集の判断' : checkType === 'four_hours_before' ? '開催判断' : '中止判断'
+  const kindLabel = summaryKindLabel(checkType, isPreview)
   const now = new Date()
   const jstDate = now.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
   const jstTime = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
@@ -1519,23 +1429,11 @@ async function sendBusinessSummaryNotification(
     day: 'numeric',
   })
 
-  const getResultLabel = (event: EventDetail): string => {
-    if (event.result === 'cancelled') return '【中止】'
-    if (event.result === 'extended') return '【募集延長】'
-    if (event.result === 'confirmed') {
-      const cat = categoryShortName(event.category)
-      return cat && event.category !== 'open' ? `【開催決定｜${cat}】` : '【開催決定】'
-    }
-    return '【不明】'
-  }
-
   for (const org of orgSettings) {
     const channelId = isPreview ? PREVIEW_OPS_CHANNEL_ID : org.discord_business_channel_id
     if (!channelId) continue
 
-    const orgEvents = result.details
-      .filter(e => e.organization_id === org.organization_id)
-      .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+    const orgEvents = summaryEventsForOrganization(result.details, org.organization_id)
     if (orgEvents.length === 0) {
       console.log(`ℹ️ 判定した公演なし: org=${org.organization_id}, 通知スキップ`)
       continue
@@ -1558,44 +1456,12 @@ async function sendBusinessSummaryNotification(
         }
       }
 
-      const formatGMs = (gms: string[] | undefined): string => {
-        if (!gms || gms.length === 0) return ''
-        return gms.map(gm => gmMentionMap[gm] || gm).join(', ')
-      }
-
-      const lines: string[] = []
-      if (isPreview) {
-        lines.push(`📋 **${targetDateStr} 予告**`)
-        lines.push('23:59 の中止判断と同じ計算です。まだ公演は変えていません。')
-      } else {
-        lines.push(`📋 **${targetDateStr} ${kindLabel}**`)
-      }
-      lines.push('')
-      lines.push([
-        `判定: ${orgEvents.length}件`,
-        `開催決定: ${orgEvents.filter(e => e.result === 'confirmed').length}件`,
-        `募集延長: ${orgEvents.filter(e => e.result === 'extended').length}件`,
-        `中止: ${orgEvents.filter(e => e.result === 'cancelled').length}件`,
-      ].join(' | '))
-      lines.push('')
-
-      for (const event of orgEvents) {
-        const time = event.start_time?.slice(0, 5) || '??:??'
-        const scenario = event.scenario || '未設定'
-        const participants = `${event.current_participants}/${event.max_participants}名`
-        const gms = formatGMs(event.gms)
-        const store = event.store_name || ''
-        let line = `${getResultLabel(event)} ${time} **${scenario}** (${participants})`
-        if (store) line += ` @${store}`
-        if (gms) line += ` GM: ${gms}`
-        lines.push(line)
-      }
-
-      lines.push('')
-      lines.push(`_実行時刻: ${jstDate} ${jstTime}_`)
+      const content = buildSummaryMessage({
+        orgEvents, gmMentionMap, kindLabel, isPreview, targetDate: targetDateStr, executedAt: `${jstDate} ${jstTime}`,
+      })
 
       const plainMessage = {
-        content: lines.join('\n'),
+        content,
         username: 'MMQ 公演判定システム',
       }
 
