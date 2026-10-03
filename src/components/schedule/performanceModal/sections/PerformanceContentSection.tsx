@@ -113,12 +113,14 @@ export function PerformanceContentSection({
                   }
                   return null
                 })()}
-                {/* キット配置警告: スケジュール表と同じ判定（良好なキットの配置0件＝未配置として警告）
-                   kitStoreIds=null は取得中のためスキップ */}
+                {/* キット警告: スケジュール表と同じ判定（良好なキットの配置0件＝未配置として警告）。
+                   配置はあっても、その日に同じ作品を公演する店舗に足りない場合は、同じ枠で「不足」として知らせる（#376）。
+                   公演モーダルの見た目を変えないため、枠は既存の未配置警告をそのまま使う。kitStoreIds=null は取得中のためスキップ */}
                 {formData.scenario && formData.venue && kitStoreIds !== null
                   && requiresKitWarningForCategory(formData.category)
-                  && !hasKitAtVenueOrGroup(kitStoreIds, formData.venue, stores)
+                  && (!hasKitAtVenueOrGroup(kitStoreIds, formData.venue, stores) || kitShortage)
                   && (() => {
+                  const unplaced = !hasKitAtVenueOrGroup(kitStoreIds, formData.venue, stores)
                   const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
                   const kitStoreNames = kitStoreIds
                     .map(id => {
@@ -131,28 +133,23 @@ export function PerformanceContentSection({
                     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ja'))
                     .map(x => x.name)
                     .join(', ')
-                  const detail = kitStoreIds.length === 0
-                    ? '使用可能なキットがありません（キット配置管理で配置と状態を確認してください）'
-                    : `この店舗には使用可能なキットがありません (使用可能なキットの配置: ${kitStoreNames})`
+                  const label = unplaced ? '⚠️ キット未配置:' : '⚠️ キット不足:'
+                  const target = unplaced || !kitShortage ? storeName : `この日は ${kitShortage.demand} 店舗で公演があります`
+                  const detail = unplaced || !kitShortage
+                    ? kitStoreIds.length === 0
+                      ? '使用可能なキットがありません（キット配置管理で配置と状態を確認してください）'
+                      : `この店舗には使用可能なキットがありません (使用可能なキットの配置: ${kitStoreNames})`
+                    : `使用可能なキットは ${kitShortage.usable} 個です。キット配置管理で配置と移動を確認してください。`
                   return (
                     <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px]">
                       <div className="flex items-center gap-1 text-amber-700">
-                        <span className="font-semibold">⚠️ キット未配置:</span>
-                        <span>{storeName}</span>
+                        <span className="font-semibold">{label}</span>
+                        <span>{target}</span>
                       </div>
                       <p className="mt-0.5 text-amber-600">{detail}</p>
                     </div>
                   )
                 })()}
-                {formData.scenario && kitShortage && (
-                  <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded-md text-xs">
-                    <div className="flex items-center gap-1 text-amber-700">
-                      <span className="font-semibold">⚠️ キット不足:</span>
-                      <span>この日は {kitShortage.demand} 店舗で公演があります</span>
-                    </div>
-                    <p className="mt-0.5 text-amber-600">使用可能なキットは {kitShortage.usable} 個です。キット配置管理で配置と移動を確認してください。</p>
-                  </div>
-                )}
                 {formData.scenario && (() => {
                   const selectedScenario = scenarios.find(s => s.title === formData.scenario)
                   if (selectedScenario) {

@@ -149,3 +149,17 @@ describe('computeKitShortageForDay（#376 その日のキット不足）', () =>
     expect(countUsableKits([loc('good'), loc('good'), loc('damaged')])).toBe(2)
   })
 })
+
+describe('computeKitShortageForDay の追加の決まり（#833）', () => {
+  const target = { date: '2030-01-05', venueId: 'store-a', scenarioId: 'master-1', category: 'private' }
+  const legacy = (store: string) => ({ id: `legacy-${store}`, date: '2030-01-05', store_id: store, venue: store, scenario_id: 'master-1', category: 'open', is_cancelled: false }) as unknown as ScheduleEvent & { scenario_id: string }
+
+  it('旧データ（scenario_id だけ）の公演も同じ日の需要に数える', () => {
+    expect(computeKitShortageForDay(target, [legacy('store-d')], 1, stores)).toEqual({ demand: 2, usable: 1 })
+  })
+
+  it('reportZero のときは使用可能なキットが0個でも返す（貸切の承認画面用）', () => {
+    expect(computeKitShortageForDay(target, [], 0, stores)).toBeNull()
+    expect(computeKitShortageForDay(target, [], 0, stores, { reportZero: true })).toEqual({ demand: 1, usable: 0 })
+  })
+})
