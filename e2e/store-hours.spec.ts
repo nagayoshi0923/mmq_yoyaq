@@ -49,6 +49,8 @@ test('募集停止期間を追加・全日程で追加・削除でき、再表�
   await page.reload()
   await expect(pause.getByText('2026-12-01 〜 2026-12-03')).toBeVisible()
   await pause.getByRole('button', { name: /貸切募集停止.*削除/ }).click()
+  // 削除の前に確認を挟む（#696）
+  await page.getByRole('dialog').getByRole('button', { name: '削除する' }).click()
   await expect(pause.getByText('2026-12-01 〜 2026-12-03')).toHaveCount(0)
   await page.setViewportSize({ width: 375, height: 812 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
