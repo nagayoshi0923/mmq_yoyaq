@@ -49,9 +49,11 @@ import { DateRangePopover } from '@/components/ui/date-range-popover'
 import {
   classifyPrivateBookingBlockedTiming,
   getPrivateBookingCandidateBlockedState,
+  privateRecruitmentPauseRows,
   toCanonicalPrivateBookingTimeSlot,
   type PrivateBookingBlockedSlotRow,
 } from '@/lib/privateBookingBlockedSlotAvailability'
+import { useStoreRecruitmentPausePeriods } from '@/hooks/useStoreRecruitmentPauses'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { startTimeToEn } from '@/lib/timeSlot'
@@ -407,6 +409,13 @@ export function PrivateBookingManagement() {
     return () => { cancelled = true }
   }, [organizationId, requests])
 
+  // スケジュールで止めた枠に、店舗の「貸切募集停止」期間を加える（承認処理も同じ期間で止めるため、画面で先に知らせる）
+  const pausePeriods = useStoreRecruitmentPausePeriods(Boolean(organizationId))
+  const effectiveBlockedRows = useMemo(() => {
+    const dates = requests.flatMap(request => (request.candidate_datetimes?.candidates || []).map(candidate => candidate.date)).filter(Boolean)
+    return [...blockedSlotRows, ...privateRecruitmentPauseRows(pausePeriods, dates)]
+  }, [blockedSlotRows, pausePeriods, requests])
+
   const isCandidateStoreBlocked = useCallback((
     candidate: { date: string; timeSlot: string } | undefined,
     storeId: string
@@ -414,12 +423,12 @@ export function PrivateBookingManagement() {
     if (!candidate || !storeId) return false
     const canonicalTimeSlot = toCanonicalPrivateBookingTimeSlot(candidate.timeSlot)
     if (!canonicalTimeSlot) return false
-    return blockedSlotRows.some((row) =>
+    return effectiveBlockedRows.some((row) =>
       row.date === candidate.date &&
       row.store_id === storeId &&
       row.time_slot === canonicalTimeSlot
     )
-  }, [blockedSlotRows])
+  }, [effectiveBlockedRows])
 
   // 選択されたリクエストの初期化
   useEffect(() => {
@@ -865,14 +874,14 @@ export function PrivateBookingManagement() {
                         const state = getPrivateBookingCandidateBlockedState(
                           { date: candidate.date, timeSlot: candidate.timeSlot },
                           baseStores.map((store) => store.id),
-                          blockedSlotRows
+                          effectiveBlockedRows
                         )
                         if (state.blockedStoreIds.length === 0) return acc
                         const timing = state.allStoresBlocked
                           ? classifyPrivateBookingBlockedTiming(
                               { date: candidate.date, timeSlot: candidate.timeSlot },
                               baseStores.map((store) => store.id),
-                              blockedSlotRows,
+                              effectiveBlockedRows,
                               req.created_at
                             )
                           : 'none'
