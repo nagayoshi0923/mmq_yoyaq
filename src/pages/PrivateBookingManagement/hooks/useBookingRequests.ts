@@ -34,6 +34,30 @@ const PRIVATE_BOOKING_LIST_STATUSES = [
 
 export const privateBookingKeys = {
   list: (userId: string, userRole: string) => ['private-bookings', userId, userRole] as const,
+  gmHistory: (userId: string, userRole: string, ids: string[]) => ['private-bookings-gm-history', userId, userRole, ids] as const,
+}
+
+/** 対応中（GM確認・店舗承認）の申込。開いたときに GM 回答を必ず読む対象（#835） */
+const ACTIVE_STATUSES = new Set(['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
+
+/** GM 回答の行を画面表示用に整える（名前の補完と、回答が早い順） */
+function toDisplayGmResponses(rows: any[]) {
+  return sortGmResponsesByReplyTime(
+    rows.filter((gm) => shouldIncludeGmResponseRow(gm)).map((gm) => ({
+      ...gm,
+      gm_name: gm.gm_name || gm.staff?.name || '',
+    }))
+  )
+}
+
+function groupByReservationId(rows: any[]) {
+  const map = new Map<string, any[]>()
+  for (const gm of rows) {
+    const rid = gm.reservation_id as string
+    if (!map.has(rid)) map.set(rid, [])
+    map.get(rid)!.push(gm)
+  }
+  return map
 }
 
 /** 生データ（endTime未計算）を取得する純粋関数 */
@@ -113,7 +137,8 @@ async function fetchRawBookingRequests(
       ] as string[]
       return fetchBookingRelatedRows<any>(masterIds, (batch, from, to) => privateBookingMgmtReadApi.listScenarioViewsForRequests(orgId, batch, from, to))
     })(),
-    getGmResponses(reservationsList.map((r) => r.id)).then(data => ({ data, error: null })),
+    // 承認済み・却下済みなど過去分の GM 回答は、画面を出した後に別途読む（#835）
+    getGmResponses(reservationsList.filter((r) => ACTIVE_STATUSES.has(r.status)).map((r) => r.id)).then(data => ({ data, error: null })),
     Promise.resolve({ data: relatedGroups.flatMap(group => group.candidate_dates || []), error: null }),
     getGmReadiness(reservationsList.filter(r => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)).map(r => r.id)),
   ])
@@ -144,12 +169,7 @@ async function fetchRawBookingRequests(
     }
   }
 
-  const gmResponsesByReservationId = new Map<string, any[]>()
-  for (const gm of allGmResponsesResult.data || []) {
-    const rid = gm.reservation_id as string
-    if (!gmResponsesByReservationId.has(rid)) gmResponsesByReservationId.set(rid, [])
-    gmResponsesByReservationId.get(rid)!.push(gm)
-  }
+  const gmResponsesByReservationId = groupByReservationId(allGmResponsesResult.data || [])
 
   const candidateDatesByGroupId = new Map<string, any[]>()
   for (const cd of allCandidateDatesResult.data || []) {
@@ -161,13 +181,7 @@ async function fetchRawBookingRequests(
 
   // 組み立て（endTime計算は呼び出し側で行う）
   return reservationsList.map((req) => {
-    const gmResponses = gmResponsesByReservationId.get(req.id) || []
-    const transformedGMResponses = sortGmResponsesByReplyTime(
-      gmResponses.filter((gm) => shouldIncludeGmResponseRow(gm)).map((gm) => ({
-        ...gm,
-        gm_name: gm.gm_name || gm.staff?.name || '',
-      }))
-    )
+    const transformedGMResponses = toDisplayGmResponses(gmResponsesByReservationId.get(req.id) || [])
 
     let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
     const currentCandidates = candidateDatetimes.candidates || []
@@ -259,16 +273,30 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     refetchOnMount: 'always',
   })
 
+  // 過去分（対応中以外）の GM 回答は、一覧を出した後に読む（#835）。読み終わるまでは回答なしで表示する。
+  const historyIds = useMemo(
+    () => rawRequests.filter(req => !ACTIVE_STATUSES.has(req.status)).map(req => req.id).sort(),
+    [rawRequests],
+  )
+  const { data: historyGmResponses } = useQuery({
+    queryKey: enabled ? privateBookingKeys.gmHistory(userId!, userRole!, historyIds) : ['private-bookings-gm-history-disabled'],
+    queryFn: async () => groupByReservationId(await getGmResponses(historyIds)),
+    enabled: enabled && historyIds.length > 0,
+    staleTime: 60 * 1000,
+  })
+
   // endTime を isCustomHoliday で補正（サーバーデータと分離してキャッシュを壊さない）
   const requests = useMemo<PrivateBookingRequest[]>(() => {
-    return rawRequests.map(req => {
+    return rawRequests.map(source => {
+      const historyRows = historyGmResponses?.get(source.id)
+      const req = historyRows ? { ...source, gm_responses: toDisplayGmResponses(historyRows) } : source
       const candidates = (req.candidate_datetimes?.candidates || []).map((c) => ({
         ...c,
         endTime: getPrivateBookingDisplayEndTime(c.startTime, c.date, req.scenario_timing ?? { duration: 180 }, isCustomHoliday),
       }))
       return { ...req, candidate_datetimes: { ...req.candidate_datetimes, candidates } }
     })
-  }, [rawRequests, isCustomHoliday])
+  }, [rawRequests, historyGmResponses, isCustomHoliday])
 
   const loadRequests = useCallback((force = false) => {
     if (!enabled) return
