@@ -1,5 +1,5 @@
 import type { Customer } from './customer'
-import type { ScheduleEvent } from './scheduleEvent'
+import type { ReservationScheduleEvent } from './scheduleEvent'
 
 export type CancellationPerformanceType = 'open' | 'private'
 export type CancellationFeeBasis = 'participant_total' | 'performance_total'
@@ -152,7 +152,7 @@ export interface Waitlist {
   created_at: string
   updated_at: string
   // 拡張フィールド（join時に取得）
-  schedule_events?: ScheduleEvent | null
+  schedule_events?: ReservationScheduleEvent | null
 }
 
 // スケジュールイベントに予約関連フィールドを追加

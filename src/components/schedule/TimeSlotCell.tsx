@@ -8,32 +8,7 @@ import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
 import { useLongPress } from '@/hooks/useLongPress'
 
-// スケジュールイベントの型定義
-interface ScheduleEvent {
-  id: string
-  date: string // YYYY-MM-DD
-  venue: string // 店舗ID
-  scenario: string
-  gms: string[] // GMの名前の配列
-  gm_roles?: Record<string, string> // GMの役割 { "GM名": "main" | "sub" | "reception" | "staff" | "observer" }
-  start_time: string // HH:MM
-  end_time: string // HH:MM
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg' // 公演カテゴリ
-  is_cancelled: boolean
-  current_participants?: number // DBカラム名に統一（旧: participant_count）
-  max_participants?: number
-  notes?: string
-  is_reservation_enabled?: boolean
-  is_private_request?: boolean // 貸切リクエストかどうか
-  reservation_info?: string
-  reservation_id?: string // 貸切リクエストの元のreservation ID
-  reservation_name?: string // 貸切予約の予約者名
-  scenarios?: {
-    id: string
-    title: string
-    player_count_max: number
-  }
-}
+import type { ScheduleEvent } from '@/types/schedule'
 
 interface TimeSlotCellProps {
   events: ScheduleEvent[]
