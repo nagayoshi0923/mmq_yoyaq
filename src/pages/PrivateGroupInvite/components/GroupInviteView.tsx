@@ -598,7 +598,7 @@ export function GroupInviteView({
                 onGoToSchedule={() => setActiveTab('schedule')}
                 scenarioId={group.scenario_master_id || undefined}
                 organizationId={group.organization_id || undefined}
-                performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.[0]?.date}
+                performanceDate={group.confirmed_performance?.date}
                 needsCharAssignmentChoice={needsCharAssignmentChoice}
                 onCharAssignmentMethodSelected={async (method) => {
                   const { error } = await privateGroupRpcApi.setCharacterMethod({
@@ -966,7 +966,7 @@ export function GroupInviteView({
               <SurveyResponseForm
                 groupId={group.id}
                 memberId={existingMemberId}
-                performanceDate={group.confirmed_performance?.date ?? group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
+                performanceDate={group.confirmed_performance?.date}
                 characters={(group as any).scenario_characters || []}
               />
             )

@@ -18,6 +18,7 @@ import type { SurveyQuestion } from '@/types'
 interface SurveyResponseFormProps {
   groupId: string
   memberId: string
+  /** 確定した公演の日付。候補日（申請時の履歴）は渡さない。未確定なら期限の目安は出さない */
   performanceDate?: string
   characters?: Array<{ id: string; name: string; gender?: string }>
   hideCharacterSelection?: boolean
