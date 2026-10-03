@@ -1,29 +1,27 @@
 import { apiClient } from '@/lib/apiClient'
+import { fetchInChunks } from '@/lib/fetchInChunks'
 // 既存の貸切/GM画面で使うレスポンス投影。組織条件と本人IDはサーバーで確定する。
 export type GmResponseRow = any
 export async function getGmResponses(reservationIds: string[]): Promise<GmResponseRow[]> {
-  const rows: GmResponseRow[] = []
-  for (let i = 0; i < reservationIds.length; i += 100) {
-    const params = new URLSearchParams({ type: 'gm-responses', reservation_ids: reservationIds.slice(i, i + 100).join(',') })
+  const pages = await fetchInChunks(reservationIds, async chunk => {
+    const params = new URLSearchParams({ type: 'gm-responses', reservation_ids: chunk.join(',') })
     const result = await apiClient.get<{ responses: GmResponseRow[] }>(`/api/reservations?${params}`)
-    rows.push(...result.responses)
-  }
-  return rows
+    return result.responses
+  })
+  return pages.flat()
 }
 export function getMyGmResponses() {
   return apiClient.get<{ responses: GmResponseRow[]; staffId: string | null; staffName: string }>('/api/reservations?type=gm-responses&mine=true')
 }
 
 export async function getGmReadiness(reservationIds: string[]): Promise<Record<string, boolean>> {
-  const readiness: Record<string, boolean> = {}
-  for (let i = 0; i < reservationIds.length; i += 100) {
-    const ids = reservationIds.slice(i, i + 100)
+  const pages = await fetchInChunks(reservationIds, async ids => {
     const params = new URLSearchParams({ type: 'gm-readiness', reservation_ids: ids.join(',') })
     const result = await apiClient.get<{readiness: Record<string, boolean>}>(`/api/reservations?${params}`)
     if (ids.some(id => typeof result.readiness?.[id] !== 'boolean')) throw new Error('GMの担当条件を確認できません')
-    Object.assign(readiness, result.readiness)
-  }
-  return readiness
+    return result.readiness
+  })
+  return Object.assign({}, ...pages)
 }
 
 export function saveGmResponse(input: {reservationId: string; staffId: string; candidates: unknown[]; expectedResponse: {id: string; updated_at: string | null} | null; availableCandidates: number[]; responseStatus: string; notes: string | null}) {
