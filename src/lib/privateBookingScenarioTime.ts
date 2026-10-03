@@ -61,6 +61,8 @@ export type ScenarioTimingFromDb = {
   extra_preparation_time: number
   /** シナリオが受け付ける貸切時間帯（未設定＝全枠許可） */
   private_booking_time_slots?: string[] | null
+  /** 土日・祝日に受け付ける貸切時間帯（未設定＝全枠許可。平日の設定は流用しない。#345） */
+  private_booking_time_slots_weekend?: string[] | null
   /** 作品ごとの貸切開始時刻（未設定の枠は店舗の営業時間設定） */
   private_booking_slot_start_times?: unknown
 }
@@ -123,7 +125,7 @@ export async function fetchScenarioTimingFromDb(
   if (organizationId) {
     const { data: viewRow } = await supabase
       .from('organization_scenarios_with_master')
-      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots, private_booking_slot_start_times, title')
+      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots, private_booking_time_slots_weekend, private_booking_slot_start_times, title')
       .eq('organization_id', organizationId)
       .or(`org_scenario_id.eq.${lookup},scenario_master_id.eq.${lookup}`)
       .limit(1)
@@ -144,6 +146,7 @@ export async function fetchScenarioTimingFromDb(
             : null,
         extra_preparation_time: prep,
         private_booking_time_slots: viewRow.private_booking_time_slots ?? null,
+        private_booking_time_slots_weekend: viewRow.private_booking_time_slots_weekend ?? null,
         private_booking_slot_start_times: viewRow.private_booking_slot_start_times ?? null,
       }
     }

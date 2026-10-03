@@ -246,6 +246,9 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         privateBookingTimeSlots: Array.isArray(scenario.private_booking_time_slots)
           ? scenario.private_booking_time_slots
           : undefined,
+        privateBookingTimeSlotsWeekend: Array.isArray(scenario.private_booking_time_slots_weekend)
+          ? scenario.private_booking_time_slots_weekend
+          : null,
         scenarioTitle: scenario.title,
         scenarioSlotStartTimes: parseScenarioSlotStartTimes(scenario.private_booking_slot_start_times),
       })
@@ -328,6 +331,11 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         Array.isArray(scenario.private_booking_time_slots)
           ? scenario.private_booking_time_slots
           : undefined
+      }
+      privateBookingTimeSlotsWeekend={
+        Array.isArray(scenario.private_booking_time_slots_weekend)
+          ? scenario.private_booking_time_slots_weekend
+          : null
       }
       scenarioSlotStartTimes={scenario.private_booking_slot_start_times}
       organizationSlug={organizationSlug}
