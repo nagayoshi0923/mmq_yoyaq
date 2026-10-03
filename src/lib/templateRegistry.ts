@@ -571,6 +571,7 @@ export const VARIABLE_DESCRIPTIONS: Record<string, string> = {
   new_date: '変更後の日時',
   old_participants: '変更前の人数',
   new_participants: '変更後の人数',
+  group_url: '貸切グループのページ（文面に無い場合は末尾に入室の案内を自動で添えます）',
 }
 
 // 基本変数セット（全メールで共通して使用可能）
@@ -599,7 +600,7 @@ export const ADDITIONAL_VARIABLES: Record<string, string[]> = {
   performance: ['current_participants', 'max_participants'],
   extension: ['current_participants', 'max_participants', 'remaining_seats', 'extension_deadline'],
   private_request: ['stores', 'estimated_price', 'candidate_dates'],
-  private_confirm: ['discord_player_url', 'discord_spectator_url'],
+  private_confirm: ['discord_player_url', 'discord_spectator_url', 'group_url'],
   rejection: ['rejection_reason'],
   change: ['changes', 'old_date', 'new_date', 'old_participants', 'new_participants'],
 }
@@ -800,6 +801,7 @@ export const TEMPLATE_PREVIEW_SAMPLE_VALUES: Record<string, string> = {
   estimated_price: '24,000',
   discord_player_url: 'https://discord.gg/player-example',
   discord_spectator_url: 'https://discord.gg/spectator-example',
+  group_url: 'https://mmq.game/group/invite/example',
   candidate_dates: '候補1: 2026年6月20日(土) 13:00 - 17:00\n候補2: 2026年6月21日(日) 13:00 - 17:00',
   rejection_reason: 'ご希望の日程では貸切での受付が難しい状況です。',
   changes: '参加人数: 4名 → 6名',

@@ -25,6 +25,22 @@ export interface PrivateBookingConfirmationRequest {
   emailSubject?: string
   /** 指定時は店舗/作品テンプレの代わりに使う。変数は通常どおり置換 */
   templateOverride?: string
+  /** 貸切グループのページ（グループがある予約だけ）。確定メールで入室を案内する（#355） */
+  groupUrl?: string
+}
+
+/** 確定メールに必ず添えるグループの案内（#355）。店舗の独自文面でも省かない。 */
+export function privateGroupGuideText(groupUrl: string): string {
+  return `━━━━━━━━━━━━━━━━━━━━
+グループのご案内
+━━━━━━━━━━━━━━━━━━━━
+
+この貸切のグループを作成しています。参加される皆さまは、下記のグループページから入室してください。
+${groupUrl}
+
+・グループに入室していない方は、クーポンを利用できません。
+・事前配役やアンケートのご案内は、このグループで行います。
+・参加される方へ、このページのURLを共有してください。`
 }
 
 export function buildPrivateConfirmationPayload(bookingData: PrivateBookingConfirmationRequest, options: {
@@ -115,6 +131,19 @@ export function buildPrivateConfirmationPayload(bookingData: PrivateBookingConfi
     </table>
   </div>
 
+  ${htmlData.groupUrl ? `
+  <div style="background-color: #ede9fe; border-left: 4px solid #7c3aed; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+    <h3 style="color: #5b21b6; margin-top: 0; font-size: 16px;">グループのご案内</h3>
+    <p style="margin: 0 0 10px 0; color: #4c1d95;">この貸切のグループを作成しています。参加される皆さまは、下記のグループページから入室してください。</p>
+    <p style="margin: 0 0 10px 0;"><a href="${htmlData.groupUrl}" style="color: #6d28d9; font-weight: bold;">グループページを開く</a></p>
+    <ul style="margin: 0; padding-left: 20px; color: #4c1d95;">
+      <li style="margin-bottom: 6px;">グループに入室していない方は、クーポンを利用できません。</li>
+      <li style="margin-bottom: 6px;">事前配役やアンケートのご案内は、このグループで行います。</li>
+      <li style="margin-bottom: 6px;">参加される方へ、このページのURLを共有してください。</li>
+    </ul>
+  </div>
+  ` : ''}
+
   ${htmlData.notes ? `
   <div style="background-color: #f3f4f6; border-left: 4px solid #6b7280; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
     <h3 style="color: #374151; margin-top: 0; font-size: 16px;">特記事項</h3>
@@ -177,6 +206,8 @@ ${bookingData.notes ? `━━━━━━━━━━━━━━━━━━━
 
 ${bookingData.notes}
 
+` : ''}${bookingData.groupUrl ? `${privateGroupGuideText(bookingData.groupUrl)}
+
 ` : ''}━━━━━━━━━━━━━━━━━━━━
 貸切予約について
 ━━━━━━━━━━━━━━━━━━━━
@@ -229,6 +260,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         // 貸切専用（顧客メールではGM名を出さない）
         .replace(/{gm_name}/g, '')
         .replace(/{notes}/g, bookingData.notes || '')
+        .replace(/{group_url}/g, bookingData.groupUrl || '')
         .replace(/{discord_player_url}/g, bookingData.discordPlayerUrl
           ? buildSenshinOAuthJoinUrl(supabaseUrl, bookingData.reservationId, 'player')
           : '')
@@ -266,7 +298,11 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
 
     if (customTemplate && customTemplate.trim()) {
       // email_settingsにテンプレートが設定されている場合
-      const appliedTemplate = applyTemplate(customTemplate)
+      // 店舗の独自文面でもグループの案内は必ず添える。{group_url} を文面に入れている場合は、その位置の案内を優先する。
+      const withGroupGuide = bookingData.groupUrl && !customTemplate.includes('{group_url}')
+        ? `${customTemplate.trimEnd()}\n\n${privateGroupGuideText(bookingData.groupUrl)}`
+        : customTemplate
+      const appliedTemplate = applyTemplate(withGroupGuide)
       finalHtml = templateToHtml(appliedTemplate)
       finalText = appliedTemplate
       // 組織・店舗・作品・公演の実効テンプレートを使用する。
