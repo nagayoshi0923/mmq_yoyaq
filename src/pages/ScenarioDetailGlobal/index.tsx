@@ -1,3 +1,5 @@
+import { publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
+import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
@@ -216,8 +218,17 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
     storesData?.forEach((s: any) => { storeMap[s.id] = s })
   }
 
+  // 店舗の「公演募集停止」期間の公演は出さない（予約は DB でも止まる。組織別の予約サイトと同じ扱い、#696）
+  let performancePauses: StoreRecruitmentPausePeriod[] = []
+  if (storeIds.length > 0) {
+    const { data: pauseRows, error: pauseError } = await publicBookingReadApi.listPerformancePauses(storeIds as string[])
+    if (pauseError) logger.error('店舗の募集停止期間の取得に失敗:', pauseError)
+    else performancePauses = (pauseRows || []) as StoreRecruitmentPausePeriod[]
+  }
+
   const events: EventWithOrg[] = (eventData || [])
     .filter((e: any) => e.is_private_booking !== true && e.is_reservation_enabled !== false)
+    .filter((e: any) => !(e.store_id && e.date && storeHasRecruitmentPause(e.date, e.store_id, 'performance', performancePauses)))
     .map((e: any) => {
       const store = storeMap[e.store_id] || null
       const org = e.organization_id ? orgMap[e.organization_id] : null

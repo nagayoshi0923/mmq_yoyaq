@@ -15,6 +15,7 @@ import {
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
+import { ConfirmDialog } from '@/components/patterns/modal'
 
 const PAUSE_TYPES: { type: StoreRecruitmentPauseType; title: string; note: string }[] = [
   { type: 'performance', title: '公演募集停止', note: '通常公演の予約受付を止めます' },
@@ -35,15 +36,20 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const loadVersion = useRef(0)
+  // 表示中の店舗。追加・削除の途中で店舗を切り替えたとき、前の店舗の読み直しを今の画面へ出さない（#696）
+  const currentStoreId = useRef(storeId)
+  currentStoreId.current = storeId
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null)
   const queryClient = useQueryClient()
 
   const load = useCallback(async () => {
+    if (currentStoreId.current !== storeId) return
     const version = ++loadVersion.current
     setLoading(true)
     setLoadFailed(false)
     try {
       const data = await storeApi.getRecruitmentPauses(storeId)
-      if (version === loadVersion.current) setPeriods(data ?? [])
+      if (version === loadVersion.current && currentStoreId.current === storeId) setPeriods(data ?? [])
     } catch (error) {
       logger.error('募集停止期間の取得に失敗:', error)
       if (version === loadVersion.current) {
@@ -137,7 +143,7 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
                       <li key={row.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-1.5">
                         <span className="text-sm">{formatRecruitmentPauseRange(row)}</span>
                         {row.id && (
-                          <Button variant="ghost" size="sm" disabled={busy} aria-label={`${title}（${formatRecruitmentPauseRange(row)}）を削除`} onClick={() => void remove(row.id!)}>
+                          <Button variant="ghost" size="sm" disabled={busy} aria-label={`${title}（${formatRecruitmentPauseRange(row)}）を削除`} onClick={() => setDeleteTarget({ id: row.id!, label: `${title}（${formatRecruitmentPauseRange(row)}）` })}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
@@ -170,6 +176,21 @@ export function StoreRecruitmentPauseSection({ storeId }: { storeId: string }) {
           })}
         </div>
       )}
+
+      {/* 削除すると、その日からすぐ予約・申請を受け付けるため確認を挟む（#696） */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title={`「${deleteTarget?.label ?? ''}」を削除しますか？`}
+        description="削除すると、この期間の予約・申請をすぐに受け付けるようになります。"
+        confirmLabel="削除する"
+        variant="destructive"
+        onConfirm={async () => {
+          const target = deleteTarget
+          setDeleteTarget(null)
+          if (target) await remove(target.id)
+        }}
+      />
     </section>
   )
 }
