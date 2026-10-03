@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-03T12:26:17.791Z",
+  "captured_at": "2026-10-03T16:14:36.747Z",
   "table_count": 138,
-  "function_count": 333,
-  "digest": "b6e58c8957924a4b678e912d7bc9fe6bc415bbc89290d472aaf597a2c7b25f3f"
+  "function_count": 335,
+  "digest": "935fd38c59f56cb414d12d187cdf8220d21d98565044fef6bd87d8076ec8ad10"
  },
  "tables": {
   "staff": {
@@ -6280,6 +6280,10 @@
     {
      "def": "CREATE TRIGGER close_recruitment_on_event_cancellation AFTER UPDATE OF is_cancelled ON public.schedule_events FOR EACH ROW WHEN ((new.is_cancelled IS TRUE)) EXECUTE FUNCTION close_recruitment_on_event_cancellation()",
      "name": "close_recruitment_on_event_cancellation"
+    },
+    {
+     "def": "CREATE TRIGGER gm_assignment_released AFTER DELETE OR UPDATE OF gms, is_cancelled ON public.schedule_events FOR EACH ROW EXECUTE FUNCTION gm_assignment_released_trigger()",
+     "name": "gm_assignment_released"
     },
     {
      "def": "CREATE TRIGGER private_cancellation_event BEFORE DELETE OR UPDATE OF is_cancelled ON public.schedule_events FOR EACH ROW EXECUTE FUNCTION private_cancellation_event_trigger()",
@@ -22637,6 +22641,15 @@
    "language": "sql",
    "security_definer": true
   },
+  "gm_assignment_released_trigger()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "9f521ebf091d361ab760aa7f828ee8e3",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "normalize_kit_transfer_identity()": {
    "acl": [
     "postgres=X/postgres"
@@ -24891,6 +24904,15 @@
    ],
    "returns": "boolean",
    "body_md5": "ac11e98e20ff7f4399c28f6d1de58f04",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "enqueue_gm_assignment_released(p_event schedule_events, p_names text[], p_kind text, p_reason text)": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "a13d7360bfbe2a148a4ebecc92362838",
    "language": "plpgsql",
    "security_definer": true
   },
