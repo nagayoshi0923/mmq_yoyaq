@@ -145,7 +145,7 @@ export function PerformanceContentSection({
                   )
                 })()}
                 {formData.scenario && kitShortage && (
-                  <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px]">
+                  <div className="mt-0.5 p-1.5 bg-amber-50 border border-amber-200 rounded-md text-xs">
                     <div className="flex items-center gap-1 text-amber-700">
                       <span className="font-semibold">⚠️ キット不足:</span>
                       <span>この日は {kitShortage.demand} 店舗で公演があります</span>
