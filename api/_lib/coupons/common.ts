@@ -1,6 +1,7 @@
 // api/coupons.ts の共通部分（CORS、SELECT 定数、ページング補助、顧客検索、メール通知、対象の検証）（整備 Phase 3、#774。元の行をそのまま移した。ロジックの変更なし）
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -78,9 +79,11 @@ export const USAGE_CHUNK_SIZE = 200
  * buildQuery は毎回新しいクエリビルダを返す関数（同じビルダを使い回すと range が累積するため）。
  */
 
+/** range でページを取れる問い合わせ（Supabase の問い合わせの組み立て途中の形） */
+export type RangeQuery = { range(from: number, to: number): PromiseLike<{ data: unknown; error: unknown }> }
+
 export async function fetchAllRows<T>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  buildQuery: () => any,
+  buildQuery: () => RangeQuery,
 ): Promise<{ rows: T[]; error: unknown | null }> {
   const all: T[] = []
   let offset = 0
@@ -109,8 +112,7 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 // organization_id = NULL（プラットフォーム共通）になっているため、user_id だけで一意に引く。
 // organizationId 引数は呼び出し側互換のため残すが使わない（customers の org フィルタは外す）。
 export async function findCustomerByUserId(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
+  database: SupabaseClient,
   userId: string,
   _organizationId: string | null,
   selectFields = 'id'
@@ -121,11 +123,10 @@ export async function findCustomerByUserId(
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
     .limit(1)
-  return (data?.[0] as Record<string, unknown>) ?? null
+  return (data?.[0] as unknown as Record<string, unknown> | undefined) ?? null
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function fireCouponGrantedEmail(database: any, customerCouponId: string): void {
+export function fireCouponGrantedEmail(database: SupabaseClient, customerCouponId: string): void {
   database.functions
     .invoke('send-coupon-granted', { body: { customerCouponId } })
     .then((r: { error?: unknown }) => {

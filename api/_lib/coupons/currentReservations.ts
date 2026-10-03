@@ -7,13 +7,20 @@ import { findCustomerByUserId } from './common.js'
 // =========================================
 // 顧客向け: 現在進行中の予約（クーポン使用時の紐付け候補）
 // =========================================
+type ReservationRef = { id: string; schedule_event_id: string | null; organization_id: string }
+type StaffReservationRef = ReservationRef & { participant_names: string[] | null }
+type CouponEvent = {
+  id: string; date: string; start_time: string; end_time: string; scenario: string | null; venue: string | null
+  organization_id: string; category: string | null; scenario_master_id: string | null
+  organization_scenario_id: string | null; scenario_id: string | null; stores: { name: string | null } | null
+}
+
 export async function handleCurrentReservations(
   _req: VercelRequest,
   res: VercelResponse,
   user: AuthUser
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   const customer = await findCustomerByUserId(database, user.userId, user.orgId, 'id, name, organization_id') as
     | { id: string; name: string | null; organization_id: string | null }
@@ -27,8 +34,7 @@ export async function handleCurrentReservations(
     .eq('organization_id', user.orgId)
     .limit(1)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const staffRecord = ((staffRows as any[]) ?? [])[0] ?? null
+  const staffRecord = (staffRows ?? [])[0] ?? null
 
   if (!customer && !staffRecord) return res.status(200).json([])
 
@@ -39,8 +45,7 @@ export async function handleCurrentReservations(
   // ⚠️ platform customer (user.orgId='') の場合、reservations.organization_id は実際の
   //    予約先 org の UUID なので .eq(organization_id, '') では一致せず 0 件になる。
   //    user.orgId が空のときは org フィルタを掛けず、customer_id 一致だけで安全に絞る。
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let directReservations: any[] = []
+  let directReservations: ReservationRef[] = []
   if (customer) {
     let q = database
       .from('reservations')
@@ -50,8 +55,7 @@ export async function handleCurrentReservations(
     if (user.orgId) q = q.eq('organization_id', user.orgId)
     const { data, error } = await q
     if (error) return res.status(500).json({ error: '予約を取得できませんでした' })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    directReservations = (data as any[]) ?? []
+    directReservations = data ?? []
   }
 
   // 2. 貸切公演の参加メンバーとしての予約
@@ -67,8 +71,7 @@ export async function handleCurrentReservations(
 
     if (membersError) return res.status(500).json({ error: '貸切の参加情報を取得できませんでした' })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const groupIds = ((members as any[]) ?? []).map((m: any) => m.group_id).filter(Boolean)
+    const groupIds = (members ?? []).map(m => m.group_id).filter(Boolean)
     if (groupIds.length > 0) {
       // platform customer は user.orgId='' なので org フィルタを条件付きに
       let groupsQ = database
@@ -80,13 +83,10 @@ export async function handleCurrentReservations(
       const { data: groups, error: groupsError } = await groupsQ
       if (groupsError) return res.status(500).json({ error: '貸切の予約を取得できませんでした' })
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const reservationIds = ((groups as any[]) ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((g: any) => g.reservation_id)
+      const reservationIds = (groups ?? [])
+        .map(g => g.reservation_id)
         .filter(Boolean)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const groupStatusByRes = new Map<string, string>(((groups as any[]) ?? []).map((g: any) => [g.reservation_id, g.status]))
+      const groupStatusByRes = new Map<string, string>((groups ?? []).map(g => [g.reservation_id, g.status]))
 
       if (reservationIds.length > 0) {
         let resQ = database
@@ -97,8 +97,7 @@ export async function handleCurrentReservations(
         const { data: reservationRows, error: reservationsError } = await resQ
         if (reservationsError) return res.status(500).json({ error: '予約を取得できませんでした' })
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const r of ((reservationRows as any[]) ?? [])) {
+        for (const r of (reservationRows ?? [])) {
           privateGroupReservations.push({
             reservation_id: r.id,
             schedule_event_id: r.schedule_event_id ?? null,
@@ -112,8 +111,7 @@ export async function handleCurrentReservations(
 
   // 3. スタッフ予約（payment_method='staff' or reservation_source='staff_entry'/'staff_participation'）— 組織スコープ
   // platform customer (staffRecord 無し / user.orgId 空) はそもそも staff 予約を持たないのでスキップ
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let staffReservations: any[] = []
+  let staffReservations: StaffReservationRef[] = []
   if (staffRecord && user.orgId) {
     const { data, error } = await database
       .from('reservations')
@@ -122,8 +120,7 @@ export async function handleCurrentReservations(
       .in('status', ['confirmed', 'checked_in'])
       .eq('organization_id', user.orgId)
     if (error) return res.status(500).json({ error: '予約を取得できませんでした' })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    staffReservations = (data as any[]) ?? []
+    staffReservations = data ?? []
   }
 
   // schedule_event_id を収集して、一括取得（組織スコープ）
@@ -132,8 +129,7 @@ export async function handleCurrentReservations(
   privateGroupReservations.forEach((r) => { if (r.schedule_event_id) eventIds.add(r.schedule_event_id) })
   staffReservations.forEach((r) => { if (r.schedule_event_id) eventIds.add(r.schedule_event_id) })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const eventsMap: Record<string, any> = {}
+  const eventsMap: Record<string, CouponEvent> = {}
   if (eventIds.size > 0) {
     // platform customer (user.orgId='') の場合、reservation 自体は他組織のものを
     // 既に許可しているので、events 取得時の org フィルタも条件付きにする。
@@ -145,19 +141,18 @@ export async function handleCurrentReservations(
     const { data: events, error: eventsError } = await evQ
     if (eventsError) return res.status(500).json({ error: '公演情報を取得できませんでした' })
     if (events) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const ev of events as any[]) {
+      // 店舗の結合は1件（多対一）。型推論は配列になるため実際の形で受ける
+      for (const ev of events as unknown as CouponEvent[]) {
         eventsMap[ev.id] = ev
       }
     }
   }
 
   // 結果をマージ
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allReservations: Array<{ id: string; event: any }> = []
+  const allReservations: Array<{ id: string; event: CouponEvent }> = []
 
   for (const r of directReservations) {
-    const event = eventsMap[r.schedule_event_id]
+    const event = r.schedule_event_id ? eventsMap[r.schedule_event_id] : undefined
     if (event) allReservations.push({ id: r.id, event })
   }
 
@@ -178,7 +173,7 @@ export async function handleCurrentReservations(
     for (const r of staffReservations) {
       const names = r.participant_names as string[] | null
       if (names && names.some((n: string) => myNames.includes(n))) {
-        const event = eventsMap[r.schedule_event_id]
+        const event = r.schedule_event_id ? eventsMap[r.schedule_event_id] : undefined
         if (event && !allReservations.some(existing => existing.id === r.id)) {
           allReservations.push({ id: r.id, event })
         }
@@ -194,7 +189,7 @@ export async function handleCurrentReservations(
       id,
       scenario_title: event.scenario || '不明なシナリオ',
       organization_id: event.organization_id,
-      murder_mystery_eligible: ['open', 'private'].includes(event.category) && !!(event.scenario_master_id || event.organization_scenario_id || event.scenario_id),
+      murder_mystery_eligible: ['open', 'private'].includes(event.category ?? '') && !!(event.scenario_master_id || event.organization_scenario_id || event.scenario_id),
       store_name: event.stores?.name || event.venue || '不明な店舗',
       date: event.date,
       time: event.start_time.substring(0, 5),

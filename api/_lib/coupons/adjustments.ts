@@ -13,8 +13,7 @@ export async function handleRevokeCoupon(req: VercelRequest, res: VercelResponse
     return res.status(400).json({ success: false, error: 'customer_coupon_id が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 自組織のクーポンか検証
   const { data: coupon, error: couponError } = await database
@@ -76,8 +75,7 @@ export async function handleAdjustCouponUses(req: VercelRequest, res: VercelResp
   }
   const usesRemaining = Math.floor(usesRaw)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 自組織のクーポンか検証
   const { data: coupon, error: couponError } = await database
