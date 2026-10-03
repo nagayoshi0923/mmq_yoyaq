@@ -1125,6 +1125,9 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
               other_count: formData.other_count ?? null,
               // シナリオタイプ
               scenario_type: formData.scenario_type || 'normal',
+              // 貸切受付枠（平日・土日祝は別々。新規作成時もここで確実に保存する）
+              private_booking_time_slots: formData.private_booking_time_slots || null,
+              private_booking_time_slots_weekend: formData.private_booking_time_slots_weekend ?? null,
               // 貸切受付不可時間帯
               private_booking_blocked_slots: formData.private_booking_blocked_slots || null,
               // 作品ごとの貸切開始時刻（未設定の枠は店舗の営業時間設定）

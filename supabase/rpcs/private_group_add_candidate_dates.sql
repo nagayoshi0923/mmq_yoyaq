@@ -68,8 +68,8 @@ BEGIN
   IF v_end_at::date<>candidate_date OR v_end_at::time>'23:00'::time OR v_end_at::time<>(item->>'end_time')::time THEN
    RAISE EXCEPTION '公演時間が更新されているか、営業時間内に収まりません。候補日を選び直してください' USING ERRCODE='40001';
   END IF;
-  IF coalesce(cardinality(sc.private_booking_time_slots),0)>0 AND NOT EXISTS(
-   SELECT 1 FROM unnest(sc.private_booking_time_slots) value WHERE value=ANY(CASE slot
+  IF coalesce(cardinality(CASE WHEN holiday THEN sc.private_booking_time_slots_weekend ELSE sc.private_booking_time_slots END),0)>0 AND NOT EXISTS(
+   SELECT 1 FROM unnest(CASE WHEN holiday THEN sc.private_booking_time_slots_weekend ELSE sc.private_booking_time_slots END) value WHERE value=ANY(CASE slot
     WHEN 'morning' THEN ARRAY['午前','朝公演','朝'] WHEN 'afternoon' THEN ARRAY['午後','昼公演','昼'] ELSE ARRAY['夜','夜公演'] END)
   ) THEN RAISE EXCEPTION 'この作品では選択できない時間帯です' USING ERRCODE='22023'; END IF;
   IF EXISTS(SELECT 1 FROM public.private_group_candidate_dates cd WHERE cd.group_id=g.id AND cd.date=candidate_date
