@@ -37,3 +37,31 @@ describe('fetchInChunks（#835 貸切予約管理の読み込み）', () => {
     await expect(fetchInChunks(ids, async chunk => { if (chunk[0] === 'id-100') throw new Error('取得失敗'); return 1 })).rejects.toThrow('取得失敗')
   })
 })
+
+describe('fetchInChunks の追加の決まり（#837）', () => {
+  it('失敗したら、まだ始めていない分は取りに行かない', async () => {
+    const ids = Array.from({ length: 2000 }, (_, i) => `id-${i}`)
+    const started: string[] = []
+    await expect(fetchInChunks(ids, async chunk => {
+      started.push(chunk[0])
+      if (chunk[0] === 'id-0') throw new Error('取得失敗')
+      await new Promise(resolve => setTimeout(resolve, 5))
+      return 1
+    })).rejects.toThrow('取得失敗')
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(started.length).toBeLessThanOrEqual(6)
+  })
+
+  it('同時に呼んでも、画面全体で同時に動く取得は6件まで', async () => {
+    const ids = Array.from({ length: 1000 }, (_, i) => `id-${i}`)
+    let running = 0
+    let peak = 0
+    const fetchChunk = async () => {
+      running++; peak = Math.max(peak, running)
+      await new Promise(resolve => setTimeout(resolve, 2))
+      running--
+    }
+    await Promise.all([fetchInChunks(ids, fetchChunk), fetchInChunks(ids, fetchChunk)])
+    expect(peak).toBe(6)
+  })
+})
