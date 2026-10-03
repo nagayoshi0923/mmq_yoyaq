@@ -6,7 +6,7 @@ import { usePreparationSettings } from '@/hooks/usePreparationSettings'
 import { kitApi } from '@/lib/api/kitApi'
 import { computeKitShortageForDay, countUsableKits } from '@/utils/scheduleWarnings'
 import type { ScheduleEvent } from '@/types/schedule'
-import type { Store } from '@/types'
+import type { KitLocation, Store } from '@/types'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import {
   buildConflictDateRanges,
@@ -89,11 +89,20 @@ export function usePrivateBookingConflicts(organizationId: string | null, reques
     .filter(request => isApprovalRelevantStatus(request.status) || request.status === 'cancelled')
     .map(request => request.scenario_master_id)
     .filter((id): id is string => Boolean(id)))].sort()
+  // 作品ごとに読むと申込の作品数だけ通信が走る（本番で127回）ため、組織のキット配置を1回で読んで作品ごとに数える（#835）
   const kits = useQuery({
-    queryKey: ['private-booking-kits', organizationId, kitScenarioIds],
+    queryKey: ['private-booking-kits', organizationId],
     enabled: Boolean(organizationId && kitScenarioIds.length),
-    queryFn: async () => Object.fromEntries(await Promise.all(kitScenarioIds.map(async id =>
-      [id, countUsableKits(await kitApi.getKitLocationsByScenario(id))] as const))) as Record<string, number>,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const byScenario = new Map<string, KitLocation[]>()
+      for (const location of await kitApi.getKitLocations()) {
+        const scenarioId = location.scenario_master_id || location.scenario?.id
+        if (!scenarioId) continue
+        byScenario.set(scenarioId, [...(byScenario.get(scenarioId) || []), location])
+      }
+      return Object.fromEntries([...byScenario].map(([id, locations]) => [id, countUsableKits(locations)])) as Record<string, number>
+    },
   })
   const ready = Boolean(query.data && preparation.data && !query.isError && !preparation.isError && !query.isFetching && !preparation.isFetching)
   const error = query.error || preparation.error
