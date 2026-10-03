@@ -7,6 +7,8 @@ export type StoreRecruitmentPausePeriod = {
   pause_type: StoreRecruitmentPauseType
   starts_on: string | null
   ends_on: string | null
+  /** 停止を入れた時刻（申請の前か後かの判定に使う） */
+  created_at?: string | null
 }
 
 export type StoreRecruitmentPauseKind = 'none' | 'performance' | 'private' | 'both'
