@@ -63,6 +63,7 @@ export function PrivateBookingRequest({
   stores,
   scenarioAvailableStores,
   privateBookingTimeSlots,
+  privateBookingTimeSlotsWeekend,
   scenarioSlotStartTimes: scenarioSlotStartTimesRaw,
   organizationSlug,
   groupId,
@@ -256,6 +257,7 @@ export function PrivateBookingRequest({
       allStoreEvents: storeEvents,
       isCustomHoliday,
       privateBookingTimeSlots,
+      privateBookingTimeSlotsWeekend,
       scenarioTitle,
       scenarioSlotStartTimes,
     })
@@ -267,6 +269,7 @@ export function PrivateBookingRequest({
     storeEvents,
     isCustomHoliday,
     privateBookingTimeSlots,
+    privateBookingTimeSlotsWeekend,
     scenarioTitle,
     scenarioSlotStartTimes,
   ])
@@ -285,6 +288,7 @@ export function PrivateBookingRequest({
       allStoreEvents: storeEvents,
       isCustomHoliday,
       privateBookingTimeSlots,
+      privateBookingTimeSlotsWeekend,
       scenarioTitle,
       scenarioSlotStartTimes,
     })
@@ -410,6 +414,7 @@ export function PrivateBookingRequest({
           allStoreEvents: latestEvents,
           isCustomHoliday,
           privateBookingTimeSlots,
+          privateBookingTimeSlotsWeekend,
           scenarioTitle,
           scenarioSlotStartTimes,
         })
