@@ -3,6 +3,10 @@ import { toJstYmd } from '@/utils/jstDate'
 import { useQuery } from '@tanstack/react-query'
 import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
+import { kitApi } from '@/lib/api/kitApi'
+import { computeKitShortageForDay, countUsableKits } from '@/utils/scheduleWarnings'
+import type { ScheduleEvent } from '@/types/schedule'
+import type { Store } from '@/types'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import {
   buildConflictDateRanges,
@@ -80,6 +84,17 @@ export function usePrivateBookingConflicts(organizationId: string | null, reques
       return events
     },
   })
+  // 承認しうる申込の作品ごとの使用可能なキット数（その日のキット不足の警告用、#376）
+  const kitScenarioIds = [...new Set(requests
+    .filter(request => isApprovalRelevantStatus(request.status) || request.status === 'cancelled')
+    .map(request => request.scenario_master_id)
+    .filter((id): id is string => Boolean(id)))].sort()
+  const kits = useQuery({
+    queryKey: ['private-booking-kits', organizationId, kitScenarioIds],
+    enabled: Boolean(organizationId && kitScenarioIds.length),
+    queryFn: async () => Object.fromEntries(await Promise.all(kitScenarioIds.map(async id =>
+      [id, countUsableKits(await kitApi.getKitLocationsByScenario(id))] as const))) as Record<string, number>,
+  })
   const ready = Boolean(query.data && preparation.data && !query.isError && !preparation.isError && !query.isFetching && !preparation.isFetching)
   const error = query.error || preparation.error
   const storeConflict = (request: PrivateBookingRequest, candidate: ConflictCandidate, storeId: string) => {
@@ -96,5 +111,18 @@ export function usePrivateBookingConflicts(organizationId: string | null, reques
       return query.data!.some(event => (event.gms?.includes(name) || event.gms?.includes(`staff:${staffId}`)) && hasGmTimeConflict(candidate, event, request.id))
     } catch { return undefined }
   }
-  return { ready, error, storeConflict, gmConflict, retry: () => Promise.all([query.refetch(), preparation.refetch()]) }
+  /** その日に同じ作品を公演する店舗に対してキットが足りない場合だけ返す。確かめられないときは null（警告しない） */
+  const kitShortage = (request: PrivateBookingRequest, candidate: ConflictCandidate, storeId: string, stores: Store[]) => {
+    if (!ready || !kits.data || !request.scenario_master_id) return null
+    const date = normalizeToJapanCalendarYmd(candidate.date)
+    if (!date) return null
+    const events = query.data!
+      .filter(event => event.reservation_id !== request.id)
+      .map(event => ({ ...event, venue: event.store_id ?? '', is_cancelled: false }) as unknown as ScheduleEvent)
+    return computeKitShortageForDay(
+      { date, venueId: storeId, scenarioId: request.scenario_master_id, category: 'private' },
+      events, kits.data[request.scenario_master_id] ?? 0, stores,
+    )
+  }
+  return { ready, error, storeConflict, gmConflict, kitShortage, retry: () => Promise.all([query.refetch(), preparation.refetch()]) }
 }

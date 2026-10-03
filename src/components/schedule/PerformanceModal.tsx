@@ -16,7 +16,7 @@ import { PerformanceFooter } from './performanceModal/sections/PerformanceFooter
 import { PerformanceSummary } from './performanceModal/sections/PerformanceSummary'
 import { staffApi } from '@/lib/api'
 import { kitApi } from '@/lib/api/kitApi'
-import { getUsableKitStoreIds } from '@/utils/scheduleWarnings'
+import { computeKitShortageForDay, countUsableKits, getUsableKitStoreIds } from '@/utils/scheduleWarnings'
 import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
@@ -155,6 +155,8 @@ export function PerformanceModal({
   const [pendingParticipants, setPendingParticipants] = useState<PendingParticipant[]>([])
   // 選択中シナリオの使用可能なキットの配置店舗。null=取得中、[]=使用可能な配置なし
   const [kitStoreIds, setKitStoreIds] = useState<string[] | null>(null)
+  // 選択中シナリオの使用可能なキットの数（その日のキット不足の判定用、#376）
+  const [usableKitCount, setUsableKitCount] = useState(0)
   // シナリオ変更確認ダイアログ（参加者がいる場合）
   const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
   const [deleteConfirming, setDeleteConfirming] = useState(false)
@@ -534,6 +536,7 @@ export function PerformanceModal({
         const locations = await kitApi.getKitLocationsByScenario(scenarioKey)
         if (cancelled) return
         setKitStoreIds(getUsableKitStoreIds(locations || []))
+        setUsableKitCount(countUsableKits(locations || []))
       } catch (err) {
         logger.error('キット配置店舗の取得エラー:', err)
         // 取得失敗時も空扱いにして未配置警告を出す（表と揃える）
@@ -1038,6 +1041,15 @@ export function PerformanceModal({
             timeConflict={timeConflict}
           />
           <PerformanceContentSection
+            kitShortage={kitStoreIds === null ? null : (() => {
+              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+              const scenarioId = selectedScenario?.scenario_master_id || selectedScenario?.id
+              if (!scenarioId) return null
+              return computeKitShortageForDay(
+                { date: formData.date, venueId: formData.venue, scenarioId, category: formData.category, eventId: mode === 'edit' ? event?.id : undefined },
+                events, usableKitCount, stores,
+              )
+            })()}
             CATEGORY_TONE={CATEGORY_TONE}
             formData={formData}
             setFormData={setFormData}

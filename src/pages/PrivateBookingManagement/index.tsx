@@ -958,6 +958,17 @@ export function PrivateBookingManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
+                              {(() => {
+                                // その日に同じ作品を公演する店舗に対してキットが足りない場合の警告（#376）。承認は止めない。
+                                const shortage = selectedCand && selectedStoreId
+                                  ? conflicts.kitShortage(req, approvalCandidateTime(req, selectedCand), selectedStoreId, stores)
+                                  : null
+                                return shortage ? (
+                                  <p className="ml-[4.5rem] text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                    キット不足: この日は {shortage.demand} 店舗で公演があり、使用可能なキットは {shortage.usable} 個です。キット配置管理で配置と移動を確認してください。
+                                  </p>
+                                ) : null
+                              })()}
                               {selectedStoreId && selectedCand && (
                                 <div className="flex items-start gap-2">
                                   <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">開始時刻</span>

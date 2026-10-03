@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computeKitShortageForDay,
   computeKitWarningEventIds,
+  countUsableKits,
   getUsableKitStoreIds,
   hasKitAtVenueOrGroup,
   requiresKitWarningForCategory,
@@ -113,4 +115,37 @@ describe('computeKitWarningEventIds', () => {
       location('good', 'store-b'), location('good', ''), { ...location('good'), condition: undefined } as unknown as KitLocation])).toEqual(['store-b'])
   })
 
+})
+
+describe('computeKitShortageForDay（#376 その日のキット不足）', () => {
+  const ev = (id: string, store: string, extra: Partial<ScheduleEvent> = {}) =>
+    ({ id, date: '2030-01-05', store_id: store, venue: store, scenario_master_id: 'master-1', category: 'open', is_cancelled: false, ...extra }) as ScheduleEvent
+  const target = { date: '2030-01-05', venueId: 'store-a', scenarioId: 'master-1', category: 'open' }
+
+  it('その日の店舗数が使用可能なキット数を超えると不足を返す', () => {
+    expect(computeKitShortageForDay(target, [ev('e1', 'store-d')], 1, stores)).toEqual({ demand: 2, usable: 1 })
+    expect(computeKitShortageForDay(target, [ev('e1', 'store-d')], 2, stores)).toBeNull()
+  })
+
+  it('同じ店舗・同じキットグループの公演は1つと数える', () => {
+    expect(computeKitShortageForDay(target, [ev('e1', 'store-a')], 1, stores)).toBeNull()
+    expect(computeKitShortageForDay({ ...target, venueId: 'store-b' }, [ev('e1', 'store-c')], 1, stores)).toBeNull()
+  })
+
+  it('取消・別の日・別作品・キット不要の公演と、編集中の公演自身は数えない', () => {
+    const others = [ev('e1', 'store-d', { is_cancelled: true }), ev('e2', 'store-d', { date: '2030-01-06' }),
+      ev('e3', 'store-d', { scenario_master_id: 'other' }), ev('e4', 'store-d', { category: 'offsite' })]
+    expect(computeKitShortageForDay(target, others, 1, stores)).toBeNull()
+    expect(computeKitShortageForDay({ ...target, eventId: 'self' }, [ev('self', 'store-d')], 1, stores)).toBeNull()
+  })
+
+  it('キットが1つもない場合とキット不要の公演では返さない（未配置の警告に任せる）', () => {
+    expect(computeKitShortageForDay(target, [ev('e1', 'store-d')], 0, stores)).toBeNull()
+    expect(computeKitShortageForDay({ ...target, category: 'mtg' }, [ev('e1', 'store-d')], 1, stores)).toBeNull()
+  })
+
+  it('良好なキットだけを数える', () => {
+    const loc = (condition: KitLocation['condition']) => ({ scenario_master_id: 'master-1', store_id: 'store-a', condition }) as KitLocation
+    expect(countUsableKits([loc('good'), loc('good'), loc('damaged')])).toBe(2)
+  })
 })

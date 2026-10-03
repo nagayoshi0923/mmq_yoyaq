@@ -13,6 +13,7 @@ export interface ConflictEvent {
   organization_scenario_id?: string | null
   scenario?: string | null
   gms?: string[] | null
+  category?: string | null
 }
 export interface ConflictCandidate {
   date: string
