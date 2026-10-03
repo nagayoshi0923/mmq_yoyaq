@@ -13,8 +13,7 @@ export async function handleScenarioPerformance(req: VercelRequest, res: VercelR
   const storeIds = getStoreIds(req)
   const licenseReportableOnly = req.query.license_reportable === 'true' || req.query.license_reportable === '1'
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = db!
+  let query = db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
     .eq('organization_id', orgId)

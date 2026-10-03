@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { type AuthUser } from '../auth.js'
 import { recordCancellationIntake } from '../cancellation-payments/intake.js'
+import type { BillingReservation } from '../../../src/lib/cancellationBilling.js'
 
 export function groupCancellationError(error: { code?: string; message?: string } | null) {
   if (error?.code === 'P0052') return { status: 400, message: 'キャンセル期限を過ぎているか、料金が発生するため、店舗へご連絡ください。' }
@@ -64,11 +65,12 @@ export const RESERVATION_SOURCE_STAFF_ENTRY = 'staff_entry'
 // 許容し、後段の RPC (cancel_reservation_with_lock 等) 内部の auth.uid() ベースの
 // ownership チェックに委ねる（顧客の users.organization_id は NULL なので
 // 厳密な org 一致を要求すると常に 403 になる）。
+export type OwnedReservationRef = { id: string; organization_id: string; customer_id: string | null; private_group_id: string | null; schedule_event_id: string | null }
+
 export async function ensureReservationOwnedByOrg(
   reservationId: string,
   user: AuthUser,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Promise<{ ok: true; reservation: any } | { ok: false; status: number; error: string }> {
+): Promise<{ ok: true; reservation: OwnedReservationRef } | { ok: false; status: number; error: string }> {
   if (!db) return { ok: false, status: 500, error: 'db unavailable' }
   const { data, error } = await db
     .from('reservations')
@@ -92,8 +94,14 @@ export async function ensureReservationOwnedByOrg(
 }
 
 // Billing failure is reported separately: seat release must not be rolled back or repeated.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function recordBillingForCancellation(user: AuthUser, reservation: any, requestReceivedAt: string, organizerRejected = false): Promise<boolean> {
+/** 取消の料金台帳に渡す予約。公演の結合は1件だが、型推論・旧データで配列のこともある */
+export type CancellationBillingReservation = BillingReservation & {
+  id: string; organization_id: string; status?: string | null; payment_method?: string | null
+  schedule_events?: CancellationBillingEvent | CancellationBillingEvent[] | null
+}
+type CancellationBillingEvent = { date?: string | null; start_time?: string | null; is_cancelled?: boolean | null }
+
+export async function recordBillingForCancellation(user: AuthUser, reservation: CancellationBillingReservation, requestReceivedAt: string, organizerRejected = false): Promise<boolean> {
   if (!db || reservation.payment_method === 'staff') return false
   try {
     const event = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events

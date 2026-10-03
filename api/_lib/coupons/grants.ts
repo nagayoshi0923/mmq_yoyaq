@@ -14,8 +14,7 @@ export async function handleGrantRegistrationCoupon(req: VercelRequest, res: Ver
     return res.status(400).json({ error: 'customer_id が必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 本人検証: customer_id が JWT user_id ⇒ 自組織の customers のものであること
   const { data: customer } = await database
@@ -46,8 +45,7 @@ export async function handleGrantRegistrationCoupon(req: VercelRequest, res: Ver
 
   let grantedCount = 0
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const campaign of campaigns as any[]) {
+  for (const campaign of campaigns) {
     // 1人あたり配布上限チェック（NULL = 無制限）
     if (campaign.max_grants_per_customer != null) {
       const { count: customerGrantCount } = await database
@@ -122,8 +120,7 @@ export async function handleGrantCouponToCustomer(req: VercelRequest, res: Verce
     ? Math.floor(usesRaw)
     : null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // キャンペーンが自組織のものか
   const { data: campaign, error: campaignError } = await database
@@ -228,8 +225,7 @@ export async function handleRedeemCouponByCode(req: VercelRequest, res: VercelRe
     return res.status(400).json({ success: false, error: 'コードを入力してください' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // コードに一致する有効キャンペーン（user.orgId で絞らない: コード自体が組織横断のキーになりうる）
   // ただし配布期間内・有効でなければならない

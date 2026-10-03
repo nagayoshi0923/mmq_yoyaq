@@ -14,8 +14,7 @@ export async function handleByDateRange(req: VercelRequest, res: VercelResponse,
     return res.status(400).json({ error: 'start / end クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = db!
+  let query = db!
     .from('schedule_events')
     .select(SCHEDULE_EVENT_DATE_RANGE_FIELDS)
     .eq('organization_id', user.orgId)

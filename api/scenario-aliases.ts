@@ -87,8 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // ─── handlers ────────────────────────────────────────────────────────────────
 
 async function handleMap(res: VercelResponse) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_import_aliases')
     .select('alias, canonical_name')
@@ -99,16 +98,14 @@ async function handleMap(res: VercelResponse) {
   }
 
   const map: Record<string, string> = {}
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const row of (data as any[]) ?? []) {
+  for (const row of data ?? []) {
     map[row.alias] = row.canonical_name
   }
   return res.status(200).json(map)
 }
 
 async function handleList(res: VercelResponse) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_import_aliases')
     .select('id, alias, canonical_name, created_at')
@@ -127,8 +124,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'alias と canonical_name は必須です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_import_aliases')
     .insert({
@@ -157,8 +153,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: '更新対象のフィールドがありません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_import_aliases')
     .update(updates)
@@ -177,8 +172,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { error } = await database.from('scenario_import_aliases').delete().eq('id', id)
   if (error) {
     console.error('[scenario-aliases:delete] DB error:', error)

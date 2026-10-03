@@ -198,8 +198,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     if (!email) return res.status(400).json({ error: 'email が必要です' })
 
     // 通常一覧と同じ組織への予約・貸切参加の接点で検索。変更権限とは分離。
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allMatches, error } = await (db as any)
+    const { data: allMatches, error } = await db!
       .rpc('get_org_customers', { p_org_id: orgId })
       .select(SELECT_FIELDS)
       .eq('email', email)
@@ -208,7 +207,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
       console.error('[customers:findByEmail] DB error:', error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
     }
-    const data = allMatches ?? []
+    const data = (allMatches ?? []) as unknown as Record<string, unknown>[]
     return res.status(200).json(data[0] ?? null)
   }
 
@@ -216,8 +215,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const phone = req.query.phone as string | undefined
     if (!phone) return res.status(400).json({ error: 'phone が必要です' })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allMatches, error } = await (db as any)
+    const { data: allMatches, error } = await db!
       .rpc('get_org_customers', { p_org_id: orgId })
       .select(SELECT_FIELDS)
       .eq('phone', phone)
@@ -226,7 +224,7 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
       console.error('[customers:findByPhone] DB error:', error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
     }
-    const data = allMatches ?? []
+    const data = (allMatches ?? []) as unknown as Record<string, unknown>[]
     return res.status(200).json(data[0] ?? null)
   }
 

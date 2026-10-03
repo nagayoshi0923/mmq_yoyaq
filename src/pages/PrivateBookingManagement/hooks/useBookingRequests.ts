@@ -1,6 +1,6 @@
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
 import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
-import { getGmResponses, getGmReadiness } from '@/lib/gmResponseApi'
+import { getGmResponses, getGmReadiness, type GmResponseRow } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { privateBookingRequestReadApi } from '@/lib/api/privateBookingMgmtReadApi'
@@ -41,7 +41,7 @@ export const privateBookingKeys = {
 const ACTIVE_STATUSES = new Set(['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
 
 /** GM 回答の行を画面表示用に整える（名前の補完と、回答が早い順） */
-function toDisplayGmResponses(rows: any[]) {
+function toDisplayGmResponses(rows: GmResponseRow[]) {
   return sortGmResponsesByReplyTime(
     rows.filter((gm) => shouldIncludeGmResponseRow(gm)).map((gm) => ({
       ...gm,
@@ -50,8 +50,8 @@ function toDisplayGmResponses(rows: any[]) {
   )
 }
 
-function groupByReservationId(rows: any[]) {
-  const map = new Map<string, any[]>()
+function groupByReservationId(rows: GmResponseRow[]) {
+  const map = new Map<string, GmResponseRow[]>()
   for (const gm of rows) {
     const rid = gm.reservation_id as string
     if (!map.has(rid)) map.set(rid, [])
@@ -98,7 +98,7 @@ async function fetchRawBookingRequests(
 
   if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) return []
 
-  const reservationsList = await fetchBookingRows<any>((from, to) => {
+  const reservationsList = await fetchBookingRows((from, to) => {
     return privateBookingRequestReadApi.listRequestsPage(orgId, allowedScenarioIds, [...PRIVATE_BOOKING_LIST_STATUSES], from, to)
   })
   privateBookingTrace(`取得: ${reservationsList.length} 件`)
@@ -135,7 +135,7 @@ async function fetchRawBookingRequests(
             .filter(Boolean)
         ),
       ] as string[]
-      return fetchBookingRelatedRows<any>(masterIds, (batch, from, to) => privateBookingMgmtReadApi.listScenarioViewsForRequests(orgId, batch, from, to))
+      return fetchBookingRelatedRows(masterIds, (batch, from, to) => privateBookingMgmtReadApi.listScenarioViewsForRequests(orgId, batch, from, to))
     })(),
     // 承認済み・却下済みなど過去分の GM 回答は、画面を出した後に別途読む（#835）
     getGmResponses(reservationsList.filter((r) => ACTIVE_STATUSES.has(r.status)).map((r) => r.id)).then(data => ({ data, error: null })),
@@ -171,12 +171,13 @@ async function fetchRawBookingRequests(
 
   const gmResponsesByReservationId = groupByReservationId(allGmResponsesResult.data || [])
 
-  const candidateDatesByGroupId = new Map<string, any[]>()
+  type GroupCandidateDate = { group_id: string; date: string; time_slot: string; start_time?: string | null; end_time?: string | null; status?: string | null }
+  const candidateDatesByGroupId = new Map<string, GroupCandidateDate[]>()
   for (const cd of allCandidateDatesResult.data || []) {
     if (cd.status === 'rejected') continue
     const gid = cd.group_id as string
     if (!candidateDatesByGroupId.has(gid)) candidateDatesByGroupId.set(gid, [])
-    candidateDatesByGroupId.get(gid)!.push(cd)
+    candidateDatesByGroupId.get(gid)!.push(cd as GroupCandidateDate)
   }
 
   // 組み立て（endTime計算は呼び出し側で行う）
@@ -184,14 +185,14 @@ async function fetchRawBookingRequests(
     const transformedGMResponses = toDisplayGmResponses(gmResponsesByReservationId.get(req.id) || [])
 
     let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
-    const currentCandidates = candidateDatetimes.candidates || []
-    candidateDatetimes = { ...candidateDatetimes, candidates: currentCandidates.map((candidate: any, index: number) => ({ ...candidate, gm_response_index: index })) }
+    const currentCandidates: PrivateBookingRequest['candidate_datetimes']['candidates'] = candidateDatetimes.candidates || []
+    candidateDatetimes = { ...candidateDatetimes, candidates: currentCandidates.map((candidate, index) => ({ ...candidate, gm_response_index: index })) }
     const originalCandidates = req.private_group_id
       ? (candidateDatesByGroupId.get(req.private_group_id) || [])
       : []
 
     if (req.status === 'confirmed' && originalCandidates.length > currentCandidates.length) {
-      const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')
+      const confirmedCandidate = currentCandidates.find(c => c.status === 'confirmed')
       const restoredCandidates = originalCandidates.map((cd, idx: number) => {
         const isConfirmed = confirmedCandidate &&
           confirmedCandidate.date === cd.date &&

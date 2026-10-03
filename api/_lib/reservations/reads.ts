@@ -9,8 +9,7 @@ export async function handleGetAllOrRange(req: VercelRequest, res: VercelRespons
   const start = req.query.start as string | undefined
   const end = req.query.end as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = db!
+  let query = db!
     .from('reservations')
     .select(RESERVATION_SELECT_FIELDS)
     .eq('organization_id', orgId)

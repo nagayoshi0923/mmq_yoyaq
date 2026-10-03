@@ -93,10 +93,10 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
   if (!db) return res.status(500).json({ error: 'db unavailable' })
 
   const withSecrets = req.query.with_secrets === 'true'
-  const fields = withSecrets ? ORG_SETTINGS_ALL_FIELDS : ORG_SETTINGS_SELECT_FIELDS
+  // 列の一覧は実行時に選ぶ。型推論の対象にすると型が膨らみすぎるため string として渡す
+  const fields: string = withSecrets ? ORG_SETTINGS_ALL_FIELDS : ORG_SETTINGS_SELECT_FIELDS
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_settings')
     .select(fields)
     .eq('organization_id', orgId)
@@ -150,10 +150,11 @@ async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string
     return res.status(400).json({ error: '更新可能なフィールドがありません' })
   }
 
+  // 列の一覧は実行時に選ぶ。型推論の対象にすると型が膨らみすぎるため string として渡す
+  const returnFields: string = withSecrets ? ORG_SETTINGS_ALL_FIELDS : ORG_SETTINGS_SELECT_FIELDS
   // upsert: 1組織1行（organization_id に UNIQUE 制約あり）。
   // organization_id は JWT 由来で強制。
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { data, error } = await db!
     .from('organization_settings')
     .upsert(
       {
@@ -162,7 +163,7 @@ async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string
       },
       { onConflict: 'organization_id' },
     )
-    .select(withSecrets ? ORG_SETTINGS_ALL_FIELDS : ORG_SETTINGS_SELECT_FIELDS)
+    .select(returnFields)
     .single()
 
   if (error) {

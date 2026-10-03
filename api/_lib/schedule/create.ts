@@ -6,8 +6,7 @@ import { DB_VALID_CATEGORIES, SCHEDULE_CREATABLE_FIELDS, pickFields, removeMissi
 
 // ─── handleCreate (POST) ─────────────────────────────────────────────────
 export async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const body = (req.body ?? {}) as Record<string, unknown>
 
   // ホワイトリスト + サーバ強制

@@ -16,8 +16,11 @@ type CancelScheduleEvent = {
 /** 顧客セルフキャンセルの受付期限を超えていないか検証。スタッフはスキップ。 */
 export async function assertCustomerSelfCancelAllowed(
   user: AuthUser,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  reservation: any,
+  reservation: Parameters<typeof resolveCancellationPolicy>[0] & {
+    organization_id: string; schedule_event_id: string | null; private_group_id?: string | null
+    final_price?: number | null; total_price?: number | null; unit_price?: number | null; participant_count?: number | null
+    schedule_events?: CancelScheduleEvent | CancelScheduleEvent[] | null
+  },
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   if (user.role !== 'customer') return { ok: true }
 

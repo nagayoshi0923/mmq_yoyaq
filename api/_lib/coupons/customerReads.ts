@@ -6,14 +6,25 @@ import { CUSTOMER_COUPON_FIELDS, findCustomerByUserId } from './common.js'
 // =========================================
 // 顧客向け: 利用可能クーポン
 // =========================================
+/** 顧客の保有クーポン。案内時点の規則（rules_snapshot）をキャンペーンの値に重ねて返す */
+type CouponWithRules = Record<string, unknown> & {
+  id: string; expires_at: string | null
+  coupon_campaigns: Record<string, unknown> | null
+  rules_snapshot: { usage_valid_from?: string | null; usage_valid_until?: string | null } & Record<string, unknown> | null
+}
+type UsageReservation = { id: string; title: string | null; requested_datetime: string | null; store_id: string | null }
+type CouponUsageRow = {
+  id: string; customer_coupon_id: string; reservation_id: string | null; used_at: string | null; discount_amount: number | null
+  reservations: UsageReservation | UsageReservation[] | null
+}
+
 export async function handleAvailable(
   _req: VercelRequest,
   res: VercelResponse,
   userId: string,
   organizationId: string
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const customer = await findCustomerByUserId(database, userId, organizationId)
   if (!customer) return res.status(200).json([])
 
@@ -35,10 +46,9 @@ export async function handleAvailable(
   }
 
   const now = new Date()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const filtered = ((data as any[]) ?? []).map((coupon: any) => ({
+  const filtered = ((data ?? []) as unknown as CouponWithRules[]).map(coupon => ({
     ...coupon, coupon_campaigns: { ...coupon.coupon_campaigns, ...coupon.rules_snapshot },
-  })).filter((coupon: any) => {
+  })).filter(coupon => {
     if (coupon.expires_at && new Date(coupon.expires_at) < now) return false
     const rules = coupon.rules_snapshot
     if (rules?.usage_valid_from && new Date(rules.usage_valid_from) > now) return false
@@ -58,8 +68,7 @@ export async function handleAll(
   userId: string,
   organizationId: string
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const customer = await findCustomerByUserId(database, userId, organizationId)
   if (!customer) return res.status(200).json([])
 
@@ -74,10 +83,8 @@ export async function handleAll(
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: couponError.message })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = (couponRows as any[]) ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const couponIds = rows.map((c: any) => c.id)
+  const rows = (couponRows ?? []) as unknown as CouponWithRules[]
+  const couponIds = rows.map(c => c.id)
   if (couponIds.length === 0) return res.status(200).json(rows)
 
   const { data: usageRows, error: usageError } = await database
@@ -100,17 +107,14 @@ export async function handleAll(
 
   if (usageError) {
     console.warn('[coupons:all] usages fetch failed:', usageError)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return res.status(200).json(rows.map((c: any) => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: [] })))
+    return res.status(200).json(rows.map(c => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: [] })))
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const usages = (usageRows ?? []) as any[]
+  const usages = (usageRows ?? []) as unknown as CouponUsageRow[]
   const storeIds = [
     ...new Set(
       usages
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((u: any) => {
+        .map(u => {
           const r = u.reservations
           const one = Array.isArray(r) ? r[0] : r
           return one?.store_id
@@ -128,15 +132,13 @@ export async function handleAll(
     if (storeError) {
       console.warn('[coupons:all] stores fetch failed:', storeError)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(storeRows as any[])?.forEach((s: any) => {
+      ;(storeRows ?? []).forEach(s => {
         storeMap[s.id] = { name: s.name, short_name: s.short_name }
       })
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const byCoupon: Record<string, any[]> = {}
+  const byCoupon: Record<string, unknown[]> = {}
   for (const u of usages) {
     const resRaw = u.reservations
     const r = Array.isArray(resRaw) ? resRaw[0] : resRaw
@@ -162,8 +164,7 @@ export async function handleAll(
     byCoupon[cid].push(entry)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = rows.map((c: any) => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: byCoupon[c.id] ?? [] }))
+  const result = rows.map(c => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: byCoupon[c.id] ?? [] }))
   return res.status(200).json(result)
 }
 
@@ -176,8 +177,7 @@ export async function handleUsages(
   userId: string,
   organizationId: string
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const customer = await findCustomerByUserId(database, userId, organizationId)
   if (!customer) return res.status(200).json([])
 
@@ -186,8 +186,7 @@ export async function handleUsages(
     .select('id')
     .eq('customer_id', customer.id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const couponIds = ((coupons as any[]) ?? []).map((c: any) => c.id)
+  const couponIds = (coupons ?? []).map(c => c.id)
   if (couponIds.length === 0) return res.status(200).json([])
 
   const { data, error } = await database

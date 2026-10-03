@@ -6,8 +6,7 @@ import { ACTIVE_RESERVATION_STATUSES, getOrgScenarioPlayerCounts, resolveMaxPart
 
 // ─── handleAddDemoParticipants (POST action=add-demo-participants) ───────
 export async function handleAddDemoParticipants(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 中止でない自組織の全公演を取得
   const { data: events, error: eventsError } = await database
@@ -142,8 +141,7 @@ export async function handleAddDemoParticipants(_req: VercelRequest, res: Vercel
 
 // ─── handleRemoveDemoReservations (POST action=remove-demo-reservations) ─
 export async function handleRemoveDemoReservations(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // RPC は SECURITY DEFINER だが、自組織のデモ予約のみを削除するため、
   // ここでは手動で対象を絞ってから DELETE する（org スコープを強制）。

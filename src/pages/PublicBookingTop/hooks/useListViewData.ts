@@ -2,20 +2,21 @@ import { logger } from '@/utils/logger'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readPersistedBookingMonth, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
+import type { EnrichedPublicEvent, PublicCalendarEvent, PublicEventRow, PublicStoreRow } from './useBookingData'
 
 interface ListViewDataItem {
   date: number
-  store: any
+  store: PublicStoreRow
 }
 
 /**
  * リスト表示のロジックを管理するフック
  */
 export function useListViewData(
-  allEvents: any[],
-  stores: any[],
+  allEvents: EnrichedPublicEvent[],
+  stores: PublicStoreRow[],
   selectedStoreIds: string[],
-  blockedSlots: any[] = [],
+  blockedSlots: PublicEventRow[] = [],
   persistMonthKey?: string
 ) {
   const [listViewMonth, setListViewMonth] = useState(() => {
@@ -124,7 +125,7 @@ export function useListViewData(
    * 最適化: 店舗データをMapに変換（O(1)アクセス）
    */
   const storeMap = useMemo(() => {
-    const map = new Map<string, any>()
+    const map = new Map<string, PublicStoreRow>()
     stores.forEach(store => {
       map.set(store.id, store)
       if (store.short_name) map.set(store.short_name, store)
@@ -137,7 +138,7 @@ export function useListViewData(
    * 最適化: イベントを日付×店舗でインデックス化（メモ化）
    */
   const eventsByDateStore = useMemo(() => {
-    const map = new Map<string, any[]>()
+    const map = new Map<string, EnrichedPublicEvent[]>()
     allEvents.forEach(event => {
       const dateStr = event.date
       const eventStoreId = event.store_id || event.venue
@@ -190,7 +191,7 @@ export function useListViewData(
       `${dateStr}:${store.name}`
     ]
     
-    const events: any[] = []
+    const events: EnrichedPublicEvent[] = []
     possibleKeys.forEach(key => {
       const keyEvents = eventsByDateStore.get(key) || []
       events.push(...keyEvents)
@@ -204,7 +205,7 @@ export function useListViewData(
    * 店舗名を取得
    * 最適化: Mapから直接取得（O(1)アクセス）
    */
-  const getStoreName = useCallback((event: any): string => {
+  const getStoreName = useCallback((event: PublicCalendarEvent): string => {
     const store = storeMap.get(event.store_id) || storeMap.get(event.venue)
     return store?.short_name || store?.name || ''
   }, [storeMap])
@@ -213,7 +214,7 @@ export function useListViewData(
    * 店舗の色を取得
    * 最適化: Mapから直接取得（O(1)アクセス）
    */
-  const getStoreColor = useCallback((event: any): string => {
+  const getStoreColor = useCallback((event: PublicCalendarEvent): string => {
     const store = storeMap.get(event.store_id) || storeMap.get(event.venue)
     return store?.color || '#gray'
   }, [storeMap])
