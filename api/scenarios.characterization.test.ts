@@ -282,6 +282,8 @@ describe('api/scenarios.ts 統計の出力（分割前の現状を固定）', ()
             "organization_id": "org-1",
             "participation_fee": null,
             "play_count": 0,
+            "private_booking_time_slots": null,
+            "private_booking_time_slots_weekend": null,
             "production_cost": null,
             "production_costs": [],
             "scenario_master_id": "new-master",
