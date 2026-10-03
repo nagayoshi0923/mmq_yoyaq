@@ -1,3 +1,4 @@
+import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
 import { isDateInRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
 import {
   scheduleTimeSlotToEn,
@@ -58,9 +59,13 @@ export function buildPrivateBookingBlockedSlotIndex(
   rows: PrivateBookingBlockedSlotRow[]
 ): Map<string, PrivateBookingBlockedSlotRow> {
   const index = new Map<string, PrivateBookingBlockedSlotRow>()
+  const time = (row: PrivateBookingBlockedSlotRow) => row.created_at ? Date.parse(row.created_at) : Number.POSITIVE_INFINITY
   for (const row of rows) {
     const key = createPrivateBookingBlockedSlotKey(row.date, row.store_id, row.time_slot)
-    if (key) index.set(key, row)
+    if (!key) continue
+    // 同じ枠に複数の停止がある場合は、早く入った方を残す（申請の前から止まっていたかの判定に使う）
+    const current = index.get(key)
+    if (!current || time(row) < time(current)) index.set(key, row)
   }
   return index
 }
@@ -111,10 +116,15 @@ export function privateRecruitmentPauseRows(
   const rows: PrivateBookingBlockedSlotRow[] = []
   for (const period of periods) {
     if (period.pause_type !== 'private') continue
-    for (const date of new Set(dates)) {
+    for (const raw of new Set(dates)) {
+      // 候補日は日時の文字列のこともあるため、日本の暦日にそろえてから期間と比べる（承認処理と同じ）
+      const date = normalizeToJapanCalendarYmd(raw) || raw
       if (!isDateInRecruitmentPause(date, period)) continue
-      for (const time_slot of ['morning', 'afternoon', 'evening'] as const) {
-        rows.push({ date, store_id: period.store_id, time_slot, created_at: period.created_at ?? null })
+      // 画面は候補日の元の文字列で引くため、元の値と暦日の両方で枠を作る
+      for (const key of new Set([raw, date])) {
+        for (const time_slot of ['morning', 'afternoon', 'evening'] as const) {
+          rows.push({ date: key, store_id: period.store_id, time_slot, created_at: period.created_at ?? null })
+        }
       }
     }
   }
