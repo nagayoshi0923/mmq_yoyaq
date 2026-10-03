@@ -45,7 +45,7 @@ it('フックも後続ページの予約をGM回答取得と画面データへ�
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)) })
   expect(state.isError).toBe(false)
   expect(state.requests).toHaveLength(1040)
-  expect(mocks.responses).toHaveBeenCalledWith(mocks.rows.map(row=>row.id))
+  expect(mocks.responses).toHaveBeenCalledWith(mocks.rows.map(row=>row.id)) // 全件が対応中なので先に読む
   expect(mocks.ranges).toEqual([[0,999],[1000,1999]])
 })
 
@@ -61,4 +61,19 @@ it('読込失敗でデータが無い間も同じ配列を返し、画面の再�
   await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
   expect(state.requests).toBe(first)
   expect(state.requests).toHaveLength(0)
+})
+
+it('対応中の申込のGM回答を先に読み、過去分は後から読んで表示に加える（#835）', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  mocks.rows=[{id:'active',status:'pending',candidate_datetimes:{candidates:[]}},{id:'done',status:'confirmed',candidate_datetimes:{candidates:[]}}]
+  mocks.responses.mockImplementation(async (ids: string[]) => ids.map(id => ({ id: `gm-${id}`, reservation_id: id, gm_name: 'えいきち', response_status: 'available' })))
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  root = createRoot(document.createElement('div'))
+  await act(async () => root!.render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>))
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)) })
+  expect(mocks.responses.mock.calls[0][0]).toEqual(['active'])
+  expect(mocks.responses.mock.calls[1][0]).toEqual(['done'])
+  expect(state.requests.find(r => r.id === 'active')?.gm_responses).toHaveLength(1)
+  expect(state.requests.find(r => r.id === 'done')?.gm_responses).toHaveLength(1)
 })

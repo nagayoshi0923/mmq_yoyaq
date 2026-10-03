@@ -30,6 +30,17 @@ describe('GM回答の組織境界', () => {
     const result = await readGmResponses(db,user,{mine:'true',staff_id:'other',user_id:'other'})
     expect(result.responses).toEqual([row]); expect(result.staffId).toBe('staff')
   })
+  it('予約ID指定では予約の中身を付けず、本人の回答一覧では付ける（#835）', async () => {
+    const byIds = fakeDb([row])
+    await readGmResponses(byIds.db,user,{reservation_ids:id(1)})
+    const idsSelect = String(byIds.from.mock.results[0].value.select.mock.calls[0][0])
+    expect(idsSelect).toContain('reservations:reservation_id!inner(id)')
+    expect(idsSelect).not.toContain('candidate_datetimes')
+    const mine = fakeDb([row])
+    await readGmResponses(mine.db,user,{mine:'true'})
+    const mineSelect = String(mine.from.mock.results[1].value.select.mock.calls[0][0])
+    expect(mineSelect).toContain('candidate_datetimes')
+  })
   it('1000行を超えても回答を欠落させない', async () => {
     const rows = Array.from({length:1001},(_,i)=>({...row,id:String(i)}))
     const {db} = fakeDb(rows)
