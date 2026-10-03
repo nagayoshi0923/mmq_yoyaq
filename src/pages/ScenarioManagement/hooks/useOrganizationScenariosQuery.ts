@@ -16,6 +16,8 @@ export interface OrganizationScenarioWithMaster {
   created_at: string
   updated_at: string
   extra_preparation_time: number | null
+  /** 組織で持っているキットの数（#376 一覧で確認） */
+  kit_count?: number | null
   title: string
   author: string | null
   key_visual_url: string | null

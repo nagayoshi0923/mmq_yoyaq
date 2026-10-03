@@ -18,6 +18,7 @@ const ORG_SCENARIOS_WITH_MASTER_LIST_SELECT = `
   created_at,
   updated_at,
   extra_preparation_time,
+  kit_count,
   title,
   author,
   author_id,
