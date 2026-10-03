@@ -92,6 +92,14 @@ export function approvalDeliveryTransport(db: any, env: (name: string) => string
      }
      if(!data.discordPlayerUrl||!data.discordSpectatorUrl) throw new ApprovalDeliveryError('discord_invite_missing')
     }
+    // #355: 確定メールでグループへの入室を案内する。グループがある予約だけ（招待ページは幹事が既に知っているURL）。
+    const reservation=await db.from('reservations').select('private_group_id').eq('id',row.reservation_id).eq('organization_id',row.organization_id).maybeSingle()
+    if(reservation.error) throw reservation.error
+    if(reservation.data?.private_group_id) {
+     const group=await db.from('private_groups').select('invite_code').eq('id',reservation.data.private_group_id).eq('organization_id',row.organization_id).maybeSingle()
+     if(group.error) throw group.error
+     if(group.data?.invite_code) data.groupUrl=`${(env('SITE_URL')||'https://mmq.game').replace(/\/$/,'')}/group/invite/${encodeURIComponent(group.data.invite_code)}`
+    }
     const storeEmailSettings=await loadEffectiveEmailSettings(db,{organizationId:row.organization_id,reservationId:row.reservation_id})
     payload=buildPrivateConfirmationPayload(data as PrivateBookingConfirmationRequest,{
      senderEmail,senderName,replyToEmail:config.reply_to_email||env('REPLY_TO_EMAIL'),supabaseUrl:url,storeEmailSettings,
