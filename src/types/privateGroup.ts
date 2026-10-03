@@ -35,6 +35,12 @@ export interface PrivateGroup {
     id: string
     title: string
     key_visual_url: string | null
+    /** 作品マスタの人数（private_group_read が返す） */
+    player_count_min?: number | null
+    player_count_max?: number | null
+    /** 組織の上書きを反映した人数 */
+    effective_player_count_min?: number | null
+    effective_player_count_max?: number | null
     survey_enabled?: boolean
     characters?: Array<{
       name: string
