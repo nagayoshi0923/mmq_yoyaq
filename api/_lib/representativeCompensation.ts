@@ -5,7 +5,7 @@ import { requireStaff, type AuthUser } from './auth.js'
 export async function representativeCompensation(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   requireStaff(user)
   res.setHeader('Cache-Control', 'no-store')
-  const database = db as any
+  const database = db!
   const action = String(req.query.action ?? req.query.type ?? '')
   if (action === 'compensation-events') {
     const { data, error } = await database.from('schedule_events')
@@ -20,7 +20,7 @@ export async function representativeCompensation(req: VercelRequest, res: Vercel
       .select('id,cancelled_at').eq('id', req.body?.event_id).eq('organization_id', user.orgId)
       .eq('is_cancelled', true).eq('category', 'open').maybeSingle()
     if (eventError || !event) return res.status(400).json({ error: '中止済みの通常公演を選択してください' })
-    const reservations: any[] = []
+    const reservations: Array<{ id: string; participant_count: number; status: string; cancelled_at: string | null; customer_name: string | null }> = []
     for (let offset = 0; ; offset += 500) {
       const { data, error } = await database.from('reservations')
         .select('id,participant_count,status,cancelled_at,customer_name')
@@ -69,7 +69,7 @@ export async function representativeCompensation(req: VercelRequest, res: Vercel
     // One notification for the committed batch. Replays never grant or notify again.
     const result = await database.functions.invoke('send-coupon-granted', { body: { customerCouponIds: data.coupon_ids } })
       .catch(() => ({ error: true }))
-    data.notification_failed = !!result.error || result.data?.success !== true
+    data.notification_failed = !!result.error || !('data' in result) || result.data?.success !== true
   }
   return res.status(200).json(data)
 }

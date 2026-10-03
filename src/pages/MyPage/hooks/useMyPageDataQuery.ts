@@ -10,6 +10,7 @@ import { showToast } from '@/utils/toast'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import type { Reservation, Store } from '@/types'
+import { getErrorMessage } from '@/lib/errorFields'
 
 interface PlayedScenario {
   scenario: string
@@ -136,18 +137,18 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       if (overridesResult.error) logger.warn('体験済みオーバーライド取得エラー:', overridesResult.error)
 
       const localRatingsMap: Record<string, number> = {}
-      ratingsResult.data?.forEach((r: any) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
+      ratingsResult.data?.forEach((r) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
 
       const stats = { participationCount: pastReservations.length, points: pastReservations.length * 100 }
       const metadataReservations = [...reservationData, ...pastReservations]
 
       const eventIds = reservationData.map(r => r.schedule_event_id).filter((id): id is string => id !== null && id !== undefined)
       const orgIds = [...new Set(metadataReservations.map(r => r.organization_id).filter(Boolean))]
-      const manualScenarioIds = (manualHistoryResult.data || []).map((m: any) => m.scenario_master_id ?? m.scenario_id).filter((id: string | null): id is string => id !== null && id !== undefined)
+      const manualScenarioIds = (manualHistoryResult.data || []).map((m) => m.scenario_master_id ?? m.scenario_id).filter((id: string | null): id is string => id !== null && id !== undefined)
       const scenarioMasterIds = [...new Set([...metadataReservations.map(r => r.scenario_master_id).filter((id): id is string => id !== null && id !== undefined), ...manualScenarioIds])]
       const storeIdsFromReservations = [...new Set(metadataReservations.map(r => r.store_id).filter(Boolean))]
       const memberRecords = privateGroupsResult.data || []
-      const groupIds = memberRecords.map(r => (r.private_groups as any)?.id).filter(Boolean)
+      const groupIds = memberRecords.map(r => r.private_groups?.id).filter(Boolean)
 
       const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] = await Promise.all([
         eventIds.length > 0 ? myPageDataReadApi.listPublicEventsByIds(eventIds) : Promise.resolve({ data: [] }),
@@ -167,17 +168,17 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const storesData = storesFetchResult.data || []
 
       const scheduleEvents: MyPageData['scheduleEvents'] = {}
-      eventsResult.data?.forEach((e: any) => { scheduleEvents[e.id] = { date: e.date, start_time: e.start_time, category: e.category, current_participants: e.current_participants, max_participants: e.max_participants } })
+      eventsResult.data?.forEach((e) => { scheduleEvents[e.id] = { date: e.date, start_time: e.start_time, category: e.category, current_participants: e.current_participants, max_participants: e.max_participants } })
 
       const orgSlugs: Record<string, string> = {}
       const orgNames: Record<string, string> = {}
-      ;(orgsResult.data as any[])?.forEach(o => { if (o.slug) orgSlugs[o.id] = o.slug; if (o.name) orgNames[o.id] = o.name })
+      ;(orgsResult.data ?? []).forEach(o => { if (o.slug) orgSlugs[o.id] = o.slug; if (o.name) orgNames[o.id] = o.name })
 
       const scenarioImages: Record<string, string> = {}
       const scenarioSlugs: Record<string, string> = {}
       const scenarioInfo: Record<string, { min: number; max: number }> = {}
       const titleToScenarioData: Record<string, { key_visual_url?: string; id?: string }> = {}
-      ;(scenariosResult.data as any[])?.forEach(s => {
+      ;(scenariosResult.data ?? []).forEach(s => {
         if (s.key_visual_url) scenarioImages[s.id] = s.key_visual_url
         scenarioSlugs[s.id] = s.id
         scenarioInfo[s.id] = { min: s.player_count_min || 1, max: s.player_count_max || 8 }
@@ -257,9 +258,9 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const manualHistory = manualHistoryResult.data
       if (manualHistoryResult.error) logger.error('手動プレイ履歴の取得エラー:', manualHistoryResult.error)
       if (manualHistory?.length) {
-        manualHistory.forEach((item: any) => {
+        manualHistory.forEach((item) => {
           const smId = item.scenario_master_id ?? item.scenario_id
-          played.push({ scenario: item.scenario_title, date: item.played_at, venue: item.venue || '', scenario_id: smId || undefined, scenario_slug: smId || undefined, organization_slug: undefined, key_visual_url: smId ? scenarioImages[smId] : undefined, is_manual: true, manual_id: item.id, rating: smId ? (localRatingsMap[smId] ?? null) : null })
+          played.push({ scenario: item.scenario_title, date: item.played_at ?? '', venue: item.venue || '', scenario_id: smId || undefined, scenario_slug: smId || undefined, organization_slug: undefined, key_visual_url: smId ? scenarioImages[smId] : undefined, is_manual: true, manual_id: item.id, rating: smId ? (localRatingsMap[smId] ?? null) : null })
         })
       }
 
@@ -277,9 +278,9 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       const privateGroups: PrivateGroupSummary[] = []
       for (const record of memberRecords) {
-        const group = record.private_groups as any
+        const group = record.private_groups
         if (!group || group.status === 'cancelled') continue
-        const scenario = group.scenario_masters as any
+        const scenario = group.scenario_masters
         privateGroups.push({
           id: group.id, name: group.name, invite_code: group.invite_code, status: group.status,
           scenario_title: scenario?.title || null, scenario_image: scenario?.key_visual_url || null, scenario_player_count_max: scenario?.player_count_max || null,
@@ -347,9 +348,9 @@ export function useAddManualHistoryMutation(customerId: string | null, userId: s
       showToast.success('プレイ履歴を追加しました')
       queryClient.invalidateQueries({ queryKey: myPageKeys.data(userId ?? '', email ?? '') })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       logger.error('手動履歴追加エラー:', error)
-      showToast.error(error.message || '追加に失敗しました')
+      showToast.error(getErrorMessage(error) || '追加に失敗しました')
     },
   })
 }
@@ -366,9 +367,9 @@ export function useDeleteManualHistoryMutation(customerId: string | null, userId
       showToast.success('削除しました')
       queryClient.invalidateQueries({ queryKey: myPageKeys.data(userId ?? '', email ?? '') })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       logger.error('手動履歴削除エラー:', error)
-      showToast.error(error.message || '削除に失敗しました')
+      showToast.error(getErrorMessage(error) || '削除に失敗しました')
     },
   })
 }

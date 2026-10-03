@@ -61,6 +61,19 @@ export type EnrichedPublicEvent = PublicEventRow & {
   store_color: string | null | undefined
 }
 
+/** 一覧・カレンダーで並べる公演。表示用の公演に、貸切申込を止めるだけの公演（作品の補足なし）が混ざる */
+export type PublicCalendarEvent = PublicEventRow & Partial<Omit<EnrichedPublicEvent, keyof PublicEventRow>>
+
+/** 作品の ID。作品カードに無い作品は、作品一覧の行（id が作品マスタの ID）から取る */
+export function scenarioCardId(scenario: ScenarioCard | PublicScenarioRow): string {
+  return 'scenario_id' in scenario ? scenario.scenario_id : scenario.id
+}
+
+/** 作品名。作品カードに無い作品は、作品一覧の行の title から取る */
+export function scenarioCardTitle(scenario: ScenarioCard | PublicScenarioRow): string | null {
+  return 'scenario_title' in scenario ? scenario.scenario_title : scenario.title
+}
+
 export interface BookingDataResult {
   scenarios: ScenarioCard[]
   allEvents: EnrichedPublicEvent[]

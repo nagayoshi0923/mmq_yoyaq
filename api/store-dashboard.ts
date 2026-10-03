@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError, type AuthUser } from './_lib/auth.js'
 import { getParticipationFee, SCENARIO_PRICING_COLUMNS, type ScenarioPricing } from '../src/lib/pricing.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const EVENT_FIELDS = 'id, date, start_time, end_time, scenario, venue, store_id, gms, category, status, is_cancelled, capacity, max_participants, current_participants, total_revenue, organization_id, notes, scenario_master_id, organization_scenario_id'
 
@@ -175,13 +176,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+/** 店舗ダッシュボードに出す予約（顧客情報とクーポン数を重ねたもの） */
+type DashboardReservation = {
+  id: string; schedule_event_id: string; customer_id: string | null; participant_count: number | null; status: string
+  final_price: number | null; total_price: number | null
+  customer_name: string; customer_email: string; customer_phone: string; visit_count: number; coupon_count: number
+}
+
 async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const database = db as any
+  const database = db!
   const today = typeof req.query.date === 'string' ? req.query.date : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(new Date())
   const storeId = typeof req.query.store_id === 'string' ? req.query.store_id : undefined
   const { data: stores, error: storesError } = await database.from('stores').select('id, name, short_name, notes, organization_id').eq('organization_id', user.orgId).eq('status', 'active').order('display_order', { ascending: true, nullsFirst: false })
   if (storesError) throw storesError
-  const validStoreIds = new Set((stores ?? []).map((s: any) => s.id))
+  const validStoreIds = new Set((stores ?? []).map(s => s.id))
   const selectedStoreId = storeId && validStoreIds.has(storeId) ? storeId : (stores?.[0]?.id ?? null)
 
   let eventQuery = database.from('schedule_events').select(EVENT_FIELDS).eq('organization_id', user.orgId).eq('date', today).order('start_time')
@@ -193,21 +201,21 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
     .select(`id, org_scenario_id, scenario_master_id, title, ${SCENARIO_PRICING_COLUMNS}`)
     .eq('organization_id', user.orgId)
   if (scenarioError) throw scenarioError
-  const eventIds = (events ?? []).map((event: any) => event.id)
+  const eventIds = (events ?? []).map(event => event.id)
   const { data: reservations, error: reservationError } = eventIds.length
     ? await database.from('reservations').select('id, schedule_event_id, customer_id, customer_name, customer_email, customer_phone, participant_count, status, final_price, total_price').eq('organization_id', user.orgId).in('schedule_event_id', eventIds).not('status', 'in', '(cancelled,rejected)')
     : { data: [], error: null }
   if (reservationError) throw reservationError
 
-  const customerIds = (reservations ?? []).map((r: any) => r.customer_id).filter(Boolean)
+  const customerIds = (reservations ?? []).map(r => r.customer_id).filter(Boolean)
   const { data: customers } = customerIds.length ? await database.from('customers').select('id, name, email, phone, visit_count').eq('organization_id', user.orgId).in('id', customerIds) : { data: [] }
   const { data: coupons } = customerIds.length ? await database.from('customer_coupons').select('customer_id').in('customer_id', customerIds).eq('status', 'active').gt('uses_remaining', 0) : { data: [] }
   const couponCounts = new Map<string, number>()
   for (const coupon of coupons ?? []) couponCounts.set(coupon.customer_id, (couponCounts.get(coupon.customer_id) ?? 0) + 1)
-  const customerMap = new Map<string, any>((customers ?? []).map((c: any) => [c.id, c]))
+  const customerMap = new Map((customers ?? []).map(c => [c.id as string, c]))
   const { data: staff, error: staffError } = await database.from('staff').select('id, name, role, stores, organization_id').eq('organization_id', user.orgId).eq('status', 'active').order('name')
   if (staffError) throw staffError
-  const reservationsByEvent = new Map<string, any[]>()
+  const reservationsByEvent = new Map<string, DashboardReservation[]>()
   for (const reservation of reservations ?? []) {
     const customer = reservation.customer_id ? customerMap.get(reservation.customer_id) : null
     const customerId = reservation.customer_id ?? ''
@@ -225,7 +233,7 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
     if (pricing.scenario_master_id) scenarioById.set(pricing.scenario_master_id, pricing)
     if (pricing.title) scenarioByTitle.set(pricing.title, pricing)
   }
-  const eventRows = (events ?? []).map((event: any) => {
+  const eventRows = (events ?? []).map(event => {
     const scenario = (event.organization_scenario_id && scenarioById.get(event.organization_scenario_id))
       ?? (event.scenario_master_id && scenarioById.get(event.scenario_master_id))
       ?? (event.scenario && scenarioByTitle.get(event.scenario))
@@ -240,14 +248,14 @@ async function getDashboard(req: VercelRequest, res: VercelResponse, user: AuthU
   })
   const gmStatus = Array.from(new Map(
     eventRows
-      .flatMap((event: any) => event.assigned_staff)
+      .flatMap(event => event.assigned_staff)
       .map((member: DashboardStaff) => [member.display_name || member.name, member] as const),
   ).values())
   return res.status(200).json({ date: today, stores, selected_store_id: selectedStoreId, events: eventRows, gm_status: gmStatus })
 }
 
 async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const database = db as any
+  const database = db!
   const body = (req.body ?? {}) as Record<string, unknown>
   const action = body.action
   if (action === 'staff_checkin' || action === 'staff_checkin_cancel') {
@@ -270,13 +278,13 @@ async function postAction(req: VercelRequest, res: VercelResponse, user: AuthUse
 }
 
 async function getStaffCheckin(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const service = createStaffCheckinService(createStaffCheckinRepository(db as any))
+  const service = createStaffCheckinService(createStaffCheckinRepository(db!))
   const storeId = typeof _req.query.store_id === 'string' ? _req.query.store_id : undefined
   if (!storeId) return res.status(200).json({ available: false })
   return res.status(200).json(await service.getState(user, storeId))
 }
 
-function createStaffCheckinRepository(database: any): StaffCheckinRepository {
+function createStaffCheckinRepository(database: SupabaseClient): StaffCheckinRepository {
   return {
     async isStoreRepresentative(userId, organizationId) {
       const { data, error } = await database
@@ -367,7 +375,7 @@ function isDatabaseErrorCode(error: unknown, code: string) {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === code
 }
 
-export async function loadStaffCheckinContext(database: any, user: AuthUser, storeId?: string): Promise<StaffCheckinContext> {
+export async function loadStaffCheckinContext(database: SupabaseClient, user: AuthUser, storeId?: string): Promise<StaffCheckinContext> {
   if (!storeId) return {}
   const service = createStaffCheckinService(createStaffCheckinRepository(database))
   const state = await service.getState(user, storeId)
@@ -434,6 +442,6 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 
-function isRecord(value: unknown): value is Record<string, any> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

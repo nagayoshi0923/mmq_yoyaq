@@ -16,8 +16,7 @@ export async function handleCreateCampaign(req: VercelRequest, res: VercelRespon
   }
   if (!await validateCampaignTargets(formData, user.orgId)) return res.status(400).json({ success: false, error: '対象は自組織の店舗・シナリオから選択してください' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('coupon_campaigns')
     .insert({ ...formData, organization_id: user.orgId })
@@ -47,8 +46,7 @@ export async function handleUpdateCampaign(req: VercelRequest, res: VercelRespon
   }
   if (!await validateCampaignTargets(formData, user.orgId)) return res.status(400).json({ success: false, error: '対象は自組織の店舗・シナリオから選択してください' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('coupon_campaigns')
     .update(formData)
@@ -75,8 +73,7 @@ export async function handleToggleCampaignActive(req: VercelRequest, res: Vercel
     return res.status(400).json({ success: false, error: 'id クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   const { data: campaign, error: fetchError } = await database
     .from('coupon_campaigns')

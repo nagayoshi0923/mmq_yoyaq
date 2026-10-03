@@ -31,8 +31,7 @@ export async function handleMySchedule(req: VercelRequest, res: VercelResponse, 
   }
 
   // 2. スタッフ参加（予約）として登録された公演を取得
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: staffReservations, error: staffResError } = await (db as any)
+  const { data: staffReservations, error: staffResError } = await db!
     .from('reservations')
     .select(`
       schedule_event_id,
@@ -62,8 +61,9 @@ export async function handleMySchedule(req: VercelRequest, res: VercelResponse, 
     [key: string]: unknown
   }
 
-  const staffEvents: JoinedScheduleEvent[] = (staffReservations || [])
-    .map((r: { schedule_events: JoinedScheduleEvent | null }) => r.schedule_events as JoinedScheduleEvent | null)
+  // 公演の結合は1件（多対一）。型推論は配列になるため実際の形で受ける
+  const staffEvents: JoinedScheduleEvent[] = ((staffReservations || []) as unknown as Array<{ schedule_events: JoinedScheduleEvent | null }>)
+    .map(r => r.schedule_events)
     .filter((event: JoinedScheduleEvent | null): event is JoinedScheduleEvent =>
       event !== null &&
       event.date >= startDate &&

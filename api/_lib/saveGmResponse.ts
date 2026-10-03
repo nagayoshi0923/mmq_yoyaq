@@ -1,6 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, requireStaff, type AuthUser } from './auth.js'
-export async function saveGmResponse(database: SupabaseClient, user: AuthUser, body: any) {
+/** GM 回答の保存要求（画面からの入力。形は下で検証する） */
+export type SaveGmResponseBody = {
+  staffId?: string; reservationId?: string; candidates?: unknown; availableCandidates?: unknown
+  expectedResponse?: unknown; responseStatus?: string; notes?: string | null
+}
+
+export async function saveGmResponse(database: SupabaseClient, user: AuthUser, body: SaveGmResponseBody) {
   requireStaff(user)
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuid.test(body.staffId || '') || !uuid.test(body.reservationId || '') || !Array.isArray(body.candidates) || !Array.isArray(body.availableCandidates)) throw new ApiError(400, '回答する候補を確認してください')

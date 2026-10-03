@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readPersistedBookingMonth, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
+import type { EnrichedPublicEvent, PublicStoreRow } from './useBookingData'
 
 interface CalendarDay {
   date: Date
@@ -11,9 +12,9 @@ interface CalendarDay {
  * カレンダー表示のロジックを管理するフック
  */
 export function useCalendarData(
-  allEvents: any[],
+  allEvents: EnrichedPublicEvent[],
   selectedStoreIds: string[],
-  stores: any[] = [],
+  stores: PublicStoreRow[] = [],
   persistMonthKey?: string
 ) {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -96,7 +97,7 @@ export function useCalendarData(
    * 最適化: イベントを日付でインデックス化（メモ化）
    */
   const eventsByDate = useMemo(() => {
-    const map = new Map<string, any[]>()
+    const map = new Map<string, EnrichedPublicEvent[]>()
     allEvents.forEach(event => {
       const dateStr = event.date
       if (!map.has(dateStr)) {

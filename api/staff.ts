@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, requireAdmin, ApiError, type AuthUser } from './_lib/auth.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -102,7 +103,7 @@ async function saveEditor(req: VercelRequest, res: VercelResponse, user: AuthUse
   if (!data || typeof data !== 'object' || !('id' in data)) return res.status(500).json({ error: '保存結果を確認できませんでした' })
   const row = data as Record<string, unknown>
   if (id && oldName && typeof profile.name === 'string' && profile.name !== oldName) {
-    await syncRenamedStaffReferences(db, user.orgId, oldName, profile.name)
+    await syncRenamedStaffReferences(db!, user.orgId, oldName, profile.name)
   }
   const visible = Object.fromEntries(STAFF_SELECT_FIELDS.split(', ').map(field => {
     const [alias, column] = field.split(':')
@@ -116,8 +117,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const id = req.query.id as string | undefined
   const userId = req.query.user_id as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   if (id) {
     const { data, error } = await database
@@ -164,8 +164,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
 async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   requireAdmin(user)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const body = (req.body ?? {}) as Record<string, unknown>
 
   // discord_id → discord_user_id への alias を解決
@@ -225,8 +224,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   const action = req.query.action as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 自組織のスタッフであることを必ず確認
   const { data: existing, error: existingErr } = await database
@@ -349,8 +347,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 自組織のスタッフであることを必ず確認
   const { data: existing, error: existingErr } = await database
@@ -383,8 +380,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 async function syncRenamedStaffReferences(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  database: any,
+  database: SupabaseClient,
   orgId: string,
   oldName: string,
   newName: string,

@@ -1,7 +1,35 @@
 import { apiClient } from '@/lib/apiClient'
 import { fetchInChunks } from '@/lib/fetchInChunks'
 // 既存の貸切/GM画面で使うレスポンス投影。組織条件と本人IDはサーバーで確定する。
-export type GmResponseRow = any
+export interface GmResponseRow {
+  id: string
+  reservation_id: string
+  /** スタッフとの内部結合（!inner）で読むため必ずある */
+  staff_id: string
+  gm_name: string | null
+  response_status: string
+  available_candidates: number[] | null
+  selected_candidate_index: number | null
+  notes: string | null
+  notified_at: string | null
+  response_datetime: string | null
+  responded_at: string | null
+  updated_at: string | null
+  created_at: string | null
+  response_type: string | null
+  gm_discord_id: string | null
+  staff: { id: string; name: string; avatar_color: string | null } | null
+  /** 本人の回答一覧（mine）のときだけ付く予約の中身 */
+  reservations?: {
+    reservation_number: string | null; title: string | null; customer_name: string | null
+    candidate_datetimes: {
+      candidates: Array<{ order: number; date: string; timeSlot: string; startTime: string; endTime: string; status: string }>
+      requestedStores?: Array<{ storeId: string; storeName: string; storeShortName?: string | null }>
+    } | null
+    status: string; store_id: string | null; created_at: string
+    stores: { id: string; name: string; short_name: string | null } | null
+  } | null
+}
 export async function getGmResponses(reservationIds: string[]): Promise<GmResponseRow[]> {
   const pages = await fetchInChunks(reservationIds, async chunk => {
     const params = new URLSearchParams({ type: 'gm-responses', reservation_ids: chunk.join(',') })

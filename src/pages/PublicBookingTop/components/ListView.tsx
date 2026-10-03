@@ -5,10 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { formatDateJST } from '@/utils/dateUtils'
+import { scenarioCardId, scenarioCardTitle, type EnrichedPublicEvent, type PublicCalendarEvent, type PublicEventRow, type PublicStoreRow, type ScenarioCard } from '../hooks/useBookingData'
 
 interface ListViewData {
   date: number
-  store: any
+  store: PublicStoreRow
 }
 
 interface ListViewProps {
@@ -16,13 +17,13 @@ interface ListViewProps {
   onMonthChange: (date: Date) => void
   selectedStoreIds: string[]
   onStoreIdsChange: (storeIds: string[]) => void
-  stores: any[]
+  stores: PublicStoreRow[]
   listViewData: ListViewData[]
-  getEventsForDateStore: (date: number, storeId: string) => any[]
+  getEventsForDateStore: (date: number, storeId: string) => EnrichedPublicEvent[]
   getColorFromName: (color: string) => string
-  scenarios: any[]
+  scenarios: ScenarioCard[]
   onCardClick: (scenarioId: string) => void
-  blockedSlots?: any[]
+  blockedSlots?: PublicEventRow[]
   privateBookingDeadlineDays?: number
   organizationSlug?: string
   hideSoldOut?: boolean
@@ -61,7 +62,7 @@ export const ListView = memo(function ListView({
   
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
-    const map = new Map<string, any>()
+    const map = new Map<string, ScenarioCard>()
     scenarios.forEach(scenario => {
       map.set(scenario.scenario_id, scenario)
       if (scenario.scenario_title) {
@@ -73,7 +74,7 @@ export const ListView = memo(function ListView({
   
   // GMテスト等のブロックイベントを日付×店舗×時間帯でインデックス化
   const blockedEventsByDateStoreSlot = useMemo(() => {
-    const map = new Map<string, any[]>()
+    const map = new Map<string, PublicEventRow[]>()
     blockedSlots.forEach(event => {
       const dateStr = event.date
       const eventStoreId = event.store_id || event.venue
@@ -103,7 +104,7 @@ export const ListView = memo(function ListView({
   const defaultStartTimes: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' }
   const slotEndTimes: Record<string, string> = { morning: '13:00', afternoon: '18:00', evening: '23:00' }
   
-  const getSuggestedStartTime = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: any[]) => {
+  const getSuggestedStartTime = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: PublicEventRow[]) => {
     if (precedingEvents.length === 0) return defaultStartTimes[timeSlot]
     const latestEnd = precedingEvents.reduce((latest: string, e) => 
       (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
@@ -114,15 +115,15 @@ export const ListView = memo(function ListView({
     return suggested > defaultStartTimes[timeSlot] ? suggested : defaultStartTimes[timeSlot]
   }
   
-  const isSlotAvailable = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: any[]) => {
+  const isSlotAvailable = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: PublicEventRow[]) => {
     const startTime = getSuggestedStartTime(timeSlot, precedingEvents)
     return startTime < slotEndTimes[timeSlot]
   }
   
-  const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number, precedingEvents: any[] = []) => {
+  const renderEventCell = (events: EnrichedPublicEvent[], store: PublicStoreRow, timeSlot: 'morning' | 'afternoon' | 'evening', date: number, precedingEvents: PublicEventRow[] = []) => {
     // GMテスト等のブロックイベントを取得してマージ
     const blockedEvents = getBlockedEvents(date, store.id, timeSlot)
-    const allMerged = [...events, ...blockedEvents].sort((a, b) => {
+    const allMerged: PublicCalendarEvent[] = [...events, ...blockedEvents].sort((a, b) => {
       return (a.start_time || '').localeCompare(b.start_time || '')
     })
     const allEvents = allMerged.filter((ev) => {
@@ -259,7 +260,7 @@ export const ListView = memo(function ListView({
           }}
           onClick={() => {
             if (scenario) {
-              onCardClick(scenario.scenario_id)
+              onCardClick(scenarioCardId(scenario))
             }
           }}
         >
@@ -271,7 +272,7 @@ export const ListView = memo(function ListView({
               {imageUrl ? (
                 <OptimizedImage
                   src={imageUrl}
-                  alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
+                  alt={event.scenario || (scenario && scenarioCardTitle(scenario)) || 'シナリオ画像'}
                   responsive={false}
                   useWebP={true}
                   quality={70}
@@ -302,7 +303,7 @@ export const ListView = memo(function ListView({
                   {event.start_time?.slice(0, 5)}
                 </div>
               <div className="text-xs sm:text-sm text-left truncate leading-tight text-gray-800">
-                {event.scenario || event.scenarios?.title}
+                {event.scenario}
               </div>
               <div className={`text-xs sm:text-sm text-right leading-tight flex items-center justify-end gap-1`}>
                 {isConfirmed && (
@@ -377,31 +378,19 @@ export const ListView = memo(function ListView({
             const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][dateObj.getDay()]
 
             // 時間帯別にイベントを分類
-            // 全てのイベントでtimeSlot（朝/昼/夜）を使用、timeSlotがない場合はstart_timeから判定
+            // 公開公演の行に時間帯は無いため、開始時刻から判定する
             const morningEvents = events.filter(event => {
-              // timeSlotが設定されている場合はそれを使用
-              if (event.timeSlot) {
-                return event.timeSlot === '朝'
-              }
-              // フォールバック：start_timeから判定
+              // start_timeから判定
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
               return hour >= 9 && hour < 12
             })
             const afternoonEvents = events.filter(event => {
-              // timeSlotが設定されている場合はそれを使用
-              if (event.timeSlot) {
-                return event.timeSlot === '昼'
-              }
-              // フォールバック：start_timeから判定（17時を含む）
+              // start_timeから判定（17時を含む）
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
               return hour >= 12 && hour <= 17
             })
             const eveningEvents = events.filter(event => {
-              // timeSlotが設定されている場合はそれを使用
-              if (event.timeSlot) {
-                return event.timeSlot === '夜'
-              }
-              // フォールバック：start_timeから判定（18時以降が夜）
+              // start_timeから判定（18時以降が夜）
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
               return hour >= 18
             })

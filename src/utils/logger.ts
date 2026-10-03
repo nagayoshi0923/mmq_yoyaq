@@ -42,7 +42,7 @@ export const logger = {
   /**
    * デバッグログ（VITE_DEBUG=true の時のみ）
    */
-  log: (...args: any[]) => {
+  log: (...args: unknown[]) => {
     if (isDevelopment && isDebugMode) {
       console.log(...args)
     }
@@ -51,7 +51,7 @@ export const logger = {
   /**
    * デバッグログ（log のエイリアス）
    */
-  debug: (...args: any[]) => {
+  debug: (...args: unknown[]) => {
     if (isDevelopment && isDebugMode) {
       console.log('[DEBUG]', ...args)
     }
@@ -60,7 +60,7 @@ export const logger = {
   /**
    * 情報ログ（VITE_DEBUG=true の時のみ）
    */
-  info: (...args: any[]) => {
+  info: (...args: unknown[]) => {
     if (isDevelopment && isDebugMode) {
       console.info(...args)
     }
@@ -69,14 +69,14 @@ export const logger = {
   /**
    * 警告ログ（常に出力）
    */
-  warn: (...args: any[]) => {
+  warn: (...args: unknown[]) => {
     console.warn(...args)
   },
 
   /**
    * エラーログ（常に出力）
    */
-  error: (...args: any[]) => {
+  error: (...args: unknown[]) => {
     console.error(...args)
   },
 
@@ -101,7 +101,7 @@ export const logger = {
   /**
    * テーブル表示（開発環境のみ）
    */
-  table: (data: any) => {
+  table: (data: unknown) => {
     if (isDevelopment && console.table) {
       console.table(data)
     }
@@ -141,10 +141,10 @@ export function generateCorrelationId(): string {
 export function createCorrelatedLogger(correlationId: string, context?: string) {
   const prefix = context ? `[${correlationId}][${context}]` : `[${correlationId}]`
   return {
-    log: (...args: any[]) => logger.log(prefix, ...args),
-    info: (...args: any[]) => logger.info(prefix, ...args),
-    warn: (...args: any[]) => logger.warn(prefix, ...args),
-    error: (...args: any[]) => logger.error(prefix, ...args),
+    log: (...args: unknown[]) => logger.log(prefix, ...args),
+    info: (...args: unknown[]) => logger.info(prefix, ...args),
+    warn: (...args: unknown[]) => logger.warn(prefix, ...args),
+    error: (...args: unknown[]) => logger.error(prefix, ...args),
   }
 }
 
@@ -153,13 +153,13 @@ export function createCorrelatedLogger(correlationId: string, context?: string) 
  * 環境変数 VITE_DEBUG=true の時のみ出力
  */
 export const debug = {
-  log: (...args: any[]) => {
+  log: (...args: unknown[]) => {
     if (isDevelopment && isDebugMode) {
       console.log('[DEBUG]', ...args)
     }
   },
 
-  trace: (...args: any[]) => {
+  trace: (...args: unknown[]) => {
     if (isDevelopment && isDebugMode && console.trace) {
       console.trace('[DEBUG]', ...args)
     }

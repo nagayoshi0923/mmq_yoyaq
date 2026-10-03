@@ -52,8 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data ?? null)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = db!
+    let query = db!
       .from('organization_scenarios_with_master')
       .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
       .eq('organization_id', user.orgId)

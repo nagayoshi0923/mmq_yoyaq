@@ -97,8 +97,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
   const id = req.query.id as string | undefined
   const action = req.query.action as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   if (action === 'travelTimes') {
     const { data, error } = await database
@@ -144,8 +143,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
 async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUser) {
   requireAdmin(user)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const body = (req.body ?? {}) as Record<string, unknown>
   const insertRow = pickFields(body, STORE_CREATABLE_FIELDS)
 
@@ -189,8 +187,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 自組織の店舗であることを必ず確認
   const { data: existing, error: existingErr } = await database
@@ -235,8 +232,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthU
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   const { data: existing, error: existingErr } = await database
     .from('stores')
@@ -329,8 +325,7 @@ async function handleUpsertTravelTimes(
     storeIds.add(storeBId)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   const ids = [...storeIds]
   if (ids.length > 0) {
@@ -422,8 +417,7 @@ async function handleUpdateDisplayOrder(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 対象 ID を一度に取得し、全て自組織のものか検証
   const ids = (orders as Array<{ id: string }>).map((o) => o.id)

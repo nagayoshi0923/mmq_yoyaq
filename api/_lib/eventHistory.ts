@@ -46,8 +46,7 @@ export interface RecordEventHistoryParams {
  * 失敗してもエラーを throw せず、呼び出し側の主処理（予約作成等）を妨げない。
  */
 export async function recordEventHistory(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: SupabaseClient<any, 'public', any>,
+  db: SupabaseClient,
   params: RecordEventHistoryParams,
 ): Promise<void> {
   try {
@@ -87,14 +86,12 @@ export async function recordEventHistory(
  * organizationId を必ず渡すこと）。
  */
 export async function fetchEventSnapshotServer(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: SupabaseClient<any, 'public', any>,
+  db: SupabaseClient,
   scheduleEventId: string,
   organizationId: string,
 ): Promise<Record<string, unknown> | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data, error } = await db!
       .from('schedule_events')
       .select(SNAPSHOT_COLUMNS)
       .eq('id', scheduleEventId)
@@ -104,7 +101,7 @@ export async function fetchEventSnapshotServer(
       console.error('[fetchEventSnapshotServer] error:', error)
       return null
     }
-    return (data as Record<string, unknown>) ?? null
+    return (data as unknown as Record<string, unknown> | null) ?? null
   } catch (e) {
     console.error('[fetchEventSnapshotServer] unexpected error:', e)
     return null

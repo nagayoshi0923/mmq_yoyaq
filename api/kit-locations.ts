@@ -71,23 +71,19 @@ async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser
     // 特定シナリオのキット位置（org_scenario_id または scenario_master_id どちらでも）
     const orgScenarioId = await resolveOrgScenarioId(user.orgId, scenarioId)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any
-    if (orgScenarioId) {
-      query = db!
+    const query = orgScenarioId
+      ? db!
         .from('scenario_kit_locations')
         .select(SELECT)
         .eq('organization_id', user.orgId)
         .eq('org_scenario_id', orgScenarioId)
         .order('kit_number')
-    } else {
-      query = db!
+      : db!
         .from('scenario_kit_locations')
         .select(SELECT)
         .eq('organization_id', user.orgId)
         .eq('scenario_master_id', scenarioId)
         .order('kit_number')
-    }
     const { data, error } = await query
     if (error) {
       console.error('[kit-locations] DB error:', error)
@@ -162,8 +158,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUse
   const orgScenarioId = await resolveOrgScenarioId(user.orgId, scenario_id)
 
   // 既存レコード検索（自org のみ）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let existingQuery: any = db!
+  let existingQuery = db!
     .from('scenario_kit_locations')
     .select('id, org_scenario_id, scenario_master_id')
     .eq('organization_id', user.orgId)
@@ -249,8 +244,7 @@ async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUs
   }
   const orgScenarioId = await resolveOrgScenarioId(user.orgId, scenario_id)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q: any = db!
+  let q = db!
     .from('scenario_kit_locations')
     .update(updateRow)
     .eq('organization_id', user.orgId)

@@ -2,14 +2,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from '../db.js'
 import { type AuthUser } from '../auth.js'
+import { getErrorMessage } from '../../../src/lib/errorFields.js'
 import { COUPON_CAMPAIGN_FIELDS, CUSTOMER_COUPON_FIELDS, CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS, USAGE_CHUNK_SIZE, chunk, fetchAllRows } from './common.js'
 
 // =========================================
 // 管理者向け: キャンペーン一覧
 // =========================================
 export async function handleCampaigns(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('coupon_campaigns')
     .select(COUPON_CAMPAIGN_FIELDS)
@@ -32,8 +32,7 @@ export async function handleCampaignStats(req: VercelRequest, res: VercelRespons
     return res.status(400).json({ error: 'campaign_id クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // キャンペーンが自組織のものか検証
   const { data: campaign, error: campaignError } = await database
@@ -52,8 +51,7 @@ export async function handleCampaignStats(req: VercelRequest, res: VercelRespons
   }
 
   // 付与されたクーポンを全件取得（1000 行上限を range ページングで回避）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { rows, error: couponsError } = await fetchAllRows<any>(() =>
+  const { rows, error: couponsError } = await fetchAllRows<{ id: string; uses_remaining: number | null }>(() =>
     database
       .from('customer_coupons')
       .select('id, uses_remaining')
@@ -63,14 +61,11 @@ export async function handleCampaignStats(req: VercelRequest, res: VercelRespons
   )
 
   if (couponsError) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const err = couponsError as any
-    console.error('[coupons:campaign-stats] coupons error:', err)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: err?.message })
+    console.error('[coupons:campaign-stats] coupons error:', couponsError)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: getErrorMessage(couponsError) })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const couponIds = rows.map((c: any) => c.id)
+  const couponIds = rows.map(c => c.id)
 
   let totalUsed = 0
   let totalDiscountAmount = 0
@@ -86,17 +81,14 @@ export async function handleCampaignStats(req: VercelRequest, res: VercelRespons
         console.error('[coupons:campaign-stats] usages error:', usagesError)
         return res.status(500).json({ error: 'データ取得に失敗しました', detail: usagesError.message })
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const usageRows = (usages as any[]) ?? []
+      const usageRows = (usages ?? []) as Array<{ discount_amount: number | null }>
       totalUsed += usageRows.length
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      totalDiscountAmount += usageRows.reduce((sum: number, u: any) => sum + (u.discount_amount ?? 0), 0)
+      totalDiscountAmount += usageRows.reduce((sum, u) => sum + (u.discount_amount ?? 0), 0)
     }
   }
 
   const totalGranted = rows.length
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalRemaining = rows.reduce((sum: number, c: any) => sum + (c.uses_remaining ?? 0), 0)
+  const totalRemaining = rows.reduce((sum, c) => sum + (c.uses_remaining ?? 0), 0)
 
   return res.status(200).json({
     totalGranted,
@@ -142,8 +134,7 @@ export async function handleAdminUsages(req: VercelRequest, res: VercelResponse,
     return res.status(400).json({ error: 'customer_coupon_id クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 顧客クーポンが自組織のものか検証
   const { data: coupon } = await database
@@ -172,8 +163,8 @@ export async function handleAdminUsages(req: VercelRequest, res: VercelResponse,
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapped = ((data as any[]) ?? []).map((row: any) => ({
+  type AdminUsageRow = { id: string; reservation_id: string | null; discount_amount: number | null; used_at: string | null; reservations: { title: string | null } | null }
+  const mapped = ((data ?? []) as unknown as AdminUsageRow[]).map(row => ({
     id: row.id,
     reservation_id: row.reservation_id,
     discount_amount: row.discount_amount,
@@ -193,8 +184,7 @@ export async function handleCampaignCoupons(req: VercelRequest, res: VercelRespo
     return res.status(400).json({ error: 'campaign_id クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // キャンペーンが自組織のものか検証
   const { data: campaign } = await database
@@ -207,8 +197,7 @@ export async function handleCampaignCoupons(req: VercelRequest, res: VercelRespo
   if (!campaign) return res.status(200).json([])
 
   // 全件取得（1000 行上限を range ページングで回避）
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { rows: data, error } = await fetchAllRows<any>(() =>
+  const { rows: data, error } = await fetchAllRows<Record<string, unknown>>(() =>
     database
       .from('customer_coupons')
       .select(CUSTOMER_COUPON_WITH_CUSTOMER_FIELDS)
@@ -220,10 +209,8 @@ export async function handleCampaignCoupons(req: VercelRequest, res: VercelRespo
   )
 
   if (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const err = error as any
-    console.error('[coupons:campaign-coupons] DB error:', err)
-    return res.status(500).json({ error: 'データ取得に失敗しました', detail: err?.message })
+    console.error('[coupons:campaign-coupons] DB error:', error)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: getErrorMessage(error) })
   }
 
   return res.status(200).json(data ?? [])
@@ -237,8 +224,7 @@ export async function handleSearchCustomers(req: VercelRequest, res: VercelRespo
   const trimmed = q.trim()
   if (!trimmed) return res.status(200).json([])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   // ilike へ渡す値はサニタイズ（% _ \ をエスケープ）して任意検索による意図せぬマッチを防ぐ
   const escaped = trimmed.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
   const searchTerm = `%${escaped}%`
@@ -258,8 +244,8 @@ export async function handleSearchCustomers(req: VercelRequest, res: VercelRespo
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapped = ((data as any[]) ?? []).map((c: any) => ({
+  type CustomerSearchRow = { id: string; name: string | null; email: string | null; phone: string | null }
+  const mapped = ((data ?? []) as CustomerSearchRow[]).map(c => ({
     id: c.id,
     name: c.name,
     email: c.email,
@@ -278,8 +264,7 @@ export async function handleCustomerCoupons(req: VercelRequest, res: VercelRespo
     return res.status(400).json({ error: 'customer_id クエリパラメータが必要です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   // 自組織が配布したクーポンのみ（grant 時に organization_id = orgId が入る）
   const { data, error } = await database
     .from('customer_coupons')
@@ -293,8 +278,8 @@ export async function handleCustomerCoupons(req: VercelRequest, res: VercelRespo
     return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return res.status(200).json((data ?? []).map((coupon: any) => ({
+  type CouponWithRules = Record<string, unknown> & { coupon_campaigns: Record<string, unknown> | null; rules_snapshot: Record<string, unknown> | null }
+  return res.status(200).json(((data ?? []) as unknown as CouponWithRules[]).map(coupon => ({
     ...coupon, coupon_campaigns: { ...coupon.coupon_campaigns, ...coupon.rules_snapshot },
   })))
 }

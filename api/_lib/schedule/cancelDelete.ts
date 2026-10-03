@@ -8,8 +8,7 @@ export async function handleToggleCancel(req: VercelRequest, res: VercelResponse
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const body = (req.body ?? {}) as Record<string, unknown>
   const isCancelled = body.is_cancelled === true
   const cancellationReason = typeof body.cancellation_reason === 'string' ? body.cancellation_reason : null
@@ -59,8 +58,7 @@ export async function handleDelete(req: VercelRequest, res: VercelResponse, user
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   const { data: existing, error: existingErr } = await database
     .from('schedule_events')

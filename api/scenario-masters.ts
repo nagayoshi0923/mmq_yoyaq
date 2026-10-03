@@ -168,8 +168,7 @@ function canWriteMaster(master: Record<string, unknown>, user: AuthUser): boolea
 // ─── GET handlers ────────────────────────────────────────────────────────────
 
 async function handleList(res: VercelResponse, user: AuthUser) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // 権限に応じた可視範囲:
   //   - license_admin: 全件
@@ -194,8 +193,7 @@ async function handleList(res: VercelResponse, user: AuthUser) {
 }
 
 async function handleApproved(res: VercelResponse) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_masters')
     .select(SCENARIO_MASTER_SELECT_FIELDS)
@@ -233,8 +231,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
 
   // submitted_by_organization_id は JWT から強制
   // master_status は draft で固定
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_masters')
     .insert({
@@ -269,8 +266,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
     return res.status(400).json({ error: '更新対象のフィールドがありません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_masters')
     .update(updates)
@@ -295,8 +291,7 @@ async function handlePublish(req: VercelRequest, res: VercelResponse, user: Auth
     return res.status(403).json({ error: 'このシナリオマスタを更新する権限がありません' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_masters')
     .update({ master_status: 'pending' })
@@ -318,8 +313,7 @@ async function handleApprove(req: VercelRequest, res: VercelResponse, user: Auth
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_masters')
     .update({
@@ -348,8 +342,7 @@ async function handleReject(req: VercelRequest, res: VercelResponse, user: AuthU
   const body = (req.body ?? {}) as { reason?: string }
   const reason = body.reason ?? ''
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('scenario_masters')
     .update({

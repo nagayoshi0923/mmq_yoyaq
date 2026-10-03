@@ -172,8 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // ─── GET handlers ────────────────────────────────────────────────────────────
 
 async function handleList(res: VercelResponse) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database.rpc('get_all_authors')
   if (error) {
     console.warn('[authors:list] get_all_authors error:', error)
@@ -189,8 +188,7 @@ async function handleGetByName(req: VercelRequest, res: VercelResponse) {
   const name = req.query.name as string | undefined
   if (!name) return res.status(400).json({ error: 'name クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database.rpc('get_author_by_name', { p_name: name })
   if (error) {
     console.warn('[authors:by-name] get_author_by_name error:', error)
@@ -203,8 +201,7 @@ async function handleGetByName(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleCurrentEmail(res: VercelResponse, userId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database.auth.admin.getUserById(userId)
   if (error || !data?.user) return res.status(200).json({ email: null })
   return res.status(200).json({ email: data.user.email ?? null })
@@ -214,8 +211,7 @@ async function handleScenariosByEmail(req: VercelRequest, res: VercelResponse) {
   const email = req.query.email as string | undefined
   if (!email) return res.status(400).json({ error: 'email クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data: masters, error: mastersError } = await database
     .from('scenario_masters')
     .select('id, title, author, author_email')
@@ -231,22 +227,19 @@ async function handleScenariosByEmail(req: VercelRequest, res: VercelResponse) {
   }
   if (!masters || masters.length === 0) return res.status(200).json([])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const masterIds = (masters as any[]).map((m) => m.id)
+  const masterIds = masters.map((m) => m.id)
   const { data: orgScenarios } = await database
     .from('organization_scenarios')
     .select('scenario_master_id, play_count')
     .in('scenario_master_id', masterIds)
 
   const playCountMap = new Map<string, number>()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;((orgScenarios as any[]) ?? []).forEach((os) => {
+  ;(orgScenarios ?? []).forEach((os) => {
     const current = playCountMap.get(os.scenario_master_id) || 0
     playCountMap.set(os.scenario_master_id, current + (os.play_count || 0))
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = (masters as any[]).map((m) => ({
+  const result = masters.map((m) => ({
     id: m.id,
     title: m.title,
     author: m.author || '',
@@ -264,8 +257,7 @@ async function handleReportsByEmail(req: VercelRequest, res: VercelResponse) {
   const startDate = req.query.startDate as string | undefined
   const endDate = req.query.endDate as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   let query = database
     .from('author_performance_reports')
     .select(AUTHOR_PERFORMANCE_REPORT_SELECT_FIELDS)
@@ -289,8 +281,7 @@ async function handleSummaryByEmail(req: VercelRequest, res: VercelResponse) {
   const email = req.query.email as string | undefined
   if (!email) return res.status(400).json({ error: 'email クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database
     .from('author_summary')
     .select(AUTHOR_SUMMARY_SELECT_FIELDS)
@@ -323,8 +314,7 @@ async function handleSummaryByEmail(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleDashboard(res: VercelResponse, userId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data: userData, error: userError } = await database.auth.admin.getUserById(userId)
   if (userError || !userData?.user?.email) return res.status(200).json(null)
   const email = userData.user.email as string
@@ -363,8 +353,7 @@ async function handleDashboard(res: VercelResponse, userId: string) {
       .eq('author_email', email)
       .order('title')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const masterList = (masters as any[]) ?? []
+    const masterList = masters ?? []
     if (masterList.length > 0) {
       const masterIds = masterList.map((m) => m.id)
       const { data: orgScenarios } = await database
@@ -373,8 +362,7 @@ async function handleDashboard(res: VercelResponse, userId: string) {
         .in('scenario_master_id', masterIds)
 
       const playCountMap = new Map<string, number>()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;((orgScenarios as any[]) ?? []).forEach((os) => {
+      ;(orgScenarios ?? []).forEach((os) => {
         const current = playCountMap.get(os.scenario_master_id) || 0
         playCountMap.set(os.scenario_master_id, current + (os.play_count || 0))
       })
@@ -439,8 +427,7 @@ async function handleUpsert(req: VercelRequest, res: VercelResponse) {
   }
   if (!body.name) return res.status(400).json({ error: 'name は必須です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { data, error } = await database.rpc('upsert_author', {
     p_name: body.name,
     p_email: body.email ?? null,
@@ -476,8 +463,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse) {
   }
   if (!body.id) return res.status(400).json({ error: 'id は必須です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   // id から name を引く
   const { data: row, error: lookupError } = await database
     .from('authors')
@@ -522,8 +508,7 @@ async function handleSetOrganizationName(req: VercelRequest, res: VercelResponse
     return res.status(400).json({ error: 'organizationName は必須です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
 
   // memo が undefined なら既存メモを保持
   let currentMemo: string | null = body.memo === undefined ? null : (body.memo ?? null)
@@ -557,8 +542,7 @@ async function handleMarkEmailSent(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'year と month は必須です' })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const sentYm = `${body.year}-${String(body.month).padStart(2, '0')}`
 
   const { data: current } = await database.rpc('get_author_by_name', { p_name: body.authorName })
@@ -586,8 +570,7 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
   const id = req.query.id as string | undefined
   if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const { error } = await database.from('authors').delete().eq('id', id)
   if (error) {
     console.error('[authors:delete] DB error:', error)

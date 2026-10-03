@@ -40,9 +40,9 @@ interface GMResponse {
   staff_id?: string
   gm_name?: string
   response_status: string
-  available_candidates?: number[]
-  selected_candidate_index?: number
-  notes?: string
+  available_candidates?: number[] | null
+  selected_candidate_index?: number | null
+  notes?: string | null
   notified_at?: string | null
   response_datetime?: string | null
   responded_at?: string | null

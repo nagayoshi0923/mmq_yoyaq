@@ -15,8 +15,9 @@ export async function handleSalaryReportData(req: VercelRequest, res: VercelResp
     && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
   if (!validDate(start) || !validDate(end) || start > end) throw new ApiError(400, '取得期間が不正です')
   const pageSize = 500
-  const allRows = async (makeQuery: () => any): Promise<any[]> => {
-    const rows: any[] = []
+  // 問い合わせごとに行の形が違うため、行は呼び出し側の推論に任せる
+  const allRows = async <T>(makeQuery: () => PromiseLike<{ data: T[] | null; error: unknown }> & { range(from: number, to: number): PromiseLike<{ data: T[] | null; error: unknown }> }): Promise<T[]> => {
+    const rows: T[] = []
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await makeQuery().range(offset, offset + pageSize - 1)
       if (error) throw error

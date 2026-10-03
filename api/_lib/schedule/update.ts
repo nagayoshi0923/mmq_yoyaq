@@ -12,8 +12,7 @@ export async function handleUpdate(req: VercelRequest, res: VercelResponse, user
 
   const expectedUpdatedAt = req.query.expected_updated_at as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const database = db as any
+  const database = db!
   const body = (req.body ?? {}) as Record<string, unknown>
   const updateRow = pickFields(body, SCHEDULE_UPDATABLE_FIELDS)
 
