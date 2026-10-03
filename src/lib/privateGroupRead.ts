@@ -1,3 +1,4 @@
+import { fetchInChunks } from '@/lib/fetchInChunks'
 import { supabase } from '@/lib/supabase'
 import { getPrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import type { PrivateGroup, PrivateGroupMessage } from '@/types'
@@ -27,6 +28,11 @@ export async function readPrivateGroupMessages(groupId: string, memberId?: strin
 }
 
 export async function readPrivateGroupList(scope: 'joined' | 'organized' | 'staff', organizationId: string | null = null, groupIds?: string[]): Promise<PrivateGroup[]> {
+  // 指定IDが多いときは100件ずつに分けて同時に読む（#835）。続きの読み込みを順番に待たない。
+  if (groupIds && groupIds.length > 100) {
+    const pages = await fetchInChunks(groupIds, chunk => readPrivateGroupList(scope, organizationId, chunk))
+    return pages.flat().sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id))
+  }
   const groups: PrivateGroup[] = []
   let cursor: string | null = null
   while (true) {
