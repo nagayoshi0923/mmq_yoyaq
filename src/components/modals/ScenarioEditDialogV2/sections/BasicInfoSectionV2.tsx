@@ -555,14 +555,12 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                       <button type="button"
                         onClick={() => setFormData(prev => ({ ...prev, private_booking_time_slots_weekend: [] }))}
                         className="px-2 py-1 text-[11px] text-red-500 hover:text-red-700">
-                        クリア（平日と同じにする）
+                        クリア（全枠受付にする）
                       </button>
                     )}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {field === 'private_booking_time_slots_weekend' && isEmpty
-                      ? '未選択のため平日設定を流用'
-                      : isEmpty ? '全枠受付' : ''}
+                    {isEmpty ? '未選択のため全枠受付（平日・土日祝は別々に設定）' : ''}
                   </p>
                 </div>
               )

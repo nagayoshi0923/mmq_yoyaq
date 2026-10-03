@@ -1,4 +1,5 @@
 import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
+import { toJstYmd } from '@/utils/jstDate'
 import { useQuery } from '@tanstack/react-query'
 import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
 import { usePreparationSettings } from '@/hooks/usePreparationSettings'
@@ -14,15 +15,31 @@ import {
   type ConflictEvent,
 } from '../utils/privateBookingConflicts'
 
+function isValidYmd(date: string | null | undefined): date is string {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false
+  const parsed = new Date(`${date}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
+}
+
+function shiftJstYmd(date: string, days: number): string {
+  const parsed = new Date(`${date}T00:00:00Z`)
+  parsed.setUTCDate(parsed.getUTCDate() + days)
+  return parsed.toISOString().slice(0, 10)
+}
+
 export function usePrivateBookingConflicts(organizationId: string | null, requests: PrivateBookingRequest[]) {
   const preparation = usePreparationSettings()
+  // 競合を確かめるのは、これから承認しうる日付だけ（昨日以降）。過去の確定履歴まで範囲にすると、
+  // 範囲ごとの問い合わせが積み上がって表示が遅くなる（#690）。却下済み（cancelled）も再承認できるので含める。
+  // 形式だけ合う不正な日付（2027-99-99 など）は範囲計算で例外になり画面ごと落ちるため除く。
+  const earliestRelevantDate = shiftJstYmd(toJstYmd(new Date()), -1)
   const candidateDates = [...new Set(
     requests
-      .filter(request => isApprovalRelevantStatus(request.status))
+      .filter(request => isApprovalRelevantStatus(request.status) || request.status === 'cancelled')
       .flatMap(request =>
-        request.candidate_datetimes?.candidates?.map(candidate => normalizeToJapanCalendarYmd(candidate.date)).filter((date): date is string => Boolean(date)) || []
+        request.candidate_datetimes?.candidates?.map(candidate => normalizeToJapanCalendarYmd(candidate.date)).filter((date): date is string => isValidYmd(date)) || []
       ),
-  )].sort()
+  )].filter(date => date >= earliestRelevantDate).sort()
   const dateRanges = buildConflictDateRanges(candidateDates, 2)
   const query = useQuery({
     queryKey: ['private-booking-conflicts', organizationId, requests.map(r => [r.id, r.status, r.candidate_datetimes])],

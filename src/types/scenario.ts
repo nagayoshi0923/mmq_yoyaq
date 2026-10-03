@@ -119,7 +119,7 @@ export interface Scenario {
   extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
   private_booking_time_slots?: string[] // 貸切受付可能時間枠・平日（'朝公演', '昼公演', '夜公演'）
   private_booking_slot_start_times?: import('@/lib/privateBookingSlotStartTimes').ScenarioSlotStartTimes | null // 作品ごとの貸切開始時刻（未設定の枠は店舗設定）
-  private_booking_time_slots_weekend?: string[] | null // 貸切受付可能時間枠・土日祝（未設定の場合は平日設定を流用）
+  private_booking_time_slots_weekend?: string[] | null // 貸切受付可能時間枠・土日祝（独自休日を含む）。未設定・空なら全枠受付。平日の設定は流用しない（#345）
   private_booking_blocked_slots?: string[] // 貸切ブロック済み時間枠（廃止予定）
   booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
   booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし

@@ -21,6 +21,8 @@ interface UsePrivateBookingSlotDataOptions {
   isActive: boolean
   isCustomHoliday: (date: string) => boolean
   privateBookingTimeSlots?: string[]
+  /** 土日・祝日の時間帯。渡さなければシナリオの設定を使う */
+  privateBookingTimeSlotsWeekend?: string[] | null
   scenarioTitle?: string
 }
 
@@ -42,6 +44,7 @@ export function usePrivateBookingSlotData({
   isActive,
   isCustomHoliday,
   privateBookingTimeSlots,
+  privateBookingTimeSlotsWeekend,
   scenarioTitle,
 }: UsePrivateBookingSlotDataOptions): UsePrivateBookingSlotDataResult {
   const [fallbackStoreIds, setFallbackStoreIds] = useState<string[]>([])
@@ -229,6 +232,7 @@ export function usePrivateBookingSlotData({
     !blockedSlotsLoaded
 
   const resolvedTimeSlots = privateBookingTimeSlots ?? scenarioTiming?.private_booking_time_slots ?? undefined
+  const resolvedWeekendTimeSlots = privateBookingTimeSlotsWeekend ?? scenarioTiming?.private_booking_time_slots_weekend ?? undefined
 
   const computeSlotsByDate = useMemo(() => {
     return (dates: string[]): Record<string, PrivateBookingSlot[]> => {
@@ -243,13 +247,14 @@ export function usePrivateBookingSlotData({
           allStoreEvents,
           isCustomHoliday,
           privateBookingTimeSlots: resolvedTimeSlots,
+          privateBookingTimeSlotsWeekend: resolvedWeekendTimeSlots,
           scenarioTitle: scenarioTitle ?? scenarioTiming.title ?? undefined,
           scenarioSlotStartTimes: parseScenarioSlotStartTimes(scenarioTiming.private_booking_slot_start_times),
         })
       }
       return map
     }
-  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots, scenarioTitle])
+  }, [effectiveStoreIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday, resolvedTimeSlots, resolvedWeekendTimeSlots, scenarioTitle])
 
   const blockedSlotIndex = useMemo(
     () => buildPrivateBookingBlockedSlotIndex(blockedSlots),

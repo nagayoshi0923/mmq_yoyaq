@@ -48,6 +48,9 @@ CREATE POLICY "private_group_members_pii_delete" ON public.private_group_members
   USING (public.is_staff_or_admin());
 
 -- Grants
--- 20260802130000でanonの直接アクセスを撤回済み。
+-- 20260802130000 で anon、20261003090000 で authenticated の直接アクセスを撤回済み（#280、#818）。
+-- RLS の is_staff_or_admin() は組織を見ないため、直接の権限があると他組織のゲスト情報を読み書きできた。
+-- この表は所有者権限の関数（join_private_group / authenticate_guest_by_pin_v2・v3 / save_guest_access_pin /
+-- sync_private_group_member_pii）だけが使う。
 REVOKE ALL ON public.private_group_members_pii FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.private_group_members_pii TO authenticated;
+REVOKE ALL ON public.private_group_members_pii FROM authenticated;

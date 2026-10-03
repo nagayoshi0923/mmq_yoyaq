@@ -111,7 +111,9 @@ export function useCustomerData(searchTerm = '') {
 
   const refreshCustomers = async () => {
     if (!organizationId || organizationError) await refetchOrganization()
-    await invalidateEverywhere(queryClient, customerKeys.all)
+    // 今の組織の一覧だけを再取得する。接頭辞 ['customers'] で全組織を再取得すると、取得は今の組織（JWT）で行われるため、
+    // 画面に出ていない別組織のキャッシュに今の組織の顧客が入ってしまう（#565）
+    await invalidateEverywhere(queryClient, ['customers', 'list', organizationId])
   }
 
   const visibleData = organizationId && !error && !organizationError ? data : undefined
