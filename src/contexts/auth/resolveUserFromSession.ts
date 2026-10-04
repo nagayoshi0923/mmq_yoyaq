@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase, type AuthUser } from '@/lib/supabase'
+import type { AuthUser } from '@/lib/supabase'
+import { authSessionApi } from '@/lib/api/authSessionApi'
 import { authTrace, logger } from '@/utils/logger'
 import { determineUserRole } from '@/utils/authUtils'
 import { maskEmail } from '@/utils/security'
@@ -53,11 +54,7 @@ export async function resolveUserFromSession(
         // 遅い場合でも長く待つとログインが重いので短めに切る（成功時は通常数百ms）
         const timeoutMs = 2000
             
-            const rolePromise = supabase
-              .from('users')
-              .select('role, is_store_representative')
-              .eq('id', supabaseUser.id)
-              .maybeSingle()
+            const rolePromise = authSessionApi.getUserRole(supabaseUser.id)
 
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
@@ -103,11 +100,7 @@ export async function resolveUserFromSession(
           
           try {
             // まずuser_idで検索（既に紐付けられている場合）
-            const { data: staffByUserId } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('user_id', supabaseUser.id)
-              .maybeSingle()
+            const { data: staffByUserId } = await authSessionApi.findStaffIdByUserId(supabaseUser.id)
             
             if (staffByUserId) {
               newRole = 'staff'
@@ -115,11 +108,7 @@ export async function resolveUserFromSession(
             } else {
               // user_idで見つからない場合、メールアドレスで検索
               // （招待済みだが自己登録したケース、または招待期限切れ後の自己登録）
-              const { data: staffByEmail } = await supabase
-                .from('staff')
-                .select('id, user_id, name')
-                .eq('email', supabaseUser.email)
-                .maybeSingle()
+              const { data: staffByEmail } = await authSessionApi.findStaffByEmailForLink(supabaseUser.email)
               
               if (staffByEmail) {
                 authTrace('✅ スタッフテーブルにメールアドレス一致あり:', staffByEmail.name)
@@ -128,10 +117,7 @@ export async function resolveUserFromSession(
                 if (!staffByEmail.user_id) {
                   // user_idがnullの場合のみ紐付ける
                   newRole = 'staff'
-                  const { error: updateError } = await supabase
-                    .from('staff')
-                    .update({ user_id: supabaseUser.id, updated_at: new Date().toISOString() })
-                    .eq('id', staffByEmail.id)
+                  const { error: updateError } = await authSessionApi.linkStaffToUserWithTimestamp(staffByEmail.id, supabaseUser.id, new Date().toISOString())
                   
                   if (updateError) {
                     logger.warn('⚠️ スタッフテーブルのuser_id更新エラー:', updateError)
@@ -153,9 +139,7 @@ export async function resolveUserFromSession(
           }
           
           // usersテーブルにレコードを作成（insertで新規のみ、upsertしない）
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
+          const { error: insertError } = await authSessionApi.insertUser({
               id: supabaseUser.id,
               email: supabaseUser.email!,
               role: newRole,
@@ -167,11 +151,7 @@ export async function resolveUserFromSession(
             // 重複エラーの場合は既存レコードがあるので、再取得を試みる
             if (insertError.code === '23505') {
               authTrace('📋 既存レコードあり、再取得を試みます')
-              const { data: retryData } = await supabase
-                .from('users')
-                .select('role')
-                .eq('id', supabaseUser.id)
-                .single()
+              const { data: retryData } = await authSessionApi.getUserRoleSingle(supabaseUser.id)
           
               if (retryData?.role) {
                 role = retryData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
@@ -230,14 +210,7 @@ export async function resolveUserFromSession(
         authTrace('📋 顧客情報をバックグラウンドで取得開始')
         ;(async () => {
           try {
-            const { data } = await supabase
-              .from('customers')
-              .select('name, nickname')
-              .eq('user_id', supabaseUser.id)
-              .order('updated_at', { ascending: false })
-              .order('created_at', { ascending: true }).order('id', { ascending: true })
-              .limit(1)
-              .maybeSingle()
+            const { data } = await authSessionApi.findCustomerNameByUserId(supabaseUser.id)
             
             if (data) {
               // ニックネーム優先、なければ名前
@@ -250,22 +223,14 @@ export async function resolveUserFromSession(
             } else {
               // user_idで見つからない場合、メールアドレスで検索して自動紐付け
               // 🚨 重要: user_idがnullのレコードのみを対象にする（他ユーザーと紐付き済みのレコードは除外）
-              const { data: customerByEmail } = await supabase
-                .from('customers')
-                .select('id, name, nickname, user_id')
-                .eq('email', supabaseUser.email)
-                .is('user_id', null)  // まだ紐付けされていないレコードのみ
-                .maybeSingle()
+              const { data: customerByEmail } = await authSessionApi.findUnlinkedCustomerByEmail(supabaseUser.email) // まだ紐付けされていないレコードのみ
               
               if (customerByEmail) {
                 const name = customerByEmail.nickname || customerByEmail.name
                 if (name) {
                   authTrace('📋 🔗 メールアドレスで顧客発見、自動紐付け:', name)
                   // user_idを設定して紐付け
-                  const { error: updateError } = await supabase
-                    .from('customers')
-                    .update({ user_id: supabaseUser.id })
-                    .eq('id', customerByEmail.id)
+                  const { error: updateError } = await authSessionApi.linkCustomerToUser(customerByEmail.id, supabaseUser.id)
                   
                   if (!updateError) {
                     authTrace('📋 ✅ 顧客自動紐付け成功:', name)
@@ -287,11 +252,7 @@ export async function resolveUserFromSession(
         if (role === 'staff' || role === 'admin') {
           authTrace('📋 スタッフ情報をバックグラウンドで取得開始')
           // 非同期で取得（await しない）
-          const staffPromise = supabase
-            .from('staff')
-            .select('id, name, user_id')
-            .eq('user_id', supabaseUser.id)
-            .maybeSingle()
+          const staffPromise = authSessionApi.findStaffNameByUserId(supabaseUser.id)
           
           Promise.resolve(staffPromise).then(async ({ data }) => {
               if (data?.name) {
@@ -302,20 +263,12 @@ export async function resolveUserFromSession(
               } else {
                 // user_idで見つからない場合、メールアドレスで検索して自動紐付け
                 authTrace('📋 user_idで見つからないため、メールアドレスで検索:', maskEmail(supabaseUser.email))
-                const { data: staffByEmail } = await supabase
-                  .from('staff')
-                  .select('id, name, user_id')
-                  .eq('email', supabaseUser.email)
-                  .is('user_id', null)
-                  .maybeSingle()
+                const { data: staffByEmail } = await authSessionApi.findUnlinkedStaffByEmail(supabaseUser.email)
                 
                 if (staffByEmail) {
                   authTrace('📋 🔗 メールアドレスでスタッフ発見、自動紐付け:', staffByEmail.name)
                   // user_idを設定して紐付け
-                  const { error: updateError } = await supabase
-                    .from('staff')
-                    .update({ user_id: supabaseUser.id })
-                    .eq('id', staffByEmail.id)
+                  const { error: updateError } = await authSessionApi.linkStaffToUser(staffByEmail.id, supabaseUser.id)
                   
                   if (!updateError) {
                     setStaffCache(prev => new Map(prev.set(supabaseUser.id, staffByEmail.name)))
@@ -324,19 +277,12 @@ export async function resolveUserFromSession(
                     
                     // usersテーブルのroleをstaffに更新（adminの場合は降格させない）
                     // 🚨 重要: usersテーブルの既存ロールを必ず確認する
-                    const { data: existingUserData } = await supabase
-                      .from('users')
-                      .select('role')
-                      .eq('id', supabaseUser.id)
-                      .maybeSingle()
+                    const { data: existingUserData } = await authSessionApi.findUserRole(supabaseUser.id)
                     
                     if (existingUserData?.role === 'admin') {
                       authTrace('📋 ⏭️ 既存ロールがadminのため、降格をスキップ')
                     } else if (role !== 'admin') {
-                      await supabase
-                        .from('users')
-                        .update({ role: 'staff' })
-                        .eq('id', supabaseUser.id)
+                      await authSessionApi.setUserRoleStaff(supabaseUser.id)
                       authTrace('📋 ✅ ユーザーロールをstaffに更新')
                     }
                   } else {

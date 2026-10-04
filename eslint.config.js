@@ -76,9 +76,10 @@ export default tseslint.config(
   // --- 境界の歯止め（整備計画 Phase 2） -------------------------------------
   // 画面・部品・hook から supabase.from() / supabase.rpc() を直接呼ばない。読み書きは src/lib/api の関数を通す。
   // 許可リストは 2026-10-03 に空になった（#773）。新しい直接呼び出しは lint が止める。
-  // 対象外: src/lib（API 層そのもの）と src/contexts（認証の解決）。
+  // 認証の解決（src/contexts）も 2026-10-04 に src/lib/api/authSessionApi へ移し、対象に加えた（整備 4）。
+  // 対象外: src/lib（API 層そのもの）。
   {
-    files: ['src/pages/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}'],
+    files: ['src/pages/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}', 'src/contexts/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
         'error',
