@@ -20,9 +20,12 @@ import type { PreviewEvent } from './importSchedule/types'
 import { hiraganaToKatakana, katakanaToHiragana } from '@/utils/kanaUtils'
 import { scheduleApi } from '@/lib/api/scheduleApi'
 import {
+  dropDuplicateImportCells, importCellKey, mergePreviewEdits,
+  detectImportVenueColumn, importTimeSlotColumns, rawImportScenarioText,
   determineImportCategory, extractImportNotes, extractImportReservationInfo, extractImportScenarioName,
   isImportCancelled, parseImportGmNames, parseImportGmNamesWithMapping,
 } from './importScheduleParsing'
+import { STAFF_NAME_MAPPING, STORE_MAPPING, sanitizeText } from './importScheduleMappings'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -33,149 +36,6 @@ interface ImportScheduleModalProps {
 
 // 組織ID（デフォルト値はクインズワルツ - useOrganization フックで動的に取得）
 
-// 不正なUnicode文字（壊れたサロゲートペア）を除去する関数
-const sanitizeText = (text: string | null | undefined): string => {
-  if (!text) return ''
-  // サロゲートペアの壊れた文字を除去
-   
-  return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
-}
-
-// 公演カテゴリ
-
-// 店舗名→store_id のマッピング
-const STORE_MAPPING: Record<string, string | null> = {
-  "大久保": "bef973a7-faa2-466d-afcc-c6466f24474f",
-  "馬場": "45e39d14-061f-4d01-ae8a-5d4f8893e3cd",
-  "別館①": "0269032f-6059-440b-a429-9a56dbb027be",
-  "別館②": "95ac6d74-56df-4cac-a67f-59fff9ab89b9",
-  "馬場別館①": "0269032f-6059-440b-a429-9a56dbb027be",
-  "馬場別館②": "95ac6d74-56df-4cac-a67f-59fff9ab89b9",
-  "馬場別館スタッフルーム": null,  // スタッフルームはstore_idなし
-  "大塚": "f94256c3-e992-4723-b965-9df5cd54ea81",
-  "埼玉大宮": "8a254b6d-9293-42c6-b634-e872c83fc4fd",
-  "京都出張": null,  // 出張はstore_idなし（offsite）
-  "オンライン": null,  // オンラインはstore_idなし
-  // 追加の店舗・イベント種別
-  "出張": null,  // 出張公演
-  "ゲムマ": null,  // ゲームマーケット
-  "SME": null,  // SME会場
-  "制作打ち合わせ": null,  // 打ち合わせ
-  "別会場": null,  // 別会場
-  "オフィス": null  // オフィス
-}
-
-// スタッフ名の揺らぎを統一するマッピング
-const STAFF_NAME_MAPPING: Record<string, string> = {
-  // ひらがな・カタカナ・大文字小文字の揺らぎ
-  "そら": "ソラ",
-  "ソラ": "ソラ",
-  "じの": "じの",
-  "ジノ": "じの",
-  "まつい": "松井",
-  "マツイ": "松井",
-  "松井": "松井",
-  "きゅう": "きゅう",
-  "キュウ": "きゅう",
-  "つばめ": "つばめ",
-  "ツバメ": "つばめ",
-  "えりん": "えりん",
-  "エリン": "えりん",
-  "れみあ": "れみあ",
-  "レミア": "れみあ",
-  "しらやま": "しらやま",
-  "シラヤマ": "しらやま",
-  "ぴよな": "ぴよな",
-  "ピヨナ": "ぴよな",
-  "あんころ": "あんころ",
-  "アンコロ": "あんころ",
-  "ソルト": "ソルト",
-  "そると": "ソルト",
-  "もりし": "モリシ",
-  "モリシ": "モリシ",
-  "らぼ": "labo",
-  "ラボ": "labo",
-  "labo": "labo",
-  "Labo": "labo",
-  "LABO": "labo",
-  "りんな": "りんな",
-  "リンナ": "りんな",
-  "だいこん": "だいこん",
-  "ダイコン": "だいこん",
-  "みずき": "みずき",
-  "ミズキ": "みずき",
-  "れいにー": "れいにー",
-  "レイニー": "れいにー",
-  "さき": "崎",
-  "崎": "崎",
-  "ぽったー": "ぽったー",
-  "ポッター": "ぽったー",
-  "bb": "BB",
-  "BB": "BB",
-  "Bb": "BB",
-  "かなで": "kanade",
-  "カナデ": "kanade",
-  "kanade": "kanade",
-  "Kanade": "kanade",
-  "えいきち": "えいきち",
-  "エイキチ": "えいきち",
-  "n": "N",
-  "N": "N",
-  "おむ": "おむ",
-  "オム": "おむ",
-  "らの": "らの",
-  "ラノ": "らの",
-  "かなう": "かなう",
-  "カナウ": "かなう",
-  "凪": "凪",
-  "なぎ": "凪",
-  "ナギ": "凪",
-  "みかのは": "みかのは",
-  "ミカノハ": "みかのは",
-  "温風リン": "温風リン",
-  "おんぷりん": "温風リン",
-  "松坊": "松坊",
-  "まつぼう": "松坊",
-  "まつかさ": "まつかさ",
-  "マツカサ": "まつかさ",
-  "渚咲": "渚咲",
-  "なぎさ": "渚咲",
-  "ナギサ": "渚咲",
-  "楽": "楽",
-  "らく": "楽",
-  "ラク": "楽",
-  "ひなどり": "ひなどり",
-  "ヒナドリ": "ひなどり",
-  "えなみ": "えなみ",
-  "エナミ": "えなみ",
-  "みくみん": "みくみん",
-  "ミクミン": "みくみん",
-  "小川はねか": "小川はねか",
-  "はねか": "小川はねか",
-  "ハネカ": "小川はねか",
-  // 追加のGM名
-  "サンジョウバ": "サンジョウバ",
-  "さんじょうば": "サンジョウバ",
-  "がっちゃん": "がっちゃん",
-  "ガッチャン": "がっちゃん",
-  "りえぞー": "りえぞー",
-  "リエゾー": "りえぞー",
-  "ソウタン": "ソウタン",
-  "そうたん": "ソウタン",
-  "ほがらか": "ほがらか",
-  "ホガラカ": "ほがらか",
-  "Ida": "Ida",
-  "ida": "Ida",
-  "IDA": "Ida",
-  // 画像から追加
-  "ガッ": "がっちゃん",
-  "ガツ": "がっちゃん",
-  "ガッ経由": "がっちゃん",
-  "えなさん": "えなみ",
-  "えな": "えなみ"
-}
-
-// インポート処理用の拡張型（内部フラグを含む）
 interface ParsedImportEvent {
   date: string
   venue: string
@@ -342,19 +202,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     setResult(null)
     
     // previewEventsの変更をparsedEventsにマージ
-    const mergedEvents = parsedEvents.map((event, i) => {
-      const preview = previewEvents[i]
-      if (!preview) return event
-      return {
-        ...event,
-        scenario: preview.scenario,
-        gms: preview.gms,
-        category: preview.category,
-        notes: preview.notes || event.notes,
-        isMemo: preview.isMemo,
-        gm_roles: preview.gmRoles
-      }
-    })
+    const mergedEvents = mergePreviewEdits(parsedEvents, previewEvents)
     
     setImportProgress({ current: 0, total: mergedEvents.length })
 
@@ -365,33 +213,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       const errors: string[] = []
       
       // インポートデータ内での重複チェック（同じセルに2つのシナリオがある場合、最初のものを使用）
-      const cellKey = (date: string, storeId: string | null, startTime: string) => 
-        `${date}|${storeId || 'null'}|${getTimeSlot(startTime)}`
-      
-      const importCellMap = new Map<string, { scenario: string; venue: string; index: number }>()
-      const duplicatesInImport: string[] = []
-      const duplicateIndices = new Set<number>()
-      
-      for (let i = 0; i < mergedEvents.length; i++) {
-        const event = mergedEvents[i]
-        if (!event.date || event.is_cancelled) continue
-        
-        const key = cellKey(event.date, event.store_id ?? null, event.start_time)
-        const existing = importCellMap.get(key)
-        
-        if (existing) {
-          // 重複があっても警告のみ、最初のイベントを優先
-          duplicatesInImport.push(
-            `${event.date} ${event.venue} ${getTimeSlot(event.start_time)}: 「${event.scenario || '(空)'}」をスキップ（「${existing.scenario}」が既にあります）`
-          )
-          duplicateIndices.add(i)
-        } else {
-          importCellMap.set(key, { scenario: event.scenario || '', venue: event.venue, index: i })
-        }
-      }
-      
-      // 重複したイベントを除外
-      const filteredEvents = mergedEvents.filter((_, index: number) => !duplicateIndices.has(index))
+      const cellKey = importCellKey
+      const { filteredEvents, duplicatesInImport } = dropDuplicateImportCells(mergedEvents)
       const staffErrors = validateScheduleImportStaff(filteredEvents, staffList)
       if (staffErrors.length > 0) {
         setPreviewErrors(['保存前の確認で停止しました。プレビューの担当者を修正して再実行してください。', ...staffErrors])
@@ -853,16 +676,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         if (!currentDate) continue
         
         // 店舗列を自動検出
-        let venueIdx = -1
-        let venue = ''
-        
-        if (parts[2] && validVenues.includes(parts[2])) {
-          venueIdx = 2
-          venue = parts[2]
-        } else if (parts[3] && validVenues.includes(parts[3])) {
-          venueIdx = 3
-          venue = parts[3]
-        } else {
+        const detected = detectImportVenueColumn(parts, validVenues)
+        if (!detected) {
           // スキップされる行をログ出力（デバッグ用）
           const col2 = parts[2] || ''
           const col3 = parts[3] || ''
@@ -872,26 +687,11 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           }
           continue
         }
+        const { venueIdx, venue } = detected
         processedRows++
         
-        // 時間帯インデックス
-        let timeSlots: Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string; slotName: string }>
-        
-        if (venueIdx === 2) {
-          // 店舗が3列目(index 2)の場合: 日付|曜日|店舗|朝タイトル|朝GM|昼タイトル|昼GM|夜タイトル|夜GM
-          timeSlots = [
-            { titleIdx: 3, gmIdx: 4, defaultStart: '09:00', defaultEnd: '13:00', slotName: '朝' },
-            { titleIdx: 5, gmIdx: 6, defaultStart: '13:00', defaultEnd: '18:00', slotName: '昼' },
-            { titleIdx: 7, gmIdx: 8, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
-          ]
-        } else {
-          // 店舗が4列目(index 3)の場合: 日付|曜日|担当Mg|店舗|朝タイトル|朝GM|昼タイトル|昼GM|夜タイトル|夜GM
-          timeSlots = [
-            { titleIdx: 4, gmIdx: 5, defaultStart: '09:00', defaultEnd: '13:00', slotName: '朝' },
-            { titleIdx: 6, gmIdx: 7, defaultStart: '13:00', defaultEnd: '18:00', slotName: '昼' },
-            { titleIdx: 8, gmIdx: 9, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
-          ]
-        }
+        // 時間帯ごとのタイトル列・GM 列（店舗列の位置で決まる）
+        const timeSlots = importTimeSlotColumns(venueIdx)
         
         for (const slot of timeSlots) {
           // 各スロット処理前にUIスレッドに制御を戻す（16msでアニメーションフレームを確保）
@@ -905,19 +705,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           const storeId = STORE_MAPPING[venue]
           
           // 元のシナリオ名（マッピング前）を抽出
-          let rawScenarioText = title.replace(/^(貸・|貸 |貸\/|募・|募 |募\/|出張・|出張 |GMテスト・|GMテスト |テストプレイ・|テストプレイ |テスプ・|テスプ |場所貸・|場所貸 )/, '')
-          const scenarioMatch = rawScenarioText.match(/^([^(（\d]+)/)
-          if (scenarioMatch) {
-            rawScenarioText = scenarioMatch[1].trim()
-          } else {
-            const simpleMatch = rawScenarioText.match(/^([^(（]+)/)
-            if (simpleMatch) {
-              rawScenarioText = simpleMatch[1].trim()
-            }
-          }
-          rawScenarioText = rawScenarioText.split('※')[0].split('✅')[0].split('🈵')[0].split('🙅')[0].split('🈳')[0].trim()
-          // 円表記の前で切る
-          rawScenarioText = rawScenarioText.split(/\d+円/)[0].trim()
+          const rawScenarioText = rawImportScenarioText(title)
           
           // マッピング後のシナリオ名
           const scenarioName = extractScenarioName(title)
