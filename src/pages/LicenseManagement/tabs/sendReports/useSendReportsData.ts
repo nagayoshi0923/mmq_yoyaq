@@ -86,7 +86,7 @@ export function useSendReportsData(
 
       // 手動入力値をexternalInputsに設定（キー = scenarioKey: id or id_gmtest）
       const manualInputs: Record<string, number> = {}
-      manualExternalData.forEach((item: any) => {
+      manualExternalData.forEach((item) => {
         // 0 も「他社公演数=0の上書き」として保存される（7引数版RPC）。内部上書きと同様に
         // 0 も読み込まないと、0 にした他社公演数がリロードで自動値に戻ってしまう
         if (item.performance_count !== undefined && item.performance_count !== null) {
@@ -100,7 +100,7 @@ export function useSendReportsData(
 
       // 自社公演数の上書き値を設定（0 も上書きとして保持）
       const internalOverrides: Record<string, number> = {}
-      internalOverrideData.forEach((item: any) => {
+      internalOverrideData.forEach((item) => {
         if (item.performance_count !== undefined && item.performance_count !== null) {
           internalOverrides[item.scenario_key] = item.performance_count
         }
@@ -109,7 +109,7 @@ export function useSendReportsData(
 
       // 送信履歴をMapに変換
       const historyMap = new Map<string, { sentAt: string; totalEvents: number; totalCost: number; emailBody?: string; subject?: string }>()
-      historyData.forEach((h: any) => {
+      historyData.forEach((h) => {
         historyMap.set(h.author_name, {
           sentAt: h.sent_at,
           totalEvents: h.total_events,
@@ -132,7 +132,7 @@ export function useSendReportsData(
       const itemsByScenario = new Map<string, ReportItem>()
 
       // 自社公演を処理
-      performance.forEach((perf: any) => {
+      performance.forEach((perf) => {
         const scenario = scenarios.find(s => s.id === perf.id || s.title === perf.title)
         if (!scenario?.author) return
         if (isLicenseBuyout(scenario)) return

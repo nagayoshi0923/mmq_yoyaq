@@ -15,7 +15,7 @@ export interface Notification {
   timestamp: Date
   read: boolean
   link?: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 }
 
 /**
