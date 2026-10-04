@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
+import { Send, Loader2, CheckCircle2, X, ClipboardList, Users, AlertTriangle } from 'lucide-react'
 import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { useAuth } from '@/contexts/AuthContext'
@@ -18,33 +18,9 @@ import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
-
-interface SystemMessage {
-  type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected'
-  count?: number
-  dates?: Array<{ date: string; time_slot: string }>
-  confirmedDate?: string
-  confirmedTimeSlot?: string
-  storeName?: string
-  message?: string
-  organizerName?: string
-  targetCount?: number | null
-  memberName?: string
-  memberId?: string
-  candidateCount?: number
-  // 設定可能なメッセージ文言
-  title?: string
-  body?: string
-  note?: string
-  rejectionReason?: string
-  // 個別お知らせ用
-  target_member_id?: string
-  target_member_name?: string
-  target_user_id?: string
-  // 配役結果用
-  assignments?: Record<string, string>
-}
+import { formatChatDate, groupMessagesByDate, parseSystemMessage, type SystemMessage } from './groupChatMessages'
+import { SIMPLE_SYSTEM_MESSAGE_ACTIONS, SystemNoticeCard } from './SystemNoticeCard'
+import { renderMessageWithLinks } from './renderMessageWithLinks'
 
 interface CharacterData {
   id: string
@@ -74,25 +50,6 @@ interface GroupChatProps {
   scenarioPlayerCount?: number | null
 }
 
-function renderMessageWithLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g
-  const parts = text.split(urlRegex)
-  return parts.map((part, i) =>
-    urlRegex.test(part) ? (
-      <a
-        key={i}
-        href={part}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 underline break-all"
-      >
-        {part}
-      </a>
-    ) : (
-      <span key={i}>{part}</span>
-    )
-  )
-}
 
 export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount }: GroupChatProps) {
   const { user } = useAuth()
@@ -329,71 +286,13 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
     return formatJstTime(dateStr)
   }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return '今日'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return '昨日'
-    } else {
-      const p = getJstParts(dateStr)
-      return p ? `${Number(p.mo)}月${Number(p.d)}日` : ''
-    }
-  }
+  const formatDate = (dateStr: string) => formatChatDate(dateStr)
 
   const formatDateTime = (dateStr: string) => {
     return `${formatDate(dateStr)} ${formatTime(dateStr)}`
   }
 
-  const groupMessagesByDate = (messages: PrivateGroupMessage[]) => {
-    const groups: { date: string; messages: PrivateGroupMessage[] }[] = []
-    let currentDate = ''
-
-    for (const msg of messages) {
-      const msgDate = new Date(msg.created_at).toDateString()
-      if (msgDate !== currentDate) {
-        currentDate = msgDate
-        groups.push({ date: msg.created_at, messages: [msg] })
-      } else {
-        groups[groups.length - 1].messages.push(msg)
-      }
-    }
-
-    return groups
-  }
-
   // システムメッセージかどうか判定（DB/クライアントで string または object のどちらでも来うる）
-  const parseSystemMessage = (message: string | Record<string, unknown> | null | undefined): SystemMessage | null => {
-    if (message == null) return null
-    try {
-      let parsed: unknown
-      if (typeof message === 'string') {
-        const t = message.trim()
-        if (!t.startsWith('{')) return null
-        parsed = JSON.parse(t)
-      } else if (typeof message === 'object') {
-        parsed = message
-      } else {
-        return null
-      }
-      if (
-        parsed &&
-        typeof parsed === 'object' &&
-        'type' in parsed &&
-        (parsed as { type: unknown }).type === 'system'
-      ) {
-        return parsed as SystemMessage
-      }
-    } catch {
-      // 通常のテキストメッセージ
-    }
-    return null
-  }
-
   // 候補日を見やすい形式に整形
   const formatCandidateDate = (dateStr: string, timeSlot: string) => {
     return `${formatJstDateJa(dateStr, true)} ${timeSlot}`
@@ -450,318 +349,21 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                   const isOwnMessage = msg.member_id === effectiveMemberId
                   const systemMsg = parseSystemMessage(msg.message)
 
-                  // システムメッセージ（候補日追加通知）
-                  if (systemMsg && systemMsg.action === 'candidate_dates_added') {
+                  // 表示だけのお知らせ（候補日追加・日程確定・事前読み込み・アンケート・作成・参加・申込・却下・取消・スタッフ）
+                  if (systemMsg && SIMPLE_SYSTEM_MESSAGE_ACTIONS.has(systemMsg.action)) {
                     return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                              <Calendar className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-purple-800">
-                                {systemMsgTitles.candidate_dates_added}（{systemMsg.count}件）
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {getMemberName(msg.member_id)} • {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-3 mb-3 space-y-1 border border-purple-100">
-                            {systemMsg.dates?.slice(0, 5).map((d, i) => (
-                              <div key={i} className="text-sm text-gray-700">
-                                {formatCandidateDate(d.date, d.time_slot)}
-                              </div>
-                            ))}
-                            {(systemMsg.dates?.length || 0) > 5 && (
-                              <p className="text-xs text-muted-foreground">
-                                他 {(systemMsg.dates?.length || 0) - 5} 件
-                              </p>
-                            )}
-                          </div>
-                          {onGoToSchedule && (
-                            <Button
-                              onClick={onGoToSchedule}
-                              size="sm"
-                              variant="outline"
-                              className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
-                            >
-                              <Calendar className="w-4 h-4 mr-1.5" />
-                              日程を確認・回答する
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（日程確定通知）
-                  if (systemMsg && systemMsg.action === 'schedule_confirmed') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-green-800">
-                                {systemMsg.title || '日程が確定いたしました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          {systemMsg.confirmedDate && (
-                            <div className="bg-white rounded-lg p-3 space-y-1 border border-green-100">
-                              <div className="text-sm text-gray-900">
-                                <span className="text-gray-500">日時：</span>
-                                {formatCandidateDate(systemMsg.confirmedDate, systemMsg.confirmedTimeSlot || '')}
-                              </div>
-                              {systemMsg.storeName && (
-                                <div className="text-sm text-gray-900">
-                                  <span className="text-gray-500">店舗：</span>
-                                  {systemMsg.storeName}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          <p className="text-xs text-gray-600 mt-2">
-                            {systemMsg.body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（事前読み込み通知）
-                  if (systemMsg && systemMsg.action === 'pre_reading_notice') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">!</span>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-amber-800">
-                                {systemMsgTitles.pre_reading_notice}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-3 border border-amber-100 overflow-hidden">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
-                              {renderMessageWithLinks(systemMsg.message || '')}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（アンケート回答のお願い）
-                  if (systemMsg && systemMsg.action === 'survey_notice') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                              <ClipboardList className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-blue-800">
-                                {systemMsgTitles.survey_notice}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3 overflow-hidden">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
-                              {renderMessageWithLinks(systemMsg.message || '')}
-                            </p>
-                            {scenarioId && organizationId && currentMemberId && (
-                              <Button
-                                onClick={() => setShowSurveyDialog(true)}
-                                className="w-full bg-blue-600 hover:bg-blue-700"
-                                size="sm"
-                              >
-                                <ClipboardList className="w-4 h-4 mr-2" />
-                                アンケートに回答する
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（グループ作成）
-                  if (systemMsg && systemMsg.action === 'group_created') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-purple-800">
-                                {systemMsg.title || '貸切リクエストグループを作成しました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-2">
-                            {systemMsg.body || '招待リンクを共有して、参加メンバーを招待してください。'}
-                          </p>
-                          {(systemMsg.note || !systemMsg.body) && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {systemMsg.note || '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（メンバー参加）
-                  if (systemMsg && systemMsg.action === 'member_joined') {
-                    // memberId が保存されていれば動的に名前を解決（ニックネーム更新・退出に追従）
-                    // 退出済みメンバーは「退出したメンバー」と表示される
-                    const displayName = systemMsg.memberId
-                      ? getMemberName(systemMsg.memberId)
-                      : (systemMsg.memberName || '退出したメンバー')
-                    return (
-                      <div key={msg.id} className="flex justify-center my-2">
-                        <div className="bg-gray-100 rounded-full px-4 py-1.5">
-                          <p className="text-xs text-gray-600">
-                            <span className="font-medium">{displayName}</span> が参加しました
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（予約申込）
-                  if (systemMsg && systemMsg.action === 'booking_requested') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-blue-800">
-                                {systemMsg.title || '貸切リクエストを送信しました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-2">
-                            {systemMsg.body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。'}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（却下通知）
-                  if (systemMsg && systemMsg.action === 'booking_rejected') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center">
-                              <X className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-red-800">
-                                {systemMsg.title || '日程リクエストが却下されました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap">
-                            {systemMsg.body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'}
-                          </p>
-                          {systemMsg.rejectionReason && (
-                            <div className="mt-2 bg-white rounded border border-red-100 px-3 py-2">
-                              <p className="text-xs text-gray-700 whitespace-pre-wrap">{systemMsg.rejectionReason}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（キャンセル通知）
-                  if (systemMsg && systemMsg.action === 'booking_cancelled') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center">
-                              <X className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-800">
-                                {systemMsg.title || 'ご予約がキャンセルされました'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-2">
-                            {systemMsg.body || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  // システムメッセージ（店舗からのお知らせ）
-                  if (systemMsg && systemMsg.action === 'staff_message') {
-                    return (
-                      <div key={msg.id} className="flex justify-center my-3">
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 w-full max-w-sm">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
-                              <span className="text-white text-[10px] leading-none">📢</span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-amber-800">
-                                {systemMsg.title || '店舗からのお知らせ'}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {formatDateTime(msg.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-white rounded-lg p-2.5 mt-2 border border-amber-100 overflow-hidden">
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap break-all leading-relaxed">
-                              {renderMessageWithLinks(systemMsg.body || '')}
-                            </p>
-                          </div>
-                          <p className="mt-2 px-0.5 text-[10px] text-muted-foreground leading-snug">
-                            ※ 返信は店舗に届きません。ご連絡は「店舗への問い合わせ」からお願いします。
-                          </p>
-                        </div>
-                      </div>
+                      <SystemNoticeCard
+                        key={msg.id}
+                        systemMsg={systemMsg}
+                        msg={msg}
+                        systemMsgTitles={systemMsgTitles}
+                        getMemberName={getMemberName}
+                        formatDateTime={formatDateTime}
+                        formatCandidateDate={formatCandidateDate}
+                        onGoToSchedule={onGoToSchedule}
+                        canOpenSurvey={Boolean(scenarioId && organizationId && currentMemberId)}
+                        onOpenSurvey={() => setShowSurveyDialog(true)}
+                      />
                     )
                   }
 
