@@ -44,7 +44,7 @@ REVOKE ALL ON FUNCTION public.private_cancellation_event_trigger() FROM PUBLIC,a
 CREATE TRIGGER private_cancellation_event BEFORE UPDATE OF is_cancelled OR DELETE ON public.schedule_events
   FOR EACH ROW EXECUTE FUNCTION public.private_cancellation_event_trigger();
 
-CREATE FUNCTION public.private_cancellation_reservation_trigger()
+CREATE OR REPLACE FUNCTION public.private_cancellation_reservation_trigger()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE e public.schedule_events; v_event_id uuid; v_org_id uuid;
 BEGIN
@@ -78,6 +78,14 @@ BEGIN
       AND coalesce(reservation_source,'') NOT IN ('staff_entry','staff_participation')
       AND coalesce(payment_method,'')<>'staff') THEN
     PERFORM public.enqueue_private_cancellation(e);
+    -- 整備 6: 最後の予約が取り消されたら、貸切公演も中止にする（時間帯を空け、担当のまま残さない）。
+    -- GM への知らせは直前の呼び出しで作成済み。公演側の見張りも同じ重複キーを使うので二重には送らない。
+    IF TG_OP='UPDATE' AND e.is_cancelled IS NOT TRUE THEN
+      UPDATE public.schedule_events
+        SET is_cancelled=true, cancelled_at=now(),
+            cancellation_reason=coalesce(nullif(btrim(NEW.cancellation_reason),''),'予約の取り消し'), updated_at=now()
+        WHERE id=v_event_id AND organization_id=v_org_id AND is_cancelled IS NOT TRUE;
+    END IF;
   END IF;
   RETURN NULL;
 END $$;
