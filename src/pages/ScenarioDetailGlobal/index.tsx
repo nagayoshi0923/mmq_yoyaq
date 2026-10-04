@@ -178,10 +178,10 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   // 組織マップ構築（useLegacyTable に関わらず全組織を取得）
   const orgMap: Record<string, { slug: string; name: string }> = {}
   const { data: relatedOrgIds } = await scenarioDetailGlobalReadApi.listOrganizationIdsOfMaster(masterId)
-  const orgIds = [...new Set(relatedOrgIds?.map((s: any) => s.organization_id).filter(Boolean) || [])]
+  const orgIds = [...new Set(relatedOrgIds?.map((s) => s.organization_id).filter(Boolean) || [])]
   if (orgIds.length > 0) {
     const { data: orgsData } = await scenarioDetailGlobalReadApi.listOrganizationsByIds(orgIds)
-    orgsData?.forEach((org: any) => { orgMap[org.id] = { slug: org.slug, name: org.name } })
+    orgsData?.forEach((org) => { orgMap[org.id] = { slug: org.slug, name: org.name } })
   }
   if (!useLegacyTable) {
     const { data: availableOrgScenarios } = await scenarioDetailGlobalReadApi.listAvailableOrgScenariosWithOrganization(masterId)
@@ -196,9 +196,9 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
 
   const { data: allAvailableScenarios } = await scenarioDetailGlobalReadApi.listAvailableOrgScenarios(masterId)
   if (allAvailableScenarios?.length) {
-    const firstWithSlug = allAvailableScenarios.find((s: any) => s.slug)
+    const firstWithSlug = allAvailableScenarios.find((s) => s.slug)
     if (firstWithSlug) redirectSlug = firstWithSlug.slug
-    allAvailableScenarios.forEach((s: any) => {
+    allAvailableScenarios.forEach((s) => {
       const org = s.organization_id ? orgMap[s.organization_id] : null
       if (org && !availableOrgs.some(o => o.id === s.organization_id)) {
         availableOrgs.push({ id: s.organization_id, slug: org.slug, name: org.name, scenarioId: s.id })
@@ -211,11 +211,11 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   const { data: eventData, error: eventError } = await scenarioDetailGlobalReadApi.listUpcomingPublicEvents(masterId, today)
   if (eventError) logger.error('Failed to fetch events:', eventError)
 
-  const storeIds = [...new Set((eventData || []).map((e: any) => e.store_id).filter(Boolean))]
+  const storeIds = [...new Set((eventData || []).map((e) => e.store_id).filter(Boolean))]
   const storeMap: Record<string, { id: string; name: string; short_name: string; color: string | null; region: string | null }> = {}
   if (storeIds.length > 0) {
     const { data: storesData } = await scenarioDetailGlobalReadApi.listPublicStoresByIds(storeIds)
-    storesData?.forEach((s: any) => { storeMap[s.id] = s })
+    storesData?.forEach((s) => { storeMap[s.id] = s })
   }
 
   // 店舗の「公演募集停止」期間の公演は出さない（予約は DB でも止まる。組織別の予約サイトと同じ扱い、#696）
@@ -227,9 +227,9 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   }
 
   const events: EventWithOrg[] = (eventData || [])
-    .filter((e: any) => e.is_private_booking !== true && e.is_reservation_enabled !== false)
-    .filter((e: any) => !(e.store_id && e.date && storeHasRecruitmentPause(e.date, e.store_id, 'performance', performancePauses)))
-    .map((e: any) => {
+    .filter((e) => e.is_private_booking !== true && e.is_reservation_enabled !== false)
+    .filter((e) => !(e.store_id && e.date && storeHasRecruitmentPause(e.date, e.store_id, 'performance', performancePauses)))
+    .map((e) => {
       const store = storeMap[e.store_id] || null
       const org = e.organization_id ? orgMap[e.organization_id] : null
       return {
@@ -328,7 +328,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       queryClient.invalidateQueries({ queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id], refetchType: 'all' })
       showToast.success('体験済みに登録しました')
     },
-    onError: (error: any) => {
+    onError: (error) => {
       logger.error('体験済み登録エラー:', error)
       showToast.error(error.message || '登録に失敗しました')
     },

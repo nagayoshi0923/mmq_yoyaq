@@ -381,7 +381,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {event.current_participants}/{(event as any).max_participants ?? (event as any).capacity ?? 8}名
+                    {event.current_participants}/{event.max_participants ?? (event as any).capacity ?? 8}名
                   </div>
                 </div>
               ))}

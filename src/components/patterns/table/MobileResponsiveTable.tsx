@@ -313,7 +313,7 @@ export const MobileResponsiveTable = memo(function MobileResponsiveTable<T>({
       )}
     </div>
   )
-}) as <T extends Record<string, any>>(
+}) as <T extends Record<string, unknown>>(
   props: MobileResponsiveTableProps<T>
 ) => JSX.Element
 
