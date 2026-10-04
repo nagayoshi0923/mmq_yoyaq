@@ -5,7 +5,7 @@
 -- 対象: お客様・参加者・問い合わせ者・作者の 名前 / メール / 電話番号 / 住所。
 -- メールは同じ元アドレスが同じ偽アドレスになる（表をまたいだ紐付けと一意制約を保つ）。
 -- 偽アドレスは届かないドメイン example.invalid。ステージングから実在の人へ送信されない。
--- 店舗・会社・スタッフの業務連絡先は対象外。
+-- 店舗・会社のメールは対象外。Discord の送信先とスタッフのメールは、えいきち以外を外す（末尾）。
 -- =============================================================================
 
 CREATE FUNCTION pg_temp.mask_email(v text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
@@ -90,3 +90,26 @@ UPDATE authors SET email = pg_temp.mask_email(email);
 UPDATE scenario_masters SET author_email = pg_temp.mask_email(author_email);
 UPDATE scenarios SET author_email = pg_temp.mask_email(author_email);
 UPDATE license_report_history SET author_email = pg_temp.mask_email(author_email);
+
+-- 外部への送信先（Discord）を外す（2026-10-04）。
+-- ステージングの自動判定（毎分の追加募集・開催判断）や通知が、本番の写しの送信先を使って
+-- 実在のスタッフの Discord（業務連絡・個人チャンネル）へ届いていた（本番では開催の公演に「中止」と届いた）。
+-- ステージングの通知は社長（えいきち）にだけ届く決まりなので、えいきち以外の送信先を外す。
+-- 環境変数の Bot は残るが、送信先のチャンネルが無ければ送られない。
+UPDATE organization_settings SET
+  discord_webhook_url = NULL,
+  discord_channel_id = NULL,
+  discord_private_booking_channel_id = NULL,
+  discord_shift_channel_id = NULL,
+  discord_business_channel_id = NULL,
+  discord_bot_token = NULL;
+UPDATE notification_settings SET discord_webhook_url = NULL, discord_shift_channel_id = NULL;
+UPDATE staff SET discord_channel_id = NULL, discord_user_id = NULL, discord_id = NULL
+  WHERE name IS DISTINCT FROM 'えいきち';
+UPDATE license_partner_stores SET discord_channel_id = NULL;
+-- スタッフのメールも、えいきち以外は届かない偽アドレスにする（自動の中止メールは、メールの無いスタッフ予約へ
+-- スタッフ名簿のメールを使って送るため、ステージングから実在のスタッフへ届きうる）
+UPDATE staff SET email = pg_temp.mask_email(email) WHERE name IS DISTINCT FROM 'えいきち' AND email IS NOT NULL;
+-- 本番から写した送信待ちは送らない
+UPDATE discord_notification_queue SET status = 'completed', last_error = 'staging_mirror_no_send'
+  WHERE status IN ('pending', 'sending', 'failed');
