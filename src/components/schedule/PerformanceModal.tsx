@@ -21,8 +21,11 @@ import { scheduleUiApi } from '@/lib/api/scheduleUiApi'
 import { scheduleApi } from '@/lib/api/scheduleApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
-import { calcEndTime, checkTimeOverlapWithPreparation, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
+import { calcEndTime, computePlacedStartTimeWithPreparation } from '@/utils/eventOperationUtils'
 import { ScheduleEvent, EventFormData, StaffParticipationReservation } from '@/types/schedule'
+import { CATEGORY_TONE, PERF_TABS, getStaffTextColor, timeOptions } from './performanceModal/constants'
+import { buildScenarioSelectOptions } from './performanceModal/scenarioSelectOptions'
+import { findTimeConflict } from './performanceModal/timeConflict'
 import { logger } from '@/utils/logger'
 import { reservationApi } from '@/lib/reservationApi'
 import { showToast } from '@/utils/toast'
@@ -58,69 +61,6 @@ interface PerformanceModalProps {
   onDeleteEvent?: (event: ScheduleEvent) => Promise<void>  // イベント削除時のコールバック（貸切参加者全員キャンセル時）
   /** 履歴スナップショット表示用: 全フィールド disabled・保存/削除非表示・他タブ非表示にして「その時点の見た目」だけを再現する */
   readOnly?: boolean
-}
-
-// 30分間隔の時間オプションを生成
-const generateTimeOptions = () => {
-  const options = []
-  for (let hour = 9; hour <= 23; hour++) {
-    for (let minute = 0; minute < 60; minute += 30) {
-      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-      options.push(timeString)
-    }
-  }
-  return options
-}
-
-const timeOptions = generateTimeOptions()
-
-// 公演カテゴリ別のトーン（bg=ダイアログ背景, section=内側カード/フッター/タブ, border=枠線）
-// イベント枠の categoryConfig と同じ系統だが、内側に階調をつけるため 3 段階で持つ
-const CATEGORY_TONE: Record<string, { bg: string; section: string; border: string }> = {
-  open:              { bg: '#eff6ff', section: '#dbeafe', border: '#bfdbfe' }, // blue-50/100/200
-  private:           { bg: '#faf5ff', section: '#f3e8ff', border: '#e9d5ff' }, // purple
-  gmtest:            { bg: '#fff7ed', section: '#ffedd5', border: '#fed7aa' }, // orange
-  testplay:          { bg: '#fefce8', section: '#fef9c3', border: '#fef08a' }, // yellow
-  offsite:           { bg: '#f0fdf4', section: '#dcfce7', border: '#bbf7d0' }, // green
-  venue_rental:      { bg: '#ecfeff', section: '#cffafe', border: '#a5f3fc' }, // cyan
-  venue_rental_free: { bg: '#f0fdfa', section: '#ccfbf1', border: '#99f6e4' }, // teal
-  package:           { bg: '#fdf2f8', section: '#fce7f3', border: '#fbcfe8' }, // pink
-  mtg:               { bg: '#ecfeff', section: '#cffafe', border: '#a5f3fc' }, // cyan
-  memo:              { bg: '#f9fafb', section: '#f3f4f6', border: '#e5e7eb' }, // gray
-}
-
-const PERF_TABS = [
-  { id: 'edit', label: '公演情報' },
-  { id: 'reservations', label: '予約者' },
-  { id: 'deadlines', label: '募集・締切' },
-  { id: 'operating-settings', label: '個別設定' },
-  { id: 'survey', label: 'アンケート' },
-  { id: 'history', label: '更新履歴' },
-] as const
-
-// スタッフの背景色から文字色を取得するマッピング
-const COLOR_MAP: Record<string, string> = {
-  '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
-  '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626',
-  '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777',
-  '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
-}
-
-// アバターの文字色
-const AVATAR_TEXT_COLORS = [
-  '#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
-]
-
-// スタッフの文字色を取得
-const getStaffTextColor = (staff: StaffType): string => {
-  if (staff.avatar_color) {
-    return COLOR_MAP[staff.avatar_color] || '#374151'
-  }
-  // avatar_color未設定の場合は名前からハッシュ値を計算して色を決定
-  const name = staff.name
-  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  const colorIndex = hash % AVATAR_TEXT_COLORS.length
-  return AVATAR_TEXT_COLORS[colorIndex]
 }
 
 export function PerformanceModal({
@@ -226,140 +166,7 @@ export function PerformanceModal({
 
   // シナリオ選択用オプションをメモ化（検索パフォーマンス改善）
   // ソート順: 担当+出勤GM有 > 担当GM有 > 出勤GM有 > その他（タイトル順）
-  const scenarioOptions = useMemo(() => {
-    return scenarios.map(scenario => {
-      // この店舗で公演可能かチェック
-      const isAvailableAtCurrentVenue = !formData.venue || 
-        !scenario.available_stores || 
-        scenario.available_stores.length === 0 ||
-        scenario.available_stores.includes(formData.venue)
-      
-      // このシナリオの担当GM全員を取得（special_scenarios は scenario_master_id を格納）
-      const isAssignedGM = (gm: StaffType) => {
-        const specialScenarios = gm.special_scenarios || []
-        return specialScenarios.includes(scenario.scenario_master_id || scenario.id) || 
-               specialScenarios.includes(scenario.id) ||
-               specialScenarios.includes(scenario.title)
-      }
-      
-      // 出勤中かどうかをチェック
-      const isAvailableGM = (gm: StaffType) => allAvailableStaff.some(a => a.id === gm.id)
-      
-      // 担当または出勤のスタッフのみ表示（その他は除外）
-      const filteredDisplayGMs = staff
-        .filter(gm => gm.status === 'active')
-        .map(gm => ({
-          gm,
-          isAssigned: isAssignedGM(gm),
-          isAvailable: isAvailableGM(gm)
-        }))
-        // 担当または出勤のみ表示
-        .filter(({ isAssigned, isAvailable }) => isAssigned || isAvailable)
-        // ソート: 担当+出勤 > 担当のみ > 出勤のみ
-        .sort((a, b) => {
-          const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
-          const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
-          return scoreB - scoreA
-        })
-      
-      // シナリオのソート優先度を計算
-      // 担当かつ出勤のGMがいる: 最優先(0)、担当のみ: 次(1)、出勤のみ: その次(2)、なし: 最後(3)
-      const hasAssignedAndAvailable = filteredDisplayGMs.some(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
-      const hasAssignedOnly = filteredDisplayGMs.some(({ isAssigned, isAvailable }) => isAssigned && !isAvailable)
-      const hasAvailableOnly = filteredDisplayGMs.some(({ isAssigned, isAvailable }) => !isAssigned && isAvailable)
-      
-      let sortPriority = 3
-      if (hasAssignedAndAvailable) sortPriority = 0
-      else if (hasAssignedOnly) sortPriority = 1
-      else if (hasAvailableOnly) sortPriority = 2
-      
-      // 担当GM情報のJSX
-      const gmDisplayInfo = filteredDisplayGMs.length > 0 
-        ? (
-            <span className="flex flex-wrap gap-0.5 items-center">
-              {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
-                // 担当かつ出勤 → 緑背景
-                if (isAssigned && isAvailable) {
-                  return (
-                    <span 
-                      key={gm.id}
-                      className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
-                    >
-                      {gm.name}
-                    </span>
-                  )
-                }
-                // 担当だが出勤なし → 青背景
-                if (isAssigned && !isAvailable) {
-                  return (
-                    <span 
-                      key={gm.id}
-                      className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
-                    >
-                      {gm.name}
-                    </span>
-                  )
-                }
-                // 担当でないが出勤中 → 白背景・灰色文字
-                return (
-                  <span 
-                    key={gm.id}
-                    className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
-                  >
-                    {gm.name}
-                  </span>
-                )
-              })}
-            </span>
-          )
-        : null
-      
-      const renderedContent = (
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <span className="truncate">{scenario.title}</span>
-            {scenario.player_count_max && (
-              <span className="text-[10px] text-muted-foreground shrink-0">{scenario.player_count_max}名</span>
-            )}
-            {!isAvailableAtCurrentVenue && (
-              <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300 flex-shrink-0">
-                公演不可
-              </span>
-            )}
-          </div>
-          {gmDisplayInfo && (
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {gmDisplayInfo}
-            </div>
-          )}
-        </div>
-      )
-
-      return {
-        value: scenario.title,
-        label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
-        renderedContent,
-        displayInfo: gmDisplayInfo,
-        // 検索用テキストは「出勤かつ担当」のGMのみ
-        displayInfoSearchText: filteredDisplayGMs
-          .filter(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
-          .map(({ gm }) => gm.name).join(', '),
-        // ソート用の優先度
-        sortPriority,
-        scenarioTitle: scenario.title,
-        playCount: scenario.play_count ?? 0
-      }
-    })
-    // ソート: 優先度順 → 同一優先度内は公演数の多い順
-    .sort((a, b) => {
-      if (a.sortPriority !== b.sortPriority) {
-        return a.sortPriority - b.sortPriority
-      }
-      return b.playCount - a.playCount
-    })
-    // ソート後、不要なプロパティを除去
-    .map(({ sortPriority, scenarioTitle, playCount, ...rest }) => rest)
-  }, [scenarios, formData.venue, staff, allAvailableStaff])
+  const scenarioOptions = useMemo(() => buildScenarioSelectOptions(scenarios, formData.venue, staff, allAvailableStaff), [scenarios, formData.venue, staff, allAvailableStaff])
 
   /** アンケートタブ用 scenario_master_id（レンダー内 IIFE + logger だと毎回ログが爆発するため useMemo） */
   const surveyTabScenarioId = useMemo(() => {
@@ -750,27 +557,11 @@ export function PerformanceModal({
   // 入力中の時間が同店舗・同日の既存公演と「重複/間隔不足」かを即時判定（保存前の見える化）。
   // 保存時の useEventSave と同じ checkTimeOverlap を使い、時間プルダウンをハイライトする。
   // overlap=時間が完全に重複 / interval=前後の間隔が短い（推奨60分未満）。削除はしない。
-  const timeConflict = useMemo<{ kind: 'overlap' | 'interval'; reason: string; event: ScheduleEvent } | null>(() => {
-    if (formData.is_private_request) return null // 貸切は日時変更不可
-    if (!formData.start_time || !formData.end_time || !formData.date || !formData.venue) return null
-    if (!preparationData) return null
-    const newScenario = scenarios.find(s => s.title === formData.scenario)
-    const newPrep = resolvePreparation({ storeId: formData.venue, scenarioId: newScenario?.id, eventId: mode === 'edit' ? event?.id : undefined })!
-    let best: { kind: 'overlap' | 'interval'; reason: string; event: ScheduleEvent } | null = null
-    for (const ev of (events || [])) {
-      if (mode === 'edit' && event?.id && ev.id === event.id) continue
-      if (ev.date !== formData.date || ev.venue !== formData.venue || ev.is_cancelled) continue
-      if (!ev.start_time || !ev.end_time) continue
-      const exPrep = resolvePreparation({ storeId: ev.store_id || ev.venue, scenarioId: scenarios.find(s => s.title === ev.scenario)?.id, eventId: ev.id })!
-      const r = checkTimeOverlapWithPreparation(ev.start_time, ev.end_time, formData.start_time, formData.end_time, exPrep, newPrep)
-      if (r.overlap) {
-        const kind: 'overlap' | 'interval' = r.reason === '時間が重複' ? 'overlap' : 'interval'
-        if (kind === 'overlap') { best = { kind, reason: r.reason || '時間が重複', event: ev }; break }
-        if (!best) best = { kind, reason: r.reason || '間隔不足', event: ev }
-      }
-    }
-    return best
-  }, [formData.is_private_request, formData.start_time, formData.end_time, formData.date, formData.venue, formData.scenario, events, scenarios, mode, event?.id, preparationData, resolvePreparation])
+  const timeConflict = useMemo(() => findTimeConflict({
+    form: { is_private_request: formData.is_private_request, start_time: formData.start_time, end_time: formData.end_time, date: formData.date, venue: formData.venue, scenario: formData.scenario },
+    events: events || [], scenarios, editingEventId: mode === 'edit' ? event?.id : undefined,
+    preparationReady: Boolean(preparationData), resolvePreparation,
+  }), [formData.is_private_request, formData.start_time, formData.end_time, formData.date, formData.venue, formData.scenario, events, scenarios, mode, event?.id, preparationData, resolvePreparation])
 
   // 時間プルダウンのハイライト色（overlap=赤 / interval=黄）
   const timeConflictTriggerClass = timeConflict

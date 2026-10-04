@@ -17,6 +17,7 @@ import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
 import { recruitmentNotice } from '../_shared/recruitment-notice.ts'
+import { customTemplateToHtml, formatJudgmentDate, formatJudgmentTime, resolveRecipientEmail } from '../_shared/performance-check-email.ts'
 import {
   type CheckResult, type EventDetail, PREVIEW_CHECK_TYPE, buildSummaryMessage, normalizeCheckResult, planEventNotifications,
   resolveCheckType, summaryEventsForOrganization, summaryKindLabel,
@@ -256,17 +257,9 @@ async function sendCancellationNotifications(
     const effectiveEmailSettings = { ...emailSettings, resendApiKey: resolvedResendApiKey }
     for (const reservation of reservations) {
       // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
-      let emailToSend = reservation.customer_email
-      if (!emailToSend && reservation.customer_name && staffList) {
-        const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
-        const matchedStaff = staffList.find(s =>
-          s.name === normalizedName || s.display_name === normalizedName
-        )
-        if (matchedStaff?.email) {
-          emailToSend = matchedStaff.email
-          console.log('📧 スタッフテーブルからメール取得:', normalizedName)
-        }
-      }
+      const recipient = resolveRecipientEmail(reservation, staffList)
+      const emailToSend = recipient.email
+      if (recipient.fromStaff) console.log('📧 スタッフテーブルからメール取得:', (reservation.customer_name || '').replace(/様$/, '').trim())
 
       if (!emailToSend) {
         console.warn('⚠️ [DEBUG] emailToSend が空のためスキップ:', {
@@ -289,7 +282,8 @@ async function sendCancellationNotifications(
           customTemplate,
           {
             reservationId: reservation.id,
-            customerId: reservation.customer_id ?? null,
+            // email_logs.customer_id はログイン利用者（users）の ID。顧客（customers）の ID を入れると記録が書けず、予約との紐付けが失われていた
+            customerId: null,
             reservationNumber: reservation.reservation_number,
             participantCount: reservation.participant_count,
             totalPrice: reservation.total_price,
@@ -403,14 +397,8 @@ async function sendCancellationEmail(
     customerId?: string | null
   }
 ): Promise<void> {
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric' })
-  }
-
-  const formatTime = (timeStr: string): string => {
-    return timeStr.slice(0, 5)
-  }
+  const formatDate = formatJudgmentDate
+  const formatTime = formatJudgmentTime
 
   // テンプレート変数（基本変数セット - 全メール共通）
   const templateVariables: Record<string, string> = {
@@ -441,25 +429,7 @@ async function sendCancellationEmail(
   }
 
   // カスタムテンプレートをHTMLに変換
-  const templateToHtml = (template: string): string => {
-    const htmlContent = template
-      .split('\n')
-      .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
-      .join('\n')
-    
-    return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  <div style="padding: 20px 30px;">
-    ${htmlContent}
-  </div>
-</body>
-</html>`
-  }
+  const templateToHtml = customTemplateToHtml
 
   let finalHtml: string
   let finalText: string
@@ -742,22 +712,15 @@ async function sendExtensionNotification(
   if (reservations && reservations.length > 0 && emailSettings.resendApiKey) {
     for (const reservation of reservations) {
       // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
-      let emailToSend = reservation.customer_email
-      if (!emailToSend && reservation.customer_name && staffList) {
-        const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
-        const matchedStaff = staffList.find(s => 
-          s.name === normalizedName || s.display_name === normalizedName
-        )
-        if (matchedStaff?.email) {
-          emailToSend = matchedStaff.email
-          console.log('📧 スタッフテーブルからメール取得:', normalizedName)
-        }
-      }
+      const recipient = resolveRecipientEmail(reservation, staffList)
+      const emailToSend = recipient.email
+      if (recipient.fromStaff) console.log('📧 スタッフテーブルからメール取得:', (reservation.customer_name || '').replace(/様$/, '').trim())
       
       if (!emailToSend) continue
 
       try {
         await sendExtensionEmail(
+          supabase,
           emailSettings,
           emailToSend,
           reservation.customer_name || 'お客様',
@@ -768,7 +731,8 @@ async function sendExtensionNotification(
             participantCount: reservation.participant_count,
             totalPrice: reservation.total_price,
             companyPhone: storeEmailSettings?.company_phone ?? '',
-            companyEmail: storeEmailSettings?.company_email ?? ''
+            companyEmail: storeEmailSettings?.company_email ?? '',
+            reservationId: reservation.id,
           }
         )
         console.log('✅ 延長通知メール送信:', maskEmail(emailToSend))
@@ -786,6 +750,7 @@ async function sendExtensionNotification(
  * 募集延長メールを送信
  */
 async function sendExtensionEmail(
+  supabase: SupabaseClient,
   emailSettings: Awaited<ReturnType<typeof getEmailSettings>>,
   customerEmail: string,
   customerName: string,
@@ -797,16 +762,11 @@ async function sendExtensionEmail(
     totalPrice?: number
     companyPhone?: string
     companyEmail?: string
+    reservationId?: string   // email_logs に予約を紐付ける
   }
 ): Promise<void> {
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric' })
-  }
-
-  const formatTime = (timeStr: string): string => {
-    return timeStr.slice(0, 5)
-  }
+  const formatDate = formatJudgmentDate
+  const formatTime = formatJudgmentTime
 
   const remainingSeats = event.max_participants - event.current_participants
   const deadlineLabel = new Date(event.judgment_deadline!).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -841,25 +801,7 @@ async function sendExtensionEmail(
   }
 
   // カスタムテンプレートをHTMLに変換
-  const templateToHtml = (template: string): string => {
-    const htmlContent = template
-      .split('\n')
-      .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
-      .join('\n')
-    
-    return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  <div style="padding: 20px 30px;">
-    ${htmlContent}
-  </div>
-</body>
-</html>`
-  }
+  const templateToHtml = customTemplateToHtml
 
   let finalHtml: string
   let finalText: string
@@ -985,6 +927,20 @@ ${emailSettings.senderName}
     `
   }
 
+  // 送信記録を先に作り、予約・公演に紐付ける（送信サービスからの通知はこの行を更新する。#757 と同じ）
+  const emailSubject = `【募集延長】${event.scenario} - ${event.date}`
+  const emailLogId = await insertEmailLog(supabase, {
+    organization_id: event.organization_id ?? null,
+    reservation_id: reservationDetails?.reservationId ?? null,
+    schedule_event_id: event.event_id ?? null,
+    email_type: 'other',
+    to_email: customerEmail,
+    subject: emailSubject,
+    body_html: finalHtml,
+    body_text: finalText,
+    status: 'queued',
+  })
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -994,7 +950,7 @@ ${emailSettings.senderName}
     body: JSON.stringify({
       from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
       to: [customerEmail],
-      subject: `【募集延長】${event.scenario} - ${event.date}`,
+      subject: emailSubject,
       html: finalHtml,
       text: finalText,
     }),
@@ -1002,8 +958,16 @@ ${emailSettings.senderName}
 
   if (!response.ok) {
     const errorData = await response.json()
+    await updateEmailLog(supabase, emailLogId, { status: 'failed', error_message: sanitizeErrorMessage(JSON.stringify(errorData)) })
     throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
   }
+
+  const resendResult = await response.json().catch(() => null)
+  await updateEmailLog(supabase, emailLogId, {
+    status: 'sent',
+    provider_message_id: typeof resendResult?.id === 'string' ? resendResult.id : null,
+    sent_at: new Date().toISOString(),
+  })
 }
 
 /**
@@ -1085,17 +1049,9 @@ async function sendConfirmationNotification(
     const effectiveEmailSettings = { ...emailSettings, resendApiKey: resolvedResendApiKey }
     for (const reservation of reservations) {
       // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
-      let emailToSend = reservation.customer_email
-      if (!emailToSend && reservation.customer_name && staffList) {
-        const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
-        const matchedStaff = staffList.find(s =>
-          s.name === normalizedName || s.display_name === normalizedName
-        )
-        if (matchedStaff?.email) {
-          emailToSend = matchedStaff.email
-          console.log('📧 スタッフテーブルからメール取得:', normalizedName)
-        }
-      }
+      const recipient = resolveRecipientEmail(reservation, staffList)
+      const emailToSend = recipient.email
+      if (recipient.fromStaff) console.log('📧 スタッフテーブルからメール取得:', (reservation.customer_name || '').replace(/様$/, '').trim())
 
       if (!emailToSend) continue
 
@@ -1150,14 +1106,8 @@ async function sendConfirmationEmail(
     companyEmail?: string
   }
 ): Promise<void> {
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: 'long', day: 'numeric' })
-  }
-
-  const formatTime = (timeStr: string): string => {
-    return timeStr.slice(0, 5)
-  }
+  const formatDate = formatJudgmentDate
+  const formatTime = formatJudgmentTime
 
   // テンプレート変数（基本変数セット - 全メール共通）
   const templateVariables: Record<string, string> = {
@@ -1184,25 +1134,7 @@ async function sendConfirmationEmail(
   }
 
   // カスタムテンプレートをHTMLに変換
-  const templateToHtml = (template: string): string => {
-    const htmlContent = template
-      .split('\n')
-      .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
-      .join('\n')
-
-    return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-  <div style="padding: 20px 30px;">
-    ${htmlContent}
-  </div>
-</body>
-</html>`
-  }
+  const templateToHtml = customTemplateToHtml
 
   let finalHtml: string
   let finalText: string
