@@ -203,6 +203,23 @@ echo "[4/5] ステージングDBにリストア中..."
 
 # リストアは1トランザクション。他セッション（E2E や定期ジョブ）と TRUNCATE / ALTER の取り合いで
 # デッドロックになると全体が取り消されるので、その場合だけ少し待って最大3回やり直す。
+# 2026-10-03・04 は毎分の定期ジョブ（追加募集の判定など）との取り合いで3回とも失敗し、ステージングのデータが古いまま残った。
+# そのためリストアの間はステージングの定期ジョブを止め、終わったら（失敗しても）必ず元に戻す。
+PAUSED_CRON_JOBS=$(staging_psql -c "SELECT coalesce(string_agg(jobid::text, ','), '') FROM cron.job WHERE active;" 2>/dev/null || echo "")
+resume_cron_jobs() {
+  if [ -n "$PAUSED_CRON_JOBS" ]; then
+    staging_psql -c "SELECT cron.alter_job(jobid, active := true) FROM cron.job WHERE jobid IN ($PAUSED_CRON_JOBS);" >/dev/null 2>&1 \
+      && echo "  定期ジョブを再開しました" \
+      || echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: $PAUSED_CRON_JOBS）"
+    PAUSED_CRON_JOBS=""
+  fi
+}
+trap resume_cron_jobs EXIT
+if [ -n "$PAUSED_CRON_JOBS" ]; then
+  staging_psql -c "SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobid IN ($PAUSED_CRON_JOBS);" >/dev/null
+  echo "  定期ジョブを一時停止しました（実行中の分が終わるまで20秒待つ）"
+  sleep 20
+fi
 RESTORE_OK=0
 for attempt in 1 2 3; do
   if PGPASSWORD="$STAGING_PASSWORD" psql \
@@ -232,6 +249,7 @@ fi
 rm -f "$ERROR_LOG"
 
 echo "  OK"
+resume_cron_jobs
 
 # staging 固有設定の復元（app_config が本番値のままだと環境越え事故になる）
 if [ -n "$APP_CONFIG_BACKUP" ] && [ "$APP_CONFIG_BACKUP" != "null" ]; then
