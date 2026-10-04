@@ -1,25 +1,9 @@
-import { parseScenarioSlotStartTimes } from '@/lib/privateBookingSlotStartTimes'
 import { readSurveyQuestionSettings, saveSurveyQuestionSettings, type SurveyQuestionSnapshot } from '@/lib/surveyQuestionSettings'
-import { EmailSettings } from '@/pages/Settings/pages/EmailSettings'
-import { CancellationSettings } from '@/pages/Settings/pages/CancellationSettings'
-import { OperatingTextSettings } from '@/components/settings/OperatingTextSettings'
-import { PAYMENT_SETTING_FIELDS } from '@/components/settings/operatingSettingFields'
-import { OperatingScalarSettings } from '@/components/settings/OperatingScalarSettings'
-import { OPERATION_SETTING_KEYS } from '@/components/settings/operatingSettingFields'
 import { ScenarioSettingSources } from '@/components/settings/ScenarioSettingSources'
 import { scenarioEffectiveFields, scenarioSourcePayload, type ScenarioSourceState, type SourceValues } from '@/lib/scenarioSettingSources'
 import { settingsPath } from '@/components/settings/settingsCatalog'
-import { apiClient } from '@/lib/apiClient'
-import { RecruitmentSettingsSection } from './ScenarioEditDialogV2/sections/RecruitmentSettingsSection'
-import { PrivateBookingDeadlineSection } from '@/components/settings/PrivateBookingDeadlineSection'
-import { BookingCutoffSection } from './ScenarioEditDialogV2/sections/BookingCutoffSection'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Save } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import './ScenarioEditDialogV2.css'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -33,17 +17,15 @@ import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMaster
 import { invalidateAssignmentQueries } from '@/lib/queryInvalidation'
 
 // V2セクションコンポーネント（カード形式でレイアウト改善）
-import { BasicInfoSectionV2 } from './ScenarioEditDialogV2/sections/BasicInfoSectionV2'
-import { GameInfoSectionV2 } from './ScenarioEditDialogV2/sections/GameInfoSectionV2'
-import { PricingSectionV2 } from './ScenarioEditDialogV2/sections/PricingSectionV2'
-import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsSectionV2'
-import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
-import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
-import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
-import { CharactersSectionV2 } from './ScenarioEditDialogV2/sections/CharactersSectionV2'
+import { SaveOptionsDialog } from './ScenarioEditDialogV2/sections/SaveOptionsDialog'
+import { ScenarioTabContent } from './ScenarioEditDialogV2/sections/ScenarioTabContent'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { initialScenarioFormData, newScenarioFormData, scenarioToFormData } from './ScenarioEditDialogV2/utils/formData'
 import { buildOrgScenarioPayload, buildScenarioSaveData } from './ScenarioEditDialogV2/utils/savePayload'
+import { buildHeaderScenarioOptions, computeMasterDiffs, emptyScenarioStats, scenarioSaveErrorMessage } from './ScenarioEditDialogV2/utils/headerAndDiffs'
+import { useScenarioOrganizationNames } from './ScenarioEditDialogV2/useScenarioOrganizationNames'
+import { upsertOrganizationScenario } from './ScenarioEditDialogV2/utils/saveOrganizationScenario'
+import { loadOrgScenarioSettings } from './ScenarioEditDialogV2/utils/loadOrgScenarioSettings'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -53,9 +35,7 @@ import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { useScenarioGmAssignments } from '@/hooks/useScenarioGmAssignments'
 import { organizationScenarioReadApi } from '@/lib/api/scenarioReadApi'
-import { organizationScenarioWriteApi } from '@/lib/api/scenarioWriteApi'
-import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
-import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Scenario, Staff } from '@/types'
 import { ConfirmDialog } from '@/components/patterns/modal'
 
@@ -172,54 +152,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
   const currentOrgScenarioId = orgScenariosData?.scenarios.find(row => row.scenario_master_id === currentMasterId)?.org_scenario_id
 
-  const headerScenarioOptions = useMemo(() => {
-    const orgScenarios = orgScenariosData?.scenarios ?? []
-    const titleById = new Map<string, string>()
-    for (const row of orgScenarios) {
-      if (row.title) {
-        if (row.scenario_master_id) titleById.set(row.scenario_master_id, row.title)
-        titleById.set(row.id, row.title)
-        if (row.org_scenario_id) titleById.set(row.org_scenario_id, row.title)
-      }
-    }
-    for (const row of scenarios) {
-      if (!row.title) continue
-      if (!titleById.has(row.id)) titleById.set(row.id, row.title)
-      if (row.scenario_master_id && !titleById.has(row.scenario_master_id)) {
-        titleById.set(row.scenario_master_id, row.title)
-      }
-    }
-
-    const resolveId = (rawId: string) => {
-      const row = orgScenarios.find(
-        (s) => s.scenario_master_id === rawId || s.id === rawId || s.org_scenario_id === rawId
-      )
-      return row?.scenario_master_id || rawId
-    }
-
-    const sourceIds = (sortedScenarioIds && sortedScenarioIds.length > 0)
-      ? sortedScenarioIds
-      : (orgScenarios.length > 0
-        ? orgScenarios.map((s) => s.scenario_master_id || s.id)
-        : scenarios.map((s) => s.scenario_master_id || s.id))
-
-    const options: { id: string; title: string }[] = []
-    const seen = new Set<string>()
-    for (const rawId of sourceIds) {
-      if (!rawId) continue
-      const id = resolveId(rawId)
-      if (seen.has(id)) continue
-      const title = titleById.get(id) || titleById.get(rawId) || (id === scenarioId ? formData.title : '')
-      if (!title) continue
-      seen.add(id)
-      options.push({ id, title })
-    }
-
-    if (scenarioId && formData.title && !seen.has(scenarioId)) {
-      options.unshift({ id: scenarioId, title: formData.title })
-    }
-    return options
-  }, [orgScenariosData?.scenarios, scenarios, sortedScenarioIds, scenarioId, formData.title])
+  const headerScenarioOptions = useMemo(() => buildHeaderScenarioOptions(orgScenariosData?.scenarios ?? [], scenarios, sortedScenarioIds, scenarioId, formData.title), [orgScenariosData?.scenarios, scenarios, sortedScenarioIds, scenarioId, formData.title])
 
   const headerSelectValue = scenarioId && headerScenarioOptions.some((s) => s.id === scenarioId)
     ? scenarioId
@@ -229,39 +162,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   // staff_scenario_assignments.scenario_id は scenario_master_id と統一済み
   
   // 組織名・予約サイト上のシナリオ詳細URL用 slug（所属組織を優先）
-  const [organizationName, setOrganizationName] = useState<string>('')
-  const [publicBookingOrgSlug, setPublicBookingOrgSlug] = useState<string>('')
-  useEffect(() => {
-    if (!isOpen) return
-    let cancelled = false
-    const sync = async () => {
-      const currentOrg = await getCurrentOrganization()
-      if (cancelled) return
-      setOrganizationName(currentOrg?.name || '')
-
-      let slugForPublic = currentOrg?.slug?.trim() || ''
-      const scenarioOrgId =
-        currentScenario?.organization_id ?? formData.organization_id ?? null
-      if (scenarioOrgId) {
-        const scenarioOrg = await getOrganizationById(scenarioOrgId)
-        if (cancelled) return
-        if (scenarioOrg?.slug?.trim()) {
-          slugForPublic = scenarioOrg.slug.trim()
-        }
-      }
-      // ローカル等: users.organization が取れない・一覧の organization_id が遅延する場合のフォールバック
-      if (!slugForPublic.trim()) {
-        slugForPublic = getOrganizationSlugFromPath() ?? ''
-      }
-      if (!cancelled) {
-        setPublicBookingOrgSlug(slugForPublic.trim())
-      }
-    }
-    void sync()
-    return () => {
-      cancelled = true
-    }
-  }, [isOpen, scenarioId, currentScenario?.organization_id, formData.organization_id])
+  const { organizationName, publicBookingOrgSlug } = useScenarioOrganizationNames(isOpen, scenarioId, currentScenario?.organization_id ?? formData.organization_id ?? null)
 
   // マスターデータを取得（相違検出用）
   useEffect(() => {
@@ -288,58 +189,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   }, [isOpen, scenarioId, currentScenario?.scenario_master_id, formData.scenario_master_id])
 
   // マスターとの相違を検出
-  const masterDiffs = useMemo(() => {
-    if (!masterData) return { count: 0, fields: {} as Record<string, { master: any; current: any }>, byTab: {} as Record<string, number> }
-    
-    const diffs: Record<string, { master: any; current: any }> = {}
-    
-    // 比較対象フィールドとタブのマッピング
-    const fieldToTab: Record<string, string> = {
-      title: 'basic',
-      author: 'basic',
-      description: 'basic',
-      key_visual_url: 'basic',
-      duration: 'game',
-      player_count_min: 'game',
-      player_count_max: 'game',
-      genre: 'game',
-    }
-    
-    // 比較対象フィールド
-    if (masterData.title !== formData.title) {
-      diffs.title = { master: masterData.title, current: formData.title }
-    }
-    if (masterData.author !== formData.author) {
-      diffs.author = { master: masterData.author, current: formData.author }
-    }
-    if (masterData.description !== formData.description) {
-      diffs.description = { master: masterData.description, current: formData.description }
-    }
-    if (masterData.key_visual_url !== formData.key_visual_url) {
-      diffs.key_visual_url = { master: masterData.key_visual_url, current: formData.key_visual_url }
-    }
-    if (masterData.official_duration !== formData.duration) {
-      diffs.duration = { master: masterData.official_duration, current: formData.duration }
-    }
-    if (masterData.player_count_min !== formData.player_count_min) {
-      diffs.player_count_min = { master: masterData.player_count_min, current: formData.player_count_min }
-    }
-    if (masterData.player_count_max !== formData.player_count_max) {
-      diffs.player_count_max = { master: masterData.player_count_max, current: formData.player_count_max }
-    }
-    if (JSON.stringify(masterData.genre || []) !== JSON.stringify(formData.genre || [])) {
-      diffs.genre = { master: masterData.genre, current: formData.genre }
-    }
-    
-    // タブごとの相違件数を計算
-    const byTab: Record<string, number> = {}
-    for (const field of Object.keys(diffs)) {
-      const tab = fieldToTab[field] || 'basic'
-      byTab[tab] = (byTab[tab] || 0) + 1
-    }
-    
-    return { count: Object.keys(diffs).length, fields: diffs, byTab }
-  }, [masterData, formData])
+  const masterDiffs = useMemo(() => computeMasterDiffs(masterData, formData), [masterData, formData])
 
   // マスターから同期
   const handleSyncFromMaster = () => {
@@ -471,21 +321,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   
   // シナリオ統計情報
-  const [scenarioStats, setScenarioStats] = useState({
-    performanceCount: 0,
-    cancelledCount: 0,
-    totalRevenue: 0,
-    totalParticipants: 0,
-    totalStaffParticipants: 0,
-    totalGmCost: 0,
-    totalLicenseCost: 0,
-    totalVenueCost: 0,
-    venueCostPerPerformance: 0,
-    firstPerformanceDate: null as string | null,
-    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; licenseCost: number; startTime: string; storeId: string | null; isCancelled: boolean }>,
-    futurePerformanceCount: 0,
-    futureReservationCount: 0
-  })
+  const [scenarioStats, setScenarioStats] = useState(emptyScenarioStats)
 
   // 担当GMのメイン/サブ設定を更新するハンドラ
   const handleAssignmentUpdate = (staffId: string, field: 'can_main_gm' | 'can_sub_gm', value: boolean) => {
@@ -583,92 +419,11 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         // organization_scenarios から override/custom 値を取得して formData を上書き
         // ビュー (organization_scenarios_with_master) の COALESCE と同じ優先順位で読み込む
         if (scenario.scenario_master_id) {
-          const masterId = scenario.scenario_master_id
-          const loadGeneration = settingsLoadGeneration.current
-          ;(async () => {
-            try {
-              const loadOrgId = await getCurrentOrganizationId()
-              if (loadOrgId) {
-                const osData = await apiClient.get<Record<string, any> | null>(
-                  `/api/org-scenarios?${new URLSearchParams({ type: 'settings-source', masterId })}`
-                )
-                // A master may be unreadable (for example an older private master).
-                // Preserve the loaded effective values and raw override state in that case.
-                const sourceMaster = await scenarioMasterApi.getById(masterId).catch(() => null)
-                const sourceBaseline = scenarioEffectiveFields(osData || {}, sourceMaster
-                  ? { ...sourceMaster }
-                  : { ...scenario, official_duration: scenario.duration })
-                if (osData) {
-                  const loadedSurvey = await readSurveyQuestionSettings(osData.id)
-                  if (loadGeneration !== settingsLoadGeneration.current) return
-                  const surveyQuestions = loadedSurvey.questions
-                  setSurveySnapshot({ ...loadedSurvey, scenarioId: osData.id })
-
-                  setFormData(prev => ({
-                    ...prev,
-                    ...sourceBaseline,
-                    // 対応店舗: organization_scenarios側のデータを優先
-                    available_stores: (osData.available_stores && osData.available_stores.length > 0) 
-                      ? osData.available_stores 
-                      : prev.available_stores,
-                    // アンケート設定
-                    survey_url: osData.survey_url || null,
-                    survey_enabled: osData.survey_enabled || false,
-                    survey_deadline_days: osData.survey_deadline_days ?? 1,
-                    survey_questions: surveyQuestions.map(q => ({
-                      id: q.id,
-                      question_text: q.question_text,
-                      question_type: q.question_type,
-                      options: q.options || [],
-                      is_required: q.is_required,
-                      order_num: q.order_num,
-                    })),
-                    // キャラクター情報
-                    characters: osData.characters || [],
-                    // 貸切受付不可時間帯
-                    private_booking_blocked_slots: osData.private_booking_blocked_slots || [],
-                    private_booking_slot_start_times: parseScenarioSlotStartTimes((osData as { private_booking_slot_start_times?: unknown }).private_booking_slot_start_times),
-                    // 貸切募集期間
-                    booking_start_date: osData.booking_start_date || null,
-                    booking_end_date: osData.booking_end_date || null,
-                    // シナリオ種別・貸切受付フラグ・公演期間
-                    scenario_kind: osData.scenario_kind || 'regular',
-                    accepts_private_booking: osData.accepts_private_booking ?? true,
-                    available_from: osData.available_from || null,
-                    available_until: osData.available_until || null,
-                    is_license_buyout: (osData as { is_license_buyout?: boolean | null }).is_license_buyout === true,
-                  }))
-
-                  setSourceState({ stored: osData, baseline: sourceBaseline })
-                  // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
-                  try {
-                    const { data: tplData } = await organizationScenarioReadApi.getEmailTemplates(osData.id)
-                    const notice = (tplData as { individual_notice_template?: string | null } | null)?.individual_notice_template
-                    const confirmTpl = (tplData as { reservation_confirmation_template?: string | null } | null)?.reservation_confirmation_template
-                    const privateTpl = (tplData as { private_confirm_template?: string | null } | null)?.private_confirm_template
-                    if (notice || confirmTpl || privateTpl) {
-                      setFormData(prev => ({
-                        ...prev,
-                        ...(notice ? { individual_notice_template: notice } : {}),
-                        ...(confirmTpl ? { reservation_confirmation_template: confirmTpl } : {}),
-                        ...(privateTpl ? { private_confirm_template: privateTpl } : {}),
-                      }))
-                    }
-                  } catch {
-                    // カラムが存在しない場合は無視
-                  }
-                } else {
-                  if (loadGeneration !== settingsLoadGeneration.current) return
-                  setFormData(prev => ({ ...prev, ...sourceBaseline }))
-                  setSourceState({ stored: {}, baseline: sourceBaseline })
-
-                }
-              }
-            } catch (e) {
-              logger.error('override値取得エラー:', e)
-              if (loadGeneration === settingsLoadGeneration.current) showToast.error('設定を読み込めませんでした', '保存せず、画面を開き直してください。')
-            }
-          })()
+          void loadOrgScenarioSettings({
+            scenario, masterId: scenario.scenario_master_id, loadGeneration: settingsLoadGeneration.current,
+            isCurrent: (generation) => generation === settingsLoadGeneration.current,
+            setFormData, setSurveySnapshot, setSourceState,
+          })
         }
     }
 
@@ -794,57 +549,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
               sourcePayload: sourceState ? scenarioSourcePayload({ ...formData, title: resolvedTitle }, sourceState, sourceResets) : {},
             })
 
-            let orgScenarioId: string | null = existingOrgScenario?.id || null
-
-            if (!existingOrgScenario) {
-              // organization_scenariosに登録
-              const { data: insertedData, error: orgScenarioError } = await organizationScenarioWriteApi.insertReturningId(orgScenarioPayload)
-              
-              if (orgScenarioError) {
-                logger.error('organization_scenarios登録エラー:', orgScenarioError)
-                throw orgScenarioError
-              } else {
-                logger.log('organization_scenariosに登録しました')
-                orgScenarioId = insertedData?.id || null
-              }
-            } else {
-              // 既存レコードがある場合は更新（organization_id, scenario_master_id は除く）
-              const { organization_id: _oid, scenario_master_id: _mid, ...updatePayload } = orgScenarioPayload
-              const { error: updateError } = await organizationScenarioWriteApi.updateByIdInOrganization(existingOrgScenario.id, organizationId, {
-                  ...updatePayload,
-                  updated_at: new Date().toISOString()
-                })
-              
-              if (updateError) {
-                logger.error('organization_scenarios更新エラー:', updateError)
-                logger.error('🚨 organization_scenarios UPDATE失敗:', updateError.message, updateError.code)
-                throw updateError
-              } else {
-                logger.log('organization_scenariosを更新しました（override含む）')
-                logger.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
-              }
-            }
-
-            // 定型文を別途安全に保存（カラム未追加の環境でもエラーにならない）
-            if (orgScenarioId && (
-              formData.individual_notice_template !== undefined
-              || formData.reservation_confirmation_template !== undefined
-              || formData.private_confirm_template !== undefined
-            )) {
-              try {
-                const { error: tplError } = await organizationScenarioWriteApi.updateByIdInOrganization(orgScenarioId, organizationId, {
-                    individual_notice_template: formData.individual_notice_template || null,
-                    reservation_confirmation_template: formData.reservation_confirmation_template?.trim() || null,
-                    private_confirm_template: formData.private_confirm_template?.trim() || null,
-                  })
-                if (tplError) {
-                  logger.error('メール上書きの保存エラー:', tplError)
-                  showToast.error('メール上書きの保存に失敗しました')
-                }
-              } catch {
-                // カラムが存在しない場合は無視
-              }
-            }
+            const orgScenarioId = await upsertOrganizationScenario({ organizationId, existingId: existingOrgScenario?.id ?? null, payload: orgScenarioPayload, formData })
 
             if (orgScenarioId && (formData.survey_enabled || formData.survey_questions !== undefined)) {
               let baseline = surveySnapshot?.scenarioId === orgScenarioId ? surveySnapshot : null
@@ -938,25 +643,7 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       logger.error('シナリオ保存エラー:', err)
       
       // エラーメッセージを日本語に変換
-      let errorMessage = err instanceof Error ? err.message : ''
-      if (typeof err === 'object' && err !== null && 'code' in err) {
-        const errorObj = err as { code: string; message?: string }
-        if (errorObj.code === '23505') {
-          // 一意制約違反
-          if (errorObj.message?.includes('scenarios_title_unique')) {
-            errorMessage = '同じタイトルのシナリオが既に存在します。別のタイトルを入力してください。'
-          } else if (errorObj.message?.includes('scenarios_slug')) {
-            errorMessage = '同じslugのシナリオが既に存在します。別のslugを入力してください。'
-          } else {
-            errorMessage = '重複するデータが存在します。'
-          }
-        } else if (errorObj.code === '23514') {
-          // CHECK制約違反
-          errorMessage = '入力値が無効です。ステータスなどの設定を確認してください。'
-        } else {
-          errorMessage = getSafeErrorMessage(err, 'データベースエラーが発生しました')
-        }
-      }
+      const errorMessage = scenarioSaveErrorMessage(err)
       
       showToast.error('保存に失敗しました', errorMessage || getSafeErrorMessage(err, '不明なエラー'))
     } finally {
@@ -984,61 +671,27 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
   }
 
   // タブコンテンツをレンダリング（V2セクション使用）
-  const renderTabContent = (tabId: TabId) => {
-    switch (tabId) {
-      case 'basic':
-        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
-      case 'game':
-        return <div className="space-y-3"><GameInfoSectionV2 formData={formData} setFormData={setFormData} /><OperatingScalarSettings scope="scenario" targetId={currentOrgScenarioId} keys={OPERATION_SETTING_KEYS} title="開催判断・準備時間・クーポン" /><RecruitmentSettingsSection masterId={currentMasterId} minimumPlayers={formData.player_count_min} /><BookingCutoffSection masterId={currentMasterId} /><PrivateBookingDeadlineSection masterId={currentMasterId} /></div>
-      case 'characters':
-        return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
-      case 'pricing':
-        return <PricingSectionV2 formData={formData} setFormData={setFormData} />
-      case 'gm':
-        return (
-          <>
-          {assignmentsError && <p role="alert" className="text-sm text-destructive">担当GMを読み込めませんでした。保存せずに画面を開き直してください。</p>}
-          <GmSettingsSectionV2 
-            formData={formData} 
-            setFormData={setFormData} 
-            staff={staff}
-            loadingStaff={loadingStaff || isLoadingAssignments}
-            selectedStaffIds={selectedStaffIds}
-            onStaffSelectionChange={setSelectedStaffIds}
-            currentAssignments={currentAssignments}
-            onAssignmentUpdate={handleAssignmentUpdate}
-          />
-          </>
-        )
-      case 'costs':
-        return <CostsPropsSectionV2 formData={formData} setFormData={setFormData} scenarioStats={scenarioStats} />
-      case 'performances':
-        return (
-          <PerformancesSectionV2 
-            performanceDates={scenarioStats.performanceDates}
-            participationCosts={formData.participation_costs || []}
-            scenarioParticipationFee={formData.participation_fee || 0}
-            totalParticipants={scenarioStats.totalParticipants}
-            totalStaffParticipants={scenarioStats.totalStaffParticipants}
-            totalRevenue={scenarioStats.totalRevenue}
-            totalLicenseCost={scenarioStats.totalLicenseCost}
-            licenseAmount={formData.license_rewards?.find(r => r.item === 'normal')?.amount ?? formData.license_amount ?? 0}
-            gmTestLicenseAmount={formData.license_rewards?.find(r => r.item === 'gmtest')?.amount ?? formData.gm_test_license_amount ?? 0}
-            scenarioTitle={formData.title || 'シナリオ'}
-            futurePerformanceCount={scenarioStats.futurePerformanceCount}
-            futureReservationCount={scenarioStats.futureReservationCount}
-          />
-        )
-      case 'booking-policy':
-        return <div className="space-y-6"><OperatingTextSettings scope="scenario" targetId={currentOrgScenarioId} fields={PAYMENT_SETTING_FIELDS} /><CancellationSettings scope="scenario" targetId={currentOrgScenarioId} scenarioMasterId={currentMasterId || undefined} /></div>
-      case 'email':
-        return <EmailSettings scope="scenario" targetId={currentOrgScenarioId} />
-      case 'survey':
-        return <SurveySectionV2 formData={formData} setFormData={setFormData} organizationScenarioId={currentOrgScenarioId} />
-      default:
-        return null
-    }
-  }
+  const renderTabContent = (tabId: TabId) => (
+    <ScenarioTabContent
+      tabId={tabId}
+      formData={formData}
+      setFormData={setFormData}
+      scenarioId={scenarioId}
+      canDeleteScenario={canDeleteScenario}
+      handleDelete={handleDelete}
+      currentOrgScenarioId={currentOrgScenarioId}
+      currentMasterId={currentMasterId}
+      assignmentsError={assignmentsError}
+      staff={staff}
+      loadingStaff={loadingStaff}
+      isLoadingAssignments={isLoadingAssignments}
+      selectedStaffIds={selectedStaffIds}
+      setSelectedStaffIds={setSelectedStaffIds}
+      currentAssignments={currentAssignments}
+      handleAssignmentUpdate={handleAssignmentUpdate}
+      scenarioStats={scenarioStats}
+    />
+  )
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1246,89 +899,28 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
       </DialogContent>
 
       {/* 保存オプションダイアログ */}
-      <Dialog open={saveOptionsOpen} onOpenChange={setSaveOptionsOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base">保存オプション</DialogTitle>
-            <DialogDescription className="text-xs">
-              自組織の予約サイトへの表示設定を選択してください
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {/* 公開 / 非公開 */}
-            <RadioGroup
-              value={savePublishChoice}
-              onValueChange={(v) => setSavePublishChoice(v as 'available' | 'unavailable')}
-              className="space-y-2"
-            >
-              <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
-                onClick={() => setSavePublishChoice('available')}>
-                <RadioGroupItem value="available" id="opt-available" className="mt-0.5" />
-                <div>
-                  <Label htmlFor="opt-available" className="font-medium text-sm cursor-pointer">公開して保存</Label>
-                  <p className="text-xs text-muted-foreground">予約サイトのシナリオ一覧に表示されます</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/30"
-                onClick={() => setSavePublishChoice('unavailable')}>
-                <RadioGroupItem value="unavailable" id="opt-unavailable" className="mt-0.5" />
-                <div>
-                  <Label htmlFor="opt-unavailable" className="font-medium text-sm cursor-pointer">非公開で保存</Label>
-                  <p className="text-xs text-muted-foreground">管理者のみ確認できます（予約サイトには表示されません）</p>
-                </div>
-              </div>
-            </RadioGroup>
-
-            {/* MMQ申請（公開選択 + draft マスタのときのみ） */}
-            {savePublishChoice === 'available' && currentScenario?.master_status === 'draft' && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="submit-to-mmq"
-                    checked={submitToMMQ}
-                    onCheckedChange={(checked) => setSubmitToMMQ(!!checked)}
-                    className="mt-0.5"
-                  />
-                  <div>
-                    <Label htmlFor="submit-to-mmq" className="font-medium text-sm cursor-pointer text-blue-800">
-                      MMQプラットフォームへの掲載を申請する
-                    </Label>
-                    <p className="text-xs text-blue-600 mt-0.5">
-                      MMQ運営が審査します。承認後、MMQ全体の検索に表示されます。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSaveOptionsOpen(false)}>
-              キャンセル
-            </Button>
-            <Button
-              size="sm"
-              disabled={scenarioMutation.isPending}
-              onClick={async () => {
-                setSaveOptionsOpen(false)
-                await handleSave(savePublishChoice)
-                if (submitToMMQ && currentMasterId) {
-                  try {
-                    await scenarioMasterApi.publish(currentMasterId)
-                    showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
-                  } catch {
-                    showToast.error('MMQへの申請に失敗しました', '後ほどシナリオ一覧から申請してください')
-                  }
-                }
-              }}
-            >
-              <Save className="h-3 w-3 mr-1" />
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SaveOptionsDialog
+        open={saveOptionsOpen}
+        onOpenChange={setSaveOptionsOpen}
+        savePublishChoice={savePublishChoice}
+        setSavePublishChoice={setSavePublishChoice}
+        isDraftMaster={currentScenario?.master_status === 'draft'}
+        submitToMMQ={submitToMMQ}
+        setSubmitToMMQ={setSubmitToMMQ}
+        isSaving={scenarioMutation.isPending}
+        onConfirmSave={async () => {
+          setSaveOptionsOpen(false)
+          await handleSave(savePublishChoice)
+          if (submitToMMQ && currentMasterId) {
+            try {
+              await scenarioMasterApi.publish(currentMasterId)
+              showToast.success('MMQへの掲載を申請しました', '審査後に掲載されます')
+            } catch {
+              showToast.error('MMQへの申請に失敗しました', '後ほどシナリオ一覧から申請してください')
+            }
+          }
+        }}
+      />
 
       {/* マスタ選択ダイアログ */}
       <MasterSelectDialog
