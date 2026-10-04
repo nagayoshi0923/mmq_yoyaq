@@ -50,7 +50,6 @@ import { CalendarDays } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
-import { RESERVATION_SOURCE } from '@/lib/constants'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { exportScheduleToCSV, exportScheduleRangeToZip } from './utils/exportSchedule'
 import { type FillSeatsCategory } from './components/FillSeatsModal'
@@ -62,6 +61,7 @@ import { getParticipationFee, type ScenarioPricing } from '@/lib/pricing'
 // Types
 import type { ScheduleEvent } from '@/types/schedule'
 import { reservationApi } from '@/lib/reservationApi'
+import { buildDemoReservation, countReservedParticipants, demoReservationNumber, hasDemoParticipant, resolveFillSeatsCapacity } from './utils/fillSeats'
 export type { ScheduleEvent }
 
 export function ScheduleManager() {
@@ -392,42 +392,14 @@ export function ScheduleManager() {
       })
       
       // 各イベントの参加者数を定員に合わせ、デモ参加者の予約レコードを一括作成
-      const demoReservations: Array<{
-        schedule_event_id: string
-        organization_id: string
-        title: string
-        scenario_master_id: string | null
-        store_id: string | null
-        customer_id: null
-        customer_notes: string
-        requested_datetime: string
-        duration: number
-        participant_count: number
-        participant_names: string[]
-        assigned_staff: string[]
-        base_price: number
-        options_price: number
-        total_price: number
-        discount_amount: number
-        final_price: number
-        unit_price: number
-        payment_method: string
-        payment_status: string
-        status: string
-        reservation_source: string
-        reservation_number: string
-      }> = []
+      const demoReservations: Array<ReturnType<typeof buildDemoReservation>> = []
       const eventsToUpdate: Array<{ id: string; newCount: number }> = []
       
       const now = new Date()
-      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
       
       for (const event of events || []) {
-        // シナリオJOIN → イベントのmax_participants → capacity → デフォルト8人
-        const scenarioMax = (event.scenario_masters as { player_count_max?: number } | null)?.player_count_max
-        const baseMax = scenarioMax || event.max_participants || event.capacity || 8
-        // capacity制約を超えないように制限
-        const maxParticipants = event.capacity ? Math.min(baseMax, event.capacity) : baseMax
+        // シナリオJOIN → イベントのmax_participants → capacity → デフォルト8人（capacity を超えない）
+        const maxParticipants = resolveFillSeatsCapacity(event)
         
         // 既に満席ならスキップ
         if ((event.current_participants || 0) >= maxParticipants) {
@@ -436,56 +408,22 @@ export function ScheduleManager() {
         
         // 予約情報を取得（一括取得済み）
         const reservations = reservationsByEvent.get(event.id) || []
-        const currentReservedCount = reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
-        const neededParticipants = maxParticipants - currentReservedCount
+        const neededParticipants = maxParticipants - countReservedParticipants(reservations)
         
-        // デモ参加者が既に存在するかチェック
-        const hasDemoParticipant = reservations.some(r => 
-          r.participant_names?.includes('デモ参加者') || 
-          r.participant_names?.some((name: string) => name.includes('デモ'))
-        )
-        
-        // 足りない分だけデモ参加者を追加
-        if (neededParticipants > 0 && !hasDemoParticipant) {
+        // 足りない分だけデモ参加者を追加（既にデモ参加者がいれば追加しない）
+        if (neededParticipants > 0 && !hasDemoParticipant(reservations)) {
           // シナリオ情報を取得（一括取得済み）
           const scenarioMasterId = event.scenario_master_id || event.scenario_id
           const scenarioInfo = scenarioMasterId ? scenarioInfoMap.get(scenarioMasterId) : null
           const isGmTest = (event as { category?: string }).category === 'gmtest'
           const participationFee = getParticipationFee(scenarioInfo?.pricing, isGmTest ? 'gmtest' : 'normal')
-          const totalPrice = participationFee * neededParticipants
           const duration = scenarioInfo?.duration || 120
           
-          // 予約番号を生成（ユニークにするためインデックスを含める）
-          const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-          const reservationNumber = `${dateStr}-${randomStr}`
-          
-          demoReservations.push({
-            schedule_event_id: event.id,
-            organization_id: orgId,
-            title: event.scenario || '',
-            scenario_master_id: event.scenario_master_id || event.scenario_id || null,
-            store_id: event.store_id || null,
-            customer_id: null,
-            customer_notes: `デモ参加者${neededParticipants}名`,
-            requested_datetime: `${event.date}T${event.start_time}+09:00`,
-            duration: duration,
-            participant_count: neededParticipants,
-            participant_names: Array(neededParticipants).fill(null).map((_, i) => 
-              neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
-            ),
-            assigned_staff: event.gms || [],
-            base_price: totalPrice,
-            options_price: 0,
-            total_price: totalPrice,
-            discount_amount: 0,
-            final_price: totalPrice,
-            unit_price: participationFee,
-            payment_method: 'onsite',
-            payment_status: 'paid',
-            status: 'confirmed',
-            reservation_source: RESERVATION_SOURCE.DEMO,
-            reservation_number: reservationNumber
-          })
+          demoReservations.push(buildDemoReservation({
+            event, organizationId: orgId, neededParticipants, participationFee, duration,
+            // 予約番号（公演ごとにランダム）
+            reservationNumber: demoReservationNumber(now),
+          }))
           
           eventsToUpdate.push({ id: event.id, newCount: maxParticipants })
         }
@@ -541,9 +479,7 @@ export function ScheduleManager() {
         return
       }
 
-      const scenarioMax = (ev.scenario_masters as { player_count_max?: number } | null)?.player_count_max
-      const baseMax = scenarioMax || ev.max_participants || ev.capacity || 8
-      const maxParticipants = ev.capacity ? Math.min(baseMax, ev.capacity) : baseMax
+      const maxParticipants = resolveFillSeatsCapacity(ev)
 
       if ((ev.current_participants || 0) >= maxParticipants) {
         showToast.info('既に満席です')
@@ -552,14 +488,9 @@ export function ScheduleManager() {
 
       const { data: reservations } = await scheduleManagerReadApi.listActiveReservationCounts(ev.id)
 
-      const currentReservedCount = (reservations || []).reduce((sum, r) => sum + (r.participant_count || 0), 0)
-      const neededParticipants = maxParticipants - currentReservedCount
-      const hasDemoParticipant = (reservations || []).some(r =>
-        r.participant_names?.includes('デモ参加者') ||
-        r.participant_names?.some((name: string) => name.includes('デモ'))
-      )
+      const neededParticipants = maxParticipants - countReservedParticipants(reservations || [])
 
-      if (neededParticipants <= 0 || hasDemoParticipant) {
+      if (neededParticipants <= 0 || hasDemoParticipant(reservations || [])) {
         // current_participants だけ揃える
         await scheduleApi.setCurrentParticipants(ev.id, maxParticipants)
         showToast.success('満席に設定しました')
@@ -578,40 +509,10 @@ export function ScheduleManager() {
           duration = scenarioInfo.duration || 120
         }
       }
-      const totalPrice = participationFee * neededParticipants
-
-      const now = new Date()
-      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-      const reservationNumber = `${dateStr}-${randomStr}`
-
-      const { error: insertError } = await reservationApi.insertDirect({
-          schedule_event_id: ev.id,
-          organization_id: orgId,
-          title: ev.scenario || '',
-          scenario_master_id: ev.scenario_master_id || ev.scenario_id || null,
-          store_id: ev.store_id || null,
-          customer_id: null,
-          customer_notes: `デモ参加者${neededParticipants}名`,
-          requested_datetime: `${ev.date}T${ev.start_time}+09:00`,
-          duration,
-          participant_count: neededParticipants,
-          participant_names: Array(neededParticipants).fill(null).map((_, i) =>
-            neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
-          ),
-          assigned_staff: ev.gms || [],
-          base_price: totalPrice,
-          options_price: 0,
-          total_price: totalPrice,
-          discount_amount: 0,
-          final_price: totalPrice,
-          unit_price: participationFee,
-          payment_method: 'onsite',
-          payment_status: 'paid',
-          status: 'confirmed',
-          reservation_source: RESERVATION_SOURCE.DEMO,
-          reservation_number: reservationNumber,
-        })
+      const { error: insertError } = await reservationApi.insertDirect(buildDemoReservation({
+        event: ev, organizationId: orgId, neededParticipants, participationFee, duration,
+        reservationNumber: demoReservationNumber(),
+      }))
       if (insertError) {
         showToast.error(getSafeErrorMessage(insertError, 'デモ参加者の作成に失敗しました'))
         return

@@ -132,7 +132,7 @@ function MasterListManager({
         })
       }
 
-      const itemsWithUsage: ItemWithUsage[] = (masterData || []).map((item: any) => ({
+      const itemsWithUsage: ItemWithUsage[] = (masterData || []).map((item) => ({
         ...item,
         usage_count: usageMap.get(item.name) || 0,
       }))

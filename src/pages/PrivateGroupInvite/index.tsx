@@ -1100,7 +1100,7 @@ export function PrivateGroupInvite() {
 
   // 配役方法が未選択かつキャラクターが存在する場合
   // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
-  const charAssignmentMethod = (group as any).character_assignment_method as string | null
+  const charAssignmentMethod = group.character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
   const scenarioSurveyEnabled = effectiveSurvey?.survey_enabled === true && !effectiveSurvey.survey_url
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
