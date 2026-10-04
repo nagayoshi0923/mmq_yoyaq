@@ -26,6 +26,7 @@ import { ScheduleEvent, EventFormData, StaffParticipationReservation } from '@/t
 import { CATEGORY_TONE, PERF_TABS, getStaffTextColor, timeOptions } from './performanceModal/constants'
 import { buildScenarioSelectOptions } from './performanceModal/scenarioSelectOptions'
 import { findTimeConflict } from './performanceModal/timeConflict'
+import { DEFAULT_TIME_SLOTS, buildAddFormData, buildEditFormData, findEventScenario, resolveAddEndTime, resolveEventTimeSlot } from './performanceModal/initialForm'
 import { logger } from '@/utils/logger'
 import { reservationApi } from '@/lib/reservationApi'
 import { showToast } from '@/utils/toast'
@@ -37,7 +38,7 @@ import { SurveyResponsesTab } from './modal/SurveyResponsesTab'
 import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useOrganization } from '@/hooks/useOrganization'
-import { scheduleTimeSlotToEn, timeSlotEnToSchedule } from '@/lib/timeSlot'
+import { timeSlotEnToSchedule } from '@/lib/timeSlot'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
 interface PerformanceModalProps {
@@ -306,13 +307,6 @@ export function PerformanceModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.venue, stores])
 
-  // デフォルト時間設定のフォールバック（設定がロードされていない場合に使用）
-  const DEFAULT_TIME_SLOTS = {
-    morning: { start_time: '10:00', end_time: '14:00' },
-    afternoon: { start_time: '14:30', end_time: '18:30' },
-    evening: { start_time: '19:00', end_time: '23:00' }
-  }
-
   // モードに応じてフォームを初期化
   useEffect(() => {
     if (!isOpen) return
@@ -384,28 +378,10 @@ export function PerformanceModal({
       // シナリオIDがない場合は、タイトルから逆引き。
       // タイトル完全一致を優先し、一致しない場合は scenario_master_id で照合する
       // （同一シナリオでもマスタ名と組織側の表示名が食い違うと「未登録」誤表示になるため）。
-      const eventMasterId = (event as { scenario_master_id?: string }).scenario_master_id
-      const selectedScenario =
-        scenarios.find(s => s.title === event.scenario) ||
-        (eventMasterId
-          ? scenarios.find(s => s.scenario_master_id === eventMasterId || s.id === eventMasterId)
-          : undefined)
+      const selectedScenario = findEventScenario(scenarios, event as ScheduleEvent & { scenario_master_id?: string })
 
       // time_slotが存在する場合はそれを使用、なければstart_timeから判定
-      let slot: 'morning' | 'afternoon' | 'evening' = 'morning'
-      if (event.time_slot) {
-        slot = scheduleTimeSlotToEn(event.time_slot) ?? 'morning'
-      } else {
-        // start_timeから判定（フォールバック）
-        const startHour = parseInt(event.start_time.split(':')[0])
-        if (startHour < 12) {
-          slot = 'morning'
-        } else if (startHour < 17) {
-          slot = 'afternoon'
-        } else {
-          slot = 'evening'
-        }
-      }
+      const slot = resolveEventTimeSlot(event)
       setTimeSlot(slot)
       
       logger.log('📋 編集イベントデータ:', JSON.stringify({
@@ -421,21 +397,7 @@ export function PerformanceModal({
       }
       if (generation !== initializationGeneration.current) return
       setParticipationReservations(participation.reservations)
-      setFormData({
-        ...event,
-        gms: participation.assignment.gms,
-        staffParticipation: { entries: participation.entries.filter(entry => !entry.needs_confirmation), expected: participation.entries, expectedStaff: participation.assignment },
-        // master_id で照合できた場合は登録済みの表示名にそろえる（「未登録」警告の誤表示を防ぐ）
-        scenario: selectedScenario?.title ?? event.scenario,
-        scenario_master_id: selectedScenario?.id,  // scenario_masters.id
-        time_slot: event.time_slot || timeSlotEnToSchedule(slot), // time_slotを設定
-        max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
-        gmRoles: participation.assignment.gm_roles, // 既存の役割があれば設定
-        capacity: event.max_participants || 0, // capacityを追加
-        is_private_request: event.is_private_request, // 貸切リクエストフラグを明示的に引き継ぎ
-        reservation_id: event.reservation_id, // 予約IDを明示的に引き継ぎ
-        reservation_name: event.reservation_name || '' // 予約者名を明示的に引き継ぎ
-      })
+      setFormData(buildEditFormData(event, selectedScenario, slot, participation))
       // ローカル参加者数を初期化
       setLocalCurrentParticipants(event.current_participants || 0)
     } else if (mode === 'add' && initialData) {
@@ -458,38 +420,10 @@ export function PerformanceModal({
       // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
       const startTime = initialData.suggestedStartTime || slotDefaults.start_time
       
-      // 終了時間を計算：開始時間 + 4時間（デフォルト公演時間）
-      // ただし、スロットのデフォルト終了時間が開始時間より後ならそちらを使用
-      let endTime = slotDefaults.end_time
-      const [startHour, startMinute] = startTime.split(':').map(Number)
-      const [defaultEndHour, defaultEndMinute] = slotDefaults.end_time.split(':').map(Number)
-      const startMinutes = startHour * 60 + startMinute
-      const defaultEndMinutes = defaultEndHour * 60 + defaultEndMinute
+      // 終了時間：スロットの既定。開始時間より前になる場合は開始時間 + 4時間
+      const endTime = resolveAddEndTime(startTime, slotDefaults.end_time)
       
-      // 終了時間が開始時間より前になる場合は、開始時間 + 4時間に設定
-      if (defaultEndMinutes <= startMinutes) {
-        const newEndMinutes = startMinutes + 240 // 4時間 = 240分
-        const newEndHour = Math.floor(newEndMinutes / 60)
-        const newEndMinute = newEndMinutes % 60
-        endTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}`
-      }
-      
-      setFormData({
-        id: Date.now().toString(),
-        date: initialData.date,
-        venue: initialData.venue,
-        scenario: '',
-        gms: [],
-        gmRoles: {},
-        staffParticipation: { entries: [], expected: [], expectedStaff: {gms: [], gm_roles: {}} },
-        start_time: startTime,
-        end_time: endTime,
-        category: 'open',
-        max_participants: DEFAULT_MAX_PARTICIPANTS,
-        capacity: 0,
-        notes: slotMemo,  // スロットメモを備考に引き継ぎ
-        reservation_name: ''  // 予約者名（初期値は空）
-      })
+      setFormData(buildAddFormData({ id: Date.now().toString(), date: initialData.date, venue: initialData.venue, startTime, endTime, notes: slotMemo }))
     }
     } finally {
       if (generation === initializationGeneration.current) setIsFormInitializing(false)
