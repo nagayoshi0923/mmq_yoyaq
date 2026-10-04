@@ -39,6 +39,10 @@ import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 
 // 分離されたフック
 import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
+import {
+  applyDisplayLimit, buildScenarioOptions, buildStoreOptions, groupStoresByRegion, hasActiveRequestFilters,
+  matchesRequestFilters, mergeGmOptions, splitRequestsIntoTabs, type TabValue,
+} from './utils/requestList'
 import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { usePrivateBookingConflicts } from './hooks/usePrivateBookingConflicts'
@@ -67,7 +71,6 @@ const APPROVAL_START_TIME_OPTIONS: string[] = (() => {
   return options
 })()
 
-type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'approved' | 'all'
 const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'approved', 'all']
 // 旧URL（?tab=cancelled）からの互換: 確定後キャンセルタブは承認済みタブに統合された
 const LEGACY_TAB_MAP: Record<string, TabValue> = { cancelled: 'approved' }
@@ -274,24 +277,7 @@ export function PrivateBookingManagement() {
   useReportRouteScrollRestoration('private-booking-management', { isLoading: loading })
 
   // スタッフマスタ＋GM回答のみにいるIDを統合（一覧の取りこぼし防止）
-  const mergedGmOptions = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string; avatar_color?: string | null }>()
-    for (const gm of allGMs) {
-      if (gm?.id) byId.set(String(gm.id), gm)
-    }
-    for (const ag of availableGMs) {
-      const sid = ag.gm_id != null ? String(ag.gm_id) : ''
-      if (!sid || byId.has(sid)) continue
-      byId.set(sid, {
-        id: sid,
-        name: ag.gm_name || '（スタッフ名不明）',
-        avatar_color: ag.avatar_color ?? null,
-      })
-    }
-    return [...byId.values()].sort((a, b) =>
-      a.name.localeCompare(b.name, 'ja', { sensitivity: 'base' })
-    )
-  }, [allGMs, availableGMs])
+  const mergedGmOptions = useMemo(() => mergeGmOptions(allGMs, availableGMs), [allGMs, availableGMs])
 
   // Radix Select はダイアログ内＋長い候補でビューポートが不安定になりがちなため、ネイティブ select で全件・確実にスクロール表示する
   const gmSelectOptions = (() => {
@@ -503,30 +489,7 @@ export function PrivateBookingManagement() {
   }, [stores, scenarioAvailableStores])
 
   // 店舗を地域ごとにグループ化
-  const storesByRegion = useMemo(() => {
-    const grouped: Record<string, typeof filteredStores> = {}
-    
-    filteredStores.forEach(store => {
-      const region = store.region || '未分類'
-      if (!grouped[region]) {
-        grouped[region] = []
-      }
-      grouped[region].push(store)
-    })
-    
-    // 地域の表示順序（東京を先に、その他の地域、未分類は最後）
-    const regionOrder = ['東京', '埼玉', '神奈川', '千葉', 'その他', '未分類']
-    const sortedRegions = Object.keys(grouped).sort((a, b) => {
-      const indexA = regionOrder.indexOf(a)
-      const indexB = regionOrder.indexOf(b)
-      if (indexA === -1 && indexB === -1) return a.localeCompare(b)
-      if (indexA === -1) return 1
-      if (indexB === -1) return -1
-      return indexA - indexB
-    })
-    
-    return { grouped, sortedRegions }
-  }, [filteredStores])
+  const storesByRegion = useMemo(() => groupStoresByRegion(filteredStores), [filteredStores])
 
   // 地域フィルターで絞り込んだ店舗リスト
   const regionFilteredStores = useMemo(() => {
@@ -562,95 +525,18 @@ export function PrivateBookingManagement() {
   // ── 検索・絞り込み ─────────────────────────────────────
   // タブ分けの前に適用する＝各タブの件数バッジも絞り込み後の数になり、
   // 「探しているものがどのタブにいるか」が検索だけで分かる
-  const normalizedSearch = searchText.trim().toLowerCase()
-  const matchesFilters = (req: PrivateBookingRequest): boolean => {
-    // フリーワード（予約番号・顧客名・メール・電話・シナリオ名・招待コード）
-    if (normalizedSearch) {
-      const hit = [
-        req.reservation_number,
-        req.customer_name,
-        req.customer_email,
-        req.customer_phone,
-        req.scenario_title,
-        req.invite_code,
-      ].some(v => (v || '').toLowerCase().includes(normalizedSearch))
-      if (!hit) return false
-    }
-    // シナリオ
-    if (scenarioFilter !== 'all' && req.scenario_title !== scenarioFilter) return false
-    // 店舗（確定店舗または希望店舗のいずれかに一致）
-    if (storeFilter !== 'all') {
-      const cd = req.candidate_datetimes
-      const storeNames = [
-        cd?.confirmedStore?.storeName,
-        ...(cd?.requestedStores || []).map(s => s.storeName),
-      ].filter(Boolean) as string[]
-      if (!storeNames.includes(storeFilter)) return false
-    }
-    // 期間（候補日の最初の日付）
-    if (dateRangeStart || dateRangeEnd) {
-      const firstDate = req.candidate_datetimes?.candidates?.[0]?.date
-      if (!firstDate) return false
-      if (dateRangeStart && firstDate < dateRangeStart) return false
-      if (dateRangeEnd && firstDate > dateRangeEnd) return false
-    }
-    return true
-  }
-  const visibleRequests = requests.filter(matchesFilters)
-  const hasActiveFilters =
-    !!normalizedSearch || scenarioFilter !== 'all' || storeFilter !== 'all' || !!dateRangeStart || !!dateRangeEnd
+  const listFilters = { searchText, scenarioFilter, storeFilter, dateRangeStart, dateRangeEnd }
+  const visibleRequests = requests.filter(req => matchesRequestFilters(req, listFilters))
+  const hasActiveFilters = hasActiveRequestFilters(listFilters)
 
   // 絞り込みプルダウンの選択肢（全データから生成、絞り込み状態に左右されない）
-  const scenarioOptions = useMemo(
-    () => Array.from(new Set(requests.map(r => r.scenario_title).filter(Boolean))).sort(),
-    [requests]
-  )
-  const storeOptions = useMemo(() => {
-    const names = new Set<string>()
-    requests.forEach(r => {
-      const cd = r.candidate_datetimes
-      if (cd?.confirmedStore?.storeName) names.add(cd.confirmedStore.storeName)
-      cd?.requestedStores?.forEach(s => { if (s.storeName) names.add(s.storeName) })
-    })
-    return Array.from(names).sort()
-  }, [requests])
+  const scenarioOptions = useMemo(() => buildScenarioOptions(requests), [requests])
+  const storeOptions = useMemo(() => buildStoreOptions(requests), [requests])
 
-  // タブ分け
-  // 保存済みstatusだけでなく、在籍・資格・候補・人数の共通判定で作業キューを分ける。
-  const awaitingApproval = (r: PrivateBookingRequest) => ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
-  const gmPendingRequests = visibleRequests.filter(r => awaitingApproval(r) && r.gm_team_ready !== true)
-  const storePendingRequests = visibleRequests.filter(r => awaitingApproval(r) && r.gm_team_ready === true)
-  // 承認済み・却下済みタブは「動きがあった順」（承認・キャンセルなど直近に処理した
-  // ものが上）に並べる。申込日順だと、古い申込を今処理したときにリストの奥へ
-  // 消えてしまう感覚になるため（オーナー指示 2026-06-13）。
-  // 作業キュー系タブ（GM確認中・店舗承認待ち）は従来どおり申込順。
-  const activityTime = (r: PrivateBookingRequest): number =>
-    Math.max(
-      r.cancelled_at ? new Date(r.cancelled_at).getTime() : 0,
-      r.approved_at ? new Date(r.approved_at).getTime() : 0,
-      r.created_at ? new Date(r.created_at).getTime() : 0
-    )
-  const byActivityDesc = (a: PrivateBookingRequest, b: PrivateBookingRequest) =>
-    activityTime(b) - activityTime(a)
+  // タブ分け（作業キュー系は申込順、承認済み/却下済みは動きがあった順）
+  const { gmPending: gmPendingRequests, storePending: storePendingRequests, rejected: rejectedRequests, approved: approvedRequests } = splitRequestsIntoTabs(visibleRequests)
+  const applyLimit = (reqs: PrivateBookingRequest[]) => applyDisplayLimit(reqs, displayLimit)
 
-  // 却下済み: cancelled かつ承認実績なし（承認前に断ったもの）
-  const rejectedRequests = visibleRequests
-    .filter(r => r.status === 'cancelled' && !r.approver_name)
-    .sort(byActivityDesc)
-  // 承認済み: 一度でも承認したもの（確定中＋確定後キャンセルの両方）。
-  // タブは「却下したか／承認したか」の意思決定で分ける（オーナー指示 2026-06-13）。
-  // 確定中かキャンセル済みかはカードのステータスバッジで見分ける
-  const approvedRequests = visibleRequests
-    .filter(r => r.status === 'confirmed' || (r.status === 'cancelled' && !!r.approver_name))
-    .sort(byActivityDesc)
-
-  // 表示件数でフィルタリング（作業キュー系は created_at 降順、承認済み/却下済みは動きがあった順でソート済み）
-  const applyLimit = (reqs: PrivateBookingRequest[]) => {
-    if (displayLimit === 'all') return reqs
-    const limit = parseInt(displayLimit, 10)
-    return reqs.slice(0, limit)
-  }
-  
   // 期間フィルターのハンドラー
   const handleDateRangeChange = (start?: string, end?: string) => {
     setDateRangeStart(start)
