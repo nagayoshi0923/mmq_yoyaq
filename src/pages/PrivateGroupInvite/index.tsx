@@ -1,14 +1,12 @@
 import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
-import { savePrivateGroupPreferredStores } from '@/lib/privateGroupPreferredStores'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
-import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
-import { addJstDays } from '@/utils/jstDate'
+import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Circle, X, HelpCircle, UserPlus, ArrowLeft, Settings } from 'lucide-react'
+import { Circle, X, HelpCircle } from 'lucide-react'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
@@ -16,34 +14,23 @@ import { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
-import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
 import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
-import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
-import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { logger } from '@/utils/logger'
-import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
-import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
+import type { DateResponse } from '@/types'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
-import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
-import { memberInvitationCap, resolvePrivateGroupBookingParticipantCount } from '@/lib/privateGroupPlayerCap'
+import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
 import { ChatModeSidebar } from './components/ChatModeSidebar'
+import { ChatModeHeader } from './components/ChatModeHeader'
 import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import {
-  formatBlockedCandidateLabel,
-  type PrivateBookingBlockedSlotRow,
-} from '@/lib/privateBookingBlockedSlotAvailability'
-import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
-import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { getErrorMessage } from '@/lib/errorFields'
-import {
-  bookingRequestErrorMessage, buildCandidateDatetimes, findPastDeadlineCandidates, findUnavailableCandidates,
-  generateReservationNumber, parseDeadlineDays, pastDeadlineMessage, selectBookableCandidates,
-} from './bookingRequest'
+import { submitGroupBookingRequest } from './submitBookingRequest'
+import { usePreferredStoreEditor } from './usePreferredStoreEditor'
+import { authenticateGroupGuestByPin } from './pinAuth'
 
 interface Coupon {
   id: string
@@ -203,12 +190,9 @@ export function PrivateGroupInvite() {
       return data || []
     },
   })
-  const [allStores, setAllStores] = useState<Array<{ id: string; name: string; short_name: string }>>([])
-  const [isFilteredByScenario, setIsFilteredByScenario] = useState(false)
-  const [loadingStoresForEdit, setLoadingStoresForEdit] = useState(false)
-  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
-  const [expectedStoreIds, setExpectedStoreIds] = useState<string[]>([])
-  const [savingStores, setSavingStores] = useState(false)
+
+  // 希望店舗の編集
+  const { allStores, isFilteredByScenario, loadingStoresForEdit, selectedStoreIds, setSelectedStoreIds, savingStores, handleSavePreferredStores, openStoreEditSheet } = usePreferredStoreEditor({ group, canMutateScheduleBeforeStoreReply, openSheet, closeSheetReplace, refetch })
 
   // 申請ダイアログ（日程選択 + 送信）
   const [bookingSelectedDates, setBookingSelectedDates] = useState<Set<string>>(new Set())
@@ -287,66 +271,7 @@ export function PrivateGroupInvite() {
   }
 
   // PIN認証を実行
-  const handlePinAuth = async () => {
-    if (!group || !pinEmail || !pinCode) {
-      setPinError('メールアドレスとPINを入力してください')
-      return
-    }
-
-    setPinError(null)
-
-    try {
-      // RPCでPIN認証
-      // PINやメールアドレスをログへ残さない。
-      
-      const { data: authResult, error: authError } = await privateGroupRpcApi.authenticateGuestByPin({
-        p_group_id: group.id,
-        p_email: pinEmail,
-        p_pin: pinCode,
-      })
-
-
-      if (authError) {
-        logger.error('PIN認証エラー:', authError)
-        setPinError('認証に失敗しました')
-        return
-      }
-
-      if (authResult?.[0]?.locked) {
-        setPinError('PINの入力に繰り返し失敗したため、15分間お待ちいただいてから再度お試しください。')
-        return
-      }
-
-      if (authResult?.[0]?.member_id) {
-        const authMember = authResult[0]
-        savePrivateGroupGuestToken(group.id, authMember.guest_token)
-        setExistingMemberId(authMember.member_id)
-        setGuestName(authMember.guest_name || '')
-        setGuestEmail(authMember.guest_email || '')
-        
-        // セッションを保存（リロード後も維持）
-        saveGuestSession(authMember.member_id, authMember.guest_name || '', authMember.guest_email || '')
-        
-        // メンバーのdate_responsesを取得
-        const matchingMember = group.members?.find(m => m.id === authMember.member_id)
-        if (matchingMember) {
-          const existingResponses: Record<string, ResponseValue> = {}
-          matchingMember.date_responses?.forEach(r => {
-            existingResponses[r.candidate_date_id] = r.response
-          })
-          setResponses(existingResponses)
-        }
-        
-        closeSheetReplace()
-        toast.success('認証しました')
-      } else {
-        setPinError('メールアドレスまたはPINが正しくありません')
-      }
-    } catch (err) {
-      logger.error('PIN認証エラー:', err)
-      setPinError('認証に失敗しました')
-    }
-  }
+  const handlePinAuth = () => authenticateGroupGuestByPin({ group, pinEmail, pinCode, setPinError, setExistingMemberId, setGuestName, setGuestEmail, saveGuestSession, setResponses, closeSheetReplace })
 
   usePrivateGroupMemberRestore(group, code, user?.id, existingMemberId, existingMember => {
     setExistingMemberId(existingMember.id)
@@ -358,118 +283,6 @@ export function PrivateGroupInvite() {
     setResponses(existingResponses)
     setSelectedCouponId(existingMember.coupon_id || null)
   })
-
-  // 店舗編集用: シナリオの available_stores に基づいて選択可能な店舗を取得
-  const fetchAllStores = async () => {
-    if (!group?.organization_id) {
-      setAllStores([])
-      return
-    }
-
-    const mapRow = (s: { id: string; name: string; short_name: string | null }) => ({
-      id: s.id,
-      name: s.name,
-      short_name: s.short_name || s.name,
-    })
-
-    try {
-      // シナリオの available_stores を取得
-      let scenarioAvailableStores: string[] = []
-      if (group.scenario_master_id) {
-        const { data: scenarioData, error: scenarioError } = await privateGroupPageReadApi.findScenarioAvailableStores(group.scenario_master_id, group.organization_id)
-        if (scenarioError) throw scenarioError
-        if (!scenarioData) throw new Error('組織内の作品設定を確認できません')
-        scenarioAvailableStores = scenarioData.available_stores || []
-      }
-
-      const { data, error } = await privateGroupPageReadApi.listActiveStoresOfOrganization(group.organization_id)
-
-      if (error) throw error
-
-      let storeList: ReturnType<typeof mapRow>[]
-
-      if (scenarioAvailableStores.length > 0) {
-        // シナリオに対応店舗が設定されている場合: その店舗のみ（is_temporary 問わず、オフィス除外）
-        storeList = (data || [])
-          .filter(s => s.ownership_type !== 'office' && scenarioAvailableStores.includes(s.id))
-          .map(mapRow)
-      } else {
-        // 未設定の場合: オフィス・臨時を除外（従来動作）
-        storeList = (data || [])
-          .filter(s => s.ownership_type !== 'office' && !s.is_temporary)
-          .map(mapRow)
-      }
-
-      // 既に希望に入っている店舗も選択肢に残す（同じフィルタ条件を適用）
-      const missingIds = (group.preferred_store_ids || []).filter(
-        (id) => !storeList.some((s) => s.id === id)
-      )
-      if (missingIds.length > 0) {
-        const { data: extra, error: err2 } = await privateGroupPageReadApi.listActiveStoresByIdsInOrganization(missingIds, group.organization_id)
-        if (err2) throw err2
-        if (extra?.length) {
-          const validExtra = scenarioAvailableStores.length > 0
-            ? extra.filter(s => s.ownership_type !== 'office' && scenarioAvailableStores.includes(s.id))
-            : extra.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
-          storeList = [...storeList, ...validExtra.map(mapRow)]
-        }
-      }
-
-      setAllStores(storeList)
-      setIsFilteredByScenario(scenarioAvailableStores.length > 0)
-    } catch (err) {
-      logger.error('全店舗取得エラー:', err)
-      setAllStores([])
-      setIsFilteredByScenario(false)
-      toast.error('店舗一覧の取得に失敗しました')
-    }
-  }
-
-  // 希望店舗を保存
-  const handleSavePreferredStores = async () => {
-    if (!group) return
-    if (!canMutateScheduleBeforeStoreReply) {
-      toast.error('店舗の返答待ちのため、希望店舗を変更できません')
-      return
-    }
-
-    setSavingStores(true)
-    try {
-      const removed = await savePrivateGroupPreferredStores(group.id, selectedStoreIds, expectedStoreIds)
-      if (removed > 0) {
-        toast.warning(`希望店舗を更新しました（空き枠のない候補日 ${removed} 件を削除しました）`)
-      } else {
-        toast.success('希望店舗を更新しました')
-      }
-
-      closeSheetReplace()
-      refetch()
-    } catch (err) {
-      logger.error('希望店舗保存エラー:', err)
-      toast.error(err && typeof err === 'object' && 'message' in err ? String(err.message) : '保存に失敗しました')
-    } finally {
-      setSavingStores(false)
-    }
-  }
-
-  // 店舗編集シートを開く
-  const openStoreEditSheet = () => {
-    if (!canMutateScheduleBeforeStoreReply) {
-      toast.error('店舗の返答待ちのため、希望店舗を変更できません')
-      return
-    }
-    setSelectedStoreIds(group?.preferred_store_ids || [])
-    setExpectedStoreIds([...(group?.preferred_store_ids || [])])
-    openSheet('store-edit')
-    setLoadingStoresForEdit(true)
-    void (async () => {
-      try {
-        await fetchAllStores()
-      } finally {
-        setLoadingStoresForEdit(false)
-      }
-    })()
-  }
 
   // 料金計算
   const perPersonPrice = useMemo(() => {
@@ -857,225 +670,11 @@ export function PrivateGroupInvite() {
   }
   
   // 貸切申込を実行
-  const handleSubmitBooking = async () => {
-    if (!isOrganizer || !group || !user) return
-    if (!canMutateScheduleBeforeStoreReply) {
-      toast.error('店舗の返答待ちのため、予約リクエストを送信できません')
-      return
-    }
-
-    const selectedCandidateDates = selectBookableCandidates(group.candidate_dates, bookingSelectedDates)
-
-    if (selectedCandidateDates.length === 0) {
-      toast.error(
-        bookingSelectedDates.size > 0
-          ? '却下済みの日程は申請に含められません。有効な候補を選び直してください'
-          : '申請する日程を選択してください'
-      )
-      return
-    }
-    
-    // 電話番号の検証
-    if (!bookingPhone.trim()) {
-      toast.error('電話番号を入力してください')
-      return
-    }
-    
-    setIsSubmittingBooking(true)
-    
-    try {
-      const orgId = group.organization_id
-      if (!orgId) {
-        toast.error('組織情報が取得できません。ページを再読み込みしてください。')
-        return
-      }
-      if (preferredStoreNames.length === 0) {
-        toast.error('希望店舗を1店舗以上選択してください')
-        return
-      }
-
-      // 受付締切（公演日の何日前まで）を過ぎた候補があると、申込全体が DB で拒否される。送る前に知らせる（#506）
-      // 締切日数が読めないときはここでは止めず、DB の確認に任せる（誤って止めない）
-      const deadlineResult = await privateBookingSlotReadApi.getEffectiveDeadlineDays({ scenarioId: group.scenario_master_id, organizationId: orgId, organizationSlug: null })
-      const deadlineDays = parseDeadlineDays(deadlineResult)
-      const pastDeadline = findPastDeadlineCandidates(selectedCandidateDates, deadlineDays)
-      if (pastDeadline.length > 0) {
-        toast.error(pastDeadlineMessage(pastDeadline, deadlineDays))
-        return
-      }
-
-      const requestedStoreIds = preferredStoreNames.map((store) => store.id)
-      const selectedDates = selectedCandidateDates.map((candidate) => candidate.date).sort()
-      const availabilityParams: RpcGetPublicPrivateBookingAvailabilityParams = {
-        p_organization_id: orgId,
-        p_store_ids: requestedStoreIds,
-        p_start_date: selectedDates[0],
-        p_end_date: selectedDates[selectedDates.length - 1],
-      }
-      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
-        organizationId: orgId,
-        scenarioLookupId: group.scenario_master_id,
-        scenarioMasterId: group.scenario_master_id,
-      })
-      const [blockedResult, eventsResult] = await Promise.all([
-        privateBookingSlotReadApi.getPublicAvailability(availabilityParams),
-        privateBookingRequestReadApi.listAvailabilityEvents(orgId, requestedStoreIds, addJstDays(selectedDates[0], -2), addJstDays(selectedDates[selectedDates.length - 1], 2)),
-      ])
-      if (blockedResult.error) throw blockedResult.error
-      if (eventsResult.error) throw eventsResult.error
-
-      const blockedRows = (blockedResult.data || []) as PrivateBookingBlockedSlotRow[]
-      const eventRows = eventsResult.data || []
-      const unavailableCandidates = findUnavailableCandidates(selectedCandidateDates, requestedStoreIds, blockedRows, eventRows, scenarioTiming)
-      if (unavailableCandidates.length > 0) {
-        const details = unavailableCandidates.map((candidate) =>
-          formatBlockedCandidateLabel(
-            { date: candidate.date, timeSlot: candidate.time_slot },
-            preferredStoreNames.map((store) => store.name)
-          )
-        ).join('、')
-        toast.error(`${details} は現在受付停止中または既存公演と競合しています。候補を再選択してください`)
-        return
-      }
-
-      // 顧客情報を取得または作成
-      let customerId: string | null = null
-      const customerName = organizerMember?.guest_name || user.email?.split('@')[0] || ''
-      const customerEmail = organizerMember?.guest_email || user.email || ''
-      const customerPhone = bookingPhone.trim()
-      
-      // Phase 1 以降、ログイン済み顧客の organization_id = NULL（プラットフォーム共通）
-      customerId = await upsertOwnCustomer({
-        userId: user.id, name: customerName, phone: customerPhone, email: customerEmail, organizationId: null,
-      })
-      
-      if (!customerId) {
-        throw new Error('顧客情報の取得に失敗しました')
-      }
-
-      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, user.id)
-      if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
-        throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
-      }
-      
-      // 予約番号を生成
-      const baseReservationNumber = generateReservationNumber()
-      
-
-
-      // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
-      const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, preferredStoreNames, scenarioTiming, isCustomHoliday)
-      
-      // 参加人数は作品定員。今いるメンバー数で受けると、あとから追加できなくなる。
-      const scenarioForBookingCap = group.scenario_masters as {
-        effective_player_count_max?: number
-        player_count_max?: number
-      } | undefined
-      const scenarioPlayerMax =
-        scenarioForBookingCap?.effective_player_count_max ??
-        scenarioForBookingCap?.player_count_max ??
-        null
-      const bookingParticipantCount = resolvePrivateGroupBookingParticipantCount({
-        scenarioPlayerMax,
-        targetParticipantCount: group.target_participant_count,
-      })
-
-      // パラメータの検証
-      if (!group.scenario_master_id) {
-        throw new Error('シナリオが選択されていません')
-      }
-
-      logger.log('[貸切リクエスト] RPCパラメータ:', {
-        scenario_id: group.scenario_master_id,
-        customer_id: customerId,
-        participant_count: bookingParticipantCount,
-        candidateDatetimes,
-        private_group_id: group.id
-      })
-      
-      // RPC経由で貸切予約を作成
-      const { data: reservationId, error: rpcError } = await privateGroupRpcApi.createBookingRequestWithNotice({
-        p_scenario_id: group.scenario_master_id,
-        p_customer_id: customerId,
-        p_customer_name: customerName,
-        p_customer_email: customerEmail,
-        p_customer_phone: customerPhone,
-        p_participant_count: bookingParticipantCount,
-        p_candidate_datetimes: candidateDatetimes,
-        p_notes: bookingNotes || null,
-        p_reservation_number: baseReservationNumber,
-        p_private_group_id: group.id
-      })
-      
-      if (rpcError) {
-        logger.error('貸切リクエストエラー:', {
-          code: rpcError.code,
-          message: rpcError.message,
-          details: rpcError.details,
-          hint: rpcError.hint
-        })
-        
-        // エラーコードに応じたメッセージ
-        const errorMessage = bookingRequestErrorMessage(rpcError)
-        
-        throw new Error(errorMessage)
-      }
-      
-      const parentReservationId = reservationId as string
-      
-      // 貸切申し込み確認メールを送信
-      if (parentReservationId && customerEmail) {
-        try {
-          const candidateDatesForEmail = group.candidate_dates
-            ?.filter((cd) => bookingSelectedDates.has(cd.id))
-            .map((cd) => ({
-              date: cd.date,
-              timeSlot: cd.time_slot,
-              startTime: cd.start_time,
-              endTime: cd.end_time
-            })) || []
-          
-          const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
-            body: {
-              organizationId: orgId,
-              reservationId: parentReservationId,
-              customerEmail,
-              customerName,
-              scenarioTitle: group.scenario_masters?.title || 'シナリオ',
-              reservationNumber: baseReservationNumber,
-              candidateDates: candidateDatesForEmail,
-              requestedStores: group.preferred_store_ids || [],
-              participantCount: bookingParticipantCount,
-              estimatedPrice: 0,
-              notes: bookingNotes || undefined
-            }
-          })
-          
-          if (emailError) {
-            logger.error('貸切申し込み確認メール送信エラー:', emailError)
-            toast.error('確認メールの送信に失敗しました')
-          } else {
-            logger.log('貸切申し込み確認メールを送信しました')
-            toast.success('確認メールを送信しました')
-          }
-        } catch (emailError) {
-          logger.error('貸切申し込み確認メール送信エラー:', emailError)
-        }
-      }
-      
-      toast.success('予約リクエストを送信しました')
-      closeSheetReplace()
-      setBookingNotes('')
-      setBookingSelectedDates(new Set())
-      refetch()
-      
-    } catch (err) {
-      logger.error('予約リクエストエラー:', err)
-      toast.error(err instanceof Error ? err.message : '予約リクエストの送信に失敗しました')
-    } finally {
-      setIsSubmittingBooking(false)
-    }
-  }
+  const handleSubmitBooking = () => submitGroupBookingRequest({
+    group, user, isOrganizer, canMutateScheduleBeforeStoreReply, bookingSelectedDates, bookingPhone, bookingNotes,
+    preferredStoreNames, organizerMember, isCustomHoliday, setIsSubmittingBooking, closeSheetReplace, setBookingNotes,
+    setBookingSelectedDates, refetch,
+  })
 
   // メンバー削除
   const handleRemoveMember = async (memberId: string) => {
@@ -1132,83 +731,7 @@ export function PrivateGroupInvite() {
         {/* メインコンテンツ */}
         <div className="flex-1 flex flex-col overflow-hidden lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
           {/* チャットヘッダー */}
-          <div className="shrink-0 border-b lg:border lg:rounded-t-lg bg-white">
-            <div className="flex items-center gap-3 px-4 py-2">
-              <button 
-                onClick={() => navigate('/mypage')}
-                className="p-1.5 hover:bg-gray-100 rounded"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              {scenario?.key_visual_url && (
-                <img
-                  src={scenario.key_visual_url}
-                  alt={scenario.title || ''}
-                  className="w-8 h-8 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <h2 
-                  className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
-                >
-                  {scenario?.title || 'グループチャット'}
-                </h2>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{memberCount}名参加</span>
-                  <span>•</span>
-                  <span className={isScheduleConfirmedUi ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
-                    {isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
-                  </span>
-                  {isScheduleConfirmedUi && confirmedByName && (
-                    <>
-                      <span>•</span>
-                      <span className="text-green-600">承認: {confirmedByName}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            {isOrganizer && (
-              <button
-                onClick={() => openSheet('invite')}
-                className="p-1.5 hover:bg-gray-100 rounded"
-              >
-                <UserPlus className="w-5 h-5 text-gray-600" />
-              </button>
-            )}
-              {/* 日程シートを開く */}
-            <button
-              onClick={() => openSheet('dates')}
-              className="p-1.5 hover:bg-gray-100 rounded relative"
-            >
-              <Calendar className="w-5 h-5 text-gray-600" />
-              {(group.candidate_dates?.length || 0) > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-purple-600 text-white text-[10px] rounded-full flex items-center justify-center">
-                  {group.candidate_dates?.length}
-                </span>
-              )}
-            </button>
-            {/* 設定 */}
-            <button 
-              onClick={() => {
-                const statusText = isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'
-                setContactMessage(`【予約情報】
-招待コード: ${group.invite_code}
-シナリオ: ${scenario?.title || '-'}
-参加人数: ${memberCount}名
-ステータス: ${statusText}
-
-【お問い合わせ内容】
-`)
-                openSheet('settings')
-              }}
-              className="p-1.5 hover:bg-gray-100 rounded"
-            >
-              <Settings className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-        </div>
+          <ChatModeHeader scenario={scenario} memberCount={memberCount} isScheduleConfirmedUi={isScheduleConfirmedUi} group={group} completedSteps={completedSteps} confirmedByName={confirmedByName} isOrganizer={isOrganizer} navigate={navigate} openSheet={openSheet} setContactMessage={setContactMessage} />
 
         <ConfirmedGroupSchedule group={group} />
 
