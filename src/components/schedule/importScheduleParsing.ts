@@ -1,3 +1,5 @@
+import { getTimeSlot } from '@/utils/scheduleUtils'
+
 /**
  * スケジュール取り込み（スプレッドシートの公演の文字）の読み取り規則。
  * ImportScheduleModal.tsx から、規則を変えずに切り出した純粋な関数。
@@ -209,4 +211,89 @@ export function parseImportGmNamesWithMapping(gmText: string, findBestStaffMatch
   })
   
   return { gms, mappings }
+}
+
+/**
+ * 店舗の列を探す（3 列目か 4 列目）。どちらにも店舗名が無い行は取り込まない（null）。
+ * 3 列目: 日付|曜日|店舗|…、4 列目: 日付|曜日|担当Mg|店舗|…
+ */
+export function detectImportVenueColumn(parts: string[], validVenues: string[]): { venueIdx: 2 | 3; venue: string } | null {
+  if (parts[2] && validVenues.includes(parts[2])) return { venueIdx: 2, venue: parts[2] }
+  if (parts[3] && validVenues.includes(parts[3])) return { venueIdx: 3, venue: parts[3] }
+  return null
+}
+
+/** 時間帯（朝・昼・夜）ごとのタイトル列・GM 列と既定の時刻。店舗列の次から 2 列ずつ */
+export function importTimeSlotColumns(venueIdx: 2 | 3): Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string; slotName: string }> {
+  const base = venueIdx + 1
+  return [
+    { titleIdx: base, gmIdx: base + 1, defaultStart: '09:00', defaultEnd: '13:00', slotName: '朝' },
+    { titleIdx: base + 2, gmIdx: base + 3, defaultStart: '13:00', defaultEnd: '18:00', slotName: '昼' },
+    { titleIdx: base + 4, gmIdx: base + 5, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
+  ]
+}
+
+/** 照合前の元のシナリオ名（記号・時間・印・価格の前まで） */
+export function rawImportScenarioText(title: string): string {
+  let rawScenarioText = title.replace(/^(貸・|貸 |貸\/|募・|募 |募\/|出張・|出張 |GMテスト・|GMテスト |テストプレイ・|テストプレイ |テスプ・|テスプ |場所貸・|場所貸 )/, '')
+  const scenarioMatch = rawScenarioText.match(/^([^(（\d]+)/)
+  if (scenarioMatch) {
+    rawScenarioText = scenarioMatch[1].trim()
+  } else {
+    const simpleMatch = rawScenarioText.match(/^([^(（]+)/)
+    if (simpleMatch) {
+      rawScenarioText = simpleMatch[1].trim()
+    }
+  }
+  rawScenarioText = rawScenarioText.split('※')[0].split('✅')[0].split('🈵')[0].split('🙅')[0].split('🈳')[0].trim()
+  // 円表記の前で切る
+  return rawScenarioText.split(/\d+円/)[0].trim()
+}
+
+/** 取り込みのセルのキー（日付・店舗・時間帯） */
+export function importCellKey(date: string, storeId: string | null, startTime: string): string {
+  return `${date}|${storeId || 'null'}|${getTimeSlot(startTime)}`
+}
+
+/** 下見の画面で直した値（作品・GM・カテゴリ・備考・メモ扱い・役割）を取り込む行に反映する */
+export function mergePreviewEdits<E extends { notes?: string }, P extends { scenario: string; gms: string[]; category: string; notes?: string; isMemo?: boolean; gmRoles?: Record<string, string> }>(parsedEvents: E[], previewEvents: Array<P | undefined>) {
+  return parsedEvents.map((event, i) => {
+    const preview = previewEvents[i]
+    if (!preview) return event
+    return {
+      ...event,
+      scenario: preview.scenario,
+      gms: preview.gms,
+      category: preview.category,
+      notes: preview.notes || event.notes,
+      isMemo: preview.isMemo,
+      gm_roles: preview.gmRoles
+    }
+  })
+}
+
+/**
+ * 同じセル（日付・店舗・時間帯）に 2 つ以上あれば最初のものを使い、残りは知らせて外す。中止の行は比べない。
+ */
+export function dropDuplicateImportCells<E extends { date?: string; is_cancelled?: boolean; store_id?: string | null; start_time: string; scenario?: string; venue: string }>(events: E[]): { filteredEvents: E[]; duplicatesInImport: string[] } {
+  const cellKey = importCellKey
+  const importCellMap = new Map<string, { scenario: string; venue: string; index: number }>()
+  const duplicatesInImport: string[] = []
+  const duplicateIndices = new Set<number>()
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i]
+    if (!event.date || event.is_cancelled) continue
+    const key = cellKey(event.date, event.store_id ?? null, event.start_time)
+    const existing = importCellMap.get(key)
+    if (existing) {
+      // 重複があっても警告のみ、最初のイベントを優先
+      duplicatesInImport.push(
+        `${event.date} ${event.venue} ${getTimeSlot(event.start_time)}: 「${event.scenario || '(空)'}」をスキップ（「${existing.scenario}」が既にあります）`
+      )
+      duplicateIndices.add(i)
+    } else {
+      importCellMap.set(key, { scenario: event.scenario || '', venue: event.venue, index: i })
+    }
+  }
+  return { filteredEvents: events.filter((_, index: number) => !duplicateIndices.has(index)), duplicatesInImport }
 }

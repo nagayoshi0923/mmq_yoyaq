@@ -32,6 +32,7 @@ import { ReportGroupCard } from './sendReports/components/ReportGroupCard'
 import { ReportToolbar } from './sendReports/components/ReportToolbar'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { licenseReportHistoryApi } from '@/lib/api/ledgerApi'
+import { buildReportStats, itemDisplayEvents, itemDisplayLicenseCost, reportDrift, reportGroupKey, sumDisplayEvents, sumDisplayLicenseCost } from './sendReports/display'
 
 interface SendReportsProps {
   organizationId: string
@@ -633,44 +634,14 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // 表示モードに応じたイベント数・金額を取得するヘルパー。
   // 手動上書き（internalInputs/externalInputs）を getPreviewItem 経由で反映するため、
   // group の静的集計ではなく明細を都度プレビュー集計する（リスト操作が即ヘッダーに反映され、送信値とも一致）。
-  const getDisplayEvents = (group: ReportGroup): number => {
-    const items = group.items.map(getPreviewItem)
-    switch (viewMode) {
-      case 'internal': return items.reduce((sum, i) => sum + i.internalEvents, 0)
-      case 'external': return items.reduce((sum, i) => sum + i.externalEvents, 0)
-      default: return items.reduce((sum, i) => sum + i.events, 0)
-    }
-  }
-
-  const getDisplayLicenseCost = (group: ReportGroup): number => {
-    const items = group.items.map(getPreviewItem)
-    switch (viewMode) {
-      case 'internal': return items.reduce((sum, i) => sum + i.internalLicenseCost, 0)
-      case 'external': return items.reduce((sum, i) => sum + i.externalLicenseCost, 0)
-      default: return items.reduce((sum, i) => sum + i.licenseCost, 0)
-    }
-  }
-
+  const getDisplayEvents = (group: ReportGroup): number => sumDisplayEvents(group.items.map(getPreviewItem), viewMode)
+  const getDisplayLicenseCost = (group: ReportGroup): number => sumDisplayLicenseCost(group.items.map(getPreviewItem), viewMode)
   // 自社/他社の内訳（上書き反映）
-  const getDisplayInternalEvents = (group: ReportGroup): number =>
-    group.items.map(getPreviewItem).reduce((sum, i) => sum + i.internalEvents, 0)
-  const getDisplayExternalEvents = (group: ReportGroup): number =>
-    group.items.map(getPreviewItem).reduce((sum, i) => sum + i.externalEvents, 0)
+  const getDisplayInternalEvents = (group: ReportGroup): number => sumDisplayEvents(group.items.map(getPreviewItem), 'internal')
+  const getDisplayExternalEvents = (group: ReportGroup): number => sumDisplayEvents(group.items.map(getPreviewItem), 'external')
 
-  // 送信時スナップショット（license_report_history）と現在の集計の差分。
-  // 送信後にスケジュールや手動上書きが変わると、報告済み金額と実値がズレるため、
-  // 有料明細（licenseCost>0・送信時と同じ基準）で公演数・金額を比較し、どちらかが違えば差分とみなす。
-  const getReportDrift = (
-    group: ReportGroup,
-  ): { events: number; cost: number; sentEvents: number; sentCost: number } | null => {
-    const sent = sentHistory.get(group.authorName)
-    if (!sent) return null
-    const paid = group.items.map(getPreviewItem).filter(i => i.licenseCost > 0)
-    const events = paid.reduce((sum, i) => sum + i.events, 0)
-    const cost = paid.reduce((sum, i) => sum + i.licenseCost, 0)
-    if (events === sent.totalEvents && cost === sent.totalCost) return null
-    return { events, cost, sentEvents: sent.totalEvents, sentCost: sent.totalCost }
-  }
+  // 送信時スナップショット（license_report_history）と現在の集計の差分（有料明細で比較）
+  const getReportDrift = (group: ReportGroup) => reportDrift(group.items.map(getPreviewItem), sentHistory.get(group.authorName))
 
   // 送信済みメールの確認・編集ダイアログを開く（送信済バッジ／差分バッジ共通）
   const handleOpenSentEmail = (group: ReportGroup) => {
@@ -684,38 +655,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     setIsEmailBodyEditOpen(true)
   }
 
-  const getItemDisplayEvents = (item: ReportItem): number => {
-    switch (viewMode) {
-      case 'internal': return item.internalEvents
-      case 'external': return item.externalEvents
-      default: return item.events
-    }
-  }
-
-  const getItemDisplayLicenseCost = (item: ReportItem): number => {
-    switch (viewMode) {
-      case 'internal': return item.internalLicenseCost
-      case 'external': return item.externalLicenseCost
-      default: return item.licenseCost
-    }
-  }
+  const getItemDisplayEvents = (item: ReportItem): number => itemDisplayEvents(item, viewMode)
+  const getItemDisplayLicenseCost = (item: ReportItem): number => itemDisplayLicenseCost(item, viewMode)
 
   // 統計
-  const stats = {
-    totalGroups: filteredGroups.length,
-    withEmail: filteredGroups.filter(g => g.authorEmail && g.itemsWithoutEmail === 0).length,
-    partialEmail: filteredGroups.filter(g => g.hasPartialEmail).length,
-    withoutEmail: filteredGroups.filter(g => !g.authorEmail).length,
-    totalEvents: filteredGroups.reduce((sum, g) => sum + getDisplayEvents(g), 0),
-    totalInternalEvents: filteredGroups.reduce((sum, g) => sum + getDisplayInternalEvents(g), 0),
-    totalExternalEvents: filteredGroups.reduce((sum, g) => sum + getDisplayExternalEvents(g), 0),
-    totalLicense: filteredGroups.reduce((sum, g) => sum + getDisplayLicenseCost(g), 0),
-    totalInternalLicense: filteredGroups.reduce((sum, g) => sum + g.items.map(getPreviewItem).reduce((s, i) => s + i.internalLicenseCost, 0), 0),
-    totalExternalLicense: filteredGroups.reduce((sum, g) => sum + g.items.map(getPreviewItem).reduce((s, i) => s + i.externalLicenseCost, 0), 0)
-  }
+  const stats = buildReportStats(filteredGroups, getPreviewItem, viewMode)
 
-  const getGroupKey = (group: ReportGroup) =>
-    group.authorEmail ? `email:${group.authorEmail}` : `name:${group.originalAuthorName}`
+  const getGroupKey = reportGroupKey
 
   // グループが0円のみかどうか（編集後の値を考慮）
   const isGroupZeroCostOnly = (group: ReportGroup) => {
