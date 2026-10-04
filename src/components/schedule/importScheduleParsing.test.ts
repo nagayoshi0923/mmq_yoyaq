@@ -45,3 +45,32 @@ describe('スケジュール取り込みの読み取り規則', () => {
     expect(parseImportGmNamesWithMapping('がっ,えいきち', match)).toEqual({ gms: ['がっちゃん', 'えいきち'], mappings: [{ from: 'がっ', to: 'がっちゃん' }] })
   })
 })
+
+import { detectImportVenueColumn, dropDuplicateImportCells, importTimeSlotColumns, mergePreviewEdits, rawImportScenarioText } from './importScheduleParsing'
+
+describe('スケジュール取り込みの列と重複', () => {
+  it('店舗の列は 3 列目か 4 列目、時間帯の列はその次から 2 列ずつ', () => {
+    expect(detectImportVenueColumn(['10/5', '月', '馬場', 'x'], ['馬場'])).toEqual({ venueIdx: 2, venue: '馬場' })
+    expect(detectImportVenueColumn(['10/5', '月', '担当', '馬場'], ['馬場'])).toEqual({ venueIdx: 3, venue: '馬場' })
+    expect(detectImportVenueColumn(['10/5', '月', 'タイトル'], ['馬場'])).toBeNull()
+    expect(importTimeSlotColumns(2).map(c => [c.titleIdx, c.gmIdx, c.slotName])).toEqual([[3, 4, '朝'], [5, 6, '昼'], [7, 8, '夜']])
+    expect(importTimeSlotColumns(3).map(c => [c.titleIdx, c.gmIdx])).toEqual([[4, 5], [6, 7], [8, 9]])
+  })
+  it('照合前の元のシナリオ名', () => {
+    expect(rawImportScenarioText('貸・シノポロ(14-18)🈵')).toBe('シノポロ')
+    expect(rawImportScenarioText('募・作品A※要予約')).toBe('作品A')
+  })
+  it('下見で直した値を反映し、同じセルの 2 件目以降は外して知らせる', () => {
+    const merged = mergePreviewEdits([{ notes: '元' }, { notes: '元' }], [{ scenario: 'A', gms: ['松井'], category: 'open' }, undefined])
+    expect(merged[0]).toMatchObject({ scenario: 'A', gms: ['松井'], category: 'open', notes: '元' })
+    expect(merged[1]).toEqual({ notes: '元' })
+    const { filteredEvents, duplicatesInImport } = dropDuplicateImportCells([
+      { date: '2026-10-05', store_id: 's1', start_time: '19:00', scenario: 'A', venue: '馬場' },
+      { date: '2026-10-05', store_id: 's1', start_time: '19:30', scenario: 'B', venue: '馬場' },
+      { date: '2026-10-05', store_id: 's1', start_time: '19:00', scenario: 'C', venue: '馬場', is_cancelled: true },
+    ])
+    expect(filteredEvents.map(e => e.scenario)).toEqual(['A', 'C'])
+    expect(duplicatesInImport).toHaveLength(1)
+    expect(duplicatesInImport[0]).toContain('「B」をスキップ（「A」が既にあります）')
+  })
+})
