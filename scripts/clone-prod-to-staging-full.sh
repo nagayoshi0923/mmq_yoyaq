@@ -132,6 +132,12 @@ phase3_dump_and_restore() {
     "${DUMP_FILE}.storage" 2>&1 | tail -5 || true
   echo "  ✓ staging.storage data restore 完了"
 
+  # お客様情報と Discord の送信先を伏せる（夜間の写しと同じ処理。伏せないとステージングから実在の人へ届く）
+  PGPASSWORD="$STAGING_PASSWORD" psql \
+    -h "$STAGING_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    -v ON_ERROR_STOP=1 -q -1 -f "$(dirname "$0")/mask-staging-pii.sql"
+  echo "  ✓ お客様情報と送信先を伏せた"
+
   echo "✅ Phase 3 完了"
 }
 
