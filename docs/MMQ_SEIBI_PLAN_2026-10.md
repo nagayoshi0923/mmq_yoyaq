@@ -47,7 +47,7 @@
 
 | 条件 | 2026-10-02 開始時 | 2026-10-02 終了時 | 完了 |
 |---|---|---|---|
-| リポジトリから本番と同じ構造を再現できる | できない | 構造の写し（supabase/structure/prod.json）と毎日の drift チェックで「記録と実環境のずれ」は検知できる。migration からの再構築は未達 | baseline 1本 + 以後の migration で再現 |
+| リポジトリから本番と同じ構造を再現できる | できる（2026-10-04、基準 + 以後の migration。旧: できない） | 構造の写し（supabase/structure/prod.json）と毎日の drift チェックで「記録と実環境のずれ」は検知できる。migration からの再構築は未達 | baseline 1本 + 以後の migration で再現 |
 | アトラス = 本番 = リポジトリ | 手作業の写し（9/28） | 構造一覧は写しから自動生成（atlas/build_catalog.py、138表）。ER・関連・画面対応は手作業のまま | 構造部分は自動、差があれば CI が落ちる |
 | 1つの事実は1か所 | 二重保存が少なくとも5系統 | 旧GM配列は担当表の派生に統一（再計算済み）。表示人数の規則は統一済み（#730、制約撤去・再計算）。GM 照合は担当表の ID を正にした（#734、売上 CSV・作品統計・売上画面）。金額の正本は final_price に統一（#721、20261002160000）。候補日 vs 公演日時は候補表を履歴と定義して完了（2026-10-04） | 旧列は view か生成列に置換、または削除 |
 | 画面からの直接書き込み・読み取り | 66箇所 | 120ファイル（from 445・rpc 68 箇所）を ESLint の許可リストに載せ、新規の直接呼び出しは禁止（#738）。書き込みは 127 → 114 か所（Phase 2 の1本目、PR #764） | 0（lint で禁止） |
@@ -75,6 +75,9 @@
 - 本番から構造だけを dump し、`supabase/baseline/<日付>_prod.sql` として保存。既存648本の migration は `supabase/migrations_archive/` へ移す。
 - staging を baseline から再構築し、本番と差分ゼロを確認する。
 - 以後の migration はこの baseline の上に積む。rollback を必ず対で出す。
+- 2026-10-04 完了（整備 1）: 基準 `supabase/baseline/20261004120000_prod.sql` を本番から作成。使い捨ての手元 DB に流して本番の構造の写しと比べ、表・列・制約・索引・RLS・決まり・関数・見張り・view・archive の表・保管庫・定時実行・リアルタイム配信が一致（意味が同じ文面の差のみ: 括弧の付け方 1 件、所有者だけの権限の書き方 3 表、手元にだけある拡張 pg_graphql）。確認は `scripts/check-db-baseline.sh` と GitHub の DB Baseline Check（DB の変更を含む取り込み依頼・毎週）。
+  - 変えた点: 「staging を baseline から再構築」はしなかった。staging のデータ（夜間の写しと受入試験のデータ）を消さずに、同じ確認を使い捨ての DB でできるため。
+  - 変えた点: 既存の migration は `migrations_archive` へ移さなかった。反映の確認（`supabase-release-scope.mjs`）・PR の migration 検証・DB の試験スクリプト 68 本が参照しており、移すと壊れるため。基準より古い migration は経緯の記録として残す。
 
 1-2 アトラスをリポジトリから生成する
 - baseline から mmq-model.json の databaseCatalog（165表の列・制約・RLS）を生成するスクリプトを本体リポジトリに置く。

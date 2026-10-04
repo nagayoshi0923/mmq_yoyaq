@@ -1,0 +1,33 @@
+name: DB Baseline Check
+
+# 整備 1: リポジトリ（基準 supabase/baseline + 以後の migration）から、
+# 本番の構造の写し（supabase/structure/prod.json）と同じ構造を再現できるかを確かめる。
+# 本番・検証環境には接続しない（使い捨てのローカル DB だけを使う）。
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/baseline/**'
+      - 'supabase/structure/prod.json'
+      - 'scripts/check-db-baseline.sh'
+      - 'scripts/db-structure-snapshot.mjs'
+  schedule:
+    # 毎週月曜 AM 6:00 JST
+    - cron: '0 21 * * 0'
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    name: Reproduce prod structure from baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.98.2
+      - name: Check
+        run: bash scripts/check-db-baseline.sh
