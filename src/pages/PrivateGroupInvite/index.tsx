@@ -2,16 +2,14 @@ import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
 import { savePrivateGroupPreferredStores } from '@/lib/privateGroupPreferredStores'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, savePrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
-import { addJstDays, toJstYmd } from '@/utils/jstDate'
-import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
+import { addJstDays } from '@/utils/jstDate'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Check, UserPlus, ArrowLeft, Settings } from 'lucide-react'
+import { Calendar, Users, Circle, X, HelpCircle, Check, UserPlus, ArrowLeft, Settings } from 'lucide-react'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
@@ -28,21 +26,24 @@ import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
-import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { memberInvitationCap, resolvePrivateGroupBookingParticipantCount } from '@/lib/privateGroupPlayerCap'
 import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
+import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import {
   formatBlockedCandidateLabel,
-  getPrivateBookingCandidateBlockedState,
   type PrivateBookingBlockedSlotRow,
 } from '@/lib/privateBookingBlockedSlotAvailability'
-import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import type { RpcGetPublicPrivateBookingAvailabilityParams } from '@/lib/rpcTypes'
 import { upsertOwnCustomer } from '@/lib/api/customerApi'
 import { getErrorMessage } from '@/lib/errorFields'
+import {
+  bookingRequestErrorMessage, buildCandidateDatetimes, findPastDeadlineCandidates, findUnavailableCandidates,
+  generateReservationNumber, parseDeadlineDays, pastDeadlineMessage, selectBookableCandidates,
+} from './bookingRequest'
 
 interface Coupon {
   id: string
@@ -711,137 +712,28 @@ export function PrivateGroupInvite() {
   }
 
   if (groupLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="/" />
-        <div className="container mx-auto max-w-lg px-4 py-12">
-          <div className="flex items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            読み込み中...
-          </div>
-        </div>
-      </div>
-    )
+    return <InviteLoadingScreen />
   }
 
   if (groupError || !group) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="/" />
-        <div className="container mx-auto max-w-lg px-4 py-12">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-              <h2 className="text-lg font-medium mb-2">招待が見つかりません</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                {groupError || '招待コードが無効か、有効期限が切れています'}
-              </p>
-              <Button onClick={() => navigate('/')}>
-                トップへ戻る
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
+    return <InviteNotFoundScreen errorMessage={groupError} onBackToTop={() => navigate('/')} />
   }
 
   if (group.status === 'cancelled') {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="/" />
-        <div className="container mx-auto max-w-lg px-4 py-12">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-lg font-medium mb-2">このグループはキャンセルされました</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                主催者によりグループがキャンセルされました
-              </p>
-              <Button onClick={() => navigate('/')}>
-                トップへ戻る
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
+    return <InviteCancelledScreen onBackToTop={() => navigate('/')} />
   }
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="/" />
-        <div className="container mx-auto max-w-lg px-4 py-12 space-y-4">
-          <Card className="border-2 border-green-200 bg-green-50">
-            <CardContent className="p-8 text-center space-y-4">
-              <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-              <h2 className="text-lg text-green-800 font-medium">
-                {generatedPin ? '参加登録が完了しました！' : '回答を更新しました！'}
-              </h2>
-              <p className="text-sm text-green-700">
-                主催者が全員の回答を確認後、貸切予約を申し込みます。
-                <br />
-                予約確定後にご連絡いたします。
-              </p>
-              <div className="flex flex-col gap-2">
-                <Button
-                  onClick={() => {
-                    setSuccess(false)
-                    refetch()
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  グループページを見る
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/')}
-                  className="border-green-600 text-green-700"
-                >
-                  トップへ戻る
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* PIN表示（新規ゲスト参加時のみ） */}
-          {generatedPin && (
-            <Card className="border-2 border-red-300 bg-red-50">
-              <CardContent className="p-4 text-center space-y-3">
-                <p className="text-sm font-bold text-red-800">
-                  🔑 アクセスPINを控えてください
-                </p>
-                <div className="bg-white border-2 border-red-300 rounded-lg py-3 px-6 inline-block">
-                  <span className="text-3xl font-mono font-bold tracking-widest text-red-700">
-                    {generatedPin}
-                  </span>
-                </div>
-                <p className="text-xs text-red-700">
-                  次回このグループにアクセスする際に、<br />
-                  メールアドレス（{guestEmail}）とこのPINが必要です
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* ブックマーク案内 */}
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="p-4 text-center">
-              <p className="text-sm text-amber-800">
-                📌 <span className="font-medium">このページをブックマークしてください</span>
-              </p>
-              <p className="text-xs text-amber-700 mt-1">
-                グループの状況確認や回答変更にいつでもアクセスできます
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <InviteJoinSuccessScreen
+        generatedPin={generatedPin}
+        guestEmail={guestEmail}
+        onViewGroup={() => {
+          setSuccess(false)
+          refetch()
+        }}
+        onBackToTop={() => navigate('/')}
+      />
     )
   }
 
@@ -972,10 +864,7 @@ export function PrivateGroupInvite() {
       return
     }
 
-    const selectedCandidateDates =
-      group.candidate_dates?.filter(
-        cd => bookingSelectedDates.has(cd.id) && cd.status !== 'rejected'
-      ) || []
+    const selectedCandidateDates = selectBookableCandidates(group.candidate_dates, bookingSelectedDates)
 
     if (selectedCandidateDates.length === 0) {
       toast.error(
@@ -1008,14 +897,10 @@ export function PrivateGroupInvite() {
       // 受付締切（公演日の何日前まで）を過ぎた候補があると、申込全体が DB で拒否される。送る前に知らせる（#506）
       // 締切日数が読めないときはここでは止めず、DB の確認に任せる（誤って止めない）
       const deadlineResult = await privateBookingSlotReadApi.getEffectiveDeadlineDays({ scenarioId: group.scenario_master_id, organizationId: orgId, organizationSlug: null })
-      const deadlineDays = !deadlineResult.error && typeof deadlineResult.data === 'number' && Number.isInteger(deadlineResult.data) && deadlineResult.data >= 0
-        ? deadlineResult.data
-        : null
-      const earliestDate = deadlineDays === null ? null : addJstDays(toJstYmd(new Date()), deadlineDays)
-      const pastDeadline = earliestDate === null ? [] : selectedCandidateDates.filter((candidate) => candidate.date < earliestDate)
+      const deadlineDays = parseDeadlineDays(deadlineResult)
+      const pastDeadline = findPastDeadlineCandidates(selectedCandidateDates, deadlineDays)
       if (pastDeadline.length > 0) {
-        const labels = pastDeadline.map((candidate) => candidate.date.slice(5).replace('-', '/')).join('、')
-        toast.error(`${labels} は貸切の受付締切（公演日の${deadlineDays}日前まで）を過ぎています。この日程を外して申し込んでください`)
+        toast.error(pastDeadlineMessage(pastDeadline, deadlineDays))
         return
       }
 
@@ -1041,25 +926,7 @@ export function PrivateGroupInvite() {
 
       const blockedRows = (blockedResult.data || []) as PrivateBookingBlockedSlotRow[]
       const eventRows = eventsResult.data || []
-      const unavailableCandidates = selectedCandidateDates.filter((candidate) => {
-        const blockedState = getPrivateBookingCandidateBlockedState(
-          { date: candidate.date, timeSlot: candidate.time_slot },
-          requestedStoreIds,
-          blockedRows
-        )
-        const start = timeStrToMinutes(candidate.start_time)
-        const end = timeStrToMinutes(candidate.end_time)
-        if (start == null || end == null) return true
-        return !blockedState.availableStoreIds.some((storeId) =>
-          !eventRows.some((event) => {
-            if (event.store_id !== storeId) return false
-            const eventStart = timeStrToMinutes(event.start_time)
-            const eventEnd = timeStrToMinutes(event.end_time)
-            if (eventStart == null || eventEnd == null) return true
-            return checkTimeOverlapWithPreparation(event.start_time, event.end_time, candidate.start_time, candidate.end_time, scenarioTiming.preparation_minutes_by_event?.[event.id] ?? 60, scenarioTiming.preparation_minutes_by_store?.[storeId] ?? 60, event.date, candidate.date).overlap
-          })
-        )
-      })
+      const unavailableCandidates = findUnavailableCandidates(selectedCandidateDates, requestedStoreIds, blockedRows, eventRows, scenarioTiming)
       if (unavailableCandidates.length > 0) {
         const details = unavailableCandidates.map((candidate) =>
           formatBlockedCandidateLabel(
@@ -1092,34 +959,12 @@ export function PrivateGroupInvite() {
       }
       
       // 予約番号を生成
-      const now = new Date()
-      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-      const baseReservationNumber = `${dateStr}-${randomStr}`
+      const baseReservationNumber = generateReservationNumber()
       
 
 
       // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
-      const candidateDatetimes = {
-        candidates: selectedCandidateDates.map((cd, index) => ({
-          order: index + 1,
-          date: cd.date,
-          timeSlot: cd.time_slot,
-          startTime: cd.start_time,
-          endTime: getPrivateBookingDisplayEndTime(
-            cd.start_time,
-            cd.date,
-            scenarioTiming,
-            isCustomHoliday
-          ),
-          status: 'pending'
-        })),
-        requestedStores: preferredStoreNames.map(store => ({
-          storeId: store.id,
-          storeName: store.name,
-          storeShortName: store.name
-        }))
-      }
+      const candidateDatetimes = buildCandidateDatetimes(selectedCandidateDates, preferredStoreNames, scenarioTiming, isCustomHoliday)
       
       // 参加人数は作品定員。今いるメンバー数で受けると、あとから追加できなくなる。
       const scenarioForBookingCap = group.scenario_masters as {
@@ -1171,30 +1016,7 @@ export function PrivateGroupInvite() {
         })
         
         // エラーコードに応じたメッセージ
-        let errorMessage = '貸切リクエストの送信に失敗しました'
-        if (rpcError.code === 'P0001') {
-          errorMessage = 'シナリオが見つかりません'
-        } else if (rpcError.code === 'P0025') {
-          errorMessage = '参加人数が作品の対応人数の範囲外です。作品の人数をご確認ください'
-        } else if (rpcError.code === 'P0051') {
-          errorMessage = '作品の対応人数が未設定です。店舗へお問い合わせください'
-        } else if (rpcError.code === 'P0026') {
-          errorMessage = '組織情報が見つかりません'
-        } else if (rpcError.code === 'P0030' || (rpcError.message && rpcError.message.includes('conflict'))) {
-          errorMessage = '候補日時に既存の公演との競合があります。日時と希望店舗を再選択してください。'
-        } else if (rpcError.code === 'P0040') {
-          errorMessage = '候補日時が現在受付停止中です。日時と希望店舗を再選択してください。'
-        } else if (rpcError.code === 'P0041' || rpcError.code === 'P0042') {
-          errorMessage = '候補日時または希望店舗が正しくありません。再選択してください。'
-        } else if (rpcError.code === 'P0045') {
-          errorMessage = '貸切の受付締切を過ぎた候補日があります。その日程を外して、もう一度お試しください。'
-        } else if (rpcError.code === 'P0047') {
-          errorMessage = '貸切リクエストはグループから申し込んでください。画面を開き直してから、もう一度お試しください。'
-        } else if (rpcError.code === 'P0044') {
-          errorMessage = 'この作品は現在貸切リクエストを受け付けていません'
-        } else if (rpcError.message) {
-          errorMessage = rpcError.message
-        }
+        const errorMessage = bookingRequestErrorMessage(rpcError)
         
         throw new Error(errorMessage)
       }
