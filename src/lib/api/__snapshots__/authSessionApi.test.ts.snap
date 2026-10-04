@@ -1,0 +1,57 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`認証処理のクエリは移す前と同じ 1`] = `
+{
+  "findCustomerNameByUserId": [
+    "from("customers") .select("name, nickname") .eq("user_id", "a1") .order("updated_at", {"ascending":false}) .order("created_at", {"ascending":true}) .order("id", {"ascending":true}) .limit(1) .maybeSingle()",
+  ],
+  "findStaffByEmailForLink": [
+    "from("staff") .select("id, user_id, name") .eq("email", "a1") .maybeSingle()",
+  ],
+  "findStaffIdByEmail": [
+    "from("staff") .select("id") .eq("email", "a1") .maybeSingle()",
+  ],
+  "findStaffIdByUserId": [
+    "from("staff") .select("id") .eq("user_id", "a1") .maybeSingle()",
+  ],
+  "findStaffNameByUserId": [
+    "from("staff") .select("id, name, user_id") .eq("user_id", "a1") .maybeSingle()",
+  ],
+  "findUnlinkedCustomerByEmail": [
+    "from("customers") .select("id, name, nickname, user_id") .eq("email", "a1") .is("user_id", null) .maybeSingle()",
+  ],
+  "findUnlinkedStaffByEmail": [
+    "from("staff") .select("id, name, user_id") .eq("email", "a1") .is("user_id", null) .maybeSingle()",
+  ],
+  "findUserRole": [
+    "from("users") .select("role") .eq("id", "a1") .maybeSingle()",
+  ],
+  "getUserRole": [
+    "from("users") .select("role, is_store_representative") .eq("id", "a1") .maybeSingle()",
+  ],
+  "getUserRoleSingle": [
+    "from("users") .select("role") .eq("id", "a1") .single()",
+  ],
+  "insertAuthLog": [
+    "from("auth_logs") .insert({"user_id":"u","event_type":"login","ip_address":null,"user_agent":nul…)",
+  ],
+  "insertUser": [
+    "from("users") .insert({"id":"u","email":"e","role":"customer","created_at":"t1","updated_at"…)",
+  ],
+  "linkCustomerToUser": [
+    "from("customers") .update({"user_id":"a2"}) .eq("id", "a1")",
+  ],
+  "linkStaffToUser": [
+    "from("staff") .update({"user_id":"a2"}) .eq("id", "a1")",
+  ],
+  "linkStaffToUserWithTimestamp": [
+    "from("staff") .update({"user_id":"a2","updated_at":"a3"}) .eq("id", "a1")",
+  ],
+  "listCustomerIdsByUserId": [
+    "from("customers") .select("id") .eq("user_id", "a1") .order("created_at", {"ascending":true}) .limit(1)",
+  ],
+  "setUserRoleStaff": [
+    "from("users") .update({"role":"staff"}) .eq("id", "a1")",
+  ],
+}
+`;

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { authSessionApi } from '@/lib/api/authSessionApi'
 import { logger } from '@/utils/logger'
 
 /**
@@ -11,19 +11,11 @@ export async function lookupStaffRole(
   email: string | undefined | null
 ): Promise<'staff' | null> {
   try {
-    const { data: byId } = await supabase
-      .from('staff')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle()
+    const { data: byId } = await authSessionApi.findStaffIdByUserId(userId)
     if (byId) return 'staff'
 
     if (email) {
-      const { data: byEmail } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle()
+      const { data: byEmail } = await authSessionApi.findStaffIdByEmail(email)
       if (byEmail) return 'staff'
     }
   } catch {
@@ -131,7 +123,7 @@ export function logAuthEvent(
       const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
       const ipAddress = await getClientIpAddress()
 
-      const { error } = await supabase.from('auth_logs').insert({
+      const { error } = await authSessionApi.insertAuthLog({
         user_id: userId,
         event_type: eventType,
         old_role: options?.oldRole,

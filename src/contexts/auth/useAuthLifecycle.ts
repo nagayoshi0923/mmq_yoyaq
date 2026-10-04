@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { supabase, type AuthUser } from '@/lib/supabase'
+import { authSessionApi } from '@/lib/api/authSessionApi'
 import { authTrace } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
 import { validateRedirectUrl } from '@/lib/utils'
@@ -143,12 +144,7 @@ export function useAuthLifecycle(deps: AuthLifecycleDeps) {
               const isOAuthSocialSignIn = Boolean(authProvider && authProvider !== 'email')
 
               if (oauthMode === 'login' && isOAuthSocialSignIn) {
-                const { data: customerRows } = await supabase
-                  .from('customers')
-                  .select('id')
-                  .eq('user_id', session.user.id)
-                  .order('created_at', { ascending: true })
-                  .limit(1)
+                const { data: customerRows } = await authSessionApi.listCustomerIdsByUserId(session.user.id)
 
                 if (!customerRows || customerRows.length === 0) {
                   authTrace('⚠️ OAuthログインで顧客レコード未検出、プロフィール登録へ誘導')
