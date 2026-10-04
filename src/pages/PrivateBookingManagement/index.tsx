@@ -2,21 +2,15 @@ import { saveGmResponse, type ManualGmResponseBaseline } from '@/lib/gmResponseA
 import { candidateResponseIndex } from '@/lib/gmCandidateSelection'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users, Search, Mail } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { SearchInput, FilterBar, FilterSelect } from '@/components/patterns/filter'
+import { Calendar, Search, Mail } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState, ListSkeleton } from '@/components/patterns/list'
-import { ConfirmDialog } from '@/components/patterns/modal'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
@@ -29,12 +23,13 @@ import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNot
 import { useApprovalDeliveryStatus } from './hooks/useApprovalDeliveryStatus'
 import { useRejectionDeliveryStatus } from './hooks/useRejectionDeliveryStatus'
 import { BookingRequestCard } from './components/BookingRequestCard'
-import { CustomerInfo } from './components/CustomerInfo'
-import { CandidateDateSelector } from './components/CandidateDateSelector'
+import { RequestFilterToolbar } from './components/RequestFilterToolbar'
+import { RejectRequestDialog } from './components/RejectRequestDialog'
+import { RequestConfirmDialogs } from './components/RequestConfirmDialogs'
+import { buildGmSelectOptions } from './utils/gmSelectOptions'
 import { ActionButtons } from './components/ActionButtons'
 import { SurveyResponsesView } from './components/SurveyResponsesView'
 import { TemplateEditDialog } from '@/components/settings/TemplateEditDialog'
-import { TemplateEditButton } from '@/components/settings/TemplateEditButton'
 
 
 // 分離されたフック
@@ -47,9 +42,7 @@ import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { usePrivateBookingConflicts } from './hooks/usePrivateBookingConflicts'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
-import { isGmMarkedAvailable, isGmAvailableForCandidate } from './utils/gmAvailabilityStatus'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { DateRangePopover } from '@/components/ui/date-range-popover'
 import {
   classifyPrivateBookingBlockedTiming,
   getPrivateBookingCandidateBlockedState,
@@ -280,45 +273,10 @@ export function PrivateBookingManagement() {
   const mergedGmOptions = useMemo(() => mergeGmOptions(allGMs, availableGMs), [allGMs, availableGMs])
 
   // Radix Select はダイアログ内＋長い候補でビューポートが不安定になりがちなため、ネイティブ select で全件・確実にスクロール表示する
-  const gmSelectOptions = (() => {
-    const candidates = selectedRequest?.candidate_datetimes?.candidates
-    const selectedCandidate =
-      selectedCandidateOrder != null && candidates
-        ? candidates.find((c: { order: number }) => c.order === selectedCandidateOrder)
-        : undefined
-
-    return mergedGmOptions
-      .map((gm) => {
-        const availableGM = availableGMs.find((ag) => String(ag.gm_id) === String(gm.id))
-        // 候補日が選択されているときはその候補に対する回答で [対応可能] を判定する
-        // （選択候補なしのフォールバックのみ「いずれかの候補で対応可能」を使う）
-        const isAvailable = availableGM
-          ? selectedCandidate
-            ? isGmAvailableForCandidate(availableGM, candidateResponseIndex(selectedCandidate, candidates || []))
-            : isGmMarkedAvailable(availableGM)
-          : false
-        const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))
-        let gmConflict: boolean | undefined = false
-        if (selectedCandidate?.date && selectedCandidate?.timeSlot) {
-          const candidate = approvalCandidateTime(selectedRequest!, selectedCandidate)
-          gmConflict = conflicts.gmConflict(selectedRequest!, candidate, gm.id, gm.name)
-        }
-        const isGMDisabled = gmConflict !== false
-        const tagParts: string[] = []
-        if (isAssigned) tagParts.push('担当')
-        if (isAvailable) tagParts.push('対応可能')
-        if (isGMDisabled) tagParts.push(gmConflict === true ? '予約済み' : conflicts.ready ? '確認不可' : '確認中')
-        let label = gm.name
-        if (tagParts.length) label += ` [${tagParts.join('・')}]`
-        const score = (isAssigned ? 2 : 0) + (isAvailable ? 1 : 0)
-        return { gm, isGMDisabled, label, score }
-      })
-      .sort(
-        (a, b) =>
-          b.score - a.score ||
-          a.gm.name.localeCompare(b.gm.name, 'ja', { sensitivity: 'base' })
-      )
-  })()
+  const gmSelectOptions = buildGmSelectOptions({
+    mergedGmOptions, availableGMs, assignedGMIds, selectedRequest, selectedCandidateOrder,
+    candidateTime: approvalCandidateTime, gmConflictOf: conflicts.gmConflict, conflictsReady: conflicts.ready,
+  })
 
   useEffect(() => {
     const candidate = selectedRequest?.candidate_datetimes?.candidates?.find(
@@ -630,67 +588,25 @@ export function PrivateBookingManagement() {
             </TabsList>
 
             {/* 検索・絞り込みツールバー（全タブ横断で効く。件数バッジにも反映） */}
-            <FilterBar
-              isDirty={hasActiveFilters}
-              onReset={() => {
-                setSearchText('')
-                setScenarioFilter('all')
-                setStoreFilter('all')
-                setDateRangeStart(undefined)
-                setDateRangeEnd(undefined)
-              }}
-            >
-              <TemplateEditButton
-                templateKey="private_request_template"
-                organizationId={organizationId}
-                label="受付メールのテンプレを編集"
-                className="h-8 text-xs text-purple-700 hover:text-purple-900"
-              />
-              <SearchInput
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="予約番号・名前・メール・シナリオで検索"
-                containerClassName="flex-1 min-w-[280px] max-w-md"
-              />
-              <FilterSelect
-                value={scenarioFilter}
-                onValueChange={setScenarioFilter}
-                className="w-[150px]"
-                options={[
-                  { value: 'all', label: 'シナリオ: 全て' },
-                  ...scenarioOptions.map(title => ({ value: title, label: title })),
-                ]}
-              />
-              <FilterSelect
-                value={storeFilter}
-                onValueChange={setStoreFilter}
-                className="w-[130px]"
-                options={[
-                  { value: 'all', label: '店舗: 全て' },
-                  ...storeOptions.map(name => ({ value: name, label: name })),
-                ]}
-              />
-              <DateRangePopover
-                startDate={dateRangeStart}
-                endDate={dateRangeEnd}
-                onDateChange={handleDateRangeChange}
-                label={dateRangeStart || dateRangeEnd
-                  ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}`
-                  : '期間指定'}
-                buttonClassName="!w-auto min-w-[110px] !h-8 text-xs input-bg rounded"
-              />
-              <FilterSelect
-                value={displayLimit}
-                onValueChange={setDisplayLimit}
-                className="w-[110px]"
-                options={[
-                  { value: '20', label: '最新20件' },
-                  { value: '50', label: '最新50件' },
-                  { value: '100', label: '最新100件' },
-                  { value: 'all', label: '全件表示' },
-                ]}
-              />
-            </FilterBar>
+            <RequestFilterToolbar
+              hasActiveFilters={hasActiveFilters}
+              setSearchText={setSearchText}
+              setScenarioFilter={setScenarioFilter}
+              setStoreFilter={setStoreFilter}
+              setDateRangeStart={setDateRangeStart}
+              setDateRangeEnd={setDateRangeEnd}
+              organizationId={organizationId}
+              searchText={searchText}
+              scenarioFilter={scenarioFilter}
+              storeFilter={storeFilter}
+              scenarioOptions={scenarioOptions}
+              storeOptions={storeOptions}
+              dateRangeStart={dateRangeStart}
+              dateRangeEnd={dateRangeEnd}
+              handleDateRangeChange={handleDateRangeChange}
+              displayLimit={displayLimit}
+              setDisplayLimit={setDisplayLimit}
+            />
           </div>
 
           {!pauses.ready && requests.length > 0 && (
@@ -1020,39 +936,16 @@ export function PrivateBookingManagement() {
           </div>
         </Tabs>
 
-        {/* 削除：承認ダイアログはカードのインライン展開に移行 */}
-
-        {/* Discord通知再送信 確認ダイアログ */}
-        <ConfirmDialog
-          open={resendDiscordTarget !== null}
-          onOpenChange={(open) => { if (!open) setResendDiscordTarget(null) }}
-          title={`「${resendDiscordTarget?.scenario_title ?? ''}」のDiscord通知を再送信しますか？`}
-          description="担当GMに新しいボタン付きメッセージが送信されます。"
-          confirmLabel="再送信する"
-          variant="default"
-          onConfirm={runResendDiscordNotification}
-        />
-
-        {/* 承認済み予約の内容変更 確認ダイアログ */}
-        <ConfirmDialog
-          open={reapproveTarget !== null}
-          onOpenChange={(open) => { if (!open) setReapproveTarget(null) }}
-          title="この予約は既に承認済みです。内容を変更しますか？"
-          description="変更すると、お客様に再度確定メールが送信されます。"
-          confirmLabel="変更する"
-          variant="default"
-          onConfirm={runReapprove}
-        />
-
-        {/* 申込の完全削除 確認ダイアログ */}
-        <ConfirmDialog
-          open={deleteConfirmOpen}
-          onOpenChange={setDeleteConfirmOpen}
-          title="この申込を完全に削除しますか？"
-          description="この操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。公演・支払・請求などの履歴がある申込は削除できません。履歴を残す場合は取消操作を利用してください。"
-          confirmLabel="削除する"
-          variant="destructive"
-          onConfirm={runDelete}
+        <RequestConfirmDialogs
+          resendDiscordTarget={resendDiscordTarget}
+          setResendDiscordTarget={setResendDiscordTarget}
+          runResendDiscordNotification={runResendDiscordNotification}
+          reapproveTarget={reapproveTarget}
+          setReapproveTarget={setReapproveTarget}
+          runReapprove={runReapprove}
+          deleteConfirmOpen={deleteConfirmOpen}
+          setDeleteConfirmOpen={setDeleteConfirmOpen}
+          runDelete={runDelete}
         />
 
         {/* 確定メール（private_confirm_template）のテンプレ編集ダイアログ。承認時に選んだ店舗の設定を編集 */}
@@ -1063,73 +956,21 @@ export function PrivateBookingManagement() {
           onOpenChange={setConfirmTemplateDialogOpen}
         />
 
-        {/* 却下ダイアログ */}
-        <Dialog open={showRejectDialog} onOpenChange={(open) => !open && handleRejectCancel()}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>貸切リクエストの却下</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm">却下メール本文（このまま送信されます）</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs text-purple-700 hover:text-purple-900"
-                    onClick={openRejectTemplateEditor}
-                    disabled={resolvingRejectStore || rejectBodyLoading}
-                  >
-                    <Mail className="h-3 w-3 mr-1" />
-                    {resolvingRejectStore ? '読み込み中...' : '却下メールのテンプレを編集'}
-                  </Button>
-                </div>
-                {rejectBodyLoading ? (
-                  <div className="border rounded-md py-12 text-center text-sm text-muted-foreground">
-                    メール本文を読み込み中...
-                  </div>
-                ) : (
-                  <Textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={14}
-                    placeholder="却下メールの本文"
-                    className="text-sm font-mono"
-                  />
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  お客様に送られる却下メールの全文です。この場で自由に編集できます。次回以降の既定文面（テンプレート）を直すには「却下メールのテンプレを編集」から。
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={handleRejectCancel}
-                disabled={submitting}
-              >
-                キャンセル
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleRejectConfirm(selectedRequest)}
-                disabled={submitting || rejectBodyLoading || !rejectionReason.trim()}
-              >
-                {submitting ? '処理中...' : '却下する'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 却下メール（private_rejection_template）のテンプレ編集。却下ダイアログの上に重ねて開く。
-            貸切リクエストは店舗未確定が多いので、その場合は組織のメール設定を編集する */}
-        <TemplateEditDialog
-          templateKey="private_rejection_template"
-          storeId={rejectTemplateStoreId}
-          organizationId={rejectTemplateOrgId}
-          open={rejectTemplateOpen}
-          onOpenChange={setRejectTemplateOpen}
+        <RejectRequestDialog
+          showRejectDialog={showRejectDialog}
+          handleRejectCancel={handleRejectCancel}
+          openRejectTemplateEditor={openRejectTemplateEditor}
+          resolvingRejectStore={resolvingRejectStore}
+          rejectBodyLoading={rejectBodyLoading}
+          rejectionReason={rejectionReason}
+          setRejectionReason={setRejectionReason}
+          submitting={submitting}
+          handleRejectConfirm={handleRejectConfirm}
+          selectedRequest={selectedRequest}
+          rejectTemplateStoreId={rejectTemplateStoreId}
+          rejectTemplateOrgId={rejectTemplateOrgId}
+          rejectTemplateOpen={rejectTemplateOpen}
+          setRejectTemplateOpen={setRejectTemplateOpen}
         />
       </div>
     </AppLayout>
