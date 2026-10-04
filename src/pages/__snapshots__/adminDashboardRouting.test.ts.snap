@@ -1,0 +1,66 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`URL から表示するページを決める > 主な URL の結果を固定する（移す前の規則のまま） 1`] = `
+{
+  "/": {
+    "organizationSlug": null,
+    "page": "platform-top",
+    "scenarioId": null,
+  },
+  "/admin/scenario-masters": {
+    "organizationSlug": null,
+    "page": "scenario-master-admin",
+    "scenarioId": null,
+  },
+  "/blog/abc": {
+    "organizationSlug": null,
+    "page": "blog-detail",
+    "scenarioId": "abc",
+  },
+  "/dev/components": {
+    "organizationSlug": null,
+    "page": "dev-components",
+    "scenarioId": null,
+  },
+  "/group/create": {
+    "organizationSlug": null,
+    "page": "group-create",
+    "scenarioId": null,
+  },
+  "/group/manage/g1": {
+    "organizationSlug": null,
+    "page": "group-manage",
+    "scenarioId": "g1",
+  },
+  "/mypage": {
+    "organizationSlug": null,
+    "page": "mypage",
+    "scenarioId": null,
+  },
+  "/mypage/reservation/r1": {
+    "organizationSlug": null,
+    "page": "mypage-reservation-detail",
+    "scenarioId": "r1",
+  },
+  "/org/queens-waltz/contact": {
+    "organizationSlug": "queens-waltz",
+    "page": "org-contact",
+    "scenarioId": null,
+  },
+  "/queens-waltz": {
+    "organizationSlug": "queens-waltz",
+    "page": "booking",
+    "scenarioId": null,
+  },
+  "/queens-waltz/private-booking-management": {
+    "organizationSlug": "queens-waltz",
+    "page": "private-booking-management",
+    "scenarioId": null,
+  },
+  "/scenarios/edit/s1": {
+    "organizationSlug": null,
+    "page": "scenarios",
+    "scenarioId": null,
+  },
+}
+`;
