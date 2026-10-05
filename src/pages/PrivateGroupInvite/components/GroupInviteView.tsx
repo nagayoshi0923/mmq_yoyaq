@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
 import { SurveyResponseForm } from './SurveyResponseForm'
+import { PinResetRequest } from './PinResetRequest'
 import { InviteProgressCard } from './InviteProgressCard'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { formatJstDateJa } from '@/utils/jstDate'
@@ -755,6 +756,7 @@ export function GroupInviteView({
               >
                 認証する
               </Button>
+              {code && <PinResetRequest inviteCode={code} email={pinEmail} />}
             </CardContent>
           </Card>
         )}

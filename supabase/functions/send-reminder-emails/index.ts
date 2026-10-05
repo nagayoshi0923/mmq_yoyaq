@@ -391,7 +391,7 @@ function getDefaultReminderTemplate(dayMessage: string): string {
   </p>
 
   <div style="margin: 30px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-    <p style="margin: 0;">クイーンズワルツ</p>
+    <p style="margin: 0;">クインズワルツ</p>
     <p style="margin: 5px 0 0 0;">Email: info@queens-waltz.jp</p>
   </div>
 </body>

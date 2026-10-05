@@ -18,7 +18,7 @@ MMQシステムはマルチテナント構成で、複数組織が同一シス�
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  organizations（組織）                                               │
-│  ├── クイーンズワルツ（is_license_manager: true）                   │
+│  ├── クインズワルツ（is_license_manager: true）                   │
 │  │   ├── stores: 高田馬場店, 別館①, 別館②, 神楽坂店, 中野店, 門前仲町│
 │  │   ├── staff: 20名                                                │
 │  │   └── scenarios: 50本                                            │
@@ -170,7 +170,7 @@ interface Organization {
 予約サイトはURLパスで組織を識別:
 
 ```
-/booking/queens-waltz/          → クイーンズワルツの予約サイト
+/booking/queens-waltz/          → クインズワルツの予約サイト
 /booking/company-a/             → A社の予約サイト
 /booking/company-a/scenario/xxx → A社のシナリオ詳細
 ```

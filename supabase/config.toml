@@ -96,6 +96,10 @@ verify_jwt = false
 [functions.send-guest-pin]
 verify_jwt = false
 
+# ゲストの PIN 再発行（未ログインのゲストが使う。関数内で回数制限・参加の有無を漏らさない）
+[functions.request-guest-pin-reset]
+verify_jwt = false
+
 # Discord Bot インタラクション（Discord からの POST リクエスト、関数内で署名検証）
 [functions.discord-interactions]
 verify_jwt = false
@@ -121,6 +125,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.process-private-survey-deliveries]
+verify_jwt = false
+
+[functions.process-survey-reminders]
 verify_jwt = false
 
 [functions.process-private-approval-deliveries]
