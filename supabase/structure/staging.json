@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-04T01:36:21.886Z",
+  "captured_at": "2026-10-05T05:35:51.081Z",
   "table_count": 138,
-  "function_count": 336,
-  "digest": "e8f4cbe5f1480ef746c695560a9fd40d75e49c99d6cfa4e017d6be4b2d35cd62"
+  "function_count": 337,
+  "digest": "73e55803a1e5c562a15bc0c1c591a4ab98432ca84fbdcac6081eeab70911e06e"
  },
  "tables": {
   "staff": {
@@ -24773,6 +24773,17 @@
    ],
    "returns": "jsonb",
    "body_md5": "573935bb23e5833979eef2d84ad2b240",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_read_staff_booking_summaries(p_organization_id uuid, p_group_ids uuid[])": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "70b83f7164ca320322c98a9dcbc7c90e",
    "language": "plpgsql",
    "security_definer": true
   },

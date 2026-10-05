@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ responses: vi.fn(), holiday: () => false, rows: [] as any[], ranges: [] as number[][], groups: [] as any[] }))
-vi.mock('@/lib/privateGroupRead', () => ({ readPrivateGroupList: async () => mocks.groups }))
+vi.mock('@/lib/privateGroupRead', () => ({ readPrivateGroupStaffBookingSummaries: async () => mocks.groups }))
 vi.mock('@/lib/gmResponseApi', () => ({ getGmResponses: mocks.responses, getGmReadiness: async (ids: string[]) => Object.fromEntries(ids.map(id => [id, false])) }))
 vi.mock('@/lib/organization', () => ({ getCurrentOrganizationId: async () => 'org' }))
 vi.mock('@/hooks/useCustomHolidays', () => ({ useCustomHolidays: () => ({ isCustomHoliday: mocks.holiday }) }))
@@ -88,11 +88,11 @@ it('確定済みの候補一覧は申請時の候補を並べ、確定した日�
     { id: 'slot-changed', status: 'confirmed', private_group_id: 'g2', candidate_datetimes: { candidates: [shifted] } },
   ]
   mocks.groups=[
-    { id: 'g1', members: [], candidate_dates: [
+    { id: 'g1', joined_member_count: 3, candidate_dates: [
       { group_id: 'g1', date: '2026-11-01', time_slot: '午後', start_time: '13:00', end_time: '16:00' },
       { group_id: 'g1', date: '2026-11-02', time_slot: '午前', start_time: '10:00', end_time: '13:00' },
     ] },
-    { id: 'g2', members: [], candidate_dates: [
+    { id: 'g2', joined_member_count: 0, candidate_dates: [
       { group_id: 'g2', date: '2026-11-08', time_slot: '夜間', start_time: '18:00', end_time: '21:00' },
       { group_id: 'g2', date: '2026-11-09', time_slot: '午後', start_time: '14:00', end_time: '17:00' },
     ] },
@@ -108,4 +108,7 @@ it('確定済みの候補一覧は申請時の候補を並べ、確定した日�
   expect(view('same-slot')).toEqual(['2026-11-01 14:30 confirmed', '2026-11-02 10:00 pending'])
   // 承認時に時間帯が変わり履歴の行と対応しなくても、確定した日時を落とさない
   expect(view('slot-changed')).toEqual(['2026-11-08 18:00 pending', '2026-11-09 14:00 pending', '2026-11-08 19:30 confirmed'])
+  // 参加人数はグループの要約（参加中の人数）から出す（#835）
+  expect(state.requests.find(r => r.id === 'same-slot')!.joined_member_count).toBe(3)
+  expect(state.requests.find(r => r.id === 'slot-changed')!.joined_member_count).toBe(0)
 })
