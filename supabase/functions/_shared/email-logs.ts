@@ -151,6 +151,8 @@ export async function upsertEmailLogByProviderId(
     subject: string
     email_type?: EmailLogType
   },
+  /** 送信時に Resend のタグで渡した email_logs の id（送信側が message id を保存する前に Webhook が届いた場合の照合用） */
+  emailLogId?: string | null,
 ): Promise<void> {
   try {
     const { data: rows, error } = await supabase
@@ -165,6 +167,21 @@ export async function upsertEmailLogByProviderId(
     }
 
     if (rows && rows.length > 0) return
+
+    // 送信側が先に作った行（タグの id）がまだ message id を持たないなら、その行に紐付ける（重複行を作らない）
+    if (emailLogId && /^[0-9a-f-]{36}$/i.test(emailLogId)) {
+      const { data: tagged, error: tagError } = await supabase
+        .from('email_logs')
+        .update({ ...updates, provider_message_id: providerId })
+        .eq('id', emailLogId)
+        .is('provider_message_id', null)
+        .select('id')
+      if (tagError) {
+        console.warn('⚠️ email_logs upsertByProviderId tagged update failed:', tagError.message)
+      } else if (tagged && tagged.length > 0) {
+        return
+      }
+    }
 
     // 既存レコード無し → fallback insert
     const { error: insertError } = await supabase
@@ -195,4 +212,49 @@ export async function upsertEmailLogByProviderId(
       (err as Error).message,
     )
   }
+}
+
+/**
+ * 送信成功を記録する。message id と送信時刻は必ず入れ、状態は「送信待ち」のときだけ「送信済み」にする
+ * （Webhook が先に届いて「配信済み」などになっていた場合に戻さない）。
+ */
+export async function markEmailLogSent(
+  supabase: SupabaseClient,
+  id: string | null,
+  providerMessageId: string | null,
+): Promise<void> {
+  if (!id) return
+  try {
+    const { error } = await supabase
+      .from('email_logs')
+      .update({ provider_message_id: providerMessageId, sent_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) console.warn('⚠️ email_logs markSent failed (non-blocking):', error.message)
+    const { error: statusError } = await supabase
+      .from('email_logs')
+      .update({ status: 'sent' })
+      .eq('id', id)
+      .eq('status', 'queued')
+    if (statusError) console.warn('⚠️ email_logs markSent status failed (non-blocking):', statusError.message)
+  } catch (err: unknown) {
+    console.warn('⚠️ email_logs markSent exception (non-blocking):', (err as Error).message)
+  }
+}
+
+/** Resend に渡すタグ（email_logs の id）。Webhook の照合に使う */
+export function emailLogTags(id: string | null): Array<{ name: string; value: string }> | undefined {
+  return id ? [{ name: 'email_log_id', value: id }] : undefined
+}
+
+/** Resend の Webhook のデータから email_logs の id のタグを取り出す（オブジェクト形式・配列形式の両方） */
+export function emailLogIdFromTags(tags: unknown): string | null {
+  if (Array.isArray(tags)) {
+    const hit = tags.find((t) => t && typeof t === 'object' && (t as { name?: unknown }).name === 'email_log_id') as { value?: unknown } | undefined
+    return typeof hit?.value === 'string' ? hit.value : null
+  }
+  if (tags && typeof tags === 'object') {
+    const v = (tags as Record<string, unknown>).email_log_id
+    return typeof v === 'string' ? v : null
+  }
+  return null
 }
