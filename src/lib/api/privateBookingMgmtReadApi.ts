@@ -246,12 +246,17 @@ export const privateBookingMgmtReadApi = {
 }
 
 export const privateBookingRequestReadApi = {
-  /** 貸切リクエストの一覧の1ページ（組織・担当シナリオ・ステータスで絞り、新しい順。範囲指定） */
+  /**
+   * 貸切リクエストの一覧の1ページ（組織・担当シナリオ・ステータスで絞り、新しい順。範囲指定）
+   * 一覧で使う列だけを読む（全列だと本番約 1,100 件で約 3.6MB → 約 1.6MB。#835）。列を使い足すときはここにも足す。
+   */
   async listRequestsPage(organizationId: string, allowedScenarioIds: string[] | null, statuses: string[], from: number, to: number) {
     let query = supabase
       .from('reservations')
       .select(`
-        *,
+        id, reservation_number, scenario_master_id, private_group_id, status, title, candidate_datetimes,
+        customer_email, customer_phone, customer_notes, participant_count,
+        confirmed_at, cancelled_at, created_at, updated_at,
         scenario_masters:scenario_master_id(title, official_duration),
         customers:customer_id(name, phone),
         confirmer:staff!reservations_confirmed_by_fkey(name),
