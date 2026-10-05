@@ -1,6 +1,6 @@
 import { ConfirmedGroupSchedule } from './components/ConfirmedGroupSchedule'
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
-import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
+import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, guestStorage } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
@@ -24,6 +24,7 @@ import { GroupChatSheets } from './components/GroupChatSheets'
 import { GroupInviteView } from './components/GroupInviteView'
 import { ChatModeSidebar } from './components/ChatModeSidebar'
 import { ChatModeHeader } from './components/ChatModeHeader'
+import { SurveyScreen } from './components/SurveyScreen'
 import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -208,7 +209,7 @@ export function PrivateGroupInvite() {
     if (!code || user || !group?.id) return
     let cancelled = false
     const storageKey = getStorageKey(code)
-    const saved = sessionStorage.getItem(storageKey)
+    const saved = guestStorage.getItem(storageKey)
     if (!saved) return
     void (async () => {
       try {
@@ -218,7 +219,7 @@ export function PrivateGroupInvite() {
         if (cancelled) return
         if (error) {
           if (error.code === '42501') {
-            sessionStorage.removeItem(storageKey)
+            guestStorage.removeItem(storageKey)
             clearPrivateGroupGuestToken(group.id)
             setExistingMemberId(null)
           }
@@ -228,7 +229,7 @@ export function PrivateGroupInvite() {
         setGuestName(session.guestName || '')
         setGuestEmail(session.guestEmail || '')
       } catch {
-        if (!cancelled) sessionStorage.removeItem(storageKey)
+        if (!cancelled) guestStorage.removeItem(storageKey)
       }
     })()
     return () => { cancelled = true }
@@ -237,7 +238,7 @@ export function PrivateGroupInvite() {
   useEffect(() => {
     const handleExpired = (event: Event) => {
       if (user || !code || (event as CustomEvent).detail?.groupId !== group?.id) return
-      sessionStorage.removeItem(getStorageKey(code))
+      guestStorage.removeItem(getStorageKey(code))
       setExistingMemberId(null)
       toast.error('本人確認の期限が切れました。メールアドレスとPINで入り直してください。')
     }
@@ -249,7 +250,7 @@ export function PrivateGroupInvite() {
   const saveGuestSession = (memberId: string, name: string, email: string) => {
     if (!code) return
     const storageKey = getStorageKey(code)
-    sessionStorage.setItem(storageKey, JSON.stringify({
+    guestStorage.setItem(storageKey, JSON.stringify({
       memberId,
       guestName: name,
       guestEmail: email,
@@ -261,7 +262,7 @@ export function PrivateGroupInvite() {
   const clearGuestSession = () => {
     if (!code) return
     const storageKey = getStorageKey(code)
-    sessionStorage.removeItem(storageKey)
+    guestStorage.removeItem(storageKey)
     if (group) clearPrivateGroupGuestToken(group.id)
   }
 
@@ -715,6 +716,21 @@ export function PrivateGroupInvite() {
     isScheduleConfirmedUi
   ].filter(Boolean).length
 
+  // 公演前アンケートは、チャットの上の枠ではなく専用の画面で開く（2026-10-05、ゲストが回答できない報告への対策）
+  if (existingMemberId && activeTab === 'survey' && group) {
+    return (
+      <SurveyScreen
+        groupId={group.id}
+        memberId={existingMemberId}
+        scenarioTitle={scenario?.title}
+        performanceDate={group.confirmed_performance?.date}
+        charAssignmentMethod={charAssignmentMethod}
+        characters={scenarioCharacters}
+        onBack={() => setActiveTab('chat')}
+      />
+    )
+  }
+
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
@@ -813,6 +829,7 @@ export function PrivateGroupInvite() {
               members={group.members || []}
               fullHeight={true}
               onGoToSchedule={() => openSheet('dates')}
+              onOpenSurvey={() => setActiveTab('survey')}
               scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.confirmed_performance?.date}

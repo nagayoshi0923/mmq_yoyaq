@@ -1,17 +1,44 @@
 import { supabase } from '@/lib/supabase'
 
+/**
+ * ゲストの本人確認の印と参加情報の保存先。
+ * 以前はタブを閉じると消える保存（sessionStorage）だったため、LINE やメールのリンクから開き直すたびに
+ * PIN の入力が必要になり、3 日で 7 回入り直したゲストもいた（2026-10-05）。サーバー側の有効期限（30 日）に合わせ、
+ * 端末に残す保存（localStorage）にする。使えない端末（プライベートブラウズ等）ではタブ内の保存に切り替える。
+ */
+function safe<T>(fn: () => T, fallback: T): T {
+  try { return fn() } catch { return fallback }
+}
+export const guestStorage = {
+  getItem(key: string): string | null {
+    const value = safe(() => localStorage.getItem(key), null)
+    if (value !== null) return value
+    // 以前のタブ内の保存に残っている分は、端末の保存へ移す
+    const legacy = safe(() => sessionStorage.getItem(key), null)
+    if (legacy !== null && safe(() => { localStorage.setItem(key, legacy); return true }, false)) safe(() => sessionStorage.removeItem(key), undefined)
+    return legacy
+  },
+  setItem(key: string, value: string) {
+    if (!safe(() => { localStorage.setItem(key, value); return true }, false)) safe(() => sessionStorage.setItem(key, value), undefined)
+  },
+  removeItem(key: string) {
+    safe(() => localStorage.removeItem(key), undefined)
+    safe(() => sessionStorage.removeItem(key), undefined)
+  },
+}
+
 const key = (groupId: string) => `private_group_access_${groupId}`
 
 export function savePrivateGroupGuestToken(groupId: string, token: string) {
-  sessionStorage.setItem(key(groupId), token)
+  guestStorage.setItem(key(groupId), token)
 }
 
 export function clearPrivateGroupGuestToken(groupId: string) {
-  sessionStorage.removeItem(key(groupId))
+  guestStorage.removeItem(key(groupId))
 }
 
 export function getPrivateGroupGuestToken(groupId: string): string | null {
-  return sessionStorage.getItem(key(groupId))
+  return guestStorage.getItem(key(groupId))
 }
 
 /** Every guest write is checked on the server; a saved member UUID is not authentication. */
