@@ -12,6 +12,7 @@ import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { isPastPerformanceDate } from '@/lib/surveyCompletion'
 import { Sentry } from '@/lib/sentry'
 import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
@@ -603,7 +604,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
           )}
 
           {/* 配役方法が「アンケート」以外・未選択: アンケート回答カード（配役以外の質問にも答えられるように。#911） */}
-          {charAssignmentMethod !== 'survey' && surveyAvailable && scenarioId && organizationId && currentMemberId && (
+          {/* 公演日を過ぎたら回答できないので出さない（#915） */}
+          {charAssignmentMethod !== 'survey' && surveyAvailable && !isPastPerformanceDate(performanceDate) && scenarioId && organizationId && currentMemberId && (
             <div className="flex justify-center my-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
                 <div className="flex items-center gap-2 mb-3">
