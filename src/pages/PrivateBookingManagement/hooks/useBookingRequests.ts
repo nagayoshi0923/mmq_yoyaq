@@ -1,4 +1,4 @@
-import { readPrivateGroupStaffBookingSummaries } from '@/lib/privateGroupRead'
+import { readPrivateGroupStaffBookingSummaries, type PrivateGroupStaffBookingSummary } from '@/lib/privateGroupRead'
 import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
 import { getGmResponses, getGmReadiness, type GmResponseRow } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
@@ -60,6 +60,31 @@ function groupByReservationId(rows: GmResponseRow[]) {
   return map
 }
 
+/** 一覧で読む予約の列（privateBookingRequestReadApi.listRequestsPage の select と合わせる） */
+interface BookingRequestRow {
+  id: string
+  reservation_number: string | null
+  scenario_master_id: string | null
+  private_group_id: string | null
+  status: string
+  title: string | null
+  candidate_datetimes: PrivateBookingRequest['candidate_datetimes'] | null
+  customer_email: string | null
+  customer_phone: string | null
+  customer_notes: string | null
+  participant_count: number | null
+  confirmed_at: string | null
+  cancelled_at: string | null
+  created_at: string
+  updated_at: string
+  scenario_masters: { title: string | null; official_duration: number | null } | null
+  customers: { name: string | null; phone: string | null } | null
+  confirmer: { name: string | null } | null
+  canceller: { name: string | null } | null
+  /** 読んだ後に付けるグループの要約 */
+  private_groups?: PrivateGroupStaffBookingSummary | null
+}
+
 /** 生データ（endTime未計算）を取得する純粋関数 */
 async function fetchRawBookingRequests(
   userId: string,
@@ -98,8 +123,9 @@ async function fetchRawBookingRequests(
 
   if (allowedScenarioIds !== null && allowedScenarioIds.length === 0) return []
 
-  const reservationsList = await fetchBookingRows((from, to) => {
-    return privateBookingRequestReadApi.listRequestsPage(orgId, allowedScenarioIds, [...PRIVATE_BOOKING_LIST_STATUSES], from, to)
+  const reservationsList = await fetchBookingRows<BookingRequestRow>((from, to) => {
+    // 結合先（作品・顧客・スタッフ）は1件ずつの対応なので、型の推論（配列）ではなく1件として扱う
+    return privateBookingRequestReadApi.listRequestsPage(orgId, allowedScenarioIds, [...PRIVATE_BOOKING_LIST_STATUSES], from, to) as unknown as PromiseLike<{ data: BookingRequestRow[] | null; error: unknown }>
   })
   privateBookingTrace(`取得: ${reservationsList.length} 件`)
 
@@ -116,7 +142,7 @@ async function fetchRawBookingRequests(
   const relatedGroups = privateGroupIds.length > 0 ? await readPrivateGroupStaffBookingSummaries(orgId, privateGroupIds) : []
   const groupById = new Map(relatedGroups.map(group => [group.id, group]))
   for (const reservation of reservationsList) {
-    reservation.private_groups = groupById.get(reservation.private_group_id) || null
+    reservation.private_groups = (reservation.private_group_id && groupById.get(reservation.private_group_id)) || null
   }
 
   // バッチ取得（並列）
@@ -232,7 +258,7 @@ async function fetchRawBookingRequests(
     }
 
     const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_master_id
-    const scenario_timing = scenarioTimingByMasterId.get(scenarioMasterId) ?? {
+    const scenario_timing = (scenarioMasterId ? scenarioTimingByMasterId.get(scenarioMasterId) : undefined) ?? {
       duration: typeof req.scenario_masters?.official_duration === 'number' && req.scenario_masters.official_duration > 0
         ? req.scenario_masters.official_duration
         : 180,

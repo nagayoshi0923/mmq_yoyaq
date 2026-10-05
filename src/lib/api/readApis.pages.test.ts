@@ -1022,10 +1022,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("reservations") .select("\\n          *,\\n          scenario_masters:scenario_master_id(title),…) .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .in("scenario_master_id", "a1") .in("status", ["pending","pending_gm","gm_confirmed","pending_store","confirmed","ca…)",
       ],
       "privateBookingRequestReadApi.listRequestsPage": [
-        "from("reservations") .select("\\n        *,\\n        scenario_masters:scenario_master_id(title, offi…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", "a5")",
+        "from("reservations") .select("\\n        id, reservation_number, scenario_master_id, private_group_i…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", "a5")",
       ],
       "privateBookingRequestReadApi.listRequestsPage (最後の引数なし)": [
-        "from("reservations") .select("\\n        *,\\n        scenario_masters:scenario_master_id(title, offi…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", undefined)",
+        "from("reservations") .select("\\n        id, reservation_number, scenario_master_id, private_group_i…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", undefined)",
       ],
     }
   `) })
