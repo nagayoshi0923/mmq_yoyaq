@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-05T12:23:29.372Z",
-  "table_count": 139,
-  "function_count": 338,
-  "digest": "d952c67bc0ae0858d9aa6f33524f41f7b344bc4855946833592a669d56904f1b"
+  "captured_at": "2026-10-05T20:19:44.199Z",
+  "table_count": 140,
+  "function_count": 339,
+  "digest": "89b28d2ae7f1fbfff8c3130456200e50857d47174add185f6a6ac24821dc475e"
  },
  "tables": {
   "staff": {
@@ -19179,6 +19179,53 @@
     }
    ]
   },
+  "private_group_guest_pin_resets": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "clock_timestamp()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX private_group_guest_pin_resets_member_idx ON public.private_group_guest_pin_resets USING btree (member_id, created_at)",
+     "name": "private_group_guest_pin_resets_member_idx"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_guest_pin_resets_pkey ON public.private_group_guest_pin_resets USING btree (id)",
+     "name": "private_group_guest_pin_resets_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_guest_pin_resets_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "private_group_guest_pin_resets_pkey",
+     "type": "p"
+    }
+   ]
+  },
   "private_group_survey_deadlines": {
    "rls": true,
    "columns": [
@@ -24353,6 +24400,16 @@
    ],
    "returns": "TABLE(reservation_id uuid, status text, attempt_count integer, last_error text, updated_at timestamp with time zone, can_retry boolean)",
    "body_md5": "fdb7675d9b8b6c6349ec0571767622ee",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "reset_private_group_guest_pin(p_invite_code text, p_email text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(member_id uuid, guest_name text, guest_email text, pin text, scenario_title text, invite_code text)",
+   "body_md5": "f161e5db1a870039229b48d2c3032081",
    "language": "plpgsql",
    "security_definer": true
   },
