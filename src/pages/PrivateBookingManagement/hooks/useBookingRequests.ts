@@ -1,4 +1,4 @@
-import { readPrivateGroupList } from '@/lib/privateGroupRead'
+import { readPrivateGroupStaffBookingSummaries } from '@/lib/privateGroupRead'
 import { fetchBookingRows, fetchBookingRelatedRows } from '../utils/fetchBookingRows'
 import { getGmResponses, getGmReadiness, type GmResponseRow } from '@/lib/gmResponseApi'
 import { useCallback, useMemo } from 'react'
@@ -112,7 +112,8 @@ async function fetchRawBookingRequests(
     ),
   ]
 
-  const relatedGroups = privateGroupIds.length > 0 ? await readPrivateGroupList('staff', orgId, privateGroupIds) : []
+  // 一覧に要るのは作品・招待コード・参加人数・候補日だけなので、グループの全情報は読まない（#835）
+  const relatedGroups = privateGroupIds.length > 0 ? await readPrivateGroupStaffBookingSummaries(orgId, privateGroupIds) : []
   const groupById = new Map(relatedGroups.map(group => [group.id, group]))
   for (const reservation of reservationsList) {
     reservation.private_groups = groupById.get(reservation.private_group_id) || null
@@ -120,14 +121,12 @@ async function fetchRawBookingRequests(
 
   // バッチ取得（並列）
   const [
-    memberRowsResult,
     viewRowsResult,
     gmAssignmentsResult,
     allGmResponsesResult,
     allCandidateDatesResult,
     gmReadiness,
   ] = await Promise.all([
-    Promise.resolve({ data: relatedGroups.flatMap(group => (group.members || []).filter(member => member.status === 'joined')), error: null }),
     (() => {
       const masterIds = [
         ...new Set(
@@ -149,11 +148,7 @@ async function fetchRawBookingRequests(
   ])
 
   // マップ構築
-  const joinedMemberCountByGroupId = new Map<string, number>()
-  for (const row of memberRowsResult.data || []) {
-    const gid = row.group_id as string
-    joinedMemberCountByGroupId.set(gid, (joinedMemberCountByGroupId.get(gid) || 0) + 1)
-  }
+  const joinedMemberCountByGroupId = new Map(relatedGroups.map(group => [group.id, group.joined_member_count]))
 
   const gmCountByMasterId = new Map<string, number>()
   const playerRangeByMasterId = new Map<string, { min: number; max: number }>()
