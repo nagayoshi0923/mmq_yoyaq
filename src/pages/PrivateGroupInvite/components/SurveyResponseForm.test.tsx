@@ -44,3 +44,21 @@ it('質問がキャラクター選択だけで、それを出さない場合は�
  const {host,root}=await render({hideCharacterSelection:true})
  try { expect(host.textContent).toBe('') }finally{await act(async()=>root.unmount())}
 })
+it('出していないキャラクター希望の古い回答は送信しない（#915）',async()=>{
+ action.mockImplementation(async(_g:string,_m:string,kind:string)=>kind==='survey_read'
+  ?{data:{survey_enabled:true,questions:[charQ,textQ],existing_response_id:'r1',existing_responses:{q1:'c1',q2:'なし'}},error:null}
+  :{data:'r1',error:null})
+ const {host,root}=await render({hideCharacterSelection:true})
+ try {
+  const button=[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('更新'))!
+  await act(async()=>{button.click()})
+  expect(action).toHaveBeenCalledWith('g','m','survey_write',{q2:'なし'})
+ }finally{await act(async()=>root.unmount())}
+})
+it('送信済みでも、いま必須のキャラクター希望が空なら回答済みにしない（#915）',async()=>{
+ action.mockResolvedValue({data:{survey_enabled:true,questions:[charQ,textQ],characters:[{id:'c1',name:'探偵'}],existing_response_id:'r1',existing_responses:{q2:'なし'}},error:null})
+ const {host,root}=await render({})
+ try {
+  expect(host.textContent).toContain('未回答の質問があります');expect(host.textContent).not.toContain('回答済み')
+ }finally{await act(async()=>root.unmount())}
+})
