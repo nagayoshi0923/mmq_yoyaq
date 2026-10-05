@@ -1015,12 +1015,6 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateBookingMgmtRpcApi.sendStaffGroupMessage (最後の引数なし)": [
         "rpc("send_staff_group_message")",
       ],
-      "privateBookingRequestReadApi.listForTab": [
-        "from("reservations") .select("\\n          *,\\n          scenario_masters:scenario_master_id(title),…) .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .in("scenario_master_id", "a1") .in("status", ["pending","pending_gm","gm_confirmed","pending_store"])",
-      ],
-      "privateBookingRequestReadApi.listForTab (最後の引数なし)": [
-        "from("reservations") .select("\\n          *,\\n          scenario_masters:scenario_master_id(title),…) .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .in("scenario_master_id", "a1") .in("status", ["pending","pending_gm","gm_confirmed","pending_store","confirmed","ca…)",
-      ],
       "privateBookingRequestReadApi.listRequestsPage": [
         "from("reservations") .select("\\n        id, reservation_number, scenario_master_id, private_group_i…) .eq("organization_id", "a1") .eq("reservation_source", "web_private") .order("created_at", {"ascending":false}) .order("id", {"ascending":false}) .in("scenario_master_id", "a2") .in("status", "a3") .range("a4", "a5")",
       ],
