@@ -2,10 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const rpc = vi.hoisted(() => vi.fn().mockResolvedValue({ data: true, error: null }))
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc } }))
-import { privateGroupMemberAction, savePrivateGroupGuestToken, getPrivateGroupGuestToken, clearPrivateGroupGuestToken } from './privateGroupGuestSession'
+import { privateGroupMemberAction, savePrivateGroupGuestToken, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, guestStorage } from './privateGroupGuestSession'
 
 describe('private group guest credentials', () => {
-  beforeEach(() => { sessionStorage.clear(); rpc.mockClear() })
+  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); rpc.mockClear() })
   it('binds credentials to a group and passes them on every member action', async () => {
     savePrivateGroupGuestToken('group-a', 'secret-a')
     savePrivateGroupGuestToken('group-b', 'secret-b')
@@ -37,5 +37,25 @@ describe('private group guest credentials', () => {
     clearPrivateGroupGuestToken('group-a')
     expect(getPrivateGroupGuestToken('group-a')).toBeNull()
     expect(getPrivateGroupGuestToken('group-b')).toBe('secret-b')
+  })
+  it('タブを閉じても残る保存に置き、以前のタブ内の保存からも引き継ぐ（PIN の入り直しを減らす）', () => {
+    savePrivateGroupGuestToken('group-a', 'secret-a')
+    expect(localStorage.getItem('private_group_access_group-a')).toBe('secret-a')
+    expect(sessionStorage.getItem('private_group_access_group-a')).toBeNull()
+    sessionStorage.setItem('private_group_access_group-b', 'legacy-b')
+    expect(getPrivateGroupGuestToken('group-b')).toBe('legacy-b')
+    expect(localStorage.getItem('private_group_access_group-b')).toBe('legacy-b')
+    expect(sessionStorage.getItem('private_group_access_group-b')).toBeNull()
+    clearPrivateGroupGuestToken('group-a')
+    expect(getPrivateGroupGuestToken('group-a')).toBeNull()
+  })
+  it('端末の保存が使えないときはタブ内の保存に切り替え、例外を出さない', () => {
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => { throw new Error('QuotaExceeded') })
+    guestStorage.setItem('k', 'v')
+    expect(sessionStorage.getItem('k')).toBe('v')
+    set.mockRestore()
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('SecurityError') })
+    expect(() => guestStorage.getItem('k')).not.toThrow()
+    get.mockRestore()
   })
 })
