@@ -46,7 +46,9 @@ VALUES
     '14000000-0000-0000-0000-000000000002',
     clock_timestamp(),
     clock_timestamp()
-  );
+  )
+-- auth.users への追加で public.users が自動で作られるため、役割と組織を上書きする
+ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, role = EXCLUDED.role, organization_id = EXCLUDED.organization_id;
 
 INSERT INTO public.customers (
   id, user_id, name, email, organization_id
@@ -89,13 +91,22 @@ VALUES (
 INSERT INTO public.organization_scenarios (
   id, organization_id, scenario_master_id, participation_fee, org_status
 )
-VALUES (
-  '44000000-0000-0000-0000-000000000001',
-  '14000000-0000-0000-0000-000000000001',
-  '34000000-0000-0000-0000-000000000001',
-  4000,
-  'available'
-);
+VALUES
+  (
+    '44000000-0000-0000-0000-000000000001',
+    '14000000-0000-0000-0000-000000000001',
+    '34000000-0000-0000-0000-000000000001',
+    4000,
+    'available'
+  ),
+  -- グループ B（組織 B）の候補日の締切判定に、組織 B の作品設定が要る
+  (
+    '44000000-0000-0000-0000-000000000002',
+    '14000000-0000-0000-0000-000000000002',
+    '34000000-0000-0000-0000-000000000001',
+    4000,
+    'available'
+  );
 
 INSERT INTO public.private_groups (
   id, organization_id, scenario_master_id, organizer_id, name, invite_code,
@@ -624,7 +635,7 @@ BEGIN
       }'::JSONB,
       NULL,
       'YOYAQ-004-ALL-BLOCKED',
-      NULL
+      '94000000-0000-0000-0000-000000000001'
     );
     RAISE EXCEPTION '全店舗停止の申請が拒否されませんでした';
   EXCEPTION WHEN SQLSTATE 'P0040' THEN
@@ -633,6 +644,48 @@ BEGIN
 
   IF (SELECT count(*) FROM public.reservations) IS DISTINCT FROM v_before THEN
     RAISE EXCEPTION '全店舗停止エラー前に予約mutationが発生しました';
+  END IF;
+END;
+$$;
+
+-- グループなしの申請は、本人確認の後に P0047 で止め、予約を作らない（#834・#842・#852）。
+DO $$
+DECLARE
+  v_before INTEGER;
+BEGIN
+  SELECT count(*) INTO v_before FROM public.reservations;
+  BEGIN
+    PERFORM public.create_private_booking_request(
+      '44000000-0000-0000-0000-000000000001',
+      '84000000-0000-0000-0000-000000000001',
+      'fixture',
+      'fixture@example.invalid',
+      NULL,
+      4,
+      '{
+        "requestedStores": [
+          {"storeId":"24000000-0000-0000-0000-000000000002"}
+        ],
+        "candidates": [
+          {
+            "date":"2027-01-14",
+            "startTime":"10:00",
+            "endTime":"14:00",
+            "timeSlot":"午前"
+          }
+        ]
+      }'::JSONB,
+      NULL,
+      'YOYAQ-004-NO-GROUP',
+      NULL
+    );
+    RAISE EXCEPTION 'グループなしの申請が拒否されませんでした';
+  EXCEPTION WHEN SQLSTATE 'P0047' THEN
+    NULL;
+  END;
+
+  IF (SELECT count(*) FROM public.reservations) IS DISTINCT FROM v_before THEN
+    RAISE EXCEPTION 'グループなしの申請で予約が作られました';
   END IF;
 END;
 $$;
@@ -663,7 +716,7 @@ BEGIN
       }'::JSONB,
       NULL,
       'YOYAQ-004-OTHER-TENANT',
-      NULL
+      '94000000-0000-0000-0000-000000000001'
     );
     RAISE EXCEPTION '他tenant店舗が申請に使用されました';
   EXCEPTION WHEN SQLSTATE 'P0042' THEN
@@ -729,7 +782,7 @@ BEGIN
       }'::JSONB,
       NULL,
       'YOYAQ-004-EVENT-CONFLICT',
-      NULL
+      '94000000-0000-0000-0000-000000000001'
     );
     RAISE EXCEPTION '公演競合の申請が拒否されませんでした';
   EXCEPTION WHEN SQLSTATE 'P0030' THEN
@@ -758,7 +811,8 @@ BEGIN
         {
           "storeId":"24000000-0000-0000-0000-000000000001",
           "storeName":"caller forged name"
-        }
+        },
+        {"storeId":"24000000-0000-0000-0000-000000000002"}
       ],
       "candidates":[
         {
@@ -781,7 +835,7 @@ BEGIN
     }'::JSONB,
     NULL,
     'YOYAQ-004-APPROVE-SUCCESS',
-    NULL
+    '94000000-0000-0000-0000-000000000001'
   );
 
   SELECT count(*) INTO v_event_count FROM public.schedule_events;
