@@ -1,4 +1,5 @@
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
+import { surveyErrorText } from '@/lib/surveyErrorText'
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -45,6 +46,7 @@ export function SurveyResponseForm({
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
   const [localCharacters, setLocalCharacters] = useState<Array<{ id: string; name: string; gender?: string }>>(characters)
   const [surveyStatus, setSurveyStatus] = useState<'loading' | 'not_found' | 'disabled' | 'no_questions' | 'ready'>('loading')
+  const [loadErrorText, setLoadErrorText] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSurveyData = async () => {
@@ -59,6 +61,7 @@ export function SurveyResponseForm({
 
         if (error) {
           logger.error('📋 SurveyForm: rpc error', error)
+          setLoadErrorText(surveyErrorText('アンケート情報を取得できませんでした', error))
           setSurveyStatus('not_found')
           setLoading(false)
           return
@@ -167,7 +170,8 @@ export function SurveyResponseForm({
       setSubmitted(true)
     } catch (err) {
       logger.error('アンケート送信エラー:', err)
-      toast.error('送信に失敗しました')
+      // 理由が分かるように表示する（本人確認の期限切れ・入力の誤りなど。#911）
+      toast.error(surveyErrorText('送信に失敗しました', err))
     } finally {
       setSubmitting(false)
     }
@@ -193,8 +197,8 @@ export function SurveyResponseForm({
     return (
       <div className="text-center py-4 text-muted-foreground">
         <AlertCircle className="w-8 h-8 mx-auto mb-2 text-amber-400" />
-        <p className="text-sm">アンケート情報を取得できませんでした</p>
-        <p className="text-xs mt-1">シナリオ設定を確認してください</p>
+        <p className="text-sm">{loadErrorText || 'アンケート情報を取得できませんでした'}</p>
+        <p className="text-xs mt-1">解決しない場合は、この画面の表示を店舗へお知らせください</p>
       </div>
     )
   }
