@@ -147,8 +147,9 @@ export function SurveyResponseForm({
 
   const handleSubmit = useCallback(async () => {
     // 必須項目のチェック
+    // 画面に出していない質問（配役方法が「アンケート」でない場合のキャラクター選択）は必須でも問わない（#911）
     const missingRequired = questions.filter(
-      q => q.is_required && !responses[q.id]
+      q => q.is_required && !responses[q.id] && !(hideCharacterSelection && q.question_type === 'character_selection')
     )
     if (missingRequired.length > 0) {
       toast.error(`必須項目を入力してください: ${missingRequired.map(q => q.question_text).join(', ')}`)
@@ -175,7 +176,7 @@ export function SurveyResponseForm({
     } finally {
       setSubmitting(false)
     }
-  }, [questions, responses, existingResponseId, groupId, memberId])
+  }, [questions, responses, existingResponseId, groupId, memberId, hideCharacterSelection])
 
   const formatDeadline = (date: Date) => {
     return formatJstDateJa(date, true)
@@ -235,6 +236,11 @@ export function SurveyResponseForm({
     </CardContent></Card>
   )
 
+  const visibleQuestions = questions.filter(q => !(hideCharacterSelection && q.question_type === 'character_selection'))
+
+  // 質問がキャラクター選択だけで、それを出さない場合は何も表示しない
+  if (surveyStatus !== 'no_questions' && questions.length > 0 && visibleQuestions.length === 0) return null
+
   // 質問が設定されていない場合
   if (surveyStatus === 'no_questions' || questions.length === 0) {
     return (
@@ -274,7 +280,7 @@ export function SurveyResponseForm({
         )}
 
         <div className="space-y-4 pt-2">
-          {questions.filter(q => !(hideCharacterSelection && q.question_type === 'character_selection')).map((question, index) => (
+          {visibleQuestions.map((question, index) => (
             <div key={question.id} className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
                 Q{index + 1}. {question.question_text}
