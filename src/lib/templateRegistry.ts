@@ -16,7 +16,7 @@ import { withPrivateGroupGuide } from '@/lib/privateGroupGuide'
 
 // ========== デフォルトテンプレート ==========
 
-export function getDefaultReservationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultReservationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -54,7 +54,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultCancellationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -81,7 +81,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '', daysBefore = 1) {
+export function getDefaultReminderTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '', daysBefore = 1) {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
   const contactInfo = companyPhone ? `・当日連絡先: ${companyPhone}` : ''
@@ -129,7 +129,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultBookingChangeTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultBookingChangeTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -163,7 +163,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultPrivateRequestTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultPrivateRequestTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -205,7 +205,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultPrivateConfirmTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultPrivateConfirmTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -245,7 +245,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultPrivateRejectionTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultPrivateRejectionTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -285,7 +285,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultWaitlistNotifyTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultWaitlistNotifyTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -322,7 +322,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultWaitlistRegistrationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultWaitlistRegistrationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -358,7 +358,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultPerformanceCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultPerformanceCancellationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -387,7 +387,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultPerformanceConfirmationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultPerformanceConfirmationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -416,7 +416,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultEventCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultEventCancellationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -452,7 +452,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultPerformanceExtensionTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultPerformanceExtensionTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 
@@ -499,7 +499,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-export function getDefaultStoreCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+export function getDefaultStoreCancellationTemplate(companyName = 'クインズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
 

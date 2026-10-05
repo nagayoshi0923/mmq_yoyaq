@@ -329,7 +329,7 @@ export function ForBusinessPage() {
           <div className="grid md:grid-cols-3 gap-6 text-center">
             {[
               { icon: Shield, title: 'セキュリティ', desc: 'Supabase による認証・データ暗号化。安心してご利用いただけます。' },
-              { icon: Star, title: 'クイーンズワルツ採用実績', desc: '国内最大級のマーダーミステリー専門店が実際に使用しています。' },
+              { icon: Star, title: 'クインズワルツ採用実績', desc: '国内最大級のマーダーミステリー専門店が実際に使用しています。' },
               { icon: Globe, title: 'いつでも解約可能', desc: '契約期間の縛りはありません。いつでも無料プランに戻せます。' },
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="p-6">
