@@ -11,6 +11,7 @@ on:
       - 'supabase/structure/prod.json'
       - 'scripts/check-db-baseline.sh'
       - 'scripts/db-structure-snapshot.mjs'
+      - 'supabase/tests/yoyaq_004_private_booking_blocked_slots_test.sql'
   schedule:
     # 毎週月曜 AM 6:00 JST
     - cron: '0 21 * * 0'
@@ -30,4 +31,8 @@ jobs:
         with:
           version: 2.98.2
       - name: Check
-        run: bash scripts/check-db-baseline.sh
+        # 手元 DB を残し、続けて同じ DB で回帰 SQL を流す
+        run: KEEP=1 bash scripts/check-db-baseline.sh
+      - name: Regression SQL (YOYAQ-004 貸切申請・承認の募集停止ガード)
+        # 最後に ROLLBACK するので DB に残らない（#852）
+        run: psql "postgresql://postgres:postgres@127.0.0.1:56322/postgres" -v ON_ERROR_STOP=1 -q -f supabase/tests/yoyaq_004_private_booking_blocked_slots_test.sql
