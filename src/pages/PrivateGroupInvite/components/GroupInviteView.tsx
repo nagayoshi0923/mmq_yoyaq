@@ -409,6 +409,7 @@ export function GroupInviteView({
                 currentMemberId={existingMemberId}
                 members={group.members}
                 onGoToSchedule={() => setActiveTab('schedule')}
+                onOpenSurvey={() => setActiveTab('survey')}
                 scenarioId={group.scenario_master_id || undefined}
                 organizationId={group.organization_id || undefined}
                 performanceDate={group.confirmed_performance?.date}

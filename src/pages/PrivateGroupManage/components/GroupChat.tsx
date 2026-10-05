@@ -49,10 +49,12 @@ interface GroupChatProps {
   onCharAssignmentConfirmed?: () => void
   onResetCharAssignmentMethod?: () => void | Promise<void>
   scenarioPlayerCount?: number | null
+  /** アンケートを別の画面で開く（招待ページ）。渡さない場合はチャットの上の枠で開く */
+  onOpenSurvey?: () => void
 }
 
 
-export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey }: GroupChatProps) {
   const { user } = useAuth()
   const { messages, loading, error: messagesError, refetch: refetchMessages } = usePrivateGroupMessages(groupId, currentMemberId)
   const [newMessage, setNewMessage] = useState('')
@@ -63,6 +65,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   // 個別お知らせのフォールバック表示を検知したら1回だけ診断ログを送る（#278）
   const noticeFallbackLoggedRef = useRef(false)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
+  // チャットの上の小さな枠で回答できないという報告があったため（2026-10-05）、招待ページではアンケートだけの画面で開く
+  const openSurvey = useCallback(() => { if (onOpenSurvey) onOpenSurvey(); else setShowSurveyDialog(true) }, [onOpenSurvey])
   // 配役方法変更の確認ダイアログ（アンケート回答カード/キャラクター選択カードの両方から起動）
   const [showResetCharAssignmentConfirm, setShowResetCharAssignmentConfirm] = useState(false)
   const [charPreferences, setCharPreferences] = useState<Record<string, string>>({})
@@ -373,7 +377,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                         formatCandidateDate={formatCandidateDate}
                         onGoToSchedule={onGoToSchedule}
                         canOpenSurvey={Boolean(scenarioId && organizationId && currentMemberId)}
-                        onOpenSurvey={() => setShowSurveyDialog(true)}
+                        onOpenSurvey={openSurvey}
                       />
                     )
                   }
@@ -591,7 +595,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                     <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
                   )}
                   <Button
-                    onClick={() => setShowSurveyDialog(true)}
+                    onClick={openSurvey}
                     className="w-full bg-blue-600 hover:bg-blue-700"
                     size="sm"
                   >
@@ -622,7 +626,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                     <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
                   )}
                   <Button
-                    onClick={() => setShowSurveyDialog(true)}
+                    onClick={openSurvey}
                     className="w-full bg-blue-600 hover:bg-blue-700"
                     size="sm"
                   >
