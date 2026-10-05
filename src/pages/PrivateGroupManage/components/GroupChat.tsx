@@ -940,6 +940,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                   memberId={currentMemberId}
                   performanceDate={performanceDate}
                   hideCharacterSelection={charAssignmentMethod !== 'survey'}
+                  explainEmptyState
                 />
               )}
             </div>
