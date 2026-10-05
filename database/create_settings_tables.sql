@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS email_settings (
   reminder_schedule JSONB, -- [{ days_before: 1, time: "09:00", enabled: true, template: "..." }]
   reminder_time TIME DEFAULT '09:00',
   reminder_send_time TEXT DEFAULT 'morning',
-  company_name TEXT DEFAULT 'クイーンズワルツ',
+  company_name TEXT DEFAULT 'クインズワルツ',
   company_phone TEXT,
   company_email TEXT,
   company_address TEXT,

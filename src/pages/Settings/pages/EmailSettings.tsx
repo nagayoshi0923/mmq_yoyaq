@@ -255,7 +255,7 @@ export function EmailSettings({ storeId = '', scope = 'store', targetId }: Email
               id="company_name"
               value={formData.company_name}
               onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-              placeholder="クイーンズワルツ"
+              placeholder="クインズワルツ"
             />
           </div>
           <div>
