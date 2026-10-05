@@ -326,6 +326,8 @@ BEGIN
 
   -- block/unblockと全公演INSERTを直列化し、検査からINSERTまで同じ状態を維持する。
   LOCK TABLE schedule_blocked_slots IN SHARE MODE;
+  -- 店舗の募集停止期間の追加・削除とも直列化する（#696）。保存側は単発の書き込みなので行き詰まりは起きない。
+  LOCK TABLE public.store_recruitment_pauses IN SHARE MODE;
   LOCK TABLE schedule_events IN SHARE ROW EXCLUSIVE MODE;
 
   IF EXISTS (
