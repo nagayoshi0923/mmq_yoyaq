@@ -274,32 +274,5 @@ export const privateBookingRequestReadApi = {
 
     return query.range(from, to)
   },
-  /** 貸切リクエストの一覧（タブで絞る。担当シナリオがあれば絞る）。新しい順 */
-  async listForTab(allowedScenarioIds: string[] | null, pendingOnly: boolean) {
-    let query = supabase
-      .from('reservations')
-      .select(`
-          *,
-          scenario_masters:scenario_master_id(title),
-          customers:customer_id(name, phone),
-          confirmer:staff!reservations_confirmed_by_fkey(name)
-        `)
-      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-      .order('created_at', { ascending: false })
-
-    // スタッフの場合、担当シナリオのみに絞り込み
-    if (allowedScenarioIds !== null) {
-      query = query.in('scenario_master_id', allowedScenarioIds)
-    }
-
-    // タブによってフィルター
-    if (pendingOnly) {
-      query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
-    } else {
-      query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
-    }
-
-    return query
-  },
 }
 
