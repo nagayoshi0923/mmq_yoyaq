@@ -1,5 +1,6 @@
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 import { surveyErrorText } from '@/lib/surveyErrorText'
+import { isPastPerformanceDate, isSurveyQuestionShown, missingRequiredSurveyQuestions, stripHiddenSurveyAnswers } from '@/lib/surveyCompletion'
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -148,9 +149,7 @@ export function SurveyResponseForm({
   const handleSubmit = useCallback(async () => {
     // 必須項目のチェック
     // 画面に出していない質問（配役方法が「アンケート」でない場合のキャラクター選択）は必須でも問わない（#911）
-    const missingRequired = questions.filter(
-      q => q.is_required && !responses[q.id] && !(hideCharacterSelection && q.question_type === 'character_selection')
-    )
+    const missingRequired = missingRequiredSurveyQuestions(questions, responses, hideCharacterSelection)
     if (missingRequired.length > 0) {
       toast.error(`必須項目を入力してください: ${missingRequired.map(q => q.question_text).join(', ')}`)
       return
@@ -158,7 +157,9 @@ export function SurveyResponseForm({
 
     setSubmitting(true)
     try {
-      const { data: responseId, error } = await privateGroupMemberAction(groupId, memberId, 'survey_write', responses)
+      // 出していない質問の古い回答は送らない（配役方法の変更で消えたキャラクター希望を復活させない。#915）
+      const payload = stripHiddenSurveyAnswers(questions, responses, hideCharacterSelection)
+      const { data: responseId, error } = await privateGroupMemberAction(groupId, memberId, 'survey_write', payload)
 
       if (error) {
         logger.error('📋 SurveyForm: upsert error', error)
@@ -210,7 +211,7 @@ export function SurveyResponseForm({
   }
 
   const isPastDeadline = Boolean(deadlineDate && new Date() > deadlineDate)
-  const isPastPerformance = Boolean(performanceDate && new Date() > new Date(performanceDate + 'T23:59:59+09:00'))
+  const isPastPerformance = isPastPerformanceDate(performanceDate)
 
   if (isPastPerformance) {
     return (
@@ -236,7 +237,9 @@ export function SurveyResponseForm({
     </CardContent></Card>
   )
 
-  const visibleQuestions = questions.filter(q => !(hideCharacterSelection && q.question_type === 'character_selection'))
+  const visibleQuestions = questions.filter(q => isSurveyQuestionShown(q, hideCharacterSelection))
+  // 送信済みでも、いま出している必須質問に空きがあれば回答済みにしない（配役方法をあとから「アンケート」にした場合など。#915）
+  const answeredAll = submitted && missingRequiredSurveyQuestions(questions, responses, hideCharacterSelection).length === 0
 
   // 質問がキャラクター選択だけで、それを出さない場合は何も表示しない
   if (surveyStatus !== 'no_questions' && questions.length > 0 && visibleQuestions.length === 0) return null
@@ -259,11 +262,13 @@ export function SurveyResponseForm({
             <ClipboardList className="w-5 h-5 text-purple-600" />
             <h3 className="text-base font-semibold">公演前アンケート</h3>
           </div>
-          {submitted && (
+          {answeredAll ? (
             <Badge className="bg-green-100 text-green-800 border-green-200">
               <CheckCircle2 className="w-3 h-3 mr-1" />
               回答済み
             </Badge>
+          ) : submitted && (
+            <Badge variant="outline">未回答の質問があります</Badge>
           )}
         </div>
 

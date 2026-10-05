@@ -1,6 +1,7 @@
 import { readSurveyQuestionSettings } from '@/lib/surveyQuestionSettings'
 import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation } from '@/lib/privateGroupRead'
 import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
+import { missingRequiredSurveyQuestions } from '@/lib/surveyCompletion'
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { ClipboardList, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
@@ -35,6 +36,7 @@ export function SurveyResponsesView({
   const [loadError, setLoadError] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [characters, setCharacters] = useState<Array<{ id: string; name: string }>>([])
+  const [hideCharacterSelection, setHideCharacterSelection] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -44,6 +46,7 @@ export function SurveyResponsesView({
     setResponses([])
     setMembers([])
     setCharacters([])
+    setHideCharacterSelection(false)
     const loadSurveyData = async () => {
       if (!reservationId || !scenarioId) {
         if (!cancelled) setLoading(false)
@@ -59,6 +62,8 @@ export function SurveyResponsesView({
           guest_name: member.staff_display_name || member.guest_name || '参加者',
         }))
         if (!cancelled) setMembers(membersData)
+        // 参加者の画面と同じく、配役方法が「アンケート」の時だけキャラクター希望を必須として数える
+        if (!cancelled) setHideCharacterSelection(snapshot.group.character_assignment_method !== 'survey')
 
         const orgScenario = await getGroupSurveySettings(groupId)
 
@@ -105,7 +110,12 @@ export function SurveyResponsesView({
     return null
   }
 
-  const respondedCount = responses.length
+  // 送信していても、いま必須の質問（あとから必要になったキャラクター希望など）が空なら回答済みに数えない（#915）
+  const isMemberAnswered = (memberId: string) => {
+    const response = responses.find(r => r.member_id === memberId)
+    return Boolean(response) && missingRequiredSurveyQuestions(questions, response?.responses, hideCharacterSelection).length === 0
+  }
+  const respondedCount = members.filter(m => isMemberAnswered(m.id)).length
   const totalCount = members.length
 
   const getMemberName = (memberId: string) => {
@@ -180,10 +190,10 @@ export function SurveyResponsesView({
               <AlertCircle className="w-4 h-4" />
               <span>
                 {members
-                  .filter(m => !responses.some(r => r.member_id === m.id))
+                  .filter(m => !isMemberAnswered(m.id))
                   .map(m => m.guest_name || '不明')
                   .join('、')
-                }さんが未回答です
+                }さんが未回答です（必須の質問が空のままの方を含みます）
               </span>
             </div>
           )}
