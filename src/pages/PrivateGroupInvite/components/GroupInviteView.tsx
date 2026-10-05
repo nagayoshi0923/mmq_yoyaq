@@ -769,28 +769,16 @@ export function GroupInviteView({
           </Card>
         )}
 
-        {/* アンケート or キャラクター選択（配役方法選択済み・日程確定後） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_master_id && !needsCharAssignmentChoice && (() => {
-          const hasCharacters = scenarioCharacters.length > 0
-          const method = charAssignmentMethod
-
-          if (!hasCharacters || method === 'survey') {
-            return (
-              <SurveyResponseForm
-                groupId={group.id}
-                memberId={existingMemberId}
-                performanceDate={group.confirmed_performance?.date}
-                characters={(group as any).scenario_characters || []}
-              />
-            )
-          }
-
-          if (method === 'self') {
-            return null
-          }
-
-          return null
-        })()}
+        {/* 公演前アンケート（日程確定後）。配役方法に関わらず回答できる。配役方法が「アンケート」でない間はキャラクターの質問を出さない（#911） */}
+        {isScheduleConfirmedUi && existingMemberId && group.scenario_master_id && (
+          <SurveyResponseForm
+            groupId={group.id}
+            memberId={existingMemberId}
+            performanceDate={group.confirmed_performance?.date}
+            characters={(group as any).scenario_characters || []}
+            hideCharacterSelection={charAssignmentMethod !== 'survey'}
+          />
+        )}
 
         {/* 送信ボタン（新規参加時のみ表示） */}
         {!existingMemberId && (

@@ -72,6 +72,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   const [charConfirmExpected, setCharConfirmExpected] = useState<Record<string, string>>({})
   const [charSubmitting, setCharSubmitting] = useState(false)
   const [deadlineText, setDeadlineText] = useState<string | null>(null)
+  // アンケートが有効で、質問か外部の回答先があるか（配役方法に関わらず回答できるようにする。#911）
+  const [surveyAvailable, setSurveyAvailable] = useState(false)
   const [chatEnabled, setChatEnabled] = useState(true)
   const [chatGuestAllowed, setChatGuestAllowed] = useState(true)
   const [systemMsgTitles, setSystemMsgTitles] = useState<{
@@ -117,11 +119,19 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   // 回答画面と同じ公演・店舗・作品・組織の適用値を使う。
   useEffect(() => {
     setDeadlineText('')
+    setSurveyAvailable(false)
     if (!currentMemberId || !performanceDate) return
     let cancelled = false
     void (async () => {
       const { data, error } = await privateGroupMemberAction(groupId, currentMemberId, 'survey_read')
       if (error) { logger.error('アンケート期限の取得エラー:', error); return }
+      if (!cancelled && data?.survey_enabled) {
+        // このカードは配役方法が「アンケート」以外のときに出し、その場合キャラクター選択は出さないので数えない
+        const hasQuestions = Array.isArray(data.questions)
+          && data.questions.some((q: { question_type?: string }) => q?.question_type !== 'character_selection')
+        const hasUrl = typeof data.survey_url === 'string' && /^https?:\/\//i.test(data.survey_url)
+        setSurveyAvailable(hasQuestions || hasUrl)
+      }
       if (!cancelled && data?.survey_enabled && data.survey_deadline_days != null) {
         const deadline = data.survey_deadline_at ? new Date(data.survey_deadline_at) : new Date(new Date(performanceDate + 'T23:59:59.999+09:00').getTime() - data.survey_deadline_days * 86400000)
         const p = getJstParts(deadline)
@@ -592,6 +602,36 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
             </div>
           )}
 
+          {/* 配役方法が「アンケート」以外・未選択: アンケート回答カード（配役以外の質問にも答えられるように。#911） */}
+          {charAssignmentMethod !== 'survey' && surveyAvailable && scenarioId && organizationId && currentMemberId && (
+            <div className="flex justify-center my-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                    <ClipboardList className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm text-blue-800">{systemMsgTitles.survey_notice}</span>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
+                  <p className="text-sm text-foreground">
+                    公演前アンケートへのご回答をお願いいたします。
+                  </p>
+                  {deadlineText && (
+                    <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
+                  )}
+                  <Button
+                    onClick={() => setShowSurveyDialog(true)}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    size="sm"
+                  >
+                    <ClipboardList className="w-4 h-4 mr-2" />
+                    アンケートに回答する
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 配役方法=self: インラインキャラクター選択（確定済みメッセージがあれば非表示） */}
           {charAssignmentMethod === 'self' && characters.length > 0 && !currentAssignmentConfirmed && (() => {
             const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
@@ -897,6 +937,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                   groupId={groupId}
                   memberId={currentMemberId}
                   performanceDate={performanceDate}
+                  hideCharacterSelection={charAssignmentMethod !== 'survey'}
                 />
               )}
             </div>
