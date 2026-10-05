@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-05T06:46:02.748Z",
-  "table_count": 138,
-  "function_count": 337,
-  "digest": "ffc1b47e2b8c6cb7c3b1904527686d3a24b37050289f83febcf1eacefd29ad03"
+  "captured_at": "2026-10-05T12:23:29.989Z",
+  "table_count": 139,
+  "function_count": 338,
+  "digest": "e8f704dde54fb01b7ebf265573c63324461a26ee84021ff991a0d1756e99a6a3"
  },
  "tables": {
   "staff": {
@@ -20824,6 +20824,85 @@
     }
    ]
   },
+  "private_group_survey_client_events": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "event",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "detail",
+     "type": "jsonb",
+     "default": "'{}'::jsonb",
+     "not_null": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "clock_timestamp()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX private_group_survey_client_events_created_idx ON public.private_group_survey_client_events USING btree (created_at)",
+     "name": "private_group_survey_client_events_created_idx"
+    },
+    {
+     "def": "CREATE INDEX private_group_survey_client_events_member_idx ON public.private_group_survey_client_events USING btree (member_id, created_at)",
+     "name": "private_group_survey_client_events_member_idx"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_survey_client_events_pkey ON public.private_group_survey_client_events USING btree (id)",
+     "name": "private_group_survey_client_events_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((event = ANY (ARRAY['open'::text, 'loaded'::text, 'load_error'::text, 'layout'::text, 'submit'::text, 'submitted'::text, 'submit_error'::text, 'js_error'::text])))",
+     "name": "private_group_survey_client_events_event_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_survey_client_events_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+     "name": "private_group_survey_client_events_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "private_group_survey_client_events_pkey",
+     "type": "p"
+    }
+   ]
+  },
   "representative_compensation_grants": {
    "rls": true,
    "columns": [
@@ -25198,6 +25277,18 @@
    ],
    "returns": "TABLE(store_id uuid, judgment_minutes integer, extension_enabled boolean, target_mode text, target_value integer, extension_deadline_minutes integer)",
    "body_md5": "0f6d9a8f23452e70510e12cb058aaa9f",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "record_private_group_survey_event(p_group_id uuid, p_member_id uuid, p_guest_token text, p_event text, p_detail jsonb)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "9ece059c04863d7ac3c144537a3d98a4",
    "language": "plpgsql",
    "security_definer": true
   },

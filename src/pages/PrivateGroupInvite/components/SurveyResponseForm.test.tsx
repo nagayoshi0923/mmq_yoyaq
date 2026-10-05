@@ -7,11 +7,13 @@ vi.mock('@/lib/privateGroupGuestSession',()=>({privateGroupMemberAction:(...a:un
 vi.mock('@/lib/supabase',()=>({supabase:{}}))
 const toastError=vi.fn()
 vi.mock('sonner',()=>({toast:{error:(...a:unknown[])=>toastError(...a),success:vi.fn()}}))
+const reportMock=vi.fn()
+vi.mock('@/lib/surveyDiagnostics',()=>({reportSurveyEvent:(...a:unknown[])=>reportMock(...a)}))
 import {SurveyResponseForm} from './SurveyResponseForm'
 const charQ={id:'q1',question_text:'希望キャラクター',question_type:'character_selection',is_required:true,options:[],order_num:1}
 const textQ={id:'q2',question_text:'苦手な表現',question_type:'text',is_required:false,options:[],order_num:2}
 const survey=(questions:unknown[])=>({data:{survey_enabled:true,questions,characters:[{id:'c1',name:'探偵'}]},error:null})
-beforeEach(()=>{action.mockReset();toastError.mockReset();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})})
+beforeEach(()=>{action.mockReset();reportMock.mockReset();toastError.mockReset();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})})
 async function render(props:Record<string,unknown>){
  const host=document.createElement('div'),root=createRoot(host)
  await act(async()=>root.render(<SurveyResponseForm groupId="g" memberId="m" {...props}/>))
@@ -61,4 +63,31 @@ it('送信済みでも、いま必須のキャラクター希望が空なら回�
  try {
   expect(host.textContent).toContain('未回答の質問があります');expect(host.textContent).not.toContain('回答済み')
  }finally{await act(async()=>root.unmount())}
+})
+it('開いた・読み込んだ・枠の大きさ・送信を記録する（回答の中身は送らない）',async()=>{
+ vi.useFakeTimers({shouldAdvanceTime:true})
+ action.mockImplementation(async(_g:string,_m:string,kind:string)=>kind==='survey_read'?survey([charQ,textQ]):{data:'r1',error:null})
+ const {host,root}=await render({})
+ try {
+  await act(async()=>{vi.advanceTimersByTime(600)})
+  const events=reportMock.mock.calls.map(c=>c[2])
+  expect(events).toEqual(expect.arrayContaining(['open','loaded','layout']))
+  const loaded=reportMock.mock.calls.find(c=>c[2]==='loaded')![3]
+  expect(loaded).toMatchObject({status:'ready',questions:2,characterQuestions:1,existing:false})
+  const layout=reportMock.mock.calls.find(c=>c[2]==='layout')![3]
+  expect(layout).toMatchObject({status:'ready'}); expect(layout.inputs).toBeGreaterThan(0)
+  host.querySelector<HTMLInputElement>('button[role="radio"]')?.click()
+  const button=[...host.querySelectorAll('button')].find(b=>b.textContent?.includes('送信'))!
+  await act(async()=>{button.click()})
+  const submit=reportMock.mock.calls.find(c=>c[2]==='submit')![3]
+  expect(JSON.stringify(submit)).not.toContain('c1')
+ }finally{await act(async()=>root.unmount());vi.useRealTimers()}
+})
+it('チャットの枠では、アンケートが無効でも空にせず理由を出す',async()=>{
+ action.mockResolvedValue({data:{survey_enabled:false},error:null})
+ const a=await render({explainEmptyState:true})
+ try { expect(a.host.textContent).toContain('現在受け付けていません') }finally{await act(async()=>a.root.unmount())}
+ const b=await render({})
+ try { expect(b.host.textContent).toBe('') }finally{await act(async()=>b.root.unmount())}
+ expect(reportMock.mock.calls.filter(c=>c[2]==='loaded').map(c=>c[3].status)).toEqual(['disabled','disabled'])
 })
