@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'npm:svix@1.61.0'
 import { getServiceRoleKey } from '../_shared/security.ts'
-import { upsertEmailLogByProviderId, type EmailLogStatus, type EmailLogUpdate } from '../_shared/email-logs.ts'
+import { emailLogIdFromTags, upsertEmailLogByProviderId, type EmailLogStatus, type EmailLogUpdate } from '../_shared/email-logs.ts'
 
 type ResendEventPayload = {
   type?: string
@@ -12,6 +12,7 @@ type ResendEventPayload = {
     from?: string
     to?: string[] | string
     subject?: string
+    tags?: unknown
   }
 }
 
@@ -116,7 +117,7 @@ serve(async (req: Request) => {
         await upsertEmailLogByProviderId(supabase, emailId, logUpdate, {
           to_email: firstRecipient(event?.data?.to),
           subject:  event?.data?.subject ?? '',
-        })
+        }, emailLogIdFromTags(event?.data?.tags))
       }
     } else {
       // email_id が取れない場合は警告のみ（ペイロード全体は保存しない）

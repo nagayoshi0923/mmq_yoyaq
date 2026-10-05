@@ -4,7 +4,7 @@
  */
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { sanitizeErrorMessage, maskEmail } from '../_shared/security.ts'
-import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
+import { emailLogTags, insertEmailLog, markEmailLogSent, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 import { customTemplateToHtml, formatJudgmentDate, formatJudgmentTime } from '../_shared/performance-check-email.ts'
 import type { EventDetail } from '../_shared/performance-check-judgment.ts'
@@ -172,36 +172,7 @@ ${emailSettings.senderName}
     status:          'queued',
   })
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${emailSettings.resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
-      to: [customerEmail],
-      subject: emailSubject,
-      html: finalHtml,
-      text: finalText,
-    }),
-  })
-
-  if (!response.ok) {
-    const errorData = await response.json()
-    await updateEmailLog(supabase, emailLogId, {
-      status: 'failed',
-      error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
-    })
-    throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
-  }
-
-  const resendResult = await response.json()
-  await updateEmailLog(supabase, emailLogId, {
-    status: 'sent',
-    provider_message_id: resendResult?.id ?? null,
-    sent_at: new Date().toISOString(),
-  })
+  await sendLoggedEmail(supabase, emailSettings, emailLogId, { to: customerEmail, subject: emailSubject, html: finalHtml, text: finalText })
 }
 
 /**
@@ -399,33 +370,7 @@ ${emailSettings.senderName}
     status: 'queued',
   })
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${emailSettings.resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
-      to: [customerEmail],
-      subject: emailSubject,
-      html: finalHtml,
-      text: finalText,
-    }),
-  })
-
-  if (!response.ok) {
-    const errorData = await response.json()
-    await updateEmailLog(supabase, emailLogId, { status: 'failed', error_message: sanitizeErrorMessage(JSON.stringify(errorData)) })
-    throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
-  }
-
-  const resendResult = await response.json().catch(() => null)
-  await updateEmailLog(supabase, emailLogId, {
-    status: 'sent',
-    provider_message_id: typeof resendResult?.id === 'string' ? resendResult.id : null,
-    sent_at: new Date().toISOString(),
-  })
+  await sendLoggedEmail(supabase, emailSettings, emailLogId, { to: customerEmail, subject: emailSubject, html: finalHtml, text: finalText })
 }
 
 /**
@@ -637,6 +582,54 @@ ${emailSettings.senderName}
       provider_message_id: resendResult?.id ?? null,
       sent_at: new Date().toISOString(),
     })
+  } catch (sendError) {
+    await updateEmailLog(supabase, emailLogId, {
+      status: 'failed',
+      error_message: sanitizeErrorMessage(sendError instanceof Error ? sendError.message : String(sendError)),
+    })
+    throw sendError
+  }
+}
+
+/**
+ * 先に作った送信記録（email_logs）付きで Resend へ送る。
+ * - 記録の id をタグで渡し、Webhook が先に届いても同じ行に紐付くようにする
+ * - 接続失敗・JSON でない応答など、どの失敗でも記録を「失敗」にしてから例外を投げ直す
+ * - 成功時は「送信待ち」のときだけ「送信済み」にする（Webhook が先に進めた状態を戻さない）
+ */
+async function sendLoggedEmail(
+  supabase: SupabaseClient,
+  emailSettings: Awaited<ReturnType<typeof getEmailSettings>>,
+  emailLogId: string | null,
+  mail: { to: string; subject: string; html: string; text: string },
+): Promise<void> {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${emailSettings.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
+        to: [mail.to],
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        tags: emailLogTags(emailLogId),
+      }),
+    })
+    if (!response.ok) {
+      let errorDetail: string
+      try {
+        errorDetail = JSON.stringify(await response.json())
+      } catch {
+        errorDetail = `HTTP ${response.status}`
+      }
+      throw new Error(`Resend API error: ${errorDetail}`)
+    }
+    const resendResult = await response.json().catch(() => null)
+    await markEmailLogSent(supabase, emailLogId, typeof resendResult?.id === 'string' ? resendResult.id : null)
   } catch (sendError) {
     await updateEmailLog(supabase, emailLogId, {
       status: 'failed',

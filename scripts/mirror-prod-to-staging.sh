@@ -205,20 +205,49 @@ echo "[4/5] ステージングDBにリストア中..."
 # デッドロックになると全体が取り消されるので、その場合だけ少し待って最大3回やり直す。
 # 2026-10-03・04 は毎分の定期ジョブ（追加募集の判定など）との取り合いで3回とも失敗し、ステージングのデータが古いまま残った。
 # そのためリストアの間はステージングの定期ジョブを止め、終わったら（失敗しても）必ず元に戻す。
-PAUSED_CRON_JOBS=$(staging_psql -c "SELECT coalesce(string_agg(jobid::text, ','), '') FROM cron.job WHERE active;" 2>/dev/null || echo "")
+# 一覧の取得に失敗したら「止めるジョブなし」と区別できないので、安全側に倒して中断する
+if ! PAUSED_CRON_JOBS=$(staging_psql -c "SELECT coalesce(string_agg(jobid::text, ','), '') FROM cron.job WHERE active;"); then
+  echo "  ❌ 定期ジョブの一覧を取得できませんでした。リストアを中止します"
+  rm -f "$DUMP_FILE" "$RESTORE_FILE"
+  exit 1
+fi
 resume_cron_jobs() {
   if [ -n "$PAUSED_CRON_JOBS" ]; then
-    staging_psql -c "SELECT cron.alter_job(jobid, active := true) FROM cron.job WHERE jobid IN ($PAUSED_CRON_JOBS);" >/dev/null 2>&1 \
-      && echo "  定期ジョブを再開しました" \
-      || echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: $PAUSED_CRON_JOBS）"
-    PAUSED_CRON_JOBS=""
+    # 再開できたときだけ一覧を消す（失敗したら残して、もう一度試せるようにする）
+    if staging_psql -c "SELECT cron.alter_job(jobid, active := true) FROM cron.job WHERE jobid IN ($PAUSED_CRON_JOBS);" >/dev/null 2>&1; then
+      echo "  定期ジョブを再開しました"
+      PAUSED_CRON_JOBS=""
+    else
+      echo "  ⚠️ 定期ジョブの再開に失敗しました。cron.job を確認してください（jobid: $PAUSED_CRON_JOBS）"
+      return 1
+    fi
   fi
 }
-trap resume_cron_jobs EXIT
+resume_cron_jobs_or_fail() {
+  for i in 1 2 3; do
+    resume_cron_jobs && return 0
+    sleep 10
+  done
+  echo "  ❌ 定期ジョブを再開できませんでした。手動で再開してください（jobid: $PAUSED_CRON_JOBS）"
+  exit 1
+}
+trap resume_cron_jobs_or_fail EXIT
 if [ -n "$PAUSED_CRON_JOBS" ]; then
   staging_psql -c "SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobid IN ($PAUSED_CRON_JOBS);" >/dev/null
-  echo "  定期ジョブを一時停止しました（実行中の分が終わるまで20秒待つ）"
-  sleep 20
+  echo "  定期ジョブを一時停止しました。実行中のものが終わるのを待ちます"
+  # active := false は新しい起動を止めるだけなので、実行中のジョブが無くなるまで待つ（最大5分）
+  WAITED=0
+  while :; do
+    RUNNING=$(staging_psql -c "SELECT count(*) FROM cron.job_run_details WHERE status IN ('starting', 'running') AND start_time > now() - interval '1 hour';")
+    [ "$RUNNING" = "0" ] && break
+    if [ "$WAITED" -ge 300 ]; then
+      echo "  ❌ 実行中の定期ジョブが終わりません（$RUNNING 件）。リストアを中止します"
+      rm -f "$DUMP_FILE" "$RESTORE_FILE"
+      exit 1
+    fi
+    sleep 10
+    WAITED=$((WAITED + 10))
+  done
 fi
 RESTORE_OK=0
 for attempt in 1 2 3; do
@@ -249,7 +278,7 @@ fi
 rm -f "$ERROR_LOG"
 
 echo "  OK"
-resume_cron_jobs
+resume_cron_jobs_or_fail
 
 # staging 固有設定の復元（app_config が本番値のままだと環境越え事故になる）
 if [ -n "$APP_CONFIG_BACKUP" ] && [ "$APP_CONFIG_BACKUP" != "null" ]; then
