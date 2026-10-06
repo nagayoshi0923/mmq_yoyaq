@@ -141,3 +141,11 @@ export function buildOrgScenarioPayload({ organizationId, masterId, scenarioData
     available_until: formData.available_until || null,
   }
 }
+
+/**
+ * マスタから引用した新規作成なら、その引用元マスタの ID を返す。
+ * このときは新規作成 API を通さず、引用元を自組織へ登録するだけにする（通すと同じ題名の作品が2件できる）。
+ */
+export function importedMasterIdForNewSave(effectiveScenarioId: string | null | undefined, formMasterId: string | null | undefined) {
+  return !effectiveScenarioId && formMasterId ? formMasterId : undefined
+}
