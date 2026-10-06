@@ -4,6 +4,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
+import { PERSISTED_QUERY_CACHE_KEY } from '@/lib/persistedQueryCache'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -72,7 +73,7 @@ const idbPersister = createAsyncStoragePersister({
     setItem: (key, value) => idbSet(key, value),
     removeItem: (key) => idbDel(key),
   },
-  key: 'mmq-schedule-idb-cache',
+  key: PERSISTED_QUERY_CACHE_KEY,
 })
 
 /**
