@@ -13,6 +13,7 @@ import type { Organization, Staff } from '@/types'
 import {
   QUEENS_WALTZ_ORG_ID,
   fetchOrganizationForStaffSession,
+  getCurrentOrganizationId,
   getOrganizations,
 } from '@/lib/organization'
 
@@ -34,7 +35,7 @@ export const organizationKeys = {
 /**
  * 組織情報を取得する関数（React Query用）
  */
-async function fetchOrganizationData(): Promise<{ organization: Organization | null; staff: Staff | null }> {
+async function fetchOrganizationData(): Promise<{ organization: Organization | null; staff: Staff | null; organizationId: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError) {
     Sentry.captureException(authError, {
@@ -43,13 +44,18 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     })
   }
   if (!user) {
-    return { organization: null, staff: null }
+    return { organization: null, staff: null, organizationId: null }
   }
 
-  // スタッフ情報を取得
-  const { data: staffData, error: staffError } = await staffSettingsReadApi.findByUserId(user.id)
+  // 見ている組織はサーバー・DB と同じく users.organization_id を正とする。
+  // スタッフ行の所属で決めると、マスターが別組織へ切り替えたときに本部のデータが混ざる。
+  const [currentOrgId, staffResult] = await Promise.all([
+    getCurrentOrganizationId(),
+    staffSettingsReadApi.listByUserId(user.id),
+  ])
+  const { data: staffRows, error: staffError } = staffResult
 
-  if (staffError && staffError.code !== 'PGRST116') {
+  if (staffError) {
     Sentry.captureException(staffError, {
       level: 'warning',
       tags: { source: 'useOrganization', kind: 'staff-query-error' },
@@ -58,21 +64,24 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     throw staffError
   }
 
+  const staffData = staffRows?.find(row => row.organization_id === currentOrgId) ?? staffRows?.[0] ?? null
   if (!staffData) {
-    return { organization: null, staff: null }
+    return { organization: null, staff: null, organizationId: null }
   }
 
-  if (!staffData.organization_id) {
+  const organizationId = currentOrgId ?? staffData.organization_id
+  if (!organizationId) {
     logger.warn('useOrganization: staff.organization_id が未設定です', { userId: user.id })
-    return { organization: null, staff: staffData as Staff }
+    return { organization: null, staff: staffData as Staff, organizationId: null }
   }
 
   // 組織情報を取得（DBのマイグレーションが古くてもコア列までフォールバック）
-  const orgData = await fetchOrganizationForStaffSession(staffData.organization_id)
+  const orgData = await fetchOrganizationForStaffSession(organizationId)
 
   return {
     organization: orgData,
     staff: staffData as Staff,
+    organizationId,
   }
 }
 
@@ -105,7 +114,7 @@ export function useOrganization(): UseOrganizationResult {
   return {
     organization: data?.organization ?? null,
     staff: data?.staff ?? null,
-    organizationId: data?.staff?.organization_id ?? null,
+    organizationId: data?.organizationId ?? null,
     isLicenseManager: data?.organization?.is_license_manager ?? false,
     isLoading,
     error: error as Error | null,

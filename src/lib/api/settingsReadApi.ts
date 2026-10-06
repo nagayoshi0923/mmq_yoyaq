@@ -17,9 +17,9 @@ const SALARY_SETTINGS_SELECT_FIELDS =
   'organization_id, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates, updated_at' as const
 
 export const staffSettingsReadApi = {
-  /** ログインユーザーのスタッフ行 */
-  async findByUserId(userId: string) {
-    return supabase.from('staff').select(STAFF_SELECT_FIELDS).eq('user_id', userId).maybeSingle()
+  /** ログインユーザーのスタッフ行（複数組織に登録がある場合も全件） */
+  async listByUserId(userId: string) {
+    return supabase.from('staff').select(STAFF_SELECT_FIELDS).eq('user_id', userId)
   },
 }
 

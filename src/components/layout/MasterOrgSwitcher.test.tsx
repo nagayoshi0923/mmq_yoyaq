@@ -4,9 +4,11 @@ import { createRoot } from 'react-dom/client'
 import { beforeEach, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({ isMaster: vi.fn(), listOrganizations: vi.fn(), switchOrganization: vi.fn() }))
 vi.mock('@/lib/api/platformMasterApi', () => ({ platformMasterApi: api }))
+const cache = vi.hoisted(() => ({ clearPersistedQueryCache: vi.fn(async () => {}) }))
+vi.mock('@/lib/persistedQueryCache', () => cache)
 import { MasterOrgSwitcher } from './MasterOrgSwitcher'
 const orgs = [{ id: 'hq', name: 'クインズワルツ', slug: 'queens-waltz', is_current: true }, { id: 'fc', name: 'クインズワルツ札幌店', slug: 'queenswaltz-sapporo', is_current: false }]
-beforeEach(() => { Object.values(api).forEach(f => f.mockReset()); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }) })
+beforeEach(() => { Object.values(api).forEach(f => f.mockReset()); cache.clearPersistedQueryCache.mockClear(); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }) })
 async function render(navigateTo = vi.fn()) {
   const host = document.createElement('div'), root = createRoot(host)
   await act(async () => root.render(<MasterOrgSwitcher navigateTo={navigateTo} />))
@@ -20,6 +22,7 @@ it('マスターには組織の一覧を出し、切り替えたら切り替え�
   expect(select.value).toBe('hq'); expect(host.textContent).toContain('クインズワルツ札幌店')
   await act(async () => { select.value = 'fc'; select.dispatchEvent(new Event('change', { bubbles: true })) })
   expect(api.switchOrganization).toHaveBeenCalledWith('fc')
+  expect(cache.clearPersistedQueryCache).toHaveBeenCalled()
   expect(navigateTo).toHaveBeenCalledWith('/queenswaltz-sapporo/dashboard')
   await act(async () => root.unmount())
 })
@@ -34,6 +37,6 @@ it('切り替えに失敗したら移動せずに知らせる', async () => {
   const { host, root, navigateTo } = await render()
   const select = host.querySelector('select')!
   await act(async () => { select.value = 'fc'; select.dispatchEvent(new Event('change', { bubbles: true })) })
-  expect(navigateTo).not.toHaveBeenCalled(); expect(host.textContent).toContain('切り替えられませんでした')
+  expect(navigateTo).not.toHaveBeenCalled(); expect(cache.clearPersistedQueryCache).not.toHaveBeenCalled(); expect(host.textContent).toContain('切り替えられませんでした')
   await act(async () => root.unmount())
 })

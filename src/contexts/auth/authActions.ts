@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { supabase, type AuthUser } from '@/lib/supabase'
 import { authTrace, logger } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
+import { clearPersistedQueryCache } from '@/lib/persistedQueryCache'
 import { getSignOutRedirectPath, logAuthEvent } from './authContextHelpers'
 
 /**
@@ -136,6 +137,7 @@ export function createAuthActions(deps: AuthActionsDeps) {
       
       // 🚨 キャッシュをクリア（別ユーザーでログイン時に古い情報が表示されるのを防ぐ）
       setStaffCache(new Map())
+      await clearPersistedQueryCache()
       
       // 他のタブにログアウトを通知
       if (broadcastChannelRef.current) {

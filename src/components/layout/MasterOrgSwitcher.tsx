@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { platformMasterApi, type MasterOrganization } from '@/lib/api/platformMasterApi'
+import { clearPersistedQueryCache } from '@/lib/persistedQueryCache'
 
 /**
  * マスターだけに出す「組織の切り替え」。切り替えると、その組織の管理者と同じ画面になる。
- * 組織の情報は画面側で覚えているので、切り替えたら切り替え先のダッシュボードを読み込み直す。
+ * 組織の情報は画面側で覚えているので、端末に保存した公演データを消してから
+ * 切り替え先のダッシュボードを読み込み直す。
  */
 export function MasterOrgSwitcher({ navigateTo = (path: string) => window.location.assign(path) }: { navigateTo?: (path: string) => void }) {
   const [organizations, setOrganizations] = useState<MasterOrganization[] | null>(null)
@@ -28,6 +30,7 @@ export function MasterOrgSwitcher({ navigateTo = (path: string) => window.locati
     setSwitching(true); setError(null)
     const { data, error: switchError } = await platformMasterApi.switchOrganization(id)
     if (switchError || typeof data !== 'string') { setSwitching(false); setError('切り替えられませんでした'); return }
+    await clearPersistedQueryCache()
     navigateTo(`/${data}/dashboard`)
   }
 
