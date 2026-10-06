@@ -4,7 +4,7 @@ import vm from 'node:vm'
 import ts from 'typescript'
 import {readFileSync} from 'node:fs'
 const source=ts.transpileModule(readFileSync('supabase/functions/invite-staff/index.ts','utf8').replace(/^import .*$/gm,''),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-function setup({profileOrg='own',staffOrg=null,emailOrg=null,emailUser=null,targetRole='customer',lookupError=false,inviteEmail='target@example.invalid',storedEmail='target@example.invalid'}={}){
+function setup({master=false,requestOrg='own',profileOrg='own',staffOrg=null,emailOrg=null,emailUser=null,targetRole='customer',lookupError=false,inviteEmail='target@example.invalid',storedEmail='target@example.invalid'}={}){
  let handler;const writes=[];const emailFilters=[]
  const client={auth:{getUser:async()=>({data:{user:{id:'actor',email:'admin@example.invalid'}},error:null}),admin:{listUsers:async()=>({data:{users:[{id:'target',email:storedEmail}]},error:null}),createUser:async()=>{writes.push('createAuth');throw Error('unexpected')}}},from:table=>{
   const filters={};const q={select:()=>q,eq:(k,v)=>{filters[k]=v;return q},ilike:(k,v)=>{filters[k]=v;filters._ilike=k;if(k==='email')emailFilters.push(v);return q},maybeSingle:async()=>read(),single:async()=>read(),upsert:async row=>{writes.push({table,row});return {error:{message:'fixture stop after profile'}}}}
@@ -18,13 +18,14 @@ function setup({profileOrg='own',staffOrg=null,emailOrg=null,emailUser=null,targ
     }
     return {data:staffOrg?{organization_id:staffOrg}:null,error:null}
    }
+   if(table==='platform_masters')return {data:master&&filters.user_id==='actor'?{user_id:'actor'}:null,error:null}
    throw Error(`unexpected table ${table}`)
   }
   return q
  }}
  const context={serve:fn=>{handler=fn},createClient:()=>client,Deno:{env:{get:()=>''}},getCorsHeaders:()=>({}),getServiceRoleKey:()=>'',getAnonKey:()=>'',maskEmail:x=>x,maskName:x=>x,sanitizeErrorMessage:x=>x,Response,console:{log(){},warn(){},error(){}}}
  vm.runInNewContext(source,context)
- return {writes,emailFilters,call:()=>handler(new Request('https://fixture.invalid/invite-staff',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({email:inviteEmail,name:'Fixture',organization_id:'own'})}))}
+ return {writes,emailFilters,call:()=>handler(new Request('https://fixture.invalid/invite-staff',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({email:inviteEmail,name:'Fixture',organization_id:requestOrg})}))}
 }
 for(const [label,options] of [['profile',{profileOrg:'other'}],['linked staff',{staffOrg:'other'}],['email staff',{emailOrg:'other'}],['different identity',{emailOrg:'own',emailUser:'someone-else'}]])test(`${label}: 他組織・別人を招待前に拒否し書き込まない`,async()=>{const h=setup(options);assert.equal((await h.call()).status,403);assert.equal(h.writes.length,0)})
 test('所属取得失敗では招待を進めない',async()=>{const h=setup({lookupError:true});assert.equal((await h.call()).status,500);assert.equal(h.writes.length,0)})
@@ -44,3 +45,5 @@ for(const email of ['with_under@example.invalid','with%percent@example.invalid']
 })
 
 test('組織を解除された既存顧客はスタッフ保存前に再所属しない',async()=>{const h=setup({profileOrg:null,targetRole:'customer'});await h.call();assert.equal(h.writes[0].row.organization_id,null)})
+test('マスター以外は、自分の組織以外への招待を拒否する',async()=>{const h=setup({requestOrg:'franchise'});const r=await h.call();assert.equal(r.status,403);assert.match(await r.text(),/自組織以外/);assert.equal(h.writes.length,0)})
+test('マスターは、別の組織（フランチャイズ）への招待を組織の確かめで止めない',async()=>{const h=setup({master:true,requestOrg:'franchise',profileOrg:'franchise'});const r=await h.call();assert.notEqual(r.status,403)})
