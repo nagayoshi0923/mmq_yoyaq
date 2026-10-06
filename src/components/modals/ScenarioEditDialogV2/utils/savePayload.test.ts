@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildOrgScenarioPayload, buildScenarioSaveData } from './savePayload'
+import { buildOrgScenarioPayload, buildScenarioSaveData, importedMasterIdForNewSave } from './savePayload'
 import { newScenarioFormData } from './formData'
 
 describe('作品編集の保存で書き込む値', () => {
@@ -30,5 +30,17 @@ describe('作品編集の保存で書き込む値', () => {
     expect(out).toMatchObject({ organization_id: 'org', scenario_master_id: 'm', org_status: 'coming_soon', override_title: '題名', recruitment_target_source: 'custom', gm_count: 1 })
     expect(out.available_stores).toEqual([]) // 設定元の値より、後に書いた運用の値が優先（元のコードと同じ順番）
     expect(buildOrgScenarioPayload({ organizationId: 'org', masterId: 'm', scenarioData, formData: form, saveStatus: 'unavailable', sourcePayload: {} }).org_status).toBe('unavailable')
+  })
+})
+
+describe('マスタから引用した新規作成', () => {
+  it('新規でマスタを引用していれば、引用元を使い新規作成はしない', () => {
+    expect(importedMasterIdForNewSave(undefined, 'm1')).toBe('m1')
+    expect(importedMasterIdForNewSave(null, 'm1')).toBe('m1')
+  })
+  it('既存の作品の編集や、引用していない新規作成は従来どおり', () => {
+    expect(importedMasterIdForNewSave('m1', 'm1')).toBeUndefined()
+    expect(importedMasterIdForNewSave(undefined, undefined)).toBeUndefined()
+    expect(importedMasterIdForNewSave(undefined, '')).toBeUndefined()
   })
 })
