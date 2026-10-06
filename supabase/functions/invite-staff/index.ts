@@ -136,7 +136,15 @@ serve(async (req) => {
       )
     }
 
-    if (callerOrganizationId && callerOrganizationId !== requestedOrganizationId) {
+    // マスター（社長）だけは、本部・フランチャイズのどの組織にも招待できる（2026-10-07 社長指示。組織の管理画面からの招待）
+    const { data: masterRow } = await supabase
+      .from('platform_masters')
+      .select('user_id')
+      .eq('user_id', callerUser.id)
+      .maybeSingle()
+    const isPlatformMaster = Boolean(masterRow)
+
+    if (!isPlatformMaster && callerOrganizationId && callerOrganizationId !== requestedOrganizationId) {
       console.warn('⚠️ 組織ID不一致: 呼び出し元=%s, リクエスト=%s', callerOrganizationId, requestedOrganizationId)
       return new Response(
         JSON.stringify({ success: false, error: '自組織以外への招待はできません' }),
