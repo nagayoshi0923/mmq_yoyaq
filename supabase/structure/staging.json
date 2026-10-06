@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-06T14:13:12.590Z",
+  "captured_at": "2026-10-06T14:21:21.801Z",
   "table_count": 142,
-  "function_count": 346,
-  "digest": "d611eb8c71870477efffa92597e82b2522bb84f811e43538ca9bd6ef1be5e397"
+  "function_count": 348,
+  "digest": "79dc97aa9c19f638991b4305a75620e0799210df5b052f4fe0bb439c3b56df35"
  },
  "tables": {
   "staff": {
@@ -3951,6 +3951,26 @@
      "roles": null,
      "using": "is_org_admin()",
      "permissive": true
+    },
+    {
+     "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "(( SELECT is_platform_master() AS is_platform_master) OR (EXISTS ( SELECT 1\n   FROM customer_coupons cc\n  WHERE ((cc.id = coupon_usages.customer_coupon_id) AND (cc.organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -14603,11 +14623,11 @@
     {
      "cmd": "*",
      "name": "admin_can_manage_scenario_import_aliases",
-     "check": "is_org_admin()",
+     "check": "(( SELECT is_license_admin() AS is_license_admin) OR ( SELECT is_platform_master() AS is_platform_master))",
      "roles": [
       "authenticated"
      ],
-     "using": "is_org_admin()",
+     "using": "(( SELECT is_license_admin() AS is_license_admin) OR ( SELECT is_platform_master() AS is_platform_master))",
      "permissive": true
     },
     {
@@ -16852,8 +16872,10 @@
      "cmd": "*",
      "name": "inventory_consistency_logs_admin_only",
      "check": null,
-     "roles": null,
-     "using": "is_org_admin()",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "(( SELECT is_license_admin() AS is_license_admin) OR ( SELECT is_platform_master() AS is_platform_master))",
      "permissive": true
     },
     {
@@ -23296,7 +23318,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "3ddfa29a9410ecc1bd33042572bb87af",
+   "body_md5": "c960a0591fd33c90f374a147983e625c",
    "language": "sql",
    "security_definer": false
   },
@@ -24026,6 +24048,17 @@
    ],
    "returns": "uuid",
    "body_md5": "a5739d2482a69f69449d53e0118097c6",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "platform_master_organizations()": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(id uuid, name text, slug text, is_current boolean)",
+   "body_md5": "c00c03daac41de47c009ab938ff26fd6",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25578,6 +25611,17 @@
    ],
    "returns": "jsonb",
    "body_md5": "fc788ebdace87877aae21fdc5791e64f",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "platform_master_switch_organization(p_organization_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "f93a2dc46aff97d4ec33561b7c2b2547",
    "language": "plpgsql",
    "security_definer": true
   },
