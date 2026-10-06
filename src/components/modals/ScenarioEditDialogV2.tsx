@@ -21,7 +21,7 @@ import { SaveOptionsDialog } from './ScenarioEditDialogV2/sections/SaveOptionsDi
 import { ScenarioTabContent } from './ScenarioEditDialogV2/sections/ScenarioTabContent'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditDialogV2/types'
 import { initialScenarioFormData, newScenarioFormData, scenarioToFormData } from './ScenarioEditDialogV2/utils/formData'
-import { buildOrgScenarioPayload, buildScenarioSaveData } from './ScenarioEditDialogV2/utils/savePayload'
+import { buildOrgScenarioPayload, buildScenarioSaveData, importedMasterIdForNewSave } from './ScenarioEditDialogV2/utils/savePayload'
 import { buildHeaderScenarioOptions, computeMasterDiffs, emptyScenarioStats, scenarioSaveErrorMessage } from './ScenarioEditDialogV2/utils/headerAndDiffs'
 import { useScenarioOrganizationNames } from './ScenarioEditDialogV2/useScenarioOrganizationNames'
 import { upsertOrganizationScenario } from './ScenarioEditDialogV2/utils/saveOrganizationScenario'
@@ -513,22 +513,27 @@ function ScenarioEditDialogSession({ isOpen, onClose, scenarioId, onSaved, onSce
         scenarioData.id = effectiveScenarioId
       }
       
+      // マスタから引用した新規作成は、引用元のマスタを自組織へ登録するだけにする
+      const importedMasterId = importedMasterIdForNewSave(effectiveScenarioId, formData.scenario_master_id)
+
       // scenarios テーブルへの保存（旧テーブル）
       // 失敗してもorganization_scenariosへの保存は続行する
       let scenarioSaveResult: any = null
-      try {
-        scenarioSaveResult = await scenarioMutation.mutateAsync({
-          scenario: scenarioData,
-          isEdit: !!effectiveScenarioId
-        })
-      } catch (scenarioErr) {
-        logger.warn('scenarios テーブル保存エラー（organization_scenariosへの保存は続行）:', scenarioErr)
-        logger.warn('⚠️ scenarios保存エラー（続行）:', scenarioErr)
+      if (!importedMasterId) {
+        try {
+          scenarioSaveResult = await scenarioMutation.mutateAsync({
+            scenario: scenarioData,
+            isEdit: !!effectiveScenarioId
+          })
+        } catch (scenarioErr) {
+          logger.warn('scenarios テーブル保存エラー（organization_scenariosへの保存は続行）:', scenarioErr)
+          logger.warn('⚠️ scenarios保存エラー（続行）:', scenarioErr)
+        }
       }
 
       // 担当GMの更新処理
       // scenario_master_id を直接使用
-      const targetScenarioId = effectiveScenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? scenarioSaveResult.scenario_master_id : undefined)
+      const targetScenarioId = effectiveScenarioId || importedMasterId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? scenarioSaveResult.scenario_master_id : undefined)
 
       // マスタから引用した場合、organization_scenariosにも登録
       // scenariosテーブルの保存に失敗してもここは必ず実行する
