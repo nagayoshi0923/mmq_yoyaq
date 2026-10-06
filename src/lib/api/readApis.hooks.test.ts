@@ -117,7 +117,7 @@ describe('顧客・設定のフック', () => {
     await notificationReadApi.listUpcomingReservations('c1', '2026-10-01T00:00:00.000Z', '2026-10-04T00:00:00.000Z')
     await notificationReadApi.listNotifiedWaitlist('c1')
     await notificationReadApi.listRecentCancelledReservations('c1', '2026-09-26T00:00:00.000Z')
-    await staffSettingsReadApi.findByUserId('u1')
+    await staffSettingsReadApi.listByUserId('u1')
     await globalSettingsHookReadApi.getByOrganization('o1')
     await salarySettingsReadApi.getByOrganization('o1')
     await salarySettingsReadApi.findCurrentHistory('o1', '2026-10-03')
@@ -138,7 +138,7 @@ describe('顧客・設定のフック', () => {
         "from("reservations") .select("id, reservation_number, title, requested_datetime") .eq("customer_id", "c1") .gte("requested_datetime", "2026-10-01T00:00:00.000Z") .lte("requested_datetime", "2026-10-04T00:00:00.000Z") .in("status", ["confirmed","gm_confirmed"]) .order("requested_datetime", {"ascending":true}) .limit(3)",
         "from("waitlist") .select("\\n          id, \\n          created_at,\\n          schedule_events(id…) .eq("customer_id", "c1") .eq("status", "notified") .order("created_at", {"ascending":false}) .limit(3)",
         "from("reservations") .select("id, reservation_number, title, cancelled_at, requested_datetime, canc…) .eq("customer_id", "c1") .eq("status", "cancelled") .gte("cancelled_at", "2026-09-26T00:00:00.000Z") .order("cancelled_at", {"ascending":false}) .limit(5)",
-        "from("staff") .select("id, organization_id, name, line_name, x_account, discord_id:discord_u…) .eq("user_id", "u1") .maybeSingle()",
+        "from("staff") .select("id, organization_id, name, line_name, x_account, discord_id:discord_u…) .eq("user_id", "u1")",
         "from("global_settings") .select("id, organization_id, shift_submission_start_day, shift_submission_end…) .eq("organization_id", "o1") .single()",
         "from("global_settings") .select("organization_id, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_te…) .eq("organization_id", "o1") .single()",
         "from("salary_settings_history") .select("effective_from") .eq("organization_id", "o1") .lte("effective_from", "2026-10-03") .order("effective_from", {"ascending":false}) .limit(1) .maybeSingle()",

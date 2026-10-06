@@ -401,7 +401,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
             const organizationId = userProfile?.organization_id ?? staffData?.organization_id
             const role = userProfile?.role ?? staffData?.role
-            const slug = orgSlug || profileOrgSlug || ''
+            // 見ている組織（users.organization_id）の URL を優先する。マスターが切り替え中でも本部へ戻さない
+            const slug = profileOrgSlug || orgSlug || ''
 
             if (organizationId) {
               if (userProfile?.is_store_representative === true && role !== 'customer') {
