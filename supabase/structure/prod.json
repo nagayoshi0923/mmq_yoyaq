@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-05T20:56:26.447Z",
+  "captured_at": "2026-10-06T11:55:18.224Z",
   "table_count": 141,
   "function_count": 344,
-  "digest": "ceee976391b0d6c99b02587822f651738a1a8c94649821b4ad529f9eeaf7f64a"
+  "digest": "3cc618a2651032958bf876a58c1d1176820d88ee390fafadc144bed70521b6a5"
  },
  "tables": {
   "staff": {
@@ -825,6 +825,17 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "admin_only_restrict",
+     "check": "is_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_admin()",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "authors_delete_authenticated",
@@ -2498,6 +2509,17 @@
      "roles": null,
      "using": "((auth.role() = 'service_role'::text) OR is_license_admin() OR ((( SELECT users.role\n   FROM users\n  WHERE (users.id = auth.uid())\n LIMIT 1) = 'admin'::app_role) AND (organization_id = get_user_organization_id())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -2692,6 +2714,17 @@
      "roles": null,
      "using": "is_staff_or_admin()",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -5326,6 +5359,17 @@
      ],
      "using": "(organization_id = get_user_organization_id())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -7143,6 +7187,17 @@
      "roles": null,
      "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -7887,6 +7942,17 @@
      "roles": null,
      "using": "((is_admin() AND (organization_id = get_user_organization_id())) OR (staff_id IN ( SELECT staff.id\n   FROM staff\n  WHERE (staff.user_id = auth.uid()))))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -9622,6 +9688,17 @@
      "roles": null,
      "using": "(is_admin() OR is_org_admin() OR (staff_id IN ( SELECT staff.id\n   FROM staff\n  WHERE (staff.user_id = auth.uid()))))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -9758,6 +9835,17 @@
      "roles": null,
      "using": "((organization_id = get_user_organization_id()) OR (is_admin() AND (organization_id = get_user_organization_id())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -12915,6 +13003,39 @@
      ],
      "using": "true",
      "permissive": true
+    },
+    {
+     "cmd": "d",
+     "name": "staff_write_restrict_delete",
+     "check": null,
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "staff_write_restrict_insert",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "staff_write_restrict_update",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -13750,6 +13871,17 @@
      "roles": null,
      "using": "((organization_id = get_user_organization_id()) OR is_org_admin())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -15129,6 +15261,17 @@
      "roles": null,
      "using": "(is_org_admin() OR ((staff_id IN ( SELECT s.id\n   FROM staff s\n  WHERE (s.user_id = auth.uid()))) AND (organization_id = get_user_organization_id())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -15954,6 +16097,17 @@
      "roles": null,
      "using": "is_org_admin()",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -16151,6 +16305,17 @@
      "roles": null,
      "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -16518,6 +16683,17 @@
      ],
      "using": "true",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -17750,6 +17926,17 @@
      "roles": null,
      "using": "(((organization_id = get_user_organization_id()) AND (status = 'pending'::text)) OR is_license_manager() OR (is_admin() AND (organization_id = get_user_organization_id())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -18541,6 +18728,17 @@
      "roles": null,
      "using": "(is_org_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "is_staff_or_admin()",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "is_staff_or_admin()",
+     "permissive": false
     }
    ],
    "triggers": [],
