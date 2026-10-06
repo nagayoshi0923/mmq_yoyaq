@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-06T14:10:24.830Z",
+  "captured_at": "2026-10-06T14:13:12.590Z",
   "table_count": 142,
   "function_count": 346,
-  "digest": "55e545fdb52fb0fe31ac4f7b3da5c71d219a1110c4d3e1b17e747c92f3b54178"
+  "digest": "d611eb8c71870477efffa92597e82b2522bb84f811e43538ca9bd6ef1be5e397"
  },
  "tables": {
   "staff": {
@@ -4910,6 +4910,17 @@
       "authenticated"
      ],
      "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
      "permissive": false
     }
    ],
@@ -10973,6 +10984,17 @@
      "roles": null,
      "using": "(organization_id = get_user_organization_id())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -11465,6 +11487,17 @@
       "authenticated"
      ],
      "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
      "permissive": false
     }
    ],
@@ -12419,6 +12452,17 @@
       "authenticated"
      ],
      "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
      "permissive": false
     }
    ],
@@ -18889,6 +18933,17 @@
      ],
      "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
      "permissive": false
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -23078,6 +23133,17 @@
       "authenticated"
      ],
      "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
+     "name": "staff_only_restrict",
+     "check": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
+     "roles": [
+      "anon",
+      "authenticated"
+     ],
+     "using": "( SELECT is_staff_or_admin() AS is_staff_or_admin)",
      "permissive": false
     }
    ],
