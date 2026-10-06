@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-06T14:05:27.524Z",
+  "captured_at": "2026-10-06T14:10:24.830Z",
   "table_count": 142,
   "function_count": 346,
-  "digest": "abc03e040ed3dcded4a633f62ad85866a08f54fa72bd34bf120e28e7162fec0f"
+  "digest": "55e545fdb52fb0fe31ac4f7b3da5c71d219a1110c4d3e1b17e747c92f3b54178"
  },
  "tables": {
   "staff": {
@@ -24333,7 +24333,6 @@
   },
   "check_and_fix_inventory_consistency()": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -24915,9 +24914,6 @@
   },
   "is_organization_member(p_organization_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25004,7 +25000,7 @@
     "service_role=X/postgres"
    ],
    "returns": "TABLE(group_id uuid, requested_datetime text, store_id uuid, store_name text)",
-   "body_md5": "775e153fede68d03b2182d2fba6b43ae",
+   "body_md5": "8cf53e10f4a6126f871cd8fc24a5f167",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25023,7 +25019,6 @@
   },
   "calculate_cancellation_fee(p_reservation_id uuid)": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25375,7 +25370,6 @@
   },
   "run_inventory_consistency_check(p_organization_id uuid)": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25386,7 +25380,6 @@
   },
   "admin_clear_reservations_scenario_id(p_scenario_id uuid)": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25407,7 +25400,6 @@
   },
   "cancel_event_reservations(p_event_id uuid, p_reason text)": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25484,9 +25476,6 @@
   },
   "admin_recalculate_reservation_prices(p_reservation_id uuid)": {
    "acl": [
-    "=X/postgres",
-    "anon=X/postgres",
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25507,7 +25496,6 @@
   },
   "check_and_fix_inventory_consistency(p_organization_id uuid)": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25561,7 +25549,6 @@
   },
   "admin_delete_reservations_by_source(p_reservation_source text)": {
    "acl": [
-    "authenticated=X/postgres",
     "postgres=X/postgres",
     "service_role=X/postgres"
    ],
@@ -25941,7 +25928,7 @@
     "service_role=X/postgres"
    ],
    "returns": "integer",
-   "body_md5": "d2fbb9234e54177487777028224f24d8",
+   "body_md5": "98ee8be12cc86c758f691831669eb690",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26215,7 +26202,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "88e2559b3e1af464d57588ab8a51973b",
+   "body_md5": "9fbade8f521dcef9555f67080c7392d2",
    "language": "plpgsql",
    "security_definer": true
   },

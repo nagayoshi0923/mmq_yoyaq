@@ -36,9 +36,10 @@ BEGIN
           AND pgm.user_id = auth.uid()
           AND pgm.status = 'joined'
       )
-      -- スタッフ・管理者
-      OR pg.organization_id = get_user_organization_id()
-      OR is_org_admin()
+      -- その組織のスタッフ・管理者（同じ組織のお客様は含めない。2026-10-06）
+      OR (public.is_staff_or_admin() AND pg.organization_id = public.get_user_organization_id())
+      -- マスター
+      OR public.is_platform_master()
     );
 END;
 $$;
