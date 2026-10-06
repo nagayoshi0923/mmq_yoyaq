@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-06T11:55:19.608Z",
+  "captured_at": "2026-10-06T12:18:24.277Z",
   "table_count": 141,
   "function_count": 344,
-  "digest": "b605056a2e4fc9e6737fade41dd21594b6852231aa007599630d1f6dfe4d874b"
+  "digest": "81ee959a9b021c03bcaf77fc31d89867261bdf2239334442abc54a5636243475"
  },
  "tables": {
   "staff": {
@@ -6310,6 +6310,16 @@
      "roles": null,
      "using": "(((is_cancelled = false) AND (is_reservation_enabled = true) AND (category = ANY (ARRAY['open'::text, 'offsite'::text])) AND ((is_private_booking IS NULL) OR (is_private_booking = false)) AND ((is_tentative IS NULL) OR (is_tentative = false))) OR ((auth.uid() IS NOT NULL) AND (organization_id = get_user_organization_id())))",
      "permissive": true
+    },
+    {
+     "cmd": "r",
+     "name": "schedule_events_select_restrict",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((is_staff_or_admin() AND ((organization_id = get_user_organization_id()) OR is_license_admin())) OR (category = ANY (ARRAY['open'::text, 'offsite'::text])) OR (EXISTS ( SELECT 1\n   FROM (reservations r\n     JOIN customers c ON ((c.id = r.customer_id)))\n  WHERE ((r.schedule_event_id = schedule_events.id) AND (c.user_id = auth.uid())))))",
+     "permissive": false
     },
     {
      "cmd": "w",
@@ -22366,7 +22376,7 @@
     "service_role=X/postgres"
    ],
    "returns": "boolean",
-   "body_md5": "c960a0591fd33c90f374a147983e625c",
+   "body_md5": "3ddfa29a9410ecc1bd33042572bb87af",
    "language": "sql",
    "security_definer": false
   },
