@@ -18,6 +18,7 @@ import {
   Mail, Building2, ChevronDown, ChevronRight, Menu, X, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { MasterOrgSwitcher } from './MasterOrgSwitcher'
 
 type SubSubItem = {
   id: string
@@ -336,6 +337,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
     <>
       {/* デスクトップサイドバー */}
       <aside className="hidden md:flex flex-col w-48 shrink-0 border-r border-border bg-slate-50 h-full overflow-y-auto">
+        <MasterOrgSwitcher />
         <SidebarContent
           slug={slug}
           bookingActive={bookingActive}
@@ -375,6 +377,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
                 <X className="w-4 h-4" />
               </Button>
             </div>
+            <MasterOrgSwitcher />
             <SidebarContent
           slug={slug}
           bookingActive={bookingActive}
