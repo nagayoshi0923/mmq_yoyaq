@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-06T12:18:24.277Z",
-  "table_count": 141,
-  "function_count": 344,
-  "digest": "81ee959a9b021c03bcaf77fc31d89867261bdf2239334442abc54a5636243475"
+  "captured_at": "2026-10-06T14:05:27.524Z",
+  "table_count": 142,
+  "function_count": 346,
+  "digest": "abc03e040ed3dcded4a633f62ad85866a08f54fa72bd34bf120e28e7162fec0f"
  },
  "tables": {
   "staff": {
@@ -204,6 +204,36 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "staff_delete_admin",
@@ -658,6 +688,36 @@
    "policies": [
     {
      "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "d",
      "name": "stores_delete_admin",
      "check": null,
      "roles": null,
@@ -865,6 +925,16 @@
      ],
      "using": "true",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -1033,6 +1103,16 @@
      "roles": null,
      "using": "(((customer_email)::text = auth.email()) OR (organization_id IN ( SELECT staff.organization_id\n   FROM staff\n  WHERE (staff.user_id = auth.uid()))))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -1879,6 +1959,36 @@
    "policies": [
     {
      "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "d",
      "name": "scenarios_delete_admin_org_scoped",
      "check": null,
      "roles": null,
@@ -2143,6 +2253,16 @@
      "roles": null,
      "using": "((auth.role() = 'service_role'::text) OR (is_admin() AND (organization_id = get_user_organization_id())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -2290,6 +2410,16 @@
      "roles": null,
      "using": "((organization_id = get_user_organization_id()) AND is_org_admin())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -2502,6 +2632,16 @@
     },
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "staff_only_restrict",
      "check": "is_staff_or_admin()",
      "roles": [
@@ -2707,6 +2847,16 @@
     },
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "staff_only_restrict",
      "check": "is_staff_or_admin()",
      "roles": [
@@ -2874,6 +3024,16 @@
      "roles": null,
      "using": "((organization_id = get_user_organization_id()) AND is_org_admin())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -3459,6 +3619,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "reservations_delete_staff_or_admin",
@@ -4414,6 +4584,16 @@
      "roles": null,
      "using": "((organization_id = get_user_organization_id()) AND is_staff_or_admin())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -4721,6 +4901,16 @@
      "roles": null,
      "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -5160,6 +5350,16 @@
      "permissive": true
     },
     {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "d",
      "name": "scenario_likes_delete",
      "check": null,
@@ -5315,6 +5515,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "a",
      "name": "staff_checkins_org_insert",
@@ -5497,6 +5707,36 @@
      "roles": null,
      "using": "\nCASE\n    WHEN (get_user_organization_id() IS NOT NULL) THEN ((organization_id = get_user_organization_id()) OR is_org_admin())\n    ELSE true\nEND",
      "permissive": true
+    },
+    {
+     "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -5880,6 +6120,16 @@
      "roles": null,
      "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -6281,6 +6531,36 @@
    "policies": [
     {
      "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "d",
      "name": "schedule_events_delete_staff_or_admin",
      "check": null,
      "roles": null,
@@ -6662,6 +6942,16 @@
      "roles": null,
      "using": "((organization_id = get_user_organization_id()) AND is_admin())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -6831,6 +7121,16 @@
      "roles": null,
      "using": "(customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -7144,6 +7444,16 @@
    ],
    "policies": [
     {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "d",
      "name": "performance_kits_delete_admin",
      "check": null,
@@ -7225,6 +7535,49 @@
     {
      "def": "FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE RESTRICT",
      "name": "performance_kits_store_id_fkey",
+     "type": "f"
+    }
+   ]
+  },
+  "platform_masters": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE UNIQUE INDEX platform_masters_pkey ON public.platform_masters USING btree (user_id)",
+     "name": "platform_masters_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "PRIMARY KEY (user_id)",
+     "name": "platform_masters_pkey",
+     "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "name": "platform_masters_user_id_fkey",
      "type": "f"
     }
    ]
@@ -7779,6 +8132,16 @@
      "roles": null,
      "using": "is_admin()",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -7898,6 +8261,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "shift_submissions_delete_self_or_admin",
@@ -8064,6 +8437,16 @@
      "roles": null,
      "using": "(((organization_id = get_user_organization_id()) AND is_staff_or_admin()) OR is_license_admin())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -8247,6 +8630,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "store_travel_times_delete_policy",
@@ -8491,6 +8884,16 @@
      "roles": null,
      "using": "((user_id = auth.uid()) OR (customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid()))))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -8687,7 +9090,18 @@
      "name": "idx_booking_email_queue_status"
     }
    ],
-   "policies": [],
+   "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    }
+   ],
    "triggers": [],
    "constraints": [
     {
@@ -8855,6 +9269,16 @@
      "roles": null,
      "using": "(organization_id IN ( SELECT staff.organization_id\n   FROM staff\n  WHERE (staff.user_id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -9506,6 +9930,16 @@
    ],
    "policies": [
     {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "d",
      "name": "slot_memos_delete",
      "check": null,
@@ -9647,6 +10081,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "a",
      "name": "shift_button_states_insert_strict",
@@ -9817,6 +10261,16 @@
      "roles": null,
      "using": "(auth.role() = 'authenticated'::text)",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     },
     {
      "cmd": "*",
@@ -10018,6 +10472,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "organization_authors_delete_policy",
@@ -10302,6 +10766,16 @@
    ],
    "policies": [
     {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "d",
      "name": "reservation_settings_delete_admin",
      "check": null,
@@ -10482,6 +10956,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "r",
      "name": "reservations_history_select_org_scoped",
@@ -10972,6 +11456,16 @@
      "roles": null,
      "using": "(is_admin() AND ((organization_id = get_user_organization_id()) OR (organization_id IS NULL)))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -11174,6 +11668,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "organization_settings_delete_own_org",
@@ -11732,6 +12236,16 @@
      "roles": null,
      "using": "(organization_id IN ( SELECT staff.organization_id\n   FROM staff\n  WHERE (staff.user_id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -11896,6 +12410,16 @@
      "roles": null,
      "using": "(organization_id IN ( SELECT users.organization_id\n   FROM users\n  WHERE (users.id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -12528,6 +13052,36 @@
      "permissive": true
     },
     {
+     "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "r",
      "name": "organization_scenarios_select_public",
      "check": null,
@@ -12847,6 +13401,16 @@
    ],
    "policies": [
     {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "d",
      "name": "scenario_kit_locations_delete_policy",
      "check": null,
@@ -12983,6 +13547,16 @@
      ],
      "using": "true",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     },
     {
      "cmd": "d",
@@ -13169,6 +13743,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "schedule_event_history_delete_policy",
@@ -13607,6 +14191,36 @@
      "roles": null,
      "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -13697,6 +14311,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "organization_categories_delete_policy",
@@ -13836,6 +14460,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "*",
      "name": "salary_settings_history_org_scoped",
@@ -14091,6 +14725,16 @@
      "roles": null,
      "using": "(is_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -14276,6 +14920,16 @@
      "roles": null,
      "using": "(organization_id IN ( SELECT staff.organization_id\n   FROM staff\n  WHERE (staff.user_id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -14440,6 +15094,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "organization_invitations_delete_policy",
@@ -14665,6 +15329,16 @@
    ],
    "policies": [
     {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
      "cmd": "d",
      "name": "private_booking_requests_delete",
      "check": null,
@@ -14799,6 +15473,36 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "d",
+     "name": "org_scope_restrict_delete",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "a",
+     "name": "org_scope_restrict_insert",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": false
+    },
+    {
+     "cmd": "w",
+     "name": "org_scope_restrict_update",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "store_recruitment_pauses_delete_admin",
@@ -15244,6 +15948,16 @@
     },
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "staff_only_restrict",
      "check": "is_staff_or_admin()",
      "roles": [
@@ -15398,6 +16112,16 @@
      "roles": null,
      "using": "(organization_id IN ( SELECT staff.organization_id\n   FROM staff\n  WHERE (staff.user_id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -15907,6 +16631,16 @@
      "roles": null,
      "using": "(is_org_admin() AND (organization_id = get_user_organization_id()))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -16288,6 +17022,16 @@
     },
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "staff_only_restrict",
      "check": "is_staff_or_admin()",
      "roles": [
@@ -16666,6 +17410,16 @@
     },
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "staff_only_restrict",
      "check": "is_staff_or_admin()",
      "roles": [
@@ -16790,6 +17544,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "staff_scenario_assignments_delete_admin_or_self",
@@ -17476,6 +18240,16 @@
    "policies": [
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "waitlist_notification_queue_org_policy",
      "check": null,
      "roles": null,
@@ -17909,6 +18683,16 @@
     },
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "staff_only_restrict",
      "check": "is_staff_or_admin()",
      "roles": [
@@ -18095,6 +18879,16 @@
      "roles": null,
      "using": "(organization_id = get_user_organization_id())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
     }
    ],
    "triggers": [
@@ -18703,6 +19497,16 @@
    "policies": [
     {
      "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
+    {
+     "cmd": "*",
      "name": "performance_cancellation_logs_admin_org_scoped",
      "check": null,
      "roles": null,
@@ -18814,6 +19618,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "performance_schedule_settings_delete_admin",
@@ -18999,6 +19813,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
+    },
     {
      "cmd": "r",
      "name": "private_booking_discord_rooms_select",
@@ -19902,6 +20726,16 @@
      "roles": null,
      "using": "(organization_id IN ( SELECT staff.organization_id\n   FROM staff\n  WHERE (staff.user_id = auth.uid())))",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -20714,6 +21548,16 @@
     }
    ],
    "policies": [
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)) OR ( SELECT is_license_admin() AS is_license_admin))",
+     "permissive": false
+    },
     {
      "cmd": "d",
      "name": "store_scenario_license_contracts_delete",
@@ -22225,6 +23069,16 @@
      "roles": null,
      "using": "(organization_id = get_user_organization_id())",
      "permissive": true
+    },
+    {
+     "cmd": "*",
+     "name": "org_scope_restrict",
+     "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+     "permissive": false
     }
    ],
    "triggers": [],
@@ -22456,6 +23310,18 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "is_platform_master()": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "9c165a539ce8fcb5d7eba18155e3fcbf",
+   "language": "sql",
+   "security_definer": true
+  },
   "audit_staff_changes()": {
    "acl": [
     "authenticated=X/postgres",
@@ -22465,6 +23331,18 @@
    "returns": "trigger",
    "body_md5": "142cde3e4444f4610e4b8da76051bcaf",
    "language": "plpgsql",
+   "security_definer": true
+  },
+  "is_my_org(p_org uuid)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "51ce741626f7a1ec386a0b961a9f29e9",
+   "language": "sql",
    "security_definer": true
   },
   "generate_invite_code()": {
