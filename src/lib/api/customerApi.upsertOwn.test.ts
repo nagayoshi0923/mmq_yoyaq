@@ -66,3 +66,8 @@ describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの�
     await expect(upsertOwnCustomer({ ...base, scopeByOrganization: true, throwOnError: true })).rejects.toThrow('ins')
   })
 })
+
+it.each([{ email: 'bad' }, { phone: '123' }])('不正な連絡先は顧客行の読み書き前に拒否する %s', async invalid => {
+  await expect(upsertOwnCustomer({ ...base, ...invalid })).rejects.toThrow()
+  expect(m.calls).toEqual([])
+})

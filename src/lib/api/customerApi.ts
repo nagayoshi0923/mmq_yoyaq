@@ -4,6 +4,7 @@
  * 顧客管理の取得・保存はバックエンド API (/api/customers) 経由。
  * org_id はサーバー側で JWT から取得するため、クライアントからは渡さない。
  */
+import { validateCustomerContact } from '@/lib/customerContactValidation'
 import { apiClient } from '@/lib/apiClient'
 import { supabase } from '@/lib/supabase'
 import type { Customer, Reservation } from '@/types'
@@ -55,6 +56,7 @@ export interface UpsertOwnCustomerInput {
 }
 export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<string | null> {
   const { userId, name, nickname, phone, email, organizationId, scopeByOrganization = false, throwOnError = false } = input
+  validateCustomerContact(email, phone)
   let find = supabase.from('customers').select('id').eq('user_id', userId)
   if (scopeByOrganization) find = find.eq('organization_id', organizationId as string)
   const { data: existing } = await find.maybeSingle()
@@ -91,12 +93,14 @@ export interface OwnProfileFields {
 export const ownCustomerApi = {
   /** プロフィールを更新する（id で絞り、userId を渡したときは user_id でも絞る）。更新された行の id を返す */
   async updateProfileById(customerId: string, fields: OwnProfileFields, userId?: string | null) {
+    validateCustomerContact(fields.email, fields.phone || undefined)
     let q = supabase.from('customers').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', customerId)
     if (userId) q = q.eq('user_id', userId)
     return q.select('id')
   },
   /** 本人の顧客行が無いときに作成する（マイページ初回保存）。organization_id は呼び出し側が決める */
   async insertProfile(userId: string, fields: OwnProfileFields, organizationId: string | null) {
+    validateCustomerContact(fields.email, fields.phone || undefined)
     return supabase.from('customers').insert({ user_id: userId, ...fields, organization_id: organizationId }).select('id')
   },
   /** 通知設定だけを更新する */

@@ -131,7 +131,17 @@ export default function MyPage() {
   const prevPlayedRef = useRef<unknown>(SYNC_UNSET)
   if (myPageData?.playedScenarios !== prevPlayedRef.current) {
     prevPlayedRef.current = myPageData?.playedScenarios
-    if (myPageData?.playedScenarios) setPlayedScenarios(myPageData.playedScenarios)
+    if (myPageData?.playedScenarios) {
+      let overrides: Record<string, string> = {}
+      try {
+        const saved: unknown = JSON.parse(localStorage.getItem('played_scenarios_date_overrides') || '{}')
+        if (saved && typeof saved === 'object' && !Array.isArray(saved)) overrides = saved as Record<string, string>
+      } catch { /* 壊れた保存値は無視 */ }
+      setPlayedScenarios(myPageData.playedScenarios.map(item => {
+        const date = overrides[playedScenarioAlbumKey(item)] || overrides[item.reservation_id || `${item.scenario}-${item.date}`]
+        return !item.is_manual && /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? { ...item, date } : item
+      }))
+    }
   }
   // 体験済み解除（DB override）の scenario_master_id 集合。optimistic 反映のためローカルに同期
   const [playedOverrideIds, setPlayedOverrideIds] = useState<Set<string>>(new Set())

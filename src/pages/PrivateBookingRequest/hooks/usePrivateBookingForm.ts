@@ -1,3 +1,4 @@
+import { validateCustomerContact } from '@/lib/customerContactValidation'
 import { useState } from 'react'
 
 /**
@@ -23,6 +24,9 @@ export function usePrivateBookingForm() {
       setError('電話番号を入力してください')
       return false
     }
+    try { validateCustomerContact(customerEmail, customerPhone) }
+    catch (error) { setError((error as Error).message); return false }
+    setError(null)
     return true
   }
 

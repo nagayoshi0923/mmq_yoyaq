@@ -50,6 +50,8 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   const slotParam = urlParams.get('slot') || ''
   const timeParam = urlParams.get('time') || ''
   const groupId = urlParams.get('groupId') || ''
+  const participantParam = Number(urlParams.get('participants'))
+  const selectedParticipants = Number.isInteger(participantParam) && participantParam >= (scenario?.player_count_min || 1) && participantParam <= (scenario?.player_count_max || 8) ? participantParam : (scenario?.player_count_max || 8)
 
   const isUuidLike = (value: string): boolean =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -316,7 +318,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       scenarioId={scenario.id}
       participationFee={scenario.participation_fee ?? 0}
       participationCosts={scenario.participation_costs}
-      maxParticipants={scenario.player_count_max || 8}
+      maxParticipants={selectedParticipants}
       scenarioDuration={scenario.duration}
       weekendDuration={
         typeof scenario.weekend_duration === 'number' && scenario.weekend_duration > 0

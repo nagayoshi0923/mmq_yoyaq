@@ -1,6 +1,10 @@
 -- RPC と直接 INSERT/UPDATE の双方で、保存時点の実効締切・作品の公演期間・貸切募集期間を強制する。
-CREATE OR REPLACE FUNCTION public.assert_private_booking_candidate_date(p_org UUID,p_scenario UUID,p_date DATE)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+CREATE OR REPLACE FUNCTION public.assert_private_booking_candidate_date(p_org uuid, p_scenario uuid, p_date date)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE days INTEGER; today DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::DATE; period RECORD;
 BEGIN
  IF p_org IS NULL OR p_scenario IS NULL OR p_date IS NULL THEN RAISE EXCEPTION 'PRIVATE_BOOKING_CONTEXT_REQUIRED' USING ERRCODE='P0045'; END IF;
@@ -11,7 +15,7 @@ BEGIN
  -- 作品編集の「貸切募集期間」（申し込める期間）と「公演期間」（公演できる日の範囲）。未設定は制限なし。
  SELECT os.booking_start_date,os.booking_end_date,os.available_from,os.available_until INTO period
  FROM public.organization_scenarios os
- WHERE os.organization_id=p_org AND (os.id=p_scenario OR os.scenario_master_id=p_scenario)
+ WHERE os.organization_id=p_org AND (os.id=p_scenario OR os.scenario_master_id=p_scenario OR os.scenario_master_id=(SELECT legacy.scenario_master_id FROM public.scenarios legacy WHERE legacy.id=p_scenario AND legacy.organization_id=p_org))
  ORDER BY CASE WHEN os.id=p_scenario THEN 0 ELSE 1 END,os.created_at LIMIT 1;
  IF FOUND THEN
    IF (period.booking_start_date IS NOT NULL AND today < period.booking_start_date)
@@ -24,9 +28,7 @@ BEGIN
    END IF;
  END IF;
 END;
-$$;
-REVOKE ALL ON FUNCTION public.assert_private_booking_candidate_date(UUID,UUID,DATE) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.assert_private_booking_candidate_date(UUID,UUID,DATE) TO service_role;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.enforce_private_group_candidate_deadline()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$

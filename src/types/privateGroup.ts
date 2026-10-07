@@ -13,6 +13,8 @@ export type DateResponse = 'ok' | 'ng' | 'maybe'
 
 // 貸切グループ
 export interface PrivateGroup {
+  /** 招待プレビューにも返す人数のみの集計。参加者情報は含まない。 */
+  joined_member_count?: number
   id: string
   organization_id: string
   scenario_master_id: string | null

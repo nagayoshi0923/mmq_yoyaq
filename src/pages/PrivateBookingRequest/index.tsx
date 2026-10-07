@@ -346,7 +346,7 @@ export function PrivateBookingRequest({
     validateForm
   } = usePrivateBookingForm()
 
-  const { isSubmitting, success, handleSubmit } = usePrivateBookingSubmit({
+  const { isSubmitting, success, confirmationEmailAccepted, handleSubmit } = usePrivateBookingSubmit({
     scenarioTitle,
     scenarioId,
     participationFee: candidateFees[0] ?? participationFee,
@@ -483,7 +483,7 @@ export function PrivateBookingRequest({
               <h2 className="text-lg text-purple-800">貸切リクエストを受け付けました！</h2>
               <p className="text-sm text-purple-700 leading-relaxed">
                 リクエストありがとうございます。<br />
-                確認メールを {customerEmail} に送信しました。<br />
+                {confirmationEmailAccepted ? `確認メールの送信を受け付けました（${customerEmail}）。` : '確認メールの送信を確認できませんでした。受付内容はマイページで確認できます。再申込は不要です。'}<br />
                 担当者より折り返しご連絡させていただきます。
               </p>
               <div className="pt-4 flex flex-col gap-3">
