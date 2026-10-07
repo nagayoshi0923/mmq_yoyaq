@@ -215,6 +215,20 @@ await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',4,now()+interval '60 day
 await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[versionClaim.noticeId,id(106),id(224)])
 assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(106)]))[0].status,'notified');assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(107)]))[0].status,'waiting');assert.deepEqual((await q('SELECT payload FROM waitlist_notice_deliveries WHERE notice_id=$1',[versionClaim.noticeId]))[0].payload,fixedOne);checks++
 await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(36)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(36)])
+// claim内のlease集合保存→entry読取りの間にも再登録が入る窓を強制する。
+await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,1,1,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[id(37),event])
+await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空claim旧','inside-old@example.invalid',now(),$4)",[id(108),org,id(37),customer])
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(311),org,id(37),id(20)])
+await db.exec(`CREATE FUNCTION qa_insert_registration_in_claim() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.notice_id='${id(311)}' AND OLD.lease_id IS NULL AND NEW.lease_id IS NOT NULL THEN
+ INSERT INTO waitlist VALUES('${id(109)}','${org}','${id(37)}','waiting',4,now()+interval '60 days',NULL,'架空claim新','inside-new@example.invalid',now(),'${customer}'); END IF; RETURN NEW; END $$;
+CREATE TRIGGER qa_insert_registration_in_claim AFTER UPDATE ON waitlist_notice_deliveries FOR EACH ROW EXECUTE FUNCTION qa_insert_registration_in_claim();`)
+const insideClaim=(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[id(37),id(20),id(225)]))[0].result
+assert.equal(insideClaim.entries.length,1);assert.equal(insideClaim.entries[0].participant_count,1);assert.equal(insideClaim.entries[0].customer_email,'inside-old@example.invalid');checks++
+await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[insideClaim.noticeId,id(108),id(225)])
+assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(109)]))[0].status,'waiting');checks++
+await db.exec('DROP TRIGGER qa_insert_registration_in_claim ON waitlist_notice_deliveries;DROP FUNCTION qa_insert_registration_in_claim();')
+await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(37)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(37)])
 // 既存deliveryでも待機期限切れならleaseせず、通知済みを偽装しないでnoticeを完了する。
 await q("UPDATE waitlist SET expires_at=now()-interval '1 minute' WHERE id=$1",[wait])
 await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(303),org,event,id(15)])

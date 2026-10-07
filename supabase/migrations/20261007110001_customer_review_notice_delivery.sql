@@ -106,7 +106,7 @@ BEGIN
  'participant_count',contact.participant_count,'deliveryKey','waitlist-'||n.id::text||'-'||w.id::text) ORDER BY w.created_at)
  INTO entries FROM public.waitlist_notice_deliveries d JOIN public.waitlist w ON w.id=d.waitlist_id
  CROSS JOIN LATERAL (SELECT latest.customer_name,latest.customer_email,latest.participant_count FROM public.waitlist latest
- WHERE public.waitlist_notice_same_recipient(latest.id,w.id) AND latest.status='waiting' AND (latest.expires_at IS NULL OR latest.expires_at>now())
+ WHERE latest.id=ANY(d.claimed_waitlist_ids) AND public.waitlist_notice_same_recipient(latest.id,w.id) AND latest.status='waiting' AND (latest.expires_at IS NULL OR latest.expires_at>now())
  ORDER BY coalesce(latest.created_at,'-infinity'::timestamptz) DESC,latest.id DESC LIMIT 1) contact
  WHERE d.notice_id=n.id AND d.lease_id=p_lease AND d.sent_at IS NULL;
  IF entries IS NULL AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())))
