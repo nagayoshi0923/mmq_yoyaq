@@ -192,10 +192,16 @@ await q('DELETE FROM schedule_events WHERE id=$1',[competingEvent]);await q('DEL
 await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,max_participants,capacity,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[id(35),event])
 for(const wid of [id(104),id(105)])await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空同宛先',$5,now(),$4)",[wid,org,id(35),customer,wid===id(104)?'old@example.invalid':'latest@example.invalid'])
 await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(308),org,id(35),id(18)])
+// 再登録で1→4名となった場合、古い1名で空席判定しない。全待機行を保持。
+await q('UPDATE waitlist SET participant_count=4 WHERE id=$1',[id(105)])
+const notEnough=(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[id(35),id(18),id(223)]))[0].result
+assert.equal(notEnough.entries.length,0);assert.equal((await q("SELECT count(*)::integer AS n FROM waitlist WHERE schedule_event_id=$1 AND status='waiting'",[id(35)]))[0].n,2);checks++
+await q('UPDATE schedule_events SET max_participants=5,capacity=5 WHERE id=$1',[id(35)])
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,2,'{}')",[id(309),org,id(35),id(18)])
 const dupeLease=(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[id(35),id(18),id(222)]))[0].result;assert.equal(dupeLease.entries.length,1);checks++
-assert.equal(dupeLease.entries[0].id,id(104));assert.equal(dupeLease.entries[0].customer_email,'latest@example.invalid');checks++
+assert.equal(dupeLease.entries[0].id,id(104));assert.equal(dupeLease.entries[0].customer_email,'latest@example.invalid');assert.equal(dupeLease.entries[0].participant_count,4);checks++
 await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[dupeLease.noticeId,dupeLease.entries[0].id,id(222)])
-assert.equal((await q("SELECT count(*)::integer AS n FROM waitlist WHERE schedule_event_id=$1 AND status='notified'",[id(35)]))[0].n,2);assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(308)]))[0].completed_at,null);checks++
+assert.equal((await q("SELECT count(*)::integer AS n FROM waitlist WHERE schedule_event_id=$1 AND status='notified'",[id(35)]))[0].n,2);assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(309)]))[0].completed_at,null);checks++
 await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(35)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(35)])
 // 既存deliveryでも待機期限切れならleaseせず、通知済みを偽装しないでnoticeを完了する。
 await q("UPDATE waitlist SET expires_at=now()-interval '1 minute' WHERE id=$1",[wait])

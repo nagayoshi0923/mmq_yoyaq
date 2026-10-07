@@ -144,7 +144,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "a6e53432da0d8cb297a0364c03c8676e",
+    "body_md5": "abc21792c20c2eb19c59efa465db13ad",
     "language": "plpgsql",
     "security_definer": true
   },
