@@ -64,6 +64,11 @@ export function usePlayedScenarios() {
   }, [user?.id])
 
   useEffect(() => {
+    // 認証主体が変わった時は前の本人の情報を即座に破棄する。更新イベントでは保持する。
+    setPlayedScenarioIds(new Set())
+    setCustomerId(null)
+    setCustomerIds([])
+    setLoading(true)
     void fetchPlayedScenarios()
     const refresh = () => { void fetchPlayedScenarios() }
     window.addEventListener(PLAY_HISTORY_CHANGED_EVENT, refresh)

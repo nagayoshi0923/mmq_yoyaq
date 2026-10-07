@@ -324,10 +324,10 @@ describe('マイページ・予約確認・クーポン', () => {
         "from("schedule_events_public") .select("id, date, start_time, category, current_participants, max_participant…) .in("id", undefined)",
       ],
       "myPageDataReadApi.listRatings": [
-        "from("scenario_ratings") .select("scenario_master_id, rating, updated_at") .eq("customer_id", "a1") .order("updated_at", {"ascending":false})",
+        "from("scenario_ratings") .select("scenario_master_id, rating") .eq("customer_id", "a1")",
       ],
       "myPageDataReadApi.listRatings (最後の引数なし)": [
-        "from("scenario_ratings") .select("scenario_master_id, rating, updated_at") .eq("customer_id", undefined) .order("updated_at", {"ascending":false})",
+        "from("scenario_ratings") .select("scenario_master_id, rating") .eq("customer_id", undefined)",
       ],
       "myPageDataReadApi.listRecentReservations": [
         "from("reservations") .select("id, organization_id, reservation_number, title, scenario_id, scenario…) .eq("customer_id", "a1") .order("requested_datetime", {"ascending":false}) .limit(50)",

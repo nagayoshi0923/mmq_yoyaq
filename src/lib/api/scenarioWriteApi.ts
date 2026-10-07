@@ -78,11 +78,6 @@ export const scenarioLikeApi = {
 }
 
 export const scenarioRatingApi = {
-  async removeForCustomers(customerIds: string[], scenarioMasterId: string) {
-    const { error } = await supabase.from('scenario_ratings').delete()
-      .in('customer_id', [...new Set(customerIds)]).eq('scenario_master_id', scenarioMasterId)
-    if (error) throw error
-  },
   async remove(customerId: string, scenarioMasterId: string) {
     return supabase.from('scenario_ratings').delete()
       .eq('customer_id', customerId).eq('scenario_master_id', scenarioMasterId)

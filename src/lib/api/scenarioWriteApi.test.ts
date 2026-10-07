@@ -2,11 +2,10 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 const m = vi.hoisted(() => {
   const calls: Array<[string, unknown[]]> = []
-  const state={error:null as Error|null}
   const make = () => {
     const q: Record<string, unknown> = {}
     for (const name of ['eq', 'in', 'or', 'select', 'single']) q[name] = (...a: unknown[]) => { calls.push([name, a]); return q }
-    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: state.error }).then(resolve)
+    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve)
     return q
   }
   const from = vi.fn((table: string) => {
@@ -18,7 +17,7 @@ const m = vi.hoisted(() => {
       delete: () => { calls.push(['delete', []]); return make() },
     }
   })
-  return { calls, from, state }
+  return { calls, from }
 })
 vi.mock('@/lib/supabase', () => ({ supabase: { from: m.from } }))
 import {
@@ -26,7 +25,7 @@ import {
   scenarioLikeApi, scenarioRatingApi, orgMasterListApi,
 } from './scenarioWriteApi'
 
-beforeEach(() => { m.calls.length = 0; m.state.error=null })
+beforeEach(() => { m.calls.length = 0 })
 
 it('マスタ: 作成は1件返し、更新は id か id の一覧で絞る', async () => {
   await scenarioMasterWriteApi.createReturning({ title: 'A' })
@@ -93,12 +92,4 @@ it('作者・カテゴリの一覧管理は、渡した表に対して追加・�
     ['from', ['organization_categories']], ['update', [{ sort_order: 2 }]], ['eq', ['id', 'i1']],
     ['from', ['organization_authors']], ['delete', []], ['eq', ['id', 'i2']],
   ])
-})
-
-it('評価解除は全本人IDの指定作品だけを削除し失敗を伝播する',async()=>{
- await scenarioRatingApi.removeForCustomers(['global','legacy','legacy'],'S')
- expect(m.calls).toContainEqual(['in',['customer_id',['global','legacy']]])
- expect(m.calls).toContainEqual(['eq',['scenario_master_id','S']])
- m.state.error=Error('policy denied')
- await expect(scenarioRatingApi.removeForCustomers(['global','legacy'],'S')).rejects.toThrow('policy denied')
 })

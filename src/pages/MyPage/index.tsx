@@ -343,7 +343,7 @@ export default function MyPage() {
 
     try {
       if (newRating === null) {
-        await scenarioRatingApi.removeForCustomers(customerIds, scenario.scenario_id)
+        await scenarioRatingApi.remove(customerId, scenario.scenario_id)
       } else {
         await scenarioRatingApi.upsert({
             customer_id: customerId,

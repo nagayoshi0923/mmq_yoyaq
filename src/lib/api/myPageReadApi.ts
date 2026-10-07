@@ -106,7 +106,7 @@ export const myPageDataReadApi = {
 
   /** 顧客のシナリオ評価 */
   async listRatings(customerId: string) {
-    return supabase.from('scenario_ratings').select('scenario_master_id, rating, updated_at').eq('customer_id', customerId).order('updated_at', { ascending: false })
+    return supabase.from('scenario_ratings').select('scenario_master_id, rating').eq('customer_id', customerId)
   },
 
   /** 公演（公開ビュー）を id で */
