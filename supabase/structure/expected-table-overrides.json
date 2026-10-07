@@ -51,12 +51,6 @@
     "not_null": true
    },
    {
-    "name": "completed_at",
-    "type": "timestamp with time zone",
-    "default": null,
-    "not_null": false
-   },
-   {
     "name": "last_attempt_at",
     "type": "timestamp with time zone",
     "default": null,
@@ -67,6 +61,12 @@
     "type": "boolean",
     "default": "false",
     "not_null": true
+   },
+   {
+    "name": "completed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
    }
   ],
   "indexes": [
