@@ -418,6 +418,8 @@ for(const [index,amount] of [[0,800],[1,1000]]){
  await q('SELECT restore_coupon_usage($1,$2,$3)',[org,newCoupon,usage.id])
  assert.deepEqual((await q('SELECT discount_amount,final_price FROM reservations WHERE id=$1',[booked]))[0],{discount_amount:0,final_price:1000});checks++
  assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[newCoupon]))[0].uses_remaining,1);checks++
+ assert.equal((await q(sql,args))[0].id,booked);checks++
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[newCoupon]))[0].uses_remaining,1);checks++
 }
 
 // 既存予約：定額/割合×手動割引なし/一部/全額。使用・再試行・取消・取消再試行で同額を維持。
@@ -451,5 +453,17 @@ for(const [index,type,face,manual] of [[0,'fixed',800,0],[1,'fixed',800,500],[2,
  await q('UPDATE reservations SET discount_amount=$1,final_price=$2 WHERE id=$3',[manual+expected,1000-manual-expected,reservation])
  await q('SELECT restore_coupon_usage($1,$2,$3)',[org,testCoupon,reapplied.usage_id])
 }
+
+
+// 券なし新規予約→後日券適用→元リクエスト再送→取消→元再送は同ID・金額を変えない。
+const noCouponArgs=[id(703),1,customer,'架空後日券','later@example.invalid','09012345678',null,null,'QA-BOOKING-LATER-COUPON',null]
+const bookingCall='SELECT create_reservation_with_lock_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS id'
+const noCouponBooked=(await q(bookingCall,noCouponArgs))[0].id
+const later=(await q('SELECT use_customer_coupon($1,$2,$3) AS data',[user,id(704),noCouponBooked]))[0].data
+assert.equal((await q(bookingCall,noCouponArgs))[0].id,noCouponBooked);checks++
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[noCouponBooked]))[0].final_price,200);checks++
+await q('SELECT restore_coupon_usage($1,$2,$3)',[org,id(704),later.usage_id])
+assert.equal((await q(bookingCall,noCouponArgs))[0].id,noCouponBooked);checks++
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[noCouponBooked]))[0].final_price,1000);checks++
 
 console.log('CUSTOMER_REVIEW_CLOSURE_DB_PASS',checks,'実SQLチェック');await db.close()

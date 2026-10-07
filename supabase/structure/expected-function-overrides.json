@@ -70,7 +70,7 @@
       "service_role=X/postgres"
     ],
     "returns": "uuid",
-    "body_md5": "d2d44fa96c077d58ed9456255a1d37c8",
+    "body_md5": "e1bb7fc9bf8da1bb999bb92da35eb6d0",
     "language": "plpgsql",
     "security_definer": true
   },

@@ -117,10 +117,9 @@ BEGIN
       AND r.customer_email IS NOT DISTINCT FROM p_customer_email
       AND r.customer_phone IS NOT DISTINCT FROM p_customer_phone
       AND r.customer_notes IS NOT DISTINCT FROM p_notes
-      AND ((r.booking_request_payload IS NULL AND p_how_found IS NULL)
+      AND ((r.booking_request_payload IS NULL AND p_how_found IS NULL AND p_customer_coupon_id IS NULL)
         OR r.booking_request_payload = jsonb_build_object('name',p_customer_name,'email',p_customer_email,'phone',p_customer_phone,'notes',p_notes,'howFound',p_how_found,'coupon',p_customer_coupon_id))
-      AND ((p_customer_coupon_id IS NULL AND NOT EXISTS(SELECT 1 FROM public.coupon_usages u WHERE u.reservation_id=r.id))
-        OR EXISTS(SELECT 1 FROM public.coupon_usages u WHERE u.reservation_id=r.id AND u.customer_coupon_id=p_customer_coupon_id));
+;
     IF FOUND THEN RETURN v_reservation_id; END IF;
     IF EXISTS(SELECT 1 FROM public.reservations r WHERE r.reservation_number=p_reservation_number) THEN
       RAISE EXCEPTION 'RESERVATION_RETRY_MISMATCH' USING ERRCODE='P0055';
