@@ -8,6 +8,16 @@ ALTER TABLE public.private_group_coupon_uses ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.private_group_coupon_uses FROM PUBLIC,anon,authenticated;
 
 -- 全利用条件はこの内部関数1本。メンバー経路も予約時snapshotを使い、単価だけを本人メンバーから取得する。
+-- 同じ本人の別顧客IDでもクーポン利用を直列化。本人未紐付けは顧客ID単位。
+CREATE OR REPLACE FUNCTION public.lock_coupon_customer_identity(p_customer uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE actor uuid;
+BEGIN
+ SELECT user_id INTO actor FROM public.customers WHERE id=p_customer;
+ PERFORM pg_advisory_xact_lock(hashtextextended(CASE WHEN actor IS NULL THEN 'coupon-customer:'||p_customer::text ELSE 'coupon-user:'||actor::text END,0));
+END $$;
+REVOKE ALL ON FUNCTION public.lock_coupon_customer_identity(uuid) FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE OR REPLACE FUNCTION public.coupon_discount_for_event_internal(
  p_coupon uuid,p_event uuid,p_amount integer,p_customer uuid,p_reservation uuid,p_member uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -15,6 +25,7 @@ DECLARE cc public.customer_coupons; e public.schedule_events; locked_reservation
  member_amount integer; prior record; scenario_key uuid; slot text; discount integer; used_amount integer:=0;
 BEGIN
  -- 顧客行で直列化し、別クーポンを同時利用した場合にも併用/同作品制限を守る。
+ PERFORM public.lock_coupon_customer_identity(p_customer);
  PERFORM 1 FROM public.customers WHERE id=p_customer FOR UPDATE;
  SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon FOR UPDATE;
  IF NOT FOUND OR cc.customer_id IS DISTINCT FROM p_customer THEN
@@ -99,17 +110,19 @@ BEGIN
  END IF;
  scenario_key:=COALESCE(e.scenario_master_id,e.scenario_id,e.organization_scenario_id);
  FOR prior IN SELECT u.*,c.customer_id AS previous_customer,c.rules_snapshot AS previous_rules,
+  (c.customer_id=p_customer OR EXISTS(SELECT 1 FROM public.customers cu JOIN public.customers previous ON previous.user_id=cu.user_id WHERE cu.id=p_customer AND previous.id=c.customer_id AND cu.user_id IS NOT NULL)) AS same_customer_identity,
   COALESCE(se.scenario_master_id,se.scenario_id,se.organization_scenario_id) AS previous_scenario, se.scenario AS previous_title
   FROM public.coupon_usages u JOIN public.customer_coupons c ON c.id=u.customer_coupon_id
   JOIN public.reservations r ON r.id=u.reservation_id JOIN public.schedule_events se ON se.id=r.schedule_event_id
   WHERE c.customer_id=p_customer OR u.reservation_id=p_reservation
+  OR EXISTS(SELECT 1 FROM public.customers cu JOIN public.customers previous ON previous.user_id=cu.user_id WHERE cu.id=p_customer AND previous.id=c.customer_id AND cu.user_id IS NOT NULL)
  LOOP
   IF prior.reservation_id=p_reservation THEN
    IF prior.customer_coupon_id=p_coupon THEN RAISE EXCEPTION 'この予約には使用済みです' USING ERRCODE='P0028'; END IF;
    IF NOT COALESCE((rules->>'combinable')::boolean,true) OR NOT COALESCE((prior.previous_rules->>'combinable')::boolean,true) THEN
     RAISE EXCEPTION '他のクーポンと併用できません' USING ERRCODE='P0028';
    END IF;
-  ELSIF prior.previous_customer=p_customer AND ((scenario_key IS NOT NULL AND scenario_key=prior.previous_scenario) OR
+  ELSIF prior.same_customer_identity AND ((scenario_key IS NOT NULL AND scenario_key=prior.previous_scenario) OR
    ((scenario_key IS NULL OR prior.previous_scenario IS NULL) AND NULLIF(btrim(e.scenario),'') IS NOT NULL AND btrim(e.scenario)=btrim(prior.previous_title))) AND COALESCE((rules->>'same_scenario_once')::boolean,true) THEN
    RAISE EXCEPTION 'この作品には既にクーポンをご利用済みです' USING ERRCODE='P0028';
   END IF;
@@ -162,6 +175,7 @@ BEGIN
  SELECT * INTO m FROM public.private_group_members WHERE id=p_member;
  SELECT * INTO g FROM public.private_groups WHERE id=m.group_id FOR UPDATE;
  SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon;
+ PERFORM public.lock_coupon_customer_identity(cc.customer_id);
  PERFORM 1 FROM public.customers WHERE id=cc.customer_id FOR UPDATE;
  SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon FOR UPDATE;
  SELECT * INTO g FROM public.private_groups WHERE id=m.group_id FOR UPDATE;
@@ -243,6 +257,7 @@ BEGIN
  RAISE EXCEPTION '本人のクーポンだけを変更できます' USING ERRCODE='42501'; END IF;
  -- グループ確定トリガーと同じグループ→顧客→クーポン→メンバーのロック順。
  SELECT * INTO g FROM public.private_groups WHERE id=m.group_id FOR UPDATE;
+ PERFORM public.lock_coupon_customer_identity((SELECT customer_id FROM public.customer_coupons WHERE id=m.coupon_id));
  PERFORM 1 FROM public.customers WHERE id=(SELECT customer_id FROM public.customer_coupons WHERE id=m.coupon_id) FOR UPDATE;
  PERFORM 1 FROM public.customer_coupons WHERE id=m.coupon_id FOR UPDATE;
  SELECT * INTO g FROM public.private_groups WHERE id=m.group_id FOR UPDATE;
@@ -299,3 +314,46 @@ BEGIN
  RETURN NEW;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.use_customer_coupon(p_user uuid,p_coupon uuid,p_reservation uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE cc public.customer_coupons; r public.reservations; uid uuid; amount integer;
+BEGIN
+ SELECT c.* INTO cc FROM public.customer_coupons c JOIN public.customers cu ON cu.id=c.customer_id
+ WHERE c.id=p_coupon AND cu.user_id=p_user;
+ IF cc.id IS NULL THEN RAISE EXCEPTION 'クーポンが見つかりません' USING ERRCODE='P0028'; END IF;
+ SELECT * INTO r FROM public.reservations WHERE id=p_reservation AND organization_id=cc.organization_id;
+ IF r.id IS NULL OR NOT public.can_use_coupon_reservation(cc.customer_id,r.id) THEN
+  RAISE EXCEPTION 'ご本人の予約を指定してください' USING ERRCODE='P0028';
+ END IF;
+ PERFORM public.lock_coupon_customer_identity(cc.customer_id);
+ PERFORM 1 FROM public.customers WHERE id=cc.customer_id FOR UPDATE;
+ SELECT id,discount_amount INTO uid,amount FROM public.coupon_usages WHERE customer_coupon_id=p_coupon AND reservation_id=p_reservation LIMIT 1;
+ IF uid IS NOT NULL THEN RETURN jsonb_build_object('success',true,'usage_id',uid,'discount_amount',amount,'already_used',true); END IF;
+ INSERT INTO public.coupon_usages(customer_coupon_id,reservation_id,discount_amount)
+ VALUES(p_coupon,p_reservation,1) RETURNING id,discount_amount INTO uid,amount;
+ RETURN jsonb_build_object('success',true,'usage_id',uid,'discount_amount',amount);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.use_customer_coupon(uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.use_customer_coupon(uuid,uuid,uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.restore_coupon_usage(p_organization uuid,p_coupon uuid,p_usage uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE cc public.customer_coupons; removed uuid;
+BEGIN
+ SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon AND organization_id=p_organization;
+ IF cc.id IS NULL THEN RAISE EXCEPTION 'クーポンが見つかりません' USING ERRCODE='P0028'; END IF;
+ PERFORM public.lock_coupon_customer_identity(cc.customer_id);
+ PERFORM 1 FROM public.customers WHERE id=cc.customer_id FOR UPDATE;
+ PERFORM 1 FROM public.customer_coupons WHERE id=p_coupon FOR UPDATE;
+ DELETE FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon RETURNING id INTO removed;
+ IF removed IS NOT NULL THEN
+  UPDATE public.customer_coupons SET uses_remaining=uses_remaining+1,
+    status=CASE WHEN status='fully_used' THEN 'active' ELSE status END WHERE id=p_coupon;
+ END IF;
+ RETURN jsonb_build_object('success',true,'restored',removed IS NOT NULL);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.restore_coupon_usage(uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.restore_coupon_usage(uuid,uuid,uuid) TO service_role;

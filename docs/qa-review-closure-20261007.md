@@ -73,3 +73,12 @@ verify、基準DBから28本のmigrationによる完全構造再現、対象実S
 追加レビュー: claim時点の待機行ID集合を私有配送行へ記録し、固定payloadの再試行中も保持。配送ackはその集合だけを通知済みにし、送信開始後の4名再登録はwaitingに残す。追加列はuuid配列、外部キーや顧客公開権限を追加しない。
 
 追加レビュー: claim内の集合保存後に新しい登録が入っても、entryの宛先・人数は保存済みID集合からだけ取得。lease更新後の再登録を強制する隔離トリガーで旧1席→新4名誤通知を修正前再現し、同じ窓で修正後は旧1名宛先・新4名waiting保持を検証。
+
+
+## 同一本人の複数顧客IDへの追加是正
+
+4208037656: 同一公演/組織の待機受信者はCID/正規化メールだけでなくcustomers.user_idで照合。隔離実PGで別CID/別メールの本人2行を1entry・最新連絡先にまとめ、両行ack、再実行0を確認（全ROLLBACK）。別user/公演を同一視しない回帰を含む。
+
+4208037687: 同作品一回のcoupon履歴を同一user全CIDへ広げ、privateな本人単位transaction advisory lockを顧客/クーポンロックより先に取得。本人未紐付けはCID単位。通常利用/スタッフrestore/グループ経路/共通validatorを同じ入口に揃え、helper直接実行はanon/authenticated/service_roleとも禁止。実PGで同一user別CIDの2並行利用は1件成功・1件作品重複拒否、使用履歴1/消費1・deadlock0。外部送信停止、架空fixtureを削除。
+
+PR970のフロント是正も同期。platform顧客は申込先に関わらずorgNULLで既存IDを正規化/新規作成、scopedキャンセル待ち所属は維持。MyPage日付編集は実所有CIDで更新し未所有IDに書き込まない。SQL回帰95件成功。曜日判定をDB公演日から、JST終了fixtureを実際の終了日から作るため日跨ぎによるテスト誤判定を防いだ。

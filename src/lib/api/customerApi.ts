@@ -63,21 +63,24 @@ export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<
   if (lookupError) throw lookupError
   // RPCは共通顧客または申込先と同じ組織の顧客だけを受け付ける。
   const compatible = candidates?.filter(row => row.organization_id == null || row.organization_id === organizationId)
-  const existing = compatible?.find(row => row.email?.toLowerCase() === email.toLowerCase())
+  const existing = candidates?.find(row => row.email?.toLowerCase() === email.toLowerCase())
     ?? compatible?.find(row => row.organization_id === null)
     ?? compatible?.find(row => row.organization_id === organizationId)
     ?? compatible?.[0]
   if (existing) {
-    const updateValues = nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }
+    // 本人のメール一致行のIDと履歴を保持し、platform予約では所属を共通形へ正す。
+    const normalizeOrganization = !scopeByOrganization && existing.organization_id != null
+    const updateValues = { ...(nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }), ...(normalizeOrganization ? { organization_id: null } : {}) }
     let upd = supabase.from('customers').update(updateValues).eq('id', existing.id).eq('user_id', userId)
     if (scopeByOrganization) upd = upd.eq('organization_id', organizationId as string)
     const { error } = await upd
-    if (error && throwOnError) throw error
+    if (error && (throwOnError || normalizeOrganization)) throw error
     return existing.id
   }
+  const customerOrganizationId = scopeByOrganization ? organizationId : null
   const insertValues = nickname === undefined
-    ? { user_id: userId, name, phone, email, organization_id: organizationId }
-    : { user_id: userId, name, nickname, phone, email, organization_id: organizationId }
+    ? { user_id: userId, name, phone, email, organization_id: customerOrganizationId }
+    : { user_id: userId, name, nickname, phone, email, organization_id: customerOrganizationId }
   const { data: created, error } = await supabase.from('customers')
     .insert(insertValues)
     .select('id').single()

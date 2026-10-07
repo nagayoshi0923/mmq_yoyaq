@@ -48,12 +48,14 @@ REVOKE ALL ON FUNCTION public.capture_waitlist_notice_event() FROM PUBLIC,anon,a
 CREATE TRIGGER capture_waitlist_notice_event AFTER UPDATE OF status,participant_count ON public.reservations
 FOR EACH ROW EXECUTE FUNCTION public.capture_waitlist_notice_event();
 
--- 同一公演/組織の宛先を顧客IDまたは空でない正規化メールで照合。待機行IDの増殖で別key保留を回避させない。
+-- 同一公演/組織の宛先を本人user_id、顧客IDまたは空でない正規化メールで照合。待機行IDの増殖で別key保留を回避させない。
 CREATE OR REPLACE FUNCTION public.waitlist_notice_same_recipient(p_left uuid,p_right uuid)
 RETURNS boolean LANGUAGE sql SECURITY INVOKER SET search_path=public,pg_temp AS $$
  SELECT EXISTS(SELECT 1 FROM public.waitlist a JOIN public.waitlist b
  ON a.schedule_event_id=b.schedule_event_id AND a.organization_id=b.organization_id
  WHERE a.id=p_left AND b.id=p_right AND ((a.customer_id IS NOT NULL AND a.customer_id=b.customer_id)
+ OR EXISTS(SELECT 1 FROM public.customers ca JOIN public.customers cb ON ca.user_id=cb.user_id
+ WHERE ca.id=a.customer_id AND cb.id=b.customer_id AND ca.user_id IS NOT NULL)
  OR (NULLIF(lower(btrim(a.customer_email)),'') IS NOT NULL AND lower(btrim(a.customer_email))=lower(btrim(b.customer_email)))));
 $$;
 REVOKE ALL ON FUNCTION public.waitlist_notice_same_recipient(uuid,uuid) FROM PUBLIC,anon,authenticated;

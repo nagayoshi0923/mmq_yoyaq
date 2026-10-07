@@ -6,7 +6,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "db038b0020f8cba8069ea5390b4a745c",
+    "body_md5": "e70d81c0525de1cca8b9ca81c79c67ff",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -134,7 +134,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "06c5aa5555a45c8769158ec95cbc9902",
+    "body_md5": "1fa235731f4ea5e468b929b0640f28c3",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -211,19 +211,19 @@
       "postgres=X/postgres"
     ],
     "returns": "integer",
-    "body_md5": "6eee47affcae26390caf4d828426dea8",
+    "body_md5": "e99d3f7ab9bc7cdaf4bf60ef4786d8da",
     "language": "plpgsql",
     "security_definer": true
   },
   "waitlist_notice_same_recipient(p_left uuid, p_right uuid)": {
-    "returns": "boolean",
-    "language": "sql",
-    "security_definer": false,
-    "body_md5": "d5f0feb790a8677c8b7f8b25492eff02",
     "acl": [
       "postgres=X/postgres",
       "service_role=X/postgres"
-    ]
+    ],
+    "returns": "boolean",
+    "body_md5": "7d39cb410f9e5fd118cfb721333f889f",
+    "language": "sql",
+    "security_definer": false
   },
   "release_departing_group_member_coupon()": {
     "acl": [
@@ -233,5 +233,34 @@
     "language": "plpgsql",
     "security_definer": true,
     "body_md5": "9db0fc0ec57c2c554e6f481688c61d02"
+  },
+  "lock_coupon_customer_identity(p_customer uuid)": {
+    "acl": [
+      "postgres=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "b15a283d7b8a2385a7dd0234796ed074",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "use_customer_coupon(p_user uuid, p_coupon uuid, p_reservation uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "59e290d29dcd11f6095f261730c0b4d2",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "restore_coupon_usage(p_organization uuid, p_coupon uuid, p_usage uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "e902d4b5e25c26f8e34c68c3d983851d",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

@@ -1,6 +1,7 @@
 import { fetchPlayedReservations, resolvePlayedScenarioIds } from '@/lib/playedStatus'
-import { customerPlayHistory } from '@/lib/customerPlayHistory'
-import { useState, useEffect, useCallback } from 'react'
+import { snapshotAllCustomers } from '@/lib/ownPlayHistory'
+import { PLAY_HISTORY_CHANGED_EVENT } from '@/lib/playHistoryEvents'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -18,8 +19,11 @@ export function usePlayedScenarios() {
   const [customerIds, setCustomerIds] = useState<string[]>([])
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const generation = useRef(0)
 
   const fetchPlayedScenarios = useCallback(async () => {
+    const request = ++generation.current
+    const active = () => request === generation.current
     if (!user?.id) {
       setPlayedScenarioIds(new Set())
       setCustomerId(null)
@@ -31,35 +35,39 @@ export function usePlayedScenarios() {
     try {
       const { data: customers, error: lookupError } = await customerLookupReadApi.listIdsByUserId(user.id)
       if (lookupError) throw lookupError
+      if (!active()) return
       const customer = customers?.[0]
 
       if (!customer) {
         setPlayedScenarioIds(new Set())
         setCustomerId(null)
-      setCustomerIds([])
+        setCustomerIds([])
         setLoading(false)
         return
       }
 
       setCustomerId(customer.id)
       setCustomerIds(customers!.map(row => row.id))
-      const histories = await Promise.all(customers!.map(row => customerPlayHistory.snapshot(row.id)))
-      const history = { manual: histories.flatMap(h => h.manual), overrides: histories.flatMap(h => h.overrides) }
+      const history = await snapshotAllCustomers(customers!.map(row => row.id))
+      if (!active()) return
       // 手動履歴・未体験指定は確認済み。予約取得が失敗してもこの判定は保持する。
       setPlayedScenarioIds(resolvePlayedScenarioIds([], history.manual, history.overrides))
       const reservations = (await Promise.all(customers!.map(row => fetchPlayedReservations(row.id)))).flat()
       const scenarioIds = resolvePlayedScenarioIds(reservations, history.manual, history.overrides)
 
-      setPlayedScenarioIds(scenarioIds)
+      if (active()) setPlayedScenarioIds(scenarioIds)
     } catch (error) {
-      logger.error('体験済みシナリオ取得エラー:', error)
+      if (active()) logger.error('体験済みシナリオ取得エラー:', error)
     } finally {
-      setLoading(false)
+      if (active()) setLoading(false)
     }
   }, [user?.id])
 
   useEffect(() => {
-    fetchPlayedScenarios()
+    void fetchPlayedScenarios()
+    const refresh = () => { void fetchPlayedScenarios() }
+    window.addEventListener(PLAY_HISTORY_CHANGED_EVENT, refresh)
+    return () => { generation.current++; window.removeEventListener(PLAY_HISTORY_CHANGED_EVENT, refresh) }
   }, [fetchPlayedScenarios])
 
   const isPlayed = useCallback((scenarioId: string): boolean => {
