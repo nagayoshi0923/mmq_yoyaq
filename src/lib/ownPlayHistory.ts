@@ -10,3 +10,9 @@ export async function findManualHistoryOwner(customerIds: string[], manualId: st
   const index = snapshots.findIndex(snapshot => snapshot.manual.some(row => row.id === manualId))
   return index < 0 ? null : ids[index]
 }
+
+export async function updateOwnManualDate(customerIds: string[], manualId: string, playedAt: string) {
+  const owner = await findManualHistoryOwner(customerIds, manualId)
+  if (!owner) throw new Error('ご本人の手動履歴が見つかりません')
+  return customerPlayHistory.updateDate(owner, manualId, playedAt)
+}

@@ -38,7 +38,7 @@ describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの�
   })
   it('既存行が無ければ作成して新しい id を返す', async () => {
     expect(await upsertOwnCustomer(base)).toBe('new-id')
-    expect((m.calls.find(c => c[0] === 'insert.values')![1] as unknown[])[0]).toEqual({ user_id: 'u1', name: '太郎', nickname: null, phone: '09000000000', email: 'a@example.invalid', organization_id: 'org1' })
+    expect((m.calls.find(c => c[0] === 'insert.values')![1] as unknown[])[0]).toEqual({ user_id: 'u1', name: '太郎', nickname: null, phone: '09000000000', email: 'a@example.invalid', organization_id: null })
   })
   it('通常は更新・作成の失敗を投げず、作成に失敗したら null（呼び出し側が従来どおりエラー化）', async () => {
     m.state.insertResult = { data: null, error: { message: 'x' } }
@@ -85,7 +85,7 @@ it('検索失敗を未登録と扱ってINSERTしない', async () => {
 })
 
 
-it.each([null,'org2'])('旧組織のメール一致本人行を正規化しメールuniqueを保つ（%s）', async organizationId => {
+it.each([null,'org1','org2'])('旧組織のメール一致本人行を正規化しメールuniqueを保つ（%s）', async organizationId => {
  m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'},{id:'global',email:'previous@example.invalid',organization_id:null}]
  expect(await upsertOwnCustomer({...base,organizationId,scopeByOrganization:false,throwOnError:true})).toBe('legacy')
  expect(m.calls).toContainEqual(['update.eq',['id','legacy']])
@@ -101,4 +101,9 @@ it('共通行がなくてもメール一致本人IDを維持し重複INSERTを�
 it('所属正規化に失敗した旧org IDを成功として返さない', async () => {
  m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'}];m.state.updateError=Error('policy denied')
  await expect(upsertOwnCustomer({...base,organizationId:null})).rejects.toThrow('policy denied')
+})
+
+it('組織scopeありのキャンセル待ち新規行では申込先所属を維持する',async()=>{
+ await upsertOwnCustomer({...base,scopeByOrganization:true})
+ expect(m.calls).toContainEqual(['insert.values',[{user_id:base.userId,name:base.name,nickname:null,phone:base.phone,email:base.email,organization_id:'org1'}]])
 })

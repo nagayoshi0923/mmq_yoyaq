@@ -479,6 +479,7 @@ export default function MyPage() {
       loading={loading}
       optionsLoading={optionsLoading}
       customerId={customerId}
+      customerIds={customerIds}
       stats={stats}
       stores={stores}
       orgNames={orgNames}
