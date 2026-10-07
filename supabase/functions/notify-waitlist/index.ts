@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getEmailTemplates, getStoreEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, rateLimitResponse, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface NotifyWaitlistRequest {
@@ -65,8 +65,20 @@ serve(async (req) => {
     if (authorizedEventError || !authorizedEvent || authorizedEvent.organization_id !== data.organizationId) {
       return errorResponse('対象公演へのアクセスが許可されていません', 403, corsHeaders)
     }
-    // 拒否した呼び出しは待機列/通知だけでなくレート制限記録も更新しない。
-    const rateLimit = await checkRateLimit(serviceClient, getClientIP(req), 'notify-waitlist', 30, 60)
+    // actor認可は非更新の照会で先に確認し、拒否呼出しが正規担当者の制限を消費しない。
+    if (!systemCall) {
+      const actor = authResult!.user!.id
+      const [intentAccess, staffAccess] = await Promise.all([
+        serviceClient.from('waitlist_notice_events').select('id', { count: 'exact', head: true })
+          .eq('schedule_event_id', data.scheduleEventId).eq('actor_user_id', actor),
+        serviceClient.from('staff').select('user_id').eq('user_id', actor)
+          .eq('organization_id', data.organizationId).eq('status', 'active').limit(1),
+      ])
+      if (intentAccess.error || staffAccess.error) return errorResponse('通知権限を確認できません', 503, corsHeaders)
+      if (!intentAccess.count && !staffAccess.data?.length) return errorResponse('通知契機へのアクセスが許可されていません', 403, corsHeaders)
+    }
+    const rateLimitKey = systemCall ? `system:${data.organizationId}` : `user:${authResult!.user!.id}`
+    const rateLimit = await checkRateLimit(serviceClient, rateLimitKey, 'notify-waitlist', 30, 60)
     if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
 
     // 🔒 SEC-P0-03対策: bookingUrl をサーバー側で生成（入力値を無視）
@@ -109,7 +121,7 @@ serve(async (req) => {
       p_system: systemCall, p_lease: leaseId,
     })
     if (noticeError) return errorResponse('通知契機へのアクセスが許可されていません', noticeError.code === '42501' ? 403 : 500, corsHeaders)
-    if (notice?.manualReview) return errorResponse('配送結果の確認が必要です。重複送信を防ぐため自動再送を保留しています',503,corsHeaders)
+    if (notice?.manualReview && notice.entries.length === 0) return errorResponse('配送結果の確認が必要です。重複送信を防ぐため自動再送を保留しています',503,corsHeaders)
     if (!notice || notice.entries.length === 0) return new Response(JSON.stringify({ success: true, notifiedCount: 0, totalWaitlist: 0, pending: notice?.pending ?? false }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     // requestの作品名/日時/店舗名は使用せず、保存済みの公演情報だけを表示。
     if (!resendApiKey) {
@@ -351,17 +363,7 @@ ${emailTemplates.footer}
       }
 
       const waitlistEmailSubject = `【空席のお知らせ】${data.scenarioTitle} - ${formatDate(data.eventDate)}`
-      const waitlistEmailLogId = await insertEmailLog(serviceClient, {
-        organization_id:   data.organizationId ?? null,
-        schedule_event_id: data.scheduleEventId ?? null,
-        email_type:        'waitlist_confirmed',
-        to_email:          entry.customer_email,
-        to_name:           entry.customer_name ?? null,
-        subject:           waitlistEmailSubject,
-        body_html:         finalHtml,
-        body_text:         finalText,
-        status:            'queued',
-      }).catch(() => null)
+      let waitlistEmailLogId: string | null = null
 
       try {
         const { data: payload, error: payloadError } = await serviceClient.rpc('prepare_waitlist_notice_payload', {
@@ -369,6 +371,18 @@ ${emailTemplates.footer}
           p_payload: { from: `${companyName} <${senderEmail}>`, to: [entry.customer_email], subject: waitlistEmailSubject, html: finalHtml, text: finalText, ...(companyEmail ? { reply_to: companyEmail } : {}) },
         })
         if (payloadError || !payload) return { success: false, entryId: entry.id, error: 'payload not ready' }
+        // 実際に送る固定payloadをログへ保存する。再試行中の設定変更と混同しない。
+        waitlistEmailLogId = await insertEmailLog(serviceClient, {
+          organization_id: data.organizationId,
+          schedule_event_id: data.scheduleEventId,
+          email_type: 'waitlist_confirmed',
+          to_email: payload.to[0],
+          to_name: entry.customer_name ?? null,
+          subject: payload.subject,
+          body_html: payload.html,
+          body_text: payload.text,
+          status: 'queued',
+        }).catch(() => null)
         const resendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -422,12 +436,13 @@ ${emailTemplates.footer}
 
     return new Response(
       JSON.stringify({ 
-        success: successCount === notifiedEntries.length,
+        success: successCount === notifiedEntries.length && !notice.manualReview,
+        manualReview: notice.manualReview,
         message: `${successCount}件のキャンセル待ちに通知しました`,
         notifiedCount: successCount,
         totalWaitlist: notifiedEntries.length
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: successCount === notifiedEntries.length ? 200 : 503 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: successCount === notifiedEntries.length && !notice.manualReview ? 200 : 503 }
     )
 
   } catch (error) {

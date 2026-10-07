@@ -1,3 +1,6 @@
+BEGIN;
+-- 残件確認から旧INSERT無害化trigger確定まで、旧fallbackの並行書込みを排他する。
+LOCK TABLE public.waitlist_notification_queue IN SHARE ROW EXCLUSIVE MODE;
 -- 来歴のない旧retryを黙って取り残さない。残件があれば切替を止め、承認された移行/排出を先に行う。
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.waitlist_notification_queue WHERE status IN ('pending','processing')) THEN
@@ -18,3 +21,5 @@ END $$;
 REVOKE ALL ON FUNCTION public.redirect_legacy_waitlist_retry() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER redirect_legacy_waitlist_retry BEFORE INSERT ON public.waitlist_notification_queue
 FOR EACH ROW EXECUTE FUNCTION public.redirect_legacy_waitlist_retry();
+
+COMMIT;

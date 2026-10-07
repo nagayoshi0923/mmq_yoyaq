@@ -125,6 +125,27 @@ await q('UPDATE waitlist_notice_deliveries SET has_uncertain_attempt=true,lease_
 await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'provider rejected\')',[notice.noticeId,wait,id(201)])
 assert.notEqual((await q('SELECT first_attempt_at FROM waitlist_notice_deliveries'))[0].first_attempt_at,null);checks++
 assert.equal((await claim())[0].result.manualReview,true);checks++
+// 同一noticeの不明結果1件だけを保留し、確定未送信の別宛先は再送を続ける。
+await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空追加','second@example.invalid',now())",[id(102),org,event])
+await q('INSERT INTO waitlist_notice_deliveries(notice_id,waitlist_id) VALUES($1,$2)',[notice.noticeId,id(102)])
+assert.equal((await q('SELECT * FROM list_pending_waitlist_notice_events(10)')).some(r=>r.schedule_event_id===event),true);checks++
+let mixed=(await claim())[0].result;assert.equal(mixed.manualReview,true);assert.equal(mixed.entries.length,1);assert.equal(mixed.entries[0].id,id(102));checks++
+await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[notice.noticeId,id(102),id(201)])
+assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[wait]))[0].status,'waiting');assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(102)]))[0].status,'notified');checks++
+assert.equal((await q('SELECT * FROM list_pending_waitlist_notice_events(10)')).some(r=>r.schedule_event_id===event),false);checks++
+// 別顧客のnoticeが同じ待機者を通知した場合、後発deliveryを送信済みと偽装せずnoticeを完了する。
+const competingEvent=id(34)
+await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,max_participants,capacity,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[competingEvent,event])
+await q("UPDATE waitlist SET status='waiting',schedule_event_id=$1 WHERE id=$2",[competingEvent,id(102)])
+for(const [noticeId,actor] of [[id(301),user],[id(302),id(15)]])await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[noticeId,org,competingEvent,actor])
+const specificClaim=async(actor,lease)=>(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[competingEvent,actor,lease]))[0].result
+const first=await specificClaim(user,id(211));assert.equal(first.noticeId,id(301));assert.equal(first.entries.length,1)
+const second=await specificClaim(id(15),id(212));assert.equal(second.noticeId,id(302));assert.equal(second.entries.length,0);checks++
+await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[first.noticeId,id(102),id(211)])
+const superseded=await specificClaim(id(15),id(213));assert.equal(superseded.entries.length,0);assert.equal(superseded.pending,false)
+assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(302)]))[0].completed_at,null)
+assert.equal((await q('SELECT sent_at FROM waitlist_notice_deliveries WHERE notice_id=$1 AND waitlist_id=$2',[id(302),id(102)]))[0].sent_at,null);checks++
+await q('DELETE FROM schedule_events WHERE id=$1',[competingEvent]);await q('DELETE FROM waitlist WHERE id=$1',[id(102)])
 // 来歴のない旧pendingは切替を阻止。消化済み後の旧browser fallbackはDBintentだけを利用。
 await q('INSERT INTO waitlist_notification_queue VALUES($1,$2,$3,\'pending\',now())',[id(151),org,event])
 const guard=fs.readFileSync('supabase/migrations/20261007110001_customer_review_notice_delivery.sql','utf8').split('CREATE TABLE')[0]
