@@ -65,7 +65,8 @@ BEGIN
  END IF;
  SELECT * INTO n FROM public.waitlist_notice_events WHERE schedule_event_id=e.id AND completed_at IS NULL AND (NOT requires_review OR EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries d JOIN public.waitlist w ON w.id=d.waitlist_id
  WHERE d.notice_id=waitlist_notice_events.id AND d.sent_at IS NULL AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())
- AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours')))
+ AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours')
+ AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE other.waitlist_id=d.waitlist_id AND other.notice_id<>d.notice_id AND other.sent_at IS NULL AND other.first_attempt_at<=now()-interval '23 hours')))
  AND (p_system OR actor_user_id=p_actor OR EXISTS(SELECT 1 FROM public.staff WHERE user_id=p_actor AND organization_id=e.organization_id AND status='active'))
  ORDER BY created_at,id LIMIT 1 FOR UPDATE;
  IF n.id IS NULL THEN RETURN NULL; END IF;
@@ -84,14 +85,14 @@ BEGIN
  AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=d.waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now()) AND w.participant_count<=seats)
  AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE other.waitlist_id=d.waitlist_id
  AND other.notice_id<>d.notice_id AND other.sent_at IS NULL AND (other.leased_until>now() OR other.first_attempt_at<=now()-interval '23 hours'));
- UPDATE public.waitlist_notice_events SET requires_review=true WHERE id=n.id AND EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())) AND first_attempt_at<=now()-interval '23 hours');
+ UPDATE public.waitlist_notice_events SET requires_review=true WHERE id=n.id AND EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())) AND (first_attempt_at<=now()-interval '23 hours' OR EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE other.waitlist_id=waitlist_notice_deliveries.waitlist_id AND other.notice_id<>waitlist_notice_deliveries.notice_id AND other.sent_at IS NULL AND other.first_attempt_at<=now()-interval '23 hours')));
  SELECT jsonb_agg(jsonb_build_object('id',w.id,'customer_name',w.customer_name,'customer_email',w.customer_email,
  'participant_count',w.participant_count,'deliveryKey','waitlist-'||n.id::text||'-'||w.id::text) ORDER BY w.created_at)
  INTO entries FROM public.waitlist_notice_deliveries d JOIN public.waitlist w ON w.id=d.waitlist_id
  WHERE d.notice_id=n.id AND d.lease_id=p_lease AND d.sent_at IS NULL;
  IF entries IS NULL AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())))
  THEN UPDATE public.waitlist_notice_events SET completed_at=now() WHERE id=n.id; END IF;
- RETURN jsonb_build_object('noticeId',n.id,'organizationId',e.organization_id,'metadata',n.metadata||jsonb_build_object('freedSeats',n.freed_seats),'entries',coalesce(entries,'[]'::jsonb),'pending',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now()))),'manualReview',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())) AND first_attempt_at<=now()-interval '23 hours'));
+ RETURN jsonb_build_object('noticeId',n.id,'organizationId',e.organization_id,'metadata',n.metadata||jsonb_build_object('freedSeats',n.freed_seats),'entries',coalesce(entries,'[]'::jsonb),'pending',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now()))),'manualReview',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())) AND (first_attempt_at<=now()-interval '23 hours' OR EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE other.waitlist_id=waitlist_notice_deliveries.waitlist_id AND other.notice_id<>waitlist_notice_deliveries.notice_id AND other.sent_at IS NULL AND other.first_attempt_at<=now()-interval '23 hours'))));
 END $$;
 CREATE OR REPLACE FUNCTION public.finish_waitlist_notice(p_notice uuid,p_waitlist uuid,p_lease uuid,p_sent boolean,p_error text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
@@ -135,7 +136,8 @@ RETURNS TABLE(schedule_event_id uuid,organization_id uuid) LANGUAGE sql SECURITY
  SELECT w.schedule_event_id,w.organization_id FROM public.waitlist_notice_events w
  WHERE w.completed_at IS NULL AND (NOT w.requires_review OR EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries d JOIN public.waitlist recipient ON recipient.id=d.waitlist_id
  WHERE d.notice_id=w.id AND d.sent_at IS NULL AND recipient.status='waiting' AND (recipient.expires_at IS NULL OR recipient.expires_at>now())
- AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours')))
+ AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours')
+ AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE other.waitlist_id=d.waitlist_id AND other.notice_id<>d.notice_id AND other.sent_at IS NULL AND other.first_attempt_at<=now()-interval '23 hours')))
  GROUP BY w.schedule_event_id,w.organization_id
  ORDER BY max(w.last_attempt_at) NULLS FIRST,min(w.created_at),w.schedule_event_id
  LIMIT least(greatest(coalesce(p_limit,10),1),50);

@@ -133,6 +133,11 @@ let mixed=(await claim())[0].result;assert.equal(mixed.manualReview,true);assert
 await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[notice.noticeId,id(102),id(201)])
 assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[wait]))[0].status,'waiting');assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(102)]))[0].status,'notified');checks++
 assert.equal((await q('SELECT * FROM list_pending_waitlist_notice_events(10)')).some(r=>r.schedule_event_id===event),false);checks++
+// 他noticeの結果不明も同じ宛先だけを保留し、後発noticeが永久巡回しない。
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(304),org,event,id(15)])
+const inheritedHold=(await claim(id(15),id(216)))[0].result;assert.equal(inheritedHold.entries.length,0);assert.equal(inheritedHold.manualReview,true)
+assert.equal((await q('SELECT * FROM list_pending_waitlist_notice_events(10)')).some(r=>r.schedule_event_id===event),false);checks++
+await q('DELETE FROM waitlist_notice_events WHERE id=$1',[id(304)])
 // 別顧客のnoticeが同じ待機者を通知した場合、後発deliveryを送信済みと偽装せずnoticeを完了する。
 const competingEvent=id(34)
 await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,max_participants,capacity,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[competingEvent,event])
