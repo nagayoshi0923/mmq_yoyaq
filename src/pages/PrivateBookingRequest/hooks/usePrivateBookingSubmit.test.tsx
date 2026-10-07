@@ -20,8 +20,8 @@ beforeEach(async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); vi.clearAllMocks()
   mocks.from.mockImplementation(table => {
     const data = table === 'customers' ? { id: 'customer', phone: '00000000000' } : []
-    const q: any = { select: () => q, update: () => q, eq: () => q, filter: () => q, in: () => q, gte: () => q, lte: () => q,
-      maybeSingle: async () => ({ data, error: null }), then: (resolve: any) => Promise.resolve({ data, error: null }).then(resolve) }
+    const q: any = { select: () => q, order: () => q, update: () => q, eq: () => q, filter: () => q, in: () => q, gte: () => q, lte: () => q,
+      maybeSingle: async () => ({ data, error: null }), then: (resolve: any) => Promise.resolve({ data: table === 'customers' ? [data] : data, error: null }).then(resolve) }
     return q
   })
   mocks.rpc.mockImplementation(async name => ({ data: name === 'get_public_private_booking_availability' ? [] : 'reservation', error: null }))

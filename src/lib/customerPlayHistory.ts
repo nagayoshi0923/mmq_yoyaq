@@ -1,3 +1,4 @@
+import { PLAY_HISTORY_CHANGED_EVENT } from './playHistoryEvents'
 import { supabase } from '@/lib/supabase'
 
 export interface ManualPlayHistoryEntry {
@@ -40,6 +41,7 @@ async function action<T>(customerId: string, name: string, record: object = {}):
   })
   if (error) throw error
   if (data == null) throw new Error('体験済み履歴の処理結果を確認できませんでした')
+  if (name !== 'snapshot' && typeof window !== 'undefined') window.dispatchEvent(new window.Event(PLAY_HISTORY_CHANGED_EVENT))
   return data as T
 }
 export const customerPlayHistory = {

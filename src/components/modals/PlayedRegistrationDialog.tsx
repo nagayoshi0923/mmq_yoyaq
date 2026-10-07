@@ -1,5 +1,5 @@
-import { customerPlayHistory } from '@/lib/customerPlayHistory'
-import { useState } from 'react'
+import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
+import { useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
-import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
-import { removePlayedOverride } from '@/lib/playedOverrides'
 
 interface PlayedRegistrationDialogProps {
   open: boolean
@@ -16,6 +14,7 @@ interface PlayedRegistrationDialogProps {
   scenarioTitle: string
   scenarioMasterId: string
   customerId: string | null
+  customerIds?: string[]
   onRegistered?: () => void
 }
 
@@ -25,32 +24,23 @@ export function PlayedRegistrationDialog({
   scenarioTitle,
   scenarioMasterId,
   customerId,
+  customerIds,
   onRegistered,
 }: PlayedRegistrationDialogProps) {
   const [playedDate, setPlayedDate] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submitPending = useRef(false)
 
   const handleSubmit = async () => {
-    if (!customerId) return
+    if (!customerId || submitPending.current) return
+    submitPending.current = true
 
     setIsSubmitting(true)
     try {
-      // 「未体験に戻す」で作った override があれば、元の予約・手動履歴を復帰させる。
-      // 新しい手動履歴を重複追加せず、上限件数も消費しない。
-      const restoredExistingPlayed = await removePlayedOverride(customerId, scenarioMasterId)
-
-      if (!restoredExistingPlayed) {
-        const manualCount = await countManualPlayHistoryForCustomer(customerId)
-        if (isManualPlayHistoryAtCap(manualCount)) {
-          showToast.error(
-            `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
-          )
-          return
-        }
-
-        await customerPlayHistory.add(customerId, {
-          scenario_title: scenarioTitle, scenario_master_id: scenarioMasterId, played_at: playedDate || null,
-        })
+      const registered = await registerPlayedScenario(customerIds?.length ? customerIds : [customerId], scenarioMasterId, scenarioTitle, playedDate || null)
+      if (!registered) {
+        showToast.error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
+        return
       }
 
       onOpenChange(false)
@@ -60,6 +50,7 @@ export function PlayedRegistrationDialog({
       logger.error('体験済み登録エラー:', error)
       showToast.error('登録に失敗しました')
     } finally {
+      submitPending.current = false
       setIsSubmitting(false)
     }
   }
