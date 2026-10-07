@@ -83,3 +83,17 @@ it('検索失敗を未登録と扱ってINSERTしない', async () => {
  await expect(upsertOwnCustomer(base)).rejects.toThrow('read unavailable')
  expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
 })
+
+it.each([null,'org2'])('旧組織のメール一致行より申込先互換の共通行を選ぶ（%s）', async organizationId => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'},{id:'global',email:'previous@example.invalid',organization_id:null}]
+ expect(await upsertOwnCustomer({...base,organizationId,scopeByOrganization:false,throwOnError:true})).toBe('global')
+ expect(m.calls).toContainEqual(['update.eq',['id','global']])
+ expect(m.calls).not.toContainEqual(['update.eq',['id','legacy']])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+it('貸切で共通行がなければ旧組織行を更新せず共通顧客を作成する', async () => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'}]
+ expect(await upsertOwnCustomer({...base,organizationId:null,scopeByOrganization:false,throwOnError:true})).toBe('new-id')
+ expect(m.calls.some(c=>c[0]==='update.values')).toBe(false)
+ expect(m.calls).toContainEqual(['insert.values',[{user_id:base.userId,name:base.name,nickname:null,phone:base.phone,email:base.email,organization_id:null}]])
+})

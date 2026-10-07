@@ -61,10 +61,12 @@ export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<
   if (scopeByOrganization) find = find.eq('organization_id', organizationId as string)
   const { data: candidates, error: lookupError } = await find.order('created_at').order('id')
   if (lookupError) throw lookupError
-  const existing = candidates?.find(row => row.email?.toLowerCase() === email.toLowerCase())
-    ?? candidates?.find(row => row.organization_id === null)
-    ?? candidates?.find(row => row.organization_id === organizationId)
-    ?? candidates?.[0]
+  // RPCは共通顧客または申込先と同じ組織の顧客だけを受け付ける。
+  const compatible = candidates?.filter(row => row.organization_id == null || row.organization_id === organizationId)
+  const existing = compatible?.find(row => row.email?.toLowerCase() === email.toLowerCase())
+    ?? compatible?.find(row => row.organization_id === null)
+    ?? compatible?.find(row => row.organization_id === organizationId)
+    ?? compatible?.[0]
   if (existing) {
     const updateValues = nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }
     let upd = supabase.from('customers').update(updateValues).eq('id', existing.id).eq('user_id', userId)
