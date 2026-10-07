@@ -34,7 +34,6 @@ DECLARE
   v_unit_price INTEGER;
   v_total_price INTEGER;
   v_discount_amount INTEGER := 0;
-  v_final_price INTEGER;
   v_requested_datetime TIMESTAMP;
   v_reservation_number TEXT;
 
@@ -193,7 +192,6 @@ BEGIN
       p_customer_coupon_id, p_schedule_event_id, v_total_price, p_customer_id, NULL);
   END IF;
 
-  v_final_price := v_total_price - v_discount_amount;
   v_requested_datetime := (v_date + v_start_time)::TIMESTAMP;
 
   IF p_reservation_number IS NULL OR length(trim(p_reservation_number)) = 0 THEN
@@ -244,8 +242,8 @@ BEGIN
     v_total_price,
     0,
     v_total_price,
-    v_discount_amount,
-    v_final_price,
+    0,
+    v_total_price,
     v_unit_price,
     CASE WHEN p_customer_id IS NULL THEN 'staff' ELSE 'onsite' END,
     'pending',
@@ -269,9 +267,12 @@ BEGIN
       v_reservation_id,
       v_discount_amount
     )
-    RETURNING id INTO v_coupon_usage_id;
+    RETURNING id, discount_amount INTO v_coupon_usage_id, v_discount_amount;
 
-    UPDATE reservations SET coupon_usage_id = v_coupon_usage_id WHERE id = v_reservation_id;
+    -- usage trigger validates against the undiscounted balance; use its actual amount everywhere.
+    UPDATE reservations SET coupon_usage_id = v_coupon_usage_id,
+      discount_amount = v_discount_amount, final_price = v_total_price - v_discount_amount
+    WHERE id = v_reservation_id;
     INSERT INTO public.coupon_usage_billing_applied(usage_id,applied_amount) VALUES(v_coupon_usage_id,v_discount_amount);
 
   END IF;

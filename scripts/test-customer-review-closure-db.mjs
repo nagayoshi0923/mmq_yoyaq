@@ -371,4 +371,53 @@ assert.equal((await q('SELECT count(*)::integer AS n FROM scenario_ratings WHERE
 assert.equal((await q('SELECT count(*)::integer AS n FROM scenario_ratings WHERE scenario_master_id=$1',[id(112)]))[0].n,1);checks++
 for(const role of ['anon','service_role']) {assert.equal((await q("SELECT has_function_privilege($1,'customer_rating_action(uuid,text,uuid,integer)','EXECUTE') AS allowed",[role]))[0].allowed,false);checks++}
 assert.equal((await q("SELECT has_function_privilege('authenticated','customer_rating_action(uuid,text,uuid,integer)','EXECUTE') AS allowed"))[0].allowed,true);checks++
+
+
+// 全正本の共通validatorはmigrationと同じ残額capを維持する。
+const extractValidator=s=>s.slice(s.indexOf('CREATE OR REPLACE FUNCTION public.coupon_discount_for_event_internal('),s.indexOf('\nREVOKE ',s.indexOf('CREATE OR REPLACE FUNCTION public.coupon_discount_for_event_internal(')))
+assert.equal(extractValidator(fs.readFileSync('supabase/schemas/coupon_rules.sql','utf8')),extractValidator(couponMigration));checks++
+assert.equal(extractValidator(fs.readFileSync('supabase/schemas/customer_review_coupon_conditions.sql','utf8')),extractValidator(couponMigration));checks++
+console.log(`Canonical coupon validator parity PASS; total checks ${checks}`)
+
+// 新規予約の正本RPCと実usage triggerを通し、残額cap・履歴・請求台帳の一致を回帰検証。
+await db.exec(`
+ALTER TABLE reservations ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE reservations ADD COLUMN scenario_id uuid, ADD COLUMN store_id uuid,
+ ADD COLUMN customer_name text, ADD COLUMN customer_email text, ADD COLUMN customer_phone text,
+ ADD COLUMN requested_datetime timestamp, ADD COLUMN duration integer,
+ ADD COLUMN base_price integer, ADD COLUMN options_price integer, ADD COLUMN unit_price integer,
+ ADD COLUMN payment_status text, ADD COLUMN customer_notes text, ADD COLUMN reservation_number text,
+ ADD COLUMN created_by uuid, ADD COLUMN booking_request_payload jsonb, ADD COLUMN title text, ADD COLUMN coupon_usage_id uuid;
+ALTER TABLE organization_scenarios ADD COLUMN participation_fee integer, ADD COLUMN participation_costs jsonb, ADD COLUMN duration integer, ADD COLUMN override_title text;
+CREATE TABLE scenario_masters(id uuid PRIMARY KEY,official_duration integer,title text);
+CREATE TABLE organization_settings(organization_id uuid,custom_holidays jsonb);
+CREATE TABLE scenarios(id uuid PRIMARY KEY,participation_fee integer,participation_costs jsonb,duration integer,title text);
+CREATE VIEW scenarios_v2 AS SELECT * FROM scenarios;
+CREATE FUNCTION get_user_organization_id() RETURNS uuid LANGUAGE sql AS $$SELECT NULL::uuid$$;
+CREATE FUNCTION reservation_actor_is_org_operator(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT false$$;
+CREATE FUNCTION is_store_recruitment_paused(uuid,text,date) RETURNS boolean LANGUAGE sql AS $$SELECT false$$;
+CREATE FUNCTION calculate_booking_participation_fee(integer,jsonb,date,time,boolean) RETURNS integer LANGUAGE sql AS $$SELECT $1$$;
+`)
+await db.exec(fs.readFileSync('supabase/rpcs/create_reservation_with_lock_v2.sql','utf8'))
+await q('INSERT INTO scenario_masters VALUES($1,180,\'架空新規予約\')',[id(701)])
+await q('INSERT INTO organization_scenarios(id,organization_id,scenario_master_id,participation_fee) VALUES($1,$2,$3,1000)',[id(702),org,id(701)])
+await q("INSERT INTO schedule_events(id,organization_id,store_id,date,start_time,end_time,is_cancelled,max_participants,capacity,category,scenario_master_id,organization_scenario_id) VALUES($1,$2,$3,CURRENT_DATE+30,'13:00','16:00',false,20,20,'normal',$4,$5)",[id(703),org,store,id(701),id(702)])
+for(const [index,amount] of [[0,800],[1,1000]]){
+ const newCoupon=id(704+index)
+ await q("INSERT INTO customer_coupons(id,campaign_id,customer_id,organization_id,status,uses_remaining,rules_snapshot) VALUES($1,$2,$3,$4,'active',1,$5)",[newCoupon,campaign,customer,org,JSON.stringify({discount_type:'fixed',discount_amount:amount,same_scenario_once:false,combinable:true})])
+ const args=[id(703),1,customer,'架空予約','booking@example.invalid','09012345678',null,null,'QA-BOOKING-REGRESSION-'+index,newCoupon]
+ const sql='SELECT create_reservation_with_lock_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) AS id'
+ const booked=(await q(sql,args))[0].id
+ assert.equal((await q(sql,args))[0].id,booked);checks++
+ const invoice=(await q('SELECT discount_amount,final_price FROM reservations WHERE id=$1',[booked]))[0]
+ assert.deepEqual(invoice,{discount_amount:amount,final_price:1000-amount});checks++
+ const usage=(await q('SELECT u.id,u.discount_amount,b.applied_amount FROM coupon_usages u JOIN coupon_usage_billing_applied b ON b.usage_id=u.id WHERE u.reservation_id=$1',[booked]))[0]
+ assert.equal(usage.discount_amount,amount);checks++
+ assert.equal(usage.applied_amount,amount);checks++
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[newCoupon]))[0].uses_remaining,0);checks++
+ await q('SELECT restore_coupon_usage($1,$2,$3)',[org,newCoupon,usage.id])
+ assert.deepEqual((await q('SELECT discount_amount,final_price FROM reservations WHERE id=$1',[booked]))[0],{discount_amount:0,final_price:1000});checks++
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[newCoupon]))[0].uses_remaining,1);checks++
+}
+
 console.log('CUSTOMER_REVIEW_CLOSURE_DB_PASS',checks,'実SQLチェック');await db.close()
