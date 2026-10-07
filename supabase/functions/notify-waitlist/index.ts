@@ -395,7 +395,9 @@ ${emailTemplates.footer}
         })
 
         if (!resendResponse.ok) {
-          const errorData = await resendResponse.json()
+          const errorText = await resendResponse.text().catch(() => '')
+          let errorData: unknown
+          try { errorData = JSON.parse(errorText) } catch { errorData = { message: errorText || `HTTP ${resendResponse.status}` } }
           console.error('Resend API error for', entry.customer_email, ':', errorData)
           await updateEmailLog(serviceClient, waitlistEmailLogId, {
             status: 'failed',

@@ -22,7 +22,7 @@ CREATE TABLE private_group_members(id uuid PRIMARY KEY,group_id uuid,user_id uui
 CREATE TABLE customer_coupons(id uuid PRIMARY KEY,campaign_id uuid,customer_id uuid,organization_id uuid,status text,uses_remaining integer,expires_at timestamptz,rules_snapshot jsonb,updated_at timestamptz);
 CREATE TABLE coupon_campaigns(id uuid PRIMARY KEY,organization_id uuid,is_active boolean);
 CREATE TABLE coupon_usages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_coupon_id uuid,reservation_id uuid,discount_amount integer);
-CREATE TABLE waitlist(id uuid PRIMARY KEY,organization_id uuid,schedule_event_id uuid,status text,participant_count integer,expires_at timestamptz,notified_at timestamptz,customer_name text,customer_email text,created_at timestamptz DEFAULT now());
+CREATE TABLE waitlist(id uuid PRIMARY KEY,organization_id uuid,schedule_event_id uuid,status text,participant_count integer,expires_at timestamptz,notified_at timestamptz,customer_name text,customer_email text,created_at timestamptz DEFAULT now(),customer_id uuid);
 CREATE TABLE organization_scenarios(id uuid PRIMARY KEY,organization_id uuid,scenario_master_id uuid);
 CREATE TABLE organization_scenarios_with_master(organization_id uuid,org_scenario_id uuid,scenario_master_id uuid,org_status text,master_status text,title text,duration integer,weekend_duration integer,extra_preparation_time integer,private_booking_time_slots jsonb,private_booking_time_slots_weekend jsonb,private_booking_slot_start_times jsonb,available_from date,available_until date);
 `)
@@ -39,7 +39,7 @@ INSERT INTO private_groups VALUES('${group}','${org}','${master}','${master}',45
 INSERT INTO private_group_members VALUES('${member}','${group}','${user}','joined',NULL,0,4500,4500);
 INSERT INTO coupon_campaigns VALUES('${campaign}','${org}',true);
 INSERT INTO customer_coupons VALUES('${coupon}','${campaign}','${customer}','${org}','active',1,NULL,'{"discount_type":"fixed","discount_amount":1000,"same_scenario_once":false}',now());
-INSERT INTO waitlist VALUES('${wait}','${org}','${event}','waiting',1,now()+interval '60 days',NULL,'架空待機','fiction@example.invalid',now());
+INSERT INTO waitlist VALUES('${wait}','${org}','${event}','waiting',1,now()+interval '60 days',NULL,'架空待機','fiction@example.invalid',now(),'${customer}');
 INSERT INTO organization_scenarios_with_master VALUES('${org}','${id(112)}','${master}','available','draft','正規作品',180,NULL,0,NULL,NULL,NULL,NULL,NULL);
 SELECT set_config('request.jwt.claim.sub','${user}',false);`)
 const q=async(s,p=[])=>(await db.query(s,p)).rows
@@ -138,13 +138,21 @@ await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'provider rejected\')',[n
 assert.notEqual((await q('SELECT first_attempt_at FROM waitlist_notice_deliveries'))[0].first_attempt_at,null);checks++
 assert.equal((await claim())[0].result.manualReview,true);checks++
 // 同一noticeの不明結果1件だけを保留し、確定未送信の別宛先は再送を続ける。
-await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空追加','second@example.invalid',now())",[id(102),org,event])
+await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空追加','second@example.invalid',now(),$4)",[id(102),org,event,id(22)])
 await q('INSERT INTO waitlist_notice_deliveries(notice_id,waitlist_id) VALUES($1,$2)',[notice.noticeId,id(102)])
 assert.equal((await q('SELECT * FROM list_pending_waitlist_notice_events(10)')).some(r=>r.schedule_event_id===event),true);checks++
 let mixed=(await claim())[0].result;assert.equal(mixed.manualReview,true);assert.equal(mixed.entries.length,1);assert.equal(mixed.entries[0].id,id(102));checks++
 await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[notice.noticeId,id(102),id(201)])
 assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[wait]))[0].status,'waiting');assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(102)]))[0].status,'notified');checks++
 assert.equal((await q('SELECT * FROM list_pending_waitlist_notice_events(10)')).some(r=>r.schedule_event_id===event),false);checks++
+// 別待機行でも同じ顧客/正規化メールなら直近不明配送を共有する。
+await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空重複','  FICTION@EXAMPLE.INVALID ',now(),$4)",[id(103),org,event,id(23)])
+assert.equal((await q('SELECT waitlist_notice_same_recipient($1,$2) AS same',[wait,id(103)]))[0].same,true);checks++
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(307),org,event,id(17)])
+const duplicateRecipient=(await claim(id(17),id(221)))[0].result;assert.equal(duplicateRecipient.entries.length,0);assert.equal(duplicateRecipient.manualReview,true);checks++
+await q('UPDATE waitlist SET customer_email=$1,customer_id=$2 WHERE id=$3',['changed@example.invalid',customer,id(103)])
+assert.equal((await q('SELECT waitlist_notice_same_recipient($1,$2) AS same',[wait,id(103)]))[0].same,true);checks++
+await q('DELETE FROM waitlist_notice_events WHERE id=$1',[id(307)]);await q('DELETE FROM waitlist WHERE id=$1',[id(103)])
 // 他noticeの結果不明も同じ宛先だけを保留し、後発noticeが永久巡回しない。
 await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(304),org,event,id(15)])
 const inheritedHold=(await claim(id(15),id(216)))[0].result;assert.equal(inheritedHold.entries.length,0);assert.equal(inheritedHold.manualReview,true)
@@ -163,6 +171,14 @@ const superseded=await specificClaim(id(15),id(213));assert.equal(superseded.ent
 assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(302)]))[0].completed_at,null)
 assert.equal((await q('SELECT sent_at FROM waitlist_notice_deliveries WHERE notice_id=$1 AND waitlist_id=$2',[id(302),id(102)]))[0].sent_at,null);checks++
 await q('DELETE FROM schedule_events WHERE id=$1',[competingEvent]);await q('DELETE FROM waitlist WHERE id=$1',[id(102)])
+// 同noticeの重複待機行は1宛先だけlease・通知し、受理後は宛先単位でnotifiedにする。
+await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,max_participants,capacity,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[id(35),event])
+for(const wid of [id(104),id(105)])await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空同宛先','dupe@example.invalid',now(),$4)",[wid,org,id(35),customer])
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(308),org,id(35),id(18)])
+const dupeLease=(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[id(35),id(18),id(222)]))[0].result;assert.equal(dupeLease.entries.length,1);checks++
+await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[dupeLease.noticeId,dupeLease.entries[0].id,id(222)])
+assert.equal((await q("SELECT count(*)::integer AS n FROM waitlist WHERE schedule_event_id=$1 AND status='notified'",[id(35)]))[0].n,2);assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(308)]))[0].completed_at,null);checks++
+await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(35)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(35)])
 // 既存deliveryでも待機期限切れならleaseせず、通知済みを偽装しないでnoticeを完了する。
 await q("UPDATE waitlist SET expires_at=now()-interval '1 minute' WHERE id=$1",[wait])
 await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(303),org,event,id(15)])
