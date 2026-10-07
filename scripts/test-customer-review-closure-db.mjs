@@ -16,9 +16,9 @@ CREATE TABLE customers(id uuid PRIMARY KEY,user_id uuid,organization_id uuid);
 CREATE TABLE staff(user_id uuid,organization_id uuid,status text,name text);
 CREATE TABLE stores(id uuid PRIMARY KEY,organization_id uuid,name text,address text);
 CREATE TABLE schedule_events(id uuid PRIMARY KEY,organization_id uuid,store_id uuid,scenario text,date date,start_time time,end_time time,venue text,is_cancelled boolean,max_participants integer,capacity integer,category text,time_slot text,scenario_master_id uuid,organization_scenario_id uuid,scenario_id uuid);
-CREATE TABLE reservations(id uuid PRIMARY KEY,organization_id uuid,schedule_event_id uuid,status text,participant_count integer,customer_id uuid,total_price integer,coupon_usage_enabled_snapshot boolean,discount_amount integer DEFAULT 0,final_price integer,payment_method text,participant_names text[]);
-CREATE TABLE private_groups(id uuid PRIMARY KEY,organization_id uuid,scenario_master_id uuid,scenario_id uuid,per_person_price integer,reservation_id uuid,status text);
-CREATE TABLE private_group_members(id uuid PRIMARY KEY,group_id uuid,user_id uuid,status text,coupon_id uuid,coupon_discount integer,payment_amount integer,final_amount integer);
+CREATE TABLE reservations(id uuid PRIMARY KEY,organization_id uuid,schedule_event_id uuid,status text,participant_count integer,customer_id uuid,total_price integer,coupon_usage_enabled_snapshot boolean,discount_amount integer DEFAULT 0,final_price integer,payment_method text,participant_names text[],updated_at timestamptz DEFAULT now());
+CREATE TABLE private_groups(id uuid PRIMARY KEY,organization_id uuid,scenario_master_id uuid,scenario_id uuid,per_person_price integer,reservation_id uuid,status text,organizer_id uuid);
+CREATE TABLE private_group_members(id uuid PRIMARY KEY,group_id uuid,user_id uuid,status text,coupon_id uuid,coupon_discount integer,payment_amount integer,final_amount integer,is_organizer boolean DEFAULT false);
 CREATE TABLE customer_coupons(id uuid PRIMARY KEY,campaign_id uuid,customer_id uuid,organization_id uuid,status text,uses_remaining integer,expires_at timestamptz,rules_snapshot jsonb,updated_at timestamptz);
 CREATE TABLE coupon_campaigns(id uuid PRIMARY KEY,organization_id uuid,is_active boolean);
 CREATE TABLE coupon_usages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),customer_coupon_id uuid,reservation_id uuid,discount_amount integer);
@@ -27,17 +27,19 @@ CREATE TABLE organization_scenarios(id uuid PRIMARY KEY,organization_id uuid,sce
 CREATE TABLE organization_scenarios_with_master(organization_id uuid,org_scenario_id uuid,scenario_master_id uuid,org_status text,master_status text,title text,duration integer,weekend_duration integer,extra_preparation_time integer,private_booking_time_slots jsonb,private_booking_time_slots_weekend jsonb,private_booking_slot_start_times jsonb,available_from date,available_until date);
 `)
 await db.exec('GRANT SELECT ON public.waitlist,public.customers TO service_role');
+await db.exec("CREATE FUNCTION delete_guest_member(uuid) RETURNS boolean LANGUAGE sql AS $$SELECT false$$; CREATE FUNCTION delete_guest_member(uuid,text) RETURNS boolean LANGUAGE sql AS $$SELECT false$$;");
 const rules=fs.readFileSync('supabase/schemas/coupon_rules.sql','utf8')
 for(const name of ['coupon_discount_for_event_internal','coupon_discount_for_event','can_use_coupon_reservation']){const a=rules.indexOf('CREATE OR REPLACE FUNCTION public.'+name+'('),b=rules.indexOf('\nREVOKE ',a);await db.exec(rules.slice(a,b))}
 await db.exec(fs.readFileSync('supabase/migrations/20260319110000_add_coupon_usage_trigger.sql','utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/20261007110001_customer_review_notice_delivery.sql','utf8').replace(/REVOKE ALL ON FUNCTION public.notify_all_waitlist_entries[^;]*;/g,''))
 await db.exec(fs.readFileSync('supabase/migrations/20261007110002_customer_review_coupon_conditions.sql','utf8'))
+await db.exec('CREATE TRIGGER enforce_coupon_performance_scope BEFORE INSERT OR UPDATE ON coupon_usages FOR EACH ROW EXECUTE FUNCTION enforce_coupon_performance_scope()')
 await db.exec(fs.readFileSync('supabase/rpcs/get_public_private_booking_scenario_timing.sql','utf8'))
 await db.exec(`INSERT INTO organizations VALUES('${org}',true,'approved'); INSERT INTO customers VALUES('${customer}','${user}',NULL); INSERT INTO stores VALUES('${store}','${org}','正規店舗','正規住所');
 INSERT INTO schedule_events VALUES('${event}','${org}','${store}','正規作品',CURRENT_DATE+30,'13:00','16:00','正規店舗',false,3,3,'private','昼','${master}',NULL,NULL);
-INSERT INTO reservations VALUES('${reservation}','${org}','${event}','confirmed',3,'${customer}',9000,true,0,9000,'onsite','{}');
-INSERT INTO private_groups VALUES('${group}','${org}','${master}','${master}',4500,NULL,'gathering');
-INSERT INTO private_group_members VALUES('${member}','${group}','${user}','joined',NULL,0,4500,4500);
+INSERT INTO reservations(id,organization_id,schedule_event_id,status,participant_count,customer_id,total_price,coupon_usage_enabled_snapshot,discount_amount,final_price,payment_method,participant_names) VALUES('${reservation}','${org}','${event}','confirmed',3,'${customer}',9000,true,0,9000,'onsite','{}');
+INSERT INTO private_groups(id,organization_id,scenario_master_id,scenario_id,per_person_price,reservation_id,status) VALUES('${group}','${org}','${master}','${master}',4500,NULL,'gathering');
+INSERT INTO private_group_members(id,group_id,user_id,status,coupon_id,coupon_discount,payment_amount,final_amount) VALUES('${member}','${group}','${user}','joined',NULL,0,4500,4500);
 INSERT INTO coupon_campaigns VALUES('${campaign}','${org}',true);
 INSERT INTO customer_coupons VALUES('${coupon}','${campaign}','${customer}','${org}','active',1,NULL,'{"discount_type":"fixed","discount_amount":1000,"same_scenario_once":false}',now());
 INSERT INTO waitlist VALUES('${wait}','${org}','${event}','waiting',1,now()+interval '60 days',NULL,'架空待機','fiction@example.invalid',now(),'${customer}');
@@ -89,6 +91,18 @@ await q('UPDATE private_groups SET reservation_id=$1,status=\'confirmed\' WHERE 
 assert.equal((await q('SELECT discount_amount FROM reservations WHERE id=$1',[reservation]))[0].discount_amount,1000)
 assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,8000);checks++
 await db.exec(`CREATE OR REPLACE FUNCTION resolve_operating_setting(uuid,text,jsonb,uuid,uuid,uuid) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{"value":true}'::jsonb $$`)
+// staff使用取消も貸切の請求・メンバー・回数を戻し、再試行で二重復元しない。
+const staffUsage=(await q('SELECT id FROM coupon_usages WHERE customer_coupon_id=$1',[coupon]))[0].id
+assert.equal((await q('SELECT restore_coupon_usage($1,$2,$3) AS r',[org,coupon,staffUsage]))[0].r.restored,true);checks++
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,9000);checks++
+assert.equal((await q('SELECT discount_amount FROM reservations WHERE id=$1',[reservation]))[0].discount_amount,0);checks++
+const restoredMember=(await q('SELECT coupon_id,coupon_discount,final_amount FROM private_group_members WHERE id=$1',[member]))[0]
+assert.deepEqual(restoredMember,{coupon_id:null,coupon_discount:0,final_amount:4500});checks++
+assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);checks++
+assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[coupon]))[0].uses_remaining,1);checks++
+assert.equal((await q('SELECT restore_coupon_usage($1,$2,$3) AS r',[org,coupon,staffUsage]))[0].r.restored,false);checks++
+await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon])
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,8000);checks++
 // 確定公演に依存する店舗/曜日/時間帯も共通validatorが拒否。
 await q('SELECT remove_coupon_from_group_member($1)',[member])
 const actualEventWeekday=Number((await q('SELECT extract(dow from date) AS dow FROM schedule_events WHERE id=$1',[event]))[0].dow)
@@ -99,7 +113,7 @@ await q('UPDATE customer_coupons SET rules_snapshot=$1 WHERE id=$2',[JSON.string
 await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon])
 for(let i=0;i<3;i++)await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon]);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,1);checks++
 // 再予約後は旧請求/回数を戻し、新予約へusageを付け替える。再試行でも1回消費。
-await q('INSERT INTO reservations SELECT $1,organization_id,schedule_event_id,status,participant_count,customer_id,total_price,coupon_usage_enabled_snapshot,0,total_price,payment_method,participant_names FROM reservations WHERE id=$2',[id(92),reservation])
+await q('INSERT INTO reservations(id,organization_id,schedule_event_id,status,participant_count,customer_id,total_price,coupon_usage_enabled_snapshot,discount_amount,final_price,payment_method,participant_names) SELECT $1,organization_id,schedule_event_id,status,participant_count,customer_id,total_price,coupon_usage_enabled_snapshot,0,total_price,payment_method,participant_names FROM reservations WHERE id=$2',[id(92),reservation])
 await q('UPDATE private_groups SET reservation_id=$1 WHERE id=$2',[id(92),group])
 assert.equal((await q('SELECT reservation_id FROM coupon_usages'))[0].reservation_id,id(92));checks++
 assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,9000);checks++
@@ -112,7 +126,7 @@ assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)
 // 同じ予約の他メンバーも併用不可条件を共有する。単価は各メンバーのまま。
 await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon])
 await q('INSERT INTO customers VALUES($1,$2,NULL)',[id(22),id(12)])
-await q("INSERT INTO private_group_members VALUES($1,$2,$3,'joined',NULL,0,5000,5000)",[id(62),group,id(12)])
+await q("INSERT INTO private_group_members(id,group_id,user_id,status,coupon_id,coupon_discount,payment_amount,final_amount) VALUES($1,$2,$3,'joined',NULL,0,5000,5000)",[id(62),group,id(12)])
 await q("INSERT INTO customer_coupons SELECT $1,campaign_id,$2,organization_id,'active',1,NULL,rules_snapshot,now() FROM customer_coupons WHERE id=$3",[id(72),id(22),coupon])
 await q("SELECT set_config('request.jwt.claim.sub',$1,false)",[id(12)])
 await q("UPDATE customer_coupons SET rules_snapshot=rules_snapshot||jsonb_build_object('combinable',false) WHERE id=$1",[id(72)])
@@ -132,14 +146,19 @@ await q('INSERT INTO customers VALUES($1,$2,NULL),($3,$4,NULL)',[id(23),user,id(
 await q("UPDATE customer_coupons SET rules_snapshot=rules_snapshot||jsonb_build_object('same_scenario_once',true) WHERE id=$1",[coupon])
 for(const [cid,cp,rid] of [[id(23),id(73),id(93)],[id(24),id(74),id(94)]]){
  await q("INSERT INTO customer_coupons SELECT $1,campaign_id,$2,organization_id,'active',1,NULL,rules_snapshot,now() FROM customer_coupons WHERE id=$3",[cp,cid,coupon])
- await q("INSERT INTO reservations SELECT $1,organization_id,schedule_event_id,'confirmed',1,$2,9000,true,0,9000,payment_method,participant_names FROM reservations WHERE id=$3",[rid,cid,reservation])
+ await q("INSERT INTO reservations(id,organization_id,schedule_event_id,status,participant_count,customer_id,total_price,coupon_usage_enabled_snapshot,discount_amount,final_price,payment_method,participant_names) SELECT $1,organization_id,schedule_event_id,'confirmed',1,$2,9000,true,0,9000,payment_method,participant_names FROM reservations WHERE id=$3",[rid,cid,reservation])
 }
 await q('SELECT use_customer_coupon($1,$2,$3)',[user,coupon,reservation])
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,8000);checks++
+assert.equal((await q('SELECT discount_amount FROM reservations WHERE id=$1',[reservation]))[0].discount_amount,1000);checks++
+assert.equal((await q('SELECT use_customer_coupon($1,$2,$3) AS r',[user,coupon,reservation]))[0].r.already_used,true);checks++
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,8000);checks++
 await rejects('SELECT coupon_discount_for_event($1,$2,9000,$3,$4)',[id(73),event,id(23),id(93)],'P0028')
 assert.equal((await q('SELECT coupon_discount_for_event($1,$2,9000,$3,$4) AS amount',[id(74),event,id(24),id(94)]))[0].amount,1000);checks++
 await q("UPDATE customer_coupons SET rules_snapshot=rules_snapshot||jsonb_build_object('same_scenario_once',false) WHERE id=$1",[id(73)])
 assert.equal((await q('SELECT coupon_discount_for_event($1,$2,9000,$3,$4) AS amount',[id(73),event,id(23),id(93)]))[0].amount,1000);checks++
 for(const role of ['anon','authenticated','service_role']){assert.equal((await q("SELECT has_function_privilege($1,'lock_coupon_customer_identity(uuid)','EXECUTE') AS ok",[role]))[0].ok,false);checks++}
+for(const signature of ['delete_guest_member(uuid)','delete_guest_member(uuid,text)'])for(const role of ['anon','authenticated','service_role']){assert.equal((await q("SELECT has_function_privilege($1,$2,'EXECUTE') AS ok",[role,signature]))[0].ok,false);checks++}
 // 別CID/別メールでも本人user一致なら同じ受信者。別user/公演は一致しない。
 for(const [wid,cid,email] of [[id(102),id(23),'alias@example.invalid'],[id(103),id(24),'other@example.invalid']])await q("INSERT INTO waitlist SELECT $1,organization_id,schedule_event_id,'waiting',1,expires_at,NULL,'架空', $2,now(),$3 FROM waitlist WHERE id=$4",[wid,email,cid,wait])
 assert.equal((await q('SELECT waitlist_notice_same_recipient($1,$2) AS ok',[wait,id(102)]))[0].ok,true);checks++
@@ -149,6 +168,8 @@ assert.equal((await q('SELECT waitlist_notice_same_recipient($1,$2) AS ok',[wait
 await q('DELETE FROM waitlist WHERE id=ANY($1::uuid[])',[[id(102),id(103)]])
 const aliasUsage=(await q('SELECT id FROM coupon_usages WHERE customer_coupon_id=$1 AND reservation_id=$2',[coupon,reservation]))[0].id
 await q('SELECT restore_coupon_usage($1,$2,$3)',[org,coupon,aliasUsage])
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,9000);checks++
+assert.equal((await q('SELECT discount_amount FROM reservations WHERE id=$1',[reservation]))[0].discount_amount,0);checks++
 await q('DELETE FROM reservations WHERE id=ANY($1::uuid[])',[[id(93),id(94)]])
 await q('DELETE FROM customer_coupons WHERE id=ANY($1::uuid[])',[[id(73),id(74)]])
 await q('DELETE FROM customers WHERE id=ANY($1::uuid[])',[[id(23),id(24)]])
@@ -280,7 +301,7 @@ await q('INSERT INTO waitlist_notification_queue VALUES($1,$2,$3,\'pending\',now
 assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notification_queue'))[0].n,0);checks++
 await rejects('INSERT INTO waitlist_notification_queue VALUES($1,$2,$3,\'pending\',now())',[id(152),org,id(32)],'P0057')
 // JST終了直後の公演: 既存intentを配送しない、以降の減員で新規intentも作らない。
-await q('UPDATE schedule_events SET date=((now() AT TIME ZONE \'Asia/Tokyo\')-interval \'1 hour\')::date,start_time=((now() AT TIME ZONE \'Asia/Tokyo\')-interval \'2 hours\')::time,end_time=((now() AT TIME ZONE \'Asia/Tokyo\')-interval \'1 hour\')::time WHERE id=$1',[event])
+await q("UPDATE schedule_events SET date=((now() AT TIME ZONE 'Asia/Tokyo')-interval '1 day')::date,start_time='10:00',end_time='11:00' WHERE id=$1",[event])
 await q('UPDATE waitlist SET status=\'waiting\' WHERE id=$1',[wait]);await q('UPDATE waitlist_notice_events SET completed_at=NULL')
 assert.equal((await q('SELECT claim_waitlist_notice($1,NULL,true,$2) AS result',[event,id(207)]))[0].result,null);checks++
 const beforeEnded=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n

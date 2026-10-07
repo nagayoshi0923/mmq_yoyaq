@@ -128,7 +128,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
           error: null,
         })),
         historySnapshot.then(history => ({ data: history.manual, error: null })),
-        myPageDataReadApi.listRatings(customer.id),
+        Promise.all(customerIds.map(id => myPageDataReadApi.listRatings(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '')), error: results.find(result => result.error)?.error ?? null })),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
         Promise.all(customerIds.map(id => fetchPlayedReservations(id))).then(results => results.flat()),
       ])
@@ -142,8 +142,9 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       )
       if (overridesResult.error) logger.warn('体験済みオーバーライド取得エラー:', overridesResult.error)
 
+      if (ratingsResult.error) throw ratingsResult.error
       const localRatingsMap: Record<string, number> = {}
-      ratingsResult.data?.forEach((r) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
+      ratingsResult.data?.forEach((r) => { if (r.scenario_master_id && !(r.scenario_master_id in localRatingsMap)) localRatingsMap[r.scenario_master_id] = r.rating })
 
       const stats = { participationCount: pastReservations.length, points: pastReservations.length * 100 }
       const metadataReservations = [...reservationData, ...pastReservations]

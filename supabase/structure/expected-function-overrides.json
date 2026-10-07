@@ -244,22 +244,62 @@
     "security_definer": true
   },
   "use_customer_coupon(p_user uuid, p_coupon uuid, p_reservation uuid)": {
+    "returns": "jsonb",
+    "body_md5": "53451af604503c24cfff7c5721a5fc8c",
+    "language": "plpgsql",
+    "security_definer": true,
     "acl": [
       "postgres=X/postgres",
       "service_role=X/postgres"
-    ],
+    ]
+  },
+  "restore_coupon_usage(p_organization uuid, p_coupon uuid, p_usage uuid)": {
     "returns": "jsonb",
-    "body_md5": "59e290d29dcd11f6095f261730c0b4d2",
+    "body_md5": "f35b9d5ac3508604a1c7e9866c550b3b",
+    "language": "plpgsql",
+    "security_definer": true,
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ]
+  },
+  "private_group_leave(p_group_id uuid)": {
+    "returns": "void",
+    "body_md5": "ed0759bb741aabb9a675d0c071080793",
+    "language": "plpgsql",
+    "security_definer": true,
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ]
+  },
+  "private_group_remove_member(p_member_id uuid)": {
+    "returns": "void",
+    "body_md5": "2a6b546da06de8cbfa202a8c5b2e3dbd",
+    "language": "plpgsql",
+    "security_definer": true,
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ]
+  },
+  "delete_guest_member(p_member_id uuid)": {
+    "acl": [
+      "postgres=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "c5d2d709dae6e29a4988f5db6235e172",
     "language": "plpgsql",
     "security_definer": true
   },
-  "restore_coupon_usage(p_organization uuid, p_coupon uuid, p_usage uuid)": {
+  "delete_guest_member(p_member_id uuid, p_invite_code text)": {
     "acl": [
-      "postgres=X/postgres",
-      "service_role=X/postgres"
+      "postgres=X/postgres"
     ],
-    "returns": "jsonb",
-    "body_md5": "e902d4b5e25c26f8e34c68c3d983851d",
+    "returns": "boolean",
+    "body_md5": "d92d41a50b22e1e8c44aa7eb9d61312a",
     "language": "plpgsql",
     "security_definer": true
   }

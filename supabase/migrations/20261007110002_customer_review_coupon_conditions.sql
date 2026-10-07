@@ -332,6 +332,11 @@ BEGIN
  IF uid IS NOT NULL THEN RETURN jsonb_build_object('success',true,'usage_id',uid,'discount_amount',amount,'already_used',true); END IF;
  INSERT INTO public.coupon_usages(customer_coupon_id,reservation_id,discount_amount)
  VALUES(p_coupon,p_reservation,1) RETURNING id,discount_amount INTO uid,amount;
+ -- 最新20261002160000の金額正本を保持。履歴と請求を同じTXで一度だけ更新。
+ IF COALESCE(amount,0)>0 THEN
+  UPDATE public.reservations SET discount_amount=COALESCE(discount_amount,0)+amount,
+   final_price=GREATEST(COALESCE(final_price,total_price,0)-amount,0),updated_at=now() WHERE id=p_reservation;
+ END IF;
  RETURN jsonb_build_object('success',true,'usage_id',uid,'discount_amount',amount);
 END;
 $$;
@@ -339,21 +344,85 @@ REVOKE ALL ON FUNCTION public.use_customer_coupon(uuid,uuid,uuid) FROM PUBLIC,an
 GRANT EXECUTE ON FUNCTION public.use_customer_coupon(uuid,uuid,uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.restore_coupon_usage(p_organization uuid,p_coupon uuid,p_usage uuid)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE cc public.customer_coupons; removed uuid;
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE cc public.customer_coupons; u public.coupon_usages; member uuid; target_group uuid;
 BEGIN
  SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon AND organization_id=p_organization;
  IF cc.id IS NULL THEN RAISE EXCEPTION 'クーポンが見つかりません' USING ERRCODE='P0028'; END IF;
+ SELECT gu.member_id,m.group_id INTO member,target_group FROM public.private_group_coupon_uses gu
+ JOIN public.coupon_usages cu ON cu.id=gu.usage_id JOIN public.private_group_members m ON m.id=gu.member_id
+ WHERE gu.usage_id=p_usage AND cu.customer_coupon_id=p_coupon;
+ IF target_group IS NOT NULL THEN PERFORM 1 FROM public.private_groups WHERE id=target_group FOR UPDATE; END IF;
  PERFORM public.lock_coupon_customer_identity(cc.customer_id);
  PERFORM 1 FROM public.customers WHERE id=cc.customer_id FOR UPDATE;
  PERFORM 1 FROM public.customer_coupons WHERE id=p_coupon FOR UPDATE;
- DELETE FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon RETURNING id INTO removed;
- IF removed IS NOT NULL THEN
-  UPDATE public.customer_coupons SET uses_remaining=uses_remaining+1,
-    status=CASE WHEN status='fully_used' THEN 'active' ELSE status END WHERE id=p_coupon;
+ IF member IS NOT NULL THEN PERFORM 1 FROM public.private_group_members WHERE id=member FOR UPDATE; END IF;
+ PERFORM 1 FROM public.reservations WHERE id=(SELECT reservation_id FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon) FOR UPDATE;
+ SELECT * INTO u FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon FOR UPDATE;
+ IF u.id IS NULL THEN RETURN jsonb_build_object('success',true,'restored',false); END IF;
+ UPDATE public.reservations SET discount_amount=greatest(coalesce(discount_amount,0)-u.discount_amount,0),
+  final_price=coalesce(final_price,total_price,0)+u.discount_amount,updated_at=now() WHERE id=u.reservation_id;
+ DELETE FROM public.coupon_usages WHERE id=u.id;
+ UPDATE public.customer_coupons SET uses_remaining=uses_remaining+1,status=CASE WHEN status='fully_used' THEN 'active' ELSE status END WHERE id=p_coupon;
+ IF member IS NOT NULL THEN
+  UPDATE public.private_group_members SET coupon_id=NULL,coupon_discount=0,
+   final_amount=coalesce(payment_amount,(SELECT per_person_price FROM public.private_groups WHERE id=target_group),0) WHERE id=member;
  END IF;
- RETURN jsonb_build_object('success',true,'restored',removed IS NOT NULL);
+ RETURN jsonb_build_object('success',true,'restored',true);
 END;
 $$;
+
 REVOKE ALL ON FUNCTION public.restore_coupon_usage(uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.restore_coupon_usage(uuid,uuid,uuid) TO service_role;
+
+-- QW-20260917-001: 既存の退出・削除動作を認証付きRPCへ移行。実データの一括変更はしない。
+CREATE OR REPLACE FUNCTION public.private_group_remove_member(p_member_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE target_group uuid; target public.private_group_members%ROWTYPE; actor_role text;
+BEGIN
+ SELECT group_id INTO target_group FROM public.private_group_members WHERE id=p_member_id;
+ IF target_group IS NULL THEN RAISE EXCEPTION 'メンバーを削除できません' USING ERRCODE='42501'; END IF;
+ PERFORM 1 FROM public.private_groups WHERE id=target_group FOR UPDATE;
+ actor_role:=public.private_group_actor_role(target_group);
+ IF actor_role IS NULL THEN RAISE EXCEPTION 'メンバーを削除する管理権限がありません' USING ERRCODE='42501'; END IF;
+ PERFORM public.lock_coupon_customer_identity((SELECT c.customer_id FROM public.customer_coupons c JOIN public.private_group_members m ON m.coupon_id=c.id WHERE m.id=p_member_id));
+ PERFORM 1 FROM public.customers WHERE id=(SELECT c.customer_id FROM public.customer_coupons c JOIN public.private_group_members m ON m.coupon_id=c.id WHERE m.id=p_member_id) FOR UPDATE;
+ PERFORM 1 FROM public.customer_coupons WHERE id=(SELECT coupon_id FROM public.private_group_members WHERE id=p_member_id) FOR UPDATE;
+ SELECT * INTO target FROM public.private_group_members WHERE id=p_member_id AND group_id=target_group FOR UPDATE;
+ IF NOT FOUND THEN RETURN; END IF;
+ IF target.is_organizer AND actor_role<>'staff' THEN RAISE EXCEPTION '主催者を削除する権限がありません' USING ERRCODE='42501'; END IF;
+ DELETE FROM public.private_group_members WHERE id=target.id AND group_id=target_group;
+END $$;
+REVOKE ALL ON FUNCTION public.private_group_remove_member(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.private_group_remove_member(uuid) TO authenticated,service_role;
+
+CREATE OR REPLACE FUNCTION public.private_group_leave(p_group_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE organizer uuid; held record;
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
+ SELECT organizer_id INTO organizer FROM public.private_groups WHERE id=p_group_id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'グループから退出できません' USING ERRCODE='42501'; END IF;
+ IF organizer=auth.uid() OR EXISTS(SELECT 1 FROM public.private_group_members WHERE group_id=p_group_id AND user_id=auth.uid() AND is_organizer) THEN
+  RAISE EXCEPTION '主催者は退出できません' USING ERRCODE='42501';
+ END IF;
+ FOR held IN SELECT cc.id,cc.customer_id FROM public.private_group_members m JOIN public.customer_coupons cc ON cc.id=m.coupon_id WHERE m.group_id=p_group_id AND m.user_id=auth.uid() ORDER BY cc.customer_id,cc.id LOOP
+  PERFORM public.lock_coupon_customer_identity(held.customer_id);
+  PERFORM 1 FROM public.customers WHERE id=held.customer_id FOR UPDATE;
+  PERFORM 1 FROM public.customer_coupons WHERE id=held.id FOR UPDATE;
+ END LOOP;
+ -- 既存の同一user_idの複数行がある場合も、他人の行を残して本人だけを退出させる。
+ DELETE FROM public.private_group_members WHERE group_id=p_group_id AND user_id=auth.uid();
+END $$;
+REVOKE ALL ON FUNCTION public.private_group_leave(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.private_group_leave(uuid) TO authenticated,service_role;
+
+-- 廃止済み旧ゲスト削除は現行UI/APIから呼ばれない。serviceにも再公開しない。
+DO $$BEGIN
+ IF to_regprocedure('public.delete_guest_member(uuid)') IS NOT NULL THEN
+  REVOKE ALL ON FUNCTION public.delete_guest_member(uuid) FROM PUBLIC,anon,authenticated,service_role;
+ END IF;
+ IF to_regprocedure('public.delete_guest_member(uuid,text)') IS NOT NULL THEN
+  REVOKE ALL ON FUNCTION public.delete_guest_member(uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+ END IF;
+END $$;

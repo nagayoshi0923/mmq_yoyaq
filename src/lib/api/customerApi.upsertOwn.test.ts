@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // supabase のチェーン（select/eq/maybeSingle、update/eq、insert/select/single）を記録するモック
 const m = vi.hoisted(() => {
   const calls: Array<[string, unknown?]> = []
-  const state = { candidates: null as null | Array<{id:string;email?:string;organization_id?:string|null}>, lookupError: null as unknown, existing: null as null | { id: string }, updateError: null as unknown, insertResult: { data: { id: 'new-id' }, error: null } as { data: { id: string } | null; error: unknown } }
+  const state = { candidates: null as null | Array<{id:string;email?:string;organization_id?:string|null;avatar_url?:string|null;address?:string|null;line_id?:string|null;notification_settings?:Record<string,boolean>|null;nickname?:string|null}>, lookupError: null as unknown, existing: null as null | { id: string }, updateError: null as unknown, insertResult: { data: { id: 'new-id' }, error: null } as { data: { id: string } | null; error: unknown } }
   const chain = (op: string) => {
     const q: Record<string, unknown> = {}
     const wrap = (name: string) => (...args: unknown[]) => { calls.push([`${op}.${name}`, args]); return q }
@@ -106,4 +106,12 @@ it('所属正規化に失敗した旧org IDを成功として返さない', asyn
 it('組織scopeありのキャンセル待ち新規行では申込先所属を維持する',async()=>{
  await upsertOwnCustomer({...base,scopeByOrganization:true})
  expect(m.calls).toContainEqual(['insert.values',[{user_id:base.userId,name:base.name,nickname:null,phone:base.phone,email:base.email,organization_id:'org1'}]])
+})
+
+it('メール一致の旧CIDを更新しても以前の代表本人プロフィールを同じPATCHで保持する',async()=>{
+ const notification_settings={email_notifications:false,reminder_notifications:false,campaign_notifications:false}
+ m.state.candidates=[{id:'global',email:'prior@example.invalid',organization_id:null,avatar_url:'avatar',address:'架空住所',line_id:null,notification_settings,nickname:'旧表示名'},{id:'legacy',email:base.email,organization_id:'org1'}]
+ expect(await upsertOwnCustomer({...base,nickname:undefined})).toBe('legacy')
+ expect(m.calls).toContainEqual(['update.values',[{name:base.name,phone:base.phone,email:base.email,organization_id:null,avatar_url:'avatar',address:'架空住所',line_id:null,notification_settings,nickname:'旧表示名'}]])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
 })

@@ -57,9 +57,9 @@ export interface UpsertOwnCustomerInput {
 export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<string | null> {
   const { userId, name, nickname, phone, email, organizationId, scopeByOrganization = false, throwOnError = false } = input
   validateCustomerContact(email, phone)
-  let find = supabase.from('customers').select('id, email, organization_id').eq('user_id', userId)
+  let find = supabase.from('customers').select('id, email, organization_id, avatar_url, address, line_id, notification_settings, nickname').eq('user_id', userId)
   if (scopeByOrganization) find = find.eq('organization_id', organizationId as string)
-  const { data: candidates, error: lookupError } = await find.order('created_at').order('id')
+  const { data: candidates, error: lookupError } = await find.order('updated_at', { ascending: false }).order('created_at').order('id')
   if (lookupError) throw lookupError
   // RPCは共通顧客または申込先と同じ組織の顧客だけを受け付ける。
   const compatible = candidates?.filter(row => row.organization_id == null || row.organization_id === organizationId)
@@ -70,7 +70,13 @@ export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<
   if (existing) {
     // 本人のメール一致行のIDと履歴を保持し、platform予約では所属を共通形へ正す。
     const normalizeOrganization = !scopeByOrganization && existing.organization_id != null
-    const updateValues = { ...(nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }), ...(normalizeOrganization ? { organization_id: null } : {}) }
+    // 更新前にマイページが参照していた本人プロフィールを保持する。メール/FKは移動しない。
+    const profile = candidates?.[0]
+    const profileFields = ['avatar_url', 'address', 'line_id', 'notification_settings', 'nickname'] as const
+    const retainedProfile = profile && profile.id !== existing.id
+      ? Object.fromEntries(profileFields.filter(key => key in profile).map(key => [key, profile[key]]))
+      : {}
+    const updateValues = { ...retainedProfile, ...(nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }), ...(normalizeOrganization ? { organization_id: null } : {}) }
     let upd = supabase.from('customers').update(updateValues).eq('id', existing.id).eq('user_id', userId)
     if (scopeByOrganization) upd = upd.eq('organization_id', organizationId as string)
     const { error } = await upd

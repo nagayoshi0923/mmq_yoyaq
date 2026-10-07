@@ -82,3 +82,14 @@ verify、基準DBから28本のmigrationによる完全構造再現、対象実S
 4208037687: 同作品一回のcoupon履歴を同一user全CIDへ広げ、privateな本人単位transaction advisory lockを顧客/クーポンロックより先に取得。本人未紐付けはCID単位。通常利用/スタッフrestore/グループ経路/共通validatorを同じ入口に揃え、helper直接実行はanon/authenticated/service_roleとも禁止。実PGで同一user別CIDの2並行利用は1件成功・1件作品重複拒否、使用履歴1/消費1・deadlock0。外部送信停止、架空fixtureを削除。
 
 PR970のフロント是正も同期。platform顧客は申込先に関わらずorgNULLで既存IDを正規化/新規作成、scopedキャンセル待ち所属は維持。MyPage日付編集は実所有CIDで更新し未所有IDに書き込まない。SQL回帰95件成功。曜日判定をDB公演日から、JST終了fixtureを実際の終了日から作るため日跨ぎによるテスト誤判定を防いだ。
+
+
+## 最新レビューの金額・削除ロック回帰
+
+4209029498: use_customer_couponの再定義で20261002160000の請求更新を落としていた候補回帰を訂正。使用履歴で算出された割引を同じTXでfinal_price/discount_amountへ一回反映、再試行は既存usageを返す。金額正本の処理を維持する。
+
+4209029518: staff restoreはグループ→本人identity→顧客→coupon→member→予約→usage順でロックし、通常/グループのusage取消時に請求と回数を復元、貸切のmember coupon_id/discount/final_amountも戻す。再試行はrestored=false、他メンバーusage保持。実PGの架空2メンバーで全ROLLBACK検証。
+
+4209029510: 現行remove/leave RPCのmember DELETEより前にgroup/identity/customer/couponをロックし、確定経路と揃える。廃止delete_guest_memberはUI/API/Edge呼出0をコード棚卸しで確認し、既存anon/authenticated revokeを維持してserviceにも非公開にする。現行RPCの権限は拡張しない。実PGで4組の確定再計算/主催者削除を並行しdeadlock0、各ROLLBACKで金額/回数/メンバーを保持、専用架空fixture削除。
+
+SQL115項目成功。fixtureは本番と同じ使用条件BEFORE INSERT triggerを作成し、通常利用の履歴割引/請求を検証する。終了公演fixtureはJST前日の固定時刻にし日跨ぎの誤判定を防ぐ。フロントPR970最新735dab（本人プロフィール同PATCH保持/全CID最新rating取得・全ID解除）を同期。共有DB/Edge適用0。

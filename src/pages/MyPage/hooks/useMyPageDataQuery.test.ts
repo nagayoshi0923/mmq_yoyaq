@@ -52,3 +52,13 @@ it('別本人行の手動履歴をprimary IDへ誤送信せず実所有IDで削�
  await mutation.mutationFn('legacy-manual')
  expect(mocks.remove).toHaveBeenLastCalledWith('legacy','legacy-manual')
 })
+
+it('代表CIDが変わっても全本人CIDの評価を取得し同作品は最新評価を表示する',async()=>{
+ mocks.ids.mockResolvedValue({data:[{id:'customer'},{id:'legacy'}],error:null})
+ let ratingReads=0
+ mocks.from.mockImplementation((table:string)=>result(table==='customers'?{id:'customer',name:'Fixture'}:table==='scenario_ratings'?(ratingReads++===0?[{scenario_master_id:'S',rating:2,updated_at:'2026-10-01'}]:[{scenario_master_id:'S',rating:5,updated_at:'2026-10-02'},{scenario_master_id:'other',rating:4,updated_at:'2026-10-01'}]):[]))
+ mocks.past.mockResolvedValue([]);mocks.history.mockResolvedValue({can_edit:true,manual:[],overrides:[]})
+ const query=useMyPageDataQuery('owner','fixture@example.test') as unknown as {queryFn:()=>Promise<MyPageData>}
+ const data=await query.queryFn()
+ expect(ratingReads).toBe(2);expect(data.ratingsMap).toEqual({S:5,other:4})
+})
