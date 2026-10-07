@@ -74,7 +74,7 @@ export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<
     const profile = candidates?.[0]
     const profileFields = ['avatar_url', 'address', 'line_id', 'notification_settings', 'nickname'] as const
     const retainedProfile = profile && profile.id !== existing.id
-      ? Object.fromEntries(profileFields.filter(key => key in profile).map(key => [key, profile[key]]))
+      ? Object.fromEntries(profileFields.filter(key => profile[key] != null).map(key => [key, profile[key]]))
       : {}
     const updateValues = { ...retainedProfile, ...(nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }), ...(normalizeOrganization ? { organization_id: null } : {}) }
     let upd = supabase.from('customers').update(updateValues).eq('id', existing.id).eq('user_id', userId)

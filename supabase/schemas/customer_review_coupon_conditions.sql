@@ -138,7 +138,10 @@ BEGIN
  discount:=CASE rules->>'discount_type' WHEN 'fixed' THEN (rules->>'discount_amount')::integer
   WHEN 'percentage' THEN round(p_amount::numeric*(rules->>'discount_amount')::numeric/100)::integer END;
  discount:=LEAST(discount,GREATEST(p_amount-used_amount,0));
- IF p_member IS NOT NULL THEN discount:=LEAST(discount,GREATEST(coalesce(locked_reservation.final_price,locked_reservation.total_price,0),0)); END IF;
+ IF p_reservation IS NOT NULL THEN
+  IF locked_reservation.final_price IS NULL THEN RAISE EXCEPTION '予約の請求額が未確定です。確認後にクーポンを利用してください' USING ERRCODE='P0028'; END IF;
+  discount:=LEAST(discount,GREATEST(locked_reservation.final_price,0));
+ END IF;
  IF discount IS NULL OR discount<=0 THEN RAISE EXCEPTION '割引できる金額がありません' USING ERRCODE='P0028'; END IF;
  RETURN discount;
 END;

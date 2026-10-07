@@ -211,7 +211,7 @@
       "postgres=X/postgres"
     ],
     "returns": "integer",
-    "body_md5": "e99d3f7ab9bc7cdaf4bf60ef4786d8da",
+    "body_md5": "b1735ec0fedee7389852f806721f4fe3",
     "language": "plpgsql",
     "security_definer": true
   },

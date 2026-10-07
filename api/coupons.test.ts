@@ -171,3 +171,10 @@ describe('顧客管理のクーポン使用履歴', () => {
     expect(mock.from).not.toHaveBeenCalled()
   })
 })
+
+it('staffの旧請求要確認を一時障害に変えず409と確認メッセージで返す',async()=>{
+ mock.role='staff';mock.rpc.mockResolvedValue({data:null,error:{code:'P0061',message:'旧請求額が欠落しています。確認後に再実行してください'}})
+ const r=response();await handler({method:'DELETE',headers:{},query:{action:'restore-usage',usage_id:'usage',customer_coupon_id:'coupon'}} as unknown as VercelRequest,r as unknown as VercelResponse)
+ expect(r.status).toHaveBeenCalledWith(409);expect(r.json).toHaveBeenCalledWith({success:false,error:'旧請求額が欠落しています。確認後に再実行してください',code:'P0061',requires_review:true})
+ expect(mock.rpc).toHaveBeenCalledTimes(1)
+})

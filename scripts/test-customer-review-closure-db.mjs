@@ -333,6 +333,27 @@ for(const field of ['discount_amount','final_price','total_price']){
  assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[id(510)]))[0].uses_remaining,1);checks++
 }
 
+// 手動割引後の残額500に1000couponを使っても、実控除/履歴/台帳は500だけ。
+await q('DELETE FROM coupon_usages WHERE reservation_id=$1',[reservation])
+await q('UPDATE reservations SET total_price=9000,discount_amount=8500,final_price=500 WHERE id=$1',[reservation])
+await q("INSERT INTO customer_coupons SELECT $1,campaign_id,customer_id,organization_id,'active',1,expires_at,rules_snapshot,now() FROM customer_coupons WHERE id=$2",[id(511),id(510)])
+const capped=(await q('SELECT use_customer_coupon($1,$2,$3) AS data',[user,id(511),reservation]))[0].data
+assert.equal(capped.discount_amount,500);checks++
+assert.equal((await q('SELECT applied_amount FROM coupon_usage_billing_applied WHERE usage_id=$1',[capped.usage_id]))[0].applied_amount,500);checks++
+assert.equal((await q('SELECT discount_amount FROM coupon_usages WHERE id=$1',[capped.usage_id]))[0].discount_amount,500);checks++
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,0);checks++
+await q('SELECT restore_coupon_usage($1,$2,$3)',[org,id(511),capped.usage_id])
+assert.deepEqual((await q('SELECT discount_amount,final_price FROM reservations WHERE id=$1',[reservation]))[0],{discount_amount:8500,final_price:500});checks++
+await q('UPDATE reservations SET final_price=0 WHERE id=$1',[reservation])
+await rejects('SELECT use_customer_coupon($1,$2,$3)',[user,id(511),reservation],'P0028')
+await q('UPDATE reservations SET final_price=NULL WHERE id=$1',[reservation])
+await rejects('SELECT use_customer_coupon($1,$2,$3)',[user,id(511),reservation],'P0028')
+assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[id(511)]))[0].uses_remaining,1);checks++
+// 正本RPCを再適用してもmigrationの同一UIDロックを失わない。
+const couponMigration=fs.readFileSync('supabase/migrations/20261007110002_customer_review_coupon_conditions.sql','utf8')
+const canonicalRemove=fs.readFileSync('supabase/rpcs/remove_coupon_from_group_member.sql','utf8')
+const extractRemove=text=>text.match(/CREATE OR REPLACE FUNCTION public\.remove_coupon_from_group_member\([\s\S]*?END \$\$;/)[0]
+assert.equal(extractRemove(canonicalRemove),extractRemove(couponMigration));checks++
 for(const role of ['anon','authenticated','service_role']) {assert.equal((await q("SELECT has_table_privilege($1,'coupon_usage_billing_applied','SELECT') AS allowed",[role]))[0].allowed,false);checks++}
 // 評価はメール一致でなく認証UIDで本人照合し、全本人CIDの同作品のみ解除。
 await q('INSERT INTO customers VALUES($1,$2,NULL),($3,$4,NULL)',[id(23),user,id(24),id(15)])

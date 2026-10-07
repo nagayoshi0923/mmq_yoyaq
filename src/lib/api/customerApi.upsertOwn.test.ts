@@ -112,6 +112,14 @@ it('メール一致の旧CIDを更新しても以前の代表本人プロフィ�
  const notification_settings={email_notifications:false,reminder_notifications:false,campaign_notifications:false}
  m.state.candidates=[{id:'global',email:'prior@example.invalid',organization_id:null,avatar_url:'avatar',address:'架空住所',line_id:null,notification_settings,nickname:'旧表示名'},{id:'legacy',email:base.email,organization_id:'org1'}]
  expect(await upsertOwnCustomer({...base,nickname:undefined})).toBe('legacy')
- expect(m.calls).toContainEqual(['update.values',[{name:base.name,phone:base.phone,email:base.email,organization_id:null,avatar_url:'avatar',address:'架空住所',line_id:null,notification_settings,nickname:'旧表示名'}]])
+ expect(m.calls).toContainEqual(['update.values',[{name:base.name,phone:base.phone,email:base.email,organization_id:null,avatar_url:'avatar',address:'架空住所',notification_settings,nickname:'旧表示名'}]])
  expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+
+it('代表プロフィールのNULL値はメール一致行の既存プロフィールを消さない',async()=>{
+ const existing={id:'legacy',email:base.email,organization_id:'org1',avatar_url:'kept',address:'架空住所',line_id:'qa-line',notification_settings:{email_notifications:false},nickname:'保持名'}
+ m.state.candidates=[{id:'global',email:'prior@example.invalid',organization_id:null,avatar_url:null,address:null,line_id:null,notification_settings:null,nickname:null},existing]
+ expect(await upsertOwnCustomer({...base,nickname:undefined})).toBe('legacy')
+ const patch=m.calls.find(c=>c[0]==='update.values')?.[1] as [Record<string,unknown>]
+ expect({...existing,...patch[0]}).toMatchObject({avatar_url:'kept',address:'架空住所',line_id:'qa-line',notification_settings:{email_notifications:false},nickname:'保持名'})
 })
