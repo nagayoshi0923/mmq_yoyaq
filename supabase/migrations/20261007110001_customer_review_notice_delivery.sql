@@ -14,7 +14,7 @@ CREATE TABLE public.waitlist_notice_events (
 CREATE TABLE public.waitlist_notice_deliveries (
  notice_id uuid NOT NULL REFERENCES public.waitlist_notice_events(id) ON DELETE CASCADE, waitlist_id uuid NOT NULL REFERENCES public.waitlist(id) ON DELETE CASCADE,
  lease_id uuid, leased_until timestamptz, sent_at timestamptz, last_error text,
- payload jsonb, first_attempt_at timestamptz,
+ payload jsonb, claimed_waitlist_ids uuid[], first_attempt_at timestamptz,
  attempt_in_progress boolean NOT NULL DEFAULT false, has_uncertain_attempt boolean NOT NULL DEFAULT false,
  PRIMARY KEY(notice_id,waitlist_id)
 );
@@ -91,7 +91,9 @@ BEGIN
  -- プロセス停止/ack消失で期限切れになった前試行は結果不明として保持する。
  UPDATE public.waitlist_notice_deliveries SET has_uncertain_attempt=true
  WHERE notice_id=n.id AND sent_at IS NULL AND attempt_in_progress AND leased_until<now();
- UPDATE public.waitlist_notice_deliveries d SET lease_id=p_lease,leased_until=now()+interval '5 minutes',last_error=NULL
+ UPDATE public.waitlist_notice_deliveries d SET lease_id=p_lease,leased_until=now()+interval '5 minutes',last_error=NULL,
+ claimed_waitlist_ids=CASE WHEN d.payload IS NULL THEN ARRAY(SELECT recipient.id FROM public.waitlist recipient
+ WHERE public.waitlist_notice_same_recipient(recipient.id,d.waitlist_id) AND recipient.status='waiting' AND (recipient.expires_at IS NULL OR recipient.expires_at>now())) ELSE coalesce(d.claimed_waitlist_ids,'{}'::uuid[]) END
  WHERE d.notice_id=n.id AND d.sent_at IS NULL AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours') AND (d.leased_until IS NULL OR d.leased_until<now())
  AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=d.waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now()) AND (SELECT latest.participant_count FROM public.waitlist latest WHERE public.waitlist_notice_same_recipient(latest.id,w.id) AND latest.status='waiting' AND (latest.expires_at IS NULL OR latest.expires_at>now()) ORDER BY coalesce(latest.created_at,'-infinity'::timestamptz) DESC,latest.id DESC LIMIT 1)<=seats
  AND NOT EXISTS(SELECT 1 FROM public.waitlist earlier WHERE earlier.status='waiting' AND (earlier.expires_at IS NULL OR earlier.expires_at>now())
@@ -113,6 +115,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION public.finish_waitlist_notice(p_notice uuid,p_waitlist uuid,p_lease uuid,p_sent boolean,p_error text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE recipient_ids uuid[];
 BEGIN
  -- claimと同じnotice→delivery順。並行ack/claimのdeadlockを避ける。
  PERFORM 1 FROM public.waitlist_notice_events WHERE id=p_notice FOR UPDATE;
@@ -123,10 +126,10 @@ BEGIN
  has_uncertain_attempt=has_uncertain_attempt OR (NOT p_sent AND attempt_in_progress AND p_error IS DISTINCT FROM 'provider rejected'),
  attempt_in_progress=false,
  last_error=CASE WHEN p_sent THEN NULL ELSE left(p_error,500) END
- WHERE notice_id=p_notice AND waitlist_id=p_waitlist AND lease_id=p_lease AND sent_at IS NULL;
+ WHERE notice_id=p_notice AND waitlist_id=p_waitlist AND lease_id=p_lease AND sent_at IS NULL RETURNING claimed_waitlist_ids INTO recipient_ids;
  IF NOT FOUND THEN RETURN false; END IF;
  IF p_sent THEN UPDATE public.waitlist SET status='notified',notified_at=now(),expires_at=now()+interval '24 hours'
- WHERE public.waitlist_notice_same_recipient(id,p_waitlist) AND status='waiting'; END IF;
+ WHERE id=ANY(recipient_ids) AND public.waitlist_notice_same_recipient(id,p_waitlist) AND status='waiting'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=p_notice AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())))
  THEN UPDATE public.waitlist_notice_events SET completed_at=now() WHERE id=p_notice; END IF;
  RETURN true;

@@ -155,6 +155,12 @@
     "not_null": false
    },
    {
+    "name": "claimed_waitlist_ids",
+    "type": "uuid[]",
+    "default": null,
+    "not_null": false
+   },
+   {
     "name": "first_attempt_at",
     "type": "timestamp with time zone",
     "default": null,

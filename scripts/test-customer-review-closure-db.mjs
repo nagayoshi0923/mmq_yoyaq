@@ -203,6 +203,18 @@ assert.equal(dupeLease.entries[0].id,id(104));assert.equal(dupeLease.entries[0].
 await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[dupeLease.noticeId,dupeLease.entries[0].id,id(222)])
 assert.equal((await q("SELECT count(*)::integer AS n FROM waitlist WHERE schedule_event_id=$1 AND status='notified'",[id(35)]))[0].n,2);assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(309)]))[0].completed_at,null);checks++
 await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(35)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(35)])
+// 送信開始後の再登録を旧1名の配送ackで通知済みに巻き込まない。
+await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,max_participants,capacity,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[id(36),event])
+await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空旧希望','version-old@example.invalid',now(),$4)",[id(106),org,id(36),customer])
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(310),org,id(36),id(19)])
+const versionClaim=(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[id(36),id(19),id(224)]))[0].result
+assert.equal(versionClaim.entries.length,1);assert.equal(versionClaim.entries[0].participant_count,1);checks++
+const fixedOne={to:['version-old@example.invalid'],text:'希望人数1名'}
+await q('SELECT prepare_waitlist_notice_payload($1,$2,$3,$4)',[versionClaim.noticeId,id(106),id(224),JSON.stringify(fixedOne)])
+await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',4,now()+interval '60 days',NULL,'架空新希望','version-new@example.invalid',now(),$4)",[id(107),org,id(36),customer])
+await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[versionClaim.noticeId,id(106),id(224)])
+assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(106)]))[0].status,'notified');assert.equal((await q('SELECT status FROM waitlist WHERE id=$1',[id(107)]))[0].status,'waiting');assert.deepEqual((await q('SELECT payload FROM waitlist_notice_deliveries WHERE notice_id=$1',[versionClaim.noticeId]))[0].payload,fixedOne);checks++
+await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(36)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(36)])
 // 既存deliveryでも待機期限切れならleaseせず、通知済みを偽装しないでnoticeを完了する。
 await q("UPDATE waitlist SET expires_at=now()-interval '1 minute' WHERE id=$1",[wait])
 await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(303),org,event,id(15)])
