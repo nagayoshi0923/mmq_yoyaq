@@ -117,7 +117,7 @@ await q('SELECT remove_coupon_from_group_member($1)',[id(62)])
 assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)]))[0].final_price,8000);checks++
 await q('DELETE FROM private_group_members WHERE id=$1',[id(62)]);await q('DELETE FROM customer_coupons WHERE id=$1',[id(72)]);await q('DELETE FROM customers WHERE id=$1',[id(22)])
 await q("SELECT set_config('request.jwt.claim.sub',$1,false)",[user])
-await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,0);assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[coupon]))[0].uses_remaining,1);assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,9000);checks+=3
+await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,0);assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[coupon]))[0].uses_remaining,1);assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)]))[0].final_price,9000);assert.equal((await q('SELECT discount_amount FROM reservations WHERE id=$1',[id(92)]))[0].discount_amount,0);checks+=4
 for(const terminal of ['completed','no_show']){
  await q('UPDATE reservations SET status=\'confirmed\' WHERE id=$1',[reservation])
  const beforeCount=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n
