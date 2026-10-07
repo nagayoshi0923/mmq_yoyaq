@@ -102,8 +102,7 @@ BEGIN
   COALESCE(se.scenario_master_id,se.scenario_id,se.organization_scenario_id) AS previous_scenario, se.scenario AS previous_title
   FROM public.coupon_usages u JOIN public.customer_coupons c ON c.id=u.customer_coupon_id
   JOIN public.reservations r ON r.id=u.reservation_id JOIN public.schedule_events se ON se.id=r.schedule_event_id
-  WHERE c.customer_id=p_customer OR (u.reservation_id=p_reservation AND (p_member IS NULL
-   OR NOT EXISTS(SELECT 1 FROM public.private_group_coupon_uses gu WHERE gu.usage_id=u.id)))
+  WHERE c.customer_id=p_customer OR u.reservation_id=p_reservation
  LOOP
   IF prior.reservation_id=p_reservation THEN
    IF prior.customer_coupon_id=p_coupon THEN RAISE EXCEPTION 'この予約には使用済みです' USING ERRCODE='P0028'; END IF;

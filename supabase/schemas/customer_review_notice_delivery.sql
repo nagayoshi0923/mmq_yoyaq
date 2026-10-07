@@ -100,9 +100,12 @@ BEGIN
  AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE public.waitlist_notice_same_recipient(other.waitlist_id,d.waitlist_id)
  AND NOT (other.notice_id=d.notice_id AND other.waitlist_id=d.waitlist_id) AND other.sent_at IS NULL AND (other.leased_until>now() OR (other.has_uncertain_attempt OR (other.attempt_in_progress AND other.leased_until<now()) OR other.first_attempt_at<=now()-interval '23 hours')));
  UPDATE public.waitlist_notice_events SET requires_review=true WHERE id=n.id AND EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())) AND (first_attempt_at<=now()-interval '23 hours' OR EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE public.waitlist_notice_same_recipient(other.waitlist_id,waitlist_notice_deliveries.waitlist_id) AND NOT (other.notice_id=waitlist_notice_deliveries.notice_id AND other.waitlist_id=waitlist_notice_deliveries.waitlist_id) AND other.sent_at IS NULL AND (other.has_uncertain_attempt OR (other.attempt_in_progress AND other.leased_until<now()) OR other.first_attempt_at<=now()-interval '23 hours'))));
- SELECT jsonb_agg(jsonb_build_object('id',w.id,'customer_name',w.customer_name,'customer_email',btrim(w.customer_email),
+ SELECT jsonb_agg(jsonb_build_object('id',w.id,'customer_name',contact.customer_name,'customer_email',btrim(contact.customer_email),
  'participant_count',w.participant_count,'deliveryKey','waitlist-'||n.id::text||'-'||w.id::text) ORDER BY w.created_at)
  INTO entries FROM public.waitlist_notice_deliveries d JOIN public.waitlist w ON w.id=d.waitlist_id
+ CROSS JOIN LATERAL (SELECT latest.customer_name,latest.customer_email FROM public.waitlist latest
+ WHERE public.waitlist_notice_same_recipient(latest.id,w.id) AND latest.status='waiting' AND (latest.expires_at IS NULL OR latest.expires_at>now())
+ ORDER BY coalesce(latest.created_at,'-infinity'::timestamptz) DESC,latest.id DESC LIMIT 1) contact
  WHERE d.notice_id=n.id AND d.lease_id=p_lease AND d.sent_at IS NULL;
  IF entries IS NULL AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())))
  THEN UPDATE public.waitlist_notice_events SET completed_at=now() WHERE id=n.id; END IF;

@@ -100,7 +100,24 @@ await q('UPDATE private_groups SET per_person_price=5000 WHERE id=$1',[group])
 assert.equal((await q('SELECT validated_amount FROM private_group_coupon_uses'))[0].validated_amount,5000);checks++
 for(let i=0;i<2;i++)await q('SELECT remove_coupon_from_group_member($1)',[member]);assert.equal((await q('SELECT uses_remaining FROM customer_coupons'))[0].uses_remaining,1);checks++
 assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)]))[0].final_price,9000);checks++
-await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon]);await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,1);checks++
+// 同じ予約の他メンバーも併用不可条件を共有する。単価は各メンバーのまま。
+await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon])
+await q('INSERT INTO customers VALUES($1,$2,NULL)',[id(22),id(12)])
+await q("INSERT INTO private_group_members VALUES($1,$2,$3,'joined',NULL,0,5000,5000)",[id(62),group,id(12)])
+await q("INSERT INTO customer_coupons SELECT $1,campaign_id,$2,organization_id,'active',1,NULL,rules_snapshot,now() FROM customer_coupons WHERE id=$3",[id(72),id(22),coupon])
+await q("SELECT set_config('request.jwt.claim.sub',$1,false)",[id(12)])
+await q("UPDATE customer_coupons SET rules_snapshot=rules_snapshot||jsonb_build_object('combinable',false) WHERE id=$1",[id(72)])
+await rejects('SELECT apply_coupon_to_group_member($1,$2)',[id(62),id(72)],'P0028')
+await q("UPDATE customer_coupons SET rules_snapshot=rules_snapshot||jsonb_build_object('combinable',id<>$1::uuid)",[coupon])
+await rejects('SELECT apply_coupon_to_group_member($1,$2)',[id(62),id(72)],'P0028')
+await q("UPDATE customer_coupons SET rules_snapshot=rules_snapshot||jsonb_build_object('combinable',true)")
+await q('SELECT apply_coupon_to_group_member($1,$2)',[id(62),id(72)])
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)]))[0].final_price,7000);checks++
+await q('SELECT remove_coupon_from_group_member($1)',[id(62)])
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)]))[0].final_price,8000);checks++
+await q('DELETE FROM private_group_members WHERE id=$1',[id(62)]);await q('DELETE FROM customer_coupons WHERE id=$1',[id(72)]);await q('DELETE FROM customers WHERE id=$1',[id(22)])
+await q("SELECT set_config('request.jwt.claim.sub',$1,false)",[user])
+await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,1);checks++
 for(const terminal of ['completed','no_show']){
  await q('UPDATE reservations SET status=\'confirmed\' WHERE id=$1',[reservation])
  const beforeCount=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n
@@ -173,9 +190,10 @@ assert.equal((await q('SELECT sent_at FROM waitlist_notice_deliveries WHERE noti
 await q('DELETE FROM schedule_events WHERE id=$1',[competingEvent]);await q('DELETE FROM waitlist WHERE id=$1',[id(102)])
 // 同noticeの重複待機行は1宛先だけlease・通知し、受理後は宛先単位でnotifiedにする。
 await q('INSERT INTO schedule_events SELECT $1,organization_id,store_id,scenario,date,start_time,end_time,venue,is_cancelled,max_participants,capacity,category,time_slot,scenario_master_id,organization_scenario_id,scenario_id FROM schedule_events WHERE id=$2',[id(35),event])
-for(const wid of [id(104),id(105)])await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空同宛先','dupe@example.invalid',now(),$4)",[wid,org,id(35),customer])
+for(const wid of [id(104),id(105)])await q("INSERT INTO waitlist VALUES($1,$2,$3,'waiting',1,now()+interval '60 days',NULL,'架空同宛先',$5,now(),$4)",[wid,org,id(35),customer,wid===id(104)?'old@example.invalid':'latest@example.invalid'])
 await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(308),org,id(35),id(18)])
 const dupeLease=(await q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[id(35),id(18),id(222)]))[0].result;assert.equal(dupeLease.entries.length,1);checks++
+assert.equal(dupeLease.entries[0].id,id(104));assert.equal(dupeLease.entries[0].customer_email,'latest@example.invalid');checks++
 await q('SELECT finish_waitlist_notice($1,$2,$3,true,NULL)',[dupeLease.noticeId,dupeLease.entries[0].id,id(222)])
 assert.equal((await q("SELECT count(*)::integer AS n FROM waitlist WHERE schedule_event_id=$1 AND status='notified'",[id(35)]))[0].n,2);assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(308)]))[0].completed_at,null);checks++
 await q('DELETE FROM waitlist WHERE schedule_event_id=$1',[id(35)]);await q('DELETE FROM schedule_events WHERE id=$1',[id(35)])

@@ -365,6 +365,16 @@ ${emailTemplates.footer}
       const waitlistEmailSubject = `【空席のお知らせ】${data.scenarioTitle} - ${formatDate(data.eventDate)}`
       let waitlistEmailLogId: string | null = null
       let providerAccepted = false
+      let providerRejected = false
+      const finishRejection = async (): Promise<boolean> => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const { data: finished, error } = await serviceClient.rpc('finish_waitlist_notice', { p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: false, p_error: 'provider rejected' })
+            if (!error && finished === true) return true
+          } catch { /* 同じ拒否結果を再試行。結果不明へ書き換えない。 */ }
+        }
+        return false
+      }
 
       try {
         const { data: payload, error: payloadError } = await serviceClient.rpc('prepare_waitlist_notice_payload', {
@@ -395,6 +405,7 @@ ${emailTemplates.footer}
         })
 
         if (!resendResponse.ok) {
+          providerRejected = true
           const errorText = await resendResponse.text().catch(() => '')
           let errorData: unknown
           try { errorData = JSON.parse(errorText) } catch { errorData = { message: errorText || `HTTP ${resendResponse.status}` } }
@@ -403,7 +414,7 @@ ${emailTemplates.footer}
             status: 'failed',
             error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
           })
-          await serviceClient.rpc('finish_waitlist_notice', { p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: false, p_error: 'provider rejected' })
+          if (!(await finishRejection())) return { success: false, entryId: entry.id, error: 'provider rejection acknowledgment pending' }
           return { success: false, entryId: entry.id, error: errorData }
         }
 
@@ -429,6 +440,10 @@ ${emailTemplates.footer}
           status: providerAccepted ? 'sent' : 'failed',
           error_message: sanitizeErrorMessage(err?.message ?? String(err)),
         })
+        if (providerRejected) {
+          const finished = await finishRejection()
+          return { success: false, entryId: entry.id, error: finished ? 'provider rejected' : 'provider rejection acknowledgment pending' }
+        }
         await serviceClient.rpc('finish_waitlist_notice', { p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: false, p_error: 'delivery failed' })
         return { success: false, entryId: entry.id, error: err.message }
       }
