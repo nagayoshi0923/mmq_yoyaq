@@ -165,7 +165,11 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
     const loadStores = async () => {
       try {
-        const data = await storeApi.getAll()
+        const org = organizationSlug
+          ? await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true })
+          : null
+        if (organizationSlug && !org?.id) throw new Error('指定された運営組織を確認できません')
+        const data = org?.id ? await storeApi.getAllPublic(org.id) : await storeApi.getAll()
         if (cancelled) return
         setAllStores(data)
 
@@ -203,7 +207,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     saveScrollPositionForCurrentUrl()
     const timeQuery = preselectedTime ? `&time=${encodeURIComponent(preselectedTime)}` : ''
     navigate(
-      `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}${timeQuery}`
+      `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}&participants=${selectedParticipantCount ?? scenarios.find(s => s.id === selectedScenarioId)?.player_count_max ?? ""}${timeQuery}`
     )
   }
 

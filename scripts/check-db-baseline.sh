@@ -17,9 +17,23 @@ BASELINE="$(ls supabase/baseline/*_prod.sql | sort | tail -1)"
 BASELINE_VERSION="$(basename "$BASELINE" | cut -d_ -f1)"
 # 再現しても文面が同じにならないが、意味は同じ差（DB が式を読み直すと括弧の付け方が変わる）
 ALLOWED_DIFFS=("tables.coupon_campaigns.constraints")
+# 適用後の期待構造と実環境スナップショットは分離する。driftはprod/stagingを引き続き厳密照合。
+EXPECTED_STRUCTURE="supabase/structure/prod.json"
+EXPECTED_TEMP=""
+if [ -f supabase/structure/expected-function-overrides.json ]; then
+  EXPECTED_TEMP="$(mktemp)"
+  python3 - "$EXPECTED_STRUCTURE" supabase/structure/expected-function-overrides.json "$EXPECTED_TEMP" <<'PY_EXPECTED'
+import json, sys
+base=json.load(open(sys.argv[1])); overrides=json.load(open(sys.argv[2]))
+base['functions'].update(overrides)
+with open(sys.argv[3], 'w') as out: json.dump(base,out)
+PY_EXPECTED
+  EXPECTED_STRUCTURE="$EXPECTED_TEMP"
+fi
 
 WORK=""
 cleanup() {
+  if [ -n "$EXPECTED_TEMP" ]; then rm -f "$EXPECTED_TEMP"; fi
   if [ -n "$WORK" ] && [ "${KEEP:-0}" != "1" ]; then
     (cd "$WORK" && supabase stop --no-backup >/dev/null 2>&1) || true
     rm -rf "$WORK"
@@ -62,12 +76,12 @@ done
 echo "基準より新しい変更: ${applied} 本"
 
 set +e
-out="$(DB_URL="$DB_URL" node scripts/db-structure-snapshot.mjs custom --diff-against supabase/structure/prod.json 2>&1)"
+out="$(DB_URL="$DB_URL" node scripts/db-structure-snapshot.mjs custom --diff-against "$EXPECTED_STRUCTURE" 2>&1)"
 set -e
 remaining="$(printf '%s\n' "$out" | grep -E '^  [~+-] ' | sed -E 's/^  [~+-] //' | grep -vxF -f <(printf '%s\n' "${ALLOWED_DIFFS[@]}") || true)"
 if [ -n "$remaining" ]; then
-  echo "❌ 基準と変更から作った構造が、本番の構造の写しと違います:"
+  echo "❌ 基準と変更から作った構造が、適用後の期待構造と違います:"
   printf '%s\n' "$remaining"
   exit 1
 fi
-echo "✅ 基準と変更から、本番の構造の写しと同じ構造を再現できました（意味が同じ文面の差 ${#ALLOWED_DIFFS[@]} 件を除く）"
+echo "✅ 基準と変更から、適用後の期待構造を再現できました（意味が同じ文面の差 ${#ALLOWED_DIFFS[@]} 件を除く）"

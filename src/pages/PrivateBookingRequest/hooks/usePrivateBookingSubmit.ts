@@ -1,6 +1,7 @@
 import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { addJstDays } from '@/utils/jstDate'
 import { checkTimeOverlapWithPreparation } from '@/utils/eventOperationUtils'
+import { notificationOutcome } from '@/lib/notificationResult'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { bookingConfirmationReadApi } from '@/lib/api/bookingConfirmationReadApi'
@@ -66,6 +67,7 @@ interface UsePrivateBookingSubmitProps {
 export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [confirmationEmailAccepted, setConfirmationEmailAccepted] = useState(false)
 
   /**
    * 貸切予約リクエストを送信
@@ -293,10 +295,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           })
 
           logger.log('[貸切リクエスト] メール送信 invoke完了', { emailError, emailData })
-          if (emailError) {
+          if (notificationOutcome({ data: emailData, error: emailError }).status !== 'accepted' || emailData?.email_sent === false) {
             logger.error('貸切申し込み完了メール送信エラー:', emailError)
             logger.error('[貸切リクエスト] メール送信エラー:', emailError)
           } else {
+            setConfirmationEmailAccepted(true)
             logger.log('貸切申し込み完了メールを送信しました')
             logger.log('[貸切リクエスト] メール送信成功')
           }
@@ -322,6 +325,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
   return {
     isSubmitting,
     success,
+    confirmationEmailAccepted,
     handleSubmit
   }
 }

@@ -273,6 +273,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   const handleSend = async () => {
     if (!newMessage.trim() || !currentMemberId || sending) return
 
+    if (newMessage.trim().length > 5000) { toast.error('メッセージは5000文字以内で入力してください'); return }
     setSending(true)
     try {
       const { error } = await privateGroupMemberAction(groupId, currentMemberId, 'message', { message: newMessage.trim() })
@@ -285,6 +286,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
       fetchMembers()
     } catch (err) {
       logger.error('Failed to send message', err)
+      toast.error('メッセージを送信できませんでした。入力内容を確認して再度お試しください')
     } finally {
       setSending(false)
     }

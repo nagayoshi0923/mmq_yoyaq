@@ -43,3 +43,15 @@ it('予約・通知の保存失敗でメール送信と成功表示を行わな�
   await act(async () => { await expect(result.handleSubmit('Fixture', 'fixture@example.invalid', '00000000000', '')).rejects.toThrow('通知保存失敗') })
   expect(mocks.invoke).not.toHaveBeenCalled(); expect(result.success).toBe(false); expect(result.isSubmitting).toBe(false)
 })
+
+it.each([{ success: false }, { success: true, skipped: true }, { success: true, email_sent: false }])('通知未送信 %s でも予約保存を保ち、送信済み表示にしない', async data => {
+  mocks.invoke.mockResolvedValue({ data, error: null })
+  await act(async () => { await result.handleSubmit('Fixture', 'fixture@example.invalid', '00000000000', '') })
+  expect(result.success).toBe(true)
+  expect(result.confirmationEmailAccepted).toBe(false)
+})
+it('通知受付成功を区別する', async () => {
+  mocks.invoke.mockResolvedValue({ data: { success: true }, error: null })
+  await act(async () => { await result.handleSubmit('Fixture', 'fixture@example.invalid', '00000000000', '') })
+  expect(result.confirmationEmailAccepted).toBe(true)
+})

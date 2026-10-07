@@ -155,7 +155,11 @@ export function PrivateGroupInvite() {
   })
 
   // シートを閉じる：ユーザー操作（×・キャンセル）→ navigate(-1) でバック相当
-  const closeSheet = () => navigate(-1)
+  const closeSheet = () => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.delete('sheet')
+    return next
+  }, { replace: true })
 
   // シートを閉じる：処理完了後 → 履歴を置き換えてモーダルに戻れないようにする
   const closeSheetReplace = () => setSearchParams(prev => {
@@ -488,13 +492,14 @@ export function PrivateGroupInvite() {
           p_coupon_id: selectedCouponId,
         })
         if (couponError) {
-          logger.error('クーポン適用エラー:', couponError)
+          throw couponError
         }
       } else if (user && !selectedCouponId && perPersonPrice > 0) {
         // クーポン未選択の場合、既存のクーポンを解除
-        await privateGroupRpcApi.removeCouponFromMember({
+        const { error: couponError } = await privateGroupRpcApi.removeCouponFromMember({
           p_member_id: memberId,
         })
+        if (couponError) throw couponError
       }
 
       if (!options?.skipSuccessPage) {
@@ -578,7 +583,7 @@ export function PrivateGroupInvite() {
     : null
   const organizerMember = group.members?.find(m => m.is_organizer)
   const organizerName = organizerMember?.guest_name || 'メンバー'
-  const memberCount = joinedMembers.length
+  const memberCount = group?.joined_member_count ?? joinedMembers.length
 
   // 参加人数が上限に達しているか（シナリオ超過で締め切る）
   const isGroupFull =

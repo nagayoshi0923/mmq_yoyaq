@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getEmailTemplates, getStoreEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface NotifyWaitlistRequest {
@@ -44,127 +44,55 @@ serve(async (req) => {
   }
 
   try {
-    // 🔒 レートリミットチェック（1分あたり30リクエストまで）
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-    const clientIP = getClientIP(req)
-    const rateLimit = await checkRateLimit(serviceClient, clientIP, 'notify-waitlist', 30, 60)
-    
-    if (!rateLimit.allowed) {
-      console.warn('⚠️ レートリミット超過:', clientIP)
-      return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
-    }
+    if (req.method !== 'POST') return errorResponse('POSTが必要です', 405, corsHeaders)
 
-    // 🔒 認証チェック（緩和: Publishable Key 対応のため匿名許可）
-    // セキュリティはイベントへのアクセス権限確認で担保
-    const authResult = await verifyAuth(req, undefined, { allowAnonymous: true })
-    if (!authResult.success) {
-      console.warn('⚠️ 認証失敗: notify-waitlist への不正アクセス試行')
-      return errorResponse(
-        authResult.error || '認証が必要です',
-        authResult.statusCode || 401,
-        corsHeaders
-      )
+    // ブラウザは有効なユーザーJWT、サーバーは既存の検証済みservice/cronキーのみ。
+    // 匿名・無効認証をservice_roleで代理実行しない。
+    const systemCall = isCronOrServiceRoleCall(req)
+    const authResult = systemCall ? null : await verifyAuth(req)
+    if (!systemCall && (!authResult?.success || !authResult.user?.id)) {
+      return errorResponse('認証が必要です', 401, corsHeaders)
     }
-    console.log('✅ 認証:', authResult.user?.email || '匿名')
-
     const data: NotifyWaitlistRequest = await req.json()
-
-    // 🔒 イベントへのアクセス権限確認（匿名ユーザーはスキップ）
-    // 匿名ユーザーの場合は、予約IDとメールアドレスの検証で代替
-    // スタッフ: 組織メンバーであればOK
-    // 顧客: そのイベントに予約があればOK
-    const isAnonymous = authResult.user?.id === 'anonymous' || authResult.user?.role === 'anonymous'
-    
-    if (!isAnonymous && data.scheduleEventId && authResult.user?.id) {
-      console.log('🔍 アクセス権限確認開始:', { 
-        userId: authResult.user?.id, 
-        organizationId: data.organizationId,
-        scheduleEventId: data.scheduleEventId 
-      })
-      
-      // 1. スタッフかどうか確認（organization_idがある場合のみフィルタ）
-      let staffQuery = serviceClient
-        .from('staff')
-        .select('id, organization_id')
-        .eq('user_id', authResult.user.id)
-        .eq('status', 'active')
-      
-      // organization_idが指定されていればフィルタ
-      if (data.organizationId) {
-        staffQuery = staffQuery.eq('organization_id', data.organizationId)
-      }
-      
-      const { data: staffMember, error: staffError } = await staffQuery.maybeSingle()
-      
-      console.log('🔍 スタッフチェック結果:', { staffMember, staffError })
-      
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (typeof data.organizationId !== 'string' || typeof data.scheduleEventId !== 'string'
+      || !uuid.test(data.organizationId) || !uuid.test(data.scheduleEventId)) {
+      return errorResponse('組織・公演IDが必要です', 400, corsHeaders)
+    }
+    const serviceClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', getServiceRoleKey())
+    const { data: authorizedEvent, error: authorizedEventError } = await serviceClient.from('schedule_events')
+      .select('organization_id').eq('id', data.scheduleEventId).maybeSingle()
+    if (authorizedEventError || !authorizedEvent || authorizedEvent.organization_id !== data.organizationId) {
+      return errorResponse('対象公演へのアクセスが許可されていません', 403, corsHeaders)
+    }
+    if (!systemCall) {
+      const userId = authResult!.user!.id
+      const { data: staffMember, error: staffError } = await serviceClient.from('staff')
+        .select('id').eq('user_id', userId).eq('status', 'active')
+        .eq('organization_id', authorizedEvent.organization_id).limit(1).maybeSingle()
+      if (staffError) return errorResponse('権限の確認に失敗しました', 500, corsHeaders)
       if (!staffMember) {
-        // 2. スタッフでなければ、そのイベントに予約があるか確認
-        // まず customers.user_id で確認
-        const { data: customerReservation, error: reservationError } = await serviceClient
-          .from('reservations')
-          .select('id, customers!inner(user_id)')
-          .eq('schedule_event_id', data.scheduleEventId)
-          .eq('customers.user_id', authResult.user.id)
-          .maybeSingle()
-        
-        console.log('🔍 予約チェック結果 (customers.user_id):', { customerReservation, reservationError })
-        
-        // customers.user_id で見つからない場合、reservations.user_id で確認
-        let hasAccess = !!customerReservation
+        // 取消後も本人予約の記録を照合する。予約状態による絞込みはしない。
+        const { data: customerReservation, error: customerError } = await serviceClient.from('reservations')
+          .select('id, customers!inner(user_id)').eq('schedule_event_id', data.scheduleEventId)
+          .eq('organization_id', authorizedEvent.organization_id).eq('customers.user_id', userId)
+          .limit(1).maybeSingle()
+        if (customerError) return errorResponse('権限の確認に失敗しました', 500, corsHeaders)
+        let hasAccess = Boolean(customerReservation)
         if (!hasAccess) {
-          const { data: directReservation, error: directError } = await serviceClient
-            .from('reservations')
-            .select('id, user_id')
-            .eq('schedule_event_id', data.scheduleEventId)
-            .eq('user_id', authResult.user.id)
-            .maybeSingle()
-          
-          console.log('🔍 予約チェック結果 (reservations.user_id):', { directReservation, directError })
-          hasAccess = !!directReservation
+          const { data: directReservation, error: directError } = await serviceClient.from('reservations')
+            .select('id').eq('schedule_event_id', data.scheduleEventId)
+            .eq('organization_id', authorizedEvent.organization_id).eq('created_by', userId)
+            .limit(1).maybeSingle()
+          if (directError) return errorResponse('権限の確認に失敗しました', 500, corsHeaders)
+          hasAccess = Boolean(directReservation)
         }
-        
-        if (!hasAccess) {
-          // アクセス権がなくても、キャンセル待ち通知は処理を続行
-          // 予約変更のメイン処理には影響しないように
-          console.warn('⚠️ アクセス権限なし（スキップ）:', authResult.user?.email, '→ event:', data.scheduleEventId)
-          return new Response(
-            JSON.stringify({ 
-              success: true, 
-              message: 'アクセス権限の確認ができませんでした（通知スキップ）',
-              notifiedCount: 0 
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-          )
-        }
+        if (!hasAccess) return errorResponse('対象公演へのアクセスが許可されていません', 403, corsHeaders)
       }
-      console.log('✅ アクセス権限確認OK')
-    } else if (isAnonymous) {
-      console.log('✅ 匿名ユーザー: アクセス権限チェックをスキップ')
     }
-    console.log('Notify waitlist request:', { 
-      eventId: data.scheduleEventId, 
-      freedSeats: data.freedSeats 
-    })
-
-    // 必須パラメータチェック
-    if (!data.organizationId || !data.scheduleEventId) {
-      console.log('📧 Missing required params:', { 
-        organizationId: data.organizationId, 
-        scheduleEventId: data.scheduleEventId 
-      })
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: '必要なパラメータが不足しています（通知スキップ）',
-          notifiedCount: 0 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
-    }
+    // 拒否した呼び出しは待機列/通知だけでなくレート制限記録も更新しない。
+    const rateLimit = await checkRateLimit(serviceClient, getClientIP(req), 'notify-waitlist', 30, 60)
+    if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
 
     // 🔒 SEC-P0-03対策: bookingUrl をサーバー側で生成（入力値を無視）
     const { data: org, error: orgError } = await serviceClient
@@ -221,18 +149,9 @@ serve(async (req) => {
 
     if (waitlistError) {
       console.error('Waitlist fetch error:', waitlistError)
-      // RPCエラーでも処理を続行（通知スキップ）
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'キャンセル待ちリストの取得に失敗しました（通知スキップ）',
-          notifiedCount: 0 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
+      return errorResponse('キャンセル待ち通知の準備に失敗しました', 500, corsHeaders)
     }
 
-    // RPCが空配列を返す場合（キャンセル待ちなし）
     if (!waitlistEntries || waitlistEntries.length === 0) {
       console.log('No waitlist entries found for this event')
       return new Response(

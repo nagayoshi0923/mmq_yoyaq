@@ -296,7 +296,7 @@ function HashRedirect() {
 
   React.useEffect(() => {
     // 専用メールリンクのトークンをパスへ移さない（アクセスログに残さない）。
-    if (location.pathname === '/recruitment-response') return
+    if (location.pathname === '/recruitment-response' || location.pathname === '/coupon-claim') return
     const hash = window.location.hash
     if (hash && hash.startsWith('#')) {
       // 認証トークンを含むハッシュは無視（Supabase が処理する）

@@ -1,4 +1,258 @@
--- 正本: 顧客QA回帰修正（本番取得定義から最小変更）
+CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text DEFAULT NULL::text, p_how_found text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_customer_coupon_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_max_participants INTEGER;
+  v_current_participants INTEGER;
+  v_available_seats INTEGER;
+  v_reservation_id UUID;
+
+  v_event_org_id UUID;
+  v_scenario_id UUID;
+  v_org_scenario_id UUID;
+  v_store_id UUID;
+  v_date DATE;
+  v_start_time TIME;
+  v_duration INTEGER;
+  v_title TEXT;
+
+  v_customer_user_id UUID;
+  v_customer_org_id UUID;
+  v_caller_org_id UUID;
+  v_is_admin BOOLEAN;
+  v_is_staff BOOLEAN;
+
+  v_participation_fee INTEGER;
+  v_participation_costs JSONB;
+  v_custom_holiday BOOLEAN;
+
+  v_unit_price INTEGER;
+  v_total_price INTEGER;
+  v_discount_amount INTEGER := 0;
+  v_final_price INTEGER;
+  v_requested_datetime TIMESTAMP;
+  v_reservation_number TEXT;
+
+  v_coupon RECORD;
+  v_campaign RECORD;
+  v_coupon_usage_id UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'UNAUTHORIZED' USING ERRCODE = 'P0011';
+  END IF;
+
+  IF p_participant_count <= 0 THEN
+    RAISE EXCEPTION 'INVALID_PARTICIPANT_COUNT' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT organization_id,
+         scenario_id,
+         organization_scenario_id,
+         store_id,
+         date,
+         start_time,
+         COALESCE(max_participants, capacity, 8)
+  INTO v_event_org_id, v_scenario_id, v_org_scenario_id, v_store_id, v_date, v_start_time, v_max_participants
+  FROM schedule_events
+  WHERE id = p_schedule_event_id
+    AND is_cancelled = false
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'EVENT_NOT_FOUND' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- reservation_actor_auth_v1: 引数ではなくJWTの本人／対象組織の業務権限で判定。
+  v_caller_org_id := public.get_user_organization_id();
+  v_is_admin := COALESCE(public.reservation_actor_is_org_operator(v_event_org_id), false);
+  v_is_staff := v_is_admin;
+
+  -- 店舗の公演募集停止期間中は、お客様からの予約を受け付けない（スタッフの手入力は従来どおり可）
+  IF NOT (v_is_admin OR v_is_staff)
+     AND public.is_store_recruitment_paused(v_store_id, 'performance', v_date) THEN
+    RAISE EXCEPTION 'RECRUITMENT_PAUSED' USING ERRCODE = 'P0046';
+  END IF;
+
+  IF p_customer_id IS NULL THEN
+    IF NOT (v_is_admin OR v_is_staff) THEN
+      RAISE EXCEPTION 'FORBIDDEN_STAFF_ONLY' USING ERRCODE = 'P0013';
+    END IF;
+    v_customer_user_id := NULL;
+    v_customer_org_id := v_event_org_id;
+  ELSE
+    SELECT user_id, organization_id
+    INTO v_customer_user_id, v_customer_org_id
+    FROM public.customers
+    WHERE id = p_customer_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'CUSTOMER_NOT_FOUND' USING ERRCODE = 'P0009';
+    END IF;
+
+    IF v_customer_user_id IS DISTINCT FROM auth.uid()
+       AND NOT (v_is_admin OR v_is_staff) THEN
+      RAISE EXCEPTION 'FORBIDDEN_CUSTOMER' USING ERRCODE = 'P0011';
+    END IF;
+
+    -- 本人の共通顧客は旧organization_idの有無を問わず組織横断で利用できる。
+    -- 他人を代理する業務操作では、組織付き顧客は対象公演と同じ組織に限る。
+    IF v_customer_org_id IS NOT NULL
+       AND v_customer_org_id IS DISTINCT FROM v_event_org_id
+       AND v_customer_user_id IS DISTINCT FROM auth.uid() THEN
+      RAISE EXCEPTION 'CUSTOMER_ORG_MISMATCH' USING ERRCODE = 'P0012';
+    END IF;
+  END IF;
+
+  SELECT COALESCE(SUM(participant_count), 0)
+  INTO v_current_participants
+  FROM reservations
+  WHERE schedule_event_id = p_schedule_event_id
+    AND status IN ('pending', 'confirmed', 'gm_confirmed', 'checked_in');
+
+  v_available_seats := v_max_participants - v_current_participants;
+
+  IF v_available_seats <= 0 THEN
+    RAISE EXCEPTION 'SOLD_OUT' USING ERRCODE = 'P0003';
+  END IF;
+
+  IF p_participant_count > v_available_seats THEN
+    RAISE EXCEPTION 'INSUFFICIENT_SEATS' USING ERRCODE = 'P0004';
+  END IF;
+
+  IF v_org_scenario_id IS NOT NULL THEN
+    SELECT
+      os.participation_fee,
+      os.participation_costs,
+      COALESCE(os.duration, sm.official_duration),
+      COALESCE(os.override_title, sm.title)
+    INTO v_participation_fee, v_participation_costs, v_duration, v_title
+    FROM organization_scenarios os
+    JOIN scenario_masters sm ON sm.id = os.scenario_master_id
+    WHERE os.id = v_org_scenario_id;
+  ELSIF v_scenario_id IS NOT NULL THEN
+    SELECT participation_fee, participation_costs, duration, title
+    INTO v_participation_fee, v_participation_costs, v_duration, v_title
+    FROM scenarios_v2
+    WHERE id = v_scenario_id;
+
+    IF NOT FOUND THEN
+      SELECT participation_fee, participation_costs, duration, title
+      INTO v_participation_fee, v_participation_costs, v_duration, v_title
+      FROM scenarios
+      WHERE id = v_scenario_id;
+    END IF;
+  END IF;
+
+  IF v_participation_fee IS NULL AND v_title IS NULL THEN
+    RAISE EXCEPTION 'SCENARIO_NOT_FOUND' USING ERRCODE = 'P0017';
+  END IF;
+
+  SELECT COALESCE(bool_or(COALESCE(os.custom_holidays, '[]'::JSONB) ? v_date::TEXT), FALSE)
+  INTO v_custom_holiday
+  FROM organization_settings os
+  WHERE os.organization_id = v_event_org_id;
+
+  v_unit_price := public.calculate_booking_participation_fee(
+    v_participation_fee, v_participation_costs, v_date, v_start_time, v_custom_holiday
+  );
+
+  v_total_price := v_unit_price * p_participant_count;
+
+  IF p_customer_coupon_id IS NOT NULL THEN
+    v_discount_amount := public.coupon_discount_for_event(
+      p_customer_coupon_id, p_schedule_event_id, v_total_price, p_customer_id, NULL);
+  END IF;
+
+  v_final_price := v_total_price - v_discount_amount;
+  v_requested_datetime := (v_date + v_start_time)::TIMESTAMP;
+
+  IF p_reservation_number IS NULL OR length(trim(p_reservation_number)) = 0 THEN
+    v_reservation_number := to_char(now(), 'YYMMDD') || '-' || upper(substr(md5(random()::text), 1, 4));
+  ELSE
+    v_reservation_number := p_reservation_number;
+  END IF;
+
+  INSERT INTO reservations (
+    schedule_event_id,
+    scenario_id,
+    store_id,
+    customer_id,
+    customer_name,
+    customer_email,
+    customer_phone,
+    requested_datetime,
+    duration,
+    participant_count,
+    participant_names,
+    base_price,
+    options_price,
+    total_price,
+    discount_amount,
+    final_price,
+    unit_price,
+    payment_method,
+    payment_status,
+    status,
+    customer_notes,
+    reservation_number,
+    created_by,
+    organization_id,
+    title
+  ) VALUES (
+    p_schedule_event_id,
+    COALESCE(v_scenario_id, v_org_scenario_id),
+    v_store_id,
+    p_customer_id,
+    p_customer_name,
+    p_customer_email,
+    p_customer_phone,
+    v_requested_datetime,
+    v_duration,
+    p_participant_count,
+    ARRAY[]::text[],
+    v_total_price,
+    0,
+    v_total_price,
+    v_discount_amount,
+    v_final_price,
+    v_unit_price,
+    CASE WHEN p_customer_id IS NULL THEN 'staff' ELSE 'onsite' END,
+    'pending',
+    'confirmed',
+    p_notes,
+    v_reservation_number,
+    auth.uid(),
+    v_event_org_id,
+    COALESCE(v_title, '')
+  )
+  RETURNING id INTO v_reservation_id;
+
+  IF p_customer_coupon_id IS NOT NULL AND v_discount_amount > 0 THEN
+    INSERT INTO coupon_usages (
+      customer_coupon_id,
+      reservation_id,
+      discount_amount
+    ) VALUES (
+      p_customer_coupon_id,
+      v_reservation_id,
+      v_discount_amount
+    )
+    RETURNING id INTO v_coupon_usage_id;
+
+    UPDATE reservations SET coupon_usage_id = v_coupon_usage_id WHERE id = v_reservation_id;
+
+  END IF;
+
+  -- current_participants は reservations INSERT 後の recalc トリガーが絶対値で再計算する。
+  -- checked_in を含まない手動 += はトリガー結果を過小上書きするため削除。
+
+  RETURN v_reservation_id;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_private_group_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -77,13 +331,6 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Unauthorized: customer does not belong to authenticated user'
       USING ERRCODE = 'P0401';
-  END IF;
-
-  IF p_customer_email IS NULL OR btrim(p_customer_email) !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' OR length(btrim(p_customer_email))>254 THEN
-    RAISE EXCEPTION '有効なメールアドレスを入力してください' USING ERRCODE='P0021';
-  END IF;
-  IF p_customer_phone IS NULL OR regexp_replace(p_customer_phone,'[-[:space:]]','','g') !~ '^[0-9]{10,11}$' THEN
-    RAISE EXCEPTION '電話番号は10〜11桁で入力してください' USING ERRCODE='P0022';
   END IF;
 
   -- 貸切リクエストは必ずグループから申し込む（画面は送信前にグループを作る）。#834 #842
@@ -689,5 +936,124 @@ BEGIN
 END;
 $function$;
 
--- 予約画面は通知付き入口へ統一。旧本体の直接呼び出しを許可しない。
-REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(uuid,uuid,text,text,text,integer,jsonb,text,text,uuid) FROM PUBLIC,anon,authenticated;
+CREATE OR REPLACE FUNCTION public.private_group_read_snapshot(p_group_id uuid DEFAULT NULL::uuid, p_invite_code text DEFAULT NULL::text, p_member_id uuid DEFAULT NULL::uuid, p_guest_token text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE g public.private_groups%ROWTYPE; access_level text; invited boolean:=false;
+ result jsonb; members jsonb:='[]'; dates jsonb:='[]'; scenario jsonb; actor_member uuid;
+ reservation_status text; confirmed_name text; confirmed_performance jsonb;
+BEGIN
+ IF p_invite_code IS NOT NULL THEN
+  SELECT * INTO g FROM public.private_groups WHERE invite_code=p_invite_code AND (p_group_id IS NULL OR id=p_group_id);
+  invited:=FOUND;
+ ELSE
+  SELECT * INTO g FROM public.private_groups WHERE id=p_group_id;
+ END IF;
+ IF g.id IS NULL THEN RAISE EXCEPTION 'グループを閲覧できません' USING ERRCODE='42501'; END IF;
+ BEGIN
+  access_level:=public.authorize_private_group_read(g.id,p_member_id,p_guest_token);
+ EXCEPTION WHEN insufficient_privilege THEN
+  IF NOT invited THEN RAISE; END IF;
+  access_level:='preview';
+ END;
+ IF access_level<>'preview' THEN
+  SELECT id INTO actor_member FROM public.private_group_members
+   WHERE group_id=g.id AND status='joined'
+   AND auth.uid() IS NOT NULL AND user_id=auth.uid()
+   ORDER BY id LIMIT 1;
+  IF actor_member IS NULL AND p_member_id IS NOT NULL THEN
+   BEGIN
+    PERFORM public.require_private_group_member(g.id,p_member_id,p_guest_token);
+    actor_member:=p_member_id;
+   EXCEPTION WHEN insufficient_privilege THEN NULL;
+   END;
+  END IF;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+   'id',m.id,'group_id',m.group_id,'user_id',m.user_id,
+   'guest_name',CASE WHEN m.user_id IS NULL THEN m.guest_name ELSE COALESCE((SELECT NULLIF(c.nickname,'') FROM public.customers c WHERE c.user_id=m.user_id ORDER BY c.id LIMIT 1),'ニックネーム未設定') END,
+   'staff_display_name',CASE WHEN access_level='staff' THEN COALESCE((SELECT COALESCE(NULLIF(c.nickname,''),NULLIF(c.name,'')) FROM public.customers c WHERE c.user_id=m.user_id ORDER BY c.id LIMIT 1),m.guest_name,'参加者') END,
+   'guest_email',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.guest_email END,
+   'guest_phone',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.guest_phone END,
+   'is_organizer',m.is_organizer,'status',m.status,'joined_at',m.joined_at,'created_at',m.created_at,
+   'coupon_id',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.coupon_id END,
+   'payment_amount',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.payment_amount END,
+   'coupon_discount',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.coupon_discount END,
+   'final_amount',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.final_amount END,
+   'payment_status',CASE WHEN access_level IN ('staff','organizer') OR m.id=actor_member THEN m.payment_status END,
+   'date_responses',COALESCE((SELECT jsonb_agg(to_jsonb(r) ORDER BY r.id) FROM public.private_group_date_responses r WHERE r.group_id=g.id AND r.member_id=m.id),'[]'::jsonb)
+  ) ORDER BY m.joined_at,m.id),'[]'::jsonb) INTO members FROM public.private_group_members m WHERE m.group_id=g.id;
+  SELECT r.status,s.name INTO reservation_status,confirmed_name FROM public.reservations r LEFT JOIN public.staff s ON s.id=r.confirmed_by AND s.organization_id=g.organization_id WHERE r.id=g.reservation_id AND r.organization_id=g.organization_id;
+  -- Only authorized members/staff receive the current confirmed performance.
+  -- Proposed candidate rows remain immutable history for availability answers.
+  SELECT jsonb_build_object('id',e.id,'date',e.date,'start_time',e.start_time,'end_time',e.end_time,
+    'store_name',COALESCE(s.name,e.venue)) INTO confirmed_performance
+  FROM public.reservations r JOIN public.schedule_events e ON e.id=r.schedule_event_id AND e.organization_id=g.organization_id
+  LEFT JOIN public.stores s ON s.id=e.store_id AND s.organization_id=g.organization_id
+  WHERE r.id=g.reservation_id AND r.organization_id=g.organization_id
+    AND r.status IN ('confirmed','checked_in','completed','no_show') AND NOT COALESCE(e.is_cancelled,false);
+ END IF;
+ SELECT COALESCE(jsonb_agg(to_jsonb(d)||jsonb_build_object('responses',CASE WHEN access_level='preview' THEN '[]'::jsonb ELSE COALESCE((SELECT jsonb_agg(to_jsonb(r) ORDER BY r.id) FROM public.private_group_date_responses r WHERE r.group_id=g.id AND r.candidate_date_id=d.id),'[]'::jsonb) END) ORDER BY d.order_num,d.id),'[]'::jsonb)
+ INTO dates FROM public.private_group_candidate_dates d WHERE d.group_id=g.id;
+ SELECT jsonb_build_object('id',s.id,'title',s.title,'key_visual_url',s.key_visual_url,'player_count_min',s.player_count_min,'player_count_max',s.player_count_max) INTO scenario FROM public.scenario_masters s WHERE s.id=g.scenario_master_id;
+ IF scenario IS NOT NULL THEN
+  SELECT scenario||jsonb_build_object('characters',CASE WHEN access_level='preview' THEN NULL ELSE v.characters END,'effective_player_count_min',v.player_count_min,'effective_player_count_max',v.player_count_max,'survey_enabled',COALESCE(v.survey_enabled,false)) INTO result FROM public.organization_scenarios_with_master v WHERE v.organization_id=g.organization_id AND v.scenario_master_id=g.scenario_master_id;
+  scenario:=COALESCE(result,scenario);
+ END IF;
+ result:=jsonb_build_object('id',g.id,'organization_id',g.organization_id,'scenario_master_id',g.scenario_master_id,
+  'organizer_id',CASE WHEN access_level<>'preview' THEN g.organizer_id END,
+  -- グループの同組織スタッフ認可後に、幹事本人の最小表示名だけを返す。
+  -- 顧客プロフィールは共通(NULL組織)もあるため所属では絞らない。
+  'organizer_display_name',CASE WHEN access_level='staff' THEN COALESCE((
+    SELECT COALESCE(NULLIF(c.nickname,''),NULLIF(c.name,''))
+    FROM public.customers c WHERE c.user_id=g.organizer_id
+    ORDER BY c.id LIMIT 1
+  ),(
+    SELECT NULLIF(m.guest_name,'') FROM public.private_group_members m
+    WHERE m.group_id=g.id AND m.user_id=g.organizer_id
+    ORDER BY m.is_organizer DESC NULLS LAST,m.id LIMIT 1
+  )) END,
+  'name',g.name,'invite_code',g.invite_code,'status',g.status,
+  'reservation_id',CASE WHEN access_level<>'preview' THEN g.reservation_id END,'target_participant_count',g.target_participant_count,'preferred_store_ids',g.preferred_store_ids,
+  'notes',CASE WHEN access_level IN ('staff','organizer') THEN g.notes END,'created_at',g.created_at,'updated_at',g.updated_at,
+  'total_price',g.total_price,'per_person_price',g.per_person_price,
+  'character_assignments',CASE WHEN access_level<>'preview' THEN g.character_assignments END,
+  'character_assignment_method',CASE WHEN access_level<>'preview' THEN g.character_assignment_method END,
+  'scenario_masters',scenario,'members',members,'candidate_dates',dates,'confirmed_performance',confirmed_performance,'confirmed_performance_access',CASE WHEN access_level='preview' THEN 'preview' ELSE 'authorized' END);
+ RETURN jsonb_build_object('group',result,'access_level',access_level,'current_member_id',actor_member,'linked_reservation_status',reservation_status,'confirmed_by_name',confirmed_name);
+END $function$;
+
+CREATE OR REPLACE FUNCTION public.assert_private_booking_candidate_date(p_org uuid, p_scenario uuid, p_date date)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE days INTEGER; today DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::DATE; period RECORD;
+BEGIN
+ IF p_org IS NULL OR p_scenario IS NULL OR p_date IS NULL THEN RAISE EXCEPTION 'PRIVATE_BOOKING_CONTEXT_REQUIRED' USING ERRCODE='P0045'; END IF;
+ days := public.get_effective_private_booking_deadline_days(p_org,NULL,p_scenario);
+ IF p_date < today + days THEN
+   RAISE EXCEPTION 'PRIVATE_BOOKING_DEADLINE_PASSED' USING ERRCODE='P0045';
+ END IF;
+ -- 作品編集の「貸切募集期間」（申し込める期間）と「公演期間」（公演できる日の範囲）。未設定は制限なし。
+ SELECT os.booking_start_date,os.booking_end_date,os.available_from,os.available_until INTO period
+ FROM public.organization_scenarios os
+ WHERE os.organization_id=p_org AND (os.id=p_scenario OR os.scenario_master_id=p_scenario)
+ ORDER BY CASE WHEN os.id=p_scenario THEN 0 ELSE 1 END,os.created_at LIMIT 1;
+ IF FOUND THEN
+   IF (period.booking_start_date IS NOT NULL AND today < period.booking_start_date)
+      OR (period.booking_end_date IS NOT NULL AND today > period.booking_end_date) THEN
+     RAISE EXCEPTION 'PRIVATE_BOOKING_NOT_ACCEPTED' USING ERRCODE='P0044';
+   END IF;
+   IF (period.available_from IS NOT NULL AND p_date < period.available_from)
+      OR (period.available_until IS NOT NULL AND p_date > period.available_until) THEN
+     RAISE EXCEPTION 'PRIVATE_BOOKING_OUTSIDE_PERFORMANCE_PERIOD' USING ERRCODE='P0054';
+   END IF;
+ END IF;
+END;
+$function$;
+
+NOTIFY pgrst,'reload schema';
