@@ -1239,3 +1239,10 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - PostgreSQL17の人工fixtureで130ケース（未解決6項目の特性確認を含む）、実ロール・2接続競合・拒否時不変・安全互換down/up成功。API追加21件、全体1308件、verify成功。API全体strictにはmainでも再現する既存nullable型エラー2件が残る。
 - 9再現の1/2/9を閉鎖、3〜8と構造計画B〜Gは残件。実Auth・全trigger統合・共有staging/本番適用・CI/previewは未完了。認可欠陥を戻す自動rollbackは用意せず、API旧版と安全互換DBで戻す。
 - 詳細・反映対象・承認案：`docs/testing/MMQ_RESERVATION_RPC_AUTH_20261001.md`。旧定員patch・保留GM・PR703/706は混ぜていない。
+
+## 2026-10-07 顧客QA 19件修正（ローカル・未配備）
+
+- main `5814b1e5b2e73941166525bcc3b419fb6efcb4a7` の独立コピーで初回QA F-01〜F-19とC-02/C-03に対応。元dirtyツリー・本番変更なし。
+- クーポン本人認可/保存、店舗公開読取、通知型・失敗伝播、同番号予約、URL・人数・期間・満員人数・履歴・入力・チャット等。SQL5組とrollback。匿名の私有テーブル権限は追加しない。
+- 単体245ファイル1734件、verify、対象実DB/Auth/API/ブラウザ、12並列、rollback/up合格。全体RPCスモークの変更外2件は未完了（復元元と同一定義）。
+- 詳細: docs/testing/MMQ_CUSTOMER_QA_FIX_20261007.md。push/PR/merge/deployは禁止のため未実施。実配送・実決済・実機は未検証。

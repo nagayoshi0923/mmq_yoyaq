@@ -1,4 +1,4 @@
--- 2026-10-01 本番取得定義を基準とする参照用。staging独自の募集停止判定はmigrationで保持する。
+-- 本番取得定義を基準に、本人の同番号再試行と連絡先検証を追加。
 CREATE OR REPLACE FUNCTION public.create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text DEFAULT NULL::text, p_how_found text DEFAULT NULL::text, p_reservation_number text DEFAULT NULL::text, p_customer_coupon_id uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -105,6 +105,23 @@ BEGIN
        AND v_customer_user_id IS DISTINCT FROM auth.uid() THEN
       RAISE EXCEPTION 'CUSTOMER_ORG_MISMATCH' USING ERRCODE = 'P0012';
     END IF;
+  END IF;
+
+  IF NULLIF(btrim(p_reservation_number), '') IS NOT NULL THEN
+    SELECT r.id INTO v_reservation_id FROM public.reservations r
+    WHERE r.reservation_number=p_reservation_number AND r.organization_id=v_event_org_id
+      AND r.schedule_event_id=p_schedule_event_id
+      AND r.customer_id IS NOT DISTINCT FROM p_customer_id
+      AND r.created_by=auth.uid() AND r.participant_count=p_participant_count
+      AND r.status IN ('pending','confirmed','gm_confirmed','checked_in');
+    IF FOUND THEN RETURN v_reservation_id; END IF;
+    IF EXISTS(SELECT 1 FROM public.reservations r WHERE r.reservation_number=p_reservation_number) THEN
+      RAISE EXCEPTION 'RESERVATION_RETRY_MISMATCH' USING ERRCODE='P0055';
+    END IF;
+  END IF;
+
+  IF p_customer_id IS NOT NULL AND (p_customer_email IS NULL OR btrim(p_customer_email) !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' OR length(btrim(p_customer_email))>254) THEN
+    RAISE EXCEPTION '有効なメールアドレスを入力してください' USING ERRCODE='P0021';
   END IF;
 
   SELECT COALESCE(SUM(participant_count), 0)
@@ -252,4 +269,4 @@ BEGIN
 
   RETURN v_reservation_id;
 END;
-$function$
+$function$;

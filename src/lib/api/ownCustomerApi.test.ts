@@ -23,7 +23,7 @@ import { ownCustomerApi } from './customerApi'
 
 beforeEach(() => { m.calls.length = 0 })
 const arg = (name: string) => m.calls.filter(c => c[0] === name).map(c => c[1])
-const fields = { name: '太郎', nickname: null, phone: '090', address: null, line_id: null, email: 'a@example.invalid' }
+const fields = { name: '太郎', nickname: null, phone: '09000000000', address: null, line_id: null, email: 'a@example.invalid' }
 
 describe('ownCustomerApi（本人の顧客行の書き込み）', () => {
   it('プロフィール更新は id で絞り、userId を渡したときは user_id でも絞り、updated_at を付けて id を返す', async () => {

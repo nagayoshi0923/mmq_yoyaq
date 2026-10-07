@@ -10,6 +10,8 @@ import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
 import { privateBookingRequestReadApi } from '@/lib/api/privateBookingRequestReadApi'
 import { logger } from '@/utils/logger'
+import { validateCustomerContact } from '@/lib/customerContactValidation'
+import { notificationOutcome } from '@/lib/notificationResult'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { fetchScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { resolvePrivateGroupBookingParticipantCount } from '@/lib/privateGroupPlayerCap'
@@ -68,6 +70,8 @@ export async function submitGroupBookingRequest({
     return
   }
   
+  try { validateCustomerContact(user.email, bookingPhone) }
+  catch (error) { toast.error((error as Error).message); return }
   setIsSubmittingBooking(true)
   
   try {
@@ -222,7 +226,7 @@ export async function submitGroupBookingRequest({
             endTime: cd.end_time
           })) || []
         
-        const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
           body: {
             organizationId: orgId,
             reservationId: parentReservationId,
@@ -238,7 +242,7 @@ export async function submitGroupBookingRequest({
           }
         })
         
-        if (emailError) {
+        if (notificationOutcome({ data: emailData, error: emailError }).status !== 'accepted' || emailData?.email_sent === false) {
           logger.error('貸切申し込み確認メール送信エラー:', emailError)
           toast.error('確認メールの送信に失敗しました')
         } else {

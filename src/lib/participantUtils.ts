@@ -18,8 +18,7 @@ import { ACTIVE_RESERVATION_STATUSES } from './constants'
  * 公演の残席数を計算する。
  *
  * - 貸切公演（is_private_booking=true）は常に 0
- * - scenarioMax が指定されていればそちらを優先（シナリオの player_count_max）
- * - 未指定の場合は event.max_participants → event.capacity → 8 の順でフォールバック
+ * - event.max_participants → event.capacity → scenarioMax → 8 の順でフォールバック
  * - 結果は必ず 0 以上
  */
 export function getAvailableSeats(
@@ -32,7 +31,7 @@ export function getAvailableSeats(
   scenarioMax?: number | null
 ): number {
   if (event.is_private_booking === true) return 0
-  const max = scenarioMax ?? event.max_participants ?? event.capacity ?? 8
+  const max = event.max_participants ?? event.capacity ?? scenarioMax ?? 8
   const current = event.current_participants ?? 0
   return Math.max(0, max - current)
 }
@@ -57,7 +56,7 @@ export function getAvailabilityStatus(
   scenarioMax?: number | null
 ): AvailabilityStatus {
   if (event.is_private_booking === true) return 'private_booking'
-  const max = scenarioMax ?? event.max_participants ?? event.capacity ?? 8
+  const max = event.max_participants ?? event.capacity ?? scenarioMax ?? 8
   const available = getAvailableSeats(event, scenarioMax)
   if (available <= 0) return 'sold_out'
   const threshold = Math.max(1, Math.floor(max * 0.2))

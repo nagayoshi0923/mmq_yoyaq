@@ -81,7 +81,7 @@ if(testClosure){
  for(const role of ['anon','authenticated']){
   assert.equal((await db.query("SELECT has_function_privilege($1,$2,'EXECUTE') ok",[role,legacySignature])).rows[0].ok,false)
   await db.exec('SET ROLE '+role)
-  await assert.rejects(db.query("SELECT create_private_booking_request(NULL,NULL,'Fixture','fixture@example.invalid','000',6,'{}')"),e=>e.code==='42501')
+  await assert.rejects(db.query("SELECT create_private_booking_request(NULL,NULL,'Fixture','fixture@example.invalid','00000000000',6,'{}')"),e=>e.code==='42501')
   await db.exec('RESET ROLE')
  }
  assert.equal((await db.query("SELECT has_function_privilege('service_role',$1,'EXECUTE') ok",[legacySignature])).rows[0].ok,true)
@@ -119,20 +119,20 @@ assert.equal(payload.title,'貸切リクエストを送信しました');assert.
 const messageCount=await count('private_group_messages')
 const publicPayload=JSON.stringify({candidates:[cand('2026-10-22')],requestedStores:[{storeId:store}]})
 await db.exec('SET ROLE authenticated')
-await db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','000',6,$3)",[scenario,customer,publicPayload])
+await db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','00000000000',6,$3)",[scenario,customer,publicPayload])
 await db.exec('RESET ROLE')
 assert.equal(await count('private_group_messages'),messageCount)
 // 認証失敗・匿名実行は通知を含む全処理を拒否。
 const total=await count('reservations')
 const args=[scenario,customer,JSON.stringify({candidates:[cand('2026-10-19')],requestedStores:[{storeId:store}]}),group.id]
-await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','000',6,$3,NULL,NULL,$4)",args),e=>e.code==='22023')
+await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','00000000000',6,$3,NULL,NULL,$4)",args),e=>e.code==='22023')
 // group statusだけ古くても未取消の予約があれば二重作成しない。
 await db.query("UPDATE private_groups SET status='gathering' WHERE id=$1",[group.id])
-await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','000',6,$3,NULL,NULL,$4)",args),e=>e.code==='22023')
+await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','00000000000',6,$3,NULL,NULL,$4)",args),e=>e.code==='22023')
 
-await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,gen_random_uuid(),'Fixture','fixture@example.invalid','000',6,'{}')",[scenario]),e=>e.code==='P0401')
+await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,gen_random_uuid(),'Fixture','fixture@example.invalid','00000000000',6,'{}')",[scenario]),e=>e.code==='P0401')
 await db.exec('SET ROLE anon')
-await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','000',6,'{}')",[scenario,customer]),e=>e.code==='42501')
+await assert.rejects(db.query("SELECT create_private_booking_request_with_notice($1,$2,'Fixture','fixture@example.invalid','00000000000',6,'{}')",[scenario,customer]),e=>e.code==='42501')
 await db.exec('RESET ROLE');assert.equal(await count('reservations'),total)
 await db.exec(fs.readFileSync('supabase/rollbacks/'+noticeMigration,'utf8'))
 await db.exec(fs.readFileSync('supabase/migrations/'+noticeMigration,'utf8'))
@@ -147,8 +147,8 @@ if(testClosure){
 }
 // #842 #852: 最新の申込関数では、グループなしは本人確認（P0401）の後に専用コード P0047 で止まる
 await db.exec(fs.readFileSync('supabase/rpcs/create_private_booking_request.sql','utf8'))
-await assert.rejects(db.query("SELECT create_private_booking_request($1,gen_random_uuid(),'Fixture','fixture@example.invalid','000',6,'{}')",[scenario]),e=>e.code==='P0401')
-await assert.rejects(db.query("SELECT create_private_booking_request($1,$2,'Fixture','fixture@example.invalid','000',6,'{}')",[scenario,customer]),e=>e.code==='P0047')
+await assert.rejects(db.query("SELECT create_private_booking_request($1,gen_random_uuid(),'Fixture','fixture@example.invalid','00000000000',6,'{}')",[scenario]),e=>e.code==='P0401')
+await assert.rejects(db.query("SELECT create_private_booking_request($1,$2,'Fixture','fixture@example.invalid','00000000000',6,'{}')",[scenario,customer]),e=>e.code==='P0047')
 console.log('PASS group required: other customer P0401 first, missing group P0047')
 await db.close()
 console.log('PASS private request notice: real request RPC, org template/fallback, no organizer row, counts, transaction rollback incl pricing/GM/group, auth/anonymous, rollback/reapply')

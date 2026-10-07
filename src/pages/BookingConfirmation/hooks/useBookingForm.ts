@@ -1,3 +1,4 @@
+import { validateCustomerContact } from '@/lib/customerContactValidation'
 import { useState } from 'react'
 
 interface UseBookingFormProps {
@@ -25,6 +26,8 @@ export function useBookingForm({ initialParticipantCount, availableSeats }: UseB
       setError('メールアドレスを入力してください')
       return false
     }
+    try { validateCustomerContact(customerEmail) }
+    catch (error) { setError((error as Error).message); return false }
     if (!customerPhone.trim()) {
       setError('電話番号を入力してください')
       return false

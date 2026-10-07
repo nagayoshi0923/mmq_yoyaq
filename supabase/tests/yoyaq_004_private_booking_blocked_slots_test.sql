@@ -250,7 +250,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'foreign caller',
       'foreign-caller@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores":[{"storeId":"24000000-0000-0000-0000-000000000001"}],
@@ -273,7 +273,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000002',
       'foreign organizer',
       'foreign-organizer@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores":[
@@ -319,7 +319,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'foreign store',
       'foreign-store@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores":[
@@ -345,7 +345,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'foreign candidate',
       'foreign-candidate@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores":[
@@ -371,7 +371,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'foreign time slot',
       'foreign-time-slot@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores":[
@@ -421,7 +421,7 @@ BEGIN
     '84000000-0000-0000-0000-000000000001',
     'fixture',
     'fixture@example.invalid',
-    NULL,
+    '09000000000',
     4,
     v_payload,
     NULL,
@@ -617,7 +617,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'fixture',
       'fixture@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores": [
@@ -660,7 +660,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'fixture',
       'fixture@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores": [
@@ -699,7 +699,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'fixture',
       'fixture@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores": [
@@ -764,7 +764,7 @@ BEGIN
       '84000000-0000-0000-0000-000000000001',
       'fixture',
       'fixture@example.invalid',
-      NULL,
+      '09000000000',
       4,
       '{
         "requestedStores": [
@@ -804,7 +804,7 @@ BEGIN
     '84000000-0000-0000-0000-000000000001',
     'fixture',
     'fixture@example.invalid',
-    NULL,
+    '09000000000',
     4,
     '{
       "requestedStores":[

@@ -19,7 +19,7 @@ export function usePlayedScenarios() {
   const [loading, setLoading] = useState(true)
 
   const fetchPlayedScenarios = useCallback(async () => {
-    if (!user?.email) {
+    if (!user?.id) {
       setPlayedScenarioIds(new Set())
       setCustomerId(null)
       setLoading(false)
@@ -27,7 +27,7 @@ export function usePlayedScenarios() {
     }
 
     try {
-      const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
+      const { data: customer } = await customerLookupReadApi.findIdByUserId(user.id)
 
       if (!customer) {
         setPlayedScenarioIds(new Set())
@@ -49,7 +49,7 @@ export function usePlayedScenarios() {
     } finally {
       setLoading(false)
     }
-  }, [user?.email])
+  }, [user?.id])
 
   useEffect(() => {
     fetchPlayedScenarios()

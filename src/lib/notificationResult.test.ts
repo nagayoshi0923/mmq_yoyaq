@@ -4,6 +4,7 @@ describe('通知応答の共通判定', () => {
   it.each([
     [{ data: { success: true }, error: null }, 'accepted'],
     [{ data: { success: false }, error: null }, 'failed'],
+    [{ data: { success: true, email_sent: false }, error: null }, 'failed'],
     [{ data: { success: 'true' }, error: null }, 'failed'],
     [{ data: { success: true }, error: { message: 'HTTP error' } }, 'failed'],
     [{ data: null, error: null }, 'failed'],

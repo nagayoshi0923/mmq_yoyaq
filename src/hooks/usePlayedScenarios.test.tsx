@@ -3,7 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mocks=vi.hoisted(()=>({past:vi.fn(),history:vi.fn()}))
-vi.mock('@/contexts/AuthContext',()=>({useAuth:()=>({user:{email:'fixture@example.test'}})}))
+vi.mock('@/contexts/AuthContext',()=>({useAuth:()=>({user:{id:'fixture-user',email:'fixture@example.test'}})}))
 vi.mock('@/lib/supabase',()=>({supabase:{from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'customer'}})})})})}}))
 vi.mock('@/lib/customerPlayHistory',()=>({customerPlayHistory:{snapshot:mocks.history}}))
 vi.mock('@/lib/playedStatus',async importOriginal=>({...await importOriginal<object>(),fetchPlayedReservations:mocks.past}))

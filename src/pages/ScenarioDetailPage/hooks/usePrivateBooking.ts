@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
@@ -25,17 +25,10 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const MAX_SELECTIONS = 6
   const MAX_FUTURE_DAYS = 180
 
-  // 店舗選択変更時に選択済みスロットの再検証が必要かどうかのフラグ
-  const needsSlotRevalidationRef = useRef(false)
-
   const setSelectedStoreIds = useCallback((storeIds: string[] | ((prev: string[]) => string[])) => {
     setSelectedStoreIdsInternal(prev => {
       const newIds = typeof storeIds === 'function' ? storeIds(prev) : storeIds
       setSavedStoreIds(newIds)
-      // 店舗リストが実際に変わった場合のみ再検証フラグを立てる
-      const changed =
-        newIds.length !== prev.length || newIds.some(id => !prev.includes(id))
-      if (changed) needsSlotRevalidationRef.current = true
       return newIds
     })
   }, [setSavedStoreIds])
@@ -90,12 +83,10 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     return slots.map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime }))
   }, [computeSlotsByDate])
 
-  // 店舗変更後にローディングが完了したら、選択済みスロットを再検証する。
-  // 店舗が変わると利用可能な時刻や枠自体が変わるため、古い時刻のまま送信されるのを防ぐ。
+  // 店舗・営業時間・作品期間の最新取得後に、選択済み候補を再検証する。
+  // 同じ店舗でも期間や利用可能な枠が変わったら、古い候補を送信させない。
   useEffect(() => {
     if (isLoadingEvents) return
-    if (!needsSlotRevalidationRef.current) return
-    needsSlotRevalidationRef.current = false
 
     setSelectedTimeSlots(prev => {
       if (prev.length === 0) return prev
@@ -108,9 +99,9 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
       const filtered = updated.filter((ts): ts is NonNullable<typeof ts> => ts !== null)
       const removedCount = prev.length - filtered.length
       if (removedCount > 0) {
-        showToast.warning(`店舗変更により候補日時 ${removedCount}件 が選択不可になったため削除しました`)
+        showToast.warning(`受付条件の変更により候補日時 ${removedCount}件 が選択不可になったため削除しました`)
       }
-      return filtered
+      return JSON.stringify(filtered) === JSON.stringify(prev) ? prev : filtered
     })
   }, [isLoadingEvents, computeSlotsByDate])
 

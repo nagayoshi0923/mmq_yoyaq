@@ -79,6 +79,7 @@ BEGIN
     ORDER BY m.is_organizer DESC NULLS LAST,m.id LIMIT 1
   )) END,
   'name',g.name,'invite_code',g.invite_code,'status',g.status,
+  'joined_member_count',(SELECT count(*) FROM public.private_group_members m WHERE m.group_id=g.id AND m.status='joined'),
   'reservation_id',CASE WHEN access_level<>'preview' THEN g.reservation_id END,'target_participant_count',g.target_participant_count,'preferred_store_ids',g.preferred_store_ids,
   'notes',CASE WHEN access_level IN ('staff','organizer') THEN g.notes END,'created_at',g.created_at,'updated_at',g.updated_at,
   'total_price',g.total_price,'per_person_price',g.per_person_price,

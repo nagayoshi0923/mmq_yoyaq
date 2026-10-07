@@ -136,13 +136,10 @@ export async function fetchScenarioTimingFromDb(
   }
 
   if (organizationId) {
-    const { data: viewRow } = await supabase
-      .from('organization_scenarios_with_master')
-      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots, private_booking_time_slots_weekend, private_booking_slot_start_times, available_from, available_until, title')
-      .eq('organization_id', organizationId)
-      .or(`org_scenario_id.eq.${lookup},scenario_master_id.eq.${lookup}`)
-      .limit(1)
-      .maybeSingle()
+    const { data: viewRow, error: timingError } = await supabase.rpc('get_public_private_booking_scenario_timing', {
+      p_organization_id: organizationId, p_scenario_lookup_id: lookup,
+    })
+    if (timingError) throw timingError
 
     if (viewRow && typeof viewRow.duration === 'number' && viewRow.duration > 0) {
       const prep =

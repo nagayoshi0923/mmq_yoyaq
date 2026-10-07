@@ -255,14 +255,14 @@ export function BookingConfirmation({
       customerId = await upsertOwnCustomer({
         userId: user.id, name: customerName, nickname: customerNickname || null,
         phone: customerPhone.trim(), email: customerEmail, organizationId: eventData.organization_id,
-        scopeByOrganization: true, throwOnError: true,
+        scopeByOrganization: false, throwOnError: true,
       })
 
       if (!customerId) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhoneInOrganization(customerId, user.id, eventData.organization_id)
+      const { data: phoneRow, error: phoneVerifyError } = await bookingConfirmationReadApi.findOwnCustomerPhone(customerId, user.id)
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
