@@ -146,6 +146,12 @@ const superseded=await specificClaim(id(15),id(213));assert.equal(superseded.ent
 assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(302)]))[0].completed_at,null)
 assert.equal((await q('SELECT sent_at FROM waitlist_notice_deliveries WHERE notice_id=$1 AND waitlist_id=$2',[id(302),id(102)]))[0].sent_at,null);checks++
 await q('DELETE FROM schedule_events WHERE id=$1',[competingEvent]);await q('DELETE FROM waitlist WHERE id=$1',[id(102)])
+// 既存deliveryでも待機期限切れならleaseせず、通知済みを偽装しないでnoticeを完了する。
+await q("UPDATE waitlist SET expires_at=now()-interval '1 minute' WHERE id=$1",[wait])
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(303),org,event,id(15)])
+await q('INSERT INTO waitlist_notice_deliveries(notice_id,waitlist_id) VALUES($1,$2)',[id(303),wait])
+const expiredDelivery=(await claim(id(15),id(215)))[0].result;assert.equal(expiredDelivery.entries.length,0);assert.equal(expiredDelivery.pending,false);assert.notEqual((await q('SELECT completed_at FROM waitlist_notice_events WHERE id=$1',[id(303)]))[0].completed_at,null);checks++
+await q('DELETE FROM waitlist_notice_events WHERE id=$1',[id(303)]);await q("UPDATE waitlist SET expires_at=now()+interval '60 days' WHERE id=$1",[wait])
 // 来歴のない旧pendingは切替を阻止。消化済み後の旧browser fallbackはDBintentだけを利用。
 await q('INSERT INTO waitlist_notification_queue VALUES($1,$2,$3,\'pending\',now())',[id(151),org,event])
 const guard=fs.readFileSync('supabase/migrations/20261007110001_customer_review_notice_delivery.sql','utf8').split('CREATE TABLE')[0]

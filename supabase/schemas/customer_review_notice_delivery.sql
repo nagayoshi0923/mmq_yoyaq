@@ -81,7 +81,7 @@ BEGIN
  WHERE notice_id=n.id AND sent_at IS NULL AND attempt_in_progress AND leased_until<now();
  UPDATE public.waitlist_notice_deliveries d SET lease_id=p_lease,leased_until=now()+interval '5 minutes',last_error=NULL
  WHERE d.notice_id=n.id AND d.sent_at IS NULL AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours') AND (d.leased_until IS NULL OR d.leased_until<now())
- AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=d.waitlist_id AND w.status='waiting' AND w.participant_count<=seats)
+ AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=d.waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now()) AND w.participant_count<=seats)
  AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries other WHERE other.waitlist_id=d.waitlist_id
  AND other.notice_id<>d.notice_id AND other.sent_at IS NULL AND (other.leased_until>now() OR other.first_attempt_at<=now()-interval '23 hours'));
  UPDATE public.waitlist_notice_events SET requires_review=true WHERE id=n.id AND EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=waitlist_id AND w.status='waiting' AND (w.expires_at IS NULL OR w.expires_at>now())) AND first_attempt_at<=now()-interval '23 hours');
