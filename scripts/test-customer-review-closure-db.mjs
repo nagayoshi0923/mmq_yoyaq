@@ -74,7 +74,8 @@ for(const invalid of [{min_order_amount:10000},{usage_valid_from:'2099-01-01'},{
 }
 await q('UPDATE customer_coupons SET rules_snapshot=$1 WHERE id=$2',[JSON.stringify({discount_type:'fixed',discount_amount:1000,same_scenario_once:false}),coupon])
 let result=(await q('SELECT apply_coupon_to_group_member($1,$2) AS r',[member,coupon]))[0].r;assert.equal(result.pending,true);assert.equal(result.discount,0);assert.equal((await q('SELECT uses_remaining FROM customer_coupons'))[0].uses_remaining,1);checks++
-// 予約時snapshot=trueを維持。確定までに現運用設定がOFFでもメンバー単価で適用。
+await q('UPDATE coupon_campaigns SET is_active=false WHERE id=$1',[campaign]);assert.equal((await q('SELECT is_active FROM coupon_campaigns WHERE id=$1',[campaign]))[0].is_active,false);checks++
+// 配布停止は保有分の利用を止めない。予約時snapshot=trueを維持。確定までに現運用設定がOFFでもメンバー単価で適用。
 await db.exec(`CREATE OR REPLACE FUNCTION resolve_operating_setting(uuid,text,jsonb,uuid,uuid,uuid) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{"value":false}'::jsonb $$`)
 await q('UPDATE private_groups SET reservation_id=$1,status=\'confirmed\' WHERE id=$2',[reservation,group]);assert.equal((await q('SELECT uses_remaining FROM customer_coupons'))[0].uses_remaining,0);assert.equal((await q('SELECT final_amount FROM private_group_members'))[0].final_amount,3500);checks++
 assert.equal((await q('SELECT discount_amount FROM reservations WHERE id=$1',[reservation]))[0].discount_amount,1000)
@@ -119,7 +120,18 @@ await q('UPDATE waitlist_notice_deliveries SET sent_at=NULL,lease_id=$1,has_unce
 await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'provider rejected\')',[notice.noticeId,wait,id(201)])
 assert.equal((await q('SELECT first_attempt_at FROM waitlist_notice_deliveries'))[0].first_attempt_at,null);checks++
 let resumed=(await claim())[0].result;assert.equal(resumed.entries.length,1);assert.equal(resumed.metadata.freedSeats,1);checks++
+await q('SELECT prepare_waitlist_notice_payload($1,$2,$3,$4)',[notice.noticeId,wait,id(201),JSON.stringify(originalPayload)])
 await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'delivery failed\')',[notice.noticeId,wait,id(201)])
+// 不明応答は23h以内でも別notice/別keyの送信を直ちに止める。元noticeの同じkeyだけ再試行できる。
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(305),org,event,id(15)])
+const recentHold=(await claim(id(15),id(217)))[0].result;assert.equal(recentHold.entries.length,0);assert.equal(recentHold.manualReview,true);checks++
+await q("UPDATE waitlist_notice_deliveries SET has_uncertain_attempt=false,attempt_in_progress=true,leased_until=now()-interval '1 second' WHERE notice_id=$1",[notice.noticeId])
+await q("INSERT INTO waitlist_notice_events(id,organization_id,schedule_event_id,actor_user_id,freed_seats,metadata) VALUES($1,$2,$3,$4,1,'{}')",[id(306),org,event,id(16)])
+const expiredAttemptHold=(await claim(id(16),id(218)))[0].result;assert.equal(expiredAttemptHold.entries.length,0);assert.equal(expiredAttemptHold.manualReview,true);checks++
+const sameKeyRetry=(await claim(user,id(219)))[0].result;assert.equal(sameKeyRetry.entries.length,1);assert.equal(sameKeyRetry.entries[0].deliveryKey,notice.entries[0].deliveryKey);checks++
+await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'configuration missing\')',[notice.noticeId,wait,id(219)])
+await q('DELETE FROM waitlist_notice_events WHERE id IN($1,$2)',[id(305),id(306)])
+
 await q('UPDATE waitlist_notice_deliveries SET first_attempt_at=now()-interval \'24 hours\'')
 await q('UPDATE waitlist_notice_deliveries SET has_uncertain_attempt=true,lease_id=$1',[id(201)])
 await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'provider rejected\')',[notice.noticeId,wait,id(201)])

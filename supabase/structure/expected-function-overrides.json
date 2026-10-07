@@ -134,7 +134,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "756fc862359ba33814be794070419bfe",
+  "body_md5": "06c5aa5555a45c8769158ec95cbc9902",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -144,7 +144,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "05b1b8afa910a662cd4cab410a48edf3",
+  "body_md5": "0dbe429196607102fe9372e03cac6eb5",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -192,7 +192,7 @@
    "service_role=X/postgres"
   ],
   "returns": "TABLE(schedule_event_id uuid, organization_id uuid)",
-  "body_md5": "39c726c21599c879bc6a18353f748c6c",
+  "body_md5": "3ce6835ad39917da8c428ff1ee742e7c",
   "language": "sql",
   "security_definer": false
  },

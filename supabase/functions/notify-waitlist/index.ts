@@ -364,6 +364,7 @@ ${emailTemplates.footer}
 
       const waitlistEmailSubject = `【空席のお知らせ】${data.scenarioTitle} - ${formatDate(data.eventDate)}`
       let waitlistEmailLogId: string | null = null
+      let providerAccepted = false
 
       try {
         const { data: payload, error: payloadError } = await serviceClient.rpc('prepare_waitlist_notice_payload', {
@@ -404,14 +405,16 @@ ${emailTemplates.footer}
           return { success: false, entryId: entry.id, error: errorData }
         }
 
-        const waitlistEmailResult = await resendResponse.json()
-        const { data: finished, error: finishError } = await serviceClient.rpc('finish_waitlist_notice', { p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: true, p_error: null })
-        if (finishError || !finished) return { success: false, entryId: entry.id, error: 'delivery acknowledgment pending' }
+        providerAccepted = true
+        const waitlistEmailResult = await resendResponse.json().catch(() => null)
+        // 配送の受理はDB ackと別の事実。ack障害でも監査行をqueued/failedのまま残さない。
         await updateEmailLog(serviceClient, waitlistEmailLogId, {
           status: 'sent',
           provider_message_id: waitlistEmailResult?.id ?? null,
           sent_at: new Date().toISOString(),
         })
+        const { data: finished, error: finishError } = await serviceClient.rpc('finish_waitlist_notice', { p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: true, p_error: null })
+        if (finishError || !finished) return { success: false, entryId: entry.id, error: 'delivery acknowledgment pending' }
 
         // 🔒 SEC-P0-03: ステータス更新はRPCで既に完了済み
         // fetch_and_lock_waitlist_entries でアトミックに更新されているため、ここでの更新は不要
@@ -421,7 +424,7 @@ ${emailTemplates.footer}
       } catch (err) {
         console.error('Email send error for', entry.customer_email, ':', err)
         await updateEmailLog(serviceClient, waitlistEmailLogId, {
-          status: 'failed',
+          status: providerAccepted ? 'sent' : 'failed',
           error_message: sanitizeErrorMessage(err?.message ?? String(err)),
         })
         await serviceClient.rpc('finish_waitlist_notice', { p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: false, p_error: 'delivery failed' })

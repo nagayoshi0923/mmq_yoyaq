@@ -175,7 +175,7 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.private_group_coupon_uses WHERE member_id=m.id) THEN
   RAISE EXCEPTION '現在のクーポンを解除してから選び直してください' USING ERRCODE='P0028'; END IF;
  IF cc.status<>'active' OR cc.uses_remaining<=0 OR cc.expires_at<now()
- OR NOT EXISTS(SELECT 1 FROM public.coupon_campaigns WHERE id=cc.campaign_id AND organization_id=g.organization_id AND is_active) THEN
+ OR NOT EXISTS(SELECT 1 FROM public.coupon_campaigns WHERE id=cc.campaign_id AND organization_id=g.organization_id) THEN
   RAISE EXCEPTION 'クーポンの状態・期限・残り回数を確認してください' USING ERRCODE='P0028'; END IF;
  rules:=cc.rules_snapshot;
  IF rules IS NULL OR amount<=0 THEN RAISE EXCEPTION '金額・利用条件が未確定です' USING ERRCODE='P0028'; END IF;
