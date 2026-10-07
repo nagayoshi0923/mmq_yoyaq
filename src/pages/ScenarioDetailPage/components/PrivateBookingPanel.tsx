@@ -11,6 +11,7 @@ interface PrivateBookingPanelProps {
   maxParticipants: number
   selectedTimeSlotsCount: number
   isLoggedIn: boolean
+  availabilityReady?: boolean
   onRequestBooking: () => void
   reservationDeadlineHours?: number
   hasPreReading?: boolean
@@ -24,6 +25,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   maxParticipants,
   selectedTimeSlotsCount,
   isLoggedIn,
+  availabilityReady = true,
   onRequestBooking,
   reservationDeadlineHours,
   hasPreReading,
@@ -108,10 +110,11 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
       />
 
       {/* 貸切リクエスト送信ボタン */}
+      {!availabilityReady && selectedTimeSlotsCount > 0 && <p role="status" className="text-sm text-muted-foreground">空き状況を確認できるまで選択した候補を保持します。通信を確認して店舗を選び直してください。</p>}
       <Button
         className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
         onClick={onRequestBooking}
-        disabled={isLoggedIn && selectedTimeSlotsCount === 0}
+        disabled={isLoggedIn && (selectedTimeSlotsCount === 0 || !availabilityReady)}
       >
         {!isLoggedIn ? 'ログインして貸切リクエスト' : selectedTimeSlotsCount === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlotsCount}件)`}
       </Button>

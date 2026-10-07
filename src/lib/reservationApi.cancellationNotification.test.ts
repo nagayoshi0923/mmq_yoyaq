@@ -38,13 +38,10 @@ it.each([
   expect(m.log).not.toHaveBeenCalledWith('キャンセル待ち通知受付確認', expect.anything())
   expect(JSON.stringify(m.warn.mock.calls)).not.toContain('private error')
 })
-it.each([null, { message: 'database error' }])('既存の待機列通信例外だけqueueを一度試行し、queue返却%sも取消結果と分離', async error => {
+it('通知通信例外でも保存済み取消を保持し、ブラウザから二重キューを作らない', async () => {
   m.invoke.mockImplementation(async (name: string) => { if(name === 'notify-waitlist') throw Error('disconnected'); return { data: { success: true }, error: null } })
-  m.insert.mockResolvedValue({ error })
   expect(await reservationApi.cancel('r')).toEqual(saved)
-  expect(m.insert).toHaveBeenCalledTimes(1)
-  expect(m.insert).toHaveBeenCalledWith(expect.objectContaining({ organization_id: 'org', schedule_event_id: 'event', status: 'pending' }))
-  if(error) expect(m.log).not.toHaveBeenCalledWith('キャンセル待ち通知をリトライキューに記録')
+  expect(m.insert).not.toHaveBeenCalled()
 })
 it('保存が失敗したら全通知とqueueを実行しない', async () => {
   m.patch.mockRejectedValue(Error('save failed'))

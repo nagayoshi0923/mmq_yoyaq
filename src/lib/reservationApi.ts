@@ -647,27 +647,8 @@ export const reservationApi = {
           } catch (waitlistError) {
             logger.error('キャンセル待ち通知エラー:', waitlistError)
 
-            // 通知失敗をキューに記録（リトライ用）
-            try {
-              const { error: queueResultError } = await supabase.from('waitlist_notification_queue').insert({
-                schedule_event_id: reservation.schedule_event_id,
-                organization_id: orgIdForWaitlist,
-                freed_seats: reservation.participant_count,
-                scenario_title: reservation.title || scheduleEvent?.scenario,
-                event_date: scheduleEvent?.date,
-                start_time: scheduleEvent?.start_time,
-                end_time: scheduleEvent?.end_time,
-                store_name: storeName,
-                // booking_url は削除（サーバー側で生成）
-                last_error: waitlistError instanceof Error ? waitlistError.message : String(waitlistError),
-                status: 'pending'
-              })
-              if (queueResultError) logger.warn('予約取消は保存済み・待機列キュー記録未確認', { reservationId: id, reason: 'queue_insert_error' })
-              else logger.log('キャンセル待ち通知をリトライキューに記録')
-            } catch (queueError) {
-              logger.error('リトライキュー記録エラー:', queueError)
-              // キューへの記録失敗は無視（キャンセル処理自体は成功）
-            }
+            // 通知契機は取消と同じDBトランザクションで保存済み。cronが再試行する。
+            // ブラウザの入力metadataから別のキューを作らない。
           }
         }
       } catch (emailError) {

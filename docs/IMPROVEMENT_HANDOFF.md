@@ -1246,3 +1246,7 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - クーポン本人認可/保存、店舗公開読取、通知型・失敗伝播、同番号予約、URL・人数・期間・満員人数・履歴・入力・チャット等。SQL5組とrollback。匿名の私有テーブル権限は追加しない。
 - 単体245ファイル1734件、verify、対象実DB/Auth/API/ブラウザ、12並列、rollback/up合格。全体RPCスモークの変更外2件は未完了（復元元と同一定義）。
 - 詳細: docs/testing/MMQ_CUSTOMER_QA_FIX_20261007.md。push/PR/merge/deployは禁止のため未実施。実配送・実決済・実機は未検証。
+
+## 2026-10-07 顧客QAレビュー是正（配備前）
+
+PR964/965の追加10論点を独立mainベースで是正。契約、回帰、段階DB/Edge有効化、forward復旧は `docs/qa-review-closure-20261007.md`。CI/全レビューを確認してからstaging→本番へ反映する。現在は配備前。

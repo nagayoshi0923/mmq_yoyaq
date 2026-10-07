@@ -4,7 +4,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mocks=vi.hoisted(()=>({past:vi.fn(),history:vi.fn()}))
 vi.mock('@/contexts/AuthContext',()=>({useAuth:()=>({user:{id:'fixture-user',email:'fixture@example.test'}})}))
-vi.mock('@/lib/supabase',()=>({supabase:{from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'customer'}})})})})}}))
+vi.mock('@/lib/supabase',()=>({supabase:{}}))
+vi.mock('@/lib/api/customerHookReadApi',()=>({customerLookupReadApi:{listIdsByUserId:async()=>({data:[{id:'customer'}],error:null})}}))
 vi.mock('@/lib/customerPlayHistory',()=>({customerPlayHistory:{snapshot:mocks.history}}))
 vi.mock('@/lib/playedStatus',async importOriginal=>({...await importOriginal<object>(),fetchPlayedReservations:mocks.past}))
 vi.mock('@/utils/logger',()=>({logger:{error:vi.fn()}}))

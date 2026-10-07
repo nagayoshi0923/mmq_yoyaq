@@ -25,6 +25,7 @@ CREATE TABLE public.reservations (
   payment_datetime TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'pending'::text,
   customer_notes TEXT,
+  booking_request_payload JSONB,
   staff_notes TEXT,
   special_requests TEXT,
   cancellation_reason TEXT,

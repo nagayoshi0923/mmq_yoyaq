@@ -1084,10 +1084,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("global_settings") .select("chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_ti…) .eq("organization_id", undefined) .maybeSingle()",
       ],
       "privateGroupPageReadApi.listActiveCouponsForGroup": [
-        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.a2")",
+        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("organization_id", "a3") .or("and(status.eq.active,uses_remaining.gt.0,expires_at.is.null),and(stat…)",
       ],
       "privateGroupPageReadApi.listActiveCouponsForGroup (最後の引数なし)": [
-        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.undefined")",
+        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("organization_id", "a3") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.a2")",
       ],
       "privateGroupPageReadApi.listActiveStoresByIdsInOrganization": [
         "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .in("id", "a1") .eq("organization_id", "a2") .eq("status", "active")",

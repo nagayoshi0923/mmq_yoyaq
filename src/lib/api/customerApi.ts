@@ -57,9 +57,14 @@ export interface UpsertOwnCustomerInput {
 export async function upsertOwnCustomer(input: UpsertOwnCustomerInput): Promise<string | null> {
   const { userId, name, nickname, phone, email, organizationId, scopeByOrganization = false, throwOnError = false } = input
   validateCustomerContact(email, phone)
-  let find = supabase.from('customers').select('id').eq('user_id', userId)
+  let find = supabase.from('customers').select('id, email, organization_id').eq('user_id', userId)
   if (scopeByOrganization) find = find.eq('organization_id', organizationId as string)
-  const { data: existing } = await find.maybeSingle()
+  const { data: candidates, error: lookupError } = await find.order('created_at').order('id')
+  if (lookupError) throw lookupError
+  const existing = candidates?.find(row => row.email?.toLowerCase() === email.toLowerCase())
+    ?? candidates?.find(row => row.organization_id === null)
+    ?? candidates?.find(row => row.organization_id === organizationId)
+    ?? candidates?.[0]
   if (existing) {
     const updateValues = nickname === undefined ? { name, phone, email } : { name, nickname, phone, email }
     let upd = supabase.from('customers').update(updateValues).eq('id', existing.id).eq('user_id', userId)

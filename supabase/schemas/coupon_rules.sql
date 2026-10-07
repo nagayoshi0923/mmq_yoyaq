@@ -175,7 +175,15 @@ BEGIN
   OR NOT public.can_use_coupon_reservation(cc.customer_id,r.id) THEN
   RAISE EXCEPTION '利用可能な予約を指定してください' USING ERRCODE='P0028';
  END IF;
- NEW.discount_amount:=public.coupon_discount_for_event(cc.id,r.schedule_event_id,r.total_price,cc.customer_id,r.id);
+ IF EXISTS(SELECT 1 FROM public.private_groups g JOIN public.private_group_members m ON m.group_id=g.id
+ WHERE g.reservation_id=r.id AND g.organization_id=r.organization_id AND m.status='joined' AND m.coupon_id=cc.id
+ AND m.user_id=(SELECT user_id FROM public.customers WHERE id=cc.customer_id)) THEN
+  NEW.discount_amount:=public.coupon_discount_for_event(cc.id,r.schedule_event_id,
+    (SELECT coalesce(m.payment_amount,g.per_person_price,0) FROM public.private_group_members m JOIN public.private_groups g ON g.id=m.group_id
+     WHERE g.reservation_id=r.id AND m.coupon_id=cc.id AND m.status='joined' LIMIT 1),cc.customer_id,NULL);
+ ELSE
+  NEW.discount_amount:=public.coupon_discount_for_event(cc.id,r.schedule_event_id,r.total_price,cc.customer_id,r.id);
+ END IF;
  RETURN NEW;
 END;
 $$;

@@ -27,7 +27,9 @@ export function usePlayedScenarios() {
     }
 
     try {
-      const { data: customer } = await customerLookupReadApi.findIdByUserId(user.id)
+      const { data: customers, error: lookupError } = await customerLookupReadApi.listIdsByUserId(user.id)
+      if (lookupError) throw lookupError
+      const customer = customers?.[0]
 
       if (!customer) {
         setPlayedScenarioIds(new Set())
@@ -37,10 +39,11 @@ export function usePlayedScenarios() {
       }
 
       setCustomerId(customer.id)
-      const history = await customerPlayHistory.snapshot(customer.id)
+      const histories = await Promise.all(customers!.map(row => customerPlayHistory.snapshot(row.id)))
+      const history = { manual: histories.flatMap(h => h.manual), overrides: histories.flatMap(h => h.overrides) }
       // 手動履歴・未体験指定は確認済み。予約取得が失敗してもこの判定は保持する。
       setPlayedScenarioIds(resolvePlayedScenarioIds([], history.manual, history.overrides))
-      const reservations = await fetchPlayedReservations(customer.id)
+      const reservations = (await Promise.all(customers!.map(row => fetchPlayedReservations(row.id)))).flat()
       const scenarioIds = resolvePlayedScenarioIds(reservations, history.manual, history.overrides)
 
       setPlayedScenarioIds(scenarioIds)

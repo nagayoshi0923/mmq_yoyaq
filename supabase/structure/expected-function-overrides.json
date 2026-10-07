@@ -6,17 +6,16 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "c74e67a3364c850cabd95d8078b00be6",
+  "body_md5": "94a1f20ff81508a134bb3addc5d4142b",
   "language": "plpgsql",
   "security_definer": true
  },
  "notify_all_waitlist_entries(p_schedule_event_id uuid)": {
   "acl": [
-   "postgres=X/postgres",
-   "service_role=X/postgres"
+   "postgres=X/postgres"
   ],
   "returns": "TABLE(id uuid, customer_name text, customer_email text, participant_count integer, status text, created_at timestamp with time zone)",
-  "body_md5": "884bef2972a57f37fa60283c4533821b",
+  "body_md5": "5e22a89db3b5bd7ec2854c61b0eca406",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -27,7 +26,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "5e11f1d6a2a1979258a186e525e1127d",
+  "body_md5": "aed8542a1c603c9327e88dacc6a4ca6a",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -66,12 +65,14 @@
  },
  "create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text, p_customer_coupon_id uuid)": {
   "acl": [
+   "=X/postgres",
+   "anon=X/postgres",
    "authenticated=X/postgres",
    "postgres=X/postgres",
    "service_role=X/postgres"
   ],
   "returns": "uuid",
-  "body_md5": "8004d705b96a2976da6df4b2d65b9a50",
+  "body_md5": "a2d904ee5acf2bc68fda47c97b9f329a",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -93,7 +94,79 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "d584ccffb7a886f772b6f22caab31699",
+  "body_md5": "a9bcd32d25648a9585c51391a6d539a6",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "capture_waitlist_notice_event()": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "trigger",
+  "body_md5": "255b68ae45f57cf05cbc980ac7266d47",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "finalize_private_group_coupons()": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "trigger",
+  "body_md5": "4d496505b8892a2d75130a8f7f884371",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "enforce_coupon_performance_scope()": {
+  "acl": [
+   "anon=X/postgres",
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "trigger",
+  "body_md5": "3f9e23416b77c74ac2ed06526f3103f6",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "validate_group_coupon(p_member uuid, p_coupon uuid)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "342c05b7eaec328b3fb4ca1b416ca3c5",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "claim_waitlist_notice(p_event uuid, p_actor uuid, p_system boolean, p_lease uuid)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "8b3c6e420f653db669dd6cb4f369baff",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "prepare_waitlist_notice_payload(p_notice uuid, p_waitlist uuid, p_lease uuid, p_payload jsonb)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "96f7977e7f929f9022465ce4c40c8bdf",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "finish_waitlist_notice(p_notice uuid, p_waitlist uuid, p_lease uuid, p_sent boolean, p_error text)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "boolean",
+  "body_md5": "28903eb6fb09f6917b555df7161c9c8f",
   "language": "plpgsql",
   "security_definer": true
  }
