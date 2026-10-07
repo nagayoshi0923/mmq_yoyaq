@@ -115,6 +115,7 @@ export default function MyPage() {
   const stores = myPageData?.stores ?? {}
   const privateGroups = myPageData?.privateGroups ?? []
   const customerId = myPageData?.customerId ?? null
+  const customerIds = myPageData?.customerIds ?? (customerId ? [customerId] : [])
   const customerInfo = myPageData?.customerInfo ?? null
 
   // ratingsMap は optimistic update のためローカルステートに同期
@@ -417,7 +418,7 @@ export default function MyPage() {
     setEditingScenario(null)
     setPlayedOverrideIds(prev => { const next = new Set(prev); next.delete(smId); return next }) // optimistic
     try {
-      await removePlayedOverride(customerId, smId)
+      await Promise.all(customerIds.map(id => removePlayedOverride(id, smId)))
       showToast.success('体験済みに戻しました')
     } catch (error) {
       logger.error('体験済みへの復帰エラー:', error)

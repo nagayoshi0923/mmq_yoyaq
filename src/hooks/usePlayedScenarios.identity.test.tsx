@@ -21,3 +21,12 @@ it('本人の全顧客行の手動/予約履歴を統合し、未体験指定を
  expect(m.snap).toHaveBeenCalledWith('legacy');expect(m.played).toHaveBeenCalledWith('legacy')
  expect(result.customerId).toBe('global')
 })
+
+it('別画面の履歴更新イベント後に一覧も再取得し同じ判定に戻る',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
+ m.snap.mockImplementation(async()=>({can_edit:true,manual:[],overrides:[]}));m.played.mockResolvedValue([])
+ root=createRoot(document.createElement('div'));await act(async()=>root.render(<Fixture/>));expect(result.isPlayed('NEW')).toBe(false)
+ m.snap.mockImplementation(async(id:string)=>({can_edit:true,manual:id==='legacy'?[{scenario_master_id:'NEW'}]:[],overrides:[]}))
+ await act(async()=>window.dispatchEvent(new window.Event('mmq:play-history-changed')))
+ expect(result.isPlayed('NEW')).toBe(true)
+})

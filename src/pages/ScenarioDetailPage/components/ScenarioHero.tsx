@@ -1,5 +1,5 @@
-import { fetchPlayedReservations } from '@/lib/playedStatus'
-import { customerPlayHistory } from '@/lib/customerPlayHistory'
+import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
+import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
 import { memo, useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,6 @@ import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/s
 import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck, Building2, UserCircle } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
-import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
 import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
@@ -20,8 +19,6 @@ import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
-import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
-import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -75,69 +72,16 @@ export const ScenarioHero = memo(function ScenarioHero({
   if (scenario.other_count != null) genderRatioParts.push(`その他${scenario.other_count}人`)
   const genderRatioText = genderRatioParts.join(' / ')
   const scenarioIsFavorite = isFavorite(scenario.scenario_master_id)
-  
+
   // 体験済み登録用ステート
-  const [isPlayed, setIsPlayed] = useState(false)
+  const { customerId, customerIds, isPlayed: hasPlayed, markAsPlayed, unmarkAsPlayed, loading: isCheckingPlayed } = usePlayedScenarios()
+  const isPlayed = hasPlayed(scenario.scenario_master_id)
   const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
   const [playedDate, setPlayedDate] = useState('')
   const [selectedStoreId, setSelectedStoreId] = useState('')
   const [allStores, setAllStores] = useState<Store[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [customerId, setCustomerId] = useState<string | null>(null)
   const [isTogglingPlayed, setIsTogglingPlayed] = useState(false)
-  const [isCheckingPlayed, setIsCheckingPlayed] = useState(true)
-  
-  // 体験済みかどうかチェック
-  useEffect(() => {
-    let active = true
-
-    const checkPlayed = async () => {
-      setIsCheckingPlayed(true)
-      setIsPlayed(false)
-      setCustomerId(null)
-
-      if (!user?.email) {
-        setIsCheckingPlayed(false)
-        return
-      }
-      
-      try {
-        // 顧客IDを取得
-        const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
-        
-        if (!active || !customer) return
-        setCustomerId(customer.id)
-
-        // 本人/スタッフが「未体験に戻した」場合は override が優先（予約/手動より先に判定）
-        const history = await customerPlayHistory.snapshot(customer.id)
-        const override = history.overrides.some(row => row.scenario_master_id === scenario.scenario_master_id)
-
-        if (!active) return
-        if (override) {
-          setIsPlayed(false)
-          return
-        }
-
-        // 手動履歴で確定できる場合は予約取得の失敗に影響されない。
-        if (history.manual.some(row => row.scenario_master_id === scenario.scenario_master_id)) {
-          setIsPlayed(true)
-          return
-        }
-        const reservations = await fetchPlayedReservations(customer.id, scenario.scenario_master_id)
-        if (active) setIsPlayed(reservations.length > 0)
-
-      } catch (error) {
-        logger.error('体験済みチェックエラー:', error)
-      } finally {
-        if (active) setIsCheckingPlayed(false)
-      }
-    }
-    
-    void checkPlayed()
-    return () => {
-      active = false
-    }
-  }, [user, scenario.scenario_master_id])
 
   // 全店舗を取得（ダイアログ用）
   useEffect(() => {
@@ -147,7 +91,7 @@ export const ScenarioHero = memo(function ScenarioHero({
     }
     fetchStores()
   }, [])
-  
+
   const handleFavoriteClick = () => {
     toggleFavorite(scenario.scenario_master_id)
   }
@@ -158,7 +102,7 @@ export const ScenarioHero = memo(function ScenarioHero({
     if (organizationSlug) params.set('org', organizationSlug)
     navigate(`/group/create?${params.toString()}`)
   }
-  
+
   const handlePlayedClick = async () => {
     if (!user) {
       showToast.error('ログインが必要です')
@@ -173,8 +117,8 @@ export const ScenarioHero = memo(function ScenarioHero({
       }
       setIsTogglingPlayed(true)
       try {
-        await addPlayedOverride(customerId, scenario.scenario_master_id)
-        setIsPlayed(false)
+        await unmarkAsPlayed(scenario.scenario_master_id)
+
         showToast.success('未体験に戻しました')
       } catch (error) {
         logger.error('未体験変更エラー:', error)
@@ -188,41 +132,21 @@ export const ScenarioHero = memo(function ScenarioHero({
     setSelectedStoreId('')
     setIsPlayedDialogOpen(true)
   }
-  
+
   const handleSubmitPlayed = async () => {
-    if (!user?.email) return
-    
+    if (!user?.id) return
+
     setIsSubmitting(true)
     try {
-      // 顧客IDを取得
-      const { data: customer } = await customerLookupReadApi.findIdByEmail(user.email)
-      
-      if (!customer) {
-        showToast.error('顧客情報が見つかりません')
+      if (!customerId) throw new Error('顧客情報が見つかりません')
+      const venueName = allStores.find(store => store.id === selectedStoreId)?.name || null
+      const registered = await registerPlayedScenario(customerIds, scenario.scenario_master_id, scenario.scenario_title, playedDate || null, venueName)
+      if (!registered) {
+        showToast.error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
         return
       }
 
-      const restoredExistingPlayed = await removePlayedOverride(customer.id, scenario.scenario_master_id)
-      if (!restoredExistingPlayed) {
-        const manualCount = await countManualPlayHistoryForCustomer(customer.id)
-        if (isManualPlayHistoryAtCap(manualCount)) {
-          showToast.error(
-            `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
-          )
-          return
-        }
-
-        // 選択された店舗名を取得
-        const selectedStore = allStores.find(s => s.id === selectedStoreId)
-        const venueName = selectedStore?.name || null
-
-        await customerPlayHistory.add(customer.id, {
-          scenario_title: scenario.scenario_title, scenario_master_id: scenario.scenario_master_id,
-          played_at: playedDate || null, venue: venueName,
-        })
-      }
-      
-      setIsPlayed(true)
+      markAsPlayed(scenario.scenario_master_id)
       setIsPlayedDialogOpen(false)
       showToast.success('体験済みに登録しました')
     } catch (error) {
@@ -242,7 +166,7 @@ export const ScenarioHero = memo(function ScenarioHero({
             <div className="relative aspect-[3/4] bg-gray-900 overflow-hidden">
               {/* 背景：ぼかした画像で余白を埋める - 最適化済み */}
               {scenario.key_visual_url && (
-                <div 
+                <div
                   className="absolute inset-0 scale-110"
                   style={{
                     backgroundImage: `url(${getOptimizedImageUrl(scenario.key_visual_url, { width: 100, format: 'webp', quality: 50 })})`,
@@ -305,7 +229,7 @@ export const ScenarioHero = memo(function ScenarioHero({
                 </div>
               </div>
               <h1 className="text-lg md:text-xl font-bold mb-2">{scenario.scenario_title}</h1>
-              
+
               {/* 基本情報（テキストベース） */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
                 <span className="flex items-center gap-1">
@@ -394,7 +318,7 @@ export const ScenarioHero = memo(function ScenarioHero({
           </div>
         </div>
       </div>
-      
+
       {/* 体験済み登録ダイアログ */}
       <Dialog open={isPlayedDialogOpen} onOpenChange={setIsPlayedDialogOpen}>
         <DialogContent>
@@ -428,8 +352,8 @@ export const ScenarioHero = memo(function ScenarioHero({
                 allowClear={true}
               />
             </div>
-            <Button 
-              onClick={handleSubmitPlayed} 
+            <Button
+              onClick={handleSubmitPlayed}
               disabled={isSubmitting}
               className="w-full"
             >
