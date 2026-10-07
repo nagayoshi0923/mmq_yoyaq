@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import {PGlite} from '@electric-sql/pglite'
 const db=new PGlite(), id=n=>`00000000-0000-4000-a000-${String(n).padStart(12,'0')}`
 const org=id(1),user=id(11),customer=id(21),event=id(31),store=id(41),group=id(51),member=id(61),coupon=id(71),campaign=id(81),reservation=id(91),wait=id(101),master=id(111)
-await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth;
+await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE SCHEMA auth;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
 CREATE FUNCTION private_group_actor_role(uuid) RETURNS text LANGUAGE sql AS $$ SELECT 'participant'::text $$;
 CREATE FUNCTION resolve_operating_setting(uuid,text,jsonb,uuid,uuid,uuid) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{"value":true}'::jsonb $$;
@@ -26,6 +26,7 @@ CREATE TABLE waitlist(id uuid PRIMARY KEY,organization_id uuid,schedule_event_id
 CREATE TABLE organization_scenarios(id uuid PRIMARY KEY,organization_id uuid,scenario_master_id uuid);
 CREATE TABLE organization_scenarios_with_master(organization_id uuid,org_scenario_id uuid,scenario_master_id uuid,org_status text,master_status text,title text,duration integer,weekend_duration integer,extra_preparation_time integer,private_booking_time_slots jsonb,private_booking_time_slots_weekend jsonb,private_booking_slot_start_times jsonb,available_from date,available_until date);
 `)
+await db.exec('GRANT SELECT ON public.waitlist TO service_role');
 const rules=fs.readFileSync('supabase/schemas/coupon_rules.sql','utf8')
 for(const name of ['coupon_discount_for_event_internal','coupon_discount_for_event','can_use_coupon_reservation']){const a=rules.indexOf('CREATE OR REPLACE FUNCTION public.'+name+'('),b=rules.indexOf('\nREVOKE ',a);await db.exec(rules.slice(a,b))}
 await db.exec(fs.readFileSync('supabase/migrations/20260319110000_add_coupon_usage_trigger.sql','utf8'))
@@ -44,6 +45,13 @@ INSERT INTO organization_scenarios_with_master VALUES('${org}','${id(112)}','${m
 SELECT set_config('request.jwt.claim.sub','${user}',false);`)
 const q=async(s,p=[])=>(await db.query(s,p)).rows
 let checks=0
+// service-role invokerは既定table ACLに依存せず読める。私有配送への直接更新は許可しない。
+for(const table of ['waitlist_notice_events','waitlist_notice_deliveries']){
+ assert.equal((await q('SELECT has_table_privilege($1,$2,$3) AS ok',['service_role',table,'SELECT']))[0].ok,true);checks++
+ for(const op of ['INSERT','UPDATE','DELETE']){assert.equal((await q('SELECT has_table_privilege($1,$2,$3) AS ok',['service_role',table,op]))[0].ok,false);checks++}
+}
+await db.exec('SET ROLE service_role');await q('SELECT * FROM list_pending_waitlist_notice_events(10)');await db.exec('RESET ROLE');checks++;
+
 async function rejects(s,params,code){try{await db.query(s,params);assert.fail('should reject')}catch(e){assert.equal(e.code,code);checks++}}
 const claim=(actor=user,lease=id(201))=>q('SELECT claim_waitlist_notice($1,$2,false,$3) AS result',[event,actor,lease])
 await rejects('SELECT claim_waitlist_notice($1,$2,false,$3)',[event,user,id(201)],'42501')

@@ -20,8 +20,8 @@ CREATE TABLE public.waitlist_notice_deliveries (
 );
 ALTER TABLE public.waitlist_notice_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.waitlist_notice_deliveries ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.waitlist_notice_events,public.waitlist_notice_deliveries FROM PUBLIC,anon,authenticated;
-GRANT SELECT ON public.waitlist_notice_events TO service_role;
+REVOKE ALL ON public.waitlist_notice_events,public.waitlist_notice_deliveries FROM PUBLIC,anon,authenticated,service_role;
+GRANT SELECT ON public.waitlist_notice_events,public.waitlist_notice_deliveries TO service_role;
 CREATE INDEX waitlist_notice_events_pending ON public.waitlist_notice_events(schedule_event_id,created_at) WHERE completed_at IS NULL;
 CREATE INDEX waitlist_notice_deliveries_lease ON public.waitlist_notice_deliveries(waitlist_id,leased_until) WHERE sent_at IS NULL;
 
