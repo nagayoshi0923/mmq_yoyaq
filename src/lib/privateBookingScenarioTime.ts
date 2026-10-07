@@ -65,6 +65,19 @@ export type ScenarioTimingFromDb = {
   private_booking_time_slots_weekend?: string[] | null
   /** 作品ごとの貸切開始時刻（未設定の枠は店舗の営業時間設定） */
   private_booking_slot_start_times?: unknown
+  /** 作品の公演期間（YYYY-MM-DD）。この範囲外の日は貸切の候補にできない。未設定は制限なし */
+  available_from?: string | null
+  available_until?: string | null
+}
+
+/** 作品の公演期間の内側か（未設定の側は制限なし） */
+export function isWithinScenarioPerformancePeriod(
+  date: string,
+  timing: Pick<ScenarioTimingFromDb, 'available_from' | 'available_until'> | null | undefined,
+): boolean {
+  if (timing?.available_from && date < timing.available_from) return false
+  if (timing?.available_until && date > timing.available_until) return false
+  return true
 }
 
 /** 通常貸切（usePrivateBooking）と同じく公演間に最低これだけ空ける（分） */
@@ -125,7 +138,7 @@ export async function fetchScenarioTimingFromDb(
   if (organizationId) {
     const { data: viewRow } = await supabase
       .from('organization_scenarios_with_master')
-      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots, private_booking_time_slots_weekend, private_booking_slot_start_times, title')
+      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots, private_booking_time_slots_weekend, private_booking_slot_start_times, available_from, available_until, title')
       .eq('organization_id', organizationId)
       .or(`org_scenario_id.eq.${lookup},scenario_master_id.eq.${lookup}`)
       .limit(1)
@@ -148,6 +161,8 @@ export async function fetchScenarioTimingFromDb(
         private_booking_time_slots: viewRow.private_booking_time_slots ?? null,
         private_booking_time_slots_weekend: viewRow.private_booking_time_slots_weekend ?? null,
         private_booking_slot_start_times: viewRow.private_booking_slot_start_times ?? null,
+        available_from: viewRow.available_from ?? null,
+        available_until: viewRow.available_until ?? null,
       }
     }
   }
