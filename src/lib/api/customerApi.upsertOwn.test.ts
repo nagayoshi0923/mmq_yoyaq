@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // supabase のチェーン（select/eq/maybeSingle、update/eq、insert/select/single）を記録するモック
 const m = vi.hoisted(() => {
   const calls: Array<[string, unknown?]> = []
-  const state = { existing: null as null | { id: string }, updateError: null as unknown, insertResult: { data: { id: 'new-id' }, error: null } as { data: { id: string } | null; error: unknown } }
+  const state = { candidates: null as null | Array<{id:string;email?:string;organization_id?:string|null}>, lookupError: null as unknown, existing: null as null | { id: string }, updateError: null as unknown, insertResult: { data: { id: 'new-id' }, error: null } as { data: { id: string } | null; error: unknown } }
   const chain = (op: string) => {
     const q: Record<string, unknown> = {}
     const wrap = (name: string) => (...args: unknown[]) => { calls.push([`${op}.${name}`, args]); return q }
-    for (const name of ['select', 'eq']) q[name] = wrap(name)
+    for (const name of ['select', 'eq', 'order']) q[name] = wrap(name)
     q.maybeSingle = async () => ({ data: state.existing, error: null })
     q.single = async () => state.insertResult
-    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ error: state.updateError }).then(resolve)
+    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve(op === 'find' ? { data: state.candidates ?? (state.existing ? [state.existing] : []), error: state.lookupError } : { error: state.updateError }).then(resolve)
     return q
   }
   const from = vi.fn(() => ({
@@ -25,7 +25,7 @@ vi.mock('@/lib/apiClient', () => ({ apiClient: {} }))
 import { upsertOwnCustomer } from './customerApi'
 
 const base = { userId: 'u1', name: '太郎', nickname: null, phone: '09000000000', email: 'a@example.invalid', organizationId: 'org1' }
-beforeEach(() => { m.calls.length = 0; m.state.existing = null; m.state.updateError = null; m.state.insertResult = { data: { id: 'new-id' }, error: null } })
+beforeEach(() => { m.calls.length = 0; m.state.existing = null; m.state.candidates = null; m.state.lookupError = null; m.state.updateError = null; m.state.insertResult = { data: { id: 'new-id' }, error: null } })
 
 describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの顧客行）', () => {
   it('既存行があれば自分の行だけを更新して id を返す（organization_id は書き換えない）', async () => {
@@ -70,4 +70,30 @@ describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの�
 it.each([{ email: 'bad' }, { phone: '123' }])('不正な連絡先は顧客行の読み書き前に拒否する %s', async invalid => {
   await expect(upsertOwnCustomer({ ...base, ...invalid })).rejects.toThrow()
   expect(m.calls).toEqual([])
+})
+
+it('複数本人行では入力メールが一致する既存行を選び、新規INSERTしない', async () => {
+ m.state.candidates = [{id:'legacy',email:'old@example.invalid',organization_id:'org1'},{id:'global',email:base.email,organization_id:null}]
+ expect(await upsertOwnCustomer({...base,scopeByOrganization:false,throwOnError:true})).toBe('global')
+ expect(m.calls).toContainEqual(['update.eq',['id','global']])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+it('検索失敗を未登録と扱ってINSERTしない', async () => {
+ m.state.lookupError=Error('read unavailable')
+ await expect(upsertOwnCustomer(base)).rejects.toThrow('read unavailable')
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+
+it.each([null,'org2'])('旧組織のメール一致行より申込先互換の共通行を選ぶ（%s）', async organizationId => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'},{id:'global',email:'previous@example.invalid',organization_id:null}]
+ expect(await upsertOwnCustomer({...base,organizationId,scopeByOrganization:false,throwOnError:true})).toBe('global')
+ expect(m.calls).toContainEqual(['update.eq',['id','global']])
+ expect(m.calls).not.toContainEqual(['update.eq',['id','legacy']])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+it('貸切で共通行がなければ旧組織行を更新せず共通顧客を作成する', async () => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'}]
+ expect(await upsertOwnCustomer({...base,organizationId:null,scopeByOrganization:false,throwOnError:true})).toBe('new-id')
+ expect(m.calls.some(c=>c[0]==='update.values')).toBe(false)
+ expect(m.calls).toContainEqual(['insert.values',[{user_id:base.userId,name:base.name,nickname:null,phone:base.phone,email:base.email,organization_id:null}]])
 })

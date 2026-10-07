@@ -7,6 +7,9 @@
 import { supabase } from '@/lib/supabase'
 
 export const customerLookupReadApi = {
+  async listIdsByUserId(userId: string) {
+    return supabase.from('customers').select('id').eq('user_id', userId).order('organization_id', { nullsFirst: true }).order('created_at').order('id')
+  },
   /** ログインユーザーの顧客行（id と user_id）を user_id で探す */
   async findByUserId(userId: string) {
     return supabase.from('customers').select('id, user_id').eq('user_id', userId).maybeSingle()
@@ -25,7 +28,7 @@ export const customerLookupReadApi = {
   },
   /** user_id が一致する顧客の id */
   async findIdByUserId(userId: string) {
-    return supabase.from('customers').select('id').eq('user_id', userId).maybeSingle()
+    return supabase.from('customers').select('id').eq('user_id', userId).order('organization_id', { nullsFirst: true }).order('created_at').order('id').limit(1).maybeSingle()
   },
 }
 
