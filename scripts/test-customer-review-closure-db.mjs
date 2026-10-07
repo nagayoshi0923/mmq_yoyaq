@@ -420,4 +420,36 @@ for(const [index,amount] of [[0,800],[1,1000]]){
  assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[newCoupon]))[0].uses_remaining,1);checks++
 }
 
+// 既存予約：定額/割合×手動割引なし/一部/全額。使用・再試行・取消・取消再試行で同額を維持。
+for(const [index,type,face,manual] of [[0,'fixed',800,0],[1,'fixed',800,500],[2,'fixed',800,1000],[3,'percentage',50,0],[4,'percentage',50,750]]){
+ const testCoupon=id(720+index), expected=Math.min(type==='fixed'?face:500,1000-manual)
+ await q('UPDATE reservations SET total_price=1000,discount_amount=$1,final_price=$2 WHERE id=$3',[manual,1000-manual,reservation])
+ await q("INSERT INTO customer_coupons(id,campaign_id,customer_id,organization_id,status,uses_remaining,rules_snapshot) VALUES($1,$2,$3,$4,'active',1,$5)",[testCoupon,campaign,customer,org,JSON.stringify({discount_type:type,discount_amount:face,same_scenario_once:false,combinable:true})])
+ if(!expected){
+  await rejects('SELECT use_customer_coupon($1,$2,$3)',[user,testCoupon,reservation],'P0028')
+  assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[testCoupon]))[0].uses_remaining,1);checks++
+  continue
+ }
+ const applied=(await q('SELECT use_customer_coupon($1,$2,$3) AS data',[user,testCoupon,reservation]))[0].data
+ assert.equal(applied.discount_amount,expected);checks++
+ assert.equal((await q('SELECT use_customer_coupon($1,$2,$3) AS data',[user,testCoupon,reservation]))[0].data.usage_id,applied.usage_id);checks++
+ assert.deepEqual((await q('SELECT discount_amount,final_price FROM reservations WHERE id=$1',[reservation]))[0],{discount_amount:manual+expected,final_price:1000-manual-expected});checks++
+ const usage=(await q('SELECT u.discount_amount,b.applied_amount FROM coupon_usages u JOIN coupon_usage_billing_applied b ON b.usage_id=u.id WHERE u.id=$1',[applied.usage_id]))[0]
+ assert.deepEqual(usage,{discount_amount:expected,applied_amount:expected});checks++
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[testCoupon]))[0].uses_remaining,0);checks++
+ await q('SELECT restore_coupon_usage($1,$2,$3)',[org,testCoupon,applied.usage_id])
+ assert.equal((await q('SELECT restore_coupon_usage($1,$2,$3) AS data',[org,testCoupon,applied.usage_id]))[0].data.restored,false);checks++
+ assert.deepEqual((await q('SELECT discount_amount,final_price FROM reservations WHERE id=$1',[reservation]))[0],{discount_amount:manual,final_price:1000-manual});checks++
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[testCoupon]))[0].uses_remaining,1);checks++
+ assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usage_billing_applied WHERE usage_id=$1',[applied.usage_id]))[0].n,0);checks++
+ // 適用後の請求変更を検知できない金額には取消保留。P0061で履歴/回数を変えない。
+ const reapplied=(await q('SELECT use_customer_coupon($1,$2,$3) AS data',[user,testCoupon,reservation]))[0].data
+ await q('UPDATE reservations SET discount_amount=0,final_price=1000 WHERE id=$1',[reservation])
+ await rejects('SELECT restore_coupon_usage($1,$2,$3)',[org,testCoupon,reapplied.usage_id],'P0061')
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[testCoupon]))[0].uses_remaining,0);checks++
+ assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages WHERE id=$1',[reapplied.usage_id]))[0].n,1);checks++
+ await q('UPDATE reservations SET discount_amount=$1,final_price=$2 WHERE id=$3',[manual+expected,1000-manual-expected,reservation])
+ await q('SELECT restore_coupon_usage($1,$2,$3)',[org,testCoupon,reapplied.usage_id])
+}
+
 console.log('CUSTOMER_REVIEW_CLOSURE_DB_PASS',checks,'実SQLチェック');await db.close()
