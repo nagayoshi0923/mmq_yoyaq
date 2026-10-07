@@ -24,7 +24,7 @@ export const supabase = {
    if(table==='reservations') {const saved=localStorage.getItem('qa-reservation');return {data:columns.includes('schedule_events!')?[]:saved?[JSON.parse(saved)]:[],error:null}}
    throw Error('Unexpected table '+table)
   }
-  const chain:any = {select(v:string){columns=v;return chain},eq(){return chain},neq(){return chain},in(){return chain},limit(){return chain},order(){return chain},update(){updating=true;return chain},single:async()=>result(),maybeSingle:async()=>result(),then(resolve:any){return Promise.resolve(result()).then(resolve)}}
+  const chain:any = {select(v:string){columns=v;return chain},eq(){return chain},neq(){return chain},in(){return chain},limit(){return chain},order(){return chain},update(){updating=true;return chain},single:async()=>{const r=result();return table==='customers'&&Array.isArray(r.data)?{...r,data:r.data[0]}:r},maybeSingle:async()=>{const r=result();return table==='customers'&&Array.isArray(r.data)?{...r,data:r.data[0]}:r},then(resolve:any){return Promise.resolve(result()).then(resolve)}}
   return chain
  },
  rpc:async(name:string)=>({data:name==='get_performance_booking_window'?[{effective_booking_deadline:'2099-01-01T00:00:00Z'}]:[],error:null}),
