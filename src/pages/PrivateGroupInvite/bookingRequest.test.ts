@@ -57,6 +57,7 @@ describe('貸切グループからの予約リクエストの判断', () => {
 
   it('作成の失敗はお客様向けの文にする', () => {
     expect(bookingRequestErrorMessage({ code: 'P0045' })).toBe('貸切の受付締切を過ぎた候補日があります。その日程を外して、もう一度お試しください。')
+    expect(bookingRequestErrorMessage({ code: 'P0054' })).toBe('作品の公演期間外の候補日があります。その日程を外して、もう一度お試しください。')
     expect(bookingRequestErrorMessage({ code: 'XX', message: 'slot conflict' })).toBe('候補日時に既存の公演との競合があります。日時と希望店舗を再選択してください。')
     expect(bookingRequestErrorMessage({ code: 'XX', message: '別の失敗' })).toBe('別の失敗')
     expect(bookingRequestErrorMessage({})).toBe('貸切リクエストの送信に失敗しました')

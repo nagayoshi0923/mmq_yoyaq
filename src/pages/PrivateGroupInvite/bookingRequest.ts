@@ -124,6 +124,7 @@ export function bookingRequestErrorMessage(rpcError: { code?: string; message?: 
   if (rpcError.code === 'P0045') return '貸切の受付締切を過ぎた候補日があります。その日程を外して、もう一度お試しください。'
   if (rpcError.code === 'P0047') return '貸切リクエストはグループから申し込んでください。画面を開き直してから、もう一度お試しください。'
   if (rpcError.code === 'P0044') return 'この作品は現在貸切リクエストを受け付けていません'
+  if (rpcError.code === 'P0054') return '作品の公演期間外の候補日があります。その日程を外して、もう一度お試しください。'
   if (rpcError.message) return rpcError.message
   return '貸切リクエストの送信に失敗しました'
 }
