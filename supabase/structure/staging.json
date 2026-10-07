@@ -1,11 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-07T01:29:19.740Z",
+  "captured_at": "2026-10-07T07:05:12.086Z",
   "table_count": 142,
   "function_count": 349,
-  "digest": "fa18acc83bef9ce9000157cf8f1a229605cb3f8db9eebd35e679d18909ebcdff",
-  "expected_from": "staging verified migration 20261007100001..05; production application pending"
+  "digest": "e9e7d2945d5269fe0b522f9e9e9bd9f445265cf060c743119ae7c29e85f463c9"
  },
  "tables": {
   "staff": {
@@ -26396,6 +26395,18 @@
    "language": "sql",
    "security_definer": true
   },
+  "get_public_private_booking_scenario_timing(p_organization_id uuid, p_scenario_lookup_id uuid)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "d584ccffb7a886f772b6f22caab31699",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "update_reservation_participants(p_reservation_id uuid, p_new_count integer, p_customer_id uuid)": {
    "acl": [
     "authenticated=X/postgres",
@@ -27235,18 +27246,6 @@
    ],
    "returns": "jsonb",
    "body_md5": "5b68e80752e75aab71f3a26daf11abaa",
-   "language": "plpgsql",
-   "security_definer": true
-  },
-  "get_public_private_booking_scenario_timing(p_organization_id uuid, p_scenario_lookup_id uuid)": {
-   "acl": [
-    "anon=X/postgres",
-    "authenticated=X/postgres",
-    "postgres=X/postgres",
-    "service_role=X/postgres"
-   ],
-   "returns": "jsonb",
-   "body_md5": "d584ccffb7a886f772b6f22caab31699",
    "language": "plpgsql",
    "security_definer": true
   }
