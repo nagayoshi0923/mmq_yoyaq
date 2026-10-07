@@ -264,7 +264,7 @@ export function PlatformTop() {
     canonicalPath: '/',
   })
   const { favorites, toggleFavorite } = useFavorites()
-  const { isPlayed, customerId, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
+  const { isPlayed, customerId, customerIds, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
   const [togglingPlayedIds, setTogglingPlayedIds] = useState<Set<string>>(new Set())
   const [selectedRegion, setSelectedRegion] = useState('all')
@@ -604,7 +604,7 @@ export function PlatformTop() {
       <Footer />
 
       {playedDialogTarget && (
-        <PlayedRegistrationDialog open={!!playedDialogTarget} onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }} scenarioTitle={playedDialogTarget.title} scenarioMasterId={playedDialogTarget.id} customerId={customerId} onRegistered={() => markAsPlayed(playedDialogTarget.id)} />
+        <PlayedRegistrationDialog open={!!playedDialogTarget} onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }} scenarioTitle={playedDialogTarget.title} scenarioMasterId={playedDialogTarget.id} customerId={customerId} customerIds={customerIds} onRegistered={() => markAsPlayed(playedDialogTarget.id)} />
       )}
     </div>
   )

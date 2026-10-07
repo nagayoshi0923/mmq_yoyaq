@@ -131,7 +131,7 @@ describe('顧客・設定のフック', () => {
         "from("customers") .select("id, user_id") .eq("email", "a@example.com") .maybeSingle()",
         "from("customers") .select("id") .or("user_id.eq.u1,email.eq.a@example.com") .maybeSingle()",
         "from("customers") .select("id") .eq("email", "a@example.com") .maybeSingle()",
-        "from("customers") .select("id") .eq("user_id", "u1") .maybeSingle()",
+        "from("customers") .select("id") .eq("user_id", "u1") .order("organization_id", {"nullsFirst":true}) .order("created_at") .order("id") .limit(1) .maybeSingle()",
         "from("scenario_likes") .select("scenario_id, scenario_master_id") .eq("customer_id", "c1")",
         "from("user_notifications") .select("id, type, title, message, created_at, is_read, link, metadata") .order("created_at", {"ascending":false}) .limit(20)",
         "from("reservations") .select("id, reservation_number, title, created_at, requested_datetime") .eq("customer_id", "c1") .gte("created_at", "2026-10-01T00:00:00.000Z") .in("status", ["confirmed","gm_confirmed"]) .order("created_at", {"ascending":false}) .limit(5)",

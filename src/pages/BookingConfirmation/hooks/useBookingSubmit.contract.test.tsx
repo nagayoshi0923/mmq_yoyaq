@@ -6,7 +6,7 @@ import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 const state=vi.hoisted(()=>({writes:[] as any[],fail:false,sends:0,emailFalse:false,omitFinal:false}))
 vi.mock('@/lib/supabase',()=>({supabase:{from:(table:string)=>{
  const result=()=>({data:table==='schedule_events_public'?{organization_id:'org',max_participants:8,current_participants:0}:table==='organization_scenarios_with_master'?{participation_fee:4500}: {id:'customer',phone:'09012345678'},error:null})
- const chain:any={select:()=>chain,eq:()=>chain,update:()=>chain,single:async()=>result(),maybeSingle:async()=>result(),then:(r:any)=>Promise.resolve(result()).then(r)};return chain
+ const chain:any={select:()=>chain,order:()=>chain,eq:()=>chain,update:()=>chain,single:async()=>result(),maybeSingle:async()=>result(),then:(r:any)=>Promise.resolve(table==='customers'?{data:[result().data],error:null}:result()).then(r)};return chain
 },rpc:async(name:string)=>({data:name==='get_performance_booking_window'?[{effective_booking_deadline:'2099-01-01T00:00:00Z'}]:[],error:null}),functions:{invoke:async()=>{state.sends++;return {data:{success:!state.emailFalse},error:null}}}}}))
 vi.mock('@/lib/reservationApi',()=>({reservationApi:{create:async(p:any)=>{state.writes.push(p);await Promise.resolve();if(state.fail)throw Error('offline');return {id:'reservation',reservation_number:p.reservation_number,final_price:state.omitFinal?undefined:8000}}}}))
 vi.mock('@/lib/analytics',()=>({trackReservationComplete:vi.fn()}))
