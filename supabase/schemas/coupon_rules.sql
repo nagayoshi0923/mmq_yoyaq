@@ -306,10 +306,13 @@ BEGIN
  SELECT * INTO u FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon FOR UPDATE;
  IF u.id IS NULL THEN RETURN jsonb_build_object('success',true,'restored',false); END IF;
  SELECT * INTO bill FROM public.reservations WHERE id=u.reservation_id;
+ IF bill.id IS NULL OR bill.discount_amount IS NULL OR bill.final_price IS NULL OR bill.total_price IS NULL THEN
+  RAISE EXCEPTION '旧請求額が欠落しています。確認後に再実行してください' USING ERRCODE='P0061';
+ END IF;
  SELECT applied_amount INTO applied FROM public.coupon_usage_billing_applied WHERE usage_id=u.id;
  IF applied IS NULL THEN
   -- 旧useは使用履歴だけ保存した。未控除と確定できる場合は請求を戻さない。
-  IF coalesce(bill.discount_amount,0)=0 AND coalesce(bill.final_price,bill.total_price,0)>=coalesce(bill.total_price,0) THEN applied:=0;
+  IF bill.discount_amount=0 AND bill.final_price>=bill.total_price THEN applied:=0;
   ELSE RAISE EXCEPTION 'この旧利用は請求反映の確認が必要です。請求額・利用回数は変更していません' USING ERRCODE='P0061'; END IF;
  END IF;
  IF applied>coalesce(bill.discount_amount,0) OR applied>greatest(coalesce(bill.total_price,0)-coalesce(bill.final_price,bill.total_price,0),0) THEN

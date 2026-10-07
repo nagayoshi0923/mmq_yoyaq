@@ -325,6 +325,14 @@ await rejects('SELECT restore_coupon_usage($1,$2,$3)',[org,id(510),ambiguousUsag
 assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,8000);checks++
 assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages WHERE id=$1',[ambiguousUsage]))[0].n,1);checks++
 assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[id(510)]))[0].uses_remaining,1);checks++
+for(const field of ['discount_amount','final_price','total_price']){
+ await q('UPDATE reservations SET discount_amount=0,final_price=9000,total_price=9000 WHERE id=$1',[reservation])
+ await q(`UPDATE reservations SET ${field}=NULL WHERE id=$1`,[reservation])
+ await rejects('SELECT restore_coupon_usage($1,$2,$3)',[org,id(510),ambiguousUsage],'P0061')
+ assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages WHERE id=$1',[ambiguousUsage]))[0].n,1);checks++
+ assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[id(510)]))[0].uses_remaining,1);checks++
+}
+
 for(const role of ['anon','authenticated','service_role']) {assert.equal((await q("SELECT has_table_privilege($1,'coupon_usage_billing_applied','SELECT') AS allowed",[role]))[0].allowed,false);checks++}
 // 評価はメール一致でなく認証UIDで本人照合し、全本人CIDの同作品のみ解除。
 await q('INSERT INTO customers VALUES($1,$2,NULL),($3,$4,NULL)',[id(23),user,id(24),id(15)])

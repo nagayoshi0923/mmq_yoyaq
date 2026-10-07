@@ -1271,3 +1271,5 @@ PR967最新追加レビューを判定。4207396828は確定貸切メンバーDE
 2026-10-08追加独立指摘：通常use_customer_couponは最新請求更新を維持し同一usage再試行は更新0。staff restoreは通常/貸切の請求とmember割引・回数を同じTXで復元し再試行false。主催者削除/本人退出はG→identity→CID→coupon→memberの順で確定と揃えた。実PG staff restore/leave/removeと4対並行確定/削除、同一UID別CID coupon競合PASS。評価は旧メール依存RLSの読取隠蔽/直接DELETE0を再現し、本人UID照合のcustomer_rating_actionに変更、他人42501拒否/本人read更新解除PASS、全ROLLBACK。RLS変更なし、認証ユーザー限定EXECUTE。既存prepare03に追加、全SQL123チェック・単体1759/250files・verify成功。先行970から外した顧客identity/profile変更はこの後続群に保持。共有適用/本番追加0、最新CIと独立全レビューを確認後だけ段階反映。
 
 追加4209569683：旧useの履歴だけ存在する利用を取消した際の請求過加算を防止。新通常/貸切/予約時使用は私有coupon_usage_billing_appliedへ実反映額を同TX記録し、復元はその額だけ。旧履歴で請求未控除（discount0/final>=total）と確定できる場合は請求更新0で回数/履歴を復元。反映不明/他割引あり/台帳不整合はP0061で全変更を拒否し要確認を明示、旧データを推測で一括補正しない。この既存usageの手動請求確認は未実施。私有台帳はRLS有効/全end-user/service直接権限0。隔離実PGの未控除復元/曖昧拒否/新staff貸切復元と132実SQL合格、全ROLLBACK。共有DB未適用。
+
+追加4209768024：旧請求discount/final/totalのNULLと予約欠落は補完せずP0061で保留。3NULL各ケースのusage/回数不変を141実SQL・実PG全ROLLBACKで検証。最新CI/独立レビュー待ち、共有DB未適用。
