@@ -26,7 +26,7 @@ BEGIN
  after_count:=CASE WHEN NEW.status IN ('pending','confirmed','gm_confirmed','checked_in') THEN NEW.participant_count ELSE 0 END;
  IF before_count<=after_count OR NEW.schedule_event_id IS NULL OR NEW.schedule_event_id IS DISTINCT FROM OLD.schedule_event_id THEN RETURN NEW; END IF;
  SELECT * INTO e FROM public.schedule_events WHERE id=NEW.schedule_event_id AND organization_id=NEW.organization_id;
- IF e.id IS NULL OR coalesce(e.is_cancelled,false) OR e.date<CURRENT_DATE THEN RETURN NEW; END IF;
+ IF e.id IS NULL OR coalesce(e.is_cancelled,false) OR ((e.date+coalesce(e.end_time,e.start_time)+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END) AT TIME ZONE 'Asia/Tokyo')<=now() THEN RETURN NEW; END IF;
  SELECT * INTO s FROM public.stores WHERE id=e.store_id AND organization_id=e.organization_id;
  INSERT INTO public.waitlist_notice_events(organization_id,schedule_event_id,reservation_id,actor_user_id,freed_seats,metadata)
  VALUES(e.organization_id,e.id,NEW.id,auth.uid(),before_count-after_count,jsonb_build_object(
@@ -49,7 +49,7 @@ BEGIN
  AND NOT EXISTS(SELECT 1 FROM public.staff WHERE user_id=p_actor AND organization_id=e.organization_id AND status='active') THEN
   RAISE EXCEPTION '保存済みの空席発生操作が必要です' USING ERRCODE='42501';
  END IF;
- IF coalesce(e.is_cancelled,false) OR e.date<CURRENT_DATE THEN
+ IF coalesce(e.is_cancelled,false) OR ((e.date+coalesce(e.end_time,e.start_time)+CASE WHEN e.end_time<e.start_time THEN interval '1 day' ELSE interval '0 days' END) AT TIME ZONE 'Asia/Tokyo')<=now() THEN
   UPDATE public.waitlist_notice_events SET completed_at=now() WHERE schedule_event_id=e.id AND completed_at IS NULL;
   RETURN NULL;
  END IF;

@@ -127,7 +127,7 @@ export function usePrivateBookingSlotData({
           setEventsLoaded(true)
         }
       } catch (err) {
-        setEventsFailed(true)
+        if (!cancelled) setEventsFailed(true)
         logger.error('Failed to load events', err)
         if (!cancelled) {
           setAllStoreEvents([])
@@ -154,7 +154,7 @@ export function usePrivateBookingSlotData({
           setBusinessHoursLoaded(true)
         }
       } catch (err) {
-        setHoursFailed(true)
+        if (!cancelled) setHoursFailed(true)
         logger.error('Failed to load business hours', err)
         if (!cancelled) {
           setBusinessHoursByStore(new Map())

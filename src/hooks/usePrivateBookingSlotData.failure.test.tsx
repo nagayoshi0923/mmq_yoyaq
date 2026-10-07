@@ -10,7 +10,7 @@ vi.mock('@/utils/logger',()=>({logger:{error:vi.fn()}}))
 import {usePrivateBookingSlotData} from './usePrivateBookingSlotData'
 let root:Root,result:ReturnType<typeof usePrivateBookingSlotData>
 const stores=['store'];const holiday=()=>false
-function Fixture({scenario='one'}:{scenario?:string}){result=usePrivateBookingSlotData({organizationId:'org',scenarioId:scenario,storeIds:stores,isActive:true,isCustomHoliday:holiday});return null}
+function Fixture({scenario='one',selectedStores=stores}:{scenario?:string,selectedStores?:string[]}){result=usePrivateBookingSlotData({organizationId:'org',scenarioId:scenario,storeIds:selectedStores,isActive:true,isCustomHoliday:holiday});return null}
 afterEach(async()=>{await act(async()=>root?.unmount())})
 it('時間RPC失敗は読み込み完了でも再検証可とせず、成功した再取得で回復する',async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
@@ -22,4 +22,18 @@ it('時間RPC失敗は読み込み完了でも再検証可とせず、成功し�
  expect(result.loading).toBe(false);expect(result.canRevalidate).toBe(false);expect(result.computeSlotsByDate(['2030-01-01'])).toEqual({})
  m.timing.mockResolvedValue({duration:180,title:'架空作品'});await act(async()=>root.render(<Fixture scenario="three"/>))
  expect(result.canRevalidate).toBe(true)
+})
+
+it('店舗切替後に破棄済み取得が失敗しても成功した現店舗の申込を止めない',async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
+ let rejectEvents:(error:Error)=>void=()=>{},rejectHours:(error:Error)=>void=()=>{}
+ m.events.mockReturnValueOnce(new Promise((_resolve,reject)=>{rejectEvents=reject})).mockResolvedValue({data:[],error:null})
+ m.hours.mockReturnValueOnce(new Promise((_resolve,reject)=>{rejectHours=reject})).mockResolvedValue({data:[],error:null})
+ m.blocked.mockResolvedValue({data:[],error:null});m.timing.mockResolvedValue({duration:180,title:'架空作品'})
+ const before=['before'],after=['after'];root=createRoot(document.createElement('div'))
+ await act(async()=>root.render(<Fixture selectedStores={before}/>))
+ await act(async()=>root.render(<Fixture selectedStores={after}/>))
+ expect(result.canRevalidate).toBe(true)
+ await act(async()=>{rejectEvents(Error('old events failed'));rejectHours(Error('old hours failed'));await Promise.resolve()})
+ expect(result.canRevalidate).toBe(true);expect(result.loading).toBe(false)
 })

@@ -84,5 +84,12 @@ await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon])
 for(let i=0;i<3;i++)await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon]);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,1);checks++
 for(let i=0;i<2;i++)await q('SELECT remove_coupon_from_group_member($1)',[member]);assert.equal((await q('SELECT uses_remaining FROM customer_coupons'))[0].uses_remaining,1);checks++
 await q('SELECT apply_coupon_to_group_member($1,$2)',[member,coupon]);await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,1);checks++
+// JST終了直後の公演: 既存intentを配送しない、以降の減員で新規intentも作らない。
+await q('UPDATE schedule_events SET date=(now() AT TIME ZONE \'Asia/Tokyo\')::date,start_time=((now() AT TIME ZONE \'Asia/Tokyo\')-interval \'2 hours\')::time,end_time=((now() AT TIME ZONE \'Asia/Tokyo\')-interval \'1 hour\')::time WHERE id=$1',[event])
+await q('UPDATE waitlist SET status=\'waiting\' WHERE id=$1',[wait]);await q('UPDATE waitlist_notice_events SET completed_at=NULL')
+assert.equal((await q('SELECT claim_waitlist_notice($1,NULL,true,$2) AS result',[event,id(207)]))[0].result,null);checks++
+const beforeEnded=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n
+await q('UPDATE reservations SET participant_count=1 WHERE id=$1',[reservation])
+assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n,beforeEnded);checks++
 await q('DELETE FROM waitlist WHERE id=$1',[wait]);assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notice_deliveries'))[0].n,0);checks++
 console.log('CUSTOMER_REVIEW_CLOSURE_DB_PASS',checks,'実SQLチェック');await db.close()
