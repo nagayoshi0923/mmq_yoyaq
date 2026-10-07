@@ -271,6 +271,7 @@ BEGIN
     RETURNING id INTO v_coupon_usage_id;
 
     UPDATE reservations SET coupon_usage_id = v_coupon_usage_id WHERE id = v_reservation_id;
+    INSERT INTO public.coupon_usage_billing_applied(usage_id,applied_amount) VALUES(v_coupon_usage_id,v_discount_amount);
 
   END IF;
 

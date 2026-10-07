@@ -308,6 +308,24 @@ const beforeEnded=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_e
 await q('UPDATE reservations SET status=\'confirmed\',participant_count=2 WHERE id=$1',[reservation]);await q('UPDATE reservations SET participant_count=1 WHERE id=$1',[reservation])
 assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n,beforeEnded);checks++
 await q('DELETE FROM waitlist WHERE id=$1',[wait]);assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notice_deliveries'))[0].n,0);checks++
+// 旧利用は請求未反映なら過加算しない。不明な他割引がある場合は原子拒否。
+await q('DELETE FROM coupon_usages WHERE reservation_id=$1',[reservation])
+await q("UPDATE reservations SET total_price=9000,discount_amount=0,final_price=9000,status='confirmed' WHERE id=$1",[reservation])
+await q("UPDATE schedule_events SET date=current_date+14 WHERE id=$1",[event])
+await q("INSERT INTO customer_coupons SELECT $1,campaign_id,customer_id,organization_id,'active',2,now()+interval '1 year','{\"discount_type\":\"fixed\",\"discount_amount\":1000,\"combinable\":true}'::jsonb,now() FROM customer_coupons WHERE id=$2",[id(510),coupon])
+const legacyUsage=(await q("SELECT use_customer_coupon($1,$2,$3) AS data",[user,id(510),reservation]))[0].data.usage_id
+await q('DELETE FROM coupon_usage_billing_applied WHERE usage_id=$1',[legacyUsage])
+await q('UPDATE reservations SET discount_amount=0,final_price=9000 WHERE id=$1',[reservation])
+await q('SELECT restore_coupon_usage($1,$2,$3)',[org,id(510),legacyUsage])
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,9000);checks++
+assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[id(510)]))[0].uses_remaining,2);checks++
+const ambiguousUsage=(await q("SELECT use_customer_coupon($1,$2,$3) AS data",[user,id(510),reservation]))[0].data.usage_id
+await q('DELETE FROM coupon_usage_billing_applied WHERE usage_id=$1',[ambiguousUsage])
+await rejects('SELECT restore_coupon_usage($1,$2,$3)',[org,id(510),ambiguousUsage],'P0061')
+assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,8000);checks++
+assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages WHERE id=$1',[ambiguousUsage]))[0].n,1);checks++
+assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[id(510)]))[0].uses_remaining,1);checks++
+for(const role of ['anon','authenticated','service_role']) {assert.equal((await q("SELECT has_table_privilege($1,'coupon_usage_billing_applied','SELECT') AS allowed",[role]))[0].allowed,false);checks++}
 // 評価はメール一致でなく認証UIDで本人照合し、全本人CIDの同作品のみ解除。
 await q('INSERT INTO customers VALUES($1,$2,NULL),($3,$4,NULL)',[id(23),user,id(24),id(15)])
 await db.exec('CREATE TABLE scenario_ratings(customer_id uuid,scenario_master_id uuid,rating integer,updated_at timestamptz DEFAULT now(),UNIQUE(customer_id,scenario_master_id))')

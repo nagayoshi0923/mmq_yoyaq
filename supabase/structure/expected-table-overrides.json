@@ -1594,5 +1594,47 @@
     "type": "f"
    }
   ]
+ },
+ "coupon_usage_billing_applied": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "usage_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "applied_amount",
+    "type": "integer",
+    "default": null,
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX coupon_usage_billing_applied_pkey ON public.coupon_usage_billing_applied USING btree (usage_id)",
+    "name": "coupon_usage_billing_applied_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((applied_amount >= 0))",
+    "name": "coupon_usage_billing_applied_applied_amount_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (usage_id)",
+    "name": "coupon_usage_billing_applied_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (usage_id) REFERENCES coupon_usages(id) ON DELETE CASCADE",
+    "name": "coupon_usage_billing_applied_usage_id_fkey",
+    "type": "f"
+   }
+  ]
  }
 }

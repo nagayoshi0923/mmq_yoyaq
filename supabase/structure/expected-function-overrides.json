@@ -70,7 +70,7 @@
       "service_role=X/postgres"
     ],
     "returns": "uuid",
-    "body_md5": "a2d904ee5acf2bc68fda47c97b9f329a",
+    "body_md5": "751c9a251446b2ed1533e141a13cca66",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -134,7 +134,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "1fa235731f4ea5e468b929b0640f28c3",
+    "body_md5": "35c4ea4b7d047512293c16022df906ef",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -244,24 +244,24 @@
     "security_definer": true
   },
   "use_customer_coupon(p_user uuid, p_coupon uuid, p_reservation uuid)": {
-    "returns": "jsonb",
-    "body_md5": "53451af604503c24cfff7c5721a5fc8c",
-    "language": "plpgsql",
-    "security_definer": true,
     "acl": [
       "postgres=X/postgres",
       "service_role=X/postgres"
-    ]
+    ],
+    "returns": "jsonb",
+    "body_md5": "594779c55d762b7ea016d2dd573c032d",
+    "language": "plpgsql",
+    "security_definer": true
   },
   "restore_coupon_usage(p_organization uuid, p_coupon uuid, p_usage uuid)": {
-    "returns": "jsonb",
-    "body_md5": "f35b9d5ac3508604a1c7e9866c550b3b",
-    "language": "plpgsql",
-    "security_definer": true,
     "acl": [
       "postgres=X/postgres",
       "service_role=X/postgres"
-    ]
+    ],
+    "returns": "jsonb",
+    "body_md5": "290778d72363dd945786e826ac2e0bc3",
+    "language": "plpgsql",
+    "security_definer": true
   },
   "private_group_leave(p_group_id uuid)": {
     "returns": "void",

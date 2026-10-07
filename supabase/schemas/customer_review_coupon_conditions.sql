@@ -1,3 +1,11 @@
+-- 請求へ実反映した使用だけを記録する私有台帳。旧履歴を推測で補正しない。
+CREATE TABLE public.coupon_usage_billing_applied (
+ usage_id uuid PRIMARY KEY REFERENCES public.coupon_usages(id) ON DELETE CASCADE,
+ applied_amount integer NOT NULL CHECK(applied_amount>=0)
+);
+ALTER TABLE public.coupon_usage_billing_applied ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.coupon_usage_billing_applied FROM PUBLIC,anon,authenticated,service_role;
+
 -- 使用履歴は既存coupon_usagesへ記録し、既存の原子的回数消費トリガーを利用。
 CREATE TABLE public.private_group_coupon_uses (
  member_id uuid PRIMARY KEY REFERENCES public.private_group_members(id) ON DELETE CASCADE,
@@ -227,6 +235,7 @@ BEGIN
  INSERT INTO public.private_group_coupon_uses(member_id,usage_id,validated_event_id,validated_amount) VALUES(m.id,usage,r.schedule_event_id,amount);
  UPDATE public.reservations SET discount_amount=coalesce(discount_amount,0)+discount,
  final_price=coalesce(final_price,total_price,0)-discount WHERE id=r.id;
+ INSERT INTO public.coupon_usage_billing_applied(usage_id,applied_amount) VALUES(usage,discount);
  RETURN jsonb_build_object('success',true,'pending',false,'discount',discount,'final_amount',amount-discount);
 END $$;
 REVOKE ALL ON FUNCTION public.validate_group_coupon(uuid,uuid) FROM PUBLIC,anon,authenticated;
@@ -337,6 +346,7 @@ BEGIN
   UPDATE public.reservations SET discount_amount=COALESCE(discount_amount,0)+amount,
    final_price=GREATEST(COALESCE(final_price,total_price,0)-amount,0),updated_at=now() WHERE id=p_reservation;
  END IF;
+ INSERT INTO public.coupon_usage_billing_applied(usage_id,applied_amount) VALUES(uid,coalesce(amount,0));
  RETURN jsonb_build_object('success',true,'usage_id',uid,'discount_amount',amount);
 END;
 $$;
@@ -345,7 +355,7 @@ GRANT EXECUTE ON FUNCTION public.use_customer_coupon(uuid,uuid,uuid) TO service_
 
 CREATE OR REPLACE FUNCTION public.restore_coupon_usage(p_organization uuid,p_coupon uuid,p_usage uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
-DECLARE cc public.customer_coupons; u public.coupon_usages; member uuid; target_group uuid;
+DECLARE cc public.customer_coupons; u public.coupon_usages; member uuid; target_group uuid; bill public.reservations; applied integer;
 BEGIN
  SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon AND organization_id=p_organization;
  IF cc.id IS NULL THEN RAISE EXCEPTION 'クーポンが見つかりません' USING ERRCODE='P0028'; END IF;
@@ -360,8 +370,20 @@ BEGIN
  PERFORM 1 FROM public.reservations WHERE id=(SELECT reservation_id FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon) FOR UPDATE;
  SELECT * INTO u FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon FOR UPDATE;
  IF u.id IS NULL THEN RETURN jsonb_build_object('success',true,'restored',false); END IF;
- UPDATE public.reservations SET discount_amount=greatest(coalesce(discount_amount,0)-u.discount_amount,0),
-  final_price=coalesce(final_price,total_price,0)+u.discount_amount,updated_at=now() WHERE id=u.reservation_id;
+ SELECT * INTO bill FROM public.reservations WHERE id=u.reservation_id;
+ SELECT applied_amount INTO applied FROM public.coupon_usage_billing_applied WHERE usage_id=u.id;
+ IF applied IS NULL THEN
+  -- 旧useは使用履歴だけ保存した。未控除と確定できる場合は請求を戻さない。
+  IF coalesce(bill.discount_amount,0)=0 AND coalesce(bill.final_price,bill.total_price,0)>=coalesce(bill.total_price,0) THEN applied:=0;
+  ELSE RAISE EXCEPTION 'この旧利用は請求反映の確認が必要です。請求額・利用回数は変更していません' USING ERRCODE='P0061'; END IF;
+ END IF;
+ IF applied>coalesce(bill.discount_amount,0) OR applied>greatest(coalesce(bill.total_price,0)-coalesce(bill.final_price,bill.total_price,0),0) THEN
+  RAISE EXCEPTION '請求と利用履歴が一致しません。確認後に再実行してください' USING ERRCODE='P0061';
+ END IF;
+ IF applied>0 THEN
+  UPDATE public.reservations SET discount_amount=discount_amount-applied,
+   final_price=coalesce(final_price,total_price,0)+applied,updated_at=now() WHERE id=u.reservation_id;
+ END IF;
  DELETE FROM public.coupon_usages WHERE id=u.id;
  UPDATE public.customer_coupons SET uses_remaining=uses_remaining+1,status=CASE WHEN status='fully_used' THEN 'active' ELSE status END WHERE id=p_coupon;
  IF member IS NOT NULL THEN

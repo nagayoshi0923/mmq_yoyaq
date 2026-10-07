@@ -246,6 +246,7 @@ BEGIN
   UPDATE public.reservations SET discount_amount=COALESCE(discount_amount,0)+amount,
    final_price=GREATEST(COALESCE(final_price,total_price,0)-amount,0),updated_at=now() WHERE id=p_reservation;
  END IF;
+ INSERT INTO public.coupon_usage_billing_applied(usage_id,applied_amount) VALUES(uid,coalesce(amount,0));
  RETURN jsonb_build_object('success',true,'usage_id',uid,'discount_amount',amount);
 END;
 $$;
@@ -289,7 +290,7 @@ GRANT EXECUTE ON FUNCTION public.preview_customer_coupon(uuid,uuid,uuid) TO serv
 
 CREATE OR REPLACE FUNCTION public.restore_coupon_usage(p_organization uuid,p_coupon uuid,p_usage uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
-DECLARE cc public.customer_coupons; u public.coupon_usages; member uuid; target_group uuid;
+DECLARE cc public.customer_coupons; u public.coupon_usages; member uuid; target_group uuid; bill public.reservations; applied integer;
 BEGIN
  SELECT * INTO cc FROM public.customer_coupons WHERE id=p_coupon AND organization_id=p_organization;
  IF cc.id IS NULL THEN RAISE EXCEPTION 'クーポンが見つかりません' USING ERRCODE='P0028'; END IF;
@@ -304,8 +305,20 @@ BEGIN
  PERFORM 1 FROM public.reservations WHERE id=(SELECT reservation_id FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon) FOR UPDATE;
  SELECT * INTO u FROM public.coupon_usages WHERE id=p_usage AND customer_coupon_id=p_coupon FOR UPDATE;
  IF u.id IS NULL THEN RETURN jsonb_build_object('success',true,'restored',false); END IF;
- UPDATE public.reservations SET discount_amount=greatest(coalesce(discount_amount,0)-u.discount_amount,0),
-  final_price=coalesce(final_price,total_price,0)+u.discount_amount,updated_at=now() WHERE id=u.reservation_id;
+ SELECT * INTO bill FROM public.reservations WHERE id=u.reservation_id;
+ SELECT applied_amount INTO applied FROM public.coupon_usage_billing_applied WHERE usage_id=u.id;
+ IF applied IS NULL THEN
+  -- 旧useは使用履歴だけ保存した。未控除と確定できる場合は請求を戻さない。
+  IF coalesce(bill.discount_amount,0)=0 AND coalesce(bill.final_price,bill.total_price,0)>=coalesce(bill.total_price,0) THEN applied:=0;
+  ELSE RAISE EXCEPTION 'この旧利用は請求反映の確認が必要です。請求額・利用回数は変更していません' USING ERRCODE='P0061'; END IF;
+ END IF;
+ IF applied>coalesce(bill.discount_amount,0) OR applied>greatest(coalesce(bill.total_price,0)-coalesce(bill.final_price,bill.total_price,0),0) THEN
+  RAISE EXCEPTION '請求と利用履歴が一致しません。確認後に再実行してください' USING ERRCODE='P0061';
+ END IF;
+ IF applied>0 THEN
+  UPDATE public.reservations SET discount_amount=discount_amount-applied,
+   final_price=coalesce(final_price,total_price,0)+applied,updated_at=now() WHERE id=u.reservation_id;
+ END IF;
  DELETE FROM public.coupon_usages WHERE id=u.id;
  UPDATE public.customer_coupons SET uses_remaining=uses_remaining+1,status=CASE WHEN status='fully_used' THEN 'active' ELSE status END WHERE id=p_coupon;
  IF member IS NOT NULL THEN
