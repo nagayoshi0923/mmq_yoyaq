@@ -1,7 +1,7 @@
+import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
+import { registerPlayedScenario } from '@/lib/registerPlayedScenario'
 import { publicBookingReadApi } from '@/lib/api/publicBookingReadApi'
 import { storeHasRecruitmentPause, type StoreRecruitmentPausePeriod } from '@/lib/storeRecruitmentPause'
-import { fetchPlayedReservations } from '@/lib/playedStatus'
-import { customerPlayHistory } from '@/lib/customerPlayHistory'
 /**
  * シナリオ共通詳細ページ
  * @path /scenario/:scenarioSlug
@@ -10,7 +10,7 @@ import { customerPlayHistory } from '@/lib/customerPlayHistory'
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,8 +33,6 @@ import { Footer } from '@/components/layout/Footer'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
-import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
-import { addPlayedOverride, removePlayedOverride } from '@/lib/playedOverrides'
 import { getAvailableSeats } from '@/lib/participantUtils'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { JsonLd } from '@/components/seo/JsonLd'
@@ -253,31 +251,15 @@ async function fetchScenarioDetail(scenarioSlug: string): Promise<ScenarioDetail
   }
 }
 
-async function findCustomerIdByEmail(email: string): Promise<string | null> {
-  const { data: customer } = await scenarioDetailGlobalReadApi.findCustomerIdByEmail(email)
-  return customer?.id ?? null
-}
-
-async function checkIsPlayed(customerId: string, scenarioId: string): Promise<boolean> {
-  const history = await customerPlayHistory.snapshot(customerId)
-  const override = history.overrides.some(row => row.scenario_master_id === scenarioId)
-  if (override) return false
-  if (history.manual.some(row => row.scenario_master_id === scenarioId)) return true
-  const reservations = await fetchPlayedReservations(customerId, scenarioId)
-  if (reservations.length) return true
-  return false
-}
-
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false)
   const [isEventsExpanded, setIsEventsExpanded] = useState(false)
   const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
   const [playedDate, setPlayedDate] = useState('')
-  const [playedOverride, setPlayedOverride] = useState(false)
+  const { customerId: playedCustomerId, customerIds, isPlayed: hasPlayed, markAsPlayed, unmarkAsPlayed } = usePlayedScenarios()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['scenario-detail-global', scenarioSlug],
@@ -296,36 +278,17 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     image: data?.scenario?.key_visual_url,
   })
 
-  const { data: playedCustomerId } = useQuery({
-    queryKey: ['scenario-played-customer-id', user?.email],
-    enabled: !!user?.email,
-    queryFn: () => findCustomerIdByEmail(user!.email!),
-  })
-
-  const { data: isPlayedFromServer } = useQuery({
-    queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id],
-    enabled: !!playedCustomerId && !!data?.scenario?.id,
-    queryFn: () => checkIsPlayed(playedCustomerId!, data!.scenario.id),
-  })
-
-  const isPlayed = playedOverride || isPlayedFromServer || false
+  const isPlayed = data?.scenario ? hasPlayed(data.scenario.id) : false
 
   const submitPlayedMutation = useMutation({
     mutationFn: async () => {
       if (!playedCustomerId || !data?.scenario) throw new Error('顧客情報が見つかりません')
-      const restoredExistingPlayed = await removePlayedOverride(playedCustomerId, data.scenario.id)
-      if (!restoredExistingPlayed) {
-        const manualCount = await countManualPlayHistoryForCustomer(playedCustomerId)
-        if (isManualPlayHistoryAtCap(manualCount)) throw new Error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
-        await customerPlayHistory.add(playedCustomerId, { scenario_title: data.scenario.title, scenario_master_id: data.scenario.id, played_at: playedDate || null, venue: null,
-        })
-      }
+      const registered = await registerPlayedScenario(customerIds, data.scenario.id, data.scenario.title, playedDate || null)
+      if (!registered) throw new Error(`手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`)
     },
     onSuccess: () => {
-      setPlayedOverride(true)
+      markAsPlayed(data!.scenario.id)
       setIsPlayedDialogOpen(false)
-      queryClient.setQueryData(['scenario-is-played', playedCustomerId, data?.scenario?.id], true)
-      queryClient.invalidateQueries({ queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id], refetchType: 'all' })
       showToast.success('体験済みに登録しました')
     },
     onError: (error) => {
@@ -337,12 +300,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const unmarkPlayedMutation = useMutation({
     mutationFn: async () => {
       if (!playedCustomerId || !data?.scenario) throw new Error('顧客情報が見つかりません')
-      await addPlayedOverride(playedCustomerId, data.scenario.id)
+      await unmarkAsPlayed(data.scenario.id)
     },
     onSuccess: () => {
-      setPlayedOverride(false)
-      queryClient.setQueryData(['scenario-is-played', playedCustomerId, data?.scenario?.id], false)
-      queryClient.invalidateQueries({ queryKey: ['scenario-is-played', playedCustomerId, data?.scenario?.id], refetchType: 'all' })
+
       showToast.success('未体験に戻しました')
     },
     onError: (error: unknown) => {
@@ -352,7 +313,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   })
 
   useEffect(() => {
-    setPlayedOverride(false)
+
   }, [user?.email, data?.scenario?.id])
 
   // URLがUUIDでslugが存在する場合にリダイレクト

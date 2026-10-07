@@ -1,4 +1,4 @@
-import { customerPlayHistory } from '@/lib/customerPlayHistory'
+import { updateOwnManualDate } from '@/lib/ownPlayHistory'
 // マイページ本体（プロフィール/アルバム/タブ・renderAlbumCard 含む）
 // MyPage/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
 import React, { Suspense } from 'react'
@@ -53,6 +53,7 @@ interface MyPageContentProps {
   loading: boolean
   optionsLoading: boolean
   customerId: string | null
+  customerIds?: string[]
   stats: MyPageData['stats']
   stores: MyPageData['stores']
   orgNames: MyPageData['orgNames']
@@ -112,7 +113,7 @@ interface MyPageContentProps {
 
 export function MyPageContent({
   activeTab, reservationsSubTab, setActiveTab, setReservationsSubTab, navigate, displayName, avatarUrl, fileInputRef,
-  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, stats, stores, orgNames, scenarioImages,
+  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stats, stores, orgNames, scenarioImages,
   scenarioInfo, scheduleEvents, reservations, privateGroups, scenarioOptions, storeOptions, playedScenarios, setPlayedScenarios,
   albumComparator, playedScenarioAlbumKey, albumSortOrder, setAlbumSortOrder, showHiddenItems, setShowHiddenItems,
   hiddenPlays, setHiddenPlays, deletedPlays, setDeletedPlays, dateOverrides, setDateOverrides,
@@ -278,7 +279,7 @@ export function MyPageContent({
       return
     }
     try {
-      const updated = await customerPlayHistory.updateDate(customerId, manualId, newDate)
+      const updated = await updateOwnManualDate(customerIds ?? [customerId], manualId, newDate)
       if (!updated) {
         logger.error('手動履歴日付更新: 0件（RLSまたはID不一致）', { manualId, customerId })
         showToast.error('更新できませんでした。ページを再読み込みしてから再度お試しください。')

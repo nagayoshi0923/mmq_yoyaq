@@ -1,3 +1,5 @@
+import { customerLookupReadApi } from '@/lib/api/customerHookReadApi'
+import { snapshotAllCustomers, findManualHistoryOwner } from '@/lib/ownPlayHistory'
 import { fetchBatchedIds } from '@/lib/fetchBatchedIds'
 import { fetchPlayedReservations } from '@/lib/playedStatus'
 import { readPrivateGroupList } from '@/lib/privateGroupRead'
@@ -54,6 +56,7 @@ export interface MyPageData {
   reservations: Reservation[]
   customerInfo: { name?: string; nickname?: string } | null
   customerId: string | null
+  customerIds?: string[]
   avatarUrl: string | null
   stats: { participationCount: number; points: number }
   scheduleEvents: Record<string, { date: string; start_time: string; category?: string; current_participants?: number; max_participants?: number }>
@@ -111,9 +114,12 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       if (!customer) return { reservations: [], customerInfo: null, customerId: null, avatarUrl: null, stats: { participationCount: 0, points: 0 }, scheduleEvents: {}, orgSlugs: {}, orgNames: {}, scenarioImages: {}, scenarioSlugs: {}, scenarioInfo: {}, stores: {}, playedScenarios: [], playedOverrideIds: new Set(), privateGroups: [], ratingsMap: {} }
 
-      const historySnapshot = customerPlayHistory.snapshot(customer.id)
+      const { data: identities, error: identityError } = userId ? await customerLookupReadApi.listIdsByUserId(userId) : { data: [], error: null }
+      if (identityError) throw identityError
+      const customerIds = [...new Set([customer.id, ...(identities ?? []).map(row => row.id)])]
+      const historySnapshot = snapshotAllCustomers(customerIds)
       const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
-        myPageDataReadApi.listRecentReservations(customer.id),
+        Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a, b) => (b.requested_datetime ?? '').localeCompare(a.requested_datetime ?? '')), error: results.find(result => result.error)?.error ?? null })),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
             const member = group.members?.find(m => m.user_id === userId && m.status === 'joined')
@@ -124,7 +130,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         historySnapshot.then(history => ({ data: history.manual, error: null })),
         myPageDataReadApi.listRatings(customer.id),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
-        fetchPlayedReservations(customer.id),
+        Promise.all(customerIds.map(id => fetchPlayedReservations(id))).then(results => results.flat()),
       ])
 
       if (reservationResult.error) throw reservationResult.error
@@ -136,6 +142,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       )
       if (overridesResult.error) logger.warn('体験済みオーバーライド取得エラー:', overridesResult.error)
 
+      if (ratingsResult.error) throw ratingsResult.error
       const localRatingsMap: Record<string, number> = {}
       ratingsResult.data?.forEach((r) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
 
@@ -295,6 +302,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         reservations: reservationData,
         customerInfo: { name: customer.name, nickname: customer.nickname },
         customerId: customer.id,
+        customerIds,
         avatarUrl: customer.avatar_url || null,
         stats,
         scheduleEvents,
@@ -360,7 +368,11 @@ export function useDeleteManualHistoryMutation(customerId: string | null, userId
   return useMutation({
     mutationFn: async (manualId: string) => {
       if (!customerId) throw new Error('顧客情報が取得できません。再ログインしてお試しください。')
-      const removed = await customerPlayHistory.remove(customerId, manualId)
+      const { data: identities, error: identityError } = userId ? await customerLookupReadApi.listIdsByUserId(userId) : { data: [], error: null }
+      if (identityError) throw identityError
+      const owner = await findManualHistoryOwner([customerId, ...(identities ?? []).map(row => row.id)], manualId)
+      if (!owner) throw new Error('履歴が見つかりません。ページを再読み込みしてください。')
+      const removed = await customerPlayHistory.remove(owner, manualId)
       if (!removed) throw new Error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
     },
     onSuccess: () => {
