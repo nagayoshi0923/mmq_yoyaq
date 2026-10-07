@@ -224,5 +224,14 @@
       "postgres=X/postgres",
       "service_role=X/postgres"
     ]
+  },
+  "release_departing_group_member_coupon()": {
+    "acl": [
+      "postgres=X/postgres"
+    ],
+    "returns": "trigger",
+    "language": "plpgsql",
+    "security_definer": true,
+    "body_md5": "9db0fc0ec57c2c554e6f481688c61d02"
   }
 }

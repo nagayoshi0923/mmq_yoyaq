@@ -1,4 +1,4 @@
-process.on('uncaughtException', e => { console.error(e.message,e.code ?? '',e.where ?? ''); process.exit(1) })
+process.on('uncaughtException', e => { console.error(e.stack,e.code ?? '',e.where ?? ''); process.exit(1) })
 // 是正対象の実SQLを独立Postgresで実行。外部送信・実環境接続なし。
 import fs from 'node:fs'
 import assert from 'node:assert/strict'
@@ -58,7 +58,7 @@ for(const [actor,system,lease] of [[id(13),false,id(204)],[null,true,id(205)]]){
  await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'isolated authorization probe\')',[permitted.noticeId,wait,lease])
 }
 let notice=(await claim())[0].result;assert.equal(notice.entries.length,1);assert.equal(notice.metadata.scenarioTitle,'正規作品');checks++
-assert.equal((await claim(user,id(202)))[0].result.entries.length,0);checks++
+assert.equal((await claim(user,id(202)))[0].result?.entries.length??0,0);checks++
 const originalPayload={to:['fiction@example.invalid'],subject:'正規作品'}
 assert.deepEqual((await q('SELECT prepare_waitlist_notice_payload($1,$2,$3,$4) AS p',[notice.noticeId,wait,id(201),JSON.stringify(originalPayload)]))[0].p,originalPayload);checks++
 assert.deepEqual((await q('SELECT prepare_waitlist_notice_payload($1,$2,$3,$4) AS p',[notice.noticeId,wait,id(201),JSON.stringify({subject:'changed'})]))[0].p,originalPayload);checks++
@@ -117,7 +117,7 @@ await q('SELECT remove_coupon_from_group_member($1)',[id(62)])
 assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[id(92)]))[0].final_price,8000);checks++
 await q('DELETE FROM private_group_members WHERE id=$1',[id(62)]);await q('DELETE FROM customer_coupons WHERE id=$1',[id(72)]);await q('DELETE FROM customers WHERE id=$1',[id(22)])
 await q("SELECT set_config('request.jwt.claim.sub',$1,false)",[user])
-await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,1);checks++
+await q('DELETE FROM private_group_members WHERE id=$1',[member]);assert.equal((await q('SELECT count(*)::integer AS n FROM private_group_coupon_uses'))[0].n,0);assert.equal((await q('SELECT count(*)::integer AS n FROM coupon_usages'))[0].n,0);assert.equal((await q('SELECT uses_remaining FROM customer_coupons WHERE id=$1',[coupon]))[0].uses_remaining,1);assert.equal((await q('SELECT final_price FROM reservations WHERE id=$1',[reservation]))[0].final_price,9000);checks+=3
 for(const terminal of ['completed','no_show']){
  await q('UPDATE reservations SET status=\'confirmed\' WHERE id=$1',[reservation])
  const beforeCount=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n

@@ -1390,5 +1390,209 @@
     "type": "c"
    }
   ]
+ },
+ "private_group_members": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "guest_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "guest_email",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "guest_phone",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "is_organizer",
+    "type": "boolean",
+    "default": "false",
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": true
+   },
+   {
+    "name": "joined_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "payment_amount",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "coupon_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "coupon_discount",
+    "type": "integer",
+    "default": "0",
+    "not_null": false
+   },
+   {
+    "name": "final_amount",
+    "type": "integer",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "payment_status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_members_coupon_id ON public.private_group_members USING btree (coupon_id)",
+    "name": "idx_private_group_members_coupon_id"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_members_group_id ON public.private_group_members USING btree (group_id)",
+    "name": "idx_private_group_members_group_id"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_members_payment_status ON public.private_group_members USING btree (payment_status)",
+    "name": "idx_private_group_members_payment_status"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_members_user_id ON public.private_group_members USING btree (user_id)",
+    "name": "idx_private_group_members_user_id"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_joined_guest_email_unique ON public.private_group_members USING btree (group_id, lower(TRIM(BOTH FROM guest_email))) WHERE ((status = 'joined'::text) AND (user_id IS NULL) AND (NULLIF(TRIM(BOTH FROM guest_email), ''::text) IS NOT NULL))",
+    "name": "private_group_joined_guest_email_unique"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_joined_user_unique ON public.private_group_members USING btree (group_id, user_id) WHERE ((status = 'joined'::text) AND (user_id IS NOT NULL))",
+    "name": "private_group_joined_user_unique"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_members_pkey ON public.private_group_members USING btree (id)",
+    "name": "private_group_members_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "private_group_members_delete",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "true",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "private_group_members_insert",
+    "check": "true",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "private_group_members_select",
+    "check": null,
+    "roles": null,
+    "using": "true",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "private_group_members_update",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "true",
+    "permissive": true
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR DELETE OR UPDATE ON public.private_group_members FOR EACH ROW EXECUTE FUNCTION guard_private_group_browser_write()",
+    "name": "guard_private_group_browser_write"
+   },
+   {
+    "def": "CREATE TRIGGER release_departing_group_member_coupon BEFORE DELETE ON public.private_group_members FOR EACH ROW EXECUTE FUNCTION release_departing_group_member_coupon()",
+    "name": "release_departing_group_member_coupon"
+   },
+   {
+    "def": "CREATE TRIGGER trg_sync_private_group_member_pii AFTER INSERT OR UPDATE ON public.private_group_members FOR EACH ROW EXECUTE FUNCTION sync_private_group_member_pii()",
+    "name": "trg_sync_private_group_member_pii"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_members_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((payment_status = ANY (ARRAY['pending'::text, 'paid'::text, 'refunded'::text])))",
+    "name": "private_group_members_payment_status_check",
+    "type": "c"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_members_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'joined'::text, 'declined'::text])))",
+    "name": "private_group_members_status_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+    "name": "private_group_members_user_id_fkey",
+    "type": "f"
+   }
+  ]
  }
 }

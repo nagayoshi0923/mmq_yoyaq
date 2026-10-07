@@ -143,6 +143,17 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.release_group_coupon_usage(uuid) FROM PUBLIC,anon,authenticated,service_role;
 
+CREATE OR REPLACE FUNCTION public.release_departing_group_member_coupon()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+ PERFORM public.release_group_coupon_usage(OLD.id);
+ RETURN OLD;
+END $$;
+REVOKE ALL ON FUNCTION public.release_departing_group_member_coupon() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER release_departing_group_member_coupon BEFORE DELETE ON public.private_group_members
+FOR EACH ROW EXECUTE FUNCTION public.release_departing_group_member_coupon();
+
+
 CREATE OR REPLACE FUNCTION public.validate_group_coupon(p_member uuid,p_coupon uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE m public.private_group_members; g public.private_groups; cc public.customer_coupons;
