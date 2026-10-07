@@ -324,10 +324,10 @@ describe('マイページ・予約確認・クーポン', () => {
         "from("schedule_events_public") .select("id, date, start_time, category, current_participants, max_participant…) .in("id", undefined)",
       ],
       "myPageDataReadApi.listRatings": [
-        "from("scenario_ratings") .select("scenario_master_id, rating, updated_at") .eq("customer_id", "a1") .order("updated_at", {"ascending":false})",
+        "rpc("customer_rating_action", {"p_customer_id":"a1","p_action":"snapshot"})",
       ],
       "myPageDataReadApi.listRatings (最後の引数なし)": [
-        "from("scenario_ratings") .select("scenario_master_id, rating, updated_at") .eq("customer_id", undefined) .order("updated_at", {"ascending":false})",
+        "rpc("customer_rating_action", {"p_action":"snapshot"})",
       ],
       "myPageDataReadApi.listRecentReservations": [
         "from("reservations") .select("id, organization_id, reservation_number, title, scenario_id, scenario…) .eq("customer_id", "a1") .order("requested_datetime", {"ascending":false}) .limit(50)",
@@ -1084,10 +1084,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "from("global_settings") .select("chat_enabled, chat_guest_allowed, system_msg_candidate_dates_added_ti…) .eq("organization_id", undefined) .maybeSingle()",
       ],
       "privateGroupPageReadApi.listActiveCouponsForGroup": [
-        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.a2")",
+        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("organization_id", "a3") .or("and(status.eq.active,uses_remaining.gt.0,expires_at.is.null),and(stat…)",
       ],
       "privateGroupPageReadApi.listActiveCouponsForGroup (最後の引数なし)": [
-        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.undefined")",
+        "from("customer_coupons") .select("id, expires_at, status, uses_remaining, coupon_campaigns (id, name, d…) .eq("customer_id", "a1") .eq("organization_id", "a3") .eq("status", "active") .gt("uses_remaining", 0) .or("expires_at.is.null,expires_at.gte.a2")",
       ],
       "privateGroupPageReadApi.listActiveStoresByIdsInOrganization": [
         "from("stores") .select("id, name, short_name, ownership_type, is_temporary") .in("id", "a1") .eq("organization_id", "a2") .eq("status", "active")",

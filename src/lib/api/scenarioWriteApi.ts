@@ -79,16 +79,18 @@ export const scenarioLikeApi = {
 
 export const scenarioRatingApi = {
   async removeForCustomers(customerIds: string[], scenarioMasterId: string) {
-    const { error } = await supabase.from('scenario_ratings').delete()
-      .in('customer_id', [...new Set(customerIds)]).eq('scenario_master_id', scenarioMasterId)
-    if (error) throw error
+    if (!customerIds[0]) throw new Error('顧客情報が見つかりません')
+    return this.remove(customerIds[0], scenarioMasterId)
   },
   async remove(customerId: string, scenarioMasterId: string) {
-    return supabase.from('scenario_ratings').delete()
-      .eq('customer_id', customerId).eq('scenario_master_id', scenarioMasterId)
+    const result = await supabase.rpc('customer_rating_action', { p_customer_id: customerId, p_action: 'clear_scenario', p_scenario_master_id: scenarioMasterId })
+    if (result.error) throw result.error
+    return result
   },
   async upsert(row: Record<string, unknown>) {
-    return supabase.from('scenario_ratings').upsert(row, { onConflict: 'customer_id,scenario_master_id' })
+    const result = await supabase.rpc('customer_rating_action', { p_customer_id: row.customer_id, p_action: 'upsert', p_scenario_master_id: row.scenario_master_id, p_rating: row.rating })
+    if (result.error) throw result.error
+    return result
   },
 }
 

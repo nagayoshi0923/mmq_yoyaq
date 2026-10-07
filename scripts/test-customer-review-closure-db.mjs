@@ -308,4 +308,20 @@ const beforeEnded=(await q('SELECT count(*)::integer AS n FROM waitlist_notice_e
 await q('UPDATE reservations SET status=\'confirmed\',participant_count=2 WHERE id=$1',[reservation]);await q('UPDATE reservations SET participant_count=1 WHERE id=$1',[reservation])
 assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notice_events'))[0].n,beforeEnded);checks++
 await q('DELETE FROM waitlist WHERE id=$1',[wait]);assert.equal((await q('SELECT count(*)::integer AS n FROM waitlist_notice_deliveries'))[0].n,0);checks++
+// 評価はメール一致でなく認証UIDで本人照合し、全本人CIDの同作品のみ解除。
+await q('INSERT INTO customers VALUES($1,$2,NULL),($3,$4,NULL)',[id(23),user,id(24),id(15)])
+await db.exec('CREATE TABLE scenario_ratings(customer_id uuid,scenario_master_id uuid,rating integer,updated_at timestamptz DEFAULT now(),UNIQUE(customer_id,scenario_master_id))')
+await db.exec(fs.readFileSync('supabase/rpcs/customer_rating_action.sql','utf8'))
+await q("SELECT set_config('request.jwt.claim.sub',$1,false)",[user])
+await q("SELECT customer_rating_action($1,'upsert',$2,5)",[customer,master])
+assert.equal((await q("SELECT customer_rating_action($1,'snapshot') AS data",[customer]))[0].data[0].rating,5);checks++
+await q("SELECT customer_rating_action($1,'upsert',$2,3)",[id(23),master])
+await q("SELECT customer_rating_action($1,'upsert',$2,4)",[customer,id(112)])
+await rejects("SELECT customer_rating_action($1,'upsert',$2,6)",[customer,master],'22023')
+await rejects("SELECT customer_rating_action($1,'snapshot')",[id(24)],'42501')
+await q("SELECT customer_rating_action($1,'clear_scenario',$2)",[customer,master])
+assert.equal((await q('SELECT count(*)::integer AS n FROM scenario_ratings WHERE scenario_master_id=$1',[master]))[0].n,0);checks++
+assert.equal((await q('SELECT count(*)::integer AS n FROM scenario_ratings WHERE scenario_master_id=$1',[id(112)]))[0].n,1);checks++
+for(const role of ['anon','service_role']) {assert.equal((await q("SELECT has_function_privilege($1,'customer_rating_action(uuid,text,uuid,integer)','EXECUTE') AS allowed",[role]))[0].allowed,false);checks++}
+assert.equal((await q("SELECT has_function_privilege('authenticated','customer_rating_action(uuid,text,uuid,integer)','EXECUTE') AS allowed"))[0].allowed,true);checks++
 console.log('CUSTOMER_REVIEW_CLOSURE_DB_PASS',checks,'実SQLチェック');await db.close()

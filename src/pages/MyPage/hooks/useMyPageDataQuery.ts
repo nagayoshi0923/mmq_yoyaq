@@ -119,7 +119,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const customerIds = [...new Set([customer.id, ...(identities ?? []).map(row => row.id)])]
       const historySnapshot = snapshotAllCustomers(customerIds)
       const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
-        Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []), error: results.find(result => result.error)?.error ?? null })),
+        Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.requested_datetime ?? '').localeCompare(a.requested_datetime ?? '')), error: results.find(result => result.error)?.error ?? null })),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
             const member = group.members?.find(m => m.user_id === userId && m.status === 'joined')

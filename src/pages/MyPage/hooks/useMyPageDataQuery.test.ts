@@ -1,13 +1,14 @@
-import { expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ from: vi.fn(), past: vi.fn(), history: vi.fn(), ids: vi.fn(), remove: vi.fn() }))
+import { beforeEach, expect, it, vi } from 'vitest'
+const mocks = vi.hoisted(() => ({ from: vi.fn(), past: vi.fn(), history: vi.fn(), ids: vi.fn(), remove: vi.fn(), ratings:vi.fn() }))
 vi.mock('@tanstack/react-query', () => ({ useQuery: (options: {queryFn:()=>Promise<unknown>}) => options, useMutation: (options:unknown) => options, useQueryClient: () => ({invalidateQueries:vi.fn()}) }))
-vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from, rpc: async () => ({data:null,error:null}) } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: mocks.from, rpc:async(name:string,args:{p_customer_id:string}) => name==='customer_rating_action'?mocks.ratings(args.p_customer_id):({data:null,error:null}) } }))
 vi.mock('@/lib/playedStatus', () => ({ fetchPlayedReservations: mocks.past }))
 vi.mock('@/lib/customerPlayHistory', () => ({ customerPlayHistory: { snapshot: mocks.history, remove: mocks.remove } }))
 vi.mock('@/lib/privateGroupRead', () => ({ readPrivateGroupList: async () => [] }))
 vi.mock('@/utils/logger', () => ({ logger: {warn:vi.fn(),error:vi.fn()} }))
 vi.mock('@/lib/api/customerHookReadApi', () => ({ customerLookupReadApi: { listIdsByUserId: mocks.ids } }))
 import { useMyPageDataQuery, useDeleteManualHistoryMutation, type MyPageData } from './useMyPageDataQuery'
+beforeEach(()=>mocks.ratings.mockResolvedValue({data:[],error:null}))
 function result(data: unknown) {
   const q: Record<string, unknown> = { then: (resolve: (value:unknown)=>void) => resolve({data,error:null}) }
   for (const name of ['select','eq','ilike','order','limit','maybeSingle','in']) q[name]=()=>q
@@ -56,9 +57,19 @@ it('別本人行の手動履歴をprimary IDへ誤送信せず実所有IDで削�
 it('代表CIDが変わっても全本人CIDの評価を取得し同作品は最新評価を表示する',async()=>{
  mocks.ids.mockResolvedValue({data:[{id:'customer'},{id:'legacy'}],error:null})
  let ratingReads=0
- mocks.from.mockImplementation((table:string)=>result(table==='customers'?{id:'customer',name:'Fixture'}:table==='scenario_ratings'?(ratingReads++===0?[{scenario_master_id:'S',rating:2,updated_at:'2026-10-01'}]:[{scenario_master_id:'S',rating:5,updated_at:'2026-10-02'},{scenario_master_id:'other',rating:4,updated_at:'2026-10-01'}]):[]))
+ mocks.from.mockImplementation((table:string)=>result(table==='customers'?{id:'customer',name:'Fixture'}:[]))
+ mocks.ratings.mockImplementation(async()=>({data:ratingReads++===0?[{scenario_master_id:'S',rating:2,updated_at:'2026-10-01'}]:[{scenario_master_id:'S',rating:5,updated_at:'2026-10-02'},{scenario_master_id:'other',rating:4,updated_at:'2026-10-01'}],error:null}))
  mocks.past.mockResolvedValue([]);mocks.history.mockResolvedValue({can_edit:true,manual:[],overrides:[]})
  const query=useMyPageDataQuery('owner','fixture@example.test') as unknown as {queryFn:()=>Promise<MyPageData>}
  const data=await query.queryFn()
  expect(ratingReads).toBe(2);expect(data.ratingsMap).toEqual({S:5,other:4})
+})
+
+it('本人の複数CIDの予約一覧を全体の日時降順で表示する', async () => {
+ mocks.ids.mockResolvedValue({data:[{id:'customer'},{id:'legacy'}],error:null})
+ let reads=0
+ mocks.from.mockImplementation((table:string)=>result(table==='customers'?{id:'customer',name:'Fixture'}:table==='reservations'?(reads++===0?[{id:'older',requested_datetime:'2026-10-01'}]:[{id:'newer',requested_datetime:'2026-10-06'}]):[]))
+ mocks.past.mockResolvedValue([]);mocks.history.mockResolvedValue({can_edit:true,manual:[],overrides:[]})
+ const query=useMyPageDataQuery('owner','fixture@example.test') as unknown as {queryFn:()=>Promise<MyPageData>}
+ expect((await query.queryFn()).reservations.map(row=>row.id)).toEqual(['newer','older'])
 })

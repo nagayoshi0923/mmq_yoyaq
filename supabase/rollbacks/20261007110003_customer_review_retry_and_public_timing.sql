@@ -2,3 +2,6 @@
 -- 旧UI/APIだけを復旧する場合も新DB/Edgeは維持。関数変更は検証済みforward migrationで行う。
 REVOKE ALL ON FUNCTION public.notify_all_waitlist_entries(uuid) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.apply_coupon_to_group_member(uuid,uuid),public.remove_coupon_from_group_member(uuid) FROM PUBLIC,anon;
+
+-- フロントを旧版へ戻した後だけ実行。新しい本人評価RPCを撤去。
+DROP FUNCTION IF EXISTS public.customer_rating_action(uuid,text,uuid,integer);
