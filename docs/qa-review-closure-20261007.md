@@ -15,7 +15,7 @@
 
 修正前coupon再現は不変rules_snapshotへのUPDATEが保持されないことに注意し、条件付きの架空新規couponでやり直した。旧関数1000円適用・新関数P0028拒否を同じ条件で実証。
 
-独立Postgres実SQL回帰25項目、React候補取得失敗/選択保持、複数顧客履歴統合/upsert、全単体1738件合格。実Auth/取消RPC/Edge/DBで失敗503・waiting保持、12並列再試行でsink1件、入力metadata無視、完了後再試行0件。coupon12並列適用で使用1回、8並列解除で復元1回。
+独立Postgres実SQL回帰28項目、React候補取得失敗/選択保持、複数顧客履歴統合/upsert、全単体1738件合格。実Auth/取消RPC/Edge/DBで失敗503・waiting保持、12並列再試行でsink1件、入力metadata無視、完了後再試行0件。coupon12並列適用で使用1回、8並列解除で復元1回。
 
 実通知・顧客データを使ったテストなし。専用internal Docker/localhost、外部メールsink。実機/Safari未検証。既存の旧キュー/旧グループ割引を本番で検索・改変・自動backfillしていない。今回の新しい操作と次の確定時検証が対象で、過去データの監査/是正は別途安全な手順が必要。
 

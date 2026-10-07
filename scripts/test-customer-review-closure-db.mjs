@@ -48,6 +48,14 @@ const claim=(actor=user,lease=id(201))=>q('SELECT claim_waitlist_notice($1,$2,fa
 await rejects('SELECT claim_waitlist_notice($1,$2,false,$3)',[event,user,id(201)],'42501')
 await db.query('UPDATE reservations SET participant_count=2 WHERE id=$1',[reservation])
 await rejects('SELECT claim_waitlist_notice($1,$2,false,$3)',[event,id(12),id(202)],'42501')
+await q('INSERT INTO staff(user_id,organization_id,status,name) VALUES($1,$2,\'active\',\'同組織架空担当\'),($3,$4,\'active\',\'他組織架空担当\')',[id(13),org,id(14),id(2)])
+await rejects('SELECT claim_waitlist_notice($1,$2,false,$3)',[event,id(14),id(203)],'42501')
+// 同組織担当と既存system経路は認可される。leaseを失敗終了して顧客本人の再試行へ渡す。
+for(const [actor,system,lease] of [[id(13),false,id(204)],[null,true,id(205)]]){
+ const permitted=(await q('SELECT claim_waitlist_notice($1,$2,$3,$4) AS result',[event,actor,system,lease]))[0].result
+ assert.equal(permitted.entries.length,1);checks++
+ await q('SELECT finish_waitlist_notice($1,$2,$3,false,\'isolated authorization probe\')',[permitted.noticeId,wait,lease])
+}
 let notice=(await claim())[0].result;assert.equal(notice.entries.length,1);assert.equal(notice.metadata.scenarioTitle,'正規作品');checks++
 assert.equal((await claim(user,id(202)))[0].result.entries.length,0);checks++
 const originalPayload={to:['fiction@example.invalid'],subject:'正規作品'}
