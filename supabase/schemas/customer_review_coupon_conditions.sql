@@ -1,6 +1,6 @@
 -- 使用履歴は既存coupon_usagesへ記録し、既存の原子的回数消費トリガーを利用。
 CREATE TABLE public.private_group_coupon_uses (
- member_id uuid PRIMARY KEY REFERENCES public.private_group_members(id),
+ member_id uuid PRIMARY KEY REFERENCES public.private_group_members(id) ON DELETE CASCADE,
  usage_id uuid UNIQUE NOT NULL REFERENCES public.coupon_usages(id) ON DELETE CASCADE
 );
 ALTER TABLE public.private_group_coupon_uses ENABLE ROW LEVEL SECURITY;

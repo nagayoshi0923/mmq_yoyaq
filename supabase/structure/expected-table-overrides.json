@@ -24,7 +24,7 @@
     "name": "reservation_id",
     "type": "uuid",
     "default": null,
-    "not_null": true
+    "not_null": false
    },
    {
     "name": "actor_user_id",
@@ -88,7 +88,7 @@
     "type": "c"
    },
    {
-    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id)",
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
     "name": "waitlist_notice_events_organization_id_fkey",
     "type": "f"
    },
@@ -98,12 +98,12 @@
     "type": "p"
    },
    {
-    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id)",
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
     "name": "waitlist_notice_events_reservation_id_fkey",
     "type": "f"
    },
    {
-    "def": "FOREIGN KEY (schedule_event_id) REFERENCES schedule_events(id)",
+    "def": "FOREIGN KEY (schedule_event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
     "name": "waitlist_notice_events_schedule_event_id_fkey",
     "type": "f"
    }
@@ -175,7 +175,7 @@
   "triggers": [],
   "constraints": [
    {
-    "def": "FOREIGN KEY (notice_id) REFERENCES waitlist_notice_events(id)",
+    "def": "FOREIGN KEY (notice_id) REFERENCES waitlist_notice_events(id) ON DELETE CASCADE",
     "name": "waitlist_notice_deliveries_notice_id_fkey",
     "type": "f"
    },
@@ -185,7 +185,7 @@
     "type": "p"
    },
    {
-    "def": "FOREIGN KEY (waitlist_id) REFERENCES waitlist(id)",
+    "def": "FOREIGN KEY (waitlist_id) REFERENCES waitlist(id) ON DELETE CASCADE",
     "name": "waitlist_notice_deliveries_waitlist_id_fkey",
     "type": "f"
    }
@@ -221,7 +221,7 @@
   "triggers": [],
   "constraints": [
    {
-    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id)",
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
     "name": "private_group_coupon_uses_member_id_fkey",
     "type": "f"
    },

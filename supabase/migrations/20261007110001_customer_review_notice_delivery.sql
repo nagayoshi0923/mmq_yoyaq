@@ -1,12 +1,12 @@
 -- 保存済みの取消/人数減少だけが通知契機。ブラウザから直接作成できない。
 CREATE TABLE public.waitlist_notice_events (
- id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid NOT NULL REFERENCES public.organizations(id),
- schedule_event_id uuid NOT NULL REFERENCES public.schedule_events(id), reservation_id uuid NOT NULL REFERENCES public.reservations(id),
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+ schedule_event_id uuid NOT NULL REFERENCES public.schedule_events(id) ON DELETE CASCADE, reservation_id uuid REFERENCES public.reservations(id) ON DELETE SET NULL,
  actor_user_id uuid, freed_seats integer NOT NULL CHECK(freed_seats>0), metadata jsonb NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now(), last_attempt_at timestamptz, requires_review boolean NOT NULL DEFAULT false, completed_at timestamptz
 );
 CREATE TABLE public.waitlist_notice_deliveries (
- notice_id uuid NOT NULL REFERENCES public.waitlist_notice_events(id), waitlist_id uuid NOT NULL REFERENCES public.waitlist(id),
+ notice_id uuid NOT NULL REFERENCES public.waitlist_notice_events(id) ON DELETE CASCADE, waitlist_id uuid NOT NULL REFERENCES public.waitlist(id) ON DELETE CASCADE,
  lease_id uuid, leased_until timestamptz, sent_at timestamptz, last_error text,
  payload jsonb, first_attempt_at timestamptz,
  PRIMARY KEY(notice_id,waitlist_id)
