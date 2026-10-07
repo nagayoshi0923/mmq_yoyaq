@@ -159,6 +159,18 @@
     "type": "timestamp with time zone",
     "default": null,
     "not_null": false
+   },
+   {
+    "name": "attempt_in_progress",
+    "type": "boolean",
+    "default": "false",
+    "not_null": true
+   },
+   {
+    "name": "has_uncertain_attempt",
+    "type": "boolean",
+    "default": "false",
+    "not_null": true
    }
   ],
   "indexes": [
@@ -205,6 +217,18 @@
     "type": "uuid",
     "default": null,
     "not_null": true
+   },
+   {
+    "name": "validated_event_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "validated_amount",
+    "type": "integer",
+    "default": null,
+    "not_null": true
    }
   ],
   "indexes": [
@@ -239,6 +263,11 @@
     "def": "UNIQUE (usage_id)",
     "name": "private_group_coupon_uses_usage_id_key",
     "type": "u"
+   },
+   {
+    "def": "CHECK ((validated_amount > 0))",
+    "name": "private_group_coupon_uses_validated_amount_check",
+    "type": "c"
    }
   ]
  },
@@ -1185,6 +1214,173 @@
    {
     "def": "CHECK ((status = ANY (ARRAY['gathering'::text, 'booking_requested'::text, 'confirmed'::text, 'cancelled'::text, 'date_adjusting'::text])))",
     "name": "private_groups_status_check",
+    "type": "c"
+   }
+  ]
+ },
+ "waitlist_notification_queue": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "schedule_event_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "freed_seats",
+    "type": "integer",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "scenario_title",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "event_date",
+    "type": "date",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "start_time",
+    "type": "time without time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "end_time",
+    "type": "time without time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "store_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "booking_url",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "retry_count",
+    "type": "integer",
+    "default": "0",
+    "not_null": false
+   },
+   {
+    "name": "last_retry_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_error",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_waitlist_notification_queue_created_at ON public.waitlist_notification_queue USING btree (created_at)",
+    "name": "idx_waitlist_notification_queue_created_at"
+   },
+   {
+    "def": "CREATE INDEX idx_waitlist_notification_queue_schedule_event ON public.waitlist_notification_queue USING btree (schedule_event_id)",
+    "name": "idx_waitlist_notification_queue_schedule_event"
+   },
+   {
+    "def": "CREATE INDEX idx_waitlist_notification_queue_status ON public.waitlist_notification_queue USING btree (status)",
+    "name": "idx_waitlist_notification_queue_status"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX waitlist_notification_queue_pkey ON public.waitlist_notification_queue USING btree (id)",
+    "name": "waitlist_notification_queue_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "*",
+    "name": "org_scope_restrict",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   },
+   {
+    "cmd": "*",
+    "name": "waitlist_notification_queue_org_policy",
+    "check": null,
+    "roles": null,
+    "using": "((organization_id = get_user_organization_id()) OR is_org_admin())",
+    "permissive": true
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER redirect_legacy_waitlist_retry BEFORE INSERT ON public.waitlist_notification_queue FOR EACH ROW EXECUTE FUNCTION redirect_legacy_waitlist_retry()",
+    "name": "redirect_legacy_waitlist_retry"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "waitlist_notification_queue_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "waitlist_notification_queue_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (schedule_event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
+    "name": "waitlist_notification_queue_schedule_event_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text])))",
+    "name": "waitlist_notification_queue_status_check",
     "type": "c"
    }
   ]

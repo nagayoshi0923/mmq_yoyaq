@@ -103,18 +103,6 @@ serve(async (req) => {
     const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
     const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
 
-    if (!resendApiKey) {
-      console.error('RESEND_API_KEY is not set')
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'メール設定がありません（通知スキップ）',
-          notifiedCount: 0 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      )
-    }
-
     const leaseId = crypto.randomUUID()
     const { data: notice, error: noticeError } = await serviceClient.rpc('claim_waitlist_notice', {
       p_event: data.scheduleEventId, p_actor: authResult?.user?.id ?? null,
@@ -124,6 +112,13 @@ serve(async (req) => {
     if (notice?.manualReview) return errorResponse('配送結果の確認が必要です。重複送信を防ぐため自動再送を保留しています',503,corsHeaders)
     if (!notice || notice.entries.length === 0) return new Response(JSON.stringify({ success: true, notifiedCount: 0, totalWaitlist: 0, pending: notice?.pending ?? false }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     // requestの作品名/日時/店舗名は使用せず、保存済みの公演情報だけを表示。
+    if (!resendApiKey) {
+      // claimで試行順を進め、取得済みleaseも解放する。設定不足で他組織を飢餓にしない。
+      await Promise.all(notice.entries.map((entry: WaitlistEntry) => serviceClient.rpc('finish_waitlist_notice', {
+        p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId, p_sent: false, p_error: 'configuration missing',
+      })))
+      return errorResponse('メール設定がありません。通知は未送信のまま再試行待ちです',503,corsHeaders)
+    }
     Object.assign(data, notice.metadata)
     const notifiedEntries: (WaitlistEntry & { deliveryKey: string })[] = notice.entries
 
@@ -371,7 +366,7 @@ ${emailTemplates.footer}
       try {
         const { data: payload, error: payloadError } = await serviceClient.rpc('prepare_waitlist_notice_payload', {
           p_notice: notice.noticeId, p_waitlist: entry.id, p_lease: leaseId,
-          p_payload: { from: `${companyName} <${senderEmail}>`, to: [entry.customer_email], subject: waitlistEmailSubject, html: finalHtml, text: finalText, reply_to: companyEmail || null },
+          p_payload: { from: `${companyName} <${senderEmail}>`, to: [entry.customer_email], subject: waitlistEmailSubject, html: finalHtml, text: finalText, ...(companyEmail ? { reply_to: companyEmail } : {}) },
         })
         if (payloadError || !payload) return { success: false, entryId: entry.id, error: 'payload not ready' }
         const resendResponse = await fetch('https://api.resend.com/emails', {

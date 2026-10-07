@@ -39,11 +39,12 @@ REVOKE ALL ON FUNCTION public.snapshot_coupon_rules() FROM PUBLIC;
 CREATE TRIGGER snapshot_coupon_rules BEFORE INSERT OR UPDATE ON public.customer_coupons
 FOR EACH ROW EXECUTE FUNCTION public.snapshot_coupon_rules();
 
-CREATE OR REPLACE FUNCTION public.coupon_discount_for_event(
- p_coupon uuid,p_event uuid,p_amount integer,p_customer uuid,p_reservation uuid DEFAULT NULL)
+-- 全利用条件はこの内部関数1本。メンバー経路も予約時snapshotを使い、単価だけを本人メンバーから取得する。
+CREATE OR REPLACE FUNCTION public.coupon_discount_for_event_internal(
+ p_coupon uuid,p_event uuid,p_amount integer,p_customer uuid,p_reservation uuid,p_member uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE cc public.customer_coupons; e public.schedule_events; locked_reservation public.reservations; rules jsonb;
- prior record; scenario_key uuid; slot text; discount integer; used_amount integer:=0;
+ member_amount integer; prior record; scenario_key uuid; slot text; discount integer; used_amount integer:=0;
 BEGIN
  -- 顧客行で直列化し、別クーポンを同時利用した場合にも併用/同作品制限を守る。
  PERFORM 1 FROM public.customers WHERE id=p_customer FOR UPDATE;
@@ -61,7 +62,16 @@ BEGIN
    RAISE EXCEPTION '利用可能なご本人の予約を指定してください' USING ERRCODE='P0028';
   END IF;
   -- ロック前に取得された値は使わない。並行する人数変更・取消後の値で再判定する。
-  p_amount:=locked_reservation.total_price;
+  IF p_member IS NULL THEN p_amount:=locked_reservation.total_price;
+  ELSE
+   SELECT greatest(0,coalesce(g.per_person_price,m.payment_amount,0)) INTO member_amount
+   FROM public.private_group_members m JOIN public.private_groups g ON g.id=m.group_id
+   JOIN public.customers owner ON owner.id=p_customer
+   WHERE m.id=p_member AND m.status='joined' AND m.user_id=owner.user_id
+    AND g.reservation_id=locked_reservation.id AND g.organization_id=locked_reservation.organization_id AND g.status='confirmed';
+   IF member_amount IS NULL OR member_amount<=0 THEN RAISE EXCEPTION 'メンバーの確定金額がありません' USING ERRCODE='P0028'; END IF;
+   p_amount:=member_amount;
+  END IF;
   p_event:=locked_reservation.schedule_event_id;
  END IF;
  SELECT * INTO e FROM public.schedule_events WHERE id=p_event AND organization_id=cc.organization_id;
@@ -116,7 +126,7 @@ BEGIN
   AND NOT (rules->'allowed_time_slots' ? slot OR rules->'allowed_time_slots' ? (slot||'公演')) THEN
   RAISE EXCEPTION '利用可能な時間帯ではありません' USING ERRCODE='P0028';
  END IF;
- IF p_reservation IS NOT NULL THEN
+ IF p_reservation IS NOT NULL AND p_member IS NULL THEN
   SELECT COALESCE(sum(discount_amount),0)::integer INTO used_amount FROM public.coupon_usages WHERE reservation_id=p_reservation;
  END IF;
  scenario_key:=COALESCE(e.scenario_master_id,e.scenario_id,e.organization_scenario_id);
@@ -124,7 +134,8 @@ BEGIN
   COALESCE(se.scenario_master_id,se.scenario_id,se.organization_scenario_id) AS previous_scenario, se.scenario AS previous_title
   FROM public.coupon_usages u JOIN public.customer_coupons c ON c.id=u.customer_coupon_id
   JOIN public.reservations r ON r.id=u.reservation_id JOIN public.schedule_events se ON se.id=r.schedule_event_id
-  WHERE c.customer_id=p_customer OR u.reservation_id=p_reservation
+  WHERE c.customer_id=p_customer OR (u.reservation_id=p_reservation AND (p_member IS NULL
+   OR NOT EXISTS(SELECT 1 FROM public.private_group_coupon_uses gu WHERE gu.usage_id=u.id)))
  LOOP
   IF prior.reservation_id=p_reservation THEN
    IF prior.customer_coupon_id=p_coupon THEN RAISE EXCEPTION 'この予約には使用済みです' USING ERRCODE='P0028'; END IF;
@@ -139,9 +150,16 @@ BEGIN
  discount:=CASE rules->>'discount_type' WHEN 'fixed' THEN (rules->>'discount_amount')::integer
   WHEN 'percentage' THEN round(p_amount::numeric*(rules->>'discount_amount')::numeric/100)::integer END;
  discount:=LEAST(discount,GREATEST(p_amount-used_amount,0));
+ IF p_member IS NOT NULL THEN discount:=LEAST(discount,GREATEST(coalesce(locked_reservation.final_price,locked_reservation.total_price,0),0)); END IF;
  IF discount IS NULL OR discount<=0 THEN RAISE EXCEPTION '割引できる金額がありません' USING ERRCODE='P0028'; END IF;
  RETURN discount;
 END;
+$$;
+REVOKE ALL ON FUNCTION public.coupon_discount_for_event_internal(uuid,uuid,integer,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
+CREATE OR REPLACE FUNCTION public.coupon_discount_for_event(
+ p_coupon uuid,p_event uuid,p_amount integer,p_customer uuid,p_reservation uuid DEFAULT NULL)
+RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
+ SELECT public.coupon_discount_for_event_internal(p_coupon,p_event,p_amount,p_customer,p_reservation,NULL);
 $$;
 REVOKE ALL ON FUNCTION public.coupon_discount_for_event(uuid,uuid,integer,uuid,uuid) FROM PUBLIC,anon,authenticated;
 
@@ -178,9 +196,11 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.private_groups g JOIN public.private_group_members m ON m.group_id=g.id
  WHERE g.reservation_id=r.id AND g.organization_id=r.organization_id AND m.status='joined' AND m.coupon_id=cc.id
  AND m.user_id=(SELECT user_id FROM public.customers WHERE id=cc.customer_id)) THEN
-  NEW.discount_amount:=public.coupon_discount_for_event(cc.id,r.schedule_event_id,
-    (SELECT coalesce(m.payment_amount,g.per_person_price,0) FROM public.private_group_members m JOIN public.private_groups g ON g.id=m.group_id
-     WHERE g.reservation_id=r.id AND m.coupon_id=cc.id AND m.status='joined' LIMIT 1),cc.customer_id,NULL);
+  NEW.discount_amount:=public.coupon_discount_for_event_internal(cc.id,r.schedule_event_id,
+    (SELECT coalesce(g.per_person_price,m.payment_amount,0) FROM public.private_group_members m JOIN public.private_groups g ON g.id=m.group_id
+     WHERE g.reservation_id=r.id AND m.coupon_id=cc.id AND m.status='joined' LIMIT 1),cc.customer_id,r.id,
+    (SELECT m.id FROM public.private_group_members m JOIN public.private_groups g ON g.id=m.group_id
+     WHERE g.reservation_id=r.id AND m.coupon_id=cc.id AND m.status='joined' LIMIT 1));
  ELSE
   NEW.discount_amount:=public.coupon_discount_for_event(cc.id,r.schedule_event_id,r.total_price,cc.customer_id,r.id);
  END IF;

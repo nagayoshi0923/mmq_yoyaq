@@ -199,7 +199,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
-  const { isPlayed, customerId: playedCustomerId, markAsPlayed, unmarkAsPlayed, playedScenarioIds } = usePlayedScenarios()
+  const { isPlayed, customerId: playedCustomerId, customerIds: playedCustomerIds, markAsPlayed, unmarkAsPlayed, playedScenarioIds } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
   const [togglingPlayedIds, setTogglingPlayedIds] = useState<Set<string>>(new Set())
 
@@ -618,7 +618,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
           onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }}
           scenarioTitle={playedDialogTarget.title}
           scenarioMasterId={playedDialogTarget.id}
-          customerId={playedCustomerId}
+          customerId={playedCustomerId} customerIds={playedCustomerIds}
           onRegistered={() => markAsPlayed(playedDialogTarget.id)}
         />
       )}

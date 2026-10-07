@@ -1,3 +1,9 @@
+-- 来歴のない旧retryを黙って取り残さない。残件があれば切替を止め、承認された移行/排出を先に行う。
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM public.waitlist_notification_queue WHERE status IN ('pending','processing')) THEN
+  RAISE EXCEPTION '旧キャンセル待ち通知キューに未処理があります。来歴を照合して移行/排出するまで反映できません' USING ERRCODE='P0057';
+ END IF;
+END $$;
 -- 保存済みの取消/人数減少だけが通知契機。ブラウザから直接作成できない。
 CREATE TABLE public.waitlist_notice_events (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -9,6 +15,7 @@ CREATE TABLE public.waitlist_notice_deliveries (
  notice_id uuid NOT NULL REFERENCES public.waitlist_notice_events(id) ON DELETE CASCADE, waitlist_id uuid NOT NULL REFERENCES public.waitlist(id) ON DELETE CASCADE,
  lease_id uuid, leased_until timestamptz, sent_at timestamptz, last_error text,
  payload jsonb, first_attempt_at timestamptz,
+ attempt_in_progress boolean NOT NULL DEFAULT false, has_uncertain_attempt boolean NOT NULL DEFAULT false,
  PRIMARY KEY(notice_id,waitlist_id)
 );
 ALTER TABLE public.waitlist_notice_events ENABLE ROW LEVEL SECURITY;
@@ -22,6 +29,9 @@ CREATE OR REPLACE FUNCTION public.capture_waitlist_notice_event() RETURNS trigge
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE before_count integer; after_count integer; e public.schedule_events; s public.stores;
 BEGIN
+ -- 完了/無断欠席/任意の非有効状態は取消として扱わない。
+ IF NOT ((OLD.status IN ('pending','confirmed','gm_confirmed','checked_in') AND NEW.status='cancelled')
+ OR (OLD.status IN ('pending','confirmed','gm_confirmed','checked_in') AND NEW.status IN ('pending','confirmed','gm_confirmed','checked_in') AND NEW.participant_count<OLD.participant_count)) THEN RETURN NEW; END IF;
  before_count:=CASE WHEN OLD.status IN ('pending','confirmed','gm_confirmed','checked_in') THEN OLD.participant_count ELSE 0 END;
  after_count:=CASE WHEN NEW.status IN ('pending','confirmed','gm_confirmed','checked_in') THEN NEW.participant_count ELSE 0 END;
  IF before_count<=after_count OR NEW.schedule_event_id IS NULL OR NEW.schedule_event_id IS DISTINCT FROM OLD.schedule_event_id THEN RETURN NEW; END IF;
@@ -64,6 +74,9 @@ BEGIN
  INSERT INTO public.waitlist_notice_deliveries(notice_id,waitlist_id)
  SELECT n.id,w.id FROM public.waitlist w WHERE w.schedule_event_id=e.id AND w.organization_id=e.organization_id AND w.status='waiting'
  AND w.participant_count<=seats AND (w.expires_at IS NULL OR w.expires_at>now()) ON CONFLICT DO NOTHING;
+ -- プロセス停止/ack消失で期限切れになった前試行は結果不明として保持する。
+ UPDATE public.waitlist_notice_deliveries SET has_uncertain_attempt=true
+ WHERE notice_id=n.id AND sent_at IS NULL AND attempt_in_progress AND leased_until<now();
  UPDATE public.waitlist_notice_deliveries d SET lease_id=p_lease,leased_until=now()+interval '5 minutes',last_error=NULL
  WHERE d.notice_id=n.id AND d.sent_at IS NULL AND (d.first_attempt_at IS NULL OR d.first_attempt_at>now()-interval '23 hours') AND (d.leased_until IS NULL OR d.leased_until<now())
  AND EXISTS(SELECT 1 FROM public.waitlist w WHERE w.id=d.waitlist_id AND w.status='waiting' AND w.participant_count<=seats)
@@ -76,7 +89,7 @@ BEGIN
  WHERE d.notice_id=n.id AND d.lease_id=p_lease AND d.sent_at IS NULL;
  IF entries IS NULL AND NOT EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL)
  THEN UPDATE public.waitlist_notice_events SET completed_at=now() WHERE id=n.id; END IF;
- RETURN jsonb_build_object('noticeId',n.id,'organizationId',e.organization_id,'metadata',n.metadata,'entries',coalesce(entries,'[]'::jsonb),'pending',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL),'manualReview',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND first_attempt_at<=now()-interval '23 hours'));
+ RETURN jsonb_build_object('noticeId',n.id,'organizationId',e.organization_id,'metadata',n.metadata||jsonb_build_object('freedSeats',n.freed_seats),'entries',coalesce(entries,'[]'::jsonb),'pending',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL),'manualReview',EXISTS(SELECT 1 FROM public.waitlist_notice_deliveries WHERE notice_id=n.id AND sent_at IS NULL AND first_attempt_at<=now()-interval '23 hours'));
 END $$;
 CREATE OR REPLACE FUNCTION public.finish_waitlist_notice(p_notice uuid,p_waitlist uuid,p_lease uuid,p_sent boolean,p_error text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
@@ -84,7 +97,12 @@ BEGIN
  -- claimと同じnotice→delivery順。並行ack/claimのdeadlockを避ける。
  PERFORM 1 FROM public.waitlist_notice_events WHERE id=p_notice FOR UPDATE;
  UPDATE public.waitlist_notice_deliveries SET sent_at=CASE WHEN p_sent THEN now() ELSE NULL END,
- leased_until=NULL,lease_id=NULL,last_error=CASE WHEN p_sent THEN NULL ELSE left(p_error,500) END
+ leased_until=NULL,lease_id=NULL,
+ -- 明示的拒否は未送信と確定している。不明応答だけ23h期限を保持する。
+ first_attempt_at=CASE WHEN NOT p_sent AND p_error='provider rejected' AND NOT has_uncertain_attempt THEN NULL ELSE first_attempt_at END,
+ has_uncertain_attempt=has_uncertain_attempt OR (NOT p_sent AND attempt_in_progress AND p_error IS DISTINCT FROM 'provider rejected'),
+ attempt_in_progress=false,
+ last_error=CASE WHEN p_sent THEN NULL ELSE left(p_error,500) END
  WHERE notice_id=p_notice AND waitlist_id=p_waitlist AND lease_id=p_lease AND sent_at IS NULL;
  IF NOT FOUND THEN RETURN false; END IF;
  IF p_sent THEN UPDATE public.waitlist SET status='notified',notified_at=now(),expires_at=now()+interval '24 hours'
@@ -97,7 +115,7 @@ CREATE OR REPLACE FUNCTION public.prepare_waitlist_notice_payload(p_notice uuid,
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE result jsonb;
 BEGIN
- UPDATE public.waitlist_notice_deliveries SET payload=coalesce(payload,p_payload),first_attempt_at=coalesce(first_attempt_at,now())
+ UPDATE public.waitlist_notice_deliveries SET payload=coalesce(payload,p_payload),first_attempt_at=coalesce(first_attempt_at,now()),attempt_in_progress=true
  WHERE notice_id=p_notice AND waitlist_id=p_waitlist AND lease_id=p_lease AND sent_at IS NULL
  AND (first_attempt_at IS NULL OR first_attempt_at>now()-interval '23 hours') RETURNING payload INTO result;
  RETURN result;
@@ -107,5 +125,18 @@ GRANT EXECUTE ON FUNCTION public.prepare_waitlist_notice_payload(uuid,uuid,uuid,
 REVOKE ALL ON FUNCTION public.claim_waitlist_notice(uuid,uuid,boolean,uuid),public.finish_waitlist_notice(uuid,uuid,uuid,boolean,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_waitlist_notice(uuid,uuid,boolean,uuid),public.finish_waitlist_notice(uuid,uuid,uuid,boolean,text) TO service_role;
 -- 旧の送信前消費RPCは全呼出元が新claim/finishへ移行後も権限を復活させない。
+
+
+-- 同一公演の未処理intentが多数あっても他組織/公演を飢餓にしない。
+CREATE OR REPLACE FUNCTION public.list_pending_waitlist_notice_events(p_limit integer DEFAULT 10)
+RETURNS TABLE(schedule_event_id uuid,organization_id uuid) LANGUAGE sql SECURITY INVOKER SET search_path=public,pg_temp AS $$
+ SELECT w.schedule_event_id,w.organization_id FROM public.waitlist_notice_events w
+ WHERE w.completed_at IS NULL AND NOT w.requires_review
+ GROUP BY w.schedule_event_id,w.organization_id
+ ORDER BY max(w.last_attempt_at) NULLS FIRST,min(w.created_at),w.schedule_event_id
+ LIMIT least(greatest(coalesce(p_limit,10),1),50);
+$$;
+REVOKE ALL ON FUNCTION public.list_pending_waitlist_notice_events(integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.list_pending_waitlist_notice_events(integer) TO service_role;
 
 NOTIFY pgrst,'reload schema';

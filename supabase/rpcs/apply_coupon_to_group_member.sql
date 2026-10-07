@@ -12,3 +12,5 @@ BEGIN
  END IF;
  RETURN public.validate_group_coupon(p_member_id,p_coupon_id);
 END $$;
+REVOKE ALL ON FUNCTION public.apply_coupon_to_group_member (uuid,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.apply_coupon_to_group_member(uuid,uuid) TO authenticated,service_role;

@@ -6,7 +6,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "94a1f20ff81508a134bb3addc5d4142b",
+  "body_md5": "db038b0020f8cba8069ea5390b4a745c",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -102,7 +102,7 @@
    "service_role=X/postgres"
   ],
   "returns": "trigger",
-  "body_md5": "dd001cb60ad6b66dd79e13310ae9e4b8",
+  "body_md5": "abd667f7a801e4d10c7ff797706aaa96",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -124,7 +124,7 @@
    "service_role=X/postgres"
   ],
   "returns": "trigger",
-  "body_md5": "3f9e23416b77c74ac2ed06526f3103f6",
+  "body_md5": "a66ab4a356386376292a6efe534aefc5",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -134,7 +134,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "342c05b7eaec328b3fb4ca1b416ca3c5",
+  "body_md5": "756fc862359ba33814be794070419bfe",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -144,7 +144,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "5a4cb97fc5ef5502fc49d5c73eca2d2f",
+  "body_md5": "0db7edc6aecf4e6fe9ec099d58344e2f",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -154,7 +154,7 @@
    "service_role=X/postgres"
   ],
   "returns": "jsonb",
-  "body_md5": "96f7977e7f929f9022465ce4c40c8bdf",
+  "body_md5": "92a83745723e331291a09a0347780e32",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -164,7 +164,54 @@
    "service_role=X/postgres"
   ],
   "returns": "boolean",
-  "body_md5": "28903eb6fb09f6917b555df7161c9c8f",
+  "body_md5": "02b1f2bfa7600cb9f1651e4efc7c2aaa",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "redirect_legacy_waitlist_retry()": {
+  "acl": [
+   "postgres=X/postgres"
+  ],
+  "returns": "trigger",
+  "body_md5": "4cf2334f00e675930a6b7b6d7618aa2d",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "release_group_coupon_usage(p_member uuid)": {
+  "acl": [
+   "postgres=X/postgres"
+  ],
+  "returns": "void",
+  "body_md5": "e75d6388240996ee65ac33c571dd50aa",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "list_pending_waitlist_notice_events(p_limit integer)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "TABLE(schedule_event_id uuid, organization_id uuid)",
+  "body_md5": "9239b856de63a03c149bbe6d10b697da",
+  "language": "sql",
+  "security_definer": false
+ },
+ "coupon_discount_for_event(p_coupon uuid, p_event uuid, p_amount integer, p_customer uuid, p_reservation uuid)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "integer",
+  "body_md5": "ca34de5068208ee28ef6a7ece7e4351d",
+  "language": "sql",
+  "security_definer": true
+ },
+ "coupon_discount_for_event_internal(p_coupon uuid, p_event uuid, p_amount integer, p_customer uuid, p_reservation uuid, p_member uuid)": {
+  "acl": [
+   "postgres=X/postgres"
+  ],
+  "returns": "integer",
+  "body_md5": "74d050a8d4d1a30068db9c88bb69c101",
   "language": "plpgsql",
   "security_definer": true
  }

@@ -15,6 +15,7 @@ import { addPlayedOverride } from '@/lib/playedOverrides'
 export function usePlayedScenarios() {
   const { user } = useAuth()
   const [playedScenarioIds, setPlayedScenarioIds] = useState<Set<string>>(new Set())
+  const [customerIds, setCustomerIds] = useState<string[]>([])
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -22,6 +23,7 @@ export function usePlayedScenarios() {
     if (!user?.id) {
       setPlayedScenarioIds(new Set())
       setCustomerId(null)
+      setCustomerIds([])
       setLoading(false)
       return
     }
@@ -34,11 +36,13 @@ export function usePlayedScenarios() {
       if (!customer) {
         setPlayedScenarioIds(new Set())
         setCustomerId(null)
+      setCustomerIds([])
         setLoading(false)
         return
       }
 
       setCustomerId(customer.id)
+      setCustomerIds(customers!.map(row => row.id))
       const histories = await Promise.all(customers!.map(row => customerPlayHistory.snapshot(row.id)))
       const history = { manual: histories.flatMap(h => h.manual), overrides: histories.flatMap(h => h.overrides) }
       // 手動履歴・未体験指定は確認済み。予約取得が失敗してもこの判定は保持する。
@@ -88,6 +92,7 @@ export function usePlayedScenarios() {
   return {
     isPlayed,
     customerId,
+    customerIds,
     markAsPlayed,
     unmarkAsPlayed,
     refreshPlayed: fetchPlayedScenarios,
