@@ -15,7 +15,7 @@
    "postgres=X/postgres"
   ],
   "returns": "TABLE(id uuid, customer_name text, customer_email text, participant_count integer, status text, created_at timestamp with time zone)",
-  "body_md5": "5e22a89db3b5bd7ec2854c61b0eca406",
+  "body_md5": "884bef2972a57f37fa60283c4533821b",
   "language": "plpgsql",
   "security_definer": true
  },
@@ -65,8 +65,6 @@
  },
  "create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text, p_customer_coupon_id uuid)": {
   "acl": [
-   "=X/postgres",
-   "anon=X/postgres",
    "authenticated=X/postgres",
    "postgres=X/postgres",
    "service_role=X/postgres"
