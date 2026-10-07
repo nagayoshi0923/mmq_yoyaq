@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-06T14:21:21.801Z",
+  "captured_at": "2026-10-07T01:29:19.740Z",
   "table_count": 142,
   "function_count": 348,
-  "digest": "79dc97aa9c19f638991b4305a75620e0799210df5b052f4fe0bb439c3b56df35"
+  "digest": "e85c6d04a234da26f62f2839388e1dd3d3bf2da3c4f27ab65470409fd53db4df"
  },
  "tables": {
   "staff": {
@@ -7607,7 +7607,7 @@
      "type": "p"
     },
     {
-     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE NOT VALID",
      "name": "platform_masters_user_id_fkey",
      "type": "f"
     }
@@ -26138,7 +26138,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "dc8aedcfd2037981d095847a4f653239",
+   "body_md5": "5211971b374938b24a070974983477e5",
    "language": "plpgsql",
    "security_definer": true
   },

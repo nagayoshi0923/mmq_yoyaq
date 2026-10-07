@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { privateBookingSlotReadApi } from '@/lib/api/scheduleHookReadApi'
 import { logger } from '@/utils/logger'
-import { fetchScenarioTimingFromDb, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
+import { fetchScenarioTimingFromDb, isWithinScenarioPerformancePeriod, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 import { computePrivateBookingSlots, type PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
@@ -239,6 +239,10 @@ export function usePrivateBookingSlotData({
       if (!scenarioTiming) return {} as Record<string, PrivateBookingSlot[]>
       const map: Record<string, PrivateBookingSlot[]> = {}
       for (const date of dates) {
+        if (!isWithinScenarioPerformancePeriod(date, scenarioTiming)) {
+          map[date] = []
+          continue
+        }
         map[date] = computePrivateBookingSlots({
           date,
           storeIds: effectiveStoreIds,
