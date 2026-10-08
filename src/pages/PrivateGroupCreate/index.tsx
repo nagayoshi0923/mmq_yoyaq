@@ -366,7 +366,7 @@ export function PrivateGroupCreate() {
                       <h3 className="text-base font-medium">{scenario.title}</h3>
                       <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                         <Users className="w-4 h-4" />
-                        <span>{scenario.player_count_min}〜{scenario.player_count_max}名</span>
+                        <span>{scenario.player_count_min === scenario.player_count_max ? `${scenario.player_count_max}名` : `${scenario.player_count_min}〜${scenario.player_count_max}名`}</span>
                       </div>
                       <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
                         貸切リクエスト
