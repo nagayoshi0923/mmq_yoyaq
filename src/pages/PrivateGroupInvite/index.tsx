@@ -138,6 +138,7 @@ export function PrivateGroupInvite() {
   const [pinCode, setPinCode] = useState('')
   const [pinError, setPinError] = useState<string | null>(null)
   const [generatedPin, setGeneratedPin] = useState<string | null>(null)
+  const [joinedAsNewMember, setJoinedAsNewMember] = useState(false)
 
   // URLパラメータでシート・タブ状態を管理（ブラウザバックで閉じる）
   const [searchParams, setSearchParams] = useSearchParams()
@@ -436,6 +437,7 @@ export function PrivateGroupInvite() {
       let newPin: string | null = null
 
       if (!memberId) {
+        setJoinedAsNewMember(true)
         newPin = user ? null : generatePin()
         const member = await joinGroup({
           inviteCode: group.invite_code,
@@ -551,6 +553,7 @@ export function PrivateGroupInvite() {
     return (
       <InviteJoinSuccessScreen
         generatedPin={generatedPin}
+        isNewMember={joinedAsNewMember}
         guestEmail={guestEmail}
         onViewGroup={() => {
           setSuccess(false)
@@ -587,7 +590,7 @@ export function PrivateGroupInvite() {
     ? memberInvitationCap(inviteBounds)
     : null
   const organizerMember = group.members?.find(m => m.is_organizer)
-  const organizerName = organizerMember?.guest_name || 'メンバー'
+  const organizerName = organizerMember?.guest_name || organizerMember?.users?.nickname || organizerMember?.users?.email?.split('@')[0] || 'メンバー'
   const memberCount = group?.joined_member_count ?? joinedMembers.length
 
   // 参加人数が上限に達しているか（シナリオ超過で締め切る）
