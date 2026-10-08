@@ -1,16 +1,19 @@
 import { updateOwnManualDate } from '@/lib/ownPlayHistory'
 // マイページ本体（プロフィール/アルバム/タブ・renderAlbumCard 含む）
 // MyPage/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React, { Suspense } from 'react'
+import React, { Suspense, useMemo } from 'react'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { Button } from '@/components/ui/button'
 import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star } from 'lucide-react'
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import { ReservationsTab } from './components/ReservationsTab'
-import { RESERVATION_SOURCE } from '@/lib/constants'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { ReservationsTab, type ReservationsSubTab } from './components/ReservationsTab'
+import { buildPrivateBookingView, countActivePrivateBookings, isPrivateReservation } from './components/PrivateBookingCards/privateBookingModel'
+import { usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { useCouponsQuery } from './hooks/useCouponsQuery'
+import { countUsableCoupons } from './utils/couponListVisibility'
+import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
@@ -36,14 +39,21 @@ const menuItems = [
   { id: 'settings', label: '設定', icon: Settings },
 ]
 
+/** タブのバッジの数字の意味（読み上げ用。docs/product-spec/マイページ改修_2026-10.md「数字の意味」） */
+const COUNT_MEANINGS: Record<string, (n: number) => string> = {
+  reservations: n => `進行中 ${n}件`,
+  coupons: n => `使えるクーポン ${n}枚`,
+  album: n => `体験済み ${n}作品`,
+}
+
 type MyPageData = NonNullable<ReturnType<typeof useMyPageDataQuery>['data']>
 type AlbumOptionsData = NonNullable<ReturnType<typeof useMyPageAlbumOptionsQuery>['data']>
 
 interface MyPageContentProps {
   activeTab: string
-  reservationsSubTab: 'bookings' | 'private' | 'cancelled'
+  reservationsSubTab: ReservationsSubTab
   setActiveTab: (tab: string) => void
-  setReservationsSubTab: (sub: 'bookings' | 'private' | 'cancelled') => void
+  setReservationsSubTab: (sub: ReservationsSubTab) => void
   navigate: (path: string) => void
   displayName: string
   avatarUrl: string | null
@@ -54,9 +64,7 @@ interface MyPageContentProps {
   optionsLoading: boolean
   customerId: string | null
   customerIds?: string[]
-  stats: MyPageData['stats']
   stores: MyPageData['stores']
-  orgNames: MyPageData['orgNames']
   scenarioImages: MyPageData['scenarioImages']
   scenarioInfo: MyPageData['scenarioInfo']
   scheduleEvents: MyPageData['scheduleEvents']
@@ -72,7 +80,6 @@ interface MyPageContentProps {
   setAlbumSortOrder: React.Dispatch<React.SetStateAction<'date' | 'rating_desc' | 'rating_asc'>>
   showHiddenItems: boolean
   setShowHiddenItems: React.Dispatch<React.SetStateAction<boolean>>
-  hiddenPlays: Set<string>
   setHiddenPlays: React.Dispatch<React.SetStateAction<Set<string>>>
   deletedPlays: Set<string>
   setDeletedPlays: React.Dispatch<React.SetStateAction<Set<string>>>
@@ -113,10 +120,10 @@ interface MyPageContentProps {
 
 export function MyPageContent({
   activeTab, reservationsSubTab, setActiveTab, setReservationsSubTab, navigate, displayName, avatarUrl, fileInputRef,
-  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stats, stores, orgNames, scenarioImages,
+  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stores, scenarioImages,
   scenarioInfo, scheduleEvents, reservations, privateGroups, scenarioOptions, storeOptions, playedScenarios, setPlayedScenarios,
   albumComparator, playedScenarioAlbumKey, albumSortOrder, setAlbumSortOrder, showHiddenItems, setShowHiddenItems,
-  hiddenPlays, setHiddenPlays, deletedPlays, setDeletedPlays, dateOverrides, setDateOverrides,
+  setHiddenPlays, deletedPlays, setDeletedPlays, dateOverrides, setDateOverrides,
   isScenarioHidden, isScenarioOverridden, isScenarioExcluded, isScenarioDeleted, handleRatingChange, handleHideFromAlbum, handleShowInAlbum,
   handleMarkPlayed, handleMarkUnplayed, isAddDialogOpen, setIsAddDialogOpen, isEditDialogOpen, setIsEditDialogOpen,
   editingScenario, setEditingScenario, editingDate, setEditingDate, isEditingDate, setIsEditingDate,
@@ -200,8 +207,9 @@ export function MyPageContent({
                 handleOpenEditDialog(scenario)
               }}
               title="編集"
+              aria-label={`${scenario.scenario || '作品'}の記録を編集`}
             >
-              <MoreVertical className="h-4 w-4 text-gray-500" />
+              <MoreVertical className="h-4 w-4 text-gray-500" aria-hidden="true" />
             </Button>
           </div>
           {/* おすすめ度（星評価） */}
@@ -218,6 +226,8 @@ export function MyPageContent({
                     }}
                     className="p-0.5 hover:scale-110 transition-transform"
                     title={`おすすめ度 ${star}`}
+                    aria-label={`おすすめ度を${star}にする`}
+                    aria-pressed={!!scenario.rating && scenario.rating >= star}
                   >
                     <Star
                       className="h-3.5 w-3.5"
@@ -332,11 +342,6 @@ export function MyPageContent({
 
   // 公演成立状況を取得
   const getPerformanceStatus = (reservation: Reservation) => {
-    // キャンセル済みは参加状況より優先して「キャンセル済み」を表示
-    if (reservation.status === 'cancelled') {
-      return { type: 'cancelled', label: 'キャンセル済み', color: 'bg-gray-100 text-gray-500' }
-    }
-
     const event = reservation.schedule_event_id ? scheduleEvents[reservation.schedule_event_id] : null
     
     // 貸切公演は状況表示不要
@@ -407,9 +412,10 @@ export function MyPageContent({
     return diffDays
   }
 
-  // 予約を分類
+  // 予約を分類（一般公演には貸切を出さない。貸切は「貸切」サブタブで 1 貸切 = 1 カード）
+  const todayYmd = toJstYmd(new Date())
   const upcomingReservations = reservations.filter(
-    r => new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
+    r => !isPrivateReservation(r, scheduleEvents) && new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
   )
   const pastReservations = reservations.filter(
     r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
@@ -418,20 +424,22 @@ export function MyPageContent({
   const cancelledReservations = reservations
     .filter(r => r.status === 'cancelled')
     .sort((a, b) => new Date(b.requested_datetime).getTime() - new Date(a.requested_datetime).getTime())
-  // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）- 申込順（新しい順）
-  const pendingPrivateBookings = reservations
-    .filter(
-      r => r.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE &&
-           ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
-    )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  // タブごとのカウント
-  // 表示するグループ: gathering（日程調整前）, date_adjusting（日程調整中）, booking_requested（申込済み）, confirmed（確定済み）
-  const activePrivateGroups = privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status))
+  const { data: surveyPending } = usePrivateSurveyStatusQuery(privateGroups, todayYmd)
+  const privateView = useMemo(
+    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, todayYmd }),
+    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd],
+  )
+
+  // タブのバッジの数字（意味は docs/product-spec/マイページ改修_2026-10.md「数字の意味」）
+  //   予約 = 進行中の件数（一般公演の確定予約 + 貸切の要対応・返事待ち・準備待ち・確定（未来））
+  //   クーポン = 使えるクーポンの枚数 / アルバム = 体験済み作品数（アルバム一覧・プロフィール見出しと同じ数え方）
+  const { data: coupons } = useCouponsQuery()
+  const experiencedCount = playedScenarios.filter(s => !isScenarioExcluded(s)).length
   const getCounts = () => ({
-    reservations: upcomingReservations.length + pendingPrivateBookings.length + activePrivateGroups.length,
-    album: playedScenarios.length,
+    reservations: upcomingReservations.length + countActivePrivateBookings(privateView),
+    coupons: countUsableCoupons(coupons ?? [], new Date()),
+    album: experiencedCount,
     wishlist: 0,
     settings: null
   })
@@ -454,7 +462,9 @@ export function MyPageContent({
                 className="hidden"
               />
               <button
+                type="button"
                 onClick={handleAvatarClick}
+                aria-label="プロフィール画像を変更"
                 className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
               >
                 {avatarUrl ? (
@@ -469,6 +479,7 @@ export function MyPageContent({
               </button>
               {/* 編集アイコン */}
               <div 
+                aria-hidden="true"
                 className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
                 onClick={handleAvatarClick}
               >
@@ -484,7 +495,7 @@ export function MyPageContent({
               <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1 ts-muted text-gray-600">
                   <Trophy className="w-4 h-4 text-mypage-primary" />
-                  <span>{stats.participationCount}回参加</span>
+                  <span>体験済み {experiencedCount}作品</span>
                 </div>
               </div>
             </div>
@@ -497,7 +508,7 @@ export function MyPageContent({
       {/* タブナビゲーション */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-4xl mx-auto">
-          <div className="flex">
+          <div className="flex" role="tablist" aria-label="マイページのメニュー">
             {menuItems.map((item) => {
               const Icon = item.icon
               const isActive = activeTab === item.id
@@ -505,6 +516,10 @@ export function MyPageContent({
               return (
                 <button
                   key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={count !== null && count > 0 && COUNT_MEANINGS[item.id] ? `${item.label}（${COUNT_MEANINGS[item.id](count)}）` : item.label}
                   onClick={() => setActiveTab(item.id)}
                   className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-all relative ${
                     isActive 
@@ -512,10 +527,11 @@ export function MyPageContent({
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-5 h-5" aria-hidden="true" />
                   <span className="hidden sm:inline">{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
+                      aria-hidden="true"
                       className={`text-xs px-1.5 py-0.5 rounded-full ${
                         isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
                       }`}
@@ -543,15 +559,11 @@ export function MyPageContent({
           <>
             {activeTab === 'reservations' && (
               <ReservationsTab
-                privateGroups={privateGroups}
-                activePrivateGroups={activePrivateGroups}
-                pendingPrivateBookings={pendingPrivateBookings}
+                privateView={privateView}
                 upcomingReservations={upcomingReservations}
                 pastReservations={pastReservations}
                 cancelledReservations={cancelledReservations}
-                scheduleEvents={scheduleEvents}
                 scenarioImages={scenarioImages}
-                orgNames={orgNames}
                 stores={stores}
                 reservationsSubTab={reservationsSubTab}
                 setReservationsSubTab={setReservationsSubTab}
@@ -559,6 +571,7 @@ export function MyPageContent({
                 getDaysUntil={getDaysUntil}
                 getPerformanceDateTime={getPerformanceDateTime}
                 getPerformanceStatus={getPerformanceStatus}
+                isPrivate={r => isPrivateReservation(r, scheduleEvents)}
                 setActiveTab={setActiveTab}
               />
             )}
@@ -575,11 +588,7 @@ export function MyPageContent({
                 <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
-                    <span className="text-2xl font-bold text-mypage-primary">{playedScenarios.filter(s => {
-                      const key = playedScenarioAlbumKey(s)
-                      const legacy = s.reservation_id || `${s.scenario}-${s.date}`
-                      return !hiddenPlays.has(key) && !hiddenPlays.has(legacy)
-                    }).length}作品</span>
+                    <span className="text-2xl font-bold text-mypage-primary">{experiencedCount}作品</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="ts-muted">
@@ -726,8 +735,10 @@ export function MyPageContent({
           className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
           size="icon"
           onClick={() => navigate('/')}
+          aria-label="公演を探す（トップへ）"
+          title="公演を探す"
         >
-          <Sparkles className="w-6 h-6" />
+          <Sparkles className="w-6 h-6" aria-hidden="true" />
         </Button>
       </div>
 

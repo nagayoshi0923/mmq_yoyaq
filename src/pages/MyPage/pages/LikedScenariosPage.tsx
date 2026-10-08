@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Heart, Users, Clock, Sparkles, ChevronRight } from 'lucide-react'
+import { Heart, Users, Clock, Sparkles, ChevronRight, CalendarDays } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { useLikedScenariosQuery, useRemoveLikeMutation } from '../hooks/useLikedScenariosQuery'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { useLikedScenariosQuery, useRemoveLikeMutation, useWishlistNextEventsQuery, type WishlistNextEvent } from '../hooks/useLikedScenariosQuery'
+import { formatJstDateJa, formatJstMonthDay } from '@/utils/jstDate'
 
 interface WantToPlayScenario {
   id: string
@@ -43,6 +43,39 @@ const getDifficultyLabel = (difficulty: number) => {
   }
 }
 
+/** 作品ごとの「次の公演」1 件。押すと作品ページの公演選択へ */
+function NextEventLine({ next, loading, onOpen }: { next: WishlistNextEvent | undefined; loading: boolean; onOpen: (href: string) => void }) {
+  if (loading) return <p className="ts-caption mt-2" role="status">次の公演を確認中...</p>
+  if (!next) {
+    return <p className="ts-caption mt-2" data-testid="wishlist-next-none">予定なし・貸切リクエストできます</p>
+  }
+  const seats = next.remaining == null ? '' : next.remaining === 0 ? '満席' : `残り${next.remaining}席`
+  return (
+    <button
+      type="button"
+      data-testid="wishlist-next-event"
+      className="mt-2 w-full flex items-center gap-2 px-2 py-1.5 border border-border bg-muted hover:bg-accent text-left transition-colors rounded-none"
+      aria-label={`次の公演 ${formatJstMonthDay(next.date, true)} ${next.startTime} ${next.venue ?? ''} ${seats} の予約へ進む`}
+      onClick={e => {
+        e.stopPropagation()
+        onOpen(next.href)
+      }}
+    >
+      <CalendarDays className="w-4 h-4 shrink-0 text-mypage-primary" aria-hidden="true" />
+      <span className="text-xs text-foreground min-w-0 flex-1">
+        <span className="block">
+          次の公演
+          {seats && <span className={`ml-2 ${next.remaining === 0 ? 'text-muted-foreground' : 'text-mypage-primary font-bold'}`}>{seats}</span>}
+        </span>
+        <span className="block">
+          <span className="font-bold whitespace-nowrap">{formatJstMonthDay(next.date, true)} {next.startTime}</span>
+          {next.venue ? ` ${next.venue}` : ''}
+        </span>
+      </span>
+    </button>
+  )
+}
+
 export function WantToPlayPage() {
   const { user } = useAuth()
   const { organization } = useOrganization()
@@ -51,6 +84,9 @@ export function WantToPlayPage() {
 
   const { data: wantToPlayScenarios = [], isLoading } = useLikedScenariosQuery(user?.id)
   const removeLike = useRemoveLikeMutation(user?.id)
+  const { data: nextEvents, isLoading: nextLoading } = useWishlistNextEventsQuery(
+    (wantToPlayScenarios as WantToPlayScenario[]).map(item => item.scenario.id),
+  )
 
   const handleRemove = (likeId: string) => {
     removeLike.mutate(likeId)
@@ -129,7 +165,7 @@ export function WantToPlayPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-gray-900 truncate">{item.scenario.title}</h3>
+                  <h3 className="font-bold text-gray-900 line-clamp-2">{item.scenario.title}</h3>
                   <p className="ts-muted mt-1">作者: {item.scenario.author}</p>
                 </div>
                 <Button
@@ -141,8 +177,9 @@ export function WantToPlayPage() {
                   }}
                   className="flex-shrink-0 hover:bg-red-50"
                   title="お気に入りから削除"
+                  aria-label={`${item.scenario.title}を遊びたいリストから外す`}
                 >
-                  <Heart className="h-5 w-5 fill-current text-mypage-primary" />
+                  <Heart className="h-5 w-5 fill-current text-mypage-primary" aria-hidden="true" />
                 </Button>
               </div>
 
@@ -164,7 +201,9 @@ export function WantToPlayPage() {
                 )}
               </div>
 
-              <p className="text-xs text-gray-400 mt-2">追加日: {formatDate(item.created_at)}</p>
+              <NextEventLine next={nextEvents?.[item.scenario.id]} loading={nextLoading} onOpen={href => navigate(href)} />
+
+              <p className="ts-caption mt-2">追加日: {formatDate(item.created_at)}</p>
             </div>
 
             <div className="flex items-center">

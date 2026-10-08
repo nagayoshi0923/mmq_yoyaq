@@ -3,14 +3,14 @@
  * 保有クーポンと使用履歴を表示
  * クーポンをタップしてもぎる機能付き
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { previewCouponUse } from '@/lib/api/couponApi'
 import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
-import { getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
+import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
 
@@ -68,7 +68,18 @@ export function CouponsPage() {
     retry: false,
     staleTime: 0,
   })
-  const loading = couponsLoading || reservationsLoading
+  // 予約の読み込み前にクーポンを押した場合も、読み終わって候補が 1 件ならそれを選ぶ
+  useEffect(() => {
+    if (!showConfirmDialog || !selectedCoupon || selectedReservationId || reservationsLoading) return
+    const coupon = selectedCoupon.coupon
+    const eligible = (currentReservations as CurrentReservation[]).filter(r =>
+      r.organization_id === coupon.organization_id &&
+      (!coupon.coupon_campaigns?.murder_mystery_only || r.murder_mystery_eligible))
+    if (eligible.length === 1) setSelectedReservationId(eligible[0].id)
+  }, [showConfirmDialog, selectedCoupon, selectedReservationId, reservationsLoading, currentReservations])
+
+  // 紐付け候補の予約はクーポンを押したときだけ使うので、一覧の表示は待たない
+  const loading = couponsLoading
 
   const eligibleReservations = (coupon: CustomerCoupon) =>
     (currentReservations as CurrentReservation[]).filter(r =>
@@ -111,7 +122,7 @@ export function CouponsPage() {
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
   const usedCoupons = sortedCoupons.filter(c => isUsedCouponVisible(c, now))
 
-  const totalAvailableCount = activeCoupons.reduce((sum, c) => sum + c.uses_remaining, 0)
+  const totalAvailableCount = countUsableCoupons(coupons, now)
 
   const expandedActiveCoupons = activeCoupons.flatMap(coupon => {
     const cards: { coupon: CustomerCoupon; index: number; total: number }[] = []
@@ -352,7 +363,9 @@ export function CouponsPage() {
               {selectedCoupon.coupon.coupon_campaigns?.murder_mystery_only && (
                 <p className="text-xs text-muted-foreground mb-3">マーダーミステリー公演限定。ボードゲーム・箱開け会は対象外です。</p>
               )}
-              {reservationsError ? (
+              {reservationsLoading ? (
+                <p className="mb-4 ts-caption" role="status">紐付ける公演を読み込み中...</p>
+              ) : reservationsError ? (
                 <div role="alert" className="mb-4">
                   <p>予約を取得できませんでした。再読み込みしてください。</p>
                   <Button variant="outline" onClick={() => void reloadReservations()}>予約を再読み込み</Button>

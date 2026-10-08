@@ -3,6 +3,7 @@ import { myPageLikesReadApi } from '@/lib/api/myPageReadApi'
 import { scenarioLikeApi } from '@/lib/api/scenarioWriteApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { getJstParts, toJstYmd } from '@/utils/jstDate'
 
 export const likedScenariosKeys = {
   all: (userId: string) => ['liked-scenarios', userId] as const,
@@ -75,6 +76,80 @@ export function useRemoveLikeMutation(userId: string | undefined) {
     onError: (error) => {
       logger.error('削除エラー:', error)
       showToast.error('削除に失敗しました')
+    },
+  })
+}
+
+export interface WishlistNextEvent {
+  eventId: string
+  date: string
+  startTime: string
+  venue: string | null
+  remaining: number | null
+  /** 作品ページの公演選択へ（?event= で公演を選んだ状態で開く） */
+  href: string
+}
+
+interface UpcomingEventRow {
+  id: string
+  date: string
+  start_time: string
+  venue: string | null
+  organization_id: string
+  scenario_master_id: string | null
+  current_participants: number | null
+  max_participants: number | null
+}
+
+/**
+ * 作品ごとの「次の公演」1 件を選ぶ。開始済み（今日の過ぎた時刻）は除き、残席のある最も早い公演。
+ * 全部満席なら最も早い公演（残席 0 として出す）。
+ */
+export function pickNextEvents(rows: UpcomingEventRow[], now: { date: string; time: string }, orgSlugs: Record<string, string>): Record<string, WishlistNextEvent> {
+  const byScenario: Record<string, UpcomingEventRow[]> = {}
+  for (const row of rows) {
+    if (!row.scenario_master_id) continue
+    if (row.date < now.date || (row.date === now.date && row.start_time.slice(0, 5) <= now.time)) continue
+    ;(byScenario[row.scenario_master_id] ??= []).push(row)
+  }
+  const result: Record<string, WishlistNextEvent> = {}
+  for (const [scenarioId, events] of Object.entries(byScenario)) {
+    const remainingOf = (e: UpcomingEventRow) => e.max_participants == null ? null : Math.max(0, e.max_participants - (e.current_participants ?? 0))
+    const pick = events.find(e => remainingOf(e) !== 0) ?? events[0]
+    const slug = orgSlugs[pick.organization_id]
+    const path = slug ? `/${slug}/scenario/${scenarioId}` : `/scenario/${scenarioId}`
+    result[scenarioId] = {
+      eventId: pick.id,
+      date: pick.date,
+      startTime: pick.start_time.slice(0, 5),
+      venue: pick.venue,
+      remaining: remainingOf(pick),
+      href: `${path}?event=${encodeURIComponent(pick.id)}`,
+    }
+  }
+  return result
+}
+
+/** 遊びたいリストの全作品の「次の公演」を 1 回の取得で読む（作品ごとに問い合わせない） */
+export function useWishlistNextEventsQuery(scenarioMasterIds: string[]) {
+  const ids = [...new Set(scenarioMasterIds.filter(Boolean))].sort()
+  return useQuery({
+    queryKey: ['wishlist-next-events', ids] as const,
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const nowParts = getJstParts(new Date())
+      const now = { date: toJstYmd(new Date()), time: nowParts ? `${nowParts.h}:${nowParts.mi}` : '00:00' }
+      const { data, error } = await myPageLikesReadApi.listUpcomingPublicEventsForScenarios(ids, now.date)
+      if (error) throw error
+      const rows = (data ?? []) as UpcomingEventRow[]
+      const orgIds = [...new Set(rows.map(r => r.organization_id).filter(Boolean))]
+      const orgSlugs: Record<string, string> = {}
+      if (orgIds.length > 0) {
+        const { data: orgs, error: orgError } = await myPageLikesReadApi.listOrganizationSlugs(orgIds)
+        if (orgError) throw orgError
+        ;(orgs ?? []).forEach(o => { if (o.slug) orgSlugs[o.id] = o.slug })
+      }
+      return pickNextEvents(rows, now, orgSlugs)
     },
   })
 }

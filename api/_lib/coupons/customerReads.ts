@@ -12,7 +12,8 @@ type CouponWithRules = Record<string, unknown> & {
   coupon_campaigns: Record<string, unknown> | null
   rules_snapshot: { usage_valid_from?: string | null; usage_valid_until?: string | null } & Record<string, unknown> | null
 }
-type UsageReservation = { id: string; title: string | null; requested_datetime: string | null; store_id: string | null }
+type UsageStore = { name: string; short_name: string | null }
+type UsageReservation = { id: string; title: string | null; requested_datetime: string | null; store_id: string | null; stores?: UsageStore | UsageStore[] | null }
 type CouponUsageRow = {
   id: string; customer_coupon_id: string; reservation_id: string | null; used_at: string | null; discount_amount: number | null
   reservations: UsageReservation | UsageReservation[] | null
@@ -99,7 +100,8 @@ export async function handleAll(
         id,
         title,
         requested_datetime,
-        store_id
+        store_id,
+        stores ( name, short_name )
       )
     `)
     .in('customer_coupon_id', couponIds)
@@ -110,40 +112,15 @@ export async function handleAll(
     return res.status(200).json(rows.map(c => ({ ...c, coupon_campaigns: { ...c.coupon_campaigns, ...c.rules_snapshot }, coupon_usages: [] })))
   }
 
+  // 店舗名は使用履歴と同じ問い合わせで読む（店舗だけを後から読み直す往復をなくす）
   const usages = (usageRows ?? []) as unknown as CouponUsageRow[]
-  const storeIds = [
-    ...new Set(
-      usages
-        .map(u => {
-          const r = u.reservations
-          const one = Array.isArray(r) ? r[0] : r
-          return one?.store_id
-        })
-        .filter((id: unknown): id is string => typeof id === 'string'),
-    ),
-  ]
-
-  const storeMap: Record<string, { name: string; short_name: string | null }> = {}
-  if (storeIds.length > 0) {
-    const { data: storeRows, error: storeError } = await database
-      .from('stores')
-      .select('id, name, short_name')
-      .in('id', storeIds)
-    if (storeError) {
-      console.warn('[coupons:all] stores fetch failed:', storeError)
-    } else {
-      ;(storeRows ?? []).forEach(s => {
-        storeMap[s.id] = { name: s.name, short_name: s.short_name }
-      })
-    }
-  }
 
   const byCoupon: Record<string, unknown[]> = {}
   for (const u of usages) {
     const resRaw = u.reservations
     const r = Array.isArray(resRaw) ? resRaw[0] : resRaw
-    const sid = r?.store_id ?? null
-    const storeInfo = sid ? storeMap[sid] : undefined
+    const storeRaw = r?.stores
+    const storeInfo = Array.isArray(storeRaw) ? storeRaw[0] : storeRaw
     const entry = {
       id: u.id,
       reservation_id: u.reservation_id,

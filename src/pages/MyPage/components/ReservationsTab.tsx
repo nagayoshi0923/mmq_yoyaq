@@ -1,44 +1,40 @@
 import { useNavigate } from 'react-router-dom'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, ChevronRight, Clock, MapPin, Sparkles, Users, XCircle } from 'lucide-react'
-import { getCustomerPrivateBookingStatusLabel } from '@/lib/constants/reservationStatus'
+import { Calendar, ChevronRight, Sparkles, Users, XCircle } from 'lucide-react'
 import { formatJstDateJa } from '@/utils/jstDate'
-import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
+import { PrivateBookingSections } from './PrivateBookingCards/PrivateBookingSections'
+import { countActivePrivateBookings, type PrivateBookingView } from './PrivateBookingCards/privateBookingModel'
+import { CANCEL_KIND_LABELS, cancelledDateReplacement, classifyCancellation } from '../utils/cancelledReservation'
+
+export type ReservationsSubTab = 'bookings' | 'private' | 'cancelled'
 
 interface ReservationsTabProps {
-  privateGroups: MyPageData['privateGroups']
-  activePrivateGroups: MyPageData['privateGroups']
-  pendingPrivateBookings: Reservation[]
+  privateView: PrivateBookingView
   upcomingReservations: Reservation[]
   pastReservations: Reservation[]
   cancelledReservations: Reservation[]
-  scheduleEvents: MyPageData['scheduleEvents']
   scenarioImages: MyPageData['scenarioImages']
-  orgNames: MyPageData['orgNames']
   stores: MyPageData['stores']
-  reservationsSubTab: 'bookings' | 'private' | 'cancelled'
-  setReservationsSubTab: (sub: 'bookings' | 'private' | 'cancelled') => void
+  reservationsSubTab: ReservationsSubTab
+  setReservationsSubTab: (sub: ReservationsSubTab) => void
   cleanTitle: (title?: string) => string
   getDaysUntil: (dateString: string) => number
   getPerformanceDateTime: (reservation: Reservation) => { date: string; time: string }
   getPerformanceStatus: (reservation: Reservation) => { label: string; color: string } | null
+  /** 貸切の予約か（キャンセル済みで候補日を日付として出さない判定に使う） */
+  isPrivate: (reservation: Reservation) => boolean
   setActiveTab: (tab: string) => void
 }
 
-/** 予約タブ（サブナビ/貸切リクエスト/調整中/予約一覧/参加履歴リンク）。MyPage から逐語抽出（presentational・挙動不変） */
+/** 予約タブ（サブタブ: 一般公演／貸切／キャンセル済み）。仕様: docs/product-spec/マイページ改修_2026-10.md */
 export function ReservationsTab({
-  privateGroups,
-  activePrivateGroups,
-  pendingPrivateBookings,
+  privateView,
   upcomingReservations,
   pastReservations,
   cancelledReservations,
-  scheduleEvents,
   scenarioImages,
-  orgNames,
   stores,
   reservationsSubTab,
   setReservationsSubTab,
@@ -46,395 +42,52 @@ export function ReservationsTab({
   getDaysUntil,
   getPerformanceDateTime,
   getPerformanceStatus,
+  isPrivate,
   setActiveTab,
 }: ReservationsTabProps) {
   const navigate = useNavigate()
+  const subTabs: Array<{ id: ReservationsSubTab; label: string; shortLabel: string; icon: typeof Calendar; count: number }> = [
+    { id: 'bookings', label: '一般公演', shortLabel: '一般公演', icon: Calendar, count: upcomingReservations.length },
+    { id: 'private', label: '貸切', shortLabel: '貸切', icon: Users, count: countActivePrivateBookings(privateView) },
+    { id: 'cancelled', label: 'キャンセル済み', shortLabel: 'キャンセル', icon: XCircle, count: cancelledReservations.length },
+  ]
   return (
               <div className="space-y-4">
-                {/* 予約タブ内サブナビ */}
-                {(() => {
-                  const activePg = privateGroups.filter((g) =>
-                    ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)
-                  )
-                  const privateCount = activePg.length + pendingPrivateBookings.length
-                  return (
-                    <div className="flex border border-gray-200 overflow-hidden bg-white rounded-none">
+                {/* 予約タブ内サブタブ */}
+                <div className="flex border border-border overflow-hidden bg-card rounded-none" role="tablist" aria-label="予約の種類">
+                  {subTabs.map((tab, i) => {
+                    const Icon = tab.icon
+                    const selected = reservationsSubTab === tab.id
+                    return (
                       <button
+                        key={tab.id}
                         type="button"
-                        onClick={() => setReservationsSubTab('bookings')}
-                        className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
-                          reservationsSubTab === 'bookings' ? 'text-white bg-mypage-primary' : 'text-gray-600 hover:bg-gray-50'
+                        role="tab"
+                        aria-selected={selected}
+                        aria-label={`${tab.label}（${tab.count}件）`}
+                        onClick={() => setReservationsSubTab(tab.id)}
+                        className={`flex-1 py-3 px-1 text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${i > 0 ? 'border-l border-border' : ''} ${
+                          selected ? 'text-white bg-mypage-primary' : 'text-muted-foreground hover:bg-muted'
                         }`}
                       >
-                        <Calendar className="w-4 h-4 shrink-0" />
-                        <span className="hidden sm:inline">公演予約</span>
-                        <span className="sm:hidden">予約</span>
-                        {upcomingReservations.length > 0 && (
+                        <Icon className="w-4 h-4 shrink-0 hidden min-[400px]:block" aria-hidden="true" />
+                        <span className="whitespace-nowrap hidden sm:inline">{tab.label}</span>
+                        <span className="whitespace-nowrap sm:hidden">{tab.shortLabel}</span>
+                        {tab.count > 0 && (
                           <span
-                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
-                              reservationsSubTab === 'bookings' ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
-                            }`}
+                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded-sm ${selected ? 'bg-white/20' : 'bg-muted text-foreground'}`}
+                            aria-hidden="true"
                           >
-                            {upcomingReservations.length}
+                            {tab.count}
                           </span>
                         )}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setReservationsSubTab('private')}
-                        className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 border-l border-gray-200 ${
-                          reservationsSubTab === 'private' ? 'text-white bg-mypage-primary' : 'text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        <Users className="w-4 h-4 shrink-0" />
-                        貸切
-                        {privateCount > 0 && (
-                          <span
-                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
-                              reservationsSubTab === 'private' ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
-                            }`}
-                          >
-                            {privateCount}
-                          </span>
-                        )}
-                      </button>
-                      {cancelledReservations.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setReservationsSubTab('cancelled')}
-                          className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 border-l border-gray-200 ${
-                            reservationsSubTab === 'cancelled' ? 'text-white bg-mypage-primary' : 'text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          <XCircle className="w-4 h-4 shrink-0" />
-                          <span className="hidden sm:inline">キャンセル済み</span>
-                          <span className="sm:hidden">キャンセル</span>
-                          <span
-                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
-                              reservationsSubTab === 'cancelled' ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
-                            }`}
-                          >
-                            {cancelledReservations.length}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  )
-                })()}
+                    )
+                  })}
+                </div>
 
                 {reservationsSubTab === 'private' && (
-                  <>
-                {/* 貸切リクエスト（グループベース） */}
-                {privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)).length > 0 && (
-                  <>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="w-4 h-4 text-purple-600" />
-                      <h3 className="text-sm font-bold text-gray-700">貸切リクエスト</h3>
-                    </div>
-                    {privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)).map((group) => {
-                      const getGroupStatusLabel = (status: string) => {
-                        switch (status) {
-                          case 'gathering':
-                            return '日程調整前'
-                          case 'date_adjusting':
-                            return '日程調整中'
-                          case 'booking_requested':
-                            return '申込済み'
-                          case 'confirmed':
-                            return '確定'
-                          default:
-                            return status
-                        }
-                      }
-                      const statusLabel = getGroupStatusLabel(group.status)
-                      
-                      return (
-                        <div 
-                          key={group.id}
-                          className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer rounded-none"
-                          onClick={() => navigate(`/group/invite/${group.invite_code}`)}
-                        >
-                          <div 
-                            className="px-3 py-1.5 text-purple-800 text-sm font-bold flex items-center justify-between"
-                            style={{ backgroundColor: '#f3e8ff' }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4" />
-                              <span>貸切（{statusLabel}）</span>
-                              {group.is_organizer && (
-                                <Badge variant="outline" className="text-xs bg-white">主催者</Badge>
-                              )}
-                            </div>
-                            <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
-                              {group.member_count}/{group.scenario_player_count_max || '?'}名
-                            </span>
-                          </div>
-
-                          {group.is_organizer &&
-                            group.candidate_dates_count > 0 &&
-                            (group.status === 'gathering' || group.status === 'date_adjusting') && (
-                              <div
-                                className="border-b border-green-200 bg-green-50 px-3 py-2.5"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <p className="text-xs font-semibold text-green-900">
-                                  候補日程が登録されています
-                                </p>
-                                <p className="text-[11px] text-green-800/90 mt-1 leading-snug">
-                                  グループページを開き、画面の「予約リクエストを作成」から店舗へ申し込みを進められます。
-                                </p>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="w-full mt-2 h-8 text-xs bg-green-600 hover:bg-green-700 text-white rounded-none"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    navigate(`/group/invite/${group.invite_code}`)
-                                  }}
-                                >
-                                  グループページを開く
-                                </Button>
-                              </div>
-                            )}
-                          
-                          <div className="p-3 flex gap-3">
-                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden rounded-none">
-                              {group.scenario_image ? (
-                                <>
-                                  <div 
-                                    className="absolute inset-0 scale-110"
-                                    style={{
-                                      backgroundImage: `url(${group.scenario_image})`,
-                                      backgroundSize: 'cover',
-                                      backgroundPosition: 'center',
-                                      filter: 'blur(8px) brightness(0.6)',
-                                    }}
-                                  />
-                                  <img
-                                    src={group.scenario_image}
-                                    alt={group.scenario_title || ''}
-                                    className="relative w-full h-full object-contain"
-                                    loading="lazy"
-                                  />
-                                </>
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-xl opacity-40">🎭</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
-                                {group.scenario_title || 'シナリオ未設定'}
-                              </h3>
-                              {group.name && (
-                                <p className="text-xs text-gray-500 mt-0.5">{group.name}</p>
-                              )}
-
-                              {group.confirmed_schedule_line && (
-                                <p className="flex items-start gap-1.5 mt-2 text-xs text-purple-900 font-medium leading-snug">
-                                  <Calendar className="w-3.5 h-3.5 shrink-0 mt-0.5 text-purple-600" />
-                                  <span>{group.confirmed_schedule_line}</span>
-                                </p>
-                              )}
-
-                              {group.member_displays && group.member_displays.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                  {group.member_displays.map((m, i) => (
-                                    <span
-                                      key={`${group.id}-m-${i}`}
-                                      className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 border ${
-                                        m.is_organizer
-                                          ? 'bg-purple-100 border-purple-200 text-purple-900'
-                                          : 'bg-gray-50 border-gray-200 text-gray-700'
-                                      }`}
-                                    >
-                                      {m.is_organizer && (
-                                        <span className="text-purple-600 font-semibold">主催</span>
-                                      )}
-                                      <span className="truncate max-w-[7rem] sm:max-w-[10rem]">{m.name}</span>
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-xs text-gray-500">
-                                <Users className="w-3 h-3" />
-                                <span>{group.member_count}名参加中</span>
-                                <span>•</span>
-                                <span>コード: {group.invite_code}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center">
-                              <ChevronRight className="w-5 h-5 text-gray-400" />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-
-                {/* 調整中の貸切申込み */}
-                {pendingPrivateBookings.length > 0 && (
-                  <>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="w-4 h-4 text-amber-600" />
-                      <h3 className="text-sm font-bold text-gray-700">日程調整中の貸切申込み</h3>
-                    </div>
-                    {pendingPrivateBookings.map((reservation) => {
-                      const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
-                      const candidateDatetimes = reservation.candidate_datetimes as {
-                        candidates?: Array<{ order: number; date: string; timeSlot: string; startTime: string; endTime: string; status: string }>
-                        confirmedStore?: { storeId: string; storeName?: string }
-                        confirmedDateTime?: { date: string; timeSlot: string }
-                        requestedStores?: Array<{ storeId: string; storeName: string; storeShortName?: string }>
-                      } | null
-                      
-                      const getStatusStyle = (status: string) => {
-                        switch (status) {
-                          case 'pending':
-                          case 'pending_gm':
-                            return 'bg-amber-100 text-amber-700'
-                          case 'gm_confirmed':
-                          case 'pending_store':
-                            return 'bg-blue-100 text-blue-700'
-                          default:
-                            return 'bg-gray-100 text-gray-700'
-                        }
-                      }
-                      const statusInfo = {
-                        label: getCustomerPrivateBookingStatusLabel(reservation.status),
-                        color: getStatusStyle(reservation.status),
-                      }
-                      
-                      // 候補日をフォーマット（最初の3件まで表示）
-                      const formatCandidateDate = (date: string, timeSlot: string) => {
-                        return `${formatJstDateJa(date, true)} ${candidateTimeSlotFromDb(timeSlot)}`
-                      }
-                      const candidates = candidateDatetimes?.candidates || []
-                      const displayCandidates = candidates.slice(0, 3)
-                      const remainingCount = candidates.length - 3
-                      
-                      // 希望店舗
-                      const requestedStores = candidateDatetimes?.requestedStores || []
-                      const storeNames = requestedStores.map(s => s.storeShortName || s.storeName).filter(Boolean)
-                      
-                      return (
-                        <div 
-                          key={reservation.id}
-                          className="bg-white border border-amber-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer rounded-none"
-                          onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
-                        >
-                          <div 
-                            className="px-3 py-1.5 text-amber-800 text-sm font-bold flex items-center justify-between"
-                            style={{ backgroundColor: '#fef3c7' }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4" />
-                              <span>日程調整中</span>
-                              {reservation.organization_id && orgNames[reservation.organization_id] && (
-                                <span className="text-xs font-normal text-amber-700">
-                                  （{orgNames[reservation.organization_id]}）
-                                </span>
-                              )}
-                            </div>
-                            <span className={`text-xs px-2 py-0.5 rounded ${statusInfo.color}`}>
-                              {statusInfo.label}
-                            </span>
-                          </div>
-                          
-                          <div className="p-3 flex gap-3">
-                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden rounded-none">
-                              {imageUrl ? (
-                                <>
-                                  <div 
-                                    className="absolute inset-0 scale-110"
-                                    style={{
-                                      backgroundImage: `url(${imageUrl})`,
-                                      backgroundSize: 'cover',
-                                      backgroundPosition: 'center',
-                                      filter: 'blur(8px) brightness(0.6)',
-                                    }}
-                                  />
-                                  <img
-                                    src={imageUrl}
-                                    alt={reservation.title}
-                                    className="relative w-full h-full object-contain"
-                                    loading="lazy"
-                                  />
-                                </>
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-xl opacity-40">🎭</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
-                                {cleanTitle(reservation.title)}
-                              </h3>
-                              
-                              {/* 候補日一覧 */}
-                              <div className="mt-1.5 space-y-0.5">
-                                {displayCandidates.map((c, i) => (
-                                  <p key={i} className="text-xs text-gray-600 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                    <span className="font-medium">{formatCandidateDate(c.date, c.timeSlot)}</span>
-                                  </p>
-                                ))}
-                                {remainingCount > 0 && (
-                                  <p className="text-xs text-gray-400">
-                                    他{remainingCount}件の候補日
-                                  </p>
-                                )}
-                              </div>
-                              
-                              {/* 希望店舗 */}
-                              {storeNames.length > 0 && (
-                                <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                                  {storeNames.join('・')}
-                                </p>
-                              )}
-
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
-                                <span className="font-mono">{reservation.reservation_number}</span>
-                                <span>•</span>
-                                <Users className="w-3 h-3" />
-                                <span>{reservation.participant_count}名</span>
-                                <span>•</span>
-                                <span>
-                                  {`${formatJstDateJa(reservation.created_at)} 申込`}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center">
-                              <ChevronRight className="w-5 h-5 text-gray-400" />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-
-                {activePrivateGroups.length === 0 && pendingPrivateBookings.length === 0 && (
-                  <div
-                    className="bg-white border border-gray-200 p-8 text-center text-gray-500 text-sm rounded-none"
-                  >
-                    <Users className="w-8 h-8 mx-auto mb-2 text-purple-300" />
-                    <p>貸切グループ・日程調整中の申込みはまだありません</p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      招待ページから参加するか、新しくグループを作成できます
-                    </p>
-                  </div>
-                )}
-                  </>
+                  <PrivateBookingSections view={privateView} onShowCancelled={() => setReservationsSubTab('cancelled')} />
                 )}
 
                 {reservationsSubTab === 'bookings' && (
@@ -447,10 +100,6 @@ export function ReservationsTab({
                       const daysUntil = getDaysUntil(perf.date)
                       const store = reservation.store_id ? stores[reservation.store_id] : null
                       const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
-                      
-                      // 貸切公演かどうか
-                      const eventId = reservation.schedule_event_id
-                      const isPrivate = eventId ? scheduleEvents[eventId]?.category === 'private' : false
                       
                       // 日付を短くフォーマット（1/11(日)）
                       const shortDate = formatJstDateJa(perf.date, true)
@@ -541,20 +190,12 @@ export function ReservationsTab({
                                 <span>•</span>
                                 <span>{reservation.participant_count}名</span>
                                 <span>•</span>
-                                {isPrivate ? (
-                                  // 貸切公演：合計金額を表示
-                                  <span className="font-bold text-gray-700">
-                                    ¥{(reservation.final_price || 0).toLocaleString()}
+                                <span className="font-bold text-gray-700">
+                                  ¥{(reservation.unit_price || 0).toLocaleString()}/人
+                                  <span className="font-normal text-gray-500 ml-1">
+                                    (計¥{(reservation.final_price || 0).toLocaleString()})
                                   </span>
-                                ) : (
-                                  // 通常公演：1人あたりと合計を表示
-                                  <span className="font-bold text-gray-700">
-                                    ¥{(reservation.unit_price || 0).toLocaleString()}/人
-                                    <span className="font-normal text-gray-500 ml-1">
-                                      (計¥{(reservation.final_price || 0).toLocaleString()})
-                                    </span>
-                                  </span>
-                                )}
+                                </span>
                               </div>
                             </div>
                             
@@ -610,7 +251,8 @@ export function ReservationsTab({
                         const store = reservation.store_id ? stores[reservation.store_id] : null
                         const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
                         const shortDate = formatJstDateJa(perf.date, true)
-                        const status = getPerformanceStatus(reservation)
+                        const cancelKind = CANCEL_KIND_LABELS[classifyCancellation(reservation.cancellation_reason)]
+                        const dateReplacement = cancelledDateReplacement(reservation, isPrivate(reservation))
                         return (
                           <div
                             key={reservation.id}
@@ -639,19 +281,17 @@ export function ReservationsTab({
                                 <h3 className="font-bold text-gray-700 text-sm leading-tight line-clamp-1">
                                   {cleanTitle(reservation.title)}
                                 </h3>
-                                <p className="text-sm mt-1 text-gray-500">
-                                  {shortDate} {perf.time ? perf.time.slice(0, 5) : ''}
+                                <p className="text-sm mt-1 text-muted-foreground" data-testid="cancelled-date">
+                                  {dateReplacement ?? `${shortDate} ${perf.time ? perf.time.slice(0, 5) : ''}`}
                                 </p>
                                 {store && (
                                   <p className="mt-1 text-xs text-gray-500 font-medium truncate">{store.name}</p>
                                 )}
-                                {status && (
-                                  <div className="mt-1.5">
-                                    <span className={`text-xs px-2 py-0.5 rounded ${status.color}`}>
-                                      {status.label}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="mt-1.5">
+                                  <span className={`text-xs px-2 py-0.5 rounded-sm ${cancelKind.color}`} data-testid="cancelled-kind">
+                                    {cancelKind.label}
+                                  </span>
+                                </div>
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-400">
                                   <span className="font-mono">{reservation.reservation_number}</span>
                                   <span>•</span>

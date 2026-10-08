@@ -175,8 +175,8 @@ export function ReservationDetailPage() {
     <div className="min-h-screen mypage-shell bg-gray-50">
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/mypage')} className="p-2 -ml-2 hover:bg-gray-100 transition-colors rounded-none">
-            <ChevronLeft className="w-5 h-5" />
+          <button type="button" onClick={() => navigate('/mypage')} className="p-2 -ml-2 hover:bg-gray-100 transition-colors rounded-none" aria-label="マイページに戻る">
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
           </button>
           <h1 className="font-bold text-lg">予約詳細</h1>
         </div>

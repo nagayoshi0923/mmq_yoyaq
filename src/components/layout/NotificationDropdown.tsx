@@ -207,8 +207,10 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white relative"
         title="通知"
+        aria-label={unreadCount > 0 ? `通知（未読 ${unreadCount}件）` : '通知'}
+        aria-expanded={isOpen}
       >
-        <Bell className="h-[18px] w-[18px]" />
+        <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
         {unreadCount > 0 && (
           <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] bg-red-500 hover:bg-red-500 border-0">
             {unreadCount > 9 ? '9+' : unreadCount}

@@ -226,15 +226,18 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
                   >
                     {user?.staffName || user?.customerName || user?.name}
                   </span>
-                  <Badge 
-                    className="text-[10px] px-1.5 py-0 bg-white/20 text-white border-0"
-                    style={{ borderRadius: 0 }}
-                    {...devDb('users.role')}
-                  >
-                    {checkIsLicenseAdmin(user?.role, organizationId) ? 'MMQ運営' :
-                     user?.role === 'admin' ? '管理者' : 
-                     user?.role === 'staff' ? 'スタッフ' : '顧客'}
-                  </Badge>
+                  {/* 役割バッジはスタッフ側だけ。お客様（role=customer）には「顧客」を出さない */}
+                  {(checkIsLicenseAdmin(user?.role, organizationId) || (!!user?.role && user.role !== 'customer')) && (
+                    <Badge 
+                      className="text-[10px] px-1.5 py-0 bg-white/20 text-white border-0"
+                      style={{ borderRadius: 0 }}
+                      {...devDb('users.role')}
+                    >
+                      {checkIsLicenseAdmin(user?.role, organizationId) ? 'MMQ運営' :
+                       user?.role === 'admin' ? '管理者' : 
+                       user?.role === 'staff' ? 'スタッフ' : '顧客'}
+                    </Badge>
+                  )}
                 </div>
                 {/* スタッフ/管理者用：管理サイトボタン */}
                 {isStaffOrAdmin && (
@@ -242,8 +245,9 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
                     onClick={handleDashboardClick}
                     className="inline-flex items-center gap-1 h-8 px-2 text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                     title="管理サイトへ"
+                    aria-label="管理サイトへ"
                   >
-                    <LayoutDashboard className="h-4 w-4" />
+                    <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                     <span className="hidden sm:inline">管理</span>
                   </button>
                 )}
@@ -255,8 +259,9 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
                     }}
                     className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2 text-xs text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors border border-white/20 rounded"
                     title="グローバル検索 (⌘K)"
+                    aria-label="グローバル検索（⌘K）"
                   >
-                    <Search className="h-3 w-3" />
+                    <Search className="h-3 w-3" aria-hidden="true" />
                     <span className="text-[10px]">⌘K</span>
                   </button>
                 )}
@@ -264,15 +269,17 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
                   className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white"
                   onClick={handleMyPageClick}
                   title="マイページ"
+                  aria-label="マイページ"
                 >
-                  <User className="h-[18px] w-[18px]" />
+                  <User className="h-[18px] w-[18px]" aria-hidden="true" />
                 </button>
                 <NotificationDropdown />
                 <button 
                   onClick={handleSignOut} 
                   className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors ml-1"
+                  aria-label="ログアウト"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">ログアウト</span>
                 </button>
               </>
