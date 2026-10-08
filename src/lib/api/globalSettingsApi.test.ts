@@ -16,9 +16,10 @@ const m = vi.hoisted(() => {
       delete: () => { calls.push(['delete', []]); return make() },
     }
   })
-  return { calls, from }
+  const rpc = vi.fn(async (name: string) => { calls.push(['rpc', [name]]); return { data: true, error: null } })
+  return { calls, from, rpc }
 })
-vi.mock('@/lib/supabase', () => ({ supabase: { from: m.from } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: m.from, rpc: m.rpc } }))
 import { globalSettingsApi, storeNotificationSettingsApi, userNotificationApi, waitlistApi, kitLocationWriteApi } from './globalSettingsApi'
 
 beforeEach(() => { m.calls.length = 0 })
@@ -47,6 +48,10 @@ describe('店舗別の通知設定・ユーザー通知・キャンセル待ち'
     m.calls.length = 0
     await userNotificationApi.markManyRead(['x1', 'x2'])
     expect(arg('in')).toEqual([['id', ['x1', 'x2']]])
+  })
+  it('プロフィール登録の知らせは DB の関数に任せる（引数なし。1 回に限るのは DB 側）', async () => {
+    await userNotificationApi.ensureProfileNotice()
+    expect(m.calls).toEqual([['rpc', ['ensure_profile_incomplete_notice']]])
   })
   it('キャンセル待ちは waitlist に1件登録する', async () => {
     await waitlistApi.create({ status: 'waiting' })
