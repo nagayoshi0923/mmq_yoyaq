@@ -310,6 +310,17 @@ INSERT INTO public.private_group_members (group_id, user_id, is_organizer, statu
 SELECT g.id, '00000000-0000-4000-b000-000000000012', false, 'joined', now()
 FROM public.private_groups g WHERE g.name IN ('試験貸切・人集め中', '試験貸切・確定');
 
+-- ゲストの参加者（人集め中）。主催者の引き継ぎの確認用: ゲストの行には「主催者にする」が出ず、薄字の案内が出る
+INSERT INTO public.private_group_members (group_id, guest_name, guest_email, is_organizer, status, joined_at)
+SELECT g.id, 'ゲスト三郎', 'guest3@mmq.test', false, 'joined', now()
+FROM public.private_groups g WHERE g.name = '試験貸切・人集め中';
+
+-- 店舗への知らせ（メンバーが外れた・抜けた・申込者が変わった）の確認用の共有チャンネル（架空の番号）。
+-- 手元では Discord に送らない（Edge Function と定時実行が動かない）。discord_notification_queue に積まれたことだけ確かめられる
+UPDATE public.organization_settings
+SET notification_settings = coalesce(notification_settings, '{}'::jsonb) || '{"private_cancellation_channel_id":"100000000000000001"}'::jsonb
+WHERE organization_id = '00000000-0000-4000-a000-000000000001';
+
 -- 公演前アンケート: 「事前の手紙」で有効（確定した貸切の作品。締切は公演日の前日）
 UPDATE public.organization_scenarios SET survey_enabled = true, survey_deadline_days = 1
 WHERE id = '00000000-0000-4000-a000-000000000303';
