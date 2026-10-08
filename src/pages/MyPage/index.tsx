@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation, myPageKeys } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReservationsSubTab } from './components/ReservationsTab'
 import { MyPageContent } from './MyPageContent'
+import { useCouponsQuery } from './hooks/useCouponsQuery'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { supabase } from '@/lib/supabase'
@@ -85,6 +86,9 @@ export default function MyPage() {
   
   // --- React Query ---
   const { data: myPageData, isLoading: loading } = useMyPageDataQuery(user?.id, user?.email)
+  // クーポンはタブを開く前から読み始める（タブを開いた時点でキャッシュから出せるように）
+  useCouponsQuery()
+  useEffect(() => { void import('./pages/CouponsPage') }, [])
   const reservations = myPageData?.reservations ?? []
   const scheduleEvents = myPageData?.scheduleEvents ?? {}
   const scenarioImages = myPageData?.scenarioImages ?? {}
