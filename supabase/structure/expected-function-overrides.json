@@ -59,7 +59,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "257d2075e6c3b6fa20a3e5b6edc43b4c",
+    "body_md5": "fab4be8141a996c49efaabaf934523b8",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -349,6 +349,28 @@
     ],
     "returns": "void",
     "body_md5": "a2933a5af38103a5a00ea40b969d3cdb",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "cancel_unrequested_private_group_with_notice(p_group_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "9dbabccb37bba297629961d8a3e87672",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_remove_member_with_notice(p_member_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "5cb1c5e25b93f511fa88cf926a6d1162",
     "language": "plpgsql",
     "security_definer": true
   }

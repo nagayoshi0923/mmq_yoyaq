@@ -1141,6 +1141,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupRpcApi.cancelUnrequested (最後の引数なし)": [
         "rpc("cancel_unrequested_private_group", {})",
       ],
+      "privateGroupRpcApi.closeUnrequestedWithNotice": [
+        "rpc("cancel_unrequested_private_group_with_notice", {"p_group_id":"a1"})",
+      ],
+      "privateGroupRpcApi.closeUnrequestedWithNotice (最後の引数なし)": [
+        "rpc("cancel_unrequested_private_group_with_notice", {})",
+      ],
       "privateGroupRpcApi.confirmCharacters": [
         "rpc("private_group_confirm_characters", "a1")",
       ],
@@ -1188,6 +1194,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       ],
       "privateGroupRpcApi.removeMember (最後の引数なし)": [
         "rpc("private_group_remove_member", {})",
+      ],
+      "privateGroupRpcApi.removeMemberWithNotice": [
+        "rpc("private_group_remove_member_with_notice", {"p_member_id":"a1"})",
+      ],
+      "privateGroupRpcApi.removeMemberWithNotice (最後の引数なし)": [
+        "rpc("private_group_remove_member_with_notice", {})",
       ],
       "privateGroupRpcApi.setCharacterMethod": [
         "rpc("private_group_set_character_method", "a1")",

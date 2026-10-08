@@ -10,7 +10,7 @@ function group(overrides: Partial<PrivateGroupSummary> = {}): PrivateGroupSummar
     id: 'g1', name: null, invite_code: 'CODE1', status: 'gathering', scenario_title: '作品A', scenario_image: null,
     scenario_player_count_max: 6, member_count: 3, is_organizer: true, created_at: '2026-10-01T00:00:00Z', reservation_id: null,
     organizer_name: 'いちこ', my_member_id: 'm1', candidate_dates_count: 0, my_unanswered_count: 0, all_members_responded: false,
-    schedule: null, ...overrides,
+    schedule: null, organization_id: 'org1', survey_enabled: false, members: [], ...overrides,
   }
 }
 

@@ -9,17 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Calendar, Users, CheckCircle2, Loader2, LogOut, MessageCircle, Check, Copy, ArrowLeft, Settings, Trash2, ChevronDown, MapPin, X } from 'lucide-react'
+import { Calendar, Users, CheckCircle2, Loader2, LogOut, MessageCircle, Check, Copy, ArrowLeft, Settings, MapPin, X } from 'lucide-react'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
-import { supabase } from '@/lib/supabase'
-import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
-import { logger } from '@/utils/logger'
 import type { GroupChatSheetsProps } from './GroupChatSheets'
 import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 /** 候補日の回答 のシート（GroupChatSheets から見た目を変えずに切り出し） */
 export function DatesSheet(props: GroupChatSheetsProps) {
-  const { group, joinedMembers, existingMemberId, responses, isOrganizer, isScheduleConfirmedUi, allMembersResponded, canMutateScheduleBeforeStoreReply, actionLoading, preferredStoreNames, refetch, formatDateJaMd, closeSheet, closeSheetReplace, openStoreEditSheet, handleResponseChange, handleOpenBookingDialog, handleSubmit } = props
+  const { group, joinedMembers, existingMemberId, responses, isOrganizer, isScheduleConfirmedUi, allMembersResponded, canMutateScheduleBeforeStoreReply, actionLoading, preferredStoreNames, refetch, formatDateJaMd, closeSheet, closeSheetReplace, openStoreEditSheet, handleResponseChange, handleOpenBookingDialog, handleSubmit, bookingSummary } = props
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
       <div 
@@ -49,6 +46,8 @@ export function DatesSheet(props: GroupChatSheetsProps) {
               店舗の返答待ちのため、候補日の追加・希望店舗の変更・予約リクエストの作成はできません。
             </div>
           )}
+          {/* 申込内容（返事待ち・確定後） */}
+          {bookingSummary}
           {/* 進捗ステップ */}
           <div className="rounded-lg bg-gray-50 p-2 sm:p-3">
             <h4 className="mb-1 text-xs font-medium sm:text-sm">進捗状況</h4>
@@ -391,7 +390,7 @@ export function InviteSheet(props: GroupChatSheetsProps) {
                       onClick={() => handleRemoveMember(member.id)}
                       className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300 shrink-0"
                     >
-                      退出させる
+                      外す
                     </Button>
                   )}
                 </div>
@@ -416,8 +415,8 @@ export function InviteSheet(props: GroupChatSheetsProps) {
 }
 
 /** グループ設定 のシート（GroupChatSheets から見た目を変えずに切り出し） */
-export function SettingsSheet(props: GroupChatSheetsProps & { setShowDeleteGroupConfirm: (v: boolean) => void; setShowLeaveGroupConfirm: (v: boolean) => void }) {
-  const { showContactForm, group, scenario, organizerMember, memberCount, user, existingMemberId, isOrganizer, isScheduleConfirmedUi, canMutateScheduleBeforeStoreReply, actionLoading, isDeleting, isSubmittingContact, contactMessage, setContactMessage, setIsSubmittingContact, setShowContactForm, navigate, closeSheet, handleCancelGroup, cancelling, setShowDeleteGroupConfirm, setShowLeaveGroupConfirm } = props
+export function SettingsSheet(props: GroupChatSheetsProps & { setShowLeaveGroupConfirm: (v: boolean) => void }) {
+  const { group, scenario, memberCount, user, existingMemberId, isOrganizer, isScheduleConfirmedUi, actionLoading, navigate, closeSheet, setShowLeaveGroupConfirm, onOpenInquiry } = props
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
       <div 
@@ -468,52 +467,17 @@ export function SettingsSheet(props: GroupChatSheetsProps & { setShowDeleteGroup
             </div>
           </div>
           
-          {isOrganizer && canMutateScheduleBeforeStoreReply && (
-            <Button variant="outline" className="w-full" disabled={cancelling}
-              onClick={() => { closeSheet(); void handleCancelGroup() }}>
-              {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
-            </Button>
-          )}
-
-          {/* 主催者用: 削除オプション（gatheringまたはcancelledステータスのみ） */}
-          {isOrganizer && ((group.status as string) === 'gathering' || (group.status as string) === 'cancelled') && (
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm text-red-600">危険な操作</h4>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                onClick={() => setShowDeleteGroupConfirm(true)}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                <span>グループを削除する</span>
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                {(group.status as string) === 'cancelled' 
-                  ? 'キャンセルされたグループを削除できます。'
-                  : '日程リクエストを送信する前のグループのみ削除できます。'}
-              </p>
-            </div>
-          )}
-          
-          {/* 主催者用: 削除不可の場合の説明 */}
-          {isOrganizer && (group.status as string) !== 'gathering' && (group.status as string) !== 'cancelled' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-sm text-amber-800">
-                日程リクエスト送信済みのグループは削除できません。
-                キャンセルをご希望の場合は店舗にお問い合わせください。
-              </p>
-            </div>
+          {/* 主催者のグループを閉じる・取り下げ・キャンセルは歯車の「操作」メニューにまとめた（マイページ改修 段階 2） */}
+          {isOrganizer && (
+            <p className="text-xs text-muted-foreground">
+              グループを閉じる・申込の取り下げ・キャンセルは、歯車の「操作」メニューから行えます。
+            </p>
           )}
 
           {/* 非主催者用: 退出オプション */}
           {!isOrganizer && (existingMemberId || (user && group?.members?.some(m => m.user_id === user.id))) && (
             <div className="space-y-2">
-              <h4 className="font-medium text-sm text-red-600">グループから退出</h4>
+              <h4 className="font-medium text-sm text-red-600">グループから抜ける</h4>
               <Button
                 variant="outline"
                 className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
@@ -521,149 +485,19 @@ export function SettingsSheet(props: GroupChatSheetsProps & { setShowDeleteGroup
                 disabled={actionLoading}
               >
                 <LogOut className="h-4 w-4" />
-                <span>このグループから退出する</span>
+                <span>このグループから抜ける</span>
               </Button>
               <p className="text-xs text-muted-foreground">
-                退出すると、このグループの情報にアクセスできなくなります。
+                抜けると、このグループのチャットや日程は見られなくなり、あなたの日程の回答も消えます。
               </p>
             </div>
           )}
           
-          {/* 店舗への問い合わせ */}
-          <div className="border rounded-lg">
-            <button
-              type="button"
-              onClick={() => setShowContactForm(!showContactForm)}
-              className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium text-sm">店舗への問い合わせ</span>
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showContactForm ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {showContactForm && (
-              <div className="p-3 pt-0 space-y-3 border-t">
-                <div className="space-y-2 pt-3">
-                  <Label htmlFor="contact-email" className="text-sm text-muted-foreground">
-                    返信先メールアドレス
-                  </Label>
-                  <Input
-                    id="contact-email"
-                    type="email"
-                    value={organizerMember?.guest_email || user?.email || ''}
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="contact-message" className="text-sm text-muted-foreground">
-                    問い合わせ内容（コピーしてフォームに貼り付けてください）
-                  </Label>
-                  <Textarea
-                    id="contact-message"
-                    value={contactMessage}
-                    onChange={(e) => setContactMessage(e.target.value)}
-                    rows={8}
-                    placeholder="お問い合わせ内容を入力してください"
-                    className="resize-none"
-                  />
-                </div>
-                
-                <Button
-                  className="w-full gap-2"
-                  disabled={isSubmittingContact || contactMessage.length < 10}
-                  onClick={async () => {
-                    if (contactMessage.length < 10) {
-                      toast.error('問い合わせ内容を10文字以上で入力してください')
-                      return
-                    }
-                    
-                    setIsSubmittingContact(true)
-                    try {
-                      const { data: org } = await privateGroupPageReadApi.findOrganizationContact(group.organization_id)
-                      
-                      if (!org?.contact_email) {
-                        toast.error('組織の問い合わせ先が設定されていません')
-                        return
-                      }
-                      
-                      const replyEmail = organizerMember?.guest_email || user?.email || ''
-                      const replyName = organizerMember?.guest_name || user?.name || '貸切予約者'
-                      
-                      if (!replyEmail) {
-                        toast.error('返信先メールアドレスが設定されていません')
-                        return
-                      }
-                      
-                      logger.info('問い合わせ送信開始:', { organizationId: org.id, replyEmail, replyName })
-                      
-                      const { data, error } = await supabase.functions.invoke('send-contact-inquiry', {
-                        body: {
-                          organizationId: org.id,
-                          organizationName: org.name,
-                          name: replyName,
-                          email: replyEmail,
-                          type: 'private',
-                          subject: `【貸切予約のお問い合わせ】${group.invite_code}`,
-                          message: contactMessage,
-                        }
-                      })
-                      
-                      logger.info('問い合わせ送信結果:', { data, error })
-                      
-                      if (error) {
-                        throw new Error(error.message || '送信に失敗しました')
-                      }
-                      
-                      if (data && !data.success) {
-                        throw new Error(data.error || '送信に失敗しました')
-                      }
-                      
-                      toast.success('問い合わせを送信しました')
-                      setShowContactForm(false)
-                      setContactMessage('')
-                    } catch (err) {
-                      logger.error('問い合わせ送信エラー:', err)
-                      
-                      // Edge Functionが利用できない場合はmailtoにフォールバック
-                      const replyEmail = organizerMember?.guest_email || user?.email || ''
-                      const { data: org } = await privateGroupPageReadApi.findOrganizationContactEmail(group.organization_id)
-                      
-                      const toEmail = org?.contact_email || ''
-                      const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
-                      const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
-                      
-                      window.location.href = `mailto:${toEmail}?subject=${subject}&body=${body}`
-                      toast.info('メールアプリを開きます')
-                      setShowContactForm(false)
-                    } finally {
-                      setIsSubmittingContact(false)
-                    }
-                  }}
-                >
-                  {isSubmittingContact ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      送信中...
-                    </>
-                  ) : (
-                    <>
-                      <MessageCircle className="h-4 w-4" />
-                      問い合わせる
-                    </>
-                  )}
-                </Button>
-                {contactMessage.length > 0 && contactMessage.length < 10 && (
-                  <p className="text-xs text-red-500 text-center">
-                    あと{10 - contactMessage.length}文字必要です
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          {/* 店舗への問い合わせ（共通部品を開く） */}
+          <Button variant="outline" className="w-full justify-start gap-3" onClick={onOpenInquiry}>
+            <MessageCircle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span>店舗に問い合わせる</span>
+          </Button>
         </div>
         
         {/* フッター */}

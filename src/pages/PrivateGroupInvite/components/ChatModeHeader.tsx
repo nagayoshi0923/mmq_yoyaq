@@ -1,13 +1,14 @@
 /**
  * 貸切グループのチャット表示の見出し（戻る・作品・参加人数と進み具合・招待・日程・設定）。index.tsx から見た目を変えずに切り出したもの。
  */
+import type { ReactNode } from 'react'
 import { ArrowLeft, UserPlus, Calendar, Settings } from 'lucide-react'
 import type { NavigateFunction } from 'react-router-dom'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 
-export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, group, completedSteps, confirmedByName, isOrganizer, navigate, openSheet, setContactMessage }: {
+export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, group, completedSteps, confirmedByName, isOrganizer, navigate, openSheet, actionsMenu }: {
   scenario: { id?: string; slug?: string; title?: string; key_visual_url?: string } | undefined
   memberCount: number
   isScheduleConfirmedUi: boolean
@@ -17,7 +18,8 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
   isOrganizer: boolean | null | undefined
   navigate: NavigateFunction
   openSheet: (name: string) => void
-  setContactMessage: (message: string) => void
+  /** 主催者の「操作」メニュー（歯車）。あれば設定シートの代わりにこれを出す */
+  actionsMenu?: ReactNode
 }) {
   return (
     <div className="shrink-0 border-b lg:border lg:rounded-t-lg bg-white">
@@ -81,26 +83,17 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
           </span>
         )}
       </button>
-      {/* 設定 */}
+      {/* 設定（主催者は「操作」メニュー、メンバーは設定シート） */}
+      {actionsMenu ?? (
       <button 
-        onClick={() => {
-          const statusText = isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'
-          setContactMessage(`【予約情報】
-招待コード: ${group.invite_code}
-シナリオ: ${scenario?.title || '-'}
-参加人数: ${memberCount}名
-ステータス: ${statusText}
-
-【お問い合わせ内容】
-`)
-          openSheet('settings')
-        }}
+        onClick={() => openSheet('settings')}
         className="p-1.5 hover:bg-gray-100 rounded"
         aria-label="グループ設定"
         title="グループ設定"
       >
         <Settings className="w-5 h-5 text-gray-600" />
       </button>
+      )}
     </div>
         </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PrivateBookingCard } from './PrivateBookingCard'
+import { PrivateBookingCardActions } from './PrivateBookingCardActions'
 import type { PrivateBookingItem, PrivateBookingView } from './privateBookingModel'
 
 /** 確定した貸切は 2 件まで出して、残りは「あと ○ 件表示」で展開 */
@@ -19,7 +20,7 @@ function SectionTitle({ children, count }: { children: string; count: number }) 
 function CardList({ items }: { items: PrivateBookingItem[] }) {
   return (
     <div className="space-y-3">
-      {items.map(item => <PrivateBookingCard key={item.key} item={item} />)}
+      {items.map(item => <PrivateBookingCard key={item.key} item={item} actions={<PrivateBookingCardActions item={item} />} />)}
     </div>
   )
 }

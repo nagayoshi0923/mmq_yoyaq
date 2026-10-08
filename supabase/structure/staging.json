@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-08T14:20:21.031Z",
+  "captured_at": "2026-10-08T19:03:46.003Z",
   "table_count": 146,
-  "function_count": 366,
-  "digest": "c1d2eeedf526d2b736c9cbcd0bff667c3b72beb6cc6b9db816bcc27f4f20002d"
+  "function_count": 368,
+  "digest": "53031032a1da906d86b7ecb62d83c6672901f58c1fc76786c2ae8ae52cbdedcc"
  },
  "tables": {
   "staff": {
@@ -25954,6 +25954,17 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_remove_member_with_notice(p_member_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "5cb1c5e25b93f511fa88cf926a6d1162",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "reservation_actor_is_org_operator(p_organization_id uuid)": {
    "acl": [
     "postgres=X/postgres"
@@ -26080,6 +26091,17 @@
    ],
    "returns": "void",
    "body_md5": "2ffe86a144b4d9cb324871a4cba6220b",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "cancel_unrequested_private_group_with_notice(p_group_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "9dbabccb37bba297629961d8a3e87672",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27040,7 +27062,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "257d2075e6c3b6fa20a3e5b6edc43b4c",
+   "body_md5": "fab4be8141a996c49efaabaf934523b8",
    "language": "plpgsql",
    "security_definer": true
   },

@@ -25,6 +25,45 @@ export interface PrivateGroupSummary {
   all_members_responded: boolean
   /** 確定した公演の日時・店舗（確定済みのときだけ） */
   schedule: { date: string; start_time: string | null; store_name: string | null } | null
+  organization_id: string | null
+  /** 公演前アンケートが有効な作品か */
+  survey_enabled: boolean
+  /** メンバー管理シートの行（参加中のみ・参加順） */
+  members: PrivateGroupMemberRow[]
+}
+
+/** メンバー管理シートの 1 行 */
+export interface PrivateGroupMemberRow {
+  id: string
+  name: string
+  /** 主催者／会員（アカウントあり）／ゲスト */
+  role: 'organizer' | 'member' | 'guest'
+  /** 回答済みの候補日の件数 */
+  answered: number
+  /** 有効な候補日の件数 */
+  total: number
+  joined_at: string | null
+}
+
+/** 参加中のメンバーを管理シートの行にする（マイページ・グループ画面で共通） */
+export function toMemberRows(group: Pick<PrivateGroup, 'members' | 'candidate_dates'>): PrivateGroupMemberRow[] {
+  // 主催者を先頭に、あとは参加順（読み取り結果の並び）
+  const joined = (group.members ?? []).filter(m => m.status === 'joined').sort((a, b) => Number(b.is_organizer) - Number(a.is_organizer))
+  const activeDates = (group.candidate_dates ?? []).filter(d => d.status !== 'rejected')
+  return joined.map(m => {
+    const answered = activeDates.filter(d =>
+      d.responses?.some(r => r.member_id === m.id) || m.date_responses?.some(r => r.candidate_date_id === d.id),
+    ).length
+    const rawName = m.guest_name?.trim() || m.users?.nickname || ''
+    return {
+      id: m.id,
+      name: rawName && rawName !== NICKNAME_UNSET ? rawName : 'メンバー',
+      role: m.is_organizer ? 'organizer' : m.user_id ? 'member' : 'guest',
+      answered,
+      total: activeDates.length,
+      joined_at: m.joined_at ?? m.created_at ?? null,
+    }
+  })
 }
 
 /** get_private_group_schedules の 1 行（確定公演が読めないときの予備） */
@@ -88,5 +127,8 @@ export function summarizePrivateGroup(
     my_unanswered_count: myUnanswered,
     all_members_responded: allResponded,
     schedule,
+    organization_id: group.organization_id ?? null,
+    survey_enabled: (scenario as { survey_enabled?: boolean } | undefined)?.survey_enabled === true,
+    members: toMemberRows(group),
   }
 }

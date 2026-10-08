@@ -8,7 +8,7 @@ import type { PrivateGroupMessage } from '@/types'
 import type { SystemMessage } from './groupChatMessages'
 import { renderMessageWithLinks } from './renderMessageWithLinks'
 
-export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message'])
+export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'member_removed', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message'])
 
 export interface SystemNoticeCardProps {
   systemMsg: SystemMessage
@@ -224,6 +224,19 @@ export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberNam
     )
   }
 
+  // システムメッセージ（主催者がメンバーを外した。外れた人の行は無いので保存した名前を出す）
+  if (systemMsg && systemMsg.action === 'member_removed') {
+    return (
+      <div key={msg.id} className="flex justify-center my-2">
+        <div className="bg-muted rounded-full px-4 py-1.5">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">{systemMsg.memberName || 'メンバー'}</span> さんがグループから外れました
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // システムメッセージ（予約申込）
   if (systemMsg && systemMsg.action === 'booking_requested') {
     return (
@@ -331,7 +344,7 @@ export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberNam
             </p>
           </div>
           <p className="mt-2 px-0.5 text-[10px] text-muted-foreground leading-snug">
-            ※ 返信は店舗に届きません。ご連絡は「店舗への問い合わせ」からお願いします。
+            ※ 返信は店舗に届きません。ご連絡は「店舗に問い合わせる」からお願いします。
           </p>
         </div>
       </div>
