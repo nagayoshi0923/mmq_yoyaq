@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.private_group_read_snapshot(p_group_id uuid DE
 AS $function$
 DECLARE g public.private_groups%ROWTYPE; access_level text; invited boolean:=false;
  result jsonb; members jsonb:='[]'; dates jsonb:='[]'; scenario jsonb; actor_member uuid;
- reservation_status text; confirmed_name text; confirmed_performance jsonb; linked_reservation jsonb;
+ reservation_status text; confirmed_name text; confirmed_performance jsonb; linked_reservation jsonb; handover jsonb;
 BEGIN
  IF p_invite_code IS NOT NULL THEN
   SELECT * INTO g FROM public.private_groups WHERE invite_code=p_invite_code AND (p_group_id IS NULL OR id=p_group_id);
@@ -59,6 +59,15 @@ BEGIN
       WHERE nullif(st->>'storeName','') IS NOT NULL),'[]'::jsonb))
   INTO linked_reservation
   FROM public.reservations r WHERE r.id=g.reservation_id AND r.organization_id=g.organization_id AND r.status IS DISTINCT FROM 'cancelled';
+  -- 進行中の主催者の引き継ぎ依頼（段階 3）。期限切れなどは読み取り時に状態を寄せる。当事者と同組織スタッフだけに返す
+  PERFORM public.private_group_handover_settle(g.id);
+  SELECT jsonb_build_object('id',h.id,'status',h.status,'from_member_id',h.from_member_id,'to_member_id',h.to_member_id,
+    'from_name',public.private_group_handover_user_name(h.from_user_id,g.id),'to_name',public.private_group_handover_user_name(h.to_user_id,g.id),
+    'requested_at',h.requested_at,'expires_at',h.expires_at,
+    'is_recipient',auth.uid() IS NOT NULL AND h.to_user_id=auth.uid(),'is_requester',auth.uid() IS NOT NULL AND h.from_user_id=auth.uid())
+  INTO handover FROM public.private_group_handover_requests h
+  WHERE h.group_id=g.id AND h.status='requested'
+    AND (access_level='staff' OR (auth.uid() IS NOT NULL AND auth.uid() IN (h.from_user_id,h.to_user_id)));
   -- Only authorized members/staff receive the current confirmed performance.
   -- Proposed candidate rows remain immutable history for availability answers.
   SELECT jsonb_build_object('id',e.id,'date',e.date,'start_time',e.start_time,'end_time',e.end_time,
@@ -96,7 +105,7 @@ BEGIN
   'character_assignments',CASE WHEN access_level<>'preview' THEN g.character_assignments END,
   'character_assignment_method',CASE WHEN access_level<>'preview' THEN g.character_assignment_method END,
   'scenario_masters',scenario,'members',members,'candidate_dates',dates,'confirmed_performance',confirmed_performance,'confirmed_performance_access',CASE WHEN access_level='preview' THEN 'preview' ELSE 'authorized' END);
- RETURN jsonb_build_object('group',result,'access_level',access_level,'current_member_id',actor_member,'linked_reservation_status',reservation_status,'confirmed_by_name',confirmed_name,'linked_reservation',linked_reservation);
+ RETURN jsonb_build_object('group',result,'access_level',access_level,'current_member_id',actor_member,'linked_reservation_status',reservation_status,'confirmed_by_name',confirmed_name,'linked_reservation',linked_reservation,'handover',handover);
 END $function$;
 
 REVOKE ALL ON FUNCTION public.private_group_read_snapshot(uuid,text,uuid,text) FROM PUBLIC;

@@ -1926,5 +1926,194 @@
     "type": "c"
    }
   ]
+ },
+ "private_group_handover_requests": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "from_member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "to_member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "from_user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "to_user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'requested'::text",
+    "not_null": true
+   },
+   {
+    "name": "requested_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "expires_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "responded_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "accepted_contact",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "accepted_policy",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "previous_customer",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX private_group_handover_requests_from_user ON public.private_group_handover_requests USING btree (from_user_id) WHERE (status = 'requested'::text)",
+    "name": "private_group_handover_requests_from_user"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_handover_requests_one_open ON public.private_group_handover_requests USING btree (group_id) WHERE (status = 'requested'::text)",
+    "name": "private_group_handover_requests_one_open"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_handover_requests_pkey ON public.private_group_handover_requests USING btree (id)",
+    "name": "private_group_handover_requests_pkey"
+   },
+   {
+    "def": "CREATE INDEX private_group_handover_requests_reservation ON public.private_group_handover_requests USING btree (reservation_id) WHERE (reservation_id IS NOT NULL)",
+    "name": "private_group_handover_requests_reservation"
+   },
+   {
+    "def": "CREATE INDEX private_group_handover_requests_to_user ON public.private_group_handover_requests USING btree (to_user_id) WHERE (status = 'requested'::text)",
+    "name": "private_group_handover_requests_to_user"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "r",
+    "name": "private_group_handover_requests_select",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid)) OR (( SELECT is_staff_or_admin() AS is_staff_or_admin) AND (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))",
+    "permissive": true
+   }
+  ],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((from_user_id <> to_user_id))",
+    "name": "private_group_handover_requests_distinct_users",
+    "type": "c"
+   },
+   {
+    "def": "CHECK ((expires_at > requested_at))",
+    "name": "private_group_handover_requests_expiry",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (from_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+    "name": "private_group_handover_requests_from_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_handover_requests_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "private_group_handover_requests_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_handover_requests_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+    "name": "private_group_handover_requests_reservation_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['requested'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text, 'expired'::text])))",
+    "name": "private_group_handover_requests_status_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (to_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+    "name": "private_group_handover_requests_to_member_id_fkey",
+    "type": "f"
+   }
+  ]
  }
 }

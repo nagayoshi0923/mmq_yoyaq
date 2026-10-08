@@ -59,7 +59,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "fab4be8141a996c49efaabaf934523b8",
+    "body_md5": "af5e0e83b16558e7e248523b90dc09ef",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -371,6 +371,135 @@
     ],
     "returns": "jsonb",
     "body_md5": "5cb1c5e25b93f511fa88cf926a6d1162",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_queue_member_left_notice(p_group_id uuid, p_before integer, p_after integer, p_member_name text, p_member_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "89255d699a1bcd0ed8dd652d8a1c641a",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_leave_with_notice(p_group_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "5747dc7a437b0082fa51f8ae363aca51",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_member_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "f87905706b2e185f62878354f26aa611",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_mine()": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "cff410f5256b6287611f80aa9a364ffc",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_settle(p_group_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "3a886216765a365b43a5919184f88598",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_cancel(p_request_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "8cdcbde47dd5ceb3059134ec65d57577",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_detail(p_request_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "6138443f5aabdbdce1cf74860f592803",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_decline(p_request_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "ee2a0276db77388b90cb44de240c6dfa",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_close(p_request_id uuid, p_status text)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "d62e2ec61b71578c4a3283b8fc30ed15",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "362c05ba5b965558ff50fcfaca313e26",
+    "language": "sql",
+    "security_definer": true
+  },
+  "private_group_handover_request(p_group_id uuid, p_to_member_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "b0db180a2c2a99303f1a2d29e7236077",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_accept(p_request_id uuid, p_customer_id uuid, p_contact_name text, p_contact_phone text, p_displayed_policy jsonb)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "ef3ddd82522c0921608bf92e2c101d55",
     "language": "plpgsql",
     "security_definer": true
   }

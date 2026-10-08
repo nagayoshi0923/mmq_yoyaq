@@ -13,6 +13,7 @@ export type PrivateBookingMenuItemId =
   | 'edit_dates'
   | 'edit_store'
   | 'manage_members'
+  | 'cancel_handover'
   | 'answer_dates'
   | 'view_survey'
   | 'contact_store'
@@ -39,6 +40,8 @@ export interface PrivateBookingMenuContext {
   hasSurvey: boolean
   /** 自分が未回答の候補日がある（メンバーのみ） */
   hasUnansweredDates: boolean
+  /** 自分（主催者）が主催者の引き継ぎを依頼中（段階 3） */
+  hasPendingHandover?: boolean
 }
 
 const LABELS: Record<PrivateBookingMenuItemId, string> = {
@@ -46,6 +49,7 @@ const LABELS: Record<PrivateBookingMenuItemId, string> = {
   edit_dates: '候補日を追加・編集',
   edit_store: '希望店舗を変更',
   manage_members: 'メンバーを管理',
+  cancel_handover: '引き継ぎの依頼を取り消す',
   answer_dates: '日程に回答する',
   view_survey: 'アンケートを見る',
   contact_store: '店舗に問い合わせる',
@@ -83,6 +87,7 @@ export function buildPrivateBookingMenu(ctx: PrivateBookingMenuContext): Private
       add('edit_store', ctx.hasGroup)
     }
     add('manage_members', ctx.hasGroup)
+    add('cancel_handover', ctx.hasGroup && ctx.hasPendingHandover === true)
     add('view_survey', ctx.phase === 'confirmed' && ctx.hasGroup && ctx.hasSurvey)
     add('contact_store')
     if (ctx.phase === 'pre_request') add('close_group', ctx.hasGroup)
@@ -107,6 +112,8 @@ export interface PrivateBookingImpact {
   candidateDates: number
   /** 確定した公演日（YYYY-MM-DD） */
   confirmedDate?: string | null
+  /** 申込の段階（抜けるときに店舗へ伝わるかの文言に使う） */
+  phase?: PrivateBookingPhase
 }
 
 export interface PrivateBookingConfirmText {
@@ -145,15 +152,20 @@ export function privateBookingConfirmText(action: PrivateBookingDangerAction, im
     case 'leave':
       return {
         title: 'グループから抜けますか？',
-        message: `あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは ${impact.otherMembers + 1} 名から ${impact.otherMembers} 名になります。`,
+        message: `あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは ${impact.otherMembers + 1} 名から ${impact.otherMembers} 名になります。${leaveStoreNotice(impact.phase)}`,
         confirmLabel: 'グループから抜ける',
       }
   }
 }
 
+/** 申込済み・確定後にメンバーが抜ける・外れると、店舗に人数変更として伝わる */
+export function leaveStoreNotice(phase: PrivateBookingPhase | undefined): string {
+  return phase === 'requested' || phase === 'confirmed' ? '店舗に人数変更として伝わります。' : ''
+}
+
 /** メンバーを外す確認文。申込済み・確定後は店舗に人数変更として伝わる */
 export function removeMemberConfirmText(name: string, phase: PrivateBookingPhase): PrivateBookingConfirmText {
-  const store = phase === 'pre_request' ? '' : '店舗に人数変更として伝わります。'
+  const store = leaveStoreNotice(phase)
   return {
     title: `${name}さんを外しますか？`,
     message: `${name}さんをグループから外しますか？ この方の日程回答は消えます。本人にはチャットで知らせます。${store}`,

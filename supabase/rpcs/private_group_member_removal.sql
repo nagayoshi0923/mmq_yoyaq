@@ -94,3 +94,68 @@ BEGIN
 END $function$;
 REVOKE ALL ON FUNCTION public.private_group_remove_member_with_notice(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.private_group_remove_member_with_notice(uuid) TO authenticated,service_role;
+
+-- 段階 3 の積み残し: メンバー自身が抜けたときも、申込後・確定後は店舗へ人数変更を知らせる（migration 20261009110000）
+CREATE OR REPLACE FUNCTION public.private_group_queue_member_left_notice(p_group_id uuid, p_before integer, p_after integer, p_member_name text, p_member_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE g public.private_groups%ROWTYPE; r public.reservations%ROWTYPE; v_channel text; v_body text;
+BEGIN
+ SELECT * INTO g FROM public.private_groups WHERE id=p_group_id;
+ -- 申込済み・確定後だけ。申込が取り消されていれば知らせない（段階 2 の「外す」と同じ条件）
+ IF NOT FOUND OR g.status NOT IN ('booking_requested','confirmed') THEN RETURN false; END IF;
+ SELECT * INTO r FROM public.reservations
+  WHERE (id=g.reservation_id OR private_group_id=g.id) AND organization_id=g.organization_id AND status<>'cancelled'
+  ORDER BY (id=g.reservation_id) DESC, created_at DESC LIMIT 1;
+ IF NOT FOUND THEN RETURN false; END IF;
+ SELECT nullif(btrim(notification_settings->>'private_cancellation_channel_id'),'')
+  INTO v_channel FROM public.organization_settings WHERE organization_id=g.organization_id;
+ IF v_channel IS NULL OR v_channel !~ '^[0-9]{17,20}$' THEN RETURN false; END IF;
+ v_body:=format('貸切グループのメンバーが抜けました（人数変更）。%s作品：%s%s予約番号：%s%s状態：%s%s参加人数：%s名 → %s名（申込時 %s名）%s抜けた方：%s',
+  chr(10), coalesce(nullif(regexp_replace(coalesce(r.title,''),'^【貸切希望】|^【貸切】',''),''),'不明'),
+  chr(10), coalesce(r.reservation_number,'不明'),
+  chr(10), CASE WHEN g.status='confirmed' THEN '確定済み' ELSE '申込中（店舗の確認待ち）' END,
+  chr(10), p_before, greatest(p_after,0), coalesce(r.participant_count::text,'不明'),
+  chr(10), coalesce(nullif(btrim(p_member_name),''),'メンバー'));
+ INSERT INTO public.discord_notification_queue
+  (organization_id,notification_type,reference_id,dedupe_key,webhook_url,message_payload,max_retries)
+ VALUES (g.organization_id,'private_cancellation',NULL,
+  r.id::text||':member_left:'||p_member_id::text,
+  'https://discord.com/api/v10/channels/'||v_channel||'/messages',
+  jsonb_build_object('content',v_body,'channel_id',v_channel,'reservation_id',r.id,'epoch',r.id,
+   'allowed_mentions',jsonb_build_object('parse','[]'::jsonb)),3)
+ ON CONFLICT (organization_id,notification_type,dedupe_key) DO NOTHING;
+ RETURN true;
+END $function$;
+REVOKE ALL ON FUNCTION public.private_group_queue_member_left_notice(uuid,integer,integer,text,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.private_group_queue_member_left_notice(uuid,integer,integer,text,uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.private_group_leave_with_notice(p_group_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE me public.private_group_members%ROWTYPE; v_name text; v_before integer; v_after integer; v_store boolean:=false;
+BEGIN
+ IF auth.uid() IS NULL THEN RAISE EXCEPTION 'ログインが必要です' USING ERRCODE='42501'; END IF;
+ PERFORM 1 FROM public.private_groups WHERE id=p_group_id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'グループから退出できません' USING ERRCODE='42501'; END IF;
+ SELECT * INTO me FROM public.private_group_members
+  WHERE group_id=p_group_id AND user_id=auth.uid() AND status='joined' ORDER BY id LIMIT 1;
+ SELECT count(*) INTO v_before FROM public.private_group_members WHERE group_id=p_group_id AND status='joined';
+ v_name:=coalesce((SELECT coalesce(nullif(c.nickname,''),nullif(c.name,'')) FROM public.customers c WHERE c.user_id=auth.uid() ORDER BY c.id LIMIT 1),
+  nullif(btrim(me.guest_name),''));
+ -- 権限確認（主催者は抜けられない）・クーポン解放・削除は既存の関数に任せる
+ PERFORM public.private_group_leave(p_group_id);
+ SELECT count(*) INTO v_after FROM public.private_group_members WHERE group_id=p_group_id AND status='joined';
+ IF me.id IS NOT NULL AND v_after<v_before THEN
+  v_store:=public.private_group_queue_member_left_notice(p_group_id,v_before,v_after,v_name,me.id);
+ END IF;
+ RETURN jsonb_build_object('store_notified',v_store);
+END $function$;
+REVOKE ALL ON FUNCTION public.private_group_leave_with_notice(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.private_group_leave_with_notice(uuid) TO authenticated,service_role;

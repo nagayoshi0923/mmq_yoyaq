@@ -28,6 +28,7 @@ export function PrivateBookingCardActions({ item }: { item: PrivateBookingItem }
     hasUnansweredDates: m.hasUnansweredDates,
     myMemberId: m.myMemberId,
     members: m.members,
+    handover: m.handover,
     replyEmail: user?.email ?? '',
     replyName: user?.name ?? '',
   }

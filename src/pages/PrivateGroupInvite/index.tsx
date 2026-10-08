@@ -37,6 +37,7 @@ import { removeMemberConfirmText } from '@/pages/MyPage/components/PrivateBookin
 import { useGroupBookingActions } from './useGroupBookingActions'
 import { toMemberRows } from '@/pages/MyPage/components/PrivateBookingCards/privateGroupSummary'
 import { BookingSummaryBox } from './components/BookingSummaryBox'
+import { HandoverScreen } from './components/HandoverScreen'
 
 interface Coupon {
   id: string
@@ -63,7 +64,7 @@ export function PrivateGroupInvite() {
 
   const { user } = useAuth()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
-  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName, linkedReservation } = usePrivateGroupByInviteCode(code || null, existingMemberId)
+  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
   const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
@@ -156,23 +157,24 @@ export function PrivateGroupInvite() {
   const showBookingDialog = activeSheet === 'booking'
 
   // シートを開く（ブラウザ履歴に追加 → バックで閉じられる）
-  const openSheet = (name: string) => setSearchParams(prev => {
+  const openSheet = (name: string, extra: Record<string, string> = {}) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     next.set('sheet', name)
+    Object.entries(extra).forEach(([key, value]) => next.set(key, value))
     return next
   })
 
   // シートを閉じる：ユーザー操作（×・キャンセル）→ navigate(-1) でバック相当
   const closeSheet = () => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
-    next.delete('sheet')
+    next.delete('sheet'); next.delete('request')
     return next
   }, { replace: true })
 
   // シートを閉じる：処理完了後 → 履歴を置き換えてモーダルに戻れないようにする
   const closeSheetReplace = () => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
-    next.delete('sheet')
+    next.delete('sheet'); next.delete('request')
     return next
   }, { replace: true })
 
@@ -518,7 +520,7 @@ export function PrivateGroupInvite() {
 
   // 「操作」メニュー・申込内容の箱・メンバー管理・問い合わせ（マイページの貸切カードと共通の部品）
   const { bookingPhase, bookingActions } = useGroupBookingActions({
-    group, user, existingMember, linkedReservation, linkedReservationStatus,
+    group, user, existingMember, linkedReservation, linkedReservationStatus, handover,
     joinedCount: joinedMembers.length, candidateCount: activeCandidateDates.length,
     // 閉じる・取り下げ・キャンセル・抜けるのあとはグループ画面に居場所が無いのでマイページへ
     onDone: () => navigate('/mypage?tab=reservations&sub=private'),
@@ -743,6 +745,11 @@ export function PrivateGroupInvite() {
     isScheduleConfirmedUi
   ].filter(Boolean).length
 
+  // 主催者の引き継ぎ確認画面（段階 3。?sheet=handover。チャットのお知らせからは &request=依頼 id つき）
+  if (activeSheet === 'handover' && group && user) {
+    return <HandoverScreen requestId={searchParams.get('request') ?? handover?.id ?? null} user={user} onBack={closeSheet} onFinished={async () => { closeSheetReplace(); await refetch() }} />
+  }
+
   // 公演前アンケートは、チャットの上の枠ではなく専用の画面で開く（2026-10-05、ゲストが回答できない報告への対策）
   if (existingMemberId && activeTab === 'survey' && group) {
     return (
@@ -849,6 +856,7 @@ export function PrivateGroupInvite() {
               fullHeight={true}
               onGoToSchedule={() => openSheet('dates')}
               onOpenSurvey={() => setActiveTab('survey')}
+              onOpenHandover={requestId => openSheet('handover', { request: requestId })}
               scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.confirmed_performance?.date}

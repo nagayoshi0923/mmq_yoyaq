@@ -9,6 +9,7 @@ import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
 import type { DateResponse } from '@/types'
 import { BookingSheet, DatesSheet, InviteSheet, SettingsSheet, StoreEditSheet } from './GroupChatSheetPanels'
+import { leaveStoreNotice, privateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 type GroupMember = NonNullable<GroupType['members']>[number]
 type ResponseValue = DateResponse | null
@@ -149,7 +150,7 @@ export function GroupChatSheets(props: GroupChatSheetsProps) {
           open={showLeaveGroupConfirm}
           onOpenChange={setShowLeaveGroupConfirm}
           title="グループから抜けますか？"
-          message="抜けると、このグループのチャットや日程は見られなくなり、あなたの日程の回答も消えます。"
+          message={`抜けると、このグループのチャットや日程は見られなくなり、あなたの日程の回答も消えます。${leaveStoreNotice(privateBookingPhase(group.status, props.isScheduleConfirmedUi ? 'confirmed' : null))}`}
           confirmLabel="グループから抜ける"
           variant="destructive"
           onConfirm={handleConfirmLeaveGroup}

@@ -11,6 +11,7 @@ import { formatJstMonthDay } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
 import type { PrivateGroupMemberRow, PrivateGroupSummary } from './privateGroupSummary'
 import { privateBookingPhase, type PrivateBookingPhase } from './privateBookingMenu'
+import { formatHandoverDeadline, handoverWaitingLabel, type PrivateGroupHandoverInfo } from './privateGroupHandover'
 
 type ScheduleEventMap = Record<string, { date: string; start_time: string; category?: string; is_private_booking?: boolean | null }>
 
@@ -27,7 +28,7 @@ type NextActionKind =
   | 'ended'
 
 const NEXT_ACTION_LABELS: Record<Exclude<NextActionKind, 'upcoming'>, string> = {
-  // 段階 3（主催者の引き継ぎ）で使う。段階 1 ではラベル定義のみ
+  // 段階 3（主催者の引き継ぎ）。新主催者（宛先）のカード
   accept_transfer: '主催者の引き継ぎに同意する',
   answer_survey: 'アンケートに回答する',
   pick_dates: '候補日を決める',
@@ -87,6 +88,8 @@ export interface PrivateBookingItem {
   sortKey: string
   /** 「操作」メニュー用 */
   menu: PrivateBookingMenuSource
+  /** 進行中の主催者の引き継ぎ依頼（自分が依頼した・頼まれているとき） */
+  handover: PrivateGroupHandoverInfo | null
 }
 
 /** カードの「操作」メニューに渡す材料 */
@@ -102,6 +105,8 @@ export interface PrivateBookingMenuSource {
   hasUnansweredDates: boolean
   myMemberId: string | null
   members: PrivateGroupMemberRow[]
+  /** 自分が依頼中の主催者の引き継ぎ（「依頼を取り消す」・メンバー管理シートの表示に使う） */
+  handover: PrivateGroupHandoverInfo | null
 }
 
 const ACTIVE_PENDING_STATUSES = ['pending', 'pending_gm', 'gm_confirmed', 'pending_store']
@@ -155,11 +160,12 @@ export function decideGroupAction(
   group: PrivateGroupSummary,
   options: { todayYmd: string; surveyPending: boolean; transferPending?: boolean },
 ): GroupDecision {
+  // 引き継ぎの同意待ちは最優先。進み具合はいまの状態のまま見せる
+  if (options.transferPending) {
+    return { action: 'accept_transfer', progress: decideGroupAction(group, { ...options, transferPending: false }).progress }
+  }
   const pre = (current: number): PrivateBookingProgress => ({ steps: PRE_CONFIRM_STEPS, current })
   const post = (current: number): PrivateBookingProgress => ({ steps: POST_CONFIRM_STEPS, current })
-  if (options.transferPending) {
-    return { action: 'accept_transfer', progress: group.status === 'confirmed' ? post(1) : pre(1) }
-  }
   if (group.status === 'confirmed') {
     const date = group.schedule?.date
     if (date && date < options.todayYmd) return { action: 'ended', progress: post(POST_CONFIRM_STEPS.length) }
@@ -178,13 +184,19 @@ export function decideGroupAction(
 }
 
 function groupDescription(group: PrivateGroupSummary, action: NextActionKind): string {
+  const handover = group.handover
+  if (handover && !handover.isRecipient) {
+    return `${handover.toName}さんに主催者の引き継ぎを依頼中です（期限 ${formatHandoverDeadline(handover.expiresAt)}）。同意されるまであなたが主催者です`
+  }
   const c = group.candidate_dates_count
   const host = group.organizer_name ? `${group.organizer_name}さん` : '主催者'
   const when = group.schedule ? dateLabel(group.schedule.date, group.schedule.start_time) : ''
   const store = group.schedule?.store_name ? ` ${group.schedule.store_name}` : ''
   switch (action) {
     case 'accept_transfer':
-      return '主催者の引き継ぎを頼まれています。内容を確認して同意してください'
+      return handover
+        ? `${handover.fromName}さんからの依頼です。引き継ぐと、あなたが申込者（店舗への連絡先・キャンセル料の負担者）になります。期限 ${formatHandoverDeadline(handover.expiresAt)}`
+        : '主催者の引き継ぎを頼まれています。内容を確認して同意してください'
     case 'answer_survey':
       return `${when}${store}で開催。公演前アンケートに回答してください`
     case 'pick_dates':
@@ -216,6 +228,7 @@ function labelOf(action: NextActionKind, date: string | null | undefined): strin
 function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['primary'] {
   switch (action) {
     case 'accept_transfer':
+      return { label: '内容を確認して同意する', href: `${base}?sheet=handover` }
     case 'pick_dates':
     case 'proceed_booking':
       return { label: NEXT_ACTION_LABELS[action], href: base }
@@ -232,8 +245,10 @@ function fromGroup(
   group: PrivateGroupSummary,
   options: { todayYmd: string; surveyPending: boolean; fallbackImage: string | null; linked: Reservation | undefined },
 ): PrivateBookingItem {
-  const { action, progress } = decideGroupAction(group, options)
+  const { action, progress } = decideGroupAction(group, { ...options, transferPending: group.handover?.isRecipient === true })
   const base = `/group/invite/${group.invite_code}`
+  // 元主催者（依頼した人）のカードは、節はそのままでラベルだけ「○○さんの同意待ち」にする
+  const requested = group.handover && !group.handover.isRecipient ? group.handover : null
   return {
     key: `group:${group.id}`,
     groupId: group.id,
@@ -243,7 +258,7 @@ function fromGroup(
     isOrganizer: group.is_organizer,
     hostLabel: hostLabelOf(group.is_organizer, group.organizer_name),
     action,
-    label: labelOf(action, group.schedule?.date),
+    label: requested ? handoverWaitingLabel(requested) : labelOf(action, group.schedule?.date),
     section: SECTION_BY_ACTION[action],
     progress,
     description: groupDescription(group, action),
@@ -263,7 +278,9 @@ function fromGroup(
       hasUnansweredDates: group.my_unanswered_count > 0,
       myMemberId: group.my_member_id,
       members: group.members,
+      handover: requested,
     },
+    handover: group.handover,
   }
 }
 
@@ -323,7 +340,9 @@ function fromReservation(
       hasUnansweredDates: false,
       myMemberId: null,
       members: [],
+      handover: null,
     },
+    handover: null,
   }
 }
 

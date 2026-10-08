@@ -58,6 +58,17 @@ export const privateBookingMgmtRpcApi = {
 }
 
 export const privateBookingMgmtReadApi = {
+  /** 申込者の変更履歴（主催者の引き継ぎで成立したもの）。読めるのは同組織スタッフだけ（RLS） */
+  async listApplicantChanges(organizationId: string, reservationIds: string[]) {
+    return supabase
+      .from('private_group_handover_requests')
+      .select('id, reservation_id, responded_at, previous_customer, accepted_contact')
+      .filter('organization_id', 'eq', organizationId)
+      .in('reservation_id', reservationIds)
+      .eq('status', 'accepted')
+      .order('responded_at', { ascending: true })
+  },
+
   /** 募集停止枠（組織・日付・店舗・時間帯） */
   async findBlockedSlot(organizationId: string, date: string, storeId: string, timeSlot: string) {
     return supabase

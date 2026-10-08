@@ -8,7 +8,7 @@ import type { PrivateGroupMessage } from '@/types'
 import type { SystemMessage } from './groupChatMessages'
 import { renderMessageWithLinks } from './renderMessageWithLinks'
 
-export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'member_removed', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message'])
+export const SIMPLE_SYSTEM_MESSAGE_ACTIONS: ReadonlySet<SystemMessage['action']> = new Set(['candidate_dates_added', 'schedule_confirmed', 'pre_reading_notice', 'survey_notice', 'group_created', 'member_joined', 'member_removed', 'booking_requested', 'booking_rejected', 'booking_cancelled', 'staff_message', 'organizer_handover'])
 
 export interface SystemNoticeCardProps {
   systemMsg: SystemMessage
@@ -315,6 +315,22 @@ export function SystemNoticeCard({ systemMsg, msg, systemMsgTitles, getMemberNam
           <p className="text-xs text-gray-600 mt-2">
             {systemMsg.body || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'}
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  // システムメッセージ（主催者の引き継ぎ: 成立・お断り・取り消し・期限切れ）
+  if (systemMsg && systemMsg.action === 'organizer_handover') {
+    const accepted = systemMsg.result === 'accepted'
+    return (
+      <div key={msg.id} className="flex justify-center my-3" data-testid="organizer-handover-notice">
+        <div className={`${accepted ? 'bg-purple-50 border-purple-200' : 'bg-muted border-border'} border rounded-lg p-3 w-full max-w-sm`}>
+          <p className={`text-sm font-medium ${accepted ? 'text-purple-800' : 'text-foreground'}`}>
+            {systemMsg.title || '主催者の引き継ぎ'}
+          </p>
+          <p className="text-xs text-muted-foreground">{formatDateTime(msg.created_at)}</p>
+          {systemMsg.body && <p className="text-xs text-foreground mt-1.5 whitespace-pre-wrap">{systemMsg.body}</p>}
         </div>
       </div>
     )

@@ -24,7 +24,7 @@ describe('退出・メンバー削除の認証付き保存',()=>{
  })
  it('退出の本人判定をサーバーへ渡し、ユーザーIDをクライアントから指定しない',async()=>{
   await act(async()=>result.leaveGroup('group'))
-  expect(rpc).toHaveBeenCalledExactlyOnceWith('private_group_leave',{p_group_id:'group'})
+  expect(rpc).toHaveBeenCalledExactlyOnceWith('private_group_leave_with_notice',{p_group_id:'group'})
  })
  it('拒否・保存失敗を呼出元へ伝え、読み込み中状態を解除する',async()=>{
   const error={code:'42501',message:'退出不可'};rpc.mockResolvedValue({error})

@@ -206,7 +206,7 @@ describe('予約管理の一覧・統計と貸切グループの RPC', () => {
         "rpc("join_private_group", {"p_invite_code":"X"})",
         "rpc("cancel_unrequested_private_group", {"p_group_id":"g1"})",
         "rpc("private_group_remove_member", {"p_member_id":"m1"})",
-        "rpc("private_group_leave", {"p_group_id":"g1"})",
+        "rpc("private_group_leave_with_notice", {"p_group_id":"g1"})",
       ]
     `)
   })
