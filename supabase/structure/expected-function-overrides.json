@@ -312,5 +312,25 @@
     "body_md5": "47078ef1160018bc42fc035d2f8e1d68",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "private_group_withdraw_candidate(p_group_id uuid, p_candidate_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "e9f8ddf6fc57343a140a28fbfcea9171",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "guard_withdrawn_private_group_response()": {
+    "acl": [
+      "postgres=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "e176902a5f68c6e2b1da0a7ce2e32a53",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

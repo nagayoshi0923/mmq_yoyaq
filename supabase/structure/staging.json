@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-07T20:51:17.374Z",
+  "captured_at": "2026-10-08T01:49:51.595Z",
   "table_count": 146,
-  "function_count": 363,
-  "digest": "9bafda92ac1ee1720ca4b6be8735d2f006f1b21dfe64295d450ff97d0bf43fe7"
+  "function_count": 365,
+  "digest": "1563acf155c3cb6daa98e2b64c94fe3551f65ce6daf145c1fadbf81f96f7e97c"
  },
  "tables": {
   "staff": {
@@ -19537,6 +19537,10 @@
      "name": "guard_private_group_browser_write"
     },
     {
+     "def": "CREATE TRIGGER guard_withdrawn_private_group_response BEFORE INSERT OR UPDATE ON public.private_group_date_responses FOR EACH ROW EXECUTE FUNCTION guard_withdrawn_private_group_response()",
+     "name": "guard_withdrawn_private_group_response"
+    },
+    {
      "def": "CREATE TRIGGER trigger_update_private_group_date_responses_updated_at BEFORE UPDATE ON public.private_group_date_responses FOR EACH ROW EXECUTE FUNCTION update_private_group_date_responses_updated_at()",
      "name": "trigger_update_private_group_date_responses_updated_at"
     }
@@ -20341,6 +20345,12 @@
      "name": "status",
      "type": "text",
      "default": "'active'::text",
+     "not_null": false
+    },
+    {
+     "name": "withdrawn_at",
+     "type": "timestamp with time zone",
+     "default": null,
      "not_null": false
     }
    ],
@@ -25055,6 +25065,15 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "guard_withdrawn_private_group_response()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "e176902a5f68c6e2b1da0a7ce2e32a53",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "is_booking_calendar_holiday(p_date date)": {
    "acl": [
     "=X/postgres",
@@ -26299,6 +26318,17 @@
    ],
    "returns": "TABLE(payment_method_label text, payment_method_description text)",
    "body_md5": "9a3500d9c143f12a859aa9042f508b1c",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_withdraw_candidate(p_group_id uuid, p_candidate_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "e9f8ddf6fc57343a140a28fbfcea9171",
    "language": "plpgsql",
    "security_definer": true
   },
