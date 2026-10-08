@@ -47,7 +47,7 @@ BEGIN
 EXCEPTION WHEN lock_not_available THEN
   RAISE EXCEPTION '候補日が更新中です。画面を更新してから回答してください' USING ERRCODE='40001';
 END $$;
-REVOKE ALL ON FUNCTION public.guard_withdrawn_private_group_response() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.guard_withdrawn_private_group_response() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER guard_withdrawn_private_group_response
   BEFORE INSERT OR UPDATE ON public.private_group_date_responses
   FOR EACH ROW EXECUTE FUNCTION public.guard_withdrawn_private_group_response();
