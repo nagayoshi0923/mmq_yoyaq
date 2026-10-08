@@ -4,7 +4,6 @@ import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMuta
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReservationsSubTab } from './components/ReservationsTab'
 import { MyPageContent } from './MyPageContent'
-import { useCouponsQuery } from './hooks/useCouponsQuery'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { supabase } from '@/lib/supabase'
@@ -86,8 +85,7 @@ export default function MyPage() {
   
   // --- React Query ---
   const { data: myPageData, isLoading: loading } = useMyPageDataQuery(user?.id, user?.email)
-  // クーポンはタブを開く前から読み始める（タブを開いた時点でキャッシュから出せるように）
-  useCouponsQuery()
+  // クーポンタブの画面部品はタブを開く前から読み始める（一覧の取得は MyPageContent のバッジ用の問い合わせで始まる）
   useEffect(() => { void import('./pages/CouponsPage') }, [])
   const reservations = myPageData?.reservations ?? []
   const scheduleEvents = myPageData?.scheduleEvents ?? {}
@@ -142,8 +140,6 @@ export default function MyPage() {
     prevAvatarRef.current = myPageData?.avatarUrl
     if (myPageData?.avatarUrl && !avatarUrl) setAvatarUrl(myPageData.avatarUrl)
   }
-
-  const stats = myPageData?.stats ?? { participationCount: 0, points: 0 }
 
   // Album options (遅延取得: albumタブを開いたときのみ)
   const albumOptionsFetchedRef = useRef(false)
@@ -463,7 +459,6 @@ export default function MyPage() {
       optionsLoading={optionsLoading}
       customerId={customerId}
       customerIds={customerIds}
-      stats={stats}
       stores={stores}
       scenarioImages={scenarioImages}
       scenarioInfo={scenarioInfo}
@@ -480,7 +475,6 @@ export default function MyPage() {
       setAlbumSortOrder={setAlbumSortOrder}
       showHiddenItems={showHiddenItems}
       setShowHiddenItems={setShowHiddenItems}
-      hiddenPlays={hiddenPlays}
       setHiddenPlays={setHiddenPlays}
       deletedPlays={deletedPlays}
       setDeletedPlays={setDeletedPlays}

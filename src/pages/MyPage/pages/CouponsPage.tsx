@@ -10,7 +10,7 @@ import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'luc
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
 import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
-import { getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
+import { countUsableCoupons, getLastCouponUsedAt, isUsedCouponVisible, resolveCouponDisplayStatus } from '../utils/couponListVisibility'
 import { formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { showToast } from '@/utils/toast'
 
@@ -122,7 +122,7 @@ export function CouponsPage() {
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
   const usedCoupons = sortedCoupons.filter(c => isUsedCouponVisible(c, now))
 
-  const totalAvailableCount = activeCoupons.reduce((sum, c) => sum + c.uses_remaining, 0)
+  const totalAvailableCount = countUsableCoupons(coupons, now)
 
   const expandedActiveCoupons = activeCoupons.flatMap(coupon => {
     const cards: { coupon: CustomerCoupon; index: number; total: number }[] = []

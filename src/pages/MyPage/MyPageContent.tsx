@@ -11,6 +11,8 @@ import { ConfirmDialog } from '@/components/patterns/modal'
 import { ReservationsTab, type ReservationsSubTab } from './components/ReservationsTab'
 import { buildPrivateBookingView, countActivePrivateBookings, isPrivateReservation } from './components/PrivateBookingCards/privateBookingModel'
 import { usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { useCouponsQuery } from './hooks/useCouponsQuery'
+import { countUsableCoupons } from './utils/couponListVisibility'
 import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -55,7 +57,6 @@ interface MyPageContentProps {
   optionsLoading: boolean
   customerId: string | null
   customerIds?: string[]
-  stats: MyPageData['stats']
   stores: MyPageData['stores']
   scenarioImages: MyPageData['scenarioImages']
   scenarioInfo: MyPageData['scenarioInfo']
@@ -72,7 +73,6 @@ interface MyPageContentProps {
   setAlbumSortOrder: React.Dispatch<React.SetStateAction<'date' | 'rating_desc' | 'rating_asc'>>
   showHiddenItems: boolean
   setShowHiddenItems: React.Dispatch<React.SetStateAction<boolean>>
-  hiddenPlays: Set<string>
   setHiddenPlays: React.Dispatch<React.SetStateAction<Set<string>>>
   deletedPlays: Set<string>
   setDeletedPlays: React.Dispatch<React.SetStateAction<Set<string>>>
@@ -113,10 +113,10 @@ interface MyPageContentProps {
 
 export function MyPageContent({
   activeTab, reservationsSubTab, setActiveTab, setReservationsSubTab, navigate, displayName, avatarUrl, fileInputRef,
-  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stats, stores, scenarioImages,
+  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stores, scenarioImages,
   scenarioInfo, scheduleEvents, reservations, privateGroups, scenarioOptions, storeOptions, playedScenarios, setPlayedScenarios,
   albumComparator, playedScenarioAlbumKey, albumSortOrder, setAlbumSortOrder, showHiddenItems, setShowHiddenItems,
-  hiddenPlays, setHiddenPlays, deletedPlays, setDeletedPlays, dateOverrides, setDateOverrides,
+  setHiddenPlays, deletedPlays, setDeletedPlays, dateOverrides, setDateOverrides,
   isScenarioHidden, isScenarioOverridden, isScenarioExcluded, isScenarioDeleted, handleRatingChange, handleHideFromAlbum, handleShowInAlbum,
   handleMarkPlayed, handleMarkUnplayed, isAddDialogOpen, setIsAddDialogOpen, isEditDialogOpen, setIsEditDialogOpen,
   editingScenario, setEditingScenario, editingDate, setEditingDate, isEditingDate, setIsEditingDate,
@@ -421,10 +421,15 @@ export function MyPageContent({
     [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd],
   )
 
-  // タブごとのカウント（予約 = 進行中の件数: 一般公演の確定予約 + 貸切の要対応・返事待ち・確定（未来））
+  // タブのバッジの数字（意味は docs/product-spec/マイページ改修_2026-10.md「数字の意味」）
+  //   予約 = 進行中の件数（一般公演の確定予約 + 貸切の要対応・返事待ち・準備待ち・確定（未来））
+  //   クーポン = 使えるクーポンの枚数 / アルバム = 体験済み作品数（アルバム一覧・プロフィール見出しと同じ数え方）
+  const { data: coupons } = useCouponsQuery()
+  const experiencedCount = playedScenarios.filter(s => !isScenarioExcluded(s)).length
   const getCounts = () => ({
     reservations: upcomingReservations.length + countActivePrivateBookings(privateView),
-    album: playedScenarios.length,
+    coupons: countUsableCoupons(coupons ?? [], new Date()),
+    album: experiencedCount,
     wishlist: 0,
     settings: null
   })
@@ -477,7 +482,7 @@ export function MyPageContent({
               <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1 ts-muted text-gray-600">
                   <Trophy className="w-4 h-4 text-mypage-primary" />
-                  <span>{stats.participationCount}回参加</span>
+                  <span>体験済み {experiencedCount}作品</span>
                 </div>
               </div>
             </div>
@@ -565,11 +570,7 @@ export function MyPageContent({
                 <div className="bg-white shadow-sm p-6 border border-gray-200 rounded-none">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
-                    <span className="text-2xl font-bold text-mypage-primary">{playedScenarios.filter(s => {
-                      const key = playedScenarioAlbumKey(s)
-                      const legacy = s.reservation_id || `${s.scenario}-${s.date}`
-                      return !hiddenPlays.has(key) && !hiddenPlays.has(legacy)
-                    }).length}作品</span>
+                    <span className="text-2xl font-bold text-mypage-primary">{experiencedCount}作品</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="ts-muted">
