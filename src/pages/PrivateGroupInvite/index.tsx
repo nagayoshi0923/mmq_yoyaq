@@ -32,6 +32,8 @@ import { getErrorMessage } from '@/lib/errorFields'
 import { submitGroupBookingRequest } from './submitBookingRequest'
 import { usePreferredStoreEditor } from './usePreferredStoreEditor'
 import { authenticateGroupGuestByPin } from './pinAuth'
+import { PrivateGroupInquiryDialog } from '@/pages/MyPage/components/PrivateBookingCards/PrivateGroupInquiryDialog'
+import { privateBookingPhase, privateBookingStatusLabel } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 
 interface Coupon {
   id: string
@@ -58,7 +60,7 @@ export function PrivateGroupInvite() {
 
   const { user } = useAuth()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
-  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null, existingMemberId)
+  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName, linkedReservation } = usePrivateGroupByInviteCode(code || null, existingMemberId)
   const { joinGroup, submitDateResponses, leaveGroup, cancelUnrequestedGroup, removeMember, loading: actionLoading } = usePrivateGroup()
   // group が宣言された後で呼ぶ（organization_id を参照するため）
   const { isCustomHoliday } = useCustomHolidays({ organizationId: group?.organization_id })
@@ -186,9 +188,7 @@ export function PrivateGroupInvite() {
 
   // グループ設定シート内
   const [isDeleting, setIsDeleting] = useState(false)
-  const [contactMessage, setContactMessage] = useState('')
-  const [showContactForm, setShowContactForm] = useState(false)
-  const [isSubmittingContact, setIsSubmittingContact] = useState(false)
+  const [inquiryOpen, setInquiryOpen] = useState(false)
 
   // 希望店舗関連
   const { data: preferredStoreNames = [] } = useQuery({
@@ -761,7 +761,7 @@ export function PrivateGroupInvite() {
         {/* メインコンテンツ */}
         <div className="flex-1 flex flex-col overflow-hidden lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
           {/* チャットヘッダー */}
-          <ChatModeHeader scenario={scenario} memberCount={memberCount} isScheduleConfirmedUi={isScheduleConfirmedUi} group={group} completedSteps={completedSteps} confirmedByName={confirmedByName} isOrganizer={isOrganizer} navigate={navigate} openSheet={openSheet} setContactMessage={setContactMessage} />
+          <ChatModeHeader scenario={scenario} memberCount={memberCount} isScheduleConfirmedUi={isScheduleConfirmedUi} group={group} completedSteps={completedSteps} confirmedByName={confirmedByName} isOrganizer={isOrganizer} navigate={navigate} openSheet={openSheet} />
 
         <ConfirmedGroupSchedule group={group} />
 
@@ -772,7 +772,6 @@ export function PrivateGroupInvite() {
           showSettingsSheet={showSettingsSheet}
           showStoreEditSheet={showStoreEditSheet}
           showBookingDialog={showBookingDialog}
-          showContactForm={showContactForm}
           group={group}
           scenario={scenario}
           joinedMembers={joinedMembers}
@@ -792,12 +791,10 @@ export function PrivateGroupInvite() {
           copied={copied}
           isDeleting={isDeleting}
           isSubmittingBooking={isSubmittingBooking}
-          isSubmittingContact={isSubmittingContact}
           loadingStoresForEdit={loadingStoresForEdit}
           savingStores={savingStores}
           bookingNotes={bookingNotes}
           bookingPhone={bookingPhone}
-          contactMessage={contactMessage}
           bookingSelectedDates={bookingSelectedDates}
           selectedStoreIds={selectedStoreIds}
           preferredStoreNames={preferredStoreNames}
@@ -805,11 +802,8 @@ export function PrivateGroupInvite() {
           MAX_BOOKING_DATES={MAX_BOOKING_DATES}
           setBookingNotes={setBookingNotes}
           setBookingPhone={setBookingPhone}
-          setContactMessage={setContactMessage}
           setExistingMemberId={setExistingMemberId}
-          setIsSubmittingContact={setIsSubmittingContact}
           setSelectedStoreIds={setSelectedStoreIds}
-          setShowContactForm={setShowContactForm}
           navigate={navigate}
           refetch={refetch}
           leaveGroup={leaveGroup}
@@ -831,6 +825,7 @@ export function PrivateGroupInvite() {
           cancelling={cancelling}
           handleOpenBookingDialog={handleOpenBookingDialog}
           handleSubmit={handleSubmit}
+          onOpenInquiry={() => { closeSheetReplace(); setInquiryOpen(true) }}
         />
 
         {/* PC: 2カラム / モバイル: チャットのみ */}
@@ -921,6 +916,19 @@ export function PrivateGroupInvite() {
         onConfirm={async () => {
           if (confirmAction?.kind === 'removeMember') await handleConfirmRemoveMember(confirmAction.memberId)
         }}
+      />
+      <PrivateGroupInquiryDialog
+        open={inquiryOpen}
+        onOpenChange={setInquiryOpen}
+        info={{
+          organizationId: group.organization_id ?? null,
+          reservationNumber: linkedReservation?.reservation_number ?? null,
+          title: scenario?.title || '',
+          statusLabel: privateBookingStatusLabel(privateBookingPhase(group.status, linkedReservationStatus), group.confirmed_performance?.date),
+          inviteCode: group.invite_code,
+        }}
+        replyEmail={user?.email || existingMember?.guest_email || ''}
+        replyName={existingMember?.guest_name || user?.name || ''}
       />
     </>
     )

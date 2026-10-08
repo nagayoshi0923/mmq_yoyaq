@@ -23,7 +23,6 @@ export interface GroupChatSheetsProps {
   showSettingsSheet: boolean
   showStoreEditSheet: boolean
   showBookingDialog: boolean
-  showContactForm: boolean
   // グループ・シナリオ・メンバー
   group: GroupType
   scenario: {
@@ -55,13 +54,11 @@ export interface GroupChatSheetsProps {
   copied: boolean
   isDeleting: boolean
   isSubmittingBooking: boolean
-  isSubmittingContact: boolean
   loadingStoresForEdit: boolean
   savingStores: boolean
   // フォーム値
   bookingNotes: string
   bookingPhone: string
-  contactMessage: string
   bookingSelectedDates: Set<string>
   selectedStoreIds: string[]
   preferredStoreNames: Array<{ id: string; name: string }>
@@ -70,11 +67,8 @@ export interface GroupChatSheetsProps {
   // setter
   setBookingNotes: React.Dispatch<React.SetStateAction<string>>
   setBookingPhone: React.Dispatch<React.SetStateAction<string>>
-  setContactMessage: React.Dispatch<React.SetStateAction<string>>
   setExistingMemberId: React.Dispatch<React.SetStateAction<string | null>>
-  setIsSubmittingContact: React.Dispatch<React.SetStateAction<boolean>>
   setSelectedStoreIds: React.Dispatch<React.SetStateAction<string[]>>
-  setShowContactForm: React.Dispatch<React.SetStateAction<boolean>>
   // ナビ・データ
   navigate: NavigateFunction
   refetch: ReturnType<typeof usePrivateGroupByInviteCode>['refetch']
@@ -98,6 +92,8 @@ export interface GroupChatSheetsProps {
   handleDeleteGroup: () => Promise<void>
   handleOpenBookingDialog: () => Promise<void>
   handleSubmit: (options?: { skipSuccessPage?: boolean }) => Promise<void>
+  /** 店舗への問い合わせ（共通部品）を開く */
+  onOpenInquiry: () => void
 }
 
 export function GroupChatSheets(props: GroupChatSheetsProps) {

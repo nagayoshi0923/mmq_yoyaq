@@ -60,6 +60,7 @@ export function usePrivateGroupSnapshot(groupId: string | null, inviteCode: stri
     group: snapshot?.group || null, loading, error, refetch,
     linkedReservationStatus: snapshot?.linked_reservation_status || null,
     confirmedByName: snapshot?.confirmed_by_name || null,
+    linkedReservation: snapshot?.linked_reservation || null,
     accessLevel: snapshot?.access_level || null,
   }
 }

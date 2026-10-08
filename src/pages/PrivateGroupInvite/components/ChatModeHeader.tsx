@@ -7,7 +7,7 @@ import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInvit
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 
-export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, group, completedSteps, confirmedByName, isOrganizer, navigate, openSheet, setContactMessage }: {
+export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, group, completedSteps, confirmedByName, isOrganizer, navigate, openSheet }: {
   scenario: { id?: string; slug?: string; title?: string; key_visual_url?: string } | undefined
   memberCount: number
   isScheduleConfirmedUi: boolean
@@ -17,7 +17,6 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
   isOrganizer: boolean | null | undefined
   navigate: NavigateFunction
   openSheet: (name: string) => void
-  setContactMessage: (message: string) => void
 }) {
   return (
     <div className="shrink-0 border-b lg:border lg:rounded-t-lg bg-white">
@@ -83,18 +82,7 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
       </button>
       {/* 設定 */}
       <button 
-        onClick={() => {
-          const statusText = isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'
-          setContactMessage(`【予約情報】
-招待コード: ${group.invite_code}
-シナリオ: ${scenario?.title || '-'}
-参加人数: ${memberCount}名
-ステータス: ${statusText}
-
-【お問い合わせ内容】
-`)
-          openSheet('settings')
-        }}
+        onClick={() => openSheet('settings')}
         className="p-1.5 hover:bg-gray-100 rounded"
         aria-label="グループ設定"
         title="グループ設定"
