@@ -13,6 +13,7 @@ export type PrivateBookingMenuItemId =
   | 'edit_dates'
   | 'edit_store'
   | 'manage_members'
+  | 'cancel_handover'
   | 'answer_dates'
   | 'view_survey'
   | 'contact_store'
@@ -39,6 +40,8 @@ export interface PrivateBookingMenuContext {
   hasSurvey: boolean
   /** 自分が未回答の候補日がある（メンバーのみ） */
   hasUnansweredDates: boolean
+  /** 自分（主催者）が主催者の引き継ぎを依頼中（段階 3） */
+  hasPendingHandover?: boolean
 }
 
 const LABELS: Record<PrivateBookingMenuItemId, string> = {
@@ -46,6 +49,7 @@ const LABELS: Record<PrivateBookingMenuItemId, string> = {
   edit_dates: '候補日を追加・編集',
   edit_store: '希望店舗を変更',
   manage_members: 'メンバーを管理',
+  cancel_handover: '引き継ぎの依頼を取り消す',
   answer_dates: '日程に回答する',
   view_survey: 'アンケートを見る',
   contact_store: '店舗に問い合わせる',
@@ -83,6 +87,7 @@ export function buildPrivateBookingMenu(ctx: PrivateBookingMenuContext): Private
       add('edit_store', ctx.hasGroup)
     }
     add('manage_members', ctx.hasGroup)
+    add('cancel_handover', ctx.hasGroup && ctx.hasPendingHandover === true)
     add('view_survey', ctx.phase === 'confirmed' && ctx.hasGroup && ctx.hasSurvey)
     add('contact_store')
     if (ctx.phase === 'pre_request') add('close_group', ctx.hasGroup)

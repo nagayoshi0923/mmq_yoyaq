@@ -1123,6 +1123,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
   `) })
   it('貸切グループの RPC', async () => { expect(await snapshotModule(privateGroupRpc)).toMatchInlineSnapshot(`
     {
+      "privateGroupRpcApi.acceptHandover": [
+        "rpc("private_group_handover_accept", {"p_request_id":"a1","p_customer_id":"a2","p_contact_name":"a3","p_con…)",
+      ],
+      "privateGroupRpcApi.acceptHandover (最後の引数なし)": [
+        "rpc("private_group_handover_accept", {"p_request_id":"a1","p_customer_id":"a2","p_contact_name":"a3","p_dis…)",
+      ],
       "privateGroupRpcApi.applyCouponToMember": [
         "rpc("apply_coupon_to_group_member", "a1")",
       ],
@@ -1134,6 +1140,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       ],
       "privateGroupRpcApi.authenticateGuestByPin (最後の引数なし)": [
         "rpc("authenticate_guest_by_pin_v3")",
+      ],
+      "privateGroupRpcApi.cancelHandover": [
+        "rpc("private_group_handover_cancel", {"p_request_id":"a1"})",
+      ],
+      "privateGroupRpcApi.cancelHandover (最後の引数なし)": [
+        "rpc("private_group_handover_cancel", {})",
       ],
       "privateGroupRpcApi.cancelUnrequested": [
         "rpc("cancel_unrequested_private_group", {"p_group_id":"a1"})",
@@ -1165,6 +1177,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupRpcApi.createBookingRequestWithNotice (最後の引数なし)": [
         "rpc("create_private_booking_request_with_notice")",
       ],
+      "privateGroupRpcApi.declineHandover": [
+        "rpc("private_group_handover_decline", {"p_request_id":"a1"})",
+      ],
+      "privateGroupRpcApi.declineHandover (最後の引数なし)": [
+        "rpc("private_group_handover_decline", {})",
+      ],
       "privateGroupRpcApi.deleteGroup": [
         "rpc("delete_private_group", "a1")",
       ],
@@ -1183,6 +1201,15 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupRpcApi.leave (最後の引数なし)": [
         "rpc("private_group_leave_with_notice", {})",
       ],
+      "privateGroupRpcApi.listMyHandovers": [
+        "rpc("private_group_handover_mine")",
+      ],
+      "privateGroupRpcApi.readHandoverDetail": [
+        "rpc("private_group_handover_detail", {"p_request_id":"a1"})",
+      ],
+      "privateGroupRpcApi.readHandoverDetail (最後の引数なし)": [
+        "rpc("private_group_handover_detail", {})",
+      ],
       "privateGroupRpcApi.removeCouponFromMember": [
         "rpc("remove_coupon_from_group_member", "a1")",
       ],
@@ -1200,6 +1227,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       ],
       "privateGroupRpcApi.removeMemberWithNotice (最後の引数なし)": [
         "rpc("private_group_remove_member_with_notice", {})",
+      ],
+      "privateGroupRpcApi.requestHandover": [
+        "rpc("private_group_handover_request", {"p_group_id":"a1","p_to_member_id":"a2"})",
+      ],
+      "privateGroupRpcApi.requestHandover (最後の引数なし)": [
+        "rpc("private_group_handover_request", {"p_group_id":"a1"})",
       ],
       "privateGroupRpcApi.setCharacterMethod": [
         "rpc("private_group_set_character_method", "a1")",

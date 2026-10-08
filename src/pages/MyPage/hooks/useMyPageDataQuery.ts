@@ -13,6 +13,8 @@ import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import type { Reservation, Store } from '@/types'
 import { summarizePrivateGroup, type PrivateGroupSummary } from '../components/PrivateBookingCards/privateGroupSummary'
+import { toHandoverInfo, type MyHandoverRow, type PrivateGroupHandoverInfo } from '../components/PrivateBookingCards/privateGroupHandover'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { getErrorMessage } from '@/lib/errorFields'
 
 interface PlayedScenario {
@@ -102,7 +104,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       if (identityError) throw identityError
       const customerIds = [...new Set([customer.id, ...(identities ?? []).map(row => row.id)])]
       const historySnapshot = snapshotAllCustomers(customerIds)
-      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
+      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations, handoverResult] = await Promise.all([
         Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.requested_datetime ?? '').localeCompare(a.requested_datetime ?? '')), error: results.find(result => result.error)?.error ?? null })),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
@@ -115,6 +117,8 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         Promise.all(customerIds.map(id => myPageDataReadApi.listRatings(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '')), error: results.find(result => result.error)?.error ?? null })),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
         Promise.all(customerIds.map(id => fetchPlayedReservations(id))).then(results => results.flat()),
+        // 主催者の引き継ぎ（段階 3）。読めなくてもカードは出す
+        userId ? privateGroupRpcApi.listMyHandovers() : Promise.resolve({ data: [], error: null }),
       ])
 
       if (reservationResult.error) throw reservationResult.error
@@ -220,11 +224,15 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         })
         .filter(p => { const k = playedScenarioListDedupeKey(p); if (listDedupeKeys.has(k)) return false; listDedupeKeys.add(k); return true })
 
+      if (handoverResult.error) logger.warn('主催者の引き継ぎ依頼の取得に失敗:', handoverResult.error)
+      const handoverByGroupId: Record<string, PrivateGroupHandoverInfo> = {}
+      ;((handoverResult.data ?? []) as MyHandoverRow[]).forEach(row => { handoverByGroupId[row.group_id] = toHandoverInfo(row) })
+
       const privateGroups: PrivateGroupSummary[] = []
       for (const record of memberRecords) {
         const group = record.private_groups
         if (!group || group.status === 'cancelled') continue
-        privateGroups.push(summarizePrivateGroup(group, userId, groupScheduleByGroupId[group.id], storeNameById))
+        privateGroups.push(summarizePrivateGroup(group, userId, groupScheduleByGroupId[group.id], storeNameById, handoverByGroupId[group.id] ?? null))
       }
       privateGroups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 

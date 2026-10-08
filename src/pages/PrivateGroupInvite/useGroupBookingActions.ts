@@ -5,7 +5,8 @@ import { usePrivateBookingActions } from '@/pages/MyPage/components/PrivateBooki
 import { privateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 import { toMemberRows } from '@/pages/MyPage/components/PrivateBookingCards/privateGroupSummary'
 import type { useAuth } from '@/contexts/AuthContext'
-import type { PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
+import type { PrivateGroupHandoverSummary, PrivateGroupLinkedReservation } from '@/lib/privateGroupRead'
+import { toHandoverInfo } from '@/pages/MyPage/components/PrivateBookingCards/privateGroupHandover'
 import type { PrivateGroup, PrivateGroupMember } from '@/types'
 
 interface Input {
@@ -14,13 +15,15 @@ interface Input {
   existingMember: PrivateGroupMember | undefined
   linkedReservation: PrivateGroupLinkedReservation | null
   linkedReservationStatus: string | null
+  /** 進行中の主催者の引き継ぎ依頼（グループの読み取り結果の handover） */
+  handover: PrivateGroupHandoverSummary | null
   joinedCount: number
   candidateCount: number
   onDone: () => void
   onMembersChanged: () => unknown
 }
 
-export function useGroupBookingActions({ group, user, existingMember, linkedReservation, linkedReservationStatus, joinedCount, candidateCount, onDone, onMembersChanged }: Input) {
+export function useGroupBookingActions({ group, user, existingMember, linkedReservation, linkedReservationStatus, handover, joinedCount, candidateCount, onDone, onMembersChanged }: Input) {
   const bookingPhase = privateBookingPhase(group?.status, linkedReservationStatus)
   const bookingActions = usePrivateBookingActions({
     groupId: group?.id ?? null,
@@ -38,6 +41,8 @@ export function useGroupBookingActions({ group, user, existingMember, linkedRese
     hasUnansweredDates: false,
     myMemberId: existingMember?.id ?? null,
     members: group ? toMemberRows(group) : [],
+    // 自分が依頼した引き継ぎだけ（「依頼を取り消す」・メンバー管理シートの表示）
+    handover: handover?.is_requester ? toHandoverInfo(handover) : null,
     replyEmail: user?.email || existingMember?.guest_email || '',
     replyName: existingMember?.guest_name || user?.name || '',
   }, { onDone, onMembersChanged: async () => { await onMembersChanged() } })

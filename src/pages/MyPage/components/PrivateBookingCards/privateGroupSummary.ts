@@ -1,4 +1,5 @@
 import type { PrivateGroup } from '@/types'
+import type { PrivateGroupHandoverInfo } from './privateGroupHandover'
 
 /** マイページの貸切カード用に、グループ（private_groups）から必要な項目だけを抜き出したもの */
 export interface PrivateGroupSummary {
@@ -30,6 +31,8 @@ export interface PrivateGroupSummary {
   survey_enabled: boolean
   /** メンバー管理シートの行（参加中のみ・参加順） */
   members: PrivateGroupMemberRow[]
+  /** 進行中の主催者の引き継ぎ依頼（自分が依頼した・頼まれているときだけ） */
+  handover: PrivateGroupHandoverInfo | null
 }
 
 /** メンバー管理シートの 1 行 */
@@ -90,10 +93,12 @@ export function summarizePrivateGroup(
   userId: string | undefined,
   scheduleRow: PrivateGroupScheduleRow | undefined,
   storeNameById: Record<string, string>,
+  handover: PrivateGroupHandoverInfo | null = null,
 ): PrivateGroupSummary {
   const joined = (group.members ?? []).filter(m => m.status === 'joined')
   const me = joined.find(m => m.user_id && m.user_id === userId) ?? null
-  const organizer = joined.find(m => m.is_organizer) ?? null
+  // 主催者はグループの organizer_id で決める（主催者の引き継ぎで切り替わる）。読めない旧データはメンバー行の印で補う
+  const organizer = (group.organizer_id ? joined.find(m => m.user_id === group.organizer_id) : null) ?? joined.find(m => m.is_organizer) ?? null
   const organizerName = organizer?.guest_name?.trim()
   const activeDates = (group.candidate_dates ?? []).filter(d => d.status !== 'rejected')
   const answeredBy = (memberId: string) => activeDates.filter(d =>
@@ -118,7 +123,7 @@ export function summarizePrivateGroup(
     scenario_image: scenario?.key_visual_url || null,
     scenario_player_count_max: scenario?.player_count_max || null,
     member_count: joined.length,
-    is_organizer: me?.is_organizer ?? false,
+    is_organizer: me ? (group.organizer_id ? group.organizer_id === userId : me.is_organizer) : false,
     created_at: group.created_at,
     reservation_id: group.reservation_id ?? null,
     organizer_name: organizerName && organizerName !== NICKNAME_UNSET ? organizerName : null,
@@ -130,5 +135,6 @@ export function summarizePrivateGroup(
     organization_id: group.organization_id ?? null,
     survey_enabled: (scenario as { survey_enabled?: boolean } | undefined)?.survey_enabled === true,
     members: toMemberRows(group),
+    handover,
   }
 }

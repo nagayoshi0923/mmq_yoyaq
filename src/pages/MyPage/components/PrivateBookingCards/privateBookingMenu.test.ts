@@ -63,6 +63,17 @@ describe('操作メニューの出し分け', () => {
   })
 })
 
+describe('主催者の引き継ぎ（段階 3）', () => {
+  it('依頼中の主催者には「引き継ぎの依頼を取り消す」をメンバー管理の次に出す', () => {
+    expect(ids({ hasPendingHandover: true })).toEqual(['copy_invite', 'edit_dates', 'edit_store', 'manage_members', 'cancel_handover', 'contact_store', 'close_group'])
+    expect(ids({ phase: 'confirmed', hasReservation: true, hasPendingHandover: true })).toEqual(['copy_invite', 'manage_members', 'cancel_handover', 'contact_store', 'cancel'])
+  })
+  it('依頼していなければ出さない。メンバーには出さない', () => {
+    expect(ids({})).not.toContain('cancel_handover')
+    expect(ids({ isOrganizer: false, hasPendingHandover: true })).not.toContain('cancel_handover')
+  })
+})
+
 describe('段階の判定', () => {
   it('グループの状態を優先し、予約の状態で更新遅れを補う', () => {
     expect(privateBookingPhase('gathering')).toBe('pre_request')

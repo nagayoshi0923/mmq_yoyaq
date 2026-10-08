@@ -10,7 +10,7 @@ function group(overrides: Partial<PrivateGroupSummary> = {}): PrivateGroupSummar
     id: 'g1', name: null, invite_code: 'CODE1', status: 'gathering', scenario_title: '作品A', scenario_image: null,
     scenario_player_count_max: 6, member_count: 3, is_organizer: true, created_at: '2026-10-01T00:00:00Z', reservation_id: null,
     organizer_name: 'いちこ', my_member_id: 'm1', candidate_dates_count: 0, my_unanswered_count: 0, all_members_responded: false,
-    schedule: null, organization_id: 'org1', survey_enabled: false, members: [], ...overrides,
+    schedule: null, organization_id: 'org1', survey_enabled: false, members: [], handover: null, ...overrides,
   }
 }
 
@@ -113,7 +113,42 @@ describe('1 貸切 = 1 カード', () => {
   })
 })
 
+describe('主催者の引き継ぎ（段階 3）', () => {
+  const handover = { id: 'h1', fromName: 'いちこ', toName: '二郎', toMemberId: 'm2', expiresAt: '2026-10-12T12:00:00Z' }
+  const build = (g: PrivateGroupSummary) =>
+    buildPrivateBookingView({ groups: [g], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY })
+  it('宛先のカードは「あなたの対応が必要」に上がり、確認画面へ進む', () => {
+    const view = build(group({ is_organizer: false, status: 'confirmed', schedule: { date: '2026-10-25', start_time: '13:00', store_name: '本店' }, handover: { ...handover, isRecipient: true } }))
+    const item = view.bySection.action[0]
+    expect(item.label).toBe('主催者の引き継ぎに同意する')
+    expect(item.primary).toEqual({ label: '内容を確認して同意する', href: '/group/invite/CODE1?sheet=handover' })
+    expect(item.description).toContain('いちこさんからの依頼です')
+    expect(item.description).toContain('申込者（店舗への連絡先・キャンセル料の負担者）')
+    expect(item.description).toContain('10/12(月) 21:00')
+  })
+  it('依頼した主催者のカードは節はそのままで「○○さんの同意待ち」', () => {
+    const view = build(group({ status: 'booking_requested', candidate_dates_count: 2, handover: { ...handover, isRecipient: false } }))
+    const item = view.bySection.waiting_store[0]
+    expect(item.label).toBe('二郎さんの同意待ち（主催者の引き継ぎ）')
+    expect(item.description).toContain('同意されるまであなたが主催者です')
+    expect(item.menu.handover?.id).toBe('h1')
+  })
+})
+
 describe('グループの要約', () => {
+  it('主催者かどうかはグループの organizer_id で決める（引き継ぎ後に切り替わる）', () => {
+    const g = {
+      id: 'g', name: null, invite_code: 'C', status: 'confirmed', reservation_id: null, created_at: '2026-10-01', organizer_id: 'u-new',
+      members: [
+        { id: 'old', user_id: 'u-old', guest_name: 'いちこ', is_organizer: false, status: 'joined', date_responses: [] },
+        { id: 'new', user_id: 'u-new', guest_name: '二郎', is_organizer: true, status: 'joined', date_responses: [] },
+      ],
+      candidate_dates: [],
+    } as unknown as PrivateGroup
+    expect(summarizePrivateGroup(g, 'u-new', undefined, {})).toMatchObject({ is_organizer: true, organizer_name: '二郎' })
+    expect(summarizePrivateGroup(g, 'u-old', undefined, {})).toMatchObject({ is_organizer: false, organizer_name: '二郎' })
+  })
+
   it('自分の未回答数・全員回答・主催者名を数える（却下した候補日は除く）', () => {
     const g = {
       id: 'g', name: null, invite_code: 'C', status: 'date_adjusting', reservation_id: null, created_at: '2026-10-01',

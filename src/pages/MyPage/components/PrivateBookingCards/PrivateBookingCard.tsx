@@ -85,10 +85,12 @@ interface PrivateBookingCardProps {
   item: PrivateBookingItem
   /** カード右上の「操作」ボタン（PrivateBookingCardActions） */
   actions?: ReactNode
+  /** 副ボタンの差し替え（主催者の引き継ぎの「引き継がない」など） */
+  secondaryAction?: ReactNode
 }
 
 /** 1 貸切 = 1 カード。ヘッダー左に「次にやること」、右に主催者 */
-export function PrivateBookingCard({ item, actions }: PrivateBookingCardProps) {
+export function PrivateBookingCard({ item, actions, secondaryAction }: PrivateBookingCardProps) {
   const navigate = useNavigate()
   const tone = TONE[item.section]
   const go = (href: string) => navigate(href)
@@ -110,7 +112,7 @@ export function PrivateBookingCard({ item, actions }: PrivateBookingCardProps) {
       }}
     >
       <div className={`px-3 py-1.5 flex items-center justify-between gap-2 ${tone.header}`}>
-        <span className="text-sm font-bold truncate" data-testid="private-booking-label">{item.label}</span>
+        <span className="min-w-0 text-sm font-bold" data-testid="private-booking-label">{item.label}</span>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs">{item.hostLabel}</span>
           {actions && <div onClick={e => e.stopPropagation()}>{actions}</div>}
@@ -158,18 +160,20 @@ export function PrivateBookingCard({ item, actions }: PrivateBookingCardProps) {
                 {item.primary.label}
               </Button>
             )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs rounded-none"
-              onClick={e => {
-                e.stopPropagation()
-                go(item.secondary.href)
-              }}
-            >
-              {item.secondary.label}
-            </Button>
+            {secondaryAction ?? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs rounded-none"
+                onClick={e => {
+                  e.stopPropagation()
+                  go(item.secondary.href)
+                }}
+              >
+                {item.secondary.label}
+              </Button>
+            )}
           </div>
         </div>
 

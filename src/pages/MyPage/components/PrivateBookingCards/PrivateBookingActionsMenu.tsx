@@ -30,6 +30,7 @@ export function PrivateBookingActionsMenu({ target, actions, nav, trigger, align
     hasReservation: Boolean(target.reservationId),
     hasSurvey: target.hasSurvey,
     hasUnansweredDates: target.hasUnansweredDates,
+    hasPendingHandover: Boolean(target.handover),
   })
   const normal = items.filter(i => !i.danger)
   const danger = items.find(i => i.danger)
@@ -39,6 +40,7 @@ export function PrivateBookingActionsMenu({ target, actions, nav, trigger, align
     switch (id) {
       case 'copy_invite': return void actions.copyInvite()
       case 'manage_members': return actions.openMembers()
+      case 'cancel_handover': return actions.requestCancelHandover()
       case 'contact_store': return actions.openInquiry()
       case 'close_group':
       case 'withdraw':

@@ -5,6 +5,7 @@
  * - 申込を取り下げる: /api/reservations?action=cancel-with-group-lock（予約詳細の「取り下げる」と同じ処理）
  * - キャンセル: reservationApi.cancel（予約詳細の「キャンセル」と同じ。キャンセル規定で不可なら無効にして理由を出す）
  * - グループから抜ける: private_group_leave_with_notice（申込後・確定後は店舗へ人数変更を知らせる）
+ * - 主催者の引き継ぎ（段階 3）: 依頼はメンバー管理シートの「主催者にする」、取り消しはメニューの「引き継ぎの依頼を取り消す」
  */
 import { useCallback, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -26,6 +27,7 @@ import {
 import type { PrivateGroupMemberRow } from './privateGroupSummary'
 import { PrivateGroupInquiryDialog } from './PrivateGroupInquiryDialog'
 import { PrivateGroupMemberSheet } from './PrivateGroupMemberSheet'
+import { handoverCancelConfirmText, type PrivateGroupHandoverInfo } from './privateGroupHandover'
 
 export interface PrivateBookingActionTarget {
   groupId: string | null
@@ -44,6 +46,8 @@ export interface PrivateBookingActionTarget {
   hasUnansweredDates: boolean
   myMemberId: string | null
   members: PrivateGroupMemberRow[]
+  /** 自分（主催者）が依頼中の主催者の引き継ぎ */
+  handover: PrivateGroupHandoverInfo | null
   /** 問い合わせの返信先 */
   replyEmail: string
   replyName: string
@@ -68,6 +72,7 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
   const [inquiryOpen, setInquiryOpen] = useState(false)
   const [membersOpen, setMembersOpen] = useState(false)
   const [policyWanted, setPolicyWanted] = useState(false)
+  const [cancelHandoverOpen, setCancelHandoverOpen] = useState(false)
   const preparePolicy = useCallback(() => setPolicyWanted(true), [])
 
   // 確定後のキャンセルは予約詳細と同じキャンセル規定で可否を決める（必要になってから読む）
@@ -141,6 +146,24 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
     }
   }
 
+  const cancelHandover = async () => {
+    if (!target.handover) return
+    try {
+      const { data, error } = await privateGroupRpcApi.cancelHandover(target.handover.id)
+      if (error) throw error
+      const result = data as { ok?: boolean; status?: string } | null
+      if (result?.ok) toast.success('引き継ぎの依頼を取り消しました')
+      else toast.info('この依頼はすでに終わっています（期限切れ・お断り・同意済みのいずれか）')
+    } catch (err) {
+      logger.error('引き継ぎの依頼を取り消せませんでした', err)
+      toast.error(getErrorMessage(err) || '引き継ぎの依頼を取り消せませんでした')
+      throw err
+    }
+    await refreshLists()
+    await options.onMembersChanged?.()
+  }
+  const cancelHandoverText = target.handover ? handoverCancelConfirmText(target.handover.toName) : null
+
   const confirm = pending
     ? privateBookingConfirmText(pending, {
       otherMembers: Math.max(0, target.memberCount - 1),
@@ -174,13 +197,23 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
         replyEmail={target.replyEmail}
         replyName={target.replyName}
       />
+      <ConfirmDialog
+        open={cancelHandoverOpen}
+        onOpenChange={setCancelHandoverOpen}
+        title={cancelHandoverText?.title ?? ''}
+        message={cancelHandoverText?.message}
+        confirmLabel={cancelHandoverText?.confirmLabel}
+        onConfirm={cancelHandover}
+      />
       {target.isOrganizer && target.groupId && (
         <PrivateGroupMemberSheet
           open={membersOpen}
           onOpenChange={setMembersOpen}
+          groupId={target.groupId}
           members={target.members}
           myMemberId={target.myMemberId}
           phase={target.phase}
+          handover={target.handover}
           onChanged={async () => {
             await refreshLists()
             await options.onMembersChanged?.()
@@ -196,6 +229,8 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
     requestDanger: (action: PrivateBookingDangerAction) => setPending(action),
     openInquiry: () => setInquiryOpen(true),
     openMembers: () => setMembersOpen(true),
+    /** 主催者の引き継ぎ依頼を取り消す確認を開く */
+    requestCancelHandover: () => setCancelHandoverOpen(true),
     copyInvite,
     /** キャンセル規定を読み始める（メニューを開いたとき・申込内容の箱を出したとき） */
     preparePolicy,
