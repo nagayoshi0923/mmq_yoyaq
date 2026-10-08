@@ -23,6 +23,14 @@ export const privateGroupRpcApi = {
   async removeMember(memberId: string) {
     return supabase.rpc('private_group_remove_member', { p_member_id: memberId })
   },
+  /** メンバーを外し、チャットに記録する。申込済み・確定後は店舗へ人数変更を知らせる（戻り値 store_notified） */
+  async removeMemberWithNotice(memberId: string) {
+    return supabase.rpc('private_group_remove_member_with_notice', { p_member_id: memberId })
+  },
+  /** 申込前のグループを閉じ、チャットにお知らせを残す（行は消さず履歴を残す） */
+  async closeUnrequestedWithNotice(groupId: string) {
+    return supabase.rpc('cancel_unrequested_private_group_with_notice', { p_group_id: groupId })
+  },
   /** グループから抜ける */
   async leave(groupId: string) {
     return supabase.rpc('private_group_leave', { p_group_id: groupId })
