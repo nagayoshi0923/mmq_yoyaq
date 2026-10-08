@@ -1,0 +1,27 @@
+import { PGlite } from '@electric-sql/pglite';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+await db.exec(`
+CREATE TABLE schedule_events(id uuid,organization_id uuid,is_private_booking boolean,category text,gm_cancel_epoch uuid,date date,start_time time,end_time time,scenario text,venue text,gms text[]);
+CREATE TABLE staff(id uuid DEFAULT gen_random_uuid(),organization_id uuid,name text,discord_channel_id text);
+CREATE TABLE organization_settings(organization_id uuid PRIMARY KEY,notification_settings jsonb);
+CREATE TABLE discord_notification_queue(organization_id uuid,notification_type text,reference_id uuid,dedupe_key text,webhook_url text,message_payload jsonb,max_retries int,UNIQUE(organization_id,notification_type,dedupe_key));
+INSERT INTO organization_settings VALUES ('00000000-0000-0000-0000-000000000001','{"private_cancellation_channel_id":"1557642745970163772"}');
+INSERT INTO staff(organization_id,name,discord_channel_id) VALUES ('00000000-0000-0000-0000-000000000001','GM1','123'),('00000000-0000-0000-0000-000000000001','GM2','456'),('00000000-0000-0000-0000-000000000002','GM1','999');
+INSERT INTO schedule_events VALUES ('00000000-0000-0000-0000-000000000010','00000000-0000-0000-0000-000000000001',true,'private',NULL,'2026-10-10','10:00','13:00','架空作品','架空会場',ARRAY['GM1','GM2']);
+`);
+const sql=fs.readFileSync('supabase/migrations/20261008064404_private_cancellation_shared_channel.sql','utf8');
+await db.exec(sql);
+const enqueue=()=>db.exec('SELECT enqueue_private_cancellation(e) FROM schedule_events e');
+const count=async()=>(await db.query('SELECT count(*)::int n FROM discord_notification_queue')).rows[0].n;
+await enqueue(); assert.equal(await count(),3);
+await enqueue(); assert.equal(await count(),3);
+const shared=(await db.query("SELECT message_payload p FROM discord_notification_queue WHERE message_payload ? 'channel_id'")).rows[0].p;
+assert.equal(shared.channel_id,'1557642745970163772');assert.ok(shared.content.includes('GM1、GM2'));assert.ok(!shared.staff_id);
+await db.exec("TRUNCATE discord_notification_queue;UPDATE schedule_events SET gms=ARRAY[]::text[]");await enqueue();assert.equal(await count(),1);
+await db.exec("TRUNCATE discord_notification_queue;UPDATE schedule_events SET organization_id='00000000-0000-0000-0000-000000000002'");await enqueue();assert.equal(await count(),0);
+await db.exec("UPDATE schedule_events SET organization_id='00000000-0000-0000-0000-000000000001',gms=ARRAY['GM1'];UPDATE staff SET discord_channel_id='1557642745970163772' WHERE name='GM1'");await enqueue();assert.equal(await count(),1);
+await db.exec('TRUNCATE discord_notification_queue');await db.exec(fs.readFileSync('supabase/rollbacks/20261008064404_private_cancellation_shared_channel.sql','utf8'));await enqueue();assert.equal(await count(),1);
+await db.exec(sql);await enqueue();assert.equal(await count(),1);
+console.log('PASS: GM + shared channel, dedupe, no GM, tenant boundary, same destination, rollback/reapply');await db.close();
