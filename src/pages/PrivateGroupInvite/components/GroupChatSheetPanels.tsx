@@ -89,7 +89,7 @@ export function DatesSheet(props: GroupChatSheetsProps) {
           <div>
             <div className="mb-1 flex items-center justify-between">
               <h4 className="text-xs font-medium sm:text-sm">希望店舗（{preferredStoreNames.length}件）</h4>
-              {isOrganizer && canMutateScheduleBeforeStoreReply && (
+              {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (
                 <Button
                   variant="outline"
                   size="sm"

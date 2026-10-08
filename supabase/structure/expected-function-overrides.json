@@ -1,100 +1,100 @@
 {
-  "remove_coupon_from_group_member(p_member_id uuid)": {
-    "acl": [
-      "authenticated=X/postgres",
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "jsonb",
-    "body_md5": "e70d81c0525de1cca8b9ca81c79c67ff",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "notify_all_waitlist_entries(p_schedule_event_id uuid)": {
-    "acl": [
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "TABLE(id uuid, customer_name text, customer_email text, participant_count integer, status text, created_at timestamp with time zone)",
-    "body_md5": "884bef2972a57f37fa60283c4533821b",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "apply_coupon_to_group_member(p_member_id uuid, p_coupon_id uuid)": {
-    "acl": [
-      "authenticated=X/postgres",
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "jsonb",
-    "body_md5": "aed8542a1c603c9327e88dacc6a4ca6a",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "assert_private_booking_candidate_date(p_org uuid, p_scenario uuid, p_date date)": {
-    "acl": [
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "void",
-    "body_md5": "d55c6d90a0fc574a894eda7d14292a27",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "private_group_set_preferred_stores(p_group_id uuid, p_store_ids uuid[], p_expected_store_ids uuid[])": {
-    "acl": [
-      "authenticated=X/postgres",
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "integer",
-    "body_md5": "028e31406df967c188bdc0a291683693",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "private_group_read_snapshot(p_group_id uuid, p_invite_code text, p_member_id uuid, p_guest_token text)": {
-    "acl": [
-      "anon=X/postgres",
-      "authenticated=X/postgres",
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "jsonb",
-    "body_md5": "35a306a12a08cbffd95c5cc7bf452a9c",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text, p_customer_coupon_id uuid)": {
-    "acl": [
-      "authenticated=X/postgres",
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "uuid",
-    "body_md5": "e1bb7fc9bf8da1bb999bb92da35eb6d0",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text, p_reservation_number text, p_private_group_id uuid)": {
-    "acl": [
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "uuid",
-    "body_md5": "76b0659312bc5fe30f3a485b6d281e0b",
-    "language": "plpgsql",
-    "security_definer": true
-  },
-  "get_public_private_booking_scenario_timing(p_organization_id uuid, p_scenario_lookup_id uuid)": {
-    "acl": [
-      "anon=X/postgres",
-      "authenticated=X/postgres",
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "jsonb",
-    "body_md5": "a9bcd32d25648a9585c51391a6d539a6",
-    "language": "plpgsql",
-    "security_definer": true
-  }
+ "remove_coupon_from_group_member(p_member_id uuid)": {
+  "acl": [
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "c74e67a3364c850cabd95d8078b00be6",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "notify_all_waitlist_entries(p_schedule_event_id uuid)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "TABLE(id uuid, customer_name text, customer_email text, participant_count integer, status text, created_at timestamp with time zone)",
+  "body_md5": "884bef2972a57f37fa60283c4533821b",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "apply_coupon_to_group_member(p_member_id uuid, p_coupon_id uuid)": {
+  "acl": [
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "5e11f1d6a2a1979258a186e525e1127d",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "assert_private_booking_candidate_date(p_org uuid, p_scenario uuid, p_date date)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "void",
+  "body_md5": "d55c6d90a0fc574a894eda7d14292a27",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "private_group_set_preferred_stores(p_group_id uuid, p_store_ids uuid[], p_expected_store_ids uuid[])": {
+  "acl": [
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "integer",
+  "body_md5": "028e31406df967c188bdc0a291683693",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "private_group_read_snapshot(p_group_id uuid, p_invite_code text, p_member_id uuid, p_guest_token text)": {
+  "acl": [
+   "anon=X/postgres",
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "35a306a12a08cbffd95c5cc7bf452a9c",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "create_reservation_with_lock_v2(p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text, p_customer_coupon_id uuid)": {
+  "acl": [
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "uuid",
+  "body_md5": "8004d705b96a2976da6df4b2d65b9a50",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "create_private_booking_request(p_scenario_id uuid, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_participant_count integer, p_candidate_datetimes jsonb, p_notes text, p_reservation_number text, p_private_group_id uuid)": {
+  "acl": [
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "uuid",
+  "body_md5": "76b0659312bc5fe30f3a485b6d281e0b",
+  "language": "plpgsql",
+  "security_definer": true
+ },
+ "get_public_private_booking_scenario_timing(p_organization_id uuid, p_scenario_lookup_id uuid)": {
+  "acl": [
+   "anon=X/postgres",
+   "authenticated=X/postgres",
+   "postgres=X/postgres",
+   "service_role=X/postgres"
+  ],
+  "returns": "jsonb",
+  "body_md5": "d584ccffb7a886f772b6f22caab31699",
+  "language": "plpgsql",
+  "security_definer": true
+ }
 }

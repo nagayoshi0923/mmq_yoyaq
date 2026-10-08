@@ -182,7 +182,7 @@ BEGIN
   'joined_member_count',(SELECT count(*) FROM public.private_group_members m WHERE m.group_id=g.id AND m.status='joined'),
   'candidate_dates',COALESCE((SELECT jsonb_agg(jsonb_build_object(
     'group_id',d.group_id,'date',d.date,'time_slot',d.time_slot,'start_time',d.start_time,'end_time',d.end_time,'status',d.status
-   ) ORDER BY d.order_num,d.id) FROM public.private_group_candidate_dates d WHERE d.group_id=g.id AND d.withdrawn_at IS NULL),'[]'::jsonb)
+   ) ORDER BY d.order_num,d.id) FROM public.private_group_candidate_dates d WHERE d.group_id=g.id),'[]'::jsonb)
  ) ORDER BY g.id) FROM public.private_groups g WHERE g.organization_id=p_organization_id AND g.id=ANY(p_group_ids)),'[]'::jsonb);
 END $$;
 REVOKE ALL ON FUNCTION public.private_group_read_staff_booking_summaries(uuid,uuid[]) FROM PUBLIC,anon;
