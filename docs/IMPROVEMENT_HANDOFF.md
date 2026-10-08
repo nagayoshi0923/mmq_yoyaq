@@ -1253,3 +1253,5 @@ PR622はmain f734e95e、本番配信成功。旧管理URLから統合inviteへ�
 - PR976の追加指摘4214021542: PCの日程タブにも同じ主催者限定・申込前限定・二段階確認の削除操作を追加。
 - 4214021546: 専用staffサマリーRPCでwithdrawn_atのある候補を除外。0803 migrationは既存権限を保持し、行データを変更しない。
 - 専用実Postgresで取り下げ・回答履歴・再送・回答更新拒否・主催者限定・申込後拒否・staffサマリー除外をROLLBACKで確認。verify通過。本番実顧客データ操作なし。
+- 先行リリースのDB Baseline再現に、本番へ適用済みの01/02/03/0802とそのrollback・trigger期待メタデータを記録。通知Edge/画面変更と04activationは先行リリースに含めない。
+- 0803のrollbackを追加し、migration対検査を通過。
