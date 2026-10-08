@@ -332,15 +332,5 @@
     "body_md5": "e176902a5f68c6e2b1da0a7ce2e32a53",
     "language": "plpgsql",
     "security_definer": true
-  },
-  "enqueue_private_cancellation(p_event schedule_events)": {
-    "acl": [
-      "postgres=X/postgres",
-      "service_role=X/postgres"
-    ],
-    "returns": "void",
-    "body_md5": "2936799063818cd480f90eb904ed40d3",
-    "language": "plpgsql",
-    "security_definer": true
   }
 }
