@@ -8,6 +8,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
 import { ArrowLeft, Search, MapPin } from 'lucide-react'
 import { scenarioApi, storeApi } from '@/lib/api'
+import { formatJstDateJa } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
@@ -234,7 +235,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h3 className="text-sm">選択された日時</h3>
               <div className="text-xs text-muted-foreground">
-                <p>日付: {preselectedDate}</p>
+                <p>日付: {formatJstDateJa(preselectedDate, true) || preselectedDate}</p>
                 <p>時間帯: {slotLabels[preselectedSlot] || preselectedSlot}</p>
               </div>
             </div>
