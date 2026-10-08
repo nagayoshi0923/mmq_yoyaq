@@ -252,7 +252,7 @@ function PostGroupSteps({ startStep }: { startStep: number }) {
               <p className="text-sm font-medium text-gray-700">招待リンク</p>
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-9 rounded border border-gray-200 px-3 flex items-center text-xs text-gray-500 bg-gray-50 truncate">
-                  https://mmq.jp/group/invite/abc123...
+                  https://mmq.game/group/invite/abc123...
                 </div>
                 <button className="px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded flex-shrink-0">コピー</button>
               </div>
@@ -607,12 +607,12 @@ export function GuidePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white">
             <p className="text-sm font-bold text-gray-900 mb-1">MMQトップ</p>
-            <p className="text-xs text-gray-500 mb-2">mmq.jp</p>
+            <p className="text-xs text-gray-500 mb-2">mmq.game</p>
             <p className="text-sm text-gray-600">全店舗のシナリオ・公演をまとめて探せます。どの店舗で遊ぶか決まっていないときに便利です。</p>
           </div>
           <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white">
             <p className="text-sm font-bold text-gray-900 mb-1">店舗トップ</p>
-            <p className="text-xs text-gray-500 mb-2">mmq.jp/店舗名</p>
+            <p className="text-xs text-gray-500 mb-2">mmq.game/店舗名</p>
             <p className="text-sm text-gray-600">特定の店舗のシナリオ・公演だけを表示します。遊ぶ店舗が決まっているときに便利です。</p>
           </div>
         </div>
