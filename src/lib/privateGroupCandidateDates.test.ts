@@ -22,3 +22,17 @@ describe('候補追加の一括保存', () => {
     await expect(addPrivateGroupCandidates(input)).rejects.toThrow('保存結果を確認できません')
   })
 })
+
+describe('候補の取り下げ',()=>{
+ it('保存結果と候補IDを確認し、再送成功も受理する',async()=>{
+  const {withdrawPrivateGroupCandidate}=await import('./privateGroupCandidateDates')
+  rpc.mockResolvedValue({data:{success:true,candidate_id:'candidate',replayed:true},error:null})
+  await expect(withdrawPrivateGroupCandidate('group','candidate')).resolves.toBeUndefined()
+  expect(rpc).toHaveBeenCalledExactlyOnceWith('private_group_withdraw_candidate',{p_group_id:'group',p_candidate_id:'candidate'})
+ })
+ it.each([null,{success:false},{success:true,candidate_id:'another'}])('不確かな削除結果は成功扱いしない %j',async data=>{
+  const {withdrawPrivateGroupCandidate}=await import('./privateGroupCandidateDates')
+  rpc.mockResolvedValue({data,error:null})
+  await expect(withdrawPrivateGroupCandidate('group','candidate')).rejects.toThrow('削除結果を確認できません')
+ })
+})

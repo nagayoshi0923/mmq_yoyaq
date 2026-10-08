@@ -1189,6 +1189,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupRpcApi.setCharacterMethod (最後の引数なし)": [
         "rpc("private_group_set_character_method")",
       ],
+      "privateGroupRpcApi.withdrawCandidate": [
+        "rpc("private_group_withdraw_candidate", {"p_group_id":"a1","p_candidate_id":"a2"})",
+      ],
+      "privateGroupRpcApi.withdrawCandidate (最後の引数なし)": [
+        "rpc("private_group_withdraw_candidate", {"p_group_id":"a1"})",
+      ],
     }
   `) })
   it('予約サイトのトップ', async () => { expect(await snapshotModule(publicBooking)).toMatchInlineSnapshot(`
