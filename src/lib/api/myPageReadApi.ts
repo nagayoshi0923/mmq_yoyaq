@@ -79,6 +79,25 @@ export const myPageLikesReadApi = {
       .order('created_at', { ascending: false })
   },
 
+  /** 遊びたい作品の今日以降の一般公演（公開ビュー）。全作品分を 1 回で読む */
+  async listUpcomingPublicEventsForScenarios(masterIds: string[], fromDate: string) {
+    return supabase
+      .from('schedule_events_public')
+      .select('id, date, start_time, venue, organization_id, scenario_master_id, current_participants, max_participants')
+      .in('scenario_master_id', masterIds)
+      .gte('date', fromDate)
+      .in('category', ['open', 'offsite'])
+      .eq('is_reservation_enabled', true)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(1000)
+  },
+
+  /** 組織の slug（作品ページへのリンク用） */
+  async listOrganizationSlugs(ids: string[]) {
+    return supabase.from('organizations').select('id, slug').in('id', ids)
+  },
+
   /** お気に入りのシナリオマスタ */
   async listMastersByIds(masterIds: string[]) {
     return supabase

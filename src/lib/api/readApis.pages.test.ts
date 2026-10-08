@@ -362,6 +362,18 @@ describe('マイページ・予約確認・クーポン', () => {
       "myPageLikesReadApi.listMastersByIds (最後の引数なし)": [
         "from("scenario_masters") .select("id, title, description, author, official_duration, player_count_min, …) .in("id", undefined)",
       ],
+      "myPageLikesReadApi.listOrganizationSlugs": [
+        "from("organizations") .select("id, slug") .in("id", "a1")",
+      ],
+      "myPageLikesReadApi.listOrganizationSlugs (最後の引数なし)": [
+        "from("organizations") .select("id, slug") .in("id", undefined)",
+      ],
+      "myPageLikesReadApi.listUpcomingPublicEventsForScenarios": [
+        "from("schedule_events_public") .select("id, date, start_time, venue, organization_id, scenario_master_id, cur…) .in("scenario_master_id", "a1") .gte("date", "a2") .in("category", ["open","offsite"]) .eq("is_reservation_enabled", true) .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .limit(1000)",
+      ],
+      "myPageLikesReadApi.listUpcomingPublicEventsForScenarios (最後の引数なし)": [
+        "from("schedule_events_public") .select("id, date, start_time, venue, organization_id, scenario_master_id, cur…) .in("scenario_master_id", "a1") .gte("date", undefined) .in("category", ["open","offsite"]) .eq("is_reservation_enabled", true) .order("date", {"ascending":true}) .order("start_time", {"ascending":true}) .limit(1000)",
+      ],
       "myPageProfileReadApi.countBlockingReservations": [
         "from("reservations") .select("id", {"count":"exact","head":true}) .eq("customer_id", "a1") .gte("requested_datetime", "a2") .in("status", ["pending","confirmed","gm_confirmed","pending_gm","pending_store"]) .eq("organization_id", "a3")",
       ],

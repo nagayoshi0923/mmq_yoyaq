@@ -164,6 +164,12 @@ FROM public.schedule_events e
 JOIN public.organization_scenarios os ON os.id = e.organization_scenario_id
 WHERE e.id = '00000000-0000-4000-e000-000000000003';
 
+-- お客様1 の遊びたいリスト（マイページ「遊びたい」の次の公演の確認用。六人の館は直近が満席なので次の空きが出る）
+INSERT INTO public.scenario_likes (customer_id, scenario_master_id, organization_id)
+VALUES
+  ('00000000-0000-4000-d000-000000000011', '00000000-0000-4000-a000-000000000201', '00000000-0000-4000-a000-000000000001'),
+  ('00000000-0000-4000-d000-000000000011', '00000000-0000-4000-a000-000000000202', '00000000-0000-4000-a000-000000000001');
+
 -- 貸切グループ（人集め中・店舗確認待ち・確定・取り下げ・却下）-------------------------------------------------------------
 -- 画面と同じ RPC を、お客様1・管理者としてログインした扱い（JWT の sub を設定）で呼ぶ
 CREATE FUNCTION pg_temp.seed_act_as(p_user uuid) RETURNS void LANGUAGE sql AS $$
