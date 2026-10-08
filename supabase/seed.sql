@@ -153,7 +153,18 @@ FROM (VALUES
 JOIN public.schedule_events e ON e.id = f.event_id
 JOIN public.organization_scenarios os ON os.id = e.organization_scenario_id;
 
--- 貸切グループ（3 状態）-------------------------------------------------------------
+-- お客様1 の一般公演の予約（マイページ「一般公演」サブタブの確認用。貸切はここに出ない）
+INSERT INTO public.reservations (organization_id, schedule_event_id, customer_id, title, scenario_master_id, store_id,
+  requested_datetime, duration, participant_count, customer_name, customer_email, status, reservation_source,
+  base_price, total_price, final_price, unit_price)
+SELECT e.organization_id, e.id, '00000000-0000-4000-d000-000000000011', e.scenario, e.scenario_master_id, e.store_id,
+  e.start_at, (extract(epoch FROM e.end_at - e.start_at) / 60)::int, 2, '試験 一子', 'customer1@mmq.test', 'confirmed', 'web',
+  os.participation_fee * 2, os.participation_fee * 2, os.participation_fee * 2, os.participation_fee
+FROM public.schedule_events e
+JOIN public.organization_scenarios os ON os.id = e.organization_scenario_id
+WHERE e.id = '00000000-0000-4000-e000-000000000003';
+
+-- 貸切グループ（人集め中・店舗確認待ち・確定・取り下げ・却下）-------------------------------------------------------------
 -- 画面と同じ RPC を、お客様1・管理者としてログインした扱い（JWT の sub を設定）で呼ぶ
 CREATE FUNCTION pg_temp.seed_act_as(p_user uuid) RETURNS void LANGUAGE sql AS $$
   SELECT set_config('request.jwt.claims',
@@ -228,5 +239,76 @@ SELECT public.approve_private_booking(
 FROM public.reservations r
 JOIN public.private_groups g ON g.reservation_id = r.id
 WHERE g.name = '試験貸切・確定';
+
+
+-- (4) 取り下げ: 申込中にお客様が取り下げた貸切（マイページの「キャンセル済み」で「取り下げ」と出る）
+SELECT pg_temp.seed_act_as('00000000-0000-4000-b000-000000000011');
+SELECT public.create_private_group_atomic(
+  '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000202', '試験貸切・取り下げ',
+  ARRAY['00000000-0000-4000-a000-000000000101']::uuid[],
+  jsonb_build_array(
+    jsonb_build_object('date', ((now() AT TIME ZONE 'Asia/Tokyo')::date + 30)::text, 'time_slot', '午後', 'start_time', '13:00', 'end_time', '16:30'),
+    jsonb_build_object('date', ((now() AT TIME ZONE 'Asia/Tokyo')::date + 31)::text, 'time_slot', '夜間', 'start_time', '18:00', 'end_time', '21:30')
+  ), NULL);
+SELECT public.create_private_booking_request(
+  '00000000-0000-4000-a000-000000000202', '00000000-0000-4000-d000-000000000011', '試験 一子',
+  'customer1@mmq.test', '09000000011', 5,
+  jsonb_build_object(
+    'requestedStores', jsonb_build_array(jsonb_build_object('storeId', '00000000-0000-4000-a000-000000000101')),
+    'candidates', (
+      SELECT jsonb_agg(jsonb_build_object('date', c.date::text, 'timeSlot', c.time_slot,
+        'startTime', c.start_time, 'endTime', c.end_time) ORDER BY c.order_num)
+      FROM public.private_group_candidate_dates c
+      JOIN public.private_groups g ON g.id = c.group_id
+      WHERE g.name = '試験貸切・取り下げ')),
+  '試験データ: 取り下げた貸切リクエスト', NULL,
+  (SELECT id FROM public.private_groups WHERE name = '試験貸切・取り下げ'));
+
+-- (5) 店舗都合: 店舗が却下した貸切（「店舗都合でキャンセル」と出る）
+SELECT public.create_private_group_atomic(
+  '00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000201', '試験貸切・却下',
+  ARRAY['00000000-0000-4000-a000-000000000102']::uuid[],
+  jsonb_build_array(
+    jsonb_build_object('date', ((now() AT TIME ZONE 'Asia/Tokyo')::date + 27)::text, 'time_slot', '午後', 'start_time', '13:00', 'end_time', '17:00')
+  ), NULL);
+SELECT public.create_private_booking_request(
+  '00000000-0000-4000-a000-000000000201', '00000000-0000-4000-d000-000000000011', '試験 一子',
+  'customer1@mmq.test', '09000000011', 6,
+  jsonb_build_object(
+    'requestedStores', jsonb_build_array(jsonb_build_object('storeId', '00000000-0000-4000-a000-000000000102')),
+    'candidates', (
+      SELECT jsonb_agg(jsonb_build_object('date', c.date::text, 'timeSlot', c.time_slot,
+        'startTime', c.start_time, 'endTime', c.end_time) ORDER BY c.order_num)
+      FROM public.private_group_candidate_dates c
+      JOIN public.private_groups g ON g.id = c.group_id
+      WHERE g.name = '試験貸切・却下')),
+  '試験データ: 店舗が却下した貸切リクエスト', NULL,
+  (SELECT id FROM public.private_groups WHERE name = '試験貸切・却下'));
+
+SELECT pg_temp.seed_act_as('00000000-0000-4000-b000-000000000001');
+SELECT public.reject_private_booking_with_notice(r.id, '試験データ: ご希望の日程に空きがなく、お受けできませんでした。')
+FROM public.reservations r
+JOIN public.private_groups g ON g.id = r.private_group_id
+WHERE g.name = '試験貸切・却下';
+
+-- 取り下げはマイページの「申込を取り下げる」と同じ形（予約とグループを取消・理由は PRIVATE_REQUEST_WITHDRAWN_REASON）
+UPDATE public.reservations r SET status = 'cancelled', cancelled_at = now(),
+  cancellation_reason = 'お客様による貸切申込の取り下げ', updated_at = now()
+FROM public.private_groups g
+WHERE g.id = r.private_group_id AND g.name = '試験貸切・取り下げ';
+UPDATE public.private_groups SET status = 'cancelled', updated_at = now() WHERE name = '試験貸切・取り下げ';
+
+-- お客様2 をメンバーとして参加させる（招待リンクから参加した扱い）
+--   人集め中: 日程に未回答（マイページで「日程に回答する」）／確定: アンケート未回答（「アンケートに回答する」）
+INSERT INTO public.private_group_members (group_id, user_id, is_organizer, status, joined_at)
+SELECT g.id, '00000000-0000-4000-b000-000000000012', false, 'joined', now()
+FROM public.private_groups g WHERE g.name IN ('試験貸切・人集め中', '試験貸切・確定');
+
+-- 公演前アンケート: 「事前の手紙」で有効（確定した貸切の作品。締切は公演日の前日）
+UPDATE public.organization_scenarios SET survey_enabled = true, survey_deadline_days = 1
+WHERE id = '00000000-0000-4000-a000-000000000303';
+INSERT INTO public.org_scenario_survey_questions (org_scenario_id, question_text, question_type, options, is_required, order_num)
+VALUES ('00000000-0000-4000-a000-000000000303', 'マーダーミステリーの経験回数を教えてください', 'single_choice',
+  '[{"value":"0","label":"初めて"},{"value":"1-5","label":"1〜5回"},{"value":"6+","label":"6回以上"}]', true, 1);
 
 SELECT set_config('request.jwt.claims', '', false), set_config('request.jwt.claim.sub', '', false);
