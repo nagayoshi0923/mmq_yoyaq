@@ -590,7 +590,7 @@ export function PrivateGroupInvite() {
     ? memberInvitationCap(inviteBounds)
     : null
   const organizerMember = group.members?.find(m => m.is_organizer)
-  const organizerName = organizerMember?.guest_name || organizerMember?.users?.nickname || organizerMember?.users?.email?.split('@')[0] || 'メンバー'
+  const organizerName = group.organizer_display_name || organizerMember?.guest_name || organizerMember?.users?.nickname || organizerMember?.users?.email?.split('@')[0] || 'メンバー'
   const memberCount = group?.joined_member_count ?? joinedMembers.length
 
   // 参加人数が上限に達しているか（シナリオ超過で締め切る）
@@ -657,8 +657,9 @@ export function PrivateGroupInvite() {
     
     // 既存の電話番号を取得
     let phone = organizerMember?.guest_phone || ''
-    if (!phone && group.organization_id) {
-      const { data: customer } = await privateGroupPageReadApi.findOwnCustomerPhoneInOrganization(user.id, group.organization_id)
+    if (!phone) {
+      // お客様の customers 行は組織に属さない（organization_id NULL）ので user_id だけで引く
+      const { data: customer } = await privateGroupPageReadApi.findOwnCustomerPhone(user.id)
       phone = customer?.phone || ''
     }
     setBookingPhone(phone)

@@ -1059,11 +1059,11 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupPageReadApi.findOrganizationContactEmail (最後の引数なし)": [
         "from("organizations") .select("contact_email") .eq("id", undefined) .single()",
       ],
-      "privateGroupPageReadApi.findOwnCustomerPhoneInOrganization": [
-        "from("customers") .select("phone") .eq("user_id", "a1") .eq("organization_id", "a2") .maybeSingle()",
+      "privateGroupPageReadApi.findOwnCustomerPhone": [
+        "from("customers") .select("phone") .eq("user_id", "a1") .order("updated_at", {"ascending":false}) .limit(1) .maybeSingle()",
       ],
-      "privateGroupPageReadApi.findOwnCustomerPhoneInOrganization (最後の引数なし)": [
-        "from("customers") .select("phone") .eq("user_id", "a1") .eq("organization_id", undefined) .maybeSingle()",
+      "privateGroupPageReadApi.findOwnCustomerPhone (最後の引数なし)": [
+        "from("customers") .select("phone") .eq("user_id", undefined) .order("updated_at", {"ascending":false}) .limit(1) .maybeSingle()",
       ],
       "privateGroupPageReadApi.findScenarioAvailableStores": [
         "from("organization_scenarios_with_master") .select("available_stores") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .limit(1) .maybeSingle()",

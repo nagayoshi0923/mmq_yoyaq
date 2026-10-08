@@ -17,7 +17,8 @@ import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   useReservationDetailQuery, useCurrentSeatsQuery,
-  useCancelReservationMutation, useUpdateParticipantCountMutation,
+  useCancelReservationMutation,
+  useWithdrawPrivateRequestMutation, useUpdateParticipantCountMutation,
 } from '../hooks/useReservationDetailQuery'
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { DEFAULT_OPEN_CANCEL_DEADLINE_HOURS } from '@/constants/cancellationPolicyDefaults'
@@ -31,6 +32,7 @@ export function ReservationDetailPage() {
   const reservationId = location.pathname.split('/').pop()
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editParticipantCount, setEditParticipantCount] = useState(0)
 
@@ -53,6 +55,10 @@ export function ReservationDetailPage() {
   const cancelMutation = useCancelReservationMutation(reservationId ?? '', () => {
     toast.success('予約をキャンセルしました')
     navigate('/mypage')
+  })
+  const withdrawMutation = useWithdrawPrivateRequestMutation(reservationId ?? '', () => {
+    toast.success('貸切リクエストを取り下げました')
+    navigate('/mypage?sub=private')
   })
 
   const updateCountMutation = useUpdateParticipantCountMutation(
@@ -266,6 +272,20 @@ export function ReservationDetailPage() {
                 {getCustomerPrivateBookingStatusDescription(reservation.status)}
               </p>
             </div>
+            <div className="pt-3 border-t border-amber-200 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-amber-700">申込の取り下げ</p>
+                <p className="text-xs text-amber-600 mt-1">日程確定前なのでキャンセル料はかかりません。グループも一緒に閉じます。</p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={() => setWithdrawDialogOpen(true)}
+              >
+                取り下げる
+              </Button>
+            </div>
           </div>
         )}
 
@@ -429,6 +449,20 @@ export function ReservationDetailPage() {
         isLoading={cancelMutation.isPending}
         onConfirm={async () => {
           await cancelMutation.mutateAsync()
+        }}
+      />
+
+      <ConfirmDialog
+        open={withdrawDialogOpen}
+        onOpenChange={setWithdrawDialogOpen}
+        title="貸切リクエストを取り下げますか？"
+        message="店舗への申込を取り消し、貸切グループも閉じます。取り下げ後は元に戻せません。"
+        cancelLabel="やめる"
+        confirmLabel="取り下げる"
+        variant="destructive"
+        isLoading={withdrawMutation.isPending}
+        onConfirm={async () => {
+          await withdrawMutation.mutateAsync()
         }}
       />
 

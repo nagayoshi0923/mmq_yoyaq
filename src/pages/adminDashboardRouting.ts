@@ -147,6 +147,10 @@ export function parsePath(pathname: string): { page: string, scenarioId: string 
     if (subPage === 'cancel-policy') {
       return { page: 'cancel-policy', scenarioId: null, organizationSlug: orgSlug }
     }
+    // /{slug}/guide - ご予約ガイド（共通ページ。組織付き URL でも 404 にしない）
+    if (subPage === 'guide') {
+      return { page: 'guide', scenarioId: null, organizationSlug: orgSlug }
+    }
     if (subPage === 'private-booking-select') {
       return { page: 'private-booking-select', scenarioId: null, organizationSlug: orgSlug }
     }
