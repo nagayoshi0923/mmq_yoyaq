@@ -332,5 +332,14 @@
     "body_md5": "e176902a5f68c6e2b1da0a7ce2e32a53",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "assert_customer_cancellation_policy(p_reservation_id uuid)": {
+    "acl": [
+      "postgres=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "8a1ba2fea4d90f2f79b3dce5b1ee140b",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

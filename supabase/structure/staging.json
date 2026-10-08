@@ -25994,7 +25994,7 @@
     "postgres=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "57b45ef613108c916e6db24a8bae982e",
+   "body_md5": "8a1ba2fea4d90f2f79b3dce5b1ee140b",
    "language": "plpgsql",
    "security_definer": true
   },
