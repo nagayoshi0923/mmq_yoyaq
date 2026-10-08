@@ -163,14 +163,16 @@ export function GroupInviteView({
 
       <div className="container mx-auto max-w-lg px-4 py-6">
         <ConfirmedGroupSchedule group={group} />
-        {/* 戻るボタン */}
-        <button
-          onClick={() => navigate('/mypage')}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          マイページに戻る
-        </button>
+        {/* 戻るボタン（未ログインのゲストにはマイページが無いので出さない） */}
+        {user && (
+          <button
+            onClick={() => navigate('/mypage')}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            マイページに戻る
+          </button>
+        )}
 
         <Card className="border-purple-200 bg-purple-50/50 mb-6">
           <CardContent className="p-4 text-center">
