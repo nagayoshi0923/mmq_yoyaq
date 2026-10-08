@@ -1,3 +1,11 @@
+## 2026-10-09 / マイページ改修 段階 4 通知の整備（feat/mypage-phase4、staging 向け PR・未取り込み）
+
+- 方針書 docs/product-spec/マイページ改修_2026-10.md の 21〜27。承認済みの一覧どおり、通知ベルとメールをそろえた（棚卸し表は 22）。
+- ベルは DB のトリガー（予約の申込・取消・人数変更、貸切グループのシステムお知らせ、開催決定・リマインドの送信済み、クーポン付与、アンケートのリマインド）で作り、`metadata.dedupe_key` の一意索引で二重を防ぐ。取消のベルは Edge Function から DB に移した。
+- メールが無かったもの（日程確定のメンバー・取り下げ・グループを閉じた・外された本人・引き継ぎ）は送信待ち `customer_notice_emails` → `process-customer-notice-emails`（5 分ごと）。送信は app_config `customer_notice_email`=on の環境だけ（staging は off）。
+- お知らせ「マイページが新しくなりました」は `SELECT public.announce_mypage_update_2026_10();` で 1 回だけ（冪等）。
+- DB: migration 20261009140000（staging 適用済み・本番未適用）。Edge Function 2 本を staging に配備済み。
+
 ## 2026-10-09 / マイページ改修 段階 3 主催者の引き継ぎ（feat/mypage-phase3、staging 向け PR・未取り込み）
 
 - 方針書 docs/product-spec/マイページ改修_2026-10.md の 14〜20（案 B: 新主催者の同意で成立する申込者の交代。申込前・申込後・確定後とも可）。

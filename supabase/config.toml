@@ -137,6 +137,9 @@ verify_jwt = false
 [functions.process-survey-reminders]
 verify_jwt = false
 
+[functions.process-customer-notice-emails]
+verify_jwt = false
+
 [functions.process-private-approval-deliveries]
 verify_jwt = false
 

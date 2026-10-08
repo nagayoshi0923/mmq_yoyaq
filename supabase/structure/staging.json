@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-08T20:00:57.497Z",
-  "table_count": 147,
-  "function_count": 379,
-  "digest": "99aee1de1a49505d4f44c19f37dbf7c8f82869582b48d4fe7b812110fb878349"
+  "captured_at": "2026-10-08T20:41:10.444Z",
+  "table_count": 148,
+  "function_count": 400,
+  "digest": "4855b0e5d8cabaeffabe7dccc3ee395b35eaa8622d0e99227651bdae6766a1b4"
  },
  "tables": {
   "staff": {
@@ -3682,6 +3682,18 @@
      "name": "capture_waitlist_notice_event"
     },
     {
+     "def": "CREATE TRIGGER customer_notice_on_participants_changed AFTER UPDATE OF participant_count ON public.reservations FOR EACH ROW WHEN (((new.participant_count IS DISTINCT FROM old.participant_count) AND (old.participant_count IS NOT NULL) AND (new.participant_count IS NOT NULL) AND (new.status = old.status) AND (new.status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'gm_confirmed'::text])) AND (new.customer_id IS NOT NULL) AND (new.private_group_id IS NULL) AND (new.reservation_source IS DISTINCT FROM 'web_private'::text))) EXECUTE FUNCTION customer_notice_on_participants_changed()",
+     "name": "customer_notice_on_participants_changed"
+    },
+    {
+     "def": "CREATE TRIGGER customer_notice_on_private_request AFTER INSERT ON public.reservations FOR EACH ROW WHEN (((new.customer_id IS NOT NULL) AND ((new.private_group_id IS NOT NULL) OR (new.reservation_source = 'web_private'::text)))) EXECUTE FUNCTION customer_notice_on_private_request()",
+     "name": "customer_notice_on_private_request"
+    },
+    {
+     "def": "CREATE TRIGGER customer_notice_on_reservation_cancelled AFTER UPDATE OF status ON public.reservations FOR EACH ROW WHEN (((new.status = 'cancelled'::text) AND (old.status IS DISTINCT FROM 'cancelled'::text) AND (new.customer_id IS NOT NULL))) EXECUTE FUNCTION customer_notice_on_reservation_cancelled()",
+     "name": "customer_notice_on_reservation_cancelled"
+    },
+    {
      "def": "CREATE TRIGGER enforce_performance_recruitment_booking BEFORE INSERT OR UPDATE OF schedule_event_id, status, participant_count ON public.reservations FOR EACH ROW EXECUTE FUNCTION enforce_performance_recruitment_booking()",
      "name": "enforce_performance_recruitment_booking"
     },
@@ -7180,6 +7192,10 @@
    ],
    "triggers": [
     {
+     "def": "CREATE TRIGGER customer_notice_on_coupon_granted AFTER INSERT ON public.customer_coupons FOR EACH ROW WHEN ((new.status = 'active'::text)) EXECUTE FUNCTION customer_notice_on_coupon_granted()",
+     "name": "customer_notice_on_coupon_granted"
+    },
+    {
      "def": "CREATE TRIGGER set_coupon_calendar_expiry BEFORE INSERT ON public.customer_coupons FOR EACH ROW EXECUTE FUNCTION set_coupon_calendar_expiry()",
      "name": "set_coupon_calendar_expiry"
     },
@@ -8893,6 +8909,10 @@
      "name": "idx_user_notifications_user_id"
     },
     {
+     "def": "CREATE UNIQUE INDEX user_notifications_dedupe_key_idx ON public.user_notifications USING btree (((metadata ->> 'dedupe_key'::text))) WHERE (metadata ? 'dedupe_key'::text)",
+     "name": "user_notifications_dedupe_key_idx"
+    },
+    {
      "def": "CREATE UNIQUE INDEX user_notifications_pkey ON public.user_notifications USING btree (id)",
      "name": "user_notifications_pkey"
     }
@@ -8941,7 +8961,12 @@
      "permissive": false
     }
    ],
-   "triggers": [],
+   "triggers": [
+    {
+     "def": "CREATE TRIGGER customer_notice_on_handover_bell AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = 'private_group_handover'::text)) EXECUTE FUNCTION customer_notice_on_handover_bell()",
+     "name": "customer_notice_on_handover_bell"
+    }
+   ],
    "constraints": [
     {
      "def": "FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE",
@@ -12199,6 +12224,185 @@
     }
    ]
   },
+  "customer_notice_emails": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "default": "gen_random_uuid()",
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "kind",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "dedupe_key",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "notification_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "email_type",
+     "type": "text",
+     "default": "'other'::text",
+     "not_null": true
+    },
+    {
+     "name": "to_email",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "to_name",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "subject",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "body_text",
+     "type": "text",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "reply_to",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "sender_name",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "default": "'pending'::text",
+     "not_null": true
+    },
+    {
+     "name": "attempt_count",
+     "type": "integer",
+     "default": "0",
+     "not_null": true
+    },
+    {
+     "name": "next_attempt_at",
+     "type": "timestamp with time zone",
+     "default": "clock_timestamp()",
+     "not_null": true
+    },
+    {
+     "name": "lease_until",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "email_log_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "provider_message_id",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "last_error",
+     "type": "text",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "clock_timestamp()",
+     "not_null": true
+    },
+    {
+     "name": "sent_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE UNIQUE INDEX customer_notice_emails_dedupe_key_key ON public.customer_notice_emails USING btree (dedupe_key)",
+     "name": "customer_notice_emails_dedupe_key_key"
+    },
+    {
+     "def": "CREATE INDEX customer_notice_emails_due_idx ON public.customer_notice_emails USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'sending'::text]))",
+     "name": "customer_notice_emails_due_idx"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX customer_notice_emails_pkey ON public.customer_notice_emails USING btree (id)",
+     "name": "customer_notice_emails_pkey"
+    }
+   ],
+   "policies": [],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((attempt_count >= 0))",
+     "name": "customer_notice_emails_attempt_count_check",
+     "type": "c"
+    },
+    {
+     "def": "UNIQUE (dedupe_key)",
+     "name": "customer_notice_emails_dedupe_key_key",
+     "type": "u"
+    },
+    {
+     "def": "FOREIGN KEY (notification_id) REFERENCES user_notifications(id) ON DELETE SET NULL",
+     "name": "customer_notice_emails_notification_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "customer_notice_emails_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "customer_notice_emails_pkey",
+     "type": "p"
+    },
+    {
+     "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'skipped'::text])))",
+     "name": "customer_notice_emails_status_check",
+     "type": "c"
+    }
+   ]
+  },
   "license_partner_stores": {
    "rls": true,
    "columns": [
@@ -13363,11 +13567,20 @@
    ],
    "triggers": [
     {
+     "def": "CREATE CONSTRAINT TRIGGER customer_notice_on_group_message AFTER INSERT ON public.private_group_messages DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN ((new.message ~ '^\\s*\\{'::text)) EXECUTE FUNCTION customer_notice_on_group_message()",
+     "name": "customer_notice_on_group_message"
+    },
+    {
      "def": "CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR DELETE OR UPDATE ON public.private_group_messages FOR EACH ROW EXECUTE FUNCTION guard_private_group_browser_write()",
      "name": "guard_private_group_browser_write"
     }
    ],
    "constraints": [
+    {
+     "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+     "name": "customer_notice_on_group_message",
+     "type": "t"
+    },
     {
      "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
      "name": "private_group_messages_group_id_fkey",
@@ -20518,7 +20731,12 @@
     }
    ],
    "policies": [],
-   "triggers": [],
+   "triggers": [
+    {
+     "def": "CREATE TRIGGER customer_notice_on_reminder_sent AFTER UPDATE OF status ON public.scheduled_reminder_deliveries FOR EACH ROW WHEN (((new.status = 'sent'::text) AND (old.status IS DISTINCT FROM 'sent'::text))) EXECUTE FUNCTION customer_notice_on_reminder_sent()",
+     "name": "customer_notice_on_reminder_sent"
+    }
+   ],
    "constraints": [
     {
      "def": "CHECK (((days_before >= 0) AND (days_before <= 365)))",
@@ -20827,7 +21045,12 @@
     }
    ],
    "policies": [],
-   "triggers": [],
+   "triggers": [
+    {
+     "def": "CREATE TRIGGER customer_notice_on_survey_reminder AFTER INSERT ON public.private_group_survey_reminders FOR EACH ROW WHEN ((new.kind <> 'preview'::text)) EXECUTE FUNCTION customer_notice_on_survey_reminder()",
+     "name": "customer_notice_on_survey_reminder"
+    }
+   ],
    "constraints": [
     {
      "def": "CHECK ((attempt_count >= 0))",
@@ -21343,6 +21566,10 @@
    ],
    "policies": [],
    "triggers": [
+    {
+     "def": "CREATE TRIGGER customer_notice_on_performance_confirmed AFTER UPDATE OF status ON public.performance_recruitment_notices FOR EACH ROW WHEN (((new.status = 'sent'::text) AND (old.status IS DISTINCT FROM 'sent'::text) AND (new.kind = 'confirmed'::text))) EXECUTE FUNCTION customer_notice_on_performance_confirmed()",
+     "name": "customer_notice_on_performance_confirmed"
+    },
     {
      "def": "CREATE TRIGGER queue_recruitment_mail_alert BEFORE UPDATE OF status ON public.performance_recruitment_notices FOR EACH ROW EXECUTE FUNCTION queue_recruitment_mail_alert()",
      "name": "queue_recruitment_mail_alert"
@@ -24663,6 +24890,16 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "announce_mypage_update_2026_10()": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "3c9763aa839ffe0c3e3407a0572e84d3",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "finalize_private_group_coupons()": {
    "acl": [
     "postgres=X/postgres"
@@ -24716,7 +24953,7 @@
     "service_role=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "db9dcc2c8765d4df3449b2b1af74b702",
+   "body_md5": "fb16c1fa8ffbd39da8c8fe588b690243",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24769,6 +25006,33 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "customer_notice_on_group_message()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "8010ddc070729beb896bea7659104702",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_on_handover_bell()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "930bc12af8a669f862317467e14fd538",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_on_reminder_sent()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "57555f6ded9f2dd2960a69f4310aa707",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "enforce_coupon_performance_scope()": {
    "acl": [
     "anon=X/postgres",
@@ -24778,6 +25042,17 @@
    ],
    "returns": "trigger",
    "body_md5": "a66ab4a356386376292a6efe534aefc5",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "ensure_profile_incomplete_notice()": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "0ad7a418d47ec015e4e5969adcc24ac6",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24830,6 +25105,15 @@
    ],
    "returns": "json",
    "body_md5": "2dfdd8fe4ecbf8cc585e7aa3e0c5c65a",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_on_coupon_granted()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "58ecaf0bac562820149d2d3f68966f40",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -24912,6 +25196,24 @@
    ],
    "returns": "integer",
    "body_md5": "515439c7a43b528cbfe177f7f595bde6",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_on_private_request()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "715f1ddd9e2a20f6b47cb66db9a83822",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_on_survey_reminder()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "54c5fa54a3f84b600a352f5081256df9",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -25255,6 +25557,13 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "customer_notice_work_title(p_title text)": {
+   "acl": null,
+   "returns": "text",
+   "body_md5": "721e26f5a30461c3a0d1cbd71a5ff20f",
+   "language": "sql",
+   "security_definer": false
+  },
   "enforce_assignment_scenario_membership()": {
    "acl": [
     "postgres=X/postgres",
@@ -25401,6 +25710,15 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "customer_notice_on_participants_changed()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "43b7c0a288a04e56592399db2e87fb8b",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "dispatch_performance_recruitment_checks()": {
    "acl": [
     "postgres=X/postgres",
@@ -25488,6 +25806,24 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "customer_notice_on_performance_confirmed()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "a732a1274febe6ad82d85251275a583a",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_on_reservation_cancelled()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "81c3618b663c355612831244fe2a4152",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "enforce_private_group_candidate_deadline()": {
    "acl": [
     "postgres=X/postgres",
@@ -25556,6 +25892,16 @@
    ],
    "returns": "text",
    "body_md5": "0f63ebb43819a34965940f1967122344",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "claim_customer_notice_emails(p_limit integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
+   "body_md5": "5e3ed9675ff8f4f198fea5a4b800a3b5",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26215,7 +26561,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "5cb1c5e25b93f511fa88cf926a6d1162",
+   "body_md5": "204b96bcb56197514a5681667c75acac",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26335,6 +26681,15 @@
    "returns": "text",
    "body_md5": "f93a2dc46aff97d4ec33561b7c2b2547",
    "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_reservation_link(p_reservation reservations)": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "6b588b1b3d740b55a36af4f6355c906d",
+   "language": "sql",
    "security_definer": true
   },
   "delete_private_booking_request_atomic(p_reservation_id uuid)": {
@@ -26511,6 +26866,13 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "customer_notice_when(p_date date, p_time time without time zone)": {
+   "acl": null,
+   "returns": "text",
+   "body_md5": "6ffe3a0f1067d9c11b15addca6e33d92",
+   "language": "sql",
+   "security_definer": false
+  },
   "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
    "acl": [
     "postgres=X/postgres",
@@ -26614,6 +26976,13 @@
    "body_md5": "52b593cd1fef75e0bc8fcce2ab695f87",
    "language": "sql",
    "security_definer": true
+  },
+  "customer_notice_when_long(p_date date, p_time time without time zone)": {
+   "acl": null,
+   "returns": "text",
+   "body_md5": "afcf2b8836c272dfa1a22eb08c5fc288",
+   "language": "sql",
+   "security_definer": false
   },
   "get_private_booking_approval_delivery_status(p_reservation_ids uuid[])": {
    "acl": [
@@ -26729,6 +27098,15 @@
    ],
    "returns": "boolean",
    "body_md5": "e3a95b4b03cecefabbebdc544ee11ffb",
+   "language": "sql",
+   "security_definer": true
+  },
+  "customer_notice_user_contact(p_user uuid, OUT email text, OUT name text)": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "record",
+   "body_md5": "29e75c372ea8943df99d3c01ac43443d",
    "language": "sql",
    "security_definer": true
   },
@@ -27710,6 +28088,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "finish_customer_notice_email(p_id uuid, p_ok boolean, p_provider_message_id text, p_error text, p_email_log_id uuid, p_retry boolean)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "f7566a65602f2da7579503f77a04cb8e",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "respond_to_performance_recruitment_v2(p_token uuid, p_withdraw boolean, p_count integer, p_request_id uuid, p_expected_count integer)": {
    "acl": [
     "postgres=X/postgres",
@@ -27934,6 +28322,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "customer_notice_bell(p_user uuid, p_customer uuid, p_org uuid, p_type text, p_kind text, p_dedupe text, p_title text, p_message text, p_link text, p_reservation uuid, p_event uuid, p_extra jsonb)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "uuid",
+   "body_md5": "fcd47262c575c4a0ec7dff40f2827252",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "save_organization_recruitment_settings_v2(p_organization_id uuid, p_actor_id uuid, p_mode text, p_value integer, p_expected_updated_at timestamp with time zone, p_enabled boolean, p_deadline_minutes integer)": {
    "acl": [
     "postgres=X/postgres",
@@ -27975,6 +28373,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "customer_notice_enqueue_email(p_org uuid, p_kind text, p_dedupe text, p_email_type text, p_to_email text, p_to_name text, p_subject text, p_lines text[], p_link text, p_footer text, p_guest boolean, p_notification uuid, p_store uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "uuid",
+   "body_md5": "553392a1c7261e9e591be2e0f0263ffe",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "save_scenario_recruitment_settings_v2(p_organization_id uuid, p_master_id uuid, p_actor_id uuid, p_enabled boolean, p_source text, p_mode text, p_value integer, p_deadline_minutes integer, p_expected_updated_at timestamp with time zone)": {
    "acl": [
     "postgres=X/postgres",
@@ -27993,6 +28401,15 @@
    ],
    "returns": "uuid",
    "body_md5": "cd2e749bb70bbfb6d3ecab17c1e54113",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "customer_notice_group_members(p_group uuid, p_kind text, p_key text, p_bell_type text, p_title text, p_message text, p_link text, p_exclude uuid[], p_mail boolean, p_subject text, p_lines text[], p_email_type text, p_mail_skip_organizer boolean)": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "integer",
+   "body_md5": "83db49ca0f0b649294e98fe1ec155d89",
    "language": "plpgsql",
    "security_definer": true
   },

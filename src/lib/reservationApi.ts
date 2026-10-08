@@ -614,7 +614,7 @@ export const reservationApi = {
           if (outcome.status === 'accepted') logger.log('キャンセル確認メール受付確認', { reservationId: id })
           else if (outcome.status === 'skipped') logger.log('キャンセル確認メール送信スキップ', { reservationId: id, ...outcome })
           else logger.warn('予約取消は保存済み・通知メール未確認', { reservationId: id, ...outcome })
-          // user_notifications への挿入は send-cancellation-confirmation Edge Function 内で Service Role を使って実行
+          // 通知ベル（user_notifications）は予約の取消から DB のトリガーで作る（マイページ改修 段階 4）
         }
 
         // キャンセル待ち通知を送信
