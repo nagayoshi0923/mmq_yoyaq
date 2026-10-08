@@ -2,6 +2,13 @@ import { fetchInChunks } from '@/lib/fetchInChunks'
 import { supabase } from '@/lib/supabase'
 import { getPrivateGroupGuestToken } from '@/lib/privateGroupGuestSession'
 import type { PrivateGroup, PrivateGroupMessage } from '@/types'
+function withoutWithdrawnCandidates(group: PrivateGroup): PrivateGroup {
+  if (!group.candidate_dates?.some(date => date.withdrawn_at)) return group
+  const withdrawnIds = new Set(group.candidate_dates.filter(date => date.withdrawn_at).map(date => date.id))
+  return { ...group, candidate_dates: group.candidate_dates.filter(date => !date.withdrawn_at),
+    members: group.members?.map(member => ({ ...member, date_responses: member.date_responses?.filter(response => !withdrawnIds.has(response.candidate_date_id)) })) }
+
+}
 export interface PrivateGroupSnapshot {
   group: PrivateGroup
   access_level: 'preview' | 'member' | 'organizer' | 'staff'
@@ -17,7 +24,8 @@ export async function readPrivateGroup(input: { groupId?: string | null; inviteC
   })
   if (error) throw error
   if (!data?.group) throw new Error('グループを取得できませんでした')
-  return data as PrivateGroupSnapshot
+  const snapshot = data as PrivateGroupSnapshot
+  return { ...snapshot, group: withoutWithdrawnCandidates(snapshot.group) }
 }
 export async function readPrivateGroupMessages(groupId: string, memberId?: string | null): Promise<PrivateGroupMessage[]> {
   const { data, error } = await supabase.rpc('private_group_read_messages', {
@@ -42,7 +50,7 @@ export async function readPrivateGroupList(scope: 'joined' | 'organized' | 'staf
     })
     if (error) throw error
     const page = (data || []) as PrivateGroup[]
-    groups.push(...page)
+    groups.push(...page.map(withoutWithdrawnCandidates))
     // 指定IDの分を取り切ったら続きを取りに行かない（100件ちょうどのとき空の追加取得をしない、#837）
     if (page.length < 100 || (groupIds && groups.length >= groupIds.length)) break
     const next = page[page.length - 1].id
@@ -73,7 +81,9 @@ export async function readPrivateGroupMessageHistory(groupId: string): Promise<P
 export async function readPrivateGroupByReservation(reservationId: string): Promise<PrivateGroupSnapshot | null> {
   const { data, error } = await supabase.rpc('private_group_read_reservation', { p_reservation_id: reservationId })
   if (error) throw error
-  return data as PrivateGroupSnapshot | null
+  if (!data) return null
+  const snapshot = data as PrivateGroupSnapshot
+  return { ...snapshot, group: withoutWithdrawnCandidates(snapshot.group) }
 }
 
 /** 貸切予約管理の一覧で使う、グループの必要な項目だけ（#835） */

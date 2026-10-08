@@ -16,6 +16,8 @@ export interface PrivateBookingSlotGridProps {
   onSlotToggle: (date: string, slot: PrivateBookingSlot) => void
   maxSelections: number
   availabilityMap: Record<string, boolean>
+  /** 保存済み候補は受付停止と区別して表示する。 */
+  existingSlotKeys?: ReadonlySet<string>
   isCustomHoliday?: (date: string) => boolean
   colorScheme?: 'red' | 'purple'
   isTooSoon?: (date: string) => boolean
@@ -40,6 +42,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   onSlotToggle,
   maxSelections,
   availabilityMap,
+  existingSlotKeys,
   isCustomHoliday,
   colorScheme = 'red',
   isTooSoon,
@@ -224,7 +227,8 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
 
   function renderSlotCell(slot: PrivateBookingSlot, date: string, tooSoon: boolean) {
     const key = `${date}-${slot.label}`
-    const isAvailable = !tooSoon && (availabilityMap[key] ?? true)
+    const isExisting = existingSlotKeys?.has(key) ?? false
+    const isAvailable = !isExisting && !tooSoon && (availabilityMap[key] ?? true)
     const isSelected = isSlotSelected(date, slot)
     const canSelect = isAvailable && (isSelected || selectedCount < maxSelections)
 
@@ -234,7 +238,9 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
           key={slot.label}
           type="button"
           className={`flex-1 rounded border px-1 py-1.5 text-center leading-tight transition-colors sm:px-1 sm:py-2 ${
-            !isAvailable
+            isExisting
+              ? 'cursor-not-allowed border-purple-200 bg-purple-50'
+              : !isAvailable
               ? 'cursor-not-allowed border-gray-100 bg-gray-100 opacity-50'
               : isSelected
               ? selectedBg
@@ -242,12 +248,13 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
               ? hoverBg
               : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-50'
           }`}
+          aria-label={`${date} ${slot.label}${isExisting ? " 追加済み" : !isAvailable ? " 選択不可" : ""}`}
           disabled={!canSelect}
           onClick={() => canSelect && onSlotToggle(date, slot)}
         >
           <div className="text-[11px] font-medium sm:text-xs">{slot.label}</div>
           <div className={`mt-0.5 text-[8px] leading-snug sm:text-[9px] ${isSelected ? selectedTimeColor : 'text-muted-foreground'}`}>
-            {slot.startTime}〜{slot.endTime}
+            {isExisting ? "追加済み" : `${slot.startTime}〜${slot.endTime}`}
           </div>
         </button>
       )
@@ -257,7 +264,9 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
       <button
         key={slot.label}
         className={`flex-1 py-1 px-1 border text-center transition-colors ${
-          !isAvailable
+          isExisting
+            ? 'border-purple-200 bg-purple-50 cursor-not-allowed'
+            : !isAvailable
             ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
             : isSelected
             ? selectedBg
@@ -265,12 +274,13 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
             ? hoverBg
             : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
         }`}
+        aria-label={`${date} ${slot.label}${isExisting ? " 追加済み" : !isAvailable ? " 選択不可" : ""}`}
         disabled={!canSelect}
         onClick={() => canSelect && onSlotToggle(date, slot)}
       >
         <div className="text-xs font-medium">{slot.label}</div>
         <div className={`text-[10px] ${isSelected ? selectedTimeColor : 'opacity-70'}`}>
-          {slot.startTime}〜{slot.endTime}
+          {isExisting ? "追加済み" : `${slot.startTime}〜${slot.endTime}`}
         </div>
       </button>
     )

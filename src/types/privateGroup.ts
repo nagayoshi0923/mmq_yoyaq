@@ -96,6 +96,8 @@ export interface PrivateGroupCandidateDate {
   created_at: string
   /** 候補日のステータス: active=有効, rejected=却下済み */
   status?: 'active' | 'rejected'
+  /** 主催者の取り下げ日時。回答と候補の履歴はDBに残す。 */
+  withdrawn_at?: string | null
   // JOIN時の拡張フィールド
   responses?: PrivateGroupDateResponse[]
 }

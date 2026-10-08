@@ -47,6 +47,10 @@ export const privateGroupRpcApi = {
   async removeCouponFromMember(args: object) {
     return supabase.rpc('remove_coupon_from_group_member', args)
   },
+  /** 申込前の主催者が候補を取り下げる（回答の履歴は保持） */
+  async withdrawCandidate(groupId: string, candidateId: string) {
+    return supabase.rpc('private_group_withdraw_candidate', { p_group_id: groupId, p_candidate_id: candidateId })
+  },
   /** グループを削除する */
   async deleteGroup(args: object) {
     return supabase.rpc('delete_private_group', args)

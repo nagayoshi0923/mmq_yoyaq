@@ -41,3 +41,14 @@ describe('貸切通知履歴の全件取得', () => {
     await expect(readPrivateGroupMessageHistory('group')).rejects.toThrow('forbidden')
   })
 })
+
+it('取り下げ候補とその回答を表示対象から外し、他の候補と店舗却下は残す',async()=>{
+ const {readPrivateGroup}=await import('./privateGroupRead')
+ const raw={group:{...group(1),candidate_dates:[{id:'active'},{id:'rejected',status:'rejected'},{id:'withdrawn',status:'rejected',withdrawn_at:'2026-10-06T00:00:00Z'}],members:[{id:'member',date_responses:[{candidate_date_id:'active',response:'ok'},{candidate_date_id:'withdrawn',response:'maybe'}]}]}}
+ vi.mocked(supabase.rpc).mockResolvedValue({data:raw,error:null} as never)
+ const result=await readPrivateGroup({groupId:'group'})
+ expect(result.group.candidate_dates?.map(d=>d.id)).toEqual(['active','rejected'])
+ expect(result.group.members?.[0].date_responses).toEqual([{candidate_date_id:'active',response:'ok'}])
+ expect(raw.group.candidate_dates).toHaveLength(3)
+ expect(raw.group.members[0].date_responses).toHaveLength(2)
+})
