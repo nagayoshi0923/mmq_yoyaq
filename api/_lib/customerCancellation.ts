@@ -17,7 +17,7 @@ type CancelScheduleEvent = {
 export async function assertCustomerSelfCancelAllowed(
   user: AuthUser,
   reservation: Parameters<typeof resolveCancellationPolicy>[0] & {
-    organization_id: string; schedule_event_id: string | null; private_group_id?: string | null
+    organization_id: string; schedule_event_id: string | null; private_group_id?: string | null; status?: string | null
     final_price?: number | null; total_price?: number | null; unit_price?: number | null; participant_count?: number | null
     schedule_events?: CancelScheduleEvent | CancelScheduleEvent[] | null
   },
@@ -29,6 +29,13 @@ export async function assertCustomerSelfCancelAllowed(
     | CancelScheduleEvent
     | null
     | undefined
+
+  // 申込中の貸切（公演がまだ無い）は、確定前なのでキャンセル料の対象外。お客様自身で取り下げられる。
+  const isPendingPrivateRequest =
+    Boolean(reservation.private_group_id)
+    && !reservation.schedule_event_id
+    && ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(reservation.status ?? '')
+  if (isPendingPrivateRequest) return { ok: true }
 
   if (!scheduleEvent?.date || !scheduleEvent?.start_time) {
     return { ok: false, status: 400, error: CUSTOMER_CANCEL_BLOCKED_MESSAGE }

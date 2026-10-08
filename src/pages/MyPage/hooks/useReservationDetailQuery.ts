@@ -235,3 +235,19 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
     },
   })
 }
+
+/** 申込中の貸切リクエスト（公演未確定）をお客様自身が取り下げる。予約とグループをまとめて取消する */
+export function useWithdrawPrivateRequestMutation(reservationId: string, onSuccess: () => void) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
+      reservationApi.cancelWithGroupLock(reservationId, null, 'お客様による貸切申込の取り下げ'),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mypage-data'] }),
+        queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) }),
+      ])
+      onSuccess()
+    },
+  })
+}
