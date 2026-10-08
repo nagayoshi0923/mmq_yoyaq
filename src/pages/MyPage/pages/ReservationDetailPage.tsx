@@ -21,6 +21,7 @@ import {
 } from '../hooks/useReservationDetailQuery'
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { DEFAULT_OPEN_CANCEL_DEADLINE_HOURS } from '@/constants/cancellationPolicyDefaults'
+import { formatPolicyHours } from '@/lib/publicCancellationPolicy'
 
 export function ReservationDetailPage() {
   const navigate = useNavigate()
@@ -157,7 +158,7 @@ export function ReservationDetailPage() {
   })()
 
   const cancelBlockedReason = !canCancel && reservation.status === 'confirmed'
-    ? `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${cancelDeadlineHours}時間前まで）。店舗へご連絡ください。`
+    ? `キャンセル料金が発生する期間のため、マイページからのキャンセルはできません（${formatPolicyHours(cancelDeadlineHours)}まで）。店舗へご連絡ください。`
     : null
 
   const canEdit = reservation?.status === 'confirmed' && data?.canChangeByPolicy === true
