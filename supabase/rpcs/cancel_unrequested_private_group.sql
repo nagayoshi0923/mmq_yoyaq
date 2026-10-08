@@ -28,3 +28,26 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.cancel_unrequested_private_group(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.cancel_unrequested_private_group(uuid) TO authenticated,service_role;
+
+-- 「グループを閉じる」（マイページ改修 段階 2）。閉じたうえでチャットにお知らせを残す。
+CREATE OR REPLACE FUNCTION public.cancel_unrequested_private_group_with_notice(p_group_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE was_cancelled boolean;
+BEGIN
+ SELECT status='cancelled' INTO was_cancelled FROM public.private_groups WHERE id=p_group_id;
+ -- 権限・状態の確認とロックは既存の関数に任せる（主催者のみ・申込前のみ）
+ IF public.cancel_unrequested_private_group(p_group_id) IS DISTINCT FROM true THEN RETURN false; END IF;
+ IF NOT coalesce(was_cancelled,false) THEN
+  INSERT INTO public.private_group_messages(group_id,sender_type,message) VALUES(p_group_id,'system',
+   jsonb_build_object('type','system','action','booking_cancelled',
+    'title','主催者がグループを閉じました',
+    'body','このグループは閉じられました。日程の回答やチャットはできません。')::text);
+ END IF;
+ RETURN true;
+END $function$;
+REVOKE ALL ON FUNCTION public.cancel_unrequested_private_group_with_notice(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.cancel_unrequested_private_group_with_notice(uuid) TO authenticated,service_role;
