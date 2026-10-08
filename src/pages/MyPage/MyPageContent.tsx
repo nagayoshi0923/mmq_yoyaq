@@ -39,6 +39,13 @@ const menuItems = [
   { id: 'settings', label: '設定', icon: Settings },
 ]
 
+/** タブのバッジの数字の意味（読み上げ用。docs/product-spec/マイページ改修_2026-10.md「数字の意味」） */
+const COUNT_MEANINGS: Record<string, (n: number) => string> = {
+  reservations: n => `進行中 ${n}件`,
+  coupons: n => `使えるクーポン ${n}枚`,
+  album: n => `体験済み ${n}作品`,
+}
+
 type MyPageData = NonNullable<ReturnType<typeof useMyPageDataQuery>['data']>
 type AlbumOptionsData = NonNullable<ReturnType<typeof useMyPageAlbumOptionsQuery>['data']>
 
@@ -200,8 +207,9 @@ export function MyPageContent({
                 handleOpenEditDialog(scenario)
               }}
               title="編集"
+              aria-label={`${scenario.scenario || '作品'}の記録を編集`}
             >
-              <MoreVertical className="h-4 w-4 text-gray-500" />
+              <MoreVertical className="h-4 w-4 text-gray-500" aria-hidden="true" />
             </Button>
           </div>
           {/* おすすめ度（星評価） */}
@@ -218,6 +226,8 @@ export function MyPageContent({
                     }}
                     className="p-0.5 hover:scale-110 transition-transform"
                     title={`おすすめ度 ${star}`}
+                    aria-label={`おすすめ度を${star}にする`}
+                    aria-pressed={!!scenario.rating && scenario.rating >= star}
                   >
                     <Star
                       className="h-3.5 w-3.5"
@@ -452,7 +462,9 @@ export function MyPageContent({
                 className="hidden"
               />
               <button
+                type="button"
                 onClick={handleAvatarClick}
+                aria-label="プロフィール画像を変更"
                 className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg overflow-hidden transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${avatarUrl ? '' : 'mypage-avatar-gradient'}`}
               >
                 {avatarUrl ? (
@@ -467,6 +479,7 @@ export function MyPageContent({
               </button>
               {/* 編集アイコン */}
               <div 
+                aria-hidden="true"
                 className="absolute bottom-0 right-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md cursor-pointer bg-mypage-primary"
                 onClick={handleAvatarClick}
               >
@@ -495,7 +508,7 @@ export function MyPageContent({
       {/* タブナビゲーション */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-4xl mx-auto">
-          <div className="flex">
+          <div className="flex" role="tablist" aria-label="マイページのメニュー">
             {menuItems.map((item) => {
               const Icon = item.icon
               const isActive = activeTab === item.id
@@ -503,6 +516,10 @@ export function MyPageContent({
               return (
                 <button
                   key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={count !== null && count > 0 && COUNT_MEANINGS[item.id] ? `${item.label}（${COUNT_MEANINGS[item.id](count)}）` : item.label}
                   onClick={() => setActiveTab(item.id)}
                   className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-medium transition-all relative ${
                     isActive 
@@ -510,10 +527,11 @@ export function MyPageContent({
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-5 h-5" aria-hidden="true" />
                   <span className="hidden sm:inline">{item.label}</span>
                   {count !== null && count > 0 && (
                     <span 
+                      aria-hidden="true"
                       className={`text-xs px-1.5 py-0.5 rounded-full ${
                         isActive ? 'text-white bg-mypage-primary' : 'bg-gray-200 text-gray-600'
                       }`}
@@ -717,8 +735,10 @@ export function MyPageContent({
           className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 bg-mypage-primary hover:bg-mypage-primary-hover rounded-none"
           size="icon"
           onClick={() => navigate('/')}
+          aria-label="公演を探す（トップへ）"
+          title="公演を探す"
         >
-          <Sparkles className="w-6 h-6" />
+          <Sparkles className="w-6 h-6" aria-hidden="true" />
         </Button>
       </div>
 

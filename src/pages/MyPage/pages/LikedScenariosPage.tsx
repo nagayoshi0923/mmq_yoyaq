@@ -177,8 +177,9 @@ export function WantToPlayPage() {
                   }}
                   className="flex-shrink-0 hover:bg-red-50"
                   title="お気に入りから削除"
+                  aria-label={`${item.scenario.title}を遊びたいリストから外す`}
                 >
-                  <Heart className="h-5 w-5 fill-current text-mypage-primary" />
+                  <Heart className="h-5 w-5 fill-current text-mypage-primary" aria-hidden="true" />
                 </Button>
               </div>
 
