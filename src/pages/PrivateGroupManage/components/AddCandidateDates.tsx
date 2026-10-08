@@ -116,7 +116,11 @@ export function AddCandidateDates({
     [computeSlotsByDate, availableDates]
   )
 
-  // Mark already-existing candidate dates as unavailable
+  const existingSlotKeys = useMemo(() => new Set(existingDates.filter(date => !date.withdrawn_at).map(
+    date => `${date.date}-${privateGroupTimeSlotFromDb(date.time_slot)}`
+  )), [existingDates])
+
+  // 保存済み候補と受付停止は、表示上も理由を分ける。
   useEffect(() => {
     if (!isOpen || !scenarioTiming) return
 
@@ -125,9 +129,7 @@ export function AddCandidateDates({
       const daySlots = slotsByDate[date] || []
       for (const slot of daySlots) {
         const key = `${date}-${slot.label}`
-        const isAlreadySelected = existingDates.some(
-          ed => ed.date === date && privateGroupTimeSlotFromDb(ed.time_slot) === slot.label
-        )
+        const isAlreadySelected = existingSlotKeys.has(key)
         newMap[key] =
           !isAlreadySelected &&
           !isCandidateBlockedOnAllStores(date, slot.label, storeIds)
@@ -137,7 +139,7 @@ export function AddCandidateDates({
   }, [
     isOpen,
     availableDates,
-    existingDates,
+    existingSlotKeys,
     slotsByDate,
     scenarioTiming,
     storeIds,
@@ -310,6 +312,7 @@ export function AddCandidateDates({
           onSlotToggle={handleSlotToggle}
           maxSelections={MAX_SELECTIONS}
           availabilityMap={availabilityMap}
+          existingSlotKeys={existingSlotKeys}
           isCustomHoliday={isCustomHoliday}
           colorScheme="purple"
           loading={loading || holidaysLoading || deadlineLoading}
@@ -326,7 +329,7 @@ export function AddCandidateDates({
         />
 
         <p className="shrink-0 px-1 py-0.5 text-[9px] text-muted-foreground">
-          灰色の枠は、希望店舗のすべてが現在受付停止中です
+          「追加済み」は保存済みの候補です。削除は候補日程の「削除」から行えます。灰色は受付停止などで選べない枠です。
         </p>
 
         {selectedSlots.length > 0 && (

@@ -2,6 +2,7 @@
  * 貸切グループのチャット表示のシート（候補日の回答・メンバー招待・グループ設定・希望店舗の編集・予約申請）。
  * GroupChatSheets.tsx から見た目を変えずに切り出したもの。
  */
+import { WithdrawCandidateButton } from './WithdrawCandidateButton'
 import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -175,6 +176,9 @@ export function DatesSheet(props: GroupChatSheetsProps) {
                             {cd.time_slot} {cd.start_time} - {cd.end_time}
                           </div>
                         </div>
+                        {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                          <WithdrawCandidateButton groupId={group.id} candidate={cd} onWithdrawn={() => refetch()} />
+                        )}
                         {/* 回答状況サマリー（却下された場合は非表示） */}
                         {!isRejected && (
                           <div className="text-right shrink-0">

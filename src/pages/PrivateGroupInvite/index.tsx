@@ -481,7 +481,7 @@ export function PrivateGroupInvite() {
       }
 
       const responseData = Object.entries(responses)
-        .filter(([_, response]) => response != null)
+        .filter(([candidateId, response]) => response != null && group.candidate_dates?.some(date => date.id === candidateId && date.status !== 'rejected'))
         .map(([candidateDateId, response]) => ({
           candidateDateId,
           response: response as DateResponse,
