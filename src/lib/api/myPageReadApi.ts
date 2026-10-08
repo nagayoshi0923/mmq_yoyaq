@@ -199,8 +199,12 @@ export const myPageReservationReadApi = {
   },
 
   /** 公演の確定済み予約の人数 */
-  async listConfirmedParticipantCounts(scheduleEventId: string) {
-    return supabase.from('reservations').select('participant_count').eq('schedule_event_id', scheduleEventId).eq('status', 'confirmed')
+  /**
+   * 公演の現在の参加人数と定員（公開ビュー）。
+   * reservations を直接数えるとお客様には自分の行しか見えず（RLS）、他の方の予約が 0 人扱いになるため公開ビューを使う。
+   */
+  async findPublicEventSeatCounts(scheduleEventId: string) {
+    return supabase.from('schedule_events_public').select('current_participants, max_participants').eq('id', scheduleEventId).maybeSingle()
   },
 
   /** 公演（公開ビュー）の日時・題名・会場 */
