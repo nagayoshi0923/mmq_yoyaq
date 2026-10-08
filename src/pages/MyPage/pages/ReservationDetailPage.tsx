@@ -22,6 +22,7 @@ import {
 import { toJstYmd, formatJstTime, formatJstDateJa, formatJstDateTime } from '@/utils/jstDate'
 import { DEFAULT_OPEN_CANCEL_DEADLINE_HOURS } from '@/constants/cancellationPolicyDefaults'
 import { formatPolicyHours } from '@/lib/publicCancellationPolicy'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 export function ReservationDetailPage() {
   const navigate = useNavigate()
@@ -236,7 +237,7 @@ export function ReservationDetailPage() {
                     return (
                       <div key={index} className="flex items-center gap-3 bg-white p-3 border border-amber-100 rounded-none">
                         <span className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 text-sm font-bold rounded-none">{candidate.order || index + 1}</span>
-                        <div className="flex-1"><p className="font-medium text-gray-900">{dateStr}</p><p className="ts-body text-gray-600">{candidate.timeSlot}（{candidate.startTime}〜{candidate.endTime}）</p></div>
+                        <div className="flex-1"><p className="font-medium text-gray-900">{dateStr}</p><p className="ts-body text-gray-600">{candidateTimeSlotFromDb(candidate.timeSlot)}（{candidate.startTime}〜{candidate.endTime}）</p></div>
                       </div>
                     )
                   })}
