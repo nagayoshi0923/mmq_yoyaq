@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { myPageReservationReadApi } from '@/lib/api/myPageReadApi'
 import { reservationApi } from '@/lib/reservationApi'
 import { invalidateEverywhere } from '@/lib/queryInvalidation'
+import { PRIVATE_REQUEST_WITHDRAWN_REASON } from '@/lib/constants/reservationStatus'
 import { logger } from '@/utils/logger'
 import type { MyPageData } from './useMyPageDataQuery'
 import {
@@ -241,7 +242,7 @@ export function useWithdrawPrivateRequestMutation(reservationId: string, onSucce
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
-      reservationApi.cancelWithGroupLock(reservationId, null, 'お客様による貸切申込の取り下げ'),
+      reservationApi.cancelWithGroupLock(reservationId, null, PRIVATE_REQUEST_WITHDRAWN_REASON),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['mypage-data'] }),

@@ -54,6 +54,8 @@ export interface PrivateBookingRequest {
   /** キャンセル/却下の操作者（cancelled_by → staff.name。顧客自身のキャンセルは undefined） */
   canceller_name?: string
   cancelled_at?: string
+  /** キャンセル理由（お客様の申込取り下げの判別に使う） */
+  cancellation_reason?: string
   gm_responses?: Array<{
     id: string
     staff_id?: string

@@ -27,6 +27,8 @@ interface PrivateBookingStatusBadgeProps {
   status: string
   /** 一度承認された後のキャンセルか（承認者の有無で判定） */
   wasConfirmed?: boolean
+  /** 申込中にお客様自身が取り下げたキャンセルか */
+  withdrawnByCustomer?: boolean
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
@@ -37,10 +39,11 @@ interface PrivateBookingStatusBadgeProps {
 export function PrivateBookingStatusBadge({
   status,
   wasConfirmed,
+  withdrawnByCustomer,
   size = 'md',
   className,
 }: PrivateBookingStatusBadgeProps) {
-  const config = getPrivateBookingStatusConfig(status, wasConfirmed)
+  const config = getPrivateBookingStatusConfig(status, wasConfirmed, withdrawnByCustomer)
   if (!config) return null
   return (
     <Badge variant={config.variant} size={size} className={cn('whitespace-nowrap', className)}>

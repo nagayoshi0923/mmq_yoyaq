@@ -256,7 +256,7 @@ export const privateBookingRequestReadApi = {
       .select(`
         id, reservation_number, scenario_master_id, private_group_id, status, title, candidate_datetimes,
         customer_email, customer_phone, customer_notes, participant_count,
-        confirmed_at, cancelled_at, created_at, updated_at,
+        confirmed_at, cancelled_at, cancellation_reason, created_at, updated_at,
         scenario_masters:scenario_master_id(title, official_duration),
         customers:customer_id(name, phone),
         confirmer:staff!reservations_confirmed_by_fkey(name),

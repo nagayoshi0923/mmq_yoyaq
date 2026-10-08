@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import { deliverPrivateCancellations } from '../../supabase/functions/_shared/private-cancellation-delivery'
 
-function fixture(options: { channel?: string, retry?: number, status?: string, restored?: boolean } = {}) {
+function fixture(options: { channel?: string, retry?: number, status?: string, restored?: boolean, withoutEvent?: boolean } = {}) {
   const row = { id: '11111111-1111-1111-1111-111111111111', organization_id: 'org1', notification_type: 'private_cancellation',
-    message_payload: { staff_id: 's1', event_id: 'e1', epoch: 'epoch1', content: '貸切取消' }, status: options.status || 'pending',
+    message_payload: options.withoutEvent
+      ? { staff_id: 's1', reservation_id: 'r1', epoch: 'r1', content: '貸切申込の取り下げ' } as Record<string, string>
+      : { staff_id: 's1', event_id: 'e1', epoch: 'epoch1', content: '貸切取消' } as Record<string, string>, status: options.status || 'pending',
     retry_count: options.retry || 0, max_retries: 3, next_retry_at: '2000-01-01T00:00:00Z' }
   const staff = [ { id: 's1', organization_id: 'org2', discord_channel_id: '999', discord_user_id: '999' },
     { id: 's1', organization_id: 'org1', discord_channel_id: options.channel ?? '123', discord_user_id: '456' } ]
+  const tablesRead: string[] = []
   const db = { from: (table: string) => {
+    tablesRead.push(table)
     let change: Record<string, unknown> | undefined
     const filters: ((r: Record<string, any>) => boolean)[] = []
     const q: any = {
@@ -24,7 +28,7 @@ function fixture(options: { channel?: string, retry?: number, status?: string, r
     }
     return q
   } }
-  return { row, db }
+  return { row, db, tablesRead }
 }
 describe('貸切取消通知の永続キュー配送', () => {
   it('担当者と同じ組織の送信先へ送信し完了を記録する', async () => {
@@ -61,6 +65,13 @@ describe('貸切取消通知の永続キュー配送', () => {
     const { db, row } = fixture({ restored: true }); const send = vi.fn()
     await deliverPrivateCancellations(db, async () => 'token', send)
     expect(send).not.toHaveBeenCalled(); expect(row.status).toBe('completed')
+  })
+  it('公演の無い申込取り下げ通知（event_id 無し）は公演を照合せずに送る', async () => {
+    const { db, row, tablesRead } = fixture({ withoutEvent: true, restored: true }); const send = vi.fn().mockResolvedValue({ ok: true })
+    expect(await deliverPrivateCancellations(db, async () => 'token', send)).toEqual({ succeeded: 1, failed: 0 })
+    expect(send).toHaveBeenCalledTimes(1); expect(send.mock.calls[0][0]).toContain('/channels/123/messages')
+    expect(JSON.parse(send.mock.calls[0][1].body).content).toContain('貸切申込の取り下げ')
+    expect(tablesRead).not.toContain('schedule_events'); expect(row.status).toBe('completed')
   })
   it('配送中に停止した処理を期限後に回収する', async () => {
     const { db, row } = fixture({ status: 'sending' }); const send = vi.fn().mockResolvedValue({ ok: true })
