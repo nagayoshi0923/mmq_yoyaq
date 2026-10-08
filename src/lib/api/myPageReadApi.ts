@@ -101,7 +101,7 @@ export const myPageDataReadApi = {
 
   /** 顧客の予約（開催日時の新しい順に50件） */
   async listRecentReservations(customerId: string) {
-    return supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, private_group_id, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customerId).order('requested_datetime', { ascending: false }).limit(50)
+    return supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, private_group_id, cancellation_reason, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customerId).order('requested_datetime', { ascending: false }).limit(50)
   },
 
   /** 顧客のシナリオ評価 */

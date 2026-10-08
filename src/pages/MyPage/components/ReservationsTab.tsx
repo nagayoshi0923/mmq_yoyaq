@@ -6,6 +6,7 @@ import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
 import { PrivateBookingSections } from './PrivateBookingCards/PrivateBookingSections'
 import { countActivePrivateBookings, type PrivateBookingView } from './PrivateBookingCards/privateBookingModel'
+import { CANCEL_KIND_LABELS, cancelledDateReplacement, classifyCancellation } from '../utils/cancelledReservation'
 
 export type ReservationsSubTab = 'bookings' | 'private' | 'cancelled'
 
@@ -22,6 +23,8 @@ interface ReservationsTabProps {
   getDaysUntil: (dateString: string) => number
   getPerformanceDateTime: (reservation: Reservation) => { date: string; time: string }
   getPerformanceStatus: (reservation: Reservation) => { label: string; color: string } | null
+  /** 貸切の予約か（キャンセル済みで候補日を日付として出さない判定に使う） */
+  isPrivate: (reservation: Reservation) => boolean
   setActiveTab: (tab: string) => void
 }
 
@@ -39,6 +42,7 @@ export function ReservationsTab({
   getDaysUntil,
   getPerformanceDateTime,
   getPerformanceStatus,
+  isPrivate,
   setActiveTab,
 }: ReservationsTabProps) {
   const navigate = useNavigate()
@@ -247,7 +251,8 @@ export function ReservationsTab({
                         const store = reservation.store_id ? stores[reservation.store_id] : null
                         const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
                         const shortDate = formatJstDateJa(perf.date, true)
-                        const status = getPerformanceStatus(reservation)
+                        const cancelKind = CANCEL_KIND_LABELS[classifyCancellation(reservation.cancellation_reason)]
+                        const dateReplacement = cancelledDateReplacement(reservation, isPrivate(reservation))
                         return (
                           <div
                             key={reservation.id}
@@ -276,19 +281,17 @@ export function ReservationsTab({
                                 <h3 className="font-bold text-gray-700 text-sm leading-tight line-clamp-1">
                                   {cleanTitle(reservation.title)}
                                 </h3>
-                                <p className="text-sm mt-1 text-gray-500">
-                                  {shortDate} {perf.time ? perf.time.slice(0, 5) : ''}
+                                <p className="text-sm mt-1 text-muted-foreground" data-testid="cancelled-date">
+                                  {dateReplacement ?? `${shortDate} ${perf.time ? perf.time.slice(0, 5) : ''}`}
                                 </p>
                                 {store && (
                                   <p className="mt-1 text-xs text-gray-500 font-medium truncate">{store.name}</p>
                                 )}
-                                {status && (
-                                  <div className="mt-1.5">
-                                    <span className={`text-xs px-2 py-0.5 rounded ${status.color}`}>
-                                      {status.label}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="mt-1.5">
+                                  <span className={`text-xs px-2 py-0.5 rounded-sm ${cancelKind.color}`} data-testid="cancelled-kind">
+                                    {cancelKind.label}
+                                  </span>
+                                </div>
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-400">
                                   <span className="font-mono">{reservation.reservation_number}</span>
                                   <span>•</span>
