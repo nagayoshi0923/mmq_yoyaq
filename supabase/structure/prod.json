@@ -26028,7 +26028,7 @@
     "postgres=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "57b45ef613108c916e6db24a8bae982e",
+   "body_md5": "8a1ba2fea4d90f2f79b3dce5b1ee140b",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27066,7 +27066,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "35a306a12a08cbffd95c5cc7bf452a9c",
+   "body_md5": "257d2075e6c3b6fa20a3e5b6edc43b4c",
    "language": "plpgsql",
    "security_definer": true
   },
