@@ -7,7 +7,9 @@ alwaysApply: false
 
 ```bash
 # 日常開発
-npm run dev:vercel          # 推奨（5173、/api は staging proxy）
+npm run dev:full            # 推奨: 画面・API・DB を全部手元で（5173 / API 3000 / Supabase 54321）。docs/development/local-dev.md
+npm run dev:full:stop       # 上を停止（DB の中身は残る）。試験データの入れ直しは npm run supabase:reset
+npm run dev:vercel          # 画面だけ手元（5173、/api は staging proxy）
 npm run dev                 # vite のみ
 npm run dev:stop
 
