@@ -1,16 +1,17 @@
 import { updateOwnManualDate } from '@/lib/ownPlayHistory'
 // マイページ本体（プロフィール/アルバム/タブ・renderAlbumCard 含む）
 // MyPage/index.tsx から presentational 抽出（byte 逐語移送・挙動不変）
-import React, { Suspense } from 'react'
+import React, { Suspense, useMemo } from 'react'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { Button } from '@/components/ui/button'
 import { Calendar, Trophy, Sparkles, Heart, Camera, Settings, Pencil, Ticket, EyeOff, Eye, MoreVertical, Star } from 'lucide-react'
 import { AddPlayHistoryDialog } from './components/AddPlayHistoryDialog'
 import { EditPlayHistoryDialog } from './components/EditPlayHistoryDialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import { ReservationsTab } from './components/ReservationsTab'
-import { RESERVATION_SOURCE } from '@/lib/constants'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { ReservationsTab, type ReservationsSubTab } from './components/ReservationsTab'
+import { buildPrivateBookingView, countActivePrivateBookings, isPrivateReservation } from './components/PrivateBookingCards/privateBookingModel'
+import { usePrivateSurveyStatusQuery } from './hooks/usePrivateSurveyStatusQuery'
+import { formatJstDateJa, toJstYmd } from '@/utils/jstDate'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
@@ -41,9 +42,9 @@ type AlbumOptionsData = NonNullable<ReturnType<typeof useMyPageAlbumOptionsQuery
 
 interface MyPageContentProps {
   activeTab: string
-  reservationsSubTab: 'bookings' | 'private' | 'cancelled'
+  reservationsSubTab: ReservationsSubTab
   setActiveTab: (tab: string) => void
-  setReservationsSubTab: (sub: 'bookings' | 'private' | 'cancelled') => void
+  setReservationsSubTab: (sub: ReservationsSubTab) => void
   navigate: (path: string) => void
   displayName: string
   avatarUrl: string | null
@@ -56,7 +57,6 @@ interface MyPageContentProps {
   customerIds?: string[]
   stats: MyPageData['stats']
   stores: MyPageData['stores']
-  orgNames: MyPageData['orgNames']
   scenarioImages: MyPageData['scenarioImages']
   scenarioInfo: MyPageData['scenarioInfo']
   scheduleEvents: MyPageData['scheduleEvents']
@@ -113,7 +113,7 @@ interface MyPageContentProps {
 
 export function MyPageContent({
   activeTab, reservationsSubTab, setActiveTab, setReservationsSubTab, navigate, displayName, avatarUrl, fileInputRef,
-  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stats, stores, orgNames, scenarioImages,
+  handleAvatarClick, handleAvatarChange, loading, optionsLoading, customerId, customerIds, stats, stores, scenarioImages,
   scenarioInfo, scheduleEvents, reservations, privateGroups, scenarioOptions, storeOptions, playedScenarios, setPlayedScenarios,
   albumComparator, playedScenarioAlbumKey, albumSortOrder, setAlbumSortOrder, showHiddenItems, setShowHiddenItems,
   hiddenPlays, setHiddenPlays, deletedPlays, setDeletedPlays, dateOverrides, setDateOverrides,
@@ -407,9 +407,10 @@ export function MyPageContent({
     return diffDays
   }
 
-  // 予約を分類
+  // 予約を分類（一般公演には貸切を出さない。貸切は「貸切」サブタブで 1 貸切 = 1 カード）
+  const todayYmd = toJstYmd(new Date())
   const upcomingReservations = reservations.filter(
-    r => new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
+    r => !isPrivateReservation(r, scheduleEvents) && new Date(r.requested_datetime) >= new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
   )
   const pastReservations = reservations.filter(
     r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'checked_in')
@@ -418,19 +419,16 @@ export function MyPageContent({
   const cancelledReservations = reservations
     .filter(r => r.status === 'cancelled')
     .sort((a, b) => new Date(b.requested_datetime).getTime() - new Date(a.requested_datetime).getTime())
-  // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）- 申込順（新しい順）
-  const pendingPrivateBookings = reservations
-    .filter(
-      r => r.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE &&
-           ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
-    )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  // タブごとのカウント
-  // 表示するグループ: gathering（日程調整前）, date_adjusting（日程調整中）, booking_requested（申込済み）, confirmed（確定済み）
-  const activePrivateGroups = privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status))
+  const { data: surveyPending } = usePrivateSurveyStatusQuery(privateGroups, todayYmd)
+  const privateView = useMemo(
+    () => buildPrivateBookingView({ groups: privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending: surveyPending ?? {}, todayYmd }),
+    [privateGroups, reservations, scheduleEvents, scenarioImages, surveyPending, todayYmd],
+  )
+
+  // タブごとのカウント（予約 = 進行中の件数: 一般公演の確定予約 + 貸切の要対応・返事待ち・確定（未来））
   const getCounts = () => ({
-    reservations: upcomingReservations.length + pendingPrivateBookings.length + activePrivateGroups.length,
+    reservations: upcomingReservations.length + countActivePrivateBookings(privateView),
     album: playedScenarios.length,
     wishlist: 0,
     settings: null
@@ -543,15 +541,11 @@ export function MyPageContent({
           <>
             {activeTab === 'reservations' && (
               <ReservationsTab
-                privateGroups={privateGroups}
-                activePrivateGroups={activePrivateGroups}
-                pendingPrivateBookings={pendingPrivateBookings}
+                privateView={privateView}
                 upcomingReservations={upcomingReservations}
                 pastReservations={pastReservations}
                 cancelledReservations={cancelledReservations}
-                scheduleEvents={scheduleEvents}
                 scenarioImages={scenarioImages}
-                orgNames={orgNames}
                 stores={stores}
                 reservationsSubTab={reservationsSubTab}
                 setReservationsSubTab={setReservationsSubTab}

@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation, myPageKeys } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ReservationsTab } from './components/ReservationsTab'
+import type { ReservationsSubTab } from './components/ReservationsTab'
 import { MyPageContent } from './MyPageContent'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -60,26 +60,6 @@ function playedScenarioListDedupeKey(p: PlayedScenario): string {
   return `row:${p.scenario}:${p.date ?? ''}:${p.venue ?? ''}:${p.is_manual ? 'm' : 'r'}`
 }
 
-interface PrivateGroupSummary {
-  id: string
-  name: string | null
-  invite_code: string
-  status: string
-  scenario_title: string | null
-  scenario_image: string | null
-  scenario_player_count_max: number | null
-  member_count: number
-  is_organizer: boolean
-  created_at: string
-  reservation_id?: string | null
-  /** status が confirmed かつ紐づく予約があるとき、公演日時・店舗の1行 */
-  confirmed_schedule_line?: string | null
-  /** 参加中メンバー（表示名） */
-  member_displays?: Array<{ name: string; is_organizer: boolean }>
-  /** 登録済み候補日程の件数（主催者向け案内用） */
-  candidate_dates_count: number
-}
-
 export default function MyPage() {
   const { user } = useAuth()
   const { organizationId } = useOrganization()
@@ -88,7 +68,7 @@ export default function MyPage() {
   // タブ・サブタブ状態をURLパラメータで管理（ブラウザバックでタブが戻る）
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') ?? 'reservations'
-  const reservationsSubTab = (searchParams.get('sub') ?? 'bookings') as 'bookings' | 'private' | 'cancelled'
+  const reservationsSubTab = (searchParams.get('sub') ?? 'bookings') as ReservationsSubTab
 
   const setActiveTab = (tab: string) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
@@ -97,7 +77,7 @@ export default function MyPage() {
     return next
   }, { replace: true })
 
-  const setReservationsSubTab = (sub: 'bookings' | 'private' | 'cancelled') => setSearchParams(prev => {
+  const setReservationsSubTab = (sub: ReservationsSubTab) => setSearchParams(prev => {
     const next = new URLSearchParams(prev)
     next.set('sub', sub)
     return next
@@ -111,7 +91,6 @@ export default function MyPage() {
   const scenarioSlugs = myPageData?.scenarioSlugs ?? {}
   const scenarioInfo = myPageData?.scenarioInfo ?? {}
   const orgSlugs = myPageData?.orgSlugs ?? {}
-  const orgNames = myPageData?.orgNames ?? {}
   const stores = myPageData?.stores ?? {}
   const privateGroups = myPageData?.privateGroups ?? []
   const customerId = myPageData?.customerId ?? null
@@ -482,7 +461,6 @@ export default function MyPage() {
       customerIds={customerIds}
       stats={stats}
       stores={stores}
-      orgNames={orgNames}
       scenarioImages={scenarioImages}
       scenarioInfo={scenarioInfo}
       scheduleEvents={scheduleEvents}

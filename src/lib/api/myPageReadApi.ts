@@ -101,7 +101,7 @@ export const myPageDataReadApi = {
 
   /** 顧客の予約（開催日時の新しい順に50件） */
   async listRecentReservations(customerId: string) {
-    return supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customerId).order('requested_datetime', { ascending: false }).limit(50)
+    return supabase.from('reservations').select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, private_group_id, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at').eq('customer_id', customerId).order('requested_datetime', { ascending: false }).limit(50)
   },
 
   /** 顧客のシナリオ評価 */
@@ -111,7 +111,7 @@ export const myPageDataReadApi = {
 
   /** 公演（公開ビュー）を id で */
   async listPublicEventsByIds(eventIds: string[]) {
-    return supabase.from('schedule_events_public').select('id, date, start_time, category, current_participants, max_participants').in('id', eventIds)
+    return supabase.from('schedule_events_public').select('id, date, start_time, category, is_private_booking, current_participants, max_participants').in('id', eventIds)
   },
 
   /** 組織の id・slug・名前を id で */
@@ -132,11 +132,6 @@ export const myPageDataReadApi = {
   /** 店舗の名前・住所・色を id で */
   async listStoresByIds(ids: string[]) {
     return supabase.from('stores').select('id, name, address, color').in('id', ids)
-  },
-
-  /** ユーザーの表示名（RPC） */
-  async getUserDisplayNames(userIds: string[]) {
-    return supabase.rpc('get_user_display_names', { user_ids: userIds })
   },
 
   /** 公開中のシナリオ（題名順） */
