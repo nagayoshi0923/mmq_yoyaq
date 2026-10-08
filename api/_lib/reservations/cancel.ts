@@ -89,8 +89,35 @@ export async function handleCancelWithGroupLock(req: VercelRequest, res: VercelR
   if (data !== true) {
     return res.status(500).json({ error: '予約+グループのキャンセルに失敗しました（DB 側）' })
   }
+  if (user.role === 'customer' && isPendingPrivateRequest(reservationForPolicy)) {
+    await enqueuePrivateRequestWithdrawalNotice(id)
+  }
   const billingWarning = await recordBillingForCancellation(user, reservationForPolicy, requestReceivedAt)
   return res.status(200).json({ success: true, billingWarning })
+}
+
+const PENDING_PRIVATE_REQUEST_STATUSES = new Set(['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
+
+// 申込中の貸切リクエスト（公演がまだ無い）か。取り消し前の予約で判定する。
+function isPendingPrivateRequest(reservation: {
+  private_group_id?: string | null
+  reservation_source?: string | null
+  schedule_event_id?: string | null
+  status?: string | null
+}): boolean {
+  return (reservation.private_group_id != null || reservation.reservation_source === 'web_private')
+    && reservation.schedule_event_id == null
+    && PENDING_PRIVATE_REQUEST_STATUSES.has(reservation.status ?? '')
+}
+
+// お客様の取り下げを打診先GM・貸切キャンセル共有チャンネルへ知らせる。失敗してもキャンセル自体は成功扱い。
+async function enqueuePrivateRequestWithdrawalNotice(reservationId: string) {
+  try {
+    const { error } = await db!.rpc('enqueue_private_request_withdrawal', { p_reservation_id: reservationId })
+    if (error) console.error('[reservations:cancel-with-group-lock] 取り下げ通知の登録に失敗:', error)
+  } catch (error) {
+    console.error('[reservations:cancel-with-group-lock] 取り下げ通知の登録に失敗:', error)
+  }
 }
 
 // cancel() の DB パートを一括で実行する複合エンドポイント。
