@@ -1,3 +1,35 @@
+-- 0804 rollback: 安全な認可/履歴/ACLは保持し、旧関数定義を復元。
+-- メール変更後も認証UIDに紐づく本人の評価だけを操作する。RLS変更なし。
+CREATE OR REPLACE FUNCTION public.customer_rating_action(p_customer_id uuid,p_action text,p_scenario_master_id uuid DEFAULT NULL,p_rating integer DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE actor uuid:=auth.uid(); result jsonb;
+BEGIN
+ IF actor IS NULL OR NOT EXISTS(SELECT 1 FROM public.customers WHERE id=p_customer_id AND user_id=actor) THEN
+  RAISE EXCEPTION '本人の評価のみ操作できます' USING ERRCODE='42501';
+ END IF;
+ IF p_action='snapshot' THEN
+  SELECT coalesce(jsonb_agg(jsonb_build_object('scenario_master_id',r.scenario_master_id,'rating',r.rating,'updated_at',r.updated_at) ORDER BY r.updated_at DESC),'[]'::jsonb)
+  INTO result FROM public.scenario_ratings r WHERE r.customer_id=p_customer_id;
+  RETURN result;
+ ELSIF p_action='upsert' THEN
+  IF p_scenario_master_id IS NULL OR p_rating IS NULL OR p_rating<1 OR p_rating>5 THEN
+   RAISE EXCEPTION '作品と1から5の評価を指定してください' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO public.scenario_ratings(customer_id,scenario_master_id,rating)
+  VALUES(p_customer_id,p_scenario_master_id,p_rating)
+  ON CONFLICT(customer_id,scenario_master_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=now();
+  RETURN 'true'::jsonb;
+ ELSIF p_action='clear_scenario' THEN
+  IF p_scenario_master_id IS NULL THEN RAISE EXCEPTION '作品を指定してください' USING ERRCODE='22023'; END IF;
+  DELETE FROM public.scenario_ratings r USING public.customers c
+  WHERE r.customer_id=c.id AND c.user_id=actor AND r.scenario_master_id=p_scenario_master_id;
+  RETURN 'true'::jsonb;
+ END IF;
+ RAISE EXCEPTION '未対応の操作です' USING ERRCODE='22023';
+END $$;
+REVOKE ALL ON FUNCTION public.customer_rating_action(uuid,text,uuid,integer) FROM PUBLIC,anon,service_role;
+GRANT EXECUTE ON FUNCTION public.customer_rating_action(uuid,text,uuid,integer) TO authenticated;
+
 -- 申込前の主催者による候補の取り下げ。候補・回答・申請位置の履歴は物理削除しない。
 CREATE OR REPLACE FUNCTION public.private_group_withdraw_candidate(p_group_id uuid, p_candidate_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
@@ -23,9 +55,6 @@ BEGIN
   IF candidate.withdrawn_at IS NOT NULL THEN
     RETURN jsonb_build_object('success',true,'candidate_id',candidate.id,'replayed',true);
   END IF;
-  IF candidate.status='rejected' THEN
-    RAISE EXCEPTION '店舗で却下済みの候補日は履歴として保持します' USING ERRCODE='22023';
-  END IF;
   -- rejected は既存の申込RPCが送信対象から除外する値。withdrawn_at で店舗の却下と区別する。
   UPDATE public.private_group_candidate_dates SET status='rejected',withdrawn_at=now() WHERE id=candidate.id AND group_id=g.id;
   RETURN jsonb_build_object('success',true,'candidate_id',candidate.id,'replayed',false);
@@ -35,22 +64,3 @@ END $$;
 REVOKE ALL ON FUNCTION public.private_group_withdraw_candidate(uuid,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.private_group_withdraw_candidate(uuid,uuid) TO authenticated,service_role;
 
--- 古い画面で編集中だった回答の保存で、取り下げ後の履歴を上書きしない。
-CREATE OR REPLACE FUNCTION public.guard_withdrawn_private_group_response()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
-DECLARE withdrawn timestamptz;
-BEGIN
-  PERFORM 1 FROM public.private_groups WHERE id=NEW.group_id FOR SHARE NOWAIT;
-  SELECT withdrawn_at INTO withdrawn FROM public.private_group_candidate_dates
-    WHERE id=NEW.candidate_date_id AND group_id=NEW.group_id FOR SHARE NOWAIT;
-  IF withdrawn IS NOT NULL THEN
-    RAISE EXCEPTION '候補日が削除されています。画面を更新してから回答してください' USING ERRCODE='40001';
-  END IF;
-  RETURN NEW;
-EXCEPTION WHEN lock_not_available THEN
-  RAISE EXCEPTION '候補日が更新中です。画面を更新してから回答してください' USING ERRCODE='40001';
-END $$;
-REVOKE ALL ON FUNCTION public.guard_withdrawn_private_group_response() FROM PUBLIC,anon,authenticated,service_role;
-CREATE TRIGGER guard_withdrawn_private_group_response
-  BEFORE INSERT OR UPDATE ON public.private_group_date_responses
-  FOR EACH ROW EXECUTE FUNCTION public.guard_withdrawn_private_group_response();

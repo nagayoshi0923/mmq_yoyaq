@@ -309,7 +309,7 @@
       "postgres=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "47078ef1160018bc42fc035d2f8e1d68",
+    "body_md5": "185940c1298156d0c772656c0bd5897c",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -320,7 +320,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "e9f8ddf6fc57343a140a28fbfcea9171",
+    "body_md5": "50773f8ff34eda91c3820d0b46dd1df6",
     "language": "plpgsql",
     "security_definer": true
   },

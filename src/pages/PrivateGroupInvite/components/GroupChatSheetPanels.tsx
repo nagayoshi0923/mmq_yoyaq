@@ -176,7 +176,7 @@ export function DatesSheet(props: GroupChatSheetsProps) {
                             {cd.time_slot} {cd.start_time} - {cd.end_time}
                           </div>
                         </div>
-                        {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                        {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (
                           <WithdrawCandidateButton groupId={group.id} candidate={cd} onWithdrawn={() => refetch()} />
                         )}
                         {/* 回答状況サマリー（却下された場合は非表示） */}
