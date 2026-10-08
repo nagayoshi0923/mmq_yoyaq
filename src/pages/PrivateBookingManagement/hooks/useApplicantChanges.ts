@@ -4,33 +4,9 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { privateBookingMgmtReadApi } from '@/lib/api/privateBookingMgmtReadApi'
+import { toApplicantChange, type ApplicantChange, type ApplicantChangeRow } from '../utils/applicantChanges'
 
-export interface ApplicantChange {
-  id: string
-  reservation_id: string
-  responded_at: string
-  from_name: string
-  to_name: string
-}
-
-interface Row {
-  id: string
-  reservation_id: string | null
-  responded_at: string | null
-  previous_customer: { customer_name?: string | null; display_name?: string | null } | null
-  accepted_contact: { name?: string | null } | null
-}
-
-export function toApplicantChange(row: Row): ApplicantChange | null {
-  if (!row.reservation_id || !row.responded_at) return null
-  return {
-    id: row.id,
-    reservation_id: row.reservation_id,
-    responded_at: row.responded_at,
-    from_name: row.previous_customer?.customer_name || row.previous_customer?.display_name || '不明',
-    to_name: row.accepted_contact?.name || '不明',
-  }
-}
+export type { ApplicantChange }
 
 export function useApplicantChanges(organizationId: string | null, reservationIds: string[]) {
   const ids = [...new Set(reservationIds)].sort()
@@ -42,7 +18,7 @@ export function useApplicantChanges(organizationId: string | null, reservationId
       for (let start = 0; start < ids.length; start += 100) {
         const { data, error } = await privateBookingMgmtReadApi.listApplicantChanges(organizationId!, ids.slice(start, start + 100))
         if (error) throw error
-        for (const row of (data ?? []) as Row[]) {
+        for (const row of (data ?? []) as ApplicantChangeRow[]) {
           const change = toApplicantChange(row)
           if (change) (byReservation[change.reservation_id] ||= []).push(change)
         }

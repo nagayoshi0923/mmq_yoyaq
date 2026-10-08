@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toApplicantChange } from './useApplicantChanges'
+import { toApplicantChange } from './applicantChanges'
 
 describe('申込者の変更履歴', () => {
   it('旧申込者（予約の氏名）→ 新申込者（同意時の連絡先の氏名）', () => {
