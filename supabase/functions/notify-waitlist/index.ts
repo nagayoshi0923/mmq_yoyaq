@@ -443,10 +443,7 @@ ${emailTemplates.footer}
         return { success: true, entryId: entry.id }
       } catch (err) {
         console.error('Email send error for', entry.customer_email, ':', err)
-        await updateEmailLog(serviceClient, waitlistEmailLogId, {
-          status: providerAccepted ? 'sent' : 'failed',
-          error_message: sanitizeErrorMessage(err?.message ?? String(err)),
-        })
+        await failWaitlistEmailAudit(serviceClient, waitlistEmailLogId, data.organizationId, sanitizeErrorMessage(String(err)))
         if (providerRejected) {
           const finished = await finishRejection()
           return { success: false, entryId: entry.id, error: finished ? 'provider rejected' : 'provider rejection acknowledgment pending' }

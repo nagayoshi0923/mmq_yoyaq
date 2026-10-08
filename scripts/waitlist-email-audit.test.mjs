@@ -66,9 +66,8 @@ function fixture(options = {}) {
     sanitizeErrorMessage: value => String(value), verifyAuth: async () => ({ success: false }), rateLimitResponse: () => new Response('', { status: 429 }),
     getEmailSettings: async () => ({ resendApiKey: 'fake-provider-key' }), getEmailTemplates: async () => ({}), getStoreEmailSettings: async () => ({}),
     emailLogTags: id => [{ name: 'email_log_id', value: id }], emailLogIdFromTags: tags => tags?.find(t => t.name === 'email_log_id')?.value ?? null,
-    updateEmailLog: async (_, id, value) => { if (logs.has(id)) Object.assign(logs.get(id), value) },
     Deno: { env: { get: () => 'fake-setting' } }, console: quiet, crypto: globalThis.crypto,
-    fetch: async (_, init) => { if (options.webhookStatus) { for (const row of logs.values()) Object.assign(row, { status: options.webhookStatus, provider_message_id: 'webhook-id', error_message: 'webhook-detail' }) }; sends.push({ body: init.body, key: init.headers['Idempotency-Key'] }); trace.push('provider'); return new Response(JSON.stringify({ id: 'provider-id' }), { status: providerRejected ? 503 : 200 }) }
+    fetch: async (_, init) => { if(options.networkFailure) throw new Error('network unavailable'); if (options.webhookStatus) { for (const row of logs.values()) Object.assign(row, { status: options.webhookStatus, provider_message_id: 'webhook-id', error_message: 'webhook-detail' }) }; sends.push({ body: init.body, key: init.headers['Idempotency-Key'] }); trace.push('provider'); return new Response(JSON.stringify({ id: 'provider-id' }), { status: providerRejected ? 503 : 200 }) }
   }
   new Function(...Object.keys(deps), compile('supabase/functions/notify-waitlist/index.ts'))(...Object.values(deps))
   return { logs, sends, trace, acknowledgments, recover: () => { auditFailure = null; providerRejected = false }, call: () => handler(new Request('https://fixture.invalid', { method: 'POST', body: JSON.stringify({ organizationId: org, scheduleEventId: event }) })) }
@@ -139,4 +138,8 @@ test('他組織の固定監査IDでは送信も更新もしない',async()=>{
  const client={from(){const filters=[];const q={update(){return q},eq(k,v){filters.push([k,v]);return q},is(){return q},in(){return q},select(){return q},maybeSingle:async()=>({data:null,error:null}),then(r){assert.ok(filters.some(([k,v])=>k==='organization_id'&&v===org));return Promise.resolve({data:null,error:null}).then(r)}};return q}}
  assert.equal(await audit.acknowledgeWaitlistEmailAudit(client,id,org,{provider_message_id:'fake',sent_at:'fake'}),false)
  await audit.failWaitlistEmailAudit(client,id,org,'fake')
+})
+
+test('providerネットワーク例外でも未定義関数を呼ばず配送leaseを解放する',async()=>{
+ const f=fixture({networkFailure:true});assert.equal((await f.call()).status,503);assert.equal(f.acknowledgments.length,1);assert.equal(f.acknowledgments[0].p_sent,false);assert.notEqual(f.acknowledgments[0].p_error,'provider rejected');assert.equal([...f.logs.values()][0].status,'failed')
 })
