@@ -31,20 +31,34 @@ export async function deliverPrivateCancellations(db: any, getToken: (orgId: str
         if (supersedeError) throw supersedeError
         continue
       }
-      const { data: staff, error: staffError } = await db.from('staff')
-        .select('discord_channel_id,discord_user_id').eq('id', row.message_payload.staff_id)
-        .eq('organization_id', row.organization_id).maybeSingle()
-      if (staffError) throw staffError
-      if (!/^\d+$/.test(staff?.discord_channel_id?.trim() || '')) throw new Error('staff_discord_channel_missing')
+      let channelId: string
+      let userId: string | null = null
+      if (row.message_payload.channel_id) {
+        const { data: settings, error: settingsError } = await db.from('organization_settings')
+          .select('notification_settings').eq('organization_id', row.organization_id).maybeSingle()
+        if (settingsError) throw settingsError
+        const configured = String(settings?.notification_settings?.private_cancellation_channel_id || '').trim()
+        if (!/^\d{17,20}$/.test(configured) || configured !== row.message_payload.channel_id) {
+          throw new Error('organization_cancellation_channel_changed')
+        }
+        channelId = configured
+      } else {
+        const { data: staff, error: staffError } = await db.from('staff')
+          .select('discord_channel_id,discord_user_id').eq('id', row.message_payload.staff_id)
+          .eq('organization_id', row.organization_id).maybeSingle()
+        if (staffError) throw staffError
+        if (!/^\d+$/.test(staff?.discord_channel_id?.trim() || '')) throw new Error('staff_discord_channel_missing')
+        channelId = staff.discord_channel_id.trim()
+        userId = /^\d+$/.test(staff?.discord_user_id || '') ? staff.discord_user_id : null
+      }
       const token = await getToken(row.organization_id)
       if (!token) throw new Error('bot_token_not_configured')
-      const userId = /^\d+$/.test(staff?.discord_user_id || '') ? staff.discord_user_id : null
       const payload = {
         content: `${userId ? `<@${userId}>\n` : ''}${row.message_payload.content}`.slice(0, 2000),
         allowed_mentions: { parse: [], users: userId ? [userId] : [] },
         nonce: row.id.replaceAll('-', '').slice(0, 25), enforce_nonce: true,
       }
-      const response = await send(`https://discord.com/api/v10/channels/${staff.discord_channel_id.trim()}/messages`, {
+      const response = await send(`https://discord.com/api/v10/channels/${channelId}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bot ${token}` },
         body: JSON.stringify(payload), signal: AbortSignal.timeout(15_000),
       })
