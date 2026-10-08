@@ -12,12 +12,16 @@ const event = '22222222-2222-2222-2222-222222222222'
 function fixture(options = {}) {
   let handler, fixedPayload
   const sends = [], acknowledgments = [], logs = new Map(), trace = []
-  let auditFailure = options.auditFailure
+  let auditFailure = options.auditFailure, providerRejected = options.providerRejected
+  for (const row of options.initialLogs ?? []) logs.set(row.id, structuredClone(row))
   const db = {
     from(table) {
-      let id, updates, operation = 'read'
+      let updates, operation = 'read'; const filters = []
       const query = {
-        select() { return query }, eq(_, value) { id = value; return query },
+        select() { return query }, eq(key, value) { filters.push(row => row[key] === value); return query },
+        is(key, value) { filters.push(row => (row[key] ?? null) === value); return query },
+        in(key, values) { filters.push(row => values.includes(row[key])); return query },
+        then(resolve, reject) { return query.maybeSingle().then(resolve, reject) },
         update(value) { updates = value; operation = 'update'; return query },
         upsert(value, opts) {
           assert.equal(opts.ignoreDuplicates, true)
@@ -28,14 +32,15 @@ function fixture(options = {}) {
         async maybeSingle() {
           if (table === 'schedule_events') return { data: { organization_id: org, store_id: 'store' }, error: null }
           if (table === 'email_logs') {
+            const row = [...logs.values()].find(row => filters.every(matches => matches(row)))
             if (operation === 'update') {
               trace.push('audit-ack')
               if (auditFailure === 'throw') throw new Error('DB unavailable')
               if (auditFailure === 'error') return { data: null, error: { message: 'DB unavailable' } }
               if (auditFailure === 'missing') return { data: null, error: null }
-              if (logs.has(id)) Object.assign(logs.get(id), updates)
+              if (row) Object.assign(row, updates)
             }
-            return { data: logs.has(id) ? { id } : null, error: null }
+            return { data: row ? { id: row.id } : null, error: null }
           }
           return { data: null, error: null }
         },
@@ -63,10 +68,10 @@ function fixture(options = {}) {
     emailLogTags: id => [{ name: 'email_log_id', value: id }], emailLogIdFromTags: tags => tags?.find(t => t.name === 'email_log_id')?.value ?? null,
     updateEmailLog: async (_, id, value) => { if (logs.has(id)) Object.assign(logs.get(id), value) },
     Deno: { env: { get: () => 'fake-setting' } }, console: quiet, crypto: globalThis.crypto,
-    fetch: async (_, init) => { sends.push({ body: init.body, key: init.headers['Idempotency-Key'] }); trace.push('provider'); return new Response(JSON.stringify({ id: 'provider-id' }), { status: options.providerRejected ? 503 : 200 }) }
+    fetch: async (_, init) => { if (options.webhookStatus) { for (const row of logs.values()) Object.assign(row, { status: options.webhookStatus, provider_message_id: 'webhook-id', error_message: 'webhook-detail' }) }; sends.push({ body: init.body, key: init.headers['Idempotency-Key'] }); trace.push('provider'); return new Response(JSON.stringify({ id: 'provider-id' }), { status: providerRejected ? 503 : 200 }) }
   }
   new Function(...Object.keys(deps), compile('supabase/functions/notify-waitlist/index.ts'))(...Object.values(deps))
-  return { logs, sends, trace, acknowledgments, recover: () => { auditFailure = null }, call: () => handler(new Request('https://fixture.invalid', { method: 'POST', body: JSON.stringify({ organizationId: org, scheduleEventId: event }) })) }
+  return { logs, sends, trace, acknowledgments, recover: () => { auditFailure = null; providerRejected = false }, call: () => handler(new Request('https://fixture.invalid', { method: 'POST', body: JSON.stringify({ organizationId: org, scheduleEventId: event }) })) }
 }
 test('配送キーから監査IDを固定し、別配送と区別する', async () => {
   const id = await audit.waitlistEmailAuditId('one')
@@ -94,7 +99,7 @@ test('監査行の準備失敗ではメールを送らず既知失敗としてle
   assert.equal((await f.call()).status, 503)
   assert.equal(f.sends.length, 0)
   assert.equal(f.acknowledgments[0].p_sent, false)
-  assert.equal(f.acknowledgments[0].p_error, 'audit unavailable before send')
+  assert.equal(f.acknowledgments[0].p_error, 'provider rejected')
 })
 test('監査更新を配送確定より先に実行する', async () => {
   const f = fixture()
@@ -114,4 +119,24 @@ test('既存の固定payloadにタグがなくても本文を変更しない', a
   const f = fixture({ legacyPayload: payload })
   assert.equal((await f.call()).status, 200)
   assert.deepEqual(JSON.parse(f.sends[0].body), payload)
+})
+
+test('既知のprovider拒否から復旧すると古いエラーを解除する', async () => {
+ const f=fixture({providerRejected:true});assert.equal((await f.call()).status,503)
+ assert.equal([...f.logs.values()][0].status,'failed');assert.ok([...f.logs.values()][0].error_message)
+ f.recover();assert.equal((await f.call()).status,200);assert.equal([...f.logs.values()][0].status,'sent');assert.equal([...f.logs.values()][0].error_message,null)
+ assert.deepEqual(f.sends[0],f.sends[1])
+})
+for(const status of ['delivered','opened','bounced','complained','failed']) test(`先行Webhookの${status}と詳細を保持して配送だけ確認する`,async()=>{
+ const f=fixture({webhookStatus:status});assert.equal((await f.call()).status,200)
+ const row=[...f.logs.values()][0];assert.equal(row.status,status);assert.equal(row.error_message,'webhook-detail');assert.equal(f.acknowledgments[0].p_sent,true)
+})
+test('他組織の固定監査IDでは送信も更新もしない',async()=>{
+ const id='33333333-3333-3333-3333-333333333333'
+ const row={id,organization_id:'foreign-org',status:'opened',error_message:'foreign-detail'}
+ const f=fixture({initialLogs:[row],legacyPayload:{from:'fixture@example.invalid',to:['qa@example.invalid'],subject:'fixture',html:'fixture',tags:[{name:'email_log_id',value:id}]}})
+ assert.equal((await f.call()).status,503);assert.equal(f.sends.length,0);assert.deepEqual(f.logs.get(id),row)
+ const client={from(){const filters=[];const q={update(){return q},eq(k,v){filters.push([k,v]);return q},is(){return q},in(){return q},select(){return q},maybeSingle:async()=>({data:null,error:null}),then(r){assert.ok(filters.some(([k,v])=>k==='organization_id'&&v===org));return Promise.resolve({data:null,error:null}).then(r)}};return q}}
+ assert.equal(await audit.acknowledgeWaitlistEmailAudit(client,id,org,{provider_message_id:'fake',sent_at:'fake'}),false)
+ await audit.failWaitlistEmailAudit(client,id,org,'fake')
 })

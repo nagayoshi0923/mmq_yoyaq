@@ -12,8 +12,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getEmailTemplates, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, rateLimitResponse, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
-import { updateEmailLog, emailLogTags, emailLogIdFromTags } from '../_shared/email-logs.ts'
-import { waitlistEmailAuditId, ensureWaitlistEmailAudit, acknowledgeWaitlistEmailAudit } from './email-audit.ts'
+import { emailLogTags, emailLogIdFromTags } from '../_shared/email-logs.ts'
+import { waitlistEmailAuditId, ensureWaitlistEmailAudit, acknowledgeWaitlistEmailAudit, failWaitlistEmailAudit } from './email-audit.ts'
 
 interface NotifyWaitlistRequest {
   organizationId: string
@@ -400,7 +400,8 @@ ${emailTemplates.footer}
         })
         if (!auditReady) {
           providerRejected = true // 送信前の失敗なので結果不明として再送を保留しない。
-          await finishRejection('audit unavailable before send')
+          // RPCの既知未送信分類を使い、first_attempt_at/不明状態を残さない。
+          await finishRejection()
           return { success: false, entryId: entry.id, error: 'delivery audit unavailable' }
         }
         const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -419,10 +420,7 @@ ${emailTemplates.footer}
           let errorData: unknown
           try { errorData = JSON.parse(errorText) } catch { errorData = { message: errorText || `HTTP ${resendResponse.status}` } }
           console.error('Resend API error for', entry.customer_email, ':', errorData)
-          await updateEmailLog(serviceClient, waitlistEmailLogId, {
-            status: 'failed',
-            error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
-          })
+          await failWaitlistEmailAudit(serviceClient, waitlistEmailLogId, data.organizationId, sanitizeErrorMessage(JSON.stringify(errorData)))
           if (!(await finishRejection())) return { success: false, entryId: entry.id, error: 'provider rejection acknowledgment pending' }
           return { success: false, entryId: entry.id, error: errorData }
         }
@@ -430,8 +428,7 @@ ${emailTemplates.footer}
         providerAccepted = true
         const waitlistEmailResult = await resendResponse.json().catch(() => null)
         // 配送の受理はDB ackと別の事実。ack障害でも監査行をqueued/failedのまま残さない。
-        const auditAcknowledged = await acknowledgeWaitlistEmailAudit(serviceClient, waitlistEmailLogId, {
-          status: 'sent',
+        const auditAcknowledged = await acknowledgeWaitlistEmailAudit(serviceClient, waitlistEmailLogId, data.organizationId, {
           provider_message_id: waitlistEmailResult?.id ?? null,
           sent_at: new Date().toISOString(),
         })
