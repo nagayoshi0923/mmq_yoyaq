@@ -528,33 +528,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     if (combinedNotice) await serviceClient.from('compensated_cancellation_notices')
       .update({ status: 'sent', updated_at: new Date().toISOString() }).eq('reservation_id', cancellationData.reservationId)
 
-    // user_notifications にキャンセル通知を挿入（Service Role で RLS をバイパス）
-    if (reservation.customer_id) {
-      const eventDateStr = cancellationData.eventDate || ''
-      const eventTimeStr = cancellationData.startTime ? cancellationData.startTime.slice(0, 5) : ''
-      const { error: notifError } = await serviceClient
-        .from('user_notifications')
-        .insert({
-          customer_id: reservation.customer_id,
-          organization_id: resolvedOrganizationId || null,
-          type: 'reservation_cancelled',
-          title: '予約がキャンセルされました',
-          message: `「${cancellationData.scenarioTitle}」${eventDateStr} ${eventTimeStr}`,
-          link: '/mypage',
-          related_reservation_id: cancellationData.reservationId,
-          metadata: {
-            reservationId: cancellationData.reservationId,
-            reservationNumber: cancellationData.reservationNumber,
-            scenarioTitle: cancellationData.scenarioTitle,
-            eventDate: eventDateStr,
-            startTime: eventTimeStr,
-            cancellationReason: cancellationData.cancellationReason || 'キャンセル'
-          }
-        })
-      if (notifError) {
-        console.warn('user_notifications 挿入失敗（続行）:', notifError)
-      }
-    }
+    // 通知ベル（user_notifications）は予約の取消そのものから DB のトリガーで作る（マイページ改修 段階 4、
+    // customer_notice_on_reservation_cancelled）。メールを送らない取消でもベルが出て、ここで重ねて作ると二重になるため作らない。
 
     return new Response(
       JSON.stringify({
