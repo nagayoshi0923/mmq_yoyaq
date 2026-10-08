@@ -49,6 +49,7 @@ CREATE OR REPLACE FUNCTION public.private_group_remove_member_with_notice(p_memb
 AS $function$
 DECLARE target public.private_group_members%ROWTYPE; g public.private_groups%ROWTYPE; r public.reservations%ROWTYPE;
  v_name text; v_before integer; v_channel text; v_body text; v_store boolean:=false;
+ v_to_email text; v_to_name text; v_work text; v_bell uuid;
 BEGIN
  SELECT * INTO target FROM public.private_group_members WHERE id=p_member_id;
  IF NOT FOUND THEN RAISE EXCEPTION 'メンバーを削除できません' USING ERRCODE='42501'; END IF;
@@ -57,6 +58,13 @@ BEGIN
  v_name:=CASE WHEN target.user_id IS NULL THEN nullif(btrim(target.guest_name),'') ELSE coalesce(
    (SELECT coalesce(nullif(c.nickname,''),nullif(c.name,'')) FROM public.customers c WHERE c.user_id=target.user_id ORDER BY c.id LIMIT 1),
    nullif(btrim(target.guest_name),'')) END;
+ -- 外された本人の宛先（削除で個人情報の行も消えるので先に読む）
+ IF target.user_id IS NOT NULL THEN
+  SELECT c.email, c.name INTO v_to_email, v_to_name FROM public.customer_notice_user_contact(target.user_id) c;
+ ELSE
+  SELECT coalesce(nullif(btrim(p.guest_email),''),nullif(btrim(target.guest_email),'')), coalesce(nullif(btrim(p.guest_name),''),nullif(btrim(target.guest_name),''))
+    INTO v_to_email, v_to_name FROM (SELECT 1) x LEFT JOIN public.private_group_members_pii p ON p.member_id=target.id;
+ END IF;
  -- 権限確認・クーポン解放・削除は既存の関数に任せる（主催者・スタッフのみ）
  PERFORM public.private_group_remove_member(p_member_id);
  IF EXISTS(SELECT 1 FROM public.private_group_members WHERE id=p_member_id) THEN
@@ -65,6 +73,23 @@ BEGIN
  IF target.status IS DISTINCT FROM 'joined' THEN RETURN jsonb_build_object('store_notified',false); END IF;
  INSERT INTO public.private_group_messages(group_id,sender_type,message) VALUES(g.id,'system',
   jsonb_build_object('type','system','action','member_removed','memberName',coalesce(v_name,'メンバー'))::text);
+ -- 外された本人へ（会員はベル＋メール、ゲストはメール）。知らせの失敗で外す処理は止めない
+ BEGIN
+  v_work := coalesce((SELECT s.title FROM public.scenario_masters s WHERE s.id=g.scenario_master_id),'貸切');
+  IF target.user_id IS NOT NULL THEN
+   v_bell := public.customer_notice_bell(target.user_id,NULL,g.organization_id,'system','private_member_removed',
+    'private_member_removed:'||p_member_id::text,'貸切グループから外れました',
+    format('「%s」の貸切グループから、主催者（または店舗）の操作により外れました。',v_work),'/mypage?tab=reservations&sub=private',NULL,NULL,
+    jsonb_build_object('group_id',g.id));
+  END IF;
+  PERFORM public.customer_notice_enqueue_email(g.organization_id,'private_member_removed','private_member_removed:'||p_member_id::text,'other',
+   v_to_email,v_to_name,'【お知らせ】「'||v_work||'」の貸切グループから外れました',
+   ARRAY[format('「%s」の貸切グループから、主催者（または店舗）の操作により外れました。',v_work),
+    'このグループのチャットや日程の回答は見られなくなります。'],
+   NULL,'お心当たりがない場合は、主催者の方か店舗へお問い合わせください。',false,v_bell);
+ EXCEPTION WHEN others THEN
+  RAISE WARNING 'private_group_remove_member_with_notice notice failed: %', SQLERRM;
+ END;
  -- 申込済み・確定後は店舗へ人数変更として知らせる（申込が取り消されていれば知らせない）
  SELECT * INTO r FROM public.reservations
   WHERE (id=g.reservation_id OR private_group_id=g.id) AND organization_id=g.organization_id AND status<>'cancelled'
