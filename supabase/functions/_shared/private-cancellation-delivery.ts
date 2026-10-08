@@ -20,8 +20,12 @@ export async function deliverPrivateCancellations(db: any, getToken: (orgId: str
     if (claimError) throw claimError
     if (!claimed) continue
     try {
-      const { data: event, error: eventError } = await db.from('schedule_events')
-        .select('gm_cancel_epoch').eq('id', row.message_payload.event_id).eq('organization_id', row.organization_id).maybeSingle()
+      // 申込中の貸切の取り下げ通知は公演が無い（event_id 無し）ので、復活判定をせずに送る。
+      const eventId = row.message_payload?.event_id
+      const { data: event, error: eventError } = eventId
+        ? await db.from('schedule_events')
+          .select('gm_cancel_epoch').eq('id', eventId).eq('organization_id', row.organization_id).maybeSingle()
+        : { data: null, error: null }
       if (eventError) throw eventError
       // 削除済みはスナップショットを配送する。復活して世代が変わった通知は送らない。
       if (event && event.gm_cancel_epoch !== row.message_payload.epoch) {
