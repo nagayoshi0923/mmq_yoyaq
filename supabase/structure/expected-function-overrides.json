@@ -12,7 +12,8 @@
   },
   "notify_all_waitlist_entries(p_schedule_event_id uuid)": {
     "acl": [
-      "postgres=X/postgres"
+      "postgres=X/postgres",
+      "service_role=X/postgres"
     ],
     "returns": "TABLE(id uuid, customer_name text, customer_email text, participant_count integer, status text, created_at timestamp with time zone)",
     "body_md5": "884bef2972a57f37fa60283c4533821b",
