@@ -384,10 +384,10 @@ export function BookingConfirmation({
                       <span className="text-muted-foreground">参加人数</span>
                       <span>{completedReservation.participantCount}名</span>
                     </div>
-                    {completedReservation.discountAmount && completedReservation.discountAmount > 0 && (
+                    {(completedReservation.discountAmount ?? 0) > 0 && (
                       <div className="flex justify-between text-green-700">
                         <span>クーポン割引</span>
-                        <span>-¥{formatPrice(completedReservation.discountAmount)}</span>
+                        <span>-¥{formatPrice(completedReservation.discountAmount ?? 0)}</span>
                       </div>
                     )}
                     <div className="flex justify-between border-t pt-2 mt-2">

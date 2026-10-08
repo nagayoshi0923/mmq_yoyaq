@@ -8,7 +8,7 @@ import { COUPON_CAMPAIGN_FIELDS, fireCouponGrantedEmail } from './common.js'
 // 顧客向け: 新規登録クーポンを付与
 // =========================================
 export async function handleGrantRegistrationCoupon(req: VercelRequest, res: VercelResponse, user: AuthUser) {
-  const body = (req.body ?? {}) as { customer_id?: string }
+  const body = (req.body ?? {}) as { customer_id?: string; organization_id?: string }
   const customerId = body.customer_id
   if (!customerId) {
     return res.status(400).json({ error: 'customer_id が必要です' })
@@ -16,26 +16,43 @@ export async function handleGrantRegistrationCoupon(req: VercelRequest, res: Ver
 
   const database = db!
 
-  // 本人検証: customer_id が JWT user_id ⇒ 自組織の customers のものであること
+  // 本人検証: customer_id が JWT user_id 本人の customers 行であること。
+  // お客様（platform customer）の行は organization_id が NULL（組織をまたいで予約できる）なので、
+  // 組織の一致は「行に組織が入っている場合だけ」確認する。
   const { data: customer } = await database
     .from('customers')
     .select('id, organization_id, user_id')
     .eq('id', customerId)
     .eq('user_id', user.userId)
-    .eq('organization_id', user.orgId)
     .maybeSingle()
 
-  if (!customer) {
+  if (!customer || (customer.organization_id && user.orgId && customer.organization_id !== user.orgId)) {
     return res.status(403).json({ error: '対象の顧客にクーポンを付与する権限がありません' })
   }
 
-  // 対象キャンペーン取得（JWT 由来の org のみ）
+  // キャンペーンの組織: 登録した予約サイトの組織（body）を優先し、無ければ JWT 由来の組織。
+  // どちらも無い（組織を特定できない）場合は付与しない。
+  let campaignOrgId: string | null = null
+  if (typeof body.organization_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.organization_id)) {
+    const { data: org } = await database
+      .from('organizations')
+      .select('id')
+      .eq('id', body.organization_id)
+      .maybeSingle()
+    campaignOrgId = org?.id ?? null
+  }
+  if (!campaignOrgId && user.orgId) campaignOrgId = user.orgId
+  if (!campaignOrgId) {
+    return res.status(200).json({ granted: 0, skipped: true, reason: '組織を特定できません' })
+  }
+
+  // 対象キャンペーン取得（特定した org のみ）
   const { data: campaigns, error: campaignError } = await database
     .from('coupon_campaigns')
     .select(COUPON_CAMPAIGN_FIELDS)
     .eq('trigger_type', 'registration')
     .eq('is_active', true)
-    .eq('organization_id', user.orgId)
+    .eq('organization_id', campaignOrgId)
     .or('valid_from.is.null,valid_from.lte.now()')
     .or('valid_until.is.null,valid_until.gte.now()')
 
