@@ -856,6 +856,23 @@ export function PrivateBookingRequest({
               storeId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : null}
             />
 
+            {!user ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground text-center">
+                  貸切リクエストの送信にはログインが必要です。ログイン後、この画面に戻ります。
+                </p>
+                <Button
+                  onClick={() => {
+                    // 未ログイン時は戻り先URLを保存してログインページへ（入力途中で「ログインが必要です」にならないようにする）
+                    sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
+                    navigate('/login')
+                  }}
+                  className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
+                >
+                  ログインして貸切リクエスト
+                </Button>
+              </div>
+            ) : (
             <Button
               onClick={onSubmit}
               disabled={isSubmitting || groupLoading || hasFullyBlockedCandidate}
@@ -868,6 +885,7 @@ export function PrivateBookingRequest({
                 </>
               ) : hasFullyBlockedCandidate ? '受付停止中の候補を再選択してください' : '貸切リクエストを送信'}
             </Button>
+            )}
           </div>
         </div>
       </div>
