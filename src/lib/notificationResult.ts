@@ -14,6 +14,7 @@ export function notificationOutcome(response: { data: unknown; error: unknown })
     return { status: 'failed', reason: 'partial_failure' }
   }
   if ('email_sent' in data && data.email_sent === false) return { status: 'failed', reason: 'unsuccessful_response' }
+  if ('pending' in data && data.pending === true) return { status: 'skipped', reason: 'delivery_pending' }
   if ('skipped' in data && data.skipped === true) return { status: 'skipped', reason: 'provider_skipped' }
   return { status: 'accepted' }
 }

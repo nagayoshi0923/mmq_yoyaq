@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // supabase のチェーン（select/eq/maybeSingle、update/eq、insert/select/single）を記録するモック
 const m = vi.hoisted(() => {
   const calls: Array<[string, unknown?]> = []
-  const state = { existing: null as null | { id: string }, updateError: null as unknown, insertResult: { data: { id: 'new-id' }, error: null } as { data: { id: string } | null; error: unknown } }
+  const state = { candidates: null as null | Array<{id:string;email?:string;organization_id?:string|null;avatar_url?:string|null;address?:string|null;line_id?:string|null;notification_settings?:Record<string,boolean>|null;nickname?:string|null}>, lookupError: null as unknown, existing: null as null | { id: string }, updateError: null as unknown, insertResult: { data: { id: 'new-id' }, error: null } as { data: { id: string } | null; error: unknown } }
   const chain = (op: string) => {
     const q: Record<string, unknown> = {}
     const wrap = (name: string) => (...args: unknown[]) => { calls.push([`${op}.${name}`, args]); return q }
-    for (const name of ['select', 'eq']) q[name] = wrap(name)
+    for (const name of ['select', 'eq', 'order']) q[name] = wrap(name)
     q.maybeSingle = async () => ({ data: state.existing, error: null })
     q.single = async () => state.insertResult
-    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ error: state.updateError }).then(resolve)
+    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve(op === 'find' ? { data: state.candidates ?? (state.existing ? [state.existing] : []), error: state.lookupError } : { error: state.updateError }).then(resolve)
     return q
   }
   const from = vi.fn(() => ({
@@ -25,7 +25,7 @@ vi.mock('@/lib/apiClient', () => ({ apiClient: {} }))
 import { upsertOwnCustomer } from './customerApi'
 
 const base = { userId: 'u1', name: '太郎', nickname: null, phone: '09000000000', email: 'a@example.invalid', organizationId: 'org1' }
-beforeEach(() => { m.calls.length = 0; m.state.existing = null; m.state.updateError = null; m.state.insertResult = { data: { id: 'new-id' }, error: null } })
+beforeEach(() => { m.calls.length = 0; m.state.existing = null; m.state.candidates = null; m.state.lookupError = null; m.state.updateError = null; m.state.insertResult = { data: { id: 'new-id' }, error: null } })
 
 describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの顧客行）', () => {
   it('既存行があれば自分の行だけを更新して id を返す（organization_id は書き換えない）', async () => {
@@ -38,7 +38,7 @@ describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの�
   })
   it('既存行が無ければ作成して新しい id を返す', async () => {
     expect(await upsertOwnCustomer(base)).toBe('new-id')
-    expect((m.calls.find(c => c[0] === 'insert.values')![1] as unknown[])[0]).toEqual({ user_id: 'u1', name: '太郎', nickname: null, phone: '09000000000', email: 'a@example.invalid', organization_id: 'org1' })
+    expect((m.calls.find(c => c[0] === 'insert.values')![1] as unknown[])[0]).toEqual({ user_id: 'u1', name: '太郎', nickname: null, phone: '09000000000', email: 'a@example.invalid', organization_id: null })
   })
   it('通常は更新・作成の失敗を投げず、作成に失敗したら null（呼び出し側が従来どおりエラー化）', async () => {
     m.state.insertResult = { data: null, error: { message: 'x' } }
@@ -70,4 +70,56 @@ describe('upsertOwnCustomer（予約・貸切申込・キャンセル待ちの�
 it.each([{ email: 'bad' }, { phone: '123' }])('不正な連絡先は顧客行の読み書き前に拒否する %s', async invalid => {
   await expect(upsertOwnCustomer({ ...base, ...invalid })).rejects.toThrow()
   expect(m.calls).toEqual([])
+})
+
+it('複数本人行では入力メールが一致する既存行を選び、新規INSERTしない', async () => {
+ m.state.candidates = [{id:'legacy',email:'old@example.invalid',organization_id:'org1'},{id:'global',email:base.email,organization_id:null}]
+ expect(await upsertOwnCustomer({...base,scopeByOrganization:false,throwOnError:true})).toBe('global')
+ expect(m.calls).toContainEqual(['update.eq',['id','global']])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+it('検索失敗を未登録と扱ってINSERTしない', async () => {
+ m.state.lookupError=Error('read unavailable')
+ await expect(upsertOwnCustomer(base)).rejects.toThrow('read unavailable')
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+
+
+it.each([null,'org1','org2'])('旧組織のメール一致本人行を正規化しメールuniqueを保つ（%s）', async organizationId => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'},{id:'global',email:'previous@example.invalid',organization_id:null}]
+ expect(await upsertOwnCustomer({...base,organizationId,scopeByOrganization:false,throwOnError:true})).toBe('legacy')
+ expect(m.calls).toContainEqual(['update.eq',['id','legacy']])
+ expect(m.calls).toContainEqual(['update.eq',['user_id',base.userId]])
+ expect(m.calls).toContainEqual(['update.values',[{name:base.name,nickname:null,phone:base.phone,email:base.email,organization_id:null}]])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+it('共通行がなくてもメール一致本人IDを維持し重複INSERTをしない', async () => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'}]
+ expect(await upsertOwnCustomer({...base,organizationId:null,scopeByOrganization:false,throwOnError:true})).toBe('legacy')
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+it('所属正規化に失敗した旧org IDを成功として返さない', async () => {
+ m.state.candidates=[{id:'legacy',email:base.email,organization_id:'org1'}];m.state.updateError=Error('policy denied')
+ await expect(upsertOwnCustomer({...base,organizationId:null})).rejects.toThrow('policy denied')
+})
+
+it('組織scopeありのキャンセル待ち新規行では申込先所属を維持する',async()=>{
+ await upsertOwnCustomer({...base,scopeByOrganization:true})
+ expect(m.calls).toContainEqual(['insert.values',[{user_id:base.userId,name:base.name,nickname:null,phone:base.phone,email:base.email,organization_id:'org1'}]])
+})
+
+it('メール一致の旧CIDを更新しても以前の代表本人プロフィールを同じPATCHで保持する',async()=>{
+ const notification_settings={email_notifications:false,reminder_notifications:false,campaign_notifications:false}
+ m.state.candidates=[{id:'global',email:'prior@example.invalid',organization_id:null,avatar_url:'avatar',address:'架空住所',line_id:null,notification_settings,nickname:'旧表示名'},{id:'legacy',email:base.email,organization_id:'org1'}]
+ expect(await upsertOwnCustomer({...base,nickname:undefined})).toBe('legacy')
+ expect(m.calls).toContainEqual(['update.values',[{name:base.name,phone:base.phone,email:base.email,organization_id:null,avatar_url:'avatar',address:'架空住所',notification_settings,nickname:'旧表示名'}]])
+ expect(m.calls.some(c=>c[0]==='insert.values')).toBe(false)
+})
+
+it('代表プロフィールのNULL値はメール一致行の既存プロフィールを消さない',async()=>{
+ const existing={id:'legacy',email:base.email,organization_id:'org1',avatar_url:'kept',address:'架空住所',line_id:'qa-line',notification_settings:{email_notifications:false},nickname:'保持名'}
+ m.state.candidates=[{id:'global',email:'prior@example.invalid',organization_id:null,avatar_url:null,address:null,line_id:null,notification_settings:null,nickname:null},existing]
+ expect(await upsertOwnCustomer({...base,nickname:undefined})).toBe('legacy')
+ const patch=m.calls.find(c=>c[0]==='update.values')?.[1] as [Record<string,unknown>]
+ expect({...existing,...patch[0]}).toMatchObject({avatar_url:'kept',address:'架空住所',line_id:'qa-line',notification_settings:{email_notifications:false},nickname:'保持名'})
 })

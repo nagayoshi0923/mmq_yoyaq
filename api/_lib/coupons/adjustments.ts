@@ -123,6 +123,7 @@ export async function handleRestoreCouponUsage(req: VercelRequest, res: VercelRe
   const { data, error } = await db!.rpc('restore_coupon_usage', {
     p_organization: user.orgId, p_coupon: customerCouponId, p_usage: couponUsageId,
   })
+  if (error?.code === 'P0061') return res.status(409).json({ success: false, error: error.message, code: 'P0061', requires_review: true })
   if (error) return res.status(error.code === 'P0028' ? 400 : 500).json({ success: false, error: error.code === 'P0028' ? error.message : '使用の取消に失敗しました' })
   return res.status(200).json(data)
 }

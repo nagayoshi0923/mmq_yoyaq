@@ -12,7 +12,7 @@ BEGIN
   'available_from',v.available_from,'available_until',v.available_until)
  INTO result FROM public.organization_scenarios_with_master v
  WHERE v.organization_id=p_organization_id AND (v.org_scenario_id=p_scenario_lookup_id OR v.scenario_master_id=p_scenario_lookup_id)
- AND v.org_status='available' AND v.master_status='approved'
+ AND v.org_status='available'
  ORDER BY CASE WHEN v.org_scenario_id=p_scenario_lookup_id THEN 0 ELSE 1 END LIMIT 1;
  IF result IS NULL THEN RAISE EXCEPTION 'scenario not found' USING ERRCODE='42501'; END IF;
  RETURN result;

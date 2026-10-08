@@ -150,6 +150,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     availableStores,
     isNextMonthDisabled,
     isLoadingEvents,
+    isAvailabilityReady,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,
@@ -758,6 +759,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         maxParticipants={scenario.player_count_max}
                         selectedTimeSlotsCount={selectedTimeSlots.length}
                         isLoggedIn={!!user}
+                        availabilityReady={isAvailabilityReady}
                         onRequestBooking={() => handlePrivateBookingRequest(!!user)}
                         reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                         hasPreReading={scenario.has_pre_reading}

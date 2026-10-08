@@ -22,6 +22,5 @@ BEGIN
 END;
 $function$
 ;
--- 業務処理は認可済みEdgeのservice_roleだけから呼ぶ。
-REVOKE ALL ON FUNCTION public.notify_all_waitlist_entries(uuid) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.notify_all_waitlist_entries(uuid) TO service_role;
+-- 有効化後の正本: 旧送信前消費RPCはアプリ/Edgeから実行しない。
+REVOKE ALL ON FUNCTION public.notify_all_waitlist_entries(uuid) FROM PUBLIC,anon,authenticated,service_role;

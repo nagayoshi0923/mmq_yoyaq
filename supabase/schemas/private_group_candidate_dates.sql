@@ -9,7 +9,8 @@ CREATE TABLE public.private_group_candidate_dates (
   end_time TEXT NOT NULL,
   order_num INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  status TEXT DEFAULT 'active'::text
+  status TEXT DEFAULT 'active'::text,
+  withdrawn_at TIMESTAMPTZ
 );
 
 -- Indexes

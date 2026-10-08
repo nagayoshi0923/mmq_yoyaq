@@ -47,8 +47,11 @@ export const privateGroupPageReadApi = {
   },
 
   /** 顧客の有効なクーポン（残り回数があり、期限内。キャンペーン情報つき） */
-  async listActiveCouponsForGroup(customerId: string, nowIso: string) {
-    return supabase.from('customer_coupons').select(`id, expires_at, status, uses_remaining, coupon_campaigns (id, name, discount_amount)`).eq('customer_id', customerId).eq('status', 'active').gt('uses_remaining', 0).or(`expires_at.is.null,expires_at.gte.${nowIso}`)
+  async listActiveCouponsForGroup(customerId: string, nowIso: string, organizationId?: string, selectedCouponId?: string | null) {
+    let query = supabase.from('customer_coupons').select(`id, expires_at, status, uses_remaining, coupon_campaigns (id, name, discount_amount)`).eq('customer_id', customerId)
+    if (organizationId) query = query.eq('organization_id', organizationId)
+    if (selectedCouponId) return query.or(`and(status.eq.active,uses_remaining.gt.0,expires_at.is.null),and(status.eq.active,uses_remaining.gt.0,expires_at.gte.${nowIso}),id.eq.${selectedCouponId}`)
+    return query.eq('status', 'active').gt('uses_remaining', 0).or(`expires_at.is.null,expires_at.gte.${nowIso}`)
   },
 
   /** 店舗の id と名前（id で） */

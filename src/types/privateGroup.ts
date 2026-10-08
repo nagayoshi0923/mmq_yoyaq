@@ -72,6 +72,9 @@ export interface PrivateGroupMember {
   guest_phone: string | null
   /** 閲覧権限がある本人・幹事・スタッフにのみ返す。 */
   coupon_id?: string | null
+  coupon_discount?: number
+  payment_amount?: number | null
+  final_amount?: number | null
   /** スタッフ認可時のみ顧客名を含む表示名。一般参加者には返さない。 */
   staff_display_name?: string | null
   is_organizer: boolean

@@ -119,7 +119,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const customerIds = [...new Set([customer.id, ...(identities ?? []).map(row => row.id)])]
       const historySnapshot = snapshotAllCustomers(customerIds)
       const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
-        Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a, b) => (b.requested_datetime ?? '').localeCompare(a.requested_datetime ?? '')), error: results.find(result => result.error)?.error ?? null })),
+        Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.requested_datetime ?? '').localeCompare(a.requested_datetime ?? '')), error: results.find(result => result.error)?.error ?? null })),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
             const member = group.members?.find(m => m.user_id === userId && m.status === 'joined')
@@ -128,7 +128,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
           error: null,
         })),
         historySnapshot.then(history => ({ data: history.manual, error: null })),
-        myPageDataReadApi.listRatings(customer.id),
+        Promise.all(customerIds.map(id => myPageDataReadApi.listRatings(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '')), error: results.find(result => result.error)?.error ?? null })),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
         Promise.all(customerIds.map(id => fetchPlayedReservations(id))).then(results => results.flat()),
       ])
@@ -144,7 +144,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       if (ratingsResult.error) throw ratingsResult.error
       const localRatingsMap: Record<string, number> = {}
-      ratingsResult.data?.forEach((r) => { if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating })
+      ratingsResult.data?.forEach((r) => { if (r.scenario_master_id && !(r.scenario_master_id in localRatingsMap)) localRatingsMap[r.scenario_master_id] = r.rating })
 
       const stats = { participationCount: pastReservations.length, points: pastReservations.length * 100 }
       const metadataReservations = [...reservationData, ...pastReservations]
