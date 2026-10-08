@@ -327,7 +327,7 @@ BEGIN
      'fees',res.cancellation_policy_fees,'fee_basis',res.cancellation_policy_fee_basis,'updated_at',res.cancellation_policy_updated_at) END);
  END IF;
  SELECT COALESCE(jsonb_agg(jsonb_build_object('id',m.id,
-   'name',CASE WHEN m.user_id IS NULL THEN coalesce(nullif(btrim(m.guest_name),''),'ゲスト') ELSE coalesce((SELECT nullif(c.nickname,'') FROM public.customers c WHERE c.user_id=m.user_id ORDER BY c.id LIMIT 1),nullif(btrim(m.guest_name),''),'メンバー') END,
+   'name',CASE WHEN m.user_id IS NULL THEN coalesce(nullif(btrim(m.guest_name),''),'ゲスト') ELSE coalesce((SELECT coalesce(nullif(c.nickname,''),nullif(c.name,'')) FROM public.customers c WHERE c.user_id=m.user_id ORDER BY c.id LIMIT 1),nullif(btrim(m.guest_name),''),'メンバー') END,
    'is_organizer',m.is_organizer,'is_guest',m.user_id IS NULL,'is_me',m.user_id IS NOT NULL AND m.user_id=auth.uid()) ORDER BY m.is_organizer DESC,m.joined_at,m.id),'[]'::jsonb)
   INTO v_members FROM public.private_group_members m WHERE m.group_id=g.id AND m.status='joined';
  SELECT COALESCE(jsonb_agg(jsonb_build_object('date',d.date,'time_slot',d.time_slot,'start_time',d.start_time,'end_time',d.end_time) ORDER BY d.order_num,d.id),'[]'::jsonb)
