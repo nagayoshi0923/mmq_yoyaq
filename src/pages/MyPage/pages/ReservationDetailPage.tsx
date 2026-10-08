@@ -272,6 +272,20 @@ export function ReservationDetailPage() {
                 {getCustomerPrivateBookingStatusDescription(reservation.status)}
               </p>
             </div>
+            <div className="pt-3 border-t border-amber-200 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-amber-700">申込の取り下げ</p>
+                <p className="text-xs text-amber-600 mt-1">日程確定前なのでキャンセル料はかかりません。グループも一緒に閉じます。</p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={() => setWithdrawDialogOpen(true)}
+              >
+                取り下げる
+              </Button>
+            </div>
           </div>
         )}
 
@@ -374,24 +388,6 @@ export function ReservationDetailPage() {
                 <span className="text-sm text-gray-500">予約日</span>
                 <span className="text-sm text-gray-600">{formatJstDateJa(reservation.created_at)}</span>
               </div>
-              {isPendingPrivate && (
-                <div className="pt-3 mt-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">申込の取り下げ</p>
-                      <p className="text-xs text-muted-foreground mt-1">日程確定前なのでキャンセル料はかかりません。グループも一緒に閉じます。</p>
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-8 shrink-0"
-                      onClick={() => setWithdrawDialogOpen(true)}
-                    >
-                      取り下げる
-                    </Button>
-                  </div>
-                </div>
-              )}
               {reservation.status === 'confirmed' && (
                 <div className="pt-3 mt-2">
                   <div className="flex items-center justify-between gap-3">
