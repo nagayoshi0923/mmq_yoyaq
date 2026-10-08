@@ -29,6 +29,7 @@ import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInvit
 import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
 import type { DateResponse } from '@/types'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 type GroupMember = NonNullable<GroupType['members']>[number]
@@ -320,7 +321,7 @@ export function GroupInviteView({
                             </div>
                             <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                               <Clock className="w-3 h-3 shrink-0" />
-                              <span className={isRejected ? 'line-through' : ''}>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                              <span className={isRejected ? 'line-through' : ''}>{candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time} - {cd.end_time}</span>
                             </div>
                           </div>
                           {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (

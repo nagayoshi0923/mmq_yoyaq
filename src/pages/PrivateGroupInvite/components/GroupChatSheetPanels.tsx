@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
 import { logger } from '@/utils/logger'
 import type { GroupChatSheetsProps } from './GroupChatSheets'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 /** 候補日の回答 のシート（GroupChatSheets から見た目を変えずに切り出し） */
 export function DatesSheet(props: GroupChatSheetsProps) {
@@ -173,7 +174,7 @@ export function DatesSheet(props: GroupChatSheetsProps) {
                             </span>
                           </div>
                           <div className={`text-[10px] text-muted-foreground mt-0.5 ${isRejected ? 'line-through' : ''}`}>
-                            {cd.time_slot} {cd.start_time} - {cd.end_time}
+                            {candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time} - {cd.end_time}
                           </div>
                         </div>
                         {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (
@@ -861,7 +862,7 @@ export function BookingSheet(props: GroupChatSheetsProps) {
                             {formatDateJaMd(cd.date)}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {cd.time_slot} {cd.start_time}-{cd.end_time}
+                            {candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time}-{cd.end_time}
                           </div>
                         </div>
                         <div className="text-xs text-right shrink-0">
