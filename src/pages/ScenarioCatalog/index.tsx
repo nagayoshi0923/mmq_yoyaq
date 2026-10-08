@@ -80,13 +80,16 @@ interface ScenarioCatalogProps {
   organizationSlug?: string
 }
 
-async function fetchScenarioCatalogBundle(): Promise<{
+async function fetchScenarioCatalogBundle(organizationSlug?: string): Promise<{
   scenarios: ScenarioData[]
   stores: StoreData[]
   categories: CategoryData[]
 }> {
-  const { getCurrentOrganizationId } = await import('@/lib/organization')
-  const orgId = await getCurrentOrganizationId()
+  const { getCurrentOrganizationId, resolveOrganizationFromPathSegment } = await import('@/lib/organization')
+  // 予約サイト（/{組織}/catalog）では URL の組織で絞る。ログイン利用者の所属で絞ると、お客様は全組織分が混ざり
+  // トップの「○タイトル」と件数が合わなくなる
+  const pathOrg = organizationSlug ? await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: true }) : null
+  const orgId = pathOrg?.id ?? (organizationSlug ? null : await getCurrentOrganizationId())
   const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
     scenarioCatalogReadApi.listAvailableScenarios(orgId),
     platformPageReadApi.getPublicAvailableScenarioKeys(),
@@ -143,7 +146,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     error: catalogQueryError,
   } = useQuery({
     queryKey: ['scenario-catalog', catalogQueryScope],
-    queryFn: fetchScenarioCatalogBundle,
+    queryFn: () => fetchScenarioCatalogBundle(organizationSlug ?? organization?.slug),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   })
