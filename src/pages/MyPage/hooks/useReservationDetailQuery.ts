@@ -153,10 +153,12 @@ export function useCurrentSeatsQuery(scheduleEventId: string | undefined, partic
     queryKey: reservationDetailKeys.seats(scheduleEventId ?? ''),
     enabled: enabled && !!scheduleEventId,
     queryFn: async () => {
-      const { data: sumData } = await myPageReservationReadApi.listConfirmedParticipantCounts(scheduleEventId!)
-      const currentParticipants = sumData?.reduce((sum, r) => sum + (r.participant_count || 0), 0) ?? 0
-      const otherParticipants = currentParticipants - participantCount
-      return maxParticipants - otherParticipants
+      const { data: seat } = await myPageReservationReadApi.findPublicEventSeatCounts(scheduleEventId!)
+      const currentParticipants = seat?.current_participants ?? 0
+      const effectiveMax = seat?.max_participants ?? maxParticipants
+      // 自分の予約分を除いた「他の方の人数」を引く＝自分が選び直せる上限
+      const otherParticipants = Math.max(0, currentParticipants - participantCount)
+      return Math.max(0, effectiveMax - otherParticipants)
     },
   })
 }

@@ -35,6 +35,9 @@ describe('public cancellation policy formatting', () => {
   it('期限と料金基準を顧客向けラベルにする', () => {
     expect(formatPolicyHours(0)).toBe('開演時刻')
     expect(formatPolicyHours(50)).toBe('50時間前')
+    expect(formatPolicyHours(48)).toBe('48時間前')
+    expect(formatPolicyHours(168)).toBe('168時間前（7日前）')
+    expect(formatPolicyHours(720)).toBe('720時間前（30日前）')
     expect(formatCancellationFeeBasis('participant_total')).toBe('予約時の参加料金合計')
     expect(formatCancellationFeeBasis('performance_total')).toBe('公演価格全額')
   })

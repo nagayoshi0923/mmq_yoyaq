@@ -29,6 +29,7 @@ import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInvit
 import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
 import type { DateResponse } from '@/types'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 type GroupMember = NonNullable<GroupType['members']>[number]
@@ -162,14 +163,16 @@ export function GroupInviteView({
 
       <div className="container mx-auto max-w-lg px-4 py-6">
         <ConfirmedGroupSchedule group={group} />
-        {/* 戻るボタン */}
-        <button
-          onClick={() => navigate('/mypage')}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          マイページに戻る
-        </button>
+        {/* 戻るボタン（未ログインのゲストにはマイページが無いので出さない） */}
+        {user && (
+          <button
+            onClick={() => navigate('/mypage')}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            マイページに戻る
+          </button>
+        )}
 
         <Card className="border-purple-200 bg-purple-50/50 mb-6">
           <CardContent className="p-4 text-center">
@@ -320,7 +323,7 @@ export function GroupInviteView({
                             </div>
                             <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                               <Clock className="w-3 h-3 shrink-0" />
-                              <span className={isRejected ? 'line-through' : ''}>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                              <span className={isRejected ? 'line-through' : ''}>{candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time} - {cd.end_time}</span>
                             </div>
                           </div>
                           {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (

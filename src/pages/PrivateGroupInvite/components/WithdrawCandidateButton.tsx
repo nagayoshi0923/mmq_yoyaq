@@ -5,6 +5,7 @@ import { withdrawPrivateGroupCandidate } from '@/lib/privateGroupCandidateDates'
 import { formatJstDateJa } from '@/utils/jstDate'
 import { toast } from 'sonner'
 import type { PrivateGroupCandidateDate } from '@/types'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 interface Props {
   groupId: string
@@ -17,7 +18,7 @@ export function WithdrawCandidateButton({ groupId, candidate, onWithdrawn }: Pro
   const [step, setStep] = useState<'review' | 'confirm' | null>(null)
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
-  const label = `${formatJstDateJa(candidate.date)} ${candidate.time_slot} ${candidate.start_time}〜${candidate.end_time}`
+  const label = `${formatJstDateJa(candidate.date)} ${candidateTimeSlotFromDb(candidate.time_slot)} ${candidate.start_time}〜${candidate.end_time}`
   const withdraw = async () => {
     if (savingRef.current) return
     savingRef.current = true

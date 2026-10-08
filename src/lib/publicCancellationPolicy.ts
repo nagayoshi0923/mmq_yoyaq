@@ -225,6 +225,8 @@ export async function fetchPublicCancellationPolicies({
 
 export function formatPolicyHours(hours: number): string {
   if (hours === 0) return '開演時刻'
+  // 3日以上は日数も添える（720時間前（30日前））。48時間までは慣れた時間表記のまま
+  if (hours >= 72 && hours % 24 === 0) return `${hours}時間前（${hours / 24}日前）`
   return `${hours}時間前`
 }
 

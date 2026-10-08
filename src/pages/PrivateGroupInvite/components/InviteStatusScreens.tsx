@@ -69,8 +69,10 @@ export function InviteCancelledScreen({ onBackToTop }: { onBackToTop: () => void
   )
 }
 
-export function InviteJoinSuccessScreen({ generatedPin, guestEmail, onViewGroup, onBackToTop }: {
+export function InviteJoinSuccessScreen({ generatedPin, isNewMember = false, guestEmail, onViewGroup, onBackToTop }: {
   generatedPin: string | null
+  /** 今回の操作で新しく参加した（回答の更新ではない） */
+  isNewMember?: boolean
   guestEmail: string
   onViewGroup: () => void
   onBackToTop: () => void
@@ -84,7 +86,7 @@ export function InviteJoinSuccessScreen({ generatedPin, guestEmail, onViewGroup,
           <CardContent className="p-8 text-center space-y-4">
             <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
             <h2 className="text-lg text-green-800 font-medium">
-              {generatedPin ? '参加登録が完了しました！' : '回答を更新しました！'}
+              {generatedPin || isNewMember ? '参加登録が完了しました！' : '回答を更新しました！'}
             </h2>
             <p className="text-sm text-green-700">
               主催者が全員の回答を確認後、貸切予約を申し込みます。

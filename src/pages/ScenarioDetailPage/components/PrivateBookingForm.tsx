@@ -199,6 +199,11 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       />
 
       <h3 className="ts-label mt-4">希望日程を選択</h3>
+      {deadlineDays > 0 && (
+        <p className="text-xs text-muted-foreground mb-1">
+          貸切リクエストは公演日の{deadlineDays}日前まで受け付けています（薄く表示された日は選べません）
+        </p>
+      )}
 
       <PrivateBookingSlotGrid
         currentMonth={currentMonth}
