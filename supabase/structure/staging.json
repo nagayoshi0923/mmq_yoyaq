@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-08T19:03:46.003Z",
-  "table_count": 146,
-  "function_count": 368,
-  "digest": "53031032a1da906d86b7ecb62d83c6672901f58c1fc76786c2ae8ae52cbdedcc"
+  "captured_at": "2026-10-08T19:43:19.855Z",
+  "table_count": 147,
+  "function_count": 379,
+  "digest": "d0177cd8c828db47bac4991caa8717cd5b27cbfcc31332e381f3209bfe4d03d0"
  },
  "tables": {
   "staff": {
@@ -21396,6 +21396,195 @@
     }
    ]
   },
+  "private_group_handover_requests": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "default": "gen_random_uuid()",
+     "not_null": true
+    },
+    {
+     "name": "organization_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "reservation_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "from_member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "to_member_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "from_user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "to_user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "default": "'requested'::text",
+     "not_null": true
+    },
+    {
+     "name": "requested_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "expires_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "responded_at",
+     "type": "timestamp with time zone",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "accepted_contact",
+     "type": "jsonb",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "accepted_policy",
+     "type": "jsonb",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "previous_customer",
+     "type": "jsonb",
+     "default": null,
+     "not_null": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE INDEX private_group_handover_requests_from_user ON public.private_group_handover_requests USING btree (from_user_id) WHERE (status = 'requested'::text)",
+     "name": "private_group_handover_requests_from_user"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_handover_requests_one_open ON public.private_group_handover_requests USING btree (group_id) WHERE (status = 'requested'::text)",
+     "name": "private_group_handover_requests_one_open"
+    },
+    {
+     "def": "CREATE UNIQUE INDEX private_group_handover_requests_pkey ON public.private_group_handover_requests USING btree (id)",
+     "name": "private_group_handover_requests_pkey"
+    },
+    {
+     "def": "CREATE INDEX private_group_handover_requests_reservation ON public.private_group_handover_requests USING btree (reservation_id) WHERE (reservation_id IS NOT NULL)",
+     "name": "private_group_handover_requests_reservation"
+    },
+    {
+     "def": "CREATE INDEX private_group_handover_requests_to_user ON public.private_group_handover_requests USING btree (to_user_id) WHERE (status = 'requested'::text)",
+     "name": "private_group_handover_requests_to_user"
+    }
+   ],
+   "policies": [
+    {
+     "cmd": "r",
+     "name": "private_group_handover_requests_select",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "((from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid)) OR (( SELECT is_staff_or_admin() AS is_staff_or_admin) AND (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))",
+     "permissive": true
+    }
+   ],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "CHECK ((from_user_id <> to_user_id))",
+     "name": "private_group_handover_requests_distinct_users",
+     "type": "c"
+    },
+    {
+     "def": "CHECK ((expires_at > requested_at))",
+     "name": "private_group_handover_requests_expiry",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (from_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+     "name": "private_group_handover_requests_from_member_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+     "name": "private_group_handover_requests_group_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+     "name": "private_group_handover_requests_organization_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "PRIMARY KEY (id)",
+     "name": "private_group_handover_requests_pkey",
+     "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+     "name": "private_group_handover_requests_reservation_id_fkey",
+     "type": "f"
+    },
+    {
+     "def": "CHECK ((status = ANY (ARRAY['requested'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text, 'expired'::text])))",
+     "name": "private_group_handover_requests_status_check",
+     "type": "c"
+    },
+    {
+     "def": "FOREIGN KEY (to_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+     "name": "private_group_handover_requests_to_member_id_fkey",
+     "type": "f"
+    }
+   ]
+  },
   "private_group_survey_deliveries": {
    "rls": true,
    "columns": [
@@ -24286,6 +24475,17 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_handover_mine()": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "cff410f5256b6287611f80aa9a364ffc",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "rename_event_staff_identity()": {
    "acl": [
     "postgres=X/postgres"
@@ -25436,6 +25636,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_handover_settle(p_group_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "void",
+   "body_md5": "3a886216765a365b43a5919184f88598",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "require_private_group_manager(p_group_id uuid)": {
    "acl": [
     "anon=X/postgres",
@@ -25518,6 +25728,39 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_handover_cancel(p_request_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "8cdcbde47dd5ceb3059134ec65d57577",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_handover_detail(p_request_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "21b9ddd9d2f931c2257bd67398620c66",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_leave_with_notice(p_group_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "5747dc7a437b0082fa51f8ae363aca51",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "update_private_group_date_responses_updated_at()": {
    "acl": [
     "=X/postgres",
@@ -25549,6 +25792,17 @@
    ],
    "returns": "boolean",
    "body_md5": "4e235e86fbd50f152511efc2b66afd67",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_handover_decline(p_request_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "ee2a0276db77388b90cb44de240c6dfa",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26160,6 +26414,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_handover_close(p_request_id uuid, p_status text)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "d62e2ec61b71578c4a3283b8fc30ed15",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "retry_private_unsent_delivery(p_kind text, p_delivery_id uuid)": {
    "acl": [
     "authenticated=X/postgres",
@@ -26247,6 +26511,16 @@
    "language": "plpgsql",
    "security_definer": false
   },
+  "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "text",
+   "body_md5": "362c05ba5b965558ff50fcfaca313e26",
+   "language": "sql",
+   "security_definer": true
+  },
   "update_org_scenario_status(p_scenario_id uuid, p_new_status text)": {
    "acl": [
     "=X/postgres",
@@ -26317,6 +26591,17 @@
    ],
    "returns": "TABLE(events_checked integer, events_confirmed integer, events_extended integer, events_cancelled integer, details jsonb)",
    "body_md5": "5da109b7acf4145094eaf4f29201302a",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_handover_request(p_group_id uuid, p_to_member_id uuid)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "b0db180a2c2a99303f1a2d29e7236077",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27062,7 +27347,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "fab4be8141a996c49efaabaf934523b8",
+   "body_md5": "af5e0e83b16558e7e248523b90dc09ef",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27190,7 +27475,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "9ad2add41811b3e2c9d68fbc865ed85e",
+   "body_md5": "f87905706b2e185f62878354f26aa611",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27314,6 +27599,16 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_queue_member_left_notice(p_group_id uuid, p_before integer, p_after integer, p_member_name text, p_member_id uuid)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "boolean",
+   "body_md5": "89255d699a1bcd0ed8dd652d8a1c641a",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "get_public_cancellation_policy_for_context(p_organization_slug text, p_store_id uuid, p_scenario_master_id uuid, p_event_id uuid)": {
    "acl": [
     "anon=X/postgres",
@@ -27433,6 +27728,17 @@
    ],
    "returns": "jsonb",
    "body_md5": "6f8d68b2d452357bff6242c20fe77044",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_group_handover_accept(p_request_id uuid, p_customer_id uuid, p_contact_name text, p_contact_phone text, p_displayed_policy jsonb)": {
+   "acl": [
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "jsonb",
+   "body_md5": "ef3ddd82522c0921608bf92e2c101d55",
    "language": "plpgsql",
    "security_definer": true
   },
