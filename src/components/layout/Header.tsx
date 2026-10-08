@@ -226,15 +226,18 @@ export const Header = memo(function Header({ onPageChange, backgroundColor }: He
                   >
                     {user?.staffName || user?.customerName || user?.name}
                   </span>
-                  <Badge 
-                    className="text-[10px] px-1.5 py-0 bg-white/20 text-white border-0"
-                    style={{ borderRadius: 0 }}
-                    {...devDb('users.role')}
-                  >
-                    {checkIsLicenseAdmin(user?.role, organizationId) ? 'MMQ運営' :
-                     user?.role === 'admin' ? '管理者' : 
-                     user?.role === 'staff' ? 'スタッフ' : '顧客'}
-                  </Badge>
+                  {/* 役割バッジはスタッフ側だけ。お客様（role=customer）には「顧客」を出さない */}
+                  {(checkIsLicenseAdmin(user?.role, organizationId) || (!!user?.role && user.role !== 'customer')) && (
+                    <Badge 
+                      className="text-[10px] px-1.5 py-0 bg-white/20 text-white border-0"
+                      style={{ borderRadius: 0 }}
+                      {...devDb('users.role')}
+                    >
+                      {checkIsLicenseAdmin(user?.role, organizationId) ? 'MMQ運営' :
+                       user?.role === 'admin' ? '管理者' : 
+                       user?.role === 'staff' ? 'スタッフ' : '顧客'}
+                    </Badge>
+                  )}
                 </div>
                 {/* スタッフ/管理者用：管理サイトボタン */}
                 {isStaffOrAdmin && (
