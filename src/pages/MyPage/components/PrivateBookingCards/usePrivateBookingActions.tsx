@@ -4,7 +4,7 @@
  * - グループを閉じる: cancel_unrequested_private_group_with_notice（行は消さず履歴を残す。チャットにお知らせ）
  * - 申込を取り下げる: /api/reservations?action=cancel-with-group-lock（予約詳細の「取り下げる」と同じ処理）
  * - キャンセル: reservationApi.cancel（予約詳細の「キャンセル」と同じ。キャンセル規定で不可なら無効にして理由を出す）
- * - グループから抜ける: private_group_leave
+ * - グループから抜ける: private_group_leave_with_notice（申込後・確定後は店舗へ人数変更を知らせる）
  */
 import { useCallback, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -117,9 +117,10 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
         toast.success('貸切をキャンセルしました')
       } else {
         if (!target.groupId) throw new Error('グループが見つかりません')
-        const { error } = await privateGroupRpcApi.leave(target.groupId)
+        const { data, error } = await privateGroupRpcApi.leave(target.groupId)
         if (error) throw error
-        toast.success('グループから抜けました')
+        const storeNotified = (data as { store_notified?: boolean } | null)?.store_notified === true
+        toast.success(storeNotified ? 'グループから抜けました。店舗に人数変更を知らせました' : 'グループから抜けました')
       }
     } catch (err) {
       logger.error('貸切の操作に失敗しました', { action, err })
@@ -145,6 +146,7 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
       otherMembers: Math.max(0, target.memberCount - 1),
       candidateDates: target.candidateDates,
       confirmedDate: target.confirmedDate,
+      phase: target.phase,
     })
     : null
 

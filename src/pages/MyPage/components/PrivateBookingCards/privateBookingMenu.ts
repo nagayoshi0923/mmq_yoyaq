@@ -107,6 +107,8 @@ export interface PrivateBookingImpact {
   candidateDates: number
   /** 確定した公演日（YYYY-MM-DD） */
   confirmedDate?: string | null
+  /** 申込の段階（抜けるときに店舗へ伝わるかの文言に使う） */
+  phase?: PrivateBookingPhase
 }
 
 export interface PrivateBookingConfirmText {
@@ -145,15 +147,20 @@ export function privateBookingConfirmText(action: PrivateBookingDangerAction, im
     case 'leave':
       return {
         title: 'グループから抜けますか？',
-        message: `あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは ${impact.otherMembers + 1} 名から ${impact.otherMembers} 名になります。`,
+        message: `あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは ${impact.otherMembers + 1} 名から ${impact.otherMembers} 名になります。${leaveStoreNotice(impact.phase)}`,
         confirmLabel: 'グループから抜ける',
       }
   }
 }
 
+/** 申込済み・確定後にメンバーが抜ける・外れると、店舗に人数変更として伝わる */
+export function leaveStoreNotice(phase: PrivateBookingPhase | undefined): string {
+  return phase === 'requested' || phase === 'confirmed' ? '店舗に人数変更として伝わります。' : ''
+}
+
 /** メンバーを外す確認文。申込済み・確定後は店舗に人数変更として伝わる */
 export function removeMemberConfirmText(name: string, phase: PrivateBookingPhase): PrivateBookingConfirmText {
-  const store = phase === 'pre_request' ? '' : '店舗に人数変更として伝わります。'
+  const store = leaveStoreNotice(phase)
   return {
     title: `${name}さんを外しますか？`,
     message: `${name}さんをグループから外しますか？ この方の日程回答は消えます。本人にはチャットで知らせます。${store}`,

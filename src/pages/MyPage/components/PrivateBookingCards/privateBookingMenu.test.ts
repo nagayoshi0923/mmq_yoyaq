@@ -99,6 +99,12 @@ describe('確認文は影響を数字で見せる', () => {
     expect(removeMemberConfirmText('二郎', 'requested').message).toContain('店舗に人数変更として伝わります')
     expect(removeMemberConfirmText('二郎', 'confirmed').message).toContain('店舗に人数変更として伝わります')
   })
+  it('グループから抜ける: 申込済み以降は店舗に人数変更として伝わる', () => {
+    expect(privateBookingConfirmText('leave', { otherMembers: 2, candidateDates: 0, phase: 'pre_request' }).message)
+      .toBe('あなたの日程の回答は消え、このグループのチャットや日程は見られなくなります。参加メンバーは 3 名から 2 名になります。')
+    expect(privateBookingConfirmText('leave', { otherMembers: 2, candidateDates: 0, phase: 'requested' }).message).toContain('店舗に人数変更として伝わります')
+    expect(privateBookingConfirmText('leave', { otherMembers: 1, candidateDates: 0, phase: 'confirmed' }).message).toContain('店舗に人数変更として伝わります')
+  })
 })
 
 describe('問い合わせの本文', () => {

@@ -1178,10 +1178,10 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
         "rpc("join_private_group")",
       ],
       "privateGroupRpcApi.leave": [
-        "rpc("private_group_leave", {"p_group_id":"a1"})",
+        "rpc("private_group_leave_with_notice", {"p_group_id":"a1"})",
       ],
       "privateGroupRpcApi.leave (最後の引数なし)": [
-        "rpc("private_group_leave", {})",
+        "rpc("private_group_leave_with_notice", {})",
       ],
       "privateGroupRpcApi.removeCouponFromMember": [
         "rpc("remove_coupon_from_group_member", "a1")",

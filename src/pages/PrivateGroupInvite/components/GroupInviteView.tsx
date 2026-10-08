@@ -30,6 +30,7 @@ import type { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import type { useAuth } from '@/contexts/AuthContext'
 import type { DateResponse } from '@/types'
 import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
+import { leaveStoreNotice, privateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 type GroupMember = NonNullable<GroupType['members']>[number]
@@ -830,7 +831,7 @@ export function GroupInviteView({
         open={showLeaveGroupConfirm}
         onOpenChange={setShowLeaveGroupConfirm}
         title="このグループから退出しますか？"
-        message="本当にこのグループから退出しますか？"
+        message={`本当にこのグループから退出しますか？${leaveStoreNotice(privateBookingPhase(group.status, isScheduleConfirmedUi ? 'confirmed' : null))}`}
         confirmLabel="退出する"
         variant="destructive"
         onConfirm={handleConfirmLeaveGroup}

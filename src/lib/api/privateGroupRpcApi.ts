@@ -31,9 +31,9 @@ export const privateGroupRpcApi = {
   async closeUnrequestedWithNotice(groupId: string) {
     return supabase.rpc('cancel_unrequested_private_group_with_notice', { p_group_id: groupId })
   },
-  /** グループから抜ける */
+  /** グループから抜ける。申込後・確定後は店舗へ人数変更を知らせる（戻り値 store_notified） */
   async leave(groupId: string) {
-    return supabase.rpc('private_group_leave', { p_group_id: groupId })
+    return supabase.rpc('private_group_leave_with_notice', { p_group_id: groupId })
   },
   /** キャラクターの割り当て方法を設定する（期待値を渡して競合を検出） */
   async setCharacterMethod(args: object) {
