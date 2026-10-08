@@ -1281,3 +1281,8 @@ PR967最新追加レビューを判定。4207396828は確定貸切メンバーDE
 追加4209768024：旧請求discount/final/totalのNULLと予約欠落は補完せずP0061で保留。3NULL各ケースのusage/回数不変を141実SQL・実PG全ROLLBACKで検証。最新CI/独立レビュー待ち、共有DB未適用。
 
 全件回収補正：4209767994/4209872227は通常couponも実final_priceで控除を上限制限し、usage/請求/台帳を同額へ。残額500/coupon1000の実PG取消後500保持・150実SQLを検証。4209768002はstaff APIでP0061を409/確認message/requires_reviewとして返す。4209768018は代表profileの非NULLだけ保持し既存アバター/住所/LINE/通知optout/ニックネームをNULLで消さない。4209872239はremove coupon正本RPCへmigrationと同じidentity lockを同期し、正本再適用の関数body parityを確認。1761単体/250files合格。以前のreview全ページ取得後の表示を最後1件に絞り見落とした3件も全件分類へ補正、共有DB未適用。
+
+### 2026-10-08 候補削除の先行反映・追加検収
+- PR976の追加指摘4214021542: PCの日程タブにも同じ主催者限定・申込前限定・二段階確認の削除操作を追加。
+- 4214021546: 専用staffサマリーRPCでwithdrawn_atのある候補を除外。0803 migrationは既存権限を保持し、行データを変更しない。
+- 専用実Postgresで取り下げ・回答履歴・再送・回答更新拒否・主催者限定・申込後拒否・staffサマリー除外をROLLBACKで確認。verify通過。本番実顧客データ操作なし。
