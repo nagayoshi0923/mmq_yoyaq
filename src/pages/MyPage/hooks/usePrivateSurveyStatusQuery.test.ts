@@ -1,4 +1,5 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+vi.mock('@/lib/supabase', () => ({ supabase: {} }))
 import { isSurveyPending } from './usePrivateSurveyStatusQuery'
 
 const NOW = new Date('2026-10-09T12:00:00+09:00')
