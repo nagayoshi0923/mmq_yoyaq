@@ -65,3 +65,7 @@ scripts/ai-team/.processed_issues
 local-repro/supabase/migrations/00000000000000_staging_schema.sql
 local-repro/supabase/.temp/
 local-repro/supabase/.branches/
+
+# 手元の開発用 Supabase の作業フォルダ（scripts/local-dev/supabase.sh が毎回作り直す）
+/.local-supabase/
+.env.api.local

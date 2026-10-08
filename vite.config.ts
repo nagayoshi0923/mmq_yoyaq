@@ -6,6 +6,7 @@ import { copyFileSync, unlinkSync } from 'node:fs'
 // 0.0.0.0 は LAN 公開に便利だが、OS によっては os.networkInterfaces() が失敗し Vite 起動が落ちる（uv_interface_addresses 等）
 const devHost = process.env.VITE_DEV_HOST === 'all' ? '0.0.0.0' : '127.0.0.1'
 const devLan = devHost === '0.0.0.0'
+const apiTarget = process.env.VITE_API_TARGET || 'https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -111,15 +112,21 @@ export default defineConfig(({ mode }) => ({
     strictPort: !process.env.PORT,
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
-    // /api/* をステージング Vercel deploy に転送する
-    // 理由: macOS 上で vercel dev が spawn EBADF で関数を実行できないため、
-    // ローカルからは staging deploy の /api を叩く方式に切り替えた。
-    // ローカルで API 自体を編集したい場合は staging へ push して反映を待つ
-    // （UI のみのローカル開発であれば npm run dev のみで完結する）。
-    // 環境変数 VITE_API_TARGET で別 URL を指定可能（例: 本番確認、preview deploy 確認）
+    // /api/* の転送先（既定はステージングの Vercel deploy）
+    // - npm run dev / dev:vercel: staging deploy の /api を使う（画面だけ直すとき向け）
+    // - npm run dev:full: VITE_API_TARGET=http://127.0.0.1:3000 で手元の API サーバー
+    //   （scripts/dev-api-server.mjs。api/*.ts を直接実行）を使う。API の変更をその場で試せる
+    // macOS では vercel dev が spawn EBADF で関数を実行できないため、vercel dev は使わない。
+    // 環境変数 VITE_API_TARGET で別 URL も指定可能（例: preview deploy 確認）
     proxy: {
       '/api': {
-        target: process.env.VITE_API_TARGET || 'https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app',
+        target: apiTarget,
+        changeOrigin: true,
+        secure: true,
+      },
+      // vercel.json の rewrites（/sitemap.xml → /api/sitemap）と同じ振り分け
+      '/sitemap.xml': {
+        target: apiTarget,
         changeOrigin: true,
         secure: true,
       },
