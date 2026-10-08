@@ -116,15 +116,19 @@ export function PrivateGroupInvite() {
   >(null)
 
   // クーポン関連
+  const existingMember = group?.members?.find(member => member.status === 'joined' && (member.id === existingMemberId || member.user_id === user?.id))
   const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
   const { data: coupons = [], isLoading: couponLoading } = useQuery({
-    queryKey: ['private-group-invite', 'coupons', user?.id, group?.organization_id],
+    queryKey: ['private-group-invite', 'coupons', user?.id, group?.organization_id, existingMember?.coupon_id],
     enabled: !!user && !!group?.organization_id,
     queryFn: async (): Promise<Coupon[]> => {
-      const { data: customer } = await customerLookupReadApi.findIdByUserId(user!.id)
-      if (!customer) return []
-      const { data: couponData, error } = await privateGroupPageReadApi.listActiveCouponsForGroup(customer.id, new Date().toISOString())
+      const { data: customers, error: lookupError } = await customerLookupReadApi.listIdsByUserId(user!.id)
+      if (lookupError) throw lookupError
+      if (!customers?.length) return []
+      const results = await Promise.all(customers.map(customer => privateGroupPageReadApi.listActiveCouponsForGroup(customer.id, new Date().toISOString(), group!.organization_id, existingMember?.coupon_id)))
+      const error = results.find(result => result.error)?.error
       if (error) throw error
+      const couponData = results.flatMap(result => result.data ?? [])
       return (couponData || []).map((cc: any) => ({ id: cc.id, name: cc.coupon_campaigns?.name || 'クーポン', discount_amount: cc.coupon_campaigns?.discount_amount || 0, expires_at: cc.expires_at, status: cc.status }))
     },
   })
@@ -299,7 +303,7 @@ export function PrivateGroupInvite() {
     return coupons.find(c => c.id === selectedCouponId) || null
   }, [coupons, selectedCouponId])
 
-  const discountAmount = selectedCoupon?.discount_amount || 0
+  const discountAmount = selectedCouponId && selectedCouponId === existingMember?.coupon_id ? (existingMember.coupon_discount || 0) : 0
   const finalAmount = Math.max(0, perPersonPrice - discountAmount)
 
   // 進捗表示用の計算（早期リターンの前に配置してフック順序を維持）
@@ -477,7 +481,7 @@ export function PrivateGroupInvite() {
       }
 
       const responseData = Object.entries(responses)
-        .filter(([_, response]) => response != null)
+        .filter(([candidateId, response]) => response != null && group.candidate_dates?.some(date => date.id === candidateId && date.status !== 'rejected'))
         .map(([candidateDateId, response]) => ({
           candidateDateId,
           response: response as DateResponse,
@@ -487,13 +491,14 @@ export function PrivateGroupInvite() {
 
       // クーポン適用（ログインユーザーで選択済みの場合）
       if (user && selectedCouponId && perPersonPrice > 0) {
-        const { error: couponError } = await privateGroupRpcApi.applyCouponToMember({
+        const { data: couponResult, error: couponError } = await privateGroupRpcApi.applyCouponToMember({
           p_member_id: memberId,
           p_coupon_id: selectedCouponId,
         })
         if (couponError) {
           throw couponError
         }
+        if ((couponResult as { pending?: boolean } | null)?.pending) toast.info('クーポンを選択しました。割引は日程確定後に利用条件を確認して適用します')
       } else if (user && !selectedCouponId && perPersonPrice > 0) {
         // クーポン未選択の場合、既存のクーポンを解除
         const { error: couponError } = await privateGroupRpcApi.removeCouponFromMember({

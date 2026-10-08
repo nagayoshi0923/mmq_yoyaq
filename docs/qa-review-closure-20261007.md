@@ -1,0 +1,95 @@
+# 顧客QA追加レビュー是正（2026-10-07）
+
+対象はPR964/965の全12コメントをまとめた10論点。最新main6f288dから独立統合。通知の予約履歴だけの許可/metadata入力、配送前消費、クーポン条件・回数、公開timing、冪等payload、複数顧客、通信失敗候補削除、旧匿名rollbackを是正。
+
+- 保存済み取消/人数減少のDBintentを作成。actor本人・同組織スタッフ・既存systemのみclaim可、実空席も照合。公演metadataはDB正本。
+- per-recipient lease、固定送信payload/冪等キー、成功受付後だけnotified。失敗はwaiting、既存5分cronが再試行。結果不明が送信事業者の24h重複防止期限を超える前（23h）に自動再送を保留し、requires_reviewへ。顧客が新たな通知契機を作っても不明な配送を重ねない。
+- グループcouponは未確定日時/店舗を保留（割引0・未消費）し確定時に共通条件判定。既存coupon_usagesに使用を記録し回数を原子的消費。同じ操作の再試行は再消費せず、解除/切替は同じTXで戻す。
+- timingは顧客 `/api/scenarios?type=public` と同じorg available条件。master draft/pendingを一律除外せず、公開可否を揃える。
+- 新規通常予約は全再送payloadを保存して比較。旧予約の未保存流入元は推測せず不一致を拒否。
+- UID本人の複数顧客行から体験履歴を統合。upsertは入力email一致→共通→対象org→既存の順、検索errorを新規扱いしない。
+- 必要取得に失敗した貸切候補は保持、送信を止めて再試行を案内。取得成功後だけ最新条件で削除。
+- 旧権限/旧配送本体へ戻すrollbackは廃止し、データと安全ACLを維持するforward復旧に置換。
+
+## 検証
+
+修正前coupon再現は不変rules_snapshotへのUPDATEが保持されないことに注意し、条件付きの架空新規couponでやり直した。旧関数1000円適用・新関数P0028拒否を同じ条件で実証。
+
+独立Postgres実SQL回帰47項目、React候補取得失敗/選択保持、複数顧客履歴統合/upsertを検証。全単体件数は最新CI証跡を参照。実Auth/取消RPC/Edge/DBで失敗503・waiting保持、12並列再試行でsink1件、入力metadata無視、完了後再試行0件。coupon12並列適用で使用1回、8並列解除で復元1回。
+
+実通知・顧客データを使ったテストなし。専用internal Docker/localhost、外部メールsink。実機/Safari未検証。既存の旧キュー/旧グループ割引を本番で検索・改変・自動backfillしていない。今回の新しい操作と次の確定時検証が対象で、過去データの監査/是正は別途安全な手順が必要。
+
+## 配備順
+
+20261007110001: 通知intent/lease/固定payloadの準備DB。
+20261007110002: coupon条件と使用履歴の準備DB。
+20261007110003: 全payload比較/公開timingのDB。
+notify-waitlist + process-waitlist-queueを先行配備。
+20261007110004: 旧の送信前消費RPC権限を停止する有効化DB。
+その後API/UI。release-scopeのprepare-edgesはactivation04をdeferしprepare01の実適用を必須とする。
+
+## 復旧
+
+DB intent/使用履歴/認可と新Edgeを維持してAPI/UIのみ復旧するか、検証済みforward修正を実施。旧匿名権限や送信前消費へ戻さない。各rollbackファイルは安全ACLを再保証しデータを削除しない。DB失敗時は同じmigrationの再試行/修正版を優先し、不明な配送は送信履歴を照合してから扱う。
+
+## 最終レビュー追加10件の是正
+
+予約時snapshotとメンバー単価を両立した共通内部validatorへ統一。利用/解除は予約のdiscount_amount・final_priceも同じTXで更新。再予約ID・公演・単価が変わる場合は旧使用と請求を戻して再適用する。
+
+通知契機を取消/有効状態の減員に限定しcompleted/no_showを除外。空席数も保存済み値で上書きし返信先未設定はpayloadから省略。確定拒否と結果不明を区別し、前の不明試行を後の拒否で消さない。設定欠落でも試行を記録・lease解放し、公演単位の公平な選択をする。
+
+旧pendingがある場合は準備/有効化SQLを拒否し、来歴を照合した移行/排出を先に要求する。古いブラウザのfallbackは保存DBintentがある場合だけ冗長なwake-upとして扱い、旧queueへ新規に残さない。来歴不明の旧メールを自動送信しない。
+
+体験登録は本人全顧客行を読取確認し、基礎履歴がなければ正規行に追加して全行のoverrideを解除。部分失敗は成功表示せず、再試行は追加済み履歴を再追加しない。既存RPC権限の範囲で行い、顧客行統合や認証情報作成をしない。
+
+## 最新追加5指摘の是正（PR967・配備前）
+
+旧キュー有効化04は明示トランザクションとSHARE ROW EXCLUSIVEロックにより、残件確認から旧fallbackの無害化までを排他する。別PostgreSQL接続のINSERTがロックtimeoutになることを隔離環境で確認した。
+
+23時間超の結果不明宛先は引き続き保留する。同じnoticeに確定未送信の宛先があれば一覧・claimから除外せず、その宛先を先に配送し、要確認残件は503で返す。別noticeから通知済みになった待機者や配送期限切れはnoticeの未完了判定から外すが、sent_atを偽装しない。実SQL55項目と実Auth/Edgeの混合2宛先回帰で、安全な1件だけの配送sink受付を確認した。
+
+ブラウザの保存済みactorまたは同組織active staffを非更新照会で確認してから、検証済みユーザー単位でレート制限する。権限なし31回が制限ログを更新せず、後続の正規取消通知が成功する実Edge回帰を確認した。固定payload取得後、その宛先・件名・HTML・テキストをemail_logsへ記録する。初回拒否から再試行までのテンプレート変更でもsink本文とログ本文が一致した。
+
+verify、基準DBから28本のmigrationによる完全構造再現、対象実SQLと実Edgeは成功。最新headのCIと独立レビューは改めて確認し、完了前に共有適用・mergeしない。
+
+## 直近の追加3指摘（配備前）
+
+他noticeで直近の結果不明応答、または送信中のlease期限切れがあれば、23時間以内でも別の配送キーで同じ宛先を送らない。元noticeの固定payload・同一配送キーによる23時間以内の再試行は維持する。保有クーポンの利用はcampaignの配布停止フラグで拒否せず、保有状態・残回数・保存条件・組織を照合する。
+
+プロバイダー受理をemail_logsへsent/応答IDとして保存してからDB配送ackを行う。ackの一時障害でもqueued/failedへ偽装しない。実Auth/Edgeで受理後ack障害503とsentログ、別actorの直近不明応答による第二キー送信停止を確認。配布停止済み保有couponの実Auth/DB12並行適用・8並行解除で使用回数と請求額を確認。実SQL59項目が合格。新headの全CIと独立レビューは別途確認する。
+
+## 非JSON拒否・同一宛先の重複待機行（配備前）
+
+非2xxは本文形式によらず確定拒否。HTML・空本文・読取り失敗でもprovider rejectedを記録して、結果不明の23時間保留へ誤分類しない。同一公演・同一組織の顧客IDまたは空でない正規化メールで宛先を照合するservice限定の非更新helperを追加した。別待機行・同じnoticeの重複行も別key保留から逃れず、1宛先につき先頭の有効待機行だけleaseする。受理後は同一宛先の待機行をnotifiedとしてまとめ、履歴行を削除しない。
+
+実SQL64項目、実Auth/Edgeの非JSON500→確定失敗→回復、重複2行の1宛先送信・再送なし、別顧客の混合宛先の安全配送を検証。過去データの一括変更・外部送信は行わない。
+
+### 最新レビュー追加3件
+
+最古登録の優先順位と固定配送keyは維持し、初回payloadの宛先は同一受信者の最新有効待機登録を使用する。HTTP非2xxの拒否ackはerrorとtrue戻り値を確認して再試行し、失敗時は503の未確定ackとして返し、結果不明へ書き換えない。同じ貸切予約全体のクーポン利用履歴を併用判定へ含め、単価計算は各メンバーのまま維持する。SQL69件と実Edge障害注入を確認。全DBが継続停止し拒否結果を保存できない場合の復旧判断は未検証。
+
+追加レビュー: 重複再登録の最新希望人数を空席適合とメールpayloadへ使用。最古の受付順位・固定配送keyは維持。1→4名で不足席の通知を抑止し待機を保持、席増加後に4名として1通送る回帰を検証。
+
+追加レビュー: claim時点の待機行ID集合を私有配送行へ記録し、固定payloadの再試行中も保持。配送ackはその集合だけを通知済みにし、送信開始後の4名再登録はwaitingに残す。追加列はuuid配列、外部キーや顧客公開権限を追加しない。
+
+追加レビュー: claim内の集合保存後に新しい登録が入っても、entryの宛先・人数は保存済みID集合からだけ取得。lease更新後の再登録を強制する隔離トリガーで旧1席→新4名誤通知を修正前再現し、同じ窓で修正後は旧1名宛先・新4名waiting保持を検証。
+
+
+## 同一本人の複数顧客IDへの追加是正
+
+4208037656: 同一公演/組織の待機受信者はCID/正規化メールだけでなくcustomers.user_idで照合。隔離実PGで別CID/別メールの本人2行を1entry・最新連絡先にまとめ、両行ack、再実行0を確認（全ROLLBACK）。別user/公演を同一視しない回帰を含む。
+
+4208037687: 同作品一回のcoupon履歴を同一user全CIDへ広げ、privateな本人単位transaction advisory lockを顧客/クーポンロックより先に取得。本人未紐付けはCID単位。通常利用/スタッフrestore/グループ経路/共通validatorを同じ入口に揃え、helper直接実行はanon/authenticated/service_roleとも禁止。実PGで同一user別CIDの2並行利用は1件成功・1件作品重複拒否、使用履歴1/消費1・deadlock0。外部送信停止、架空fixtureを削除。
+
+PR970のフロント是正も同期。platform顧客は申込先に関わらずorgNULLで既存IDを正規化/新規作成、scopedキャンセル待ち所属は維持。MyPage日付編集は実所有CIDで更新し未所有IDに書き込まない。SQL回帰95件成功。曜日判定をDB公演日から、JST終了fixtureを実際の終了日から作るため日跨ぎによるテスト誤判定を防いだ。
+
+
+## 最新レビューの金額・削除ロック回帰
+
+4209029498: use_customer_couponの再定義で20261002160000の請求更新を落としていた候補回帰を訂正。使用履歴で算出された割引を同じTXでfinal_price/discount_amountへ一回反映、再試行は既存usageを返す。金額正本の処理を維持する。
+
+4209029518: staff restoreはグループ→本人identity→顧客→coupon→member→予約→usage順でロックし、通常/グループのusage取消時に請求と回数を復元、貸切のmember coupon_id/discount/final_amountも戻す。再試行はrestored=false、他メンバーusage保持。実PGの架空2メンバーで全ROLLBACK検証。
+
+4209029510: 現行remove/leave RPCのmember DELETEより前にgroup/identity/customer/couponをロックし、確定経路と揃える。廃止delete_guest_memberはUI/API/Edge呼出0をコード棚卸しで確認し、既存anon/authenticated revokeを維持してserviceにも非公開にする。現行RPCの権限は拡張しない。実PGで4組の確定再計算/主催者削除を並行しdeadlock0、各ROLLBACKで金額/回数/メンバーを保持、専用架空fixture削除。
+
+SQL115項目成功。fixtureは本番と同じ使用条件BEFORE INSERT triggerを作成し、通常利用の履歴割引/請求を検証する。終了公演fixtureはJST前日の固定時刻にし日跨ぎの誤判定を防ぐ。フロントPR970最新735dab（本人プロフィール同PATCH保持/全CID最新rating取得・全ID解除）を同期。共有DB/Edge適用0。

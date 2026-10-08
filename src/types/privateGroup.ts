@@ -72,6 +72,9 @@ export interface PrivateGroupMember {
   guest_phone: string | null
   /** 閲覧権限がある本人・幹事・スタッフにのみ返す。 */
   coupon_id?: string | null
+  coupon_discount?: number
+  payment_amount?: number | null
+  final_amount?: number | null
   /** スタッフ認可時のみ顧客名を含む表示名。一般参加者には返さない。 */
   staff_display_name?: string | null
   is_organizer: boolean
@@ -96,6 +99,8 @@ export interface PrivateGroupCandidateDate {
   created_at: string
   /** 候補日のステータス: active=有効, rejected=却下済み */
   status?: 'active' | 'rejected'
+  /** 主催者の取り下げ日時。回答と候補の履歴はDBに残す。 */
+  withdrawn_at?: string | null
   // JOIN時の拡張フィールド
   responses?: PrivateGroupDateResponse[]
 }

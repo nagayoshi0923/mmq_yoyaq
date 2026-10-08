@@ -575,6 +575,7 @@ export function GroupInviteView({
                   <span className="font-medium">¥{perPersonPrice.toLocaleString()}</span>
                 </div>
                 
+                {selectedCouponId && discountAmount === 0 && <p className="text-sm text-muted-foreground">選択中のクーポンは、日程確定後に利用条件を確認して割引を適用します。</p>}
                 {selectedCoupon && (
                   <div className="flex justify-between items-center text-sm text-green-600">
                     <span className="flex items-center gap-1">

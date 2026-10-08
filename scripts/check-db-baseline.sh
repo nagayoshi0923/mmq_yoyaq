@@ -26,6 +26,9 @@ if [ -f supabase/structure/expected-function-overrides.json ]; then
 import json, sys
 base=json.load(open(sys.argv[1])); overrides=json.load(open(sys.argv[2]))
 base['functions'].update(overrides)
+from pathlib import Path
+table_fixture=Path('supabase/structure/expected-table-overrides.json')
+if table_fixture.exists(): base['tables'].update(json.loads(table_fixture.read_text()))
 with open(sys.argv[3], 'w') as out: json.dump(base,out)
 PY_EXPECTED
   EXPECTED_STRUCTURE="$EXPECTED_TEMP"

@@ -16,7 +16,7 @@ const migrationVersions = [...changed].filter(p => /^supabase\/migrations\/\d+_.
 const phase=process.env.MMQ_RELEASE_PHASE || 'complete'
 if(!['complete','prepare-edges'].includes(phase)) throw new Error('Invalid release phase')
 if(phase==='prepare-edges' && process.env.GITHUB_EVENT_NAME!=='workflow_dispatch') throw new Error('prepare-edges requires workflow_dispatch')
-const activationDependencies={'20260927120100':'20260927120000'}
+const activationDependencies={'20260927120100':'20260927120000','20261007110004':'20261007110001'}
 const registeredActivations=process.env.GITHUB_EVENT_NAME==='workflow_dispatch'
  && existsSync('supabase/migrations')
  ? Object.keys(activationDependencies).filter(v=>readdirSync('supabase/migrations').some(file=>file.startsWith(v+'_')&&file.endsWith('.sql')))
@@ -55,6 +55,7 @@ if(phase==='prepare-edges' && deferred.includes('20260927120100')) {
  const approvalFunctions=['process-private-approval-deliveries','reconcile-private-delivery','send-private-booking-confirmation','notify-gm-private-booking-confirmed','provision-private-booking-discord','process-private-survey-deliveries','process-private-rejection-deliveries']
  targets=[...new Set([...targets,...approvalFunctions.filter(name=>existsSync(`${root}/${name}/index.ts`))])]
 }
+if(phase==='prepare-edges' && deferred.includes('20261007110004')) targets=[...new Set([...targets,'notify-waitlist','process-waitlist-queue'])]
 if (targets.some(name => !/^[a-z0-9-]+$/.test(name))) throw new Error('不正な関数名')
 writeFileSync(path.join(process.env.RUNNER_TEMP, 'mmq-deploy-functions.txt'), targets.join('\n') + (targets.length ? '\n' : ''))
 console.log(`DB先行適用を確認: ${migrationVersions.length}件。対象関数: ${targets.join(', ') || 'なし'}`)

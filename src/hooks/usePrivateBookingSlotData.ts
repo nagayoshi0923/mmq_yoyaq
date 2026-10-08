@@ -27,6 +27,7 @@ interface UsePrivateBookingSlotDataOptions {
 }
 
 interface UsePrivateBookingSlotDataResult {
+  canRevalidate: boolean
   effectiveStoreIds: string[]
   businessHoursByStore: Map<string, BusinessHoursSettingRow>
   allStoreEvents: any[]
@@ -56,6 +57,11 @@ export function usePrivateBookingSlotData({
   const [eventsLoaded, setEventsLoaded] = useState(false)
   const [eventsLoading, setEventsLoading] = useState(false)
   const [businessHoursLoaded, setBusinessHoursLoaded] = useState(false)
+  const [fallbackFailed, setFallbackFailed] = useState(false)
+  const [blockedFailed, setBlockedFailed] = useState(false)
+  const [eventsFailed, setEventsFailed] = useState(false)
+  const [hoursFailed, setHoursFailed] = useState(false)
+  const [timingFailed, setTimingFailed] = useState(false)
   const [scenarioTimingLoaded, setScenarioTimingLoaded] = useState(false)
   const [blockedSlotsLoaded, setBlockedSlotsLoaded] = useState(false)
 
@@ -64,20 +70,23 @@ export function usePrivateBookingSlotData({
   // Store fallback: when no stores specified, load all active stores for the org
   useEffect(() => {
     if (storeIds.length > 0 || !isActive) {
+      setFallbackFailed(false)
       setFallbackStoreIds([])
       setFallbackLoading(false)
       return
     }
     let cancelled = false
+    setFallbackFailed(false)
     setFallbackLoading(true)
     ;(async () => {
       try {
-        const { data } = await privateBookingSlotReadApi.listActiveStoreIds(organizationId)
+        const { data, error } = await privateBookingSlotReadApi.listActiveStoreIds(organizationId)
+        if (error) throw error
         if (!cancelled && data) {
           setFallbackStoreIds(data.map(s => s.id))
         }
       } catch {
-        if (!cancelled) setFallbackStoreIds([])
+        if (!cancelled) { setFallbackFailed(true); setFallbackStoreIds([]) }
       } finally {
         if (!cancelled) setFallbackLoading(false)
       }
@@ -103,6 +112,7 @@ export function usePrivateBookingSlotData({
     let cancelled = false
 
     const loadEvents = async () => {
+      setEventsFailed(false)
       setEventsLoading(true)
       setEventsLoaded(false)
       try {
@@ -117,6 +127,7 @@ export function usePrivateBookingSlotData({
           setEventsLoaded(true)
         }
       } catch (err) {
+        if (!cancelled) setEventsFailed(true)
         logger.error('Failed to load events', err)
         if (!cancelled) {
           setAllStoreEvents([])
@@ -128,6 +139,7 @@ export function usePrivateBookingSlotData({
     }
 
     const loadBusinessHours = async () => {
+      setHoursFailed(false)
       setBusinessHoursLoaded(false)
       try {
         const { data, error } = await privateBookingSlotReadApi.listBusinessHours(effectiveStoreIds)
@@ -142,6 +154,7 @@ export function usePrivateBookingSlotData({
           setBusinessHoursLoaded(true)
         }
       } catch (err) {
+        if (!cancelled) setHoursFailed(true)
         logger.error('Failed to load business hours', err)
         if (!cancelled) {
           setBusinessHoursByStore(new Map())
@@ -159,6 +172,7 @@ export function usePrivateBookingSlotData({
   useEffect(() => {
     if (!isActive) {
       setBlockedSlots([])
+      setBlockedFailed(false)
       setBlockedSlotsLoaded(false)
       return
     }
@@ -169,6 +183,7 @@ export function usePrivateBookingSlotData({
     }
 
     let cancelled = false
+    setBlockedFailed(false)
     setBlockedSlotsLoaded(false)
     ;(async () => {
       try {
@@ -186,6 +201,7 @@ export function usePrivateBookingSlotData({
           setBlockedSlots((data || []) as PrivateBookingBlockedSlotRow[])
         }
       } catch (err) {
+        if (!cancelled) setBlockedFailed(true)
         logger.error('Failed to load private booking blocked slots', err)
         if (!cancelled) setBlockedSlots([])
       } finally {
@@ -204,6 +220,7 @@ export function usePrivateBookingSlotData({
       return
     }
     let cancelled = false
+    setTimingFailed(false)
     setScenarioTimingLoaded(false)
     ;(async () => {
       try {
@@ -214,6 +231,7 @@ export function usePrivateBookingSlotData({
         })
         if (!cancelled) setScenarioTiming(t)
       } catch (e) {
+        if (!cancelled) setTimingFailed(true)
         logger.error('Failed to load scenario timing', e)
         if (!cancelled) setScenarioTiming(null)
       } finally {
@@ -281,6 +299,7 @@ export function usePrivateBookingSlotData({
     scenarioTiming,
     blockedSlots,
     loading,
+    canRevalidate: !loading && !eventsFailed && !hoursFailed && !timingFailed && !blockedFailed && !fallbackFailed && !!scenarioTiming,
     computeSlotsByDate,
     isCandidateBlockedOnAllStores,
   }

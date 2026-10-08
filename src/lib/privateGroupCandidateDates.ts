@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 
 export interface AddPrivateGroupCandidatesInput {
   groupId: string
@@ -19,5 +20,13 @@ export async function addPrivateGroupCandidates(input: AddPrivateGroupCandidates
   if (error) throw error
   if (!data || data.success !== true || !Array.isArray(data.candidate_ids) || data.candidate_ids.length !== input.candidates.length) {
     throw new Error('候補日の保存結果を確認できません。同じ候補のまま再度保存してください。')
+  }
+}
+
+export async function withdrawPrivateGroupCandidate(groupId: string, candidateId: string): Promise<void> {
+  const { data, error } = await privateGroupRpcApi.withdrawCandidate(groupId, candidateId)
+  if (error) throw error
+  if (!data || data.success !== true || data.candidate_id !== candidateId) {
+    throw new Error('候補日の削除結果を確認できません。画面を更新してください。')
   }
 }

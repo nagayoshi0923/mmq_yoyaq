@@ -65,6 +65,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
 
   const {
     loading: isLoadingEvents,
+    canRevalidate,
     computeSlotsByDate,
     isCandidateBlockedOnAllStores,
   } = usePrivateBookingSlotData({
@@ -86,7 +87,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   // 店舗・営業時間・作品期間の最新取得後に、選択済み候補を再検証する。
   // 同じ店舗でも期間や利用可能な枠が変わったら、古い候補を送信させない。
   useEffect(() => {
-    if (isLoadingEvents) return
+    if (isLoadingEvents || !canRevalidate) return
 
     setSelectedTimeSlots(prev => {
       if (prev.length === 0) return prev
@@ -103,17 +104,17 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
       }
       return JSON.stringify(filtered) === JSON.stringify(prev) ? prev : filtered
     })
-  }, [isLoadingEvents, computeSlotsByDate])
+  }, [isLoadingEvents, canRevalidate, computeSlotsByDate])
 
   const checkTimeSlotAvailability = useCallback(async (date: string, slot: TimeSlot, _storeIds?: string[]): Promise<boolean> => {
-    if (isLoadingEvents) return false
+    if (isLoadingEvents || !canRevalidate) return false
     const result = computeSlotsByDate([date])
     const slots = result[date] || []
     return (
       slots.some(s => s.label === slot.label) &&
       !isCandidateBlockedOnAllStores(date, slot.label, _storeIds)
     )
-  }, [isLoadingEvents, computeSlotsByDate, isCandidateBlockedOnAllStores])
+  }, [isLoadingEvents, canRevalidate, computeSlotsByDate, isCandidateBlockedOnAllStores])
 
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
@@ -193,6 +194,7 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     availableStores,
     isNextMonthDisabled,
     isLoadingEvents,
+    isAvailabilityReady: canRevalidate,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,

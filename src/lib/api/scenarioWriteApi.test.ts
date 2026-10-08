@@ -2,10 +2,11 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 const m = vi.hoisted(() => {
   const calls: Array<[string, unknown[]]> = []
+  const state={error:null as Error|null}
   const make = () => {
     const q: Record<string, unknown> = {}
     for (const name of ['eq', 'in', 'or', 'select', 'single']) q[name] = (...a: unknown[]) => { calls.push([name, a]); return q }
-    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve)
+    q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: state.error }).then(resolve)
     return q
   }
   const from = vi.fn((table: string) => {
@@ -17,15 +18,16 @@ const m = vi.hoisted(() => {
       delete: () => { calls.push(['delete', []]); return make() },
     }
   })
-  return { calls, from }
+  const rpc=vi.fn(async(name:string,args:unknown)=>{calls.push(['rpc',[name,args]]);return {data:null,error:state.error}})
+  return { calls, from, state, rpc }
 })
-vi.mock('@/lib/supabase', () => ({ supabase: { from: m.from } }))
+vi.mock('@/lib/supabase', () => ({ supabase: { from: m.from, rpc:m.rpc } }))
 import {
   scenarioMasterWriteApi, scenarioCharacterApi, scenarioMasterCorrectionApi, organizationScenarioWriteApi,
   scenarioLikeApi, scenarioRatingApi, orgMasterListApi,
 } from './scenarioWriteApi'
 
-beforeEach(() => { m.calls.length = 0 })
+beforeEach(() => { m.calls.length = 0; m.state.error=null })
 
 it('マスタ: 作成は1件返し、更新は id か id の一覧で絞る', async () => {
   await scenarioMasterWriteApi.createReturning({ title: 'A' })
@@ -73,13 +75,13 @@ it('お気に入りと評価: 外すときの絞り込み（or 条件の文字�
   await scenarioLikeApi.add({ customer_id: 'c1' })
   await scenarioLikeApi.removeById('l1')
   await scenarioRatingApi.remove('c1', 'sc1')
-  await scenarioRatingApi.upsert({ customer_id: 'c1', rating: 5 })
+  await scenarioRatingApi.upsert({ customer_id: 'c1', scenario_master_id:'sc1', rating: 5 })
   expect(m.calls).toEqual([
     ['from', ['scenario_likes']], ['delete', []], ['eq', ['customer_id', 'c1']], ['or', ['scenario_master_id.eq.sc1,scenario_id.eq.sc1']],
     ['from', ['scenario_likes']], ['insert', [{ customer_id: 'c1' }]],
     ['from', ['scenario_likes']], ['delete', []], ['eq', ['id', 'l1']],
-    ['from', ['scenario_ratings']], ['delete', []], ['eq', ['customer_id', 'c1']], ['eq', ['scenario_master_id', 'sc1']],
-    ['from', ['scenario_ratings']], ['upsert', [{ customer_id: 'c1', rating: 5 }, { onConflict: 'customer_id,scenario_master_id' }]],
+    ['rpc',['customer_rating_action',{p_customer_id:'c1',p_action:'clear_scenario',p_scenario_master_id:'sc1'}]],
+    ['rpc',['customer_rating_action',{p_customer_id:'c1',p_action:'upsert',p_scenario_master_id:'sc1',p_rating:5}]],
   ])
 })
 
@@ -92,4 +94,11 @@ it('作者・カテゴリの一覧管理は、渡した表に対して追加・�
     ['from', ['organization_categories']], ['update', [{ sort_order: 2 }]], ['eq', ['id', 'i1']],
     ['from', ['organization_authors']], ['delete', []], ['eq', ['id', 'i2']],
   ])
+})
+
+it('評価解除は全本人IDの指定作品だけを削除し失敗を伝播する',async()=>{
+ await scenarioRatingApi.removeForCustomers(['global','legacy','legacy'],'S')
+ expect(m.calls).toContainEqual(['rpc',['customer_rating_action',{p_customer_id:'global',p_action:'clear_scenario',p_scenario_master_id:'S'}]])
+ m.state.error=Error('policy denied')
+ await expect(scenarioRatingApi.removeForCustomers(['global','legacy'],'S')).rejects.toThrow('policy denied')
 })
