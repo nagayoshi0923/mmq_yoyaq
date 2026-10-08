@@ -9,7 +9,8 @@
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import type { Reservation } from '@/types'
-import type { PrivateGroupSummary } from './privateGroupSummary'
+import type { PrivateGroupMemberRow, PrivateGroupSummary } from './privateGroupSummary'
+import { privateBookingPhase, type PrivateBookingPhase } from './privateBookingMenu'
 
 type ScheduleEventMap = Record<string, { date: string; start_time: string; category?: string; is_private_booking?: boolean | null }>
 
@@ -84,6 +85,23 @@ export interface PrivateBookingItem {
   secondary: { label: string; href: string }
   /** 並べ替え用: 公演日（確定・終了）または作成日時 */
   sortKey: string
+  /** 「操作」メニュー用 */
+  menu: PrivateBookingMenuSource
+}
+
+/** カードの「操作」メニューに渡す材料 */
+export interface PrivateBookingMenuSource {
+  inviteCode: string | null
+  organizationId: string | null
+  reservationNumber: string | null
+  phase: PrivateBookingPhase
+  memberCount: number
+  candidateDates: number
+  confirmedDate: string | null
+  hasSurvey: boolean
+  hasUnansweredDates: boolean
+  myMemberId: string | null
+  members: PrivateGroupMemberRow[]
 }
 
 const ACTIVE_PENDING_STATUSES = ['pending', 'pending_gm', 'gm_confirmed', 'pending_store']
@@ -212,14 +230,14 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
 
 function fromGroup(
   group: PrivateGroupSummary,
-  options: { todayYmd: string; surveyPending: boolean; fallbackImage: string | null },
+  options: { todayYmd: string; surveyPending: boolean; fallbackImage: string | null; linked: Reservation | undefined },
 ): PrivateBookingItem {
   const { action, progress } = decideGroupAction(group, options)
   const base = `/group/invite/${group.invite_code}`
   return {
     key: `group:${group.id}`,
     groupId: group.id,
-    reservationId: group.reservation_id ?? null,
+    reservationId: group.reservation_id ?? (options.linked && options.linked.status !== 'cancelled' ? options.linked.id : null),
     title: group.scenario_title || 'シナリオ未設定',
     imageUrl: group.scenario_image || options.fallbackImage,
     isOrganizer: group.is_organizer,
@@ -233,6 +251,19 @@ function fromGroup(
     primary: primaryOf(action, base),
     secondary: { label: 'グループを開く', href: base },
     sortKey: group.schedule?.date ?? group.created_at,
+    menu: {
+      inviteCode: group.invite_code,
+      organizationId: group.organization_id,
+      reservationNumber: options.linked && options.linked.status !== 'cancelled' ? options.linked.reservation_number ?? null : null,
+      phase: privateBookingPhase(group.status, options.linked?.status),
+      memberCount: group.member_count,
+      candidateDates: group.candidate_dates_count,
+      confirmedDate: group.schedule?.date ?? null,
+      hasSurvey: group.survey_enabled,
+      hasUnansweredDates: group.my_unanswered_count > 0,
+      myMemberId: group.my_member_id,
+      members: group.members,
+    },
   }
 }
 
@@ -280,6 +311,19 @@ function fromReservation(
     primary: null,
     secondary: { label: '予約詳細を見る', href },
     sortKey: CONFIRMED_STATUSES.includes(reservation.status) ? schedule.date : reservation.created_at,
+    menu: {
+      inviteCode: null,
+      organizationId: reservation.organization_id ?? null,
+      reservationNumber: reservation.reservation_number ?? null,
+      phase: privateBookingPhase(null, reservation.status),
+      memberCount: 1,
+      candidateDates: candidateCountOf(reservation),
+      confirmedDate: CONFIRMED_STATUSES.includes(reservation.status) ? schedule.date : null,
+      hasSurvey: false,
+      hasUnansweredDates: false,
+      myMemberId: null,
+      members: [],
+    },
   }
 }
 
@@ -311,7 +355,7 @@ export function buildPrivateBookingView(input: PrivateBookingBuildInput): Privat
     if (linked) linkedReservationIds.add(linked.id)
     // グループ側に作品画像が無い旧データは予約の作品画像で補う
     const fallbackImage = linked?.scenario_master_id ? scenarioImages[linked.scenario_master_id] ?? null : null
-    items.push(fromGroup(group, { todayYmd, surveyPending: surveyPending[group.id] === true, fallbackImage }))
+    items.push(fromGroup(group, { todayYmd, surveyPending: surveyPending[group.id] === true, fallbackImage, linked }))
   }
   for (const reservation of privateReservations) {
     if (linkedReservationIds.has(reservation.id)) continue

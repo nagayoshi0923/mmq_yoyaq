@@ -83,7 +83,7 @@ function ProgressSteps({ item }: { item: PrivateBookingItem }) {
 
 interface PrivateBookingCardProps {
   item: PrivateBookingItem
-  /** カード右上の「操作」ボタンの置き場所（中身のメニューは段階 2。今は渡さない） */
+  /** カード右上の「操作」ボタン（PrivateBookingCardActions） */
   actions?: ReactNode
 }
 
