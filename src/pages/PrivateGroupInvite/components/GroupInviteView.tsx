@@ -1,3 +1,4 @@
+import { WithdrawCandidateButton } from './WithdrawCandidateButton'
 import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
 // 貸切グループ 非チャット表示（招待/参加フロー・進捗ステップ/タブ/参加費/PIN認証/ゲスト情報 等）
@@ -322,6 +323,9 @@ export function GroupInviteView({
                               <span className={isRejected ? 'line-through' : ''}>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
                             </div>
                           </div>
+                          {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                            <WithdrawCandidateButton groupId={group.id} candidate={cd} onWithdrawn={() => refetch()} />
+                          )}
                           {/* 回答状況サマリー（却下された場合は非表示） */}
                           {!isRejected && (
                             <div className="text-right shrink-0">
