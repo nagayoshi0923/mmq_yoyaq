@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-08T03:21:29.994Z",
+  "captured_at": "2026-10-08T06:52:19.900Z",
   "table_count": 146,
   "function_count": 365,
-  "digest": "15281b0f830de48442a2dcb22823505d1dce41892f7acab0bda4db5e3549ad84"
+  "digest": "d3a57b5418667eaac92fe7cc55c9bad4bb903d3248893a40292bdd80bfa021ab"
  },
  "tables": {
   "staff": {
@@ -25793,7 +25793,7 @@
     "service_role=X/postgres"
    ],
    "returns": "void",
-   "body_md5": "634c7eae96bbf1d54e469feb0dd877ff",
+   "body_md5": "2936799063818cd480f90eb904ed40d3",
    "language": "plpgsql",
    "security_definer": true
   },
