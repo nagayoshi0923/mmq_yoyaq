@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-08T02:39:56.025Z",
+  "captured_at": "2026-10-08T03:21:29.994Z",
   "table_count": 146,
-  "function_count": 364,
-  "digest": "b5b7b6d957980d0118d39dbffcff9a63579b9b1f2d2ecb2f05bdf3a1ca5aa032"
+  "function_count": 365,
+  "digest": "15281b0f830de48442a2dcb22823505d1dce41892f7acab0bda4db5e3549ad84"
  },
  "tables": {
   "staff": {
@@ -18649,7 +18649,12 @@
      "permissive": true
     }
    ],
-   "triggers": [],
+   "triggers": [
+    {
+     "def": "CREATE TRIGGER redirect_legacy_waitlist_retry BEFORE INSERT ON public.waitlist_notification_queue FOR EACH ROW EXECUTE FUNCTION redirect_legacy_waitlist_retry()",
+     "name": "redirect_legacy_waitlist_retry"
+    }
+   ],
    "constraints": [
     {
      "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
@@ -24519,6 +24524,15 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "redirect_legacy_waitlist_retry()": {
+   "acl": [
+    "postgres=X/postgres"
+   ],
+   "returns": "trigger",
+   "body_md5": "4cf2334f00e675930a6b7b6d7618aa2d",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "normalize_kit_transfer_identity()": {
    "acl": [
     "postgres=X/postgres"
@@ -25797,8 +25811,7 @@
   },
   "notify_all_waitlist_entries(p_schedule_event_id uuid)": {
    "acl": [
-    "postgres=X/postgres",
-    "service_role=X/postgres"
+    "postgres=X/postgres"
    ],
    "returns": "TABLE(id uuid, customer_name text, customer_email text, participant_count integer, status text, created_at timestamp with time zone)",
    "body_md5": "884bef2972a57f37fa60283c4533821b",
@@ -26349,7 +26362,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "e9f8ddf6fc57343a140a28fbfcea9171",
+   "body_md5": "50773f8ff34eda91c3820d0b46dd1df6",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -27041,7 +27054,7 @@
     "postgres=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "47078ef1160018bc42fc035d2f8e1d68",
+   "body_md5": "185940c1298156d0c772656c0bd5897c",
    "language": "plpgsql",
    "security_definer": true
   },

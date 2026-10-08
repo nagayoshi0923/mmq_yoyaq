@@ -14,6 +14,7 @@ INSERT INTO private_group_candidate_dates VALUES ('${id(3)}','${id(1)}','2026-12
 INSERT INTO private_group_date_responses VALUES ('${id(5)}','${id(1)}','${id(6)}','${id(3)}','ok');`)
 const migration=fs.readdirSync('supabase/migrations').find(n=>n.endsWith('_private_group_candidate_withdrawal.sql'))
 await db.exec(fs.readFileSync(`supabase/migrations/${migration}`,'utf8'))
+await db.exec(fs.readFileSync('supabase/migrations/20261008040000_customer_review_rating_and_candidate_history.sql','utf8'))
 const actor = async n => db.query("SELECT set_config('test.actor',$1,false)",[n ? id(n) : ''])
 const call = async (group=1,candidate=3) => (await db.query('SELECT private_group_withdraw_candidate($1,$2) AS result',[id(group),id(candidate)])).rows[0].result
 const denied = async (fn,code) => {await assert.rejects(fn,e=>e.code===code)}
@@ -30,6 +31,9 @@ await denied(()=>call(),'22023')
 await db.query("UPDATE reservations SET organization_id=$1,status='cancelled' WHERE id=$2",[id(20),id(7)])
 await denied(()=>call(),'22023') // cross-tenant reservation fails closed
 await db.query('UPDATE reservations SET organization_id=$1 WHERE id=$2',[id(10),id(7)])
+await db.query("UPDATE private_group_candidate_dates SET status='rejected' WHERE id=$1",[id(3)])
+await denied(()=>call(),'22023');assert.equal((await db.query('SELECT withdrawn_at FROM private_group_candidate_dates WHERE id=$1',[id(3)])).rows[0].withdrawn_at,null)
+await db.query("UPDATE private_group_candidate_dates SET status='active' WHERE id=$1",[id(3)])
 assert.equal((await call()).success,true)
 assert.equal((await call()).replayed,true)
 const row=(await db.query('SELECT * FROM private_group_candidate_dates WHERE id=$1',[id(3)])).rows[0]

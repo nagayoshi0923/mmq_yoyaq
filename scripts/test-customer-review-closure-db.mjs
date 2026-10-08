@@ -364,6 +364,10 @@ await q("SELECT customer_rating_action($1,'upsert',$2,5)",[customer,master])
 assert.equal((await q("SELECT customer_rating_action($1,'snapshot') AS data",[customer]))[0].data[0].rating,5);checks++
 await q("SELECT customer_rating_action($1,'upsert',$2,3)",[id(23),master])
 await q("SELECT customer_rating_action($1,'upsert',$2,4)",[customer,id(112)])
+await q("UPDATE scenario_ratings SET updated_at=now()+interval '1 minute' WHERE customer_id=$1 AND scenario_master_id=$2",[id(23),master])
+const fullRatings=(await q("SELECT customer_rating_action($1,'snapshot') AS data",[customer]))[0].data
+assert.equal(fullRatings.length,2);assert.equal(fullRatings.find(r=>r.scenario_master_id===master).rating,3);checks++
+assert.deepEqual((await q("SELECT customer_rating_action($1,'snapshot') AS data",[id(23)]))[0].data,fullRatings);checks++
 await rejects("SELECT customer_rating_action($1,'upsert',$2,6)",[customer,master],'22023')
 await rejects("SELECT customer_rating_action($1,'snapshot')",[id(24)],'42501')
 await q("SELECT customer_rating_action($1,'clear_scenario',$2)",[customer,master])

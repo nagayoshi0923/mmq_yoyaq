@@ -7,8 +7,13 @@ BEGIN
   RAISE EXCEPTION '本人の評価のみ操作できます' USING ERRCODE='42501';
  END IF;
  IF p_action='snapshot' THEN
-  SELECT coalesce(jsonb_agg(jsonb_build_object('scenario_master_id',r.scenario_master_id,'rating',r.rating,'updated_at',r.updated_at) ORDER BY r.updated_at DESC),'[]'::jsonb)
-  INTO result FROM public.scenario_ratings r WHERE r.customer_id=p_customer_id;
+  SELECT coalesce(jsonb_agg(jsonb_build_object('scenario_master_id',r.scenario_master_id,'rating',r.rating,'updated_at',r.updated_at) ORDER BY r.updated_at DESC NULLS LAST,r.scenario_master_id),'[]'::jsonb)
+  INTO result FROM (
+   SELECT DISTINCT ON (ratings.scenario_master_id) ratings.*
+   FROM public.scenario_ratings ratings JOIN public.customers c ON c.id=ratings.customer_id
+   WHERE c.user_id=actor
+   ORDER BY ratings.scenario_master_id,ratings.updated_at DESC NULLS LAST,ratings.customer_id
+  ) r;
   RETURN result;
  ELSIF p_action='upsert' THEN
   IF p_scenario_master_id IS NULL OR p_rating IS NULL OR p_rating<1 OR p_rating>5 THEN
