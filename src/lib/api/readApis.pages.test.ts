@@ -889,6 +889,12 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateBookingMgmtReadApi.listActiveStaffByIds (最後の引数なし)": [
         "from("staff") .select("id") .eq("organization_id", "a1") .eq("status", "active") .in("id", undefined)",
       ],
+      "privateBookingMgmtReadApi.listApplicantChanges": [
+        "from("private_group_handover_requests") .select("id, reservation_id, responded_at, previous_customer, accepted_contact…) .filter("organization_id", "eq", "a1") .in("reservation_id", "a2") .eq("status", "accepted") .order("responded_at", {"ascending":true})",
+      ],
+      "privateBookingMgmtReadApi.listApplicantChanges (最後の引数なし)": [
+        "from("private_group_handover_requests") .select("id, reservation_id, responded_at, previous_customer, accepted_contact…) .filter("organization_id", "eq", "a1") .in("reservation_id", undefined) .eq("status", "accepted") .order("responded_at", {"ascending":true})",
+      ],
       "privateBookingMgmtReadApi.listAssignedScenarioIds": [
         "from("staff_scenario_assignments") .select("scenario_master_id") .eq("staff_id", "a1")",
       ],

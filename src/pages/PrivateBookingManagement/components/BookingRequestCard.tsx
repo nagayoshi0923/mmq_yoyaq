@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { isPrivateRequestWithdrawnByCustomer } from '@/lib/constants/reservationStatus'
 import type { GmScenarioMode } from '@/lib/gmScenarioMode'
 import { gmRoleLabel } from '../utils/gmRoleLabel'
+import type { ApplicantChange } from '../hooks/useApplicantChanges'
 
 interface Candidate {
   gm_response_index?: number | null
@@ -92,6 +93,8 @@ interface GMStaff {
 interface BookingRequestCardProps {
   request: BookingRequest
   approvalDeliveries?: ApprovalDeliveryStatus[]
+  /** 申込者の変更履歴（主催者の引き継ぎで申込者が変わったとき） */
+  applicantChanges?: ApplicantChange[]
   approvalDeliveryError?: boolean
   rejectionDelivery?: RejectionDeliveryStatus
   rejectionDeliveryError?: boolean
@@ -121,6 +124,7 @@ interface BookingRequestCardProps {
 export const BookingRequestCard = ({
   request,
   approvalDeliveries,
+  applicantChanges,
   approvalDeliveryError,
   rejectionDelivery,
   rejectionDeliveryError,
@@ -250,6 +254,20 @@ export const BookingRequestCard = ({
             </button>
           )}
         </div>
+
+        {/* ── 申込者の変更履歴（主催者の引き継ぎ） ── */}
+        {applicantChanges && applicantChanges.length > 0 && (
+          <div className="mt-1.5 text-xs" data-testid="applicant-change-history">
+            <p className="font-medium text-purple-800">申込者の変更履歴</p>
+            <ul className="text-muted-foreground">
+              {applicantChanges.map(change => (
+                <li key={change.id}>
+                  {formatDateTime(change.responded_at)} {change.from_name} → {change.to_name}（主催者の引き継ぎ）
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ── 希望店舗 ── */}
         {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (() => {

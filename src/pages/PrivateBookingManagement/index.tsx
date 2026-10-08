@@ -21,6 +21,7 @@ import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNot
 
 // 分離されたコンポーネント
 import { useApprovalDeliveryStatus } from './hooks/useApprovalDeliveryStatus'
+import { useApplicantChanges } from './hooks/useApplicantChanges'
 import { useRejectionDeliveryStatus } from './hooks/useRejectionDeliveryStatus'
 import { isPrivateRequestWithdrawnByCustomer } from '@/lib/constants/reservationStatus'
 import { BookingRequestCard } from './components/BookingRequestCard'
@@ -512,6 +513,8 @@ export function PrivateBookingManagement() {
           ? approvedRequests
           : visibleRequests
   const filteredRequests = applyLimit(baseRequests)
+  // 申込者の変更履歴（主催者の引き継ぎ、段階 3）
+  const applicantChanges = useApplicantChanges(organizationId, filteredRequests.map(r => r.id))
   const approvalDeliveries = useApprovalDeliveryStatus(organizationId, filteredRequests.filter(r => ['confirmed','gm_confirmed','checked_in','completed'].includes(r.status)).map(r => r.id))
   const rejectionDeliveries = useRejectionDeliveryStatus(organizationId, filteredRequests.filter(r => r.status === 'cancelled' && !isPrivateRequestWithdrawnByCustomer(r)).map(r => r.id))
 
@@ -644,6 +647,7 @@ export function PrivateBookingManagement() {
                     key={req.id}
                     request={req}
                     approvalDeliveries={approvalDeliveries.data?.find(row => row.reservation_id === req.id)?.deliveries}
+                    applicantChanges={applicantChanges.data?.[req.id]}
                     approvalDeliveryError={['confirmed','gm_confirmed','checked_in','completed'].includes(req.status) && approvalDeliveries.isError}
                     rejectionDelivery={rejectionDeliveries.data?.find(row => row.reservation_id === req.id)}
                     rejectionDeliveryError={rejectionDeliveries.isError}
