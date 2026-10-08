@@ -6,7 +6,7 @@ import type { PrivateGroupMessage } from '@/types'
 
 export interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'member_removed' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected' | 'organizer_handover'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -27,6 +27,10 @@ export interface SystemMessage {
   target_member_id?: string
   target_member_name?: string
   target_user_id?: string
+  /** 主催者の引き継ぎ（段階 3）の依頼 id。宛先本人への個別お知らせに「確認する」を出す */
+  handover_request_id?: string
+  /** organizer_handover の結果（accepted / declined / cancelled / expired） */
+  result?: string
   // 配役結果用
   assignments?: Record<string, string>
 }
@@ -91,4 +95,14 @@ export function parseSystemMessage(message: string | Record<string, unknown> | n
     // 通常のテキストメッセージ
   }
   return null
+}
+
+/** 主催者の引き継ぎ依頼のうち、結果（成立・お断り・取り消し・期限切れ）の記録がチャットにあるものの id */
+export function closedHandoverRequestIds(messages: PrivateGroupMessage[]): Set<string> {
+  const ids = new Set<string>()
+  for (const msg of messages) {
+    const system = parseSystemMessage(msg.message)
+    if (system?.action === 'organizer_handover' && system.handover_request_id) ids.add(system.handover_request_id)
+  }
+  return ids
 }

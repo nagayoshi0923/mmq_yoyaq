@@ -45,7 +45,7 @@ export function CancellationPolicyLink({
   )
 }
 
-interface PolicyTypeSectionProps {
+export interface PolicyTypeSectionProps {
   title: string
   items: PublicPolicyItem[]
   note: string | null
@@ -58,7 +58,8 @@ function formatPolicyDeadline(hours: number): string {
   return hours === 0 ? '開演時刻まで' : `公演開始の${formatPolicyHours(hours)}まで`
 }
 
-function PolicyTypeSection({
+/** 公演種別 1 つ分の規定（期限・料金表）。予約に固定された規定（主催者の引き継ぎの確認画面）でも使う */
+export function PolicyTypeSection({
   title,
   items,
   note,
