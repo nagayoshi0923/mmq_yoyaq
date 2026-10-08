@@ -198,8 +198,16 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const storeNameById: Record<string, string> = {}
       storesData.forEach(s => { storeNameById[s.id] = s.name })
 
+      const candidateCountByGroup: Record<string, number> = {}
+      ;(candidateDatesResult.data || []).forEach((row: { group_id: string }) => { if (row.group_id) candidateCountByGroup[row.group_id] = (candidateCountByGroup[row.group_id] || 0) + 1 })
+
       const formatConfirmedScheduleLine = (groupStatus: string, groupId: string): string | null => {
         if (!['confirmed', 'booking_requested'].includes(groupStatus)) return null
+        if (groupStatus === 'booking_requested') {
+          // 申込中は日時が未確定。先頭候補を「申込内容」として出すと確定日時に見えるため、候補数だけ出す
+          const n = candidateCountByGroup[groupId] || 0
+          return n > 0 ? `候補日 ${n}件で申込中（店舗の確認待ち）` : '申込中（店舗の確認待ち）'
+        }
         const s = groupScheduleByGroupId[groupId]
         if (!s?.requested_datetime) return null
         const raw = s.requested_datetime
@@ -210,13 +218,10 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         const timeStr = hm ? `${hm[1]}〜` : ''
         const store = s.store_name || (s.store_id ? storeNameById[s.store_id] : '')
         const line = [dateStr, timeStr, store].filter(Boolean).join(' ')
-        if (groupStatus === 'booking_requested') return line ? `申込内容: ${line}` : null
         return line || null
       }
 
       const membersDetailRows = (membersDetailResult.data || []) as Array<{ group_id: string; guest_name: string | null; user_id: string | null; is_organizer: boolean; status: string; joined_at: string | null }>
-      const candidateCountByGroup: Record<string, number> = {}
-      ;(candidateDatesResult.data || []).forEach((row: { group_id: string }) => { if (row.group_id) candidateCountByGroup[row.group_id] = (candidateCountByGroup[row.group_id] || 0) + 1 })
 
       const memberCountMap: Record<string, number> = {}
       const membersByGroupId: Record<string, typeof membersDetailRows> = {}

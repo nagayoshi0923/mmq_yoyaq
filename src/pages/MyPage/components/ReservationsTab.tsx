@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Calendar, ChevronRight, Clock, MapPin, Sparkles, Users, XCircle } from 'lucide-react'
 import { getCustomerPrivateBookingStatusLabel } from '@/lib/constants/reservationStatus'
 import { formatJstDateJa } from '@/utils/jstDate'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 import type { Reservation } from '@/types'
 import type { MyPageData } from '../hooks/useMyPageDataQuery'
 
@@ -311,7 +312,7 @@ export function ReservationsTab({
                       
                       // 候補日をフォーマット（最初の3件まで表示）
                       const formatCandidateDate = (date: string, timeSlot: string) => {
-                        return `${formatJstDateJa(date, true)} ${timeSlot}`
+                        return `${formatJstDateJa(date, true)} ${candidateTimeSlotFromDb(timeSlot)}`
                       }
                       const candidates = candidateDatetimes?.candidates || []
                       const displayCandidates = candidates.slice(0, 3)
