@@ -341,5 +341,15 @@
     "body_md5": "8a1ba2fea4d90f2f79b3dce5b1ee140b",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "enqueue_private_request_withdrawal(p_reservation_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "a2933a5af38103a5a00ea40b969d3cdb",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }
