@@ -894,6 +894,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
               disabled={!newMessage.trim() || !currentMemberId || sending || sendDisabled}
               size="icon"
               className="bg-purple-600 hover:bg-purple-700"
+              aria-label="送信"
+              title="送信"
             >
               {sending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

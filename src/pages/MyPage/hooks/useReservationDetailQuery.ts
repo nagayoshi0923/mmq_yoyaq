@@ -153,10 +153,12 @@ export function useCurrentSeatsQuery(scheduleEventId: string | undefined, partic
     queryKey: reservationDetailKeys.seats(scheduleEventId ?? ''),
     enabled: enabled && !!scheduleEventId,
     queryFn: async () => {
-      const { data: sumData } = await myPageReservationReadApi.listConfirmedParticipantCounts(scheduleEventId!)
-      const currentParticipants = sumData?.reduce((sum, r) => sum + (r.participant_count || 0), 0) ?? 0
-      const otherParticipants = currentParticipants - participantCount
-      return maxParticipants - otherParticipants
+      const { data: seat } = await myPageReservationReadApi.findPublicEventSeatCounts(scheduleEventId!)
+      const currentParticipants = seat?.current_participants ?? 0
+      const effectiveMax = seat?.max_participants ?? maxParticipants
+      // 自分の予約分を除いた「他の方の人数」を引く＝自分が選び直せる上限
+      const otherParticipants = Math.max(0, currentParticipants - participantCount)
+      return Math.max(0, effectiveMax - otherParticipants)
     },
   })
 }
@@ -230,6 +232,22 @@ export function useUpdateParticipantCountMutation(reservationId: string, schedul
     },
     onError: (error) => {
       logger.error('人数変更エラー:', error)
+    },
+  })
+}
+
+/** 申込中の貸切リクエスト（公演未確定）をお客様自身が取り下げる。予約とグループをまとめて取消する */
+export function useWithdrawPrivateRequestMutation(reservationId: string, onSuccess: () => void) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => // 本人確認は DB 側が auth.uid() で行うため customer_id は不要
+      reservationApi.cancelWithGroupLock(reservationId, null, 'お客様による貸切申込の取り下げ'),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mypage-data'] }),
+        queryClient.invalidateQueries({ queryKey: reservationDetailKeys.detail(reservationId) }),
+      ])
+      onSuccess()
     },
   })
 }

@@ -401,6 +401,12 @@ describe('マイページ・予約確認・クーポン', () => {
       "myPageReservationReadApi.findPublicEventForNotice (最後の引数なし)": [
         "from("schedule_events_public") .select("date, start_time, end_time, scenario, venue, organization_id") .eq("id", undefined) .single()",
       ],
+      "myPageReservationReadApi.findPublicEventSeatCounts": [
+        "from("schedule_events_public") .select("current_participants, max_participants") .eq("id", "a1") .maybeSingle()",
+      ],
+      "myPageReservationReadApi.findPublicEventSeatCounts (最後の引数なし)": [
+        "from("schedule_events_public") .select("current_participants, max_participants") .eq("id", undefined) .maybeSingle()",
+      ],
       "myPageReservationReadApi.findReservationDetail": [
         "from("reservations") .select("id, reservation_number, title, requested_datetime, participant_count,…) .eq("id", "a1") .maybeSingle()",
       ],
@@ -424,12 +430,6 @@ describe('マイページ・予約確認・クーポン', () => {
       ],
       "myPageReservationReadApi.findStore (最後の引数なし)": [
         "from("stores") .select("id, name, address") .eq("id", undefined) .single()",
-      ],
-      "myPageReservationReadApi.listConfirmedParticipantCounts": [
-        "from("reservations") .select("participant_count") .eq("schedule_event_id", "a1") .eq("status", "confirmed")",
-      ],
-      "myPageReservationReadApi.listConfirmedParticipantCounts (最後の引数なし)": [
-        "from("reservations") .select("participant_count") .eq("schedule_event_id", undefined) .eq("status", "confirmed")",
       ],
       "myPageSettingsReadApi.findOwnCustomerId": [
         "from("customers") .select("id") .eq("user_id", "a1") .order("updated_at", {"ascending":false}) .order("created_at", {"ascending":true}) .order("id", {"ascending":true}) .limit(1) .maybeSingle()",
@@ -1059,11 +1059,11 @@ describe('貸切・デモ・予約サイト・売上・シナリオ・スケジ�
       "privateGroupPageReadApi.findOrganizationContactEmail (最後の引数なし)": [
         "from("organizations") .select("contact_email") .eq("id", undefined) .single()",
       ],
-      "privateGroupPageReadApi.findOwnCustomerPhoneInOrganization": [
-        "from("customers") .select("phone") .eq("user_id", "a1") .eq("organization_id", "a2") .maybeSingle()",
+      "privateGroupPageReadApi.findOwnCustomerPhone": [
+        "from("customers") .select("phone") .eq("user_id", "a1") .order("updated_at", {"ascending":false}) .limit(1) .maybeSingle()",
       ],
-      "privateGroupPageReadApi.findOwnCustomerPhoneInOrganization (最後の引数なし)": [
-        "from("customers") .select("phone") .eq("user_id", "a1") .eq("organization_id", undefined) .maybeSingle()",
+      "privateGroupPageReadApi.findOwnCustomerPhone (最後の引数なし)": [
+        "from("customers") .select("phone") .eq("user_id", undefined) .order("updated_at", {"ascending":false}) .limit(1) .maybeSingle()",
       ],
       "privateGroupPageReadApi.findScenarioAvailableStores": [
         "from("organization_scenarios_with_master") .select("available_stores") .eq("scenario_master_id", "a1") .eq("organization_id", "a2") .limit(1) .maybeSingle()",

@@ -99,12 +99,12 @@ export async function getAllCoupons(): Promise<CustomerCoupon[]> {
  */
 export async function grantRegistrationCoupon(
   customerId: string,
-  _organizationId?: string
+  organizationId?: string
 ): Promise<{ granted: number; skipped: boolean; reason?: string }> {
   try {
     return await apiClient.post<{ granted: number; skipped: boolean; reason?: string }>(
       '/api/coupons?action=grant-registration',
-      { customer_id: customerId }
+      { customer_id: customerId, organization_id: organizationId ?? undefined }
     )
   } catch (err) {
     logger.error('クーポン付与エラー:', err)

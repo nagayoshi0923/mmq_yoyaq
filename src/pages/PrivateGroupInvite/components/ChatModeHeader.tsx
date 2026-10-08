@@ -25,6 +25,8 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
         <button 
           onClick={() => navigate('/mypage')}
           className="p-1.5 hover:bg-gray-100 rounded"
+          aria-label="マイページに戻る"
+          title="マイページに戻る"
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
@@ -61,6 +63,8 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
         <button
           onClick={() => openSheet('invite')}
           className="p-1.5 hover:bg-gray-100 rounded"
+          aria-label="メンバーを招待"
+          title="メンバーを招待"
         >
           <UserPlus className="w-5 h-5 text-gray-600" />
         </button>
@@ -92,6 +96,8 @@ export function ChatModeHeader({ scenario, memberCount, isScheduleConfirmedUi, g
           openSheet('settings')
         }}
         className="p-1.5 hover:bg-gray-100 rounded"
+        aria-label="グループ設定"
+        title="グループ設定"
       >
         <Settings className="w-5 h-5 text-gray-600" />
       </button>

@@ -5,6 +5,7 @@
 import { Button } from '@/components/ui/button'
 import { Check, Circle, UserPlus, Users } from 'lucide-react'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
+import { candidateTimeSlotFromDb } from '@/lib/timeSlot'
 
 type GroupType = NonNullable<ReturnType<typeof usePrivateGroupByInviteCode>['group']>
 type GroupMember = NonNullable<GroupType['members']>[number]
@@ -104,7 +105,7 @@ export function ChatModeSidebar({
               {group.candidate_dates.slice(0, 3).map((cd) => (
                 <div key={cd.id} className="text-xs">
                   <div className="font-medium">{formatDateJaMd(cd.date)}</div>
-                  <div className="text-muted-foreground">{cd.time_slot}</div>
+                  <div className="text-muted-foreground">{candidateTimeSlotFromDb(cd.time_slot)}</div>
                 </div>
               ))}
               {group.candidate_dates.length > 3 && (

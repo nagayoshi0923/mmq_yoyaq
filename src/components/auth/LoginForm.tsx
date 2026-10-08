@@ -4,6 +4,8 @@
  */
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePageMeta } from '@/hooks/usePageMeta'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
@@ -64,6 +66,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [mode, setMode] = useState<AuthMode>(signup ? 'signup' : 'login')
+  usePageMeta({
+    title: mode === 'signup' ? '新規登録 | MMQ' : mode === 'forgot' ? 'パスワード再設定 | MMQ' : 'ログイン | MMQ',
+    noindex: true,
+  })
   const [message, setMessage] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -430,7 +436,9 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 navigate(validateRedirectUrl(rawReturnUrl2), { replace: true })
                 return
               }
-              navigate('/', { replace: true })
+              // /{org}/login から入ったお客様は、その予約サイトのトップへ戻す（MMQ 全体トップへ飛ばさない）
+              const pathSlug = getOrganizationSlugFromPath()
+              navigate(pathSlug ? `/${pathSlug}` : '/', { replace: true })
             }
           } catch (err) {
             logger.error('Redirect error:', err)

@@ -91,12 +91,14 @@ export const privateGroupPageReadApi = {
   },
 
   /** 本人の顧客行の電話番号（組織を指定） */
-  async findOwnCustomerPhoneInOrganization(userId: string, organizationId: string) {
+  /** 自分の顧客行の電話番号（お客様の行は organization_id が NULL なので user_id だけで引く。複数あれば最新） */
+  async findOwnCustomerPhone(userId: string) {
     return supabase
       .from('customers')
       .select('phone')
       .eq('user_id', userId)
-      .eq('organization_id', organizationId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
   },
 
