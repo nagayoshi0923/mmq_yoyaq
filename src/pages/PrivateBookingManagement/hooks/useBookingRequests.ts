@@ -75,6 +75,7 @@ interface BookingRequestRow {
   participant_count: number | null
   confirmed_at: string | null
   cancelled_at: string | null
+  cancellation_reason?: string | null
   created_at: string
   updated_at: string
   scenario_masters: { title: string | null; official_duration: number | null } | null
@@ -293,6 +294,7 @@ async function fetchRawBookingRequests(
       approved_at: req.confirmed_at ?? (req.status === 'confirmed' ? req.updated_at : undefined),
       canceller_name: req.canceller?.name,
       cancelled_at: req.cancelled_at ?? undefined,
+      cancellation_reason: req.cancellation_reason ?? undefined,
       gm_responses: transformedGMResponses,
       gm_role_by_staff: scenarioMasterId ? (gmRoleByScenario.get(scenarioMasterId) ?? {}) : {},
       created_at: req.created_at,

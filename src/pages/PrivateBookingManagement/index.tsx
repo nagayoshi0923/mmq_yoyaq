@@ -22,6 +22,7 @@ import { resendPrivateBookingDiscordNotification, resendPrivateBookingDiscordNot
 // 分離されたコンポーネント
 import { useApprovalDeliveryStatus } from './hooks/useApprovalDeliveryStatus'
 import { useRejectionDeliveryStatus } from './hooks/useRejectionDeliveryStatus'
+import { isPrivateRequestWithdrawnByCustomer } from '@/lib/constants/reservationStatus'
 import { BookingRequestCard } from './components/BookingRequestCard'
 import { RequestFilterToolbar } from './components/RequestFilterToolbar'
 import { RejectRequestDialog } from './components/RejectRequestDialog'
@@ -512,7 +513,7 @@ export function PrivateBookingManagement() {
           : visibleRequests
   const filteredRequests = applyLimit(baseRequests)
   const approvalDeliveries = useApprovalDeliveryStatus(organizationId, filteredRequests.filter(r => ['confirmed','gm_confirmed','checked_in','completed'].includes(r.status)).map(r => r.id))
-  const rejectionDeliveries = useRejectionDeliveryStatus(organizationId, filteredRequests.filter(r => r.status === 'cancelled').map(r => r.id))
+  const rejectionDeliveries = useRejectionDeliveryStatus(organizationId, filteredRequests.filter(r => r.status === 'cancelled' && !isPrivateRequestWithdrawnByCustomer(r)).map(r => r.id))
 
   if (loading || requestsError) {
     return (
