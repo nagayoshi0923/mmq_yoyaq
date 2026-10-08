@@ -6,7 +6,7 @@
  * - キャンセル: reservationApi.cancel（予約詳細の「キャンセル」と同じ。キャンセル規定で不可なら無効にして理由を出す）
  * - グループから抜ける: private_group_leave
  */
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -68,6 +68,7 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
   const [inquiryOpen, setInquiryOpen] = useState(false)
   const [membersOpen, setMembersOpen] = useState(false)
   const [policyWanted, setPolicyWanted] = useState(false)
+  const preparePolicy = useCallback(() => setPolicyWanted(true), [])
 
   // 確定後のキャンセルは予約詳細と同じキャンセル規定で可否を決める（必要になってから読む）
   const needsPolicy = policyWanted && target.isOrganizer && target.phase === 'confirmed' && Boolean(target.reservationId)
@@ -188,13 +189,14 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
   )
 
   return {
+    target,
     /** 赤い操作の確認ダイアログを開く */
     requestDanger: (action: PrivateBookingDangerAction) => setPending(action),
     openInquiry: () => setInquiryOpen(true),
     openMembers: () => setMembersOpen(true),
     copyInvite,
     /** キャンセル規定を読み始める（メニューを開いたとき・申込内容の箱を出したとき） */
-    preparePolicy: () => setPolicyWanted(true),
+    preparePolicy,
     cancelAvailability,
     dialogs,
   }

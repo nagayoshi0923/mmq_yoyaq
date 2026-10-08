@@ -79,7 +79,6 @@ interface GroupInviteViewProps {
   scenarioMax: number | null
   confirmedByName: ReturnType<typeof usePrivateGroupByInviteCode>['confirmedByName']
   actionLoading: boolean
-  cancelling: boolean
   copied: boolean
   error: string | null
   activeTab: string
@@ -112,7 +111,7 @@ interface GroupInviteViewProps {
   openSheet: (name: string) => void
   closeSheet: () => void
   clearGuestSession: () => void
-  handleCancelGroup: () => Promise<void>
+  handleCancelGroup: () => void
   handlePinAuth: () => Promise<void>
   handleCopyUrl: () => Promise<void>
   handleRemoveMember: (memberId: string) => Promise<void>
@@ -125,7 +124,7 @@ export function GroupInviteView({
   group, scenario, joinedMembers, organizerMember, organizerName, memberCount, inviteMemberCap, isGroupFull,
   user, code, existingMemberId, responses, isOrganizer, isChatMode, isScheduleConfirmedUi, allMembersResponded,
   canMutateScheduleBeforeStoreReply, bookingProgressReady, hasCharacters, needsCharAssignmentChoice, charAssignmentMethod,
-  scenarioCharacters, scenarioMax, confirmedByName, actionLoading, cancelling, copied, error, activeTab, showPinAuth,
+  scenarioCharacters, scenarioMax, confirmedByName, actionLoading, copied, error, activeTab, showPinAuth,
   guestName, guestEmail, pinEmail, pinCode, pinError, couponLoading, coupons, selectedCoupon, selectedCouponId,
   perPersonPrice, discountAmount, finalAmount,
   setActiveTab, setExistingMemberId, setGuestName, setGuestEmail, setPinEmail, setPinCode, setSelectedCouponId,
@@ -481,7 +480,7 @@ export function GroupInviteView({
                             onClick={() => handleRemoveMember(member.id)}
                             className="text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
                           >
-                            退出させる
+                            外す
                           </Button>
                         )}
                       </div>
@@ -541,22 +540,16 @@ export function GroupInviteView({
                     </Card>
                   )}
 
-                  {/* キャンセルボタン */}
-                  {group.status === 'gathering' && (
+                  {/* グループを閉じる（確認ダイアログで影響を見せる。処理はマイページの「操作」と共通） */}
+                  {canMutateScheduleBeforeStoreReply && (
                     <Card className="border-red-200">
                       <CardContent className="p-4">
                         <Button
                           variant="outline"
                           onClick={handleCancelGroup}
-                          disabled={cancelling}
                           className="w-full text-red-600 border-red-300 hover:bg-red-50"
                         >
-                          {cancelling ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              キャンセル中...
-                            </>
-                          ) : 'グループをキャンセル'}
+                          グループを閉じる
                         </Button>
                       </CardContent>
                     </Card>

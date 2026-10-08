@@ -3,7 +3,7 @@
  * 予約番号・作品名・いまの状態・招待コードを本文の最初に入れた状態で開く。
  * 送信は Edge Function send-contact-inquiry。使えないときはメールアプリを開く（従来のグループ設定シートと同じ）。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,7 @@ interface PrivateGroupInquiryDialogProps {
 export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail, replyName }: PrivateGroupInquiryDialogProps) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // 開くたびに最新の状態で本文を作り直す
   useEffect(() => {
@@ -102,7 +103,15 @@ export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!sending) onOpenChange(next) }}>
-      <DialogContent className="max-w-md">
+      <DialogContent
+        className="max-w-md"
+        onOpenAutoFocus={e => {
+          // 返信先（読み取り専用）ではなく、本文の末尾（「お問い合わせ内容」の下）にカーソルを置く
+          e.preventDefault()
+          const el = textareaRef.current
+          if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length) }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>店舗に問い合わせる</DialogTitle>
           <DialogDescription>予約の情報を入れてあります。「お問い合わせ内容」の下に書いて送ってください。</DialogDescription>
@@ -116,6 +125,7 @@ export function PrivateGroupInquiryDialog({ open, onOpenChange, info, replyEmail
             <Label htmlFor="inquiry-message" className="text-muted-foreground">問い合わせ内容</Label>
             <Textarea
               id="inquiry-message"
+              ref={textareaRef}
               data-testid="inquiry-message"
               value={message}
               onChange={e => setMessage(e.target.value)}

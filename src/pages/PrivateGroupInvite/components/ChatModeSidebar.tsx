@@ -2,6 +2,7 @@
  * 貸切グループのチャット表示の PC 用サイドバー（進捗・希望店舗・候補日程・メンバー・主催者の操作）。
  * 招待画面（index.tsx）から見た目を変えずに切り出したもの。
  */
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Check, Circle, UserPlus, Users } from 'lucide-react'
 import type { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode'
@@ -19,19 +20,19 @@ export interface ChatModeSidebarProps {
   isOrganizer: boolean
   canMutateScheduleBeforeStoreReply: boolean
   preferredStoreNames: Array<{ id: string; name: string }>
-  cancelling: boolean
   formatDateJaMd: (dateStr: string) => string
   openStoreEditSheet: () => void
   onShowAllDates: () => void
   onOpenInvite: () => void
-  handleCancelGroup: () => void
   handleOpenBookingDialog: () => void
+  /** 「申込内容」の箱（返事待ち・確定後のみ中身が出る） */
+  bookingSummary: ReactNode
 }
 
 export function ChatModeSidebar({
   group, joinedMembers, allMembersResponded, isScheduleConfirmedUi, confirmedByName, isOrganizer,
-  canMutateScheduleBeforeStoreReply, preferredStoreNames, cancelling, formatDateJaMd, openStoreEditSheet,
-  onShowAllDates, onOpenInvite, handleCancelGroup, handleOpenBookingDialog,
+  canMutateScheduleBeforeStoreReply, preferredStoreNames, formatDateJaMd, openStoreEditSheet,
+  onShowAllDates, onOpenInvite, handleOpenBookingDialog, bookingSummary,
 }: ChatModeSidebarProps) {
   return (
     <div className="hidden lg:block w-80 border-l bg-gray-50 overflow-y-auto">
@@ -67,6 +68,9 @@ export function ChatModeSidebar({
             </div>
           </div>
         </div>
+
+        {/* 申込内容（返事待ち・確定後） */}
+        {bookingSummary}
 
         {/* 希望店舗 */}
         <div className="bg-white rounded-lg p-3 border">
@@ -145,13 +149,6 @@ export function ChatModeSidebar({
             )}
           </div>
         </div>
-
-        {isOrganizer && canMutateScheduleBeforeStoreReply && (
-          <Button variant="outline" size="sm" className="w-full text-xs"
-            disabled={cancelling} onClick={handleCancelGroup}>
-            {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
-          </Button>
-        )}
 
         {/* 主催者向け機能（日程調整中・再調整中の両方） */}
         {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (

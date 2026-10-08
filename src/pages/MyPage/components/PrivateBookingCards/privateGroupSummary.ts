@@ -47,7 +47,8 @@ export interface PrivateGroupMemberRow {
 
 /** 参加中のメンバーを管理シートの行にする（マイページ・グループ画面で共通） */
 export function toMemberRows(group: Pick<PrivateGroup, 'members' | 'candidate_dates'>): PrivateGroupMemberRow[] {
-  const joined = (group.members ?? []).filter(m => m.status === 'joined')
+  // 主催者を先頭に、あとは参加順（読み取り結果の並び）
+  const joined = (group.members ?? []).filter(m => m.status === 'joined').sort((a, b) => Number(b.is_organizer) - Number(a.is_organizer))
   const activeDates = (group.candidate_dates ?? []).filter(d => d.status !== 'rejected')
   return joined.map(m => {
     const answered = activeDates.filter(d =>
