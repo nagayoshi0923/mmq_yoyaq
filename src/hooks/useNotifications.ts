@@ -18,6 +18,34 @@ export interface Notification {
   data?: Record<string, unknown>
 }
 
+/**
+ * ベルの数字（新着）: 最後にベルを開いた時刻より後に作られた通知の件数。
+ * 開いた時刻が無い人（初回・表が無い環境）は従来どおり未読件数。
+ */
+export function countNewNotifications(notifications: Notification[], lastSeenAt: Date | null): number {
+  if (!lastSeenAt) return notifications.filter((n) => !n.read).length
+  const seen = lastSeenAt.getTime()
+  return notifications.filter((n) => n.timestamp.getTime() > seen).length
+}
+
+/**
+ * ベルを開いたときに記録する時刻。端末の時計が遅れていても、いま見えている通知が
+ * 新着として残らないよう、表示中の通知の最新時刻（未来の予定は除く）と今のうち遅いほう。
+ */
+export function bellSeenAt(notifications: Notification[], now: Date): Date {
+  const limit = now.getTime() + 10 * 60 * 1000
+  let latest = now.getTime()
+  for (const n of notifications) {
+    const t = n.timestamp.getTime()
+    if (t > latest && t <= limit) latest = t
+  }
+  return new Date(latest)
+}
+
+// ベルを開いたときの書き込みは、同じ人で直近の書き込みから数秒は抑える（連打で何度も書かない）
+const BELL_SEEN_WRITE_INTERVAL_MS = 5000
+const lastBellSeenWrite = new Map<string, number>()
+
 // プロフィール未登録の知らせ（DB 側で 1 人 1 回だけ作る）を確かめるのは、画面を開いてから 1 人 1 回まで
 const profileNoticeChecked = new Set<string>()
 async function ensureProfileNoticeOnce(userId: string | undefined) {
@@ -261,6 +289,59 @@ export function useNotifications() {
     [notifications]
   )
 
+  // ベルを最後に開いた時刻（端末をまたいで同じ数字にするため DB に持つ）
+  const seenQueryKey = useMemo(() => ['user_notification_views', user?.id || ''] as const, [user?.id])
+  const { data: lastSeenAt = null } = useQuery({
+    queryKey: seenQueryKey,
+    enabled: !!user?.id,
+    queryFn: async (): Promise<Date | null> => {
+      if (!user?.id) return null
+      try {
+        const { data, error } = await notificationReadApi.getBellLastSeen(user.id)
+        if (error) {
+          logger.warn('ベルを開いた時刻を取得できませんでした:', error)
+          return null
+        }
+        return data?.last_seen_at ? new Date(data.last_seen_at) : null
+      } catch (error) {
+        logger.warn('ベルを開いた時刻を取得できませんでした:', error)
+        return null
+      }
+    },
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 0,
+  })
+
+  const newCount = useMemo(
+    () => countNewNotifications(notifications, lastSeenAt),
+    [notifications, lastSeenAt]
+  )
+
+  // ベルを開いた: 数字を 0 にし、開いた時刻を記録する（失敗しても画面は壊さない）
+  const markBellSeen = useCallback(async () => {
+    if (!user?.id) return
+    const seenAt = bellSeenAt(notifications, new Date())
+    // 読み込み途中の古い時刻で上書きされないよう、取得中なら止める
+    await queryClient.cancelQueries({ queryKey: seenQueryKey })
+    queryClient.setQueryData(seenQueryKey, (prev) => {
+      const current = prev as Date | null | undefined
+      return current && current.getTime() > seenAt.getTime() ? current : seenAt
+    })
+    const nowMs = Date.now()
+    const last = lastBellSeenWrite.get(user.id)
+    if (last !== undefined && nowMs - last < BELL_SEEN_WRITE_INTERVAL_MS) return
+    lastBellSeenWrite.set(user.id, nowMs)
+    try {
+      const { error } = await userNotificationApi.markBellSeen(user.id, seenAt.toISOString())
+      if (error) logger.warn('ベルを開いた時刻を保存できませんでした:', error)
+    } catch (error) {
+      logger.warn('ベルを開いた時刻を保存できませんでした:', error)
+    }
+  }, [user?.id, notifications, queryClient, seenQueryKey])
+
   // 通知を既読にする
   const markAsRead = useCallback(async (notificationId: string) => {
     // 先にUIを更新（楽観的更新）
@@ -334,6 +415,8 @@ export function useNotifications() {
     notifications,
     loading: isFetching,
     unreadCount,
+    newCount,
+    markBellSeen,
     fetchNotifications: refetch,
     markAsRead,
     markAllAsRead
