@@ -97,10 +97,12 @@ interface PrivateBookingCardProps {
   actions?: ReactNode
   /** 副ボタンの差し替え（主催者の引き継ぎの「引き継がない」など） */
   secondaryAction?: ReactNode
+  /** 主ボタンをマイページ上のダイアログで開く（候補日・日程回答・アンケート）。無ければグループ画面へ移る */
+  onOpenInPlace?: (mode: NonNullable<NonNullable<PrivateBookingItem['primary']>['inPlace']>) => void
 }
 
 /** 1 貸切 = 1 カード。ヘッダー左に「次にやること」のチップと主催者、右に人数と「操作」 */
-export function PrivateBookingCard({ item, actions, secondaryAction }: PrivateBookingCardProps) {
+export function PrivateBookingCard({ item, actions, secondaryAction, onOpenInPlace }: PrivateBookingCardProps) {
   const navigate = useNavigate()
   const tone = TONE[item.tone]
   const go = (href: string) => navigate(href)
@@ -169,7 +171,9 @@ export function PrivateBookingCard({ item, actions, secondaryAction }: PrivateBo
                   className={`${BUTTON_BASE} font-bold ${TONE[item.primaryTone].primary}`}
                   onClick={e => {
                     e.stopPropagation()
-                    go(item.primary!.href)
+                    const inPlace = item.primary!.inPlace
+                    if (inPlace && onOpenInPlace) onOpenInPlace(inPlace)
+                    else go(item.primary!.href)
                   }}
                 >
                   {item.primary.label}

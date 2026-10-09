@@ -2,7 +2,8 @@
  * 貸切グループのチャット表示のシート（候補日の回答・メンバー招待・グループ設定・希望店舗の編集・予約申請）。
  * GroupChatSheets.tsx から見た目を変えずに切り出したもの。
  */
-import { WithdrawCandidateButton } from './WithdrawCandidateButton'
+import { CandidateDateRows } from '@/components/patterns/privateGroup/CandidateDateRows'
+import { PreferredStoreChecklist } from '@/components/patterns/privateGroup/PreferredStoreChecklist'
 import { ConfirmedGroupSchedule } from './ConfirmedGroupSchedule'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -138,105 +139,16 @@ export function DatesSheet(props: GroupChatSheetsProps) {
           {/* 候補日リスト */}
           <div>
             <h4 className="font-medium text-xs sm:text-sm mb-1.5">{group.confirmed_performance ? '申請時の候補日程（履歴）' : '候補日程'}（{group.candidate_dates?.length || 0}件）</h4>
-            <div className="space-y-1.5">
-              {group.candidate_dates && group.candidate_dates.length > 0 ? (
-                group.candidate_dates.map((cd, index) => {
-                  const currentResponse = responses[cd.id]
-                  const dateResponses = cd.responses || []
-                  const okCount = dateResponses.filter(r => r.response === 'ok').length
-                  const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
-                  const ngCount = dateResponses.filter(r => r.response === 'ng').length
-                  const totalMembers = joinedMembers.length
-                  const respondedCount = dateResponses.length
-                  const isRejected = cd.status === 'rejected'
-                  const showResponseRow = existingMemberId && group.status === 'gathering' && !isRejected
-                  
-                  return (
-                    <div 
-                      key={cd.id} 
-                      className={`px-2 py-1.5 rounded-md ${isRejected ? 'bg-gray-100/90 opacity-70' : 'bg-gray-50'}`}
-                    >
-                      <div className={`flex items-center gap-2 ${showResponseRow ? 'mb-1.5' : ''}`}>
-                        <div className="flex-1 min-w-0 leading-tight">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {isRejected ? (
-                              <span className="text-[10px] leading-none bg-red-100 text-red-700 px-1 py-0.5 rounded shrink-0">
-                                却下
-                              </span>
-                            ) : (
-                              <span className="text-[10px] leading-none bg-purple-100 text-purple-700 px-1 py-0.5 rounded shrink-0">
-                                {index + 1}
-                              </span>
-                            )}
-                            <span className={`font-medium text-xs ${isRejected ? 'line-through text-muted-foreground' : ''}`}>
-                              {formatDateJaMd(cd.date)}
-                            </span>
-                          </div>
-                          <div className={`text-[10px] text-muted-foreground mt-0.5 ${isRejected ? 'line-through' : ''}`}>
-                            {candidateTimeSlotFromDb(cd.time_slot)} {cd.start_time} - {cd.end_time}
-                          </div>
-                        </div>
-                        {isOrganizer && canMutateScheduleBeforeStoreReply && !isRejected && (
-                          <WithdrawCandidateButton groupId={group.id} candidate={cd} onWithdrawn={() => refetch()} />
-                        )}
-                        {/* 回答状況サマリー（却下された場合は非表示） */}
-                        {!isRejected && (
-                          <div className="text-right shrink-0">
-                            <div className="flex items-center justify-end gap-0.5 text-[10px]">
-                              <span className="text-green-600">○{okCount}</span>
-                              <span className="text-amber-600">△{maybeCount}</span>
-                              <span className="text-red-600">×{ngCount}</span>
-                            </div>
-                            <div className="text-[9px] text-muted-foreground leading-none mt-0.5">
-                              {respondedCount}/{totalMembers}人
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      {/* 回答ボタン（日程申込前かつ却下されていない場合のみ表示） */}
-                      {showResponseRow && (
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => handleResponseChange(cd.id, 'ok')}
-                            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                              currentResponse === 'ok'
-                                ? 'bg-green-500 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-green-50'
-                            }`}
-                          >
-                            ○ OK
-                          </button>
-                          <button
-                            onClick={() => handleResponseChange(cd.id, 'maybe')}
-                            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                              currentResponse === 'maybe'
-                                ? 'bg-amber-500 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-amber-50'
-                            }`}
-                          >
-                            △ 微妙
-                          </button>
-                          <button
-                            onClick={() => handleResponseChange(cd.id, 'ng')}
-                            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                              currentResponse === 'ng'
-                                ? 'bg-red-500 text-white'
-                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-red-50'
-                            }`}
-                          >
-                            × NG
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })
-              ) : (
-                <div className="text-center text-muted-foreground py-6 text-sm">
-                  候補日がまだ追加されていません
-                </div>
-              )}
-            </div>
+            <CandidateDateRows
+              group={group}
+              memberCount={joinedMembers.length}
+              existingMemberId={existingMemberId}
+              responses={responses}
+              onResponseChange={handleResponseChange}
+              canWithdraw={Boolean(isOrganizer && canMutateScheduleBeforeStoreReply)}
+              onWithdrawn={() => refetch()}
+              formatDateJaMd={formatDateJaMd}
+            />
           </div>
 
           {/* メンバー */}
@@ -542,58 +454,13 @@ export function StoreEditSheet(props: GroupChatSheetsProps) {
         
         {/* コンテンツ */}
         <div className="overflow-y-auto flex-1 p-4">
-          <p className="text-sm text-muted-foreground mb-2">
-            利用を希望する店舗を選択してください。
-          </p>
-          {isFilteredByScenario && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
-              このシナリオで公演可能な店舗のみ表示しています。
-            </p>
-          )}
-          <div className="space-y-2">
-            {loadingStoresForEdit ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                店舗を読み込み中...
-              </div>
-            ) : allStores.length > 0 ? (
-              allStores.map(store => (
-                <label
-                  key={store.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
-                    selectedStoreIds.includes(store.id)
-                      ? 'bg-blue-50 border-blue-500'
-                      : 'bg-gray-50 border-transparent hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedStoreIds.includes(store.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedStoreIds([...selectedStoreIds, store.id])
-                      } else {
-                        setSelectedStoreIds(selectedStoreIds.filter(id => id !== store.id))
-                      }
-                    }}
-                    className="sr-only"
-                  />
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                    selectedStoreIds.includes(store.id)
-                      ? 'bg-blue-500 border-blue-500 text-white'
-                      : 'border-gray-300'
-                  }`}>
-                    {selectedStoreIds.includes(store.id) && <Check className="w-3.5 h-3.5" />}
-                  </div>
-                  <span className="font-medium text-sm">{store.name}</span>
-                </label>
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                表示できる店舗がありません。しばらくしてから再度お試しください。
-              </div>
-            )}
-          </div>
+          <PreferredStoreChecklist
+            isFilteredByScenario={isFilteredByScenario}
+            loading={loadingStoresForEdit}
+            stores={allStores}
+            selectedStoreIds={selectedStoreIds}
+            onChange={setSelectedStoreIds}
+          />
         </div>
         
         {/* フッター */}

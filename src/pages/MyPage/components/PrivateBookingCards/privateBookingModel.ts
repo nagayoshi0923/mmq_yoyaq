@@ -94,8 +94,8 @@ export interface PrivateBookingItem {
   description: string
   /** カード全体を押したときの行き先 */
   href: string
-  /** 主ボタン（次にやること）。行動が無いときは null */
-  primary: { label: string; href: string } | null
+  /** 主ボタン（次にやること）。行動が無いときは null。inPlace があればマイページ上のダイアログで開く */
+  primary: { label: string; href: string; inPlace?: 'dates' | 'answer' | 'survey' } | null
   /** 副ボタン */
   secondary: { label: string; href: string }
   /** 並べ替え用: 公演日（確定・終了）または作成日時 */
@@ -270,12 +270,13 @@ function primaryOf(action: NextActionKind, base: string): PrivateBookingItem['pr
     case 'accept_transfer':
       return { label: '内容を確認して同意する', href: `${base}?sheet=handover` }
     case 'pick_dates':
+      return { label: NEXT_ACTION_LABELS[action], href: base, inPlace: 'dates' }
     case 'proceed_booking':
       return { label: NEXT_ACTION_LABELS[action], href: base }
     case 'answer_survey':
-      return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=survey` }
+      return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=survey`, inPlace: 'survey' }
     case 'answer_dates':
-      return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=schedule` }
+      return { label: NEXT_ACTION_LABELS[action], href: `${base}?tab=schedule`, inPlace: 'answer' }
     default:
       return null
   }

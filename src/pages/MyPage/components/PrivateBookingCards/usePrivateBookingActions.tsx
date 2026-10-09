@@ -232,6 +232,8 @@ export function usePrivateBookingActions(target: PrivateBookingActionTarget, opt
     /** 主催者の引き継ぎ依頼を取り消す確認を開く */
     requestCancelHandover: () => setCancelHandoverOpen(true),
     copyInvite,
+    /** マイページの一覧（カード）と予約詳細を読み直す */
+    refreshLists,
     /** キャンセル規定を読み始める（メニューを開いたとき・申込内容の箱を出したとき） */
     preparePolicy,
     cancelAvailability,

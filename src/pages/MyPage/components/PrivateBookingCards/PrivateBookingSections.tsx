@@ -5,6 +5,7 @@ import { PrivateBookingCard } from './PrivateBookingCard'
 import { PrivateBookingCardActions } from './PrivateBookingCardActions'
 import { HandoverDeclineButton } from './HandoverDeclineButton'
 import type { PrivateBookingItem, PrivateBookingView } from './privateBookingModel'
+import type { PrivateGroupInPlaceMode } from './PrivateGroupInPlaceDialog'
 
 /** 確定した貸切は 2 件まで出して、残りは「あと ○ 件表示」で展開 */
 const CONFIRMED_INITIAL = 2
@@ -21,19 +22,25 @@ function SectionTitle({ children, count }: { children: string; count: number }) 
   )
 }
 
+/** 1 枚分。「その場で開くダイアログ」の状態を、カードの主ボタンと「操作」メニューで共有する */
+function CardItem({ item }: { item: PrivateBookingItem }) {
+  const [inPlace, setInPlace] = useState<PrivateGroupInPlaceMode | null>(null)
+  return (
+    <PrivateBookingCard
+      item={item}
+      actions={<PrivateBookingCardActions item={item} inPlace={inPlace} onInPlaceChange={setInPlace} />}
+      onOpenInPlace={item.menu.inviteCode ? setInPlace : undefined}
+      secondaryAction={item.action === 'accept_transfer' && item.handover
+        ? <HandoverDeclineButton requestId={item.handover.id} fromName={item.handover.fromName} className={SECONDARY_BUTTON} />
+        : undefined}
+    />
+  )
+}
+
 function CardList({ items }: { items: PrivateBookingItem[] }) {
   return (
     <div className="space-y-3">
-      {items.map(item => (
-        <PrivateBookingCard
-          key={item.key}
-          item={item}
-          actions={<PrivateBookingCardActions item={item} />}
-          secondaryAction={item.action === 'accept_transfer' && item.handover
-            ? <HandoverDeclineButton requestId={item.handover.id} fromName={item.handover.fromName} className={SECONDARY_BUTTON} />
-            : undefined}
-        />
-      ))}
+      {items.map(item => <CardItem key={item.key} item={item} />)}
     </div>
   )
 }

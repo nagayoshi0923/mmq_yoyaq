@@ -27,6 +27,8 @@ interface SurveyResponseFormProps {
   hideCharacterSelection?: boolean
   /** 何も表示しない状態（アンケート無効など）でも、理由を文で出す。チャットのアンケート枠で使う（中身が空の枠だけが出ないように） */
   explainEmptyState?: boolean
+  /** 送信・更新できたあと（マイページのダイアログで閉じて一覧を読み直す） */
+  onSubmitted?: () => void
 }
 
 interface FormResponse {
@@ -51,6 +53,7 @@ function SurveyResponseFormBody({
   characters = [],
   hideCharacterSelection = false,
   explainEmptyState = false,
+  onSubmitted,
 }: SurveyResponseFormProps & { rootRef: React.RefObject<HTMLDivElement | null> }) {
   const [questions, setQuestions] = useState<SurveyQuestion[]>([])
   const [responses, setResponses] = useState<FormResponse>({})
@@ -221,6 +224,7 @@ function SurveyResponseFormBody({
       setExistingResponseId(responseId)
       toast.success(existingResponseId ? '回答を更新しました' : '回答を送信しました')
       setSubmitted(true)
+      onSubmitted?.()
     } catch (err) {
       logger.error('アンケート送信エラー:', err)
       report('submit_error', { code: (err as { code?: string } | null)?.code ?? null, message: String((err as { message?: unknown } | null)?.message ?? err).slice(0, 300) })
@@ -229,7 +233,7 @@ function SurveyResponseFormBody({
     } finally {
       setSubmitting(false)
     }
-  }, [questions, responses, existingResponseId, groupId, memberId, hideCharacterSelection, report])
+  }, [questions, responses, existingResponseId, groupId, memberId, hideCharacterSelection, report, onSubmitted])
 
   // 読み込みが終わったら、表示された枠の大きさを記録する（中身が空の枠だけが出る不具合の確認用）
   useEffect(() => {

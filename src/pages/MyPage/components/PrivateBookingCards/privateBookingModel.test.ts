@@ -205,3 +205,18 @@ describe('カードの見た目（改善案 Main.dc.html）', () => {
     expect(gathering.showProgress).toBe(true)
   })
 })
+
+describe('主ボタンをマイページ上で開く（2026-10-09 案 3）', () => {
+  const build = (groups: PrivateGroupSummary[], surveyPending: Record<string, boolean> = {}) =>
+    Object.values(buildPrivateBookingView({ groups, reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending, todayYmd: TODAY }).bySection).flat()
+  it('候補日を決める・日程に回答する・アンケートはダイアログ、申込に進むはグループ画面へ', () => {
+    const items = build([
+      group({ id: 'pick' }),
+      group({ id: 'answer', is_organizer: false, candidate_dates_count: 2, my_unanswered_count: 1 }),
+      group({ id: 'survey', status: 'confirmed', schedule: { date: '2026-11-07', start_time: '14:00', store_name: '本店' } }),
+      group({ id: 'book', candidate_dates_count: 2 }),
+    ], { survey: true })
+    const inPlace = Object.fromEntries(items.map(i => [i.groupId, i.primary?.inPlace ?? null]))
+    expect(inPlace).toEqual({ pick: 'dates', answer: 'answer', survey: 'survey', book: null })
+  })
+})
