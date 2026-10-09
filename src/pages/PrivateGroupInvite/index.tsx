@@ -25,6 +25,7 @@ import { GroupInviteView } from './components/GroupInviteView'
 import { ChatModeSidebar } from './components/ChatModeSidebar'
 import { ChatModeHeader } from './components/ChatModeHeader'
 import { SurveyScreen } from './components/SurveyScreen'
+import { canMutateScheduleBeforeStoreReply as canMutateScheduleRule } from '@/components/patterns/privateGroup/privateGroupScheduleRules'
 import { InviteCancelledScreen, InviteJoinSuccessScreen, InviteLoadingScreen, InviteNotFoundScreen } from './components/InviteStatusScreens'
 import { getJstParts } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
@@ -75,29 +76,8 @@ export function PrivateGroupInvite() {
     [group, linkedReservationStatus]
   )
 
-  /**
-   * 店舗への貸切リクエスト送付済み（未キャンセルの予約が紐づく）の間は、
-   * 候補日追加・希望店舗編集・予約リクエスト作成を禁止（グループ status の更新遅延にも対応）
-   */
-  const canMutateScheduleBeforeStoreReply = useMemo(() => {
-    if (!group) return false
-    if (group.status === 'booking_requested' || group.status === 'confirmed') return false
-    if (!(group.status === 'gathering' || group.status === 'date_adjusting')) return false
-    if (group.reservation_id) {
-      return linkedReservationStatus === 'cancelled'
-    }
-    return true
-  }, [group, linkedReservationStatus])
+  const canMutateScheduleBeforeStoreReply = useMemo(() => canMutateScheduleRule(group, linkedReservationStatus), [group, linkedReservationStatus])
 
-  // デバッグログ
-  if (group) {
-    logger.log('📋 PrivateGroupInvite: group data', {
-      id: group.id,
-      scenario_master_id: group.scenario_master_id,
-      organization_id: group.organization_id,
-      status: group.status
-    })
-  }
 
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')

@@ -1,5 +1,6 @@
 /**
- * メンバー管理シート（「操作」メニューの「メンバーを管理」）。マイページ・グループ画面で共通。
+ * メンバー管理ダイアログ（「操作」メニューの「メンバーを管理」）。マイページ・グループ画面で共通。
+ * 画面中央に出す（以前の下端シートは PC で下に張り付いて中身が切れたため、問い合わせダイアログと同じ形にした）。
  * 一覧: 名前・立場（主催者／会員／ゲスト）・日程回答の状況・参加日。各行に「外す」（自分の行には出さない）。
  * 外すときはチャットに記録し、申込済み・確定後は店舗へ人数変更として知らせる（private_group_remove_member_with_notice）。
  * 会員（アカウントあり）の行には「主催者にする」（段階 3: 主催者の引き継ぎを依頼。相手の同意で成立。同時 1 件まで）。
@@ -9,7 +10,7 @@ import { toast } from 'sonner'
 import { Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/patterns/modal'
 import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { getErrorMessage } from '@/lib/errorFields'
@@ -84,12 +85,12 @@ export function PrivateGroupMemberSheet({ open, onOpenChange, groupId, members, 
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto p-4 sm:mx-auto sm:max-w-lg rounded-t-lg" data-testid="member-sheet">
-          <SheetHeader className="text-left">
-            <SheetTitle>メンバーを管理</SheetTitle>
-            <SheetDescription>参加中 {members.length} 名</SheetDescription>
-          </SheetHeader>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] sm:max-h-[85vh] overflow-y-auto" data-testid="member-sheet">
+          <DialogHeader className="text-left pr-6">
+            <DialogTitle>メンバーを管理</DialogTitle>
+            <DialogDescription>参加中 {members.length} 名</DialogDescription>
+          </DialogHeader>
           {handover && (
             <p className="mt-3 p-2 bg-purple-50 border border-purple-200 text-xs text-purple-900 leading-snug" data-testid="handover-pending-note">
               {handover.toName}さんに主催者の引き継ぎを依頼中です（期限 {formatHandoverDeadline(handover.expiresAt)}）。同意されるまであなたが主催者です。取り消すときは「操作」の「引き継ぎの依頼を取り消す」から。
@@ -148,8 +149,8 @@ export function PrivateGroupMemberSheet({ open, onOpenChange, groupId, members, 
               )
             })}
           </ul>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={target !== null}
         onOpenChange={next => { if (!next) setTarget(null) }}
