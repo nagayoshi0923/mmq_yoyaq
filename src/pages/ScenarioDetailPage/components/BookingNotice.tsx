@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect, type ReactNode } from 'react'
 import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { scenarioPageReadApi } from '@/lib/api/scenarioPageReadApi'
@@ -22,6 +22,13 @@ export interface BookingNoticeProps {
   eventId?: string | null
   scenarioMasterId?: string | null
   organizationSlug?: string | null
+  /**
+   * 予約に固定された規定（申込時のスナップショット）。渡すと、いまの公開規定を読まずにこれを出す（主催者の引き継ぎの確認画面）。
+   * 「公開ページで確認」はそのまま残す。
+   */
+  fixedPolicy?: ReactNode
+  /** キャンセルポリシーを最初から開いておく */
+  defaultPolicyOpen?: boolean
 }
 
 interface Notice {
@@ -42,10 +49,13 @@ export const BookingNotice = memo(function BookingNotice({
   eventId = null,
   scenarioMasterId = null,
   organizationSlug = null,
+  fixedPolicy,
+  defaultPolicyOpen = false,
 }: BookingNoticeProps) {
   const [notices, setNotices] = useState<Notice[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isPolicyOpen, setIsPolicyOpen] = useState(false)
+  const [isPolicyOpen, setIsPolicyOpen] = useState(defaultPolicyOpen)
+  const hasFixedPolicy = fixedPolicy != null
   const [policies, setPolicies] = useState<PublicCancellationPolicy[]>([])
   const [isPolicyLoading, setIsPolicyLoading] = useState(false)
   const [policyLoadError, setPolicyLoadError] = useState(false)
@@ -102,7 +112,7 @@ export const BookingNotice = memo(function BookingNotice({
   // 展開された時だけ、現在の組織・店舗に公開されているポリシーを取得する。
   // 店舗未確定（storeId=null）のときは全店舗分を取らず、正規ページへ誘導するだけにする。
   useEffect(() => {
-    if (!isPolicyOpen) return
+    if (!isPolicyOpen || hasFixedPolicy) return
     if (!storeId) {
       setPolicies([])
       setPolicyLoadError(false)
@@ -139,7 +149,7 @@ export const BookingNotice = memo(function BookingNotice({
 
     void fetchPolicies()
     return () => { active = false }
-  }, [isPolicyOpen, storeId, currentOrganizationSlug, eventId, scenarioMasterId])
+  }, [isPolicyOpen, hasFixedPolicy, storeId, currentOrganizationSlug, eventId, scenarioMasterId])
 
   return (
     <div>
@@ -186,7 +196,7 @@ export const BookingNotice = memo(function BookingNotice({
 
             {isPolicyOpen && (
               <div className="mt-3 space-y-3">
-                {!storeId ? (
+                {hasFixedPolicy ? fixedPolicy : !storeId ? (
                   <p className="border border-blue-200 bg-blue-50 p-3 ts-body text-blue-900">
                     店舗が未確定または複数選択中です。該当する店舗のポリシーを店舗別にご確認ください。
                   </p>

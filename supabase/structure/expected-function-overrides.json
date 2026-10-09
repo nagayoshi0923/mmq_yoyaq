@@ -59,7 +59,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "257d2075e6c3b6fa20a3e5b6edc43b4c",
+    "body_md5": "af5e0e83b16558e7e248523b90dc09ef",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -339,6 +339,398 @@
     ],
     "returns": "void",
     "body_md5": "8a1ba2fea4d90f2f79b3dce5b1ee140b",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "enqueue_private_request_withdrawal(p_reservation_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "a2933a5af38103a5a00ea40b969d3cdb",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "cancel_unrequested_private_group_with_notice(p_group_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "9dbabccb37bba297629961d8a3e87672",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_remove_member_with_notice(p_member_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "204b96bcb56197514a5681667c75acac",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_queue_member_left_notice(p_group_id uuid, p_before integer, p_after integer, p_member_name text, p_member_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "89255d699a1bcd0ed8dd652d8a1c641a",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_leave_with_notice(p_group_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "5747dc7a437b0082fa51f8ae363aca51",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_member_action(p_group_id uuid, p_member_id uuid, p_action text, p_payload jsonb, p_guest_token text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "f87905706b2e185f62878354f26aa611",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_mine()": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "cff410f5256b6287611f80aa9a364ffc",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_settle(p_group_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "3a886216765a365b43a5919184f88598",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_cancel(p_request_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "8cdcbde47dd5ceb3059134ec65d57577",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_detail(p_request_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "6138443f5aabdbdce1cf74860f592803",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_decline(p_request_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "ee2a0276db77388b90cb44de240c6dfa",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_close(p_request_id uuid, p_status text)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "d62e2ec61b71578c4a3283b8fc30ed15",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_user_name(p_user_id uuid, p_group_id uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "362c05ba5b965558ff50fcfaca313e26",
+    "language": "sql",
+    "security_definer": true
+  },
+  "private_group_handover_request(p_group_id uuid, p_to_member_id uuid)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "b0db180a2c2a99303f1a2d29e7236077",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "private_group_handover_accept(p_request_id uuid, p_customer_id uuid, p_contact_name text, p_contact_phone text, p_displayed_policy jsonb)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "ef3ddd82522c0921608bf92e2c101d55",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "announce_mypage_update_2026_10()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "integer",
+    "body_md5": "3c9763aa839ffe0c3e3407a0572e84d3",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "claim_customer_notice_emails(p_limit integer)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(id uuid, organization_id uuid, kind text, email_type text, to_email text, to_name text, subject text, body_text text, reply_to text, sender_name text)",
+    "body_md5": "5e3ed9675ff8f4f198fea5a4b800a3b5",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_bell(p_user uuid, p_customer uuid, p_org uuid, p_type text, p_kind text, p_dedupe text, p_title text, p_message text, p_link text, p_reservation uuid, p_event uuid, p_extra jsonb)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "uuid",
+    "body_md5": "fcd47262c575c4a0ec7dff40f2827252",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_enqueue_email(p_org uuid, p_kind text, p_dedupe text, p_email_type text, p_to_email text, p_to_name text, p_subject text, p_lines text[], p_link text, p_footer text, p_guest boolean, p_notification uuid, p_store uuid)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "uuid",
+    "body_md5": "553392a1c7261e9e591be2e0f0263ffe",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_group_members(p_group uuid, p_kind text, p_key text, p_bell_type text, p_title text, p_message text, p_link text, p_exclude uuid[], p_mail boolean, p_subject text, p_lines text[], p_email_type text, p_mail_skip_organizer boolean)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "integer",
+    "body_md5": "83db49ca0f0b649294e98fe1ec155d89",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_coupon_granted()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "58ecaf0bac562820149d2d3f68966f40",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_group_message()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "8010ddc070729beb896bea7659104702",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_handover_bell()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "930bc12af8a669f862317467e14fd538",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_participants_changed()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "43b7c0a288a04e56592399db2e87fb8b",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_performance_confirmed()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "a732a1274febe6ad82d85251275a583a",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_private_request()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "715f1ddd9e2a20f6b47cb66db9a83822",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_reminder_sent()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "57555f6ded9f2dd2960a69f4310aa707",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_reservation_cancelled()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "81c3618b663c355612831244fe2a4152",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_on_survey_reminder()": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "54c5fa54a3f84b600a352f5081256df9",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "customer_notice_reservation_link(p_reservation reservations)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "6b588b1b3d740b55a36af4f6355c906d",
+    "language": "sql",
+    "security_definer": true
+  },
+  "customer_notice_user_contact(p_user uuid, OUT email text, OUT name text)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "record",
+    "body_md5": "29e75c372ea8943df99d3c01ac43443d",
+    "language": "sql",
+    "security_definer": true
+  },
+  "customer_notice_when(p_date date, p_time time without time zone)": {
+    "acl": [
+      "=X/postgres",
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "6ffe3a0f1067d9c11b15addca6e33d92",
+    "language": "sql",
+    "security_definer": false
+  },
+  "customer_notice_when_long(p_date date, p_time time without time zone)": {
+    "acl": [
+      "=X/postgres",
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "afcf2b8836c272dfa1a22eb08c5fc288",
+    "language": "sql",
+    "security_definer": false
+  },
+  "customer_notice_work_title(p_title text)": {
+    "acl": [
+      "=X/postgres",
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "text",
+    "body_md5": "721e26f5a30461c3a0d1cbd71a5ff20f",
+    "language": "sql",
+    "security_definer": false
+  },
+  "ensure_profile_incomplete_notice()": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "boolean",
+    "body_md5": "0ad7a418d47ec015e4e5969adcc24ac6",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "finish_customer_notice_email(p_id uuid, p_ok boolean, p_provider_message_id text, p_error text, p_email_log_id uuid, p_retry boolean)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "void",
+    "body_md5": "f7566a65602f2da7579503f77a04cb8e",
+    "language": "plpgsql",
+    "security_definer": true
+  },
+  "notify_on_reservation_confirmed()": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "trigger",
+    "body_md5": "fb16c1fa8ffbd39da8c8fe588b690243",
     "language": "plpgsql",
     "security_definer": true
   }

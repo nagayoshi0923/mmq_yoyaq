@@ -783,6 +783,18 @@
     "name": "capture_waitlist_notice_event"
    },
    {
+    "def": "CREATE TRIGGER customer_notice_on_participants_changed AFTER UPDATE OF participant_count ON public.reservations FOR EACH ROW WHEN (((new.participant_count IS DISTINCT FROM old.participant_count) AND (old.participant_count IS NOT NULL) AND (new.participant_count IS NOT NULL) AND (new.status = old.status) AND (new.status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'gm_confirmed'::text])) AND (new.customer_id IS NOT NULL) AND (new.private_group_id IS NULL) AND (new.reservation_source IS DISTINCT FROM 'web_private'::text))) EXECUTE FUNCTION customer_notice_on_participants_changed()",
+    "name": "customer_notice_on_participants_changed"
+   },
+   {
+    "def": "CREATE TRIGGER customer_notice_on_private_request AFTER INSERT ON public.reservations FOR EACH ROW WHEN (((new.customer_id IS NOT NULL) AND ((new.private_group_id IS NOT NULL) OR (new.reservation_source = 'web_private'::text)))) EXECUTE FUNCTION customer_notice_on_private_request()",
+    "name": "customer_notice_on_private_request"
+   },
+   {
+    "def": "CREATE TRIGGER customer_notice_on_reservation_cancelled AFTER UPDATE OF status ON public.reservations FOR EACH ROW WHEN (((new.status = 'cancelled'::text) AND (old.status IS DISTINCT FROM 'cancelled'::text) AND (new.customer_id IS NOT NULL))) EXECUTE FUNCTION customer_notice_on_reservation_cancelled()",
+    "name": "customer_notice_on_reservation_cancelled"
+   },
+   {
     "def": "CREATE TRIGGER enforce_performance_recruitment_booking BEFORE INSERT OR UPDATE OF schedule_event_id, status, participant_count ON public.reservations FOR EACH ROW EXECUTE FUNCTION enforce_performance_recruitment_booking()",
     "name": "enforce_performance_recruitment_booking"
    },
@@ -1923,6 +1935,1394 @@
    {
     "def": "CHECK ((response = ANY (ARRAY['ok'::text, 'ng'::text, 'maybe'::text])))",
     "name": "private_group_date_responses_response_check",
+    "type": "c"
+   }
+  ]
+ },
+ "private_group_handover_requests": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "from_member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "to_member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "from_user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "to_user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'requested'::text",
+    "not_null": true
+   },
+   {
+    "name": "requested_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "expires_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "responded_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "accepted_contact",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "accepted_policy",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "previous_customer",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX private_group_handover_requests_from_user ON public.private_group_handover_requests USING btree (from_user_id) WHERE (status = 'requested'::text)",
+    "name": "private_group_handover_requests_from_user"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_handover_requests_one_open ON public.private_group_handover_requests USING btree (group_id) WHERE (status = 'requested'::text)",
+    "name": "private_group_handover_requests_one_open"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_handover_requests_pkey ON public.private_group_handover_requests USING btree (id)",
+    "name": "private_group_handover_requests_pkey"
+   },
+   {
+    "def": "CREATE INDEX private_group_handover_requests_reservation ON public.private_group_handover_requests USING btree (reservation_id) WHERE (reservation_id IS NOT NULL)",
+    "name": "private_group_handover_requests_reservation"
+   },
+   {
+    "def": "CREATE INDEX private_group_handover_requests_to_user ON public.private_group_handover_requests USING btree (to_user_id) WHERE (status = 'requested'::text)",
+    "name": "private_group_handover_requests_to_user"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "r",
+    "name": "private_group_handover_requests_select",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid)) OR (( SELECT is_staff_or_admin() AS is_staff_or_admin) AND (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id))))",
+    "permissive": true
+   }
+  ],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((from_user_id <> to_user_id))",
+    "name": "private_group_handover_requests_distinct_users",
+    "type": "c"
+   },
+   {
+    "def": "CHECK ((expires_at > requested_at))",
+    "name": "private_group_handover_requests_expiry",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (from_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+    "name": "private_group_handover_requests_from_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_handover_requests_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "private_group_handover_requests_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_handover_requests_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+    "name": "private_group_handover_requests_reservation_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['requested'::text, 'accepted'::text, 'declined'::text, 'cancelled'::text, 'expired'::text])))",
+    "name": "private_group_handover_requests_status_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (to_member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+    "name": "private_group_handover_requests_to_member_id_fkey",
+    "type": "f"
+   }
+  ]
+ },
+ "customer_coupons": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "campaign_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "customer_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "uses_remaining",
+    "type": "integer",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "expires_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'active'::text",
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "rules_snapshot",
+    "type": "jsonb",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX customer_coupons_pkey ON public.customer_coupons USING btree (id)",
+    "name": "customer_coupons_pkey"
+   },
+   {
+    "def": "CREATE INDEX idx_customer_coupons_campaign_customer ON public.customer_coupons USING btree (campaign_id, customer_id)",
+    "name": "idx_customer_coupons_campaign_customer"
+   },
+   {
+    "def": "CREATE INDEX idx_customer_coupons_customer ON public.customer_coupons USING btree (customer_id)",
+    "name": "idx_customer_coupons_customer"
+   },
+   {
+    "def": "CREATE INDEX idx_customer_coupons_org ON public.customer_coupons USING btree (organization_id)",
+    "name": "idx_customer_coupons_org"
+   },
+   {
+    "def": "CREATE INDEX idx_customer_coupons_status ON public.customer_coupons USING btree (status) WHERE (status = 'active'::text)",
+    "name": "idx_customer_coupons_status"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "a",
+    "name": "customer_coupons_insert_admin",
+    "check": "((organization_id = get_user_organization_id()) AND is_admin())",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "customer_coupons_select",
+    "check": null,
+    "roles": null,
+    "using": "((customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid()))) OR ((organization_id = get_user_organization_id()) AND is_org_admin()))",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "customer_coupons_update_admin",
+    "check": "((organization_id = get_user_organization_id()) AND is_org_admin())",
+    "roles": null,
+    "using": "((organization_id = get_user_organization_id()) AND is_org_admin())",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "customer_coupons_update_customer",
+    "check": "(customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid())))",
+    "roles": null,
+    "using": "(customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid())))",
+    "permissive": true
+   },
+   {
+    "cmd": "*",
+    "name": "org_scope_restrict",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER customer_notice_on_coupon_granted AFTER INSERT ON public.customer_coupons FOR EACH ROW WHEN ((new.status = 'active'::text)) EXECUTE FUNCTION customer_notice_on_coupon_granted()",
+    "name": "customer_notice_on_coupon_granted"
+   },
+   {
+    "def": "CREATE TRIGGER set_coupon_calendar_expiry BEFORE INSERT ON public.customer_coupons FOR EACH ROW EXECUTE FUNCTION set_coupon_calendar_expiry()",
+    "name": "set_coupon_calendar_expiry"
+   },
+   {
+    "def": "CREATE TRIGGER snapshot_coupon_rules BEFORE INSERT OR UPDATE ON public.customer_coupons FOR EACH ROW EXECUTE FUNCTION snapshot_coupon_rules()",
+    "name": "snapshot_coupon_rules"
+   },
+   {
+    "def": "CREATE TRIGGER trg_customer_coupons_updated_at BEFORE UPDATE ON public.customer_coupons FOR EACH ROW EXECUTE FUNCTION update_coupon_updated_at()",
+    "name": "trg_customer_coupons_updated_at"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (campaign_id) REFERENCES coupon_campaigns(id) ON DELETE CASCADE",
+    "name": "customer_coupons_campaign_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE",
+    "name": "customer_coupons_customer_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "customer_coupons_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "customer_coupons_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['active'::text, 'fully_used'::text, 'expired'::text, 'revoked'::text])))",
+    "name": "customer_coupons_status_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK ((uses_remaining >= 0))",
+    "name": "customer_coupons_uses_remaining_check",
+    "type": "c"
+   }
+  ]
+ },
+ "customer_notice_emails": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "kind",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "dedupe_key",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "notification_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "email_type",
+    "type": "text",
+    "default": "'other'::text",
+    "not_null": true
+   },
+   {
+    "name": "to_email",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "to_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "subject",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "body_text",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reply_to",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "sender_name",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": true
+   },
+   {
+    "name": "attempt_count",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "next_attempt_at",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "lease_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "email_log_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "provider_message_id",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_error",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "sent_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX customer_notice_emails_dedupe_key_key ON public.customer_notice_emails USING btree (dedupe_key)",
+    "name": "customer_notice_emails_dedupe_key_key"
+   },
+   {
+    "def": "CREATE INDEX customer_notice_emails_due_idx ON public.customer_notice_emails USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'sending'::text]))",
+    "name": "customer_notice_emails_due_idx"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX customer_notice_emails_pkey ON public.customer_notice_emails USING btree (id)",
+    "name": "customer_notice_emails_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "CHECK ((attempt_count >= 0))",
+    "name": "customer_notice_emails_attempt_count_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (dedupe_key)",
+    "name": "customer_notice_emails_dedupe_key_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (notification_id) REFERENCES user_notifications(id) ON DELETE SET NULL",
+    "name": "customer_notice_emails_notification_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "customer_notice_emails_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "customer_notice_emails_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'skipped'::text])))",
+    "name": "customer_notice_emails_status_check",
+    "type": "c"
+   }
+  ]
+ },
+ "performance_recruitment_notices": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "schedule_event_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "response_token",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "customer_email",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "kind",
+    "type": "text",
+    "default": "'extension'::text",
+    "not_null": true
+   },
+   {
+    "name": "snapshot",
+    "type": "jsonb",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": true
+   },
+   {
+    "name": "attempts",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "lease_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "sent_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "withdrawn_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "cycle",
+    "type": "integer",
+    "default": "1",
+    "not_null": true
+   },
+   {
+    "name": "first_failed_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "withdrawal_sequence",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX performance_recruitment_notices_cycle_unique ON public.performance_recruitment_notices USING btree (schedule_event_id, reservation_id, kind, cycle, withdrawal_sequence)",
+    "name": "performance_recruitment_notices_cycle_unique"
+   },
+   {
+    "def": "CREATE INDEX performance_recruitment_notices_pending ON public.performance_recruitment_notices USING btree (status, lease_until)",
+    "name": "performance_recruitment_notices_pending"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX performance_recruitment_notices_pkey ON public.performance_recruitment_notices USING btree (id)",
+    "name": "performance_recruitment_notices_pkey"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX performance_recruitment_notices_response_token_key ON public.performance_recruitment_notices USING btree (response_token)",
+    "name": "performance_recruitment_notices_response_token_key"
+   }
+  ],
+  "policies": [],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER customer_notice_on_performance_confirmed AFTER UPDATE OF status ON public.performance_recruitment_notices FOR EACH ROW WHEN (((new.status = 'sent'::text) AND (old.status IS DISTINCT FROM 'sent'::text) AND (new.kind = 'confirmed'::text))) EXECUTE FUNCTION customer_notice_on_performance_confirmed()",
+    "name": "customer_notice_on_performance_confirmed"
+   },
+   {
+    "def": "CREATE TRIGGER queue_recruitment_mail_alert BEFORE UPDATE OF status ON public.performance_recruitment_notices FOR EACH ROW EXECUTE FUNCTION queue_recruitment_mail_alert()",
+    "name": "queue_recruitment_mail_alert"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "CHECK ((cycle > 0))",
+    "name": "performance_recruitment_notices_cycle_check",
+    "type": "c"
+   },
+   {
+    "def": "UNIQUE (schedule_event_id, reservation_id, kind, cycle, withdrawal_sequence)",
+    "name": "performance_recruitment_notices_cycle_unique",
+    "type": "u"
+   },
+   {
+    "def": "CHECK ((kind = ANY (ARRAY['extension'::text, 'confirmed'::text, 'cancelled'::text, 'withdrawn'::text])))",
+    "name": "performance_recruitment_notices_kind_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id)",
+    "name": "performance_recruitment_notices_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "performance_recruitment_notices_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id)",
+    "name": "performance_recruitment_notices_reservation_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "UNIQUE (response_token)",
+    "name": "performance_recruitment_notices_response_token_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (schedule_event_id) REFERENCES performance_recruitment_deadlines(schedule_event_id)",
+    "name": "performance_recruitment_notices_schedule_event_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'expired'::text])))",
+    "name": "performance_recruitment_notices_status_check",
+    "type": "c"
+   }
+  ]
+ },
+ "private_group_messages": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "message",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "sender_type",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_private_group_messages_created_at ON public.private_group_messages USING btree (created_at DESC)",
+    "name": "idx_private_group_messages_created_at"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_messages_group_id ON public.private_group_messages USING btree (group_id)",
+    "name": "idx_private_group_messages_group_id"
+   },
+   {
+    "def": "CREATE INDEX idx_private_group_messages_member_id ON public.private_group_messages USING btree (member_id)",
+    "name": "idx_private_group_messages_member_id"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_messages_pkey ON public.private_group_messages USING btree (id)",
+    "name": "private_group_messages_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "d",
+    "name": "private_group_messages_delete",
+    "check": null,
+    "roles": null,
+    "using": "((EXISTS ( SELECT 1\n   FROM private_group_members pgm\n  WHERE ((pgm.id = private_group_messages.member_id) AND (pgm.user_id = auth.uid())))) OR (EXISTS ( SELECT 1\n   FROM private_groups pg\n  WHERE ((pg.id = private_group_messages.group_id) AND (pg.organizer_id = auth.uid())))))",
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "private_group_messages_insert",
+    "check": "true",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "private_group_messages_insert_member",
+    "check": "(EXISTS ( SELECT 1\n   FROM private_group_members pgm\n  WHERE ((pgm.id = private_group_messages.member_id) AND (pgm.group_id = private_group_messages.group_id) AND (pgm.status = 'joined'::text))))",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "a",
+    "name": "private_group_messages_insert_staff",
+    "check": "(EXISTS ( SELECT 1\n   FROM staff s\n  WHERE ((s.user_id = auth.uid()) AND (s.role && ARRAY['admin'::text, 'owner'::text, 'manager'::text, 'staff'::text]))))",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "private_group_messages_select",
+    "check": null,
+    "roles": null,
+    "using": "true",
+    "permissive": true
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE CONSTRAINT TRIGGER customer_notice_on_group_message AFTER INSERT ON public.private_group_messages DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN ((new.message ~ '^\\s*\\{'::text)) EXECUTE FUNCTION customer_notice_on_group_message()",
+    "name": "customer_notice_on_group_message"
+   },
+   {
+    "def": "CREATE TRIGGER guard_private_group_browser_write BEFORE INSERT OR DELETE OR UPDATE ON public.private_group_messages FOR EACH ROW EXECUTE FUNCTION guard_private_group_browser_write()",
+    "name": "guard_private_group_browser_write"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "TRIGGER DEFERRABLE INITIALLY DEFERRED",
+    "name": "customer_notice_on_group_message",
+    "type": "t"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_messages_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE SET NULL",
+    "name": "private_group_messages_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_messages_pkey",
+    "type": "p"
+   }
+  ]
+ },
+ "private_group_survey_reminders": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "group_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "member_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "kind",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "deadline_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "to_email_override",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": "'pending'::text",
+    "not_null": true
+   },
+   {
+    "name": "attempt_count",
+    "type": "integer",
+    "default": "0",
+    "not_null": true
+   },
+   {
+    "name": "next_attempt_at",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "lease_until",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "email_log_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "provider_message_id",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "last_error",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "clock_timestamp()",
+    "not_null": true
+   },
+   {
+    "name": "sent_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX private_group_survey_reminders_due_idx ON public.private_group_survey_reminders USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'sending'::text]))",
+    "name": "private_group_survey_reminders_due_idx"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_survey_reminders_once_idx ON public.private_group_survey_reminders USING btree (member_id, kind, deadline_at) WHERE (kind <> 'preview'::text)",
+    "name": "private_group_survey_reminders_once_idx"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX private_group_survey_reminders_pkey ON public.private_group_survey_reminders USING btree (id)",
+    "name": "private_group_survey_reminders_pkey"
+   }
+  ],
+  "policies": [],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER customer_notice_on_survey_reminder AFTER INSERT ON public.private_group_survey_reminders FOR EACH ROW WHEN ((new.kind <> 'preview'::text)) EXECUTE FUNCTION customer_notice_on_survey_reminder()",
+    "name": "customer_notice_on_survey_reminder"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "CHECK ((attempt_count >= 0))",
+    "name": "private_group_survey_reminders_attempt_count_check",
+    "type": "c"
+   },
+   {
+    "def": "CHECK (((to_email_override IS NULL) OR (kind = 'preview'::text)))",
+    "name": "private_group_survey_reminders_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (group_id) REFERENCES private_groups(id) ON DELETE CASCADE",
+    "name": "private_group_survey_reminders_group_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((kind = ANY (ARRAY['manual'::text, 'deadline_7d'::text, 'deadline_1d'::text, 'preview'::text])))",
+    "name": "private_group_survey_reminders_kind_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (member_id) REFERENCES private_group_members(id) ON DELETE CASCADE",
+    "name": "private_group_survey_reminders_member_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "private_group_survey_reminders_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "private_group_survey_reminders_pkey",
+    "type": "p"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'skipped'::text])))",
+    "name": "private_group_survey_reminders_status_check",
+    "type": "c"
+   }
+  ]
+ },
+ "scheduled_reminder_deliveries": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "schedule_event_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "event_date",
+    "type": "date",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "days_before",
+    "type": "integer",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "send_time",
+    "type": "time without time zone",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "lease_token",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "attempted_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "sent_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX scheduled_reminder_deliveries_pkey ON public.scheduled_reminder_deliveries USING btree (id)",
+    "name": "scheduled_reminder_deliveries_pkey"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX scheduled_reminder_deliveries_reservation_id_schedule_event_key ON public.scheduled_reminder_deliveries USING btree (reservation_id, schedule_event_id, event_date, days_before, send_time)",
+    "name": "scheduled_reminder_deliveries_reservation_id_schedule_event_key"
+   }
+  ],
+  "policies": [],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER customer_notice_on_reminder_sent AFTER UPDATE OF status ON public.scheduled_reminder_deliveries FOR EACH ROW WHEN (((new.status = 'sent'::text) AND (old.status IS DISTINCT FROM 'sent'::text))) EXECUTE FUNCTION customer_notice_on_reminder_sent()",
+    "name": "customer_notice_on_reminder_sent"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "CHECK (((days_before >= 0) AND (days_before <= 365)))",
+    "name": "scheduled_reminder_deliveries_days_before_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "scheduled_reminder_deliveries_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "scheduled_reminder_deliveries_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE",
+    "name": "scheduled_reminder_deliveries_reservation_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "UNIQUE (reservation_id, schedule_event_id, event_date, days_before, send_time)",
+    "name": "scheduled_reminder_deliveries_reservation_id_schedule_event_key",
+    "type": "u"
+   },
+   {
+    "def": "FOREIGN KEY (schedule_event_id) REFERENCES schedule_events(id) ON DELETE CASCADE",
+    "name": "scheduled_reminder_deliveries_schedule_event_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((status = ANY (ARRAY['sending'::text, 'sent'::text, 'failed'::text])))",
+    "name": "scheduled_reminder_deliveries_status_check",
+    "type": "c"
+   }
+  ]
+ },
+ "user_notifications": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "id",
+    "type": "uuid",
+    "default": "gen_random_uuid()",
+    "not_null": true
+   },
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "customer_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "organization_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "type",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "title",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "message",
+    "type": "text",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "related_reservation_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "related_event_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "related_waitlist_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "link",
+    "type": "text",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "metadata",
+    "type": "jsonb",
+    "default": "'{}'::jsonb",
+    "not_null": false
+   },
+   {
+    "name": "is_read",
+    "type": "boolean",
+    "default": "false",
+    "not_null": false
+   },
+   {
+    "name": "read_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   },
+   {
+    "name": "created_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": false
+   },
+   {
+    "name": "expires_at",
+    "type": "timestamp with time zone",
+    "default": null,
+    "not_null": false
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE INDEX idx_user_notifications_created_at ON public.user_notifications USING btree (created_at DESC)",
+    "name": "idx_user_notifications_created_at"
+   },
+   {
+    "def": "CREATE INDEX idx_user_notifications_customer_id ON public.user_notifications USING btree (customer_id)",
+    "name": "idx_user_notifications_customer_id"
+   },
+   {
+    "def": "CREATE INDEX idx_user_notifications_is_read ON public.user_notifications USING btree (is_read) WHERE (is_read = false)",
+    "name": "idx_user_notifications_is_read"
+   },
+   {
+    "def": "CREATE INDEX idx_user_notifications_type ON public.user_notifications USING btree (type)",
+    "name": "idx_user_notifications_type"
+   },
+   {
+    "def": "CREATE INDEX idx_user_notifications_user_id ON public.user_notifications USING btree (user_id)",
+    "name": "idx_user_notifications_user_id"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX user_notifications_dedupe_key_idx ON public.user_notifications USING btree (((metadata ->> 'dedupe_key'::text))) WHERE (metadata ? 'dedupe_key'::text)",
+    "name": "user_notifications_dedupe_key_idx"
+   },
+   {
+    "def": "CREATE UNIQUE INDEX user_notifications_pkey ON public.user_notifications USING btree (id)",
+    "name": "user_notifications_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "a",
+    "name": "Block direct insert",
+    "check": "false",
+    "roles": null,
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "d",
+    "name": "Users can delete their own notifications",
+    "check": null,
+    "roles": null,
+    "using": "((user_id = auth.uid()) OR (customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid()))))",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "Users can update their own notifications",
+    "check": "((user_id = auth.uid()) OR (customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid()))))",
+    "roles": null,
+    "using": "((user_id = auth.uid()) OR (customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid()))))",
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "Users can view their own notifications",
+    "check": null,
+    "roles": null,
+    "using": "((user_id = auth.uid()) OR (customer_id IN ( SELECT customers.id\n   FROM customers\n  WHERE (customers.user_id = auth.uid()))))",
+    "permissive": true
+   },
+   {
+    "cmd": "*",
+    "name": "org_scope_restrict",
+    "check": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "((NOT ( SELECT is_staff_or_admin() AS is_staff_or_admin)) OR ( SELECT is_platform_master() AS is_platform_master) OR (organization_id = ( SELECT get_user_organization_id() AS get_user_organization_id)) OR ((organization_id IS NULL) AND (( SELECT get_user_organization_id() AS get_user_organization_id) = 'a0000000-0000-0000-0000-000000000001'::uuid)))",
+    "permissive": false
+   }
+  ],
+  "triggers": [
+   {
+    "def": "CREATE TRIGGER customer_notice_on_handover_bell AFTER INSERT ON public.user_notifications FOR EACH ROW WHEN (((new.metadata ->> 'kind'::text) = 'private_group_handover'::text)) EXECUTE FUNCTION customer_notice_on_handover_bell()",
+    "name": "customer_notice_on_handover_bell"
+   }
+  ],
+  "constraints": [
+   {
+    "def": "FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE",
+    "name": "user_notifications_customer_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE",
+    "name": "user_notifications_organization_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "PRIMARY KEY (id)",
+    "name": "user_notifications_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (related_event_id) REFERENCES schedule_events(id) ON DELETE SET NULL",
+    "name": "user_notifications_related_event_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (related_reservation_id) REFERENCES reservations(id) ON DELETE SET NULL",
+    "name": "user_notifications_related_reservation_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "FOREIGN KEY (related_waitlist_id) REFERENCES waitlist(id) ON DELETE SET NULL",
+    "name": "user_notifications_related_waitlist_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK ((type = ANY (ARRAY['reservation_confirmed'::text, 'reservation_reminder'::text, 'reservation_cancelled'::text, 'reservation_changed'::text, 'waitlist_available'::text, 'waitlist_registered'::text, 'payment_reminder'::text, 'system'::text])))",
+    "name": "user_notifications_type_check",
+    "type": "c"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "name": "user_notifications_user_id_fkey",
+    "type": "f"
+   },
+   {
+    "def": "CHECK (((user_id IS NOT NULL) OR (customer_id IS NOT NULL)))",
+    "name": "user_or_customer_required",
     "type": "c"
    }
   ]

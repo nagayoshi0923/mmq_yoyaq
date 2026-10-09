@@ -55,9 +55,9 @@ export function InviteCancelledScreen({ onBackToTop }: { onBackToTop: () => void
         <Card>
           <CardContent className="p-8 text-center">
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-lg font-medium mb-2">このグループはキャンセルされました</h2>
+            <h2 className="text-lg font-medium mb-2">このグループは閉じられています</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              主催者によりグループがキャンセルされました
+              主催者がグループを閉じたか、店舗への申込が取り下げ・キャンセルされました
             </p>
             <Button onClick={onBackToTop}>
               トップへ戻る

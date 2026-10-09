@@ -36,6 +36,10 @@ export const userNotificationApi = {
   async markManyRead(ids: string[]) {
     return supabase.from('user_notifications').update({ is_read: true, read_at: new Date().toISOString() }).in('id', ids)
   },
+  /** ニックネーム未登録の会員に「プロフィールの登録をお願いします」を 1 回だけ出す（DB 側で 1 回に限る。マイページ改修 段階 4） */
+  async ensureProfileNotice() {
+    return supabase.rpc('ensure_profile_incomplete_notice')
+  },
 }
 
 export const waitlistApi = {

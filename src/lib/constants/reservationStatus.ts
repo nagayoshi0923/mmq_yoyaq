@@ -35,10 +35,20 @@ export function getReservationStatusConfig(status: string): StatusConfig {
  *
  * @param wasConfirmed 一度承認された後のキャンセルか（承認者の有無で判定）
  */
+/** お客様がマイページから申込中の貸切リクエストを取り下げたときのキャンセル理由（DB に保存される文字列） */
+export const PRIVATE_REQUEST_WITHDRAWN_REASON = 'お客様による貸切申込の取り下げ'
+
+/** 申込中の貸切リクエストをお客様自身が取り下げたものか */
+export function isPrivateRequestWithdrawnByCustomer(request: { status: string; cancellation_reason?: string | null }): boolean {
+  return request.status === 'cancelled' && request.cancellation_reason === PRIVATE_REQUEST_WITHDRAWN_REASON
+}
+
 export function getPrivateBookingStatusConfig(
   status: string,
-  wasConfirmed?: boolean
+  wasConfirmed?: boolean,
+  withdrawnByCustomer?: boolean
 ): StatusConfig | null {
+  if (status === 'cancelled' && withdrawnByCustomer) return { label: 'お客様が取り下げ', variant: 'gray' }
   switch (status) {
     case 'pending':
     case 'pending_gm':

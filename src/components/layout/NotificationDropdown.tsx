@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Check, CheckCheck, Calendar, Clock, AlertCircle } from 'lucide-react'
+import { Bell, Check, CheckCheck, Calendar, Clock, AlertCircle, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useNotifications, Notification } from '@/hooks/useNotifications'
@@ -76,6 +76,8 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
         return <AlertCircle className="h-4 w-4 text-amber-500" />
       case 'reservation_cancelled':
         return <Clock className="h-4 w-4 text-red-500" />
+      case 'reservation_changed':
+        return <Users className="h-4 w-4 text-blue-500" />
       default:
         return <Bell className="h-4 w-4 text-gray-500" />
     }
@@ -140,7 +142,7 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
               <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
               <p className="text-sm text-gray-500 mb-1">通知はありません</p>
               <p className="text-xs text-gray-400">
-                予約確定やキャンセル待ちの<br />お知らせがここに届きます
+                予約・貸切・クーポンなどの<br />お知らせがここに届きます
               </p>
             </div>
           ) : (
@@ -207,8 +209,10 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white relative"
         title="通知"
+        aria-label={unreadCount > 0 ? `通知（未読 ${unreadCount}件）` : '通知'}
+        aria-expanded={isOpen}
       >
-        <Bell className="h-[18px] w-[18px]" />
+        <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
         {unreadCount > 0 && (
           <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] bg-red-500 hover:bg-red-500 border-0">
             {unreadCount > 9 ? '9+' : unreadCount}

@@ -10,6 +10,7 @@
 
 | ファイル | 内容 |
 |---------|------|
+| [local-dev.md](./local-dev.md) | 手元で画面・API・DB を全部動かす（npm run dev:full、試験アカウント） |
 | [critical-features.md](./critical-features.md) | 🚨 削除禁止の重要機能リスト |
 | [multi-tenant-security.md](./multi-tenant-security.md) | 🚨 マルチテナント セキュリティ |
 | [pii-review-priority.md](./pii-review-priority.md) | 個人情報（PII）セルフレビュー優先度 |

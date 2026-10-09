@@ -15,6 +15,34 @@ export interface PrivateGroupSnapshot {
   current_member_id: string | null
   linked_reservation_status: string | null
   confirmed_by_name: string | null
+  /** 紐づく申込（取消済みを除く）の予約番号・申込日時・人数・申込時の候補日・希望店舗名。preview には無い */
+  linked_reservation?: PrivateGroupLinkedReservation | null
+  /** 進行中の主催者の引き継ぎ依頼（当事者と同組織スタッフだけ。無ければ null） */
+  handover?: PrivateGroupHandoverSummary | null
+}
+
+/** 進行中の主催者の引き継ぎ依頼の要約（private_group_read_snapshot の handover） */
+export interface PrivateGroupHandoverSummary {
+  id: string
+  status: 'requested'
+  from_member_id: string | null
+  to_member_id: string | null
+  from_name: string
+  to_name: string
+  requested_at: string
+  expires_at: string
+  /** 自分が宛先（新主催者になる人） */
+  is_recipient: boolean
+  /** 自分が依頼した（いまの主催者） */
+  is_requester: boolean
+}
+
+export interface PrivateGroupLinkedReservation {
+  reservation_number: string | null
+  requested_at: string | null
+  participant_count: number | null
+  candidates: Array<{ date: string | null; startTime: string | null; endTime: string | null; timeSlot: string | null }>
+  requested_store_names: string[]
 }
 export async function readPrivateGroup(input: { groupId?: string | null; inviteCode?: string | null; memberId?: string | null }): Promise<PrivateGroupSnapshot> {
   const { data, error } = await supabase.rpc('private_group_read_snapshot', {

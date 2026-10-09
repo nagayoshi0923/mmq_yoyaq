@@ -102,7 +102,7 @@ GRANT EXECUTE ON FUNCTION public.join_private_group(text,text,text,text,text) TO
 
 CREATE FUNCTION public.private_group_member_action(p_group_id uuid,p_member_id uuid,p_action text,p_payload jsonb DEFAULT '{}'::jsonb,p_guest_token text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE v_row jsonb; v_result uuid; v_message text;
+DECLARE v_row jsonb; v_result uuid; v_message text; v_leaving private_group_members%ROWTYPE; v_name text; v_before integer;
 BEGIN
  -- Lock the group before the member, consistently with join and future membership guards.
  PERFORM 1 FROM private_groups WHERE id=p_group_id FOR UPDATE;
@@ -143,7 +143,16 @@ BEGIN
   RETURN 'true'::jsonb;
  WHEN 'leave' THEN
   IF EXISTS(SELECT 1 FROM private_group_members WHERE id=p_member_id AND is_organizer) THEN RAISE EXCEPTION '主催者は退出できません' USING ERRCODE='42501'; END IF;
+  SELECT * INTO v_leaving FROM private_group_members WHERE id=p_member_id AND group_id=p_group_id;
+  SELECT count(*) INTO v_before FROM private_group_members WHERE group_id=p_group_id AND status='joined';
+  v_name:=CASE WHEN v_leaving.user_id IS NULL THEN nullif(btrim(v_leaving.guest_name),'') ELSE coalesce(
+    (SELECT coalesce(nullif(c.nickname,''),nullif(c.name,'')) FROM customers c WHERE c.user_id=v_leaving.user_id ORDER BY c.id LIMIT 1),
+    nullif(btrim(v_leaving.guest_name),'')) END;
   DELETE FROM private_group_members WHERE id=p_member_id AND group_id=p_group_id;
+  -- 申込後・確定後は店舗へ人数変更として知らせる（段階 2 の「外す」と同じ経路）
+  IF v_leaving.status='joined' THEN
+   PERFORM public.private_group_queue_member_left_notice(p_group_id,v_before,v_before-1,v_name,p_member_id);
+  END IF;
   RETURN 'true'::jsonb;
  ELSE RAISE EXCEPTION '未対応の操作です' USING ERRCODE='22023';
  END CASE;

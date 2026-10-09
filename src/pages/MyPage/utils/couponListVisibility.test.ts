@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countUsableCoupons,
   getExpiredRetentionDeadline,
   getLastCouponUsedAt,
   isUsedCouponVisible,
@@ -149,4 +150,17 @@ it('最終利用日時は利用履歴の最新の有効日時であり更新日�
   const coupon = { status: 'fully_used' as const, created_at: '2026-01-01', updated_at: '2026-09-26', coupon_usages: [{ used_at: '2026-09-20T00:00:00Z' }, { used_at: 'invalid' }, { used_at: '2026-09-24T00:00:00Z' }] }
   expect(getLastCouponUsedAt(coupon)).toBe('2026-09-24T00:00:00Z')
   expect(getLastCouponUsedAt({ ...coupon, coupon_usages: [] })).toBeNull()
+})
+
+describe('countUsableCoupons', () => {
+  it('期限内の active の残り使用回数だけを合計する', () => {
+    const now = new Date('2026-10-09T12:00:00+09:00')
+    const base = { created_at: '2026-01-01', updated_at: '2026-01-01', coupon_usages: [], coupon_campaigns: null }
+    expect(countUsableCoupons([
+      { ...base, status: 'active', expires_at: '2026-12-31T00:00:00+09:00', uses_remaining: 2 },
+      { ...base, status: 'active', expires_at: '2026-10-01T00:00:00+09:00', uses_remaining: 5 },
+      { ...base, status: 'fully_used', expires_at: null, uses_remaining: 0 },
+      { ...base, status: 'active', expires_at: null, uses_remaining: 1 },
+    ], now)).toBe(3)
+  })
 })

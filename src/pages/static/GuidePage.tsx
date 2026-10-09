@@ -326,9 +326,9 @@ function InquiryStep() {
     <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5">
       <div className="flex items-center gap-2 mb-2">
         <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-bold">?</span>
-        <p className="text-sm font-bold text-gray-900">店舗への問い合わせ</p>
+        <p className="text-sm font-bold text-gray-900">店舗に問い合わせる</p>
       </div>
-      <p className="text-sm text-gray-600 mb-3 pl-8">質問がある場合は、チャット画面ヘッダーの <Settings className="w-3.5 h-3.5 inline-block text-gray-500" /> アイコンから店舗に直接問い合わせできます。</p>
+      <p className="text-sm text-gray-600 mb-3 pl-8">質問がある場合は、マイページの貸切カードの「操作」、またはチャット画面ヘッダーの <Settings className="w-3.5 h-3.5 inline-block text-gray-500" /> アイコンから「店舗に問い合わせる」を選ぶと、予約番号などが入った状態で店舗に直接問い合わせできます。</p>
       <div className="ml-8">
         <DemoFrame label="設定シート内の問い合わせ">
           <div className="flex items-center justify-between mb-3">
@@ -339,7 +339,7 @@ function InquiryStep() {
             <div className="flex items-center justify-between p-3 bg-white">
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium">店舗への問い合わせ</span>
+                <span className="text-sm font-medium">店舗に問い合わせる</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-400 rotate-90" />
             </div>
@@ -1369,9 +1369,9 @@ export function GuidePage() {
                 <p className="text-gray-600 leading-relaxed">店舗側で候補日を確認し、日程を確定します。確定すると<strong>メールとグループ内の両方に通知</strong>が届きます。</p>
               </div>
               <div>
-                <p className="font-medium text-gray-900 mb-1">Q. 作成した貸切グループを削除したい</p>
-                <p className="text-gray-600 leading-relaxed mb-1.5">グループページ右上の<strong>歯車アイコン</strong>を押して設定を開き、「グループを削除する」から削除できます。</p>
-                <p className="text-gray-600 leading-relaxed">ただし削除できるのは<strong>日程リクエストを送信する前</strong>のグループのみです。すでにリクエストを送信した場合は、お問い合わせフォームまたはメールにて「招待コード」と「削除希望」の旨をご連絡ください。</p>
+                <p className="font-medium text-gray-900 mb-1">Q. 作成した貸切グループを閉じたい</p>
+                <p className="text-gray-600 leading-relaxed mb-1.5">マイページの貸切カードの<strong>「操作」</strong>、またはグループページ右上の<strong>歯車アイコン</strong>から「グループを閉じる」を選びます。</p>
+                <p className="text-gray-600 leading-relaxed">閉じられるのは<strong>店舗へ申し込む前</strong>のグループです。申込後で店舗の返事待ちのときは「申込を取り下げる」、日程が確定したあとは「キャンセル」（キャンセル規定の範囲内）を選んでください。</p>
               </div>
             </div>
           </div>

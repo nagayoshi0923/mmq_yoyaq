@@ -12,6 +12,9 @@ import { showToast } from '@/utils/toast'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 import type { Reservation, Store } from '@/types'
+import { summarizePrivateGroup, type PrivateGroupSummary } from '../components/PrivateBookingCards/privateGroupSummary'
+import { toHandoverInfo, type MyHandoverRow, type PrivateGroupHandoverInfo } from '../components/PrivateBookingCards/privateGroupHandover'
+import { privateGroupRpcApi } from '@/lib/api/privateGroupRpcApi'
 import { getErrorMessage } from '@/lib/errorFields'
 
 interface PlayedScenario {
@@ -28,23 +31,6 @@ interface PlayedScenario {
   rating?: number | null
 }
 
-interface PrivateGroupSummary {
-  id: string
-  name: string | null
-  invite_code: string
-  status: string
-  scenario_title: string | null
-  scenario_image: string | null
-  scenario_player_count_max: number | null
-  member_count: number
-  is_organizer: boolean
-  created_at: string
-  reservation_id?: string | null
-  confirmed_schedule_line?: string | null
-  member_displays?: Array<{ name: string; is_organizer: boolean }>
-  candidate_dates_count: number
-}
-
 function playedScenarioListDedupeKey(p: PlayedScenario): string {
   if (p.is_manual && p.manual_id) return `manual:${p.manual_id}`
   if (p.reservation_id) return `res:${p.reservation_id}`
@@ -59,7 +45,7 @@ export interface MyPageData {
   customerIds?: string[]
   avatarUrl: string | null
   stats: { participationCount: number; points: number }
-  scheduleEvents: Record<string, { date: string; start_time: string; category?: string; current_participants?: number; max_participants?: number }>
+  scheduleEvents: Record<string, { date: string; start_time: string; category?: string; is_private_booking?: boolean | null; current_participants?: number; max_participants?: number }>
   orgSlugs: Record<string, string>
   orgNames: Record<string, string>
   scenarioImages: Record<string, string>
@@ -118,7 +104,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       if (identityError) throw identityError
       const customerIds = [...new Set([customer.id, ...(identities ?? []).map(row => row.id)])]
       const historySnapshot = snapshotAllCustomers(customerIds)
-      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations] = await Promise.all([
+      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult, overridesResult, pastReservations, handoverResult] = await Promise.all([
         Promise.all(customerIds.map(id => myPageDataReadApi.listRecentReservations(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.requested_datetime ?? '').localeCompare(a.requested_datetime ?? '')), error: results.find(result => result.error)?.error ?? null })),
         readPrivateGroupList('joined').then(groups => ({
           data: groups.map(group => {
@@ -131,6 +117,8 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         Promise.all(customerIds.map(id => myPageDataReadApi.listRatings(id))).then(results => ({ data: results.flatMap(result => result.data ?? []).sort((a,b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '')), error: results.find(result => result.error)?.error ?? null })),
         historySnapshot.then(history => ({ data: history.overrides, error: null })),
         Promise.all(customerIds.map(id => fetchPlayedReservations(id))).then(results => results.flat()),
+        // 主催者の引き継ぎ（段階 3）。読めなくてもカードは出す
+        userId ? privateGroupRpcApi.listMyHandovers() : Promise.resolve({ data: [], error: null }),
       ])
 
       if (reservationResult.error) throw reservationResult.error
@@ -157,13 +145,11 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const memberRecords = privateGroupsResult.data || []
       const groupIds = memberRecords.map(r => r.private_groups?.id).filter(Boolean)
 
-      const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] = await Promise.all([
+      const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult] = await Promise.all([
         eventIds.length > 0 ? myPageDataReadApi.listPublicEventsByIds(eventIds) : Promise.resolve({ data: [] }),
         fetchBatchedIds(orgIds, ids => myPageDataReadApi.listOrganizationsByIds(ids)),
         fetchBatchedIds(scenarioMasterIds, ids => myPageDataReadApi.listScenarioMastersByIds(ids)),
         groupIds.length > 0 ? myPageDataReadApi.getPrivateGroupSchedules(groupIds) : Promise.resolve({ data: [] }),
-        Promise.resolve({ data: memberRecords.flatMap(row => (row.private_groups.members || []).filter(m => m.status === 'joined')) }),
-        Promise.resolve({ data: memberRecords.flatMap(row => row.private_groups.candidate_dates || []) }),
       ])
 
       const groupSchedules = (privateGroupSchedulesResult.data || []) as Array<{ group_id: string; requested_datetime: string; store_id: string | null; store_name: string | null }>
@@ -175,7 +161,7 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
       const storesData = storesFetchResult.data || []
 
       const scheduleEvents: MyPageData['scheduleEvents'] = {}
-      eventsResult.data?.forEach((e) => { scheduleEvents[e.id] = { date: e.date, start_time: e.start_time, category: e.category, current_participants: e.current_participants, max_participants: e.max_participants } })
+      eventsResult.data?.forEach((e) => { scheduleEvents[e.id] = { date: e.date, start_time: e.start_time, category: e.category, is_private_booking: e.is_private_booking, current_participants: e.current_participants, max_participants: e.max_participants } })
 
       const orgSlugs: Record<string, string> = {}
       const orgNames: Record<string, string> = {}
@@ -197,56 +183,6 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
 
       const storeNameById: Record<string, string> = {}
       storesData.forEach(s => { storeNameById[s.id] = s.name })
-
-      const candidateCountByGroup: Record<string, number> = {}
-      ;(candidateDatesResult.data || []).forEach((row: { group_id: string }) => { if (row.group_id) candidateCountByGroup[row.group_id] = (candidateCountByGroup[row.group_id] || 0) + 1 })
-
-      const formatConfirmedScheduleLine = (groupStatus: string, groupId: string): string | null => {
-        if (!['confirmed', 'booking_requested'].includes(groupStatus)) return null
-        if (groupStatus === 'booking_requested') {
-          // 申込中は日時が未確定。先頭候補を「申込内容」として出すと確定日時に見えるため、候補数だけ出す
-          const n = candidateCountByGroup[groupId] || 0
-          return n > 0 ? `候補日 ${n}件で申込中（店舗の確認待ち）` : '申込中（店舗の確認待ち）'
-        }
-        const s = groupScheduleByGroupId[groupId]
-        if (!s?.requested_datetime) return null
-        const raw = s.requested_datetime
-        const iso = raw.includes('+') || raw.endsWith('Z') ? raw : `${raw.slice(0, 10)}T${(raw.match(/T(\d{2}:\d{2})/)?.[1] || '12:00')}:00+09:00`
-        const d = new Date(iso)
-        const dateStr = d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' })
-        const hm = raw.match(/T(\d{2}:\d{2})/)
-        const timeStr = hm ? `${hm[1]}〜` : ''
-        const store = s.store_name || (s.store_id ? storeNameById[s.store_id] : '')
-        const line = [dateStr, timeStr, store].filter(Boolean).join(' ')
-        return line || null
-      }
-
-      const membersDetailRows = (membersDetailResult.data || []) as Array<{ group_id: string; guest_name: string | null; user_id: string | null; is_organizer: boolean; status: string; joined_at: string | null }>
-
-      const memberCountMap: Record<string, number> = {}
-      const membersByGroupId: Record<string, typeof membersDetailRows> = {}
-      membersDetailRows.forEach(m => {
-        memberCountMap[m.group_id] = (memberCountMap[m.group_id] || 0) + 1
-        if (!membersByGroupId[m.group_id]) membersByGroupId[m.group_id] = []
-        membersByGroupId[m.group_id].push(m)
-      })
-
-      const memberUserIds = [...new Set(membersDetailRows.map(m => m.user_id).filter(Boolean) as string[])]
-      const displayByUserId: Record<string, string> = {}
-      if (memberUserIds.length > 0) {
-        const { data: nameRows, error: nameRpcError } = await myPageDataReadApi.getUserDisplayNames(memberUserIds)
-        if (nameRpcError) logger.warn('get_user_display_names RPC エラー:', nameRpcError)
-        else (nameRows as { user_id: string; display_name: string }[] | null)?.forEach(row => { if (row.user_id && row.display_name?.trim()) displayByUserId[row.user_id] = row.display_name.trim() })
-      }
-
-      const buildMemberDisplays = (gid: string) => {
-        const rows = membersByGroupId[gid] || []
-        return rows.map(m => {
-          const fromGuest = m.guest_name?.trim()
-          const fromUser = m.user_id ? displayByUserId[m.user_id] : ''
-          return { name: fromGuest || fromUser || '参加者', is_organizer: m.is_organizer }
-        })
-      }
 
       const played: PlayedScenario[] = pastReservations.map(reservation => {
         const scenarioMasterId = reservation.scenario_master_id
@@ -288,18 +224,15 @@ export function useMyPageDataQuery(userId: string | undefined, email: string | u
         })
         .filter(p => { const k = playedScenarioListDedupeKey(p); if (listDedupeKeys.has(k)) return false; listDedupeKeys.add(k); return true })
 
+      if (handoverResult.error) logger.warn('主催者の引き継ぎ依頼の取得に失敗:', handoverResult.error)
+      const handoverByGroupId: Record<string, PrivateGroupHandoverInfo> = {}
+      ;((handoverResult.data ?? []) as MyHandoverRow[]).forEach(row => { handoverByGroupId[row.group_id] = toHandoverInfo(row) })
+
       const privateGroups: PrivateGroupSummary[] = []
       for (const record of memberRecords) {
         const group = record.private_groups
         if (!group || group.status === 'cancelled') continue
-        const scenario = group.scenario_masters
-        privateGroups.push({
-          id: group.id, name: group.name, invite_code: group.invite_code, status: group.status,
-          scenario_title: scenario?.title || null, scenario_image: scenario?.key_visual_url || null, scenario_player_count_max: scenario?.player_count_max || null,
-          member_count: memberCountMap[group.id] || 0, is_organizer: record.is_organizer, created_at: group.created_at,
-          reservation_id: group.reservation_id ?? null, confirmed_schedule_line: formatConfirmedScheduleLine(group.status, group.id),
-          member_displays: buildMemberDisplays(group.id), candidate_dates_count: candidateCountByGroup[group.id] || 0,
-        })
+        privateGroups.push(summarizePrivateGroup(group, userId, groupScheduleByGroupId[group.id], storeNameById, handoverByGroupId[group.id] ?? null))
       }
       privateGroups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 

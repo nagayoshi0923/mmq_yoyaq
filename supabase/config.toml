@@ -1,5 +1,6 @@
-[project]
-# Project configuration
+# ローカル Supabase のコンテナ名（どの worktree から起動しても同じ名前・同じ番号になる）
+project_id = "mmq-local"
+
 
 [api]
 enabled = true
@@ -8,6 +9,12 @@ max_rows = 1000
 
 [db]
 port = 54322
+
+# 手元の試験データ（supabase/seed.sql）。npm run supabase:reset / 初回の npm run dev:full で入る。
+# リモートへの db push では使われない（--include-seed を付けない限り）。
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
 
 [studio]
 enabled = true
@@ -128,6 +135,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.process-survey-reminders]
+verify_jwt = false
+
+[functions.process-customer-notice-emails]
 verify_jwt = false
 
 [functions.process-private-approval-deliveries]

@@ -55,6 +55,7 @@
 | `private_group_candidate_add_requests.sql` | private_group_candidate_add_requests | |
 | `private_group_candidate_dates.sql` | private_group_candidate_dates | 候補日 |
 | `private_group_guest_sessions.sql` | private_group_guest_sessions | |
+| `private_group_handover_requests.sql` | private_group_handover_requests | 主催者の引き継ぎ依頼（段階 3） |
 | `private_group_members.sql` | private_group_members | グループメンバー |
 | `private_group_members_pii.sql` | private_group_members_pii | |
 | `private_group_survey_deadlines.sql` | private_group_survey_deadlines | |

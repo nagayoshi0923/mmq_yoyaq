@@ -21,6 +21,13 @@ export function resolveCouponDisplayStatus(coupon: CouponLike, now: Date): Coupo
   return coupon.status
 }
 
+/** 使えるクーポンの枚数（有効期限内の残り使用回数の合計。マイページのクーポンタブのバッジと一覧の見出しで共通） */
+export function countUsableCoupons(coupons: Array<CouponLike & { uses_remaining: number }>, now: Date): number {
+  return coupons
+    .filter(coupon => resolveCouponDisplayStatus(coupon, now) === 'active')
+    .reduce((sum, coupon) => sum + coupon.uses_remaining, 0)
+}
+
 /** 個別期限とキャンペーン期限のうち、先に利用不可になる日時。 */
 export function getExpiredRetentionDeadline(coupon: CouponLike): string | null {
   const deadlines = [coupon.expires_at, coupon.coupon_campaigns?.usage_valid_until]

@@ -19,7 +19,7 @@ import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 import { formatJstDateJa, getJstParts, formatJstTime } from '@/utils/jstDate'
 import { ConfirmDialog } from '@/components/patterns/modal'
-import { formatChatDate, groupMessagesByDate, parseSystemMessage, type SystemMessage } from './groupChatMessages'
+import { closedHandoverRequestIds, formatChatDate, groupMessagesByDate, parseSystemMessage, type SystemMessage } from './groupChatMessages'
 import { SIMPLE_SYSTEM_MESSAGE_ACTIONS, SystemNoticeCard } from './SystemNoticeCard'
 import { renderMessageWithLinks } from './renderMessageWithLinks'
 
@@ -51,10 +51,12 @@ interface GroupChatProps {
   scenarioPlayerCount?: number | null
   /** アンケートを別の画面で開く（招待ページ）。渡さない場合はチャットの上の枠で開く */
   onOpenSurvey?: () => void
+  /** 主催者の引き継ぎ確認画面を開く（依頼 id を渡す） */
+  onOpenHandover?: (requestId: string) => void
 }
 
 
-export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover }: GroupChatProps) {
   const { user } = useAuth()
   const { messages, loading, error: messagesError, refetch: refetchMessages } = usePrivateGroupMessages(groupId, currentMemberId)
   const [newMessage, setNewMessage] = useState('')
@@ -326,6 +328,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   }
 
   const messageGroups = groupMessagesByDate(messages)
+  // 主催者の引き継ぎ依頼のうち、成立・お断り・取り消し・期限切れの記録が出たもの（個別お知らせの「確認する」を消す）
+  const closedHandoverIds = closedHandoverRequestIds(messages)
   // ゲストユーザーの場合はcurrentMemberIdを使用、ログインユーザーの場合はuser_idで検索
   // currentMemberIdを優先し、なければmembersから検索
   const memberIdFromUser = user ? members.find(m => m.user_id === user.id)?.id : null
@@ -414,7 +418,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                             </div>
                             <div>
                               <p className="text-sm font-medium text-indigo-800">
-                                {nickname}さんへのお知らせ
+                                {systemMsg.handover_request_id && systemMsg.title ? systemMsg.title : `${nickname}さんへのお知らせ`}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -425,6 +429,15 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
                             <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
                               {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
+                            {systemMsg.handover_request_id && (
+                              closedHandoverIds.has(systemMsg.handover_request_id) ? (
+                                <p className="text-xs text-muted-foreground mt-2">この依頼は終わっています</p>
+                              ) : onOpenHandover ? (
+                                <Button type="button" size="sm" className="w-full mt-3 bg-purple-600 hover:bg-purple-700 text-white" onClick={() => onOpenHandover(systemMsg.handover_request_id!)} data-testid="handover-open">
+                                  確認する
+                                </Button>
+                              ) : null
+                            )}
                           </div>
                           <p className="text-xs text-indigo-400 mt-2 text-center">
                             🔒 このお知らせはあなただけに表示されています

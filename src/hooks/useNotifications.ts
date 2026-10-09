@@ -9,13 +9,26 @@ import { userNotificationApi } from '@/lib/api/globalSettingsApi'
 
 export interface Notification {
   id: string
-  type: 'reservation_confirmed' | 'reservation_reminder' | 'waitlist_available' | 'reservation_cancelled' | 'system'
+  type: 'reservation_confirmed' | 'reservation_reminder' | 'waitlist_available' | 'reservation_cancelled' | 'reservation_changed' | 'system'
   title: string
   message: string
   timestamp: Date
   read: boolean
   link?: string
   data?: Record<string, unknown>
+}
+
+// プロフィール未登録の知らせ（DB 側で 1 人 1 回だけ作る）を確かめるのは、画面を開いてから 1 人 1 回まで
+const profileNoticeChecked = new Set<string>()
+async function ensureProfileNoticeOnce(userId: string | undefined) {
+  if (!userId || profileNoticeChecked.has(userId)) return
+  profileNoticeChecked.add(userId)
+  try {
+    const { error } = await userNotificationApi.ensureProfileNotice()
+    if (error) logger.warn('プロフィール登録の知らせを確認できませんでした:', error)
+  } catch (error) {
+    logger.warn('プロフィール登録の知らせを確認できませんでした:', error)
+  }
 }
 
 /**
@@ -170,6 +183,7 @@ export function useNotifications() {
     // DB優先、フォールバックあり
     queryFn: async () => {
       if (!user?.email) return []
+      await ensureProfileNoticeOnce(user.id)
       const fromDb = await fetchFromDatabase()
       if (fromDb !== null) return fromDb
       return await fetchFromExistingData()

@@ -117,15 +117,14 @@ export function usePreferredStoreEditor({ group, canMutateScheduleBeforeStoreRep
     }
   }
 
-  // 店舗編集シートを開く
-  const openStoreEditSheet = () => {
+  // 店舗編集シートの中身を用意する（選択中の店舗・選べる店舗の読み込み）。変更できないときは false
+  const prepareStoreEdit = (): boolean => {
     if (!canMutateScheduleBeforeStoreReply) {
       toast.error('店舗の返答待ちのため、希望店舗を変更できません')
-      return
+      return false
     }
     setSelectedStoreIds(group?.preferred_store_ids || [])
     setExpectedStoreIds([...(group?.preferred_store_ids || [])])
-    openSheet('store-edit')
     setLoadingStoresForEdit(true)
     void (async () => {
       try {
@@ -134,9 +133,16 @@ export function usePreferredStoreEditor({ group, canMutateScheduleBeforeStoreRep
         setLoadingStoresForEdit(false)
       }
     })()
+    return true
+  }
+
+  // 店舗編集シートを開く
+  const openStoreEditSheet = () => {
+    if (prepareStoreEdit()) openSheet('store-edit')
   }
 
   return {
+    prepareStoreEdit,
     allStores,
     setAllStores,
     isFilteredByScenario,

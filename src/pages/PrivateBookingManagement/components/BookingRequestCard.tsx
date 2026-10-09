@@ -24,8 +24,10 @@ import {
 } from '../utils/bookingFormatters'
 import { isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '../utils/gmAvailabilityStatus'
 import { cn } from '@/lib/utils'
+import { isPrivateRequestWithdrawnByCustomer } from '@/lib/constants/reservationStatus'
 import type { GmScenarioMode } from '@/lib/gmScenarioMode'
 import { gmRoleLabel } from '../utils/gmRoleLabel'
+import type { ApplicantChange } from '../hooks/useApplicantChanges'
 
 interface Candidate {
   gm_response_index?: number | null
@@ -69,6 +71,7 @@ interface BookingRequest {
   approved_at?: string
   canceller_name?: string
   cancelled_at?: string
+  cancellation_reason?: string
   notes?: string
   invite_code?: string
   response_candidate_snapshot?: unknown[]
@@ -90,6 +93,8 @@ interface GMStaff {
 interface BookingRequestCardProps {
   request: BookingRequest
   approvalDeliveries?: ApprovalDeliveryStatus[]
+  /** 申込者の変更履歴（主催者の引き継ぎで申込者が変わったとき） */
+  applicantChanges?: ApplicantChange[]
   approvalDeliveryError?: boolean
   rejectionDelivery?: RejectionDeliveryStatus
   rejectionDeliveryError?: boolean
@@ -119,6 +124,7 @@ interface BookingRequestCardProps {
 export const BookingRequestCard = ({
   request,
   approvalDeliveries,
+  applicantChanges,
   approvalDeliveryError,
   rejectionDelivery,
   rejectionDeliveryError,
@@ -147,6 +153,8 @@ export const BookingRequestCard = ({
   const elapsedDays = getElapsedDays(request.created_at)
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
   const isWaitingStatus = ['pending', 'pending_gm', 'pending_store'].includes(request.status)
+  // 申込中にお客様自身が取り下げたもの。却下メールは送らないので送信状況も出さない。
+  const withdrawnByCustomer = isPrivateRequestWithdrawnByCustomer(request)
 
   const handleResend = async () => {
     if (!onResendDiscordNotification || resending) return
@@ -178,7 +186,7 @@ export const BookingRequestCard = ({
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
           <div className="flex flex-col items-end gap-0.5 shrink-0">
-            <PrivateBookingStatusBadge status={request.status} wasConfirmed={!!request.approver_name} />
+            <PrivateBookingStatusBadge status={request.status} wasConfirmed={!!request.approver_name} withdrawnByCustomer={withdrawnByCustomer} />
             {request.approver_name && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
                 承認: {request.approver_name}{request.approved_at ? ` ・ ${formatDateTime(request.approved_at)}` : ''}
@@ -195,19 +203,19 @@ export const BookingRequestCard = ({
         )}
         {request.status === 'cancelled' && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {request.approver_name ? 'キャンセル' : '却下'}: {request.canceller_name || '不明'}
+                {withdrawnByCustomer ? '取り下げ: お客様' : `${request.approver_name ? 'キャンセル' : '却下'}: ${request.canceller_name || '不明'}`}
                 {request.cancelled_at ? ` ・ ${formatDateTime(request.cancelled_at)}` : ''}
               </span>
             )}
           </div>
         </div>
 
-        {request.status === 'cancelled' && (rejectionDeliveryError || rejectionDelivery) && (
+        {request.status === 'cancelled' && !withdrawnByCustomer && (rejectionDeliveryError || rejectionDelivery) && (
           <p className="mt-2 text-sm text-muted-foreground" role="status">
             {rejectionDeliveryError ? 'メール送信状況を取得できません。時間を置いて再読み込みしてください。' : rejectionDeliveryLabel(rejectionDelivery!.status)}
           </p>
         )}
-        {!rejectionDeliveryError && rejectionDelivery?.can_retry && onRetryRejectionDelivery && (
+        {!withdrawnByCustomer && !rejectionDeliveryError && rejectionDelivery?.can_retry && onRetryRejectionDelivery && (
           <Button variant="outline" size="sm" className="mt-2" disabled={retryingRejectionDelivery} onClick={onRetryRejectionDelivery}>
             登録済み連絡先でメールを再試行
           </Button>
@@ -246,6 +254,20 @@ export const BookingRequestCard = ({
             </button>
           )}
         </div>
+
+        {/* ── 申込者の変更履歴（主催者の引き継ぎ） ── */}
+        {applicantChanges && applicantChanges.length > 0 && (
+          <div className="mt-1.5 text-xs" data-testid="applicant-change-history">
+            <p className="font-medium text-purple-800">申込者の変更履歴</p>
+            <ul className="text-muted-foreground">
+              {applicantChanges.map(change => (
+                <li key={change.id}>
+                  {formatDateTime(change.responded_at)} {change.from_name} → {change.to_name}（主催者の引き継ぎ）
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ── 希望店舗 ── */}
         {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (() => {

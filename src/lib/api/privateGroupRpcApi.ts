@@ -23,9 +23,17 @@ export const privateGroupRpcApi = {
   async removeMember(memberId: string) {
     return supabase.rpc('private_group_remove_member', { p_member_id: memberId })
   },
-  /** グループから抜ける */
+  /** メンバーを外し、チャットに記録する。申込済み・確定後は店舗へ人数変更を知らせる（戻り値 store_notified） */
+  async removeMemberWithNotice(memberId: string) {
+    return supabase.rpc('private_group_remove_member_with_notice', { p_member_id: memberId })
+  },
+  /** 申込前のグループを閉じ、チャットにお知らせを残す（行は消さず履歴を残す） */
+  async closeUnrequestedWithNotice(groupId: string) {
+    return supabase.rpc('cancel_unrequested_private_group_with_notice', { p_group_id: groupId })
+  },
+  /** グループから抜ける。申込後・確定後は店舗へ人数変更を知らせる（戻り値 store_notified） */
   async leave(groupId: string) {
-    return supabase.rpc('private_group_leave', { p_group_id: groupId })
+    return supabase.rpc('private_group_leave_with_notice', { p_group_id: groupId })
   },
   /** キャラクターの割り当て方法を設定する（期待値を渡して競合を検出） */
   async setCharacterMethod(args: object) {
@@ -54,6 +62,34 @@ export const privateGroupRpcApi = {
   /** グループを削除する */
   async deleteGroup(args: object) {
     return supabase.rpc('delete_private_group', args)
+  },
+  /** 主催者の引き継ぎを依頼する（主催者のみ。宛先は会員メンバー。72 時間で期限切れ） */
+  async requestHandover(groupId: string, toMemberId: string) {
+    return supabase.rpc('private_group_handover_request', { p_group_id: groupId, p_to_member_id: toMemberId })
+  },
+  /** 主催者の引き継ぎ依頼を取り消す（依頼した本人） */
+  async cancelHandover(requestId: string) {
+    return supabase.rpc('private_group_handover_cancel', { p_request_id: requestId })
+  },
+  /** 主催者の引き継ぎを断る（宛先の本人） */
+  async declineHandover(requestId: string) {
+    return supabase.rpc('private_group_handover_decline', { p_request_id: requestId })
+  },
+  /** 主催者の引き継ぎに同意する（宛先の本人）。主催者・申込者・チャット・店舗への知らせを一括で切り替える */
+  async acceptHandover(requestId: string, customerId: string, contactName: string, contactPhone: string, displayedPolicy: unknown = null) {
+    return supabase.rpc('private_group_handover_accept', {
+      p_request_id: requestId, p_customer_id: customerId,
+      p_contact_name: contactName, p_contact_phone: contactPhone,
+      p_displayed_policy: displayedPolicy ?? null,
+    })
+  },
+  /** 引き継ぎ確認画面の材料（宛先・依頼者・同組織スタッフのみ） */
+  async readHandoverDetail(requestId: string) {
+    return supabase.rpc('private_group_handover_detail', { p_request_id: requestId })
+  },
+  /** 自分が依頼した・頼まれている進行中の引き継ぎ依頼（マイページのカード用） */
+  async listMyHandovers() {
+    return supabase.rpc('private_group_handover_mine')
   },
   /** 貸切リクエストを作って通知する */
   async createBookingRequestWithNotice(args: object) {

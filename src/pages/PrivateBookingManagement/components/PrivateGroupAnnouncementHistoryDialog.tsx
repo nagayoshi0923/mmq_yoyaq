@@ -68,6 +68,21 @@ function SystemMessageCard({ payload, createdAt, senderName }: SystemMsgProps) {
     )
   }
 
+  // 主催者がメンバーを外した（マイページ改修 段階 2）
+  if (action === 'member_removed') {
+    const name = typeof payload.memberName === 'string' ? payload.memberName : 'メンバー'
+    return (
+      <div className="flex justify-center my-2">
+        <div className="bg-muted rounded-full px-4 py-1.5">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">{name}</span> さんがグループから外れました
+            <span className="ml-2 text-xs text-muted-foreground">{ts}</span>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // グループ作成
   if (action === 'group_created') {
     return (
