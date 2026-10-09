@@ -40,6 +40,12 @@ export const userNotificationApi = {
   async ensureProfileNotice() {
     return supabase.rpc('ensure_profile_incomplete_notice')
   },
+  /** ベルを開いた時刻を本人の行に書く（ベルの数字＝これより後の通知の件数） */
+  async markBellSeen(userId: string, seenAtIso: string) {
+    return supabase
+      .from('user_notification_views')
+      .upsert({ user_id: userId, last_seen_at: seenAtIso, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  },
 }
 
 export const waitlistApi = {

@@ -3,7 +3,7 @@
  * 中身は状態と立場で変わる（buildPrivateBookingMenu）。赤い操作は最後に 1 つだけ。
  */
 import { useState, type ReactNode } from 'react'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { buildPrivateBookingMenu, type PrivateBookingMenuItemId } from './privateBookingMenu'
@@ -70,7 +70,7 @@ export function PrivateBookingActionsMenu({ target, actions, nav, trigger, align
             aria-label={`${target.title}の操作`}
             data-testid="private-booking-actions"
           >
-            <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
+            <MoreVertical className="w-3.5 h-3.5" aria-hidden="true" />
             操作
           </Button>
         )}
