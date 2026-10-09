@@ -174,3 +174,34 @@ describe('グループの要約', () => {
       .toEqual({ date: '2026-10-26', start_time: '18:00', store_name: '本店' })
   })
 })
+
+describe('カードの見た目（改善案 Main.dc.html）', () => {
+  const build = (groups: PrivateGroupSummary[], surveyPending: Record<string, boolean> = {}) =>
+    buildPrivateBookingView({ groups, reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending, todayYmd: TODAY })
+  const schedule = { date: '2026-11-07', start_time: '14:00', store_name: '高田馬場店' }
+
+  it('色: 要対応=紫・アンケート/確定=緑・店舗の返事待ち=琥珀・主催者の準備待ち=灰', () => {
+    const view = build([
+      group({ id: 'a' }),
+      group({ id: 's', status: 'confirmed', schedule }),
+      group({ id: 'w', status: 'booking_requested', candidate_dates_count: 2 }),
+      group({ id: 'o', is_organizer: false }),
+      group({ id: 'u', status: 'confirmed', schedule: { ...schedule, date: '2026-11-21' } }),
+    ], { s: true })
+    const tones = Object.fromEntries(Object.values(view.bySection).flat().map(i => [i.groupId, i.tone]))
+    expect(tones).toEqual({ a: 'purple', s: 'green', w: 'amber', o: 'gray', u: 'green' })
+  })
+
+  it('人数は 参加/定員、確定後は日時・会場の行、確定・終了は小さいカードで進み具合を出さない', () => {
+    const [upcoming] = build([group({ status: 'confirmed', member_count: 4, schedule })]).bySection.confirmed
+    expect(upcoming.headcount).toBe('4/6名')
+    expect(upcoming.whenWhere).toBe('2026年11月7日(土) 14:00〜 高田馬場店')
+    expect(upcoming.compact).toBe(true)
+    expect(upcoming.showProgress).toBe(false)
+    const [gathering] = build([group({ scenario_player_count_max: null })]).bySection.action
+    expect(gathering.headcount).toBe('3名')
+    expect(gathering.whenWhere).toBeNull()
+    expect(gathering.compact).toBe(false)
+    expect(gathering.showProgress).toBe(true)
+  })
+})

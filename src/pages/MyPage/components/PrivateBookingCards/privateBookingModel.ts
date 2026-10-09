@@ -57,6 +57,9 @@ const SECTION_BY_ACTION: Record<NextActionKind, PrivateBookingSection> = {
 const PRE_CONFIRM_STEPS = ['招待', '候補日', '回答', '申込', '確定'] as const
 const POST_CONFIRM_STEPS = ['確定', 'アンケート', '当日'] as const
 
+/** カードの色（改善案: 要対応=紫・確定/アンケート=緑・店舗の返事待ち=琥珀・相手待ち/終了=灰） */
+export type PrivateBookingTone = 'purple' | 'green' | 'amber' | 'gray'
+
 interface PrivateBookingProgress {
   steps: readonly string[]
   /** 今いる段の番号。これより前は済み。steps.length なら全部済み */
@@ -77,6 +80,17 @@ export interface PrivateBookingItem {
   label: string
   section: PrivateBookingSection
   progress: PrivateBookingProgress
+  /** 進み具合のチップ列を出すか（引き継ぎ・確定後の通常カード・終了では出さない） */
+  showProgress: boolean
+  tone: PrivateBookingTone
+  /** 主ボタンの色（引き継ぎ依頼中で枠が灰でも、次にやることの色のまま） */
+  primaryTone: PrivateBookingTone
+  /** 確定・終了は小さい 1 行カード（作品名・日時・ボタン 1 つ） */
+  compact: boolean
+  /** ヘッダー右の人数（4/6名）。分からなければ null */
+  headcount: string | null
+  /** 作品名の下の日時・会場（確定済みのとき）。無ければ null */
+  whenWhere: string | null
   description: string
   /** カード全体を押したときの行き先 */
   href: string
@@ -145,6 +159,31 @@ function reservationSchedule(reservation: Reservation, scheduleEvents: ScheduleE
   return { date: raw.slice(0, 10), time: raw.match(/T(\d{2}:\d{2})/)?.[1] ?? null }
 }
 
+/** 2026年11月7日(土) 14:00〜 店舗名 */
+function fullDateLabel(date: string, time: string | null | undefined, store: string | null | undefined): string | null {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const md = formatJstMonthDay(date, true)
+  const withYear = `${m[1]}年${md.replace(/^(\d+)\/(\d+)/, (_, mo: string, d: string) => `${Number(mo)}月${Number(d)}日`)}`
+  return [withYear, time ? `${time.slice(0, 5)}〜` : null, store || null].filter(Boolean).join(' ')
+}
+
+function toneOf(action: NextActionKind, handoverRequested: boolean): PrivateBookingTone {
+  if (handoverRequested) return 'gray'
+  switch (action) {
+    case 'answer_survey':
+    case 'upcoming':
+      return 'green'
+    case 'waiting_store':
+      return 'amber'
+    case 'waiting_organizer':
+    case 'ended':
+      return 'gray'
+    default:
+      return 'purple'
+  }
+}
+
 function hostLabelOf(isOrganizer: boolean, organizerName: string | null): string {
   if (isOrganizer) return 'あなたが主催'
   return organizerName ? `${organizerName}さんが主催` : 'メンバーとして参加'
@@ -172,7 +211,8 @@ export function decideGroupAction(
     if (options.surveyPending) return { action: 'answer_survey', progress: post(1) }
     return { action: 'upcoming', progress: post(2) }
   }
-  if (group.status === 'booking_requested') return { action: 'waiting_store', progress: pre(4) }
+  // 申込中は「4 申込」を今の段として見せる（店舗の確定で 5 へ）
+  if (group.status === 'booking_requested') return { action: 'waiting_store', progress: pre(3) }
   // gathering / date_adjusting
   const candidates = group.candidate_dates_count
   const datesProgress = pre(candidates === 0 ? 1 : group.all_members_responded ? 3 : 2)
@@ -249,6 +289,7 @@ function fromGroup(
   const base = `/group/invite/${group.invite_code}`
   // 元主催者（依頼した人）のカードは、節はそのままでラベルだけ「○○さんの同意待ち」にする
   const requested = group.handover && !group.handover.isRecipient ? group.handover : null
+  const max = group.scenario_player_count_max
   return {
     key: `group:${group.id}`,
     groupId: group.id,
@@ -261,6 +302,14 @@ function fromGroup(
     label: requested ? handoverWaitingLabel(requested) : labelOf(action, group.schedule?.date),
     section: SECTION_BY_ACTION[action],
     progress,
+    showProgress: !group.handover && action !== 'upcoming' && action !== 'ended',
+    tone: toneOf(action, requested !== null),
+    primaryTone: toneOf(action, false),
+    compact: action === 'upcoming' || action === 'ended',
+    headcount: max ? `${group.member_count}/${max}名` : `${group.member_count}名`,
+    whenWhere: group.status === 'confirmed' && group.schedule
+      ? fullDateLabel(group.schedule.date, group.schedule.start_time, group.schedule.store_name)
+      : null,
     description: groupDescription(group, action),
     href: base,
     primary: primaryOf(action, base),
@@ -299,7 +348,7 @@ function fromReservation(
   if (ACTIVE_PENDING_STATUSES.includes(reservation.status)) {
     const c = candidateCountOf(reservation)
     action = 'waiting_store'
-    progress = { steps: PRE_CONFIRM_STEPS, current: 4 }
+    progress = { steps: PRE_CONFIRM_STEPS, current: 3 }
     description = c > 0 ? `候補日 ${c} 件で申込中。店舗が日程を確定すると連絡が届きます` : '申込中。店舗が日程を確定すると連絡が届きます'
   } else if (CONFIRMED_STATUSES.includes(reservation.status)) {
     const ended = schedule.date < todayYmd || reservation.status === 'completed'
@@ -323,6 +372,12 @@ function fromReservation(
     label: labelOf(action, schedule.date),
     section: SECTION_BY_ACTION[action],
     progress,
+    showProgress: action === 'waiting_store',
+    tone: toneOf(action, false),
+    primaryTone: toneOf(action, false),
+    compact: action === 'upcoming' || action === 'ended',
+    headcount: reservation.participant_count ? `${reservation.participant_count}名` : null,
+    whenWhere: null,
     description,
     href,
     primary: null,

@@ -64,18 +64,18 @@ export function PrivateBookingActionsMenu({ target, actions, nav, trigger, align
         {trigger ?? (
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-7 px-2 gap-1 text-xs rounded-none hover:bg-black/5"
+            className="h-7 px-2.5 gap-1 text-xs rounded-md bg-background border-zinc-300 text-foreground hover:bg-muted"
             aria-label={`${target.title}の操作`}
             data-testid="private-booking-actions"
           >
+            <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
             操作
-            <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
           </Button>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="w-60 rounded-none" data-testid="private-booking-actions-menu">
+      <DropdownMenuContent align={align} className="w-60 rounded-lg p-1.5" data-testid="private-booking-actions-menu">
         {normal.map(item => (
           <DropdownMenuItem key={item.id} onSelect={() => select(item.id)} data-menu-item={item.id}>
             {item.label}

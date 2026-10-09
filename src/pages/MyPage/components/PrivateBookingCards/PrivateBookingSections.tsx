@@ -9,9 +9,12 @@ import type { PrivateBookingItem, PrivateBookingView } from './privateBookingMod
 /** 確定した貸切は 2 件まで出して、残りは「あと ○ 件表示」で展開 */
 const CONFIRMED_INITIAL = 2
 
+/** カードの副ボタンと同じ見た目（白地・枠線・角丸 6px） */
+const SECONDARY_BUTTON = 'h-auto py-2 px-3.5 text-sm rounded-md bg-background border-zinc-300 text-foreground hover:bg-muted'
+
 function SectionTitle({ children, count }: { children: string; count: number }) {
   return (
-    <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+    <h3 className="flex items-baseline gap-2.5 text-base font-bold text-foreground">
       {children}
       <span className="text-xs font-normal text-muted-foreground tabular-nums">{count}件</span>
     </h3>
@@ -27,7 +30,7 @@ function CardList({ items }: { items: PrivateBookingItem[] }) {
           item={item}
           actions={<PrivateBookingCardActions item={item} />}
           secondaryAction={item.action === 'accept_transfer' && item.handover
-            ? <HandoverDeclineButton requestId={item.handover.id} fromName={item.handover.fromName} />
+            ? <HandoverDeclineButton requestId={item.handover.id} fromName={item.handover.fromName} className={SECONDARY_BUTTON} />
             : undefined}
         />
       ))}
@@ -50,7 +53,7 @@ export function PrivateBookingSections({ view, onShowCancelled }: PrivateBooking
 
   if (total === 0 && view.cancelledCount === 0) {
     return (
-      <div className="bg-card border border-border p-8 text-center ts-muted rounded-none">
+      <div className="bg-card border border-border p-8 text-center ts-muted rounded-lg">
         <Users className="w-8 h-8 mx-auto mb-2 text-purple-300" aria-hidden="true" />
         <p>貸切の申込み・グループはまだありません</p>
         <p className="ts-caption mt-2">招待ページから参加するか、作品ページから貸切をリクエストできます</p>
@@ -93,7 +96,7 @@ export function PrivateBookingSections({ view, onShowCancelled }: PrivateBooking
             <Button
               type="button"
               variant="outline"
-              className="w-full rounded-none"
+              className="w-full h-auto py-3 text-sm rounded-lg border-dashed border-zinc-300 bg-background text-foreground hover:bg-muted"
               aria-expanded={showAllConfirmed}
               onClick={() => setShowAllConfirmed(v => !v)}
             >
@@ -107,7 +110,7 @@ export function PrivateBookingSections({ view, onShowCancelled }: PrivateBooking
         <section className="space-y-2" aria-label="終了した貸切・取り下げた申込">
           <button
             type="button"
-            className="w-full flex items-center justify-between p-3 bg-muted border border-border hover:bg-accent transition-colors rounded-none"
+            className="w-full flex items-center justify-between px-4 py-3.5 bg-card border border-border hover:bg-muted transition-colors rounded-lg"
             aria-expanded={showEnded}
             onClick={() => setShowEnded(v => !v)}
           >
@@ -121,9 +124,9 @@ export function PrivateBookingSections({ view, onShowCancelled }: PrivateBooking
             <div className="space-y-3">
               {ended.length > 0 && <CardList items={ended} />}
               {view.cancelledCount > 0 && (
-                <div className="flex items-center justify-between gap-2 p-3 border border-border bg-card rounded-none">
+                <div className="flex items-center justify-between gap-2 p-3 border border-border bg-card rounded-lg">
                   <span className="text-xs text-muted-foreground">取り下げ・キャンセルした申込 {view.cancelledCount}件</span>
-                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs rounded-none" onClick={onShowCancelled}>
+                  <Button type="button" variant="outline" className={SECONDARY_BUTTON} onClick={onShowCancelled}>
                     キャンセル済みを見る
                   </Button>
                 </div>
