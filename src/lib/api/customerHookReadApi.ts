@@ -48,6 +48,14 @@ export const notificationReadApi = {
       .order('created_at', { ascending: false })
       .limit(20)
   },
+  /** ベルを最後に開いた時刻（無ければ null） */
+  async getBellLastSeen(userId: string) {
+    return supabase
+      .from('user_notification_views')
+      .select('last_seen_at')
+      .eq('user_id', userId)
+      .maybeSingle()
+  },
   /** 直近に確定した予約（since 以降に作成、最大5件） */
   async listRecentConfirmedReservations(customerId: string, sinceIso: string) {
     return supabase

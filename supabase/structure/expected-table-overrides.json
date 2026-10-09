@@ -3326,5 +3326,79 @@
     "type": "c"
    }
   ]
+ },
+ "user_notification_views": {
+  "rls": true,
+  "columns": [
+   {
+    "name": "user_id",
+    "type": "uuid",
+    "default": null,
+    "not_null": true
+   },
+   {
+    "name": "last_seen_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   },
+   {
+    "name": "updated_at",
+    "type": "timestamp with time zone",
+    "default": "now()",
+    "not_null": true
+   }
+  ],
+  "indexes": [
+   {
+    "def": "CREATE UNIQUE INDEX user_notification_views_pkey ON public.user_notification_views USING btree (user_id)",
+    "name": "user_notification_views_pkey"
+   }
+  ],
+  "policies": [
+   {
+    "cmd": "a",
+    "name": "user_notification_views_insert_self",
+    "check": "(user_id = auth.uid())",
+    "roles": [
+     "authenticated"
+    ],
+    "using": null,
+    "permissive": true
+   },
+   {
+    "cmd": "r",
+    "name": "user_notification_views_select_self",
+    "check": null,
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(user_id = auth.uid())",
+    "permissive": true
+   },
+   {
+    "cmd": "w",
+    "name": "user_notification_views_update_self",
+    "check": "(user_id = auth.uid())",
+    "roles": [
+     "authenticated"
+    ],
+    "using": "(user_id = auth.uid())",
+    "permissive": true
+   }
+  ],
+  "triggers": [],
+  "constraints": [
+   {
+    "def": "PRIMARY KEY (user_id)",
+    "name": "user_notification_views_pkey",
+    "type": "p"
+   },
+   {
+    "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+    "name": "user_notification_views_user_id_fkey",
+    "type": "f"
+   }
+  ]
  }
 }

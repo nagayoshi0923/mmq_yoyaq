@@ -18,7 +18,13 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, right: 0 })
-  const { notifications, loading, unreadCount, markAsRead, markAllAsRead } = useNotifications()
+  const { notifications, loading, unreadCount, newCount, markBellSeen, markAsRead, markAllAsRead } = useNotifications()
+
+  // ベルを開いたら新着の数字を消す（一覧の未読の印は押すか「すべて既読」まで残る）
+  useEffect(() => {
+    if (isOpen) void markBellSeen()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 開いた瞬間だけ記録する
+  }, [isOpen])
 
   // ドロップダウンの位置を計算
   useEffect(() => {
@@ -209,13 +215,13 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white relative"
         title="通知"
-        aria-label={unreadCount > 0 ? `通知（未読 ${unreadCount}件）` : '通知'}
+        aria-label={newCount > 0 ? `通知（新着 ${newCount} 件）` : '通知'}
         aria-expanded={isOpen}
       >
         <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
-        {unreadCount > 0 && (
+        {newCount > 0 && (
           <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] bg-red-500 hover:bg-red-500 border-0">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {newCount > 9 ? '9+' : newCount}
           </Badge>
         )}
       </button>
