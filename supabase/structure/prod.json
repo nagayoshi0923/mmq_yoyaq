@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "prod",
-  "captured_at": "2026-10-09T07:17:50.218Z",
-  "table_count": 148,
+  "captured_at": "2026-10-09T16:27:21.255Z",
+  "table_count": 149,
   "function_count": 400,
-  "digest": "19ce3cf02ffe380cf5f53a129a114edf11b9c9f53359fc31f66ea2ac2530fc17"
+  "digest": "34ff8580ef200c866ccedb262bb8886efb0512eae019e090e2289d57b47ac2ac"
  },
  "tables": {
   "staff": {
@@ -15023,6 +15023,80 @@
      "def": "PRIMARY KEY (id)",
      "name": "scenario_import_aliases_pkey",
      "type": "p"
+    }
+   ]
+  },
+  "user_notification_views": {
+   "rls": true,
+   "columns": [
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "default": null,
+     "not_null": true
+    },
+    {
+     "name": "last_seen_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "default": "now()",
+     "not_null": true
+    }
+   ],
+   "indexes": [
+    {
+     "def": "CREATE UNIQUE INDEX user_notification_views_pkey ON public.user_notification_views USING btree (user_id)",
+     "name": "user_notification_views_pkey"
+    }
+   ],
+   "policies": [
+    {
+     "cmd": "a",
+     "name": "user_notification_views_insert_self",
+     "check": "(user_id = auth.uid())",
+     "roles": [
+      "authenticated"
+     ],
+     "using": null,
+     "permissive": true
+    },
+    {
+     "cmd": "r",
+     "name": "user_notification_views_select_self",
+     "check": null,
+     "roles": [
+      "authenticated"
+     ],
+     "using": "(user_id = auth.uid())",
+     "permissive": true
+    },
+    {
+     "cmd": "w",
+     "name": "user_notification_views_update_self",
+     "check": "(user_id = auth.uid())",
+     "roles": [
+      "authenticated"
+     ],
+     "using": "(user_id = auth.uid())",
+     "permissive": true
+    }
+   ],
+   "triggers": [],
+   "constraints": [
+    {
+     "def": "PRIMARY KEY (user_id)",
+     "name": "user_notification_views_pkey",
+     "type": "p"
+    },
+    {
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "name": "user_notification_views_user_id_fkey",
+     "type": "f"
     }
    ]
   },
