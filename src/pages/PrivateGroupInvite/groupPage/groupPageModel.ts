@@ -426,6 +426,17 @@ function endedStatus(input: GroupStatusInput): GroupStatusView {
   }
 }
 
+/** 「9 枚・いちこ、二郎、るい」（投稿者は新しい順に 3 人まで） */
+export function photoSummary(photos: ReadonlyArray<{ memberId: string | null }>, nameOf: (memberId: string | null) => string): string {
+  const names: string[] = []
+  for (const p of photos) {
+    const name = nameOf(p.memberId)
+    if (!names.includes(name)) names.push(name)
+  }
+  const shown = names.slice(0, 3).join('、')
+  return `${photos.length} 枚${shown ? `・${shown}${names.length > 3 ? ` ほか ${names.length - 3} 人` : ''}` : ''}`
+}
+
 // ─── チャットの未読 ─────────────────────────────────────
 
 /**

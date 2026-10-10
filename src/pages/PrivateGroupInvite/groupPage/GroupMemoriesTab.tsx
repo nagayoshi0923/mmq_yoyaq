@@ -10,7 +10,7 @@ import type { GroupPhoto, GroupAfterInfo } from '@/lib/privateGroupChat'
 import { formatChatDate } from '@/pages/PrivateGroupManage/components/groupChatMessages'
 import { PhotoViewer } from '@/pages/PrivateGroupManage/components/chat/PhotoViewer'
 import { savePhotos } from '@/pages/PrivateGroupManage/components/chat/chatDom'
-import { performanceLabel } from './groupPageModel'
+import { performanceLabel, photoSummary } from './groupPageModel'
 import type { AlbumState } from './useGroupMemories'
 
 interface GroupMemoriesTabProps {
@@ -43,17 +43,6 @@ function Section({ title, aside, children, label }: { title: ReactNode; aside?: 
       {children}
     </section>
   )
-}
-
-/** 「9 枚・いちこ、二郎、るい」（投稿者は新しい順に 3 人まで） */
-export function photoSummary(photos: ReadonlyArray<Pick<GroupPhoto, 'memberId'>>, nameOf: (memberId: string | null) => string): string {
-  const names: string[] = []
-  for (const p of photos) {
-    const name = nameOf(p.memberId)
-    if (!names.includes(name)) names.push(name)
-  }
-  const shown = names.slice(0, 3).join('、')
-  return `${photos.length} 枚${shown ? `・${shown}${names.length > 3 ? ` ほか ${names.length - 3} 人` : ''}` : ''}`
 }
 
 export function GroupMemoriesTab(props: GroupMemoriesTabProps) {

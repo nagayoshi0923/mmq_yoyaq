@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { photoSummary } from './GroupMemoriesTab'
+import { photoSummary } from './groupPageModel'
 
 const names: Record<string, string> = { a: 'いちこ', b: '二郎', c: 'るい', d: '四郎' }
 const nameOf = (id: string | null) => (id ? names[id] : '退出したメンバー')
