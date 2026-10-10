@@ -33,6 +33,7 @@ import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
 import { usePrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { GroupMemberScreen } from './groupPage/GroupMemberScreen'
 import { parseGroupTab, type GroupTab } from './groupPage/groupPageModel'
+import { markPromptPending } from '@/lib/webPushSupport'
 
 interface Coupon {
   id: string
@@ -339,6 +340,8 @@ export function PrivateGroupInvite() {
           guestPhone: user ? undefined : guestPhone || undefined,
         })
         memberId = member.id
+        // 会員は参加した直後にグループ画面で通知の案内を出す（段階 3）
+        if (user) markPromptPending(group.id)
         
         // 新規参加後、existingMemberIdをセットして再度フォームを表示しないようにする
         setExistingMemberId(memberId)
@@ -615,6 +618,7 @@ export function PrivateGroupInvite() {
         messagesSource={chatMessages}
         chatStateSource={chatState}
         onOpenPins={() => setChatListSheet('pins')}
+        channelKey={group.invite_code}
         onGoToSchedule={() => setActiveTab('dates')}
         onOpenSurvey={() => setActiveTab('survey')}
         onOpenHandover={requestId => openSheet('handover', { request: requestId })}

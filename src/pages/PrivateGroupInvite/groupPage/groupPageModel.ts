@@ -355,13 +355,17 @@ export function buildGroupStatus(input: GroupStatusInput): GroupStatusView {
 
 // ─── チャットの未読 ─────────────────────────────────────
 
-/** 最後に見た時刻より新しい、自分以外の発言・お知らせの数。見た記録が無ければ 0（初回に大きな数を出さない） */
-export function countUnread(
-  messages: ReadonlyArray<{ created_at: string; member_id: string | null; deleted_at?: string | null }>,
+/**
+ * 最後に見た時刻より新しい、自分以外の発言・お知らせの数。見た記録が無ければ 0（初回に大きな数を出さない）。
+ * isLine: 灰色の 1 行の自動お知らせ（参加した・候補日の追加 など）か。数えない（段階 3。カードで残るお知らせは数える）
+ */
+export function countUnread<M extends { created_at: string; member_id: string | null; deleted_at?: string | null }>(
+  messages: ReadonlyArray<M>,
   myMemberId: string | null,
   lastSeenAt: string | null,
+  isLine?: (message: M) => boolean,
 ): number {
   if (!lastSeenAt) return 0
   const seen = new Date(lastSeenAt).getTime()
-  return messages.filter(m => m.member_id !== myMemberId && !m.deleted_at && new Date(m.created_at).getTime() > seen).length
+  return messages.filter(m => m.member_id !== myMemberId && !m.deleted_at && new Date(m.created_at).getTime() > seen && !isLine?.(m)).length
 }

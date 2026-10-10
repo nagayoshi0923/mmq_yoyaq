@@ -1,6 +1,6 @@
 # 手元の開発環境（画面・API・DB を全部手元で動かす）
 
-**最終更新**: 2026-10-09
+**最終更新**: 2026-10-10
 
 `npm run dev:full` 一発で、画面（vite）・API（`api/*.ts`）・DB（ローカル Supabase）が全部手元で動く。
 API や DB を直しても staging に取り込まずにその場で試せる。データは壊してよい試験データ。
@@ -112,6 +112,46 @@ VITE_API_TARGET=http://127.0.0.1:3000 npm run dev   # 画面だけ（API は手�
 
 API サーバーは `vercel.json` の rewrites も同じ規則で再現する（`/sitemap.xml` → `/api/sitemap`、`/guide` → `/api/seo?kind=guide` など）。
 3000 番で SEO 用 HTML（`/`、`/queens-waltz` など）を見るときは先に `npm run build:fast`（`dist/app.html` を使うため）。
+
+## プッシュ通知（ウェブプッシュ）を試す（貸切グループ 段階 3）
+
+外部サービスを使わない Web Push（VAPID）。鍵は環境（手元・staging・本番）ごとに別に作る。
+**秘密鍵はリポジトリ・チャット・報告に書かない**（公開鍵は画面に配るので秘密ではないが、作り直すと端末の受け取り直しが要る）。
+
+### 鍵を作る
+
+```bash
+node scripts/generate-vapid-keys.mjs --env /path/to/vapid.env   # VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT を書く（権限 600）
+```
+
+| 置き場所 | 名前 | 値 |
+|---|---|---|
+| 画面（vite の環境変数。手元は `.env.local`、staging・本番は Vercel の環境変数） | `VITE_VAPID_PUBLIC_KEY` | 公開鍵 |
+| Supabase の secrets（Edge Function `send-web-push`） | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`（`mailto:` で始まる連絡先） | 同じ組の公開鍵・秘密鍵 |
+| Supabase の secrets | `WEB_PUSH_CRON_SECRET` | DB の `app_config` の `trigger_secret` と同じ値（DB からの呼び出しの確認。無ければ `CRON_SECRET` を見る。staging は `CRON_SECRET` と `trigger_secret` が違うので必須） |
+
+staging の鍵は 2026-10-10 に作って secrets に入れた（Keychain の `mmq-vapid-staging`、アカウント `public` / `private`）。
+
+### 手元で通す
+
+1. 上の鍵を作り、公開鍵を `.env.local` の `VITE_VAPID_PUBLIC_KEY` に入れる（`npm run dev:full` を起動し直す）
+2. 鍵のファイルに `CRON_SECRET=<適当な長い文字列>` を足し、関数を起動する（別の端末）:
+   `npx supabase functions serve --workdir .local-supabase --env-file /path/to/vapid.env --no-verify-jwt`
+3. DB が関数を呼べるよう、手元の `app_config` に接続先を入れる（`supabase:reset` で消えるので、そのたびに）:
+   ```sql
+   insert into app_config(key,value) values
+     ('supabase_url','http://supabase_kong_mmq-local:8000'),   -- DB のコンテナから見た Supabase
+     ('supabase_anon_key','<npm run supabase:status の anon key>'),
+     ('trigger_secret','<2 の CRON_SECRET と同じ値>')
+   on conflict (key) do update set value = excluded.value;
+   ```
+4. Chrome で会員 2 人を別のプロフィール（またはシークレットウィンドウと通常ウィンドウ）で開き、グループで初めて発言 →「受け取る」。
+   もう 1 人が発言すると通知が届く（Chrome の通知は Google の配信元を通る。手元の画面からでも届く）。
+   送った記録は `web_push_outbox`（送った・送らなかった理由 `skip_reason`）、端末の購読は `web_push_subscriptions`。
+   Claude のブラウザペインは通知の許可が「ブロック」固定のため、受け取りの確認は Chrome（Playwright の `channel: 'chrome'` でも可）で行う。
+
+- 同じグループで 30 秒以内に続いた発言は 1 通（「○○さんほか N 件の新着」）。チャットを開いて見ている人・既読の人には送らない。
+- 毎分の取りこぼし拾い（定期実行 `process-web-push`）は `app_config` が本番・staging の形（`https://<ref>.supabase.co`）のときだけ登録される。手元では DB のトリガーからの呼び出しだけで動く。
 
 ## 手元で動かないもの
 

@@ -3,9 +3,10 @@
  * 「最後に読んだ時刻」はグループごとに DB に 1 行（private_group_read_states）。スマホと PC で既読がそろう。
  * チャットが見えている間（スマホはチャットタブ、PC は右列）に新しい発言が届いたら、その時刻まで読んだことにする（連打抑制は usePrivateGroupChatState）。
  */
-import { useEffect, useState } from 'react'
-import type { PrivateGroupMessage } from '@/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { PrivateGroup, PrivateGroupMessage } from '@/types'
 import type { PrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
+import { noticeLineResolver } from '@/pages/PrivateGroupManage/components/groupChatMessages'
 import { countUnread } from './groupPageModel'
 
 function usePageVisible(): boolean {
@@ -18,7 +19,7 @@ function usePageVisible(): boolean {
   return visible
 }
 
-export function useGroupChatUnread(myMemberId: string | null, messages: PrivateGroupMessage[], loading: boolean, chat: PrivateGroupChatState, chatVisible: boolean): number {
+export function useGroupChatUnread(myMemberId: string | null, messages: PrivateGroupMessage[], loading: boolean, chat: PrivateGroupChatState, chatVisible: boolean, group?: Pick<PrivateGroup, 'candidate_dates' | 'status'> | null): number {
   const pageVisible = usePageVisible()
   const lastRead = chat.state.my_last_read_at
   const latest = messages.length > 0 ? messages[messages.length - 1].created_at : null
@@ -33,7 +34,12 @@ export function useGroupChatUnread(myMemberId: string | null, messages: PrivateG
     if (!chatVisible || !pageVisible || !latest) return
     if (new Date(latest).getTime() > new Date(lastRead).getTime()) markRead(latest)
   }, [loading, loaded, lastRead, latest, chatVisible, pageVisible, markRead])
-  return chatVisible ? 0 : countUnread(messages, myMemberId, lastRead)
+  // 灰色の 1 行の自動お知らせ（参加した・候補日の追加など）は数えない（チャットと同じ見分け方。名前は使わない）
+  const isLine = useMemo(() => {
+    const lineOf = noticeLineResolver({ getMemberName: () => '', current: group?.candidate_dates ?? null, status: group?.status, myMemberId })
+    return (m: PrivateGroupMessage) => !m.deleted_at && lineOf(m) !== null
+  }, [group?.candidate_dates, group?.status, myMemberId])
+  return chatVisible ? 0 : countUnread(messages, myMemberId, lastRead, isLine)
 }
 
 /** PC 幅（lg = 1024px 以上）か。PC ではチャットが右列に常に見えるので既読にする */

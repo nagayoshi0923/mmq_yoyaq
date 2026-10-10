@@ -140,6 +140,10 @@ verify_jwt = false
 [functions.process-customer-notice-emails]
 verify_jwt = false
 
+# 貸切グループのプッシュ通知（段階 3）。DB のトリガー・定期実行から x-cron-secret で呼ぶ（関数内で確認）
+[functions.send-web-push]
+verify_jwt = false
+
 [functions.process-private-approval-deliveries]
 verify_jwt = false
 

@@ -28,6 +28,9 @@ import { useGroupChatUnread, useIsDesktop } from './useGroupChatUnread'
 import { buildAnswerTable, buildGroupStatus, defaultGroupTab, type GroupTab, type StatusAction } from './groupPageModel'
 import { GroupHeaderMenu } from './GroupHeaderMenu'
 import { GroupPhotosSheet, GroupPinsSheet } from './GroupChatListSheets'
+import { ChatVisibleContext } from '@/pages/PrivateGroupManage/components/chat/chatVisibility'
+import { useGroupPush } from './useGroupPush'
+import { PushPromptCard } from './PushPromptCard'
 
 interface GroupMemberScreenProps {
   group: PrivateGroup
@@ -85,8 +88,10 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const activeTab: GroupTab = dateEditorOpen ? 'dates' : tabParam ?? fallbackTab
   const desktopTab: GroupTab = fallbackTab
   const isDesktop = useIsDesktop()
-  const unread = useGroupChatUnread(existingMemberId, chatMessages.messages, chatMessages.loading, chatState, activeTab === 'chat' || isDesktop)
+  const unread = useGroupChatUnread(existingMemberId, chatMessages.messages, chatMessages.loading, chatState, activeTab === 'chat' || isDesktop, group)
   const pinned = useMemo(() => pinnedMessages(chatMessages.messages), [chatMessages.messages])
+  // プッシュ通知（段階 3。会員だけ）
+  const push = useGroupPush(group.id, isLoggedIn)
   const [actionsOpen, setActionsOpen] = useState(false)
   const nameOf = (memberId: string | null) => group.members?.find(m => m.id === memberId)?.guest_name || (memberId ? 'メンバー' : '退出したメンバー')
 
@@ -178,6 +183,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
       onMembers={() => setTab('members')}
       onPhotos={() => setListSheet('photos')}
       onPins={() => setListSheet('pins')}
+      push={push.available ? { on: push.on, busy: push.busy, onToggle: () => void push.toggle() } : null}
       onActions={() => {
         if (!isOrganizer) return openSheet('settings')
         bookingActions.preparePolicy()
@@ -208,7 +214,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   )
 
   return (
-    <>
+    <ChatVisibleContext.Provider value={activeTab === 'chat' || isDesktop}>
     <GroupMemberPage
       header={header}
       status={status}
@@ -268,6 +274,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
     />
     {listSheet === 'photos' && <GroupPhotosSheet groupId={group.id} memberId={existingMemberId} nameOf={nameOf} onClose={() => setListSheet(null)} />}
     {listSheet === 'pins' && <GroupPinsSheet pinned={pinned} nameOf={nameOf} onJump={jumpFromList} onClose={() => setListSheet(null)} />}
-    </>
+    {push.prompt && <PushPromptCard kind={push.prompt} busy={push.busy} onAccept={() => void push.accept()} onDismiss={push.dismiss} />}
+    </ChatVisibleContext.Provider>
   )
 }

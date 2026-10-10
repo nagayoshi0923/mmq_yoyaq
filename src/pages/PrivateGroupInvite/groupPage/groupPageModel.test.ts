@@ -125,4 +125,8 @@ describe('未読', () => {
   it('見た記録が無ければ 0', () => {
     expect(countUnread(msgs, 'me', null)).toBe(0)
   })
+  it('灰色の 1 行のお知らせは数えない', () => {
+    const withLine = [...msgs, { created_at: '2026-10-10T04:00:00Z', member_id: null, line: true }, { created_at: '2026-10-10T05:00:00Z', member_id: null, line: false }]
+    expect(countUnread(withLine, 'me', '2026-10-10T02:30:00Z', m => Boolean((m as { line?: boolean }).line))).toBe(2)
+  })
 })

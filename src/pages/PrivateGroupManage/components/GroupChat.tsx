@@ -7,7 +7,7 @@ import { usePrivateGroupSnapshot } from '@/hooks/usePrivateGroupSnapshot'
 import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
 import { usePrivateGroupChatState, type PrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { privateGroupMemberAction } from '@/lib/privateGroupGuestSession'
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useContext } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, ClipboardList, X } from 'lucide-react'
@@ -33,6 +33,7 @@ import { PinnedBar } from './chat/PinnedBar'
 import { SpecialNoticeCard, SPECIAL_NOTICE_ACTIONS } from './chat/SpecialNoticeCard'
 import { CharacterAssignmentCards, type CharacterData } from './chat/CharacterAssignmentCards'
 import { useTypingPresence } from './chat/useTypingPresence'
+import { ChatVisibleContext, MESSAGE_SENT_EVENT, type MessageSentDetail } from './chat/chatVisibility'
 import { useGroupPhotoUrls } from './chat/useGroupPhotoUrls'
 import { resizePhoto } from './chat/photoResize'
 import { groupReactions, pinnedMessages, quoteText, readCountFor, typingText } from './chat/chatModel'
@@ -64,12 +65,14 @@ interface GroupChatProps {
   chatStateSource?: PrivateGroupChatState
   /** ピン留めの一覧を開く（⋮ メニューと同じ） */
   onOpenPins?: () => void
+  /** 招待コード（入力中・いま見ている人の Realtime チャンネル名のもと。段階 3）。無ければグループ id */
+  channelKey?: string
 }
 
 /** 下端からこの距離以内なら、新しい発言が来たら下まで動かす */
 const STICK_TO_BOTTOM_PX = 160
 
-export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover, messagesSource, chatStateSource, onOpenPins }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount, onOpenSurvey, onOpenHandover, messagesSource, chatStateSource, onOpenPins, channelKey }: GroupChatProps) {
   const { user } = useAuth()
   const ownMessages = usePrivateGroupMessages(groupId, currentMemberId, { enabled: !messagesSource })
   const { messages, loading, error: messagesError, refetch: refetchMessages } = messagesSource ?? ownMessages
@@ -188,7 +191,8 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
   }, [members, currentMemberId])
 
   const myName = useMemo(() => members.find(m => m.id === currentMemberId)?.guest_name || 'メンバー', [members, currentMemberId])
-  const { typingNames, notifyTyping, notifyStopped } = useTypingPresence(groupId, currentMemberId, myName, Boolean(currentMemberId) && chatEnabled)
+  const chatVisible = useContext(ChatVisibleContext)
+  const { typingNames, notifyTyping, notifyStopped } = useTypingPresence(channelKey || groupId, currentMemberId, myName, Boolean(currentMemberId) && chatEnabled, chatVisible)
   const { urlOf } = useGroupPhotoUrls(groupId, currentMemberId, messages)
   const reactionsByMessage = useMemo(() => groupReactions(chatState.state.reactions), [chatState.state.reactions])
   const messageById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages])
@@ -225,6 +229,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
 
   const handleSend = async (text: string, files: File[]): Promise<boolean> => {
     if (!currentMemberId) return false
+    const firstOwn = !messages.some(m => m.member_id === currentMemberId && !parseSystemMessage(m.message))
     try {
       if (files.length > 0) {
         const photos = []
@@ -235,6 +240,7 @@ export function GroupChat({ groupId, currentMemberId, fullHeight = false, onGoTo
       }
       setReplyTo(null)
       notifyStopped()
+      window.dispatchEvent(new CustomEvent<MessageSentDetail>(MESSAGE_SENT_EVENT, { detail: { groupId, firstOwn } }))
       await refetchMessages()
       void refreshGroup(true)
       return true

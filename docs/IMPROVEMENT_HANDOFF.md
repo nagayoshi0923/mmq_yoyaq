@@ -1,4 +1,17 @@
-## 2026-10-10 / 貸切グループページ刷新 段階 2 チャット強化と写真（feat/group-page-phase2、staging 向け PR・未取り込み）
+## 2026-10-10 / 貸切グループページ刷新 段階 3 ウェブプッシュ通知（feat/group-page-phase3、staging 向け PR・未取り込み）
+
+- 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 3」。見本 GroupChatMenus.dc.html の「通知の届き方」と ⋮ の「通知 ON／OFF」。
+- 外部サービスなしの Web Push（VAPID）。送信は Edge Function send-web-push（Web Crypto だけで暗号化と署名。_shared/web-push.ts、単体テストあり）。DB のトリガーが送信待ち web_push_outbox に積み、pg_net で関数を呼ぶ。毎分の定期実行 process-web-push は取りこぼし用。
+- 届けるもの: 新しい発言（30 秒以内の連続は「○○さんほか N 件の新着」に 1 通）・自分宛ての返信・写真、日程がそろった（新規: 主催者にベル＋メール、会員のメンバーにベル）・店舗の確定・却下・引き継ぎ依頼（既存のベルを合図に送る。ベル・メールは二重に作らない）。発言はベルに出さない。チャットを見ている人（presence）・既読の人には送らない。
+- ゲストはプッシュ無し。毎朝 9 時 JST に未読があればメール（customer_notice_emails。送るのは customer_notice_email が on の環境だけ）。
+- 許可の導線: 参加した直後・初めて発言した直後に案内カード。「今はしない」で 30 日出さない。iPhone の Safari はホーム画面に追加の手順。⋮ に「通知 ON／OFF」（グループごと、既定 ON）。
+- サービスワーカー public/sw.js（通知だけ。キャッシュしない）と manifest.webmanifest・アイコンを追加。main.tsx の古いサービスワーカー解除は /sw.js だけ残す。
+- 段階 2 の積み残し: 未読の赤丸から灰色の 1 行のお知らせを外した。入力中のチャンネル名を招待コードのハッシュに。受信に参加者の印を要求するのは、ゲストが JWT を持たないため不可（方針書 段階 3 の 5）。
+- DB: migration 20261010130000・20261010130100（補助関数の権限をそろえる）（staging 適用済み・本番未適用）。structure（staging.json・期待構造）を更新。
+- staging: send-web-push を配備。secrets に VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT / WEB_PUSH_CRON_SECRET を入れた（鍵は Keychain の mmq-vapid-staging）。画面の VITE_VAPID_PUBLIC_KEY（Vercel）は未設定。
+- 気づいた点（本件の範囲外）: staging では Supabase secrets の CRON_SECRET と DB の app_config.trigger_secret が別の値。段階 4 の process-customer-notice-emails は CRON_SECRET で確かめるため、そのままでは DB からの呼び出しが 401 になる見込み（本番は未確認）。send-web-push は専用の WEB_PUSH_CRON_SECRET で回避した。
+
+## 2026-10-10 / 貸切グループページ刷新 段階 2 チャット強化と写真（feat/group-page-phase2、#1015 staging 取り込み済み）
 
 - 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 2」。見本 GroupChat.dc.html・GroupChatMenus.dc.html（通知の届き方は段階 3）。
 - GroupChat.tsx（992 行）を chat/ に分割し、既読の人数（人数だけ）・返信（引用 30 文字）・リアクション（5 種＋40 種、1 人 1 種類）・写真（10 枚まで、端末で長辺 2,000px・JPEG 0.85 に縮小）・拡大と保存・長押しメニュー・ピン留め（主催者）・削除（自分の発言、写真の実体も消す）・入力中（Realtime broadcast、DB に書かない）を足した。
