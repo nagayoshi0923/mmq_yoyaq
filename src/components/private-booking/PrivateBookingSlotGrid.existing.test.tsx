@@ -18,3 +18,20 @@ it.each([true,false])('追加済み・選べない枠（押すと理由）・新
  await act(async()=>blocked.click());expect(host.querySelector('[role=status]')?.textContent).toBe('11/02 夜: 他の公演と重なります');expect(toggle).toHaveBeenCalledTimes(1)
  await act(async()=>root.unmount())
 })
+it('枠表は内側で縦スクロールせず、月の切り替えは指定時だけ上に貼り付き、行の高さを揃える', async () => {
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true})
+ const host=document.createElement('div'),root=createRoot(host)
+ const slot={key:'evening' as const,label:'夜' as const,startTime:'19:00',endTime:'23:00'}
+ const adjusted={...slot,startTime:'17:30',endTime:'21:00',adjusted:true}
+ const render=(stickyHeader:boolean)=>act(async()=>root.render(<PrivateBookingSlotGrid currentMonth={new Date(2026,10,1)} onMonthChange={()=>{}} isPrevMonthDisabled availableDates={['2026-11-01','2026-11-02']} slotsByDate={{'2026-11-01':[slot],'2026-11-02':[adjusted]}} selectedSlots={[]} onSlotToggle={()=>{}} maxSelections={100} unavailableReasons={{}} compact stickyHeader={stickyHeader} />))
+ await render(true)
+ const body=host.querySelector('[data-testid="slot-grid-body"]') as HTMLElement
+ expect(body.className).not.toContain('overflow-y');expect(body.style.maxHeight).toBe('')
+ expect(host.querySelector('[data-testid="slot-grid-header"]')!.className).toContain('sticky')
+ const cells=[...host.querySelectorAll('[data-testid="slot-grid-body"] button, [data-testid="slot-grid-body"] .cursor-not-allowed')]
+ expect(cells.length).toBe(6);cells.forEach(c=>expect(c.className).toContain('min-h-14'))
+ expect(host.textContent).toContain('17:30〜21:00 に調整')
+ await render(false)
+ expect(host.querySelector('[data-testid="slot-grid-header"]')!.className).not.toContain('sticky')
+ await act(async()=>root.unmount())
+})

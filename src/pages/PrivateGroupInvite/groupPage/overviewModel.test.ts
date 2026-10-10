@@ -40,25 +40,25 @@ describe('概要タブの計算', () => {
     expect(findStoreByName(stores, null)).toBeNull()
   })
 
-  it('料金: 申込前は候補日（平日・土日）で幅を出し、定員分の合計', () => {
+  it('料金: 申込前は候補日（平日・土日）で幅を出し、いまの参加人数分の合計', () => {
     const p = priceSummary({
       phase: 'pre_request', fee: 4500, costs, people: 6,
       candidates: [{ date: '2026-10-28', startTime: '13:00' }, { date: '2026-10-31', startTime: '13:00' }],
-      confirmed: null, savedPerPerson: null, savedTotal: null,
+      confirmed: null, savedPerPerson: null,
     })
     expect(p).toEqual({ perPersonMin: 4500, perPersonMax: 5000, people: 6, totalMin: 27000, totalMax: 30000 })
     expect(yenRange(p!.totalMin, p!.totalMax)).toBe('¥27,000〜¥30,000')
   })
 
-  it('料金: 候補日が無ければ通常料金、定員が分からなければ出さない', () => {
-    expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: 6, candidates: [], confirmed: null, savedPerPerson: null, savedTotal: null })?.perPersonMax).toBe(4500)
-    expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: null, candidates: [], confirmed: null, savedPerPerson: null, savedTotal: null })).toBeNull()
+  it('料金: 候補日が無ければ通常料金、参加人数が分からなければ出さない', () => {
+    expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: 6, candidates: [], confirmed: null, savedPerPerson: null })?.perPersonMax).toBe(4500)
+    expect(priceSummary({ phase: 'pre_request', fee: 4500, costs, people: null, candidates: [], confirmed: null, savedPerPerson: null })).toBeNull()
   })
 
-  it('料金: 確定後は保存された金額を正とし、無ければ確定日の料金', () => {
-    expect(priceSummary({ phase: 'confirmed', fee: 4500, costs, people: 6, candidates: [], confirmed: { date: '2026-10-28', startTime: '13:00' }, savedPerPerson: 4800, savedTotal: 28800 }))
+  it('料金: 確定後は保存された 1 人あたりを正とし（合計はいまの参加人数分）、無ければ確定日の料金', () => {
+    expect(priceSummary({ phase: 'confirmed', fee: 4500, costs, people: 6, candidates: [], confirmed: { date: '2026-10-28', startTime: '13:00' }, savedPerPerson: 4800 }))
       .toEqual({ perPersonMin: 4800, perPersonMax: 4800, people: 6, totalMin: 28800, totalMax: 28800 })
-    expect(priceSummary({ phase: 'confirmed', fee: 4500, costs, people: 6, candidates: [{ date: '2026-10-28', startTime: '13:00' }], confirmed: { date: '2026-10-31', startTime: '13:00' }, savedPerPerson: null, savedTotal: null })?.perPersonMin).toBe(5000)
+    expect(priceSummary({ phase: 'confirmed', fee: 4500, costs, people: 6, candidates: [{ date: '2026-10-28', startTime: '13:00' }], confirmed: { date: '2026-10-31', startTime: '13:00' }, savedPerPerson: null })?.perPersonMin).toBe(5000)
   })
 })
 

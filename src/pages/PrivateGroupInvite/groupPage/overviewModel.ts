@@ -112,7 +112,7 @@ export interface PriceSummary {
   /** 1 人あたり（候補日によって違えば最小〜最大） */
   perPersonMin: number
   perPersonMax: number
-  /** 定員（作品の最大人数） */
+  /** いまの参加人数（会員＋ゲスト） */
   people: number
   totalMin: number
   totalMax: number
@@ -126,20 +126,20 @@ interface PriceInput {
   /** 申込前は候補日、返事待ちは申込んだ候補日 */
   candidates: Array<{ date: string; startTime: string }>
   confirmed: { date: string; startTime: string } | null
-  /** 確定時にグループへ保存された金額（あればそれを正とする） */
+  /** 確定時にグループへ保存された 1 人あたりの金額（あればそれを正とする） */
   savedPerPerson: number | null
-  savedTotal: number | null
   isCustomHoliday?: (date: string) => boolean
 }
 
 /**
  * 料金の見込み。貸切申込の画面（PrivateBookingRequest）と同じ計算（calculatePrivateCandidateFees）で、
- * 候補日ごとの 1 人あたり × 定員。確定後は確定日の料金（グループに保存済みならそれ）。
+ * 候補日ごとの 1 人あたり × いまの参加人数（料金は参加人数分。2026-10-11 社長訂正）。
+ * 確定後は確定日の料金（グループに 1 人あたりが保存済みならそれ）。
  */
 export function priceSummary(input: PriceInput): PriceSummary | null {
   const people = input.people && input.people > 0 ? input.people : null
   if (input.phase === 'confirmed' && input.savedPerPerson && input.savedPerPerson > 0 && people) {
-    const total = input.savedTotal && input.savedTotal > 0 ? input.savedTotal : input.savedPerPerson * people
+    const total = input.savedPerPerson * people
     return { perPersonMin: input.savedPerPerson, perPersonMax: input.savedPerPerson, people, totalMin: total, totalMax: total }
   }
   if (!input.fee || input.fee <= 0 || !people) return null

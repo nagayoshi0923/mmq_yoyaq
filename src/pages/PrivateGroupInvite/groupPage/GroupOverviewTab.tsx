@@ -52,7 +52,9 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
   const info = scenarioData?.scenario ?? null
   const confirmed = group.confirmed_performance
   const venue = phase === 'confirmed' ? findStoreByName(scenarioData?.stores ?? [], confirmed?.store_name) : null
-  const people = info?.playerMax ?? playerRange.max
+  // 料金は参加人数分（会員＋ゲスト）。最低人数に満たなければ公演不成立
+  const people = table.memberCount
+  const minPlayers = info?.playerMin ?? playerRange.min
   const candidates = phase === 'requested'
     ? (linkedReservation?.candidates ?? []).filter(c => c.date).map(c => ({ date: c.date as string, startTime: c.startTime ?? '' }))
     : table.rows.filter(r => !r.rejected).map(r => ({ date: r.date, startTime: r.startTime }))
@@ -64,7 +66,6 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
     candidates,
     confirmed: confirmed?.date ? { date: confirmed.date, startTime: confirmed.start_time ?? '' } : null,
     savedPerPerson: group.per_person_price ?? null,
-    savedTotal: group.total_price ?? null,
     isCustomHoliday,
   })
   // キャンセルポリシーは店舗ごと。確定した店舗、または希望店舗が 1 つならその店舗
@@ -86,7 +87,7 @@ export function GroupOverviewTab(props: GroupOverviewTabProps) {
         onGoDates={onGoDates}
       />
       <MembersSummarySection table={table} inviteCap={inviteCap} copied={copied} onCopyInvite={onCopyInvite} onGoMembers={onGoMembers} />
-      <PriceSection price={price} phase={phase} />
+      <PriceSection price={price} phase={phase} minPlayers={minPlayers} />
       <OverviewSection label="店舗とのやりとり" testId="overview-booking" title="店舗とのやりとり">
         {phase === 'pre_request' ? (
           <p className="text-sm text-muted-foreground leading-snug">

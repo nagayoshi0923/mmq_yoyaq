@@ -1,9 +1,7 @@
 // 貸切の候補日時の選択（空き判定は DB の private_booking_candidate_slot_availability 系）。
 // 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Card } from '@/components/ui/card'
+import { useState, useCallback, useMemo, useEffect, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Plus, Loader2, Calendar } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
@@ -17,7 +15,7 @@ import { ScenarioStoreHint } from '@/components/private-booking/ScenarioStoreHin
 import { usePrivateBookingDeadlineState, DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS } from '@/hooks/usePrivateBookingDeadlineDays'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
 import { showToast } from '@/utils/toast'
-import { formatJstDateJa } from '@/utils/jstDate'
+import { getJstParts } from '@/utils/jstDate'
 
 function getJstDateStringFromNow(now = new Date()): string {
   const jstOffsetMin = 9 * 60
@@ -44,6 +42,15 @@ interface AddCandidateDatesProps {
   storeIds: string[]
   existingDates: PrivateGroupCandidateDate[]
   onDatesAdded: () => void
+  /**
+   * dialog: ダイアログの中で使う。月の切り替えと件数を上に、選択中と保存ボタンを下に貼り付ける（スクロールはダイアログ全体の 1 つ）。
+   * embedded（既定）: ページに埋め込む。貼り付けず、カレンダーは全部出し、保存ボタンはカレンダーの直下。
+   */
+  layout?: 'dialog' | 'embedded'
+  /** dialog のとき「キャンセル」で呼ぶ（ダイアログを閉じる）。未指定なら編集欄をたたむ */
+  onCancel?: () => void
+  /** dialog のとき、カレンダーの下（同じスクロールの末尾）に出すもの。登録済みの候補日など */
+  belowCalendar?: ReactNode
 }
 
 export function AddCandidateDates({
@@ -53,8 +60,17 @@ export function AddCandidateDates({
   storeIds,
   existingDates,
   onDatesAdded,
+  layout = 'embedded',
+  onCancel,
+  belowCalendar,
 }: AddCandidateDatesProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const isDialog = layout === 'dialog'
+  // ダイアログでは開いた直後からカレンダーを出す
+  const [isOpen, setIsOpen] = useState(isDialog)
+  const cancel = () => {
+    if (onCancel) onCancel()
+    else setIsOpen(false)
+  }
   const [currentMonth, setCurrentMonth] = useState(() =>
     getFirstSelectableMonthStart(DEFAULT_PRIVATE_BOOKING_DEADLINE_DAYS)
   )
@@ -221,7 +237,7 @@ export function AddCandidateDates({
       })
       pendingRequestRef.current = null
       setSelectedSlots([])
-      setIsOpen(false)
+      if (!isDialog) setIsOpen(false)
       onDatesAdded()
     } catch (err: unknown) {
       // 弾かれた理由が分かるよう、空き状況を読み直す
@@ -244,8 +260,10 @@ export function AddCandidateDates({
     }
   }
 
+  /** チップ用の短い日付「10/30(金)」 */
   const formatDate = (dateStr: string) => {
-    return formatJstDateJa(dateStr, true)
+    const p = getJstParts(dateStr)
+    return p ? `${Number(p.mo)}/${Number(p.d)}(${p.weekday})` : dateStr
   }
 
   const noStoresSelected = storeIds.length === 0
@@ -266,94 +284,120 @@ export function AddCandidateDates({
     )
   }
 
-  return (
-    <Card className="flex w-full min-h-[min(52dvh,360px)] max-h-[min(86dvh,600px)] flex-col overflow-hidden rounded-lg border-purple-200 bg-purple-50 p-0 shadow-none">
-      <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden px-1 pb-0 pt-0.5 sm:px-1.5 sm:pt-1">
-        <div className="flex shrink-0 items-center justify-between gap-1">
-          <h3 className="flex items-center gap-0.5 text-[11px] font-semibold leading-none text-purple-800">
-            <Calendar className="h-3 w-3 shrink-0" />
-            候補日を追加
-          </h3>
-          <Button variant="ghost" size="sm" className="h-6 min-h-0 shrink-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)} disabled={saving}>
-            閉じる
+  const saveDisabled = selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError
+  const inset = isDialog ? 'px-3 sm:px-4' : ''
+
+  const grid = (
+    <PrivateBookingSlotGrid
+      currentMonth={currentMonth}
+      onMonthChange={handleMonthChange}
+      isPrevMonthDisabled={isPrevDisabled}
+      isNextMonthDisabled={isNextDisabled}
+      availableDates={availableDates}
+      slotsByDate={availability.slotsByDate}
+      selectedSlots={selectedSlots}
+      onSlotToggle={handleSlotToggle}
+      maxSelections={MAX_SELECTIONS}
+      unavailableReasons={availability.unavailableReasons}
+      existingSlotKeys={existingSlotKeys}
+      isCustomHoliday={isCustomHoliday}
+      colorScheme="purple"
+      loading={loading || holidaysLoading || deadlineLoading}
+      stickyHeader={isDialog}
+      insetClassName={inset}
+      compact
+      emptyMonth={
+        <div className="space-y-2 px-2 py-6 text-center text-xs text-muted-foreground">
+          <p>今月に選択可能な日がありません。</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => handleMonthChange(1)}>
+            次月を表示
           </Button>
         </div>
+      }
+    />
+  )
 
-        {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
-        {availabilityError && <p role="alert" className="text-xs text-destructive">{availabilityError}</p>}
-        <ScenarioStoreHint hint={storeHint} compact />
-        <PrivateBookingSlotGrid
-          currentMonth={currentMonth}
-          onMonthChange={handleMonthChange}
-          isPrevMonthDisabled={isPrevDisabled}
-          isNextMonthDisabled={isNextDisabled}
-          availableDates={availableDates}
-          slotsByDate={availability.slotsByDate}
-          selectedSlots={selectedSlots}
-          onSlotToggle={handleSlotToggle}
-          maxSelections={MAX_SELECTIONS}
-          unavailableReasons={availability.unavailableReasons}
-          existingSlotKeys={existingSlotKeys}
-          isCustomHoliday={isCustomHoliday}
-          colorScheme="purple"
-          loading={loading || holidaysLoading || deadlineLoading}
-          fillContainer
-          compact
-          emptyMonth={
-            <div className="space-y-2 px-2 py-6 text-center text-xs text-muted-foreground">
-              <p>今月に選択可能な日がありません。</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => handleMonthChange(1)}>
-                次月を表示
-              </Button>
-            </div>
-          }
-        />
+  const notes = (holidaysError || availabilityError || storeHint) && (
+    <div className={`space-y-1 py-1.5 ${inset}`}>
+      {holidaysError && <p role="alert" className="text-sm text-destructive">{holidaysError}</p>}
+      {availabilityError && <p role="alert" className="text-xs text-destructive">{availabilityError}</p>}
+      <ScenarioStoreHint hint={storeHint} compact />
+    </div>
+  )
 
-        <p className="shrink-0 px-1 py-0.5 text-[9px] text-muted-foreground">
-          「追加済み」は保存済みの候補です。削除は候補日程の「削除」から行えます。灰色は選べない枠です（押すと理由を表示）。
-        </p>
-
-        {selectedSlots.length > 0 && (
-          <div className="shrink-0 space-y-px">
-            <p className="text-[9px] text-muted-foreground">選択中</p>
-            <div className="flex flex-wrap gap-0.5">
-              {selectedSlots.map(slot => (
-                <Badge
-                  key={`${slot.date}-${slot.slot.label}`}
-                  variant="outline"
-                  className="cursor-pointer border-purple-200 bg-white px-1 py-0 text-[9px] text-purple-800 hover:bg-purple-100"
-                  onClick={() => handleSlotToggle(slot.date, slot.slot)}
-                >
-                  {formatDate(slot.date)} {slot.slot.label} ×
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div
-          className="-mx-1 mt-0 flex shrink-0 items-center justify-end gap-0.5 border-t border-purple-200/70 bg-purple-50 px-1 py-0.5 pb-[max(0.2rem,env(safe-area-inset-bottom))] shadow-[0_-1px_6px_rgba(100,50,140,0.06)]"
+  // 選択中のチップ列と保存。ダイアログでは画面の下に貼り付け、常に見える位置に置く
+  const actions = (
+    <div
+      className={`border-t border-border bg-background pt-2 ${isDialog ? `sticky bottom-0 z-10 mt-auto pb-[max(0.75rem,env(safe-area-inset-bottom))] ${inset}` : 'pb-1'}`}
+      data-testid="candidate-dates-actions"
+    >
+      {selectedSlots.length > 0 && (
+        <div className="mb-2 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-0.5 text-xs" aria-label="選択中の候補日">
+          <span className="shrink-0 text-muted-foreground">選択中 {selectedSlots.length} 件</span>
+          {selectedSlots.map(slot => (
+            <button
+              type="button"
+              key={`${slot.date}-${slot.slot.label}`}
+              className="shrink-0 rounded-full bg-purple-50 px-2.5 py-0.5 text-purple-800 hover:bg-purple-100"
+              aria-label={`${formatDate(slot.date)} ${slot.slot.label} を外す`}
+              onClick={() => handleSlotToggle(slot.date, slot.slot)}
+            >
+              {formatDate(slot.date)} {slot.slot.label} ×
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button variant="outline" className="h-10 flex-1" onClick={cancel} disabled={saving}>
+          キャンセル
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={saveDisabled}
+          className="h-10 flex-[2] bg-purple-600 font-bold hover:bg-purple-700"
         >
-          <Button variant="ghost" size="sm" className="h-6 min-h-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)} disabled={saving}>
-            キャンセル
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={selectedSlots.length === 0 || saving || loading || deadlineLoading || holidaysLoading || !!holidaysError}
-            className="h-6 min-h-0 shrink-0 bg-purple-600 px-2 py-0 text-[10px] hover:bg-purple-700"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="mr-0.5 inline h-2.5 w-2.5 animate-spin" />
-                保存中...
-              </>
-            ) : (
-              '候補日を保存'
-            )}
-          </Button>
-        </div>
+          {saving ? (
+            <>
+              <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
+              保存中...
+            </>
+          ) : selectedSlots.length > 0 ? (
+            `候補日を保存（${selectedSlots.length} 件）`
+          ) : (
+            '候補日を保存'
+          )}
+        </Button>
       </div>
-    </Card>
+    </div>
+  )
+
+  if (isDialog) {
+    return (
+      // 中身が短くても保存列は画面の下端に置く（min-h-full + mt-auto）
+      <div className="flex min-h-full flex-col" data-testid="add-candidate-dates" data-layout="dialog">
+        {notes}
+        {grid}
+        {belowCalendar && <div className={`pb-3 ${inset}`}>{belowCalendar}</div>}
+        {actions}
+      </div>
+    )
+  }
+
+  return (
+    // ページ埋め込み: 囲みの枠は置かず（外側の欄がすでに枠）、幅をカレンダーに回す
+    <div className="w-full" data-testid="add-candidate-dates" data-layout="embedded">
+      <div className="mb-1 flex items-center justify-between gap-1">
+        <h3 className="flex items-center gap-1 text-sm font-semibold text-purple-800">
+          <Calendar className="h-4 w-4 shrink-0" />
+          候補日を追加
+        </h3>
+        <Button variant="ghost" size="sm" className="h-7 px-2 py-0 text-xs" onClick={() => setIsOpen(false)} disabled={saving}>
+          閉じる
+        </Button>
+      </div>
+      {notes}
+      {grid}
+      {actions}
+    </div>
   )
 }
