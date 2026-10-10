@@ -38,7 +38,7 @@ const NEXT_ACTION_LABELS: Record<Exclude<NextActionKind, 'upcoming'>, string> = 
   choose_casting: '配役の決め方を選ぶ',
   pick_character: 'やりたいキャラクターを選ぶ',
   confirm_casting: '配役を確定する',
-  answer_survey: 'アンケートに回答する',
+  answer_survey: '事前配役アンケートに回答する',
   pick_dates: '候補日を決める',
   answer_dates: '日程に回答する',
   proceed_booking: '申込に進む',
@@ -310,7 +310,7 @@ export function groupDescription(group: GroupDescriptionInput, action: NextActio
         ? '全員の希望が出ました。重なりを調整して配役を確定してください。'
         : `やりたいキャラクターの希望 ${casting?.picked ?? 0}/${casting?.total ?? group.member_count}。そろわなくても主催者が配役を確定できます。`
     case 'answer_survey':
-      return `${when}${store}で開催。公演前アンケートに回答してください`
+      return `${when}${store}で開催。事前配役アンケートに回答してください`
     case 'pick_dates':
       return `候補日を登録すると、メンバーが都合を回答できます（参加 ${group.member_count} 人）`
     case 'answer_dates':

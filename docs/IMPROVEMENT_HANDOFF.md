@@ -1,3 +1,15 @@
+## 2026-10-11 / 事前配役アンケートの回答画面を全画面シートの形に（feat/survey-sheet-ui、staging 向け PR・未取り込み）
+
+- 社長承認の見本 `SurveySheet.dc.html`（375×812）に合わせ、回答フォーム `SurveyResponseForm` を全画面シートに作り替えた（読み書き・診断記録は `useSurveyResponse.ts` に分離）。入口は従来の `?tab=survey`（メール・通知のリンク）に加え `?sheet=survey` も同じ画面。マイページの貸切カード（その場で開く）とチャットの予備の枠も同じシート。会員・ゲスト（PIN）共通。
+- 上に固定: 「事前配役アンケート」・作品・開催日時・店舗・回答期限・×、緑の帯「回答は店舗と GM にだけ届きます。配役は当日お伝えします。」。下に固定: 「回答を送る」／回答済みは「回答を変更する」と「送ったあとも期限までは変更できます」。
+- 1. やってみたいキャラクター: 店舗の設問のうち character_selection を先頭に、カード 2 列（画像・名前・性別の注記）。押す順に第 1／第 2 希望（`surveyCompletion.toggleCharacterPick`）、「どのキャラクターでもよい（おまかせ）」。配役方法が survey でない・作品にキャラクターがいない・店舗が character_selection の設問を作っていないときは出さない（必須でも問わない）。
+- 保存形式: その設問 id に第 1 希望のキャラクター id（従来どおり・配役確定時の一括保存と互換）。**第 2 希望は回答の jsonb のキー `character_second_choice`**（列は足さない。RPC `upsert_survey_response_for_member` は受け取った回答をそのまま保存するため DB 変更なし）。開き直すと復元。キャラクターの設問を出さない・第 1 希望が無い・おまかせのときは送らない（`stripHiddenSurveyAnswers`）。おまかせは文字列「おまかせ」。店舗の回答一覧（`SurveyResponsesTab`・`SurveyResponsesView`）は `characterAnswerLabel` で「第 1 希望 A／第 2 希望 B」「おまかせ（どのキャラクターでもよい）」と出す。注意: 配役方法の選び直しで DB が消すのは設問 id のキーだけなので、古い `character_second_choice` が残ることがある（第 1 希望が無ければ画面・一覧とも出さない）。
+- 店舗の設問: 単一・複数選択と 5 段階はチップ、自由記述は枠、必須／任意の印。
+- 期限: 回答期限（survey_deadline_at、無ければ公演日から survey_deadline_days 前）を過ぎたら「回答期限を過ぎました」で送れない（従来は「目安」で公演日まで送れた。社長の見本どおりに変更。DB 側では止めていない）。公演日を過ぎたら受付終了の表示。
+- 送ったあと: シートを閉じ、`group-survey-settings`・`group-casting-status` を読み直す。状態の箱は開催の文に「事前配役アンケートは回答済みです（N/M 名が回答）」と「回答を変更する」（`groupPageModel` の `surveyAnswered`）。マイページは `mypage-private-survey-status` も読み直す。
+- 名称の一括置換（社長決定「事前配役アンケート」）: お客様向けの画面・マイページのカード・チャットの案内、スタッフ向け管理画面（サイドバー・マニュアル・回答一覧・作品の設定）、ベル・メール（DB 関数 `customer_notice_on_group_message`・`customer_notice_on_survey_reminder` の文面を migration 20261011190000〈同名 rollback〉で置換、staging 適用済み・本番未適用、`expected-function-overrides.json`／`staging.json` 更新）、Edge Function のメール（`survey-reminder-email.ts` の件名「【事前配役アンケートのお願い】」・本文、貸切確定の案内文。staging に配備済み）、方針書・お客様向けマニュアル。古い migration・baseline・作業記録の文は変えていない。「アンケート」単独の一般名詞は残した。キャラクター画像の部品は `casting/CharacterImage.tsx` に分けた。
+- 確認: 手元 DB（qa-customer の local supabase）の作品「試験作品・事前の手紙」に試験用の設問（希望キャラクター＝必須、得意・苦手なこと＝任意）を手元だけに追加し、会員（customer2）とゲスト（PIN）で 375px を撮影（作業メモの `shots/g8_survey_*.png`。開いた直後・キャラクター選択後・送信後の箱と概要・開き直し・マイページ、第 2 希望の復元 `g8_survey_member_reopen_second.png`）。送るボタンの下端 775px/812px。
+
 ## 2026-10-11 / 配役の確定で作品の人数にそろっていなくても確定できるように（fix/casting-confirm-min-players、staging 向け PR・未取り込み）
 
 - 社長決定: グループに登録していない同行者（当日来る人）がいるのは普通で、作品の人数に満たないと主催者が配役を確定できなかった。条件は「登録メンバー全員に配役が入っている」「重なりが無い」の 2 つだけにし、最低人数に満たないときは確定画面に注意だけ出す（「登録メンバーは 3 人です（作品は 5 人）。登録していない同行者の配役は当日店舗が決めます」。最低〜最大が違う作品は「作品は 4〜5 人」）。

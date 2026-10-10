@@ -75,7 +75,7 @@ describe('承認通知の外部送信',()=>{
   expect(result.payload.text).toContain('グループのご案内')
   expect(result.payload.text).toContain('https://mmq.game/group/invite/abc123')
   expect(result.payload.text).toContain('クーポンを利用できません')
-  expect(result.payload.text).toContain('事前配役やアンケート')
+  expect(result.payload.text).toContain('事前配役アンケートのご案内')
   const other=dbFor({reservations:[{id:r.reservation_id,organization_id:r.organization_id,private_group_id:id(7)}],private_groups:[{id:id(7),organization_id:id(8),invite_code:'other-org'}]})
   const otherResult:any=await approvalDeliveryTransport(other,env,'service',vi.fn()).prepare(r,{},vi.fn())
   expect(otherResult.payload.text).not.toContain('グループのご案内')

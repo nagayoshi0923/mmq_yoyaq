@@ -36,7 +36,7 @@ export interface PrivateBookingMenuContext {
   hasGroup: boolean
   /** 紐づく申込・予約がある（取り下げ・キャンセルの対象） */
   hasReservation: boolean
-  /** 公演前アンケートがある（確定後のみ意味がある） */
+  /** 事前配役アンケートがある（確定後のみ意味がある） */
   hasSurvey: boolean
   /** 自分が未回答の候補日がある（メンバーのみ） */
   hasUnansweredDates: boolean
@@ -51,7 +51,7 @@ const LABELS: Record<PrivateBookingMenuItemId, string> = {
   manage_members: 'メンバーを管理',
   cancel_handover: '引き継ぎの依頼を取り消す',
   answer_dates: '日程に回答する',
-  view_survey: 'アンケートを見る',
+  view_survey: '事前配役アンケートを見る',
   contact_store: '店舗に問い合わせる',
   close_group: 'グループを閉じる',
   withdraw: '申込を取り下げる',

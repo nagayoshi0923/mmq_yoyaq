@@ -99,9 +99,15 @@ describe('いまの状態の箱（マイページのカードと同じラベル�
   })
   it('確定・アンケート未回答', () => {
     const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }, surveyPending: true, canMutateSchedule: false }))
-    expect(v.chip).toBe('アンケートに回答する')
+    expect(v.chip).toBe('事前配役アンケートに回答する')
     expect(v.tone).toBe('green')
     expect(v.primary?.kind).toBe('survey')
+  })
+  it('確定・アンケート回答済み: 回答済みの 1 文と「回答を変更する」', () => {
+    const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-11-07', start_time: '14:00:00', store_name: '高田馬場店' }, surveyPending: false, surveyAnswered: { answered: 2, total: 4 }, canMutateSchedule: false }))
+    expect(v.action).toBe('upcoming')
+    expect(v.body).toContain('事前配役アンケートは回答済みです（2/4 名が回答）')
+    expect(v.secondary).toEqual([{ kind: 'survey', label: '回答を変更する' }])
   })
   it('公演後は灰色・本文のみ', () => {
     const v = buildGroupStatus(base({ status: 'confirmed', phase: 'confirmed', confirmed: { date: '2026-10-01', start_time: '14:00', store_name: null }, canMutateSchedule: false }))

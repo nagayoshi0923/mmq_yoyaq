@@ -1,39 +1,34 @@
-import { ArrowLeft } from 'lucide-react'
-import { Header } from '@/components/layout/Header'
 import { SurveyResponseForm } from './SurveyResponseForm'
+import type { SurveyCharacter } from './useSurveyResponse'
 
 /**
- * 公演前アンケートだけの画面（招待ページの ?tab=survey）。
+ * 事前配役アンケートの回答シート（招待ページの ?tab=survey、または ?sheet=survey）。
  * チャットの上の小さな枠で開くと回答できないという報告があったため（2026-10-05、ゲスト 2 件）、
- * 枠ではなく画面全体で開き、チャットの読み直しとも切り離す。
+ * 画面全体のシートで開き、チャットの読み直しとも切り離す。会員・ゲスト（PIN）とも同じ。
  */
-export function SurveyScreen({ groupId, memberId, scenarioTitle, performanceDate, charAssignmentMethod, characters, onBack }: {
+export function SurveyScreen({ groupId, memberId, scenarioTitle, performance, charAssignmentMethod, characters, onSubmitted, onBack }: {
   groupId: string
   memberId: string
   scenarioTitle?: string | null
-  performanceDate?: string
+  performance?: { date: string; start_time?: string | null; store_name?: string | null } | null
   charAssignmentMethod: string | null
-  characters: Array<{ id: string; name: string; gender?: string }>
+  characters: SurveyCharacter[]
+  /** 送ったあと（状態の箱・概要の配役欄を読み直す） */
+  onSubmitted: () => void
   onBack: () => void
 }) {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-      <div className="container mx-auto max-w-lg px-4 py-4 flex-1">
-        <button type="button" onClick={onBack} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3">
-          <ArrowLeft className="w-4 h-4" />
-          チャットに戻る
-        </button>
-        {scenarioTitle && <p className="text-sm text-muted-foreground mb-3">{scenarioTitle}</p>}
-        <SurveyResponseForm
-          groupId={groupId}
-          memberId={memberId}
-          performanceDate={performanceDate}
-          characters={characters}
-          hideCharacterSelection={charAssignmentMethod !== 'survey'}
-          explainEmptyState
-        />
-      </div>
-    </div>
+    <SurveyResponseForm
+      groupId={groupId}
+      memberId={memberId}
+      scenarioTitle={scenarioTitle}
+      performanceDate={performance?.date}
+      startTime={performance?.start_time}
+      storeName={performance?.store_name}
+      characters={characters}
+      hideCharacterSelection={charAssignmentMethod !== 'survey'}
+      onSubmitted={onSubmitted}
+      onClose={onBack}
+    />
   )
 }

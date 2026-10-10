@@ -32,7 +32,7 @@ import { userRoleReadApi } from '@/lib/api/userRoleReadApi'
 // ---------------------------------------------------------------------------
 const ALL_HARDCODED_STAFF_ITEMS = [
   { id: 'checkin',            label: '受付・チェックイン',      icon: ClipboardCheck },
-  { id: 'pre-reading-survey', label: '事前アンケート・配役',     icon: ClipboardList },
+  { id: 'pre-reading-survey', label: '事前配役アンケート・配役',     icon: ClipboardList },
   { id: 'coupon-reception',   label: 'クーポン受付対応',        icon: Scissors },
   { id: 'coupon-types',       label: 'クーポン・チケット種類',   icon: Ticket },
 ]

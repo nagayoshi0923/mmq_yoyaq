@@ -1,4 +1,5 @@
 import { readSurveyQuestionSettings } from '@/lib/surveyQuestionSettings'
+import { characterAnswerLabel } from '@/lib/surveyCompletion'
 import { readPrivateGroupSurveyResponses, readPrivateGroupByReservation } from '@/lib/privateGroupRead'
 import { getGroupSurveySettings } from '@/lib/groupSurveySettings'
 import { missingRequiredSurveyQuestions } from '@/lib/surveyCompletion'
@@ -134,8 +135,8 @@ export function SurveyResponsesView({
     if (!question) return String(value)
 
     if (question.question_type === 'character_selection') {
-      const char = characters.find(c => c.id === value)
-      return char?.name || String(value)
+      // 第 2 希望・おまかせも併記（事前配役アンケート）
+      return characterAnswerLabel(response.responses, questionId, characters) ?? String(value)
     }
 
     if (question.question_type === 'single_choice') {

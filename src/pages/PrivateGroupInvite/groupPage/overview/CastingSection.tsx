@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import type { PrivateGroupCastingStatus } from '@/lib/privateGroupCastingStatus'
 import { OverviewSection } from './OverviewSection'
-import { CharacterImage } from '../casting/CastingScreen'
+import { CharacterImage } from '../casting/CharacterImage'
 import { deadlineLabel, rowName, shortName, type CastingCharacter, type CastingMember } from '../casting/castingModel'
 
 export interface CastingSectionProps {

@@ -1,7 +1,7 @@
 import { usePrivateGroupMemberRestore } from '@/hooks/usePrivateGroupMemberRestore'
 import { privateGroupMemberAction, getPrivateGroupGuestToken, clearPrivateGroupGuestToken, guestStorage } from '@/lib/privateGroupGuestSession'
 import { useState, useEffect, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { useAuth } from '@/contexts/AuthContext'
@@ -61,6 +61,7 @@ export function PrivateGroupInvite() {
   }, [location.pathname])
 
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
   const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, linkedReservation, handover } = usePrivateGroupByInviteCode(code || null, existingMemberId)
   const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
@@ -621,17 +622,24 @@ export function PrivateGroupInvite() {
     return <HandoverScreen requestId={searchParams.get('request') ?? handover?.id ?? null} user={user} onBack={closeSheet} onFinished={async () => { closeSheetReplace(); await refetch() }} />
   }
 
-  // 公演前アンケートは、チャットの上の枠ではなく専用の画面で開く（2026-10-05、ゲストが回答できない報告への対策）
-  if (existingMemberId && tabParam === 'survey' && group) {
+  // 事前配役アンケートは、チャットの上の枠ではなく全画面のシートで開く（2026-10-05、ゲストが回答できない報告への対策）
+  if (existingMemberId && (tabParam === 'survey' || activeSheet === 'survey') && group) {
+    const surveyMemberId = existingMemberId
     return (
       <SurveyScreen
         groupId={group.id}
-        memberId={existingMemberId}
+        memberId={surveyMemberId}
         scenarioTitle={scenario?.title}
-        performanceDate={group.confirmed_performance?.date}
+        performance={group.confirmed_performance}
         charAssignmentMethod={charAssignmentMethod}
         characters={scenarioCharacters}
-        onBack={() => setActiveTab(isScheduleConfirmedUi ? 'overview' : 'dates')}
+        onSubmitted={() => {
+          // 状態の箱（未回答か）・概要の配役欄（回答済み N/M 名）・グループを読み直す
+          void queryClient.invalidateQueries({ queryKey: ['group-survey-settings', group.id] })
+          void queryClient.invalidateQueries({ queryKey: ['group-casting-status', group.id] })
+          void refetch()
+        }}
+        onBack={() => (activeSheet === 'survey' ? closeSheet() : setActiveTab(isScheduleConfirmedUi ? 'overview' : 'dates'))}
       />
     )
   }

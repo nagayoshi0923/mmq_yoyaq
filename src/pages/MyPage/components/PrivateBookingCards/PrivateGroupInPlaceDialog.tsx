@@ -3,7 +3,7 @@
  *   dates  = 候補日を追加・編集（主催者・店舗への申込前）
  *   store  = 希望店舗を変更（主催者・店舗への申込前）
  *   answer = 日程に回答する（○△×）
- *   survey = 公演前アンケート
+ *   survey = 事前配役アンケート（グループ画面と同じ全画面の回答シート）
  * 中身はグループ画面と同じ部品（AddCandidateDates・CandidateDateRows・PreferredStoreChecklist・
  * usePreferredStoreEditor・SurveyResponseForm）を使い、編集画面を二重に持たない。会員のみ（ゲストの PIN 分岐は不要）。
  */
@@ -20,6 +20,7 @@ import { usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroupByInviteCode
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
+import type { SurveyCharacter } from '@/pages/PrivateGroupInvite/components/useSurveyResponse'
 import { usePreferredStoreEditor } from '@/pages/PrivateGroupInvite/usePreferredStoreEditor'
 import { getErrorMessage } from '@/lib/errorFields'
 import { privateGroupPageReadApi } from '@/lib/api/privateGroupPageReadApi'
@@ -32,14 +33,14 @@ const TITLES: Record<PrivateGroupInPlaceMode, string> = {
   dates: '候補日を追加・編集',
   store: '希望店舗を変更',
   answer: '日程に回答する',
-  survey: '公演前アンケート',
+  survey: '事前配役アンケート',
 }
 
 const DESCRIPTIONS: Record<PrivateGroupInPlaceMode, string> = {
   dates: '候補日を追加すると、メンバーが都合を回答できます。',
   store: '希望店舗を変えると、空き枠のない候補日は外れます。',
   answer: '候補日ごとに ○（参加できる）・△（微妙）・×（参加できない）を選んで保存してください。',
-  survey: '公演前のアンケートに回答してください。',
+  survey: '事前配役アンケートに回答してください。',
 }
 
 /**
@@ -113,6 +114,31 @@ export function PrivateGroupInPlaceDialog({ mode, onClose, inviteCode, title, my
     </div>
   )
 
+  // 事前配役アンケートは、グループ画面と同じ全画面の回答シートで開く（ダイアログにしない）
+  if (mode === 'survey') {
+    if (!group || !myMemberId) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background" data-testid="private-group-inplace-dialog" data-mode="survey">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="読み込み中" />
+        </div>
+      )
+    }
+    return (
+      <SurveyResponseForm
+        groupId={group.id}
+        memberId={myMemberId}
+        scenarioTitle={title}
+        performanceDate={group.confirmed_performance?.date}
+        startTime={group.confirmed_performance?.start_time}
+        storeName={group.confirmed_performance?.store_name}
+        characters={((group.scenario_masters as { characters?: Array<SurveyCharacter & { is_npc?: boolean }> } | undefined)?.characters ?? []).filter(c => !c.is_npc)}
+        hideCharacterSelection={(group.character_assignment_method as string | null) !== 'survey'}
+        onSubmitted={() => { void onSaved() }}
+        onClose={onClose}
+      />
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
       <DialogContent
@@ -155,16 +181,6 @@ export function PrivateGroupInPlaceDialog({ mode, onClose, inviteCode, title, my
           <StorePanel group={group} canMutate={canMutate} onClose={onClose} onSaved={onSaved} />
         ) : mode === 'answer' ? (
           <AnswerPanel group={group} memberId={myMemberId} memberCount={joinedMembers.length} onSaved={finish} />
-        ) : mode === 'survey' && myMemberId ? (
-          <SurveyResponseForm
-            groupId={group.id}
-            memberId={myMemberId}
-            performanceDate={group.confirmed_performance?.date}
-            characters={((group.scenario_masters as { characters?: Array<{ id: string; name: string; gender?: string; is_npc?: boolean }> } | undefined)?.characters ?? []).filter(c => !c.is_npc)}
-            hideCharacterSelection={(group.character_assignment_method as string | null) !== 'survey'}
-            explainEmptyState
-            onSubmitted={() => { void finish() }}
-          />
         ) : null}
         </div>
       </DialogContent>

@@ -1,4 +1,4 @@
--- お客様への知らせ（通知ベル・メール）の関数とトリガー（マイページ改修 段階 4、migration 20261009140000）
+-- お客様への知らせ（通知ベル・メール）の関数とトリガー（マイページ改修 段階 4、migration 20261009140000。文面の名称は 20261011190000）
 -- 正本の写し。変えるときは live 定義（pg_get_functiondef）を確かめてから migration を足し、ここも同じにする。
 -- 表 customer_notice_emails は supabase/schemas/customer_notice_emails.sql、ベルの重複防止キーは user_notifications の索引 user_notifications_dedupe_key_idx。
 
@@ -185,7 +185,7 @@ BEGIN
     CASE WHEN v_when_long<>'' THEN '開催日時: '||v_when_long END, CASE WHEN v_store IS NOT NULL THEN '会場: '||v_store END,
     CASE WHEN r.reservation_number IS NOT NULL THEN '予約番号: '||r.reservation_number END];
    IF v_survey_on THEN
-    v_lines := v_lines || ARRAY['','■ 公演前アンケート','当日の準備のため、グループ画面の「アンケート」からご回答をお願いします。',
+    v_lines := v_lines || ARRAY['','■ 事前配役アンケート','当日の準備のため、グループ画面の「事前配役アンケート」からご回答をお願いします。',
      CASE WHEN v_deadline IS NOT NULL THEN '回答期限: '||v_deadline||'まで' END];
    END IF;
    v_lines := v_lines || ARRAY['','当日のご来店をお待ちしております。'];
@@ -196,8 +196,8 @@ BEGIN
    IF v_survey_on THEN
     -- アンケートに回答してください → 会員全員（ベル）。メールは上の確定メール（メンバー）と既存のアンケート案内（主催者）
     PERFORM public.customer_notice_group_members(g.id,'private_survey','private_survey:'||coalesce(r.id,g.id)::text,'system',
-     'アンケートに回答してください',
-     format('「%s」の貸切の公演前アンケートにご回答ください。%s',v_work,coalesce('回答期限は'||v_deadline||'です。','')),
+     '事前配役アンケートに回答してください',
+     format('「%s」の貸切の事前配役アンケートにご回答ください。%s',v_work,coalesce('回答期限は'||v_deadline||'です。','')),
      v_link||'?tab=survey');
    END IF;
 
@@ -524,8 +524,8 @@ BEGIN
   IF v_user IS NULL THEN RETURN NULL; END IF;
   SELECT * INTO g FROM public.private_groups WHERE id=NEW.group_id;
   PERFORM public.customer_notice_bell(v_user,NULL,g.organization_id,'system','private_survey','private_survey_reminder:'||NEW.id::text,
-   'アンケートに回答してください',
-   format('「%s」の貸切の公演前アンケートにご回答ください。回答期限は%sです。',
+   '事前配役アンケートに回答してください',
+   format('「%s」の貸切の事前配役アンケートにご回答ください。回答期限は%sです。',
     coalesce((SELECT s.title FROM public.scenario_masters s WHERE s.id=g.scenario_master_id),'貸切'),
     public.customer_notice_when((NEW.deadline_at AT TIME ZONE 'Asia/Tokyo')::date)),
    '/group/invite/'||g.invite_code||'?tab=survey',NULL,NULL,jsonb_build_object('group_id',g.id));
