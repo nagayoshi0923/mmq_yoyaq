@@ -62,6 +62,8 @@ export interface PrivateBookingSlot {
   label: '午前' | '午後' | '夜'
   startTime: string
   endTime: string
+  /** 前後の公演から逆算して標準の開始時刻からずらした枠（DB の adjusted） */
+  adjusted?: boolean
 }
 
 // ---------------------------------------------------------------------------

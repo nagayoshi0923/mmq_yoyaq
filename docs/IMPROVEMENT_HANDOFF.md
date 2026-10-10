@@ -1,3 +1,14 @@
+## 2026-10-11 / 貸切候補日の空き判定を前後の公演から逆算する方式に（feat/candidate-slot-gap-based、staging 向け PR・未取り込み）
+
+- 社長決定: 枠の名前（午前／午後／夜）ではなく、その店舗のその日の前後の公演・受付停止・営業時間から逆算し、所要時間＋準備時間が入れば受け付ける。逆向き（夜を標準より前に繰り上げる）も同じ規則。
+- 仕様の正本を新設: `docs/product-spec/貸切受付ルール.md`（入力の一覧・判定の手順・理由コード・例の表 R1〜R21・変更の決まり）。例の表はそのまま `supabase/tests/private_booking_rules_examples.sql`（`npm run test:rpcs` に追加）。
+- DB: 内部関数 `private_booking_slot_store_checks` を `private_booking_slot_store_fit` に置き換え（占有区間を int4multirange で作り、隙間ごとに開始時刻の範囲を出す。開始は標準に最も近い 15 分刻み）。`private_booking_pick_start`・`private_booking_minutes_text` を追加。空き状況の関数 2 つに `detail`（「空き 2 時間・必要 5 時間」）と `adjusted`（標準からずらした）列を追加。保存 RPC も同じ関数で、画面が返した開始時刻をそのまま検証し、`conflict` に補足を付けて弾く。
+- 旧方式との違い: 平日の午前が空いていれば選べる／平日の午後が夜にかかっても夜に公演が無ければ選べる／夜は前に公演が無ければ繰り上げ（旧「23:00−所要時間」の特例は一般則に吸収、R6・R18 で同じ結果）／受付停止はその枠の時間帯全体を占有（#1021 の「午後枠を夜にずらすと夜の受付停止を通り抜ける」課題は解消）／貸切募集停止期間を保存でも弾く／理由は店舗ごとに conflict → blocked → closed の順。
+- 画面: `PrivateBookingSlotGrid` は DB の開始〜終了を出し、ずらした時刻に「に調整」を添える。灰色の枠の理由に補足を付ける。
+- 見ないと進めない仕組み: `npm run check:private-booking-rules`（`scripts/check-private-booking-rules-doc.mjs`）。文書冒頭の「判定に関わるファイル」の一覧のどれかを変えて文書を変えていないと失敗。pre-commit と CI の Verify に追加（CI の checkout は fetch-depth: 2）。AGENTS.md に 1 行。判定の SQL・画面の先頭コメントに正本を明記。
+- DB: migration `20261011120000_private_booking_candidate_slot_gap_based`（rollback 同名。手元で rollback → 旧テスト通過 → 再適用 → 新テスト通過を確認）。staging 適用済み、`staging.json`・`expected-function-overrides.json` は staging の実物で更新。本番は未適用。
+- 確認: 手元で ①隙間ぴったり ②隙間不足 ③夜の受付停止に午後がかかる ④夜に公演なしで午後が夜にかかる、を作品ページ（375px）で確認。スクリーンショットは作業メモの `shots/fix_gap_*.png`。
+
 ## 2026-10-10 / 候補日カレンダーの空き判定を DB と一本化（fix/candidate-slot-availability、staging 向け PR・未取り込み）
 
 - 事象: 貸切グループ「告別詩」（希望 6 店、作品の上演可能店舗との共通は 高田馬場・仮設①・仮設②）で、候補日の追加画面が 10/30 夜・10/31 夜を選べる枠として出すのに、保存で「選択した候補日時は現在受付できません」と弾かれた。DB の判定は正しく、画面の独自計算（availabilityMap）が上演可能店舗の絞り込み・他公演との重なり（準備時間込み）・受付停止を同じ条件で見ていなかった。

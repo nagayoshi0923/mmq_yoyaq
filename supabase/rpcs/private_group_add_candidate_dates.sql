@@ -1,6 +1,7 @@
 -- QW-20260917-001: 候補日時・通知・通信再試行記録を一括保存。
 -- 変数 v_start_at / v_end_at は schedule_events の start_at / end_at 列と衝突させない。
--- 店舗ごとの空き判定は private_booking_slot_store_checks（private_booking_candidate_slot_availability.sql）と共有する。
+-- 店舗ごとの空き判定は private_booking_slot_store_fit（private_booking_candidate_slot_availability.sql）と共有する。
+-- 仕様の正本: docs/product-spec/貸切受付ルール.md。変更時は同じ PR で更新。
 CREATE OR REPLACE FUNCTION public.private_group_add_candidate_dates(p_group_id uuid, p_request_id uuid, p_expected_scenario_id uuid, p_expected_store_ids uuid[], p_candidates jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -12,7 +13,7 @@ DECLARE
  current_stores uuid[]; expected_stores uuid[]; payload jsonb; item jsonb; ids uuid[]:='{}'; candidate_id uuid;
  candidate_date date; v_start_at timestamp; v_end_at timestamp; slot text; slot_label text;
  minutes integer; start_min integer; end_min integer; next_order integer; res_status text;
- holiday boolean; custom_holidays jsonb; valid_store boolean; any_unblocked boolean; any_open boolean; has_store boolean; author_member uuid; notice_dates jsonb:='[]';
+ holiday boolean; custom_holidays jsonb; valid_store boolean; why text; max_gap integer; has_store boolean; author_member uuid; notice_dates jsonb:='[]';
 BEGIN
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'ログインしてください' USING ERRCODE='42501'; END IF;
  -- 他の予約処理が予約→グループ順にロックする場合は待ち合わせず再読込を促す。
@@ -79,12 +80,13 @@ BEGIN
   END IF;
   start_min:=extract(hour FROM v_start_at)::integer*60+extract(minute FROM v_start_at)::integer;
   end_min:=start_min+minutes;
-  -- 1つの店舗で営業枠と準備時間を含む空きの両方が成立すること。他店の条件を混ぜない。
+  -- 1つの店舗で、画面が返した開始時刻が前後の公演・受付停止・営業時間の隙間に収まること。他店の条件を混ぜない。
   -- 判定は画面の空き表示（private_booking_candidate_slot_availability）と同じ関数を使う。
-  SELECT coalesce(bool_or(c.hours_ok AND NOT c.blocked AND NOT c.conflict),false),
-   coalesce(bool_or(c.hours_ok AND NOT c.blocked),false), coalesce(bool_or(c.hours_ok),false)
-   INTO valid_store, any_unblocked, any_open
-  FROM public.private_booking_slot_store_checks(g.organization_id,p_expected_scenario_id,sc.title,sc.available_stores,sc.private_booking_slot_start_times,
+  SELECT coalesce(bool_or(c.fits),false),
+   CASE WHEN bool_or(c.why='conflict') THEN 'conflict' WHEN bool_or(c.why='blocked') THEN 'blocked' ELSE 'closed' END,
+   max(c.gap_minutes) FILTER (WHERE c.why='conflict')
+   INTO valid_store, why, max_gap
+  FROM public.private_booking_slot_store_fit(g.organization_id,p_expected_scenario_id,sc.title,sc.available_stores,sc.private_booking_slot_start_times,
    current_stores,candidate_date,holiday,minutes,slot,start_min) c;
   IF NOT valid_store THEN
    SELECT EXISTS(SELECT 1 FROM public.stores s WHERE s.id=ANY(current_stores) AND s.organization_id=g.organization_id AND s.status='active'
@@ -92,8 +94,8 @@ BEGIN
     AND CASE WHEN coalesce(cardinality(sc.available_stores),0)>0 THEN s.id::text=ANY(sc.available_stores) ELSE NOT coalesce(s.is_temporary,false) END) INTO has_store;
    RAISE EXCEPTION '選択した候補日時は現在受付できません（%/% %: %）。空き状況を更新して選び直してください',
     extract(month FROM candidate_date),extract(day FROM candidate_date),slot_label,
-    CASE WHEN NOT has_store THEN 'この作品を上演できる店舗が希望店舗にありません' WHEN any_unblocked THEN '他の公演と重なります'
-     WHEN any_open THEN '受付停止中です' ELSE '営業時間外です' END
+    CASE WHEN NOT has_store THEN 'この作品を上演できる店舗が希望店舗にありません' WHEN why='conflict' THEN '他の公演と重なります'||CASE WHEN max_gap>0 AND max_gap<minutes THEN '（空き '||public.private_booking_minutes_text(max_gap)||'・必要 '||public.private_booking_minutes_text(minutes)||'）' ELSE '' END
+     WHEN why='blocked' THEN '受付停止中です' ELSE '営業時間外です' END
     USING ERRCODE='22023';
   END IF;
   INSERT INTO public.private_group_candidate_dates(group_id,date,time_slot,start_time,end_time,order_num)

@@ -1004,8 +1004,8 @@
       "postgres=X/postgres",
       "service_role=X/postgres"
     ],
-    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text)",
-    "body_md5": "1be2f7fa8d983cb5b79e64d144db7bd1",
+    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)",
+    "body_md5": "41796c3db7aaac715f967d204f539c13",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1016,8 +1016,8 @@
       "postgres=X/postgres",
       "service_role=X/postgres"
     ],
-    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text)",
-    "body_md5": "7f3909e797e9761f059ba066640da7b4",
+    "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text, detail text, adjusted boolean)",
+    "body_md5": "1b930e5271666b7a2f8e31109654a9d9",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1028,18 +1028,38 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "3dc53dc29cb4059c695a29e555a1f5ac",
+    "body_md5": "1c42f59cbf5856b479f765512b6ad65d",
     "language": "plpgsql",
     "security_definer": true
   },
-  "private_booking_slot_store_checks(p_org uuid, p_scenario_id uuid, p_title text, p_available_stores text[], p_slot_start_times jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_minutes integer, p_slot text, p_start_min integer)": {
+  "private_booking_minutes_text(p_minutes integer)": {
     "acl": [
       "postgres=X/postgres",
       "service_role=X/postgres"
     ],
-    "returns": "TABLE(store_id uuid, start_min integer, hours_ok boolean, blocked boolean, paused boolean, conflict boolean)",
-    "body_md5": "4ce3771e5f4c25ba56733f03f22ab73e",
+    "returns": "text",
+    "body_md5": "81a0e1459da73f270d02a04674021b9a",
     "language": "sql",
+    "security_definer": false
+  },
+  "private_booking_pick_start(p_free int4multirange, p_minutes integer, p_lo integer, p_hi_excl integer, p_standard integer)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "integer",
+    "body_md5": "04b7add4603b3904fb635461f89e9b0a",
+    "language": "sql",
+    "security_definer": false
+  },
+  "private_booking_slot_store_fit(p_org uuid, p_scenario_id uuid, p_title text, p_available_stores text[], p_slot_start_times jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_minutes integer, p_slot text, p_start_min integer)": {
+    "acl": [
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "TABLE(store_id uuid, start_min integer, standard_min integer, fits boolean, why text, gap_minutes integer)",
+    "body_md5": "64fd9df42ccb1d30bfa77346731b272f",
+    "language": "plpgsql",
     "security_definer": false
   }
 }
