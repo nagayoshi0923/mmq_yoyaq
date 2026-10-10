@@ -58,7 +58,18 @@ export function duplicatedCharacters(members: ReadonlyArray<CastingMember>, deci
   return [...new Set(chosen.filter((v, i) => chosen.indexOf(v) !== i))]
 }
 
-/** 全員分が決まり、重なりが無ければ確定できる */
+/**
+ * 登録メンバーが作品の最低人数に満たないときの注意（確定は止めない。2026-10-11 社長決定:
+ * グループに登録していない同行者が当日来るのは普通で、その人の配役は当日店舗が決める）
+ */
+export function castingHeadcountNote(memberCount: number, range: { min: number | null; max: number | null }): string | null {
+  const min = range.min && range.min > 0 ? range.min : null
+  if (!min || memberCount >= min) return null
+  const work = range.max && range.max > min ? `${min}〜${range.max}` : `${min}`
+  return `登録メンバーは ${memberCount} 人です（作品は ${work} 人）。登録していない同行者の配役は当日店舗が決めます`
+}
+
+/** 登録メンバー全員分が決まり、重なりが無ければ確定できる（作品の人数は問わない） */
 export function canConfirmCasting(members: ReadonlyArray<CastingMember>, decisions: Readonly<Record<string, string>>): boolean {
   return members.length > 0 && members.every(m => decisions[m.memberId]) && duplicatedCharacters(members, decisions).length === 0
 }

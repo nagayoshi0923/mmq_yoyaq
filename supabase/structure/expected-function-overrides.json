@@ -1073,5 +1073,16 @@
     "body_md5": "5f9dd800bff67329056c153a05fb0e65",
     "language": "plpgsql",
     "security_definer": true
+  },
+  "private_group_confirm_characters(p_group_id uuid, p_assignments jsonb, p_expected_assignments jsonb)": {
+    "acl": [
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "b907842af055730354bad2a156a04b89",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }

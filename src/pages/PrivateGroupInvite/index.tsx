@@ -610,7 +610,7 @@ export function PrivateGroupInvite() {
         memberId={existingMemberId}
         isOrganizer={Boolean(group.members?.find(m => m.id === existingMemberId)?.is_organizer)}
         scenarioTitle={scenario?.title}
-        requiredCount={scenarioMax}
+        playerRange={{ min: scenarioMin, max: scenarioMax }}
         refetch={refetch}
         onBack={closeSheet}
       />
