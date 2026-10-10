@@ -4,7 +4,7 @@
 - 段階（`privateBookingModel.decideGroupAction` に追加。マイページとグループ画面で共通）: 確定後・キャラクター（NPC 除く）のいる作品で、配役が未確定のとき ① 主催者「配役の決め方を選ぶ」（事前配役アンケートが使える作品だけ。従来のチャットの条件と同じ）→ ② 自分たちで決める・未選択の人「やりたいキャラクターを選ぶ」→ ③ 選んだ主催者「配役を確定する」→ その後は従来どおり アンケート未回答／開催。色は緑。
 - 全画面シート `?sheet=casting-method|casting-pick|casting-confirm`（`groupPage/casting/CastingScreen.tsx`）。保存は既存の RPC（private_group_set_character_method・member_action の character_preference・private_group_confirm_characters）のまま。③ は重なりを琥珀色で警告、全員分・重なりなし・必要人数そろいまで押せない（DB と同じ規則）。
 - DB（migration 20261011170000 と同名 rollback、staging 適用済み・本番未適用）: `private_group_casting_status(group, member, guest_token)` を追加（参加中の本人だけ。決め方・確定済みか〈チャットの配役カードと同じ判定〉・アンケートの回答済み／対象人数・自分の回答の有無・未回答の名前は主催者だけ。回答の中身は返さない）。`private_group_chat_action` の remind_unanswered に kind（dates／survey／casting）。survey は未回答、casting は未選択の人に絞り、灰色 1 行（date_answer_reminder＋kind）。チャット側は文面の切り替え 1 か所だけ変更（`groupChatMessages.noticeLineText`）。
-- structure: staging.json は今回の 2 関数だけ反映。staging の実物には web_push_outbox／web_push_subscriptions の外部キーが「NOT VALID」になっている差があり（記録外の変更、今回とは無関係）、JSON には入れていない。要確認。
+- structure: staging.json は staging の実物で更新。今回の 2 関数のほか、web_push_outbox／web_push_subscriptions の auth.users への外部キーが「NOT VALID」に変わっている（毎晩の本番→staging の写し `scripts/mirror-prod-to-staging.sh` が auth 参照の外部キーを NOT VALID で作り直すため。2026-10-10 21:27Z の実行で発生）。これを入れないと Drift check (staging) が落ちる。
 - 未対応: チャットの配役カード（CharacterAssignmentCards）は残したまま（灰色 1 行化は別担当）。回答画面の見た目（見本 SurveySheet.dc.html）は別 PR。
 - 確認: 手元 DB で主催者・メンバー（customer2）・ゲスト（手元で作った一時の印）の 3 視点を 375px で撮影（作業メモの `shots/g7_survey_*.png`）。必要人数（5 人）に満たない試験データのため、確定後の表示は手元 DB に確定のお知らせを入れて確認。
 

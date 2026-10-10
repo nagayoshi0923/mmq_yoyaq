@@ -4,7 +4,7 @@
   "captured_at": "2026-10-10T22:45:24.056Z",
   "table_count": 156,
   "function_count": 430,
-  "digest": "aec486802a617f95b531a2e008759bef6f3c6593f17fa5452d1e7752a46a907b"
+  "digest": "40bb171b1c5ce0a0e3dbca97b5a6b7e6ff4a2a97c05cd8f3d445271893c3ce2e"
  },
  "tables": {
   "staff": {
@@ -6979,7 +6979,7 @@
      "type": "c"
     },
     {
-     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE NOT VALID",
      "name": "web_push_outbox_user_id_fkey",
      "type": "f"
     }
@@ -14814,7 +14814,7 @@
      "type": "c"
     },
     {
-     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+     "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE NOT VALID",
      "name": "web_push_subscriptions_user_id_fkey",
      "type": "f"
     }
