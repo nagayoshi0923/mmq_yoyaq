@@ -29,6 +29,8 @@ import { authenticateGroupGuestByPin } from './pinAuth'
 import { useGroupBookingActions } from './useGroupBookingActions'
 import { BookingSummaryBox } from './components/BookingSummaryBox'
 import { HandoverScreen } from './components/HandoverScreen'
+import { CastingSheetRoute } from './groupPage/casting/CastingScreen'
+import { isCastingSheet } from './groupPage/casting/castingModel'
 import { usePrivateGroupMessages } from '@/hooks/usePrivateGroupMessages'
 import { usePrivateGroupChatState } from '@/hooks/usePrivateGroupChatState'
 import { GroupMemberScreen } from './groupPage/GroupMemberScreen'
@@ -591,6 +593,22 @@ export function PrivateGroupInvite() {
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
   // 主催者の引き継ぎ確認画面（段階 3。?sheet=handover。チャットのお知らせからは &request=依頼 id つき）
+  // 配役の全画面シート（決め方を選ぶ・やりたいキャラクターを選ぶ・配役を確定する）。日程確定後の参加者だけ
+  if (isCastingSheet(activeSheet) && existingMemberId && group && isScheduleConfirmedUi) {
+    return (
+      <CastingSheetRoute
+        sheet={activeSheet}
+        group={group}
+        memberId={existingMemberId}
+        isOrganizer={Boolean(group.members?.find(m => m.id === existingMemberId)?.is_organizer)}
+        scenarioTitle={scenario?.title}
+        requiredCount={scenarioMax}
+        refetch={refetch}
+        onBack={closeSheet}
+      />
+    )
+  }
+
   if (activeSheet === 'handover' && group && user) {
     return <HandoverScreen requestId={searchParams.get('request') ?? handover?.id ?? null} user={user} onBack={closeSheet} onFinished={async () => { closeSheetReplace(); await refetch() }} />
   }

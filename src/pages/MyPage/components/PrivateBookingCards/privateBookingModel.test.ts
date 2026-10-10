@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PrivateGroup, Reservation } from '@/types'
-import { buildPrivateBookingView, countActivePrivateBookings, decideGroupAction, isPrivateReservation } from './privateBookingModel'
+import { buildPrivateBookingView, countActivePrivateBookings, decideGroupAction, isPrivateReservation, type CastingProgress } from './privateBookingModel'
 import { summarizePrivateGroup, type PrivateGroupSummary } from './privateGroupSummary'
 
 const TODAY = '2026-10-09'
@@ -251,5 +251,36 @@ describe('主ボタンをマイページ上で開く（2026-10-09 案 3）', () 
     ], { survey: true })
     const inPlace = Object.fromEntries(items.map(i => [i.groupId, i.primary?.inPlace ?? null]))
     expect(inPlace).toEqual({ pick: 'dates', answer: 'answer', survey: 'survey', book: null })
+  })
+})
+
+describe('配役（日程確定後）', () => {
+  const confirmed = (over: Partial<PrivateGroupSummary> = {}) => group({ status: 'confirmed', schedule: { date: '2099-11-07', start_time: '14:00', store_name: '本店' }, ...over })
+  const casting = (over: Partial<CastingProgress> = {}): CastingProgress => ({ method: null, needsChoice: true, confirmed: false, myPicked: false, picked: 0, total: 4, ...over })
+  const act = (g: PrivateGroupSummary, c: CastingProgress | null, surveyPending = false) => decideGroupAction(g, { todayYmd: TODAY, surveyPending, casting: c }).action
+  it('主催者は決め方を選ぶ。メンバーには出さない', () => {
+    expect(act(confirmed(), casting())).toBe('choose_casting')
+    expect(act(confirmed({ is_organizer: false }), casting())).toBe('upcoming')
+    // アンケートが使えない作品では決め方の選択を出さない（従来どおり）
+    expect(act(confirmed(), casting({ needsChoice: false }))).toBe('upcoming')
+  })
+  it('自分たちで決める: 未選択の人はキャラクターを選ぶ、選んだ主催者は確定する、確定後はアンケート・開催へ', () => {
+    expect(act(confirmed({ is_organizer: false }), casting({ method: 'self' }))).toBe('pick_character')
+    expect(act(confirmed(), casting({ method: 'self' }))).toBe('pick_character')
+    expect(act(confirmed(), casting({ method: 'self', myPicked: true, picked: 3 }))).toBe('confirm_casting')
+    expect(act(confirmed({ is_organizer: false }), casting({ method: 'self', myPicked: true }))).toBe('upcoming')
+    expect(act(confirmed(), casting({ method: 'self', confirmed: true }), true)).toBe('answer_survey')
+  })
+  it('マイページのカード: ラベル・主ボタンは全画面シートへ。読み終わるまでは確定扱い', () => {
+    const g = confirmed({ casting: { method: 'self', picked: 0, total: 4, myPicked: false, surveyEnabled: true } })
+    const loading = buildPrivateBookingView({ groups: [g], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY })
+    expect(loading.bySection.confirmed[0]?.action).toBe('upcoming')
+    const view = buildPrivateBookingView({ groups: [g], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, castingConfirmed: { g1: false }, todayYmd: TODAY })
+    const item = view.bySection.action[0]
+    expect(item.label).toBe('やりたいキャラクターを選ぶ')
+    expect(item.primary).toEqual({ label: 'やりたいキャラクターを選ぶ', href: '/group/invite/CODE1?sheet=casting-pick' })
+    expect(item.tone).toBe('green')
+    const choose = buildPrivateBookingView({ groups: [confirmed({ casting: { method: null, picked: 0, total: 4, myPicked: false, surveyEnabled: true } })], reservations: [], scheduleEvents: {}, scenarioImages: {}, surveyPending: {}, todayYmd: TODAY })
+    expect(choose.bySection.action[0].primary?.href).toBe('/group/invite/CODE1?sheet=casting-method')
   })
 })

@@ -41,6 +41,9 @@ import { GroupPhotosSheet, GroupPinsSheet } from './GroupChatListSheets'
 import { ChatVisibleContext } from '@/pages/PrivateGroupManage/components/chat/chatVisibility'
 import { useGroupPush } from './useGroupPush'
 import { PushPromptCard } from './PushPromptCard'
+import { useGroupCasting } from './casting/useGroupCasting'
+import { saveCastingMethod } from './casting/castingActions'
+import { CastingSection } from './overview/CastingSection'
 
 interface GroupMemberScreenProps {
   group: PrivateGroup
@@ -109,6 +112,8 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   }, [])
   const ended = bookingPhase === 'confirmed' && isPerformanceEnded(group.confirmed_performance, reservationStatus, now)
   const tabs = groupTabsFor(ended)
+  // 配役（日程確定後・公演前）。操作の入口は「いまの状態」の箱と全画面シート、概要タブは確認と「変更する」
+  const casting = useGroupCasting({ group, memberId: existingMemberId, active: bookingPhase === 'confirmed' && !ended, requiredCount: playerRange.max })
   const fallbackTab = defaultGroupTab(bookingPhase, ended)
   const activeTab: GroupTab = dateEditorOpen && !ended ? 'dates' : resolveGroupTab(tabParam, bookingPhase, ended)
   const desktopTab: GroupTab = fallbackTab
@@ -177,7 +182,8 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
       ? { date: group.confirmed_performance.date, start_time: group.confirmed_performance.start_time, store_name: group.confirmed_performance.store_name }
       : null,
     canStartNext: isLoggedIn,
-  }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn])
+    casting: casting.progress,
+  }), [group, bookingPhase, isOrganizer, organizerName, memberCount, table, existingMemberId, linkedReservation, survey, handover, canMutateSchedule, now, ended, isLoggedIn, casting.progress])
 
   // 同じメンバーで次の貸切: もとのグループを覚えて作品選択へ。グループを作ったら招待がこのチャットに流れる
   const startNextGroup = () => {
@@ -238,7 +244,30 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
         return setFeedbackOpen(true)
       case 'next_group':
         return startNextGroup()
+      case 'casting_method':
+        return openSheet('casting-method')
+      case 'casting_pick':
+        return openSheet('casting-pick')
+      case 'casting_confirm':
+        return openSheet('casting-confirm')
+      case 'casting_survey':
+      case 'casting_self':
+        return void chooseCastingMethod(action.kind === 'casting_survey' ? 'survey' : 'self')
+      case 'casting_remind':
+        return void casting.remind(casting.members.filter(m => !m.isMe && !casting.assignments[m.memberId]).map(m => m.memberId), 'casting')
+          .then(() => chatMessages.refetch()).catch(() => {})
     }
+  }
+
+  // 箱の「事前配役アンケートで希望を伝える」「自分たちで決める」（その場で保存）
+  const chooseCastingMethod = async (next: 'survey' | 'self') => {
+    try {
+      await saveCastingMethod(group.id, next, casting.method, casting.assignments)
+      toast.success(next === 'self' ? '「自分たちで決める」にしました' : '「事前配役アンケート」にしました')
+    } catch (err) {
+      toast.error(getErrorMessage(err) || '決め方を保存できませんでした。最新の状態を確認してください')
+    }
+    await Promise.all([refetch(), chatMessages.refetch(), casting.reloadStatus()])
   }
 
   const onAnswer = async (candidateId: string, response: DateResponse) => {
@@ -364,6 +393,26 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
             linkedReservation={linkedReservation}
             calendarEvent={calendarEvent}
             bookingSummary={bookingSummary}
+            casting={casting.visible ? (
+              <CastingSection
+                isOrganizer={isOrganizer}
+                myMemberId={existingMemberId}
+                method={casting.method}
+                confirmed={casting.status?.casting_confirmed === true}
+                assignments={casting.assignments}
+                characters={casting.characters}
+                members={casting.members}
+                status={casting.status}
+                surveyAvailable={casting.surveyAvailable}
+                onChangeMethod={() => openSheet('casting-method')}
+                onChangeCasting={() => openSheet('casting-confirm')}
+                onOpenSurvey={() => setTab('survey')}
+                onRemindSurvey={async ids => {
+                  await casting.remind(ids, 'survey')
+                  await Promise.all([chatMessages.refetch(), casting.reloadStatus()])
+                }}
+              />
+            ) : null}
             copied={copied}
             onCopyInvite={() => void copyInvite()}
             onEditStore={isOrganizer && canMutateSchedule ? openStoreEdit : null}

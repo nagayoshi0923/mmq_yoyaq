@@ -33,6 +33,8 @@ export interface PrivateGroupSummary {
   members: PrivateGroupMemberRow[]
   /** 進行中の主催者の引き継ぎ依頼（自分が依頼した・頼まれているときだけ） */
   handover: PrivateGroupHandoverInfo | null
+  /** 配役（キャラクターのいる作品だけ。いなければ null）。希望は character_assignments（確定前は各自の希望） */
+  casting?: { method: 'survey' | 'self' | null; picked: number; total: number; myPicked: boolean; surveyEnabled: boolean } | null
 }
 
 /** メンバー管理シートの 1 行 */
@@ -136,5 +138,22 @@ export function summarizePrivateGroup(
     survey_enabled: (scenario as { survey_enabled?: boolean } | undefined)?.survey_enabled === true,
     members: toMemberRows(group),
     handover,
+    casting: castingOf(group, joined.map(m => m.id), me?.id ?? null, (scenario as { survey_enabled?: boolean } | undefined)?.survey_enabled === true),
+  }
+}
+
+/** 配役の要約（非 NPC のキャラクターがいる作品だけ） */
+function castingOf(group: PrivateGroup, joinedIds: string[], myId: string | null, surveyEnabled: boolean): PrivateGroupSummary['casting'] {
+  const characters = ((group.scenario_masters as { characters?: Array<{ is_npc?: boolean }> } | undefined)?.characters ?? []).filter(c => !c.is_npc)
+  if (characters.length === 0) return null
+  const raw = group.character_assignment_method as string | null | undefined
+  const method = raw === 'survey' || raw === 'self' ? raw : null
+  const assignments = (group.character_assignments ?? {}) as Record<string, string>
+  return {
+    method,
+    picked: joinedIds.filter(id => assignments[id]).length,
+    total: joinedIds.length,
+    myPicked: Boolean(myId && assignments[myId]),
+    surveyEnabled,
   }
 }

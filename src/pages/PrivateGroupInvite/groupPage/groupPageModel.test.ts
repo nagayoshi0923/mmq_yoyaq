@@ -175,3 +175,41 @@ describe('未読', () => {
     expect(countUnread(withLine, 'me', '2026-10-10T02:30:00Z', m => Boolean((m as { line?: boolean }).line))).toBe(2)
   })
 })
+
+describe('いまの状態の箱: 配役（日程確定後）', () => {
+  const base = (casting: GroupStatusInput['casting'], isOrganizer = true): GroupStatusInput => ({
+    status: 'confirmed', phase: 'confirmed', isOrganizer, organizerName: null, memberCount: 4,
+    table: buildAnswerTable(group, 'org'), myMemberId: 'org', confirmed: { date: '2099-11-07', start_time: '14:00', store_name: '本店' },
+    performance: { date: '2099-11-07', start_time: '14:00', store_name: '本店' },
+    requestedAt: null, surveyPending: false, handover: null, canMutateSchedule: false, todayYmd: '2026-10-10', casting,
+  })
+  it('④-a 主催者: 決め方の 2 つのボタン、チャットの 1 行は「選ぶ ›」で決め方のシート', () => {
+    const v = buildGroupStatus(base({ method: null, needsChoice: true, confirmed: false, myPicked: false, picked: 0, total: 4 }))
+    expect(v.chip).toBe('配役の決め方を選ぶ')
+    expect(v.primary).toEqual({ kind: 'casting_survey', label: '事前配役アンケートで希望を伝える' })
+    expect(v.secondary).toEqual([{ kind: 'casting_self', label: '自分たちで決める' }])
+    expect(v.barAction?.kind).toBe('casting_method')
+    expect(v.barLabel).toBe('選ぶ ›')
+    expect(v.tone).toBe('green')
+  })
+  it('④-b キャラクターを選ぶ、④-c 主催者が確定する（未回答の人に知らせる）', () => {
+    const b = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: false, myPicked: false, picked: 2, total: 4 }, false))
+    expect(b.chip).toBe('やりたいキャラクターを選ぶ')
+    expect(b.sub).toBe('希望を出した人 2/4')
+    expect(b.primary).toEqual({ kind: 'casting_pick', label: 'キャラクターを選ぶ' })
+    expect(b.oneLine).toBe('やりたいキャラクターを選ぶ・希望 2/4')
+    const c = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: false, myPicked: true, picked: 3, total: 4 }))
+    expect(c.chip).toBe('配役を確定する')
+    expect(c.secondary.map(s => s.kind)).toEqual(['casting_remind'])
+    expect(c.barLabel).toBe('確定する ›')
+    const all = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: false, myPicked: true, picked: 4, total: 4 }))
+    expect(all.sub).toBe('希望 4/4 そろいました')
+    expect(all.secondary).toEqual([])
+    expect(all.body).toBe('全員の希望が出ました。重なりを調整して配役を確定してください。')
+  })
+  it('確定後は開催の箱（1 行は概要へ）', () => {
+    const v = buildGroupStatus(base({ method: 'self', needsChoice: true, confirmed: true, myPicked: true, picked: 4, total: 4 }))
+    expect(v.action).toBe('upcoming')
+    expect(v.barAction).toBeUndefined()
+  })
+})

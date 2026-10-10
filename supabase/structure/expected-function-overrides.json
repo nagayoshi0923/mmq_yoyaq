@@ -774,7 +774,7 @@
       "service_role=X/postgres"
     ],
     "returns": "jsonb",
-    "body_md5": "544c50449308f5086a225e85e1623b73",
+    "body_md5": "b255c5805c401fcefa623f8bcd3d08ce",
     "language": "plpgsql",
     "security_definer": true
   },
@@ -1061,5 +1061,17 @@
     "body_md5": "64fd9df42ccb1d30bfa77346731b272f",
     "language": "plpgsql",
     "security_definer": false
+  },
+  "private_group_casting_status(p_group_id uuid, p_member_id uuid, p_guest_token text)": {
+    "acl": [
+      "anon=X/postgres",
+      "authenticated=X/postgres",
+      "postgres=X/postgres",
+      "service_role=X/postgres"
+    ],
+    "returns": "jsonb",
+    "body_md5": "5f9dd800bff67329056c153a05fb0e65",
+    "language": "plpgsql",
+    "security_definer": true
   }
 }
