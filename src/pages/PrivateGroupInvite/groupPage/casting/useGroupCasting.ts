@@ -17,7 +17,8 @@ export function useGroupCasting(args: {
   memberId: string
   /** 日程が確定していて公演前（それ以外は読まない） */
   active: boolean
-  requiredCount: number | null
+  /** 作品の人数（最低〜最大）。確定は人数に関係なくできる。最低人数に満たないときは警告だけ */
+  playerRange: { min: number | null; max: number | null }
 }) {
   const { group, memberId, active } = args
   const queryClient = useQueryClient()
@@ -59,7 +60,7 @@ export function useGroupCasting(args: {
     /** 「配役」欄・シートを出す（キャラクターがいて、決め方が選ばれているか選べる・確定済み） */
     visible: Boolean(progress && (progress.method !== null || progress.needsChoice || progress.confirmed)),
     surveyAvailable: surveyUsable(status),
-    requiredCount: args.requiredCount && args.requiredCount > 0 ? args.requiredCount : characters.length,
+    playerRange: args.playerRange,
     reloadStatus,
     remind,
   }

@@ -16,7 +16,7 @@ import type { PrivateGroup } from '@/types'
 import { saveCastingDecisions, saveCastingMethod, saveCharacterPreference } from './castingActions'
 import { useGroupCasting } from './useGroupCasting'
 import {
-  canConfirmCasting, duplicatedCharacters, preferenceLabel, rowName, shortName,
+  canConfirmCasting, castingHeadcountNote, duplicatedCharacters, preferenceLabel, rowName, shortName,
   type CastingCharacter, type CastingMember, type CastingSheet,
 } from './castingModel'
 
@@ -33,8 +33,8 @@ export interface CastingScreenProps {
   confirmed: boolean
   characters: CastingCharacter[]
   members: CastingMember[]
-  /** 配役を確定するのに要る人数（作品の最大人数。無ければキャラクター数） */
-  requiredCount: number
+  /** 作品の人数（最低〜最大）。確定は人数に関係なくできる（登録していない同行者の配役は当日店舗が決める） */
+  playerRange: { min: number | null; max: number | null }
   /** 事前配役アンケートが使える */
   surveyAvailable: boolean
   /** やりたいキャラクターを未選択の人に知らせる（主催者） */
@@ -72,7 +72,7 @@ const TITLES: Record<CastingSheet, string> = {
 }
 
 export function CastingScreen(props: CastingScreenProps) {
-  const { sheet, groupId, myMemberId, isOrganizer, scenarioTitle, method, assignments, confirmed, characters, members, requiredCount, surveyAvailable, onRemind, onChanged, onBack } = props
+  const { sheet, groupId, myMemberId, isOrganizer, scenarioTitle, method, assignments, confirmed, characters, members, playerRange, surveyAvailable, onRemind, onChanged, onBack } = props
   const [busy, setBusy] = useState(false)
   const [preferences, setPreferences] = useState<Record<string, string>>(assignments)
   const [decisions, setDecisions] = useState<Record<string, string>>(() => ({ ...assignments }))
@@ -192,7 +192,7 @@ export function CastingScreen(props: CastingScreenProps) {
     const dupes = duplicatedCharacters(members, decisions)
     const allDecided = members.every(m => decisions[m.memberId])
     const ok = canConfirmCasting(members, decisions)
-    const shortage = members.length < requiredCount
+    const shortNote = castingHeadcountNote(members.length, playerRange)
     const others = notPicked.filter(m => !m.isMe)
     const confirm = async () => {
       const done = await run('配役を確定', () => saveCastingDecisions(groupId, Object.fromEntries(members.map(m => [m.memberId, decisions[m.memberId]])), assignments))
@@ -210,9 +210,7 @@ export function CastingScreen(props: CastingScreenProps) {
           {notPicked.length === 0 ? '全員の希望がそろいました。' : `希望を出した人 ${members.length - notPicked.length}/${members.length}。`}
           重なりを調整して確定してください。{confirmed ? '（確定済みの配役を変更します）' : ''}
         </p>
-        {shortage && (
-          <p className="mt-2 text-xs text-amber-800">参加メンバー（{members.length}人）が作品の必要人数（{requiredCount}人）に足りません。そろってから確定してください。</p>
-        )}
+        {shortNote && <p className="mt-2 text-xs text-amber-800" data-testid="casting-headcount-note">{shortNote}</p>}
         <table className="mt-3 w-full text-sm">
           <thead>
             <tr className="text-xs text-muted-foreground">
@@ -251,7 +249,7 @@ export function CastingScreen(props: CastingScreenProps) {
           </p>
         )}
         <div className="mt-4 flex flex-col gap-2">
-          <Button type="button" className="h-auto py-2.5 bg-violet-600 hover:bg-violet-700 whitespace-normal" onClick={() => void confirm()} disabled={!ok || shortage || busy} data-testid="casting-confirm-submit">
+          <Button type="button" className="h-auto py-2.5 bg-violet-600 hover:bg-violet-700 whitespace-normal" onClick={() => void confirm()} disabled={!ok || busy} data-testid="casting-confirm-submit">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : ok ? '配役を確定する' : !allDecided ? '配役を確定する（全員分を選ぶと押せます）' : '配役を確定する（重なりを直すと押せます）'}
           </Button>
           {others.length > 0 && !confirmed && (
@@ -296,17 +294,17 @@ function ChoiceButton({ title, note, current, disabled, onClick, testId }: { tit
 }
 
 /** index.tsx から ?sheet=casting-* のときに出す（グループの読み取り結果から中身を組み立てる） */
-export function CastingSheetRoute({ sheet, group, memberId, isOrganizer, scenarioTitle, requiredCount, refetch, onBack }: {
+export function CastingSheetRoute({ sheet, group, memberId, isOrganizer, scenarioTitle, playerRange, refetch, onBack }: {
   sheet: CastingSheet
   group: PrivateGroup
   memberId: string
   isOrganizer: boolean
   scenarioTitle?: string | null
-  requiredCount: number | null
+  playerRange: { min: number | null; max: number | null }
   refetch: () => unknown
   onBack: () => void
 }) {
-  const casting = useGroupCasting({ group, memberId, active: true, requiredCount })
+  const casting = useGroupCasting({ group, memberId, active: true, playerRange })
   return (
     <CastingScreen
       sheet={sheet}
@@ -319,7 +317,7 @@ export function CastingSheetRoute({ sheet, group, memberId, isOrganizer, scenari
       confirmed={casting.status?.casting_confirmed === true}
       characters={casting.characters}
       members={casting.members}
-      requiredCount={casting.requiredCount}
+      playerRange={casting.playerRange}
       surveyAvailable={casting.surveyAvailable}
       onRemind={ids => casting.remind(ids, 'casting')}
       onChanged={() => Promise.all([refetch(), casting.reloadStatus()])}

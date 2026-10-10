@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canConfirmCasting, castingProgressFor, castingStage, deadlineLabel, duplicatedCharacters, isCastingConfirmed, preferenceLabel, rowName, surveyUsable, type CastingMember } from './castingModel'
+import { canConfirmCasting, castingHeadcountNote, castingProgressFor, castingStage, deadlineLabel, duplicatedCharacters, isCastingConfirmed, preferenceLabel, rowName, surveyUsable, type CastingMember } from './castingModel'
 
 const members: CastingMember[] = [
   { memberId: 'a', name: 'いちこ', isMe: true, isGuest: false },
@@ -20,6 +20,12 @@ describe('配役の読み方', () => {
     expect(canConfirmCasting(members, { a: 'x', b: 'x', c: 'y' })).toBe(false)
     expect(canConfirmCasting(members, { a: 'x', b: 'y' })).toBe(false)
     expect(canConfirmCasting(members, { a: 'x', b: 'y', c: 'z' })).toBe(true)
+  })
+  it('作品の最低人数に満たないときは注意だけ（確定は止めない）', () => {
+    expect(castingHeadcountNote(3, { min: 5, max: 5 })).toBe('登録メンバーは 3 人です（作品は 5 人）。登録していない同行者の配役は当日店舗が決めます')
+    expect(castingHeadcountNote(3, { min: 4, max: 5 })).toBe('登録メンバーは 3 人です（作品は 4〜5 人）。登録していない同行者の配役は当日店舗が決めます')
+    expect(castingHeadcountNote(4, { min: 4, max: 5 })).toBeNull()
+    expect(castingHeadcountNote(3, { min: null, max: 5 })).toBeNull()
   })
   it('表示名とカードの下の行', () => {
     expect(rowName(members[0])).toBe('いちこ（あなた）')

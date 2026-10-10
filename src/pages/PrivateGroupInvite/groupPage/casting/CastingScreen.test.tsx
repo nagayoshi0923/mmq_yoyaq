@@ -19,7 +19,7 @@ const members = [
 const characters = [{ id: 'x', name: '女将' }, { id: 'y', name: '画家' }]
 const props = (over: Partial<CastingScreenProps> = {}): CastingScreenProps => ({
   sheet: 'casting-confirm', groupId: 'g', myMemberId: 'a', isOrganizer: true, method: 'self', assignments: { a: 'x', b: 'x' }, confirmed: false,
-  characters, members, requiredCount: 2, surveyAvailable: true, onRemind: vi.fn(async () => {}), onChanged: vi.fn(), onBack: vi.fn(), ...over,
+  characters, members, playerRange: { min: 2, max: 2 }, surveyAvailable: true, onRemind: vi.fn(async () => {}), onChanged: vi.fn(), onBack: vi.fn(), ...over,
 })
 const render = (node: React.ReactNode) => act(async () => { root.render(<MemoryRouter>{node}</MemoryRouter>) })
 beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); host = document.createElement('div'); root = createRoot(host) })
@@ -42,6 +42,15 @@ it('③ 重なりは琥珀色で警告し、直すまで確定できない。直
   await act(async () => submit.click())
   expect(mocks.decide).toHaveBeenCalledWith('g', { a: 'x', b: 'y' }, { a: 'x', b: 'x' })
   expect(p.onBack).toHaveBeenCalled()
+})
+
+it('③ 登録メンバーが作品の人数に満たなくても確定できる（注意だけ出す）', async () => {
+  await render(<CastingScreen {...props({ assignments: { a: 'x', b: 'y' }, playerRange: { min: 5, max: 5 } })} />)
+  expect(host.querySelector('[data-testid="casting-headcount-note"]')?.textContent).toBe('登録メンバーは 2 人です（作品は 5 人）。登録していない同行者の配役は当日店舗が決めます')
+  const submit = host.querySelector('[data-testid="casting-confirm-submit"]') as HTMLButtonElement
+  expect(submit.disabled).toBe(false)
+  await act(async () => submit.click())
+  expect(mocks.decide).toHaveBeenCalledWith('g', { a: 'x', b: 'y' }, { a: 'x', b: 'y' })
 })
 
 it('② キャラクターを押すと希望を保存する。③ 未回答の人に知らせる', async () => {

@@ -113,7 +113,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const ended = bookingPhase === 'confirmed' && isPerformanceEnded(group.confirmed_performance, reservationStatus, now)
   const tabs = groupTabsFor(ended)
   // 配役（日程確定後・公演前）。操作の入口は「いまの状態」の箱と全画面シート、概要タブは確認と「変更する」
-  const casting = useGroupCasting({ group, memberId: existingMemberId, active: bookingPhase === 'confirmed' && !ended, requiredCount: playerRange.max })
+  const casting = useGroupCasting({ group, memberId: existingMemberId, active: bookingPhase === 'confirmed' && !ended, playerRange })
   const fallbackTab = defaultGroupTab(bookingPhase, ended)
   const activeTab: GroupTab = dateEditorOpen && !ended ? 'dates' : resolveGroupTab(tabParam, bookingPhase, ended)
   const desktopTab: GroupTab = fallbackTab
