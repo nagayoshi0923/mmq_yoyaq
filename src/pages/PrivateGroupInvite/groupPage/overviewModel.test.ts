@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findStoreByName, mapUrl, meetingTime, priceSummary, publicCharacters, scenarioPageUrl, yenRange } from './overviewModel'
-import { toGroupScenarioInfo } from './useGroupScenarioInfo'
+import { findStoreByName, mapUrl, meetingTime, priceSummary, publicCharacters, scenarioPageUrl, toGroupScenarioInfo, yenRange } from './overviewModel'
 import { difficultyText, durationWithWeekendText, playerRangeText } from '@/components/scenario/scenarioFacts'
 
 const costs = [

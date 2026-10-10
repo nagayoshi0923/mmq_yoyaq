@@ -3,6 +3,54 @@
  */
 import { calculateParticipationFee, calculatePrivateCandidateFees, type ParticipationCost } from '@/pages/ScenarioDetailPage/utils/pricingUtils'
 import type { PrivateBookingPhase } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingMenu'
+import type { ScenarioCharacter } from '@/pages/ScenarioDetailPage/utils/types'
+
+/** 作品の公開情報（作品ページと同じ公開用の列から） */
+export interface GroupScenarioInfo {
+  slug: string | null
+  author: string | null
+  genre: string[]
+  difficulty: number | null
+  duration: number | null
+  weekendDuration: number | null
+  playerMin: number | null
+  playerMax: number | null
+  hasPreReading: boolean
+  synopsis: string | null
+  caution: string | null
+  sensitiveTags: string[]
+  participationFee: number | null
+  participationCosts: ParticipationCost[]
+  characters: ScenarioCharacter[]
+}
+
+export type PublicScenarioRow = Record<string, unknown>
+
+const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null)
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+/** 公開用の行を画面で使う形にする（列が欠けていても落ちない） */
+export function toGroupScenarioInfo(row: PublicScenarioRow): GroupScenarioInfo {
+  const weekend = num(row.weekend_duration)
+  return {
+    slug: str(row.slug),
+    author: str(row.author),
+    genre: Array.isArray(row.genre) ? row.genre.filter((g): g is string => typeof g === 'string' && g.trim() !== '') : [],
+    difficulty: num(row.difficulty),
+    duration: num(row.duration),
+    weekendDuration: weekend && weekend > 0 ? weekend : null,
+    playerMin: num(row.player_count_min),
+    playerMax: num(row.player_count_max),
+    hasPreReading: row.has_pre_reading === true,
+    synopsis: str(row.synopsis) ?? str(row.description),
+    caution: str(row.caution),
+    sensitiveTags: Array.isArray(row.sensitive_tags) ? row.sensitive_tags.filter((t): t is string => typeof t === 'string') : [],
+    participationFee: num(row.participation_fee),
+    participationCosts: Array.isArray(row.participation_costs) ? (row.participation_costs as ParticipationCost[]) : [],
+    characters: Array.isArray(row.characters) ? (row.characters as ScenarioCharacter[]) : [],
+  }
+}
+
 
 /** 作品ページの URL（組織の slug 付き）。組織が分からないときは全体の作品ページ */
 export function scenarioPageUrl(orgSlug: string | null | undefined, scenarioSlug: string | null | undefined, scenarioMasterId: string | null | undefined): string | null {
