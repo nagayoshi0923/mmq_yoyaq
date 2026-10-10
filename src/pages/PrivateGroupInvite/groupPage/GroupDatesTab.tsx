@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CandidateDateRows } from '@/components/patterns/privateGroup/CandidateDateRows'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
+import { ScenarioStoreHint } from '@/components/private-booking/ScenarioStoreHint'
+import { useScenarioStoreHint } from '@/hooks/useScenarioStoreHint'
 import type { DateResponse, PrivateGroup } from '@/types'
 import { DateAnswerTable } from './DateAnswerTable'
 import { unansweredMembers, type AnswerTable } from './groupPageModel'
@@ -42,6 +44,12 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
   const unanswered = unansweredMembers(table)
   const guestsUnanswered = unanswered.filter(c => c.role === 'guest')
   const history = Boolean(group.confirmed_performance) || !canMutateSchedule
+  // 希望店舗と作品の上演可能店舗が食い違うときの注意（申込前だけ）
+  const storeHint = useScenarioStoreHint(
+    canMutateSchedule ? group.organization_id : null,
+    group.scenario_master_id,
+    group.preferred_store_ids || [],
+  )
 
   const remind = async () => {
     if (reminding || unanswered.length === 0) return
@@ -127,6 +135,7 @@ export function GroupDatesTab(props: GroupDatesTabProps) {
           )}
         </h2>
         <p className="text-sm">{preferredStoreNames.length > 0 ? `${preferredStoreNames.join('・')}${preferredStoreNames.length === 2 ? '（どちらでも可）' : preferredStoreNames.length > 2 ? '（どの店舗でも可）' : ''}` : '未設定'}</p>
+        {storeHint && <div className="mt-2"><ScenarioStoreHint hint={storeHint} /></div>}
       </section>
     </div>
   )

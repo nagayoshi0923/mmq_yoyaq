@@ -1,10 +1,10 @@
 {
  "meta": {
   "env": "staging",
-  "captured_at": "2026-10-10T04:42:24.314Z",
+  "captured_at": "2026-10-10T12:00:56.988Z",
   "table_count": 156,
-  "function_count": 424,
-  "digest": "d524b346fd5cb23fc20a24f8dd845973c121395f76c257436e554b7f7aa56aaa"
+  "function_count": 427,
+  "digest": "6dfe28bd3cd6032395b787a681f3bd6d3bfeee0bd1ecb29deed1c83c7725fd89"
  },
  "tables": {
   "staff": {
@@ -29100,6 +29100,18 @@
    "language": "plpgsql",
    "security_definer": true
   },
+  "private_group_candidate_slot_availability(p_group_id uuid, p_from date, p_to date, p_member_id uuid, p_guest_token text)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text)",
+   "body_md5": "1be2f7fa8d983cb5b79e64d144db7bd1",
+   "language": "plpgsql",
+   "security_definer": true
+  },
   "private_group_set_character_method(p_group_id uuid, p_method text, p_expected_method text, p_expected_assignments jsonb)": {
    "acl": [
     "authenticated=X/postgres",
@@ -29200,6 +29212,18 @@
    ],
    "returns": "boolean",
    "body_md5": "f2bd16d828307ea6a6c7bd07cbe492e9",
+   "language": "plpgsql",
+   "security_definer": true
+  },
+  "private_booking_candidate_slot_availability(p_organization_id uuid, p_scenario_id uuid, p_store_ids uuid[], p_from date, p_to date)": {
+   "acl": [
+    "anon=X/postgres",
+    "authenticated=X/postgres",
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(date date, time_slot text, available boolean, reason text, start_time text, end_time text)",
+   "body_md5": "7f3909e797e9761f059ba066640da7b4",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29364,7 +29388,7 @@
     "service_role=X/postgres"
    ],
    "returns": "jsonb",
-   "body_md5": "f38bb4202cf81c9a08df017272e8ed4d",
+   "body_md5": "3dc53dc29cb4059c695a29e555a1f5ac",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -29567,6 +29591,16 @@
    "body_md5": "cd2e749bb70bbfb6d3ecab17c1e54113",
    "language": "plpgsql",
    "security_definer": true
+  },
+  "private_booking_slot_store_checks(p_org uuid, p_scenario_id uuid, p_title text, p_available_stores text[], p_slot_start_times jsonb, p_store_ids uuid[], p_date date, p_holiday boolean, p_minutes integer, p_slot text, p_start_min integer)": {
+   "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres"
+   ],
+   "returns": "TABLE(store_id uuid, start_min integer, hours_ok boolean, blocked boolean, paused boolean, conflict boolean)",
+   "body_md5": "4ce3771e5f4c25ba56733f03f22ab73e",
+   "language": "sql",
+   "security_definer": false
   },
   "customer_notice_group_members(p_group uuid, p_kind text, p_key text, p_bell_type text, p_title text, p_message text, p_link text, p_exclude uuid[], p_mail boolean, p_subject text, p_lines text[], p_email_type text, p_mail_skip_organizer boolean)": {
    "acl": [

@@ -1,3 +1,17 @@
+## 2026-10-10 / 候補日カレンダーの空き判定を DB と一本化（fix/candidate-slot-availability、staging 向け PR・未取り込み）
+
+- 事象: 貸切グループ「告別詩」（希望 6 店、作品の上演可能店舗との共通は 高田馬場・仮設①・仮設②）で、候補日の追加画面が 10/30 夜・10/31 夜を選べる枠として出すのに、保存で「選択した候補日時は現在受付できません」と弾かれた。DB の判定は正しく、画面の独自計算（availabilityMap）が上演可能店舗の絞り込み・他公演との重なり（準備時間込み）・受付停止を同じ条件で見ていなかった。
+- 直し方: 店舗ごとの判定を内部関数 private_booking_slot_store_checks に切り出し、保存 RPC private_group_add_candidate_dates と、新しい空き状況の関数の両方から呼ぶ（保存の判定は変えていない。切り出し前後で同じ結論になることを手元の回帰 SQL で確認）。
+  - private_booking_candidate_slot_availability(組織, 作品, 希望店舗[], 開始日, 終了日): 作品ページ（グループ作成前）用。日付 × 午前・午後・夜ごとに available・reason・start_time・end_time。reason は no_store_for_scenario / conflict / blocked / closed / slot_not_allowed / past_deadline / not_recruiting / outside_period。
+  - private_group_candidate_slot_availability(グループ, 開始日, 終了日[, メンバー, ゲスト印]): グループ用。参加者（会員・ゲスト）・主催者・店舗スタッフだけ（authorize_private_group_read）。追加済みは already_added。
+  - 空き表示では店舗の貸切募集停止期間（store_recruitment_pauses）も「受付停止」とする（保存 RPC はこれを見ていない。従来の画面と同じく、表示側だけ厳しめ）。
+- 画面: 候補日の追加（グループ画面・マイページの候補日ダイアログ）と作品ページの貸切申込フォームは、この関数の結果だけで枠を出す。選べない枠は灰色、押すと理由（他の公演と重なります／この作品を上演できる店舗が希望店舗にありません／受付停止中／営業時間外 など）。クライアントの独自計算（availabilityMap、usePrivateBookingSlotData）は削除。作品ページの廃止予定の private_booking_blocked_slots は見なくなった（保存側も見ていない）。
+- 希望店舗の注意: 希望店舗と作品の上演可能店舗に共通が無い／一部の希望店舗で上演できないとき、日程タブの「希望店舗」欄と候補日の追加画面の上に「この作品は ○○・△△ で上演できます…」を出す。
+- 保存で弾かれたときの文面に理由を添える（例「選択した候補日時は現在受付できません（10/28 夜: 他の公演と重なります）。空き状況を更新して選び直してください」）。弾かれたら空き状況を読み直し、選べなくなった枠は選択から外す。
+- DB: migration 20261010170000_private_booking_candidate_slot_availability（rollback 同名、手元で戻すと保存 RPC が元の定義と一致・再適用を確認）。staging 適用済み・本番未適用。structure（staging.json・期待構造）を更新。回帰 SQL supabase/tests/private_candidate_slot_availability.sql。
+- staging で「告別詩」の 10/30・10/31 を確認: 10/30 は昼・夜とも conflict、10/31 夜は conflict で選べない表示になった。
+- 残る課題（判断待ち）: 10/31 は「午後 18:00〜23:00」が選べる判定になる（仮設①②は夜だけ受付停止で、午後枠を夜にずらすと停止を通り抜ける）。保存 RPC も同じく通すため、受付停止を時刻で見るかは別途決める。作品ページから進む申込確認画面（PrivateBookingRequest）は従来の計算で候補を見直しているので、時刻がずれる場合がある。
+
 ## 2026-10-10 / 貸切グループページ刷新 段階 4 公演後の思い出・写真のサムネイル（feat/group-page-phase4、staging 向け PR・未取り込み）
 
 - 方針書 docs/product-spec/グループページ刷新_2026-10.md の「段階 4」。見本 GroupAfter.dc.html（③ 公演後・思い出）。
