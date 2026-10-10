@@ -118,7 +118,7 @@ export function GroupMemberScreen(props: GroupMemberScreenProps) {
   const activeTab: GroupTab = dateEditorOpen && !ended ? 'dates' : resolveGroupTab(tabParam, bookingPhase, ended)
   const desktopTab: GroupTab = fallbackTab
   const isDesktop = useIsDesktop()
-  const unread = useGroupChatUnread(existingMemberId, chatMessages.messages, chatMessages.loading, chatState, activeTab === 'chat' || isDesktop, group)
+  const unread = useGroupChatUnread(existingMemberId, chatMessages.messages, chatMessages.loading, chatState, activeTab === 'chat' || isDesktop, group, userId)
   const pinned = useMemo(() => pinnedMessages(chatMessages.messages), [chatMessages.messages])
   // プッシュ通知（段階 3。会員だけ）
   const push = useGroupPush(group.id, isLoggedIn)

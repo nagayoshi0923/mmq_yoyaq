@@ -2,7 +2,7 @@
  * 配役（決め方の選択・自分たちで決める・事前配役アンケート）の読み方（純粋な関数）。
  * 「いまの状態」の箱・配役の全画面シート・概要タブの「配役」欄で共用。
  * 決め方（character_assignment_method）と、チャットに残る配役の確定・決め方の選び直しのお知らせから、いまどの段階かを決める。
- * 確定の判定はチャットの配役カード（CharacterAssignmentCards）と同じ: 最後に決め方を選び直した後に「配役が確定しました」があれば確定。
+ * 確定の判定はチャット（GroupChat の currentAssignmentConfirmed）と同じ: 最後に決め方を選び直した後に「配役が確定しました」があれば確定。
  */
 import { getJstParts } from '@/utils/jstDate'
 import type { CastingProgress } from '@/pages/MyPage/components/PrivateBookingCards/privateBookingModel'
