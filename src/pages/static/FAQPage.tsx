@@ -41,12 +41,12 @@ export const COMMON_FAQ_DATA: FAQItem[] = [
   {
     category: '予約について',
     question: '予約はいつまでにすればいいですか？',
-    answer: '公演開始まで予約可能です。ただし、満席の場合は締め切りとなりますので、お早めのご予約をおすすめします。',
+    answer: '▼オープン公演\n公演開始まで予約可能です。ただし、満席の場合は締め切りとなりますので、お早めのご予約をおすすめします。\n▼貸切公演\n公演日の14日前まで受け付けています（店舗によって異なる場合があります）。休日は申し込みが多いため、お早めにお申し込みください。',
   },
   {
     category: '予約について',
     question: '予約の変更はできますか？',
-    answer: 'マイページから予約の変更が可能です。ただし、空き状況によっては希望の日時に変更できない場合があります。',
+    answer: 'マイページから人数の変更・キャンセルができます。ただし、空き状況によってはご希望の人数に変更できない場合があります。',
   },
   {
     category: '予約について',
@@ -67,7 +67,7 @@ export const COMMON_FAQ_DATA: FAQItem[] = [
   {
     category: 'キャンセルについて',
     question: 'キャンセル方法を教えてください',
-    answer: 'マイページの予約一覧から該当の予約を選択し、「キャンセル」ボタンを押してください。',
+    answer: 'マイページの予約一覧から該当の予約を選択し、「キャンセル」ボタンを押してください。キャンセルの受付期限を過ぎるとマイページからは取り消せません。その場合は店舗へご連絡ください。',
   },
   // 参加について
   {
@@ -383,7 +383,7 @@ function FAQAccordionItem({
           isOpen ? "max-h-96" : "max-h-0"
         )}
       >
-        <div className="px-6 pb-4 text-gray-600 border-t border-gray-100 pt-4">
+        <div className="px-6 pb-4 text-gray-600 border-t border-gray-100 pt-4 whitespace-pre-line">
           A. {item.answer}
         </div>
       </div>

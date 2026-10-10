@@ -3,10 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
+import { signOutAndGoHome } from './signOutAndGoHome'
 
 // 都道府県リスト
 const PREFECTURES = [
@@ -317,15 +316,9 @@ export function ProfileForm({
               <div className="mt-4 text-center">
                 <button
                   type="button"
-                  onClick={async () => {
-                    // scope:'local' でローカルセッションだけクリア（OAuth refresh token の revoke で
-                    // ハングする/エラーを投げるケースがあり、その場合に遷移しなくなるのを避ける）。
-                    try {
-                      await supabase.auth.signOut({ scope: 'local' })
-                    } catch (err) {
-                      logger.warn('signOut error (continuing anyway):', err)
-                    }
-                    window.location.href = '/'
+                  onClick={() => {
+                    // scope:'local' でローカルセッションだけクリア。終わらない場合も上限時間で打ち切って移動する
+                    void signOutAndGoHome()
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 underline"
                 >

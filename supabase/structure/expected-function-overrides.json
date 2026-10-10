@@ -730,7 +730,7 @@
       "service_role=X/postgres"
     ],
     "returns": "trigger",
-    "body_md5": "fb16c1fa8ffbd39da8c8fe588b690243",
+    "body_md5": "e2dcb7b9fa886d195ae1aea401fd4369",
     "language": "plpgsql",
     "security_definer": true
   },
