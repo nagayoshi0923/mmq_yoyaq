@@ -113,7 +113,7 @@ UPDATE staff SET email = pg_temp.mask_email(email) WHERE name IS DISTINCT FROM '
 -- 本番から写した送信待ちは送らない
 UPDATE discord_notification_queue SET status = 'completed', last_error = 'staging_mirror_no_send'
   WHERE status IN ('pending', 'sending', 'failed');
--- 公演前アンケートの自動リマインドは本番だけで動かす（2026-10-06）。本番から写した切り替えと送信待ちを止める
+-- 事前配役アンケートの自動リマインドは本番だけで動かす（2026-10-06）。本番から写した切り替えと送信待ちを止める
 DELETE FROM app_config WHERE key = 'survey_reminder_auto';
 UPDATE private_group_survey_reminders SET status = 'skipped', last_error = 'staging_mirror_no_send'
   WHERE status IN ('pending', 'sending');

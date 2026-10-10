@@ -214,7 +214,7 @@ export function SurveySectionV2({ formData, setFormData, organizationScenarioId 
         <Button disabled={operating.saving || !operating.data?.can_edit || !operating.dirty} onClick={() => void operating.save()}>アンケート設定を保存</Button>
       </>}
       <div className="scenario-edit-card">
-        <p className="scenario-edit-card__title">公演前アンケート</p>
+        <p className="scenario-edit-card__title">事前配役アンケート</p>
         <p className="scenario-edit-card__help">貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します</p>
         <div className="space-y-3">
           <div className="flex items-center gap-3">

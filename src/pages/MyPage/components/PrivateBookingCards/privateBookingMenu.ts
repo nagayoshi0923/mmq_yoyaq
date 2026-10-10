@@ -36,7 +36,7 @@ export interface PrivateBookingMenuContext {
   hasGroup: boolean
   /** 紐づく申込・予約がある（取り下げ・キャンセルの対象） */
   hasReservation: boolean
-  /** 公演前アンケートがある（確定後のみ意味がある） */
+  /** 事前配役アンケートがある（確定後のみ意味がある） */
   hasSurvey: boolean
   /** 自分が未回答の候補日がある（メンバーのみ） */
   hasUnansweredDates: boolean

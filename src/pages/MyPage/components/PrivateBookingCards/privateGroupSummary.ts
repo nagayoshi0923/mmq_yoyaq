@@ -27,7 +27,7 @@ export interface PrivateGroupSummary {
   /** 確定した公演の日時・店舗（確定済みのときだけ）。end_time・store_id は分かるときだけ（カレンダー・地図に使う） */
   schedule: { date: string; start_time: string | null; store_name: string | null; end_time?: string | null; store_id?: string | null } | null
   organization_id: string | null
-  /** 公演前アンケートが有効な作品か */
+  /** 事前配役アンケートが有効な作品か */
   survey_enabled: boolean
   /** メンバー管理シートの行（参加中のみ・参加順） */
   members: PrivateGroupMemberRow[]

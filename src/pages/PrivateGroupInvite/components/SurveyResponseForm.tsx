@@ -4,14 +4,14 @@
  *   本文: 1. やってみたいキャラクター（カード 2 列・押す順に第 1／第 2 希望・おまかせ）→ 2. 以降は店舗の設問
  *   下に固定: 「回答を送る」（回答済みなら「回答を変更する」）。期限を過ぎたら送れない
  * 設問・保存の仕組みは従来どおり（survey_read / survey_write、会員・ゲスト PIN 共通）。
- * キャラクターの回答は従来どおり第 1 希望のキャラクター id を 1 つ保存する（第 2 希望は保存先が無いため画面だけ）。
+ * キャラクターの回答は従来どおり設問 id に第 1 希望のキャラクター id を 1 つ。第 2 希望は回答のキー character_second_choice（列は足さない）。
  */
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { AlertCircle, Check, ClipboardList, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
-import { isPastPerformanceDate, isSurveyQuestionShown, SURVEY_CHARACTER_ANY, toggleCharacterPick, type CharacterPicks } from '@/lib/surveyCompletion'
+import { isPastPerformanceDate, isSurveyQuestionShown, SURVEY_CHARACTER_ANY, SURVEY_SECOND_CHOICE_KEY, toggleCharacterPick, type CharacterPicks } from '@/lib/surveyCompletion'
 import { formatJstMonthDay } from '@/utils/jstDate'
 import type { SurveyQuestion } from '@/types'
 import { CharacterImage } from '../groupPage/casting/CharacterImage'
@@ -47,7 +47,6 @@ export function SurveyResponseForm(props: SurveyResponseFormProps) {
     hideCharacterSelection: loaded => hideCharacterSelection || loaded.length === 0,
     onSubmitted: () => { onSubmitted?.(); onClose() },
   })
-  const [second, setSecond] = useState<string | null>(null)
 
   const deadlineText = s.deadlineDate ? formatJstMonthDay(s.deadlineDate, true) : ''
   const when = performanceDate ? `${formatJstMonthDay(performanceDate + 'T12:00:00+09:00', true)}${startTime ? ` ${startTime.slice(0, 5)}` : ''}` : ''
@@ -120,11 +119,11 @@ export function SurveyResponseForm(props: SurveyResponseFormProps) {
               <CharacterQuestion
                 characters={s.characters}
                 value={typeof s.responses[q.id] === 'string' ? s.responses[q.id] as string : ''}
-                second={second}
+                second={typeof s.responses[SURVEY_SECOND_CHOICE_KEY] === 'string' ? s.responses[SURVEY_SECOND_CHOICE_KEY] as string : null}
                 disabled={!canSend}
                 onChange={(picks, any) => {
-                  setSecond(any ? null : picks.second)
                   setAnswer(q.id, any ? SURVEY_CHARACTER_ANY : picks.first)
+                  setAnswer(SURVEY_SECOND_CHOICE_KEY, any ? null : picks.second)
                 }}
               />
             ) : (

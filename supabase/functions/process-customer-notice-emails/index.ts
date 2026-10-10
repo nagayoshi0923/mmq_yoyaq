@@ -1,6 +1,6 @@
 // お客様への知らせのメール（マイページ改修 段階 4）を送る。5 分ごとに定期実行から呼ばれる（2026-10-09）。
 // 送信待ちは DB のトリガー・関数が customer_notice_emails に積む。app_config の customer_notice_email が 'on' の環境だけ取り出される。
-// 形は公演前アンケートのリマインド（process-survey-reminders）と同じ。
+// 形は事前配役アンケートのリマインド（process-survey-reminders）と同じ。
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, getServiceRoleKey, isCronOrServiceRoleCall, errorResponse, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'

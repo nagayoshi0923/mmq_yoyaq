@@ -1,4 +1,4 @@
-// 公演前アンケートのリマインド: 対象の絞り込み・種類ごとの積み方・二重に積まない・回答済みは送らない・再試行・試し送り・サーバー専用・正規ソース一致・rollback
+// 事前配役アンケートのリマインド: 対象の絞り込み・種類ごとの積み方・二重に積まない・回答済みは送らない・再試行・試し送り・サーバー専用・正規ソース一致・rollback
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'

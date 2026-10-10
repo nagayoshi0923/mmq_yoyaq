@@ -23,6 +23,10 @@ export function stripHiddenSurveyAnswers<T extends string | string[]>(
   questions: Pick<SurveyQuestion, 'id' | 'question_type'>[], answers: Record<string, T>, hideCharacterSelection: boolean,
 ): Record<string, T> {
   const hiddenIds = new Set(questions.filter(q => !isSurveyQuestionShown(q, hideCharacterSelection)).map(q => q.id))
+  // 第 2 希望は、キャラクターの設問を出していないとき・第 1 希望が無い（おまかせを含む）ときは送らない
+  const charQ = questions.find(q => q.question_type === 'character_selection')
+  const first = charQ ? answers[charQ.id] : undefined
+  if (!charQ || hiddenIds.has(charQ.id) || typeof first !== 'string' || !first || first === SURVEY_CHARACTER_ANY) hiddenIds.add(SURVEY_SECOND_CHOICE_KEY)
   return Object.fromEntries(Object.entries(answers).filter(([id]) => !hiddenIds.has(id)))
 }
 
@@ -37,6 +41,28 @@ export function isPastPerformanceDate(performanceDate: string | null | undefined
  * （店舗の回答一覧はキャラクター名が見つからないとき値をそのまま出すので「おまかせ」と読める）。
  */
 export const SURVEY_CHARACTER_ANY = 'おまかせ'
+
+/**
+ * 第 2 希望のキャラクター id を保存する回答のキー（private_group_survey_responses.responses は jsonb で、
+ * RPC upsert_survey_response_for_member は受け取った回答をそのまま保存するため、列を足さずにこのキーで持つ）。
+ */
+export const SURVEY_SECOND_CHOICE_KEY = 'character_second_choice'
+
+/** 店舗の回答一覧で、キャラクターの設問の回答を 1 行の文にする（第 2 希望・おまかせを含む）。未回答は null */
+export function characterAnswerLabel(
+  answers: Record<string, unknown> | null | undefined,
+  questionId: string,
+  characters: ReadonlyArray<{ id: string; name: string }>,
+): string | null {
+  const first = answers?.[questionId]
+  if (typeof first !== 'string' || !first) return null
+  if (first === SURVEY_CHARACTER_ANY) return 'おまかせ（どのキャラクターでもよい）'
+  const nameOf = (id: string) => characters.find(c => c.id === id)?.name || id
+  const second = answers?.[SURVEY_SECOND_CHOICE_KEY]
+  return typeof second === 'string' && second && second !== first
+    ? `第 1 希望 ${nameOf(first)}／第 2 希望 ${nameOf(second)}`
+    : nameOf(first)
+}
 
 export interface CharacterPicks {
   first: string | null

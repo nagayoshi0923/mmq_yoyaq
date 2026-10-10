@@ -12,7 +12,7 @@ interface SurveyReadResult {
   existing_response_id?: string | null
 }
 
-/** 公演前アンケートが「自分に未回答で、まだ回答できる」か（グループ画面のアンケートと同じ RPC の結果で判定） */
+/** 事前配役アンケートが「自分に未回答で、まだ回答できる」か（グループ画面のアンケートと同じ RPC の結果で判定） */
 export function isSurveyPending(data: SurveyReadResult | null | undefined, now: Date): boolean {
   if (!data?.survey_enabled) return false
   if (data.survey_url) return false // 外部フォームは回答状況が分からないので出さない

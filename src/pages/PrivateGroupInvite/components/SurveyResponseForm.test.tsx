@@ -61,7 +61,7 @@ it('配役方法が「アンケート」の場合は、キャラクターを 1. 
   expect(action).not.toHaveBeenCalledWith('g','m','survey_write',expect.anything())
  }finally{await act(async()=>root.unmount())}
 })
-it('押す順に第 1・第 2 希望の印を付け、保存は従来どおり第 1 希望のキャラクター id だけ',async()=>{
+it('押す順に第 1・第 2 希望の印を付け、第 1 希望は従来どおり設問に、第 2 希望は character_second_choice に保存する',async()=>{
  writeRespondsOk()
  const {host,root}=await render({})
  try {
@@ -71,7 +71,7 @@ it('押す順に第 1・第 2 希望の印を付け、保存は従来どおり�
   expect(cards()[1].dataset.rank).toBe('1');expect(cards()[1].textContent).toContain('第 1 希望')
   expect(cards()[0].dataset.rank).toBe('2');expect(cards()[0].textContent).toContain('第 2 希望')
   await act(async()=>{submitButton(host)!.click()})
-  expect(action).toHaveBeenCalledWith('g','m','survey_write',{q1:'c2'})
+  expect(action).toHaveBeenCalledWith('g','m','survey_write',{q1:'c2',character_second_choice:'c1'})
  }finally{await act(async()=>root.unmount())}
 })
 it('「おまかせ」を選ぶと印を外し、キャラクターの回答は「おまかせ」で保存する',async()=>{
@@ -152,4 +152,25 @@ it('アンケートが無効でも空にせず理由を出す',async()=>{
  const a=await render({})
  try { expect(a.host.textContent).toContain('現在受け付けていません');expect(submitButton(a.host)).toBeNull() }finally{await act(async()=>a.root.unmount())}
  expect(reportMock.mock.calls.filter(c=>c[2]==='loaded').map(c=>c[3].status)).toEqual(['disabled'])
+})
+it('開き直すと第 1・第 2 希望を復元する',async()=>{
+ action.mockResolvedValue(survey([charQ,textQ],{existing_response_id:'r1',existing_responses:{q1:'c3',character_second_choice:'c1'}}))
+ const {host,root}=await render({})
+ try {
+  const cards=[...host.querySelectorAll<HTMLButtonElement>('[data-testid="survey-character"]')]
+  expect(cards[2].dataset.rank).toBe('1');expect(cards[0].dataset.rank).toBe('2')
+ }finally{await act(async()=>root.unmount())}
+})
+it('おまかせ・配役方法が survey でないときは、第 2 希望を送らない',async()=>{
+ action.mockImplementation(async(_g:string,_m:string,kind:string)=>kind==='survey_read'
+  ?survey([charQ,textQ],{existing_response_id:'r1',existing_responses:{q1:'c1',character_second_choice:'c2',q2:'なし'}})
+  :{data:'r1',error:null})
+ const a=await render({hideCharacterSelection:true})
+ try { await act(async()=>{submitButton(a.host)!.click()}); expect(action).toHaveBeenLastCalledWith('g','m','survey_write',{q2:'なし'}) }finally{await act(async()=>a.root.unmount())}
+ const b=await render({})
+ try {
+  await act(async()=>{b.host.querySelector<HTMLButtonElement>('[data-testid="survey-character-any"]')!.click()})
+  await act(async()=>{submitButton(b.host)!.click()})
+  expect(action).toHaveBeenLastCalledWith('g','m','survey_write',{q1:'おまかせ',q2:'なし'})
+ }finally{await act(async()=>b.root.unmount())}
 })

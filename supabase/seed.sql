@@ -321,7 +321,7 @@ UPDATE public.organization_settings
 SET notification_settings = coalesce(notification_settings, '{}'::jsonb) || '{"private_cancellation_channel_id":"100000000000000001"}'::jsonb
 WHERE organization_id = '00000000-0000-4000-a000-000000000001';
 
--- 公演前アンケート: 「事前の手紙」で有効（確定した貸切の作品。締切は公演日の前日）
+-- 事前配役アンケート: 「事前の手紙」で有効（確定した貸切の作品。締切は公演日の前日）
 UPDATE public.organization_scenarios SET survey_enabled = true, survey_deadline_days = 1
 WHERE id = '00000000-0000-4000-a000-000000000303';
 INSERT INTO public.org_scenario_survey_questions (org_scenario_id, question_text, question_type, options, is_required, order_num)

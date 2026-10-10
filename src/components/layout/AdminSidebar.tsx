@@ -177,7 +177,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
           path: `/${slug}/manual?tab=checkin`, roles: ['admin', 'staff', 'license_admin'],
           subItems: [
             { id: 'manual-checkin',            label: '受付・チェックイン',    path: `/${slug}/manual?tab=checkin` },
-            { id: 'manual-pre-reading-survey', label: '事前アンケート・配役',  path: `/${slug}/manual?tab=pre-reading-survey` },
+            { id: 'manual-pre-reading-survey', label: '事前配役アンケート・配役',  path: `/${slug}/manual?tab=pre-reading-survey` },
             { id: 'manual-coupon-reception',   label: 'クーポン受付対応',      path: `/${slug}/manual?tab=coupon-reception` },
             { id: 'manual-coupon-types',       label: 'クーポン・チケット種類', path: `/${slug}/manual?tab=coupon-types` },
           ],

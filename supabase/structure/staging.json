@@ -25995,7 +25995,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "8010ddc070729beb896bea7659104702",
+   "body_md5": "9dad8e147f618681f0bd11eed1218c72",
    "language": "plpgsql",
    "security_definer": true
   },
@@ -26207,7 +26207,7 @@
     "postgres=X/postgres"
    ],
    "returns": "trigger",
-   "body_md5": "54c5fa54a3f84b600a352f5081256df9",
+   "body_md5": "d304ef8ec95726c827018d977c2c8e38",
    "language": "plpgsql",
    "security_definer": true
   },

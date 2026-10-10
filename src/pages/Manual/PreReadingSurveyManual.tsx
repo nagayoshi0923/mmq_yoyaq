@@ -1,5 +1,5 @@
 /**
- * 事前アンケート・配役マニュアル
+ * 事前配役アンケート・配役マニュアル
  * スタッフ向け：アンケート受領 → 回答確認 → 配役 → 個別お知らせ送信の手順
  */
 import {
@@ -15,9 +15,9 @@ export const PRE_READING_SURVEY_DEFAULT: HardcodedPageContent = {
     {
       heading: "お客様に見える画面（グループ招待ページ）",
       items: [
-        { title: "日程確定 → ステップ表示が更新される", body: "店舗が日程を承認すると、お客様の画面に進行ステップが表示されます。\nSTEP 6「事前アンケート」とSTEP 7「配役確定」が追加されます." },
+        { title: "日程確定 → ステップ表示が更新される", body: "店舗が日程を承認すると、お客様の画面に進行ステップが表示されます。\nSTEP 6「事前配役アンケート」とSTEP 7「配役確定」が追加されます." },
         { title: "主催者がチャットで配役方法を選択", body: "日程確定後、主催者のチャット画面にのみ配役方法の選択カードが表示されます。\n主催者以外のメンバーには表示されません。" },
-        { title: "お客様がアンケートに回答する", body: "「アンケートで希望を伝える」が選択されると、各メンバーの画面に公演前アンケートフォームが表示されます。\nお客様はこのフォームから回答を送信します。" },
+        { title: "お客様がアンケートに回答する", body: "「事前配役アンケートで希望を伝える」が選択されると、各メンバーの画面に事前配役アンケートフォームが表示されます。\nお客様はこのフォームから回答を送信します。" },
         { title: "事前読み込み通知がチャットに届く", body: "シナリオに「事前読み込みあり」が設定されている場合、日程確定時にチャットへ事前読み込みについての通知が自動投稿されます。" },
         { title: "スタッフからの個別お知らせが届く", body: "スタッフが配役を決定し個別お知らせを送ると、対象者本人だけにチャット内でメッセージが表示されます。\n他のメンバーには見えません。" },
       ]
@@ -123,7 +123,7 @@ function CustomerStepsMock() {
             6
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-sm">事前アンケート</span>
+            <span className="text-sm">事前配役アンケート</span>
             <span className="text-xs text-muted-foreground ml-2">回答してください</span>
           </div>
         </div>
@@ -159,7 +159,7 @@ function CharAssignmentMethodMock() {
         </p>
         <div className="space-y-2">
           <div className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border border-purple-200 bg-purple-100 rounded-md px-3">
-            <span className="font-medium text-sm text-purple-800">アンケートで希望を伝える</span>
+            <span className="font-medium text-sm text-purple-800">事前配役アンケートで希望を伝える</span>
             <span className="text-[10px] text-muted-foreground">スタッフが決定します</span>
           </div>
           <div className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border border-purple-200 bg-white rounded-md px-3">
@@ -183,7 +183,7 @@ function SurveyFormMock() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-purple-600" />
-            <h3 className="text-base font-semibold">公演前アンケート</h3>
+            <h3 className="text-base font-semibold">事前配役アンケート</h3>
           </div>
         </div>
 
@@ -350,7 +350,7 @@ function SurveyResponsesMock() {
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium">
           <ClipboardList className="w-4 h-4 text-purple-600" />
-          事前アンケート回答
+          事前配役アンケート回答
         </h3>
         <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
           5/6名回答
@@ -589,7 +589,7 @@ export function PreReadingSurveyManual({ content }: { content?: HardcodedPageCon
 
       {/* タイトル */}
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight">事前アンケート・配役</h2>
+        <h2 className="text-2xl font-bold tracking-tight">事前配役アンケート・配役</h2>
         <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
           {c.description}
         </p>
@@ -600,7 +600,7 @@ export function PreReadingSurveyManual({ content }: { content?: HardcodedPageCon
         <h3 className="text-lg font-semibold">全体の流れ</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50 space-y-2">
-            <span className="font-bold text-purple-800">配役方法①：アンケートで希望を伝える</span>
+            <span className="font-bold text-purple-800">配役方法①：事前配役アンケートで希望を伝える</span>
             <p className="text-xs text-purple-700 leading-relaxed">
               お客様がアンケートで希望を回答 → スタッフが回答を確認して配役を決定 → 個別お知らせで資料送付。
               <strong>事前読み込みがあるシナリオではこちらが推奨</strong>です。
@@ -652,7 +652,7 @@ export function PreReadingSurveyManual({ content }: { content?: HardcodedPageCon
             <CharAssignmentMethodMock />
           </div>
           <div className="space-y-1 mt-3 text-xs text-gray-500">
-            <p><strong>「アンケートで希望を伝える」</strong>→ スタッフが配役を決定するフロー（以降の手順で説明）</p>
+            <p><strong>「事前配役アンケートで希望を伝える」</strong>→ スタッフが配役を決定するフロー（以降の手順で説明）</p>
             <p><strong>「自分たちで決める」</strong>→ お客様同士でキャラを選び、主催者が確定するフロー</p>
           </div>
         </Step>
