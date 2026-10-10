@@ -2,7 +2,7 @@
  * チャットの入力欄（グループページ刷新 段階 2）。カメラ・写真（1 回 10 枚まで）・絵文字・送信。
  * 返信中は上に引用を出す。写真を選ぶと送る前に並べて見せ、外せる。
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ImagePlus, Loader2, Reply, Send, Smile, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -31,13 +31,33 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
   useEffect(() => () => previews.forEach(u => URL.revokeObjectURL(u)), [previews])
   useEffect(() => { if (replyQuote) textRef.current?.focus() }, [replyQuote])
 
-  // 入力に合わせて 4 行まで伸ばす
-  useEffect(() => {
+  // 入力に合わせて 4 行まで伸ばす。
+  // スマホではチャット以外のタブを開いている間、入力欄が非表示（display:none）で高さが 0 と測れる。
+  // そのまま 0px を入れると、チャットを開いた直後に入力欄が半分に潰れて見える（点検 45 番）ので、
+  // 測れないときは高さを指定せず 1 行の自然な高さに任せ、表示されたときに測り直す。
+  const fitHeight = useCallback(() => {
     const el = textRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 112)}px`
-  }, [text])
+    const measured = el.scrollHeight
+    // scrollHeight は枠線を含まないので足す（box-sizing: border-box）
+    const border = el.offsetHeight - el.clientHeight
+    el.style.height = measured > 0 ? `${Math.min(measured + border, 112)}px` : ''
+  }, [])
+  useEffect(() => { fitHeight() }, [text, fitHeight])
+  useEffect(() => {
+    const el = textRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let lastWidth = -1
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width ?? 0
+      if (width === lastWidth) return
+      lastWidth = width
+      fitHeight()
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [fitHeight])
 
   const addFiles = (list: FileList | null) => {
     const picked = Array.from(list ?? []).filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name))
@@ -67,7 +87,7 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
 
   const iconButton = 'w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-purple-700 hover:bg-purple-50 disabled:opacity-40'
   return (
-    <div className="border-t border-border bg-background" data-testid="chat-composer">
+    <div className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]" data-testid="chat-composer">
       {blockMessage && <p className="text-xs text-muted-foreground px-3 pt-2">{blockMessage}</p>}
       {replyQuote && (
         <div className="flex items-center gap-2 px-3 pt-2 text-xs text-purple-800" data-testid="chat-reply-preview">
@@ -123,7 +143,7 @@ export function ChatComposer({ disabled, blockMessage, replyQuote, onCancelReply
           }}
           placeholder={disabled ? '送信できません' : 'メッセージ'}
           disabled={disabled || sending}
-          className="flex-1 min-w-0 resize-none rounded-2xl border border-input bg-[#F6F9FB] px-3.5 py-2 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-60"
+          className="flex-1 min-w-0 min-h-[38px] resize-none rounded-2xl border border-input bg-[#F6F9FB] px-3.5 py-2 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-60"
           aria-label="メッセージ"
           data-testid="chat-input"
         />
